@@ -1,3 +1,9 @@
+> **2026-10-21 — W4-LAURAONE freeze 2: every remaining LOW/INFO review finding fixed (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Delta review c13e20d.** N-1..N-11 fixed (N-3: the approval re-authenticates within its own request).
+> - **Integration review bcce679.** S-1 (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF), S-3..S-6 fixed; S-2 has operator rollback steps.
+> - **First review.** I-5 fixed. I-3 is kept as an accepted risk, documented.
+> - **Tests.** `test_w4_laura_unified` 53/53; all focused suites green. Table: LAURAONE.md §10a/§10b.
+
 > **2026-10-20 (freeze) — W4-LAURAONE: security review fixes; feature set frozen (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
 > - **Fixed from the independent review of a4a6841.** B-1 (fail toward privacy when code routes; current-turn screen; no owner text without her tap), H-1, M-1, M-2, L-1..L-6, I-2 and I-4.
 > - **INTEG5.** `laura.private_reply@3` is refused on any non-Venice transport (`REGISTER_NEEDS_VENICE`). The `pl_*` and `plact` suites now drive the stubbed Venice transport.

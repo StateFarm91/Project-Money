@@ -1721,5 +1721,24 @@ def test_review_n11_real_http_reads_more_than_2000_bytes():
     assert json.loads(text)["data"][0]["id"] == V.MODEL
 
 
+
+def test_review_i5_a_substituted_model_answer_is_never_used():
+    db = _db()
+
+    def subst(provider, url, body, headers, timeout):
+        st, txt = _ok(json.dumps({"text": R[0]}))
+        b = json.loads(txt)
+        b["model"] = "some-anonymized-upstream-model"
+        return st, json.dumps(b)
+    with unified(subst):
+        try:
+            LR.reply(db, system=LR.PROMPT.system,
+                     user=LR.render_user(facts=[], turns=[], message="hello"))
+            raise AssertionError("a substituted model's answer was used")
+        except LR.ReplyUnavailable as exc:
+            assert exc.code == "MODEL_MISMATCH", exc.code
+    assert [c for c in _rows(db, CostEntry) if c.agent == "laura_private"]   # still billed
+
+
 if __name__ == "__main__":
     H.run(globals())

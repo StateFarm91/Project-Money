@@ -201,9 +201,9 @@ Every test named below is in `tests/test_w4_laura_unified.py` unless another fil
 | **L-6** Venice reply labelled business | Venice-authored replies are always labelled `private` (or `everyday`) | `test_review_l6_venice_replies_are_never_labelled_business` | FIXED |
 | I-1 owner's words always reach Venice | Spec ADD-LCONT-10 wording aligned: her newest message is conversation and reaches Laura's router and reply | doc | FIXED (doc) |
 | I-2 global allow-list | The allow-list is scoped to approved texts the request actually carries (the brief and the history window) | `test_review_i2_the_allow_list_is_scoped_to_what_the_request_carries` | FIXED |
-| I-3 credential error bodies (≤300 chars) in audit | Unchanged; this is the existing pattern and holds no conversation content | — | OPEN (documented; out of scope) |
+| I-3 credential error bodies (≤300 chars) in audit | Kept deliberately. The key-redacted provider error is the owner's only diagnosis of a failing credential, and it holds no conversation content. Removing it would take that diagnosis away from the owner | — | OPEN (accepted risk, documented) |
 | I-4 stale label | `credentials.PROVIDERS["venice"]["model"]` set to `venice-uncensored-1-2` | — | FIXED |
-| I-5 reported model not compared | Would add a model-substitution policy, which is new behaviour. Deferred under the scope freeze | — | OPEN (deferred) |
+| I-5 reported model not compared | Fixed in the 2026-10-21 round (owner directive: fix every low-risk finding). A Venice answer whose reported model is neither the requested model nor a dated/versioned id of it is refused (`MODEL_MISMATCH`). It is billed, and its text is never used | `test_review_i5_a_substituted_model_answer_is_never_used` | FIXED |
 | I-6 guard residuals | Superseded: structured-first design, whole-store guard, short exact matching, current-turn screen | above | ADDRESSED |
 | **INTEG5** @3 sent on a non-Venice transport | Option (a): with any provider other than Venice, `laura_register.reply` refuses `laura.private_reply@3` with `REGISTER_NEEDS_VENICE` before any reservation or request. There is no silent fallback to @2, because that would be a different Laura than the owner chose. The `pl_*` and `plact` suites now drive the same reply path over a stubbed **Venice** transport; their assertions are unchanged apart from the provider and model names and Venice's estimate | `test_integ5_the_adult_register_is_never_sent_to_a_non_venice_transport`; a new case in `test_w4_pl_reply` | FIXED |
 
@@ -227,8 +227,19 @@ Both reviews found NO BLOCKER. This round fixes the findings the coordinator ass
 | **S-1** (LOW) LAURACEO paid calls start on deploy | New owner switch `BRAMBLELOOP_LAURA_CEO_MODEL=1` (default OFF), checked in `laura_converse.available` and therefore by every Business Laura model path. While off, `/laura/converse` answers deterministically through `talk.converse`, and the tick keeps its deterministic order | `test_w4_laura_ceo.py::test_ceo_model_switch_off_makes_no_model_call` (converse, executive, tick, CC route; Anthropic `_send` records nothing) | FIXED |
 | **S-4** (INFO) Venice card shown before selection; fixed model name | `credentials.state` omits Venice until `BRAMBLELOOP_PRIVATE_PROVIDER=venice`. PERMISSION advice names `venice.model(env)` | `test_review_s4_venice_card_only_when_selected_and_names_the_effective_model` | FIXED |
 | **S-2** (LOW) rollback below this code drops the H-1/L-5 protections | Documented as a rollback caveat, below. The only code-level mitigation is a filter backported into older releases, which is out of this branch's reach | doc | DOCUMENTED |
-| N-11 (INFO) test quality | M-2: server B now binds `127.0.0.2`, so the redirect target is reachable and `got == []` discriminates. L-1: `assert lsid` instead of `if lsid:` | the same tests | FIXED |
-| N-3, N-4, N-5, N-6, N-7, N-8, N-9, N-10; S-3, S-5, S-6 (INFO / LOW) | Not assigned in this round | — | OPEN (recorded in the review files) |
+| **Mixed messages** (owner directive) misleading approval text | Every offer carries a sealed `kind`: business, mixed, draft or personal. The wording is honest for each. Mixed: "Your message was partly personal. Only the part below would go…". Business: "Check this is only business". Draft: "my wording, not yours". Personal is the default. Overlapping text is never called business | `test_review_mixed_and_personal_offers_use_honest_wording` | FIXED |
+| **N-3** (LOW) a step-up approved every pending offer for 5 minutes | An approval that needs step-up carries the owner's passphrase (and TOTP) **in the approval request itself**. It is verified for that action only: single use, and bound to that crossing. No session-wide window counts. A wrong credential counts as a failed step-up (401). UI: the share dialog asks for it | `test_review_l1_n3_approval_is_verified_for_this_exact_action` (an unrelated fresh step-up → 403; wrong → 401; with credentials → crosses) | FIXED |
+| **N-4** (INFO) feed "sent" audit written before the call | The row is written only when the request actually left. It now records `outcome` (REPLIED, or the provider-side code); pre-call refusals write nothing | `test_review_n4_feed_audit_row_only_when_the_request_left` | FIXED |
+| **N-5** (INFO) the crossed-row link was sealed after the business call | `crossed_ref` is sealed immediately after `boundary.record`, then `approval_turn`, then `business_ref` | `test_review_n5_the_crossed_row_link_is_sealed_before_the_business_call` (simulated crash; delete still redacts) | FIXED |
+| **N-6** (INFO) a short private phrase blocked structured requests | Code-rendered requests are exempt from `short_exact`, because they hold no conversation text. The full guard still runs on history and on free text | `test_review_n6_a_short_private_phrase_does_not_block_a_structured_request` | FIXED |
+| **N-7** (INFO) unreadable inbox reported as 0 | `open_owner_decisions` / `owner_decision_titles` are `null` (UNKNOWN) unless the inbox status is OK | `test_review_n7_unreadable_inbox_is_unknown_never_zero` | FIXED |
+| **N-8** (INFO) redaction kept the text's sha256 | Redaction clears the hash too; the row and its time remain as proof | `test_review_n8_redaction_clears_the_text_hash_too` | FIXED |
+| **N-9** (INFO) Anthropic and BFL API calls followed redirects | `AnthropicProvider._send` and BFL `_post`/`_get` open through `venice.no_redirect_opener()`. Unkeyed image downloads are unchanged | `test_w4_close5_vision_timeout`, `test_w4_fluxapi` (adapted to patch the opener); `test_review_m2_…` covers the handler | FIXED |
+| **N-10** (INFO) the test dependency was missing from the lock | `requirements-test.lock` (httpx 0.28.1, httpcore 1.0.9, certifi; hashes from PyPI), installed after the production lock. The production lock is unchanged | — | FIXED |
+| **N-11** (INFO) test quality | M-2: B binds `127.0.0.2`. L-1: no `if`. M-1: the real `_http` over loopback reads more than 2,000 bytes. pl_reply asserts on the **real Venice wire** (no tools, no stream, system then user, Venice system prompt off). The unified positive control checks the exact business purposes billed | `test_review_n11_real_http_reads_more_than_2000_bytes`, `test_w4_pl_reply`, the M-2 and L-1 tests | FIXED |
+| **S-3** (INFO) feed preview needed no private grant | The preview route needs the live private grant, like the thread | `test_review_s3_feed_preview_needs_the_private_grant` | FIXED |
+| **S-5** (INFO) harness refusal swallowed as PROVIDER_ERROR | The harness records every refused transport call and fails the test when its context closes | `test_review_s5_harness_fails_when_a_refused_transport_is_called` | FIXED |
+| **S-6** (INFO) whole-file declaration also covered Venice | `test_cert_spend_hosts` adds an exact per-URL allowlist for `credentials.py` and `venice.py` | `test_free_check_and_transport_modules_address_only_their_allowlisted_urls` | FIXED |
 
 ### S-2 rollback caveat (operator steps)
 
@@ -248,15 +259,20 @@ Do not re-enable the register on the older release until you roll forward again.
 - ADD-LCONT-11 (production acceptance) is **OPEN**.
 - Security review: a4a6841 is being reviewed independently. Everything from 3b7e6d0 onward needs the delta review.
 
-## 12. Regression results (freeze; focused suites via testslot at low priority; no full suite)
+## 12. Regression results (freeze 2026-10-21; focused suites via testslot at low priority; no full suite)
 
 All suites exit 0. Where no count is shown, the suite printed no summary line but exited 0.
 
 | Group | Suites |
 |---|---|
-| New | `test_w4_laura_unified` 40/40 |
-| Laura, Venice and Private Laura | `test_w4_venice` 19/19, `test_w4_laura_ceo` 13/13, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13; `pl_auth` 2/2, `pl_reply` 3/3, `pl_leak` 2/2, `pl_boundary`, `pl_budget`, `pl_continuity` |
+| New | `test_w4_laura_unified` 53/53 |
+| Laura, Venice and Private Laura | `test_w4_venice` 19/19, `test_w4_laura_ceo` 14/14, `test_w4_plact` 8/8, `test_w4_credhealth` 13/13; `pl_auth` 2/2, `pl_reply` 3/3, `pl_leak` 2/2, `pl_boundary`, `pl_budget`, `pl_continuity` |
 | Private store and firewall | `test_cert_spend_hosts`; `priv_access`, `priv_continuity`, `priv_firewall`, `priv_leak`, `priv_provenance`, `priv_store` |
 | Command Center Laura | `laura_cc_access` 5/5, `cc_delegation` 5/5, `cc_followon` 4/4, `cc_integration` 5/5, `cc_private` 7/7, `cc_providers` 7/7, `cc_talk` 9/9, `cc_wiring` 5/5; `laura_voice_spec` 7/7 |
 | Security fixes and front end | `test_w4_integ3_secfixes`, `test_v11_pwa_static` 82/82, `test_w4_cc_company` 23/23 |
+| Transports touched by N-9 | `test_w4_close5_vision_timeout`, `test_w4_fluxapi` 13/13, `test_w4_wraptest`, `test_w4_controlled_experiments` 10/10 |
 | Required set | `test_w3_decision_index`, `test_vacuity`, `test_launch`, `test_cost_governance_wave2`, `test_search_hero_publish` 4/4, `test_cert_listing_frames`, `test_v11_autonomy_timeline` |
+
+**Future work (not built).** Visual and voice Laura is not built here, and nothing in this branch precludes it:
+- the persona (`laura-r2-a42aeac7`) and the continuity memory (the encrypted thread) are provider-independent;
+- a voice or avatar surface would read the same thread through `private_context`, under the same boundary.

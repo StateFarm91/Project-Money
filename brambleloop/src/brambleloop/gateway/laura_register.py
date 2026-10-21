@@ -117,6 +117,8 @@ REASONS: dict[str, str] = {
     "PROVIDER_POLICY": "The provider declined this request under its content policy. No reply "
                        "was generated.",
     # W4-LAURAONE: the one thread runs on Venice only; it never forwards the thread elsewhere.
+    "MODEL_MISMATCH": "Venice reported a different model from the verified one requested, so "
+                      "its answer was not used.",
     "REGISTER_NEEDS_VENICE": "Laura's private register runs only on Venice with an eligible "
                              "Private-class model (owner decision; BRAMBLELOOP_PRIVATE_PROVIDER"
                              "=venice). Nothing was sent to any other provider.",
@@ -563,6 +565,14 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
         ok = True
     except Exception:  # noqa: BLE001 - billed either way; the text is never echoed
         text, ok = "", False
+    # Security review I-5: the model Venice says answered must be the eligible model we asked
+    # for (or a dated/versioned id of it). A silent server-side substitution -- possibly to a
+    # non-Private model -- is refused after billing; its text is never used.
+    served = str(getattr(response, "model", "") or "")
+    mismatch = bool(is_venice and served and served != model
+                    and not served.startswith(model + "-"))
+    if mismatch:
+        text, ok = "", False
     gateway._note_attempt(provider, AGENT, PURPOSE_, ok=True)
     in_tok, out_tok, override, basis = gateway._billing(None, response, reservation)
     reported = getattr(response, "cost_usd", None)
@@ -576,6 +586,8 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
                                billing=basis)
     except BudgetExceeded:
         raise ReplyUnavailable("BUDGET") from None
+    if mismatch:
+        raise ReplyUnavailable("MODEL_MISMATCH")
     if not ok:
         raise ReplyUnavailable("MALFORMED")
     return {"text": text, "model_ref": f"{provider.name}/{response.model or model}"[:120],
