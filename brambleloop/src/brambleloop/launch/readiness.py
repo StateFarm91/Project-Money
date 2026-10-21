@@ -210,7 +210,7 @@ def payout_evidence(db, *, now: float | None = None) -> dict:
 
     now = now if now is not None else _time.time()
     out = {"ready": False, "onboarded": None, "payout_confirmed": False,
-           "tax_recorded": False, "missing": []}
+           "tax_recorded": False, "identity_verified": False, "missing": []}
     try:
         from ..runtime.etsy_ops import SHOP_READING, latest_reading
 
@@ -233,9 +233,13 @@ def payout_evidence(db, *, now: float | None = None) -> dict:
 
         got = shop_observations.latest(db, "legal_and_tax")
         obs = got.get("observation") or {}
+        values = obs.get("values") or {}
         out["tax_recorded"] = (got.get("state") == "FRESH"
-                               and bool(str((obs.get("values") or {}).get("tax_position")
-                                            or "").strip()))
+                               and bool(str(values.get("tax_position") or "").strip()))
+        # Final review R11: the payout also needs identity verification, read from the same
+        # dated owner reading -- never inferred from Payments onboarding.
+        out["identity_verified"] = (got.get("state") == "FRESH"
+                                    and values.get("identity_verified") is True)
     except Exception:  # noqa: BLE001
         out["tax_recorded"] = False
     if out["onboarded"] is not True:
@@ -246,6 +250,8 @@ def payout_evidence(db, *, now: float | None = None) -> dict:
         out["missing"].append("the owner's Store-tab confirmation of the payout bank account")
     if not out["tax_recorded"]:
         out["missing"].append("the owner's Legal and tax reading with the tax position")
+    if not out["identity_verified"]:
+        out["missing"].append("the owner's Legal and tax reading showing identity verified")
     out["ready"] = not out["missing"]
     return out
 

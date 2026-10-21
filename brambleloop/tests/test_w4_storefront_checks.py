@@ -337,7 +337,7 @@ def test_payout_has_an_evidence_path_and_no_add_a_bank_account_wording_once_onbo
     etsy_ops.store_reading(db, etsy_ops.SHOP_READING, {"observed_at": NOW, "shop": _shop()})
     ev = R.payout_evidence(db)
     assert ev["onboarded"] is True and ev["ready"] is False
-    assert len(ev["missing"]) == 2
+    assert len(ev["missing"]) == 3
     assert "Add the payout bank account" not in R.ETSY_PAYOUT_CONFIRM_ONBOARDED.action
     assert "onboarded" in R.ETSY_PAYOUT_CONFIRM_ONBOARDED.action
     shop_sync.confirm(db, "payout_details", actor="owner:test")
@@ -347,6 +347,15 @@ def test_payout_has_an_evidence_path_and_no_add_a_bank_account_wording_once_onbo
                       "decided_on": _iso(1)[:10]}, statement="Legal and tax", recorded_by="o")
     ev = R.payout_evidence(db)
     assert ev["ready"] is True and ev["missing"] == []
+    # Final review R11: a newer reading saying identity is not verified reopens it
+    SO.record(db, page="legal_and_tax", observed_at=_iso(0.005), complete=True,
+              values={"identity_verified": False, "tax_position": "small supplier",
+                      "decided_on": _iso(1)[:10]}, statement="Legal and tax", recorded_by="o")
+    ev = R.payout_evidence(db)
+    assert ev["ready"] is False and ev["identity_verified"] is False
+    SO.record(db, page="legal_and_tax", observed_at=_iso(0.001), complete=True,
+              values={"identity_verified": True, "tax_position": "small supplier",
+                      "decided_on": _iso(1)[:10]}, statement="Legal and tax", recorded_by="o")
     etsy_ops.store_reading(db, etsy_ops.SHOP_READING,
                            {"observed_at": NOW, "shop": _shop(is_etsy_payments_onboarded=False)})
     assert R.payout_evidence(db)["ready"] is False                   # Etsy says otherwise
