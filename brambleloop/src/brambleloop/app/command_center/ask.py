@@ -107,7 +107,7 @@ def product_blocked(db, question: str, needle: str) -> dict:
     with db.session() as s:
         from ...ops.artefacts import newest_release  # N1: newest by version
 
-        pv = newest_release(s, p.id)
+        pv = newest_release(s, p.id, certified_only=False)
         listing = None if pv is None else s.scalar(
             select(Listing).where(Listing.product_slug == p.slug,
                                   Listing.version == pv.version)

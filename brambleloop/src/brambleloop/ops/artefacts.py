@@ -550,17 +550,19 @@ def newest_version(versions) -> str | None:
     return max(zip(keys, vs))[1]
 
 
-def newest_release(session, product_id: int):
+def newest_release(session, product_id: int, *, certified_only: bool = True):
     """W4-LISTREADY (delta review N1): the product's newest certified PatternVersion by
     *version* (`newest_version`), or None when it has none or its versions cannot be ordered
-    (fail closed). The one definition of "current release" every reader uses."""
+    (fail closed). The one definition of "current release" every reader uses.
+    `certified_only=False` is for status readers that report an uncertified attempt."""
     from sqlalchemy import select
 
     from ..core.models import PatternVersion
 
-    rows = list(session.scalars(select(PatternVersion).where(
-        PatternVersion.product_id == product_id,
-        PatternVersion.certified == True)))  # noqa: E712
+    q = select(PatternVersion).where(PatternVersion.product_id == product_id)
+    if certified_only:
+        q = q.where(PatternVersion.certified == True)  # noqa: E712
+    rows = list(session.scalars(q))
     newest = newest_version([r.version for r in rows]) if rows else None
     if newest is None:
         return None
