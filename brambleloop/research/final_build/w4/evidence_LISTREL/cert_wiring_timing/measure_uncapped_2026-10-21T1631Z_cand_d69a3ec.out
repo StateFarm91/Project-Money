@@ -1,0 +1,103 @@
+MEASURE drain: 293 jobs in 1220.2s
+OK   test_every_target_is_scheduled_handled_and_permitted_statically
+OK   test_each_target_was_enqueued_by_its_cadence_and_executed_to_done
+OK   test_no_job_in_the_drain_died_except_by_deliberate_refusal
+OK   test_scheduler_tick_calls_priority_for_and_bands_every_cadence_job
+OK   test_follow_on_work_is_enqueued_at_its_band_too
+OK   test_swarm_handlers_reach_their_runtime_functions
+OK   test_weekly_cycle_calls_retirement_review_autopsy_memory_and_director
+OK   test_retrospective_reaches_cells_and_reports_the_new_sections
+OK   test_listing_draft_actually_runs_the_disclosure_check
+OK   test_growth_experiments_calls_launch_pack_for_every_drafted_listing
+OK   test_mjs_scan_consults_the_adaptive_interval_before_any_request
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+FAIL test_record_order_writes_the_bought_version FileNotFoundError: [Errno 2] No such file or directory: '/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/src/brambleloop/commerce/orders_ingest.py'
+/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   test_api_paths_reach_radar_memory_and_the_stress_test
+OK   test_radar_memory_is_read_by_some_agent_at_runtime
+      registry status of the 17 wiring rows: {41: 'partial', 42: 'covered', 81: 'covered', 85: 'covered', 91: 'covered', 100: 'covered', 144: 'covered', 174: 'covered', 175: 'covered', 176: 'covered', 186: 'covered', 187: 'covered', 192: 'covered', 241: 'partial', 265: 'partial', 270: 'partial', 313: 'covered'}
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+15/16 passed in 1224s
+== HANDLER TIMES (type, n, total s, max s)
+   assets.build                                    13    347.9    45.4
+   visual.rnd.cycle                                 1    273.3   273.3
+   listing.seo                                     13    152.7    20.6
+   ops.maturity_disagreements                       1    137.6   137.6
+   store.publish                                   14    118.9    19.0
+   launch.plan                                     13     86.6     9.6
+   launch.readiness                                 1     32.1    32.1
+   visual.image_production                         23     22.0    10.2
+   culture.sweep                                    1     11.5    11.5
+   laura.executive_tick                             1      3.4     3.4
+   ads.adjust                                       1      2.3     2.3
+   creative.candidates_file                         1      2.3     2.3
+   gate.certify                                    12      2.2     0.5
+   gate.lanes                                      12      2.1     0.4
+   marketing.schedule                              13      2.0     0.4
+   ops.health                                       2      1.5     0.9
+   growth.distribution                              1      1.4     1.4
+   seo.cycle                                        1      1.2     1.2
+   ops.continuity                                   1      1.0     1.0
+   learn.scan                                       1      0.8     0.8
+   improve.nightly                                  1      0.6     0.6
+   improve.weekly                                   1      0.5     0.5
+   store.live_drift                                 1      0.4     0.4
+   commerce.readings                                1      0.3     0.3
+   ops.provenance_backfill                          1      0.3     0.3
+   improve.sandbox                                  1      0.2     0.2
+   pricing.position                                13      0.2     0.0
+   cir.draft                                       12      0.2     0.0
+   cir.compile                                     12      0.2     0.0
+   build.tick                                       1      0.2     0.2
+   ops.retention                                    1      0.1     0.1
+   listing.draft                                   11      0.1     0.0
+   swarm.review                                     1      0.1     0.1
+   radar.score                                     11      0.1     0.0
+   ops.capacity                                     1      0.1     0.1
+   improve.league                                   1      0.1     0.1
+   improve.measure                                  1      0.1     0.1
+   growth.preproduction                             1      0.1     0.1
+   growth.steer                                     1      0.1     0.1
+   mjs.scan                                         4      0.1     0.0
+   creative.blind_review                            1      0.1     0.1
+   improve.monitor                                  1      0.1     0.1
+   commerce.order_readings                          1      0.1     0.1
+   support.triage                                   1      0.1     0.1
+   seasonal.remerchandising                         1      0.1     0.1
+   swarm.allocate                                   1      0.1     0.1
+   autonomy.orchestrate                             1      0.1     0.1
+   seasonal.engine                                  1      0.1     0.1
+   growth.journey                                   1      0.1     0.1
+   autonomy.department_review                       1      0.1     0.1
+   finance.accounting.cycle                         1      0.1     0.1
+   scale.trajectory                                 1      0.1     0.1
+   radar.scan                                       2      0.1     0.0
+   growth.experiments                               2      0.1     0.1
+   improve.role_work                                8      0.0     0.0
+   improve.retrospective                            1      0.0     0.0
+   ops.capability_probes                            1      0.0     0.0
+   creative.tournament                              1      0.0     0.0
+   creative.expedition                              1      0.0     0.0
+   etsy.openapi_reverify                            1      0.0     0.0
+   finance.governor                                 1      0.0     0.0
+   improve.replay                                   1      0.0     0.0
+   intel.serp_capture                               1      0.0     0.0
+   intel.acceptance                                 1      0.0     0.0
+   collection.assemble                              3      0.0     0.0
+   finance.accounting.period_pack                   1      0.0     0.0
+   creative.grid_tournament                         1      0.0     0.0
+   chain.rebuild                                    1      0.0     0.0
+   seasonal.harvest                                 1      0.0     0.0
+   portfolio.review                                 2      0.0     0.0
+   seasonal.sentinel                                1      0.0     0.0
+   ops.policy_watch                                 1      0.0     0.0
+   creative.north_star                              1      0.0     0.0
+   finance.reconcile                                1      0.0     0.0
+   mjs.seasonal_sentinel                            1      0.0     0.0
+   swarm.orphans                                    1      0.0     0.0
+   intel.pod_learning                               1      0.0     0.0
+   ops.slo                                          1      0.0     0.0
+   plan.strategy                                    1      0.0     0.0
+   intel.benchmark_refresh                          1      0.0     0.0
+wall 1234s

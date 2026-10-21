@@ -1,0 +1,102 @@
+FAIL test_every_target_is_scheduled_handled_and_permitted_statically AssertionError: queue did not drain: 272 jobs in 1200s
+OK   test_each_target_was_enqueued_by_its_cadence_and_executed_to_done
+OK   test_no_job_in_the_drain_died_except_by_deliberate_refusal
+OK   test_scheduler_tick_calls_priority_for_and_bands_every_cadence_job
+OK   test_follow_on_work_is_enqueued_at_its_band_too
+OK   test_swarm_handlers_reach_their_runtime_functions
+FAIL test_weekly_cycle_calls_retirement_review_autopsy_memory_and_director AssertionError: persist_catalogue_audit not reached from improve.weekly
+OK   test_retrospective_reaches_cells_and_reports_the_new_sections
+OK   test_listing_draft_actually_runs_the_disclosure_check
+OK   test_growth_experiments_calls_launch_pack_for_every_drafted_listing
+OK   test_mjs_scan_consults_the_adaptive_interval_before_any_request
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_record_order_writes_the_bought_version
+/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   test_api_paths_reach_radar_memory_and_the_stress_test
+FAIL test_radar_memory_is_read_by_some_agent_at_runtime AssertionError: culture.radar.memory() was not called by any job in a full drain (culture.sweep calls route_findings, not memory/sweep); its only caller is GET /api/culture
+      registry status of the 17 wiring rows: {41: 'partial', 42: 'covered', 81: 'covered', 85: 'covered', 91: 'covered', 100: 'covered', 144: 'covered', 174: 'covered', 175: 'covered', 176: 'covered', 186: 'covered', 187: 'covered', 192: 'covered', 241: 'partial', 265: 'partial', 270: 'partial', 313: 'covered'}
+FAIL test_no_row_whose_wiring_failed_here_is_still_claimed_covered AssertionError: claimed covered but not wired at runtime: {144: 'covered'}
+12/16 passed in 1556s
+== HANDLER TIMES (type, n, total s, max s)
+   visual.rnd.cycle                                 2    485.3   297.6
+   assets.build                                    13    385.1    49.7
+   listing.seo                                     13    175.1    23.7
+   ops.maturity_disagreements                       1    148.0   148.0
+   store.publish                                   14    137.0    21.5
+   launch.plan                                     13     89.5     9.9
+   launch.readiness                                 1     36.3    36.3
+   visual.image_production                         23     28.0    13.7
+   culture.sweep                                    1     11.6    11.6
+   laura.executive_tick                             2      8.5     4.7
+   ops.health                                       4      3.6     1.2
+   creative.candidates_file                         1      2.9     2.9
+   gate.certify                                    12      2.9     0.6
+   marketing.schedule                              13      2.9     0.5
+   gate.lanes                                      12      2.6     0.5
+   ads.adjust                                       1      2.0     2.0
+   ops.continuity                                   1      1.5     1.5
+   seo.cycle                                        1      1.4     1.4
+   growth.distribution                              1      1.4     1.4
+   seasonal.sentinel                                2      0.9     0.8
+   learn.scan                                       1      0.6     0.6
+   improve.nightly                                  1      0.6     0.6
+   swarm.review                                     1      0.5     0.5
+   improve.measure                                  2      0.3     0.2
+   improve.weekly                                   1      0.3     0.3
+   store.live_drift                                 1      0.3     0.3
+   pricing.position                                13      0.3     0.0
+   improve.sandbox                                  1      0.2     0.2
+   cir.draft                                       12      0.2     0.0
+   autonomy.orchestrate                             2      0.2     0.1
+   cir.compile                                     12      0.2     0.0
+   build.tick                                       1      0.2     0.2
+   radar.score                                     11      0.2     0.0
+   ops.retention                                    1      0.2     0.2
+   ops.capacity                                     1      0.1     0.1
+   listing.draft                                   11      0.1     0.0
+   autonomy.department_review                       2      0.1     0.1
+   mjs.scan                                         4      0.1     0.0
+   improve.league                                   1      0.1     0.1
+   commerce.order_readings                          1      0.1     0.1
+   radar.scan                                       2      0.1     0.1
+   creative.blind_review                            1      0.1     0.1
+   growth.journey                                   1      0.1     0.1
+   improve.monitor                                  1      0.1     0.1
+   finance.accounting.cycle                         1      0.1     0.1
+   scale.trajectory                                 1      0.1     0.1
+   ops.capability_probes                            1      0.1     0.1
+   support.triage                                   1      0.1     0.1
+   growth.experiments                               2      0.1     0.1
+   growth.preproduction                             1      0.1     0.1
+   swarm.allocate                                   1      0.1     0.1
+   creative.tournament                              1      0.1     0.1
+   commerce.readings                                1      0.1     0.1
+   etsy.openapi_reverify                            1      0.1     0.1
+   seasonal.engine                                  1      0.1     0.1
+   chain.rebuild                                    1      0.1     0.1
+   improve.role_work                                8      0.1     0.0
+   intel.acceptance                                 1      0.1     0.1
+   seasonal.harvest                                 1      0.0     0.0
+   ops.slo                                          2      0.0     0.0
+   creative.expedition                              1      0.0     0.0
+   ops.policy_watch                                 1      0.0     0.0
+   finance.governor                                 1      0.0     0.0
+   seasonal.remerchandising                         1      0.0     0.0
+   portfolio.review                                 2      0.0     0.0
+   improve.replay                                   1      0.0     0.0
+   intel.serp_capture                               1      0.0     0.0
+   growth.steer                                     1      0.0     0.0
+   ops.provenance_backfill                          1      0.0     0.0
+   creative.grid_tournament                         1      0.0     0.0
+   finance.accounting.period_pack                   1      0.0     0.0
+   finance.reconcile                                1      0.0     0.0
+   creative.north_star                              1      0.0     0.0
+   swarm.orphans                                    1      0.0     0.0
+   collection.assemble                              3      0.0     0.0
+   mjs.seasonal_sentinel                            1      0.0     0.0
+   intel.pod_learning                               1      0.0     0.0
+   creative.model_reference_pack                    1      0.0     0.0
+   ops.heartbeat                                    2      0.0     0.0
+   ops.sentinel                                     1      0.0     0.0
+wall 1566s
