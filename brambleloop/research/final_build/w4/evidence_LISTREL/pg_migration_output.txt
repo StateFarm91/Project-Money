@@ -1,0 +1,42 @@
+# LISTREL 2026-10-21T08:21:28Z: local throwaway PostgreSQL 16/integ5 (port 5433), not production. Code git-archived: 1580053 (first-sale), 8d520ed7 (listings candidate), b931d17 (production).
+## Part 1. full lazy surface, database lr1
+### 1580053 reset
+reset tables: 143 create_all changes: [] | modules that failed to import: 0 []
+### 8d520ed boot
+boot tables: 145 create_all changes: [] | modules that failed to import: 0 []
+added tables: ['launch_review_batches', 'launch_review_calls']
+removed tables: []
+changed existing tables: none
+### 8d520ed second boot
+boot tables: 145 create_all changes: [] | modules that failed to import: 0 []
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback 1580053
+boot tables: 145 create_all changes: [] | modules that failed to import: 0 []
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback b931d17
+boot tables: 145 create_all changes: [] | modules that failed to import: 0 []
+added tables: []
+removed tables: []
+changed existing tables: none
+## Part 2. plain create_all (what boot creates), database lr2
+### 1580053 reset
+reset tables: 136 create_all changes: []
+### 8d520ed boot
+boot tables: 138 create_all changes: []
+added tables: ['launch_review_batches', 'launch_review_calls']
+removed tables: []
+changed existing tables: none
+### 8d520ed second boot
+boot tables: 138 create_all changes: []
+added tables: []
+removed tables: []
+changed existing tables: none
+### rollback 1580053
+boot tables: 138 create_all changes: []
+added tables: []
+removed tables: []
+changed existing tables: none
