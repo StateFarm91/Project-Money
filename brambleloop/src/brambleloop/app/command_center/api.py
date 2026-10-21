@@ -1108,6 +1108,18 @@ def make_router(db) -> APIRouter:
             raise auth.refuse(db, request, 409, "UNIFIED_THREAD",
                               "the unified Laura thread is on; use /api/cc/laura/unified/turn")
         pid = auth.current_public_id(request)
+        from ...gateway import laura_converse as lc
+
+        if not lc.ceo_model_enabled():
+            # Integration review S-1: with BRAMBLELOOP_LAURA_CEO_MODEL off, the deterministic
+            # evidence-tool answer (the pre-LAURACEO behaviour) and no model call.
+            from ...laura.agency import talk
+
+            turn = await run_in_threadpool(
+                lambda: talk.converse(db, question, session_public_id=pid))
+            return ok({**turn, "delivery": presence.negotiate(modes),
+                       "model": {"source": "not_called",
+                                 "reason": f"{lc.CEO_MODEL_ENV} is off"}})
         turn = await run_in_threadpool(
             lambda: ceo_chat.converse(db, question, session_public_id=pid))
         return ok({**turn, "delivery": presence.negotiate(modes)})

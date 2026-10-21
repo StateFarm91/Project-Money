@@ -43,6 +43,12 @@ from brambleloop.laura.agency import ceo_chat, costs, followon, talk  # noqa: E4
 from brambleloop.laura.agency.models import LauraCostEvent, LauraTurn  # noqa: E402
 from brambleloop.laura.executive import loop  # noqa: E402
 
+import os  # noqa: E402
+
+# Integration review S-1: Business Laura's model paths are behind an owner switch (default
+# OFF). These suites exercise the ON behaviour; `test_ceo_model_switch_off_makes_no_model_call`
+# proves OFF.
+os.environ["BRAMBLELOOP_LAURA_CEO_MODEL"] = "1"
 DB = H.DB
 IDS = H.seed_company()
 _EV = re.compile(r"^E(\d+) \| ([^|]*) \| ([^|]*) \| (.*)$", re.M)
@@ -475,6 +481,41 @@ def test_no_private_laura_data_is_touched():
         n = s.scalar(select(func.count(AuditLog.id)).where(
             AuditLog.action.like("private%"), AuditLog.actor == "laura"))
     assert not n
+
+
+
+def test_ceo_model_switch_off_makes_no_model_call():
+    """Integration review S-1: with BRAMBLELOOP_LAURA_CEO_MODEL unset, no Anthropic call is
+    made from the CC conversation, executive reasoning or the tick's model ranking, and the
+    CC Ask box answers deterministically from the evidence tools."""
+    from brambleloop.gateway import anthropic as gwa
+
+    calls: list = []
+    sent: list = []
+    orig = gwa.AnthropicProvider._send
+    gwa.AnthropicProvider._send = lambda self, payload, key, **kw: sent.append(payload)
+    old = os.environ.pop("BRAMBLELOOP_LAURA_CEO_MODEL", None)
+    try:
+        assert lc.ceo_model_enabled() is False
+        r = ceo_chat.converse(DB, "Hello", session_public_id="s_off",
+                              provider_factory=factory(cite_first("x"), calls))
+        assert calls == [] and r["status"] == ceo_chat.UNAVAILABLE
+        assert "BRAMBLELOOP_LAURA_CEO_MODEL" in r["answer"]
+        r = ceo_chat.converse(DB, "What should we prioritise and why?", session_public_id="s_off",
+                              provider_factory=factory(cite_first("x"), calls))
+        assert calls == [] and r["model"]["task"] == ceo_chat.EXECUTIVE
+        db = _boot()
+        out = executive.tick(db, provider_factory=factory(
+            lambda s, u: {"order": [], "why": "x"}, calls))
+        assert calls == [] and out["ranking"]["source"] != "model", out["ranking"]
+        c, csrf = H.session()
+        rr = H.post(c, csrf, "/api/cc/laura/converse", {"question": "Hello Laura"})
+        assert rr.status_code == 200 and rr.json()["model"]["source"] == "not_called", rr.text
+        assert sent == []
+    finally:
+        gwa.AnthropicProvider._send = orig
+        if old is not None:
+            os.environ["BRAMBLELOOP_LAURA_CEO_MODEL"] = old
 
 
 if __name__ == "__main__":

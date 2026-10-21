@@ -2408,3 +2408,13 @@ The owner's commit fcb2bcd (the four register strings) was merged into `claude/w
   - Thread calls write no business memory.
 - **Withdrawn:** the earlier free-form "business exchanges to Venice" design behind the same switch.
 - **Status.** The design is owner-approved. Activation of `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE` is a separate owner decision (OA-LCONT-2), and it stays OFF. Nothing is deployed. ADD-LCONT-11 is OPEN.
+
+### D-W4-LAURACEO-ROUTE addendum (2026-10-21, W4-LAURAONE; integration review S-1): Business Laura's model paths behind an owner switch
+
+- **Change.** Business Laura's model-backed paths now make no model call unless the owner sets `BRAMBLELOOP_LAURA_CEO_MODEL=1`. The default is OFF. The paths are:
+  - CC conversation (`laura.converse@1`);
+  - executive reasoning (`laura.executive@1`);
+  - the tick's model ranking (`laura.exec_rank@1`).
+- **Behaviour while off.** The CC Ask box answers deterministically from the evidence tools, which is the pre-LAURACEO behaviour. The tick keeps its deterministic order.
+- **Reason.** The owner's standing rule is no activation without approval. Before this change, a deploy with every switch unset still started these paid calls.
+- **Unchanged.** Ceilings, allocations and routing. The unified thread's business tool also needs this switch on; without it, Laura says plainly that Business Laura's model is off.

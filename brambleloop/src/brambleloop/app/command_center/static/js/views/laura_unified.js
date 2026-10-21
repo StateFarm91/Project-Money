@@ -26,7 +26,7 @@ function crossingRow(x, refresh) {
       title: "Share with the business side",
       lines: ["Exactly this text crosses, and nothing else:", `“${x.text}”`,
         x.origin === "laura_draft" ? "Laura drafted this request; it is shown word for word." : "Quoted from what you wrote.",
-        x.requires_stepup ? "Not plain business, or it overlaps our private conversation: re-authenticate to share." : "Your own business words: one tap shares exactly this.",
+        x.requires_stepup ? "Not plain business, or it overlaps our private conversation: re-authenticate to share." : "Check this is only business: one tap shares exactly this.",
         "Recorded as a boundary crossing holding this text only."],
       confirmLabel: "Share", requiresStepUp: !!x.requires_stepup,
       run: () => api.lauraUnifiedCrossing(x.id, true), success: "Shared with the business side." });

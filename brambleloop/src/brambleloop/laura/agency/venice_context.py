@@ -238,11 +238,14 @@ def _check_text(v: str, max_len: int) -> str:
     if not isinstance(v, str):
         raise FieldRefused("type")
     v = " ".join(v.split())
-    if len(v) > max_len:
-        v = v[:max_len].rstrip()
+    # Delta review N-2: every deny check runs on the FULL value, BEFORE any shortening, so a
+    # fragment of an email, id or customer word can never survive a cut. An over-long value is
+    # refused outright (fail closed), never truncated into the pack.
     for name, pat in DENY:
         if pat.search(v):
             raise FieldRefused(name)
+    if len(v) > max_len:
+        raise FieldRefused("over_length")
     return v
 
 

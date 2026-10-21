@@ -445,19 +445,32 @@ def state(db, *, owner: bool = False, env=None) -> list[dict]:
     e = env if env is not None else os.environ
     out = []
     for provider, meta in PROVIDERS.items():
+        if provider == "venice" and not _venice_selected(e):
+            continue      # integration review S-4: no Venice card until the owner selects it
         prev = _previous(db, provider, 1)
         row = {"provider": provider, "label": meta["label"], "var": meta["var"],
                "check": meta["check"], "doc": meta["doc"],
                "latest": prev[0] if prev else None,
                "status": (prev[0].get("status") if prev else UNKNOWN),
-               "owner_action": owner_action(provider, prev[0].get("status") if prev else None)}
+               "owner_action": owner_action(provider, prev[0].get("status") if prev else None,
+                                             e)}
         if owner:
             row["fingerprint"] = fingerprint(_key(provider, e))
         out.append(row)
     return out
 
 
-def owner_action(provider: str, status: str | None) -> str:
+def _effective_model(provider: str, env=None) -> str:
+    """The model the provider's card is about: for Venice, the one actually selected
+    (`venice.model`, which honours BRAMBLELOOP_PRIVATE_MODEL; integration review S-4)."""
+    if provider == "venice":
+        from . import venice
+
+        return venice.model(env) or f"{venice.MODEL} (selected model not eligible)"
+    return PROVIDERS[provider]["model"]
+
+
+def owner_action(provider: str, status: str | None, env=None) -> str:
     meta = PROVIDERS[provider]
     var, console = meta["var"], meta["console"]
     if status == MISSING:
@@ -471,7 +484,8 @@ def owner_action(provider: str, status: str | None) -> str:
         return f"Add credit at {console}. Nothing in Railway changes; tap 'Check now' after."
     if status == PERMISSION:
         return (f"The key authenticates but the model or feature is not enabled for it "
-                f"({meta['model']}). Enable it at {console}, or use a key from an account "
+                f"({_effective_model(provider, env)}). Enable it at {console}, or use a key "
+                f"from an account "
                 f"that has it, set in Railway → Variables → {var}.")
     if status in TRANSIENT_STATUSES:
         return "Nothing to do yet: the provider is unavailable; the check repeats."

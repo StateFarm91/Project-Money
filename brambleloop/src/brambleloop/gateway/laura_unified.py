@@ -454,6 +454,26 @@ SCREEN: tuple[tuple[str, re.Pattern], ...] = (
 )
 
 
+_FIRST_PERSON = re.compile(
+    r"(?i)\b(?:i|i'm|i’m|im|i've|i’ve|i'd|i’d|i'll|i’ll|myself|"
+    r"my (?!(?:shop|store|listings?|orders?|products?|business|company|sales|team|etsy|"
+    r"patterns?|catalog(?:ue)?|banners?|designs?|customers?|revenue|budget|brand|"
+    r"storefront|priorit\w*)\b))\b")
+_CLAUSE = re.compile(r"[^.!?;:\n]+")
+
+
+def one_tap_business(text: str) -> bool:
+    """Delta review N-1: one tap is allowed only when EVERY clause of the offered text carries
+    a business signal and none carries a personal signal (private words, a screen category,
+    or first-person talk about oneself -- "I", "I've", "my" + anything but a business noun).
+    Otherwise sharing needs a fresh step-up."""
+    clauses = [c.strip() for c in _CLAUSE.findall(str(text or "")) if c.strip()]
+    if not clauses:
+        return False
+    return all(_BUSINESS.search(c) and not _PRIVATE.search(c) and not sensitive_screen(c)
+               and not _FIRST_PERSON.search(c) for c in clauses)
+
+
 def sensitive_screen(text: str) -> list[str]:
     """The screen categories `text` hits (names only). Empty = clean."""
     t = str(text or "")
@@ -499,7 +519,7 @@ def plan_brief(intent: dict, cls: dict, owner_text: str, *,
         offer = {"text": draft, "origin": "laura_draft", "stepup": True}
     elif label in (BUSINESS, MIXED) and cls["business_text"]:
         offer = {"text": cls["business_text"], "origin": "owner_quote",
-                 "stepup": not clean_business}
+                 "stepup": not (clean_business and one_tap_business(cls["business_text"]))}
     elif not out["send"]:
         offer = {"text": owner_text.strip(), "origin": "owner_quote", "stepup": True}
     if offer and len(offer["text"]) > MAX_OFFER_CHARS:

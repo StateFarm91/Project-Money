@@ -172,6 +172,7 @@ class Biz:
 
 
 ON = {"BRAMBLELOOP_PRIVATE_PROVIDER": "venice", "VENICE_API_KEY": VKEY,
+      "BRAMBLELOOP_LAURA_CEO_MODEL": "1",      # Business Laura's model on (S-1 switch)
       "ANTHROPIC_API_KEY": None, U.UNIFIED_ENV: "venice", U.BUSINESS_TO_VENICE_ENV: None,
       V.MODEL_ENV: None}
 
@@ -291,7 +292,8 @@ def test_switch_off_means_behaviour_unchanged():
         "id": "unified_switch", "met": False,
         "label": f"unified thread switch {U.UNIFIED_ENV}=venice"}, st
     r = H.post(c, csrf, "/api/cc/laura/converse", {"question": "Hello Laura"})
-    assert r.status_code == 200 and r.json()["status"] == ceo_chat.UNAVAILABLE   # unchanged
+    # Every switch off (S-1 included): the deterministic evidence-tool answer, no model call.
+    assert r.status_code == 200 and r.json()["model"]["source"] == "not_called", r.text
 
 
 def test_switch_on_closes_the_split_routes():
@@ -1296,7 +1298,7 @@ def test_review_m2_the_bearer_key_is_never_forwarded_on_a_redirect():
 
             def log_message(self, *a):
                 pass
-        sb = http.server.HTTPServer(("127.0.0.1", 0), B)
+        sb = http.server.HTTPServer(("127.0.0.2", 0), B)      # reachable: a real target
         target = f"http://127.0.0.2:{sb.server_address[1]}/steal"
 
         class A(http.server.BaseHTTPRequestHandler):
@@ -1309,8 +1311,7 @@ def test_review_m2_the_bearer_key_is_never_forwarded_on_a_redirect():
             def log_message(self, *a):
                 pass
         sa = http.server.HTTPServer(("127.0.0.1", 0), A)
-        sb2 = http.server.HTTPServer(("127.0.0.2", sb.server_address[1]), B) \
-            if False else sb
+        sb2 = sb
         for srv in (sa, sb2):
             threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
@@ -1371,13 +1372,13 @@ def test_review_l1_approval_needs_a_step_up_performed_after_the_offer():
     login = H.client()
     lr = login.post("/api/cc/auth/login", json={"passphrase": H.PASS})
     lsid = lr.json()["session"]["session_id"] if "session" in lr.json() else None
-    if lsid:
-        from brambleloop.app.command_center.models import OwnerSession
+    assert lsid
+    from brambleloop.app.command_center.models import OwnerSession
 
-        with H.DB.session() as s_:
-            row = s_.scalar(select(OwnerSession).where(OwnerSession.public_id == lsid))
-            created = row.created_at
-        assert PC._stepup_counts(H.DB, lsid, "2000-01-01T00:00:00+00:00", created) is False
+    with H.DB.session() as s_:
+        row = s_.scalar(select(OwnerSession).where(OwnerSession.public_id == lsid))
+        created = row.created_at
+    assert PC._stepup_counts(H.DB, lsid, "2000-01-01T00:00:00+00:00", created) is False
 
 
 def test_review_l2_a_crossing_resolves_exactly_once_under_a_race():
@@ -1506,6 +1507,71 @@ def test_integ5_the_adult_register_is_never_sent_to_a_non_venice_transport():
         gw.AnthropicProvider._send = orig
     assert sent == [] and _rows(db, SpendReservation) == [] and _rows(db, CostEntry) == []
     assert LR.PURPOSE == "laura.private_reply@3"
+
+
+
+# ================================================================ delta + integration reviews
+
+
+def test_review_n1_personal_sentences_never_get_a_one_tap_offer():
+    samples = ("Since Mark moved out I can barely sleep; how are shop orders this week?",
+               "I've been throwing up all night with a fever; what were sales overnight?")
+    assert len(samples) == 2
+    for text in samples:
+        db = _db()
+        sid = _open(db)
+        biz = Biz()
+        with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+            out = _turn(db, sid, text, biz)
+        assert out["label"] == "business" and out["intent"]["screen"] == [], out["intent"]
+        assert out["crossing"]["requires_stepup"] is True, (text, out["crossing"])
+        assert text not in biz.blob() and "sleep" not in biz.blob() and "fever" not in biz.blob()
+        with unified(Venice()):
+            try:
+                PC.unified_crossing(db, sid, out["crossing"]["id"], approve=True,
+                                    provider_factory=biz.factory)
+                raise AssertionError("a personal sentence crossed with one tap")
+            except PC.PrivateUnavailable as exc:
+                assert exc.code == "STEP_UP_REQUIRED"
+    assert U.one_tap_business("How are my shop orders this week?") is True
+
+
+def test_review_n2_feed_validators_check_the_full_value_before_any_cut():
+    from brambleloop.laura.agency import venice_context as VC
+
+    f = VC.FIELDS[[x.name for x in VC.FIELDS].index("owner_decision_titles")]
+    pad = "Confirm the shop setup step for the next listing batch " * 3
+    straddle = (pad[:130] + " write to jane.doe@gmail.com",
+                pad[:130] + " check order 48213377",
+                pad[:130] + " for the customer Jane")
+    assert len(straddle) == 3
+    for t in straddle:
+        assert len(t) > VC.MAX_TEXT
+        try:
+            VC.validate(f, [t])
+            raise AssertionError(f"a straddling fragment passed: {t[-30:]}")
+        except VC.FieldRefused:
+            pass
+    try:                                              # clean but over-long: refused, not cut
+        VC.validate(f, [pad[:VC.MAX_TEXT + 5]])
+        raise AssertionError("an over-long title was truncated into the pack")
+    except VC.FieldRefused as exc:
+        assert str(exc) == "over_length"
+    assert VC.validate(f, ["Confirm the public shop name"]) == ["Confirm the public shop name"]
+
+
+def test_review_s4_venice_card_only_when_selected_and_names_the_effective_model():
+    from brambleloop.gateway import credentials as CR
+
+    db = _db()
+    off = [r["provider"] for r in CR.state(db, env={})]
+    assert "venice" not in off and off, off
+    env = {"BRAMBLELOOP_PRIVATE_PROVIDER": "venice", "VENICE_API_KEY": VKEY,
+           V.MODEL_ENV: "zai-org-glm-5-2"}
+    assert "venice" in [r["provider"] for r in CR.state(db, env=env)]
+    msg = CR.owner_action("venice", CR.PERMISSION, env)
+    assert "zai-org-glm-5-2" in msg and V.MODEL not in msg, msg
+    assert V.MODEL in CR.owner_action("venice", CR.PERMISSION, {})
 
 
 if __name__ == "__main__":

@@ -176,6 +176,7 @@ Run this only after the owner approves the deploy and activation. Evidence is st
 | OA-LCONT-1 | After a release containing this branch is deployed: Railway → brambleloop-os → Variables → `BRAMBLELOOP_LAURA_UNIFIED=venice` | The thread is off by default | CA$0 direct (inside `laura_private` and `laura` at CA$0.50/day each) | 2 | Laura stays two split conversations |
 | OA-LCONT-2 | Review the feed preview (§3), then set `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE=1` | Design approved 2026-10-20; **activation** of company aggregates flowing to Venice is your separate decision | ≈ CA$0.0002 per reply, inside CA$0.50/day | 5 | Venice has no company awareness; business detail stays in business-tool answers |
 | OA-LCONT-3 | `BRAMBLELOOP_PRIVATE_MEMORY_KEY`, `BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1`, `BRAMBLELOOP_PRIVATE_PROVIDER=venice`, `VENICE_API_KEY`, `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD=0.50`, Venice API credit | Venice is Laura's voice | CA$0.50/day; Venice credit minimum UNKNOWN | 10–15 | No conversational voice; business is routed by code only |
+| OA-LCEO-1 | `BRAMBLELOOP_LAURA_CEO_MODEL=1` (integration review S-1) | Business Laura's model conversation, executive reasoning and tick ranking stay off until you activate them. The unified thread's business tool needs this too | inside `laura` CA$0.50/day (converse 8%, executive 5%, exec_rank 2% stops; ≈CA$12/month) | 2 | Business Laura answers deterministically from the records; the unified thread's business tool says it is off |
 | OA-LCONT-4 | Approve deploy of a release with this branch, after integration and the independent security review (a4a6841 under review; a delta review covers this revision) | No deploy without approval | CA$0 | 5 | Nothing reaches production |
 
 ## 10a. Response to the independent security review of a4a6841 (`INDEPENDENT_SECREVIEW_LAURAONE.md`) and the INTEG5 finding
@@ -214,6 +215,32 @@ Every test named below is in `tests/test_w4_laura_unified.py` unless another fil
 - **Database-level copies.** Deleted rows can survive in free pages, WAL and backups.
 - **Pinned row before the first check.** If no credential check has ever run, the pinned row decides eligibility, as designed.
 - **I-3 and I-5** are OPEN, as listed in the table.
+
+## 10b. Response to the delta review (a4a6841..c13e20d) and the integration review (bcce679)
+
+Both reviews found NO BLOCKER. This round fixes the findings the coordinator assigned. No new features were added.
+
+| Finding | Fix | Regression test | Status |
+|---|---|---|---|
+| **N-1** (LOW) personal sentences got a one-tap offer | One tap only when **every clause** of the offered text carries a business signal and none carries a personal signal: private words, a screen category, or first-person talk ("I", "I've", "my" + anything but a business noun). Otherwise step-up. Dialog reworded: "Check this is only business: one tap shares exactly this." | `test_review_n1_personal_sentences_never_get_a_one_tap_offer` (both review sentences, with the HTTP-equivalent refusal) | FIXED |
+| **N-2** (LOW) feed truncated before the deny checks | `_check_text` runs `reject_private` and every deny pattern on the **full** value. An over-long value is refused (`over_length`), never cut | `test_review_n2_feed_validators_check_the_full_value_before_any_cut` (email, id and customer fragments straddling the cap) | FIXED |
+| **S-1** (LOW) LAURACEO paid calls start on deploy | New owner switch `BRAMBLELOOP_LAURA_CEO_MODEL=1` (default OFF), checked in `laura_converse.available` and therefore by every Business Laura model path. While off, `/laura/converse` answers deterministically through `talk.converse`, and the tick keeps its deterministic order | `test_w4_laura_ceo.py::test_ceo_model_switch_off_makes_no_model_call` (converse, executive, tick, CC route; Anthropic `_send` records nothing) | FIXED |
+| **S-4** (INFO) Venice card shown before selection; fixed model name | `credentials.state` omits Venice until `BRAMBLELOOP_PRIVATE_PROVIDER=venice`. PERMISSION advice names `venice.model(env)` | `test_review_s4_venice_card_only_when_selected_and_names_the_effective_model` | FIXED |
+| **S-2** (LOW) rollback below this code drops the H-1/L-5 protections | Documented as a rollback caveat, below. The only code-level mitigation is a filter backported into older releases, which is out of this branch's reach | doc | DOCUMENTED |
+| N-11 (INFO) test quality | M-2: server B now binds `127.0.0.2`, so the redirect target is reachable and `got == []` discriminates. L-1: `assert lsid` instead of `if lsid:` | the same tests | FIXED |
+| N-3, N-4, N-5, N-6, N-7, N-8, N-9, N-10; S-3, S-5, S-6 (INFO / LOW) | Not assigned in this round | — | OPEN (recorded in the review files) |
+
+### S-2 rollback caveat (operator steps)
+
+Once the unified thread has been used, the encrypted store holds turns whose sealed `label` and `excluded` flags only this code honours. Older code (b997efd, b931d17) ignores them in its split private path. Its `forget` also leaves sealed crossing requests and crossed text behind.
+
+Before rolling back below a release that contains this branch:
+1. Turn the private register off: unset `BRAMBLELOOP_LAURA_PRIVATE_REGISTER`. The old split path then sends nothing.
+2. While still on this code, delete (Laura view → select → Delete) any turn you do not want an older release to see. This also removes derived requests and redacts the crossed text.
+3. Unset `BRAMBLELOOP_LAURA_UNIFIED` and `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE`.
+4. Then roll back.
+
+Do not re-enable the register on the older release until you roll forward again.
 
 ## 11. Not done / notes
 
