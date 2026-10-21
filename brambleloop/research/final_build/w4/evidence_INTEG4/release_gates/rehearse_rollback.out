@@ -1,0 +1,9 @@
+{
+  "from": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+  "ok": true,
+  "pushed": false,
+  "reasons": [],
+  "rehearsal_commit": "200858db26b2f2114f54be6ce217b3124df1d036",
+  "to": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "verdict": "ALLOW"
+}

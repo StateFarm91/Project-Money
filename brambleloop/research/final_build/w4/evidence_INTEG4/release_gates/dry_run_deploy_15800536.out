@@ -1,0 +1,35 @@
+{
+  "candidate": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+  "deployed": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "mode": "forward",
+  "note": "verdict only; this script never deploys (F-461)",
+  "reasons": [],
+  "release_record": {
+    "file": "brambleloop/release/RELEASE_b997efda48e4c8a26176d2a3959430852300631f.json",
+    "sha": "b997efda48e4c8a26176d2a3959430852300631f",
+    "tree_sha256": "96631dabb89c15b8eed00816b0daeb075b94d9f25c2d04e48984538968119612"
+  },
+  "suite_run": {
+    "finished_utc": "2026-10-21T02:27:45Z",
+    "git_sha": "b997efda48e4c8a26176d2a3959430852300631f",
+    "log": "artifacts/suite_runs/20261021T002000Z-11418.log",
+    "release_eligible": true,
+    "run_id": "20261021T002000Z-11418",
+    "scope": "full",
+    "status": "passed",
+    "suites_failing": 0,
+    "tests_passing": 9025,
+    "tree": "clean"
+  },
+  "verdict": "ALLOW"
+}
+{
+  "from": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+  "ok": true,
+  "pushed": false,
+  "reasons": [],
+  "rehearsal_commit": "0bb59196f037754a222424bd8fa10ef3569b086f",
+  "to": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "verdict": "ALLOW"
+}
+deploy.sh: ALLOW HEAD (dry run; nothing pushed)

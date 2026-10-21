@@ -6,10 +6,23 @@ SHADOW. No deploy, no production write, no spend, no credential change. Producti
 none by this integrator (local PostgreSQL only). One suite file, now moved out of the suite (§5),
 made a public read-only GET of `/api/audit` when it ran.
 
-**Candidate: `6b25eb07453ee5896ca9c6ad396fa90099d522af`, branch `claude/final-candidate-6b25eb0`.**
-Release record, guard and rollback: §8. Superseded freeze (do not deploy):
-`claude/final-candidate-ea23282` (its suite was stopped after about 7 minutes, record `interrupted`, when the
-independent review of 17bc373 found M1; see §6).
+**CERTIFIED: `15800536290bce6b3c85dbfcf460ff0b63a4329a` on `claude/final-candidate-b997efd`.**
+
+| commit | what it is |
+|---|---|
+| `b997efda48e4c8a26176d2a3959430852300631f` | the tested source tree |
+| `f19b264` | release record (records only) |
+| `1580053` | records-only merge of production b931d17, so the candidate fast-forwards from production |
+
+- **Full suite:** passed, 674 suites, 9025 tests.
+- **Deploy guard:** DRY_RUN ALLOW.
+- **Rollback rehearsal:** ALLOW.
+- **Independent reviews:** NO BLOCKER on every range up to b997efd. Results and gates are in §8.
+
+Superseded freezes (do not deploy):
+- `claude/final-candidate-ea23282`: its suite was stopped after about 7 minutes (record `interrupted`) when the
+  review of 17bc373 found M1 (§6).
+- `claude/final-candidate-6b25eb0`: its suite failed 9 suites (§9).
 
 ## 1. Merges (in order, one implementation per defect)
 
@@ -195,6 +208,150 @@ All 5 tables were exercised on PostgreSQL:
 - `test_w4_firstsale_deliverables` 6/6 with `BL_TEST_PG_URL` (`durable_artifacts` kept,
   re-rendered and refused, plus the purchase rehearsal).
 
-## 8. Candidate 6b25eb0: release gates
+## 8. Release gates
 
-(filled in below when the run completes)
+The gates were run on b997efd, with the release record and production b931d17 merged on top
+(final commit 1580053). The src tree and requirements.lock are identical to b997efd.
+
+### Full suite
+
+**Run 20261021T002000Z-11418 on b997efd passed.**
+
+| field | value |
+|---|---|
+| suites | 674 |
+| tests passing | 9025 |
+| suites failing | 0 |
+| temporary files leaked | 0 |
+| release-eligible | yes |
+| duration | 7665 s |
+
+Run settings: REQUIRE_CLEAN=1, JOBS=3, venv-integ4, a SIG_DFL launcher, and a harness-tracked
+watcher. The coordinator paused the other workers, so the machine was quiet.
+
+`test_cert_wiring` passed 16/16 in 870 s. Its 1200 s drain limit is unchanged.
+
+Evidence on `claude/w4-INTEG4` in `evidence_INTEG4/suite_runs/20261021T002000Z-11418/`: the
+record, the log, the gzipped full log and the per-suite outputs.
+
+Earlier runs on this freeze:
+- **Killed:** two runs died when the container restarted.
+- **Run 20261020T204746Z-1135:** 9022 tests passing, 1 suite failing (`test_cert_wiring`, "queue
+  did not drain: 221 jobs in 1203s"). The other workers' suites were running at the same time.
+
+### test_cert_wiring root cause
+
+`evidence_INTEG4/cert_wiring_timing/` holds the per-handler timing.
+
+| run | conditions | time |
+|---|---|---|
+| production b931d17 | quiet machine, run side by side with the candidate | 825 s |
+| b997efd | the same | 844 s |
+| production b931d17 | loaded machine | 964 s |
+| b997efd | loaded machine | 1194 s |
+
+The quiet runs differ by 2.3 %.
+
+- **What the candidate adds:** only `visual.image_production` (23 jobs, 15.7 s) and about 6 s in
+  `ops.maturity_disagreements`.
+- **What it does not add:** no handler waits on a provider, a 180 s vision timeout, the 40-minute
+  gallery bound or a retry sleep.
+- **Noise:** `visual.rnd.cycle`, whose code is identical in both trees, ranged from 178 s to 254 s.
+- **Conclusion:** the failures were CPU contention. The code was not changed and the limit was not
+  changed.
+
+The two later cert_wiring failures in run 1135 come from the incomplete drain. When the drain
+throws, `drained()` never fills `_STATE`, so the spies the drain would have reached stay empty.
+Every complete drain passes 16/16.
+
+### Deploy guard
+
+`python3 ops/deploy_guard.py record` gave `ok: true`:
+- `release/RELEASE_b997efda….json`;
+- tree_sha256 `96631dabb89c15b8eed00816b0daeb075b94d9f25c2d04e48984538968119612`.
+
+It was committed with `release/NOTES_b997efd.md`, the run record, its log and the full log as
+**f19b264**. The records commit changes nothing under `src/`.
+
+### Fast-forward fix
+
+The first DRY_RUN check said REFUSE: "candidate f19b264e231b is not a descendant of deployed
+b931d17a738d: deploying it would roll production back".
+
+The cause: b931d17 is INTEG3's records-only commit on `claude/final-candidate-324927f`, and it was
+never on `claude/w4-INTEG3`, where INTEG4 started.
+
+The fix: merge it, records only. It touches only release/ and research/, so the deployable digest
+(src/ + requirements.lock) is unchanged. Result: **1580053**.
+
+### DRY_RUN deploy
+
+`DRY_RUN=1 sh ops/deploy.sh --deployed b931d17…`, run at 1580053: **ALLOW**. The check said ALLOW
+and the built-in rollback rehearsal said ALLOW. Nothing was pushed.
+
+Output: `evidence_INTEG4/release_gates/dry_run_deploy_15800536.out`.
+
+### Rollback rehearsal (dry run only)
+
+- `DRY_RUN=1 sh ops/deploy.sh --rollback-to b931d17… --reason "INTEG4 rollback rehearsal to
+  production b931d17" --deployed 1580053…` gave **ALLOW**. It built rollback commit e6abb26
+  locally and pushed nothing.
+- `deploy_guard.py rehearse-rollback --candidate HEAD --deployed b931d17` gave **ALLOW**.
+
+The new tables are additive, and b931d17 ignores them (§7).
+
+### Backup and restore readiness
+
+This was a read-only Railway log read; nothing was redeployed. The latest db-backup run,
+`20261020T035733Z`, reported `BK restore_ok` and `BK RESULT OK`:
+- dump of 400,700,102 bytes, sha256 9b048ea4…;
+- 135 tables, 143,054 rows restored;
+- volume 3.7 GB, 682 MB free.
+
+Details: `evidence_INTEG4/release_gates/db_backup_readiness.md`. The fresh pre-deploy backup is taken
+at deploy time, with the owner's approval. The free space holds one more dump, not two.
+
+### Independent review
+
+84deb4b (W-SECREVIEW7) covers 6b25eb0..b997efd: **NO BLOCKER**. It applies to the final tree,
+because 1580053 differs from b997efd only in records (release/ and research/), not in src/,
+requirements.lock or ops/.
+
+The chain of reviews covers b931d17..b997efd: 7f6dbe8 (B1, fixed), 17bc373, 6b25eb0, b997efd.
+
+Open INFO items for the next release:
+
+| ID | What remains |
+|---|---|
+| I1 | The BFL polling URL is not host-checked before `x-key` is sent. |
+| I2 | `laura_present` is self-declared. |
+| I3 | The release comparison is tautological. |
+| I5 | Experiment and candidate images are never pruned. |
+| I6 | `/owner-images` reads the body before its size check. |
+| I9 | Public `/api/audit` shows the BFL credit balance. |
+| I10 | The sweep fills path parameters, not query parameters. |
+| I11 | The resumed attempt log keeps only the settle entry. |
+| I12-I19 | INFO items from the last two reviews; see those reports. |
+
+### Not done
+
+**No deploy.** Deploying 1580053 needs:
+- the owner's explicit approval of the SHA;
+- a fresh db-backup first.
+
+## 9. Freeze 6b25eb0: 9 suites failed, each fixed at the root (b997efd)
+
+Run 20261020T122822Z-2163 on 6b25eb0: 9007 tests passing, 9 suites failing, 0 temporary files
+leaked, 12385 s. Every one of the 9 is cross-branch: an invariant test the merged branch never ran.
+
+| Suite | Cause | Fix |
+|---|---|---|
+| test_product_run | FIRSTSALE keeps the PDFs in Postgres, so `assets.storage_not_durable` stopped firing, although the chart and legend are still ephemeral | the audit names every ephemeral file of the build |
+| test_cert_spend_hosts | `gateway/credentials.py` (CREDHEALTH) addresses paid-provider hosts and was undeclared | declared, on the basis of the 17bc373 review's "free, budget-neutral, bounded: SAFE" |
+| test_fb4_lc | FLUXAPI's `flux-3-image` reopened the F-588 production-partners verdict | re-audited: same vendor and role as `flux-2-pro`, and the buyer's PDF is code-rendered, so NOT_APPLICABLE stands (recorded with its basis) |
+| test_swarm_runtime | `visual.controlled_experiment` had no priority band | `exploration` |
+| test_visual_inspection | `credentials.py` hardcoded a model string | `model_for`: the model routing gives the vision judge (`asset_inspection`) |
+| test_w3_hq_independence | `repair_routes` read research/ at runtime; production's image has no research/, so the seed silently did nothing | the records ship under `src/brambleloop/visual/assets/owner_experiments` (byte-identical, test `test_w4_integ4_shipped_records`) |
+| test_w3_k12_model_photography | the premise "BFL carries one reference" changed with FLUXAPI | premises updated; the F-212 refusal is still proven, before any request or reservation |
+| test_v11_pwa_browser | `/api/cc/credentials` was missing from the mock (404); the first-sale rows were counted as lanes; the More menu now has 11 items | mock route and fixture selectors updated; new check that the provider-keys card never shows a key. 218/0 |
+| test_cert_wiring | the 1200 s drain limit was exceeded under load | no code change (see §8) |

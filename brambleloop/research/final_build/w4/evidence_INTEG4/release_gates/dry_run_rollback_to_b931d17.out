@@ -1,0 +1,31 @@
+{
+  "check": {
+    "candidate": "e6abb26877c98797f812c32d3225be9618ea664b",
+    "deployed": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+    "mode": "rollback",
+    "note": "verdict only; this script never deploys (F-461, A3-06)",
+    "reasons": [],
+    "rollback": {
+      "reason": "INTEG4 rollback rehearsal to production b931d17",
+      "to": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+    },
+    "suite_run": null,
+    "verdict": "ALLOW"
+  },
+  "commit": "e6abb26877c98797f812c32d3225be9618ea664b",
+  "ok": true
+}
+{
+  "candidate": "e6abb26877c98797f812c32d3225be9618ea664b",
+  "deployed": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+  "mode": "rollback",
+  "note": "verdict only; this script never deploys (F-461, A3-06)",
+  "reasons": [],
+  "rollback": {
+    "reason": "INTEG4 rollback rehearsal to production b931d17",
+    "to": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  "suite_run": null,
+  "verdict": "ALLOW"
+}
+deploy.sh: ALLOW e6abb26877c98797f812c32d3225be9618ea664b (dry run; nothing pushed)
