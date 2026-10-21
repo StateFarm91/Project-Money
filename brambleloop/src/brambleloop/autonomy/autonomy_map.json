@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-21T04:53:17.112680+00:00",
+ "generated_at": "2026-10-21T05:19:02.995012+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 116,
   "handlers": 138,
   "agents": 31,
-  "follow_on_edges": 62
+  "follow_on_edges": 64
  },
  "departments": [
   {
@@ -1236,6 +1236,7 @@
      "app/command_center/api.py:store_settings_sync",
      "assets.build",
      "chain.rebuild",
+     "content.draft",
      "gate.certify",
      "growth.steer",
      "launch.plan",
@@ -1338,6 +1339,10 @@
     {
      "from": "listing.seo",
      "to": "launch.plan"
+    },
+    {
+     "from": "storefront.review",
+     "to": "content.draft"
     }
    ],
    "learning_signal": [
@@ -1363,9 +1368,7 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [
-    "store.update"
-   ],
+   "never_woken_job_types": [],
    "owner_one_shots": {}
   },
   {
@@ -1770,7 +1773,8 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "ads.adjust",
-     "launch.plan"
+     "launch.plan",
+     "storefront.review"
     ]
    },
    "cadence": [
@@ -1840,6 +1844,10 @@
    ],
    "follow_on": [
     {
+     "from": "content.draft",
+     "to": "store.update"
+    },
+    {
      "from": "growth.steer",
      "to": "chain.rebuild"
     }
@@ -1867,9 +1875,7 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [
-    "content.draft"
-   ],
+   "never_woken_job_types": [],
    "owner_one_shots": {}
   },
   {
