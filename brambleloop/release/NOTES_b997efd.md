@@ -1,0 +1,26 @@
+# Release notes: candidate b997efda (INTEG4), not deployed
+
+- **Full suite:** run 20261021T002000Z-11418, 674 suites, 9025 tests passing, 0 failing, 0 temp leak, release-eligible.
+  - It ran with REQUIRE_CLEAN=1 and JOBS=3 on a quiet machine.
+  - The venv was built exactly from requirements.lock, plus httpx, httpcore and certifi (test-only).
+- **Contents over production b931d17:**
+  - FIRSTSALE: durable PDF delivery, purchase rehearsal, Etsy image readiness, first-sale view, taxonomy matcher, retention, alt text.
+  - BRANDRULE: D-W4-F852-AMEND (records).
+  - CLOSE5: webhook R1 gate, grid-tournament cost cut, the intel.gallery_analysis read-timeout fix, FM closures.
+  - VISNEXT, including FLUXAPI, VISAUTO, FIDELITY, WRAPTEST and FLUXLIVE: the image system, vision judges, gallery card, the F-852 verified-exception gate, and the owner-only controlled-experiment command.
+  - CREDHEALTH: provider credential health, plus key rotation documentation.
+  - INTEG4 fixes: security review findings B1, L1-L4, M1, I7 and I8, and the cross-branch suite defects.
+- **Schema:** five NEW tables, created at boot by `Database.create_all`: `experiment_authorizations`, `controlled_experiment_runs`, `laura_outfits`, `image_production_runs` and `image_candidates`.
+  - No column changes on any existing table, and no data change.
+  - Additive and rollback-safe: b931d17 ignores the new tables.
+  - Proven on PostgreSQL 16 (research/final_build/w4/evidence_INTEG4/pg_migration_output.txt on claude/w4-INTEG4).
+- **Dependencies:** requirements.lock is unchanged from b931d17.
+- **Security:** independent reviews covered b931d17..7f6dbe8, 7f6dbe8..17bc373, 17bc373..6b25eb0 and 6b25eb0..b997efd.
+  - The first review found B1 (BLOCKER), which is now fixed.
+  - The last three found NO BLOCKER. M1 (MEDIUM) is fixed.
+  - The INFO items that remain open are listed in INTEG4.md.
+- **Fast-forward:** the candidate fast-forwards from production b931d17 (b931d17 is an ancestor).
+- **Before deploying:**
+  - The owner must approve this SHA.
+  - Take a fresh db-backup first. The last run, 2026-10-20T03:57Z, reported RESULT OK / restore_ok, with 682 MB free on a 3.7 GB volume.
+- **Details:** research/final_build/w4/INTEG4.md on claude/w4-INTEG4.
