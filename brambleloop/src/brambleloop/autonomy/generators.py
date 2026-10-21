@@ -357,6 +357,8 @@ def provider_module(module: str):
         from ..growth import ads_readiness as mod
     elif module == "brambleloop.visual.rnd.status":
         from ..visual.rnd import status as mod
+    elif module == "brambleloop.store_foundation.director":  # W4-AGENTS
+        from ..store_foundation import director as mod
     elif module == "brambleloop.ops.slo":
         from ..ops import slo as mod
     elif module == "brambleloop.autonomy.status":

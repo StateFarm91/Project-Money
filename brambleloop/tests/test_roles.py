@@ -359,8 +359,9 @@ DECLARED_BUT_UNBUILT: frozenset[str] = frozenset({
     # ads.adjust / ads.campaign left this list in C-60: both are handled now, behind the
     # owner's ad-authority gate and the caps, and neither can spend in shadow.
     "assets.render", "cir.reverse", "cir.revise",
-    "cir.twin", "content.draft", "gate.asset_truth", "gate.policy", "gate.quality",
-    "pricing.experiment", "radar.competitor_snapshot", "store.update",
+    # content.draft and store.update left this list in W4-AGENTS (runtime.storefront_ops).
+    "cir.twin", "gate.asset_truth", "gate.policy", "gate.quality",
+    "pricing.experiment", "radar.competitor_snapshot",
 })
 
 

@@ -893,6 +893,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
     # drift becomes incidents and proposals, never an Etsy write.
     ("store_live_drift", "orchestrator", "store.live_drift", 86400),
+    # W4-AGENTS: the Storefront Director's daily review (stored readings only, CA$0); gaps it
+    # can fix become content.draft proposals, applied only by store.update under the owner's
+    # storefront grant -- never in SHADOW.
+    ("storefront_review", "storefront_director", "storefront.review", 24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),

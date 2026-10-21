@@ -347,8 +347,9 @@ def owner_actions(drift: dict) -> list[dict]:
            "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and "
            "the repo gates found items only you can rule on", 3,
            "crop/footer findings stay unresolved"),
-        oa("OA-C", "Shop settings still open: announcement (C5), location (C9), listing order "
-           "Custom (C10), sold visibility off (C11)", "trust surfaces and ordering", 5,
+        oa("OA-C", "Shop settings still open: location (C9), listing order Custom (C10), sold "
+           "visibility off (C11). The announcement (C5) is agent work now: the Storefront "
+           "Director proposes it (updateShop)", "trust surfaces and ordering", 5,
            "shop snapshot keeps reporting missing trust surfaces"),
         oa("OA-D1", "Create sections for populated categories only (today: Home, Baby)",
            "D-FB-18 item 3: never advertise empty categories", 3,
@@ -391,6 +392,18 @@ STORE_KEY_PREFIX = "store:"
 _ALIASED = {"OA-A1": "reauthorise_transactions_r", "OA-LAUNCH": "phase"}
 _NOT_ASKED = {"OA-A2": "company work: etsy.shop_snapshot reads the shop state after OA-A1",
               "OA-STATS": "deferred: only meaningful after the first listings are live"}
+# W4-AGENTS: cards whose work has an Etsy write API are agent work, not owner work. The
+# Storefront Director drafts them as recorded proposals (`content.draft`) and `store.update`
+# applies one only under the owner's sealed storefront grant (never in SHADOW). The card is
+# not asked again, and an open one is moved to SUPERSEDED (not satisfied: the shop may still
+# lack the change) with that reason. What remains for the owner is the grant itself
+# (`storefront:write_authority`, raised by store.update when only the grant is missing).
+_AGENT_WORK = {
+    "OA-D1": "agent work: storefront_director proposes createShopSection for each populated "
+             "category; store.update applies it under the owner's storefront grant",
+    "OA-E": "agent work: storefront_director proposes updateShop sale_message / "
+            "digital_sale_message; store.update applies it under the owner's storefront grant",
+}
 # An alias is already represented by another producer's row under any of these keys.
 _ALREADY_ASKED_UNDER = {"OA-A1": ("reauthorise_transactions_r", "etsy.auth:reauthorise",
                                   "transactions_r"),
@@ -426,6 +439,16 @@ def sync_owner_actions(db, drift: dict | None = None) -> dict:
             oid = it["id"]
             if oid in _NOT_ASKED:
                 skipped[oid] = _NOT_ASKED[oid]
+                continue
+            if oid in _AGENT_WORK:
+                skipped[oid] = _AGENT_WORK[oid]
+                row = open_rows.get(STORE_KEY_PREFIX + oid)
+                if row is not None:
+                    from ..ops import owner_queue
+
+                    owner_queue.transition(s, row, owner_queue.SUPERSEDED, _AGENT_WORK[oid],
+                                           actor="storefront_director")
+                    updated.append(STORE_KEY_PREFIX + oid)
                 continue
             if oid in _ALREADY_ASKED_UNDER and any(
                     k in open_rows for k in _ALREADY_ASKED_UNDER[oid]):

@@ -55,6 +55,10 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
     "seo": ("brambleloop.seo.status", "store_commerce", "seo.cycle"),
     "ads": ("brambleloop.growth.ads_readiness", "growth", "marketing.ads_readiness"),
     "visual_rnd": ("brambleloop.visual.rnd.status", "visual", "visual.rnd.cycle"),
+    # W4-AGENTS: a storefront that is unreviewed or has agent-doable gaps becomes a
+    # storefront.review mission for the Storefront Director (Store / Commerce).
+    "storefront": ("brambleloop.store_foundation.director", "store_commerce",
+                   "storefront.review"),
 }
 
 

@@ -183,7 +183,7 @@ PUBLIC_GET_NOTES: dict[str, str] = {
 # publication_authority_api, activation_authority_api, ledger_mapping_api). Everything else
 # answers 401 -- including `/api/owner/decision`, which is an app route, not one of these.
 _FORBIDDEN_PREFIXES = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/",
-                       "/api/owner/ledger-mapping")
+                       "/api/owner/ledger-mapping", "/api/owner/storefront/")
 
 
 def refusal_status(route_path: str) -> int:

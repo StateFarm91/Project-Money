@@ -833,6 +833,33 @@ QUALITY_OVERRIDES[LAURA_PRIVATE_AGENT] = {
 
 
 # ---------------------------------------------------------------------------
+# W4-AGENTS (Master Plan v1.2 sections 6 and 16; owner directive 2026-10-21): the Storefront
+# Director, which "owns banner, icon, About, policies, sections, announcement, thumbnails and
+# grid coherence". It reads the shop state already stored, evaluates it against the brand
+# rules and Etsy's constraints, and drafts storefront content as recorded proposals
+# (`store_foundation.director`). GREEN and CA$0: deterministic, no model, no network. It can
+# never write to Etsy: applying a proposal is `store.update`, held by `store_operator`,
+# protected, and refused in SHADOW or without the owner's sealed storefront grant.
+DEFAULT_AGENTS.append(dict(
+    name="storefront_director",
+    description=("Storefront Director (Master Plan s6/s16): reviews the live shop against the "
+                 "brand rules and Etsy constraints and drafts announcement, buyer messages, "
+                 "sections and policy text as proposals. Writes, publishes, spends and "
+                 "messages nothing."),
+    allowed_job_types=["storefront.review", "content.draft"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["storefront_director"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["storefront_director"] = {
+    "inputs": ["operating_readings etsy.shop_snapshot / store.shop_sync",
+               "audit store.live_observation", "store_foundation copy and navigation"],
+    "outputs": ["operating_readings storefront.review / storefront.proposal",
+                "jobs content.draft", "jobs store.update (held in SHADOW)"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "storefront jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
 # W4-FINHEALTH: what a CA$0 daily ceiling means, said once.
 #
 # `/api/verify`'s `every_agent_has_a_cost_ceiling` failed in production on `learn`, `coo` and

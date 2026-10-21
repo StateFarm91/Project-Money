@@ -78,6 +78,11 @@ SAFE_GENERATED: dict[str, str] = {
     "improve.monitor": "docstring: 'GREEN: reads capability points, may revert an "
                        "improvement row, writes an audit record'",
     "learn.scan": "learn agent: 'no publication/spend', CA$0 ceiling",
+    # W4-AGENTS: the Storefront Director's review. Reads stored getShop/shop_sync readings
+    # and owner observations; writes a review row and (only) queues content.draft, which
+    # records proposals. No network, no Etsy write, CA$0 (runtime.storefront_ops).
+    "storefront.review": "runtime.storefront_ops: reads stored readings, writes a review "
+                         "row and queues content.draft proposals; no Etsy write, CA$0",
 }
 
 
@@ -250,12 +255,13 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="store_commerce", name="Store / Commerce",
        mission="Turn certified releases into correct listings, keep the shop's read-back true, "
                "and prepare (never perform) publication for owner approval.",
-       agents=("listing", "store_operator", "pricing"),
+       agents=("listing", "store_operator", "pricing", "storefront_director"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
-                 "etsy.listing", "seo."),
+                 "etsy.listing", "seo.", "storefront."),
        job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
                   "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify"},
-       generatable=("seasonal.remerchandising", "seo.cycle", "autonomy.department_review"),
+       generatable=("seasonal.remerchandising", "seo.cycle", "storefront.review",
+                    "autonomy.department_review"),
        forbidden=("publish or activate a listing without owner authority",
                   "change a live price"),
        inputs=("pattern_versions", "listings", "etsy snapshots"),

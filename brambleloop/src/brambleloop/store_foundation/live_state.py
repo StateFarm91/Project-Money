@@ -140,20 +140,52 @@ class OwnerFieldProtected(PermissionError):
 # ---- protection -------------------------------------------------------------------------
 
 
-def write_refusal(field: str) -> str | None:
-    """Why software may not write `field` to the live shop (always a reason in shadow).
+#: W4-AGENTS: the only live-shop fields software may ever write, and only under the owner's
+#: sealed storefront grant for the exact change: the announcement and the two buyer messages
+#: (updateShop) and shop sections (create/update/deleteShopSection). Everything else either
+#: has no Etsy write API, is owner-configured, or is EU-only.
+AGENT_WRITABLE: frozenset[str] = frozenset({"announcement", "sale_message",
+                                            "digital_sale_message", "shop_section"})
+#: Etsy: "the policy_additional field should only be set for shops located in the EU"
+#: (`integrations.etsy_constraints` policy_additional_eu_only). This shop is Canadian.
+EU_ONLY: frozenset[str] = frozenset({"policy_additional"})
+
+
+def write_refusal(field: str, *, grant: Any = None, change: dict | None = None) -> str | None:
+    """Why software may not write `field` to the live shop (always a reason without a grant).
 
     Accepts our key or the getShop/updateShop field name. Owner-configured fields are refused
-    permanently (a new explicit owner decision is the only route); every other field is refused
-    while no Etsy write authority exists (Shadow Mode) -- the drift job only proposes.
+    permanently (a new explicit owner decision is the only route); `policy_additional` is
+    refused permanently (EU-only); a field outside `AGENT_WRITABLE` is refused. Every other
+    field is refused unless `grant` is the owner's storefront grant (`integrations.etsy.
+    OwnerGrant.STOREFRONT`) and it verifies -- sealed, unexpired, unrevoked, approved for
+    exactly `change`, in a publishing phase -- which it never does in Shadow Mode. With no
+    grant this is the unchanged Shadow Mode refusal: the drift report and the Storefront
+    Director propose; the owner decides.
     """
     key = _key_for(field)
     if key in OWNER_CONFIGURED:
         return (f"{field}: configured by the owner on the live shop ({OWNER_CONFIGURED_ON}); "
                 f"live is authoritative and software never overwrites it -- propose to the "
                 f"owner instead")
-    return (f"{field}: no Etsy write authority in Shadow Mode; the drift report proposes, "
-            f"the owner decides")
+    if key in EU_ONLY:
+        return (f"{field}: Etsy lets only EU-located shops set policy_additional; this shop "
+                f"is Canadian, so it is never sent (clearing it is an owner step in Shop "
+                f"Manager)")
+    if grant is None:
+        return (f"{field}: no Etsy write authority in Shadow Mode; the drift report proposes, "
+                f"the owner decides")
+    if key not in AGENT_WRITABLE:
+        return f"{field}: not a field software may write to the live shop"
+    try:
+        from ..integrations.etsy import OwnerGrant
+
+        if not isinstance(grant, OwnerGrant) or grant.action != OwnerGrant.STOREFRONT:
+            return f"{field}: only the owner's storefront grant (OwnerGrant.STOREFRONT) covers it"
+        why = grant.refusal(action=OwnerGrant.STOREFRONT, change=change)
+    except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
+        why = f"storefront grant could not be verified: {type(exc).__name__}"
+    return f"{field}: {why}" if why else None
 
 
 def guard(fields) -> None:
