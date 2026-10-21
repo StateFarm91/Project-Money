@@ -122,7 +122,39 @@ States: FRESH, FAILING, NO_EVIDENCE, STALE, NO_COLLECTOR, UNKNOWN.
 | options | FRESH | FRESH | FRESH | — | — |
 | policy_settings | FRESH, but fails `policy_shipping_set` and `policy_additional_unset` | same | same | owner pastes the six policies | d |
 | digital_files | NO_COLLECTOR (only 2 of the 10 current releases ever built; none certified at the code's version) | NO_COLLECTOR | NO_EVIDENCE at first. Once the halts clear, R3/R5 certify the releases and `assets.build` keeps their PDFs, and it becomes **FRESH** | deploy; then the chain runs (hours) | b |
-| taxonomy_and_attributes | NO_COLLECTOR (tree read, 3065 nodes, 0 pattern∧crochet nodes) | NO_COLLECTOR (property route live) | FAILING until every Launch-0 profile is CHOSEN | b997efd's refresh reads the property schemas; run `tests/verify_w4_firstsale_taxonomy_live.py`; correct the matcher from `name_evidence` if it reads UNKNOWN | a + b |
+| taxonomy_and_attributes | NO_COLLECTOR (tree read, 3065 nodes, 0 pattern∧crochet nodes) | NO_COLLECTOR (property route live) | FAILING until every Launch-0 profile is CHOSEN | b997efd's refresh reads the 2 property schemas (§3a); CHOSEN only if Etsy's schema offers "Crochet"; run `tests/verify_w4_firstsale_taxonomy_live.py` | b (+ Etsy's answer) |
+
+### 3a. Etsy's real taxonomy names (production, 2026-10-21T00:01Z)
+
+The first `name_evidence` arrived on the daily refresh (`/api/audit?action=etsy.taxonomy_refreshed`):
+
+| field | what Etsy's tree contains |
+|---|---|
+| `pattern_named` | `Craft Supplies & Tools > Patterns & How To`; `... > Patterns & How To > Patterns & Blueprints` |
+| `crochet_named` | `Art & Collectibles > Fiber Arts > Crochet` (finished art, not patterns); `Craft Supplies & Tools > Tools & Equipment > Tools > Hooking > Crochet Hooks` |
+| children of `Patterns & How To` | Books & Magazines, Craft Machine Files, Critiques & Shop Tutorials, Kits, Patterns & Blueprints, Recipes, Tutorials |
+| children of `Patterns & Blueprints` | none (a leaf) |
+
+**Crochet is not a node anywhere under patterns.** It can only be a property of the pattern
+node, which is FIRSTSALE's property route.
+
+**The matcher was run unchanged on a structural replica of exactly these names.**
+- The ids in the replica are placeholders. The real ids are not public, and none was used or
+  invented for any listing.
+- Every one of the 8 reported categories lands on
+  **`Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints`**, by the
+  property route.
+- The status is UNKNOWN because no schema is stored yet.
+- `property_candidates` asks for exactly 2 schema reads: that node and its parent. That is well
+  inside `MAX_PROPERTY_READS` = 40.
+- **No matcher correction is needed.**
+
+**What decides CHOSEN versus UNKNOWN** is Etsy's own `getPropertiesByTaxonomyId` answer for that
+node. It is read only by b997efd's refresh, after deploy plus one daily run.
+- If the schema offers the value "Crochet", all 10 releases are CHOSEN on that node, and
+  `taxonomy_and_attributes` can read FRESH.
+- If it does not, the category stays UNKNOWN, honestly. The fallback is an owner reading of
+  the category picker in Shop Manager; it is not a guess.
 
 ## 4. Gap table: the 8 products (10 releases)
 
@@ -164,7 +196,7 @@ States: FRESH, FAILING, NO_EVIDENCE, STALE, NO_COLLECTOR, UNKNOWN.
 | 1 | Integrate `claude/w4-LISTREADY` (b997efd + FIRSTSALE2 + R1/R3/R4/R5) into the next release candidate; run the full suite | integrator | CA$0 | the suite run |
 | 2 | **Owner: approve the deploy** of that candidate (b997efd's content is included) | owner | CA$0 | 5 |
 | 3 | After deploy: first hourly `ops.sentinel` (halts clear), then `chain.rebuild` (R3 retries, R5 seeds). The chain certifies and builds the 10 releases; `launch.readiness` keeps the PDFs (`digital_files` FRESH) | company | CA$0 | about 1 to 6 h |
-| 4 | Next daily taxonomy refresh (about 00:1xZ) reads property schemas; run `verify_w4_firstsale_taxonomy_live.py`. If UNKNOWN, correct the matcher from `name_evidence` (company, then another release) | company | CA$0 | 1 day (+1 release if needed) |
+| 4 | Next daily taxonomy refresh (about 00:0xZ) reads the 2 property schemas (§3a); run `verify_w4_firstsale_taxonomy_live.py`. CHOSEN if Etsy's schema offers "Crochet"; otherwise UNKNOWN and an owner reading of the category picker | company (Etsy's answer decides) | CA$0 | 1 day |
 | 5 | Owner: shop settings in Shop Manager (banner and icon, About, six policies, payout/KYC/tax confirm) | owner | CA$0 | 20 + 25 + 15 = 60 |
 | 6 | Owner: POST the dated `messages` and `legal_and_tax` readings (`/api/etsy/shop-observation`) | owner | CA$0 for the reading; the tax position's own ceiling is CA$250 | 10 + 30 |
 | 7 | **Owner: approve the funded B3 vision review** (§6) | owner | **max CA$7.07** | 5 |
