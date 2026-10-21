@@ -109,8 +109,17 @@ def seed_key(slug: str, version: str, fingerprint: str, doc_version) -> str:
     return f"{SEED_PREFIX}:{slug}:{version}:{fingerprint}:d{doc_version}"
 
 
-def seed_launch0(ctx) -> dict:
-    """R5: draft every Launch-0 release whose code version is not certified, once per design."""
+# One release per whole-catalogue `chain.rebuild` (hourly in production): each seeded draft runs
+# the full chain (compile, certify, assets, listing), so the ten are trickled in over about ten
+# hours rather than queued as one burst on the shared worker.
+SEED_PER_RUN = 1
+
+
+def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
+    """R5: draft the next Launch-0 release whose code version is not certified, once per design.
+
+    In listing order; a release already seeded under this design is skipped (its key is taken),
+    so the next run seeds the next one. `pending` names what is left."""
     from sqlalchemy import select
 
     from ..core.models import PatternVersion, Product
@@ -121,14 +130,18 @@ def seed_launch0(ctx) -> dict:
             select(Product.slug, PatternVersion.version)
             .join(PatternVersion, PatternVersion.product_id == Product.id)
             .where(PatternVersion.certified == True))}  # noqa: E712
-    seeded, present, already = [], [], []
+    seeded, present, already, pending = [], [], [], []
     for cir in launch0_releases():
         rel = f"{cir.slug}@{cir.version}"
         if (cir.slug, cir.version) in certified:
             present.append(rel)
             continue
+        if len(seeded) >= limit:
+            pending.append(rel)
+            continue
         job = ctx.enqueue("crochet_engineer", "cir.draft", {"slug": cir.slug},
                           idempotency_key=seed_key(cir.slug, cir.version, cir.fingerprint,
                                                    DOC_VERSION))
         (seeded if job is not None else already).append(rel)
-    return {"seeded": seeded, "certified": present, "already_seeded": already}
+    return {"seeded": seeded, "certified": present, "already_seeded": already,
+            "pending": pending}

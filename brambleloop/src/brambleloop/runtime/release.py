@@ -4401,7 +4401,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
             continue
         if fresh is None:
             continue
-        stale_design = fresh.to_dict() != pv.cir_json
+        # W4-LISTREADY: compared as stored. `cir_json` is the JSON the database holds, and
+        # `to_dict()` carries tuples where JSON has lists, so the raw comparison called every
+        # engineered design "changed" (materials, provenance) and redrafted it once per
+        # fingerprint even when nothing moved. Normalised through the same JSON encoding, a
+        # real design change still differs and is still redrafted.
+        stale_design = json.loads(json.dumps(fresh.to_dict(), default=str)) != pv.cir_json
         stale_document = (pv.certificate or {}).get("doc_version") != DOC_VERSION
         if not (stale_design or stale_document):
             continue

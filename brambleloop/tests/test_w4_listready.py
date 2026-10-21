@@ -334,15 +334,21 @@ def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_jo
     cir = _launch0_cir("cloudline-baby-blanket")
     _pv(db, cir.slug, cir.version, cir.to_dict(), "f" * 64)       # already certified
     holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
-    out = RR.seed_launch0(holder)
-    assert out["certified"] == [f"{cir.slug}@{cir.version}"]
-    assert len(out["seeded"]) == 9
+    seeded = []
+    for run in range(9):                       # one release per whole-catalogue run
+        out = RR.seed_launch0(holder)
+        assert out["certified"] == [f"{cir.slug}@{cir.version}"]
+        assert len(out["seeded"]) == 1 and out["seeded"][0] not in seeded
+        assert len(out["already_seeded"]) == run and len(out["pending"]) == 8 - run
+        seeded += out["seeded"]
     for rel in ("market-basket-small@1.2.0", "market-basket-medium@1.2.0",
                 "market-basket-large@1.2.0", "hexagon-coaster-set@1.2.0",
                 "nordic-forest-mosaic-throw-baby@1.3.0", "housewarming-key-basket@0.1.0"):
-        assert rel in out["seeded"], rel
+        assert rel in seeded, rel
+    assert seeded[0] == "market-basket-small@1.2.0"           # listing order
     again = RR.seed_launch0(holder)
     assert again["seeded"] == [] and len(again["already_seeded"]) == 9
+    assert again["pending"] == []
     with db.session() as s:
         drafts = list(s.scalars(select(Job).where(Job.job_type == "cir.draft")))
     assert len(drafts) == 9 and all(j.agent == "crochet_engineer" for j in drafts)
