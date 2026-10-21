@@ -244,3 +244,34 @@ saved as `evidence_FMBATCH1/overrides_dry_run.json.txt`):
 |---|---|---|---|
 | Authorise one POST `/api/etsy/exercise` (F-437) | it is an Etsy write: a draft is created and deleted | UNKNOWN until checked: no fee is recorded for a draft in this repository; Etsy charges its US$0.20 listing fee on publication, which the exercise never does | about 5 |
 
+
+## 8. Batch R (post-launch, coordinator follow-up): research discipline
+
+No Build 2 row is non-launch-critical `blocked_engineering` (only #11, #12, #195, triaged
+above). There are 213 Final Master post-launch `blocked_engineering` rows. The first batch is
+the research-agent cluster. Its matrix next_action ("build intel/research.py") was stale:
+W4-RESEARCH had built the module. Each row's own criterion was implemented as an extension of
+`src/brambleloop/intel/research.py`, and the `learn.scan` cadence enforces the time bound.
+
+| row | what the code now enforces |
+|---|---|
+| F-419 | a task defines evidence_needed, stop_condition, a time bound (1..365 days, giving a deadline) and a spend bound |
+| F-444 | `stop` / `stop_overdue` record what was searched, what remains unknown, why it matters and the smallest owner/external action named when the task opened. `learn.scan` stops overdue tasks |
+| F-405 | `search_internal_report` searches lessons, observations, incidents, both experiment tables, failure memory, benchmark listings, BUILD_STATE, DECISION_LOG and test names. Each corpus is recorded with its hits, or why it was unreadable or absent. The deploy image carries no repository documents |
+| F-408 | a consequential fact from external sources needs 2 independent publishers, or a recorded reason a second source is not practical |
+| F-426 | `contradicts` plus `reconcile`. An answer is refused while a conflict is neither reconciled nor recorded unresolved |
+| F-420 | an answer names its effect (confidence changed, alternatives narrowed, constraint established, hypothesis produced, or stop justified), each checked. A source no finding cites is refused |
+| F-435 | the structured conclusion (question, status, confidence, evidence, alternatives, constraints, applicability, unresolved, next_test) is stored, and `conclusion()` returns it. A next test is bounded to 1..90 days and a spend of at least CA$0 |
+| F-411 | a method_adoption answer judges assumptions, topology, scale, data, runtime and failure_modes. `adopt` is true only if all six transfer |
+| F-432 | a materially equivalent answered and fresh question (same content words, domain and decision) is reused. It re-opens only for new evidence or changed assumptions; stale answers re-open |
+| F-449 | `metrics()`: resolved, reuse rate, stale answers refreshed, duplicates avoided, experiments prevented, spend avoided, source quality and decisions changed. Every figure is None when nothing has been measured, never a default 0 |
+
+**Schema:** additive `research_tasks.deadline` and `detail` columns (`core.migrate` adds them).
+
+**Tests:**
+- `tests/test_w4_fmbatch1_research.py` 12/12.
+- `tests/test_w4_research.py` 10/10, updated to the new required spec. Its corpora are isolated
+  from the live repository documents; no assertion was relaxed.
+
+**F-412** (the research-to-experiment bridge) is only partly done. A bounded `next_test` is
+recorded in the conclusion, but nothing yet feeds it into `improve/runner`. It remains open.
