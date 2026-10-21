@@ -1,0 +1,11 @@
+# Listings candidate 8d520ed: full-suite run 20261021T082039Z-1731. NOT release-eligible
+
+Run: 680 suites on venv-integ4 with JOBS=3 and a clean tree; 11587 s. Result: TOTAL PASSING 9097, suites
+failing 4, `release_eligible: false`.
+
+| Suite | Root cause | Proposed fix (on `claude/w4-LISTREADY`, then re-freeze) |
+|---|---|---|
+| `test_w3_decision_index` | `DECISION_LOG.md` gained 27 lines (1580053..8d520ed) without regenerating `core/decision_index.json` | `PYTHONPATH=src python -m brambleloop.core.decision_index` (tooling) |
+| `test_w4_close5_rows3::test_f542...` | **false positive.** The F-542 scanner matches any `.activate(` call. LISTREADY's `POST /launch-review/activate` calls `launch_review.activate(db, ...)`, which starts the owner's image-review batch and makes no Etsy write | rename the batch function (for example `launch_review.open_batch`) and its callers. Do **not** add it to DRAFT_ONLY (it is not an Etsy write), and do not narrow the scanner |
+| `test_w4_board::test_a_closure_needs_evidence_read_from_the_deployed_commit` | F-498 is listed as `closed_on_production_evidence`. Its closure names `tests/test_w4_etsysurf.py::test_a_fresh_passing_shop_still_names_what_no_collector_can_observe`, which FIRSTSALE2/LISTREADY renamed to `..._every_surface_without_a_reading`, with a changed assertion, because every surface now has a collector. The board's own rule no longer accepts the closure | regenerate the board with its generator (`completion_board_final.py`), so F-498 drops from closed-on-production to what the ledgers prove. It returns after this release is deployed and read back. Do not rename the test back, and do not edit BOARD_CLOSURES by hand |
+| `test_cert_wiring` (5 checks) | `_drain`'s 1200 s limit: "queue did not drain: 293 jobs in 1240s". The other 4 cert_wiring failures (agent_quality, retirement_review and radar.memory never reached; row 144 claimed covered) follow from the incomplete drain. This is the same limit b997efd hit (221 jobs in 1203 s); LISTREADY adds jobs, and ran under JOBS=3 contention | **coordinator decision; the limit is not raised by the integrator.** Options: re-run cert_wiring alone on a quiet machine, or root-cause the drain cost |
