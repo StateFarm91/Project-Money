@@ -1443,6 +1443,10 @@ def _persist_search_profile(ctx: JobContext, slug: str, version: str, *, copy, c
         row.certificate = json.loads(json.dumps(certificate, default=str))
         row.fingerprint = fingerprint
         row.updated_at = datetime.now(timezone.utc)
+        # F-010: rebuilt on the snapshot a drift incident names -> that incident resolves.
+        from ..integrations import taxonomy_drift
+
+        taxonomy_drift.resolve_if_current(s, slug, row.snapshot_id)
 
 
 @handlers.register("listing.taxonomy_refresh")
@@ -1467,6 +1471,18 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
     if got.get("etsy_error"):
         summary["etsy_error"] = got["etsy_error"]
     summary["gate_missing"] = (got.get("gate") or {}).get("missing", [])
+    # F-010: a changed schema re-validates the listings it touches (taxonomy_drift).
+    if got.get("ran") and got.get("new_snapshot") and got.get("snapshot_id") is not None:
+        from ..integrations import taxonomy_drift
+
+        try:
+            drift = taxonomy_drift.after_refresh(ctx, snapshot_id=int(got["snapshot_id"]))
+        except Exception as exc:  # noqa: BLE001 - an unjudged drift is UNKNOWN, never "none"
+            drift = {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {exc}"[:300]}
+            ctx.audit(taxonomy_drift.ACTION, detail=drift)
+        summary["drift"] = {k: drift.get(k) for k in ("state", "why", "first_snapshot",
+                                                      "incidents_opened", "requeued",
+                                                      "not_requeued") if k in drift}
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)
     return summary

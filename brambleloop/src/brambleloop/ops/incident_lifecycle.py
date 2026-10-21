@@ -185,6 +185,10 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
+    # F-010: Etsy changed the schema a listing was certified on (integrations.taxonomy_drift).
+    "taxonomy-drift": ("listing.taxonomy_refresh + listing.seo",
+                       "listing.seo is re-queued on the new snapshot; resolves when the "
+                       "product's search profile is rebuilt on it"),
     "systemic-halt": ("ops.truth sweep", "resolves when the systemic evidence stops holding"),
     "incident-recurrence": ("ops.truth sweep", "the family's prevention is fixed and the "
                                                "regression check passes"),
