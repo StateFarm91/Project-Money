@@ -180,12 +180,36 @@ def test_owner_fields_are_never_in_the_update_shop_payload_and_guard_refuses():
     assert "Shadow Mode" in L.write_refusal("announcement")
 
 
-def test_the_etsy_client_has_no_update_shop_write():
-    from brambleloop.integrations.etsy import EtsyClient
+def test_the_etsy_client_has_no_ungated_update_shop_write():
+    """W4-AGENTS (owner directive 2026-10-21) added `update_shop` and the shop-section writes,
+    gated. What this pins now: no banner write exists at all (Etsy has no API), and the shop
+    writes send NOTHING in shadow, without a grant, or for an owner-configured/EU-only field."""
+    from brambleloop.integrations import etsy as E
 
-    names = [n for n in dir(EtsyClient) if not n.startswith("__")]
+    names = [n for n in dir(E.EtsyClient) if not n.startswith("__")]
     assert names
-    assert not [n for n in names if "update_shop" in n or "shop_banner" in n], names
+    assert not [n for n in names if "shop_banner" in n or "shop_icon" in n], names
+    sent = []
+
+    class T:
+        def request(self, method, url, **kw):
+            sent.append((method, url))
+            return E.Response(status=200, body={})
+
+    creds = E.Credentials(api_key="k", access_token="t", shop_id="1")
+    for phase in ("shadow", "production"):
+        c = E.EtsyClient(T(), credentials=creds, phase=phase, owner_authorised=True,
+                         shadow_writes_authorised=True)
+        for call in (lambda: c.update_shop({"announcement": "x"}),
+                     lambda: c.update_shop({"title": "x"}),
+                     lambda: c.update_shop({"policy_additional": "x"}),
+                     lambda: c.create_shop_section("Home")):
+            try:
+                call()
+                raise AssertionError("an ungated shop write was sent")
+            except E.EtsyNotPermitted:
+                pass
+    assert sent == []
 
 
 def test_content_model_reports_entered_on_etsy_from_live_evidence():

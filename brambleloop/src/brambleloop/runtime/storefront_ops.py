@@ -36,7 +36,7 @@ def handle_storefront_review(ctx: JobContext) -> dict:
     rev = _review_and_record(ctx)
     queued = None
     if rev["agent_gaps"]:
-        job = ctx.enqueue(director.AGENT, director.DRAFT_JOB,
+        job = ctx.enqueue("storefront_director", "content.draft",
                           {"kind": "storefront", "gaps": rev["agent_gaps"]},
                           idempotency_key=f"content.draft:storefront:"
                                           f"{director.digest(rev['agent_gaps'])[:16]}:"
@@ -71,7 +71,7 @@ def handle_content_draft(ctx: JobContext) -> dict:
         if not (p.get("api_writable") and p.get("valid")):
             continue
         _why, grant_id = storefront_authority.resolve(ctx.db, p["digest"][:20], p["change"])
-        job = ctx.enqueue(director.APPLY_AGENT, director.APPLY_JOB,
+        job = ctx.enqueue("store_operator", "store.update",
                           {"kind": "storefront", "proposal": p["digest"][:20]},
                           idempotency_key=f"store.update:storefront:{p['digest'][:16]}:"
                                           f"{phase}:{grant_id or 'nogrant'}")
