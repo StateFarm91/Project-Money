@@ -622,7 +622,13 @@ def make_router(db) -> APIRouter:
     def launch_review_state(request: Request):
         from ...finance import launch_review
 
-        return ok(launch_review.state(db))
+        out = launch_review.state(db)
+        if out.get("status") == "not_activated":
+            # Read-only, for the card: whether activation's own scope check would pass now.
+            scope = launch_review.frame_scope(db)
+            out["frames_ready"] = bool(scope["frames"]) and not scope["missing"]
+            out["missing_releases"] = scope["missing"]
+        return ok(out)
 
     @router.post("/launch-review/activate")
     async def launch_review_activate(request: Request):

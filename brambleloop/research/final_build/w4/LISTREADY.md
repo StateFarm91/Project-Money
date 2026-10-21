@@ -342,18 +342,28 @@ Closing is audited (`launch_review.closed`). From then on the effective ceiling 
 - Worst case for the 59 stored frames: 10 heroes × CA$0.1485 + 49 × CA$0.1024 = **CA$6.50**, within CA$7.07.
 - The hard cap stops at CA$7.07 regardless.
 
-**Activation, by the owner, after the listings release is deployed and the Launch-0 frames are built.** Nothing runs before then.
-1. Sign in to the Command Center (`/cc/`) and complete a step-up (passphrase + TOTP), as for experiments.
-2. In the same browser tab's developer console, run:
-   ```js
-   const s = await (await fetch('/api/cc/auth/status')).json();
-   await (await fetch('/api/cc/launch-review/activate', {method: 'POST',
-     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': s.csrf_token},
-     body: '{}'})).json();
-   ```
-   - The answer shows `status: open`, the frame count, the caps, `expires_at` and `run_job_id`.
-   - `GET /api/cc/launch-review` shows progress, the money committed and `effective_daily_ceiling_cad`.
-   - Activation is refused without step-up, a second time, or before every Launch-0 release has frames.
+**Activation, by the owner, from the phone, after the listings release is deployed and the Launch-0 frames are built.** Nothing runs before then.
+1. Open the Command Center (`/cc/`) and go to **Completion**. Find the **Launch image review** card.
+2. If the card says "Step-up needed first.", tap **Step up** and enter the passphrase and TOTP.
+3. Tap **Activate** and confirm. The card then shows `open`, the frames in scope, CA$ committed of CA$7.07, the reviewer's
+   daily ceiling now (CA$8.00 while open, CA$1.00 after) and the expiry.
+
+The card calls the same `POST /api/cc/launch-review/activate` through the Command Center's shared CSRF, nonce and step-up
+flow.
+
+**Activate is disabled, with the reason shown, whenever the server would refuse:**
+- "Step-up needed first.";
+- "Already active." (or "Already used (completed / expired / exhausted).");
+- "Frames are not yet built for every Launch-0 release (… missing)".
+
+The frames reason comes from `GET /api/cc/launch-review`'s read-only `frames_ready` / `missing_releases`, which run the same
+scope check that activation runs. The server re-checks every rule on the POST. The server rules and their tests are unchanged.
+
+**PWA tests:**
+- `tests/test_w4_launch_review_card.py`, 6/6. Static checks, plus the reason function run under node.
+- test_v11_pwa_static 82/82.
+- test_v11_pwa_browser 219/0 (new check: the card renders with Activate disabled and its reason).
+- test_w4_firstsale_view 5/5.
 
 **Tests:** `tests/test_w4_launch_review.py`, 13/13:
 - activation needs step-up and runs once;

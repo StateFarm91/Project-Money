@@ -146,6 +146,15 @@ try {
   // INTEG4: the first-sale card (W4-FIRSTSALE) has its own rows; the lanes are the other sections.
   const laneRows = await page.$$eval("section:not([aria-labelledby='completion-launch-packet']):not([aria-labelledby='completion-first-sale']) li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
+  // W4-LISTREADY: the launch image-review card; Activate is disabled with the server's reason.
+  const lr = await page.evaluate(() => {
+    const sec = document.querySelector("section[aria-labelledby='completion-launch-review']");
+    const btn = sec ? [...sec.querySelectorAll("button")].find((b) => b.textContent === "Activate") : null;
+    const why = document.getElementById("launch-review-why");
+    return { found: !!sec, disabled: btn ? btn.disabled : null, why: why ? why.textContent : "" };
+  });
+  check(lr.found && lr.disabled === true && /Frames are not yet built/.test(lr.why),
+    "completion: launch image review card, Activate disabled with its reason", JSON.stringify(lr));
 
   // ---- RB-1 (CC_VERIFY_7421ef6): the Store tab renders the live-shop observation form ------
   await page.goto(`${BASE}/cc/#/store`);
