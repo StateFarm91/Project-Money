@@ -290,3 +290,95 @@ There were no baselines to compare against on this machine, so how much of that 
 branch is UNKNOWN. If it is material, the integrator's alternative is a dedicated daily
 `launch0.seed` cadence job. That needs agent permission, charter, authority and autonomy-map
 entries, and was not done blind.
+
+## 8. The owner-approved image review batch (D-W4-LAUNCH-VISION-BATCH, 2026-10-21)
+
+**The approval, as relayed:**
+- up to **CA$7.07 in total** for the paid independent review of the 59–69 Launch-0 listing images;
+- for this batch only, `quality_director`'s daily ceiling raised to **CA$8.00**, reverting to CA$1.00 by itself;
+- the CA$100 month is unchanged;
+- nothing else is authorised;
+- SHADOW mode stays, nothing is published, and no Etsy fees are incurred.
+
+**The batch record.** `finance/launch_review.py` holds the tables `launch_review_batches` and `launch_review_calls`. They
+are created on first use (the `experiments.controlled` pattern) and change no existing table.
+
+| field | value |
+|---|---|
+| batch | `launch_image_review_2026_10` |
+| approval reference | DECISION_LOG `D-W4-LAUNCH-VISION-BATCH` |
+| total cap | CA$7.07 |
+| agent | `quality_director` |
+| batch daily cap | CA$8.00, applied to this batch's own review calls only |
+| frame scope | every stored listing frame of the 10 Launch-0 releases at the code's versions, by sha256, fixed at activation (activation refuses until every release has frames) |
+| expiry | **14 days** after activation |
+
+**What every batch call is checked against.** All checks run inside `gateway.anthropic.check_budget_cad`'s budget lock, in the step that writes the reservation:
+1. the CA$100 month: unchanged, and still first;
+2. the batch is open: not completed, not expired, not exhausted, re-read under the lock;
+3. the release's stored frames are exactly the scoped frames;
+4. the release's call allowance: 2 per frame, plus 1 for the hero's grid identification;
+5. the batch total: committed plus this estimate is at most CA$7.07;
+6. the batch day: today's batch spend plus this estimate is at most CA$8.00;
+7. the agent's own day is held to CA$8.00 for this call only.
+
+**Calls outside the batch** are not in a `reviewing(...)` scope, so they read the registry's unchanged **CA$1.00**. The registry value is never written.
+
+**Batch accounting.** The batch counts each call at its padded estimate, written in the same locked step as the reservation. A call whose bill is unknown is never counted at less.
+
+**Closing, in code.** The batch closes:
+- **completed** when every scoped release has been reviewed;
+- **expired** after 14 days;
+- **exhausted** when no further call fits under CA$7.07.
+
+Closing is audited (`launch_review.closed`). From then on the effective ceiling is CA$1.00 and any further batch call is refused before it is sent.
+
+**Results.** The review is the existing `_review_frames`, run by `assets.build`, and its result is the existing `assets.frame_review` row.
+- The B3 gate (`frame_review_state`) is unchanged.
+- A refused or failed call leaves the frame undescribed, so it reads unreviewed or unjudged: UNKNOWN, never PASS.
+- Each scoped release is queued once, with `max_attempts=1`. A release found mid-review from an earlier attempt is marked `interrupted` and is not resent.
+
+**Cost, corrected.** The hero's grid-identification call (+CA$0.0461 per hero) was missing from §6.
+- Worst case for the 59 stored frames: 10 heroes × CA$0.1485 + 49 × CA$0.1024 = **CA$6.50**, within CA$7.07.
+- The hard cap stops at CA$7.07 regardless.
+
+**Activation, by the owner, after the listings release is deployed and the Launch-0 frames are built.** Nothing runs before then.
+1. Sign in to the Command Center (`/cc/`) and complete a step-up (passphrase + TOTP), as for experiments.
+2. In the same browser tab's developer console, run:
+   ```js
+   const s = await (await fetch('/api/cc/auth/status')).json();
+   await (await fetch('/api/cc/launch-review/activate', {method: 'POST',
+     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': s.csrf_token},
+     body: '{}'})).json();
+   ```
+   - The answer shows `status: open`, the frame count, the caps, `expires_at` and `run_job_id`.
+   - `GET /api/cc/launch-review` shows progress, the money committed and `effective_daily_ceiling_cad`.
+   - Activation is refused without step-up, a second time, or before every Launch-0 release has frames.
+
+**Tests:** `tests/test_w4_launch_review.py`, 13/13:
+- activation needs step-up and runs once;
+- activation is refused on a partial scope;
+- outside the batch, the ceiling is still CA$1.00;
+- every batch call is reserved first and counted;
+- the total is enforced, and nothing is sent or reserved after exhaustion;
+- the batch day is enforced;
+- the month still binds, and CA$100 is unchanged;
+- out-of-scope frames and other releases are refused;
+- the per-release call allowance holds;
+- the ceiling reverts on completion, on expiry and on exhaustion;
+- a refused call reaches no provider, and the frame is not `clear`;
+- the run queues each release once and never resends an interrupted one.
+
+## 9. Remaining owner actions for the first sale
+
+| # | action | why | max cost | minutes | consequence of waiting |
+|---|---|---|---|---|---|
+| 1 | Approve the deploy of the listings release (b997efd + FIRSTSALE2 + LISTREADY), after its certification suite passes | Production cannot certify anything until R1/R3/R5 run there; a deploy is owner-approved | CA$0 | 5 | No Launch-0 release certifies, so there is no listing |
+| 2 | After deploy, once the Launch-0 frames are built: activate the image review (§8) | B3: every frame is unreviewed; the review is paid | CA$7.07 (approved) | 5 | `vision_review` stays FAIL for all 8 products |
+| 3 | Shop Manager > Info & appearance: banner and icon, paste the About from `brand/storefront.ABOUT` | No image or About write endpoint; the live snapshot fails `banner_set` | CA$0 | 20 | The storefront reads as abandoned; `info_and_appearance` stays failing |
+| 4 | Shop Manager > Policies: paste the six policies from `commerce.shop_package.policies()` | Only `policy_additional` is writable; the snapshot fails `policy_shipping_set` and `policy_additional_unset` | CA$0 | 25 | Blank policies at the first sale |
+| 5 | Confirm payout, identity and tax in Shop Manager > Payment settings | KYC and banking are the account holder's alone | CA$0 | 15 | No payout; publishing is blocked |
+| 6 | POST the dated `legal_and_tax` reading (`identity_verified`, `tax_position`, `decided_on`) at `/api/etsy/shop-observation` | No API exposes it; FIRSTSALE2's collector reads the owner's reading | CA$0 to record; the GST/HST position itself has a CA$250 registry ceiling | 30 | `legal_and_tax` stays NO_EVIDENCE, so first-sale readiness cannot pass |
+| 7 | POST the dated `messages` reading (`notifications_inbox`, `reply_window_hours`) | Etsy has no messaging API | CA$0 | 10 | `messages` stays NO_EVIDENCE; buyer messages go unread |
+| 8 | Physical sample: a tester crochets one Launch-0 product and records gauge and size | Gauge and size claims are UNRESOLVED without a bound sample | yarn plus tester time (UNKNOWN; not approved here) | 10 to arrange | `physical_sample` FAIL; the first-customer gate does not pass |
+| 9 | Accept the listing fees, choose the go-live phase and grant draft publication for the first product(s) | Leaving SHADOW and paying Etsy is the owner's alone; it is also the only way to confirm the upload (B4) | US$0.20 per listing, US$2.00 for 10 (about CA$2.83) | 17 | No listing exists, so there is no first sale |
