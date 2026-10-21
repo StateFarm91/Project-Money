@@ -13,13 +13,14 @@ const money = (v) => (typeof v === "number" ? `CA$${v.toFixed(2)}` : UNKNOWN_TEX
 // Why Activate would be refused right now, or "" when it would be accepted.
 export function activateBlockedReason(st, stepped) {
   if (!st) return "The batch state could not be read.";
-  if (st.status && st.status !== "not_activated") {
+  if (st.status && st.status !== "not_activated" && st.status !== "unused") {
     return st.status === "open" ? "Already active." : `Already used (${st.status}).`;
   }
   if (st.frames_ready !== true) {
     const missing = Array.isArray(st.missing_releases) ? st.missing_releases : [];
     return `Frames are not yet built for every Launch-0 release${missing.length ? ` (${missing.length} missing: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""})` : ""}.`;
   }
+  if (st.vision_open !== true) return "The image-vision gate is closed, so no frame could be reviewed.";
   if (!stepped) return "Step-up needed first.";
   return "";
 }
@@ -67,11 +68,20 @@ export function launchReviewCard(settled, rerender) {
       h("div", { class: "fact" }, h("dt", null, "Spent / cap"), h("dd", null, `${money(st.committed_cad ?? (status === "not_activated" ? 0 : null))} of ${money(st.total_cap_cad ?? 7.07)}`)),
       h("div", { class: "fact" }, h("dt", null, "Reviewer daily ceiling now"), h("dd", null, money(st.effective_daily_ceiling_cad))),
       h("div", { class: "fact" }, h("dt", null, "Frames in scope"), h("dd", null, txt(st.frames))),
+      h("div", { class: "fact" }, h("dt", null, "Releases reviewed"), h("dd", null,
+        typeof st.releases_total === "number" ? `${st.releases_reviewed ?? 0} of ${st.releases_total}` : UNKNOWN_TEXT)),
       h("div", { class: "fact" }, h("dt", null, "Expires"), h("dd", null, txt(st.expires_at)))),
     st.closed_why ? h("p", { class: "row-detail" }, `Closed: ${st.closed_why}`) : null,
     releases.length ? h("ul", { class: "rows" }, releases.map(([rel, s]) => h("li", { class: "row" },
       h("p", { class: "row-title" }, statusPill(s === "done" ? "OK" : s === "interrupted" ? "BAD" : "UNKNOWN", txt(s)), ` ${rel}`)))) : null,
-    h("div", { class: "row" }, activate, stepBtn),
+    h("div", { class: "row" }, activate, stepBtn, status === "open" ? h("button", { class: "btn", type: "button",
+      onclick: async () => {
+        const out = await guardedAction({ title: "Resume the launch image review",
+          lines: ["Queues one more run for releases not yet reviewed, under the same caps and expiry."],
+          confirmLabel: "Resume", requiresStepUp: true,
+          run: () => api.resumeLaunchReview(), success: "Resumed." });
+        if (out) reload();
+      } }, "Resume") : null),
     h("p", { id: "launch-review-why", class: blocked ? "callout callout-warn" : "muted small" },
       blocked || "Ready: tap Activate. The server re-checks every rule."),
     h("p", { class: "muted small" }, "Results feed the independent frame review unchanged; an unreviewed frame stays Unknown, never a pass."));

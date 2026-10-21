@@ -206,8 +206,9 @@ def products(db, *, limit: int = 100) -> dict:
             prods = list(s.scalars(select(Product).order_by(Product.id).limit(limit)))
             items = []
             for p in prods:
-                pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == p.id)
-                              .order_by(PatternVersion.id.desc()).limit(1))
+                from ...ops.artefacts import newest_release  # N1: newest by version
+
+                pv = newest_release(s, p.id)
                 listing = s.scalar(select(Listing).where(Listing.product_slug == p.slug)
                                    .order_by(Listing.id.desc()).limit(1))
                 srcs = [f"products:{p.id}"]

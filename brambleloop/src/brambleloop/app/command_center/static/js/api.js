@@ -84,6 +84,7 @@ export const ENDPOINTS = {
   firstSale: () => `${API_BASE}/first-sale`,
   launchReview: () => `${API_BASE}/launch-review`,
   launchReviewActivate: () => `${API_BASE}/launch-review/activate`,
+  launchReviewResume: () => `${API_BASE}/launch-review/resume`,
   shopObservation: () => `${API_BASE}/etsy/shop-observation`,
   // W4-STORE: owner-session gated (CSRF + nonce) although it is outside API_BASE.
   liveObservation: () => "/api/store/live_observation",
@@ -317,6 +318,7 @@ export const api = {
   firstSale: () => get(ENDPOINTS.firstSale()),
   launchReview: () => get(ENDPOINTS.launchReview()),
   activateLaunchReview: () => post(ENDPOINTS.launchReviewActivate(), {}),
+  resumeLaunchReview: () => post(ENDPOINTS.launchReviewResume(), {}),
   recordShopObservation: (body) => post(ENDPOINTS.shopObservation(), body),
   liveObservation: (observedAt, fields, statement) => post(ENDPOINTS.liveObservation(), { observed_at: observedAt, fields, statement }),
   insights: () => get(ENDPOINTS.insights()),

@@ -647,11 +647,12 @@ def make_router(db) -> APIRouter:
         from ...finance import launch_review
 
         out = launch_review.state(db)
-        if out.get("status") == "not_activated":
-            # Read-only, for the card: whether activation's own scope check would pass now.
+        if out.get("status") in ("not_activated", launch_review.UNUSED):
+            # Read-only, for the card: whether activation's own checks would pass now.
             scope = launch_review.frame_scope(db)
             out["frames_ready"] = bool(scope["frames"]) and not scope["missing"]
             out["missing_releases"] = scope["missing"]
+            out["vision_open"] = launch_review.vision_open(db) is True
         return ok(out)
 
     @router.post("/launch-review/activate")
@@ -670,7 +671,7 @@ def make_router(db) -> APIRouter:
                               session_public_id=pid) from None
         try:
             job = JobQueue(db).enqueue(launch_review.AGENT, launch_review.JOB_TYPE, {},
-                                       idempotency_key=f"{launch_review.BATCH_ID}:run",
+                                       idempotency_key=launch_review.resume_key(db),
                                        max_attempts=1)
             out["run_job_id"] = job.id
         except DuplicateJob as exc:
@@ -681,6 +682,28 @@ def make_router(db) -> APIRouter:
                                                        "total_cap_cad", "daily_cap_cad",
                                                        "expires_at", "run_job_id")}})
         return ok(out)
+
+    @router.post("/launch-review/resume")
+    async def launch_review_resume(request: Request):
+        """Delta review N2: queue one more run of the open batch (pending releases only),
+        under the same caps and expiry. Step-up."""
+        from ...finance import launch_review
+        from ...queue.durable import JobQueue
+
+        await body_of(request)
+        auth.require_stepup(db, request, "launch_review.resume")
+        pid = auth.current_public_id(request)
+        st = launch_review.state(db)
+        if st.get("status") != launch_review.OPEN:
+            raise auth.refuse(db, request, 400, "REFUSED",
+                              f"the batch is {st.get('status')}; only an open batch resumes",
+                              kind="action", session_public_id=pid)
+        job = JobQueue(db).enqueue(launch_review.AGENT, launch_review.JOB_TYPE, {},
+                                   idempotency_key=launch_review.resume_key(db),
+                                   max_attempts=1)
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "launch_review.resume", "run_job_id": job.id})
+        return ok({**st, "run_job_id": job.id})
 
     @router.get("/experiments/runs/{run_id}/card")
     def experiments_card(run_id: int, request: Request):

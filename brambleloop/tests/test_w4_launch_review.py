@@ -35,6 +35,11 @@ from brambleloop.finance import launch_review as LR  # noqa: E402
 from brambleloop.gateway import anthropic as gw  # noqa: E402
 from brambleloop.visual import inspect as I  # noqa: E402
 
+# Activation now requires the image_vision gate open (delta review N2). These tests run with it
+# open unless a test says otherwise; `test_n2_*` closes it explicitly.
+_REAL_VISION_OPEN = LR.vision_open
+LR.vision_open = lambda db: True
+
 MODEL = "claude-sonnet-5"
 T0 = datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
 _N = [0]
@@ -292,9 +297,11 @@ def test_the_ceiling_reverts_when_the_batch_completes():
     for release in LR.launch0_releases():
         slug, version = release.split("@", 1)
         LR.review_started(db, slug, version)
+        with LR.reviewing(LR.BATCH_ID, release, _release_frames(db, release)):
+            _describe_call(db)                    # a real (reserved) review call
         LR.review_finished(db, slug, version, unreviewed=[])
     st = _ceiling_is_back(db, T0)
-    assert st["status"] == LR.COMPLETED
+    assert st["status"] == LR.COMPLETED and st["releases_reviewed"] == st["releases_total"]
     with db.session() as s:
         assert s.scalar(select(AuditLog).where(AuditLog.action == LR.ACTION_CLOSED)) is not None
 
@@ -390,6 +397,78 @@ def test_a_model_reservation_then_a_continuity_export_succeeds():
     _describe_call(db)                                   # a model reservation
     out = continuity.export(db, os.path.join(_TMP, f"export{_N[0]}"))
     assert out.tables and "launch_review_batches" in {t.name for t in out.tables}, out
+
+
+# ---- delta review N2 -------------------------------------------------------------------------
+
+def test_n2_activation_is_refused_while_the_vision_gate_is_closed():
+    db = _db()
+    _frames(db)
+    LR.vision_open = lambda db: False
+    try:
+        LR.activate(db, by="owner", stepped_up=True, now=T0)
+        raise AssertionError("activated with the vision gate closed")
+    except LR.LaunchReviewRefused as exc:
+        assert "image_vision" in str(exc)
+    finally:
+        LR.vision_open = lambda db: True
+    assert _REAL_VISION_OPEN(_db()) is not True              # a fresh database: closed
+
+
+def test_n2_a_release_with_no_review_call_is_not_counted_as_reviewed():
+    db = _db()
+    _activated(db)
+    release = LR.launch0_releases()[0]
+    slug, version = release.split("@", 1)
+    LR.review_started(db, slug, version)
+    LR.review_finished(db, slug, version, unreviewed=["1", "2"])   # every call refused
+    st = LR.state(db, now=T0)
+    assert st["releases"][release] == "pending" and st["releases_reviewed"] == 0
+    assert st["status"] == LR.OPEN
+
+
+def test_n2_a_batch_that_spent_nothing_is_unused_and_can_be_reactivated_in_its_expiry():
+    db = _db()
+    first = _activated(db)
+    for release in LR.launch0_releases():                 # every attempt interrupted, CA$0
+        slug, version = release.split("@", 1)
+        LR.review_started(db, slug, version)
+    LR.run(db, lambda inputs, key: None)                   # marks them interrupted
+    st = LR.state(db, now=T0)
+    assert st["status"] == LR.UNUSED and st["committed_cad"] == 0
+    again = LR.activate(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
+    assert again["status"] == LR.OPEN and again["expires_at"] == first["expires_at"]
+    try:
+        LR.activate(db, by="owner", stepped_up=True, now=T0 + timedelta(days=1))
+        raise AssertionError("an open batch was activated again")
+    except LR.LaunchReviewRefused:
+        pass
+
+
+def test_n2_a_stuck_queued_release_is_requeued_and_never_blocks_the_batch():
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+
+    db = _db()
+    _activated(db)
+    release = LR.launch0_releases()[0]
+    slug, version = release.split("@", 1)
+    with db.session() as s:
+        s.add(Job(agent="publishing", job_type="assets.build", status=JobStatus.DONE,
+                  inputs={"slug": slug, "version": version, "cir": {}}))
+    keys = []
+
+    def enqueue(inputs, key):
+        keys.append(key)
+        return JobQueue(db).enqueue("publishing", "assets.build", inputs, idempotency_key=key,
+                                    max_attempts=1)
+
+    LR.run(db, enqueue)
+    assert keys == [f"{LR.BATCH_ID}:{release}"]
+    with db.session() as s:                                # the batch build died early
+        s.scalar(select(Job).where(Job.idempotency_key == keys[0])).status = JobStatus.DEAD
+    out = LR.run(db, enqueue)
+    assert out["requeued"] == [release] and keys[-1] == f"{LR.BATCH_ID}:{release}:2"
 
 
 if __name__ == "__main__":

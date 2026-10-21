@@ -63,8 +63,13 @@ def test_the_reason_function_agrees_with_the_server_rules():
     assert m, "activateBlockedReason not found"
     fn = m.group(0).replace("export function", "function")
     cases = [
-        ({"status": "not_activated", "frames_ready": True}, True, ""),
-        ({"status": "not_activated", "frames_ready": True}, False, "Step-up needed first."),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": True}, True, ""),
+        ({"status": "unused", "frames_ready": True, "vision_open": True}, True, ""),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": True}, False,
+         "Step-up needed first."),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": False}, True,
+         "image-vision gate is closed"),
+        ({"status": "not_activated", "frames_ready": True}, True, "image-vision gate is closed"),
         ({"status": "not_activated", "frames_ready": False,
           "missing_releases": ["market-basket-small@1.2.0"]}, True, "Frames are not yet built"),
         ({"status": "not_activated"}, True, "Frames are not yet built"),   # unknown: refused
