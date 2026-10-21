@@ -12,6 +12,8 @@
 #   REMOTE=origin (default)
 #   VERIFY_DEPLOY=0                          (skip the post-push wait; default 1)
 #   READBACK=0                               (skip the per-feature readback; default 1, exit 5 on fail)
+#   AUTO_ROLLBACK=0                          (report a P0 readback regression, exit 6, instead of
+#                                             rolling back to the predecessor; default 1, F-381)
 #   DEPLOY_VERIFY_TIMEOUT=900 DEPLOY_VERIFY_INTERVAL=15   (seconds)
 #
 # RELENG (2026-10-11): after pushing, ops/verify_deploy.py polls production /health until
@@ -98,9 +100,29 @@ if [ ! -f "$top/ops/readback.py" ]; then
   exit 0
 fi
 rb=0
-python3 "$top/ops/readback.py" --sha "$sha" || rb=$?
+rb_out=${READBACK_JSON:-$(mktemp)}
+python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_out" || rb=$?
 if [ "$rb" -ne 0 ]; then
   echo "deploy.sh: DEPLOYED $sha but the production readback did not pass (readback exit $rb)" >&2
+  # W4-FMBATCH1 (F-381): the failure's severity decides containment. A P0 regression (safety,
+  # spend ceilings, the runtime itself, or production unreachable) is rolled back to the commit
+  # production ran before this push -- the rollback rehearsed above -- through the same guarded
+  # path; a P1 is fixed forward. AUTO_ROLLBACK=0 reports the decision without acting on it.
+  dec=0
+  python3 "$top/ops/rollback_decision.py" --readback "$rb_out" --previous "$deployed" || dec=$?
+  if [ "$dec" -eq 6 ]; then
+    if [ -n "$rollback_to" ]; then
+      echo "deploy.sh: P0 regression on the rollback $sha itself; NOT rolling back again (exit 6)" >&2
+      exit 6
+    fi
+    if [ "${AUTO_ROLLBACK:-1}" = "0" ] || [ -z "$deployed" ]; then
+      echo "deploy.sh: P0 regression on $sha: roll back with ops/deploy.sh --rollback-to $deployed (AUTO_ROLLBACK=0 or no predecessor; exit 6)" >&2
+      exit 6
+    fi
+    echo "deploy.sh: P0 regression on $sha: rolling back to $deployed" >&2
+    exec "$top/ops/deploy.sh" --rollback-to "$deployed" \
+      --reason "automatic containment: P0 post-deploy readback failure on $sha" --deployed "$sha"
+  fi
   exit 5
 fi
 echo "deploy.sh: DEPLOYED $sha (readback PASS)"
