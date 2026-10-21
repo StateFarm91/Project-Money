@@ -490,3 +490,26 @@ Tests: `test_a_failure_in_one_product_does_not_stop_an_unrelated_compliant_produ
 
 R1 and F1 mean stale-artefact incidents now count only genuine staleness, so the systemic halt trips only on real
 widespread staleness.
+
+### Run 3 (2026-10-21, on a46ac23 and c97ccf1, testslot + venv-integ4, one suite at a time)
+
+All suites pass, after the two fixes noted under the table. Counts:
+
+| suites | results |
+|---|---|
+| this branch | test_w4_listready 24, test_w4_launch_review 13, test_w4_owner_observations 3, test_w4_launch_review_card 7 |
+| required set | test_vacuity 8, test_launch 28, test_cost_governance_wave2 39, test_search_hero_publish 4, test_cert_listing_frames 6, test_v11_autonomy_timeline 6 |
+| sentinel and incidents | test_artefacts 23, test_rebuild_graph 10, test_provenance_write_path 19, test_w3_k7_ops_truth 16, test_w4_owner_incidents 6 |
+| chain and gates | test_cert_publish_gates 18, test_cert_rebuild_chain 10, test_shadow 10 |
+| Etsy surfaces | test_k8_shop_cx 17, test_etsy_surfaces 53, test_w4_firstsale2_surfaces 7, test_w4_etsysurf 8 |
+| spend, routes, PWA | test_rc1_spend 20, test_model_spend_paths 12, test_route_auth_default_deny 7, test_customer_data_auth 9, test_v11_pwa_static 82, test_v11_pwa_browser 219/0 |
+| long suites, once each | **test_product_run 36/36** (2371 s; the run-1 failure is fixed); **test_acceptance_gates 23/23** (1204 s) |
+
+**Two failures in this run, both caused by this branch and both fixed in c97ccf1:**
+- **test_vacuity** flagged a loop over a possibly empty iterable in my card test. A length assertion was added.
+- **test_cost_governance_wave2** failed 4 tests: `gate.certified` is now read by name (F5) with no retention decision. A
+  `windowed` decision was recorded in `ops.retention.KNOWN_READ_ACTIONS`.
+
+Both suites were re-run after the fix: test_vacuity 8/8, test_cost_governance_wave2 39/39.
+
+**Not run:** test_cert_wiring (still on hold) and any full suite.
