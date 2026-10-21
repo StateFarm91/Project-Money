@@ -374,6 +374,24 @@ def test_the_run_queues_each_release_once_and_never_resends_an_interrupted_one()
     assert third["interrupted"] == [releases[0]] and len(queued) == 2
 
 
+def test_a_model_reservation_then_a_continuity_export_succeeds():
+    """Integrator defect: the budget path imports this module, registering its tables in
+    Base; continuity.export then read a table no process had created. They are created at
+    boot (`Database.create_all`) now."""
+    from brambleloop.core import continuity
+
+    _N[0] += 1
+    db = Database(f"sqlite:///{_TMP}/export{_N[0]}.db")
+    db.create_all()
+    Registry(db).seed_defaults()
+    from sqlalchemy import inspect
+    assert {"launch_review_batches", "launch_review_calls"} <= set(inspect(db.engine)
+                                                                    .get_table_names())
+    _describe_call(db)                                   # a model reservation
+    out = continuity.export(db, os.path.join(_TMP, f"export{_N[0]}"))
+    assert out.tables and "launch_review_batches" in {t.name for t in out.tables}, out
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

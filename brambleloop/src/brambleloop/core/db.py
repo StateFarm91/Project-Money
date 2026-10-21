@@ -161,6 +161,10 @@ class Database:
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
         from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
         from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
+        # W4-LISTREADY: the launch image-review batch tables. `gateway.anthropic` imports this
+        # module on every reservation, which registers them in Base; created here so every
+        # process has them (continuity.export walks every registered table).
+        from ..finance import launch_review as _launch_review  # noqa: F401
         # REL2 tables, created at boot rather than only lazily on first use (W4-INTEG3):
         # etsy_webhook_refusals rides in etsy_webhooks above; the brief cursors live here.
         from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors
