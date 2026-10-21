@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T11:08:45.519406+00:00",
+ "generated_at": "2026-10-21T04:53:17.112680+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,9 +10,9 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 115,
-  "handlers": 135,
-  "agents": 30,
+  "cadences": 116,
+  "handlers": 138,
+  "agents": 31,
   "follow_on_edges": 62
  },
  "departments": [
@@ -1118,22 +1118,26 @@
     "listing",
     "orchestrator",
     "pricing",
-    "store_operator"
+    "store_operator",
+    "storefront_director"
    ],
    "charter_agents": [
     "listing",
     "store_operator",
-    "pricing"
+    "pricing",
+    "storefront_director"
    ],
    "authority": {
     "generatable": [
      "seasonal.remerchandising",
      "seo.cycle",
+     "storefront.review",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.remerchandising": "listing",
      "seo.cycle": "listing",
+     "storefront.review": "storefront_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1193,6 +1197,12 @@
       "name": "store_live_drift",
       "agent": "orchestrator",
       "job_type": "store.live_drift",
+      "period_seconds": 86400
+     },
+     {
+      "name": "storefront_review",
+      "agent": "storefront_director",
+      "job_type": "storefront.review",
       "period_seconds": 86400
      },
      {
@@ -1260,7 +1270,8 @@
     ],
     "overdue_cadence_catch_up": [
      "seasonal.remerchandising",
-     "seo.cycle"
+     "seo.cycle",
+     "storefront.review"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": [
@@ -1274,6 +1285,7 @@
      "brambleloop.runtime.listing_outcomes",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
      "brambleloop.seo.handler"
     ],
@@ -1293,11 +1305,12 @@
      "seo.cycle",
      "store.activate",
      "store.live_drift",
-     "store.publish"
+     "store.publish",
+     "store.update",
+     "storefront.review"
     ],
     "permitted_without_handler": [
-     "pricing.experiment",
-     "store.update"
+     "pricing.experiment"
     ]
    },
    "durable_output": [
@@ -1350,7 +1363,9 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [],
+   "never_woken_job_types": [
+    "store.update"
+   ],
    "owner_one_shots": {}
   },
   {
@@ -1663,6 +1678,7 @@
     "ads",
     "experiment_steward",
     "growth",
+    "storefront_director",
     "swarm_steward"
    ],
    "charter_agents": [
@@ -1795,11 +1811,13 @@
     "handler_modules": [
      "brambleloop.runtime.growth_ops",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.v11_wiring"
     ],
     "executable_job_types": [
      "ads.adjust",
      "ads.campaign",
+     "content.draft",
      "growth.conclude",
      "growth.distribution",
      "growth.experiments",
@@ -1809,9 +1827,7 @@
      "marketing.ads_readiness",
      "marketing.schedule"
     ],
-    "permitted_without_handler": [
-     "content.draft"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "distribution plans",
@@ -1851,7 +1867,9 @@
      "closure_kind": "OWNER-GATED"
     }
    ],
-   "never_woken_job_types": [],
+   "never_woken_job_types": [
+    "content.draft"
+   ],
    "owner_one_shots": {}
   },
   {
@@ -2415,29 +2433,9 @@
   },
   {
    "kind": "permission_without_handler",
-   "agent": "growth",
-   "job_types": [
-    "content.draft"
-   ],
-   "department": [
-    "growth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
    "agent": "pricing",
    "job_types": [
     "pricing.experiment"
-   ],
-   "department": [
-    "store_commerce"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "store_operator",
-   "job_types": [
-    "store.update"
    ],
    "department": [
     "store_commerce"
