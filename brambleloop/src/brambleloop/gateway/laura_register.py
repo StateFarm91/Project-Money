@@ -131,11 +131,13 @@ REASONS: dict[str, str] = {
 class ReplyUnavailable(Exception):
     """No reply. Carries a fixed code only -- never prompt, reply or provider text."""
 
-    def __init__(self, code: str):
+    def __init__(self, code: str, *, sent: bool = False):
         code = code if code in REASONS else "PROVIDER_ERROR"
         super().__init__(code)
         self.code = code
         self.reason = REASONS[code]
+        #: Whether the request had already left for the provider (f87e430 review R-3).
+        self.sent = bool(sent)
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +434,8 @@ def reply(db, *, system: str, user: str, registry=None, now: datetime | None = N
     except ReplyUnavailable:
         raise
     except Exception:  # noqa: BLE001 - nothing private may ride out on an exception
-        raise ReplyUnavailable("PROVIDER_ERROR") from None
+        # Unknown where it failed: count it as possibly sent (audit over-reports, never under).
+        raise ReplyUnavailable("PROVIDER_ERROR", sent=True) from None
 
 
 def _venice_live(db, model: str) -> dict | None:
@@ -558,7 +561,7 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
         except BudgetExceeded:
             pass
         raise ReplyUnavailable(venice.reply_code(exc) if is_venice
-                               else "PROVIDER_ERROR") from None
+                               else "PROVIDER_ERROR", sent=True) from None
     elapsed = (time.time() - started) * 1000
     try:
         text = parse(response.text)
@@ -585,10 +588,10 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
                                reservation=reservation, cost_override=override,
                                billing=basis)
     except BudgetExceeded:
-        raise ReplyUnavailable("BUDGET") from None
+        raise ReplyUnavailable("BUDGET", sent=True) from None    # reconciled after the call
     if mismatch:
-        raise ReplyUnavailable("MODEL_MISMATCH")
+        raise ReplyUnavailable("MODEL_MISMATCH", sent=True)
     if not ok:
-        raise ReplyUnavailable("MALFORMED")
+        raise ReplyUnavailable("MALFORMED", sent=True)
     return {"text": text, "model_ref": f"{provider.name}/{response.model or model}"[:120],
             "cost_cad": round(float(cost), 6), "tokens_in": in_tok, "tokens_out": out_tok}

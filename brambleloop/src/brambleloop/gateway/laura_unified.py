@@ -442,7 +442,9 @@ SCREEN: tuple[tuple[str, re.Pattern], ...] = (
         r"(?i)\b(?:biops\w*|chemo\w*|cancer|tumou?r|malignan\w*|diagnos\w*|pregnan\w*|"
         r"miscarr\w*|hospital\w*|clinic|doctor|dr\.|nurse|therap\w*|psychiatr\w*|"
         r"medicat\w*|prescri\w*|symptom\w*|surger\w*|appointment|illness|sick|pain|"
-        r"depress\w*|anxiety|disorder|disease|injur\w*|pharmac\w*|vaccin\w*|mental)\b")),
+        r"depress\w*|anxiety|disorder|disease|injur\w*|pharmac\w*|vaccin\w*|mental|"
+        r"fever\w*|vomit\w*|throwing up|threw up|nause\w*|sleep\w*|slept|insomnia|"
+        r"exhaust\w*|migraine|flu|covid)\b")),
     ("legal", re.compile(
         r"(?i)\b(?:lawyer|attorney|solicitor|divorc\w*|custody|court|lawsuit|sue|suing|"
         r"police|arrest\w*|charged|probation|visa|immigration|deport\w*|will and|"
@@ -455,7 +457,9 @@ SCREEN: tuple[tuple[str, re.Pattern], ...] = (
         r"bank account|tax return|bankrupt\w*|rent is|my rent)\b")),
     ("relationship", re.compile(
         r"(?i)\b(?:my (?:wife|husband|partner|mum|mom|dad|mother|father|son|daughter|kids?|"
-        r"sister|brother|friend|family|ex)|girlfriend|boyfriend|funeral|passed away|died)\b")),
+        r"sister|brother|friend|family|ex)|girlfriend|boyfriend|funeral|passed away|died|"
+        r"break-?up|broke up|split up|left me|moved out|dumped|cheat\w*|crying|cried|"
+        r"heartbr\w*|lonely|are done)\b")),
     ("contact", re.compile(
         r"[\w.+-]+@[\w-]+\.[\w.-]+|\+?\d[\d\s().-]{7,}\d|\b[A-Za-z]\d[A-Za-z][ -]?\d"
         r"[A-Za-z]\d\b|(?i:\b\d+\s+\w+\s+(?:st|street|ave|avenue|rd|road|blvd|drive|lane|"
@@ -467,12 +471,19 @@ SCREEN: tuple[tuple[str, re.Pattern], ...] = (
 )
 
 
+_BIZ_NOUN = (r"(?:shop|store|listings?|orders?|products?|business|company|sales|team|etsy|"
+             r"patterns?|catalog(?:ue)?|banners?|designs?|customers?|revenue|budget|brand|"
+             r"storefront|priorit\w*|department\w*|launch\w*)")
+# f87e430 review R-1: me/we/us/our count as personal too (outside a business noun), and so
+# does talk about oneself with the subject dropped ("Can't sleep…", "Barely slept…").
 _FIRST_PERSON = re.compile(
-    r"(?i)\b(?:i|i'm|i’m|im|i've|i’ve|i'd|i’d|i'll|i’ll|myself|"
-    r"my (?!(?:shop|store|listings?|orders?|products?|business|company|sales|team|etsy|"
-    r"patterns?|catalog(?:ue)?|banners?|designs?|customers?|revenue|budget|brand|"
-    r"storefront|priorit\w*)\b))\b")
-_CLAUSE = re.compile(r"[^.!?;:\n]+")
+    r"(?i)\b(?:i|i'm|i’m|im|i've|i’ve|i'd|i’d|i'll|i’ll|myself|me|we|we're|we’re|we've|"
+    r"us|ourselves|"
+    rf"my (?!{_BIZ_NOUN}\b)|our (?!{_BIZ_NOUN}\b))\b"
+    r"|^\s*(?:can'?t|cannot|couldn'?t|barely|been|feeling|felt|throwing|crying|missing)\b")
+# Clauses split on commas and conjunctions too, so a personal half cannot hide behind ","
+# or "and" (R-1).
+_CLAUSE = re.compile(r"[^.!?;:,\n]+?(?=(?:[.!?;:,\n]|\band\b|\bbut\b|\bthen\b|$))", re.I)
 
 
 def one_tap_business(text: str) -> bool:

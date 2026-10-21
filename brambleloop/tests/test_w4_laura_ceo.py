@@ -511,6 +511,16 @@ def test_ceo_model_switch_off_makes_no_model_call():
         c, csrf = H.session()
         rr = H.post(c, csrf, "/api/cc/laura/converse", {"question": "Hello Laura"})
         assert rr.status_code == 200 and rr.json()["model"]["source"] == "not_called", rr.text
+        # f87e430 review R-2: briefing questions too -- the briefing synthesis is a Business
+        # Laura model path -- with an Anthropic key present.
+        os.environ["ANTHROPIC_API_KEY"] = "test-dummy-not-a-key"
+        try:
+            for q in ("Brief me on the last 24 hours", "Give me my morning briefing"):
+                rr = H.post(c, csrf, "/api/cc/laura/converse", {"question": q})
+                assert rr.status_code == 200, rr.text
+                assert (rr.json().get("synthesis") or {}).get("source") != "model", rr.text
+        finally:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
         assert sent == []
     finally:
         gwa.AnthropicProvider._send = orig

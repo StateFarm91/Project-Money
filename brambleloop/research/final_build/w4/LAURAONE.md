@@ -253,6 +253,16 @@ Before rolling back below a release that contains this branch:
 
 Do not re-enable the register on the older release until you roll forward again.
 
+## 10c. Response to the review of f87e430 (NO BLOCKER)
+
+| Finding | Fix | Test |
+|---|---|---|
+| **R-1** (LOW) one tap still possible for personal text with no first-person word or no clause break | Clauses now also split on commas and on "and"/"but"/"then". `me/we/us/our` (outside business nouns) and subject-dropped self-talk ("Can't sleep…", "Throwing up…") count as personal. The health screen adds fever, vomiting, sleep and similar; the relationship screen adds breakup, moved out, left me and similar | `test_review_n1_personal_sentences_never_get_a_one_tap_offer` (now includes the review's 3 PoC sentences) |
+| **R-2** (LOW) briefing synthesis called Anthropic with the CEO switch OFF while the response said `not_called` | `laura_briefing.synthesize` is behind `BRAMBLELOOP_LAURA_CEO_MODEL` too. OFF means the deterministic briefing and no call, so `not_called` is now true. The briefing suites opt into ON for the model behaviour | `test_w4_laura_ceo.py::test_ceo_model_switch_off_makes_no_model_call` (adds two briefing questions with an Anthropic key set; no `_send`) |
+| **R-3** (LOW) a feed sent by a reply that failed post-send reconciliation wrote no audit row | `ReplyUnavailable` carries `sent`, set by the reply path itself (post-send `BUDGET`, `MALFORMED`, `MODEL_MISMATCH` and provider failures are `sent=True`). The audit decision uses that flag, not a code list | `test_review_r3_feed_audit_row_written_when_reconciliation_fails_after_the_send` |
+| R-10 (INFO) nits | `boundary.redact` docstring corrected. An offer overlapping *other* private turns is relabelled `personal`, whether it was business or mixed; its own source turn is not counted against it | the mixed-wording test |
+| R-4..R-9 (INFO) | Not assigned in this round | OPEN (in the review file) |
+
 ## 11. Not done / notes
 
 - The four register strings were never edited here. They come from the owner's commit fcb2bcd, merged unchanged.

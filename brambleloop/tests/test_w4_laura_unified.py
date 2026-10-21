@@ -1512,15 +1512,19 @@ def test_integ5_the_adult_register_is_never_sent_to_a_non_venice_transport():
 
 def test_review_n1_personal_sentences_never_get_a_one_tap_offer():
     samples = ("Since Mark moved out I can barely sleep; how are shop orders this week?",
-               "I've been throwing up all night with a fever; what were sales overnight?")
-    assert len(samples) == 2
+               "I've been throwing up all night with a fever; what were sales overnight?",
+               # f87e430 review R-1: no first-person word, a comma instead of a semicolon
+               "Throwing up all night with a fever, what were sales overnight?",
+               "Can't sleep since Mark moved out, how are shop orders this week?",
+               "Mark left me last night, how are shop orders this week?")
+    assert len(samples) == 5
     for text in samples:
         db = _db()
         sid = _open(db)
         biz = Biz()
         with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
             out = _turn(db, sid, text, biz)
-        assert out["label"] == "business" and out["intent"]["screen"] == [], out["intent"]
+        assert out["label"] == "business", out["intent"]
         assert out["crossing"]["requires_stepup"] is True, (text, out["crossing"])
         assert text not in biz.blob() and "sleep" not in biz.blob() and "fever" not in biz.blob()
         with unified(Venice()):
@@ -1738,6 +1742,33 @@ def test_review_i5_a_substituted_model_answer_is_never_used():
         except LR.ReplyUnavailable as exc:
             assert exc.code == "MODEL_MISMATCH", exc.code
     assert [c for c in _rows(db, CostEntry) if c.agent == "laura_private"]   # still billed
+
+
+
+def test_review_r3_feed_audit_row_written_when_reconciliation_fails_after_the_send():
+    from brambleloop.agents.registry import BudgetExceeded
+    from brambleloop.gateway.model_gateway import ModelGateway
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    mock = Venice(replies=[R[0]])
+    orig = ModelGateway._record
+
+    def over(self, prompt, *a, **k):
+        if getattr(prompt, "ref", "") == LR.PURPOSE:
+            raise BudgetExceeded("reconciled above the day after the call")
+        return orig(self, prompt, *a, **k)
+    ModelGateway._record = over
+    try:
+        with unified(mock, **{U.BUSINESS_TO_VENICE_ENV: "1"}):
+            out = _turn(db, sid, EVERYDAY_TURN)
+    finally:
+        ModelGateway._record = orig
+    assert out["reason"] == "BUDGET" and len(mock.calls) == 1, out
+    assert VC.FORMAT in mock.user(0)                               # the pack left
+    (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
+    assert row.detail["outcome"] == "BUDGET"
 
 
 if __name__ == "__main__":

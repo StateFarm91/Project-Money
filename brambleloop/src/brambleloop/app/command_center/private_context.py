@@ -440,7 +440,7 @@ def unified_view(db, session_public_id: str, *, limit: int = UNIFIED_VIEW_TURNS)
     return _call(run)
 
 
-def _private_texts(db, principal) -> list[str]:
+def _private_texts(db, principal, *, exclude_turn: str | None = None) -> list[str]:
     """Plain strings the leak guard compares against: EVERY retained non-business turn (owner
     and Laura; the whole store, not a window), every private note (key and text) and every
     crossing request not approved. Built here, used for one check, never stored or logged."""
@@ -448,6 +448,8 @@ def _private_texts(db, principal) -> list[str]:
 
     out: list[str] = []
     for r in store.conversation(db, principal, limit=None):
+        if r.record_id == exclude_turn:
+            continue
         if (r.label or "private") != "business":
             out.append(r.value.reveal())
     for f in store.facts(db, principal, history=True):
@@ -488,13 +490,6 @@ def _venice_context(db, principal, owner_turn_id: str, *, with_feed: bool = Fals
         pack = venice_context.build(db)
         facts = [(FEED_NOTE_KEY, pack["text"]), *facts]
     return facts, turns[-CONTEXT_TURNS:], pack
-
-
-#: Reply-path refusals decided BEFORE any request is sent (nothing reached Venice).
-PRE_CALL_CODES = frozenset({
-    "REGISTER_OFF", "SPEND_UNAUTHORISED", "SPEND_CEILING", "BUDGET", "NO_PROVIDER",
-    "PROVIDER_DOWN", "JOB_SCOPE", "REFUSED", "RELEASE_UNPROVEN", "PROVIDER_NOT_SELECTED",
-    "MODEL_NOT_ALLOWED", "REGISTER_NEEDS_VENICE", "UNIFIED_NEEDS_VENICE"})
 
 
 def _venice_selected() -> bool:
@@ -540,7 +535,9 @@ def _unified_venice(db, principal, owner_turn_id: str, text: str, label: str) ->
     except laura_register.ReplyUnavailable as exc:
         # Delta review N-4: the audit row says "sent" only when the request actually left
         # (a provider-side failure after sending), never for a pre-call refusal.
-        if pack is not None and exc.code not in PRE_CALL_CODES:
+        # f87e430 review R-3: classified by whether the request LEFT (set by the reply path
+        # itself), not by a code list -- a post-send budget reconciliation still counts.
+        if pack is not None and getattr(exc, "sent", False):
             venice_context.record_sent(db, pack, outcome=exc.code)
         return {"reply": None, "reply_status": "UNAVAILABLE", "reason": exc.code,
                 "why": exc.reason}
@@ -567,11 +564,14 @@ def _request_crossing(db, principal, source_turn_id: str, offer: dict,
 
     # Defence in depth: a one-tap offer whose text overlaps the private conversation (the leak
     # guard) is upgraded to need a fresh step-up, and the owner is told why.
-    overlaps = bool(laura_unified.leak_check(offer["text"], _private_texts(db, principal),
-                                             allowed=boundary.approved_texts(db)))
+    # Overlap with OTHER private conversation (the offer quotes its own source turn by
+    # construction, so that turn is not counted against it).
+    overlaps = bool(laura_unified.leak_check(
+        offer["text"], _private_texts(db, principal, exclude_turn=source_turn_id),
+        allowed=boundary.approved_texts(db)))
     stepup = bool(offer["stepup"]) or overlaps
     kind = offer.get("kind") or "personal"
-    if overlaps and kind == "business":
+    if overlaps and kind in ("business", "mixed"):
         kind = "personal"          # it overlaps our private conversation: say so honestly
     xid = store.request_crossing(db, principal, source_turn_id, offer["text"],
                                  sensitive=sensitive, origin=offer["origin"], stepup=stepup,
