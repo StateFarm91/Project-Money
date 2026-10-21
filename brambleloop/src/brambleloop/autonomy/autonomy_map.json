@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T21:26:51.485568+00:00",
+ "generated_at": "2026-10-21T00:58:34.272564+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -11,9 +11,9 @@
  "counts": {
   "departments": 11,
   "cadences": 115,
-  "handlers": 135,
+  "handlers": 136,
   "agents": 30,
-  "follow_on_edges": 64
+  "follow_on_edges": 66
  },
  "departments": [
   {
@@ -994,12 +994,14 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "assets.build",
+     "assets.launch_review",
      "creative.image_benchmark",
      "listing.draft",
      "owner/API route _startup",
      "physical.record",
      "runtime/pipeline.py:_listing_parity",
      "runtime/release.py:_intake_photo",
+     "runtime/release.py:enqueue",
      "runtime/release.py:follow",
      "visual.image_production"
     ]
@@ -1039,6 +1041,7 @@
     ],
     "executable_job_types": [
      "assets.build",
+     "assets.launch_review",
      "assets.model_photography",
      "assets.owned_photography",
      "assets.physical_upgrade",
@@ -1104,6 +1107,7 @@
    ],
    "never_woken_job_types": [],
    "owner_one_shots": {
+    "assets.launch_review": "owner-authorised Launch-0 image-review batch, CA$7.07 (D-W4-LAUNCH-VISION-BATCH, Command Center step-up)",
     "creative.model_freeze": "freezes the owner-approved model pack (owner approval 2026-09-22)",
     "creative.photoreal_calibration": "owner-authorised one vision call (2026-09-22)",
     "visual.controlled_experiment": "owner-authorised controlled visual experiment (frozen definition, Command Center step-up, W-VISNEXT)",

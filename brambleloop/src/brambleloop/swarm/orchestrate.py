@@ -774,6 +774,8 @@ JOB_BANDS: dict[str, str] = {
     # INTEG4: an owner-authorised controlled visual experiment is learning with no committed
     # value (its output is labelled EXPERIMENT and never publishes): exploration.
     "visual.controlled_experiment": "exploration",
+    # W4-LISTREADY: the owner's launch image-review batch reviews the listings that sell.
+    "assets.launch_review": "proven_winner",
     "listing.draft": "proven_winner",
     "listing.seo": "proven_winner",
     "pricing.position": "proven_winner",

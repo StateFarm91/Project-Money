@@ -1,3 +1,20 @@
+> **2026-10-21 — W4-LISTREADY (branch `claude/w4-LISTREADY`, NOT deployed; production b931d17 SHADOW).** Production has
+> certified nothing since 2026-10-11. A P0 `systemic-halt:publication`, built only from stale-artefact incidents, halts every
+> `gate.certify`. Fixed at the roots, no gate changed:
+> - R1: the sentinel judges an artefact by its own release; an older release's artefacts are `superseded`. Publication refuses a
+>   superseded release.
+> - R3: a halted certification is retried once per halt episode.
+> - R4: stale marketing is rebuildable, while publication still refuses.
+> - R5: the six Launch-0 releases never drafted are seeded, one per `chain.rebuild`.
+> - chain.rebuild's design-comparison false positive is fixed.
+>
+> Etsy's real taxonomy names have been read: the matcher lands on `Craft Supplies & Tools > Patterns & How To > Patterns &
+> Blueprints`. CHOSEN only if Etsy's schema offers "Crochet". That is UNKNOWN until b997efd's refresh.
+>
+> Owner-approved batch D-W4-LAUNCH-VISION-BATCH (CA$7.07 total, CA$8.00/day for this batch only, 14-day expiry, reverts to
+> CA$1.00 in code) has been built and is NOT activated. It is activated by an owner step-up after deploy.
+> Report: `research/final_build/w4/LISTREADY.md`.
+
 > **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3
 > (D-W4-CONTRACT3) letters every word Launch-0 uploads at 58 px / titles 66 px on 2000 (>= 11.2 px at display size);
 > the verifier re-letters the new lines exactly, nothing relaxed; re-chained, all 8 Launch-0 products' uploaded images

@@ -499,11 +499,33 @@ def handle_assets_build(ctx: JobContext) -> dict:
 
     from ..visual.frame_role import expected_labels
 
-    review = _review_frames(ctx, slug, version, frames, frame_paths,
-                            shas={f["position"]: f["sha256"] for f in stored_frames},
-                            families=product_families(cir), truth=truth,
-                            plan_findings=list(structural),
-                            labels=expected_labels(frames, cir, twin))
+    # W4-LISTREADY (D-W4-LAUNCH-VISION-BATCH): on a job the owner's launch image-review batch
+    # enqueued, the review's calls are that batch's -- its caps, its frame scope, its expiry
+    # (`finance.launch_review`). The review itself, and the gate that reads it, are unchanged.
+    from contextlib import nullcontext
+
+    from ..finance import launch_review
+
+    batch_frames = (launch_review.scoped_frames(ctx.db, slug, version)
+                    if ctx.job.inputs.get(launch_review.INPUT_KEY) else None)
+    review_scope = nullcontext()
+    if batch_frames is not None:
+        launch_review.review_started(ctx.db, slug, version)
+        review_scope = launch_review.reviewing(
+            str(ctx.job.inputs[launch_review.INPUT_KEY]), f"{slug}@{version}",
+            [{"position": f["position"], "role": f["role"], "sha256": f["sha256"]}
+             for f in stored_frames])
+    with review_scope:
+        review = _review_frames(ctx, slug, version, frames, frame_paths,
+                                shas={f["position"]: f["sha256"] for f in stored_frames},
+                                families=product_families(cir), truth=truth,
+                                plan_findings=list(structural),
+                                labels=expected_labels(frames, cir, twin))
+    if batch_frames is not None:
+        launch_review.review_finished(
+            ctx.db, slug, version,
+            unreviewed=[k for k, v in review["verdicts"].items()
+                        if v.get("verdict") != "clear"])
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -3035,6 +3057,27 @@ def handle_image_production(ctx: JobContext) -> dict:
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
     ctx.audit("visual.image_production", artifact=out.get("run_key"),
               detail={k: out.get(k) for k in ("stage", "status", "next", "skipped", "why")})
+    return out
+
+
+@handlers.register("assets.launch_review")
+def handle_launch_review(ctx: JobContext) -> dict:
+    """The owner's batch-scoped Launch-0 image review (D-W4-LAUNCH-VISION-BATCH).
+
+    Enqueued only by the owner's step-up activation. It queues each scoped release's
+    `assets.build` once, marked for the batch, with a single attempt, so the frame review runs
+    under the batch's caps and scope and a bill-unknown call is never resent. It spends nothing
+    itself; the batch closes by itself when complete, expired or exhausted."""
+    from ..finance import launch_review
+
+    def enqueue(inputs, key):
+        return ctx.enqueue("publishing", "assets.build", inputs, idempotency_key=key,
+                           max_attempts=1)
+
+    out = launch_review.run(ctx.db, enqueue)
+    ctx.audit("launch_review.run", artifact=launch_review.BATCH_ID,
+              detail={k: out.get(k) for k in ("ran", "why", "queued", "interrupted",
+                                               "no_completed_build")})
     return out
 
 

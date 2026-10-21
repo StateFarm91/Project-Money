@@ -614,6 +614,44 @@ def make_router(db) -> APIRouter:
                     detail={"action": "experiments.run", **out})
         return ok(out)
 
+    # ---- the owner's Launch-0 image-review batch (W4-LISTREADY, D-W4-LAUNCH-VISION-BATCH) ----
+    # Owner session for both; step-up to activate. Activation fixes the frame scope from the
+    # stored Launch-0 frames, then enqueues the one batch run. Nothing else raises a ceiling.
+
+    @router.get("/launch-review")
+    def launch_review_state(request: Request):
+        from ...finance import launch_review
+
+        return ok(launch_review.state(db))
+
+    @router.post("/launch-review/activate")
+    async def launch_review_activate(request: Request):
+        from ...finance import launch_review
+        from ...queue.durable import DuplicateJob, JobQueue
+
+        await body_of(request)
+        auth.require_stepup(db, request, "launch_review.activate")
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: launch_review.activate(
+                db, by=actor(request), stepped_up=True))
+        except launch_review.LaunchReviewRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        try:
+            job = JobQueue(db).enqueue(launch_review.AGENT, launch_review.JOB_TYPE, {},
+                                       idempotency_key=f"{launch_review.BATCH_ID}:run",
+                                       max_attempts=1)
+            out["run_job_id"] = job.id
+        except DuplicateJob as exc:
+            out["run_job_id"] = exc.existing_id
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "launch_review.activate",
+                            **{k: out.get(k) for k in ("batch_id", "status", "frames",
+                                                       "total_cap_cad", "daily_cap_cad",
+                                                       "expires_at", "run_job_id")}})
+        return ok(out)
+
     @router.get("/experiments/runs/{run_id}/card")
     def experiments_card(run_id: int, request: Request):
         from ...experiments import controlled

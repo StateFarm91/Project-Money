@@ -165,7 +165,11 @@ DEFAULT_AGENTS: list[dict] = [
                             # C-60 (#201): identity drift as a series.
                             "visual.identity_drift",
                             # #5 / #43: fast/flagship lane routing and tester plan.
-                            "gate.lanes"],
+                            "gate.lanes",
+                            # W4-LISTREADY: the owner's step-up launch image-review batch
+                            # (D-W4-LAUNCH-VISION-BATCH). The ceiling below is unchanged;
+                            # the batch's own caps apply only to its calls.
+                            "assets.launch_review"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="asset_truth", description="Blocks imagery that misrepresents the pattern",
