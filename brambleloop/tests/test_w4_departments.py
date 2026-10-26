@@ -197,6 +197,22 @@ def test_a_failed_compile_is_revised_once_and_goes_back_through_the_compiler():
     Registry(db).authorize("crochet_engineer", "cir.revise")
 
 
+def test_i3_a_negative_revision_input_cannot_lift_the_bound():
+    bad = _bad_panel(50)
+    db = _db()
+    first = _run(db, "validator", "cir.compile", {"cir": bad.to_dict(), "revision": -5})
+    assert first["revise_job"]
+    with db.session() as s:
+        assert s.get(Job, first["revise_job"]).inputs["revision"] == 0
+    res = _run(db, "crochet_engineer", "cir.revise", {"cir": bad.to_dict(), "revision": -5})
+    assert res.get("revised"), res
+    with db.session() as s:
+        nxt = s.scalars(select(Job).where(Job.job_type == "cir.compile")).all()
+        assert all(j.inputs.get("revision") in (None, -5, 1) for j in nxt), \
+            [j.inputs.get("revision") for j in nxt]
+        assert any(j.inputs.get("revision") == 1 for j in nxt)
+
+
 def test_an_unrepairable_failure_is_recorded_not_guessed():
     from brambleloop.cir.model import Op
     from brambleloop.core.models import AuditLog
@@ -238,6 +254,41 @@ def test_competitor_snapshot_is_aggregates_only_and_never_copies_content():
     assert secret not in blob and "example.invalid" not in blob
     assert set(g) <= intel_ops.ALLOWED_KEYS
     Registry(db).authorize("market_radar", "radar.competitor_snapshot")
+
+
+def test_l3_snapshot_aliases_the_benchmark_and_allowlists_inner_values():
+    from brambleloop.core.models import BenchmarkListing, OperatingReading
+    from brambleloop.runtime import intel_ops
+
+    db = _db()
+    shop_key = "mjs_off_the_hook_designs"
+    leak = "Rivals Secret Holiday Label"
+    with db.session() as s:
+        for i, (season, ptype) in enumerate((("Christmas", "1234"), (leak, "basket"),
+                                            ("", "their custom type"))):
+            s.add(BenchmarkListing(benchmark_key=shop_key, listing_ref=f"r{i}", pod="home",
+                                   price_cad=9.0, product_type=ptype, seasonal=season))
+    out = _run(db, "market_radar", "radar.competitor_snapshot", {})
+    assert out["groups"] == 1
+    with db.session() as s:
+        snap = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == intel_ops.READING)).payload
+    g = snap["groups"][0]
+    blob = repr(snap)
+    assert shop_key not in blob and "off_the_hook" not in blob and leak not in blob
+    assert "their custom type" not in blob
+    assert g["benchmark"] == intel_ops.benchmark_alias(shop_key)
+    assert g["benchmark"] == intel_ops.benchmark_alias(shop_key)      # stable, so deltas match
+    assert g["seasonal"] == {"Christmas": 1, intel_ops.OTHER: 1}
+    assert g["product_types"] == {"1234": 1, "basket": 1, intel_ops.OTHER: 1}
+    # the guard refuses a raw key or a foreign inner value even if the builder regressed
+    for bad in ({**g, "benchmark": shop_key}, {**g, "seasonal": {leak: 1}},
+                {**g, "product_types": {"their custom type": 1}}):
+        try:
+            intel_ops._assert_no_content({"groups": [bad]})
+            raise AssertionError(f"guard passed {bad}")
+        except ValueError:
+            pass
 
 
 def _certify(db, cir, slug=None):
@@ -358,9 +409,89 @@ def test_quality_sweep_reaches_the_coo_and_lauras_idle_priorities_without_laura_
     snap = generators.Snapshot.read(db, datetime.now(timezone.utc))
     cands = generators.provider_candidates(db, charters.BY_KEY["product_truth"], snap)
     assert [c.job_type for c in cands] == ["gate.quality"]
-    # once every release has a fresh re-verification there is nothing to offer
-    _run(db, "validator", "cir.twin", {"slug": cir.slug, "version": cir.version})
+    # L-4: one check's reading is not a fresh re-verification; all four must have run
+    ref = {"slug": cir.slug, "version": cir.version}
+    _run(db, "validator", "cir.twin", ref)
+    assert quality_ops.next_work(db) and "1 certified" in quality_ops.next_work(db)[0]["why"]
+    _run(db, "validator", "cir.reverse", ref)
+    _run(db, "asset_truth", "gate.asset_truth", ref)
+    assert quality_ops.next_work(db)                     # gate.policy has not run yet
+    out = _run(db, "policy", "gate.policy", ref)         # no listing: an UNKNOWN reading
+    assert out["ran"] is False and out["ok"] is None
+    # once every release has a reading from every check there is nothing to offer
     assert quality_ops.next_work(db) == []
+
+
+# ---- review of a14c9ef: L-2 and L-4 ---------------------------------------------------------
+
+def _simulate(results):
+    """Patch reverify to return the next item of `results` (a dict, or an exception)."""
+    real = quality_ops.reverify
+    it = iter(results)
+
+    def fake(db_, check, slug, version):
+        r = next(it)
+        if isinstance(r, Exception):
+            raise r
+        return {"check": check, **r}
+    quality_ops.reverify = fake
+    return real
+
+
+def test_l2_a_policy_reverify_incident_does_not_read_as_an_open_policy_risk():
+    from sqlalchemy import func
+
+    cir = _cir()
+    db = _db(cir)
+    real = _simulate([{"ok": False, "problems": ["SIMULATED: banned claim"]}])
+    try:
+        out = _run(db, "policy", "gate.policy", {"slug": cir.slug, "version": cir.version})
+    finally:
+        quality_ops.reverify = real
+    assert out["incident"]
+    with db.session() as s:
+        inc = s.get(Incident, out["incident"])
+        assert inc.signature.startswith("quality.reverify:listing-rules:"), inc.signature
+        # the exact predicate scale/evidence.py uses for `no_open_policy_risk`
+        assert s.scalar(select(func.count()).select_from(Incident).where(
+            Incident.resolved == False, Incident.signature.like("%policy%"))) == 0  # noqa: E712
+    for check in quality_ops.CHECKS:
+        assert "policy" not in quality_ops.signature(check, "s", "1")
+    ev = (ROOT / "src/brambleloop/scale/evidence.py").read_text()
+    assert 'Incident.signature.like("%policy%")' in ev    # the predicate this protects
+
+
+def test_l4_a_later_pass_resolves_the_reverify_incident():
+    cir = _cir()
+    db = _db(cir)
+    ref = {"slug": cir.slug, "version": cir.version}
+    real = _simulate([{"ok": False, "problems": ["SIMULATED: drift"]}, {"ok": True,
+                                                                         "problems": []}])
+    try:
+        bad = _run(db, "validator", "cir.reverse", ref)
+        good = _run(db, "validator", "cir.reverse", ref)
+    finally:
+        quality_ops.reverify = real
+    assert bad["incident"] and good["resolved"] == 1
+    with db.session() as s:
+        inc = s.get(Incident, bad["incident"])
+        assert inc.resolved is True and "later re-verification" in inc.detail["resolution"]
+        assert s.scalar(select(PatternVersion)).certified is True
+
+
+def test_l4_a_check_that_raises_is_recorded_as_a_finding():
+    cir = _cir()
+    db = _db(cir)
+    real = _simulate([RuntimeError("twin build exploded")])
+    try:
+        out = _run(db, "validator", "cir.twin", {"slug": cir.slug, "version": cir.version})
+    finally:
+        quality_ops.reverify = real
+    assert out["ok"] is False and out["raised"] is True and out["incident"]
+    assert "RuntimeError" in out["problems"][0]
+    with db.session() as s:
+        inc = s.get(Incident, out["incident"])
+        assert inc.severity == "P2" and inc.halts_publication is False
 
 
 if __name__ == "__main__":

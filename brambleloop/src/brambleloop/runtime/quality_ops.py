@@ -127,12 +127,42 @@ def _listing(db, slug: str, version: str) -> dict:
                  "price_cad": row.price_cad} if row is not None else {})
 
 
+# L-2 (review of a14c9ef): scale readiness reads `Incident.signature LIKE '%policy%'` as an open
+# policy risk. A detection-only re-verification incident must not flip that condition, so the
+# signature names each check by an alias without the substring "policy".
+SIGNATURE_ALIAS = {"cir.twin": "twin", "cir.reverse": "reverse",
+                   "gate.asset_truth": "asset-truth", "gate.policy": "listing-rules"}
+
+
+def signature(check: str, slug: str, version: str) -> str:
+    return f"quality.reverify:{SIGNATURE_ALIAS.get(check, check)}:{slug}@{version}"[:200]
+
+
+def _resolve(db, slug: str, version: str, check: str) -> int:
+    """L-4: a later passing re-verification closes the open incident for the same check
+    (and the pre-alias signature, so none is left open from before the rename)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    sigs = {signature(check, slug, version), f"quality.reverify:{check}:{slug}@{version}"[:200]}
+    with db.session() as s:
+        rows = list(s.scalars(select(Incident).where(Incident.signature.in_(sigs),
+                                                     Incident.resolved == False)))  # noqa: E712
+        for row in rows:
+            row.resolved = True
+            row.detail = {**(row.detail or {}),
+                          "resolution": "a later re-verification of the same check passed",
+                          "resolved_at": datetime.now(timezone.utc).isoformat()}
+        return len(rows)
+
+
 def _incident(db, slug: str, version: str, check: str, problems: list[str]) -> int | None:
     from sqlalchemy import select
 
     from ..core.models import Incident
 
-    sig = f"quality.reverify:{check}:{slug}@{version}"[:200]
+    sig = signature(check, slug, version)
     with db.session() as s:
         row = s.scalar(select(Incident).where(Incident.signature == sig,
                                               Incident.resolved == False))  # noqa: E712
@@ -156,13 +186,23 @@ def _run_check(ctx: JobContext) -> dict:
     slug, version, check = i.get("slug"), i.get("version"), ctx.job.job_type
     if not slug or not version:
         return {"ran": False, "why": "needs slug and version of a certified release"}
-    r = reverify(ctx.db, check, slug, version)
+    try:
+        r = reverify(ctx.db, check, slug, version)
+    except Exception as exc:  # noqa: BLE001 - L-4: a check that raises is a finding, not silence
+        r = {"check": check, "ok": False,
+             "problems": [f"re-verification raised {type(exc).__name__}: {str(exc)[:300]}"],
+             "raised": True}
     if r["ok"] is None:
+        # Recorded as an UNKNOWN reading (never a pass), so freshness can see the check ran.
+        ctx.audit(READING, artifact=f"{slug}@{version}",
+                  detail={**r, "incident": None, "release_hash": i.get("release_hash", "")})
         return {"ran": False, **r}
+    resolved = _resolve(ctx.db, slug, version, check) if r["ok"] else 0
     inc = None if r["ok"] else _incident(ctx.db, slug, version, check, r["problems"])
     ctx.audit(READING, artifact=f"{slug}@{version}",
-              detail={**r, "incident": inc, "release_hash": i.get("release_hash", "")})
-    return {**r, "slug": slug, "version": version, "incident": inc,
+              detail={**r, "incident": inc, "resolved": resolved,
+                      "release_hash": i.get("release_hash", "")})
+    return {**r, "slug": slug, "version": version, "incident": inc, "resolved": resolved,
             "certificate_changed": False, "work_done": 1}
 
 
@@ -211,11 +251,15 @@ def next_work(db) -> list[dict]:
     if not releases:
         return []
     since = datetime.now(timezone.utc) - timedelta(hours=FRESH_HOURS)
+    # L-4: fresh only when ALL four checks have a reading for the release in the window
+    # (an UNKNOWN reading counts as having run; it is never counted as a pass).
+    seen: dict[str, set] = {}
     with db.session() as s:
-        recent = {a for (a,) in s.execute(select(AuditLog.artifact).where(
-            AuditLog.action == READING, AuditLog.at >= since)).all()}
+        for a, d in s.execute(select(AuditLog.artifact, AuditLog.detail).where(
+                AuditLog.action == READING, AuditLog.at >= since)).all():
+            seen.setdefault(a, set()).add((d or {}).get("check"))
     stale = [f"{r['slug']}@{r['version']}" for r in releases
-             if f"{r['slug']}@{r['version']}" not in recent]
+             if not set(CHECKS) <= seen.get(f"{r['slug']}@{r['version']}", set())]
     if not stale:
         return []
     return [{"key": f"quality.reverify:{len(stale)}", "kind": "internal",

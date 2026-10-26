@@ -101,7 +101,7 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     if not isinstance(i.get("cir"), dict):
         return {"ran": False, "why": "cir.revise needs the failed CIR"}
     cir = CIR.from_dict(i["cir"])
-    revision = int(i.get("revision") or 0) + 1
+    revision = max(0, int(i.get("revision") or 0)) + 1   # I-3: a negative input is 0
     if revision > MAX_REVISIONS:
         return {"ran": False, "why": f"revision limit {MAX_REVISIONS} reached; the concept "
                                      f"stops here"}

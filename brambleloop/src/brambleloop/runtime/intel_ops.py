@@ -27,6 +27,37 @@ ALLOWED_KEYS = frozenset({"benchmark", "pod", "listings", "new_7d", "price_min_c
                           "median_media", "seasonal", "product_types", "delta"})
 
 
+OTHER = "other"
+
+
+def benchmark_alias(key: str) -> str:
+    """L-3 (review of a14c9ef): a benchmark key embeds a competitor shop's name, so the
+    snapshot carries a stable alias (the same key always gives the same alias, so deltas still
+    line up) and never the key itself."""
+    import hashlib
+
+    return "bm-" + hashlib.sha256(str(key or "").encode()).hexdigest()[:10]
+
+
+def _own_labels() -> tuple[frozenset, frozenset]:
+    """The only values the inner `seasonal` / `product_types` maps may carry: our own seasonal
+    event names, and Etsy taxonomy ids (digits) or our own category and pod labels."""
+    from ..brand.storefront import SECTIONS
+    from ..intel.pods import POD_KEYS
+    from ..radar.market import SEASONAL_EVENTS
+
+    seasons = frozenset(e.name for e in SEASONAL_EVENTS)
+    types = frozenset(c for sec in SECTIONS for c in sec.categories) | frozenset(POD_KEYS)
+    return seasons, types
+
+
+def _label(value: str, allowed: frozenset, *, digits: bool = False) -> str:
+    v = str(value or "")
+    if v in allowed or (digits and v.isdigit() and len(v) <= 12):
+        return v
+    return OTHER
+
+
 def _aware(v):
     return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
 
@@ -35,6 +66,7 @@ def snapshot(db, *, now: datetime | None = None) -> dict:
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing
+    from ..intel.pods import POD_KEYS
 
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=NEW_WINDOW_DAYS)
@@ -47,6 +79,7 @@ def snapshot(db, *, now: datetime | None = None) -> dict:
                                   BenchmarkListing.first_seen)).all():
             groups.setdefault((r.benchmark_key, r.pod or "unclassified"), []).append(r)
     rows = []
+    seasons, own_types = _own_labels()
     for (bk, pod), items in sorted(groups.items()):
         prices = [float(x.price_cad) for x in items if (x.price_cad or 0) > 0]
         media = [int(x.media_count or 0) for x in items]
@@ -54,11 +87,13 @@ def snapshot(db, *, now: datetime | None = None) -> dict:
         types: dict[str, int] = {}
         for x in items:
             if x.seasonal:
-                seasonal[x.seasonal] = seasonal.get(x.seasonal, 0) + 1
+                k = _label(x.seasonal, seasons)
+                seasonal[k] = seasonal.get(k, 0) + 1
             if x.product_type:
-                types[x.product_type] = types.get(x.product_type, 0) + 1
+                k = _label(x.product_type, own_types, digits=True)
+                types[k] = types.get(k, 0) + 1
         rows.append({
-            "benchmark": bk, "pod": pod, "listings": len(items),
+            "benchmark": benchmark_alias(bk), "pod": _label(pod, frozenset(POD_KEYS)), "listings": len(items),
             "new_7d": sum(1 for x in items if x.first_seen and _aware(x.first_seen) >= since),
             # UNKNOWN, never 0, when no price was observed
             "price_min_cad": round(min(prices), 2) if prices else "UNKNOWN",
@@ -78,6 +113,22 @@ def _assert_no_content(snap: dict) -> None:
         extra = set(r) - ALLOWED_KEYS
         if extra:
             raise ValueError(f"snapshot carries non-aggregate fields {sorted(extra)}")
+    # L-3: the inner values too -- an alias, our own labels, digits or counts, nothing else.
+    seasons, own_types = _own_labels()
+    from ..intel.pods import POD_KEYS
+
+    for r in snap["groups"]:
+        if not str(r["benchmark"]).startswith("bm-"):
+            raise ValueError("snapshot carries a raw benchmark key")
+        if r["pod"] not in POD_KEYS and r["pod"] != OTHER:
+            raise ValueError("snapshot carries a pod that is not ours")
+        bad = [k for k in r["seasonal"] if k not in seasons and k != OTHER] + [
+            k for k in r["product_types"]
+            if k not in own_types and k != OTHER and not (k.isdigit() and len(k) <= 12)]
+        bad += [v for v in list(r["seasonal"].values()) + list(r["product_types"].values())
+                if not isinstance(v, int)]
+        if bad:
+            raise ValueError(f"snapshot carries values outside our own labels: {bad[:5]}")
 
 
 def _with_delta(snap: dict, prev: dict | None) -> dict:

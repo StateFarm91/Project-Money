@@ -200,3 +200,16 @@ The embedded worker (`BRAMBLELOOP_EMBEDDED_WORKER`, default `1`, as deployed) ru
 - `test_m2r_worker_startup_scrubs_the_key_and_the_process_never_signs_again`
 - `test_m2r_minting_needs_the_owner_request_context_set_only_by_the_cc_route`
 - The AST scan now covers the whole package, except the action executor and the authority module.
+
+**The Low findings of the a14c9ef review (each with a test):**
+- **L-2:** re-verification incident signatures use aliases (`gate.policy` becomes `listing-rules`), so a detection-only incident never matches scale readiness's `LIKE '%policy%'`. Test: `test_w4_departments.test_l2_a_policy_reverify_incident_does_not_read_as_an_open_policy_risk`.
+- **L-3:** the snapshot carries `benchmark_alias(key)` (`bm-` plus 10 hex digits of a SHA-256, so deltas still line up), never the key itself. Pod, seasonal and product-type values are allowlisted to our own labels or digits; anything else becomes `other`. `_assert_no_content` checks the inner values too. Test: `test_l3_snapshot_aliases_the_benchmark_and_allowlists_inner_values`.
+- **L-4:**
+  - a later pass resolves the open incident, including one under the pre-alias signature;
+  - a release counts as fresh only when all four checks have a reading (an UNKNOWN reading counts as run, never as a pass);
+  - a check that raises is recorded as a finding (a P2 non-halting incident).
+  - Tests: `test_l4_a_later_pass_resolves_the_reverify_incident`, `test_l4_a_check_that_raises_is_recorded_as_a_finding`, and the stricter `test_quality_sweep_reaches_the_coo_and_lauras_idle_priorities_without_laura_code`.
+- **L-5:** OA-D1 is superseded only while `storefront:write_authority` is open, and closed only on a FRESH shop_sync reading showing every populated section. Otherwise it is still asked, and an earlier superseded row is reopened. Test: `test_w4_agents.test_agent_doable_store_cards_are_superseded_not_asked`, rewritten to the four cases.
+- **I-3:** the revision is clamped with `max(0, …)` in `cir.revise` and in the compile hand-off. Test: `test_i3_a_negative_revision_input_cannot_lift_the_bound`.
+- **I-4:** `validate_change` uses set membership in `OWNER_CONFIGURED` and `EU_ONLY` instead of message words. Test: `test_i4_validate_change_refuses_owner_and_eu_fields_by_set_not_wording`.
+- **Carried L-1 (Laura delegation ordering):** deferred and still open, because Laura code is frozen at 2c29b42 (DECISION_LOG D-W4-AGENTS-L1-DEFER).

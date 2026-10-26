@@ -125,9 +125,9 @@ def validate_change(db, change: dict, *, surface: str = "") -> list[str]:
             if k not in API_TEXT_FIELDS:
                 out.append(f"{k}: not an agent-writable updateShop field")
                 continue
-            why = live_state.write_refusal(k)
-            if why and ("owner on the live shop" in why or "EU-located" in why):
-                out.append(why)
+            # I-4: the permanent refusals by set membership, not by matching message words.
+            if live_state._key_for(k) in (live_state.OWNER_CONFIGURED | live_state.EU_ONLY):
+                out.append(live_state.write_refusal(k) or f"{k}: never software-writable")
             out += text_problems(v, surface=k, db=db,
                                  limit=ANNOUNCEMENT_MAX if k == "announcement" else MESSAGE_MAX)
         return out

@@ -818,11 +818,12 @@ def handle_cir_compile(ctx: JobContext) -> dict:
         revise_job = None
         from .engineering_ops import MAX_REVISIONS
 
-        if int(ctx.job.inputs.get("revision") or 0) < MAX_REVISIONS:
+        prior = max(0, int(ctx.job.inputs.get("revision") or 0))   # I-3: never negative
+        if prior < MAX_REVISIONS:
             revise_job = ctx.enqueue(
                 "crochet_engineer", "cir.revise",
                 {"cir": ctx.job.inputs["cir"],
-                 "revision": int(ctx.job.inputs.get("revision") or 0)},
+                 "revision": prior},
                 idempotency_key=f"revise:{cir.slug}:{cir.version}:{cir.fingerprint}")
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
                 "errors": [str(f) for f in result.errors],

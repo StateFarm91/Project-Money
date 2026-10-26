@@ -2237,3 +2237,19 @@ shop, so "must be blank" is not a fact about the shop's readiness.
   returns, shipping, mailing-list facts).
 - Nothing is deleted from the shop.
 - One existing test that asserted the old rule was rewritten to assert the new one; it is named in its own comment.
+
+### D-W4-AGENTS-M2R: storefront grants are minted only by a process that runs no jobs (2026-10-26)
+
+**Context:** the independent review of a14c9ef found M-2R. The embedded worker (`BRAMBLELOOP_EMBEDDED_WORKER=1`, the deployed default) runs job handlers in the web process, so "the signing key on the web service only" gave no separation.
+
+**Decision.**
+- Signing refuses in any process that runs jobs. That covers the embedded worker being on, and any process marked by `mark_job_process()` at worker startup; that call also scrubs `BRAMBLELOOP_STOREFRONT_SIGNING_KEY`.
+- `approve` and `rebase` also need the owner-request context. Only the Command Center action route sets it.
+- **Consequence:** in today's single-container deployment no storefront grant can be minted, so every storefront write stays held.
+- **Precondition for any storefront write:** run the worker as its own Railway service and set the web service to `BRAMBLELOOP_EMBEDDED_WORKER=0`. That is an owner spend decision and is not requested here.
+
+### D-W4-AGENTS-L1-DEFER: review Low L-1 (Laura delegation ordering) deferred, not fixed (2026-10-26)
+
+**Context:** L-1 from the review of b5226f7, carried into the review of a14c9ef. It is Low, and its fix sits in `laura/agency/delegation`.
+
+**Decision:** accepted as open and deferred. The owner's coordinator froze Laura code at 2c29b42, and W-AGENTS does not change `laura/`. The finding stays open in AGENTS.md §7 and passes to whichever lane owns the next Laura change. Nothing is re-classified as closed.

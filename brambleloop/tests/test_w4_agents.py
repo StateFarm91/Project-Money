@@ -329,23 +329,71 @@ def test_unreviewed_storefront_is_a_laura_priority_and_a_valid_mission():
 
 
 def test_agent_doable_store_cards_are_superseded_not_asked():
+    """L-5 (review of a14c9ef): OA-D1 is superseded only while the storefront grant card is
+    open (so the owner still has the ask), closed only on live sections evidence, and
+    otherwise still asked -- including reopening one that was superseded earlier."""
     from brambleloop.store_foundation import store_readiness as R
 
     db = _db()
     with db.session() as s:
         s.add(OwnerAction(requirement_key="store:OA-D1", action="Create sections"))
+    # 1. no grant card, no evidence: still the owner's ask, never silently superseded
     out = R.sync_owner_actions(db, {})
-    assert "store:OA-D1" not in out["created"] and "OA-D1" in out["skipped"]
+    assert "OA-D1" not in out["skipped"]
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-D1"))
+        assert row.done is False and row.state == "open"
     # LISTREADY: OA-E closes only on getShop evidence, so with none it is still asked.
     assert "store:OA-E" in out["created"]
+    # 2. the grant card is open: OA-D1 is superseded by it
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key=R.GRANT_CARD, action="Approve storefront writes"))
+    out = R.sync_owner_actions(db, {})
+    assert "store:OA-D1" not in out["created"] and "OA-D1" in out["skipped"]
     with db.session() as s:
         row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-D1"))
         assert row.done and row.state == "superseded" and "agent work" in row.state_reason
+        assert R.GRANT_CARD in row.state_reason
         oac = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-C"))
         assert oac is not None and "drafted by the Storefront Director" in oac.action
         assert s.scalar(select(AuditLog.id).where(AuditLog.action ==
                                                   "owner_action.lifecycle")) is not None
+        # 3. the grant card goes away (answered or withdrawn) with no evidence: reopened
+        s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == R.GRANT_CARD)).done = True
+    out = R.sync_owner_actions(db, {})
+    assert "store:OA-D1" in out["updated"]
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-D1"))
+        assert row.done is False and row.state == "open" and "reopened" in row.state_reason
+    # 4. a FRESH shop_sync reading shows every section: closed on that evidence
+    etsy_ops.store_reading(db, live_state.SYNC_READING, {
+        "observed_at": time.time(), "shop": {"title": "x"},
+        "sections": [{"title": t} for t in director.drafts(db)["sections"]["titles"]]})
+    out = R.sync_owner_actions(db, {})
+    assert "store:OA-D1" in out["closed"] and "shop_sync" in out["closed"]["store:OA-D1"]
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-D1"))
+        assert row.done is True
 
+
+def test_i4_validate_change_refuses_owner_and_eu_fields_by_set_not_wording():
+    from unittest.mock import patch
+
+    change = {"operation": "updateShop", "fields": {"announcement": "Hello from the studio."}}
+    base = director.validate_change(None, change)
+    # an agent-writable field the owner has now configured on the live shop is refused by
+    # set membership, even when the refusal message no longer carries the old wording
+    owned = live_state.OWNER_CONFIGURED | {live_state._key_for("announcement")}
+    with patch.object(live_state, "OWNER_CONFIGURED", owned), \
+            patch.object(live_state, "write_refusal", return_value="reworded refusal"):
+        probs = director.validate_change(None, change)
+    assert "reworded refusal" in probs and "reworded refusal" not in base, (probs, base)
+    eu = live_state.EU_ONLY | {live_state._key_for("announcement")}
+    with patch.object(live_state, "EU_ONLY", eu), \
+            patch.object(live_state, "write_refusal", return_value=None):
+        probs = director.validate_change(None, change)
+    assert any("never software-writable" in p for p in probs), probs
 
 if __name__ == "__main__":
     fails = 0
