@@ -367,6 +367,22 @@ def _first(table, text: str) -> list[str]:
     return [name for name, rx in table if re.search(rf"\b(?:{rx})\b", text, re.I)]
 
 
+def _safe_products(product_slugs: dict[str, str] | None) -> dict[str, str]:
+    """1c39a70 review V-3: the products a zero-tap request may name. The caller passes only
+    reviewed products (`boundary.reviewed_product_slugs`); here, as well, a slug or title of one
+    word ("Rose" is as likely a person) or one that reads as personal (private words or a
+    screen category) is never matched. Its slug and title are both dropped."""
+    out = {}
+    for slug, title in (product_slugs or {}).items():
+        s_, t_ = str(slug or ""), str(title or "")
+        if len(normalise(s_).split()) < 2 or (t_ and len(normalise(t_).split()) < 2):
+            continue
+        if any(_PRIVATE.search(x) or sensitive_screen(x) for x in (s_.replace("-", " "), t_)):
+            continue
+        out[s_] = t_
+    return out
+
+
 def extract_params(text: str, *, product_slugs: dict[str, str] | None = None) -> dict:
     """Allowlisted parameters, deterministically. Every value is from a code vocabulary (or a
     product slug the company already has); none is conversation text."""
@@ -375,7 +391,7 @@ def extract_params(text: str, *, product_slugs: dict[str, str] | None = None) ->
     rng = _first(DATE_RANGES, t)
     out["date_range"] = rng[0] if rng else None
     nt = normalise(t)
-    out["products"] = sorted(slug for slug, title in (product_slugs or {}).items()
+    out["products"] = sorted(slug for slug, title in _safe_products(product_slugs).items()
                              if f" {normalise(slug)} " in f" {nt} "
                              or (normalise(title) and f" {normalise(title)} " in f" {nt} "))[:3]
     m = re.search(r"\bpriorit(?:y|ies)\s*#?(\d{1,4})\b", t, re.I)
@@ -480,7 +496,8 @@ _FIRST_PERSON = re.compile(
     r"(?i)\b(?:i|i'm|i’m|im|i've|i’ve|i'd|i’d|i'll|i’ll|myself|me|we|we're|we’re|we've|"
     r"us|ourselves|"
     rf"my (?!{_BIZ_NOUN}\b)|our (?!{_BIZ_NOUN}\b))\b"
-    r"|^\s*(?:can'?t|cannot|couldn'?t|barely|been|feeling|felt|throwing|crying|missing)\b")
+    r"|^\s*(?:can'?t|cannot|couldn'?t|barely|been|feeling|felt|throwing|crying|missing|"
+    r"need|needs|needing|want|wanting)\b")
 # Clauses split on commas and conjunctions too, so a personal half cannot hide behind ","
 # or "and" (R-1), and on dashes, ellipses, slashes, brackets and the joining conjunctions
 # so/because/since/while/after (2c29b42 review Q-1).
@@ -533,6 +550,19 @@ _GRAMMAR_RX = re.compile(r"(?i)^(?:" + "|".join(_GRAMMAR_FIXED) + r")$")
 #: punctuation (no dash, bracket, slash, comma, colon, ellipsis, second sentence).
 _GRAMMAR_SHAPE = re.compile(r"^[A-Za-z0-9#'\u2019]+(?:[ -][A-Za-z0-9#'\u2019]+)*[?.]?$")
 _NUMBER = re.compile(r"^#?\d+(?:st|nd|rd|th)?$", re.I)
+#: Number words count as numbers too (1c39a70 review V-2).
+_NUMBER_WORDS = frozenset("one two three four five six seven eight nine ten thirty".split())
+#: Capitalised words that may stand mid-sentence (1c39a70 review V-1): brand and acronym forms
+#: and department names. Any OTHER capitalised word after the first is read as a name --
+#: "Is Will going…", "Did Price go…", "Is May over…" -- and needs a step-up.
+_CAPS_OK = frozenset({"etsy", "brambleloop", "ceo", "seo", "kpi", "kpis", "okr", "okrs", "cad",
+                      "ca"} | {w.casefold() for n in ("Design", "Visual", "Store", "Marketing",
+                                                      "SEO", "Finance", "Pattern Engineering",
+                                                      "Operations", "Support", "Quality")
+                               for w in n.split()})
+#: A first word that is also a first name, used as a subject ("Will is down…", "May's…").
+_NAME_SUBJECT = re.compile(r"(?i)^(?:will|may)(?:['\u2019]s\b|\s+(?:is|was|has|had|isn't|"
+                           r"wasn't|hasn't|seems|said|says|went|got|feels|looks)\b)")
 
 
 def business_grammar(text: str) -> bool:
@@ -548,14 +578,21 @@ def business_grammar(text: str) -> bool:
     t = re.sub(r" ([?.])$", r"\1", t)          # "overnight ?" (NBSP before "?"): T-5
     if not t or len(t) > 200 or not _GRAMMAR_SHAPE.match(t) or not _BUSINESS.search(t):
         return False
+    if _NAME_SUBJECT.match(t):
+        return False
     numbers = 0
-    for raw in re.split(r"[ -]", t.rstrip("?.").replace("\u2019", "'")):
+    for i, raw in enumerate(re.split(r"[ -]", t.rstrip("?.").replace("\u2019", "'"))):
         w = raw.casefold()
         base = w[:-2] if w.endswith("'s") else w
         if not (w in _GRAMMAR_WORDS or base in _GRAMMAR_WORDS or _GRAMMAR_RX.match(w)
                 or _GRAMMAR_RX.match(base)):
             return False
-        numbers += bool(_NUMBER.match(w))
+        # V-1: a Capitalised word after the first reads as a name. (All-caps text is not
+        # judged: it carries no case signal. Lower-case names pass: a heuristic, §10g.)
+        if i and raw[:1].isupper() and not raw.isupper() and base not in _CAPS_OK:
+            return False
+        # V-2: count on the possessive base, and count number words.
+        numbers += bool(_NUMBER.match(base)) or base in _NUMBER_WORDS
     return numbers <= 1
 
 

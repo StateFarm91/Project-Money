@@ -91,6 +91,8 @@ export function createMock() {
       // W4-LAURAONE: the Laura view reads the unified-thread status on every open. With the owner
       // switch BRAMBLELOOP_LAURA_UNIFIED unset (the default) the real route reports "off" and the
       // view stays the split business view; the mock mirrors that (private_context.unified_status).
+      // SUBSET (1c39a70 review V-4): only what the off view reads (`.unified`); the real response
+      // also carries 6 more prerequisites, budgets, isolation etc. Do not check those here.
       if (route === "laura/unified/status") return send(res, 200, { unified: "off", business_to_venice: false,
         prerequisites: [{ id: "unified_switch", met: false, label: "unified thread switch BRAMBLELOOP_LAURA_UNIFIED=venice" }],
         prerequisites_met: false });
@@ -158,6 +160,7 @@ export function createMock() {
     // W4-LAURACEO: the CC Ask form posts to /laura/converse. With BRAMBLELOOP_LAURA_CEO_MODEL off
     // (the default) the real route returns the same deterministic evidence-tool turn as
     // /laura/ask plus `model.source: "not_called"` (api.py laura_converse); the mock mirrors that.
+    // SUBSET (V-4): no `delivery`, and a non-string question is coerced, not refused with 400.
     if (route === "laura/converse") return send(res, 200, { ...DATA.lauraBriefing(String((body && body.question) || "")),
       model: { source: "not_called", reason: "BRAMBLELOOP_LAURA_CEO_MODEL is off" } });
     if (route === "etsy/recheck") return send(res, 200, { ok: true, queued: true, job_type: "etsy.probe" });

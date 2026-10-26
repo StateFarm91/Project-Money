@@ -665,7 +665,7 @@ def unified_turn(db, session_public_id: str, text: str, *, force_private: bool =
         else:
             intent, routed = _laura_intent(db, p, tid, text_, cls)
         plan = laura_unified.plan_brief(intent, cls, text_,
-                                        product_slugs=boundary.product_slugs(db),
+                                        product_slugs=boundary.reviewed_product_slugs(db),
                                         routed_by_laura=routed == "laura")
         out: dict = {"id": tid, "label": label, "sensitive": cls["sensitive"],
                      "intent": {"tool": intent.get("tool", "none"), "routed_by": routed,

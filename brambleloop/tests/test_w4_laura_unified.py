@@ -1673,8 +1673,20 @@ def test_review_t1_product_titles_count_only_as_whole_phrases():
               "Thinking of you at the shop launch tonight.",
               "Mark overdosed at the shop launch?",
               # U-3: chained titles cover a word in no title
-              "How are Alpha Beta Gamma Mark sales this week?")
-    assert len(person) == 8
+              "How are Alpha Beta Gamma Mark sales this week?",
+              # 1c39a70 review V-1: names that are also vocabulary words, and a dropped "I"
+              "Is Will going to make it to the shop launch tonight?",
+              "Will is down at the shop tonight.",
+              "Is May over the worst at the shop?",
+              "Will May make it to the shop launch tonight?",
+              "Did Price go to the shop launch?",
+              "Is Brand going to make the shop launch?",
+              "Did Jobs make it to the launch tonight?",
+              "Will's shop sales be up this week?")
+    assert len(person) == 16
+    # V-1: a dropped "I" in business words passes the grammar; `_FIRST_PERSON` refuses it.
+    assert U.business_grammar("Need support tonight at the shop.") is True
+    assert U.one_tap_business("Need support tonight at the shop.") is False
     for text in person:
         assert U.business_grammar(text) is False, text
         assert U.one_tap_business(text) is False, text
@@ -1706,8 +1718,17 @@ def test_review_t1_product_titles_count_only_as_whole_phrases():
     # T-5 / U-2: at most ONE number of at most two digits; a space before "?" is tolerated.
     for text in ("Show sales 4821 at the shop.", "Show sales 2048 at the shop.",
                  "Show sales #4821 at the shop.", "Show sales #4821 #2048 #1999 at the shop.",
-                 "Show sales 20 48 21 at the shop.", "Show sales 4 8 at the shop."):
+                 "Show sales 20 48 21 at the shop.", "Show sales 4 8 at the shop.",
+                 # 1c39a70 review V-2: possessive digits and number words count too
+                 "Show sales 12's 34's 56's at the shop.", "Show sales #12's #34's at the shop.",
+                 "Show sales one two three four five six seven eight nine at the shop.",
+                 "Show sales one two at the shop."):
         assert U.business_grammar(text) is False, text
+    # V-1 / V-2 positive controls: the heuristics do not refuse ordinary questions.
+    for text in ("Will sales be up this week?", "How are Etsy sales this week?",
+                 "What should Marketing prioritise this week?", "WHAT WERE SALES OVERNIGHT?",
+                 "Have Design make three more banners.", "What's the shop's status?"):
+        assert U.one_tap_business(text) is True, text
     assert U.business_grammar("What were sales for priority #12 this week?") is True
     assert U.business_grammar("What were the top 5 listings this week?") is True
     assert U.business_grammar("What were sales overnight\u00a0?") is True
@@ -1744,6 +1765,59 @@ def test_review_u1_agent_written_concept_titles_never_open_one_tap_end_to_end():
             except PC.PrivateUnavailable as exc:
                 assert exc.code == "STEP_UP_REQUIRED"
         assert _rows(db, LauraBoundaryCrossing) == [] and text not in biz.blob()
+        # 1c39a70 review V-3: the agent-written concept title never steers the ZERO-tap
+        # structured request either -- no product named, the slug never sent.
+        assert out["intent"]["params"]["products"] == [], (text, out["intent"])
+        assert slug not in out["reply"]["brief"], (slug, out["reply"]["brief"])
+    # V-3 control: a certified product IS still named in the structured request.
+    db = _db()
+    with db.session() as s_:
+        s_.add(Product(slug="harbour-shawl", title="Harbour Shawl", status="certified"))
+        s_.add(Product(slug="grandma-rose", title="Grandma Rose", status="concept"))
+        s_.commit()
+    sid = _open(db)
+    biz = Biz()
+    with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+        out = _turn(db, sid, "How are Harbour Shawl and Grandma Rose sales this week?", biz)
+    assert out["intent"]["params"]["products"] == ["harbour-shawl"], out["intent"]
+    brief = out["reply"]["brief"]
+    assert "harbour-shawl" in brief and "grandma-rose" not in brief, brief
+
+
+def test_review_v1_vocabulary_names_never_get_one_tap_end_to_end():
+    """1c39a70 review V-1, end to end: names that are also vocabulary words, and a dropped
+    first-person subject, need a step-up; one-tap approval is refused."""
+    cases = ("Is Will going to make it to the shop launch tonight?",
+             "Will is down at the shop tonight.",
+             "Is May over the worst at the shop?",
+             "Need support tonight at the shop.")
+    assert len(cases) == 4
+    for text in cases:
+        db = _db()
+        sid = _open(db)
+        biz = Biz()
+        with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+            out = _turn(db, sid, text, biz)
+        assert out["label"] == "business" and out["intent"]["screen"] == [], (text, out)
+        assert out["crossing"]["requires_stepup"] is True, (text, out["crossing"])
+        with unified(Venice()):
+            try:
+                PC.unified_crossing(db, sid, out["crossing"]["id"], approve=True,
+                                    provider_factory=biz.factory)
+                raise AssertionError("a name sentence crossed with one tap: " + text)
+            except PC.PrivateUnavailable as exc:
+                assert exc.code == "STEP_UP_REQUIRED"
+        assert _rows(db, LauraBoundaryCrossing) == [] and text not in biz.blob()
+
+
+def test_review_v3_zero_tap_products_skip_one_word_and_personal_titles():
+    """1c39a70 review V-3 (pure half): even among products passed in, a one-word slug or
+    title, or one that reads as personal, is never matched for the structured request."""
+    prods = {"rose": "Rose", "harbour-shawl": "Harbour Shawl", "rose-wrap": "Rose",
+             "missed-you-blanket": "Missed You Blanket", "my-mom-cowl": "My Mom Cowl"}
+    got = U.extract_params("Is Rose going to the shop? Missed You Blanket and My Mom Cowl "
+                           "sales, and Harbour Shawl sales?", product_slugs=prods)
+    assert got["products"] == ["harbour-shawl"], got
 
 
 def test_review_n2_feed_validators_check_the_full_value_before_any_cut():

@@ -79,6 +79,22 @@ def redact(db, *, turn_ids=(), crossing_ids=()) -> dict:
     return {"business_turns": n_t, "crossings": n_x}
 
 
+#: Product states a release gate or the owner has seen (1c39a70 review V-3). Concept and draft
+#: rows are written by agents without review, so their titles never steer what crosses.
+REVIEWED_PRODUCT_STATUSES = ("certified", "listed", "published", "live")
+
+
+def reviewed_product_slugs(db) -> dict[str, str]:
+    """{slug: title} of products past concept (REVIEWED_PRODUCT_STATUSES): the only products a
+    zero-tap structured business request may name (1c39a70 review V-3)."""
+    from ...core.models import Product
+
+    with db.session() as s:
+        return {str(a): str(b or "") for a, b in s.execute(
+            select(Product.slug, Product.title).where(
+                Product.status.in_(REVIEWED_PRODUCT_STATUSES)))}
+
+
 def product_slugs(db) -> dict[str, str]:
     """{slug: title} of the company's products (allowlisted product ids for structured
     business requests)."""
