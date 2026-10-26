@@ -1,0 +1,10 @@
+# Contract changes (F-482)
+
+A change to a shared contract is declared here **before** it merges, with what dependants do:
+pin the old version or migrate. `tests/test_w4_fmbatch1_contracts.py` pins the CIR shape
+fingerprint (`brambleloop.core.contracts.fingerprint`) and refuses a pin that has no entry
+below.
+
+| date (UTC) | contract | fingerprint | change | dependants |
+|---|---|---|---|---|
+| 2026-10-26 | CIR (`cir.model` dataclasses) | 8265022276e81c44 | baseline pinned | none: no change |
