@@ -207,3 +207,21 @@ Tests: `test_w4_departments` (11 tests, all pass), plus test_image_bench, test_w
 | Visual Production: no useful output | waits on the paid image path (`image_generation` / owner spend authority) and on certified products needing renders. |
 | Growth: 64/64 experiments `no_data` | correct until listings are live (SHADOW). |
 | Pricing agent: 0 jobs | **not a defect.** `pricing.position` is woken by the release chain after `assets.build`; there was no new release in the window. |
+
+## Cluster C1: baby and children's products (ledger rows, 2026-10-26)
+
+New code: `creative/children.py`, plus the job `intel.children_portfolio` (market_radar, RESEARCH, daily cadence `children_portfolio`). It reads our own rows and observed listings as counts only; it stores no competitor text, makes no network call and costs CA$0.
+
+| Row (ledger status) | Criterion | Built | Test (`tests/test_w4_children.py`) |
+|---|---|---|---|
+| F-351 (B) Priority Product Family | baby/children's is a high-priority family for research, launch planning, catalogue expansion and seasonal planning | `PRIORITY_FAMILY`, consumed by `portfolio(db)`: one daily reading of the family's coverage, style segments, launch mix, architecture and sibling sets | `test_f351_portfolio_job_runs_daily_and_records_one_reading` |
+| F-353 (B) Core Category Coverage | research the row's categories, from newborn cardigans through unisex designs | `CORE_CATEGORIES` is the row's own list. `coverage(db)` gives observed listings and radar seeds per category, and each gap becomes a named research item | `test_f353_core_categories_are_the_rows_list_and_gaps_are_named` |
+| F-358 (A) Gender-Neutral & Style Segments | research gender-neutral and style-specific demand; never infer a palette or aesthetic | `style_segments(db)`: gender-neutral, gendered and style-term counts over observed children's listings. The palette is explicitly not inferred, and it reads UNMEASURED with no evidence | `test_f358_style_segments_count_without_inferring_a_palette` |
+| F-359 (B) Sibling / Family Variants | sibling sets and coordinated products with genuine value; no low-value duplication | children's families from `creative.family_engine` (bundle-ready, recolour duplicates) carried in the portfolio's `sibling_sets` | family engine test + F-351 test |
+| F-365 (B) Store Architecture | a Baby & Kids department when catalogue depth justifies it, navigated by product family and age range | `architecture(db)`: proposed only at 4 or more certified children's products (`BABY_KIDS_DEPTH`), with navigation by family and age range (Launch-0 `audience`; UNMEASURED where absent). The Storefront Director shows it as a `baby_kids_collection` advisory | `test_f365_baby_and_kids_collection_only_when_depth_justifies_it` |
+| F-366 (B) Launch Mix Evaluation | the launch optimizer explicitly considers children's products alongside adult garments, home/decor, seasonal and accessories | `launch_mix(db)` scores Launch-0 and the candidate pool across the five segments; not ok when children's products are absent | `test_f366_launch_mix_considers_children_alongside_the_other_four_segments` |
+
+**Honest limits:**
+- F-365 is advisory only. "Baby & Kids" is not yet a section in the brand architecture (`copy_v2.SECTIONS`), so no `createShopSection` is drafted for it; adding it is a brand decision.
+- F-366 evaluates the launch mix; it does not re-select the curated Launch-0 list.
+- The depth threshold of 4 and the category patterns are this module's own constants; no row gives figures.

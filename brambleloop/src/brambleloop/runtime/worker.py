@@ -907,6 +907,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS product-engine batch: families of the certified catalogue (s33 bundle-ready
     # family, F-359 recolour duplicates, s5 amplification gated on orders). CA$0.
     ("family_engine", "creative_director", "creative.family_engine", 24 * 60 * 60),
+    # W4-AGENTS C1: the priority children's family -- research coverage (F-353), style
+    # segments (F-358), launch mix (F-366), Baby & Kids architecture (F-365). CA$0.
+    ("children_portfolio", "market_radar", "intel.children_portfolio", 24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),

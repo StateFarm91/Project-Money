@@ -108,3 +108,23 @@ def handle_competitor_snapshot(ctx: JobContext) -> dict:
     return {"groups": len(snap["groups"]), "listings": snap["listings"],
             "new_7d": sum(g["new_7d"] for g in snap["groups"]), "network_calls": 0,
             "copies_competitor_content": False, "work_done": len(snap["groups"])}
+
+
+@handlers.register("intel.children_portfolio")
+def handle_children_portfolio(ctx: JobContext) -> dict:
+    """F-351/F-353/F-358/F-365/F-366: the priority baby & children's family, read daily from
+    our own rows and the observed listings (counts only). Writes one reading; CA$0."""
+    from ..creative import children
+    from .etsy_ops import store_reading
+
+    rep = children.portfolio(ctx.db)
+    store_reading(ctx.db, "intel.children_portfolio", rep)
+    ctx.audit("intel.children_portfolio", detail={
+        "research_gaps": [g["category"] for g in rep["coverage"]["gaps"]],
+        "children_in_launch": rep["launch_mix"]["children_in_launch"],
+        "propose_collection": rep["architecture"]["propose_collection"]})
+    return {"research_gaps": len(rep["coverage"]["gaps"]),
+            "researched": rep["coverage"]["researched"],
+            "children_in_launch": rep["launch_mix"]["children_in_launch"],
+            "propose_collection": rep["architecture"]["propose_collection"],
+            "network_calls": 0, "work_done": 1}

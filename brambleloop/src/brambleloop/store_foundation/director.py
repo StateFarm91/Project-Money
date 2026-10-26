@@ -241,6 +241,21 @@ def review(db, *, now: datetime | None = None) -> dict:
         live.get("why") or (f"missing {missing}" if missing else "every populated category "
                                                                   "has a section"),
         live_state=live["state"], missing=missing, live_titles=live["titles"])
+    # F-365 (W4-AGENTS C1): a Baby & Kids collection is proposed only when catalogue depth
+    # justifies it (creative.children.architecture). Advisory: the section name is not yet in
+    # the brand's section architecture, so no createShopSection is drafted for it.
+    try:
+        from ..creative import children
+
+        arch = children.architecture(db)
+        row("baby_kids_collection", "ADVISORY",
+            "PROPOSED" if arch.get("propose_collection") else "NOT_YET",
+            arch.get("why") or f"{arch.get('children_certified')} children's products: add a "
+                                f"Baby & Kids section to the brand architecture",
+            live_state=UNKNOWN, navigation=arch.get("navigation"))
+    except Exception as exc:  # noqa: BLE001 - one advisory never stops the review
+        row("baby_kids_collection", "ADVISORY", UNKNOWN, f"unreadable: {type(exc).__name__}",
+            live_state=UNKNOWN)
     for f, where in OWNER_ONLY.items():
         s = snap.get(f) or {}
         value = s.get("value")

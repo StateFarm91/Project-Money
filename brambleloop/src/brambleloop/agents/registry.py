@@ -99,7 +99,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).
-                            "culture.sweep", "intel.gallery_analysis"],
+                            "culture.sweep", "intel.gallery_analysis",
+                            # W4-AGENTS C1: the priority baby & children's family (F-351..366).
+                            "intel.children_portfolio"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     # The creative side of #94: it judges this catalogue against an observed human one and
     # records the result. It writes no product, publishes nothing and contacts nobody; the

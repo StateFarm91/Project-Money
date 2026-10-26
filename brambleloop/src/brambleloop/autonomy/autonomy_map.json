@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T02:35:11.227736+00:00",
+ "generated_at": "2026-10-26T02:44:22.164548+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 119,
-  "handlers": 147,
+  "cadences": 120,
+  "handlers": 148,
   "agents": 31,
   "follow_on_edges": 75
  },
@@ -383,6 +383,12 @@
       "agent": "market_radar",
       "job_type": "radar.competitor_snapshot",
       "period_seconds": 86400
+     },
+     {
+      "name": "children_portfolio",
+      "agent": "market_radar",
+      "job_type": "intel.children_portfolio",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -437,6 +443,7 @@
      "intel.acceptance",
      "intel.benchmark_health",
      "intel.benchmark_refresh",
+     "intel.children_portfolio",
      "intel.gallery_analysis",
      "intel.panel_discovery",
      "intel.pod_learning",
