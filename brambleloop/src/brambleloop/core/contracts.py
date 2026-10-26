@@ -8,8 +8,12 @@ fingerprint. `tests/test_w4_fmbatch1_contracts.py` holds the pinned value and fa
 pin is updated **together with** a dated entry in `ops/CONTRACT_CHANGES.md` naming the
 change and how dependants pin or migrate. The pin cannot be bumped without the declaration.
 
-Scope today: the CIR. Listing payload keys and public API schemas are named as the next
-contracts to pin (F-482 partial), because their churn needs a migration story first.
+Pinned contracts (`fingerprints()`):
+* `cir` -- every dataclass in `cir.model` (field name, declared type, has-default);
+* `listing_payload` -- `integrations.etsy.ListingPayload`, the shape sent to Etsy;
+* `api_routes` -- every HTTP route the app serves (path and methods). Response bodies are not
+  hashed: they are documents with UNKNOWN-valued fields, and their keys are pinned by each
+  route's own tests; what a dependant calls is the route.
 """
 from __future__ import annotations
 
@@ -34,5 +38,40 @@ def cir_shape() -> dict:
     return out
 
 
+def _fields(cls) -> list:
+    return [[f.name, str(f.type),
+             f.default is not dataclasses.MISSING
+             or f.default_factory is not dataclasses.MISSING]  # type: ignore[misc]
+            for f in dataclasses.fields(cls)]
+
+
+def listing_payload_shape() -> dict:
+    from ..integrations.etsy import ListingPayload
+
+    return {"ListingPayload": _fields(ListingPayload)}
+
+
+def api_routes_shape(app=None) -> list:
+    if app is None:
+        from ..app.main import app
+    out = set()
+    for r in app.routes:
+        path = getattr(r, "path", None)
+        methods = sorted(getattr(r, "methods", None) or [])
+        if path and methods:
+            out.add((path, ",".join(methods)))
+    return sorted(out)
+
+
+def _h(obj) -> str:
+    return hashlib.sha256(json.dumps(obj, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def fingerprint() -> str:
-    return hashlib.sha256(json.dumps(cir_shape(), sort_keys=True).encode()).hexdigest()[:16]
+    """The CIR contract's fingerprint (kept for the original pin)."""
+    return _h(cir_shape())
+
+
+def fingerprints(app=None) -> dict:
+    return {"cir": fingerprint(), "listing_payload": _h(listing_payload_shape()),
+            "api_routes": _h(api_routes_shape(app))}

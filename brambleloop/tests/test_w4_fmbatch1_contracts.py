@@ -1,8 +1,14 @@
 """F-482: the CIR contract is pinned; a silent change fails here until the pin and a
 declaration in ops/CONTRACT_CHANGES.md move together."""
 import dataclasses
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+_T = tempfile.mkdtemp(prefix="fmb1ct_")
+os.environ.setdefault("BRAMBLELOOP_DATABASE_URL", f"sqlite:///{_T}/c.db")
+os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR", os.path.join(_T, "a"))
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -10,6 +16,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from brambleloop.core import contracts as C  # noqa: E402
 
 PINNED_CIR = "8265022276e81c44"
+PINNED = {"cir": PINNED_CIR, "listing_payload": "655954b9510590d0",
+          "api_routes": "fdcf14772c7b1442"}
 CHANGES = ROOT.parent / "ops" / "CONTRACT_CHANGES.md"
 
 
@@ -43,6 +51,27 @@ def test_any_field_change_moves_the_fingerprint():
         model.Gauge = orig
     assert C.fingerprint() == base
     assert {"CIR", "Row", "Op", "Gauge", "Component"} <= set(C.cir_shape())
+
+
+def test_listing_payload_and_api_routes_match_their_pins():
+    got = C.fingerprints()
+    changed = {k: (PINNED[k], got[k]) for k in PINNED if PINNED[k] != got[k]}
+    assert not changed, (
+        f"contract(s) changed: {changed}. Declare each in ops/CONTRACT_CHANGES.md (what changed, "
+        f"how dependants pin or migrate) and update PINNED in this file in the same commit")
+    text = CHANGES.read_text()
+    for k, v in PINNED.items():
+        assert f"| {v} |" in text, f"{k} pin {v} has no declaration"
+
+
+def test_a_new_route_moves_the_api_fingerprint():
+    from fastapi import FastAPI
+
+    a = FastAPI()
+    a.get("/x")(lambda: {})
+    before = C.fingerprints(a)["api_routes"]
+    a.post("/y")(lambda: {})
+    assert C.fingerprints(a)["api_routes"] != before
 
 
 if __name__ == "__main__":
