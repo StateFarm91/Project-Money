@@ -2,11 +2,10 @@
 
 - Reviewer: independent (did not write the code). Review only: nothing fixed, no PR opened.
 - Scope: `git diff 051dbee2..origin/claude/w4-PRODFIX -- brambleloop/src brambleloop/tests`
-  (one commit, `7967711`). Base `051dbee2` is current production.
-- The optional owner Command Center "platform policy review" commit **had not landed** on
-  `origin/claude/w4-PRODFIX` when this review finished (re-fetched at the end; the head is still
-  `7967711`). Questions about it are answered "not present" below. It needs its own review
-  when it lands.
+  (two commits). Base `051dbee2` is current production.
+  - `7967711`: the deadlock and repeat-paid-request fix (claims 1–4).
+  - `cbb0177`: the owner Command Center action that records a platform-policy change review.
+    It landed while this review was in progress and is included (findings F8–F9).
 - Rules followed: no production calls, no secrets, no deploys. venv built from
   `brambleloop/requirements.lock`. **`requirements-test.lock` does not exist in the repo**, and
   `pytest` is not in `requirements.lock`. Suites were run as scripts (`python tests/<suite>.py`,
@@ -22,8 +21,8 @@
 | Rebuild storm / unbounded jobs / extra paid calls from the retry? | **No storm.** At most one retry per product per UTC day, and none while any `chain.rebuild` for the product is pending, running or failed-retrying. Each retry is 1 `chain.rebuild` plus ≤3 verify jobs, all unpaid. Because the stage key is deduplicated (F1), a retry currently buys no paid stage work at all. There is a full-table scan per product per run (F6). |
 | Budget ceilings on every paid path? | **Yes.** No paid path was added. Vision still goes through `gw.check_budget` (per-agent daily and monthly ceilings) on every call. Probe reuse only removes calls. Any stage a retry did enqueue would go through that stage's existing gates. |
 | Gallery give-up loses data / suppresses a legitimate retry? | **Not after a transient provider error.** `PermanentError` and `TransientError` still take the counted path (3 tries). The immediate give-up fires only on `AnalysisRefused` *after a paid answer*. Two edge cases now cost the image on the first attempt (F2). |
-| Owner policy-review action: owner session + step-up only, audited, no replay? | **Not present in scope.** Not reviewed. |
-| Was any test weakened? | **No.** The diff only adds `tests/test_w4_prodfix.py`. No existing test line was removed or changed. The new tests are too narrow to catch F1 (F7). |
+| Owner policy-review action: owner session + step-up only, audited, no replay? | **Yes.** The action is reachable only at `POST /api/cc/actions/policy.review`. That path goes through `auth.gate`, which requires an owner session, same-origin, the CSRF token and a nonce/timestamp. `policy.review` is marked `requires_step_up=True`, so the route calls `auth.require_stepup`. Nothing grants it to the operator bearer: `/api/cc/*` takes the owner-session branch of `operator_gate`. No public route, worker handler or CLI calls `approvals.execute` or `review_change`. Each success writes two audit rows, `policy.change_reviewed` (with the full `shown` content, its digest, the session and the tested text) and `cc.owner_action.policy.review`; refusals are audited through `auth.refuse`. Replay is refused with `ActionNotFound` (404), because the change is no longer unreviewed, and `review_change` also refuses a row that is already reviewed. A stale preview (wrong `expected_digest`) is refused. Two low and info-level points: F8, F9. |
+| Was any test weakened? | **No.** The diff only adds `tests/test_w4_prodfix.py` and `tests/test_w4_prodfix_policy_review.py`. No existing test line was removed or changed. The new tests are too narrow to catch F1 (F7). |
 
 ## Findings (most severe first)
 
@@ -152,6 +151,33 @@
   `ops.capability_probes` audit does not record `reused`, so the audit can't tell a reused
   result from a fresh probe.
 
+### F8 — LOW — the policy review checks the digest against one snapshot but marks whichever snapshot is newest when it writes
+
+- **Location:** `src/brambleloop/app/command_center/approvals.py:_review_policy_change` →
+  `gates/platform_policy.py:review_change`.
+- **Scenario:** `_review_policy_change` computes `shown` (and checks `expected_digest`) for
+  `unreviewed_changes()[source]["snapshot_id"]`. It then calls
+  `review_change(db, source, ...)`, which reviews *the newest material change of `source`*,
+  looked up again in a separate session. `ops.policy_watch` or `record_page_reading` could
+  insert a newer material snapshot between the digest check and the write. The owner's review
+  would then be recorded against text they were never shown. The audit row would also name the
+  old `snapshot_id`, which does not match the row actually marked. The window is milliseconds,
+  and the next owner preview would show the discrepancy, but this is exactly the binding the
+  digest exists to guarantee.
+- **Fix:** pass `snapshot_id=shown["snapshot_id"]` to `review_change`. Refuse there unless that
+  row is still the newest unreviewed material change, and do the check and the write in one
+  session.
+
+### F9 — INFO — the confirmation phrase is case-insensitive although the code calls it "verbatim"
+
+- **Location:** `approvals.py`. `POLICY_REVIEW_CONFIRMATION` is documented as "The words the
+  owner confirms, verbatim", but the check is `confirmed.lower() != ...`.
+- **Reproduced:** `confirm: "REVIEWED AND TESTED"` was accepted. There is no security impact,
+  because step-up and the digest are the real controls. Either drop `.lower()` or fix the
+  comment.
+- `reviewed_by` is hard-coded to `"owner:command-center"`. The session id is recorded only in
+  the audit row, not on the snapshot. That is acceptable, since the audit row is the record.
+
 ## Claims checked
 
 | Claim | Verdict |
@@ -160,8 +186,49 @@
 | 2. Sentinel re-requests `chain.rebuild` once per UTC day when the last attempt is terminal and ≥ 12 h old | **Enqueue holds; the rebuild does not happen** (F1) |
 | 3. Paid unusable gallery answer gives the image up at once | **Holds; too broad** (F2) |
 | 4. `probe_if_due` reuses a successful probe < 24 h old | **Holds.** A failed probe, a missing `at` or a malformed `at` re-probes. |
+| 5. (`cbb0177`) The owner can record a policy review from the Command Center, step-up only | **Holds** (F8, F9) |
 
-## Test runs (this review, on `7967711`, `nice -n 19`, scripts)
+## Test runs (this review, `nice -n 19`, scripts, venv from `requirements.lock`)
 
-- `test_w4_prodfix.py`: PASS (5/5).
-- Remaining suites (rebuild chain, cert thrash, executor, intel, rc1 spend, k7 ops truth, b2gates, close5 vision, fmgate rebuild key, gatesi, laurafix, listready, ondemand, compiler, reverse, twin): **running; results to follow in a later commit.**
+Code under test is `7967711`. The `cbb0177` change touches only `app/command_center/approvals.py`
+plus its new test, and `test_w4_prodfix.py` was re-run on `cbb0177`.
+
+| Suite | Result |
+|---|---|
+| `test_w4_prodfix` (on `7967711` and on `cbb0177`) | PASS, 5/5 |
+| `test_cert_rebuild_chain` | PASS |
+| `test_cert_thrash` | PASS |
+| `test_executor` | PASS |
+| `test_intel` | PASS |
+| `test_rc1_spend` | PASS |
+| `test_w3_k7_ops_truth` | PASS |
+| `test_w4_close5_vision_timeout` | PASS |
+| `test_w4_fmgate_rebuild_key` | PASS |
+| `test_w4_gatesi` | PASS |
+| `test_w4_listready` | PASS |
+| `test_compiler` | PASS |
+| `test_reverse` | PASS |
+| `test_twin` | PASS |
+| `test_w4_b2gates` | 11 passed, 1 failed (`test_tester_agreement_route_opens_the_gate_only_with_consent`): *environment* |
+| `test_w4_laurafix_truncation` | aborted at import: *environment*, **did not run** |
+| `test_w4_ondemand` | aborted at import: *environment*, **did not run** |
+| `test_w4_prodfix_policy_review` (new in `cbb0177`) | aborted at import: *environment*, **did not run** |
+
+**Environment cause:** `starlette==1.6.0` (from `requirements.lock`) needs the `httpx2` package
+for `TestClient`, and nothing in the repo pins it, because `requirements-test.lock` is absent. The
+three earlier failures reproduce **identically on base `051dbee2`**, so they are not caused by
+PRODFIX. No package outside the lock was installed.
+
+**Policy review not covered by the HTTP tests:** since `test_w4_prodfix_policy_review` could not
+run, the route-level claims (no session refused, bearer only refused, no step-up refused) were
+verified by reading `security.operator_gate`, `auth.gate` and `auth.require_stepup`. The
+approvals layer was exercised directly with an in-memory DB:
+
+- wrong `expected_digest` → `ActionRefused`
+- empty `tested` → `ActionRefused`
+- uppercase confirm → accepted (F9)
+- replay of the same body → `ActionNotFound`
+- audit rows written: `policy.change_reviewed` and `cc.owner_action.policy.review`
+
+**Before merging:** add `httpx2` to a committed test lock and run
+`test_w4_prodfix_policy_review`, `test_w4_ondemand` and `test_w4_laurafix_truncation` for real.
