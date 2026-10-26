@@ -4690,6 +4690,15 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/orchestrator")
+def api_orchestrator() -> dict:
+    """F-451: the master orchestrator view (requirements, departments, dependencies, owner
+    gates, external blockers, spend, deployments, active work), each section guarded."""
+    from ..autonomy import master_view
+
+    return master_view.view(db, env=dict(os.environ))
+
+
 @app.get("/api/useful-work")
 def api_useful_work() -> dict:
     """F-719: 24/7 useful-work readings (ready age by band, owner-blocked hours, WATCHING
