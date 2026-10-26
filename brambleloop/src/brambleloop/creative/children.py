@@ -209,6 +209,56 @@ def architecture(db) -> dict:
             "applied_by": "storefront_director proposal (createShopSection), owner grant"}
 
 
+COMPETITOR_FLOOR = 3       # observed children's listings in a category before it is "measured"
+
+
+def competitive_study(db) -> dict:
+    """F-367: a runtime competitive study of children's listings, per core category.
+
+    From the listings already observed through sanctioned sources (`benchmark_listings`):
+    per category, how many listings and how many distinct shops (shops by stable alias,
+    never by name), the price band (min / median / max CA$, UNKNOWN when unobserved), the
+    share on sale, the median gallery size and how many shops carry several listings in the
+    category (a product family there). Counts and prices only: no competitor title, URL,
+    image or wording is kept (CLAUDE.md: demand and merchandising intelligence only).
+    """
+    import statistics
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..runtime.intel_ops import benchmark_alias
+
+    with db.session() as s:
+        rows = [(r.benchmark_key, r.title or "", float(r.price_cad or 0), bool(r.on_sale),
+                 int(r.media_count or 0)) for r in s.scalars(select(BenchmarkListing))]
+    kids = [r for r in rows if _CHILD.search(r[1])]
+    out = []
+    for key, patterns in CORE_CATEGORIES.items():
+        rx = [re.compile(p, re.I) for p in patterns]
+        hits = [r for r in kids if any(x.search(r[1]) for x in rx)]
+        if not hits:
+            out.append({"category": key, "listings": 0, "status": UNMEASURED})
+            continue
+        prices = [r[2] for r in hits if r[2] > 0]
+        per_shop: dict[str, int] = {}
+        for r in hits:
+            a = benchmark_alias(r[0])
+            per_shop[a] = per_shop.get(a, 0) + 1
+        out.append({
+            "category": key, "listings": len(hits), "shops": len(per_shop),
+            "status": "MEASURED" if len(hits) >= COMPETITOR_FLOOR else "THIN",
+            "price_min_cad": round(min(prices), 2) if prices else UNMEASURED,
+            "price_median_cad": round(statistics.median(prices), 2) if prices else UNMEASURED,
+            "price_max_cad": round(max(prices), 2) if prices else UNMEASURED,
+            "on_sale_share": round(sum(1 for r in hits if r[3]) / len(hits), 3),
+            "median_media": statistics.median([r[4] for r in hits]),
+            "shops_with_a_family": sum(1 for n in per_shop.values() if n >= 2)})
+    return {"categories": out, "children_listings_observed": len(kids) if rows else UNMEASURED,
+            "measured": [c["category"] for c in out if c.get("status") == "MEASURED"],
+            "copies_competitor_content": False}
+
+
 def portfolio(db) -> dict:
     """F-351: the priority family's state across research, launch, storefront and families."""
     from ..creative.family_engine import family_report
@@ -220,6 +270,7 @@ def portfolio(db) -> dict:
     return {"priority_family": PRIORITY_FAMILY, "coverage": coverage(db),
             "style_segments": style_segments(db), "launch_mix": launch_mix(db),
             "architecture": architecture(db),
+            "competitive_study": competitive_study(db),
             "sibling_sets": [{"family": f["family"], "bundle_ready": f["bundle_ready"],
                               "recolour_duplicates": f["recolour_duplicates"]}
                              for f in kid_families],

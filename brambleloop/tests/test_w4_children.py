@@ -124,6 +124,31 @@ def test_f351_portfolio_job_runs_daily_and_records_one_reading():
             "sibling_sets"} <= set(row.payload)
 
 
+def test_f367_children_competitive_study_is_counts_and_prices_by_aliased_shop():
+    from brambleloop.runtime.intel_ops import benchmark_alias
+
+    db = _db()
+    rows = [("mjs_off_the_hook_designs", "Baby cardigan pattern with secret wording", 8.0, True),
+            ("mjs_off_the_hook_designs", "Newborn baby cardigan raglan", 10.0, False),
+            ("other_shop_name", "Baby cardigan easy", 0.0, False),
+            ("other_shop_name", "Adult cardigan, not for children", 12.0, False)]
+    with db.session() as s:
+        for i, (bk, title, price, sale) in enumerate(rows):
+            s.add(BenchmarkListing(benchmark_key=bk, listing_ref=f"cs{i}", title=title,
+                                   price_cad=price, on_sale=sale, media_count=4 + i))
+    study = C.competitive_study(db)
+    cat = next(c for c in study["categories"] if c["category"] == "baby_cardigan")
+    assert cat["listings"] == 3 and cat["shops"] == 2 and cat["status"] == "MEASURED"
+    assert cat["price_median_cad"] == 9.0 and cat["price_min_cad"] == 8.0   # 0.0 unobserved
+    assert cat["shops_with_a_family"] == 1 and cat["on_sale_share"] == round(1 / 3, 3)
+    blob = repr(study)
+    assert "secret wording" not in blob and "mjs_off_the_hook" not in blob
+    assert "other_shop_name" not in blob and benchmark_alias("x").startswith("bm-")
+    empty = next(c for c in study["categories"] if c["category"] == "collar")
+    assert empty["status"] == C.UNMEASURED and empty["listings"] == 0
+    assert "competitive_study" in C.portfolio(db)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

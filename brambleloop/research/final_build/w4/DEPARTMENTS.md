@@ -593,3 +593,37 @@ W-AGENTS W4 and W5 then re-implemented F-405, F-432, F-420, F-444 and F-449 insi
 - every judged shot type maps to a gallery job.
 
 Regression: `test_roles`, `test_r2_autonomy_useful_work`, `test_vacuity`, `test_w4_departments`, `test_reachability`, `test_w4_contracts` and `test_v11_autonomy_orchestrator` pass.
+
+## Workstream C batch W8: children's competitive study at runtime (F-367; 2026-10-26)
+
+**Prior work checked.** No branch log names F-367.
+
+**Built.** `creative.children.competitive_study(db)` is now part of the daily `intel.children_portfolio` reading. From the listings already observed through sanctioned sources, it reports for each of the 13 core children's categories (F-353):
+- listings, and distinct shops (by the L-3 stable alias, never by name);
+- the price band (min / median / max CA$, UNMEASURED when no price was observed) and the share on sale;
+- median gallery size;
+- how many shops carry a product family there (two or more listings).
+
+A category below 3 observed listings is THIN, and one with none is UNMEASURED. No title, URL, image or wording is kept.
+
+Not built: the row's next action proposed an audience axis in `intel.pods` routing. That changes pod routing for the whole market map, which is the intelligence lane's, so the study reads the same `_CHILD` / `CORE_CATEGORIES` patterns C1 already uses.
+
+**Test** (`tests/test_w4_children.py`, now 6/6): `test_f367_children_competitive_study_is_counts_and_prices_by_aliased_shop`.
+
+## Where Workstream C stands after W8 (2026-10-26)
+
+No open Workstream C row remains that is free of owner or provider dependencies, is not blocked on a live shop, and is not already another lane's. I stop here.
+
+- **Already built elsewhere; the closure matrix is stale:**
+  - F-018 language discipline: `commerce.seo.language_findings` plus the translation record (F-251);
+  - F-040 shop quality gate: `etsy_ops` assesses getShop, `launch.readiness.etsy_first_sale_surfaces`;
+  - F-089 physical truth dashboard (FMBATCH1);
+  - F-412 and the research rules (FMBATCH1; see the reconciliation above).
+- **Other lanes:**
+  - F-45x to F-49x (FMBATCH1);
+  - F-061 / F-062 benchmark purchase selection: intelligence/teardown, feeding the owner's purchase card;
+  - F-246, F-278, F-285 (listings lane);
+  - F-271, ads consuming the zero-sale ladder (growth/marketing).
+- **Need a design or owner decision:** F-114, re-engineering legacy products. Re-gauging a legacy CIR means authoring new rows for a design no prototype may invent (`creative.prototype` refuses to invent pattern content). Which legacy products are worth rescuing follows the F-113 recommendations, which are an owner/portfolio decision.
+- **Need a provider or network:** F-357 (new culture-feed series), F-406 / F-438 (external research), F-224's prompt half (FLUX is stub-only, and F-852 applies).
+- **Need a live shop with data:** F-035, F-036, F-355, F-369, F-372, F-384, F-390, F-502, F-507, F-509, F-511.
