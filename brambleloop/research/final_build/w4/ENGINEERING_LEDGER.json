@@ -23,7 +23,7 @@
    },
    "unclear": 0,
    "engineering_completion": {
-    "numerator": 311,
+    "numerator": 316,
     "denominator": 320
    },
    "acceptance_completion": {
@@ -160,8 +160,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
-    "engineering_complete": false,
-    "acceptance_complete": false
+    "engineering_complete": true,
+    "acceptance_complete": false,
+    "engineering_evidence": "quality/proof.py _customer_rungs (consented customer photo; repeat buyer) + check_claim; tests/test_w4_fmbatch1_proof_customer.py, tests/test_proof.py (ca2a60e4)"
    },
    {
     "id": 9,
@@ -308,8 +309,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
-    "engineering_complete": false,
-    "acceptance_complete": false
+    "engineering_complete": true,
+    "acceptance_complete": false,
+    "engineering_evidence": "growth/owned.py counterparts, owned_share (orders by owned channel), assisted_conversions; CASL send_gate; tests/test_w4_fmbatch1_owned_assisted.py, tests/test_owned.py (ca2a60e4)"
    },
    {
     "id": 21,
@@ -320,8 +322,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
-    "engineering_complete": false,
-    "acceptance_complete": false
+    "engineering_complete": true,
+    "acceptance_complete": false,
+    "engineering_evidence": "growth/creators.py measure_outcome/scaling_decision from rows + may_scale, briefs, disclosure; tests/test_w4_fmbatch1_creator_outcomes.py, tests/test_creators.py (ca2a60e4)"
    },
    {
     "id": 22,
@@ -344,8 +347,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers/traffic",
-    "engineering_complete": false,
-    "acceptance_complete": false
+    "engineering_complete": true,
+    "acceptance_complete": false,
+    "engineering_evidence": "commerce/kill_table.py route/compose + learn() thresholds from listing outcomes, wired in runtime/commerce_readings; tests/test_w4_fmbatch1_kill_learn.py, tests/test_kill_table.py, tests/test_cert_commerce_readings.py (ca2a60e4)"
    },
    {
     "id": 24,
@@ -3576,8 +3580,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
-    "engineering_complete": false,
-    "acceptance_complete": false
+    "engineering_complete": true,
+    "acceptance_complete": false,
+    "engineering_evidence": "seasonal/remerchandising.py candidates (exact-slug sales, proven evergreen), moves, check_move; tests/test_w4_fmbatch1_remerch.py, tests/test_remerchandising.py (01f62da6)"
    },
    {
     "id": 293,

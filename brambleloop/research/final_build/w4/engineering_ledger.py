@@ -82,6 +82,25 @@ TRIAGE_BLOCKER = {
 WINDOW_NOTE = ("production b997efd: autonomy.off_device_proof passed=true over "
                "2026-10-25T01:03Z..10-26T01:03Z (1417 jobs, 97 types, 25 hours, 0 unexpected "
                "dead letters; evidence_FMBATCH1/prod_api_build_20261026T0103Z.json)")
+# Build 2 customer/external rows whose measurement-and-response software is complete and
+# tested on claude/w4-FMBATCH1; only the real-world evidence remains (acceptance stays H).
+ENGINEERING_EVIDENCE = {
+    8: "quality/proof.py _customer_rungs (consented customer photo; repeat buyer) + check_claim; "
+       "tests/test_w4_fmbatch1_proof_customer.py, tests/test_proof.py (ca2a60e4)",
+    20: "growth/owned.py counterparts, owned_share (orders by owned channel), "
+        "assisted_conversions; CASL send_gate; tests/test_w4_fmbatch1_owned_assisted.py, "
+        "tests/test_owned.py (ca2a60e4)",
+    21: "growth/creators.py measure_outcome/scaling_decision from rows + may_scale, briefs, "
+        "disclosure; tests/test_w4_fmbatch1_creator_outcomes.py, tests/test_creators.py "
+        "(ca2a60e4)",
+    23: "commerce/kill_table.py route/compose + learn() thresholds from listing outcomes, "
+        "wired in runtime/commerce_readings; tests/test_w4_fmbatch1_kill_learn.py, "
+        "tests/test_kill_table.py, tests/test_cert_commerce_readings.py (ca2a60e4)",
+    292: "seasonal/remerchandising.py candidates (exact-slug sales, proven evergreen), moves, "
+         "check_move; tests/test_w4_fmbatch1_remerch.py, tests/test_remerchandising.py "
+         "(01f62da6)",
+}
+
 OWN_LANE_OTHER = {"F-594": "W-FIRSTSALE2", "F-733": "Workstream C (Laura canonical identity)"}
 
 
@@ -209,6 +228,9 @@ def build(board, matrix, fm_ledger, b2_ledger, tree) -> dict:
                 live = any(c.get("live") for c in ev.get("runtime_consumers") or [])
                 eng = rec["status"] in ("E", "F", "G") or (
                     rec["status"] == "H" and live and bool(ev.get("tests")))
+            if src != "final_master" and uid in ENGINEERING_EVIDENCE:
+                eng = True
+                rec["engineering_evidence"] = ENGINEERING_EVIDENCE[uid]
             rec["engineering_complete"] = bool(eng)
             rec["acceptance_complete"] = rec["status"] == "G"
             out[src].append(rec)

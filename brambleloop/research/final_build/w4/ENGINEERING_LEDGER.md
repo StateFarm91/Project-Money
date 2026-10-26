@@ -32,7 +32,7 @@
 
 | measure | Build 2 | Final Master |
 |---|---|---|
-| **Engineering completion** (built + integrated + tested) | **311 / 320** | **633 / 917** |
+| **Engineering completion** (built + integrated + tested) | **316 / 320** | **633 / 917** |
 | **Acceptance completion** (the full original criterion, production and customer evidence included) | **98 / 320** | **360 / 917** |
 
 - Engineering completion counts rows in E, F or G, plus H rows whose engineering half is
@@ -71,3 +71,19 @@
   - an owner prerequisite;
   - another lane's files.
 - No launch-critical row has missing implementation that this lane may touch.
+
+## Update 2026-10-26: Build 2 rows that were not engineering-complete
+
+- **#8, #20, #21, #23, #292 now have engineering complete; acceptance stays H**, because real
+  buyers and traffic are still required. The evidence for each is in the row's
+  `engineering_evidence` field and in `ENGINEERING_EVIDENCE` in `engineering_ledger.py`.
+- **#94 is still not engineering-complete.**
+  - Built: the tournament scorecard, the blinded benchmark and the product_creativity cell.
+  - Missing: novelty distance, desirability, winner rate, repeated-theme fatigue and market
+    CTR/conversion per concept, combined into one scorecard over time.
+  - These live in `creative/`, which is Workstream C's lane, so a lane decision is needed.
+- **#32, #56, #197 (NA):** re-checked against the registry.
+  - #32 and #56 are merge instructions addressed to the builder, not product behaviour.
+  - #197 is a governance statement that the generated master is canonical.
+  - The NA reading holds for all three. One inconsistency: the registry marks all three
+    `covered`, while the board classes them `not_applicable`. Status is unchanged.
