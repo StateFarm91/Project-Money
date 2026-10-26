@@ -156,6 +156,89 @@ def test_a_domain_with_no_subject_is_reported_not_forced():
     assert out["promoted"] == [] and out["unrouted"][0]["domain"] == "competitor_positioning"
 
 
+# ---- independent review F-2 / F-8 ----------------------------------------------------------
+
+def test_review_f2_redirects_off_the_allowlist_or_to_http_are_refused():
+    import urllib.request
+
+    h = F._redirect_handler()
+    req = urllib.request.Request("https://www.cpsc.gov/a")
+    for bad in ("https://evil.example/x", "http://www.cpsc.gov/a",
+                "http://169.254.169.254/latest/meta-data", "https://www.cpsc.gov:8443/a"):
+        try:
+            h.redirect_request(req, None, 302, "Found", {}, bad)
+            raise AssertionError(f"redirect to {bad} was followed")
+        except F.FetchRefused:
+            pass
+    ok = h.redirect_request(req, None, 302, "Found", {}, "https://www.cpsc.gov/b")
+    assert ok is not None and ok.full_url == "https://www.cpsc.gov/b"
+
+
+def test_review_f2_a_refused_redirect_is_recorded_not_stored():
+    db = _db()
+    tid = R.open_question(db, question="What does the CPSC rule on crib mobiles require?",
+                          trigger="t:marketplace_policy", decision_ref="x",
+                          domain="marketplace_policy", now=NOW, **SPEC)["task"]
+    url = "https://www.cpsc.gov/rule"
+
+    def get(u):
+        if u.endswith("/robots.txt"):
+            return 404, b""
+        raise F.FetchRefused("'evil.example' is not on the research allowlist")
+
+    out = F.fetch_for_task(db, tid, url, get=get, now=NOW, sleep=_no_sleep)
+    assert out["fetched"] is False and "redirect refused" in out["why"]
+    assert R.tasks(db)[0]["sources"] == []
+    with db.session() as s:
+        assert s.query(AuditLog).filter(AuditLog.action == F.FETCH_ACTION).count() == 1
+
+
+def test_review_f2_non_default_port_and_oversized_robots_are_refused():
+    try:
+        F.check_url("https://en.wikipedia.org:8443/wiki/X")
+        raise AssertionError("a non-default port was allowed")
+    except F.FetchRefused:
+        pass
+    big = b"User-agent: *\nAllow: /\n" + b"#" * (F.MAX_BYTES + 10)
+    ok, why = F.robots_allows("https://www.cpsc.gov/a", get=lambda u: (200, big))
+    assert ok is False and "byte cap" in why
+
+
+def test_review_f8_a_network_error_is_not_fetched_and_promotion_still_runs():
+    db = _db()
+    R.detect_unknowns(db, today=NOW.date(), now=NOW)
+    planned = F.plan_fetches(db)
+    assert planned
+
+    def down(u):
+        raise F.FetchUnavailable("URLError: <urlopen error [Errno -2] Name or service not known>")
+
+    out = F.run(db, get=down, now=NOW, sleep=_no_sleep)
+    assert out["fetches"]["enabled"] is True
+    assert all(r["fetched"] is False and "not reachable" in r["why"]
+               for r in out["fetches"]["results"]), out
+    assert {"promoted", "withdrawn", "unrouted"} <= set(out)          # promote() ran
+
+
+def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
+    import urllib.request
+
+    real = urllib.request.OpenerDirector.open
+
+    def boom(self, *a, **k):
+        raise OSError("[Errno 110] Connection timed out")
+
+    urllib.request.OpenerDirector.open = boom
+    try:
+        try:
+            F._default_get("https://www.cpsc.gov/a")
+            raise AssertionError("a network error escaped as a crash or a success")
+        except F.FetchUnavailable as exc:
+            assert "timed out" in str(exc)
+    finally:
+        urllib.request.OpenerDirector.open = real
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     failed = 0

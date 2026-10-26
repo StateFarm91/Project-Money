@@ -73,6 +73,13 @@ def check_url(url: str) -> str:
     if u.username or u.password or "@" in (u.netloc or ""):
         raise FetchRefused("a URL carrying credentials is never fetched")
     host = (u.hostname or "").lower()
+    try:
+        port = u.port
+    except ValueError as exc:
+        raise FetchRefused(f"unreadable port in {url!r}") from exc
+    if port not in (None, 443):
+        # Review F-2: an allowlisted host on another port is another service.
+        raise FetchRefused(f"only the default https port is fetched, not {port}")
     if host not in ALLOWED_HOSTS:
         raise FetchRefused(f"{host!r} is not on the research allowlist "
                            f"({sorted(ALLOWED_HOSTS)})")
@@ -82,17 +89,43 @@ def check_url(url: str) -> str:
     return host
 
 
+class FetchUnavailable(OSError):
+    """The network did not answer (DNS, timeout, TLS, reset): recorded as not fetched."""
+
+
+def _redirect_handler():
+    """Review F-2: every redirect target is re-checked against the allowlist and https
+    (and the default port) before it is followed; one that fails is refused, not followed."""
+    import urllib.request
+
+    class _Checked(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            check_url(newurl)            # raises FetchRefused: the redirect is not followed
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+    return _Checked()
+
+
 def _default_get(url: str, *, max_bytes: int = MAX_BYTES) -> tuple[int, bytes]:
     import urllib.error
     import urllib.request
 
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT,
                                                "Accept": "text/html,text/plain,*/*"})
+    opener = urllib.request.build_opener(_redirect_handler())
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:  # noqa: S310 - allowlisted
+        with opener.open(req, timeout=TIMEOUT_S) as r:  # noqa: S310 - allowlisted, re-checked
+            final = r.geturl()
+            if final != url:
+                check_url(final)         # what was read is what the provenance names
             return r.status, r.read(max_bytes + 1)
     except urllib.error.HTTPError as exc:
         return exc.code, b""
+    except FetchRefused:
+        raise
+    except (urllib.error.URLError, OSError) as exc:
+        # Review F-8: a DNS failure, timeout or TLS error is "not fetched", never a crash.
+        raise FetchUnavailable(f"{type(exc).__name__}: {str(exc)[:160]}") from exc
 
 
 def robots_allows(url: str, *, get=None) -> tuple[bool, str]:
@@ -105,6 +138,8 @@ def robots_allows(url: str, *, get=None) -> tuple[bool, str]:
         return True, "no robots.txt (404): no restriction published"
     if status != 200:
         return False, f"robots.txt answered {status}: unreadable, so not fetched"
+    if len(body) > MAX_BYTES:
+        return False, "robots.txt larger than the byte cap: unreadable, so not fetched"
     rp = robotparser.RobotFileParser()
     rp.parse(body.decode("utf-8", errors="replace").splitlines())
     ok = rp.can_fetch(USER_AGENT, url)
@@ -119,21 +154,32 @@ def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None
 
     now = now or datetime.now(timezone.utc)
     get = get or _default_get
+    def _refused(why: str) -> dict:
+        out = {"task": task_id, "url": url, "fetched": False, "why": why}
+        with db.session() as s:
+            s.add(AuditLog(actor="learn", action=FETCH_ACTION, detail=out))
+        return out
+
     try:
         host = check_url(url)
         allowed, why = robots_allows(url, get=get)
         if not allowed:
             raise FetchRefused(why)
     except FetchRefused as exc:
-        out = {"task": task_id, "url": url, "fetched": False, "why": str(exc)}
-        with db.session() as s:
-            s.add(AuditLog(actor="learn", action=FETCH_ACTION, detail=out))
-        return out
+        return _refused(str(exc))
+    except OSError as exc:
+        return _refused(f"robots.txt not reachable: {str(exc)[:200]}")
     wait = MIN_SECONDS_PER_HOST - (time.monotonic() - _last_host_fetch.get(host, -1e9))
     if wait > 0:
         sleep(wait)
-    status, body = get(url)
-    _last_host_fetch[host] = time.monotonic()
+    try:
+        status, body = get(url)
+    except FetchRefused as exc:
+        return _refused(f"redirect refused: {exc}")
+    except OSError as exc:
+        return _refused(f"not reachable: {str(exc)[:200]}")
+    finally:
+        _last_host_fetch[host] = time.monotonic()
     if status != 200 or not body:
         out = {"task": task_id, "url": url, "fetched": False,
                "why": f"{host} answered {status} with {len(body)} bytes"}
@@ -235,8 +281,14 @@ def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None
         fetches = {"enabled": False, "planned": len(planned),
                    "why": f"fetch step off: {ENABLE_VAR} is not 1 in this deployment"}
     else:
-        done = [fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep)
-                for tid, url in planned[:MAX_FETCHES_PER_RUN]]
+        done = []
+        for tid, url in planned[:MAX_FETCHES_PER_RUN]:
+            # Review F-8: one bad fetch never stops the others or the promotion below.
+            try:
+                done.append(fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep))
+            except Exception as exc:  # noqa: BLE001
+                done.append({"task": tid, "url": url, "fetched": False,
+                             "why": f"fetch failed: {type(exc).__name__}: {str(exc)[:160]}"})
         fetches = {"enabled": True, "planned": len(planned),
                    "results": [{k: f.get(k) for k in ("task", "url", "fetched", "why")}
                                for f in done]}
