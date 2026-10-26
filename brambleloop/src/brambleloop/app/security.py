@@ -163,6 +163,9 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     # /api/mjs/findings. tests/test_w4_secfix_insights_private.py sweeps every public GET.
     "/api/market-intel",
     "/api/insights",
+    # W4-FMBATCH1 (F-089): the physical-truth dashboard names testers and carries their
+    # notes -> operator credential.
+    "/api/physical-truth",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in

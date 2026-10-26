@@ -4603,6 +4603,15 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/physical-truth")
+def api_physical_truth() -> dict:
+    """F-089: every Class B/C product's tester, version, stage, due date, findings, deltas
+    and whether launch is blocked on its sample (quality.physical_truth)."""
+    from ..quality import physical_truth
+
+    return physical_truth.dashboard(db)
+
+
 @app.get("/api/seasonal/feasibility")
 def api_seasonal_feasibility() -> dict:
     """What each make-lane's runway actually supports, as a gradient rather than a cliff.
