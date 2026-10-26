@@ -278,7 +278,8 @@ def _record_problems(rec: dict, read) -> list[str]:
                        + "; ".join(map(str, sc.get("problems") or []))[:300])
     sg = rec.get("signing")
     if isinstance(sg, dict) and (sg.get("status") == "claimed_but_unsigned"
-                                 or (sg.get("required") and sg.get("unsigned"))):
+                                 or (sg.get("required") and (sg.get("unsigned")
+                                                             or sg.get("status") != "verified"))):
         reasons.append("tracked release record shows signing required or claimed but the "
                        "commit is unsigned (F-153/F-157)")
     sha = str(rec.get("sha") or "")
@@ -540,6 +541,12 @@ def signing_evidence(repo: Path, sha: str, env=None) -> dict:
     elif req and a["unsigned"]:
         out["refused"] = (f"{signing_audit.REQUIRED_VAR}=1 and {sha[:12]} is not signed "
                           f"(%G?={a['unsigned'][0]['status']})")
+    elif req and a["status"] != "verified":
+        # Review F-7: with signing required, anything short of "verified" -- including a
+        # range git could not read (`empty_range`) -- is refused; unreadable is never "none
+        # unsigned".
+        out["refused"] = (f"{signing_audit.REQUIRED_VAR}=1 and the signature state of "
+                          f"{sha[:12]} reads {a['status']!r}, not 'verified'")
     return out
 
 

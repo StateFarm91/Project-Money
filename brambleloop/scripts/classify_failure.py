@@ -30,8 +30,20 @@ MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+# Independent review FMBATCH1 F-6: tests here routinely assert on refusal bodies and on
+# network-error handling, so a marker inside an assertion is the code under test talking, not
+# the environment. A suite that failed an assertion is a code failure, whatever text the
+# assertion quoted; and a line that is itself an assertion or a FAIL marker is never evidence.
+_NOT_EVIDENCE = ("AssertionError", "assert ", "FAIL")
+
+
 def classify(text: str) -> tuple[str, str] | None:
-    for line in (text or "").splitlines():
+    lines = (text or "").splitlines()
+    if any(ln.lstrip().startswith("AssertionError") for ln in lines):
+        return None
+    for line in lines:
+        if line.lstrip().startswith(_NOT_EVIDENCE):
+            continue
         for cls, needles in MARKERS:
             if any(n in line for n in needles):
                 return cls, line.strip()[:200]

@@ -44,6 +44,16 @@ def test_each_environment_class_is_named_and_a_code_failure_is_not():
     assert CF.classify("") is None
 
 
+def test_review_f6_an_assertion_quoting_an_environment_phrase_is_a_code_failure():
+    for text in ('FAIL test_owner_route_refuses\nAssertionError: expected 401, '
+                 'body={"error": "Permission denied"}',
+                 'AssertionError: retry loop logged "Connection refused" 0 times, expected 3',
+                 'Traceback (most recent call last):\n  File "t.py", line 3\n'
+                 '    assert "No space left on device" not in log\nAssertionError',
+                 'FAIL test_x Connection refused'):
+        assert CF.classify(text) is None, text
+
+
 def test_run_tests_names_the_environment_failure_and_not_the_assertion():
     import test_run_tests_script as RT
 
@@ -61,7 +71,7 @@ def test_run_tests_names_the_environment_failure_and_not_the_assertion():
         blocks = {b.split("\n", 1)[0].strip(): b
                   for b in re.split(r"^== ", r.stdout, flags=re.M)[1:]}
         assert "ENVIRONMENT FAILURE (ENOSPC)" in blocks["tests/test_disk.py"], blocks
-        assert "do not revert" in blocks["tests/test_disk.py"]
+        assert "check the environment before reverting" in blocks["tests/test_disk.py"]
         assert "ENVIRONMENT FAILURE (" not in blocks["tests/test_math.py"]
         assert "ENVIRONMENT FAILURE (" not in blocks["tests/test_pass.py"]
         assert re.search(r"^ENVIRONMENT FAILURES: 1 of the 2 failing suites", r.stdout, re.M), \

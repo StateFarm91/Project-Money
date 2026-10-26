@@ -88,7 +88,7 @@ def test_rows_carry_every_field_and_block_until_a_pass():
     assert tote["stage"] == "passed" and tote["launch_blocked"] is False
     assert tote["deltas"]["yarn_by_colour"] == {"A": -0.05}
     assert out["summary"] == {"products": 4, "launch_blocked": 3, "passed": 1,
-                              "unassigned": 1, "overdue": 1}
+                              "unassigned": 1, "overdue": 1, "overdue_unknown": 0}
 
 
 def test_failed_sample_is_a_finding_not_a_pass():
@@ -136,6 +136,18 @@ def test_api_is_operator_only():
         assert set(r.json()) >= {"rows", "summary", "note"}
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
+
+
+def test_review_f9_a_malformed_plan_row_is_unknown_not_a_500():
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor="r", action=PT.PLAN_ACTION, detail={"demands": [
+            {"product_slug": "no-risk-no-test", "needed_by": "2026-12-01"},
+            {"product_slug": "bad-date", "risk_class": "C", "needed_by": "next week"}]}))
+    rows = {r["product_slug"]: r for r in PT.dashboard(db, today=TODAY)["rows"]}
+    assert rows["no-risk-no-test"]["risk_class"] == "unknown"
+    assert rows["no-risk-no-test"]["launch_blocked"] is True
+    assert rows["bad-date"]["overdue"] is None and "not an ISO date" in rows["bad-date"]["overdue_why"]
 
 
 if __name__ == "__main__":

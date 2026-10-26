@@ -122,6 +122,19 @@ def test_recovery_doc_and_no_private_keys_tracked():
         assert not KEY_BLOCK.search(p.read_bytes()), f
 
 
+def test_review_f7_required_signing_refuses_an_unreadable_or_empty_range():
+    d = Path(tempfile.mkdtemp())                    # not a git repository: git reads nothing
+    ev = deploy_guard.signing_evidence(d, "0" * 40, env={"BRAMBLELOOP_SIGNING_REQUIRED": "1"})
+    assert ev["status"] == "empty_range" and "refused" in ev, ev
+    read = lambda rel: None
+    probs = deploy_guard._record_problems(
+        {"sha": "0" * 40, "release_eligible": True,
+         "signing": {"status": "empty_range", "required": True, "unsigned": []}}, read)
+    assert any("signing" in p for p in probs)
+    ok = deploy_guard.signing_evidence(d, "0" * 40, env={})
+    assert "refused" not in ok                       # not required: reported, not refused
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

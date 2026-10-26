@@ -73,8 +73,10 @@ def dashboard(db, *, today: date | None = None) -> dict:
     rows = []
     for slug in sorted(set(demands) | set(by_slug)):
         dem = demands.get(slug) or {}
-        risk = dem.get("risk_class") or (by_slug[slug][-1].measured or {}).get("risk_class")
         ts = by_slug.get(slug, [])
+        # Review F-9: a demand with no risk class and no test reads "unknown", never a 500.
+        risk = dem.get("risk_class") or ((ts[-1].measured or {}).get("risk_class")
+                                         if ts else None)
         latest = ts[-1] if ts else None
         passed_any = any(t.passed is True for t in ts)
         if risk is not None and risk not in NEEDS_SAMPLE:
@@ -82,6 +84,11 @@ def dashboard(db, *, today: date | None = None) -> dict:
         m = (latest.measured or {}) if latest else {}
         tester = (latest.tester_ref if latest else None) or (assigned.get(slug) or {}).get("tester")
         due = dem.get("needed_by")
+        try:
+            overdue = (bool(due) and not passed_any and date.fromisoformat(str(due)) < today)
+            due_why = None
+        except ValueError:
+            overdue, due_why = None, f"needed_by {due!r} is not an ISO date"
         rows.append({
             "product_slug": slug,
             "risk_class": risk or "unknown",
@@ -94,7 +101,8 @@ def dashboard(db, *, today: date | None = None) -> dict:
             "samples": len(ts),
             "due": due,
             "must_start_by": dem.get("must_start_by"),
-            "overdue": bool(due and not passed_any and date.fromisoformat(due) < today),
+            "overdue": overdue,
+            "overdue_why": due_why,
             "findings": m.get("findings") or [],
             "notes": (latest.notes[:300] if latest and latest.notes else ""),
             "deltas": _deltas(m) if latest else None,
@@ -109,7 +117,8 @@ def dashboard(db, *, today: date | None = None) -> dict:
         "summary": {"products": len(rows), "launch_blocked": len(blocked),
                     "passed": sum(1 for r in rows if not r["launch_blocked"]),
                     "unassigned": sum(1 for r in rows if r["assignment"] == "unassigned"),
-                    "overdue": sum(1 for r in rows if r["overdue"])},
+                    "overdue": sum(1 for r in rows if r["overdue"]),
+                    "overdue_unknown": sum(1 for r in rows if r["overdue"] is None)},
         "note": ("no tester plan has been recorded yet; rows come from physical_tests alone"
                  if not plan else
                  "Class B/C products only; launch_blocked until a sample of the product has "

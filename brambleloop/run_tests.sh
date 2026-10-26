@@ -470,7 +470,7 @@ for t in "${SUITES[@]}"; do
   if [ "$code" -ne 0 ] && [ -f scripts/classify_failure.py ]; then
     envc=$("$PY" scripts/classify_failure.py "$outdir/$safe.out" 2>/dev/null || true)
     if [ -n "$envc" ]; then
-      echo "   ENVIRONMENT FAILURE (${envc%%$'\t'*}): ${envc#*$'\t'} -- not a code regression; do not revert for it"
+      echo "   ENVIRONMENT FAILURE (${envc%%$'\t'*}): ${envc#*$'\t'} -- check the environment before reverting code for it"
       env_failures=$((env_failures+1))
     fi
   fi
