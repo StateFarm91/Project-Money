@@ -358,6 +358,25 @@ def test_one_tap_confirm_and_reread_from_the_phone():
         assert s.get(Job, r.json()["job_id"]).job_type == "store.live_drift"
 
 
+def test_a_store_setting_confirmation_needs_step_up():
+    """Final review R2 (W4-LISTREADY): a confirmation is evidence, so it needs step-up."""
+    from brambleloop.app.command_center.models import OwnerSession
+
+    c, csrf = _session()
+    sid = c.get("/api/cc/auth/status").json()["session"]["session_id"]
+    with main.db.session() as s:
+        s.scalar(select(OwnerSession).where(OwnerSession.public_id == sid)).stepup_until = (
+            auth._now() - timedelta(seconds=1))
+    r = c.post("/api/cc/store/settings/two_factor/confirm", json={}, headers=_fresh(csrf))
+    assert r.status_code == 403 and r.json().get("code") == "STEP_UP_REQUIRED", r.text
+    r = c.post("/api/cc/auth/step-up", json={"passphrase": PASS}, headers=_fresh(csrf))
+    assert r.status_code == 200, r.text
+    r = c.post("/api/cc/store/settings/two_factor/confirm", json={}, headers=_fresh(csrf))
+    assert r.status_code == 200, r.text
+    store = (ROOT / "src/brambleloop/app/command_center/static/js/views/store.js").read_text()
+    assert "requiresStepUp: true,\n          run: () => api.confirmStoreSetting" in store
+
+
 def test_the_store_tab_shows_the_three_states():
     js = ROOT / "src/brambleloop/app/command_center/static/js"
     store = (js / "views/store.js").read_text()

@@ -110,8 +110,9 @@ def _our_department(db, department: str, event: str, today: date) -> dict:
                 continue
             if seed.season not in (event, None):
                 continue
-            pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == p.id)
-                          .order_by(PatternVersion.id.desc()).limit(1))
+            from ..ops.artefacts import newest_release  # N1: newest by version
+
+            pv = newest_release(s, p.id)
             cert = (pv.certificate or {}) if pv is not None else {}
             listing = s.scalar(select(Listing).where(Listing.product_slug == p.slug)
                                .order_by(Listing.id.desc()).limit(1))

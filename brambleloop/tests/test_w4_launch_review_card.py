@@ -63,8 +63,13 @@ def test_the_reason_function_agrees_with_the_server_rules():
     assert m, "activateBlockedReason not found"
     fn = m.group(0).replace("export function", "function")
     cases = [
-        ({"status": "not_activated", "frames_ready": True}, True, ""),
-        ({"status": "not_activated", "frames_ready": True}, False, "Step-up needed first."),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": True}, True, ""),
+        ({"status": "unused", "frames_ready": True, "vision_open": True}, True, ""),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": True}, False,
+         "Step-up needed first."),
+        ({"status": "not_activated", "frames_ready": True, "vision_open": False}, True,
+         "image-vision gate is closed"),
+        ({"status": "not_activated", "frames_ready": True}, True, "image-vision gate is closed"),
         ({"status": "not_activated", "frames_ready": False,
           "missing_releases": ["market-basket-small@1.2.0"]}, True, "Frames are not yet built"),
         ({"status": "not_activated"}, True, "Frames are not yet built"),   # unknown: refused
@@ -82,6 +87,7 @@ console.log(JSON.stringify(out));
         p.write_text(harness)
         got = json.loads(subprocess.run([node, str(p)], capture_output=True, text=True,
                                         check=True, timeout=60).stdout)
+    assert cases and len(got) == len(cases), got
     for (st, stepped, want), reason in zip(cases, got):
         if want == "":
             assert reason == "", (st, stepped, reason)
@@ -92,7 +98,7 @@ console.log(JSON.stringify(out));
 def test_the_card_ships_in_the_offline_shell():
     sw = (STATIC / "sw.js").read_text()
     assert '"js/views/_launch_review.js"' in sw
-    assert 'const VERSION = "cc-shell-v20";' in sw
+    assert re.search(r'const VERSION = "cc-shell-v(\d+)";', sw) and int(re.search(r'cc-shell-v(\d+)', sw).group(1)) >= 20
 
 
 def test_the_state_route_tells_the_card_whether_the_frames_are_built():
@@ -101,6 +107,26 @@ def test_the_state_route_tells_the_card_whether_the_frames_are_built():
                    api_py.index('@router.post("/launch-review/activate")')]
     assert 'out["frames_ready"]' in route and 'out["missing_releases"]' in route
     assert "launch_review.frame_scope(db)" in route
+
+
+def test_the_owner_readings_card_posts_through_the_owner_route_with_step_up():
+    """Review F7: the owner records the Messages and Legal and tax readings from the phone."""
+    js = (STATIC / "js" / "views" / "completion.js").read_text()
+    assert 'import { shopReadingsCard } from "./_shop_readings.js";' in js
+    assert "shopReadingsCard(rerender)" in js
+    api = (STATIC / "js" / "api.js").read_text()
+    assert 'shopObservation: () => `${API_BASE}/etsy/shop-observation`' in api
+    assert "recordShopObservation: (body) => post(ENDPOINTS.shopObservation(), body)" in api
+    card = (STATIC / "js" / "views" / "_shop_readings.js").read_text()
+    assert card.count("requiresStepUp: true") == 3            # messages, legal, delivery
+    assert 'page: "messages"' in card and 'page: "legal_and_tax"' in card
+    assert 'page: "delivery_policy"' in card                   # LAUNCHPREP E2/E5
+    store = (STATIC / "js" / "views" / "store.js").read_text()
+    assert 'shopReadingsCard(rerender || (() => {}), { labelId: "store-shop-readings" })' in store
+    for bad in ("fetch(", "innerHTML", "method:", "X-CSRF-Token", "localStorage",
+                "/api/etsy/shop-observation"):
+        assert bad not in card, bad
+    assert '"js/views/_shop_readings.js"' in (STATIC / "sw.js").read_text()
 
 
 if __name__ == "__main__":

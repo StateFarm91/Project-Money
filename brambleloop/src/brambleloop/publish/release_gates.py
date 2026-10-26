@@ -1269,7 +1269,9 @@ def staleness(db, *, slug: str) -> dict:
                      if str(k).startswith("marketing_asset:")}
     halting_other = [i for i in tracker.open_incidents(slug)
                      if i.halts_publication and i.signature not in own_marketing]
-    only_marketing = (bool(outstanding) and not halting_other
+    # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
+    # waived by the marketing rebuild exception.
+    only_marketing = (bool(outstanding) and not halting_other and not policy
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
@@ -1371,7 +1373,15 @@ def superseded_release(db, *, slug: str, version: str) -> dict:
                        f"({type(exc).__name__})"}
     if not rows:
         return {"superseded": False, "newest": None, "why": ""}
-    newest = max(rows, key=lambda r: r[0])[1]
+    # Review F2: newest by version, never by the row inserted last. Unorderable refuses.
+    from ..ops.artefacts import newest_version
+
+    newest = newest_version([r[1] for r in rows])
+    if newest is None:
+        return {"superseded": True, "newest": None,
+                "why": (f"superseded release (R1): the certified versions of {slug} cannot be "
+                        f"ordered ({sorted({r[1] for r in rows})}), so the newest is unknown; "
+                        f"refused")}
     if newest == version:
         return {"superseded": False, "newest": newest, "why": ""}
     return {"superseded": True, "newest": newest,

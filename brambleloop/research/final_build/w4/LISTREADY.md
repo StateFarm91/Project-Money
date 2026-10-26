@@ -119,9 +119,9 @@ States: FRESH, FAILING, NO_EVIDENCE, STALE, NO_COLLECTOR, UNKNOWN.
 | payment_settings | FRESH | FRESH | FRESH | owner confirms payout, KYC and tax in Shop Manager | d |
 | legal_and_tax | NO_COLLECTOR | NO_COLLECTOR | NO_EVIDENCE | owner POSTs a dated `legal_and_tax` reading | d |
 | your_shop | FRESH | FRESH | FRESH | — | — |
-| info_and_appearance | FRESH, but the snapshot fails `banner_set` | same | same | owner uploads the banner and icon and pastes the About | d |
+| info_and_appearance | FRESH, but the snapshot fails `banner_set` (a Big Banner reads blank) | same | after the LISTREADY release: `banner_set` reads NO_EVIDENCE, not FAIL (E1) | owner taps Confirm on the banner in the Store tab (step-up); the banner and icon are already uploaded | d |
 | options | FRESH | FRESH | FRESH | — | — |
-| policy_settings | FRESH, but fails `policy_shipping_set` and `policy_additional_unset` | same | same | owner pastes the six policies | d |
+| policy_settings | FRESH, but fails `policy_shipping_set` and `policy_additional_unset` | same | after the LISTREADY release: `policy_additional_unset` is no longer a check (E3); `policy_shipping_set` reads not applicable only on the owner's dated no-box reading (E2) | owner records the Delivery policy reading (phone card); pastes the FAQ if it is empty | d |
 | digital_files | NO_COLLECTOR (only 2 of the 10 current releases ever built; none certified at the code's version) | NO_COLLECTOR | NO_EVIDENCE at first. Once the halts clear, R3/R5 certify the releases and `assets.build` keeps their PDFs, and it becomes **FRESH** | deploy; then the chain runs (hours) | b |
 | taxonomy_and_attributes | NO_COLLECTOR (tree read, 3065 nodes, 0 pattern∧crochet nodes) | NO_COLLECTOR (property route live) | FAILING until every Launch-0 profile is CHOSEN | b997efd's refresh reads the 2 property schemas (§3a); CHOSEN only if Etsy's schema offers "Crochet"; run `tests/verify_w4_firstsale_taxonomy_live.py` | b (+ Etsy's answer) |
 
@@ -385,11 +385,11 @@ scope check that activation runs. The server re-checks every rule on the POST. T
 |---|---|---|---|---|---|
 | 1 | Approve the deploy of the listings release (b997efd + FIRSTSALE2 + LISTREADY), after its certification suite passes | Production cannot certify anything until R1/R3/R5 run there; a deploy is owner-approved | CA$0 | 5 | No Launch-0 release certifies, so there is no listing |
 | 2 | After deploy, once the Launch-0 frames are built: activate the image review (§8) | B3: every frame is unreviewed; the review is paid | CA$7.07 (approved) | 5 | `vision_review` stays FAIL for all 8 products |
-| 3 | Shop Manager > Info & appearance: banner and icon, paste the About from `brand/storefront.ABOUT` | No image or About write endpoint; the live snapshot fails `banner_set` | CA$0 | 20 | The storefront reads as abandoned; `info_and_appearance` stays failing |
-| 4 | Shop Manager > Policies: paste the six policies from `commerce.shop_package.policies()` | Only `policy_additional` is writable; the snapshot fails `policy_shipping_set` and `policy_additional_unset` | CA$0 | 25 | Blank policies at the first sale |
+| 3 | Store tab: tap Confirm (step-up) on the banner; the banner and icon were uploaded on 2026-10-11 | getShop cannot show a Big Banner, so the owner's dated confirmation is the evidence (E1) | CA$0 | 2 | `banner_set` stays NO_EVIDENCE; `info_and_appearance` cannot close |
+| 4 | Shop Manager > Policy settings: if the FAQ is empty, paste it; record the Delivery policy reading (box or no box) on the phone card | The delivery check applies unless the owner's reading says there is no box (E2); `policy_additional` is not a check any more (E3) | CA$0 | 15 | `policy_shipping_set` stays FAIL; the FAQ request stays open |
 | 5 | Confirm payout, identity and tax in Shop Manager > Payment settings | KYC and banking are the account holder's alone | CA$0 | 15 | No payout; publishing is blocked |
-| 6 | POST the dated `legal_and_tax` reading (`identity_verified`, `tax_position`, `decided_on`) at `/api/etsy/shop-observation` | No API exposes it; FIRSTSALE2's collector reads the owner's reading | CA$0 to record; the GST/HST position itself has a CA$250 registry ceiling | 30 | `legal_and_tax` stays NO_EVIDENCE, so first-sale readiness cannot pass |
-| 7 | POST the dated `messages` reading (`notifications_inbox`, `reply_window_hours`) | Etsy has no messaging API | CA$0 | 10 | `messages` stays NO_EVIDENCE; buyer messages go unread |
+| 6 | Record the dated Legal and tax reading (`identity_verified`, `tax_position`, `decided_on`) on the Shop Manager readings card (owner session + step-up; the operator route refuses it) | No API exposes it; FIRSTSALE2's collector reads the owner's reading | CA$0 to record; the GST/HST position itself has a CA$250 registry ceiling | 30 | `legal_and_tax` stays NO_EVIDENCE, so first-sale readiness cannot pass |
+| 7 | Record the dated Messages reading (`notifications_inbox`, `reply_window_hours`) on the same card | Etsy has no messaging API | CA$0 | 10 | `messages` stays NO_EVIDENCE; buyer messages go unread |
 | 8 | Physical sample: a tester crochets one Launch-0 product and records gauge and size | Gauge and size claims are UNRESOLVED without a bound sample | yarn plus tester time (UNKNOWN; not approved here) | 10 to arrange | `physical_sample` FAIL; the first-customer gate does not pass |
 | 9 | Accept the listing fees, choose the go-live phase and grant draft publication for the first product(s) | Leaving SHADOW and paying Etsy is the owner's alone; it is also the only way to confirm the upload (B4) | US$0.20 per listing, US$2.00 for 10 (about CA$2.83) | 17 | No listing exists, so there is no first sale |
 
@@ -406,3 +406,131 @@ All 28 suites passed (rc=0, 0 FAIL). Counts:
 | sentinel, chain, gates | test_artefacts 23, test_rebuild_graph 10, test_cert_publish_gates 18, test_cert_rebuild_chain 10, test_shadow 10 |
 
 **Not run, on the coordinator's instruction:** test_product_run, test_acceptance_gates and test_cert_wiring. test_product_run's run-1 failure is fixed in d45e033 and is still to be re-run.
+
+## 10. Independent review of d45e033 (BLOCKER): what was fixed (a46ac23)
+
+The review is `INDEPENDENT_SECREVIEW_LISTREADY.md` on `claude/w4-SECREVIEW-LISTREADY`.
+
+**Every new regression test reproduces the review's scenario.** I ran the new tests against the pre-fix source (9a4f99d)
+and every one of them fails there. The exceptions, by design:
+- F6 and F8 add coverage of behaviour that was already correct;
+- the product-independence tests confirm behaviour that was already correct.
+
+| # | fix | test (`test_w4_listready` unless named) | fails before |
+|---|---|---|---|
+| F1 BLOCKER | `built_from_version` links only an explicit versioned key (`slug@version`) to a certified release. Unversioned or ambiguous artefacts, including all marketing copy, are judged against the current release, so copy written from an older release is **STALE** and halting. R4 lets its rebuild run while publication still refuses. | `test_live_marketing_copy_written_from_an_older_release_is_stale_not_superseded` (the review's appendix A: stale, halted, outstanding, rebuild flag; re-recorded from 1.1.0 it is FRESH and the incident clears); `test_no_unversioned_artefact_is_ever_superseded` | yes |
+| F2 HIGH | "Newest" is the highest **certified version** (`ops.artefacts.newest_version`: integer tuples, `1.10.0 > 1.9.0`), never the last-inserted row. This applies in `current_from_db`, the F-115 lookup, `superseded_release`, `retry_halted` and `seed_launch0`. Versions that cannot be ordered fail closed: nothing reads superseded, and publication refuses. | `test_newest_is_the_highest_certified_version_not_the_last_row` (inserted out of order: 1.1.0, then 1.0.0, the review's appendix B); `test_versions_that_cannot_be_ordered_supersede_nothing_and_refuse_publication` | yes |
+| F3 MEDIUM | `retry_halted` skips the retry, recording `certify.retry_skipped`, when: the recorded CIR is not the code's current design for that slug@version (`design_moved`), or a newer certified release exists (`superseded_by_newer`). `seed_launch0` does not seed a release older than a certified one. | `test_f3_a_halted_release_whose_design_moved_is_not_retried`; `test_f2_f3_a_halted_release_with_a_newer_certified_release_is_not_retried` | yes |
+| F5 LOW | No retry is queued while a `gate.certify` for the same slug@version is pending or running. A certify job whose identical release (same CIR, same document version) was certified by another job after it was queued stops with `gate.certify_duplicate`, so the release is certified once. The Gate E halt check is unchanged and runs first. | `test_f5_no_retry_while_a_certify_for_the_same_release_is_in_flight`; `test_f5_a_retry_and_a_normal_certify_certify_the_release_once` (1 `gate.certified`, no `gate.recertified`, 1 PatternVersion) | yes |
+| F4 LOW | `outstanding_only_marketing` also requires no unreviewed platform-policy change (#39). The marketing rebuild exception never waives a non-staleness reason. | `test_f4_the_marketing_rebuild_exception_never_waives_an_unreviewed_policy_change` | yes |
+| F6 LOW | A behavioural test of the `chain.rebuild` comparison: an unchanged design stored as JSON is not redrafted; the same design one row short is. `test_etsy_surfaces`'s edited assertion now checks `orders_ingest.gate(db)`'s own answer (missing `transactions_r`: "Only the owner … browser … reauthorise_transactions_r"), not source text. | `test_f6_chain_rebuild_redrafts_a_changed_design_and_not_an_unchanged_one`; `test_etsy_surfaces` 53/53 | coverage |
+| F7 LOW | The `messages` and `legal_and_tax` readings are the owner's own attestation. `POST /api/etsy/shop-observation` (operator credential) refuses them with 403 `OWNER_SESSION_REQUIRED`. They are accepted at `POST /api/cc/etsy/shop-observation` behind the owner session and step-up, with `recorded_by` set to the signed-in owner and not taken from the body. A future `decided_on` is refused. | `test_w4_owner_observations` 3/3; `test_k8_shop_cx` 17/17 | yes |
+| F8 INFO | Every Etsy write is enumerated and gated (below). | `test_f8_every_etsy_write_is_authorised_at_the_client_boundary`; `test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for_publish` | audit |
+
+**F7 and the owner's existing flow.** I kept the operator route for the non-attesting pages: shared access, apps, policy
+violations and options (covered by `test_k8_shop_cx`). The owner works from a phone, so the Completion tab has a new
+**Shop Manager readings** card. It records both readings through the step-up route; the code is in `views/_shop_readings.js`
+and the offline shell is now v21. Tests: `test_w4_launch_review_card` (now 7) and `test_v11_pwa_browser` 219/0.
+
+### Every Etsy write path (owner directive)
+
+**At the client.** `EtsyClient` has seven mutating methods: `create_draft`, `_upload_image` / `upload_image`,
+`_attach_file` / `attach_file`, `set_listing_property`, `update_listing`, `delete_listing` and `activate`.
+- Each public writer checks `_authorise_write`. That means either the owner's sealed, content-bound grant re-verified
+  against the live phase, or the draft-only shadow lane in a non-publishing phase.
+- The private writers are reached only through writers that check.
+- `activate` additionally needs the phase, the grant and a per-call launch authorisation.
+- `update_listing` refuses `price` and `state`.
+
+**Call sites.** Every call site of those methods across `src/`, with any receiver:
+
+| call site | gate |
+|---|---|
+| `runtime/pipeline._publish_and_read_back` (create, images, files, properties) | reached only from `_publish_guarded` and then `handle_store_publish`, after `_release_gates` → `release_gates.for_publish` |
+| `runtime/pipeline.handle_store_activate` (state → active, the fee) | after `_release_gates` → `for_publish`, plus the launch authorisation |
+| `integrations/etsy.publish` | the client's own composite; the grant is verified first |
+| `integrations/etsy_probe`, `integrations/etsy_exercise` | the write-path exercise draft: shadow lane only, never a release, activation asserted refused, deleted |
+| `commerce/listing_rollback.execute` | owner-grant restore of an existing listing's fields; publishing phase only; no caller in `src` today |
+
+`for_publish` runs these checks:
+- `superseded_release` (the current-version check);
+- staleness and Gate E halts;
+- the platform policy (#39);
+- the listing set (Product Truth, image truth);
+- search;
+- standards;
+- originality;
+- `eligibility.product_publication` (Launch-0 first-customer scope);
+- the plan price.
+
+**No other write path exists.** There is no renewal write: listings are created with Etsy's own renewal setting, and
+`renewal_decision` is advice only. There is no inventory write and no price write. A new write site fails the F8 test until
+it is classified.
+
+**Gaps found: none.** One observation: `listing_rollback.execute` checks the owner grant and phase but not `for_publish`. It
+restores a listing's own previous field values and has no caller, so it is recorded here rather than changed. Wiring it to
+any caller should add `for_publish`.
+
+### Product independence (owner directive)
+
+A failure in one product stops only that product:
+- A customer-defect P1 on product A halts A, and product B still certifies.
+- A stale artefact on A blocks A's publication only; B's staleness is clear.
+- Below the company-wide threshold (2 of 4 products stale), nothing spreads.
+- One Launch-0 release's dead draft does not stall the seeding of the next.
+
+Tests: `test_a_failure_in_one_product_does_not_stop_an_unrelated_compliant_product` and
+`test_one_releases_failure_does_not_stall_recovery_of_the_others`.
+
+**What still reaches every product.** Only the designed company-wide safety gates, all unchanged:
+- `systemic-halt:publication`: an integrity failure, or one failure family on 3 or more products and 50% or more of the
+  catalogue;
+- an unreviewed platform-policy change (#39);
+- the SHADOW phase.
+
+R1 and F1 mean stale-artefact incidents now count only genuine staleness, so the systemic halt trips only on real
+widespread staleness.
+
+### Run 3 (2026-10-21, on a46ac23 and c97ccf1, testslot + venv-integ4, one suite at a time)
+
+All suites pass, after the two fixes noted under the table. Counts:
+
+| suites | results |
+|---|---|
+| this branch | test_w4_listready 24, test_w4_launch_review 13, test_w4_owner_observations 3, test_w4_launch_review_card 7 |
+| required set | test_vacuity 8, test_launch 28, test_cost_governance_wave2 39, test_search_hero_publish 4, test_cert_listing_frames 6, test_v11_autonomy_timeline 6 |
+| sentinel and incidents | test_artefacts 23, test_rebuild_graph 10, test_provenance_write_path 19, test_w3_k7_ops_truth 16, test_w4_owner_incidents 6 |
+| chain and gates | test_cert_publish_gates 18, test_cert_rebuild_chain 10, test_shadow 10 |
+| Etsy surfaces | test_k8_shop_cx 17, test_etsy_surfaces 53, test_w4_firstsale2_surfaces 7, test_w4_etsysurf 8 |
+| spend, routes, PWA | test_rc1_spend 20, test_model_spend_paths 12, test_route_auth_default_deny 7, test_customer_data_auth 9, test_v11_pwa_static 82, test_v11_pwa_browser 219/0 |
+| long suites, once each | **test_product_run 36/36** (2371 s; the run-1 failure is fixed); **test_acceptance_gates 23/23** (1204 s) |
+
+**Two failures in this run, both caused by this branch and both fixed in c97ccf1:**
+- **test_vacuity** flagged a loop over a possibly empty iterable in my card test. A length assertion was added.
+- **test_cost_governance_wave2** failed 4 tests: `gate.certified` is now read by name (F5) with no retention decision. A
+  `windowed` decision was recorded in `ops.retention.KNOWN_READ_ACTIONS`.
+
+Both suites were re-run after the fix: test_vacuity 8/8, test_cost_governance_wave2 39/39.
+
+**Not run:** test_cert_wiring (still on hold) and any full suite.
+
+## 11. Delta review of b9137b5 (NO BLOCKER): fixes and recorded INFO items
+
+The review is `INDEPENDENT_SECREVIEW_LISTREADY_b9137b5.md` on `claude/w4-SECREVIEW-LISTREADY-b9137b5`. It closes F1 and F2.
+
+| # | fix | test |
+|---|---|---|
+| N1 MEDIUM | **One definition of "current release":** `ops.artefacts.newest_release` / `newest_certified`, the highest certified version (semver), failing closed. **Used by:** `teardown.enforce.current_release` (it feeds `for_publish` via `standards_gate`), `_targeted_rebuild`, `inventory.chain_evidence`, and the display readers (`cc readers`, `ask`, `benchmark_matrix`, `teardown.lab`). **Removed at the source:** `gate.certify` refuses a *new* certification of a version older than a certified one, audited as `gate.certify_older_than_newest`; re-certifying an existing version is still allowed. `approvals.py` keeps id order because it is a list of releases, not a "current" pick. | `test_n1_*` in `test_w4_listready` (5). Each uses an out-of-order state (1.1.0 certified, then 1.0.0): current release, targeted rebuild, chain evidence, the display readers, and the refused older certification |
+| N2 LOW | Activation requires the `image_vision` gate to be open, and the card shows why when it is not. A release is `done` only when a batch call was reserved for it; otherwise it goes back to `pending`, with the reason. If every release finishes at CA$0, the batch closes as **`unused`** (not completed), and it can be re-activated within its original expiry. A `queued` release whose batch build ended before the review is requeued (attempt key `:2`, …). The owner can tap **Resume** (step-up) to run pending releases again under the same caps. The card shows "releases reviewed N of M". | `test_n2_*` in `test_w4_launch_review` (4); `test_w4_launch_review_card` (reason cases now include the vision gate and `unused`) |
+| N3 LOW | Each `ops.sentinel` run raises an owner P2, `listing.superseded_live:<slug>@<version>`, for every **live** listing of a release older than the newest certified one. It is non-halting, so the newest release is unaffected. Its remediation path is the owner's: update the listing in place or deactivate it. It is restated, never duplicated, and resolved when no such listing remains. | `test_n3_a_live_listing_of_a_superseded_release_raises_an_owner_visible_p2` |
+
+**INFO items, recorded and left unchanged as instructed.**
+
+| # | what the review found | why it stands |
+|---|---|---|
+| N4 | A batch run is a full `assets.build`: it re-renders the frames and re-queues the downstream chain. | The scope check fails closed if the bytes change. |
+| N5 | While the batch is open, batch spend counts against `quality_director`'s agent-day, so that agent's non-batch calls (still at CA$1.00) are refused for the rest of that UTC day. | This is correct; it starves other work only for the day of the batch. |
+| N6 | `assets.launch_review` was added to `quality_director`'s allowed job types, `JOB_CLASS`, `OWNER_ONE_SHOTS` and `JOB_BANDS`. | The ceiling itself is unchanged. |
+| N7 | `grant_in` trusts any `assets.build` job whose inputs carry `launch_review_batch`. | No route accepts arbitrary job inputs, and the caps still bind. |
+| N8 | `GET /api/cc/launch-review` writes: it creates the tables and may close the batch with an audit row. `activate` checks and then inserts, with no unique constraint. | The nonce and step-up make a double insert impractical, and the caps hold even if one happened. |
+| N9 | The F8 write-path tests match call sites by method name in the AST, so an aliased or `getattr` call would not be listed. | The runtime `_authorise_write` boundary is the real control. |

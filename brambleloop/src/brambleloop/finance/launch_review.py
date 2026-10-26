@@ -56,6 +56,10 @@ INPUT_KEY = "launch_review_batch"
 
 OPEN, COMPLETED, EXPIRED, EXHAUSTED, REVOKED = ("open", "completed", "expired", "exhausted",
                                                 "revoked")
+# Delta review N2: every release finished and CA$0 committed -- nothing was reviewed. Not
+# "completed": the owner's approval is not used up, and the batch may be re-activated within
+# its original expiry.
+UNUSED = "unused"
 ACTION_ACTIVATED = "launch_review.activated"
 ACTION_CLOSED = "launch_review.closed"
 
@@ -165,7 +169,7 @@ def max_calls(frames: list[dict]) -> int:
 
 # ---- activation ------------------------------------------------------------------------------
 
-def activate(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> dict:
+def open_batch(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> dict:
     """The owner's activation, behind the owner session and step-up. One batch, once."""
     from sqlalchemy import select
 
@@ -177,10 +181,22 @@ def activate(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> d
         raise LaunchReviewRefused("an activation names the owner who gave it")
     ensure_tables(db)
     now = _now(now)
+    expires_at = now + timedelta(days=EXPIRY_DAYS)
     with db.session() as s:
-        if s.scalar(select(LaunchReviewBatch).where(
-                LaunchReviewBatch.batch_id == BATCH_ID)) is not None:
-            raise LaunchReviewRefused(f"{BATCH_ID} was already activated; it runs once")
+        prior = _batch(s)
+        if prior is not None:
+            close_if_due(s, prior, now)
+            if prior.status != UNUSED:
+                raise LaunchReviewRefused(f"{BATCH_ID} was already activated ({prior.status}); "
+                                          f"it runs once")
+            if now >= _aware(prior.expires_at):
+                raise LaunchReviewRefused(f"{BATCH_ID}'s authorisation expired at "
+                                          f"{_aware(prior.expires_at).isoformat()}")
+            expires_at = _aware(prior.expires_at)     # re-activation keeps the original expiry
+    vision = vision_open(db)
+    if vision is not True:
+        raise LaunchReviewRefused("the image_vision gate is closed, so no frame could be "
+                                  "reviewed; activate once it is open")
     scope = frame_scope(db)
     if scope["missing"] or not scope["frames"]:
         raise LaunchReviewRefused(
@@ -196,13 +212,12 @@ def activate(db, *, by: str, stepped_up: bool, now: datetime | None = None) -> d
             batch_id=BATCH_ID, decision_ref=DECISION_REF, agent=AGENT, purpose=PURPOSE,
             total_cap_cad=TOTAL_CAP_CAD, daily_cap_cad=DAILY_CAP_CAD,
             frame_scope=scope["frames"], releases=releases, authorized_by=str(by)[:120],
-            step_up=True, status=OPEN, created_at=now,
-            expires_at=now + timedelta(days=EXPIRY_DAYS)))
+            step_up=True, status=OPEN, created_at=now, expires_at=expires_at))
         s.add(AuditLog(actor=str(by)[:64], action=ACTION_ACTIVATED, artifact=BATCH_ID,
                        detail={"decision_ref": DECISION_REF, "total_cap_cad": TOTAL_CAP_CAD,
                                "daily_cap_cad": DAILY_CAP_CAD, "agent": AGENT,
                                "frames": len(scope["frames"]), "releases": len(releases),
-                               "expires_at": (now + timedelta(days=EXPIRY_DAYS)).isoformat(),
+                               "expires_at": expires_at.isoformat(),
                                "step_up": True}))
     return state(db, now=now)
 
@@ -260,8 +275,13 @@ def close_if_due(session, batch, now: datetime | None = None) -> str:
                f"{_aware(batch.expires_at).isoformat()}", now)
     elif batch.releases and all(r.get("state") in ("done", "interrupted")
                                 for r in batch.releases.values()):
-        _close(session, batch, COMPLETED, "every release in scope was reviewed (or stopped "
-               "with its bill unknown, never resent)", now)
+        if _committed(session, batch.batch_id) <= 0:
+            _close(session, batch, UNUSED, "every release finished with no review call made; "
+                   "nothing was reviewed or spent, so it may be re-activated before it expires",
+                   now)
+        else:
+            _close(session, batch, COMPLETED, "every release in scope was reviewed (or stopped "
+                   "with its bill unknown, never resent)", now)
     else:
         try:
             floor = min_call_estimate()
@@ -291,7 +311,11 @@ def state(db, *, now: datetime | None = None) -> dict:
                     "effective_daily_ceiling_cad": registry_ceiling(db)}
         close_if_due(s, b, now)
         committed = _committed(s, b.batch_id)
+        rel = b.releases or {}
         return {"batch_id": b.batch_id, "status": b.status, "decision_ref": b.decision_ref,
+                "releases_reviewed": sum(1 for v in rel.values() if v.get("state") == "done"),
+                "releases_total": len(rel),
+                "calls_made": sum(_calls_for(s, b.batch_id, r) for r in rel),
                 "agent": b.agent, "total_cap_cad": b.total_cap_cad,
                 "daily_cap_cad": b.daily_cap_cad, "committed_cad": round(committed, 6),
                 "remaining_cad": round(b.total_cap_cad - committed, 6),
@@ -303,6 +327,23 @@ def state(db, *, now: datetime | None = None) -> dict:
                                                 else registry_ceiling(db)),
                 "note": "the batch ceiling applies only to this batch's review calls; every "
                         "other call is checked against the registry ceiling"}
+
+
+def vision_open(db) -> bool | None:
+    """Whether the image_vision gate is open now; None when unreadable (not open)."""
+    try:
+        from ..visual.gallery import gates_now
+
+        return bool(gates_now(db, keys=("image_vision",)).get("image_vision", False))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _calls_for(session, batch_id: str, release: str) -> int:
+    from sqlalchemy import func, select
+
+    return int(session.scalar(select(func.count()).select_from(LaunchReviewCall).where(
+        LaunchReviewCall.batch_id == batch_id, LaunchReviewCall.release == release)) or 0)
 
 
 def registry_ceiling(db) -> float:
@@ -420,7 +461,18 @@ def review_started(db, slug: str, version: str) -> None:
 
 
 def review_finished(db, slug: str, version: str, *, unreviewed: list) -> None:
-    _set_release(db, f"{slug}@{version}", "done", unreviewed=list(unreviewed))
+    """`done` only when at least one batch call was reserved for the release (delta review
+    N2); otherwise it goes back to `pending` with the reason, so a resume can try again."""
+    release = f"{slug}@{version}"
+    with db.session() as s:
+        b = _batch(s)
+        calls = _calls_for(s, b.batch_id, release) if b is not None else 0
+    if calls:
+        _set_release(db, release, "done", unreviewed=list(unreviewed), calls=calls)
+    else:
+        _set_release(db, release, "pending", unreviewed=list(unreviewed),
+                     why="no review call was made (image_vision closed, or every call "
+                         "refused); not counted as reviewed")
 
 
 def run(db, enqueue, *, now: datetime | None = None) -> dict:
@@ -434,8 +486,26 @@ def run(db, enqueue, *, now: datetime | None = None) -> dict:
     st = state(db, now=now)
     if st["status"] != OPEN:
         return {"ran": False, "why": f"batch {st['status']}: {st.get('closed_why') or ''}"}
-    started, interrupted, waiting = [], [], []
+    started, interrupted, waiting, requeued = [], [], [], []
+    from ..core.models import Job as _Job, JobStatus as _JS
+
+    with db.session() as s:
+        b = _batch(s)
+        progress_rows = dict(b.releases or {}) if b is not None else {}
     for release, progress in sorted(st["releases"].items()):
+        if progress == "queued":
+            # Delta review N2: a batch build that ended without starting the review (failed,
+            # dead or cancelled) leaves its release queued forever; it is pending again.
+            jid = (progress_rows.get(release) or {}).get("job_id")
+            with db.session() as s:
+                job = s.get(_Job, jid) if jid else None
+                ended = job is not None and job.status in (_JS.DONE, _JS.DEAD, _JS.CANCELLED)
+            if not ended:
+                continue
+            _set_release(db, release, "pending", why="its batch build ended before the review "
+                                                     "started")
+            requeued.append(release)
+            progress = "pending"
         if progress == "reviewing":
             _set_release(db, release, "interrupted",
                          why="a review attempt did not finish; its calls' bills are unknown, "
@@ -454,10 +524,24 @@ def run(db, enqueue, *, now: datetime | None = None) -> dict:
         if last is None:
             waiting.append(release)
             continue
+        attempt = int((progress_rows.get(release) or {}).get("attempt") or 0) + 1
         job = enqueue({**last, INPUT_KEY: BATCH_ID},
-                      f"{BATCH_ID}:{release}")
+                      f"{BATCH_ID}:{release}" + (f":{attempt}" if attempt > 1 else ""))
         if job is not None:
-            _set_release(db, release, "queued")
+            _set_release(db, release, "queued", attempt=attempt,
+                         job_id=getattr(job, "id", None))
             started.append(release)
     return {"ran": True, "queued": started, "interrupted": interrupted,
-            "no_completed_build": waiting}
+            "no_completed_build": waiting, "requeued": requeued}
+
+
+def resume_key(db) -> str:
+    """A fresh key for one more run of the batch (owner step-up resume, delta review N2)."""
+    from sqlalchemy import func, select
+
+    from ..core.models import Job
+
+    with db.session() as s:
+        n = int(s.scalar(select(func.count()).select_from(Job).where(
+            Job.job_type == JOB_TYPE)) or 0)
+    return f"{BATCH_ID}:run:{n + 1}"

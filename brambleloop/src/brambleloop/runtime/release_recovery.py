@@ -67,13 +67,94 @@ def retry_key(slug: str, version: str, halt_audit_id: int) -> str:
     return f"{RETRY_PREFIX}:{slug}:{version}:{halt_audit_id}"
 
 
+def _certified_versions(db, slug: str) -> list[str]:
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        return [v for (v,) in s.execute(
+            select(PatternVersion.version).join(Product,
+                                                PatternVersion.product_id == Product.id)
+            .where(Product.slug == slug, PatternVersion.certified == True))]  # noqa: E712
+
+
+def newer_certified(db, slug: str, version: str) -> list[str]:
+    """Certified versions of `slug` above `version` (review F2); unorderable ones count as
+    newer, so an older release is never re-certified past a release nobody can place."""
+    from ..ops.artefacts import version_key
+
+    mine = version_key(version)
+    out = []
+    for v in _certified_versions(db, slug):
+        k = version_key(v)
+        if v != version and (mine is None or k is None or k > mine):
+            out.append(v)
+    return sorted(out)
+
+
+def design_check(slug: str, version: str, recorded: dict) -> str:
+    """"" when the recorded CIR is still exactly the design the code defines for this
+    slug@version (review F3), else why not."""
+    import json
+
+    from ..cir.model import CIR
+    from .pipeline import _engineered_cir
+
+    try:
+        code = _engineered_cir(slug)
+    except Exception as exc:  # noqa: BLE001 - a design that no longer builds is not retried
+        return f"the code's design for {slug} does not build ({type(exc).__name__})"
+    if code is None:
+        return f"the code defines no design for {slug}"
+    if code.version != version:
+        return (f"the code's design for {slug} is now {code.version}, not {version}; the "
+                f"halted release is not re-certified")
+    try:
+        rec = CIR.from_dict(recorded)
+    except Exception as exc:  # noqa: BLE001 - an unreadable record is not certified
+        return f"the recorded CIR is unreadable ({type(exc).__name__})"
+    normal = json.loads(json.dumps(code.to_dict(), default=str))
+    if rec.fingerprint != code.fingerprint or normal != json.loads(json.dumps(recorded,
+                                                                              default=str)):
+        return (f"the design moved during the halt: the recorded CIR for {slug}@{version} is "
+                f"not the code's current design; it is not re-certified")
+    return ""
+
+
+def certify_in_flight(db, slug: str, version: str, *, except_key: str | None = None) -> list[int]:
+    """Unfinished `gate.certify` jobs for exactly this slug@version (review F5)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    out = []
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(
+                Job.job_type == "gate.certify",
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+            cir = (j.inputs or {}).get("cir") or {}
+            if except_key and j.idempotency_key == except_key:
+                continue
+            if cir.get("slug") == slug and cir.get("version") == version:
+                out.append(j.id)
+    return out
+
+
 def retry_halted(ctx) -> dict:
-    """R3: re-enqueue each halted certification once its halt has cleared, once per episode."""
+    """R3: re-enqueue each halted certification once its halt has cleared, once per episode.
+
+    Not retried, with the reason recorded (`skipped`), when (review F2, F3, F5):
+    a newer release of the slug is certified; the recorded CIR is no longer the design the
+    code defines for that slug@version; or a `gate.certify` for it is already queued or
+    running."""
     from ..core.models import Job
     from ..gates.incidents import IncidentTracker
 
     tracker = IncidentTracker(ctx.db)
+    me = getattr(getattr(ctx, "job", None), "id", None)
     retried, still_halted, unreadable, already = [], [], [], []
+    skipped: dict[str, str] = {}
     for r in halted_releases(ctx.db):
         if tracker.publication_halted(r["slug"]):
             still_halted.append(r["artifact"])
@@ -86,12 +167,26 @@ def retry_halted(ctx) -> dict:
         if not inputs or not isinstance(inputs.get("cir"), dict):
             unreadable.append(r["artifact"])       # no CIR on record: nothing is guessed
             continue
-        job = ctx.enqueue("quality_director", "gate.certify", inputs,
-                          idempotency_key=retry_key(r["slug"], r["version"],
-                                                    r["halt_audit_id"]))
+        newer = newer_certified(ctx.db, r["slug"], r["version"])
+        if newer:
+            skipped[r["artifact"]] = f"superseded_by_newer: {newer} certified"
+            continue
+        moved = design_check(r["slug"], r["version"], inputs["cir"])
+        if moved:
+            skipped[r["artifact"]] = f"design_moved: {moved}"
+            continue
+        key = retry_key(r["slug"], r["version"], r["halt_audit_id"])
+        flying = [j for j in certify_in_flight(ctx.db, r["slug"], r["version"], except_key=key)
+                  if j != me]
+        if flying:
+            skipped[r["artifact"]] = f"certify_in_flight: job(s) {flying}"
+            continue
+        job = ctx.enqueue("quality_director", "gate.certify", inputs, idempotency_key=key)
         (retried if job is not None else already).append(r["artifact"])
+    if skipped:
+        ctx.audit("certify.retry_skipped", detail={"skipped": skipped})
     return {"retried": retried, "still_halted": still_halted,
-            "already_retried": already, "no_cir_on_record": unreadable}
+            "already_retried": already, "no_cir_on_record": unreadable, "skipped": skipped}
 
 
 def launch0_releases() -> list:
@@ -136,6 +231,9 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
         if (cir.slug, cir.version) in certified:
             present.append(rel)
             continue
+        if newer_certified(ctx.db, cir.slug, cir.version):
+            present.append(f"{rel} (a newer release is certified; not seeded)")
+            continue
         if len(seeded) >= limit:
             pending.append(rel)
             continue
@@ -145,3 +243,120 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
         (seeded if job is not None else already).append(rel)
     return {"seeded": seeded, "certified": present, "already_seeded": already,
             "pending": pending}
+
+
+def duplicate_certification(db, job, cir) -> str:
+    """Review F5: why this `gate.certify` job would only repeat a certification that landed
+    after it was queued, or "". Identical content (the stored release's CIR and document
+    version equal this job's) certified by another job since this one was created: running it
+    again would only re-certify the same release. Anything else -- different content, an older
+    certification, unreadable state -- is not a duplicate, and the job runs as before."""
+    import json
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, PatternVersion, Product
+    from ..gates.certificate import DOC_VERSION
+
+    created = getattr(job, "created_at", None)
+    if created is None:
+        return ""
+    try:
+        with db.session() as s:
+            pv = s.scalar(select(PatternVersion).join(
+                Product, PatternVersion.product_id == Product.id).where(
+                Product.slug == cir.slug, PatternVersion.version == cir.version,
+                PatternVersion.certified == True))  # noqa: E712
+            if pv is None:
+                return ""
+            if (pv.certificate or {}).get("doc_version") != DOC_VERSION:
+                return ""
+            if pv.cir_json != json.loads(json.dumps(cir.to_dict(), default=str)):
+                return ""
+            later = s.scalar(select(AuditLog).where(
+                AuditLog.action == "gate.certified",
+                AuditLog.artifact == f"{cir.slug}@{cir.version}",
+                AuditLog.at > created,
+                AuditLog.job_id != getattr(job, "id", None)).order_by(AuditLog.id.desc()))
+            if later is None:
+                return ""
+            return (f"{cir.slug}@{cir.version} was certified with identical content by job "
+                    f"{later.job_id} after this job was queued")
+    except Exception:  # noqa: BLE001 - unreadable is not a duplicate: certify as before
+        return ""
+
+
+# ---- delta review N3: a live listing of a superseded release ---------------------------------
+
+SUPERSEDED_LIVE = "listing.superseded_live:"
+
+
+def superseded_live_listings(db) -> dict:
+    """Raise (and restate) one owner-visible P2 per live listing whose release is not the
+    product's newest certified release; resolve it when that stops holding.
+
+    Since R1 an older release's artefacts read `superseded` and raise no halt, which is right
+    for drafts -- publication refuses a superseded release -- but a listing already *live* on
+    Etsy keeps selling the old release and auto-renews. Nothing here changes the listing: the
+    owner decides (update it to the newest release, or deactivate it). Never halting: the
+    newest release's own publication is unaffected (product independence)."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing, Product
+    from ..ops import incident_lifecycle as lifecycle
+    from ..ops.artefacts import newest_release
+
+    opened, held, resolved = [], [], []
+    # Final review R4: "live" is what Etsy shows, not only our row. The latest listing census
+    # (getListingsByShop per state) marks a listing of ours active even when the local row
+    # says otherwise; both sources are read and merged per slug@version.
+    candidates: dict[tuple[str, str], dict] = {}
+    try:
+        from .etsy_ops import CENSUS_READING, latest_reading
+
+        census = latest_reading(db, CENSUS_READING) or {}
+        for r in census.get("estate") or []:
+            if r.get("ours") and r.get("state") == "active" and r.get("slug") \
+                    and r.get("version"):
+                candidates.setdefault((r["slug"], r["version"]), {
+                    "etsy_listing_id": r.get("listing_id"), "listing_id": None,
+                    "source": "etsy listing census (state active)",
+                    "should_auto_renew": r.get("should_auto_renew")})
+    except Exception:  # noqa: BLE001 - an unreadable census adds nothing; the rows still do
+        pass
+    with db.session() as s:
+        for row in s.scalars(select(Listing).where(Listing.state == "active")):
+            candidates.setdefault((row.product_slug, row.version), {
+                "etsy_listing_id": row.etsy_listing_id, "listing_id": row.id,
+                "source": "local listing row (state active)"})
+        holding = set()
+        for (slug, version), info in sorted(candidates.items()):
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            newest = newest_release(s, product.id) if product is not None else None
+            if newest is None or newest.version == version:
+                continue
+            row = type("Live", (), {"product_slug": slug, "version": version,
+                                    "id": info["listing_id"],
+                                    "etsy_listing_id": info["etsy_listing_id"]})
+            sig = f"{SUPERSEDED_LIVE}{row.product_slug}@{row.version}"
+            holding.add(sig)
+            _, new = lifecycle.open_or_restate(
+                s, signature=sig, severity="P2", product_slug=None, halts_publication=False,
+                summary=(f"{row.product_slug}@{row.version} is live on Etsy, but the newest "
+                         f"certified release is {newest.version}: buyers get the older "
+                         f"pattern and Etsy may auto-renew it. Owner decision: update the "
+                         f"listing to {newest.version}, or deactivate it"),
+                detail={"listing_id": row.id, "etsy_listing_id": row.etsy_listing_id,
+                        "live_version": row.version, "newest": newest.version,
+                        "source": info["source"],
+                        "should_auto_renew": info.get("should_auto_renew")})
+            (opened if new else held).append(sig)
+        from ..core.models import Incident
+
+        stale = [i.signature for i in s.scalars(select(Incident).where(
+            Incident.signature.like(f"{SUPERSEDED_LIVE}%"), Incident.resolved.is_(False)))
+            if i.signature not in holding]
+        if stale:
+            resolved = lifecycle.resolve_signatures(
+                s, stale, resolution="no live listing of a superseded release remains")
+    return {"opened": opened, "held": held, "resolved": resolved}

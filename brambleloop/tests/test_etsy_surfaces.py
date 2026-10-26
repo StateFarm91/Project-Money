@@ -326,12 +326,19 @@ def test_injected_defect_a_field_nobody_read_must_not_read_as_a_pass():
     assert status.green is False
 
 
-def test_an_eu_only_policy_field_set_on_a_canadian_shop_is_a_failure():
+def test_policy_additional_held_by_etsy_is_not_a_readiness_failure_its_content_is_checked():
+    # W4-LISTREADY (LAUNCHPREP E3, owner-commissioned rule correction): "only EU shops may
+    # set policy_additional" restricts our updateShop *write* (still refused), not the shop.
+    # Etsy holds a value for this Canadian shop; its content is checked for contradictions.
+    from brambleloop.commerce import policy_consistency
+
     body = _good_shop()
     body["policy_additional"] = "Licence and AI disclosure."
     status = es.assess_shop({"observed_at": NOW, "shop": body}, now=NOW)
-    assert {c.key for c in status.failures} == {"policy_additional_unset"}
-    assert status.green is False
+    assert not status.failures and status.green is True
+    body["policy_additional"] = "For personal use only."
+    found = policy_consistency.check(body)["contradictions"]
+    assert any(c["field"] == "policy_additional" for c in found), found
 
 
 def test_a_policy_etsy_returned_as_null_is_a_failure_not_an_unknown():
@@ -542,8 +549,17 @@ def test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task(
     assert es.SURFACES["orders"].owner_action is None
     assert es.SURFACES["orders"].collector == "orders_ingest"
     assert orders_ingest.OWNER_ACTION_KEY == "reauthorise_transactions_r"
-    src = __import__("inspect").getsource(orders_ingest.gate)
-    assert "Only the owner" in src and "browser" in src and "OWNER_ACTION_KEY" in src
+    # Review F6 (W4-LISTREADY): asserted on the gate's own answer, not on its source text.
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    g = orders_ingest.gate(db)                  # no stored grant, so transactions_r is missing
+    assert g["open"] is False
+    scope_gap = [m for m in g["missing"] if m.startswith(f"{orders_ingest.SCOPE}:")]
+    assert scope_gap, g["missing"]
+    assert "Only the owner" in scope_gap[0] and "browser" in scope_gap[0]
+    assert "reauthorise_transactions_r" in scope_gap[0]
     assert "reauthorise_transactions_r" not in {a.key for a in es.owner_queue(
         first_sale_only=True)}, (
         "a sale can complete without this; what it blocks is everything after the sale, and "

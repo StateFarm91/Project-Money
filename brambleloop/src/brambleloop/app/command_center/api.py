@@ -614,6 +614,30 @@ def make_router(db) -> APIRouter:
                     detail={"action": "experiments.run", **out})
         return ok(out)
 
+    # ---- the owner's dated Shop Manager readings (W4-LISTREADY, review F7) -----------------
+    # Owner session + step-up. The owner-attested pages (messages, legal_and_tax) are accepted
+    # only here; `recorded_by` is the authenticated owner, not a claim in the body.
+
+    @router.post("/etsy/shop-observation")
+    async def shop_observation_owner(request: Request):
+        from ...commerce import shop_observations
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "etsy.shop_observation")
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: shop_observations.record(
+                db, page=str(body.get("page") or "")[:40], observed_at=body.get("observed_at"),
+                complete=body.get("complete"), values=body.get("values"),
+                statement=str(body.get("statement") or ""), recorded_by=actor(request)))
+        except shop_observations.ObservationRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "etsy.shop_observation",
+                            "page": str(body.get("page") or "")[:40]})
+        return ok(out)
+
     # ---- the owner's Launch-0 image-review batch (W4-LISTREADY, D-W4-LAUNCH-VISION-BATCH) ----
     # Owner session for both; step-up to activate. Activation fixes the frame scope from the
     # stored Launch-0 frames, then enqueues the one batch run. Nothing else raises a ceiling.
@@ -623,11 +647,12 @@ def make_router(db) -> APIRouter:
         from ...finance import launch_review
 
         out = launch_review.state(db)
-        if out.get("status") == "not_activated":
-            # Read-only, for the card: whether activation's own scope check would pass now.
+        if out.get("status") in ("not_activated", launch_review.UNUSED):
+            # Read-only, for the card: whether activation's own checks would pass now.
             scope = launch_review.frame_scope(db)
             out["frames_ready"] = bool(scope["frames"]) and not scope["missing"]
             out["missing_releases"] = scope["missing"]
+            out["vision_open"] = launch_review.vision_open(db) is True
         return ok(out)
 
     @router.post("/launch-review/activate")
@@ -639,14 +664,14 @@ def make_router(db) -> APIRouter:
         auth.require_stepup(db, request, "launch_review.activate")
         pid = auth.current_public_id(request)
         try:
-            out = await run_in_threadpool(lambda: launch_review.activate(
+            out = await run_in_threadpool(lambda: launch_review.open_batch(
                 db, by=actor(request), stepped_up=True))
         except launch_review.LaunchReviewRefused as exc:
             raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
                               session_public_id=pid) from None
         try:
             job = JobQueue(db).enqueue(launch_review.AGENT, launch_review.JOB_TYPE, {},
-                                       idempotency_key=f"{launch_review.BATCH_ID}:run",
+                                       idempotency_key=launch_review.resume_key(db),
                                        max_attempts=1)
             out["run_job_id"] = job.id
         except DuplicateJob as exc:
@@ -657,6 +682,28 @@ def make_router(db) -> APIRouter:
                                                        "total_cap_cad", "daily_cap_cad",
                                                        "expires_at", "run_job_id")}})
         return ok(out)
+
+    @router.post("/launch-review/resume")
+    async def launch_review_resume(request: Request):
+        """Delta review N2: queue one more run of the open batch (pending releases only),
+        under the same caps and expiry. Step-up."""
+        from ...finance import launch_review
+        from ...queue.durable import JobQueue
+
+        await body_of(request)
+        auth.require_stepup(db, request, "launch_review.resume")
+        pid = auth.current_public_id(request)
+        st = launch_review.state(db)
+        if st.get("status") != launch_review.OPEN:
+            raise auth.refuse(db, request, 400, "REFUSED",
+                              f"the batch is {st.get('status')}; only an open batch resumes",
+                              kind="action", session_public_id=pid)
+        job = JobQueue(db).enqueue(launch_review.AGENT, launch_review.JOB_TYPE, {},
+                                   idempotency_key=launch_review.resume_key(db),
+                                   max_attempts=1)
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "launch_review.resume", "run_job_id": job.id})
+        return ok({**st, "run_job_id": job.id})
 
     @router.get("/experiments/runs/{run_id}/card")
     def experiments_card(run_id: int, request: Request):
@@ -775,6 +822,9 @@ def make_router(db) -> APIRouter:
         from ...store_foundation import shop_sync
 
         body = await body_of(request)
+        # Final review R2: a confirmation is evidence (the banner check and the payout
+        # requirement close on it), so it needs the owner's step-up.
+        auth.require_stepup(db, request, "store.settings.confirm")
         try:
             out = await run_in_threadpool(
                 lambda: shop_sync.confirm(db, key, actor=actor(request),

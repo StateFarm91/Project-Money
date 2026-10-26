@@ -24,6 +24,14 @@ ACTION = "etsy.shop_observation"
 
 #: The pages this intake accepts, the owner action a complete reading evidences, and how
 #: old a reading may be before it is stale.
+# W4-LISTREADY (review F7): pages whose reading is the owner's own attestation -- identity
+# verification and the tax position (KYC), and where buyer messages reach -- are accepted only
+# from the owner's Command Center session with step-up (`POST /api/cc/etsy/shop-observation`),
+# never from the shared operator credential.
+# Final review R1: `delivery_policy` too -- it lets a blank delivery policy read not
+# applicable, so it is the owner's attestation, never the shared operator token's.
+OWNER_ATTESTED_PAGES = frozenset({"messages", "legal_and_tax", "delivery_policy"})
+
 PAGES: dict[str, dict[str, Any]] = {
     "policy_violations": {"owner_action": "policy_violations_check", "max_age_days": 7,
                           "values": "items: list of {source_text, listing_id?, kind, "
@@ -42,6 +50,13 @@ PAGES: dict[str, dict[str, Any]] = {
                       "values": "identity_verified: bool (Etsy shows verification complete); "
                                 "tax_position: the GST/HST position chosen, as stated "
                                 "(non-empty); decided_on: ISO date the position was chosen"},
+    # LAUNCHPREP E2: whether Policy settings shows an editable delivery text box for this
+    # digital-only shop. A dated `false` is the evidence that lets a blank policy_shipping read
+    # not applicable (`intel.etsy_surfaces`); `true` keeps the check as it is.
+    "delivery_policy": {"owner_action": None, "max_age_days": 90,
+                        "values": "editable_delivery_box: bool (true if Policy settings shows a "
+                                  "delivery/shipping text box you can type in; false if only "
+                                  "Etsy's fixed 'Instant downloads' policy is shown)"},
     "options": {"owner_action": None, "max_age_days": 30,
                 "values": "controls: {control_key: value as shown}; labels: every control "
                           "label on the page"},
@@ -115,14 +130,19 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
                                    and "reply_window_hours" in values):
         raise ObservationRefused("values.notifications_inbox (text) and "
                                  "values.reply_window_hours are required")
+    if page == "delivery_policy" and not isinstance(values.get("editable_delivery_box"), bool):
+        raise ObservationRefused("values.editable_delivery_box must be true or false")
     if page == "legal_and_tax":
         if not isinstance(values.get("identity_verified"), bool):
             raise ObservationRefused("values.identity_verified must be true or false")
         if values.get("decided_on"):
             try:
-                datetime.fromisoformat(str(values["decided_on"]))
+                decided = datetime.fromisoformat(str(values["decided_on"]))
             except ValueError as e:
                 raise ObservationRefused("values.decided_on must be an ISO date") from e
+            # W4-LISTREADY (review F7): a decision cannot be dated after the reading of it.
+            if (decided if decided.tzinfo else decided.replace(tzinfo=timezone.utc)) > now:
+                raise ObservationRefused("values.decided_on is in the future")
     detail = {"page": page, "observed_at": when.isoformat(), "complete": complete,
               "values": values, "statement": str(statement)[:500]}
     with db.session() as s:
