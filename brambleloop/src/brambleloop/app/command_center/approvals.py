@@ -39,7 +39,16 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # write, so they could never open. These are those doors; each records only.
     "acceptance.rule": (True, "record the owner's ruling on the API+vision acceptance wording"),
     "ads.set_limit": (True, "set the owner's ads SpendLimit (capped at the conservative caps)"),
+    # W4-PRODFIX: `platform_policy.unreviewed_changes` blocks publishing (and the marketing
+    # rebuild) until a material Etsy policy change is reviewed and re-tested, and nothing in
+    # the running system could record that review (`review_change` had no caller). The
+    # preview shows the change; the review records exactly what the owner confirmed.
+    "policy.review_preview": (False, "read a material platform-policy change before review"),
+    "policy.review": (True, "record the owner's review and re-test of a policy change"),
 }
+
+#: The words the owner confirms, verbatim. Anything else is refused.
+POLICY_REVIEW_CONFIRMATION = "reviewed and tested"
 
 #: The two answers the `acceptance_ruling` gate asks for (#189/#221/#222/#320). Either opens
 #: the gate: what changes is which remaining work the rows hold.
@@ -272,6 +281,30 @@ def inbox(db) -> dict:
             f"publication candidates unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
+    # W4-PRODFIX: each unreviewed material policy change is a card (it blocks publishing).
+    try:
+        from ...gates import platform_policy
+
+        cards = cards + [{
+            "card_id": f"policy:{c['source']}", "kind": "policy_review",
+            "title": f"Etsy policy changed: {c['source']}",
+            "what": (f"{c['source']} changed materially (reading {c['checked_on']}); "
+                     f"{', '.join(c['affects'])} are blocked until it is reviewed and "
+                     f"re-tested"),
+            "executable": True,
+            "actions": [{"action": "policy.review_preview", "requires_step_up": False,
+                         "params": {"source": c["source"]}},
+                        {"action": "policy.review", "requires_step_up": True,
+                         "params": {"source": c["source"],
+                                    "confirm": POLICY_REVIEW_CONFIRMATION,
+                                    "tested": "<what you re-tested>",
+                                    "expected_digest": "<from policy.review_preview>"}}],
+            "sources": [f"policy_snapshots:{c['snapshot_id']}"]}
+            for c in platform_policy.unreviewed_changes(db)]
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"policy changes unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
     # W4-CCREL: the release approval card. The deploy decision (gate production_window)
     # carries the candidate SHA, suite result, security review and rollback target; with no
     # deploy decision open, a pending candidate gets its own read-only card.
@@ -423,6 +456,64 @@ def _set_ads_limit(db, body: dict, reason: str) -> dict:
             "spent": 0.0, "note": "authority only; nothing was spent"}
 
 
+def _policy_change(db, source: str) -> dict:
+    """The newest unreviewed material change of `source`, the reading before it, and the
+    digest binding what the owner is shown (so a review cannot confirm text it never saw)."""
+    import hashlib
+    import json as _json
+
+    from ...core.models import PolicySnapshot
+    from ...gates import platform_policy
+
+    pending = {c["source"]: c for c in platform_policy.unreviewed_changes(db)}
+    if source not in pending:
+        raise ActionNotFound(f"no unreviewed material change for policy source {source!r}")
+    with db.session() as s:
+        row = s.get(PolicySnapshot, pending[source]["snapshot_id"])
+        before = s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source == source, PolicySnapshot.id < row.id)
+            .order_by(PolicySnapshot.id.desc())).first()
+        shown = {
+            "source": source, "snapshot_id": row.id,
+            "changed": {"version": row.version, "checked_on": row.checked_on,
+                        "digest": row.digest, "summary": row.summary or "",
+                        "url": row.url or "", "affects": list(pending[source]["affects"])},
+            "before": ({"snapshot_id": before.id, "version": before.version,
+                        "checked_on": before.checked_on, "digest": before.digest,
+                        "summary": before.summary or ""} if before is not None else None),
+        }
+    shown["review_digest"] = hashlib.sha256(
+        _json.dumps(shown, sort_keys=True, default=str).encode()).hexdigest()
+    shown["confirm_with"] = POLICY_REVIEW_CONFIRMATION
+    return shown
+
+
+def _review_policy_change(db, body: dict, *, actor: str) -> dict:
+    from ...gates import platform_policy
+
+    source = str(body.get("source") or "").strip()
+    shown = _policy_change(db, source)
+    confirmed = str(body.get("confirm") or "").strip()
+    tested = str(body.get("tested") or "").strip()
+    if confirmed.lower() != POLICY_REVIEW_CONFIRMATION:
+        raise ActionRefused(f"confirm must be exactly {POLICY_REVIEW_CONFIRMATION!r}")
+    if not tested:
+        raise ActionRefused("tested must say what was re-tested against the changed policy")
+    if body.get("expected_digest") != shown["review_digest"]:
+        raise ActionRefused("approval preview changed; review the current content")
+    try:
+        out = platform_policy.review_change(db, source, reviewed_by="owner:command-center",
+                                            tested=tested)
+    except platform_policy.PolicyRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+    record = {"source": source, "snapshot_id": shown["snapshot_id"],
+              "confirmed": confirmed, "tested": tested[:2000],
+              "review_digest": shown["review_digest"], "shown": shown, "session": actor,
+              "reviewed_by": "owner:command-center"}
+    audit_id = _audit(db, actor, "policy.change_reviewed", f"policy:{source}", record)
+    return {**out, "review_audit_id": audit_id, "confirmed": confirmed}
+
+
 def execute(db, action: str, body: dict, *, actor: str) -> dict:
     """Run one owner action through its existing mechanism. Raises ActionRefused."""
     from ...laura.private.firewall import reject_private
@@ -508,6 +599,11 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                                actor=actor)
         elif action == "ads.set_limit":
             result = _set_ads_limit(db, body, tagged)
+        elif action == "policy.review_preview":
+            return {"result": _policy_change(db, str(body.get("source") or "").strip()),
+                    "audit_id": None}  # a read: nothing to audit
+        elif action == "policy.review":
+            result = _review_policy_change(db, body, actor=actor)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
@@ -525,12 +621,14 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                 detail={"exception": name, "message": raw}) from exc
         raise
     audit_id = _audit(db, actor, f"cc.owner_action.{action}",
-                      str(body.get("slug") or body.get("id") or body.get("approval_id")
+                      str(body.get("slug") or body.get("source") or body.get("id")
+                          or body.get("approval_id")
                           or body.get("incident_id") or body.get("owner_action_id") or ""),
                       {"action": action, "via": "command_center", "session": actor,
                        "reason": reason[:300],
                        "result": {k: v for k, v in (result or {}).items()
                                   if k in ("approval_id", "revoked", "digest", "expires_at",
                                            "improvement", "owner_approved", "acknowledged",
-                                           "deferred")}})
+                                           "deferred", "source", "snapshot_id",
+                                           "reviewed", "review_audit_id", "confirmed")}})
     return {"result": result, "audit_id": audit_id}
