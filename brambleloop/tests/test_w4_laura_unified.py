@@ -19,6 +19,8 @@ Run: cd brambleloop && PYTHONPATH=src:tests python tests/test_w4_laura_unified.p
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+
 import contextlib
 import io
 import json

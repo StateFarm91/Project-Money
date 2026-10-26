@@ -46,7 +46,7 @@ function crossingRow(x, refresh) {
 }
 
 function turnRow(t, refresh, selected) {
-  const box = h("input", { type: "checkbox", "aria-label": "select message" });
+  const box = h("input", { type: "checkbox", aria: { label: "select message" } });
   box.addEventListener("change", () => { if (box.checked) selected.add(t.id); else selected.delete(t.id); });
   const who = t.role === "laura" ? "Laura" : "You";
   const side = t.role === "laura" && String(t.model_ref || "").startsWith("business/") ? " · business tool" : "";
