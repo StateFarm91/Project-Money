@@ -96,6 +96,24 @@ def test_f201_large_tables_fold_to_a_summary_without_losing_rows():
         assert f"test.action{k}" in audit, k
 
 
+def test_f190_every_evidence_class_shows_its_observed_share():
+    from brambleloop.scale import confidence as SC
+
+    html = _page()
+    block = html[_at(html, "CA$5,000/month model"):]
+    for k, need in SC.GATE.items():
+        assert f"evidence: {k}" in block, k
+    assert "0 / 60 (0%) short" in block            # orders, on an empty shop
+    rows = {c["class"]: c for c in SC.progress({**{k: 0 for k in SC.GATE},
+                                                "orders": 30, "selling_skus": 9})}
+    assert rows["orders"]["share"] == 0.5 and rows["orders"]["met"] is False
+    assert rows["selling_skus"]["share"] == 1.0 and rows["selling_skus"]["met"] is True
+    unknown = {c["class"]: c for c in SC.progress({})}
+    assert unknown["orders"]["share"] is None and unknown["orders"]["met"] is False
+    gate = SC.gate_status(main.db)
+    assert [c["class"] for c in gate["classes"]] == list(SC.GATE)
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     failed = 0

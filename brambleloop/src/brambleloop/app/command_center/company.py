@@ -987,7 +987,9 @@ def learn_outcomes(db, improve: dict | None = None) -> dict:
                       "value": p.get("display"), "state": p.get("state"),
                       "why": None if p.get("state") == "MEASURED" else
                       "evidence gate unmet: " + ", ".join(
-                          sorted((p.get("evidence_gate") or {}).get("unmet") or []))})
+                          sorted((p.get("evidence_gate") or {}).get("unmet") or [])),
+                      # F-190: observed / required per evidence class.
+                      "evidence_classes": (p.get("evidence_gate") or {}).get("classes")})
     except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0.00
         items.append({"metric": "ca5k_model", "label": "modelled probability of CA$5,000/month",
                       "value": "UNKNOWN", "state": "UNKNOWN",

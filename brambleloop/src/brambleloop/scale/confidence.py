@@ -388,6 +388,9 @@ def gate_status(db, *, selling_skus: int = 0, product_families: int = 0,
 
     return {
         "satisfied": not unmet and not conditions_unmet,
+        # F-190: every evidence class with its observed share of what is required, met or
+        # not, so the UI shows how far each class is rather than only which ones are short.
+        "classes": progress(actual),
         "required": GATE,
         "actual": actual,
         "unmet": unmet,
@@ -526,3 +529,24 @@ def bands(db, **evidence) -> dict:
                  "the bands differ, which means a layer below the binding one is "
                  "target-sensitive"),
     }
+
+
+def progress(actual: dict) -> list[dict]:
+    """F-190: one row per evidence class -- observed, required, share (0..1, capped), met."""
+    out = []
+    for k, need in GATE.items():
+        have = actual.get(k)
+        share = None if have is None or not need else round(min(1.0, have / need), 3)
+        out.append({"class": k, "have": have, "need": need, "share": share,
+                    "met": have is not None and have >= need})
+    return out
+
+
+def progress_text(gate: dict) -> list[tuple[str, str]]:
+    """The rows the dashboard renders: `have / need (pct)` and met/short per class."""
+    rows = []
+    for c in gate.get("classes") or progress(gate.get("actual") or {}):
+        pct = "?" if c["share"] is None else f"{c['share'] * 100:.0f}%"
+        rows.append((f"evidence: {c['class']}",
+                     f"{c['have']} / {c['need']} ({pct}) {'met' if c['met'] else 'short'}"))
+    return rows

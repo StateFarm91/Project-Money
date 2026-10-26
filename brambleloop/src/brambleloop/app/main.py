@@ -5937,7 +5937,7 @@ def dashboard() -> str:
             [["At risk", "Event", "Runway", "Last viable launch"]], "")
 
     def _scale() -> str:
-        from ..scale.confidence import probability
+        from ..scale.confidence import probability, progress_text
 
         p = probability(db)
         gate = p["evidence_gate"]
@@ -5948,6 +5948,8 @@ def dashboard() -> str:
             ("capped by", p["capped_by"]),
             ("evidence gate", "met" if gate["satisfied"] else
              f"unmet: {', '.join(sorted(gate['unmet']))}"),
+            # F-190: each evidence class with its observed share of the requirement.
+            *progress_text(gate),
         ], [["CA$5K model", "Value"]], "")
 
     def _creative() -> str:
