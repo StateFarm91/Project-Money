@@ -98,6 +98,8 @@ app.add_middleware(security.PublicProjectionMiddleware)
 app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
 app.add_middleware(security.OwnerTextScrubMiddleware, refs_provider=_owner_only_texts)
 app.add_middleware(security.SecurityHeadersMiddleware)
+# W4-SECPATCH2 (review F2): outermost, so no layer ever chooses between two credentials.
+app.add_middleware(security.SingleAuthorizationMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
 from .phase_api import make_router as phase_router
