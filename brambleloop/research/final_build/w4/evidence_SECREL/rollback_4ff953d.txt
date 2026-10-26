@@ -1,0 +1,31 @@
+{
+  "check": {
+    "candidate": "6ddb725bc56ac5c1737d21f95ed30adff66c103d",
+    "deployed": "b2e49455ca0e93006752ced16cfe3af0cae86860",
+    "mode": "rollback",
+    "note": "verdict only; this script never deploys (F-461, A3-06)",
+    "reasons": [],
+    "rollback": {
+      "reason": "rehearsal: SECPATCH rolled back to the listings release 051dbee2",
+      "to": "051dbee286077fa760858701e32e385af34c8bd9"
+    },
+    "suite_run": null,
+    "verdict": "ALLOW"
+  },
+  "commit": "6ddb725bc56ac5c1737d21f95ed30adff66c103d",
+  "ok": true
+}
+{
+  "candidate": "6ddb725bc56ac5c1737d21f95ed30adff66c103d",
+  "deployed": "b2e49455ca0e93006752ced16cfe3af0cae86860",
+  "mode": "rollback",
+  "note": "verdict only; this script never deploys (F-461, A3-06)",
+  "reasons": [],
+  "rollback": {
+    "reason": "rehearsal: SECPATCH rolled back to the listings release 051dbee2",
+    "to": "051dbee286077fa760858701e32e385af34c8bd9"
+  },
+  "suite_run": null,
+  "verdict": "ALLOW"
+}
+deploy.sh: ALLOW 6ddb725bc56ac5c1737d21f95ed30adff66c103d (dry run; nothing pushed)
