@@ -342,7 +342,7 @@ def record(db, analysis: PendingAnalysis, observation: dict,
     return got.observation_id
 
 
-def _mark_failed(db, analysis: PendingAnalysis) -> None:
+def _mark_failed(db, analysis: PendingAnalysis, *, give_up: bool = False) -> None:
     """Count one failed attempt against this image, so it is not retried forever.
 
     A failing image is never marked judged, so before this it came back on every run --
@@ -364,7 +364,8 @@ def _mark_failed(db, analysis: PendingAnalysis) -> None:
             return
         detail = dict(row.detail or {})
         tried = dict(detail.get("gallery_ranks_failed") or {})
-        tried[str(analysis.rank)] = int(tried.get(str(analysis.rank), 0)) + 1
+        tried[str(analysis.rank)] = (max(FAILED_ATTEMPTS, int(tried.get(str(analysis.rank), 0)))
+                                     if give_up else int(tried.get(str(analysis.rank), 0)) + 1)
         detail["gallery_ranks_failed"] = tried
         row.detail = detail
         flag_modified(row, "detail")
@@ -679,7 +680,12 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             record(db, item, observation, env=env)
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
-            _mark_failed(db, item)
+            # W4-PRODFIX: this answer was paid for. Re-asking is the identical request
+            # (same prompt, image and schema), so each retry bought the same evidence again
+            # from a different job -- production's spend-repeat-paid-request incidents fire
+            # at exactly FAILED_ATTEMPTS (3) jobs. A paid, unusable answer gives the image
+            # up at once; an unanswered (provider error) attempt keeps its retries.
+            _mark_failed(db, item, give_up=True)
             systematic.record(db, TASK, method, {"closed_vocabulary_observation": "fail"},
                               agent=AGENT)
             continue
