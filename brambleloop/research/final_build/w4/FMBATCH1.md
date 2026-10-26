@@ -536,3 +536,19 @@ or independent review items.
 - Green: test_w4_research, test_w4_fmbatch1_research, test_mine.
 
 **Status:** E. The fetch step stays off until the switch is set.
+
+## 19. F-621: the KPI trend is drawn in the Company tab
+
+- `static/js/views/company.js` gains `kpiTrend`. A measured `kpi_trend_7d` is drawn as two
+  shared `barChart`s: useful completions and defect dead letters per day over 7 days. An
+  unmeasured one reads "KPI trend: Unknown (reason)" and draws no bars.
+- **Tests:**
+  - `tests/test_w4_fmbatch1_pwa.py` 3/3: static source checks, the mock data, and `node --check`.
+  - `test_v11_pwa_static` green.
+  - `test_v11_pwa_browser`: 220 passes, 0 failures. The browser harness adds two checks: two
+    KPI charts on a measured department, and Unknown on an unmeasured one.
+- **Changes to an existing check in the harness:**
+  - The W4-CCFM1 check `ccfm1 company: ... 7-day completed-work chart` counted every
+    `svg.chart rect` in the row. It now counts the completed-work chart's bars apart from the
+    new KPI charts. It still requires exactly 7.
+  - The Unknown-department check now also requires 0 KPI bars.

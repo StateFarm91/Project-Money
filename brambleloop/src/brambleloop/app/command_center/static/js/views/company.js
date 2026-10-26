@@ -57,7 +57,22 @@ function unitRow(it) {
       it.objective !== undefined ? fact("Objective", it.objective || UNKNOWN_TEXT) : null,
       it.spend_30d ? fact("Spend (30 d, recorded)", typeof it.spend_30d.value_cad === "number"
         ? formatMoney({ value_cad: it.spend_30d.value_cad, state: "RECORDED" }) : `${UNKNOWN_TEXT}${it.spend_30d.why ? `: ${it.spend_30d.why}` : ""}`) : null),
-    deptTrend(it.completed_trend_7d));
+    deptTrend(it.completed_trend_7d),
+    kpiTrend(it.kpi_trend_7d));
+}
+
+// W4-FMBATCH1 (F-621): the charter KPIs per day for 7 days (autonomy.kpis rules), drawn as
+// two bar charts; Unknown (with the reason) when nothing was measured -- never zeros.
+function kpiTrend(t) {
+  if (!t) return null;
+  if (t.basis !== "measured" || !Array.isArray(t.useful_completions)) {
+    return h("p", { class: "muted small" }, `KPI trend: ${UNKNOWN_TEXT}${t.why ? ` (${t.why})` : ""}`);
+  }
+  return h("div", { class: "kpi-trend" },
+    barChart(t.useful_completions, { labels: t.days || [], label: "KPI: useful completions per day (7 days)", height: 32 }),
+    Array.isArray(t.defect_dead_letters)
+      ? barChart(t.defect_dead_letters, { labels: t.days || [], label: "KPI: defect dead letters per day (7 days)", height: 24 })
+      : null);
 }
 
 // F-621: completed jobs per day for 7 days (measured from `jobs`), or Unknown -- never zeros.
