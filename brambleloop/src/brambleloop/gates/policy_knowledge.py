@@ -65,7 +65,15 @@ class Reading:
         return {"source": self.source, "read_on": self.read_on, "basis": self.basis, "urls": list(self.urls),
                 "effective": self.effective, "conclusions": list(self.conclusions),
                 "excerpts": [{"url": e.url, "text": e.text} for e in self.excerpts], "limits": self.limits,
-                "digest": self.digest()}
+                "digest": self.digest(),
+                # F-407: each URL's authority tier (not part of the digest).
+                "source_tiers": {u: _tier(u) for u in self.urls}}
+
+
+def _tier(url: str) -> str:
+    from ..intel import evidence
+
+    return evidence.tier_for(url)
 
 
 READ_ON = "2026-09-26"
