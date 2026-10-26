@@ -32,7 +32,7 @@
 
 | measure | Build 2 | Final Master |
 |---|---|---|
-| **Engineering completion** (built + integrated + tested) | **316 / 320** | **678 / 917** |
+| **Engineering completion** (built + integrated + tested) | **316 / 320** | **681 / 917** |
 | **Acceptance completion** (the full original criterion, production and customer evidence included) | **98 / 320** | **360 / 917** |
 
 - Engineering completion counts rows in E, F or G, plus H rows whose engineering half is
@@ -118,3 +118,4 @@
   - Now E: F-482 (all three pins), F-462, F-455, F-550.
   - Partial (B): F-464, because its mechanism is built but the render handlers belong to the
     product-engine lane.
+- **Later update (batch X): Final Master engineering is 681 / 917.** F-459, F-460 and F-494 are now E (build-side tooling; advisory and local only).

@@ -39,10 +39,10 @@
    "total": 917,
    "by_status": {
     "A": 46,
-    "B": 124,
+    "B": 121,
     "C": 8,
     "D": 1,
-    "E": 61,
+    "E": 64,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 678,
+    "numerator": 681,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 145,
+    "missing implementation": 142,
     "missing prerequisite": 5,
-    "missing integration": 46
+    "missing integration": 49
    }
   }
  },
@@ -9813,13 +9813,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: no automated merge queue; serialization is a convention (single integrator); ops/registry.py records branch/integration_ref and verifies integrated.commit again",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 543f899d: ops/integrate.py local merge queue, compare-and-swap target update, never pushes",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no automated merge queue; serialization is a convention (single integrator); ops/registry.py records branch/integration_ref and verifies integrated.commit against git but does not queue or gate merges"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 543f899d: ops/integrate.py local merge queue, compare-and-swap target update, never pushes"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9829,13 +9829,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: integration responsibility exists as the integrator session (verifies lanes against their own terminal evidence, corrects reports) but no automated shared-contr",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 543f899d: integration checklist (contract pins + lane suites) per lane",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; integration responsibility exists as the integrator session (verifies lanes against their own terminal evidence, corrects reports) but no automated shared-contract validation step"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 543f899d: integration checklist (contract pins + lane suites) per lane"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10325,13 +10325,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: runtime follow-on jobs and cadences dispatch without the owner; build work needs a session to be started (no automatic session dispatch from READY build tasks)",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 a7938354: ops/dispatch.py advisory dispatch cards for READY build work",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "runtime follow-on jobs and cadences dispatch without the owner; build work needs a session to be started (no automatic session dispatch from READY build tasks)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 a7938354: ops/dispatch.py advisory dispatch cards for READY build work"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
