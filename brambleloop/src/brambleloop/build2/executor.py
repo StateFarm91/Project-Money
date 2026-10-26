@@ -1390,6 +1390,15 @@ def queue(db, *, limit: int = 25) -> dict:
                 for t in tasks]
 
     ready = sorted([r for r in rows if r["state"] == READY], key=lambda r: r["priority"])
+    # F-630: in SHADOW, READY work that serves a launch-critical Final Master row goes first.
+    try:
+        from ..core import phase as _phase
+        from . import launch_scope
+
+        current = _phase.effective(db, record_incident=False)
+        ready = launch_scope.order(ready, current)
+    except Exception:  # noqa: BLE001 - ordering advice never breaks the queue
+        current = "UNKNOWN"
     parked = [r for r in rows if r["state"] == PARKED]
     blocked = [r for r in rows if r["state"] == BLOCKED]
     in_progress = [r for r in rows if r["state"] == IN_PROGRESS]
@@ -1427,6 +1436,8 @@ def queue(db, *, limit: int = 25) -> dict:
         "in_progress": in_progress,
         "done_total": sum(1 for r in rows if r["state"] == DONE),
         "next": ready[0] if ready else None,
+        "pre_launch_scope": {"phase": current,
+                             "rule": "SHADOW: launch-serving work first (F-630)"},
         # F-465: what each READY item unblocks downstream, and the path/gates that are longest.
         "critical_path": _critical_path_reading(ready),
         "note": ("Ready, parked and blocked are reported together: a queue showing only "
