@@ -31,11 +31,17 @@ def handle_scan(ctx):
         from ..intel import research
 
         found = research.detect_unknowns(ctx.db)
+        # F-421/F-422/F-423: newly opened questions get the iterative internal search
+        # (terminology, broadened, cross-domain) before anything external is fetched.
+        from ..intel import search_strategy
+
+        strategy = [search_strategy.run(ctx.db, tid)["stopped"] for tid in found["opened"]]
         result["research"] = {"opened": len(found["opened"]),
                               "already_open": len(found["already_open"]),
                               "expired_reopened": len(research.expire_due(ctx.db)),
                               # W4-FMBATCH1 (F-419/F-444): the time bound is enforced.
-                              "overdue_stopped": len(research.stop_overdue(ctx.db))}
+                              "overdue_stopped": len(research.stop_overdue(ctx.db)),
+                              "search_strategy": strategy}
         # W4-FMBATCH1 (F-431): bounded allowlisted fetches, then promotion into lessons.
         from ..intel import research_fetch
 

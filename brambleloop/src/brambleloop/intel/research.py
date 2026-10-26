@@ -60,6 +60,8 @@ EFFECTS = ("confidence_changed", "alternatives_narrowed", "constraint_establishe
 APPLICABILITY_DIMENSIONS = ("assumptions", "topology", "scale", "data", "runtime",
                             "failure_modes")
 APPLICABILITY_VERDICTS = ("transfers", "does_not_transfer", "unknown")
+#: F-413: what was decided about each existing method considered before building.
+EXISTING_VERDICTS = ("adopted", "adapted", "rejected")
 #: F-435: the machine-usable conclusion every answered task carries.
 CONCLUSION_FIELDS = ("question", "status", "confidence", "evidence", "alternatives",
                      "constraints", "applicability", "unresolved", "next_test")
@@ -548,6 +550,23 @@ def _check_conclusion(row, effect, conclusion, confidence) -> dict:
                                   f"each with a verdict in {APPLICABILITY_VERDICTS} and a why; "
                                   f"missing or malformed: {missing} (F-411)")
         adopt = all(app[k]["verdict"] == "transfers" for k in APPLICABILITY_DIMENSIONS)
+        # F-413: existing work before reinvention. A method-adoption answer lists the
+        # established methods considered, each with where it was found and a verdict; one
+        # that builds something new must say why each existing method was not enough.
+        considered = conclusion.get("existing_methods")
+        ok = isinstance(considered, list) and considered and all(
+            isinstance(m, dict) and str(m.get("method") or "").strip()
+            and str(m.get("source") or "").strip()
+            and m.get("verdict") in EXISTING_VERDICTS and str(m.get("why") or "").strip()
+            for m in considered)
+        if not ok:
+            raise ResearchRefused(
+                "a method-adoption answer lists the existing methods considered, each with "
+                f"method, source, verdict in {EXISTING_VERDICTS} and why (F-413)")
+        if conclusion.get("build_new") and not any(m["verdict"] == "rejected"
+                                                   for m in considered):
+            raise ResearchRefused("building something new needs at least one existing "
+                                  "method rejected, and why (F-413)")
     nt = conclusion.get("next_test")
     if isinstance(nt, dict) and nt:
         try:
@@ -565,6 +584,7 @@ def _check_conclusion(row, effect, conclusion, confidence) -> dict:
                                | cited),
             "alternatives": alts, "constraints": list(conclusion.get("constraints") or []),
             "applicability": app, "adopt": adopt,
+            "existing_methods": conclusion.get("existing_methods"),
             "unresolved": list(conclusion.get("unresolved") or [])
             + [f["statement"] for f in fs if f["claim_class"] == "unresolved"],
             "next_test": nt or None, "effect": effect, "decision_ref": row.decision_ref}

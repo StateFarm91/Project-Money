@@ -25,7 +25,8 @@ SEARCH_SUMMARY = "search_summary"
 RENDERED_IMAGE = "rendered_image"
 REPOSITORY = "repository"
 API = "api"
-RETRIEVAL_CLASSES = (FETCHED, SEARCH_SUMMARY, RENDERED_IMAGE, REPOSITORY, API)
+INTERNAL = "internal"          # this company's own rows (intel.research)
+RETRIEVAL_CLASSES = (FETCHED, SEARCH_SUMMARY, RENDERED_IMAGE, REPOSITORY, API, INTERNAL)
 
 PRIMARY = "primary"
 SECONDARY = "secondary"
@@ -97,7 +98,7 @@ class Source:
 
 def rank(sources: list[Source]) -> list[Source]:
     """Primary first; within a tier, fetched before summarised (a read page beats a quote)."""
-    retr = {FETCHED: 0, API: 0, REPOSITORY: 1, RENDERED_IMAGE: 1, SEARCH_SUMMARY: 2}
+    retr = {FETCHED: 0, API: 0, INTERNAL: 0, REPOSITORY: 1, RENDERED_IMAGE: 1, SEARCH_SUMMARY: 2}
     return sorted(sources, key=lambda s: (TIER_ORDER[s.tier], retr.get(s.retrieval, 3), s.ref))
 
 

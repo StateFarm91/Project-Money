@@ -324,9 +324,14 @@ def test_f411_a_method_is_adopted_only_when_every_dimension_transfers():
     app["topology"] = {"verdict": "does_not_transfer",
                        "why": "crochet stitches are not knitted loops"}
     out = R.answer(db, tid, outcome="do not adopt", effect=eff, now=NOW,
-                   conclusion=_empty(constraints=["crochet topology"], applicability=app))
+                   conclusion=_empty(constraints=["crochet topology"], applicability=app,
+                                     existing_methods=_EM))
     assert out["conclusion"]["adopt"] is False
     assert R.metrics(db)["experiments_prevented"] == 1
+
+
+_EM = [{"method": "knitting yarn-level simulation", "source": "https://arxiv.org/abs/1",
+        "verdict": "rejected", "why": "assumes knitted loop topology"}]
 
 
 # ---- F-432 / F-449 -----------------------------------------------------------------------
@@ -444,7 +449,8 @@ def test_f412_a_hypothesis_becomes_the_smallest_bounded_experiment_once():
            for k in R.APPLICABILITY_DIMENSIONS}
     R.answer(db, t2, outcome="no", now=NOW,
              effect={"kind": "constraint_established", "statement": "topology differs"},
-             conclusion=_empty(constraints=["crochet topology"], applicability=app))
+             conclusion=_empty(constraints=["crochet topology"], applicability=app,
+                                     existing_methods=_EM))
     assert "did not transfer" in _refused(lambda: R.bridge(db, t2, cell="pricing",
                                                           rollback_ref="x"))
 
