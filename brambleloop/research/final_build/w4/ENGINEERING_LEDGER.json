@@ -5078,10 +5078,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects (by-design proposal in OVERRIDES_PROPOSED_FMBATCH2) (\u00a721)",
+    "why": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects, accepted as by design (coordinator 2026-10-26) (\u00a721)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects (by-design proposal in OVERRIDES_PROPOSED_FMBATCH2) (\u00a721)"
+     "detail": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects, accepted as by design (coordinator 2026-10-26) (\u00a721)"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -9890,10 +9890,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block (product-engine lane converts them)",
+    "why": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block; handed to the product-engine lane after AGENTS2 merges (coordinator 2026-10-26)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block (product-engine lane converts them)"
+     "detail": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block; handed to the product-engine lane after AGENTS2 merges (coordinator 2026-10-26)"
     },
     "engineering_complete": false,
     "acceptance_complete": false

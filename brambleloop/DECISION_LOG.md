@@ -2226,3 +2226,8 @@ Fixed. Each fix has a test that fails before it and passes after; the evidence i
 - **N-7.** An executive plan not refreshed for 6 h gives no lane boost.
   - Accepted, not built: counting idle wakes per day in `useful_work`. Every wake is already bounded to one per five minutes, and the ceilings are unchanged.
 - **N-8.** `compat_pack` records a call once. If the release after the record fails, the reservation is left to the abandoned-reservation sweep.
+
+## D-W4-FMBATCH2-DECISIONS — F-091 remainder by design; F-464 to the product-engine lane (coordinator decisions, 2026-10-26)
+
+- **F-091.** The 4 remaining direct `gateway.anthropic` importers are accepted as by design (coordinator, 2026-10-26): `runtime/release`, `runtime/worker`, `app/main` and `experiments/controlled`. They drive the vendor's own probe and provider objects (`probe`, `vision_probe`, `AnthropicProvider`, `NO_KEY_REASON`, `DEFAULT_MODEL`). A second vendor brings its own probe rather than reusing these. The 22 business callers are behind `gateway/providers` (cd1f4a17), and the import ratchet keeps the list from growing.
+- **F-464.** The conversion of the two render handlers to `runtime/awaiting` goes to the product-engine lane after AGENTS2 merges (coordinator, 2026-10-26). It was not built on FMBATCH2: the handlers are in `runtime/release.py`, which AGENTS2 is editing, and the split changes billing semantics on the paid render path. The design and risk are in `research/final_build/w4/FMBATCH2.md`. The row stays B.

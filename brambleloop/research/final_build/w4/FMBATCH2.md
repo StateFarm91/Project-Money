@@ -128,3 +128,9 @@ owner authorise one live render for acceptance. The row stays B.
 
 `ENGINEERING_LEDGER` was regenerated. FM engineering completion goes from 725 to 726 of 917
 (F-672 moves to E). Build 2 is unchanged at 316 of 320.
+
+## Coordinator decisions (2026-10-26)
+
+- **F-091.** The 4 remaining vendor-probe callers are accepted as by design. This is recorded in DECISION_LOG, and the proposal reason is updated. No further migration is planned.
+- **F-464.** Handed to the product-engine lane after AGENTS2 merges. The proposal is now `other_lane:product-engine`. The design above is the hand-off.
+- **Lane state.** FMBATCH2 is on hold. No unblocked actionable rows remain here.

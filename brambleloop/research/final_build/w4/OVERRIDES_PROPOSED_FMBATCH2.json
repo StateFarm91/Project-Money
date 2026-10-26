@@ -21,8 +21,10 @@
         "key": "blocked_by_design",
         "detail": "22 of the 26 pending callers now import gateway/providers (cd1f4a17). The 4 left (runtime/release, runtime/worker, app/main, experiments/controlled) drive the vendor's own probe and provider objects (probe, vision_probe, AnthropicProvider, NO_KEY_REASON, DEFAULT_MODEL); a second vendor brings its own probe, it does not reuse these"
       },
-      "tests": ["tests/test_w4_fmbatch1_provider_boundary.py"],
-      "reason": "F-091: business callers are behind the boundary; the vendor probe plumbing is vendor-specific by design. Integrator decides whether that is the row's scope or a residual"
+      "tests": [
+        "tests/test_w4_fmbatch1_provider_boundary.py"
+      ],
+      "reason": "F-091: business callers are behind the boundary; the 4 vendor-probe callers are accepted as by design (coordinator decision 2026-10-26, DECISION_LOG)"
     },
     "F-451": {
       "gate": {
@@ -54,8 +56,19 @@
         "key": "other_lane:W-AGENTS2",
         "detail": "the executive improvement cell is built (FMBATCH2: improve/cells.py 'executive', measure_executive, departments.coverage reports executive complete). Charters for compliance/policy and analytics are autonomy/charters.py work W-AGENTS2 is editing now"
       },
-      "tests": ["tests/test_w4_fmbatch2_executive_cell.py", "tests/test_w4_fmbatch1_departments.py"],
+      "tests": [
+        "tests/test_w4_fmbatch2_executive_cell.py",
+        "tests/test_w4_fmbatch1_departments.py"
+      ],
       "reason": "F-601: executive part done here; the two missing charters belong to the lane editing charters.py"
+    },
+    "F-464": {
+      "gate": {
+        "kind": "external",
+        "key": "other_lane:product-engine",
+        "detail": "render handlers live in runtime/release.py (under edit on AGENTS2) and the split changes paid-render billing semantics; handed to the product-engine lane after AGENTS2 merges (coordinator decision 2026-10-26). Design in FMBATCH2.md"
+      },
+      "reason": "F-464: not built here; routed to the product-engine lane"
     }
   }
 }
