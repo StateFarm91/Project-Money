@@ -2194,3 +2194,13 @@ Before publishing, verify that the specific image use complies with Etsy's appli
 **Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
 this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
 publication stays blocked.
+
+## D-W4-FMBATCH1-BUILDSIDE — CI spend, build-lane state and accounting vendor (coordinator decisions, 2026-10-26)
+
+- **F-483 (CI regression gate): not built; owner-gated.** A full `run_tests.sh` run takes about 2.5 h, which is about 150 runner-minutes per run.
+  - At one run per integration, two a day, that is about 9,000 minutes a month.
+  - A nightly run alone is about 4,500 minutes a month.
+  - GitHub Actions minutes on the owner's account are owner spend, so the integrator keeps running the suite manually until the owner authorises the minutes. No workflow file was added, because a disabled workflow would not run anything.
+- **F-463 (long-running task handoff): build tooling never writes to the production database.** Build-lane state stays in the repository and the local registry files (`ops/registry.py`, `ops/board.py`).
+  - The requirement asks that another session pick up completion *without the file*, and the file-based registry does not satisfy that. The row is therefore blocked by design, not satisfied.
+- **F-579 (accounting integration decision): owner-gated.** Choosing an accounting vendor (QuickBooks Online, Xero or none) is an owner decision, and the scored comparison needs vendor facts this build has not read. Nothing connects until the owner decides.

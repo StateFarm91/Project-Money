@@ -854,3 +854,11 @@ At 15800536 the literal-string guard reports nothing unknown, so the job does no
 - **F-483 (CI workflow).** It would run the suite on GitHub, using Actions minutes on the owner's account. That needs an owner or integrator decision.
 - **F-463 (lane state in the runtime DB).** Build tooling would write to the production database. That needs an integrator decision on the route.
 - **F-579 (accounting integration).** It waits on a scored vendor comparison. That comparison needs vendor facts this build has not read.
+
+## 33. Coordinator decisions on F-483, F-463, F-579
+
+These are recorded in DECISION_LOG `D-W4-FMBATCH1-BUILDSIDE` and proposed as gates in `OVERRIDES_PROPOSED_FMBATCH1_F.json`:
+
+- **F-483** is owner-gated. CI would use about 150 Actions minutes a run: about 9,000 a month at two integrations a day, or about 4,500 for a nightly run. I added no workflow file.
+- **F-463** is blocked by design. Build tooling never writes to the production database, and the requirement's "without the file" rules out the file-based registry.
+- **F-579** is owner-gated on the accounting vendor decision.
