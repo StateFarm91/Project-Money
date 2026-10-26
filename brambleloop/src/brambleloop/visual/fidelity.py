@@ -72,6 +72,11 @@ ALL_CODES: frozenset[str] = frozenset(FC.ALL_CODES)
 
 # ---- tolerances (each stated with its reason; none tuned to pass a frame) -----------------
 MAX_SIDE_PX = 1024          # analysis resolution; a 2k flat lay keeps >= 4 px per stitch
+# W-VISNEXT2: qualified only on 2k flat lays. At 1k the calibration set is NOT all PASS (a
+# correct wrap under JPEG q60 and correct coasters under a 2 px blur read FAIL), so 1k is not
+# qualified and the flat lay stays at 2k (tests/test_w4_visnext2.py). Defects still FAIL at 1k:
+# the risk measured is a false FAIL (a paid regeneration), not a false PASS.
+ANCHOR_1K_QUALIFIED = False
 BORDER_RING = 0.02          # outer 2 % of the short side models the background
 BG_SPREAD_MAX = 10.0        # dE76 p90 of the border ring around its fitted plane
 MIN_SEPARATION = 12.0       # dE76 between the background and every declared yarn colour

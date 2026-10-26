@@ -3092,7 +3092,10 @@ def handle_controlled_experiment(ctx: JobContext) -> dict:
     into the job: `gateway.images` reads it from the environment at call time."""
     from ..experiments import controlled
 
-    out = controlled.run_job(ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id)
+    out = controlled.run_job(
+        ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id,
+        enqueue=lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
+                                                inputs, idempotency_key=key))
     ctx.audit(controlled.ACTION_RUN, artifact=str(ctx.job.inputs.get("definition_id")),
               detail={k: out.get(k) for k in ("run_id", "ran", "image", "status", "refused",
                                                "why", "image_sha256")})

@@ -457,9 +457,14 @@ def is_experiment_image(db, sha256: str | None) -> bool:
         from ..experiments.controlled import ControlledRun, ensure_tables
 
         ensure_tables(db)
+        sha = str(sha256).lower()
         with db.session() as s:
-            return s.scalar(select(ControlledRun.id).where(
-                ControlledRun.image_sha256 == str(sha256).lower())) is not None
+            if s.scalar(select(ControlledRun.id).where(
+                    ControlledRun.image_sha256 == sha)) is not None:
+                return True
+            # a pipeline run (W-VISNEXT2) lists every image it generated in its receipt
+            return any(sha in ((r or {}).get("images") or [])
+                       for r in s.scalars(select(ControlledRun.receipt)))
     except Exception:  # noqa: BLE001 - an unreadable table: no controlled image known
         return False
 
