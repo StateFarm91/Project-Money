@@ -30,6 +30,15 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
 
+# INTEG5/LISTREL (2026-10-26): this file's scenarios are calendar facts (a Christmas launch
+# window, a trailing 30-day revenue window), so it runs at a stated date, not on the wall
+# clock. pinned_clock keeps the clock ticking from 2026-10-20T12:00Z, a date on which every
+# scenario here holds and the certified suites passed. Production code runs unmodified;
+# no assertion changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-10-20T12:00:00+00:00")
+from datetime import datetime  # noqa: E402,F811 - rebind to the pinned classes
+
 from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
