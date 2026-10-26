@@ -419,6 +419,52 @@ def scrub_body(body: bytes, content_type: str, scrub: Callable[[str], str]) -> b
     return scrub(body.decode("utf-8", errors="replace")).encode("utf-8")
 
 
+def route_path(scope) -> str:
+    """The path the router matches on (`scope["path"]` without `root_path`).
+
+    W4-SECPATCH2 (review F1): the projection and the owner-text scrub were keyed on the raw
+    `scope["path"]`. Served under a root path (`--root-path`, a prefix proxy, a mount),
+    `/x/api/status` routed to `api_status` but matched no projection, so an anonymous caller
+    got the full body. Keying on the router's own path makes the two agree by construction."""
+    from starlette.routing import get_route_path
+
+    try:
+        return get_route_path(scope) or ""
+    except Exception:  # noqa: BLE001 - a malformed scope never matches a public projection
+        return str(scope.get("path") or "")
+
+
+def scope_authorization(scope) -> str | None:
+    """The request's single Authorization header (latin-1), or None. Every layer reads it
+    through here; a request with more than one is refused outright by
+    `SingleAuthorizationMiddleware` before any layer sees it (review F2)."""
+    found = [v for k, v in (scope.get("headers") or []) if k.lower() == b"authorization"]
+    return found[0].decode("latin-1") if len(found) == 1 else None
+
+
+class SingleAuthorizationMiddleware:
+    """Refuse (400) any HTTP request carrying more than one Authorization header.
+
+    W4-SECPATCH2 (review F2): the gate read the first header and the projection/scrub
+    middlewares the last, so `[Bearer junk, Bearer valid]` passed the public gate and was
+    then served unprojected. One header or none; never a choice between two."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and sum(
+                1 for k, _v in (scope.get("headers") or [])
+                if k.lower() == b"authorization") > 1:
+            body = b'{"error": "more than one Authorization header", "code": "BAD_REQUEST"}'
+            await send({"type": "http.response.start", "status": 400,
+                        "headers": [(b"content-type", b"application/json"),
+                                    (b"content-length", str(len(body)).encode())]})
+            await send({"type": "http.response.body", "body": body})
+            return
+        return await self.app(scope, receive, send)
+
+
 class CustomerRefScrubMiddleware:
     """Redact known buyer identifiers from unauthenticated JSON and HTML responses."""
 
@@ -437,10 +483,7 @@ class CustomerRefScrubMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        auth = None
-        for k, v in scope.get("headers") or []:
-            if k.lower() == b"authorization":
-                auth = v.decode("latin-1")
+        auth = scope_authorization(scope)
         if presents_operator_credential(auth):
             return await self.app(scope, receive, send)
 
@@ -509,13 +552,10 @@ class PublicProjectionMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        spec = self.projections.get(scope.get("path") or "")
+        spec = self.projections.get(route_path(scope))
         if spec is None:
             return await self.app(scope, receive, send)
-        auth = None
-        for k, v in scope.get("headers") or []:
-            if k.lower() == b"authorization":
-                auth = v.decode("latin-1")
+        auth = scope_authorization(scope)
         if presents_operator_credential(auth):
             return await self.app(scope, receive, send)
 
@@ -588,7 +628,7 @@ class OwnerTextScrubMiddleware(CustomerRefScrubMiddleware):
     the decisions they are asked to make, not the redaction marker."""
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and owner_session_route(scope.get("path") or ""):
+        if scope["type"] == "http" and owner_session_route(route_path(scope)):
             return await self.app(scope, receive, send)
         return await super().__call__(scope, receive, send)
 
