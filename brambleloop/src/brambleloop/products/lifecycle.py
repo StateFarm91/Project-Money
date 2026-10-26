@@ -8,8 +8,11 @@ product withdrawn back to LISTING_READY by a rollback).
 free-text status: a certified pattern version, listing assets, a draft or published listing,
 orders, a retired listing, and REJECTED/ROLLED_BACK records. `transition(db, slug, to, why)`
 records a deliberate move in company memory and refuses any move `ALLOWED` does not list.
-`board(db)` groups every product by its derived stage. Writing transitions from the product
-pipeline itself is the product-engine lane's change; the board reads truth either way.
+`board(db)` groups every product by its derived stage. The pipeline records its own moves:
+`after_job` runs when a pipeline job completes (the worker's completion hook) and `observe`
+writes the move the job's rows now show -- a forward move along the pre-live order (a job may
+cross several stages) or an `ALLOWED` move is recorded with its history; anything else is
+recorded as an anomaly (`product.lifecycle_anomaly`), never silently overwritten.
 """
 from __future__ import annotations
 
@@ -94,9 +97,13 @@ def transition(db, slug: str, to: str, *, why: str, by: str = "orchestrator") ->
     if not may_move(frm, to):
         raise LifecycleRefused(f"{slug}: {frm} -> {to} is not an allowed move "
                                f"(allowed: {list(ALLOWED.get(frm, ()))})")
+    rec = memory.get(db, KEY + slug)
+    history = list(((rec or {}).get("body") or {}).get("history") or [])[-(HISTORY_MAX - 1):]
+    history.append({"from": frm, "to": to, "by": by, "why": why[:300], "legal": True})
     memory.remember(db, KEY + slug, kind="product.lifecycle", department="product_design",
                     subject=f"{slug} lifecycle", state=to.lower(),
-                    body={"stage": to, "from": frm, "why": why[:300], "by": by},
+                    body={"stage": to, "from": frm, "why": why[:300], "by": by,
+                          "history": history},
                     sources=["products", "listings", "orders"])
     return {"slug": slug, "from": frm, "to": to}
 
@@ -114,3 +121,65 @@ def board(db) -> dict:
         cols[derive(db, slug)["stage"]].append(slug)
     return {"columns": cols, "products": len(slugs),
             "note": "stages are derived from rows; REJECTED/ROLLED_BACK/RETIRED can be recorded"}
+
+
+# Pipeline job types that can move a product, and where each names its product.
+PIPELINE_JOBS = ("cir.draft", "cir.revise", "gate.certify", "assets.build",
+                 "assets.owned_photography", "assets.model_photography", "listing.draft",
+                 "listing.seo", "store.publish", "store.update", "commerce.orders_ingest")
+ANOMALY_ACTION = "product.lifecycle_anomaly"
+HISTORY_MAX = 50
+
+
+def _order(stage: str) -> int:
+    seq = (*PRE_LIVE, "LIVE", "GROWING")
+    return seq.index(stage) if stage in seq else -1
+
+
+def observe(db, slug: str, *, by: str) -> dict | None:
+    """Record the stage the product's rows now show, if it moved since the last record."""
+    from ..autonomy import memory
+    from ..core.models import AuditLog
+
+    rec = memory.get(db, KEY + slug)
+    last = (rec or {}).get("body", {}).get("stage")
+    now = derive(db, slug)
+    stage = now["stage"]
+    if stage == last:
+        return None
+    legal = (last is None or may_move(last, stage)
+             or (_order(last) >= 0 and _order(stage) > _order(last)))
+    history = list(((rec or {}).get("body") or {}).get("history") or [])[-(HISTORY_MAX - 1):]
+    history.append({"from": last, "to": stage, "by": by, "why": now["why"],
+                    "legal": legal})
+    memory.remember(db, KEY + slug, kind="product.lifecycle", department="product_design",
+                    subject=f"{slug} lifecycle", state=stage.lower(),
+                    body={"stage": stage, "from": last, "why": now["why"], "by": by,
+                          "observed": True, "history": history},
+                    sources=["products", "listings", "orders"])
+    if not legal:
+        with db.session() as s:
+            s.add(AuditLog(actor="lifecycle", action=ANOMALY_ACTION, artifact=slug,
+                           detail={"from": last, "to": stage, "by": by, "why": now["why"]}))
+    return {"slug": slug, "from": last, "to": stage, "legal": legal}
+
+
+def _slugs(inputs: dict, outputs: dict) -> list[str]:
+    out = []
+    for d in (inputs, outputs):
+        for k in ("slug", "product_slug"):
+            v = d.get(k)
+            if isinstance(v, str) and v:
+                out.append(v)
+        for v in d.get("slugs") or []:
+            if isinstance(v, str):
+                out.append(v)
+    return sorted(set(out))
+
+
+def after_job(db, job_type: str, inputs: dict, outputs: dict) -> list[dict]:
+    if job_type not in PIPELINE_JOBS:
+        return []
+    return [r for r in (observe(db, slug, by=job_type) for slug in _slugs(inputs, outputs))
+            if r is not None]
+

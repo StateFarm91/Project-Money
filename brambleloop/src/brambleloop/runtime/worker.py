@@ -493,6 +493,7 @@ class Worker:
             self.agents.audit(job.agent, f"job.completed:{job.job_type}",
                               artifact=str(outputs.get("artifact") or job.job_type),
                               job_id=job.id, phase=self.phase)
+            self._lifecycle_after(job, outputs)
             self.stats.completed += 1
         except _Preempted as e:
             renewal.stop()
@@ -543,6 +544,16 @@ class Worker:
             self.stats.failed += 1
         self._refill_after(job)
         return True
+
+    def _lifecycle_after(self, job, outputs) -> None:
+        """F-672: a completed pipeline job records the product's lifecycle move it caused."""
+        try:
+            from ..products import lifecycle
+
+            lifecycle.after_job(self.db, job.job_type, dict(job.inputs or {}),
+                                outputs if isinstance(outputs, dict) else {})
+        except Exception:  # noqa: BLE001 - a lifecycle record never fails the job that ended
+            pass
 
     def _refill_after(self, job) -> None:
         """F-722: on a terminal event that empties the runnable queue, wake the orchestrator."""
