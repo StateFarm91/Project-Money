@@ -127,3 +127,99 @@ def family_report(db) -> dict:
             "portfolio_has_bundle_ready_family": any(f["bundle_ready"] for f in out),
             "recolour_duplicates": [d for f in out for d in f["recolour_duplicates"]],
             "amplify_min_orders": AMPLIFY_MIN_ORDERS, "writes": 0}
+
+
+# ---- W4-INTELREC G5: Winner Amplification delegated, and its follow-ons measured -----------
+
+AMPLIFY_PREFIX = "creative:amplify:"
+AMPLIFY_MAX_ATTEMPTS = 2
+
+
+def _amp_state(db, family: str) -> dict:
+    from ..autonomy import memory
+
+    rec = memory.get(db, AMPLIFY_PREFIX + family)
+    return dict((rec or {}).get("body") or {})
+
+
+def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
+    """For every family whose orders prove demand: delegate one original follow-on through
+    the ordinary funnel, and measure the follow-ons' orders against the members at decision.
+
+    * a declared next member exists -> `radar.score` for it (steering, evidence discount,
+      lessons, the pre-engineering gate, then cir.draft) -- never a recolour: the funnel's
+      novelty floor refuses one;
+    * none -> an original divergent tournament briefed on the family's arena (#216/#227);
+    * one open attempt per family; after AMPLIFY_MAX_ATTEMPTS settled attempts that added no
+      certified member the family is held (no endless repetition);
+    * follow-on orders are orders of members certified AFTER the decision -- measured, never
+      inferred. Nothing here prices, publishes or spends.
+    """
+    from datetime import datetime, timezone
+
+    from ..autonomy import memory
+    from ..core.models import Job, JobStatus
+    from . import breakthrough
+
+    today = today or datetime.now(timezone.utc).date()
+    decided = []
+    for f in rep.get("families") or []:
+        amp = f.get("amplification")
+        st = _amp_state(db, f["family"])
+        members_now = {m["slug"]: m["orders"] for m in f["members"]}
+        if st.get("members_at_decision") is not None:
+            follow = {s: n for s, n in members_now.items()
+                      if s not in st["members_at_decision"]}
+            st["follow_on"] = {"members": sorted(follow), "orders": sum(follow.values()),
+                               "measured_on": today.isoformat()}
+        if not isinstance(amp, dict):
+            continue                                  # UNMEASURED: below the order floor
+        job_id = st.get("job_id")
+        if job_id:
+            with db.session() as s:
+                j = s.get(Job, job_id)
+                done = j is not None and j.status in (JobStatus.DONE, JobStatus.DEAD,
+                                                      JobStatus.CANCELLED)
+            if not done:
+                _save_amp(db, f["family"], st)
+                continue
+            if not (st.get("follow_on") or {}).get("members"):
+                st["failed_attempts"] = int(st.get("failed_attempts") or 0) + 1
+            st["job_id"] = None
+        if int(st.get("failed_attempts") or 0) >= AMPLIFY_MAX_ATTEMPTS:
+            st["held"] = (f"{st['failed_attempts']} follow-on attempts added no certified "
+                          f"member; held until new evidence")
+            _save_amp(db, f["family"], st)
+            continue
+        attempt = int(st.get("attempts") or 0) + 1
+        nxt = (f.get("next_members") or [None])[0]
+        if nxt is not None:
+            job = enqueue("market_radar", "radar.score", {"slug": nxt["seed"],
+                                                           "amplify_family": f["family"]},
+                          idempotency_key=f"amplify:{f['family']}:{nxt['seed']}:{attempt}")
+            how = f"next declared member {nxt['seed']} through the ordinary funnel"
+        else:
+            inputs = breakthrough.release_brief(db, arena=f["family"], pod=f["family"],
+                                                listing_ref="")
+            inputs.update({"amplify_family": f["family"], "attempt": attempt})
+            job = enqueue("creative_director", "creative.tournament", inputs,
+                          idempotency_key=f"amplify_design:{f['family']}:{attempt}")
+            how = "no declared member left: an original divergent follow-on tournament"
+        if job is None:
+            _save_amp(db, f["family"], st)
+            continue
+        st.update(attempts=attempt, job_id=job.id, job_type=job.job_type, how=how,
+                  decided_on=today.isoformat(), orders_at_decision=f["orders"],
+                  members_at_decision=sorted(members_now))
+        _save_amp(db, f["family"], st)
+        decided.append({"family": f["family"], "job_id": job.id, "how": how})
+    return {"decisions": decided}
+
+
+def _save_amp(db, family: str, body: dict) -> None:
+    from ..autonomy import memory
+
+    memory.remember(db, AMPLIFY_PREFIX + family, kind="creative.amplification",
+                    department="product_design", subject=f"amplify {family}",
+                    state="held" if body.get("held") else "open", body=body,
+                    sources=["orders", "pattern_versions"])

@@ -341,8 +341,35 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
                                       "source": COMPARE_READING})
+        task = _research_question(db, gid, a["pod"], now=now)
+        if task is not None:
+            _merge_gap_evidence(db, gid, {"research_task_id": task})
         opened.append(gid)
     return {"report": rep, "gaps": opened}
+
+
+def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | None:
+    """G6 (F-401/F-429): every validated arena is also a question for the Research Agent --
+    durable demand or a passing trend? Opened once per gap (research dedupes on the
+    trigger), answered from internal evidence first by `research.sweep`/`investigate`."""
+    from . import research
+
+    try:
+        got = research.open_question(
+            db, question=(f"Is buyer demand in the {pod} arena durable across the owner's "
+                          f"watchlist shops, or a passing trend?"),
+            trigger=f"watchlist_gap:{gap_id}",
+            decision_ref=f"intel.opportunity_review:gap:{gap_id}", domain="market_radar",
+            query_terms=[pod],
+            evidence_needed=("new-listing cadence and favourites in this arena across "
+                             "successive watchlist scans, and our own lessons about it"),
+            stop_condition="answered from internal evidence, or the time bound passes",
+            if_unresolved=("decide from the cross-shop corroboration alone and record the "
+                           "uncertainty on the decision"),
+            time_bound_days=14, now=now)
+    except Exception:  # noqa: BLE001 - research never blocks the comparison
+        return None
+    return got.get("task")
 
 
 def _merge_gap_evidence(db, gap_id: int, extra: dict) -> None:
@@ -441,6 +468,16 @@ def _record_decision(db, gap_id: int, decision: str, *, today: date, **detail) -
     return body
 
 
+def _research_state(db, task_id) -> str:
+    if not task_id:
+        return "none opened"
+    from .research import ResearchTask
+
+    with db.session() as s:
+        t = s.get(ResearchTask, int(task_id))
+        return "missing" if t is None else str(t.state)
+
+
 def _lesson_statement(pod: str, n: int) -> str:
     return (f"watchlist arena {pod}: {n} original design attempts produced no engineered "
             f"product, so stop re-asking this arena until new evidence arrives")
@@ -533,6 +570,9 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                             "design_started_on": today.isoformat(), "design_how": how}
             flag_modified(row, "evidence")
         decided.append(_record_decision(db, g["id"], "routed", today=today, job_id=job.id,
-                                        job_type=job.job_type, how=how, attempt=attempt)
+                                        job_type=job.job_type, how=how, attempt=attempt,
+                                        research_task_id=ev.get("research_task_id"),
+                                        research=_research_state(db, ev.get(
+                                            "research_task_id")))
                        | {"gap": g["id"]})
     return {"decisions": decided, "work_done": len(decided)}

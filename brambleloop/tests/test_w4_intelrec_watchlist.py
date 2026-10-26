@@ -282,6 +282,29 @@ def test_no_competitor_content_and_ai_use_is_never_assumed():
     assert mrs_j["public_sales"]["grade"] == "UNKNOWN"            # never read here: UNKNOWN
 
 
+def test_a_validated_arena_becomes_a_research_agent_question_once():
+    """G6: the Research Agent is asked whether the corroborated demand is durable."""
+    from brambleloop.intel.research import ResearchTask
+
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        first = watchlist.record_comparison(db)
+        again = watchlist.record_comparison(db)
+    finally:
+        watchlist.reader_factory = None
+    assert first["gaps"] and first["gaps"] == again["gaps"]
+    with db.session() as s:
+        tasks = list(s.scalars(select(ResearchTask)))
+        gap = s.get(CoverageGap, first["gaps"][0])
+        assert len(tasks) == len(first["gaps"])               # deduped on the trigger
+        assert gap.evidence["research_task_id"] == tasks[0].id
+        assert tasks[0].decision_ref.startswith("intel.opportunity_review:gap:")
+    out = watchlist.review(db, enqueue=_enqueuer(db))
+    assert out["decisions"][0]["history"][-1]["research_task_id"] == tasks[0].id
+
+
 def test_spend_limits_and_bounded_work():
     """The watchlist jobs spend nothing (no cost rows) and the review starts at most
     REVIEW_LIMIT departmental jobs per run; paid work it starts passes the existing ceilings."""
