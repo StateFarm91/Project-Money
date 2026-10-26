@@ -671,3 +671,32 @@ behaviour tests do fail before the fix.
 | F-9 | A demand with no risk class and no test reads `unknown` (blocked). An unparseable `needed_by` gives `overdue: None` with the reason, never a 500. | 07903e57 | `test_w4_fmbatch1_physical_truth.py::test_review_f9_*` |
 | F-10 | **Decision: fixed.** An exception while evaluating the fallback contract is UNKNOWN, and UNKNOWN is never routed. The row is `contract_refused` and the call parks rather than routing an unchecked fallback. The cost is that a broken contract table parks fallback traffic, which is visible and recoverable; routing unchecked is neither. | this commit | `test_w4_fmbatch1_providers.py::test_review_f10_*` |
 | F-11 | **Decision: the pull order is accepted, and the write amplification is fixed.** RUN before GROW before IMPROVE is what F-656 requires (operations first; it changes order, never permission or spend), so it stays ON. The WATCHING row is now written on a state change, or when the open span's `last_seen` is at least `WATCHING_RESTATE_S` (1 h) old, not every tick. | this commit | `test_w4_fmbatch1_departments.py::test_review_f11_*` |
+
+## 24. test_deploy investigation, and F-653 / F-620
+
+- **`test_deploy.py`: not reproduced.**
+  - The one failure seen earlier (`test_the_command_centre_shows_every_build_2_subsystem`) did
+    not recur.
+  - At f2efa2ba and at 06510fd2 (the commit before the F-190 and F-194 dashboard changes),
+    the whole file ran once each through `testslot.sh`: 32 of 32 OK, exit 0, both times.
+  - Six earlier full-suite logs in `/home/user/bl-runs` also show the test passing.
+  - The check now names the missing string and any "unavailable" block (5c3a8298, same
+    assertions), so a recurrence identifies itself.
+  - Evidence: `evidence_FMBATCH1/test_deploy_f2efa2ba.txt` and `test_deploy_06510fd2.txt`.
+- **F-653 (60ba9bb5):**
+  - Phone (600 px and below) and tablet (601–1024 px) breakpoints.
+  - Every table the dashboard draws, from any block, scrolls inside its own box
+    (`_wrap_tables`).
+  - A compact owner view at `/m`: health, what is waiting on the owner, today's numbers.
+    Cards only, no table, with 44 px touch targets.
+  - Test: `test_w4_fmbatch1_mobile.py` (3).
+- **F-620 (this commit):** `/api/finance` carries `owner_view`.
+  - MTD and YTD separately (from `finance.accounting.dashboard.summary`).
+  - Ad spend split into free ad credit and cash: the recorded ads cost entries against the
+    `ads_credit` grants (finance.credits; the credit draw is ESTIMATED).
+  - The cash and payout position (`finance.accounting.cash.position`).
+  - Unreconciled statement lines.
+  - Monthly close status (`finance.accounting.close.status`).
+  - Each block is guarded: an unreadable source reads UNKNOWN, and no recorded ads reads
+    UNMEASURED, never 0.
+  - Test: `test_w4_fmbatch1_finance_owner.py` (2).

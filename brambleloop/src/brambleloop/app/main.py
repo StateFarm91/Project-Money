@@ -791,7 +791,78 @@ def api_finance() -> dict:
             pl, limits=limits, infra_monthly_cad=INFRA_MONTHLY_CAD,
             infra_ceiling_cad=INFRA_CEILING_CAD)],
         "trajectory": trajectory(pl),
+        # F-620: the owner's finance view -- MTD and YTD separately, ad spend split into
+        # credit and cash, the cash/payout position, unreconciled items and the monthly
+        # close. Each from its own source; an unreadable one is UNKNOWN, never 0.
+        "owner_view": _finance_owner_view(),
     }
+
+
+def _finance_owner_view() -> dict:
+    from datetime import datetime as _dt
+
+    now = _dt.now(timezone.utc)
+
+    def guard(fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - one source never blanks the others
+            return {"status": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+
+    def windows():
+        from ..finance.accounting import dashboard as acct
+
+        out = {}
+        for w in ("mtd", "ytd"):
+            got = acct.summary(db, window=w, now=now, refresh=False)
+            out[w] = {"status": got.get("status"),
+                      "items": {i.get("metric"): i.get("value_cad")
+                                for i in got.get("items") or []},
+                      "window": got.get("window")}
+        return out
+
+    def ads():
+        from ..finance import credits
+
+        with db.session() as s:
+            cash = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                                  .where(CostEntry.kind == "ads")) or 0.0)
+            any_ads = s.scalar(select(func.count()).select_from(CostEntry)
+                               .where(CostEntry.kind == "ads")) or 0
+        w = credits.wallet(db, now=now)
+        ad_credit = [c for p in w["providers"].values() for c in p["credits"]
+                     if c["kind"] == "ads_credit"]
+        drawn = round(sum(c.get("estimated_drawn_cad") or 0.0 for c in ad_credit), 6)
+        return {"recorded_ad_spend_cad": round(cash, 6) if any_ads else "UNMEASURED",
+                "free_ad_credit_granted_cad": (round(sum(c["amount_cad"] for c in ad_credit), 6)
+                                               if ad_credit else "UNMEASURED"),
+                "estimated_paid_by_credit_cad": drawn if ad_credit else "UNMEASURED",
+                "estimated_cash_ad_spend_cad": (round(max(cash - drawn, 0.0), 6)
+                                                if any_ads else "UNMEASURED"),
+                "basis": "credit draw is ESTIMATED (finance.credits.DRAW_ASSUMPTION)"}
+
+    def cash_position():
+        from ..finance.accounting import cash
+
+        return cash.position(db, now=now)
+
+    def unreconciled():
+        from ..finance.accounting import reconciliation
+
+        lines = reconciliation.statement_lines(db)
+        open_ = [ln for ln in lines if ln.get("state") == "unmatched"]
+        return {"statement_lines": len(lines), "unreconciled": len(open_),
+                "basis": "imported statement lines still `unmatched` "
+                         "(finance.accounting.reconciliation)"}
+
+    def close():
+        from ..finance.accounting import close as close_mod
+
+        return close_mod.status(db, now=now)
+
+    return {"as_of": now.isoformat(), "windows": guard(windows), "ads": guard(ads),
+            "cash_and_payout": guard(cash_position), "unreconciled": guard(unreconciled),
+            "monthly_close": guard(close)}
 
 
 # F-696 / F-689: routes that return customer, order or support *content* -- anything a buyer
