@@ -470,6 +470,29 @@ class Registry:
         self._save(data)
         return rec
 
+    def wait(self, name: str, on: list[str], *, why: str = "") -> dict:
+        """F-485: record that lane `name` waits on lanes `on`; returns the graph after it."""
+        data = self.load()
+        rec = data["jobs"].get(name)
+        if rec is None:
+            raise ValueError(f"{name!r} is not enrolled")
+        if not str(why).strip():
+            raise ValueError("a wait names what it waits for")
+        have = {w.get("lane") for w in rec.get("waits_on") or []}
+        rec["waits_on"] = list(rec.get("waits_on") or []) + [
+            {"lane": t, "why": str(why)[:200], "since": utc()} for t in on if t and t not in have]
+        self._save(data)
+        return wait_for_cycles(data)
+
+    def unwait(self, name: str, on: list[str] | None = None) -> dict:
+        data = self.load()
+        rec = data["jobs"].get(name)
+        if rec is not None:
+            rec["waits_on"] = [w for w in rec.get("waits_on") or []
+                               if on is not None and w.get("lane") not in on]
+            self._save(data)
+        return wait_for_cycles(data)
+
     def workloads(self) -> list[str]:
         """Names of jobs that ARE work. Records written before roles existed count as work."""
         return sorted(n for n, r in self.load()["jobs"].items()
@@ -581,6 +604,8 @@ class Registry:
             "running": [r for r in rows if r["state"] == RUNNING],
             "refillable": [r["job"] for r in rows if r["state"] in _REFILLABLE],
             "integrated": [r["job"] for r in rows if r["state"] == INTEGRATED],
+            # F-485: lanes waiting on each other in a cycle can never finish.
+            "deadlocks": wait_for_cycles(data),
             "registry": str(self.path),
             "host": here,
             "rule": ("completion comes from the job's own terminal evidence, never from a "
@@ -723,6 +748,46 @@ class Registry:
 
 
 # --- convenience ------------------------------------------------------------------------------
+# ---- F-485: deadlock detection across lanes ----------------------------------------------
+
+def _live(rec: dict) -> bool:
+    return not rec.get("integrated") and rec.get("role", "work") == "work"
+
+
+def wait_for_cycles(data: dict) -> dict:
+    """F-485: the wait-for graph across live lanes (lane A waits on lane B), its cycles, and
+    waits naming a lane that is not enrolled or no longer live (which can never clear).
+
+    A cycle is a deadlock: every lane in it is waiting for another lane in it, so none of
+    them can finish. Reported, never resolved here -- breaking a cycle is a decision about
+    which lane gives way, and this file decides nothing.
+    """
+    jobs = data.get("jobs") or {}
+    live = {n for n, r in jobs.items() if _live(r)}
+    edges = {n: sorted({w.get("lane") for w in (jobs[n].get("waits_on") or [])
+                        if w.get("lane")}) for n in live}
+    dangling = [{"lane": n, "waits_on": t,
+                 "why": ("not enrolled" if t not in jobs else "no longer live (integrated "
+                         "or an observer): the wait can never clear")}
+                for n, ts in sorted(edges.items()) for t in ts if t not in live]
+    cycles, seen = [], set()
+    for start in sorted(live):
+        stack = [(start, [start])]
+        while stack:
+            node, path = stack.pop()
+            for nxt in edges.get(node, []):
+                if nxt == start:
+                    cyc = path[:]
+                    key = frozenset(cyc)
+                    if key not in seen:
+                        seen.add(key)
+                        cycles.append(cyc)
+                elif nxt in live and nxt not in path and nxt > start:
+                    stack.append((nxt, path + [nxt]))
+    return {"edges": {k: v for k, v in edges.items() if v}, "cycles": cycles,
+            "dangling": dangling, "deadlocked": bool(cycles)}
+
+
 def survey(path: Path | str = REGISTRY, **kw) -> dict:
     return Registry(path).survey(**kw)
 
@@ -777,7 +842,21 @@ def _cli(argv: list[str]) -> int:
         out = reg.survey()
         out["reliability"] = reliability_lines()
         print(json.dumps(out, indent=2, sort_keys=True))
-        return 1 if out["needs_attention"] else 0
+        return 1 if out["needs_attention"] or out["deadlocks"]["deadlocked"] else 0
+    if cmd == "wait" and len(argv) >= 4:
+        # ops/registry.py wait NAME ON1,ON2 WHY...
+        try:
+            out = reg.wait(argv[2], [x for x in argv[3].split(",") if x],
+                           why=" ".join(argv[4:]))
+        except ValueError as exc:
+            print(f"refused: {exc}")
+            return 2
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 1 if out["deadlocked"] else 0
+    if cmd == "unwait" and len(argv) >= 3:
+        on = [x for x in argv[3].split(",") if x] if len(argv) > 3 else None
+        print(json.dumps(reg.unwait(argv[2], on), indent=2, sort_keys=True))
+        return 0
     if cmd == "enrol" and len(argv) >= 4:
         name, log = argv[2], argv[3]
         lane = argv[4] if len(argv) > 4 else ""
