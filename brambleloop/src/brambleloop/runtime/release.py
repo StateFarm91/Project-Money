@@ -1482,7 +1482,8 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
             ctx.audit(taxonomy_drift.ACTION, detail=drift)
         summary["drift"] = {k: drift.get(k) for k in ("state", "why", "first_snapshot",
                                                       "incidents_opened", "requeued",
-                                                      "not_requeued") if k in drift}
+                                                      "not_requeued", "requeue_enabled",
+                                                      "held_for_owner") if k in drift}
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)
     return summary

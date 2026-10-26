@@ -45,6 +45,20 @@ from datetime import datetime, timezone
 from typing import Any
 
 SIGNATURE_PREFIX = "taxonomy-drift:"
+# Independent review FMBATCH1 F-1: a re-queued listing.seo carries its rebuild token through
+# launch.plan to store.publish, so on a deployment past SHADOW an Etsy-side schema change
+# would drive an Etsy write with nobody asking. The re-queue is therefore OFF unless this is
+# "1"; with it off the drift is still diffed, reported and raised as an incident, and the
+# rebuild is put to the owner as an action instead.
+REQUEUE_VAR = "BRAMBLELOOP_TAXONOMY_DRIFT_REQUEUE"
+OWNER_KEY_PREFIX = "taxonomy_drift:"
+
+
+def requeue_enabled(env=None) -> bool:
+    import os
+
+    e = env if env is not None else os.environ
+    return str(e.get(REQUEUE_VAR) or "").strip() == "1"
 ACTION = "etsy.taxonomy_drift"
 CHOSEN = "CHOSEN"   # commerce.category.CHOSEN; not imported to keep this module light
 
@@ -199,10 +213,19 @@ def after_refresh(ctx, *, snapshot_id: int, now: datetime | None = None) -> dict
                      "taxonomy_id": r.taxonomy_id} for r in _newest_profiles(s)]
         verdicts = judge(profiles, d, new_id=snapshot_id)
         token = f"tx{snapshot_id}"
-        requeued, not_requeued, opened = [], [], []
+        requeued, not_requeued, opened, held = [], [], [], []
+        enabled = requeue_enabled()
         for v in verdicts:
             inputs = _last_seo_inputs(s, v["slug"], v["version"])
-            if inputs is None:
+            if inputs is not None and not enabled:
+                held.append(f"{v['slug']}@{v['version']}")
+                not_requeued.append({"slug": v["slug"], "version": v["version"],
+                                     "why": (f"re-queue is off ({REQUEUE_VAR} is not 1): a "
+                                             "re-run listing.seo would carry through to "
+                                             "store.publish, so the rebuild is an owner "
+                                             "action")})
+                inputs = None
+            elif inputs is None:
                 not_requeued.append({"slug": v["slug"], "version": v["version"],
                                      "why": "no completed listing.seo job for this release "
                                             "to re-run; the profile stays on the old "
@@ -233,6 +256,24 @@ def after_refresh(ctx, *, snapshot_id: int, now: datetime | None = None) -> dict
                 if new:
                     opened.append(v["slug"])
         prev_id = prev_row.id if prev_row is not None else None
+        if held and not d["first_snapshot"]:
+            from ..core.models import OwnerAction
+
+            key = f"{OWNER_KEY_PREFIX}{snapshot_id}"
+            if s.scalar(select(OwnerAction.id).where(
+                    OwnerAction.requirement_key == key)) is None:
+                s.add(OwnerAction(
+                    requirement_key=key,
+                    action=(f"Etsy changed its taxonomy (snapshot {snapshot_id}). Approve "
+                            f"re-certifying {', '.join(held[:10])}: set {REQUEUE_VAR}=1 for "
+                            "one refresh, or re-run their certification by hand"),
+                    reason=("a re-certification re-runs the release chain, which ends in "
+                            "store.publish; an Etsy-side change never triggers that by "
+                            "itself"),
+                    max_cost_cad=0.0, minutes=5,
+                    consequence_of_delay=("the listings stay on the schema they were "
+                                          "certified on; the drift incident stays open"),
+                    blocks="re-certification of the drifted listings"))
     # Enqueued after the incidents are committed, each in the queue's own transaction.
     for v in verdicts:
         inputs = v.pop("inputs", None)
@@ -252,7 +293,8 @@ def after_refresh(ctx, *, snapshot_id: int, now: datetime | None = None) -> dict
               "affected": [{k: v[k] for k in ("slug", "version", "taxonomy_id", "halts", "why")}
                            for v in verdicts],
               "incidents_opened": opened, "requeued": requeued,
-              "not_requeued": not_requeued}
+              "not_requeued": not_requeued, "requeue_enabled": enabled,
+              "held_for_owner": held}
     ctx.audit(ACTION, detail=report)
     return report
 

@@ -263,7 +263,51 @@ def _re_require_skill_level(node, body):
                                          "scale_id": None, "equal_to": []})
 
 
+class _requeue_on:
+    """The owner's opt-in (review F-1): the re-queue path runs only with the switch at 1."""
+
+    def __enter__(self):
+        self._old = os.environ.get(D.REQUEUE_VAR)
+        os.environ[D.REQUEUE_VAR] = "1"
+
+    def __exit__(self, *_a):
+        if self._old is None:
+            os.environ.pop(D.REQUEUE_VAR, None)
+        else:
+            os.environ[D.REQUEUE_VAR] = self._old
+
+
+def test_by_default_drift_requeues_nothing_and_asks_the_owner():
+    """Review F-1: an Etsy-side change never drives the chain toward store.publish itself."""
+    from brambleloop.core.models import Job, OwnerAction
+
+    assert os.environ.get(D.REQUEUE_VAR) is None
+    db = _chain_db()
+    before = _profile(db)
+    slug = before.product_slug
+    out = _refresh(db, _Client(change=_re_require_skill_level), "fmb1-tax-off")
+    drift = out["drift"]
+    assert drift["requeue_enabled"] is False and drift["requeued"] == [], drift
+    assert drift["held_for_owner"] and drift["held_for_owner"][0].startswith(slug), drift
+    assert _queued_seo(db) == []
+    with db.session() as s:
+        assert not [j for j in s.scalars(select(Job).where(Job.job_type.in_(
+            ("listing.seo", "launch.plan", "store.publish"))))
+            if ":tx" in (j.idempotency_key or "")]
+        ask = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"{D.OWNER_KEY_PREFIX}{out['snapshot_id']}"))
+        assert ask is not None and D.REQUEUE_VAR in ask.action
+    inc = _incident(db, slug)
+    assert inc is not None and not inc.resolved and inc.severity == "P1"
+    assert inc.halts_publication is False      # nothing queued to resolve it: no deadlock
+
+
 def test_a_changed_schema_halts_the_listing_requeues_seo_and_resolves_on_rebuild():
+    with _requeue_on():
+        _changed_schema_requeue_path()
+
+
+def _changed_schema_requeue_path():
     from brambleloop.gates.incidents import IncidentTracker
 
     db = _chain_db()
