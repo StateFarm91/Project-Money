@@ -1348,6 +1348,31 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.post("/api/research/evidence")
+async def api_research_evidence(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """F-448: the owner hands over a source, a note or terminology as research evidence.
+
+    Stored as a learning observation (`claim_class` source_claim, `kind` owner_supplied, with
+    its source tier); supplied terms join the research search glossary. Operator credential.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    from ..intel import owner_evidence
+
+    try:
+        payload = await request.json()
+        return JSONResponse(owner_evidence.record(db, payload))
+    except owner_evidence.OwnerEvidenceRefused as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except ValueError:
+        return JSONResponse({"error": "a JSON body is required"}, status_code=422)
+
+
 @app.post("/api/owner/decision")
 async def api_owner_decision(request: Request,
                              authorization: str = Header(default="")) -> JSONResponse:

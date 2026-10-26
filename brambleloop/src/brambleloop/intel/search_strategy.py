@@ -68,8 +68,9 @@ _STOP = frozenset("this that with from have were been their there which about af
                   "more most other such over under very each some none".split())
 
 
-def equivalents(term: str) -> tuple[str, ...]:
-    return GLOSSARY.get(term.strip().lower(), ())
+def equivalents(term: str, extra: dict | None = None) -> tuple[str, ...]:
+    key = term.strip().lower()
+    return tuple(dict.fromkeys((*GLOSSARY.get(key, ()), *(extra or {}).get(key, ()))))
 
 
 def discover_terms(hits: list[dict], query: list[str], *, limit: int = 4) -> list[str]:
@@ -91,11 +92,11 @@ def bridges(terms: list[str]) -> list[tuple[str, str]]:
     return out
 
 
-def plan(terms: list[str], round1_hits: list[dict]) -> list[dict]:
-    """The term sets each later round searches, with why."""
+def plan(terms: list[str], round1_hits: list[dict], extra: dict | None = None) -> list[dict]:
+    """The term sets each later round searches, with why. `extra`: owner-supplied terms."""
     steps: list[dict] = []
     for i, t in enumerate(terms):
-        for eq in equivalents(t):
+        for eq in equivalents(t, extra):
             steps.append({"round": "terminology", "terms": terms[:i] + [eq] + terms[i + 1:],
                           "why": f"{t!r} is also called {eq!r}"})
     for w in discover_terms(round1_hits, terms):
@@ -126,7 +127,13 @@ def run(db, task_id: int, *, need: int = 3, max_searches: int = 12) -> dict:
     rounds = [{"round": "exact", "terms": terms, "hits": len(held), "new": len(held),
                "why": "the task's own terms (searched when it opened)"}]
     searches = 0
-    for step in plan(terms, held):
+    try:
+        from .owner_evidence import owner_terms
+
+        extra = owner_terms(db)          # F-448: the owner's vocabulary joins the glossary
+    except Exception:  # noqa: BLE001 - an unreadable owner glossary leaves the built-in one
+        extra = {}
+    for step in plan(terms, held, extra):
         if len(refs) >= need or searches >= max_searches:
             break
         found, _ = research.search_internal_report(db, step["terms"])
