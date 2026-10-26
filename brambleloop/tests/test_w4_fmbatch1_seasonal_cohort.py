@@ -35,6 +35,7 @@ def test_cohort_classification():
     assert LT.cohort_for(legacy) == LT.COHORT_LEGACY
     assert LT.cohort_for("zz-future-easter-basket") == LT.COHORT_PROGRAMME
     both = [s for s in CATALOGUE if s in LAUNCH0_SLUGS]
+    assert both, "the overlap the precedence rule exists for"
     for s in both:                                     # the launch list wins
         assert LT.cohort_for(s) == LT.COHORT_LAUNCH
 

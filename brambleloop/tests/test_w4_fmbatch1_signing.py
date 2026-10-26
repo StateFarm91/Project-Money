@@ -112,6 +112,7 @@ def test_recovery_doc_and_no_private_keys_tracked():
         assert must in doc, must
     files = subprocess.run(["git", "-C", str(ROOT), "ls-files"], capture_output=True,
                            text=True).stdout.splitlines()
+    assert files, "git ls-files returned nothing"
     for f in files:
         if f.startswith("brambleloop/research/_secret_scan_probe/"):
             continue

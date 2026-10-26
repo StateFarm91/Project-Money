@@ -372,8 +372,321 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                 "brief, and the cycle acts on an observation once"),
 }
 
+# W4-FMBATCH1 (retention guard, 2026-10-26): actions the code reads through constants,
+# imported constants, dict keys, loop tuples and helper parameters, found by the AST scan in
+# `ops.read_actions` and invisible to the old literal regex. Each names its reader(s). The
+# rules used: a newest-row read filtered by artifact, a per-entity "last N" read, or a window
+# longer than the horizon (the seasonal 365-day evidence windows) is `lifetime_total`
+# (protected), because the global keep-per-action does not preserve it; an unwindowed count or
+# listing is `lifetime_total`; a 30-day or lights-out window is `windowed`; a global newest-row
+# read is `latest`. An entry already present above wins (setdefault).
+_RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    "ai.parked": ("windowed",
+        "finance.funding_packet._audit: a bounded window inside the horizon"),
+    "asset.rendered": ("windowed",
+        "finance.unit_cost.unit_costs: a bounded window inside the horizon"),
+    "assets.disclosed_render": ("lifetime_total",
+        "publish.disclosed_listing.disclosed_shas, "
+        "publish.disclosed_listing.last_asset: read with no window or row limit "
+        "(counted or listed over all rows)"),
+    "assets.frame_review": ("lifetime_total",
+        "runtime.release.frame_review_state: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "assets.gallery_frames": ("lifetime_total",
+        "visual.launch_imagery.last: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "assets.image_provenance": ("lifetime_total",
+        "commerce.buyer_trust.gallery_proof_on_file, "
+        "runtime.growth_ops.gallery_reading: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "assets.listing_images_blocked": ("lifetime_total",
+        "publish.release_gates._audit_detail: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "assets.listing_images_built": ("lifetime_total",
+        "publish.release_gates._audit_detail, seasonal.calendar.milestone_evidence, "
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "brand.recognisability_measured": ("lifetime_total",
+        "brand.moat.recorded_recognisability: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "browser.probe": ("latest",
+        "intel.browser.last_probe: the newest row(s) of the action"),
+    "cc.check.run": ("lifetime_total",
+        "ops.on_demand._last_run: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "cir.compiled": ("lifetime_total",
+        "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "collection.assembled": ("lifetime_total",
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "commerce.orders_ingested": ("latest",
+        "commerce.orders_ingest.source_state: the newest row(s) of the action"),
+    "concept.scored": ("windowed",
+        "finance.unit_cost.unit_costs: a bounded window inside the horizon"),
+    "continuity.offsite_write": ("latest",
+        "core.offsite.last_archive, core.offsite.prune: the newest row(s) of the action"),
+    "creative.benchmark_challenge": ("latest",
+        "intel.mission.mission_status: the newest row(s) of the action"),
+    "creative.concept_board": ("lifetime_total",
+        "products.moment_candidates.board_record: the newest row per artifact, which "
+        "the global keep-per-action does not protect"),
+    "creative.construction_reading_refused": ("lifetime_total",
+        "creative.reference.reading_refused: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "creative.defect_fixture": ("lifetime_total",
+        "publish.defects.fixtures: read with no window or row limit (counted or listed "
+        "over all rows)"),
+    "culture.probe": ("lifetime_total",
+        "culture.feeds.state: read with no window or row limit (counted or listed over "
+        "all rows)"),
+    "culture.sweep": ("lifetime_total",
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "etsy.quarterly_audit": ("lifetime_total",
+        "intel.etsy_ops_report.run: read with no window or row limit (counted or listed "
+        "over all rows)"),
+    "etsy.shop_observation": ("lifetime_total",
+        "commerce.shop_observations.latest: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "etsy.shop_resolution_failed": ("latest",
+        "integrations.etsy_shop_binding.backoff_remaining: the newest row(s) of the "
+        "action"),
+    "etsy.shop_resolution_refused": ("latest",
+        "integrations.etsy_shop_binding.backoff_remaining: the newest row(s) of the "
+        "action"),
+    "etsy.shop_resolved": ("latest",
+        "integrations.etsy_shop_binding.backoff_remaining: the newest row(s) of the "
+        "action"),
+    "etsy.webhook_refused": ("lifetime_total",
+        "integrations.etsy_webhooks.summary: read with no window or row limit (counted "
+        "or listed over all rows)"),
+    "experiment.controlled_opened": ("latest",
+        "visual.experiment.refuse_if_experiment: the newest row(s) of the action"),
+    "experiment.opened": ("lifetime_total",
+        "visual.experiment._opened, visual.experiment.open_experiment, "
+        "visual.experiment.refuse_if_experiment: read with no window or row limit "
+        "(counted or listed over all rows)"),
+    "gate.blocked": ("lifetime_total",
+        "improve.presale._audits, runtime.pipeline._content_certified_at, "
+        "runtime.release._load_examined_cir: read with no window or row limit (counted "
+        "or listed over all rows)"),
+    "gate.certified": ("lifetime_total",
+        "finance.governor.spend_to_progress, finance.unit_cost.unit_costs, "
+        "improve.presale._audits, ops.backfill._latest_audit, "
+        "runtime.pipeline._content_certified_at, runtime.release._load_examined_cir: "
+        "read with no window or row limit (counted or listed over all rows)"),
+    "gate.lane_routed": ("lifetime_total",
+        "swarm.capacity.product_lane: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "gate.listing_copy_refused": ("lifetime_total",
+        "improve.presale._audits: read with no window or row limit (counted or listed "
+        "over all rows)"),
+    "gateway.compat_pack": ("latest",
+        "gateway.compat_pack.latest: the newest row(s) of the action"),
+    "gateway.contract_eval": ("latest",
+        "gateway.fallback_contract._latest: the newest row(s) of the action"),
+    "gateway.contract_latency": ("latest",
+        "gateway.fallback_contract._latest: the newest row(s) of the action"),
+    "gateway.provider_snapshot": ("latest",
+        "gateway.provider_watch.watch: the newest row(s) of the action"),
+    "image.benchmark_candidate": ("latest",
+        "gateway.image_bench.stored_result: the newest row(s) of the action"),
+    "image.benchmark_trial": ("latest",
+        "gateway.image_bench.stored_trial: the newest row(s) of the action"),
+    "image.probe": ("latest",
+        "gateway.images.last_probe: the newest row(s) of the action"),
+    "improve.presale": ("latest",
+        "improve.presale.history: the newest row(s) of the action"),
+    "intel.gallery_analysis_blocked": ("latest",
+        "intel.findings.gather: the newest row(s) of the action"),
+    "intel.panel_discovery_blocked": ("latest",
+        "intel.findings.gather: the newest row(s) of the action"),
+    "lanes.capacity": ("latest",
+        "swarm.capacity.lane_limits: the newest row(s) of the action"),
+    "launch.learning_review": ("lifetime_total",
+        "launch.demand._recorded_reviews: read with no window or row limit (counted or "
+        "listed over all rows)"),
+    "launch.reproved": ("latest",
+        "ops.assurance.record_reproof: the newest row(s) of the action"),
+    "learning.ingested": ("lifetime_total",
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "ledger.sale": ("windowed",
+        "finance.unit_cost.unit_costs: a bounded window inside the horizon"),
+    "listing.classified": ("lifetime_total",
+        "runtime.pipeline._release_classification: the newest row per artifact, which "
+        "the global keep-per-action does not protect"),
+    "listing.drafted": ("lifetime_total",
+        "finance.governor.spend_to_progress, finance.unit_cost.unit_costs, "
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "listing.lifecycle": ("lifetime_total",
+        "commerce.listing_lifecycle.trail: read with no window or row limit (counted or "
+        "listed over all rows)"),
+    "listing.mobile_qa": ("windowed",
+        "finance.governor.spend_to_progress: a bounded window inside the horizon"),
+    "listing.parity": ("windowed",
+        "finance.governor.spend_to_progress: a bounded window inside the horizon"),
+    "listing.seo_blocked": ("lifetime_total",
+        "seo.packages._latest_audit: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "listing.seo_drafted": ("lifetime_total",
+        "finance.governor.spend_to_progress, ops.backfill._latest_audit, "
+        "seasonal.compression.preparation_started, seo.packages._latest_audit: the "
+        "seasonal evidence window is 365 days, longer than the retention horizon"),
+    "marketing.scheduled": ("lifetime_total",
+        "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "mjs.reviews_blocked": ("latest",
+        "intel.findings.gather: the newest row(s) of the action"),
+    "mjs.scan_blocked": ("latest",
+        "intel.findings.gather: the newest row(s) of the action"),
+    "mjs.scanned": ("lifetime_total",
+        "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "model.attempt": ("lifetime_total",
+        "gateway.failover.health: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "model.reference_pack": ("latest",
+        "app.main.tournament_image_refusal, runtime.release._pack_attempts, "
+        "runtime.release._pack_on_file, visual.freeze.candidates_on_file: the newest "
+        "row(s) of the action"),
+    "model.tournament": ("latest",
+        "app.main.tournament_image_refusal, runtime.release._tournament_on_file, "
+        "visual.bible._declined_finalists: the newest row(s) of the action"),
+    "ops.capacity": ("latest",
+        "swarm.capacity.latest_mix: the newest row(s) of the action"),
+    "ops.disk_sample": ("latest",
+        "ops.signal_hygiene.disk_watch: the newest row(s) of the action"),
+    "ops.funding_exhausted": ("windowed",
+        "finance.funding_packet._audit: a bounded window inside the horizon"),
+    "originality.spec_freeze": ("lifetime_total",
+        "gates.spec_freeze.frozen: read with no window or row limit (counted or listed "
+        "over all rows)"),
+    "paid.backlog_run": ("lifetime_total",
+        "finance.spend_hygiene.flat_backlogs: the last runs per processor, which the "
+        "global keep-per-action does not protect"),
+    "paid.floor_outcome": ("lifetime_total",
+        "finance.systematic.measure: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "photoreal.calibration": ("latest",
+        "runtime.release.photoreal_calibration: the newest row(s) of the action"),
+    "physical.recorded": ("lifetime_total",
+        "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "policy.access_evidence": ("latest",
+        "gates.policy_access._previous: the newest row(s) of the action"),
+    "policy.page_reading_recorded": ("lifetime_total",
+        "gates.platform_policy.page_readings_status: read with no window or row limit "
+        "(counted or listed over all rows)"),
+    "preproduction.cycle": ("latest",
+        "app.main.api_preproduction: the newest row(s) of the action"),
+    "pricing.positioned": ("lifetime_total",
+        "launch.readiness._launch_package_items, seo.packages._latest_audit: the newest "
+        "row per artifact, which the global keep-per-action does not protect"),
+    "provenance.class_graduated": ("latest",
+        "ops.artefacts.graduated_classes: the newest row(s) of the action"),
+    "provider.credential_health": ("lifetime_total",
+        "gateway.credentials._previous: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "provider.fallback_drill": ("latest",
+        "scale.dependency.latest_fallback_drill: the newest row(s) of the action"),
+    "publish.document": ("windowed",
+        "finance.unit_cost.unit_costs: a bounded window inside the horizon"),
+    "quality.tester_plan": ("latest",
+        "quality.physical_truth._latest_plan: the newest row(s) of the action"),
+    "queue.stale_lease_refused": ("windowed",
+        "ops.slo.soak_report: a bounded window inside the horizon"),
+    "queue.unfenced_write_refused": ("windowed",
+        "ops.slo.soak_report: a bounded window inside the horizon"),
+    "radar.scored": ("lifetime_total",
+        "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "routing.evidence": ("lifetime_total",
+        "gateway.routing._latest_evidence: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "routing.override": ("lifetime_total",
+        "gateway.routing.effective_route: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "seasonal.remerchandising": ("lifetime_total",
+        "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
+        "days, longer than the retention horizon"),
+    "serp.capture_blocked": ("latest",
+        "intel.findings.gather: the newest row(s) of the action"),
+    "spend.provider_settlement": ("lifetime_total",
+        "ops.provider_accounts.last_settlements: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "store.activate_incomplete": ("lifetime_total",
+        "commerce.listing_lifecycle.trail: read with no window or row limit (counted or "
+        "listed over all rows)"),
+    "store.activated": ("lifetime_total",
+        "commerce.listing_lifecycle.trail: read with no window or row limit (counted or "
+        "listed over all rows)"),
+    "store.live_observation": ("latest",
+        "store_foundation.live_state._observations: the newest row(s) of the action"),
+    "store.owner_confirmed": ("latest",
+        "store_foundation.shop_sync._confirmations: the newest row(s) of the action"),
+    "store.release_gates": ("lifetime_total",
+        "improve.presale._audits: read with no window or row limit (counted or listed "
+        "over all rows)"),
+    "support.answered": ("windowed",
+        "finance.unit_cost.unit_costs: a bounded window inside the horizon"),
+    "vision.probe": ("latest",
+        "gateway.anthropic.last_vision_probe, ops.provider_health.latest_rows, "
+        "ops.smoke.probe_recency: the newest row(s) of the action"),
+    "visual.carried_portrait_realism": ("latest",
+        "visual.photoreal.filed_portrait_verdict: the newest row(s) of the action"),
+    "visual.exported_frame_review": ("lifetime_total",
+        "visual.exported_review.review_state: the newest row per artifact, which the "
+        "global keep-per-action does not protect"),
+    "visual.hero_review": ("lifetime_total",
+        "visual.hero_review.latest_for: the newest row per artifact, which the global "
+        "keep-per-action does not protect"),
+    "visual.portrait_repair": ("latest",
+        "app.main.api_portrait_repair, runtime.release._repair_on_file: the newest "
+        "row(s) of the action"),
+    "visual.provider_trial": ("lifetime_total",
+        "app.main.api_provider_trial, improve.bootstrap.record_trial_outcomes, "
+        "runtime.release._trial_on_file, visual.provider_trial.experiment_spend_cad, "
+        "visual.provider_trial.incumbent_evidence: read with no window or row limit "
+        "(counted or listed over all rows)"),
+    "visual.reference_realism": ("latest",
+        "visual.photoreal.filed_verdict: the newest row(s) of the action"),
+}
+
+for _action, _decision in _RESOLVED_READ_ACTIONS.items():
+    KNOWN_READ_ACTIONS.setdefault(_action, _decision)
+
+# Prefix reads (`AuditLog.action.like("recovery.%")`). A protected prefix protects every
+# action that starts with it.
+KNOWN_READ_PREFIXES: dict[str, tuple[str, str]] = {
+    "recovery.": ("lifetime_total", "ops.recovery reads each request's first recovery row "
+                                    "(per artifact) and lists the recent ones"),
+    "deploy": ("latest", "autonomy.master_view reads the newest five deploy rows"),
+}
+
+# Read sites the AST scan cannot resolve, keyed `path::function`, with what they read and
+# where that is classified. Every entry is checked to still exist; an unresolved site not
+# listed here makes `unknown_read_actions` fail closed.
+UNRESOLVED_READ_SITES: dict[str, str] = {
+    "app/command_center/emergency.py::_live_grants": (
+        "loops over (publication_authority, activation_authority) modules and reads "
+        "mod.APPROVED: owner.publication.approved / owner.activation.approved, both "
+        "lifetime_total above"),
+    "core/sealed_chain.py::load": (
+        "GrantLedger instance actions (approved/revoked/rebased of each sealed chain); every "
+        "chain family is classified lifetime_total by its owner above"),
+    "core/sealed_chain.py::refusal": (
+        "GrantLedger.revoked of each sealed chain; lifetime_total above"),
+}
+
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
     action for action, (how, _why) in KNOWN_READ_ACTIONS.items() if how == "lifetime_total")
+
+
+PROTECTED_PREFIXES: tuple[str, ...] = tuple(
+    p for p, (how, _why) in KNOWN_READ_PREFIXES.items() if how == "lifetime_total")
 
 
 class RetentionRefused(ValueError):
@@ -393,21 +706,25 @@ def unknown_read_actions(source_root=None) -> list[str]:
     remember to update is wrong exactly when new work lands. The risk this guards is specific:
     somebody adds a lifetime count over `audit_log` in six months and retention, which is
     correct today, silently starts lowering it.
-    """
-    import re
-    from pathlib import Path
 
-    root = Path(source_root) if source_root else Path(__file__).resolve().parents[1]
-    named: set[str] = set()
-    equality = re.compile(r'AuditLog\.action\s*==\s*["\']([a-zA-Z0-9_.]+)["\']')
-    inside = re.compile(r'AuditLog\.action\.in_\(\s*\(([^)]*)\)', re.S)
-    literal = re.compile(r'["\']([a-zA-Z0-9_.]+)["\']')
-    for path in sorted(root.rglob("*.py")):
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        named.update(equality.findall(text))
-        for group in inside.findall(text):
-            named.update(literal.findall(group))
-    return sorted(a for a in named if a not in KNOWN_READ_ACTIONS)
+    Resolved with `ops.read_actions` (an AST scan that follows constants, imports, dict keys,
+    loop tuples and helper parameters), not a literal regex: 101 actions read through constants
+    were invisible to the regex. Unclassified prefixes are returned as `prefix:<p>`, and a read
+    site the scan cannot resolve that is not in `UNRESOLVED_READ_SITES` as `unresolved:<site>`
+    -- the guard fails closed rather than trusting what it could not read.
+    """
+    from . import read_actions
+
+    found = read_actions.scan(source_root)
+    out = [a for a in found.exact if a not in KNOWN_READ_ACTIONS]
+    out += [f"prefix:{p}" for p in found.prefixes if p not in KNOWN_READ_PREFIXES]
+    out += [f"unresolved:{u['key']}" for u in found.unresolved
+            if u["key"] not in UNRESOLVED_READ_SITES]
+    return sorted(set(out))
+
+
+def _protected(action: str) -> bool:
+    return action in PROTECTED_ACTIONS or action.startswith(PROTECTED_PREFIXES)
 
 
 def audit_plan(db, *, now: datetime | None = None,
@@ -442,7 +759,7 @@ def audit_plan(db, *, now: datetime | None = None,
             seen_per_action[action] = seen + 1
             kept_recent_per_action += 1
             continue
-        if action in PROTECTED_ACTIONS:
+        if _protected(action):
             kept_protected += 1
             continue
         if (_aware(at) or now) >= cutoff:

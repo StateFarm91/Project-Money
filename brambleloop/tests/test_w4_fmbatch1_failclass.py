@@ -37,6 +37,7 @@ def test_each_environment_class_is_named_and_a_code_failure_is_not():
         "resolution>": "NETWORK",
         "anthropic.APIStatusError: {'type': 'overloaded_error'}": "PROVIDER",
     }
+    assert cases
     for text, cls in cases.items():
         got = CF.classify("Traceback...\n" + text + "\nFAIL x")
         assert got is not None and got[0] == cls, (text, got)
