@@ -15,3 +15,4 @@ below.
 | 2026-10-26 | API routes | 95876e3d16e90313 | added GET /api/products/lifecycle (F-672, read-only board) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | 97cc8307a76bcea7 | F-673: GET /api/opportunities (operator-only opportunity cards) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | d5d77e45a60ee06d | F-448: POST /api/research/evidence (operator-only owner-supplied research evidence) | additive: no existing route changed; no dependant to migrate |
+| 2026-10-26 | API routes | 4c5e4f01ca7b16dc | F-475: GET /api/evidence (operator-only internal evidence index) | additive: no existing route changed; no dependant to migrate |

@@ -3339,6 +3339,14 @@ def api_arbitrage(pod: str = "") -> dict:
     return arbitrage.state(db, pod=pod)
 
 
+@app.get("/api/evidence")
+def api_evidence(subject: str = "") -> dict:
+    """F-475: every internal corpus searched for a subject, with what was searched."""
+    from ..intel import evidence_index
+
+    return evidence_index.search(db, subject)
+
+
 @app.get("/api/opportunities")
 def api_opportunities(limit: int = 20) -> dict:
     """F-673: one card per concept -- radar score, department arbitrage, rights feasibility,
