@@ -181,7 +181,7 @@ Until then every storefront write stays held.
   - for updateShop, per field: the live value, its state, source and observed_at (UNKNOWN when no reading holds it);
   - for createShopSection: the live section titles it adds to.
 - The preview therefore shows exactly what would be overwritten, and the signed digest the owner approves binds it.
-- At execution, `store.update` compares the granted `replaces` with the live shop now. If the owner edited the text after approving, nothing is sent: the proposal is held and the owner card is raised.
+- At execution, `store.update` compares the granted `replaces` with the newest **stored** reading of the shop, not a fresh read (wording corrected in §8). If the owner edited the text after approving, nothing is sent: the proposal is held and the owner card is raised.
 - Tests (`tests/test_w4_agents_secfix.py`): `test_l2_the_preview_shows_and_binds_the_live_text_it_replaces` and `test_l2_execution_holds_when_the_live_text_changed_after_approval`.
 - L-1 stays open because it is Laura code (frozen).
 
@@ -213,3 +213,23 @@ The embedded worker (`BRAMBLELOOP_EMBEDDED_WORKER`, default `1`, as deployed) ru
 - **I-3:** the revision is clamped with `max(0, …)` in `cir.revise` and in the compile hand-off. Test: `test_i3_a_negative_revision_input_cannot_lift_the_bound`.
 - **I-4:** `validate_change` uses set membership in `OWNER_CONFIGURED` and `EU_ONLY` instead of message words. Test: `test_i4_validate_change_refuses_owner_and_eu_fields_by_set_not_wording`.
 - **Carried L-1 (Laura delegation ordering):** deferred and still open, because Laura code is frozen at 2c29b42 (DECISION_LOG D-W4-AGENTS-L1-DEFER).
+
+
+## 8. Delta review of b199cdb: Low and Info fixes (2026-10-26)
+
+The review passed: M-2R is closed, and nothing is Critical, High or Medium. Each fix below has a test that failed against b199cdb's code (checked on a pre-fix copy of the tree) and passes now.
+
+- **L-1, `store.update` replaced-text check.** It reads our last stored shop reading, not the live shop, and treated UNKNOWN = UNKNOWN or an unchanged STALE value as "unchanged". `_replaced_since_approval` now holds unless each replaced field has a FRESH reading **observed after the grant was approved**. UNKNOWN or STALE on either side holds, with "read the shop (store.shop_sync) and retry".
+  - The §6 wording is corrected: the check compares against the newest stored reading. A getShop immediately before `update_shop` remains the stronger form once writes are enabled after the service split; that read is an Etsy call, which this lane does not make.
+  - Tests: `test_b199_l1_unknown_or_stale_on_both_sides_is_never_unchanged`, and `test_l2_execution_holds_when_the_live_text_changed_after_approval`, now stricter: the approval-time reading alone holds, and a fresh post-approval reading with the same text passes.
+- **L-2, salvage.** An unreadable radar portfolio or diversification now makes that gate UNKNOWN for every row, never FAIL or PASS. `rescue_candidate` now needs a known creative verdict. Test: `test_b199_l2_salvage_unreadable_shared_inputs_are_unknown_and_rescue_needs_creative`.
+- **L-3, cross-sell graph.** Buyer-facing edges (`related`, `bundles`, `next_projects.in_catalogue`) now point only at certified products. Uncertified bundle seeds and planned family members move under `planned` (`internal: True`). The `rule` text names the buyer-facing fields. `test_f775…` now checks every buyer-facing field.
+- **I-1, unverifiable checks.** `quality_ops.unverifiable` lists each (release, check) whose newest reading is UNKNOWN, with its count over 30 days. `gate.quality` reports it. Test: `test_b199_i1_a_check_that_can_never_read_is_reported_as_unverifiable`.
+- **I-4, alias and delta.** The first delta after aliasing now lines up: a previous reading's raw key is aliased before comparing. Test: `test_b199_i4_the_first_delta_after_aliasing_lines_up_with_a_raw_key_reading`.
+  - The alias's reversibility is **accepted** and recorded: it keeps the name out of stored readings, which is the aim, and is not anonymisation. An HMAC with a server secret is the upgrade if needed.
+- **I-6, scorecard.** A period with unknown orders no longer adds 0 orders. Conversion is computed over periods with known orders only (orders and visits together). `winner` is True only on enough known orders, and False only when no period's orders are unknown. Test: `test_b199_i6_a_period_with_unknown_orders_never_adds_zero_orders`.
+- **I-7, asset health.** A failure in the asset-health check no longer fails the storefront review; the health reading is UNKNOWN. Test: `test_b199_i7_an_asset_health_failure_does_not_stop_the_storefront_review`.
+- **I-2, residual risk after the service split: recorded.** Once the web service holds the key, the `owner_request` ContextVar is defence in depth, and the static guard can be evaded by aliasing the import. The lasting fix is owner-device signing of the previewed digest, the prior review's option 2. That changes the owner's authentication device flow, so it is an owner decision and a precondition alongside the service split.
+- **I-3, revocation: recorded.** Revoking appends a signed row, so it is unavailable wherever signing is refused (today: everywhere). That is harmless because no grant can exist there, and the kill switch `BRAMBLELOOP_STOREFRONT_WRITES_AUTHORISED` is a deny path that needs no key. Operators should use the kill switch to stop storefront writes in the single-container deployment.
+- **I-5, contracts test: already done** at 5d138275 (W1): `tests/test_w4_contracts.py` runs `check()`, and six consumers call `require()`.
+- **Carried L-1 (Laura):** still deferred, D-W4-AGENTS-L1-DEFER.

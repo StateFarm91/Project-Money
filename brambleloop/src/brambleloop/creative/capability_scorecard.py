@@ -123,12 +123,18 @@ def _market(db) -> dict:
                 ListingOutcome.impressions, ListingOutcome.visits,
                 ListingOutcome.orders)).all():
             p = per.setdefault(slug, {"impressions": 0, "visits": 0, "orders": 0,
-                                      "orders_known": False, "periods": set()})
+                                      "orders_known": False, "visits_with_orders": 0,
+                                      "unknown_order_periods": 0, "periods": set()})
             p["impressions"] += int(imp or 0)
             p["visits"] += int(vis or 0)
+            # Review b199cdb I-6: a period with unknown orders never adds 0 orders; it is
+            # left out of conversion (orders and visits together) and counted as unknown.
             if orders is not None:
                 p["orders"] += int(orders)
+                p["visits_with_orders"] += int(vis or 0)
                 p["orders_known"] = True
+            else:
+                p["unknown_order_periods"] += 1
             p["periods"].add(period)
     concepts = {}
     for slug, p in sorted(per.items()):
@@ -137,11 +143,16 @@ def _market(db) -> dict:
             "periods": len(p["periods"]), "impressions": p["impressions"],
             "visits": p["visits"],
             "ctr": _rate(p["visits"], p["impressions"]) if enough else UNMEASURED,
-            "conversion": (_rate(p["orders"], p["visits"])
-                           if enough and p["orders_known"] and p["visits"] else UNMEASURED),
+            "conversion": (_rate(p["orders"], p["visits_with_orders"])
+                           if enough and p["orders_known"] and p["visits_with_orders"]
+                           else UNMEASURED),
             "orders": p["orders"] if p["orders_known"] else UNMEASURED,
-            "winner": ((p["orders"] >= WINNER_MIN_ORDERS) if enough and p["orders_known"]
-                       else UNMEASURED)}
+            "orders_unknown_periods": p["unknown_order_periods"],
+            # enough known orders proves a winner; too few is a "no" only when no period's
+            # orders are unknown -- the sale may sit in the unrecorded one
+            "winner": (UNMEASURED if not (enough and p["orders_known"]) else
+                       True if p["orders"] >= WINNER_MIN_ORDERS else
+                       (False if not p["unknown_order_periods"] else UNMEASURED))}
     judged = [c for c in concepts.values() if c["winner"] != UNMEASURED]
     return {"concepts": concepts,
             "winner_rate": (_rate(sum(1 for c in judged if c["winner"]), len(judged))

@@ -132,7 +132,11 @@ def _assert_no_content(snap: dict) -> None:
 
 
 def _with_delta(snap: dict, prev: dict | None) -> dict:
-    before = {(g["benchmark"], g["pod"]): g for g in (prev or {}).get("groups") or []}
+    # Review b199cdb I-4: a reading written before the alias holds the raw key; alias it so
+    # the first delta after the change still lines up.
+    before = {(g["benchmark"] if str(g["benchmark"]).startswith("bm-")
+               else benchmark_alias(g["benchmark"]), g["pod"]): g
+              for g in (prev or {}).get("groups") or []}
     for g in snap["groups"]:
         p = before.get((g["benchmark"], g["pod"]))
         g["delta"] = None if p is None else {

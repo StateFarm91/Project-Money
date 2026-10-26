@@ -38,7 +38,11 @@ def handle_storefront_review(ctx: JobContext) -> dict:
     from ..store_foundation import asset_health
     from .etsy_ops import store_reading
 
-    health = asset_health.check(ctx.db)
+    try:
+        health = asset_health.check(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - review b199cdb I-7: UNKNOWN, never a failed review
+        health = {"state": "UNKNOWN", "why": f"asset health unreadable: {type(exc).__name__}",
+                  "fix_count": None, "routes": {}, "fixes": []}
     store_reading(ctx.db, "storefront.asset_health", health)
     queued = None
     if rev["agent_gaps"]:
@@ -120,13 +124,34 @@ def _replaced_since_approval(ctx: JobContext, grant_id, change: dict) -> str | N
     from ..core.models import AuditLog
     from ..ops import storefront_authority
 
+    from datetime import datetime, timezone
+
     with ctx.db.session() as s:
         row = s.get(AuditLog, int(grant_id))
         granted = ((row.detail or {}).get("content") or {}).get("replaces") if row else None
+        approved_at = row.at if row else None
     if not isinstance(granted, dict):
         return "the grant records no live text it replaces; re-approve from a fresh preview"
+    if approved_at is not None and approved_at.tzinfo is None:
+        approved_at = approved_at.replace(tzinfo=timezone.utc)
     now = storefront_authority.live_replaced(ctx.db, change)
     for k, v in now.items():
+        # Review b199cdb L-1: UNKNOWN == UNKNOWN or an unchanged STALE value is not evidence
+        # that the live text is unchanged. Only a FRESH reading taken AFTER the approval is.
+        if v.get("state") != "FRESH":
+            return (f"the live {k} is {v.get('state', 'UNKNOWN')}: no fresh reading shows "
+                    f"what would be overwritten -- read the shop (store.shop_sync) and retry")
+        if k != "shop_section":
+            seen = v.get("observed_at")
+            try:
+                seen_at = datetime.fromisoformat(str(seen)) if seen else None
+            except ValueError:
+                seen_at = None
+            if seen_at is not None and seen_at.tzinfo is None:
+                seen_at = seen_at.replace(tzinfo=timezone.utc)
+            if seen_at is None or approved_at is None or seen_at <= approved_at:
+                return (f"the live {k} was last read before the owner approved; read the "
+                        f"shop again (store.shop_sync) so a hand edit since then is seen")
         if (granted.get(k) or {}).get("live_value") != v.get("live_value"):
             return (f"the live {k} changed since the owner approved; the approval no longer "
                     f"describes what would be overwritten -- preview and approve again")

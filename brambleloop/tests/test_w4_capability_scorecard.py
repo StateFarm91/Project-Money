@@ -98,6 +98,31 @@ def test_the_scorecard_job_runs_daily_and_stores_one_reading():
     assert out["objective"] == "UNMEASURED" and out["winner_rate"] == "UNMEASURED"
 
 
+def test_b199_i6_a_period_with_unknown_orders_never_adds_zero_orders():
+    db = _db()
+    with db.session() as s:
+        s.add(ListingOutcome(product_slug="x-concept", period_start="2026-09-01",
+                             period_end="2026-09-30", impressions=300, visits=20, orders=0,
+                             source="test"))
+        s.add(ListingOutcome(product_slug="x-concept", period_start="2026-10-01",
+                             period_end="2026-10-31", impressions=300, visits=80, orders=None,
+                             source="test"))
+        s.add(ListingOutcome(product_slug="y-concept", period_start="2026-09-01",
+                             period_end="2026-09-30", impressions=300, visits=20, orders=1,
+                             source="test"))
+        s.add(ListingOutcome(product_slug="y-concept", period_start="2026-10-01",
+                             period_end="2026-10-31", impressions=300, visits=80, orders=None,
+                             source="test"))
+    m = CS._market(db)["concepts"]
+    # conversion over the period with known orders only: 1/20, not 1/100
+    assert m["y-concept"]["conversion"] == 0.05, m["y-concept"]
+    assert m["y-concept"]["winner"] is True              # enough known orders proves it
+    c = m["x-concept"]
+    assert c["orders_unknown_periods"] == 1
+    # zero known orders with an unknown period is not "not a winner"
+    assert c["winner"] == CS.UNMEASURED, c
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

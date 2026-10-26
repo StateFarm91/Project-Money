@@ -104,7 +104,9 @@ def test_f775_cross_sell_links_only_certified_products_with_tutorials_and_materi
     nodes = {n["product"]: n for n in g["nodes"]}
     a, b = fam
     assert nodes[a]["related"] == [b] and nodes[b]["related"] == [a]
-    assert any("bundle" in x for x in nodes[a]["bundles"])
+    # review b199cdb L-3: an uncertified bundle seed is planning data, not a buyer-facing edge
+    assert any("bundle" in x for x in nodes[a]["planned"]["bundles"])
+    assert nodes[a]["planned"]["internal"] is True
     assert nodes[a]["materials"] and nodes[a]["attach_rate"] == "UNMEASURED"
     assert isinstance(nodes[a]["tutorials"], list)        # approved lessons only (none yet)
     certified = set(nodes)
@@ -112,6 +114,9 @@ def test_f775_cross_sell_links_only_certified_products_with_tutorials_and_materi
     for n in g["nodes"]:
         assert set(n["related"]) <= certified and set(n["next_projects"]["in_catalogue"]) \
             <= certified
+        # every buyer-facing edge field, not only two of them
+        assert set(n["bundles"]) <= certified, n["bundles"]
+        assert set(n["next_projects"]) == {"in_catalogue"}, n["next_projects"]
     assert ("cross_sell_graph", "listing", "listing.cross_sell_graph", 86400) in CADENCES
     assert _run(db, "listing", "listing.cross_sell_graph")["products"] == 2
 
@@ -154,6 +159,33 @@ def test_f113_salvage_only_recommends_and_never_writes():
     assert counts() == before                              # nothing deleted, unlisted, changed
     with db.session() as s:
         assert s.scalar(select(Listing.state)) == "draft"
+
+
+def test_b199_l2_salvage_unreadable_shared_inputs_are_unknown_and_rescue_needs_creative():
+    from unittest.mock import patch
+
+    from brambleloop.creative import salvage as SV
+
+    db = _db()
+    _certify(db, "legacy-panel-three")
+    with patch("brambleloop.radar.opportunity.select_portfolio",
+               side_effect=RuntimeError("radar import")), \
+            patch("brambleloop.commerce.portfolio.diversification",
+                  side_effect=RuntimeError("div")):
+        rep = SV.review(db)
+    row = rep["legacy"][0]
+    assert row["gates"]["mjs_market"]["verdict"] == SV.UNKNOWN, row["gates"]
+    assert row["gates"]["portfolio"]["verdict"] == SV.UNKNOWN, row["gates"]
+    assert row["recommendation"] != "retire_recommended"
+    orig = SV._gates
+    SV._gates = lambda db_, r, sel, comp: {
+        k: {"verdict": "UNKNOWN" if k == "creative" else "PASS", "why": "t"}
+        for k in ("creative", "mjs_market", "seasonal", "novelty", "portfolio")}
+    try:
+        rep = SV.review(db)
+    finally:
+        SV._gates = orig
+    assert rep["legacy"][0]["recommendation"] == "review"     # not rescue_candidate
 
 
 if __name__ == "__main__":

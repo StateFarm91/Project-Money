@@ -46,15 +46,25 @@ def graph(db) -> dict:
         materials = sorted({f"{m.get('yarn_weight') or '?'}:{m.get('color_id') or '?'}"
                             for m in (r["cir"].get("materials") or [])}) or UNMEASURED
         related = sorted(s for s in slugs if s != slug and fam and fam_of.get(s) == fam)
-        bundles = sorted(p.slug for p in POOL if fam and p.family == fam and p.is_bundle)
+        family_bundles = sorted(p.slug for p in POOL if fam and p.family == fam and p.is_bundle)
+        # Review b199cdb L-3: a buyer-facing edge points only at a certified product. A bundle
+        # or family member that is only a radar seed is planning data, kept under `planned`.
+        bundles = [b for b in family_bundles if b in slugs]
         same_collection = sorted(s for s in slugs if s != slug and section[s] == section[slug])
         nxt = sorted({p.slug for p in POOL if fam and p.family == fam and not p.is_bundle
                       and p.slug not in slugs})
         nodes.append({"product": slug, "version": r["version"], "family": fam,
                       "related": related, "bundles": bundles, "collection": section[slug],
                       "tutorials": tutorials, "materials": materials,
-                      "next_projects": {"in_catalogue": same_collection[:5],
-                                        "planned_family_members": nxt[:5]},
+                      "next_projects": {"in_catalogue": same_collection[:5]},
+                      "planned": {"internal": True,
+                                  "bundles": [b for b in family_bundles if b not in slugs],
+                                  "family_members": nxt[:5],
+                                  "why": "uncertified radar seeds: planning only, never a "
+                                         "buyer-facing link"},
                       "attach_rate": UNMEASURED})
     return {"nodes": nodes, "products": len(nodes),
-            "rule": "edges point only at certified products; attach rate UNMEASURED until orders"}
+            "rule": ("buyer-facing edges (related, bundles, next_projects) point only at "
+                     "certified products; `planned` is internal planning data; attach rate "
+                     "UNMEASURED until orders"),
+            "buyer_facing_edges": ["related", "bundles", "next_projects.in_catalogue"]}

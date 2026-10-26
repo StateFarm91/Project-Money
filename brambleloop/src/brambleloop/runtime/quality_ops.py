@@ -228,8 +228,39 @@ def handle_gate_quality(ctx: JobContext) -> dict:
                 ctx.enqueue("policy", "gate.policy", dict(r),
                             idempotency_key=f"reverify:gate.policy:{key}"))
         queued += sum(j is not None for j in jobs)
-    ctx.audit("quality.reverify_planned", detail={"releases": len(releases), "queued": queued})
-    return {"releases": len(releases), "queued": queued, "work_done": queued}
+    unver = unverifiable(ctx.db)
+    ctx.audit("quality.reverify_planned", detail={"releases": len(releases), "queued": queued,
+                                                  "unverifiable": unver})
+    return {"releases": len(releases), "queued": queued, "unverifiable": unver,
+            "work_done": queued}
+
+
+def unverifiable(db, *, days: int = 30) -> list[dict]:
+    """Review b199cdb I-1: an UNKNOWN reading counts as "run" for freshness (never as a pass),
+    so a check that can never read would otherwise go unreported. Each (release, check) whose
+    newest reading is UNKNOWN is listed with how many UNKNOWN readings it has had in `days`."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    newest: dict[tuple, dict] = {}
+    unknown: dict[tuple, int] = {}
+    with db.session() as s:
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == READING,
+                                                  AuditLog.at >= since)
+                           .order_by(AuditLog.id)):
+            d = a.detail or {}
+            key = (a.artifact, d.get("check"))
+            newest[key] = d
+            if d.get("ok") is None:
+                unknown[key] = unknown.get(key, 0) + 1
+    return [{"release": k[0], "check": k[1], "unknown_readings": unknown.get(k, 0),
+             "why": (d.get("why") or "")[:200]}
+            for k, d in sorted(newest.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))
+            if d.get("ok") is None]
 
 
 FRESH_HOURS = 24

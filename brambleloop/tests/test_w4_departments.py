@@ -494,6 +494,29 @@ def test_l4_a_check_that_raises_is_recorded_as_a_finding():
         assert inc.severity == "P2" and inc.halts_publication is False
 
 
+def test_b199_i1_a_check_that_can_never_read_is_reported_as_unverifiable():
+    cir = _cir()
+    db = _db(cir)                                       # no drafted listing: policy can't read
+    ref = {"slug": cir.slug, "version": cir.version}
+    for _ in range(2):
+        _run(db, "policy", "gate.policy", ref)
+    rows = quality_ops.unverifiable(db)
+    assert [(r["check"], r["unknown_readings"]) for r in rows] == [("gate.policy", 2)], rows
+    plan = _run(db, "quality_director", "gate.quality", {})
+    assert plan["unverifiable"] and plan["unverifiable"][0]["check"] == "gate.policy"
+
+
+def test_b199_i4_the_first_delta_after_aliasing_lines_up_with_a_raw_key_reading():
+    from brambleloop.runtime import intel_ops
+
+    snap = {"groups": [{"benchmark": intel_ops.benchmark_alias("mjs"), "pod": "home",
+                        "listings": 5, "price_median_cad": 9.0}]}
+    prev = {"groups": [{"benchmark": "mjs", "pod": "home", "listings": 3,
+                        "price_median_cad": 8.0}]}
+    out = intel_ops._with_delta(snap, prev)
+    assert out["groups"][0]["delta"] == {"listings": 2, "price_median_cad": 1.0}
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -29,7 +29,7 @@ def _guard(fn):
         return UNKNOWN, f"unreadable ({type(exc).__name__})"
 
 
-def _gates(db, r: dict, selected: set, competing: set) -> dict:
+def _gates(db, r: dict, selected: set | None, competing: set | None) -> dict:
     from ..cir.model import CIR
     from ..creative.blind_review import current_review
     from ..gates.originality import provenance_findings
@@ -47,6 +47,8 @@ def _gates(db, r: dict, selected: set, competing: set) -> dict:
             else (PASS, "not inferior in the current blind review")
 
     def market():
+        if selected is None:
+            return UNKNOWN, "today's radar portfolio could not be read"
         return ((PASS, "today's radar portfolio still selects it") if concept in selected
                 else (FAIL, "today's radar portfolio would not select it"))
 
@@ -60,6 +62,8 @@ def _gates(db, r: dict, selected: set, competing: set) -> dict:
         return (FAIL, errs[0].code) if errs else (PASS, "originality provenance holds")
 
     def portfolio():
+        if competing is None:
+            return UNKNOWN, "catalogue diversification could not be read"
         return ((FAIL, "its listing competes with another for the same query")
                 if slug in competing else (PASS, "no cannibalising pair"))
 
@@ -78,14 +82,14 @@ def review(db) -> dict:
     legacy = [r for r in _certified(db) if r["slug"] not in scope]
     try:
         selected = {c.seed.slug for c in select_portfolio().selected}
-    except Exception:  # noqa: BLE001
-        selected = set()
+    except Exception:  # noqa: BLE001 - review b199cdb L-2: unreadable is UNKNOWN, never FAIL
+        selected = None
     try:
         div = diversification(db)
         competing = {s for pair in (div.get("competing_pairs") or [])
                      for s in (pair.get("between") or [])}
-    except Exception:  # noqa: BLE001
-        competing = set()
+    except Exception:  # noqa: BLE001 - review b199cdb L-2: unreadable is UNKNOWN, never PASS
+        competing = None
     rows = []
     for r in legacy:
         g = _gates(db, r, selected, competing)
@@ -93,7 +97,8 @@ def review(db) -> dict:
         unknown = [k for k, v in g.items() if v["verdict"] == UNKNOWN]
         if g["creative"]["verdict"] == FAIL or len(fails) >= 2:
             rec = "retire_recommended"
-        elif not fails and len(unknown) <= 1:
+        elif not fails and len(unknown) <= 1 and g["creative"]["verdict"] != UNKNOWN:
+            # review b199cdb L-2: rescue needs a known creative verdict
             rec = "rescue_candidate"
         else:
             rec = "review"

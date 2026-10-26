@@ -368,10 +368,59 @@ def test_l2_execution_holds_when_the_live_text_changed_after_approval():
         s.flush()
         gid = row.id
     ctx = types.SimpleNamespace(db=DB)
+    # review b199cdb L-1: the reading the approval was made on is not evidence afterwards
+    why = storefront_ops._replaced_since_approval(ctx, gid, p["change"])
+    assert why and "last read before the owner approved" in why, why
+    # a fresh reading taken after the approval, with the same text: unchanged
+    _owner_text_proposal("Text the owner had when approving.")
     assert storefront_ops._replaced_since_approval(ctx, gid, p["change"]) is None
     _owner_text_proposal("The owner edited it again afterwards.")
     why = storefront_ops._replaced_since_approval(ctx, gid, p["change"])
     assert why and "changed since the owner approved" in why
+
+
+def _grant_with(replaces):
+    with DB.session() as s:
+        row = AuditLog(actor=sfa.PRINCIPAL, action="test.storefront_grant_fixture",
+                       artifact="storefront:l1", detail={"content": {"replaces": replaces}})
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def test_b199_l1_unknown_or_stale_on_both_sides_is_never_unchanged():
+    import types
+
+    from brambleloop.runtime import storefront_ops
+
+    ctx = types.SimpleNamespace(db=DB)
+    change = {"operation": "updateShop", "fields": {"announcement": "new"}}
+    unknown = {"announcement": {"live_value": "UNKNOWN", "state": "UNKNOWN"}}
+    gid = _grant_with(unknown)
+    with patch.object(sfa, "live_replaced", return_value=unknown):
+        why = storefront_ops._replaced_since_approval(ctx, gid, change)
+    assert why and "UNKNOWN" in why, why
+    stale = {"announcement": {"live_value": "same old text", "state": "STALE",
+                              "observed_at": "2026-01-01T00:00:00+00:00"}}
+    gid = _grant_with(stale)
+    with patch.object(sfa, "live_replaced", return_value=stale):
+        why = storefront_ops._replaced_since_approval(ctx, gid, change)
+    assert why and "STALE" in why, why
+
+
+def test_b199_i7_an_asset_health_failure_does_not_stop_the_storefront_review():
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import storefront_ops  # noqa: F401
+    from brambleloop.runtime.worker import JobContext, handlers
+    from brambleloop.store_foundation import asset_health
+
+    from brambleloop.core.models import Phase
+
+    job = JobQueue(DB).enqueue("storefront_director", "storefront.review", {})
+    with patch.object(asset_health, "check", side_effect=RuntimeError("boom")):
+        out = handlers.get("storefront.review")(JobContext(
+            job=job, db=DB, queue=JobQueue(DB), registry=Registry(DB), phase=Phase.SHADOW))
+    assert out["asset_health"]["fixes"] is None and out["surfaces"] > 0
 
 
 if __name__ == "__main__":
