@@ -1,0 +1,8 @@
+{
+ "source": "anonymous GET /api/benchmark-selection on production 051dbee2, file mtime 2026-10-26T13:56Z",
+ "benchmark": "mjs_off_the_hook_designs",
+ "observed": 442,
+ "target": 10,
+ "selected_count": 10,
+ "note": "listing titles and URLs omitted here (no competitor text in the record)"
+}

@@ -1,0 +1,12 @@
+{
+ "source": "anonymous GET /api/etsy on production, file mtime 2026-10-19T12:12Z",
+ "usable": true,
+ "demonstrated": true,
+ "last_probe": {
+  "at": "2026-10-19T08:03:15.934955+00:00",
+  "endpoint": "ping",
+  "ok": true,
+  "reason": "",
+  "application_id": 1516181443672
+ }
+}
