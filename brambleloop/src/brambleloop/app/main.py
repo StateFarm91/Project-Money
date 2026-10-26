@@ -2916,6 +2916,8 @@ def api_swarm_runtime() -> dict:
             db, worker_target=target if isinstance(target, int) else None)),
         "untouched_opportunities": _guard(lambda: swarm_metrics.untouched_opportunities(db)),
         "parallelism": _guard(lambda: swarm_metrics.parallelism(rs)),
+        # W4-FMBATCH1 (F-489): compression, parallel throughput and conflict rate from rows.
+        "parallel_window": _guard(lambda: swarm_metrics.parallel_window(db)),
     }
 
 

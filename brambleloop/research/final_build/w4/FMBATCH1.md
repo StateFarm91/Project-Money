@@ -407,3 +407,30 @@ to 10-26T01:03Z.
 |---|---|
 | F-495 | No department was blocked during the window, so "independence while others are blocked" is not shown |
 | F-880, F-881, F-895, F-923, F-924 | Each needs the ops/slo soak grade, department useful-work, the external availability probe or the SLO budgets. These are operator-credentialed reads: one GET `/api/cc/operations/soak?start=2026-10-25T01:03:35Z` would evidence them |
+
+## 15. Batch I: the gaps CLOSE5 named on F-394, F-470, F-489 and F-457
+
+A pass over the 187 rows marked "missing implementation" found 28 rows already referenced by
+tests. Some of those references are this lane's own; others are W4 lanes whose matrix rows
+were never re-mapped from 019ebf0. CLOSE5.md names exactly what each of those rows still lacks.
+This batch closes those named gaps.
+
+| row | CLOSE5's gap | built |
+|---|---|---|
+| F-394 | "risk reduction, confidence" absent from `roi.prioritise` | Value = impact × confidence + risk_reduction, per CA$. An unstated confidence is flagged and ranks after a stated one of equal value. A confidence outside [0, 1] or a negative risk reduction is refused. The old ordering is unchanged without the new fields |
+| F-470 | storage and platform capacity unmeasured | `resources.read` adds free space per working filesystem and I/O pressure (PSI). It saturates under 2 GB or 2% free, or at I/O avg60 of 50% or more. An absent path reads UNKNOWN. The platform's container limits (cgroup) are named as the capacity source |
+| F-489 | wall-clock compression and conflict rate unmeasured | `swarm.metrics.parallel_window`, read from durable job rows: compression (work ÷ busy wall clock), useful parallel seconds and conflict rate (lease, race, lock and unique-clash markers). It reads None when the window is empty. Served on `/api/swarm/runtime` |
+| F-457 | structural target decision | `OVERRIDES_PROPOSED_FMBATCH1_B.json`: TESTED target, because the producer `ops/registry.py` is operator tooling. Dry run: problems [] |
+
+**Tests:**
+- `tests/test_w4_fmbatch1_swarm.py` 5/5, both positive and negative cases.
+- Green: test_w4_improvemetrics, test_w4_swarmcontrol, test_w4_swarmmetrics, test_roi.
+
+**Status:** F-394, F-470 and F-489 are E. F-457 needs the integrator's decision.
+
+**Still lacking, per CLOSE5:**
+- F-126: visual benchmark rows are not superseded.
+- F-431: the `research.run` job and the fetch step.
+- F-398: the single joined improvement record.
+
+These are the next batch.
