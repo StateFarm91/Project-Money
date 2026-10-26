@@ -266,6 +266,13 @@ def handle_commerce_readings(ctx: JobContext) -> dict:
         "insights_keywords": sum(len(v) for v in
                                  (reading["insights_plan"].get("keywords") or {}).values()),
     }
+    # F-550: the Etsy loop's daily exception report and quarterly deep audit (read-only).
+    try:
+        from ..intel import etsy_ops_report
+
+        summary["etsy_ops"] = etsy_ops_report.run(ctx.db)
+    except Exception as e:  # noqa: BLE001 - a report failure never stops the readings
+        summary["etsy_ops"] = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
     ctx.audit(ACTION, detail={"summary": summary, "reading": _jsonable(reading)})
     return summary
 
