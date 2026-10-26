@@ -89,6 +89,25 @@ def test_nothing_runnable_is_watching_with_a_recorded_span_and_no_job():
     assert memory.get(db, "department.watching:support")["state"] == "ended"
 
 
+def test_review_f11_an_open_watching_span_is_not_rewritten_every_tick():
+    db = boot()
+    ch = charters.BY_KEY["support"]
+    real = generators.candidates
+    generators.candidates = lambda db_, charter, snap: []
+    try:
+        orchestrator.tick(db, now=NOW, departments=[ch])
+        first = memory.get(db, "department.watching:support")
+        orchestrator.tick(db, now=NOW.replace(minute=15), departments=[ch])
+        same = memory.get(db, "department.watching:support")
+        orchestrator.tick(db, now=NOW.replace(hour=13, minute=1), departments=[ch])
+        later = memory.get(db, "department.watching:support")
+    finally:
+        generators.candidates = real
+    assert same["updated_at"] == first["updated_at"] and same["body"] == first["body"]
+    assert later["body"]["last_seen"] == NOW.replace(hour=13, minute=1).isoformat()
+    assert later["body"]["since"] == NOW.isoformat()
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

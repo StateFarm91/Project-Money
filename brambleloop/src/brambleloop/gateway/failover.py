@@ -287,7 +287,10 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
                     row["contract_refused"] = True
                     continue
             except Exception as exc:  # noqa: BLE001 - an unreadable contract is reported
+                # Review F-10: and not routed. UNKNOWN is never routed, here as everywhere.
                 row["contract"] = f"UNKNOWN: {type(exc).__name__}"
+                row["contract_refused"] = True
+                continue
         if fits_month and fits_day:
             order.append(model)
     if order:

@@ -44,6 +44,7 @@ def _never_paused(department: str) -> bool:
 
     return never_paused_refusal(department) is not None
 
+WATCHING_RESTATE_S = 3600           # review F-11: an open WATCHING span is restated hourly
 MAX_MISSIONS_PER_TICK = 11          # at most one per department
 NOOP_SUPPRESS_AFTER = 3             # consecutive no-op generated missions of one job type
 NOOP_SUPPRESS_HOURS = 24
@@ -245,6 +246,15 @@ def _watching(db, department: str, now: datetime) -> None:
     key = f"department.watching:{department}"
     prev = memory.get(db, key)
     open_span = prev is not None and prev.get("state") == "watching"
+    if open_span:
+        # Review F-11: a span already open is restated at most every WATCHING_RESTATE_S,
+        # not on every 15-minute tick.
+        try:
+            last = datetime.fromisoformat(prev["body"].get("last_seen") or "")
+            if (now - last).total_seconds() < WATCHING_RESTATE_S:
+                return
+        except (TypeError, ValueError):
+            pass
     since = (prev["body"].get("since") if open_span else None) or now.isoformat()
     memory.remember(db, key, kind="department.watching", department=department,
                     subject=f"{department} watching", state="watching",

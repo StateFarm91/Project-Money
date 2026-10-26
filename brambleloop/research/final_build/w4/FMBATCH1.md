@@ -650,3 +650,24 @@ or independent review items.
   - Test: `test_w4_fmbatch1_cost_learning.py` (3); `test_league`, `test_weekly` green.
   - Still open: no route evidence has been recorded in production, so nothing is proposable
     yet.
+
+## 23. Independent review (INDEPENDENT_SECREVIEW_FMBATCH1.md at 871b84a): fixes
+
+Each fix has a test. Every new behaviour test was run against the pre-fix tree (c089c7bd)
+and failed there; the output is in `evidence_FMBATCH1/review_fixes_fail_before_fix.txt`.
+The one exception is the F-4 spend-path pin, which is a new pin, not a behaviour; the F-4
+behaviour tests do fail before the fix.
+
+| Finding | Fix | Commit | Test |
+|---|---|---|---|
+| F-1 | The drift re-queue defaults OFF (`BRAMBLELOOP_TAXONOMY_DRIFT_REQUEUE=1` turns it on). With it off, the drift is still diffed, reported and raised as a P1 incident, and the rebuild becomes an owner action. Nothing moves toward `store.publish`, and with nothing queued the incident is non-halting, so no deadlock. | 50174256 | `test_w4_fmbatch1_drift.py::test_by_default_drift_requeues_nothing_and_asks_the_owner` (asserts no `tx*` listing.seo, launch.plan or store.publish) |
+| F-3 | Automatic production rollback is OFF. Only `AUTO_ROLLBACK=1` plus the owner's own `AUTO_ROLLBACK_REASON` pushes; the script never writes a reason. One re-read before a P0 is acted on. | 53694b92 | `test_w4_fmbatch1_rollback.py` (by default no push; no reason means no push; a P0 that clears on re-read is not rolled back) |
+| F-2 | Every redirect target and the final URL are re-checked: allowlist, https, default port. An oversized robots.txt is unreadable. | 617097b0 | `test_w4_fmbatch1_research_run.py::test_review_f2_*` |
+| F-8 | Network errors become `FetchUnavailable` and are recorded as not fetched. One bad fetch never stops the others or `promote`. | 617097b0 | `test_review_f8_*` |
+| F-4 | Every billed compat-pack response goes through `spend_report.record` (`purpose=compat_pack`), at the reservation estimate when usage is unreadable, and only then is released. `compat_pack.run` is pinned in `test_model_spend_paths`. | 330ed7c9 | `test_w4_fmbatch1_compat.py::test_review_f4_*` |
+| F-5 | Vision reserves `IMAGE_TOKENS_ESTIMATE` per image. An unsupported vision task is decided before anything is reserved. | 330ed7c9 | `test_review_f5_*` |
+| F-6 | Any suite whose output contains an `AssertionError` is a code failure. Assertion and FAIL lines are never evidence. The advice now reads "check the environment before reverting". | 07903e57 | `test_w4_fmbatch1_failclass.py::test_review_f6_*` |
+| F-7 | With signing required, anything other than `verified` is refused, including `empty_range`, both in `signing_evidence` and in `_record_problems`. | 07903e57 | `test_w4_fmbatch1_signing.py::test_review_f7_*` |
+| F-9 | A demand with no risk class and no test reads `unknown` (blocked). An unparseable `needed_by` gives `overdue: None` with the reason, never a 500. | 07903e57 | `test_w4_fmbatch1_physical_truth.py::test_review_f9_*` |
+| F-10 | **Decision: fixed.** An exception while evaluating the fallback contract is UNKNOWN, and UNKNOWN is never routed. The row is `contract_refused` and the call parks rather than routing an unchecked fallback. The cost is that a broken contract table parks fallback traffic, which is visible and recoverable; routing unchecked is neither. | this commit | `test_w4_fmbatch1_providers.py::test_review_f10_*` |
+| F-11 | **Decision: the pull order is accepted, and the write amplification is fixed.** RUN before GROW before IMPROVE is what F-656 requires (operations first; it changes order, never permission or spend), so it stays ON. The WATCHING row is now written on a state change, or when the open span's `last_seen` is at least `WATCHING_RESTATE_S` (1 h) old, not every tick. | this commit | `test_w4_fmbatch1_departments.py::test_review_f11_*` |

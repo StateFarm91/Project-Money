@@ -171,6 +171,29 @@ def test_f095_failover_never_routes_a_fallback_that_fails_its_contract():
     assert refused.candidates[1].get("contract_refused") is True
 
 
+def test_review_f10_an_unreadable_contract_is_not_routed():
+    from brambleloop.gateway import failover
+
+    db = _db()
+    primary, fallback = failover.candidates("listing_classify")
+    for _ in range(failover.DOWN_AFTER_CONSECUTIVE):
+        failover.record_attempt(db, provider="anthropic", model=primary, ok=False,
+                                error=TimeoutError("read timed out"))
+    real = FC.may_route
+
+    def boom(*a, **k):
+        raise RuntimeError("contract table unreadable")
+
+    FC.may_route = boom
+    try:
+        d = failover.decide(db, "listing_classify")
+    finally:
+        FC.may_route = real
+    assert d.action == failover.PARK, d.to_dict()
+    row = d.candidates[1]
+    assert row["contract"].startswith("UNKNOWN") and row.get("contract_refused") is True
+
+
 # ---- F-099 -------------------------------------------------------------------------------
 
 def test_f099_prices_are_versioned_and_a_change_reruns_routing_economics():
