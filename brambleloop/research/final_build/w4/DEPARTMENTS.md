@@ -405,3 +405,17 @@ Existing tests still pass: `test_listing_tests`, `test_experiment_persistence`, 
 **Not built (provider or owner).** Official-docs fetch, web search, literature access and controlled-browser research. Each is named in the ladder with what would make it available. Connecting any of them is a provider or owner decision.
 
 **Found while regressing W3:** `test_r2_autonomy_useful_work.test_every_cadence_and_generatable_type_declares_its_work_keys` was failing for 10 W4-AGENTS types: the nine from earlier batches (`storefront.review`, `gate.quality`, `radar.competitor_snapshot`, `creative.family_engine`, `creative.salvage_review`, `listing.cross_sell_graph`, `creative.capability_scorecard`, `intel.children_portfolio`, `visual.model_ledger`) plus `research.sweep`. Those batches had not run this test. Each of these handlers already reports a measured `work_done` (checked handler by handler). They are now declared in `pipeline.WORK_KEYS` as `("work_done",)`, and the test passes.
+
+## Note on lane overlap with W4-FMBATCH1 (F-476, F-482; 2026-10-26)
+
+FMBATCH1 owns the F-45x to F-49x swarm and build-side rows. From now on W-AGENTS leaves them to that lane.
+
+**How the two contract mechanisms relate.** Nothing is removed here; the integrator reconciles them at merge.
+- **FMBATCH1 (F-482):** `core/contracts.py` with `fingerprint()` / `fingerprints()`, plus `tests/test_w4_fmbatch1_contracts.py` and `ops/CONTRACT_CHANGES.md`. It pins schema and interface shapes: the CIR dataclasses, `ListingPayload` and every API route. A pin cannot be bumped without a dated declaration.
+- **W-AGENTS W1 (this lane):** its own `core/contracts.py`, plus `contracts.json`, `CHANGELOG` and `require(name, version)`. It covers runtime module contracts: versioned shapes for the CIR, the Etsy write schemas, shop policy sections, the storefront proposal and live-shop evidence. Consumer modules pin them at import with `require()`.
+- **Merge collision.** Both branches add `src/brambleloop/core/contracts.py`, and their `fingerprint` signatures are incompatible (FMBATCH1 `fingerprint()`, W1 `fingerprint(name)`). This is an add/add conflict at merge. A suggested reconciliation:
+  - keep FMBATCH1's module at that path, with `ops/CONTRACT_CHANGES.md` as the one declaration record;
+  - move W1's registry under another name (for example `core/module_contracts.py`), or fold its five shapes and `require()` into FMBATCH1's `fingerprints()`;
+  - repoint the six consumer pins and `tests/test_w4_contracts.py` accordingly.
+
+**Correction to the W2 section.** F-476's build-side duplicate-lane refusal is built by FMBATCH1 (`ops/registry.py`). W-AGENTS did not build it, and the row belongs to that lane.
