@@ -40,7 +40,7 @@ def _no_network(*_a, **_k):
 socket.socket.connect = _no_network  # type: ignore[assignment]
 socket.create_connection = _no_network  # type: ignore[assignment]
 
-from sqlalchemy import desc, select  # noqa: E402
+from sqlalchemy import desc, func, select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
@@ -158,26 +158,77 @@ def test_a_hero_that_shows_something_else_blocks():
     db, cir = _certified()
     out = X.review(db, SLUG, cir.version,
                    provider=_Provider(_description(object_shown="a striped rug")),
-                   gate_open=True)
+                   gate_open=True, fresh=True)
     assert out["reviewed"] is False and out["frames"]["1"]["verdict"] == "blocked"
     assert X.review_state(db, SLUG, cir.version)["reviewed"] is False
 
 
 def test_a_text_frame_with_no_text_blocks_and_an_unregistered_job_is_unclaimed():
     db, cir = _certified()
+    # INTEG7 (S-1): same bytes, a different judgement simulated, so a fresh review is asked
+    # for explicitly; without `fresh` the filed review of these frames is reused.
     out = X.review(db, SLUG, cir.version,
-                   provider=_Provider(_description(text_present=False)), gate_open=True)
+                   provider=_Provider(_description(text_present=False)), gate_open=True,
+                   fresh=True)
     bad = {f["job"] for f in out["frames"].values() if f["verdict"] == "blocked"}
     assert "MATERIALS" in bad, out["frames"]
     saved = dict(X.JOB_CLAIMS)
     X.JOB_CLAIMS.pop("MATERIALS")
     try:
-        out = X.review(db, SLUG, cir.version, provider=_Provider(), gate_open=True)
+        out = X.review(db, SLUG, cir.version, provider=_Provider(), gate_open=True,
+                       fresh=True)                 # the claims changed: judge again
     finally:
         X.JOB_CLAIMS.clear()
         X.JOB_CLAIMS.update(saved)
     assert any(f["verdict"] == "unclaimed" for f in out["frames"].values())
     assert X.review_state(db, SLUG, cir.version)["reviewed"] is False
+
+
+def test_s1_a_retry_over_unchanged_frames_makes_no_second_paid_review():
+    """INTEG7 (review S-1): the daily rebuild retry re-drives listing.seo over the same frames.
+    The filed review covers exactly those frames, so it is reused and no vision call is paid."""
+    db, cir = _certified()
+    first = _Provider()
+    a = X.review(db, SLUG, cir.version, provider=first, gate_open=True, fresh=True)
+    assert first.calls == len(a["frames"]) + 1 and a["reviewed"] is True
+    with db.session() as s:
+        filed = s.scalar(select(func.count()).select_from(AuditLog)
+                         .where(AuditLog.action == X.ACTION))
+    for _ in range(2):                              # two more daily retries
+        again = _Provider()
+        b = X.review(db, SLUG, cir.version, provider=again, gate_open=True)
+        assert again.calls == 0, again.calls        # zero paid vision calls
+        assert b["reused"] is True and b["reviewed"] is True
+        assert b["frame_shas"] == a["frame_shas"]
+    with db.session() as s:
+        assert s.scalar(select(func.count()).select_from(AuditLog)
+                        .where(AuditLog.action == X.ACTION)) == filed   # nothing re-filed
+    assert X.review_state(db, SLUG, cir.version)["reviewed"] is True
+
+
+def test_s1_changed_or_undescribed_frames_are_reviewed_again():
+    db, cir = _certified()
+    X.review(db, SLUG, cir.version, provider=_Provider(), gate_open=True, fresh=True)
+    with db.session() as s:                        # the frame set changed: a new image at 1
+        row = s.scalar(select(AuditLog).where(AuditLog.action == X.ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        d = dict(row.detail)
+        d["frame_shas"] = {**d["frame_shas"], "1": "0" * 64}
+        row.detail = d
+    p = _Provider()
+    X.review(db, SLUG, cir.version, provider=p, gate_open=True)
+    assert p.calls > 0                              # other bytes: judged again
+    with db.session() as s:                        # a frame whose description failed
+        row = s.scalar(select(AuditLog).where(AuditLog.action == X.ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        d = dict(row.detail)
+        fr = {k: dict(v) for k, v in d["frames"].items()}
+        fr["1"]["verdict"] = "unreviewed"
+        d["frames"] = fr
+        row.detail = d
+    q = _Provider()
+    X.review(db, SLUG, cir.version, provider=q, gate_open=True)
+    assert q.calls > 0                              # no paid answer yet: asked again
 
 
 def test_the_publish_read_includes_the_exported_review():

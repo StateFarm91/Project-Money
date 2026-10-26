@@ -1324,7 +1324,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         if exported_review.applies(ctx.db, slug, version):
             got = exported_review.review(ctx.db, slug, version)
             ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
-                      detail={k: got.get(k) for k in ("reviewed", "why", "not_clear")})
+                      detail={k: got.get(k) for k in ("reviewed", "why", "not_clear", "reused")})
     except Exception as exc:  # noqa: BLE001 - an unmade review leaves the frames unreviewed
         ctx.audit("listing.exported_frame_review_ran", artifact=f"{slug}@{version}",
                   detail={"reviewed": False, "why": f"{type(exc).__name__}: {exc}"[:200]})
@@ -6802,13 +6802,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                 for ref, fp in (row.inputs or {}).items():
                     if ref in changed and fp != changed[ref]:
                         previous.setdefault(ref, fp)
+            from ..publish import release_gates as _rg
+
             queued = rebuild_graph.enqueue(
                 session, ctx.queue, changed=changed, per="product", previous=previous,
+                hold=lambda slug: _rg.retry_hold_reason(ctx.db, slug=slug),
                 reason=(f"stale-artefact sentinel: {sorted(changed)} moved under "
                         f"{report['stale']} recorded artefact(s)"))
         detail["rebuild_enqueued"] = queued["enqueued"][:50]
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
+        detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
         detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
         detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
                                   for ref, fp in sorted(changed.items())}

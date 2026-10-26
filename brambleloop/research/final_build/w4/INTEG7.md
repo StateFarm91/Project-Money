@@ -133,6 +133,27 @@ Also merged into the combined candidate:
 
 LAURAFIX is excluded (it belongs to the activation batch).
 
+### Review of 24ada53 (INDEPENDENT_SECREVIEW_INTEG7_24ada53.md): ship, after S-1 and S-2
+
+- **S-1 (Low, paid), fixed.**
+  - `visual/exported_review.review` reuses a filed review that covers exactly the frames served now (the same position → sha256 set) and holds a model answer for every frame. A daily rebuild retry over unchanged frames therefore pays nothing.
+  - A frame set that changed, or a frame whose description failed (`unreviewed`), is asked again.
+  - `fresh=True` requests a new judgement explicitly.
+  - Tests (`test_w4_disclosedqa`): `test_s1_a_retry_over_unchanged_frames_makes_no_second_paid_review` (two retries, zero paid calls, nothing re-filed) and `test_s1_changed_or_undescribed_frames_are_reviewed_again`.
+  - The listing.seo audit records `reused`.
+- **S-2 (Info), fixed as a hold that resumes.**
+  - The sentinel's daily rebuild retry passes `hold=release_gates.retry_hold_reason`. A retry is held, with its reason recorded in `rebuild_retry_held`, while the product's rebuild is refused by:
+    - an unreviewed platform-policy change, or
+    - an open halting incident that is not the staleness the rebuild cures.
+  - The staleness the rebuild cures never holds.
+  - The retry resumes on the next run after the gate clears.
+  - Tests (`test_w4_prodfix`): `test_s2_the_daily_retry_is_held_while_an_owner_gate_refuses_it_and_resumes_after` (held on three days, resumed after the review) and `test_s2_a_staleness_only_refusal_is_not_held`.
+- **S-4 (Info), fixed.** The anonymous 401/503 assertions in `_mobile` and `_useful_work` now also assert `security.requires_operator` and that the route is not in `PUBLIC_GET_ROUTES`.
+- **Recorded, not changed:**
+  - **S-3:** there is no AST test that every `Worker(` entry point calls `mark_job_process`. All three do today.
+  - **S-5:** the 400 from `SingleAuthorizationMiddleware` carries no security headers. Its body is a fixed JSON string, so there is no impact.
+  - **S-6:** the policy-review card pre-fills the confirmation phrase. The real controls are step-up, the digest of the shown text, and the free-text `tested` field.
+
 ## 10. Full suite and gates
 
 (pending)

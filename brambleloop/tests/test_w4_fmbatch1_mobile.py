@@ -40,6 +40,8 @@ def test_every_dashboard_table_scrolls_inside_its_own_box():
 
 
 def test_mobile_owner_view():
+    from brambleloop.app import security as _sec      # review S-4: the gate, not only a status
+    assert _sec.requires_operator("GET", "/m") and "/m" not in _sec.PUBLIC_GET_ROUTES
     assert C.get("/m").status_code in (401, 503)    # anonymous: refused (operator-only since SECPATCH)
     r = _opread.get(C, "/m")
     assert r.status_code == 200

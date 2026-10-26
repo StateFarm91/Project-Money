@@ -103,6 +103,9 @@ def test_routes_and_cc_block():
     main.db.create_all()
     Registry(main.db).seed_defaults()
     c = TestClient(main.app)
+    from brambleloop.app import security as _sec      # review S-4: the gate, not only a status
+    for _u in ("/api/useful-work", "/api/company/departments"):
+        assert _sec.requires_operator("GET", _u) and _u not in _sec.PUBLIC_GET_ROUTES, _u
     assert c.get("/api/useful-work").status_code in (401, 503)      # anonymous: refused
     assert c.get("/api/company/departments").status_code in (401, 503)
     assert set(_opread.get(c, "/api/useful-work").json()) >= {"ready_age_by_band",

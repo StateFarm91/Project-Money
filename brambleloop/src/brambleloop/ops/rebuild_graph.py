@@ -257,7 +257,7 @@ def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             expected: list[tuple[str, str, str]] | None = None,
             per: str = "artefact", previous: dict[str, str] | None = None,
-            now: datetime | None = None) -> dict:
+            now: datetime | None = None, hold=None) -> dict:
     """Enqueue the rebuild set idempotently, keyed on what moved.
 
     The key carries the new fingerprint, so the same change enqueues once however many times
@@ -280,6 +280,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         for row in plan["rebuild"]:
             by_product.setdefault(row["product_slug"], []).append(row)
         retried: list[str] = []
+        held: dict[str, str] = {}
         recent: set[str] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
@@ -301,6 +302,13 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 if recent is None:
                     recent = _recent_rebuild_slugs(db, now or datetime.now(timezone.utc))
                 again = _retry_key(db, slug, key, now=now, recent=recent)
+                # INTEG7 (review S-2): no daily retry while an owner- or policy-gated reason
+                # refuses this product's rebuild; it resumes when the gate clears.
+                held_why = hold(slug) if (again and hold is not None) else None
+                if held_why:
+                    held[slug] = held_why
+                    already.extend(r["key"] for r in rows)
+                    continue
                 if again:
                     try:
                         queue.enqueue("listing", "chain.rebuild",
@@ -313,6 +321,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                         pass
                 already.extend(r["key"] for r in rows)
         return {"enqueued": enqueued, "already_queued": already, "retried": retried,
+                "retry_held": held,
                 "plan": plan, "reason": reason, "per": per,
                 "idempotency": ("keyed on the product and the new fingerprint, so the same "
                                 "change enqueues once and a different change enqueues again")}

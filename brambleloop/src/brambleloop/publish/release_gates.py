@@ -1310,9 +1310,32 @@ def staleness(db, *, slug: str) -> dict:
     only_marketing = (bool(outstanding) and not halting_other and not policy
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
+            "halting_other_than_staleness": list(halting_other)[:5],
             "policy_changes_unreviewed": [c["source"] for c in policy],
             "blocks": bool(reasons), "reasons": reasons,
             "outstanding_only_marketing": only_marketing}
+
+
+def retry_hold_reason(db, *, slug: str) -> str | None:
+    """INTEG7 (review S-2): why the daily rebuild retry for `slug` should wait, or None.
+
+    A retry is held while what refuses the product's rebuild is a gate only the owner or the
+    platform can clear: an unreviewed material platform-policy change (#39), or an open halting
+    incident that is not the staleness the rebuild cures. Retrying daily then only re-ran about
+    nine jobs and dead-lettered one store.publish. The hold lifts by itself when the gate
+    clears: the next sentinel run finds no reason and the retry resumes. Unreadable gates do
+    not hold (the retry is CA$0 and still bounded to once a day)."""
+    try:
+        st = staleness(db, slug=slug)
+    except Exception:  # noqa: BLE001
+        return None
+    if st.get("policy_changes_unreviewed"):
+        return ("held: platform policy change awaiting the owner's review (#39): "
+                + ", ".join(st["policy_changes_unreviewed"]))
+    if st.get("halting_other_than_staleness"):
+        return ("held: open halting incident(s) the rebuild cannot cure: "
+                + ", ".join(map(str, st["halting_other_than_staleness"][:3])))
+    return None
 
 
 def _frame_bytes(db, slug: str, version: str, store_root=None) -> dict[str, bytes]:

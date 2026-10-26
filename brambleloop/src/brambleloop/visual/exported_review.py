@@ -49,8 +49,12 @@ def applies(db, slug: str, version: str) -> bool:
     return any(str(f.get("kind") or "").startswith("disclosed") for f in cert.get("frames") or [])
 
 
-def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None = None) -> dict:
-    """Describe every exported frame blind and file the reading, bound to its bytes."""
+def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None = None,
+           fresh: bool = False) -> dict:
+    """Describe every exported frame blind and file the reading, bound to its bytes.
+
+    A filed review of exactly these frames is reused (no paid call) unless `fresh` asks for a
+    new judgement explicitly, for example after the describer or its claims changed."""
     import os
 
     from ..core.models import AuditLog
@@ -69,6 +73,22 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
     if served.get("problems") or not served.get("images"):
         return {"reviewed": False, "why": "the certified set cannot be served: "
                                           f"{(served.get('problems') or ['no images'])[:2]}"}
+    # INTEG7 (review S-1): a review already filed for exactly these frames (the same position
+    # -> sha256 set) and judged by the model is reused, never bought again. A daily rebuild
+    # retry re-drives listing.seo over unchanged frames, and each re-review spent a describe
+    # call per frame plus a grid call. Only a frame whose description failed ("unreviewed",
+    # no paid answer) is worth asking again, so its presence lets the review run.
+    current = {str(row["position"]): str(row["sha256"]) for row in served["order"]}
+    filed = None if fresh else _filed_review(db, slug, version)
+    if filed is not None:
+        f_shas = {str(k): str(v) for k, v in (filed.get("frame_shas") or {}).items()}
+        f_frames = filed.get("frames") or {}
+        if f_shas == current and f_frames and all(
+                (f.get("verdict") or "") != "unreviewed" for f in f_frames.values()):
+            bad = {p: f.get("verdict") for p, f in f_frames.items() if f.get("verdict") != "clear"}
+            return {"reviewed": not bad, "not_clear": bad, "reused": True,
+                    "why": "the filed review covers exactly these frames; no new paid call",
+                    **filed}
     families = inspection_mod.product_families(authoritative_cir(slug, version))
     frames: dict[str, dict] = {}
     from ..core import workspace
@@ -120,6 +140,19 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
                        artifact=f"{slug}@{version}", detail=detail))
     bad = {p: f["verdict"] for p, f in frames.items() if f["verdict"] != "clear"}
     return {"reviewed": not bad and bool(frames), "not_clear": bad, **detail}
+
+
+def _filed_review(db, slug: str, version: str) -> dict | None:
+    """The newest filed exported-frame review of this release, or None."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == ACTION,
+                                              AuditLog.artifact == f"{slug}@{version}")
+                       .order_by(desc(AuditLog.id)).limit(1))
+        return dict(row.detail or {}) if row is not None else None
 
 
 def review_state(db, slug: str, version: str) -> dict:

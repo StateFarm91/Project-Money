@@ -121,6 +121,61 @@ def test_a_rebuild_that_ended_without_delivering_is_asked_for_again_once_a_day()
         rebuild_graph.rebuild_set = real
 
 
+def test_s2_the_daily_retry_is_held_while_an_owner_gate_refuses_it_and_resumes_after():
+    """INTEG7 (review S-2): a product whose rebuild stays refused for an owner-gated reason (an
+    unreviewed platform-policy change) is not retried every day. The retry is held with the
+    reason, and it resumes by itself once the gate clears."""
+    from brambleloop.gates import platform_policy
+
+    db = _db()
+    q = JobQueue(db)
+    real = rebuild_graph.rebuild_set, platform_policy.unreviewed_changes
+    rebuild_graph.rebuild_set = _plan
+    pending = [{"source": "etsy_seller_policy", "affects": ["publishing"]}]
+    platform_policy.unreviewed_changes = lambda db: list(pending)
+    try:
+        def go(now):
+            with db.session() as s:
+                return rebuild_graph.enqueue(
+                    s, q, changed={"cir:a": "f" * 16}, reason="t", per="product", now=now,
+                    hold=lambda slug: release_gates.retry_hold_reason(db, slug=slug))
+
+        assert go(NOW)["enqueued"]                                  # the first attempt runs
+        with db.session() as s:
+            j = s.scalar(select(Job).where(Job.job_type == "chain.rebuild"))
+            j.status, j.finished_at = JobStatus.DONE, NOW
+        for day in (1, 2, 3):                                      # held every day
+            out = go(NOW + timedelta(days=day, hours=1))
+            assert out["retried"] == [] and "policy" in out["retry_held"]["a"], out
+        with db.session() as s:
+            assert len(list(s.scalars(select(Job).where(Job.job_type == "chain.rebuild")))) == 1
+        pending.clear()                                             # the owner reviewed it
+        out = go(NOW + timedelta(days=4, hours=1))
+        assert out["retried"] == ["a"] and not out["retry_held"], out   # resumed
+        with db.session() as s:
+            assert len(list(s.scalars(select(Job).where(Job.job_type == "chain.rebuild")))) == 2
+    finally:
+        rebuild_graph.rebuild_set, platform_policy.unreviewed_changes = real
+
+
+def test_s2_a_staleness_only_refusal_is_not_held():
+    """The hold is for owner-gated reasons only: the staleness the rebuild cures never holds."""
+    from brambleloop.gates import platform_policy
+
+    db = _db()
+    real = platform_policy.unreviewed_changes
+    platform_policy.unreviewed_changes = lambda db: []
+    try:
+        assert release_gates.retry_hold_reason(db, slug="a") is None
+        with db.session() as s:                    # a non-staleness halting incident holds
+            s.add(Incident(severity="P0", product_slug="a", halts_publication=True,
+                           signature="authority_chain_tamper:a", summary="tamper"))
+        why = release_gates.retry_hold_reason(db, slug="a")
+        assert why and "authority_chain_tamper:a" in why, why
+    finally:
+        platform_policy.unreviewed_changes = real
+
+
 # --- 2a: a paid, unusable gallery observation is not bought again ---------------------------
 
 def test_a_paid_unusable_observation_gives_the_image_up_at_once():
