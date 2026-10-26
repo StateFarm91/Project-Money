@@ -95,6 +95,9 @@ def workspace(db, key: str, *, now: datetime | None = None) -> dict:
     out = {"key": key, "name": dept["name"], "charter": dept["charter"],
            "coverage": _guard(coverage), "agents": _guard(jobs), "spend": _guard(spend),
            "improvement": _guard(improvement), "incidents": _guard(incidents),
+           # F-690: work other departments handed this one.
+           "inbound_tasks": _guard(lambda: __import__(
+               "brambleloop.autonomy.cross_team", fromlist=["inbox"]).inbox(db, key)),
            "as_of": now.isoformat()}
     blockers = []
     cov = out["coverage"]

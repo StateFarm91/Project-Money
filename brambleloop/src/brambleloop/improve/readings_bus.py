@@ -68,6 +68,13 @@ def _customer(db, now) -> list[int]:
     out = []
     for slug, n, newest in rows:
         if n >= REPEAT_QUESTIONS:
+            # F-690: the recurring confusion is also a task for the pattern team.
+            from ..autonomy import cross_team
+
+            cross_team.create(db, from_dept="customer_experience", to_dept="product_catalogue",
+                              request=(f"review the instructions of {slug}: {n} customers "
+                                       f"asked about it in 30 days"),
+                              evidence_ref=f"support_cases:{slug}:{newest}")
             out.append(bus.publish(
                 db, origin_cell="customer_experience", subject="instruction_clarity",
                 confidence="measured",
