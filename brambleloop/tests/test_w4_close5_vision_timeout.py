@@ -62,9 +62,17 @@ def _urlopen_timeouts(call):
         seen.append(timeout)
         return _Resp(json.dumps(_OK).encode())
 
-    with patch("urllib.request.urlopen", fake):
+    # Delta review N-9: keyed requests open through `venice.no_redirect_opener()` (no
+    # redirect follows); the fake stands in for that opener's `open` as well as urlopen.
+    with patch("urllib.request.urlopen", fake), \
+            patch("brambleloop.gateway.venice.no_redirect_opener", lambda: _Opener(fake)):
         call()
     return seen
+
+
+class _Opener:
+    def __init__(self, fn):
+        self.open = fn
 
 
 def test_a_vision_call_waits_longer_than_a_text_call_on_the_real_transport():
@@ -95,7 +103,9 @@ def test_a_timeout_is_still_uncertain_and_never_resent():
     def times_out(request, timeout=None):
         raise TimeoutError("The read operation timed out")
 
-    with patch("urllib.request.urlopen", times_out):
+    with patch("urllib.request.urlopen", times_out), \
+            patch("brambleloop.gateway.venice.no_redirect_opener",
+                  lambda: _Opener(times_out)):
         try:
             p.see("s", "p", ["https://fixture.invalid/a.jpg"], max_tokens=5)
             raise AssertionError("a timed-out call was reported as an answer")

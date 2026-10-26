@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ...core.db import Base
@@ -81,7 +81,53 @@ class LauraVoiceIdentity(Base):
     prev_sha256: Mapped[str] = mapped_column(String(64), default="")
 
 
-TABLES = (LauraTurn.__table__, LauraFollowOn.__table__, LauraVoiceIdentity.__table__)
+class LauraCostEvent(Base):
+    """What Business Laura's work cost (W4-LAURACEO, ADD-LCEO-06), one row per costed thing.
+
+    `kind` is conversation | decision | delegation | outcome; `ref` names the row it costs
+    (`laura_cc_turns:<id>`, `jobs:<id>`, `company_memory:<mission key>`). `cost_cad` is what
+    the gateway billed (conversation) or the ledger attributes to the job (delegation /
+    outcome); `basis` says which, and `measured=False` means the figure is UNKNOWN (never 0).
+    No private text: references and money only.
+    """
+
+    __tablename__ = "laura_cost_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    ref: Mapped[str] = mapped_column(String(200), default="", index=True)
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    measured: Mapped[bool] = mapped_column(Boolean, default=True)
+    basis: Mapped[str] = mapped_column(String(120), default="")
+    model: Mapped[str] = mapped_column(String(120), default="")
+    purpose: Mapped[str] = mapped_column(String(80), default="")
+    outcome: Mapped[str] = mapped_column(String(20), default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class LauraBoundaryCrossing(Base):
+    """Text the owner EXPLICITLY approved to cross from the one Laura thread to the business
+    side (W4-LAURAONE, D-W4-LAURA-UNIFIED, ADD-LCONT-05).
+
+    One row per approval, made only by the owner-private surface after an approval with a
+    fresh step-up. It holds the approved text and nothing else from the conversation: no
+    surrounding turns, no labels, no private record ids. The approved text is business
+    content from then on (it becomes a business brief), so it may appear in business records.
+    """
+
+    __tablename__ = "laura_boundary_crossings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    session_public_id: Mapped[str] = mapped_column(String(40), default="", index=True)
+    approved_text: Mapped[str] = mapped_column(Text, default="")
+    text_sha256: Mapped[str] = mapped_column(String(64), default="")
+    approval: Mapped[str] = mapped_column(String(40), default="owner_stepup")
+
+
+TABLES = (LauraTurn.__table__, LauraFollowOn.__table__, LauraVoiceIdentity.__table__,
+          LauraCostEvent.__table__, LauraBoundaryCrossing.__table__)
 _ENSURED: set[int] = set()
 
 

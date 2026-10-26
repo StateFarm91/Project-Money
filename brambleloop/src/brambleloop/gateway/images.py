@@ -810,7 +810,7 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
     for name, value in headers.items():
         request.add_header(name, value)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _no_redirect().open(request, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")[:500]
@@ -829,6 +829,14 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
         raise TransientError(f"{label} unreachable: {exc.reason}") from exc
 
 
+def _no_redirect():
+    """Delta review N-9: keyed BFL requests never follow a redirect (the x-key header would be
+    re-sent to the new location)."""
+    from .venice import no_redirect_opener
+
+    return no_redirect_opener()
+
+
 def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
     import urllib.error
     import urllib.request
@@ -837,7 +845,7 @@ def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
     for name, value in headers.items():
         request.add_header(name, value)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _no_redirect().open(request, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         # FLUX 3 docs: "A failed task can come back as HTTP 503 with a normal JSON body. Read

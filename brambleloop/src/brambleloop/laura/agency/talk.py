@@ -361,8 +361,13 @@ def _delegation_answer(db, question: str) -> tuple[str, str, list[dict], list[di
 
 
 def converse(db, question: str, *, session_public_id: str = "", gateway=None,
-             provider_factory=None) -> dict:
+             provider_factory=None, persist: bool = True) -> dict:
     """Answer one business question as Laura, persist the turn, return it.
+
+    W4-LAURACEO: with `persist=False` this is the *evidence tool* Business Laura's model
+    conversation (`ceo_chat.converse`) calls: the same retrieval, facts, unknowns and
+    authority-checked proposals, with no turn written and no optional phrasing call. Its
+    template `answer` is then evidence for the model, never the reply.
 
     `provider_factory` is the transport stand-in tests hand to the briefing's model synthesis
     (`gateway.laura_briefing`); production leaves it None (the gateway's real provider, and
@@ -427,7 +432,8 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None,
         proposals = _proposals(intent, sections)
 
     meta = {"phrased": False}
-    if facts and status != UNKNOWN and intent not in ("briefing", "briefing_followup"):
+    if persist and facts and status != UNKNOWN and intent not in ("briefing",
+                                                                  "briefing_followup"):
         from . import phrasing
 
         answer, meta = phrasing.phrase(
@@ -439,14 +445,18 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None,
     if status != UNKNOWN and not sources:
         status = UNKNOWN          # an answer with no source is not an answer
         answer = "UNKNOWN: " + answer
-    with db.session() as s:
-        row = LauraTurn(register=REGISTER, session_public_id=session_public_id[:40],
-                        question=question, intent=intent[:40], status=status, answer=answer,
-                        facts=facts, sources=sources, unknowns=unknowns, proposals=proposals,
-                        method=method[:200], identity_id=ident["identity_id"])
-        s.add(row)
-        s.flush()
-        turn_id, at = row.id, row.at
+    if not persist:
+        turn_id, at = None, None
+    else:
+        with db.session() as s:
+            row = LauraTurn(register=REGISTER, session_public_id=session_public_id[:40],
+                            question=question, intent=intent[:40], status=status,
+                            answer=answer, facts=facts, sources=sources, unknowns=unknowns,
+                            proposals=proposals, method=method[:200],
+                            identity_id=ident["identity_id"])
+            s.add(row)
+            s.flush()
+            turn_id, at = row.id, row.at
     return {"turn_id": turn_id, "at": _iso(at), "register": REGISTER, "question": question,
             "intent": intent, "status": status, "answer": answer, "facts": facts,
             "sources": sources, "unknowns": unknowns, "proposals": proposals,
