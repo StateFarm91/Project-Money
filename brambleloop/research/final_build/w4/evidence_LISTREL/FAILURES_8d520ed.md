@@ -21,3 +21,22 @@ failing 4, `release_eligible: false`.
   wall 1580 s: still **"queue did not drain: 276 jobs in 1200s"**, 12/16. So it is not CPU contention:
   the drain is too slow for its own 1200 s limit on this tree. The limit was not raised; this goes to
   the owner, as the coordinator directed.
+
+## 82a3b7a (drain limit 1525 s): run 20261026T012237Z-8240, on 2026-10-26
+
+- **Full suite.** 7514 s: 9102 passing, 4 suites failing. `test_cert_wiring` **passed**; alone it was
+  16/16 in 776 s.
+- **Clock dependence.** The 4 failures depend on the calendar. They passed on 10-21, and the same 4
+  fail on **production b931d17 today** (the same counts; run alone).
+- **Causes.**
+
+  | Suite | Cause |
+  |---|---|
+  | `test_cert_publish_gates` | Christmas fixture: launch.plan holds the product because the window closed on 10-21 |
+  | `test_cert_design_pipeline` (#308) | Christmas garments can no longer be made in time |
+  | `test_r2_finance_money` M5 | the seeded USD sale falls out of the trailing 30-day window after about the 24th |
+  | `test_cert_growth_seasonal` | the fixture's TODAY against the created_at wall clock |
+
+- **Production behaviour is correct.** These are type (b), test dependence on the clock.
+- **Fix** (LISTREADY 09acd42): `tests/pinned_clock.py`, a pinned clock that keeps ticking, at
+  2026-10-20T12:00Z. It is installed in those 4 files only. No assertion changed; 71/71 pass.
