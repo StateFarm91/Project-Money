@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "lane": "w4-FMBATCH2",
+    "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+    "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH2.json --dry-run",
+    "note": "Partial rows taken over from the frozen lanes (coordinator 2026-10-26). Code is on claude/w4-FMBATCH2 only, so an accepted engineering entry is implemented_unverified until a release carrying it deploys. Blocked-by-design entries apply the F-463 decision (build tooling never writes the production database; the runtime never holds the repository). Other-lane entries are parts W-AGENTS2 is editing now."
+  },
+  "overrides": {
+    "F-672": {
+      "producer": "src/brambleloop/runtime/worker.py::Worker._lifecycle_after -> src/brambleloop/products/lifecycle.py::after_job",
+      "tests": [
+        "tests/test_w4_fmbatch2_lifecycle_pipeline.py",
+        "tests/test_w4_fmbatch1_lifecycle.py"
+      ],
+      "missing_part": "none for the engineering: every completed pipeline job (cir/gate/assets/listing/store/orders) records the stage its product's rows now show, with history; an illegal move is recorded and audited as product.lifecycle_anomaly",
+      "reason": "F-672: the lifecycle no longer depends on an operator calling transition(); the pipeline records its own moves (FMBATCH2 4676c472)"
+    },
+    "F-091": {
+      "gate": {
+        "kind": "external",
+        "key": "blocked_by_design",
+        "detail": "22 of the 26 pending callers now import gateway/providers (cd1f4a17). The 4 left (runtime/release, runtime/worker, app/main, experiments/controlled) drive the vendor's own probe and provider objects (probe, vision_probe, AnthropicProvider, NO_KEY_REASON, DEFAULT_MODEL); a second vendor brings its own probe, it does not reuse these"
+      },
+      "tests": ["tests/test_w4_fmbatch1_provider_boundary.py"],
+      "reason": "F-091: business callers are behind the boundary; the vendor probe plumbing is vendor-specific by design. Integrator decides whether that is the row's scope or a residual"
+    },
+    "F-451": {
+      "gate": {
+        "kind": "external",
+        "key": "blocked_by_design",
+        "detail": "/api/orchestrator already joins every runtime section, deployments included (master_view). The remaining gap is build-side lanes, which by the F-463 decision live in repository/local registry files and never in the production database"
+      },
+      "reason": "F-451: runtime part done (FMBATCH1 c7df4c70); build-side part blocked by design (F-463), not satisfied"
+    },
+    "F-602": {
+      "gate": {
+        "kind": "external",
+        "key": "blocked_by_design",
+        "detail": "the executive plan is read by swarm.allocate and now has its own improvement cell (FMBATCH2); the merge/deploy queue and file ownership are build-side (ops/deploy_guard.py, ops/registry.py) and the runtime never holds the repository (F-463 decision)"
+      },
+      "reason": "F-602: runtime part done; merge/deploy queue and file ownership blocked by design, not satisfied"
+    },
+    "F-454": {
+      "gate": {
+        "kind": "external",
+        "key": "other_lane:W-AGENTS2",
+        "detail": "analytics and integration agents are department-handler work W-AGENTS2 is building now (autonomy/charters.py, generators.py, map.py are under edit there); the build-side-lanes part is blocked by design (F-463)"
+      },
+      "reason": "F-454: not built here to avoid colliding with W-AGENTS2"
+    },
+    "F-601": {
+      "gate": {
+        "kind": "external",
+        "key": "other_lane:W-AGENTS2",
+        "detail": "the executive improvement cell is built (FMBATCH2: improve/cells.py 'executive', measure_executive, departments.coverage reports executive complete). Charters for compliance/policy and analytics are autonomy/charters.py work W-AGENTS2 is editing now"
+      },
+      "tests": ["tests/test_w4_fmbatch2_executive_cell.py", "tests/test_w4_fmbatch1_departments.py"],
+      "reason": "F-601: executive part done here; the two missing charters belong to the lane editing charters.py"
+    }
+  }
+}

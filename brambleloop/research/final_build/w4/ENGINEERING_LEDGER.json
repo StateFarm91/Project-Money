@@ -39,10 +39,10 @@
    "total": 917,
    "by_status": {
     "A": 29,
-    "B": 94,
+    "B": 93,
     "C": 8,
     "D": 1,
-    "E": 108,
+    "E": 109,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 725,
+    "numerator": 726,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 98,
+    "missing implementation": 97,
     "missing prerequisite": 5,
-    "missing integration": 93
+    "missing integration": 94
    }
   }
  },
@@ -5078,10 +5078,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "claude/w4-FMBATCH1: gateway/providers.py boundary + import ratchet; 26 direct vendor importers remain (visual/creative/publish lanes) (\u00a721)",
+    "why": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects (by-design proposal in OVERRIDES_PROPOSED_FMBATCH2) (\u00a721)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH1: gateway/providers.py boundary + import ratchet; 26 direct vendor importers remain (visual/creative/publish lanes) (\u00a721)"
+     "detail": "claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects (by-design proposal in OVERRIDES_PROPOSED_FMBATCH2) (\u00a721)"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -11783,10 +11783,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "claude/w4-FMBATCH1 871b84a3: department records with honest coverage; compliance/policy and analytics have no charter, executive no cell",
+    "why": "claude/w4-FMBATCH2 a9cf46de: executive improvement cell (department complete); compliance/policy and analytics charters are W-AGENTS2 work",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH1 871b84a3: department records with honest coverage; compliance/policy and analytics have no charter, executive no cell"
+     "detail": "claude/w4-FMBATCH2 a9cf46de: executive improvement cell (department complete); compliance/policy and analytics charters are W-AGENTS2 work"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -12466,13 +12466,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "claude/w4-FMBATCH1 14c80e22: products/lifecycle.py derived stages + guarded transitions; handlers do not yet call transition()",
+    "status": "E",
+    "why": "claude/w4-FMBATCH2 4676c472: every completed pipeline job records its lifecycle move with history; illegal moves audited as anomalies",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH1 14c80e22: products/lifecycle.py derived stages + guarded transitions; handlers do not yet call transition()"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH2 4676c472: every completed pipeline job records its lifecycle move with history; illegal moves audited as anomalies"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
