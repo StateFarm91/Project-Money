@@ -120,3 +120,47 @@ Test: `test_w4_departments.test_competitor_snapshot_is_aggregates_only_and_never
 - **Still unbuilt, by authority** (the only entries left in `DECLARED_BUT_UNBUILT`):
   - `pricing.experiment` (PUBLISH, protected; owner authority required);
   - `assets.render` (no requirement row names a separate render job; `assets.build` covers it).
+
+## Product-engine batch (2026-10-26)
+
+### Requirement trace
+
+**No row is named "Product Family Engine".** The name appears nowhere in the spec PDFs, the registries or any branch. The rows that define the capability are:
+
+| Row | Criterion (abridged) | Board | What existed |
+|---|---|---|---|
+| MP v1.2 §5 | "Winner Amplification turns proven demand into matching products, bundles, sizes, colourways…" | (spec) | Pin-level amplification only (`growth/pins.amplify`); nothing at product or family level |
+| MP v1.2 §33 | Launch portfolio needs "at least one bundle-ready family" | (spec) | `radar.opportunity._family_counts` at concept selection only |
+| B2 #111 | Multi-Product Family Test before engineering; prefer families without forced derivatives | covered (proof: none) | `creative/family.family_test`, consumed by `creative/prospecting.proposition` (pre-engineering) |
+| F-359 | Sibling/family variants where value exists; prevent low-value duplication | POST-LAUNCH / INTEGRATED (`creative/family.py`) | concept-level only; **no check on the certified catalogue** |
+| F-791 | "Merely changing colour … is not sufficient" | COMPLETE | applies to competitor-inspired designs only |
+| F-354 | Multi-size value | POST-LAUNCH / INTEGRATED (`cir/graded.py`) | exists |
+
+**Missing:** nothing answered the family questions once products are certified:
+- which families the catalogue actually has;
+- whether one is bundle-ready (§33);
+- which members are only recolours of a sibling (F-359 / F-791 duplication);
+- what the next member is;
+- whether proven demand justifies amplification (§5).
+
+### Built
+
+`creative/family_engine.family_report(db)` plus the `creative.family_engine` job (creative_director, RESEARCH class, daily cadence `family_engine`, generatable by Product & Design). It is deterministic, reads only our own rows, costs CA$0, and creates no product. For each family it reports:
+- **Membership:** certified members, grouped by the radar pool's declared family; anything without one is listed as a single product.
+- **Distinct designs:** counted by a colour-free structure fingerprint.
+- **`bundle_ready`:** two or more distinct certified designs. A bundle is derived, never asserted (#111).
+- **`recolour_duplicates`:** members with the same structure in different colours.
+- **`next_members`:** uncertified pool seeds of the same family, which must still pass the ordinary funnel.
+- **`amplification`:** **UNMEASURED** below 5 family orders. That threshold is this module's own floor, documented in code; no row gives a number.
+
+Test: `test_w4_departments.test_family_engine_groups_certified_families_and_flags_recolours`.
+
+### F-789 (private R&D teardown): conflict reported, not built
+
+- **Criterion:** "Agents may ingest the complete purchased pattern, reconstruct its functional garment architecture, stitch logic, grading, dimensions, workflow, customer experience, merchandising system and weaknesses inside the private benchmark environment." Board: POST-LAUNCH / INTEGRATED, producer `teardown/reader.py`.
+- **Already implemented,** with the stricter reconciliation:
+  - `teardown/reader.py` holds the purchased text only in memory and emits only closed-vocabulary tokens and numbers ("there is no code path that emits a substring of the document");
+  - `teardown/size_family.py` parses the graded size family the same way;
+  - F-786 to F-792 gate any publishable output (licence terms, Meaningful Redesign, Independent Instruction Draft).
+- **Conflict.** The row's scope, "reconstruct … stitch logic, grading … to design a better product" (with F-790), goes beyond CLAUDE.md's non-negotiable that "competitor research is for demand and merchandising intelligence only". It also depends on *purchased* benchmarks, which are an owner spend card.
+- **Decision.** I did not widen the reconstruction. The existing reader already limits it to our own closed vocabulary and numbers. Any extension (for example, reconstructed grading feeding design) needs an owner ruling reconciling F-789/F-790 with CLAUDE.md.

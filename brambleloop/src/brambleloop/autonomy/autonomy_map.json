@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T01:53:15.869022+00:00",
+ "generated_at": "2026-10-26T02:07:06.072104+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 118,
-  "handlers": 146,
+  "cadences": 119,
+  "handlers": 147,
   "agents": 31,
   "follow_on_edges": 74
  },
@@ -514,11 +514,13 @@
     "generatable": [
      "seasonal.sentinel",
      "creative.outcome_learning",
+     "creative.family_engine",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.sentinel": "orchestrator",
      "creative.outcome_learning": "creative_director",
+     "creative.family_engine": "creative_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -633,6 +635,12 @@
       "agent": "creative_director",
       "job_type": "creative.tournament",
       "period_seconds": 604800
+     },
+     {
+      "name": "family_engine",
+      "agent": "creative_director",
+      "job_type": "creative.family_engine",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -673,7 +681,8 @@
     ],
     "overdue_cadence_catch_up": [
      "seasonal.sentinel",
-     "creative.outcome_learning"
+     "creative.outcome_learning",
+     "creative.family_engine"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -695,6 +704,7 @@
      "creative.blinded",
      "creative.candidates_file",
      "creative.expedition",
+     "creative.family_engine",
      "creative.four_season",
      "creative.grid_tournament",
      "creative.north_star",

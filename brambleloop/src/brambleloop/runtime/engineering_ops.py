@@ -137,3 +137,25 @@ def handle_cir_revise(ctx: JobContext) -> dict:
                       "rules_tried": [n for n, _, _ in RULES], "revision": revision})
     return {"artifact": artifact, "revised": False, "unrepairable": True, "codes": codes,
             "work_done": 1}
+
+
+@handlers.register("creative.family_engine")
+def handle_family_engine(ctx: JobContext) -> dict:
+    """Product Family Engine (creative_director): the certified catalogue's families, bundle
+    readiness, recolour duplicates, next members and evidence-gated amplification. Reads our
+    own rows only; one reading a day; creates no product. Deterministic, CA$0."""
+    from ..creative.family_engine import family_report
+    from .etsy_ops import store_reading
+
+    rep = family_report(ctx.db)
+    if not rep["certified"]:
+        return {"ran": False, "why": "no certified release to group into families"}
+    store_reading(ctx.db, "creative.family_engine", rep)
+    ctx.audit("creative.family_engine", detail={
+        "families": len(rep["families"]), "singles": len(rep["single_products"]),
+        "bundle_ready": rep["portfolio_has_bundle_ready_family"],
+        "recolour_duplicates": rep["recolour_duplicates"][:5]})
+    return {"families": len(rep["families"]), "single_products": len(rep["single_products"]),
+            "portfolio_has_bundle_ready_family": rep["portfolio_has_bundle_ready_family"],
+            "recolour_duplicates": len(rep["recolour_duplicates"]),
+            "work_done": len(rep["families"]) + len(rep["single_products"])}

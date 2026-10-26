@@ -240,6 +240,51 @@ def test_competitor_snapshot_is_aggregates_only_and_never_copies_content():
     Registry(db).authorize("market_radar", "radar.competitor_snapshot")
 
 
+def _certify(db, cir, slug=None):
+    with db.session() as s:
+        p = Product(slug=slug or cir.slug, title=cir.title, status="certified")
+        s.add(p)
+        s.flush()
+        d = cir.to_dict()
+        d["slug"] = slug or cir.slug
+        s.add(PatternVersion(product_id=p.id, version=cir.version, cir_json=d,
+                             certified=True, release_hash=(slug or cir.slug)[:60]))
+
+
+def test_family_engine_groups_certified_families_and_flags_recolours():
+    import copy
+
+    from brambleloop.creative import family_engine as FE
+    from brambleloop.radar.opportunity import POOL
+
+    db = _db()
+    assert _run(db, "creative_director", "creative.family_engine", {})["ran"] is False
+    fam_seeds = [p for p in POOL if p.family == "nordic-forest" and not p.is_bundle]
+    assert len(fam_seeds) >= 3
+    a = _bad_panel(52)
+    b = _bad_panel(60)                                  # a different design (width)
+    _certify(db, a, fam_seeds[0].slug)
+    _certify(db, b, fam_seeds[1].slug)
+    recolour = copy.deepcopy(a)
+    for row in recolour.components[0].rows:
+        row.color = "B" if row.color == "A" else "A"
+    assert FE.structure_fingerprint(recolour.to_dict()) == FE.structure_fingerprint(a.to_dict())
+    _certify(db, recolour, fam_seeds[2].slug)
+    _certify(db, _bad_panel(56), "a-lone-product")
+    rep = FE.family_report(db)
+    nf = next(f for f in rep["families"] if f["family"] == "nordic-forest")
+    assert nf["distinct_designs"] == 2 and nf["bundle_ready"] is True
+    assert sorted([fam_seeds[0].slug, fam_seeds[2].slug]) in nf["recolour_duplicates"]
+    assert nf["amplification"] == "UNMEASURED"           # no orders: never "no", never 0
+    assert "a-lone-product" in rep["single_products"]
+    assert rep["portfolio_has_bundle_ready_family"] is True and rep["writes"] == 0
+    assert all(m["route"].startswith("radar.score") for m in nf["next_members"])
+    out = _run(db, "creative_director", "creative.family_engine", {})
+    assert out["families"] >= 1 and out["recolour_duplicates"] == 1
+    with db.session() as s:
+        assert len(s.scalars(select(Product)).all()) == 4    # the engine created nothing
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

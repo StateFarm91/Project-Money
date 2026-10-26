@@ -81,6 +81,8 @@ SAFE_GENERATED: dict[str, str] = {
     # W4-AGENTS: the Storefront Director's review. Reads stored getShop/shop_sync readings
     # and owner observations; writes a review row and (only) queues content.draft, which
     # records proposals. No network, no Etsy write, CA$0 (runtime.storefront_ops).
+    "creative.family_engine": "runtime.engineering_ops: reads certified releases, the radar "
+                              "pool and orders; one reading; creates no product; CA$0",
     "gate.quality": "runtime.quality_ops: re-runs the certificate's deterministic stages on "
                     "already-certified releases; never certifies or blocks; a disagreement is "
                     "a non-halting P2 incident; CA$0",
@@ -207,7 +209,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("creative.", "seasonal."),
        job_types={"cir.draft", "cir.revise", "collection.assemble"},
        generatable=("seasonal.sentinel", "creative.outcome_learning",
-                    "autonomy.department_review"),
+                    "creative.family_engine", "autonomy.department_review"),
        forbidden=("create a beauty image and ask a model to guess instructions",
                   "certify its own pattern"),
        inputs=("coverage_gaps", "pattern_versions", "lessons"),
