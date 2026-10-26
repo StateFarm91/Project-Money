@@ -135,3 +135,43 @@ The autonomy map was regenerated (`python -m brambleloop.autonomy.map --write`).
   - Mobile visual QA (F-239/F-293, needs a browser worker).
   - `sale_message` has no live reading field (it is not in `live_state.FIELDS`), so its state is UNKNOWN and it is drafted but never proposed until it is read.
 - **Coordination.** `store_readiness.py` changed in `sync_owner_actions` (the `_AGENT_WORK` skip) and in the OA-C text. W-LISTREADY's closing-logic changes should be merged on top of this.
+
+## 6. Independent review of b5226f7: fixes for M-1 and M-2 (2026-10-26)
+
+The review (`INDEPENDENT_SECREVIEW_AGENTS_b5226f7.md`) passed with no Critical or High findings. Its two Mediums are fixed below, each with tests in `tests/test_w4_agents_secfix.py`.
+
+**M-1: storefront grant approval had only the operator bearer token.**
+- `app/command_center/approvals.ACTIONS` gains four actions, all behind the owner session, CSRF and nonce:
+  - `storefront.preview` (read);
+  - `storefront.approve` (**step-up required**);
+  - `storefront.revoke` (deny-only);
+  - `storefront.rebase` (**step-up required**).
+- `ops.storefront_authority.approve` and `rebase` take no `authorization`, require `stepped_up=True`, and record principal `owner:command-center`, the actor and `stepped_up`. `_check_one` refuses a grant row made without a step-up.
+- The bearer router now offers proposals, preview and revoke only. **There is no `/approve` and no `/rebase`.**
+- The `storefront:write_authority` card points at the Command Center action.
+- Tests:
+  - `test_m1_approve_and_rebase_need_owner_session_csrf_and_fresh_stepup` (no CSRF: refused; stale step-up: 403 `STEP_UP_REQUIRED`; fresh step-up: grant recorded);
+  - `test_m1_the_operator_bearer_has_no_approve_or_rebase_route`;
+  - `test_m1_the_owner_card_points_at_the_command_center_route`.
+
+**M-2: the approval credential was also the sealing key, and the worker held it.**
+- Rows are now signed with **Ed25519**:
+  - `BRAMBLELOOP_STOREFRONT_SIGNING_KEY` holds the private key and is set **only on the web process**;
+  - `BRAMBLELOOP_STOREFRONT_VERIFY_KEY` holds the public key and is set on the worker, plus the web process for previews and validation.
+- Neither key is the approval credential (the owner session) or the ops token, and no key is in the repository. `storefront_authority.generate_keypair()` produces a pair for the operator.
+- `core.sealed_chain.GrantLedger` accepts an optional `verify` callable, so an asymmetric family verifies without being able to seal. The HMAC families are unchanged.
+- Tests:
+  - `test_m2_the_worker_verifies_with_the_public_key_and_cannot_sign` (the worker validates a grant, refuses a different change, and cannot mint a grant even holding the ops token);
+  - `test_m2_a_row_signed_with_another_key_never_verifies` (a foreign key can neither append to the chain nor validate an existing grant: fail closed);
+  - `test_m2_no_worker_side_module_calls_approve_rebase_or_reads_the_signing_key` (an AST scan of runtime/, agents/, laura/, store_foundation/, autonomy/ and queue/).
+
+**Operator setup (new, before any storefront write).** This is an owner/operator step and costs CA$0:
+- generate a key pair;
+- set the signing key on the web service only and the verify key on both services;
+- writes still also need the kill switch (`BRAMBLELOOP_STOREFRONT_WRITES_AUTHORISED=1`), a publishing phase and a per-proposal owner approval.
+
+Until then every storefront write stays held.
+
+**Regression:** test_w4_agents, test_route_auth_default_deny, test_v11_cc_actions, test_r2_security_actions, test_rc1_auth, test_w4_listready and test_w4_finhealth pass.
+
+**Not changed:** L-1 (Laura's delegation ordering) is Laura code, frozen at 2c29b42; L-2 is not yet addressed. Both are Low.

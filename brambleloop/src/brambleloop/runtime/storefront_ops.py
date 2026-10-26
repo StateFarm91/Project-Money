@@ -99,7 +99,8 @@ def _raise_write_authority_card(ctx: JobContext, held: dict) -> None:
         s.add(OwnerAction(
             requirement_key=rk,
             action=("Review the Storefront Director's recorded proposals and, for each you "
-                    "accept, approve it (POST /api/owner/storefront/approve with its digest)"),
+                    "accept, approve it in the Command Center (storefront.approve: your "
+                    "session and a fresh step-up; preview first for its digest)"),
             reason=(f"store.update holds proposal {held['proposal']} ({held['surface']}): "
                     f"{held['reason']}"[:600]),
             max_cost_cad=0.0, minutes=5, blocks="storefront",

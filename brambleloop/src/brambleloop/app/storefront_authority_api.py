@@ -1,8 +1,7 @@
-"""Authenticated storefront-grant producer (W4-AGENTS); never contacts Etsy or enqueues a job.
+"""Operator reads of the storefront grant family (W4-AGENTS); never contacts Etsy or enqueues.
 
-The owner reads the Storefront Director's recorded proposals, previews one (the exact change
-and its digest) and approves it; the next `store.update` for that proposal may then send it,
-in a publishing phase only.
+Proposals, preview and revoke only (all ops-bearer). Approving and rebasing are owner-session
+actions with step-up in the Command Center (`app.command_center.approvals`, M-1).
 """
 from fastapi import APIRouter, Header, HTTPException
 
@@ -36,18 +35,10 @@ def make_router(db):
         content = call(authority.snapshot, db, body.get("proposal"))
         return {"content": content, "digest": authority.digest(content)}
 
-    @router.post("/approve")
-    def approve(body: dict, authorization: str = Header(default="")):
-        return call(authority.approve, db, authorization=authorization,
-                    proposal=body.get("proposal"), expected_digest=body.get("expected_digest"),
-                    reason=body.get("reason"))
-
+    # W4-AGENTS M-1: there is deliberately no bearer /approve or /rebase. A storefront grant
+    # is made only in the owner's Command Center session after a fresh step-up
+    # (POST /api/cc/actions/storefront.approve). The bearer may only read and revoke (deny).
     @router.post("/{approval_id}/revoke")
     def revoke(approval_id: int, authorization: str = Header(default="")):
         return call(authority.revoke, db, authorization=authorization, approval_id=approval_id)
-
-    @router.post("/rebase")
-    def rebase(body: dict, authorization: str = Header(default="")):
-        return call(authority.rebase, db, authorization=authorization,
-                    reason=body.get("reason"))
     return router
