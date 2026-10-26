@@ -1669,6 +1669,16 @@ def parallelism_advice(db, *, now: datetime | None = None) -> dict | None:
     from ..core.models import AuditLog
 
     now = now or datetime.now(timezone.utc)
+    # F-490: failures and fresh breakages scale the swarm down whatever the governor said.
+    try:
+        from . import backpressure
+
+        bp = backpressure.read(db, now=now)
+    except Exception:  # noqa: BLE001 - unreadable pressure changes nothing
+        bp = {"pressure": False}
+    if bp.get("pressure"):
+        return {"advice": "scale_down", "compared": None, "backpressure": bp["triggers"],
+                "why": "backpressure: " + "; ".join(t["why"] for t in bp["triggers"])}
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == GOVERNOR_ACTION)
                        .order_by(desc(AuditLog.id)).limit(1))
