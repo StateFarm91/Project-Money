@@ -133,6 +133,7 @@ UNREGISTERED = [
      "text": ("Winner Amplification turns proven demand into matching products, bundles, sizes, "
               "colourways, tutorials, content and controlled ad expansion."),
      "jobs": ["creative.family_engine"], "modules": ["creative/family_engine.py"],
+     "tests": ["tests/test_w4_intelrec_amplify.py"],
      "ledger": "OMISSION as a named row: DEPARTMENTS.md records that no row is named 'Product "
                "Family Engine'; covered in part by #22, #295, #111 and F-351"},
     {"id": "MP1.2-s9", "topic": "pricing", "source": "spec/01 s9",
@@ -168,6 +169,7 @@ UNREGISTERED = [
               "replacements. Never assume a shop is AI-operated without evidence."),
      "jobs": ["intel.watchlist_scan", "intel.watchlist_compare", "intel.opportunity_review"],
      "modules": ["intel/watchlist.py", "runtime/intel_ops.py"],
+     "tests": ["tests/test_w4_intelrec_watchlist.py"],
      "ledger": "NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo "
                "appears in no spec, registry, DECISION_LOG, code or branch in this repository "
                "(searched every ref), so its 'original special monitoring' has no recorded "
@@ -348,7 +350,7 @@ def build() -> dict:
                f"{led.get('status')} at {led.get('maturity')}")
     for u in UNREGISTERED:
         status(u["id"], u["topic"], u["id"], u["text"], u["source"], u.get("modules", []),
-               [], [], None,
+               u.get("tests", []), [], None,
                u["jobs"], u["ledger"])
 
     # Evidence the public snapshots do give (step 8), and the chain (step 9).

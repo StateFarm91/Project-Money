@@ -27,7 +27,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 |---|---|---|---|
 | specified | 95 | 0 | 0 |
 | implemented | 89 | 6 | 0 |
-| tested | 73 | 22 | 0 |
+| tested | 75 | 20 | 0 |
 | integrated | 83 | 12 | 0 |
 | reviewed | 0 | 0 | 95 |
 | deployed | 86 | 3 | 6 |
@@ -137,11 +137,11 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | F-796 | Competitor Weakness Mining | `YYYY?Y??NN` | production b2e49455 | none in the snapshot | code + tests (offline) | OWNER-GATED at INTEGRATED |
 | F-797 | No Artificially Weak Benchmarking | `YYYY?Y??NY` | production b2e49455 | none in the snapshot | code + tests (offline) | operator readback of production output |
 | MP1.2-s4 | MP1.2-s4 | `YNNN??Y?NN` | n/a (no module) | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | OMISSION: no FM or Build 2 row carries 'longitudinal profiles for serious competitors' beyond MJs (#303 is MJs-only); tr |
-| MP1.2-s5 | MP1.2-s5 | `YYNN?NN?NN` | combined candidate only | none in the snapshot | code only | not deployed |
+| MP1.2-s5 | MP1.2-s5 | `YYYN?NN?NN` | combined candidate only | none in the snapshot | code + tests (offline) | not deployed |
 | MP1.2-s9 | MP1.2-s9 | `YNNN??Y??N` | n/a (no module) | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | OMISSION: no FM/B2 row names a competitor price/promotion scanner; competitor price_cad and on_sale are stored per bench |
 | MP1.2-s16-cadence | MP1.2-s16-cadence | `YNNN??Y?NN` | n/a (no module) | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | cadence only; no row |
 | SEEDS-05 | SEEDS-05 | `YNNN????NN` | n/a (no module) | none in the snapshot | spec only | OMISSION: only MJs is registered (intel/benchmarks.REGISTRY); the four other seed shops are not in the registry or the l |
-| OWNER-2026-10-26-WATCHLIST | OWNER-2026-10-26-WATCHLIST | `YYNN?NN?NN` | combined candidate only | none in the snapshot | code only | not deployed |
+| OWNER-2026-10-26-WATCHLIST | OWNER-2026-10-26-WATCHLIST | `YYYN?NN?NN` | combined candidate only | none in the snapshot | code + tests (offline) | not deployed |
 | SPEC13-LAURA | SPEC13-LAURA | `YYNN?YY?NN` | production b2e49455 | job id 33776 (snapshot 2026-10-26T17:24Z) | production job record | Laura's PROVIDERS (laura/executive/loop.py) carry no intelligence/competitor provider: competitor findings never reach h |
 
 ## Rows
@@ -1665,16 +1665,16 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 
 - **Implementation path:** creative/family_engine.py
 - **Branch and SHA:** production b2e49455: []; combined claude/w4-INTEG7 67920948: ['creative/family_engine.py']; INTELREC claude/w4-INTELREC HEAD: []
-- **Tests:** none recorded
+- **Tests:** tests/test_w4_intelrec_amplify.py
 - **Integration:** no runtime consumer recorded
 - **Security review:** combined-candidate lane reviews (AGENTS a14c9ef/b199cdb, FMBATCH1 cbd4ff1, INTEG7 967502d); no per-requirement record
 - **Deployment:** combined candidate only
 - **Last production execution:** none in the snapshot
-- **Evidence quality:** code only
+- **Evidence quality:** code + tests (offline)
 - **Ledger:** OMISSION as a named row: DEPARTMENTS.md records that no row is named 'Product Family Engine'; covered in part by #22, #295, #111 and F-351
 - **Missing work:** activation: deploy creative/family_engine.py; activation: no production execution of creative.family_engine; evidence: ledger not PROVEN -- OMISSION as a named row: DEPARTMENTS.md records that no row is named 'Product Family Engine'; covered in part by #22, #295, #111 and F-351; external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** not deployed
-- **Stages:** `YYNN?NN?NN`
+- **Stages:** `YYYN?NN?NN`
 
 ### MP1.2-s9: MP1.2-s9
 
@@ -1733,16 +1733,16 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 
 - **Implementation path:** intel/watchlist.py, runtime/intel_ops.py
 - **Branch and SHA:** production b2e49455: []; combined claude/w4-INTEG7 67920948: ['runtime/intel_ops.py']; INTELREC claude/w4-INTELREC HEAD: ['intel/watchlist.py']
-- **Tests:** none recorded
+- **Tests:** tests/test_w4_intelrec_watchlist.py
 - **Integration:** no runtime consumer recorded
 - **Security review:** UNREVIEWED (INTELREC batch 4)
 - **Deployment:** combined candidate only
 - **Last production execution:** none in the snapshot
-- **Evidence quality:** code only
+- **Evidence quality:** code + tests (offline)
 - **Ledger:** NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo appears in no spec, registry, DECISION_LOG, code or branch in this repository (searched every ref), so its 'original special monitoring' has no recorded source -- recorded here, not invented
 - **Missing work:** activation: deploy runtime/intel_ops.py, intel/watchlist.py; activation: no production execution of intel.watchlist_scan, intel.watchlist_compare, intel.opportunity_review; evidence: ledger not PROVEN -- NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo appears in no spec, registry, DECISION_LOG, code or branch in this repository (searche; external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** not deployed
-- **Stages:** `YYNN?NN?NN`
+- **Stages:** `YYYN?NN?NN`
 
 ### SPEC13-LAURA: SPEC13-LAURA
 

@@ -8399,12 +8399,14 @@
     "combined": "claude/w4-INTEG7 67920948: ['creative/family_engine.py']",
     "intelrec": "claude/w4-INTELREC HEAD: []"
    },
-   "tests": [],
+   "tests": [
+    "tests/test_w4_intelrec_amplify.py"
+   ],
    "integration": "no runtime consumer recorded",
    "security_review": "combined-candidate lane reviews (AGENTS a14c9ef/b199cdb, FMBATCH1 cbd4ff1, INTEG7 967502d); no per-requirement record",
    "deployment": "combined candidate only",
    "last_production_execution": "none in the snapshot",
-   "evidence_quality": "code only",
+   "evidence_quality": "code + tests (offline)",
    "missing_work": [
     "activation: deploy creative/family_engine.py",
     "activation: no production execution of creative.family_engine",
@@ -8424,8 +8426,10 @@
      ]
     },
     "tested": {
-     "ok": false,
-     "evidence": "no evidence"
+     "ok": true,
+     "evidence": [
+      "tests/test_w4_intelrec_amplify.py"
+     ]
     },
     "integrated": {
      "ok": false,
@@ -8706,12 +8710,14 @@
     "combined": "claude/w4-INTEG7 67920948: ['runtime/intel_ops.py']",
     "intelrec": "claude/w4-INTELREC HEAD: ['intel/watchlist.py']"
    },
-   "tests": [],
+   "tests": [
+    "tests/test_w4_intelrec_watchlist.py"
+   ],
    "integration": "no runtime consumer recorded",
    "security_review": "UNREVIEWED (INTELREC batch 4)",
    "deployment": "combined candidate only",
    "last_production_execution": "none in the snapshot",
-   "evidence_quality": "code only",
+   "evidence_quality": "code + tests (offline)",
    "missing_work": [
     "activation: deploy runtime/intel_ops.py, intel/watchlist.py",
     "activation: no production execution of intel.watchlist_scan, intel.watchlist_compare, intel.opportunity_review",
@@ -8732,8 +8738,10 @@
      ]
     },
     "tested": {
-     "ok": false,
-     "evidence": "no evidence"
+     "ok": true,
+     "evidence": [
+      "tests/test_w4_intelrec_watchlist.py"
+     ]
     },
     "integrated": {
      "ok": false,
@@ -8883,8 +8891,8 @@
     "unknown": 0
    },
    "tested": {
-    "yes": 73,
-    "no": 22,
+    "yes": 75,
+    "no": 20,
     "unknown": 0
    },
    "integrated": {

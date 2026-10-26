@@ -5,7 +5,7 @@
   - INTELREC is cut from `claude/w4-INTEG7` at 67920948, the combined candidate.
   - Production runs **b2e49455**, which is 051dbee2 plus SECPATCH.
   - The FMBATCH1 and AGENTS work is in the combined candidate only.
-  - INTELREC batch 4a (876b4fee) is **unreviewed and not deployed**.
+  - INTELREC batch 4a (876b4fee) and batch 4b (dd04c40f) are **unreviewed and not deployed**.
 - **Companion files** (all in `research/final_build/w4/intel/`): `TRACEABILITY.md`/`.json`, `FOUR_SHOP_COMPARISON.md`, `REMEDIATION_LEDGER.md`, `ACCEPTANCE_PLAN.md`, `evidence/`, and `intel_reconciliation.py`, the generator.
 
 **How production evidence was gathered.** No token was used. The sources are:
@@ -30,8 +30,8 @@ Everything else is marked **needs operator readback**. `ACCEPTANCE_PLAN.md` list
 | 3 | Both monitored in production today | **Mrs J YES; MadelineMaeCo NO** | `mjs.scan` executed 266 times, the last at job 33702 (near head 33776, 17:24Z). The 13:56Z reading shows 442 listings observed through the official API. MadelineMaeCo is not in production. |
 | 4 | ZKBDESIGNER and TheEasyDesign fully integrated | **PARTIAL** | Registered, scanned, compared and routed to decisions on INTELREC, with offline tests only. Not deployed and not reviewed, so they have no production observation. |
 | 5 | Trend radar works | **PARTIAL** | The culture radar (`culture.sweep`, 37 runs), radar scan and score (211 and 544), seasonal engine and harvest (16 each) and SERP capture (16) all execute. The trend-provenance discount is live (#38 PROVEN). The "trending crochet patterns" search page itself is reachable only through the browser boundary, and Etsy refuses that with 403. Whether these runs produced useful signals needs readback. |
-| 6 | Product Family Engine works | **NO in production; PARTIAL in code** | `creative.family_engine` exists in the combined candidate only, with 0 production runs. It recommends and writes one reading. Its amplification stays UNMEASURED below 5 orders, and production has no orders. |
-| 7 | Winner Amplification works | **NO** | There are no orders, so no winner can be detected. Investigating a winner (`commerce.replication`, #22) is deployed but has never been triggered. Original follow-on designs from a winner are not wired as a job. Price testing is owner-gated (#295, `ad_authority`). Follow-on measurement depends on orders. See §3. |
+| 6 | Product Family Engine works | **NO in production; PARTIAL in code** | `creative.family_engine` exists in the combined candidate only, with 0 production runs. It reads families, bundle readiness and recolour duplicates. INTELREC 4b makes it delegate follow-ons. Amplification stays UNMEASURED below 5 orders, and production has no orders. |
+| 7 | Winner Amplification works | **NO in production; PARTIAL in code** | There are no orders, so no winner can be detected. INTELREC 4b wires this, offline-tested only: winner → original follow-on (radar.score → pre-engineering gate → cir.draft, or a divergent tournament) → measured follow-on orders → hold after two empty attempts. **Still missing:** investigation of why the winner sells (`commerce.replication.study` is deployed but not called from this path); price and merchandising tests (owner-gated #295 / live listings). See §3. |
 | 8 | Laura uses the intelligence | **NO in production; built on INTELREC** | Production Laura (`laura.executive_tick`, 4,352 deterministic runs) has seven providers, none of them intelligence. INTELREC adds the `intelligence` provider and the delegated `intel.opportunity_review`. Laura's model-backed CEO paths are OFF (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF). The deterministic tick does not need the model. |
 | 9 | Agents create original products from it | **PARTIAL, stalled** | Competitor evidence drives original divergent tournaments (`creative.tournament`, 191 runs, last 33597). No tournament has reached engineering since `cir.draft` job 24731, and 0 `cir.draft` have run since. The reason sits in `creative.winner_intake` audit rows (needs readback). |
 | 10 | The company learns and improves | **PARTIAL** | Lessons are published, and `radar.score` acts on them (544 runs). Also running: `improve.mine` 117, `improve.measure` 32, `creative.outcome_learning` 16, `learn.scan` 364. No production record yet shows a lesson changing a product outcome: there is no measured outcome, because there are no live listings and no orders. `improve.weekly` dead-lettered once; the PRODFIX2 fix is pending deploy. |
@@ -147,7 +147,7 @@ The production evidence is the 17:24Z job capture. "Offline" marks something exe
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | Observation | market_radar: `mjs.scan` (Mrs J); `intel.watchlist_scan` (others, INTELREC) | cadence | API listings → `BenchmarkListing` and observations | `benchmark_listings`, `benchmark_observations`, audit `mjs.scanned` | registry `market_radar`; authority GREEN | `intel/observe.py`, `intel/watchlist.py` | `test_cert_mjs`, `test_w4_intelrec_watchlist` (offline) | Mrs J: 266 runs, last 33702. Others: none. | credential refusal waits for the probe; per-shop outage recorded |
 | 2 | Market Intelligence | market_radar: mission pipeline, director and pods | inside the scan | new or changed listing → mission event, decomposition, panel gate, coverage gap, tournament | `mjs_mission_events`, `coverage_gaps` | same | `intel/mission_runtime.py` | `test_cert_mjs` | scans run; event counts need readback | duplicate-suppressed by event fingerprint |
-| 3 | Research Agent | research_agent: `research.sweep` / `research.investigate` | unknowns and due tasks | unknown → research task → internal evidence | `research_tasks` | combined candidate | `intel/research_agent.py` | `test_w4_research_agent` | **0 runs (not deployed)**. Not wired to watchlist findings. | n/a |
+| 3 | Research Agent | research_agent: `research.sweep` / `research.investigate` | unknowns and due tasks; INTELREC 4b: every validated watchlist arena | unknown → research task → internal evidence; the arena question is cited on the opportunity decision | `research_tasks` | combined candidate | `intel/research_agent.py`, `intel/watchlist._research_question` | `test_w4_research_agent`; offline test | **0 runs (not deployed)** | deduped on the trigger; research never blocks the comparison |
 | 4 | Opportunity validation | mission `arena_demand` / panel `may_enter`; INTELREC cross-shop corroboration | scan; `intel.watchlist_compare` daily | stored rows → proven arena or validated gap | `coverage_gaps.evidence` | GREEN | `intel/panel.py`, `intel/watchlist.compare` | `test_cert_mjs`; offline test | MJs arenas: needs readback. Watchlist: none. | an unknown is not zero |
 | 5 | Laura | `laura.executive_tick` (deterministic) | 5-minute cadence | providers → priorities → delegation | `laura.memory`, timeline, missions | constitution | `laura/executive/loop.py` | `test_w3_laura_core_executive`; offline test | 4,352 runs, **but no intelligence provider in production**. **This is where the chain breaks today.** | one provider failing never stops her |
 | 6 | Delegation | COO mission → `intel.opportunity_review` (INTELREC) | Laura priority (provider DEGRADED) | gap → decision record + job | `intel:opportunity:<gap>` memory | charter generatable and SAFE_GENERATED | `intel/watchlist.review` | offline test | none | idempotent per attempt; ≤3 per run |
@@ -185,10 +185,10 @@ The deterministic Laura tick runs. Her model paths are OFF. INTELREC adds the st
 **Winner Amplification, step by step.** It does not operate end to end.
 
 1. **Detect a winner.** `commerce/attribution` and `family_engine` (combined only) need orders, and there are 0. **Missing: a production order source.**
-2. **Investigate why.** `commerce/replication.py` (#22) is deployed and PROVEN, but has never been triggered, for lack of a winner.
-3. **Delegate original related designs.** No job takes `family_engine`'s amplification proposal and briefs a tournament. **Missing code:** a delegation from a proven winner to a divergent "family follow-on" tournament, with the same lesson and attempt bounds as `intel.opportunity_review`.
+2. **Investigate why.** `commerce/replication.py` (#22) is deployed and PROVEN, but has never been triggered, for lack of a winner. **Still missing:** the amplification path below does not call `replication.study`; the study needs a SKU catalogue built from orders.
+3. **Delegate original related designs.** **Built on INTELREC 4b (dd04c40f, offline-tested).** `family_engine.amplify` sends the next declared member through `radar.score` and the pre-engineering gate, whose novelty floor refuses a recolour. With no declared member, it briefs an original divergent tournament. One attempt is open per family, and the family is held after two empty attempts.
 4. **Test pricing and merchandising.** Price experiments wait on live listings. Paid scaling (#295) is OWNER-GATED (`ad_authority`).
-5. **Measure the follow-ons.** Attribution exists, but nothing has been measured.
+5. **Measure the follow-ons.** **Built on INTELREC 4b.** Follow-on orders are counted only for members certified after the decision. Production has nothing to measure yet.
 
 ---
 
@@ -286,7 +286,7 @@ From TRACEABILITY: 95 requirements, and the counts reconcile to the rows.
 |---|---|---|---|
 | specified | 95 | 0 | 0 |
 | implemented | 89 | 6 | 0 |
-| tested | 73 | 22 | 0 |
+| tested | 75 | 20 | 0 |
 | integrated | 83 | 12 | 0 |
 | reviewed (per row) | 0 | 0 | 95 |
 | deployed | 86 | 3 | 6 |
@@ -316,8 +316,8 @@ The full list is in `REMEDIATION_LEDGER.md`.
 1. **Review and deploy INTELREC 876b4fee** (activation). Then the operator reads in `ACCEPTANCE_PLAN.md` §1–§3.
 2. **Find out why tournaments stopped reaching engineering** after `cir.draft` 24731 (external evidence, then code). Start with the `creative.winner_intake` readback.
 3. **Deploy PRODFIX and PRODFIX2** (activation). These clear the stale-artefact halt, the paid repeats and the `improve.weekly` dead letter. Then the owner records the `listing_image_rules` policy review.
-4. **Build Winner Amplification delegation** (code): winner → divergent family follow-on tournament → measurement. It is useful only once orders exist.
-5. **Wire the Research Agent to watchlist unknowns** (code), and deploy the combined candidate (activation).
+4. **Review and deploy INTELREC 4b** (dd04c40f): Winner Amplification delegation and the Research Agent questions. Remaining code: call `commerce.replication.study` from the amplification path. Everything here becomes useful only once orders exist.
+5. **Deploy the combined candidate** (activation) so the Research Agent and the Family Engine run at all.
 6. **Owner decisions:**
    - the acceptance ruling (#320);
    - vision for the non-anchor shops (spend);
