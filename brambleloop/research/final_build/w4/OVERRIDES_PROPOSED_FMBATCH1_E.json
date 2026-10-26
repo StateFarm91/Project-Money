@@ -19,7 +19,9 @@
   },
   "F-446": {
    "producer": "src/brambleloop/learn/runtime.py::handle_scan",
-   "tests": ["tests/test_w4_fmbatch1_research.py::test_learn_scan_enforces_the_time_bound"],
+   "tests": [
+    "tests/test_w4_fmbatch1_research.py::test_learn_scan_enforces_the_time_bound"
+   ],
    "missing_part": "research runs in its own cadence job (learn.scan), so an open research task never blocks other work; blocked build work parks independently. There is no dedicated worker lane for research; proposed as sufficient for launch, integrator to decide",
    "reason": "F-446: research is parallel by construction (its own job on its own cadence); a separate lane is optional"
   },
@@ -30,6 +32,10 @@
   "F-479": {
    "missing_part": "none: process practice",
    "reason": "F-479: the matrix's own next action is 'none -- at target maturity for launch'"
+  },
+  "F-481": {
+   "missing_part": "none: process practice",
+   "reason": "F-481: the matrix's own next action is 'none -- at target maturity for launch (practice)'"
   }
  }
 }

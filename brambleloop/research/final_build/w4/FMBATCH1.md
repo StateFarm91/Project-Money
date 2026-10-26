@@ -837,3 +837,20 @@ At 15800536 the literal-string guard reports nothing unknown, so the job does no
 - F-450 is stale: `learn.scan` already runs the "unknown → research" loop.
 - F-446: research is parallel through its own cadence. Whether that is enough is the integrator's call.
 - F-458 and F-479: the matrix itself marks both as at target maturity.
+
+## 32. Batch AA: F-452, F-466, F-488, F-490, F-581, F-582, F-630, F-484, F-492, F-496; proposal F-481
+
+| Row | Commit | What | Test |
+|---|---|---|---|
+| F-452 / F-466 | b12e6655 | `build2/fm_graph.py`: Final Master rows that are not COMPLETE become graph nodes, joined by edges from gates and from the uids named in a row's `next_action`. The critical path counts them. `executor.sync` fans open gates out to the FM rows they release, records an `fm_unblocked` event only when that set changes, and reports gate keys with no live check as `unevaluable` | test_w4_fmbatch1_fm_graph |
+| F-488 | 7fb22ec8 | `build.tick` records critical-path movement as `critical_path` build events. The dashboard headline shows the path length and its change, and a growing path raises an alarm | test_w4_fmbatch1_progress |
+| F-490 | 2512c596 | `swarm/backpressure.py`: 3 or more defect dead letters in an hour, or any unresolved P0/P1 incident from the last 6 hours, makes `parallelism_advice` return scale_down, overriding the governor's scale_up | test_w4_fmbatch1_backpressure |
+| F-581 / F-582 | c58a8992 | `finance/tool_decisions.py`: a vendor evaluation must state the capability gap, the existing capabilities checked for overlap, expected ROI, data quality, permissions, vendor risk and build-vs-buy. `SpendGuard.set_limit` refuses any `software:` scope that lacks an evaluation of that tool with ROI above cost | test_w4_fmbatch1_tool_spend |
+| F-630 | a0ee0b78 | `build2/launch_scope.py`: in SHADOW, READY work that serves a launch-critical FM row (through the matrix's `build2_rows`) goes first. The shipped `launch_scope.json` is pinned to the matrix | test_w4_fmbatch1_launch_scope |
+| F-484 / F-492 | 02858e8e | Dispatch cards derive the likely paths of a task from producer modules and hold back any task whose paths overlap a live lane's. Lane records carry `--stop` criteria (escalation and stop hours, who to escalate to, what stopping means), and `survey` reports lanes past them | test_w4_fmbatch1_dispatch, test_w4_fmbatch1_lane_stop |
+| F-496 | 8b336faf | `app/hq_worker.py`: an HQ worker that runs only GREEN-only job types with a registered handler. An independence guard refuses any type the cloud fleet could not run. When an HQ lease lapses, the job returns to the cloud | test_w4_fmbatch1_hq_worker |
+
+**Decisions needed** (not built):
+- **F-483 (CI workflow).** It would run the suite on GitHub, using Actions minutes on the owner's account. That needs an owner or integrator decision.
+- **F-463 (lane state in the runtime DB).** Build tooling would write to the production database. That needs an integrator decision on the route.
+- **F-579 (accounting integration).** It waits on a scored vendor comparison. That comparison needs vendor facts this build has not read.

@@ -131,6 +131,16 @@ BRANCH_WORK = {
     "F-423": ('E', 'claude/w4-FMBATCH1 26712fd6: cross-domain bridge round'),
     "F-448": ('E', 'claude/w4-FMBATCH1 1df15b44: POST /api/research/evidence owner-supplied evidence'),
     "F-475": ('E', 'claude/w4-FMBATCH1 4cae8bfb: intel/evidence_index.py + /api/evidence'),
+    "F-452": ('E', 'claude/w4-FMBATCH1 b12e6655: build2/fm_graph.py FM rows in the dependency graph; critical path counts them'),
+    "F-466": ('E', 'claude/w4-FMBATCH1 b12e6655: build.tick fans open gates out to FM rows (fm_unblocked events)'),
+    "F-488": ('E', 'claude/w4-FMBATCH1 7fb22ec8: critical-path movement KPI in the dashboard headline'),
+    "F-490": ('E', 'claude/w4-FMBATCH1 2512c596: swarm/backpressure.py dead letters + fresh P0/P1 incidents scale down'),
+    "F-581": ('E', 'claude/w4-FMBATCH1 c58a8992: finance/tool_decisions.py vendor evaluation record'),
+    "F-582": ('E', 'claude/w4-FMBATCH1 c58a8992: software spend scopes refused without an evaluation with ROI above cost'),
+    "F-630": ('E', 'claude/w4-FMBATCH1 a0ee0b78: build2/launch_scope.py launch-serving work first in SHADOW'),
+    "F-484": ('E', 'claude/w4-FMBATCH1 02858e8e: dispatch holds back tasks overlapping a live lane\'s paths'),
+    "F-492": ('E', 'claude/w4-FMBATCH1 02858e8e: per-lane stop/escalation criteria in ops/registry.py'),
+    "F-496": ('E', 'claude/w4-FMBATCH1 8b336faf: app/hq_worker.py GREEN-only HQ worker with independence guard'),
     "F-441": ('B', 'claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).

@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 37,
-    "B": 112,
+    "A": 34,
+    "B": 105,
     "C": 8,
     "D": 1,
-    "E": 82,
+    "E": 92,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 699,
+    "numerator": 709,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 124,
+    "missing implementation": 114,
     "missing prerequisite": 5,
-    "missing integration": 67
+    "missing integration": 77
    }
   }
  },
@@ -9701,13 +9701,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: graph covers Build 2's 320 requirements (executor.DEPENDENCIES + gates) and artefact rebuilds (ops/rebuild_graph.py); Final Master requirements and operational ",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 b12e6655: build2/fm_graph.py FM rows in the dependency graph; critical path counts them",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "graph covers Build 2's 320 requirements (executor.DEPENDENCIES + gates) and artefact rebuilds (ops/rebuild_graph.py); Final Master requirements and operational department tasks are not nodes; DEPENDEN"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 b12e6655: build2/fm_graph.py FM rows in the dependency graph; critical path counts them"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9921,13 +9921,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: fan-out is per Build 2 requirement via gate_for/registry parked_on; Final Master requirements and department operational work are not in the graph",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 b12e6655: build.tick fans open gates out to FM rows (fm_unblocked events)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "fan-out is per Build 2 requirement via gate_for/registry parked_on; Final Master requirements and department operational work are not in the graph"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 b12e6655: build.tick fans open gates out to FM rows (fm_unblocked events)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10181,13 +10181,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: overlap was detected before dispatch by the integrator (Catalogue lane held because it would collide with products/launch0.py) \u2014 manual only",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 02858e8e: dispatch holds back tasks overlapping a live lane's paths",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; overlap was detected before dispatch by the integrator (Catalogue lane held because it would collide with products/launch0.py) \u2014 manual only"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 02858e8e: dispatch holds back tasks overlapping a live lane's paths"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10237,13 +10237,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: launch readiness, closure and maturity ladder are exposed; critical-path movement and a single cross-department progress summary are missing",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 7fb22ec8: critical-path movement KPI in the dashboard headline",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "launch readiness, closure and maturity ladder are exposed; critical-path movement and a single cross-department progress summary are missing"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 7fb22ec8: critical-path movement KPI in the dashboard headline"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10269,13 +10269,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: concurrency drops on duplication (governor advice) and spend spikes pause an agent; conflicts, regressions and resource saturation are not inputs",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 2512c596: swarm/backpressure.py dead letters + fresh P0/P1 incidents scale down",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "concurrency drops on duplication (governor advice) and spend spikes pause an agent; conflicts, regressions and resource saturation are not inputs"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 2512c596: swarm/backpressure.py dead letters + fresh P0/P1 incidents scale down"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10297,13 +10297,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: per-requirement gates and per-campaign/experiment stop rules exist; build-side department stop/escalation criteria are prose",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 02858e8e: per-lane stop/escalation criteria in ops/registry.py",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "per-requirement gates and per-campaign/experiment stop rules exist; build-side department stop/escalation criteria are prose"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 02858e8e: per-lane stop/escalation criteria in ops/registry.py"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10357,13 +10357,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 8b336faf: app/hq_worker.py GREEN-only HQ worker with independence guard",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no HQ compute pool, job routing to HQ, or HQ-independence guard exists"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 8b336faf: app/hq_worker.py GREEN-only HQ worker with independence guard"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11513,13 +11513,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 c58a8992: finance/tool_decisions.py vendor evaluation record",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No third-party Etsy app evaluation framework."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 c58a8992: finance/tool_decisions.py vendor evaluation record"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11529,13 +11529,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 c58a8992: software spend scopes refused without an evaluation with ROI above cost",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No capability-gap/ROI evaluation rule; only the general owner-approval spend policy prevents autonomous subscription."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 c58a8992: software spend scopes refused without an evaluation with ROI above cost"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12162,13 +12162,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Nothing enforces the prohibition on endless pre-launch expansion (no rule that pre-launch work must serve an open launch-readiness item).",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 a0ee0b78: build2/launch_scope.py launch-serving work first in SHADOW",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Nothing enforces the prohibition on endless pre-launch expansion (no rule that pre-launch work must serve an open launch-readiness item)."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 a0ee0b78: build2/launch_scope.py launch-serving work first in SHADOW"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
