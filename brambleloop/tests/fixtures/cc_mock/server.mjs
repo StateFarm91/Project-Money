@@ -88,6 +88,12 @@ export function createMock() {
       if (route === "laura") return send(res, 200, DATA.laura());
       if (route === "laura/conversation") return send(res, 200, DATA.lauraConversation());
       if (route === "laura/presence" || route === "private/status") return send(res, 200, null); // not part of this fixture
+      // W4-LAURAONE: the Laura view reads the unified-thread status on every open. With the owner
+      // switch BRAMBLELOOP_LAURA_UNIFIED unset (the default) the real route reports "off" and the
+      // view stays the split business view; the mock mirrors that (private_context.unified_status).
+      if (route === "laura/unified/status") return send(res, 200, { unified: "off", business_to_venice: false,
+        prerequisites: [{ id: "unified_switch", met: false, label: "unified thread switch BRAMBLELOOP_LAURA_UNIFIED=venice" }],
+        prerequisites_met: false });
       if (route === "etsy") {
         const base = DATA.etsy();
         if (!st.etsy || !st.etsy.ready) return send(res, 200, base);
@@ -149,6 +155,11 @@ export function createMock() {
     if (route.startsWith("emergency/")) return send(res, 200, { ok: true });
     if (route === "ask") return send(res, 200, DATA.ask(String((body && body.question) || "")));
     if (route === "laura/ask") return send(res, 200, DATA.lauraBriefing(String((body && body.question) || "")));
+    // W4-LAURACEO: the CC Ask form posts to /laura/converse. With BRAMBLELOOP_LAURA_CEO_MODEL off
+    // (the default) the real route returns the same deterministic evidence-tool turn as
+    // /laura/ask plus `model.source: "not_called"` (api.py laura_converse); the mock mirrors that.
+    if (route === "laura/converse") return send(res, 200, { ...DATA.lauraBriefing(String((body && body.question) || "")),
+      model: { source: "not_called", reason: "BRAMBLELOOP_LAURA_CEO_MODEL is off" } });
     if (route === "etsy/recheck") return send(res, 200, { ok: true, queued: true, job_type: "etsy.probe" });
     if (route === "etsy/connect") {
       if (st.stepupUntil <= Date.now()) return send(res, 403, { error: "step-up required", code: "STEP_UP_REQUIRED" });
