@@ -6604,6 +6604,14 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             detail["provider_health"] = provider_health.reconcile(ctx.db, session)
     except Exception as exc:  # noqa: BLE001
         detail["provider_health"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W4-FMBATCH1 (F-720): stale ready work with an idle worker is diagnosed by cause.
+    from ..ops import useful_work
+
+    try:
+        with ctx.db.session() as session:
+            detail["ready_work_alarm"] = useful_work.alarm(ctx.db, session)
+    except Exception as exc:  # noqa: BLE001
+        detail["ready_work_alarm"] = {"state": "UNKNOWN", "error": type(exc).__name__}
 
     # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
     # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning

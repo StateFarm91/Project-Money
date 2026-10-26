@@ -405,6 +405,24 @@ def _autonomy_extra(db, now: datetime) -> list[dict]:
     except Exception as exc:  # noqa: BLE001
         out.append({"metric": "unintentionally_idle_departments", "value": None,
                     "why": f"department mapping unreadable: {type(exc).__name__}"})
+    # F-719 / F-729: oldest ready work by value band, owner-blocked hours, WATCHING time and
+    # the autonomous completion rate (ops.useful_work); UNMEASURED stays UNMEASURED.
+    try:
+        from ...ops import useful_work
+
+        r = useful_work.readings(db, now=now)
+        out += [
+            {"metric": "oldest_ready_work_s", "value": r["oldest_ready_s"],
+             "by_band": r["ready_age_by_band"]},
+            {"metric": "owner_blocked_hours", "value": r["owner_blocked"]["hours"],
+             "open_actions": r["owner_blocked"]["open_actions"]},
+            {"metric": "watching_departments", "value": r["watching"]},
+            {"metric": "autonomous_completion_rate_24h",
+             "value": r["autonomous_completion_rate_24h"]},
+        ]
+    except Exception as exc:  # noqa: BLE001
+        out.append({"metric": "useful_work", "value": None,
+                    "why": f"unreadable: {type(exc).__name__}"})
     return out
 
 

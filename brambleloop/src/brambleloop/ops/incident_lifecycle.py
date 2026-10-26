@@ -187,6 +187,10 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
     "provider-change": ("ops.dependencies (gateway.provider_watch)", "routing economics "
                         "re-run on the change; resolves on the next unchanged snapshot"),
+    # W4-FMBATCH1 ops/useful_work (F-720): ready work unclaimed with the worker idle.
+    "ready-work-age": ("ops.health sweep (useful_work.alarm)", "fix the named cause (agent "
+                       "permission, handler, suspension, block or lane); resolves when no "
+                       "ready work is over the age threshold"),
     # W4-FMBATCH1 ops/provider_health (F-171): a probe that answered but failed.
     "provider-health": ("owner (credit/auth) or the provider (rate limit/outage)",
                         "top up or fix the account; resolves when the next model and vision "

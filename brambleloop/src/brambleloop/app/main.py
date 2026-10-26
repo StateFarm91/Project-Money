@@ -4604,8 +4604,17 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
-@app.get("/api/departments")
-def api_departments() -> dict:
+@app.get("/api/useful-work")
+def api_useful_work() -> dict:
+    """F-719: 24/7 useful-work readings (ready age by band, owner-blocked hours, WATCHING
+    time, autonomous completion rate), from rows; UNMEASURED is never zero."""
+    from ..ops import useful_work
+
+    return useful_work.readings(db)
+
+
+@app.get("/api/company/departments")
+def api_company_departments() -> dict:
     """F-601 / F-454 / F-656: the named departments with mandate, backlog (by RUN/GROW/
     IMPROVE class), KPIs, evidence and improvement loop, each PRESENT or MISSING."""
     from ..autonomy import departments
