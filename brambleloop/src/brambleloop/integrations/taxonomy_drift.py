@@ -320,3 +320,20 @@ def resolve_if_current(session, slug: str, snapshot_id: int | None) -> list[str]
     return lifecycle.resolve_signatures(
         session, [sig], resolution=(f"listing.seo rebuilt the search profile on taxonomy "
                                     f"snapshot {snapshot_id}"))
+
+
+def held_drift(db, slug: str) -> list[dict]:
+    """Review cbd4ff1 N-2: open drift incidents for `slug` that were held for the owner
+    (re-queue OFF, so `halts_publication` is False to keep gate.certify free). store.publish
+    must still refuse while one is open; `release_gates.for_publish` reads this."""
+    from sqlalchemy import select as _select
+
+    from ..core.models import Incident
+
+    with db.session() as s:
+        return [{"id": i.id, "summary": (i.summary or "")[:160]}
+                for i in s.scalars(_select(Incident).where(
+                    Incident.signature == f"{SIGNATURE_PREFIX}{slug}",
+                    Incident.resolved == False,  # noqa: E712
+                    Incident.halts_publication == False))]  # noqa: E712
+

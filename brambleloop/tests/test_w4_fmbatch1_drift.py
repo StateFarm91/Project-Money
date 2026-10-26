@@ -300,6 +300,14 @@ def test_by_default_drift_requeues_nothing_and_asks_the_owner():
     inc = _incident(db, slug)
     assert inc is not None and not inc.resolved and inc.severity == "P1"
     assert inc.halts_publication is False      # nothing queued to resolve it: no deadlock
+    # Review cbd4ff1 N-2: gate.certify is not halted, but store.publish (via the release
+    # gates' publish verdict) refuses this product while the held drift is open.
+    from brambleloop.publish import release_gates as rg
+
+    verdict = rg.for_publish(db, slug=slug, version=before.version, read_only=True)
+    assert verdict["blocks_release"], verdict["reasons"]
+    assert any("taxonomy drift" in r for r in verdict["reasons"]), verdict["reasons"]
+    assert D.held_drift(db, slug) and D.held_drift(db, "some-other-slug") == []
 
 
 def test_a_changed_schema_halts_the_listing_requeues_seo_and_resolves_on_rebuild():
