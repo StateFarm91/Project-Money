@@ -434,3 +434,28 @@ This batch closes those named gaps.
 - F-398: the single joined improvement record.
 
 These are the next batch.
+
+## 16. F-398 Improvement Audit Trail: one joined record
+
+- **Criterion:** "Every adopted autonomous improvement records trigger/evidence, old version,
+  new version, tests, quality-floor verdicts, spend, deployment, observed outcome and rollback
+  reference."
+- **The gap CLOSE5 named:** there was no single joined record.
+- **Built:**
+  - `improve.cells.audit_record(row)` joins all nine fields from the row.
+  - An absent field is None and is named in `missing`; `complete` is true only when nothing is
+    missing.
+  - `monitor` now keeps every post-promotion observation (`observed_outcomes`), whether the
+    change held or was reverted.
+  - `audit_gaps(db)` lists adopted improvements with incomplete records.
+  - `history()`, which `/api/improve` serves, carries the record.
+- **Tests:**
+  - `tests/test_w4_fmbatch1_audit.py` 3/3: missing tests and observation are named; recording
+    them completes the record; unattributed spend is listed as missing, never defaulted.
+  - Green: test_w4_improvemetrics, test_improve_director.
+- **Status:** E.
+- **Left for other lanes:**
+  - F-126, superseding visual-benchmark rows, is in `gateway/image_bench`, the FLUX and visual
+    area that Workstream C owns.
+  - F-431, the `research.run` job with an external fetch step, makes network fetches and is the
+    next candidate.
