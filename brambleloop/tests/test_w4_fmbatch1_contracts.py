@@ -17,7 +17,7 @@ from brambleloop.core import contract_pins as C  # noqa: E402
 
 PINNED_CIR = "8265022276e81c44"
 PINNED = {"cir": PINNED_CIR, "listing_payload": "655954b9510590d0",
-          "api_routes": "95876e3d16e90313"}
+          "api_routes": "97cc8307a76bcea7"}
 CHANGES = ROOT.parent / "ops" / "CONTRACT_CHANGES.md"
 
 
