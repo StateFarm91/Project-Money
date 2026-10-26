@@ -93,6 +93,12 @@ CELLS: tuple[Cell, ...] = (
     Cell("learn", "Learn", "lesson_gap_coverage", True,
          "share of source-backed learner needs an approved lesson covers",
          "LearnGap rows COVERED against total LearnGap rows"),
+    # F-601 (FMBATCH2): the Executive / COO department improves against its own number --
+    # how much real work is parked behind closed gates on its critical path.
+    Cell("executive", "Executive / COO", "critical_path_parked_requirements", False,
+         "requirements parked behind closed gates on the executive plan's critical path",
+         "the stored executive plan (memory executive:plan): sum of each critical-path "
+         "gate's unblocks"),
 )
 
 BY_KEY: dict[str, Cell] = {c.key: c for c in CELLS}

@@ -2,7 +2,7 @@
 
 **F-601 departments.** The requirement names twelve departments, each owning a mandate,
 backlog, KPIs, evidence and an improvement loop. The runtime holds eleven charters
-(`autonomy.charters`) and thirteen improvement cells (`improve.cells`). `COMPANY` maps each
+(`autonomy.charters`) and fourteen improvement cells (`improve.cells`). `COMPANY` maps each
 named department onto what actually runs -- its charter (mandate, agents, KPIs, evidence
 requirement, generatable backlog) and its improvement cells -- and `coverage()` reports,
 per department and per element, PRESENT or MISSING with what is missing. A department with no
@@ -64,7 +64,7 @@ def pull_rank(job_type: str) -> int:
 # ---- F-601: the twelve named departments ------------------------------------------------
 
 COMPANY: tuple[dict, ...] = (
-    {"key": "executive", "name": "Executive", "charter": "executive", "cells": ()},
+    {"key": "executive", "name": "Executive", "charter": "executive", "cells": ("executive",)},
     {"key": "product_catalogue", "name": "Product / Catalogue", "charter": "product_design",
      "cells": ("product_creativity", "pattern_engineering", "portfolio")},
     {"key": "visual_creative", "name": "Visual / Creative", "charter": "visual",
