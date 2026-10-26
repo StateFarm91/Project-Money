@@ -176,6 +176,14 @@ def synthesize(db, *, values: dict, registry=None, provider_factory=None) -> dic
         return {"source": "unavailable", "data": None, "reason": reason, "cost_cad": cost,
                 "model": None, "truncated": False}
 
+    from .laura_converse import CEO_MODEL_ENV, ceo_model_enabled
+
+    if not ceo_model_enabled():
+        # f87e430 review R-2: the briefing synthesis is a Business Laura model path too. With
+        # BRAMBLELOOP_LAURA_CEO_MODEL off (default) no call is made; the deterministic
+        # briefing is used.
+        return unavailable(f"Business Laura's model is switched off (owner switch "
+                           f"{CEO_MODEL_ENV}; default off)")
     if registry is None:
         from ..agents.registry import Registry
 

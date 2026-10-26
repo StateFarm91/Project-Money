@@ -280,8 +280,11 @@ def private_text_register() -> dict:
     return {"status": "ACTIVE" if enabled else "GATED",
             "surface": "owner-private context only (app/command_center/private_context)",
             "decision": "D-W4-PL-1 (pending owner acknowledgement)",
-            "bounds": "warm, affectionate, romantic, playful; never sexually explicit (the "
-                      "provider's usage policy is the outer limit)",
+            "bounds": "adult private register for the one adult owner (owner ruling "
+                      "2026-10-20, D-W4-PL-VENICE-ADULT): affectionate, romantic, flirtatious, "
+                      "explicit adult dialogue and consensual roleplay; never minors, "
+                      "non-consent as endorsed, real people or anything unlawful; Venice's "
+                      "Terms are the outer limit",
             "voice": "GATED (LAURA-VOICE-P2)"}
 
 

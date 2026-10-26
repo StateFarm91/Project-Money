@@ -1,8 +1,12 @@
 # W4-PLACT: Private Laura activation decisions (owner, 2026-10-13)
 
+> **Historical (2026-10-20).** The Private Laura register described here (`laura.private_reply@1`, "never sexually explicit", D-W4-PL-2 unresolved) is superseded by D-W4-PL-VENICE-ADULT: the `@3` adult register on Venice, with hard limits. See `VENICE.md` (CURRENT STATUS) and spec/13 ADD-PLV-02. This file is kept as the record of its stage.
+
 Branch `claude/w4-PLACT`, from `origin/claude/w4-INTEG2` @ 9c3812b. Implements the owner's binding
 2026-10-13 decisions, recorded as **D-W4-PL-3** (`DECISION_LOG.md:1920`). This file holds no
 private content and no key material. Environment variables are named, never valued.
+
+> **Superseded in part by D-W4-PL-VENICE (owner ruling 2026-10-20; W4-VENICE, `VENICE.md`):** Private Laura's provider is Venice AI. The transport switch `BRAMBLELOOP_PRIVATE_PROVIDER` is OFF by default and must be `venice`, with `VENICE_API_KEY` in Railway. The status endpoint now lists 6 prerequisites. The current owner activation steps are VENICE.md §6.
 
 **Honest status.** The code and tests are done on this branch. Nothing was deployed, and no
 production variable was changed. Nothing was spent: every model call in the tests is a stubbed

@@ -39,6 +39,11 @@ from brambleloop.gateway import laura_briefing, routing  # noqa: E402
 from brambleloop.gateway.model_gateway import ModelResponse  # noqa: E402
 from brambleloop.laura.agency import briefing, talk  # noqa: E402
 
+import os as _os_ceo  # noqa: E402
+# f87e430 review R-2: the briefing synthesis is behind BRAMBLELOOP_LAURA_CEO_MODEL (default
+# OFF). This suite exercises the ON behaviour; test_w4_laura_ceo proves OFF makes no call.
+_os_ceo.environ["BRAMBLELOOP_LAURA_CEO_MODEL"] = "1"
+
 DB = H.DB
 Q = ("Laura, give me a complete but concise CEO briefing. Tell me what Brambleloop "
      "accomplished in the last 24 hours, what each department is working on, what is "

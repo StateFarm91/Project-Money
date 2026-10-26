@@ -54,7 +54,7 @@ def test_restart_and_model_change_keep_one_laura():
     system_before = laura_register.PROMPT.system
     sid1 = _session(db1)
     private_context.remember(db1, sid1, "PRIV-LABEL-CONT", S[0])
-    with PL.enabled(PL.Stub(model="claude-sonnet-5")):
+    with PL.enabled(PL.Stub(model=PL.MODEL)):
         a = private_context.owner_turn(db1, sid1, S[1])
     assert a["reply_status"] == "REPLIED", a
     db1.engine.dispose()
@@ -62,7 +62,7 @@ def test_restart_and_model_change_keep_one_laura():
     db2 = reopen(path)                                   # a new engine, no create_all
     sid2 = _session(db2)                                 # a new session and a new grant
     stub = PL.Stub(answers=[json.dumps({"text": "PRIV-SENTINEL-REPLY-0002"})],
-                   model="claude-sonnet-5-20270101")      # the model behind the tier changed
+                   model=PL.MODEL + "-20270101")        # the model behind it changed
     with PL.enabled(stub):
         b = private_context.owner_turn(db2, sid2, S[2])
     assert b["reply_status"] == "REPLIED", b
@@ -75,7 +75,7 @@ def test_restart_and_model_change_keep_one_laura():
     assert any(f["text"] == S[0] for f in v["facts"])
     p = private_context._principal(db2, sid2)
     refs = [t.model_ref for t in store.conversation(db2, p) if t.role == "laura"]
-    assert refs == ["anthropic/claude-sonnet-5", "anthropic/claude-sonnet-5-20270101"], refs
+    assert refs == [f"venice/{PL.MODEL}", f"venice/{PL.MODEL}-20270101"], refs
     # Same Laura: the identity record and the pinned register prompt did not move.
     assert identity.current(db2)["sha256"] == ident_before == identity.CURRENT_SHA256
     assert laura_register._system() == system_before == laura_register.PROMPT.system
