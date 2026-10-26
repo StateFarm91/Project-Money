@@ -32,7 +32,7 @@
 
 | measure | Build 2 | Final Master |
 |---|---|---|
-| **Engineering completion** (built + integrated + tested) | **316 / 320** | **633 / 917** |
+| **Engineering completion** (built + integrated + tested) | **316 / 320** | **671 / 917** |
 | **Acceptance completion** (the full original criterion, production and customer evidence included) | **98 / 320** | **360 / 917** |
 
 - Engineering completion counts rows in E, F or G, plus H rows whose engineering half is
@@ -87,3 +87,26 @@
   - #197 is a governance statement that the generated master is canonical.
   - The NA reading holds for all three. One inconsistency: the registry marks all three
     `covered`, while the board classes them `not_applicable`. Status is unchanged.
+
+## Regenerated 2026-10-26 (FMBATCH1 through 8eaaec6b)
+
+- **Final Master engineering completion is now 671 / 917** (was 633). Rows by status: A 46,
+  B 131, C 8, D 1, E 54, F 90, G 360, H 220, NA 7.
+- **The rows this branch built are now in `BRANCH_WORK`,** each with its commit.
+  - Status E means proven on this branch, awaiting a release.
+  - Partial rows stay B, with the remaining gap named: F-091, F-095, F-454, F-601, F-602.
+- **Build 2 is unchanged at 316 / 320.**
+- **How to reproduce this file exactly**, from the referenced inputs:
+
+  ```
+  git show origin/claude/final-candidate-d69a3ec:brambleloop/research/final_build/w4/COMPLETION_BOARD_FINAL.json > board.json
+  git show origin/claude/final-candidate-d69a3ec:brambleloop/research/final_build/closure_matrix.json > matrix.json
+  git show b997efd:brambleloop/research/final_build/w4/FM_LEDGER.json > fml.json
+  git show b997efd:brambleloop/research/final_build/w4/BUILD2_LEDGER.json > b2l.json
+  git ls-tree -r --name-only b997efd brambleloop/src/brambleloop/ | sed 's#^brambleloop/src/brambleloop/##' > tree.txt
+  python3 engineering_ledger.py board.json matrix.json fml.json b2l.json tree.txt ENGINEERING_LEDGER.json
+  ```
+
+  The tree must be relative to `src/brambleloop/`, because the board names modules that way.
+  With those inputs, the committed file was reproduced exactly before the new rows were
+  added.

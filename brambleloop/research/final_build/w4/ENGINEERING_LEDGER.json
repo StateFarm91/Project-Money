@@ -6,7 +6,7 @@
   "matrix": "final-candidate-d69a3ec closure_matrix.json",
   "ledgers": "FM_LEDGER.json / BUILD2_LEDGER.json at b997efd",
   "deployed": "b997efd (production /health 15800536, 2026-10-26)",
-  "branch_work": "claude/w4-FMBATCH1 024897cc, claude/w4-CLOSE6 ff788bd"
+  "branch_work": "claude/w4-FMBATCH1 (rows above, through 8eaaec6b), claude/w4-CLOSE6 ff788bd"
  },
  "definitions": {
   "engineering_completion": "status E, F or G; or H with the engineering half integrated and tested (FM: matrix maturity >= INTEGRATED with cited tests; Build 2: a live runtime consumer and a cited test). Independent review is not tracked per row, so it is not part of the numerator's evidence",
@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 57,
-    "B": 158,
+    "A": 46,
+    "B": 131,
     "C": 8,
     "D": 1,
-    "E": 16,
+    "E": 54,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 633,
+    "numerator": 671,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -58,10 +58,10 @@
     "denominator": 917
    },
    "blocked_engineering_blockers": {
-    "missing production evidence": 37,
-    "missing implementation": 187,
+    "missing production evidence": 34,
+    "missing implementation": 152,
     "missing prerequisite": 5,
-    "missing integration": 1
+    "missing integration": 39
    }
   }
  },
@@ -160,9 +160,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
+    "engineering_evidence": "quality/proof.py _customer_rungs (consented customer photo; repeat buyer) + check_claim; tests/test_w4_fmbatch1_proof_customer.py, tests/test_proof.py (ca2a60e4)",
     "engineering_complete": true,
-    "acceptance_complete": false,
-    "engineering_evidence": "quality/proof.py _customer_rungs (consented customer photo; repeat buyer) + check_claim; tests/test_w4_fmbatch1_proof_customer.py, tests/test_proof.py (ca2a60e4)"
+    "acceptance_complete": false
    },
    {
     "id": 9,
@@ -309,9 +309,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
+    "engineering_evidence": "growth/owned.py counterparts, owned_share (orders by owned channel), assisted_conversions; CASL send_gate; tests/test_w4_fmbatch1_owned_assisted.py, tests/test_owned.py (ca2a60e4)",
     "engineering_complete": true,
-    "acceptance_complete": false,
-    "engineering_evidence": "growth/owned.py counterparts, owned_share (orders by owned channel), assisted_conversions; CASL send_gate; tests/test_w4_fmbatch1_owned_assisted.py, tests/test_owned.py (ca2a60e4)"
+    "acceptance_complete": false
    },
    {
     "id": 21,
@@ -322,9 +322,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
+    "engineering_evidence": "growth/creators.py measure_outcome/scaling_decision from rows + may_scale, briefs, disclosure; tests/test_w4_fmbatch1_creator_outcomes.py, tests/test_creators.py (ca2a60e4)",
     "engineering_complete": true,
-    "acceptance_complete": false,
-    "engineering_evidence": "growth/creators.py measure_outcome/scaling_decision from rows + may_scale, briefs, disclosure; tests/test_w4_fmbatch1_creator_outcomes.py, tests/test_creators.py (ca2a60e4)"
+    "acceptance_complete": false
    },
    {
     "id": 22,
@@ -347,9 +347,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers/traffic",
+    "engineering_evidence": "commerce/kill_table.py route/compose + learn() thresholds from listing outcomes, wired in runtime/commerce_readings; tests/test_w4_fmbatch1_kill_learn.py, tests/test_kill_table.py, tests/test_cert_commerce_readings.py (ca2a60e4)",
     "engineering_complete": true,
-    "acceptance_complete": false,
-    "engineering_evidence": "commerce/kill_table.py route/compose + learn() thresholds from listing outcomes, wired in runtime/commerce_readings; tests/test_w4_fmbatch1_kill_learn.py, tests/test_kill_table.py, tests/test_cert_commerce_readings.py (ca2a60e4)"
+    "acceptance_complete": false
    },
    {
     "id": 24,
@@ -3580,9 +3580,9 @@
     "unclear": false,
     "status": "H",
     "why": "external: real buyers",
+    "engineering_evidence": "seasonal/remerchandising.py candidates (exact-slug sales, proven evergreen), moves, check_move; tests/test_w4_fmbatch1_remerch.py, tests/test_remerchandising.py (01f62da6)",
     "engineering_complete": true,
-    "acceptance_complete": false,
-    "engineering_evidence": "seasonal/remerchandising.py candidates (exact-slug sales, proven evergreen), moves, check_move; tests/test_w4_fmbatch1_remerch.py, tests/test_remerchandising.py (01f62da6)"
+    "acceptance_complete": false
    },
    {
     "id": 293,
@@ -5049,13 +5049,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 fccea594: quality/physical_truth + /api/physical-truth (\u00a721; review F-9 07903e57)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Only sample counts (/api/seasonal/feasibility) and quality.tester_plan audit exist; no per-product dashboard of tester, version, stage, due date, findings, deltas, launch-blocked"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 fccea594: quality/physical_truth + /api/physical-truth (\u00a721; review F-9 07903e57)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5078,10 +5078,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: Text judgement goes through the provider-neutral ModelGateway (Provider protocol, failover, circuit breakers), but vision/judgement callers (visual/inspect.py, ",
+    "why": "claude/w4-FMBATCH1: gateway/providers.py boundary + import ratchet; 26 direct vendor importers remain (visual/creative/publish lanes) (\u00a721)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "Text judgement goes through the provider-neutral ModelGateway (Provider protocol, failover, circuit breakers), but vision/judgement callers (visual/inspect.py, visual/bible.py, visual/photoreal.py, vi"
+     "detail": "claude/w4-FMBATCH1: gateway/providers.py boundary + import ratchet; 26 direct vendor importers remain (visual/creative/publish lanes) (\u00a721)"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -5093,13 +5093,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Concentration is measured only by 30-day spend per provider (scale/dependency.report); calls, critical workflows and 'requirements lost during outage' are not r",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch P: scale/dependency.register + tests (\u00a710)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Concentration is measured only by 30-day spend per provider (scale/dependency.report); calls, critical workflows and 'requirements lost during outage' are not reported. The ai_provider axis also mixes"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch P: scale/dependency.register + tests (\u00a710)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5109,13 +5109,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: The EXISTENTIAL verdict depends on concentration + load, not on 'tested fallback exists'; a second configured/billed provider (e.g. an image provider or an unte",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch P: existential until a fallback drill (\u00a710)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "The EXISTENTIAL verdict depends on concentration + load, not on 'tested fallback exists'; a second configured/billed provider (e.g. an image provider or an untested key) flips the verdict to sound wit"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch P: existential until a fallback drill (\u00a710)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5125,13 +5125,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch P: diversification_trigger (\u00a710)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No trigger computes outage/price/terms/volume/revenue-dependence/downtime-cost justification for diversification; only the anti-fragility 'plan vs existential' verdict exists."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch P: diversification_trigger (\u00a710)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5141,11 +5141,11 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "B",
+    "why": "claude/w4-FMBATCH1: fallback contract built; a same-provider fallback with UNKNOWN quality/latency still routes (needs per-model golden evals); contract exceptions no longer route (review F-10, 5fec6bb0)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "no test cited; No structured contract (structured output, vision, context, quality, latency, cost) a fallback must meet before satisfying a gate."
+     "detail": "claude/w4-FMBATCH1: fallback contract built; a same-provider fallback with UNKNOWN quality/latency still routes (needs per-model golden evals); contract exceptions no longer route (review F-10, 5fec6bb0)"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -5157,13 +5157,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: gateway/evals.py holds property evals for model output but is unreached and has no extraction/vision/creative-jury/benchmark-comparison/improvement-analysis gol",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 ae9d7b89: gateway/compat_pack.py (\u00a721; review F-4/F-5 330ed7c9); no live provider has run it (a paid drill)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "gateway/evals.py holds property evals for model output but is unreached and has no extraction/vision/creative-jury/benchmark-comparison/improvement-analysis golden tasks; image provider benchmarking e"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 ae9d7b89: gateway/compat_pack.py (\u00a721; review F-4/F-5 330ed7c9); no live provider has run it (a paid drill)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5197,13 +5197,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch P: gateway/provider_watch.py (\u00a710)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Provider prices live in a static table (gateway/anthropic.py PRICES_USD_PER_MTOK, gateway/images.py cad_per_image) with no versioned watch or routing-economics re-run on change."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch P: gateway/provider_watch.py (\u00a710)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5301,13 +5301,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Attributed by purpose, model, provider, agent, department, product (finance/spend_report.what_it_bought) and task/experiment in finance/governor; not by require",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 d2fd5071: finance/value_units.py (\u00a721)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Attributed by purpose, model, provider, agent, department, product (finance/spend_report.what_it_bought) and task/experiment in finance/governor; not by requirement or benchmark as first-class columns"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 d2fd5071: finance/value_units.py (\u00a721)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5705,13 +5705,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Aggregation is implemented for the provenance backlog (one incident with count/classes) and incident restatement (report_count), not as a general rule for homog",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (FMBATCH1.md \u00a79)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Aggregation is implemented for the provenance backlog (one incident with count/classes) and incident restatement (report_count), not as a general rule for homogeneous backlogs (e.g. dead letters of on"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (FMBATCH1.md \u00a79)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5721,13 +5721,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Escalation requires persistence across sweeps and every signal carries evidence; there is no measure that detects a permanently noisy/false signal (e.g. inciden",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (\u00a79)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Escalation requires persistence across sweeps and every signal carries evidence; there is no measure that detects a permanently noisy/false signal (e.g. incident opened/closed flapping rate) and raise"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (\u00a79)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5845,13 +5845,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Free space and leftover temp-dir counts are monitored; cache growth, file-count growth trend and growth-rate alarms are not.",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (\u00a79)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Free space and leftover temp-dir counts are monitored; cache growth, file-count growth trend and growth-rate alarms are not."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch O: ops/signal_hygiene.py + tests (\u00a79)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5861,13 +5861,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Runtime classifies failures (PermanentError vs TransientError, funding markers, capability refusals) but nothing classifies build/test failures (ENOSPC/permissi",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1: scripts/classify_failure.py + run_tests.sh (\u00a711; review F-6 07903e57)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Runtime classifies failures (PermanentError vs TransientError, funding markers, capability refusals) but nothing classifies build/test failures (ENOSPC/permissions/network/provider) before a revert; p"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1: scripts/classify_failure.py + run_tests.sh (\u00a711; review F-6 07903e57)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5901,13 +5901,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 418d59c8: ops/signing_audit.py; signing is unavailable and reported so (\u00a720; review F-7 07903e57)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No audit proves signatures are generated and independently verifiable; commits read %G?=N here."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 418d59c8: ops/signing_audit.py; signing is unavailable and reported so (\u00a720; review F-7 07903e57)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5941,13 +5941,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 418d59c8: ops/SIGNING_RECOVERY.md + test (\u00a720)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No documented/tested signing recovery procedure exists in the repository."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 418d59c8: ops/SIGNING_RECOVERY.md + test (\u00a720)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -5957,13 +5957,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 418d59c8: release-record signing evidence (\u00a720)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Release evidence does not list unsigned commits."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 418d59c8: release-record signing evidence (\u00a720)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -6357,13 +6357,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: unmet evidence classes are shown ('unmet: ...') but not the observed share per class",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 b555f5f1: evidence-gate share per class (\u00a722)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "unmet evidence classes are shown ('unmet: ...') but not the observed share per class"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 b555f5f1: evidence-gate share per class (\u00a722)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -6409,13 +6409,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 07807184: seasonal cohorts (\u00a722)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; seasonal at-risk rows carry slug/event only; no legacy/current-candidate/future-programme classification"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 07807184: seasonal cohorts (\u00a722)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -6461,13 +6461,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: owned_surfaces gate names 'a site or a Pinterest account' separately from etsy_shop, but carries no requirement ids so 'why required' is absent, and it is still",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 7f4a898f: owned_surfaces why_required; card held (\u00a722)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; owned_surfaces gate names 'a site or a Pinterest account' separately from etsy_shop, but carries no requirement ids so 'why required' is absent, and it is still shown as an owner c"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 7f4a898f: owned_surfaces why_required; card held (\u00a722)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -6489,13 +6489,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch D: dashboard decision order (\u00a712)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; page order is: counters grid -> legacy owner actions -> command centre (build2, visual, MJs, seasonal, CA$5K, creative, improve, spend caps) -> health -> approvals -> learning -> l"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch D: dashboard decision order (\u00a712)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -6505,13 +6505,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage FULL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch D: folds with summaries (\u00a712)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; tables are truncated by query limits (15 rows) with no summary/expand drilldown"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch D: folds with summaries (\u00a712)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -8653,13 +8653,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: only three sandbox trial kinds exist (counterfactual_rollback, league_replay, self_audit); other proposals wait untested; replay is a simulator of history",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 c26c58f0: pricing_shadow trial (\u00a722); price-at-outcome writer is in the listings lane, after the listings release",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "only three sandbox trial kinds exist (counterfactual_rollback, league_replay, self_audit); other proposals wait untested; replay is a simulator of history"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 c26c58f0: pricing_shadow trial (\u00a722); price-at-outcome writer is in the listings lane, after the listings release"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -8841,13 +8841,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: no loop proposes cheaper routes/context sizes automatically; cost is an axis in league compare and routing/caching exist",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 04ac701f: improve/cost_learning.py (\u00a722)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no loop proposes cheaper routes/context sizes automatically; cost is an axis in league compare and routing/caching exist"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 04ac701f: improve/cost_learning.py (\u00a722)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -8905,13 +8905,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: ranking is expected gain/cost/stagnation; no explicit launch-blocker precedence or reversibility term inside the improvement ranking",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch I (\u00a715)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "ranking is expected gain/cost/stagnation; no explicit launch-blocker precedence or reversibility term inside the improvement ranking"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch I (\u00a715)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -8961,13 +8961,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: no single record joins spend and deploy SHA to each adopted improvement; quality-floor verdicts are in evidence JSON not normalised",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1: improve/cells audit record (\u00a716)",
     "blocker": {
-     "kind": "missing production evidence",
-     "detail": "no single record joins spend and deploy SHA to each adopted improvement; quality-floor verdicts are in evidence JSON not normalised"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1: improve/cells audit record (\u00a716)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9413,13 +9413,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: validated internal lessons/fixtures persist; external research findings are not promoted into structured knowledge (research/*.md prose)",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1: intel/research_fetch run + promotion (\u00a718; review F-2/F-8 617097b0)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "validated internal lessons/fixtures persist; external research findings are not promoted into structured knowledge (research/*.md prose)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1: intel/research_fetch run + promotion (\u00a718; review F-2/F-8 617097b0)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9734,10 +9734,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: runtime 'agents' are permissioned job-type roles (orchestrator, market_radar, cfo, creative_director, support, listing, publishing, quality_director, ...) not L",
+    "why": "claude/w4-FMBATCH1 871b84a3: domains mapped; analytics and integration have no agent; build-side lanes not visible to the runtime",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "runtime 'agents' are permissioned job-type roles (orchestrator, market_radar, cfo, creative_director, support, listing, publishing, quality_director, ...) not LLM department agents; Build-side departm"
+     "detail": "claude/w4-FMBATCH1 871b84a3: domains mapped; analytics and integration have no agent; build-side lanes not visible to the runtime"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -9781,13 +9781,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: module ownership for build lanes is a written rule (ORG_BOARD), not enforced by code; runtime has work ownership (swarm.orphans) but not code/data ownership lea",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch I (\u00a715); override proposed (OVERRIDES_PROPOSED_FMBATCH1_B)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "module ownership for build lanes is a written rule (ORG_BOARD), not enforced by code; runtime has work ownership (swarm.orphans) but not code/data ownership leases"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch I (\u00a715); override proposed (OVERRIDES_PROPOSED_FMBATCH1_B)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9981,13 +9981,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: concurrency bounded by fixed pool size, lane limits, provider circuit breakers and DB lock handling; CPU, memory, storage, Railway and DB capacity are not measu",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch I: swarm/resources storage and I/O (\u00a715)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "concurrency bounded by fixed pool size, lane limits, provider circuit breakers and DB lock handling; CPU, memory, storage, Railway and DB capacity are not measured or used to size concurrency"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch I: swarm/resources storage and I/O (\u00a715)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10253,13 +10253,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: only throughput-vs-worker-count advice and measured lane split exist; wall-clock compression, idle-capacity time, duplicate-work avoidance, conflict rate and me",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch I: swarm/metrics.parallel_window (\u00a715)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "only throughput-vs-worker-count advice and measured lane split exist; wall-clock compression, idle-capacity time, duplicate-work avoidance, conflict rate and merge delay are not measured"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch I: swarm/metrics.parallel_window (\u00a715)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11783,10 +11783,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: Twelve improvement cells and ~20 agents exist but Executive, Etsy/Marketplace, Compliance/Policy, Analytics/Intelligence and Reliability are not cells with mand",
+    "why": "claude/w4-FMBATCH1 871b84a3: department records with honest coverage; compliance/policy and analytics have no charter, executive no cell",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "Twelve improvement cells and ~20 agents exist but Executive, Etsy/Marketplace, Compliance/Policy, Analytics/Intelligence and Reliability are not cells with mandate/backlog/KPI; no per-department KPI r"
+     "detail": "claude/w4-FMBATCH1 871b84a3: department records with honest coverage; compliance/policy and analytics have no charter, executive no cell"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -11799,10 +11799,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: No merge/deploy queue or file-authority ownership; goals/critical path not modelled; lane refill and owner decisions exist.",
+    "why": "claude/w4-FMBATCH1 d6189dc2: executive plan read by swarm.allocate; merge/deploy queue and file ownership stay build-side",
     "blocker": {
-     "kind": "missing production evidence",
-     "detail": "No merge/deploy queue or file-authority ownership; goals/critical path not modelled; lane refill and owner decisions exist."
+     "kind": "missing implementation",
+     "detail": "claude/w4-FMBATCH1 d6189dc2: executive plan read by swarm.allocate; merge/deploy queue and file ownership stay build-side"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -12026,13 +12026,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Missing free ad credit, cash ad spend split, payout/cash position, unreconciled items and monthly-close status; MTD/YTD not separate (rolling 30 days).",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 956a6a3f: /api/finance owner_view",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Missing free ad credit, cash ad spend split, payout/cash position, unreconciled items and monthly-close status; MTD/YTD not separate (rolling 30 days)."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 956a6a3f: /api/finance owner_view"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12042,13 +12042,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: No per-department objective/blockers/completed work/KPI trend view; agents with ceilings, swarm allocations and league exist as separate endpoints.",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1: company departments + KPI trend drawn (\u00a717, \u00a719)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "No per-department objective/blockers/completed work/KPI trend view; agents with ceilings, swarm allocations and league exist as separate endpoints."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1: company departments + KPI trend drawn (\u00a717, \u00a719)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12206,13 +12206,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Only a viewport meta tag and an auto-fit card grid; wide tables have no responsive treatment; no touch-optimised owner-command view for S25 Ultra or portable-HQ",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 60ba9bb5: breakpoints, scrolling tables, /m",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Only a viewport meta tag and an auto-fit card grid; wide tables have no responsive treatment; no touch-optimised owner-command view for S25 Ultra or portable-HQ layout for tablet."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 60ba9bb5: breakpoints, scrolling tables, /m"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12250,13 +12250,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: No per-department RUN/GROW/IMPROVE queues and no WATCHING state: idle feeding is one global GREEN-only STANDING_BACKLOG of seven items (swarm.backlog), and free",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 871b84a3: RUN->GROW->IMPROVE pull, WATCHING spans (review F-11 5fec6bb0)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "No per-department RUN/GROW/IMPROVE queues and no WATCHING state: idle feeding is one global GREEN-only STANDING_BACKLOG of seven items (swarm.backlog), and free-poll backoff suspends unchanged polling"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 871b84a3: RUN->GROW->IMPROVE pull, WATCHING spans (review F-11 5fec6bb0)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12314,13 +12314,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Top cards show queue, running, dead letters, certified releases, incidents, agent opex, revenue, worker state, providers, listings drafted; missing Today/Month/",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch C: executive command center (\u00a717)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Top cards show queue, running, dead letters, certified releases, incidents, agent opex, revenue, worker state, providers, listings drafted; missing Today/Month/90-day objective, profit, conversion, li"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch C: executive command center (\u00a717)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12406,13 +12406,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Dashboard agent table shows name, authority, phase, daily cap, enabled; agent quality/retirement via /api/swarm and league via /api/league; no org chart, direct",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch C: agents workspace (\u00a717)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Dashboard agent table shows name, authority, phase, daily cap, enabled; agent quality/retirement via /api/swarm and league via /api/league; no org chart, director/worker hierarchy, current work, heart"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch C: agents workspace (\u00a717)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13110,13 +13110,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Measured: queue age, progress (completions), worker/scheduler liveness, dead letters, restart recovery (in off-device proof), promoted/reverted improvements (re",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 f2efa2ba: ops/useful_work readings (untouched opportunities UNMEASURED: no runtime table)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Measured: queue age, progress (completions), worker/scheduler liveness, dead letters, restart recovery (in off-device proof), promoted/reverted improvements (retrospective). Not measured: value-weight"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 f2efa2ba: ops/useful_work readings (untouched opportunities UNMEASURED: no runtime table)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13126,13 +13126,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Queue age beyond threshold reads DEGRADED and persists into an escalated condition across consecutive sweeps; not value-aware, not conditioned on idle capacity,",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 f2efa2ba: diagnosed ready-work alarm",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Queue age beyond threshold reads DEGRADED and persists into an escalated condition across consecutive sweeps; not value-aware, not conditioned on idle capacity, and no automatic investigation of why t"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 f2efa2ba: diagnosed ready-work alarm"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13154,13 +13154,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: The worker loop claims the next runnable job immediately and completions enqueue follow-ons (production); idle refill from the standing backlog and lane recompu",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 c089c7bd: worker refill on a terminal event",
     "blocker": {
-     "kind": "missing production evidence",
-     "detail": "The worker loop claims the next runnable job immediately and completions enqueue follow-ons (production); idle refill from the standing backlog and lane recomputation run hourly and are not deployed; "
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 c089c7bd: worker refill on a terminal event"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13246,13 +13246,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Dashboard shows queue pending/running/dead, worker live/stalled, restarts, health verdict, Build 2 ready vs parked and improvement block; missing autonomous ope",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 batch C + f2efa2ba: autonomy block with useful-work readings",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Dashboard shows queue pending/running/dead, worker live/stalled, restarts, health verdict, Build 2 ready vs parked and improvement block; missing autonomous operating hours, WATCHING agents, oldest re"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 batch C + f2efa2ba: autonomy block with useful-work readings"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14523,13 +14523,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 8eaaec6b: Studio Learn dashboard card",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no Learn dashboard card"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 8eaaec6b: Studio Learn dashboard card"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
