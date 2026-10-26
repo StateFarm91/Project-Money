@@ -1,0 +1,31 @@
+{
+  "check": {
+    "candidate": "eec083b1e5999995aecd199686438a21685a940d",
+    "deployed": "62770fbea63767d44911802776b6a8ef4111d2dc",
+    "mode": "rollback",
+    "note": "verdict only; this script never deploys (F-461, A3-06)",
+    "reasons": [],
+    "rollback": {
+      "reason": "rehearsal: Batch 2 (Unified Laura) rolled back to the listings release 051dbee2",
+      "to": "051dbee286077fa760858701e32e385af34c8bd9"
+    },
+    "suite_run": null,
+    "verdict": "ALLOW"
+  },
+  "commit": "eec083b1e5999995aecd199686438a21685a940d",
+  "ok": true
+}
+{
+  "candidate": "eec083b1e5999995aecd199686438a21685a940d",
+  "deployed": "62770fbea63767d44911802776b6a8ef4111d2dc",
+  "mode": "rollback",
+  "note": "verdict only; this script never deploys (F-461, A3-06)",
+  "reasons": [],
+  "rollback": {
+    "reason": "rehearsal: Batch 2 (Unified Laura) rolled back to the listings release 051dbee2",
+    "to": "051dbee286077fa760858701e32e385af34c8bd9"
+  },
+  "suite_run": null,
+  "verdict": "ALLOW"
+}
+deploy.sh: ALLOW eec083b1e5999995aecd199686438a21685a940d (dry run; nothing pushed)

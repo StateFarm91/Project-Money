@@ -20,6 +20,7 @@ or a model provider. Fakes stand in for the provider and record what they were a
 Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_w4_rel2.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import asyncio
@@ -245,7 +246,7 @@ def test_l1_l2_the_route_refuses_oversize_and_non_ascii_cleanly():
         r = c.post("/api/etsy/webhook", content=body,
                    headers={**h, "content-type": "application/json"})
         assert r.status_code == 202, r.text
-        refused = c.get("/api/etsy").json()["webhooks"]["refused"]
+        refused = _opread.get(c, "/api/etsy").json()["webhooks"]["refused"]
         assert refused.get("too_large", 0) >= 1 and refused.get("bad_signature", 0) >= 1
     finally:
         os.environ.pop(wh.SECRET_ENV, None)

@@ -120,7 +120,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 from brambleloop.app import main as _main  # noqa: E402
 try:
     with TestClient(_main.app) as _c:
-        _r = _c.get("/api/closure")
+        import _opread  # W4-SECPATCH: /api/closure is operator-only
+        _r = _opread.get(_c, "/api/closure")
         _j = _r.json() if _r.status_code == 200 else {}
 finally:
     # Release SQLite pool handles before deleting the test's temporary directory.

@@ -7,6 +7,7 @@ cadence period. Every test here enqueues a real `swarm.*` job and lets `Worker.r
 it through the permission layer, so what is proven is the runtime path.
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
@@ -252,8 +253,8 @@ def test_the_runtime_routes_report_what_the_handlers_decided():
     from brambleloop.app import main
 
     with TestClient(main.app) as c:
-        swarm = c.get("/api/swarm/runtime").json()
-        experiments = c.get("/api/experiments").json()
+        swarm = _opread.get(c, "/api/swarm/runtime").json()
+        experiments = _opread.get(c, "/api/experiments").json()
     assert "orchestrator" in swarm["agent_quality"]["agents"]
     assert swarm["agent_quality"]["enacted"] is False
     assert "allocation" in swarm and isinstance(swarm["orphans"], list)

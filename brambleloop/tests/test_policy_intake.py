@@ -7,6 +7,7 @@ storing a digest and never the text, and resolving the incident with the same fi
 watch uses -- unless the reading is itself stale.
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import os
 import sys
@@ -138,7 +139,7 @@ def test_api_policy_carries_the_dated_knowledge():
     from brambleloop.gates import policy_knowledge
 
     with TestClient(app_main.app) as client:
-        r = client.get("/api/policy")
+        r = _opread.get(client, "/api/policy")
     assert r.status_code == 200
     assert r.json()["knowledge"] == policy_knowledge.describe()
 
@@ -159,10 +160,10 @@ def test_the_script_sends_the_fields_the_endpoint_reads():
 
 def test_the_new_read_endpoints_answer_with_unmeasured_rather_than_numbers():
     with TestClient(app_main.app) as client:
-        leading = client.get("/api/leading")
-        cohorts = client.get("/api/cohorts")
-        acceptance = client.get("/api/acceptance")
-        blind = client.get("/api/blind-review")
+        leading = _opread.get(client, "/api/leading")
+        cohorts = _opread.get(client, "/api/cohorts")
+        acceptance = _opread.get(client, "/api/acceptance")
+        blind = _opread.get(client, "/api/blind-review")
     assert leading.status_code == 200 and leading.json()["success"]["claimable"] is False
     assert cohorts.status_code == 200
     assert cohorts.json()["cohorts"]["source"]["status"] == "OWNER-GATED"

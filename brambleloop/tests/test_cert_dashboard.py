@@ -118,8 +118,28 @@ def seeded() -> TestClient:
         s.add(LedgerEntry(category="sale", description="seed sale", gross_cad=12.5,
                           fees_cad=1.44, evidence_ref="seed-order-1"))
         s.commit()
-    _SEEDED["client"] = TestClient(main.app)
+    # W4-SECPATCH: every view this file certifies is the operator's (the dashboard and its
+    # JSON reads are owner-only), so the client presents the operator credential.
+    # `test_the_anonymous_caller_sees_none_of_it` checks the same seed is absent without it.
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = OPS_TOKEN
+    _SEEDED["client"] = TestClient(main.app,
+                                   headers={"Authorization": f"Bearer {OPS_TOKEN}"})
     return _SEEDED["client"]
+
+
+OPS_TOKEN = "cert-dashboard-operator-" + "q" * 24
+
+
+def test_the_anonymous_caller_sees_none_of_it():
+    seeded()
+    anon = TestClient(main.app)
+    page = anon.get("/").text
+    for word in ("Queue pending", "Waiting on the owner", "seed sale", "CA$", "Launch-cleared"):
+        assert word not in page, word
+    for path in ("/api/console", "/api/incidents", "/api/spend-report", "/api/build2",
+                 "/api/closure", "/api/headline", "/api/owner-actions"):
+        assert anon.get(path).status_code == 401, path
+    assert set(anon.get("/api/status").json()) <= {"version", "build", "boot_guard"}
 
 
 def sql(q: str, *args):

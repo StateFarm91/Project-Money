@@ -299,7 +299,9 @@ def test_api_growth_solves_from_the_database():
     from brambleloop.app import main
 
     main.db.create_all()
-    out = TestClient(main.app).get("/api/growth").json()
+    import _opread
+
+    out = _opread.get(TestClient(main.app), "/api/growth").json()
     # Every term is passed and reported unmeasured, rather than solved as {} (zeros).
     assert out["constraint"]["identifiable"] is False
     assert "qualified_visits" in out["constraint"]["unmeasured"]

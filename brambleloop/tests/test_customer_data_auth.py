@@ -56,7 +56,7 @@ socket.create_connection = _no_network  # type: ignore[assignment]
 from fastapi.testclient import TestClient  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
-from brambleloop.app import main  # noqa: E402
+from brambleloop.app import main, security  # noqa: E402
 from brambleloop.core import opsauth  # noqa: E402
 from brambleloop.core.models import Customer, Order, SupportCase  # noqa: E402
 from sqlalchemy import select  # noqa: E402
@@ -238,13 +238,12 @@ def test_owner_card_routes_never_carry_the_recorded_buyer():
     try:
         for path in ("/", "/api/build", "/api/console", "/api/owner-actions", "/api/war-room"):
             r = c.get(path)
-            assert r.status_code == 200, (path, r.status_code)
+            # W4-SECPATCH: the owner views refuse; `/` and `/api/build` are public reads with
+            # no owner content at all.
+            assert r.status_code in (200, 401), (path, r.status_code)
             assert not _leaks(r.text), (path, _leaks(r.text))
-    finally:
-        os.environ.pop(opsauth.TOKEN_VAR, None)
-    # Coordinator decision 2026-10-26: owner-inbox text is shown only to the operator.
-    os.environ[opsauth.TOKEN_VAR] = TOKEN
-    try:
+            assert f"support case {_STATE['recorded_case']}" not in r.text, path
+        # The operator, presenting the credential, still sees the card itself.
         body = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"}).text
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
@@ -266,13 +265,20 @@ def test_a_card_that_does_quote_a_buyer_is_redacted_on_render():
         for path in ("/", "/api/owner-actions", "/api/console"):
             r = c.get(path)
             assert not _leaks(r.text), (path, _leaks(r.text))
-        r = c.get("/api/owner-actions")
-        assert "[customer]" in r.text and r.headers["content-type"].startswith(
-            "application/json")
-        r.json()  # still valid JSON after the scrub
+        # W4-SECPATCH: the owner views now refuse an anonymous caller outright; the scrub stays
+        # installed as defence in depth, and redacts this very body if it ever went public.
+        assert c.get("/api/owner-actions").status_code == 401
         # The operator, presenting the credential, sees the row as stored.
         r = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"})
         assert SENTINELS["recorded_ref"] in r.text
+        scrub = security.build_scrubber(main._known_customer_refs())
+        public = security.scrub_body(r.content, "application/json", scrub).decode("utf-8")
+        assert "[customer]" in public and not _leaks(public), _leaks(public)
+        import json as _json
+
+        _json.loads(public)  # still valid JSON after the scrub
+        assert any(getattr(m, "cls", None) is security.CustomerRefScrubMiddleware
+                   for m in main.app.user_middleware), "the scrub is no longer installed"
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
         with main.db.session() as s:
