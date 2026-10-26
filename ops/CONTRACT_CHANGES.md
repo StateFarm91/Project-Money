@@ -18,3 +18,5 @@ below.
 | 2026-10-26 | API routes | 4c5e4f01ca7b16dc | F-475: GET /api/evidence (operator-only internal evidence index) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | 85e9ae1b15253cb8 | F-667: GET /api/company/departments/{key} (department workspace, read-only) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | 887396069856321f | F-814: GET /api/marketing/constellation/{slug} (operator-only content constellation) | additive: no existing route changed; no dependant to migrate |
+| 2026-10-26 | API routes | 01189a41dd61b5f9 | Review N-1: GET /api/finance/owner (operator-only); owner_view removed from public /api/finance | additive: no existing route changed; no dependant to migrate |
+| 2026-10-26 | API routes | 556ba71935bfe4c4 | Review N-1 audit: GET /api/spend-report/governance (operator-only; learning value + adoptions moved off the public spend report) | additive: no existing route changed; no dependant to migrate |

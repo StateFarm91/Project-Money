@@ -1,0 +1,9 @@
+  File "/home/user/bl-runs/wt-dev/brambleloop/tests/test_w4_fmbatch1_finance_owner.py", line 32, in _owner
+    assert r.status_code == 200, r.text
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: {"detail":"Not Found"}
+PASS test_learn_curriculum_needs_the_learn_editor_credential
+FAIL test_mobile_view_shows_owner_actions_only_as_a_count AssertionError owner card texts belong behind the owner session
+PASS test_mutating_research_evidence_is_gated
+FAIL test_operator_routes_refuse_without_the_credential AssertionError /api/products/lifecycle
+FAIL test_public_routes_carry_no_owner_finance_customer_or_unpublished_product_data AssertionError public /api/spend-report carries "learning_value"

@@ -172,6 +172,13 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/etsy/scorecard",
     "/api/opportunities",
     "/api/evidence",
+    "/api/finance/owner",
+    # Review cbd4ff1 N-1 route audit: department spend/incidents/inbound tasks, the product
+    # lifecycle board (unpublished product slugs and titles) and the spend-governance detail
+    # (research questions, per-provider adoption cost) are operator reads.
+    "/api/company/departments/{key}",
+    "/api/products/lifecycle",
+    "/api/spend-report/governance",
     "/api/marketing/constellation/{slug}",
     # F-671: the dossier includes support cases and orders -> operator.
     "/api/product/{slug}/dossier",

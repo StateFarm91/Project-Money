@@ -809,8 +809,16 @@ def api_finance() -> dict:
         # F-620: the owner's finance view -- MTD and YTD separately, ad spend split into
         # credit and cash, the cash/payout position, unreconciled items and the monthly
         # close. Each from its own source; an unreadable one is UNKNOWN, never 0.
-        "owner_view": _finance_owner_view(),
     }
+
+
+@app.get("/api/finance/owner")
+def api_finance_owner() -> dict:
+    """F-620 owner finance view: cash/payout position, unreconciled bank lines, MTD/YTD,
+    ad credit vs cash and the monthly close. Operator credential required (review N-1): it
+    carries the owner's bank balance, statement line ids, payouts, reserves and runway, so it
+    is never part of the public `/api/finance`."""
+    return _finance_owner_view()
 
 
 def _finance_owner_view() -> dict:
@@ -2137,6 +2145,14 @@ def _adoptions_reading() -> dict:
         return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
 
+@app.get("/api/spend-report/governance")
+def api_spend_governance() -> dict:
+    """F-723 learning value (research questions and their realised value) and F-417 adoption
+    costs. Operator credential required (review N-1 audit): research questions and per-provider
+    adoption detail are internal, so they are not on the public spend report."""
+    return {"learning_value": _learning_value_reading(), "adoptions": _adoptions_reading()}
+
+
 @app.get("/api/spend-report")
 def api_spend_report() -> dict:
     """What the money bought, by every dimension the owner asked to see it by.
@@ -2161,8 +2177,6 @@ def api_spend_report() -> dict:
             "drift": spend_report.estimate_drift(db),
             "refusals": spend_report.refusals(db),
             # F-723: research spend's expected learning value beside what it realised.
-            "learning_value": _learning_value_reading(),
-            "adoptions": _adoptions_reading(),
             "this_week": {"period": "iso_week",
                           "spent_cad": round(sum(float(r.amount_cad or 0.0)
                                                  for r in spend_report.rows(db, period="week")),
@@ -5903,7 +5917,8 @@ def _pill(status: str) -> Markup:
 def dashboard_mobile() -> str:
     """F-653: the owner's phone view -- health, what is waiting on the owner, today's numbers.
 
-    Same exposure as `/` (read-only aggregates; the owner inbox shows what `/` shows), laid
+    Read-only aggregates; owner decisions appear only as a count linking to the owner
+    session (review N-1 audit). Laid
     out for a narrow touch screen: one column, 44 px touch targets, no table wider than the
     viewport. Each block degrades to "unavailable" on its own; UNKNOWN is never zero.
     """
@@ -5937,9 +5952,10 @@ def dashboard_mobile() -> str:
         cards = executor.approval_inbox(db, env=dict(os.environ))["cards"]
         if not cards:
             return '<div class="empty">Nothing is waiting on you.</div>'
-        return "".join(f'<div class="m-act owner"><b>{esc(c.get("what") or c.get("gate"))}'
-                       f'</b><br><small>{esc(c.get("action") or "")}</small></div>'
-                       for c in cards[:6])
+        # Review N-1 audit: /m is public, so it shows how many decisions wait and links to the
+        # owner session for what they are -- the card texts stay behind the owner login.
+        return (f'<a class="m-act" href="/cc/"><b>{len(cards)}</b> decision(s) waiting'
+                f'<br><small>open the Command Center to see them</small></a>')
 
     def _today():
         since = now - _td(hours=24)

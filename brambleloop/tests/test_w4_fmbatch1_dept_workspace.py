@@ -41,11 +41,20 @@ def test_one_department_renders_every_section_with_its_rows():
     assert w["incidents"] and any("dead-lettered" in b for b in w["blockers"])
 
 
-def test_route_and_unknown_department():
+def test_route_is_operator_only_and_unknown_department_is_404():
+    from brambleloop.core import opsauth
+
     c = TestClient(main.app)
     key = departments.COMPANY[0]["key"]
-    assert c.get(f"/api/company/departments/{key}").status_code == 200
-    assert c.get("/api/company/departments/nope").status_code == 404
+    token = "w" * 40
+    os.environ[opsauth.TOKEN_VAR] = token
+    try:
+        assert c.get(f"/api/company/departments/{key}").status_code == 401
+        h = {"Authorization": f"Bearer {token}"}
+        assert c.get(f"/api/company/departments/{key}", headers=h).status_code == 200
+        assert c.get("/api/company/departments/nope", headers=h).status_code == 404
+    finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
 
 
 if __name__ == "__main__":

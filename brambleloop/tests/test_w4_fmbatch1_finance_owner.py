@@ -16,14 +16,28 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.app import main  # noqa: E402
+from brambleloop.core import opsauth  # noqa: E402
 from brambleloop.core.models import CostEntry  # noqa: E402
 
-main.db.create_all()
-Registry(main.db).seed_defaults()
+TOKEN = "f" * 40
+AUTH = {"Authorization": f"Bearer {TOKEN}"}
+os.environ[opsauth.TOKEN_VAR] = TOKEN
+# JSON keys of the owner view. Quoted, so the public P&L's own `tax_reserve_cad` line (public
+# since before this branch) is not mistaken for the owner's reserve obligation.
+OWNER_KEYS = tuple(f'"{k}"' for k in (
+    "owner_view", "cash_on_hand_cad", "cash_unreconciled_lines", "expected_payout_cad",
+    "owner_payable", "tax_reserve", "runway", "safe_discretionary_budget_cad",
+    "statement_lines", "unreconciled_cad", "cash_and_payout"))
+
+
+def _owner():
+    r = TestClient(main.app).get("/api/finance/owner", headers=AUTH)
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 def test_owner_view_blocks_and_unmeasured_ads():
-    v = TestClient(main.app).get("/api/finance").json()["owner_view"]
+    v = _owner()
     assert set(v) >= {"windows", "ads", "cash_and_payout", "unreconciled", "monthly_close"}
     assert set(v["windows"]) == {"mtd", "ytd"}, v["windows"]
     assert v["ads"]["recorded_ad_spend_cad"] == "UNMEASURED"
@@ -59,13 +73,30 @@ def test_f681_unreconciled_items_listed_and_totals_equal_sql():
          "reference": "UNKNOWN-VENDOR"},
         {"external_id": "b2", "kind": "deposit", "amount": 40.0, "at": "2026-10-21T00:00:00+00:00",
          "reference": "NO-PAYOUT"}])
-    v = TestClient(main.app).get("/api/finance").json()["owner_view"]["unreconciled"]
+    v = _owner()["unreconciled"]
     with main.db.session() as s:
         n, micros = s.execute(select(func.count(), func.sum(AcctStatementLine.amount_micros))
                               .where(AcctStatementLine.state == "unmatched")).one()
     assert v["unreconciled"] == n == len(v["items"]) == 2
     assert v["unreconciled_cad"] == round(micros / 1e6, 4) == 27.5
     assert [i["external_id"] for i in v["items"]] == ["b2", "b1"]
+
+
+def test_n1_public_finance_carries_no_owner_data_and_the_owner_route_needs_the_credential():
+    from brambleloop.finance.accounting import reconciliation
+
+    reconciliation.import_statement(main.db, "bank", [
+        {"external_id": "n1-secret-line", "kind": "deposit", "amount": 99.0,
+         "at": "2026-10-19T00:00:00+00:00", "reference": "N1"}])
+    c = TestClient(main.app)
+    body = c.get("/api/finance").text
+    for k in OWNER_KEYS + ("n1-secret-line",):
+        assert k not in body, f"public /api/finance leaks {k!r}"
+    assert c.get("/api/finance/owner").status_code == 401
+    assert "n1-secret-line" in str(_owner())
+
+main.db.create_all()
+Registry(main.db).seed_defaults()
 
 
 if __name__ == "__main__":
