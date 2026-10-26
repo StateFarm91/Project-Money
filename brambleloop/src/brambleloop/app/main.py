@@ -4690,6 +4690,14 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/products/lifecycle")
+def api_products_lifecycle() -> dict:
+    """F-672: every product on the lifecycle board, its stage derived from rows."""
+    from ..products import lifecycle
+
+    return lifecycle.board(db)
+
+
 @app.get("/api/product/{slug}/dossier")
 def api_product_dossier(slug: str) -> dict:
     """F-671: every table that knows this product, read where it lives (operator-only)."""
