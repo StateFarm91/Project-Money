@@ -141,6 +141,13 @@ BRANCH_WORK = {
     "F-484": ('E', 'claude/w4-FMBATCH1 02858e8e: dispatch holds back tasks overlapping a live lane\'s paths'),
     "F-492": ('E', 'claude/w4-FMBATCH1 02858e8e: per-lane stop/escalation criteria in ops/registry.py'),
     "F-496": ('E', 'claude/w4-FMBATCH1 8b336faf: app/hq_worker.py GREEN-only HQ worker with independence guard'),
+    "F-681": ('E', 'claude/w4-FMBATCH1 0d0a1ac0: finance owner view lists unreconciled items; totals equal SQL'),
+    "F-667": ('E', 'claude/w4-FMBATCH1 3589af90: autonomy/department_workspace.py + /api/company/departments/{key}'),
+    "F-694": ('E', 'claude/w4-FMBATCH1 f8aae50f: improve/readings_bus.py finance/policy/customer readings as routed lessons'),
+    "F-690": ('E', 'claude/w4-FMBATCH1 ff3395c6: autonomy/cross_team.py tasks between departments'),
+    "F-670": ('E', 'claude/w4-FMBATCH1 f9e25ef7: light/dark tokens, SVG chart component, drill-down Trends block'),
+    "F-712": ('E', 'claude/w4-FMBATCH1 1f5a2454: ops/task_contract.py validated contracts'),
+    "F-713": ('E', 'claude/w4-FMBATCH1 1f5a2454: integration boundary check against owned_paths'),
     "F-441": ('B', 'claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).

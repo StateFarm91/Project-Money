@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 34,
-    "B": 105,
+    "A": 33,
+    "B": 99,
     "C": 8,
     "D": 1,
-    "E": 92,
+    "E": 99,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 709,
+    "numerator": 716,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 114,
+    "missing implementation": 107,
     "missing prerequisite": 5,
-    "missing integration": 77
+    "missing integration": 84
    }
   }
  },
@@ -12390,13 +12390,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Per-department data exists as improvement cells/profiles (objective, metric, tactics, lessons, config versions) via /api/profiles; no workspace per department w",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 3589af90: autonomy/department_workspace.py + /api/company/departments/{key}",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Per-department data exists as improvement cells/profiles (objective, metric, tactics, lessons, config versions) via /api/profiles; no workspace per department with agents/jobs, queues, spend, experime"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 3589af90: autonomy/department_workspace.py + /api/company/departments/{key}"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12434,13 +12434,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: No dark/light support on the main Studio page (only /ops/teardown declares color-scheme), no charts, no drill-down diagnostics; CSS is one inline token block.",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 f9e25ef7: light/dark tokens, SVG chart component, drill-down Trends block",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No dark/light support on the main Studio page (only /ops/teardown declares color-scheme), no charts, no drill-down diagnostics; CSS is one inline token block."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 f9e25ef7: light/dark tokens, SVG chart component, drill-down Trends block"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12598,13 +12598,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: P&L lines exist (sales, refunds, fees, ads, AI/API, hosting, software, testers, tax reserve) and spend governance renders; no Studio finance tab, no cash/payout",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 0d0a1ac0: finance owner view lists unreconciled items; totals equal SQL",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "P&L lines exist (sales, refunds, fees, ads, AI/API, hosting, software, testers, tax reserve) and spend governance renders; no Studio finance tab, no cash/payout tracking, no unreconciled-items list, f"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 0d0a1ac0: finance owner view lists unreconciled items; totals equal SQL"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12710,13 +12710,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Lessons route by subject and are consumed at decision points; incidents and orphaned work get owners; repeated support questions become candidate defects. Missi",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 ff3395c6: autonomy/cross_team.py tasks between departments",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Lessons route by subject and are consumed at decision points; incidents and orphaned work get owners; repeated support questions become candidate defects. Missing: generic structured task creation bet"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 ff3395c6: autonomy/cross_team.py tasks between departments"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12762,13 +12762,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Lesson bus with provenance and acted_on tracking exists and is consumed by radar, engineering, listings, support and creative briefs; evidence outside lessons (",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 f8aae50f: improve/readings_bus.py finance/policy/customer readings as routed lessons",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Lesson bus with provenance and acted_on tracking exists and is consumed by radar, engineering, listings, support and creative briefs; evidence outside lessons (e.g. finance readings, policy readings) "
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 f8aae50f: improve/readings_bus.py finance/policy/customer readings as routed lessons"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13006,13 +13006,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Task contracts are written as prose briefs (base SHA, boundary, outputs, sentinel) and the dev-tooling board reads completion sentinels, but there is no machine",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 1f5a2454: ops/task_contract.py validated contracts",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Task contracts are written as prose briefs (base SHA, boundary, outputs, sentinel) and the dev-tooling board reads completion sentinels, but there is no machine-checked contract sc"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 1f5a2454: ops/task_contract.py validated contracts"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13022,13 +13022,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 1f5a2454: integration boundary check against owned_paths",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; Isolation is practiced (git worktrees, separate branches such as codex/visual-v2-rnd, cloud outcome branches) but nothing enforces owned-surface boundaries or coordinator-approved "
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 1f5a2454: integration boundary check against owned_paths"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {

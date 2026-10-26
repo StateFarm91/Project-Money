@@ -862,3 +862,22 @@ These are recorded in DECISION_LOG `D-W4-FMBATCH1-BUILDSIDE` and proposed as gat
 - **F-483** is owner-gated. CI would use about 150 Actions minutes a run: about 9,000 a month at two integrations a day, or about 4,500 for a nightly run. I added no workflow file.
 - **F-463** is blocked by design. Build tooling never writes to the production database, and the requirement's "without the file" rules out the file-based registry.
 - **F-579** is owner-gated on the accounting vendor decision.
+
+## 34. Batch AB: F-681, F-667, F-694, F-690, F-670, F-712, F-713
+
+| Row | Commit | What | Test |
+|---|---|---|---|
+| F-681 | 0d0a1ac0 | The `/api/finance` owner view now lists unreconciled statement items (newest first, up to 50) with their total, beside the existing cash/payout position and monthly close. The test checks the totals against SQL | test_w4_fmbatch1_finance_owner |
+| F-667 | 3589af90 | `/api/company/departments/{key}`: one department's coverage, its agents' jobs and queue, 30-day spend, its cells' measurements and open improvements, incidents, blockers and (from F-690) inbound tasks. Route pin declared | test_w4_fmbatch1_dept_workspace |
+| F-694 | f8aae50f | `improve/readings_bus.py`, run in the mine stage, publishes three kinds of reading as routed lessons, once per reading (idempotent on evidence): finance ceiling refusals (`cost`), unreviewed material policy changes (`platform_policy`), and 3 or more support cases for one product in 30 days (`instruction_clarity`) | test_w4_fmbatch1_readings_bus |
+| F-690 | ff3395c6 | `autonomy/cross_team.py`: a task from one department to another, with its evidence. Creating it may enqueue a job only when the job is GREEN-only and one of the receiving department's agents may run it. A recurring customer confusion creates one pattern-team task | test_w4_fmbatch1_cross_team |
+| F-670 | f9e25ef7 | The Studio CSS uses colour tokens only, with a dark set under `prefers-color-scheme`. Adds an inline SVG sparkline (no script, CSP-safe) and a Trends block (14-day spend and completed jobs) with drill-down links | test_w4_fmbatch1_theme |
+| F-712 / F-713 | 1f5a2454 | `ops/task_contract.py`: a validated contract (base SHA, objective, owned paths, authority BUILD_ONLY or BUILD_AND_PROPOSE, budget, dependencies, outputs, tests, sentinel). It is required at `integrate enqueue --contract`, and dispatch cards carry a template. Integration fails a lane that changed files outside its owned paths | test_w4_fmbatch1_task_contract |
+
+**Not built, decision needed:**
+- **F-652, product imagery.** `/` is a public GET. Putting unpublished product images on it would expose designs before launch.
+- **F-714, F-715 and F-710.** These need a second model provider.
+- **F-699 and F-705.** These need a deploy and a challenger spend reservation.
+- **F-707.** Visual `METHOD_VERSION` belongs to the Workstream C visual lane.
+
+**Incident:** while choosing suites by grep, I started the forbidden `test_cert_wiring.py`. It ran for about 10 minutes before I stopped it by PID; no other process was touched. Suites are now picked by name only.
