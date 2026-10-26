@@ -49,8 +49,11 @@ OPERATOR = {
 FORBIDDEN = ('"cash_on_hand_cad"', '"cash_unreconciled_lines"', '"expected_payout_cad"',
              '"owner_payable"', '"runway"', "secret-unreleased", "Unreleased Design",
              '"learning_value"', '"adoptions"', '"customer_id"', '"customer_ref"')
-PUBLIC = ("/api/finance", "/api/useful-work", "/api/company/departments", "/api/spend-report",
-          "/api/owned", "/m")
+# INTEG7 (review R-1): these were public when FMBATCH1 audited them. W4-SECPATCH made every GET
+# not on security.PUBLIC_GET_ROUTES operator-only, so each is now asserted refused to an
+# anonymous caller and served to the operator. Stricter: none may be re-opened to pass.
+NOW_OPERATOR = ("/api/finance", "/api/useful-work", "/api/company/departments",
+                "/api/spend-report", "/api/owned", "/m")
 
 
 def test_operator_routes_refuse_without_the_credential():
@@ -61,18 +64,23 @@ def test_operator_routes_refuse_without_the_credential():
         assert c.get(url, headers={"Authorization": f"Bearer {TOKEN}"}).status_code in (200, 404), url
 
 
-def test_public_routes_carry_no_owner_finance_customer_or_unpublished_product_data():
+def test_formerly_public_routes_are_operator_only_and_leak_nothing_anonymously():
     c = TestClient(main.app)
-    for url in PUBLIC:
-        assert not security.requires_operator("GET", url), url
+    for url in NOW_OPERATOR:
+        assert security.requires_operator("GET", url), url
+        assert url not in security.PUBLIC_GET_ROUTES, url
         r = c.get(url)
-        assert r.status_code == 200, (url, r.status_code)
+        assert r.status_code == 401, (url, r.status_code)
         for k in FORBIDDEN:
-            assert k not in r.text, f"public {url} carries {k}"
+            assert k not in r.text, f"anonymous {url} carries {k}"
+        assert c.get(url, headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 200, url
 
 
 def test_mobile_view_shows_owner_actions_only_as_a_count():
-    html = TestClient(main.app).get("/m").text
+    c = TestClient(main.app)
+    anon = c.get("/m")                     # INTEG7 (R-1): operator-only since W4-SECPATCH
+    assert anon.status_code == 401 and "m-act" not in anon.text
+    html = c.get("/m", headers={"Authorization": f"Bearer {TOKEN}"}).text
     assert "m-act owner" not in html, "owner card texts belong behind the owner session"
 
 
@@ -92,15 +100,14 @@ MARK_DELAY = "zq-owner-delay-text-7733"
 
 
 def _public_get_paths():
-    from fastapi.routing import APIRoute
-
-    out = []
-    for r in main.app.routes:
-        if not isinstance(r, APIRoute) or "GET" not in r.methods or "{" in r.path:
+    # INTEG7 (R-1): every route, routers included (security.iter_api_routes), not app.routes.
+    out = set()
+    for path, methods, _dep in security.iter_api_routes(main.app):
+        if "GET" not in methods or "{" in path:
             continue
-        if security.requires_operator("GET", r.path):
+        if security.requires_operator("GET", path):
             continue
-        out.append(r.path)
+        out.add(path)
     return sorted(out)
 
 
@@ -115,7 +122,8 @@ def test_no_unauthenticated_page_carries_owner_inbox_text():
                           consequence_of_delay=MARK_DELAY, minutes=5))
     c = TestClient(main.app)
     paths = _public_get_paths()
-    assert "/" in paths and "/m" in paths and len(paths) > 20
+    assert "/" in paths and set(paths) <= security.PUBLIC_GET_ROUTES, \
+        sorted(set(paths) - security.PUBLIC_GET_ROUTES)
     leaks = []
     for p in paths:
         try:

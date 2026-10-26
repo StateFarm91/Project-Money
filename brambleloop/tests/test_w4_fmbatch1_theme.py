@@ -1,6 +1,7 @@
 """F-670: the Studio shell has light and dark tokens (prefers-color-scheme), no hard-coded
 surface colours outside the token block, and a chart component with drill-down links."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import re
 import sys
@@ -41,7 +42,8 @@ def test_sparkline_component():
 def test_dashboard_renders_trends_with_drill_down():
     with main.db.session() as s:
         s.add(CostEntry(agent="a", kind="model", amount_cad=1.5, purpose="p"))
-    html = TestClient(main.app).get("/").text
+    assert "<h2>Trends</h2>" not in TestClient(main.app).get("/").text   # anonymous: no data
+    html = _opread.get(TestClient(main.app), "/").text
     assert "<h2>Trends</h2>" in html and html.count('class="spark"') >= 2
     assert 'href="/api/spend-report">drill down' in html
     assert "CA$1.50 over 14 days" in html

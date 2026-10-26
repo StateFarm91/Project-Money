@@ -1,5 +1,6 @@
 """F-827: the Studio Learn card on the dashboard, computed from the database."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import re
 import sys
@@ -28,7 +29,8 @@ def _card(html):
 
 
 def test_empty_learn_is_said_not_zeroed():
-    card = _card(TestClient(main.app).get("/").text)
+    assert "Studio Learn" not in TestClient(main.app).get("/").text   # anonymous: no cards
+    card = _card(_opread.get(TestClient(main.app), "/").text)
     assert "none written yet" in card and "UNMEASURED" in card
 
 
@@ -38,7 +40,7 @@ def test_learn_card_reads_lessons_and_coverage():
         s.add(Lesson(slug="sc", revision="r1", spec={}, state="APPROVED"))
         s.add(LearnGap(topic="magic ring", state="COVERED"))
         s.add(LearnGap(topic="invisible decrease", state="QUEUED"))
-    card = _card(TestClient(main.app).get("/").text)
+    card = _card(_opread.get(TestClient(main.app), "/").text)
     assert "APPROVED: 1" in card and "DRAFT: 1" in card
     assert re.search(r"awaiting review\s+1", card)
     assert "1 / 2" in card

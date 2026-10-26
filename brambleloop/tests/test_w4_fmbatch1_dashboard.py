@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import re
 import socket
@@ -56,7 +57,9 @@ def _page() -> str:
             s.add(Incident(signature="health:x", severity="P2", summary="minor", detail={}))
             for k in range(12):
                 s.add(AuditLog(actor="orchestrator", action=f"test.action{k}", detail={}))
-        _HTML["html"] = TestClient(main.app).get("/").text
+        anon = TestClient(main.app).get("/").text          # INTEG7 (R-1): no data anonymously
+        assert "disk filling" not in anon and "<table>" not in anon
+        _HTML["html"] = _opread.get(TestClient(main.app), "/").text
     return _HTML["html"]
 
 

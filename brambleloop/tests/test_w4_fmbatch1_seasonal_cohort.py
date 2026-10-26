@@ -1,6 +1,7 @@
 """F-194: seasonal rows carry a cohort (legacy / launch_candidate / programme) and the
 dashboard renders counts and at-risk rows grouped by it."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import socket
 import sys
@@ -70,7 +71,8 @@ def test_dashboard_renders_the_cohort():
     try:
         main.db.create_all()
         Registry(main.db).seed_defaults()
-        html = TestClient(main.app).get("/").text
+        assert "Cohort" not in TestClient(main.app).get("/").text   # anonymous: no data
+        html = _opread.get(TestClient(main.app), "/").text
     finally:
         LT.catalogue_plans = real
     assert "<th>Cohort</th>" in html or ">Cohort<" in html

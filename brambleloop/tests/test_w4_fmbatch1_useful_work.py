@@ -1,6 +1,7 @@
 """F-719 / F-720 / F-729: useful-work readings, the diagnosed ready-work alarm, the CC block,
 and the company-departments route (F-601)."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import sys
 import tempfile
@@ -102,10 +103,13 @@ def test_routes_and_cc_block():
     main.db.create_all()
     Registry(main.db).seed_defaults()
     c = TestClient(main.app)
-    assert set(c.get("/api/useful-work").json()) >= {"ready_age_by_band", "owner_blocked"}
-    deps = c.get("/api/company/departments").json()
+    assert c.get("/api/useful-work").status_code == 401             # anonymous: refused
+    assert c.get("/api/company/departments").status_code == 401
+    assert set(_opread.get(c, "/api/useful-work").json()) >= {"ready_age_by_band",
+                                                              "owner_blocked"}
+    deps = _opread.get(c, "/api/company/departments").json()
     assert deps["total"] == 12
-    assert c.get("/api/departments").status_code == 200        # F-487 route untouched
+    assert _opread.get(c, "/api/departments").status_code == 200   # F-487 route untouched
     metrics = {m["metric"] for m in executive._autonomy_extra(main.db, NOW)}
     assert {"oldest_ready_work_s", "owner_blocked_hours", "watching_departments",
             "autonomous_completion_rate_24h"} <= metrics

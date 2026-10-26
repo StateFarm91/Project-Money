@@ -2,6 +2,7 @@
 FAIL or DEGRADED in the smoke matrix and /api/verify, never PASS; an incident names the
 provider and reason class; no error body leaks."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import json
 import sys
 from datetime import datetime, timedelta, timezone
@@ -106,13 +107,15 @@ def test_verify_reports_degraded_with_the_provider_named():
             s.add(AuditLog(actor="orchestrator", action=a,
                            at=datetime.now(timezone.utc), detail={"ok": False,
                                                                   "reason": CREDIT}))
-    body = TestClient(main.app).get("/api/verify").json()
+    anon = TestClient(main.app).get("/api/verify").json()     # INTEG7 (R-1): projected
+    assert set(anon) <= {"ok", "checks"} and SECRET not in json.dumps(anon)
+    body = _opread.get(TestClient(main.app), "/api/verify").json()
     assert body["status"] in ("DEGRADED", "FAIL")
     ph = {c["check"]: c for c in body["provider_health"]}
     assert ph["provider_health:model.probe"]["verdict"] == "FAIL"
     assert ph["provider_health:model.probe"]["evidence"]["provider"] == "anthropic"
     assert SECRET not in json.dumps(body)
-    smoke_resp = TestClient(main.app).get("/api/verify/smoke")
+    smoke_resp = _opread.get(TestClient(main.app), "/api/verify/smoke")
     assert smoke_resp.status_code == 503 and smoke_resp.json()["verdict"] != "PASS"
 
 

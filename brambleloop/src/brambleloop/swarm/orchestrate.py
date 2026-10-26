@@ -857,6 +857,19 @@ JOB_BANDS: dict[str, str] = {
     "listing.outcomes": "exploration",          # W3 K3: same band as commerce.readings
     # W3 lane H via lane D: learning with no committed value until a challenger wins.
     "visual.rnd.cycle": "exploration",
+    # INTEG7 (review R-1): W4-AGENTS job types, each banded deliberately rather than left to the
+    # housekeeping default. They are all CA$0, read-only or record-only.
+    "creative.family_engine": "new_opportunity",      # next family members, amplification
+    "listing.cross_sell_graph": "new_opportunity",    # F-775 cross-sell over the catalogue
+    "intel.children_portfolio": "new_opportunity",    # F-351.. priority children's family
+    "storefront.review": "new_opportunity",           # storefront content proposals, no write
+    "creative.capability_scorecard": "exploration",   # Build 2 #94 measurement
+    "creative.photo_principles": "exploration",       # F-224 photographic principles
+    "research.investigate": "exploration",            # F-401 Research Agent
+    "research.sweep": "exploration",
+    "research.flag_architecture": "exploration",      # F-429 flag; changes nothing itself
+    "creative.salvage_review": "housekeeping",        # F-113 re-gate legacy, recommends only
+    "visual.model_ledger": "housekeeping",            # F-744 evidence ledger harvest
     "commerce.orders_ingest": "exploration",
     # F-005: a read-only Etsy taxonomy snapshot, behind the etsy_api gate.
     "listing.taxonomy_refresh": "exploration",

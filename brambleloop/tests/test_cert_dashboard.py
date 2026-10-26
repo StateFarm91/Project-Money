@@ -478,11 +478,17 @@ def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplica
     # public page shows a count (asserted in test_w4_fmbatch1_route_audit).
     from brambleloop.core import opsauth
 
+    # INTEG7 (review R-1): restore the token the shared `seeded()` client uses, rather than pop
+    # it, so later tests in this process still read owner-only views (order-independent).
+    prev = os.environ.get(opsauth.TOKEN_VAR)
     os.environ[opsauth.TOKEN_VAR] = "d" * 40
     try:
         html = seeded().get("/", headers={"Authorization": "Bearer " + "d" * 40}).text
     finally:
-        os.environ.pop(opsauth.TOKEN_VAR, None)
+        if prev is None:
+            os.environ.pop(opsauth.TOKEN_VAR, None)
+        else:
+            os.environ[opsauth.TOKEN_VAR] = prev
     assert html.count("MERGE-SENTINEL") == 1
     with main.db.session() as s:
         s.get(OwnerAction, sid).done = True

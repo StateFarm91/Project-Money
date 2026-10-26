@@ -1,6 +1,7 @@
 """F-653: phone and tablet access -- responsive breakpoints, tables that scroll in their own
 box, and the compact owner view at /m."""
 import _tmp; _tmp.install()  # per-process temp sandbox, removed at exit
+import _opread  # INTEG7 (R-1): owner-only reads present the operator credential
 import os
 import re
 import sys
@@ -30,7 +31,8 @@ def test_breakpoints_exist_for_phone_and_tablet():
 
 
 def test_every_dashboard_table_scrolls_inside_its_own_box():
-    html = C.get("/").text
+    assert "<table>" not in C.get("/").text          # anonymous: the no-data public page
+    html = _opread.get(C, "/").text
     tables = html.count("<table>")
     assert tables > 3
     assert html.count('<div class="tw"><table>') == tables, (
@@ -38,7 +40,8 @@ def test_every_dashboard_table_scrolls_inside_its_own_box():
 
 
 def test_mobile_owner_view():
-    r = C.get("/m")
+    assert C.get("/m").status_code == 401           # anonymous: operator-only since SECPATCH
+    r = _opread.get(C, "/m")
     assert r.status_code == 200
     html = r.text
     assert 'name="viewport" content="width=device-width' in html

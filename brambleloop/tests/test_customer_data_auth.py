@@ -250,6 +250,45 @@ def test_owner_card_routes_never_carry_the_recorded_buyer():
     assert f"support case {_STATE['recorded_case']}" in body, "the card itself must still show"
 
 
+def test_the_customer_scrub_redacts_a_live_public_response_end_to_end():
+    """INTEG7 (review R-6): the middleware itself, not only `scrub_body`, redacts a buyer ref
+    from a response sent to a caller without the operator credential. No public route carries
+    such a body any more, so a throwaway ASGI app stands in for the next one that would."""
+    import asyncio
+    import json as _json
+
+    refs = [SENTINELS["recorded_ref"], SENTINELS["customer_ref"]]
+    body = _json.dumps({"card": f"Reply to {refs[0]} about {refs[1]}"}).encode()
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": body})
+
+    mw = security.CustomerRefScrubMiddleware(app, refs_provider=lambda: refs)
+
+    def call(headers):
+        out = []
+
+        async def send(m):
+            out.append(m)
+
+        asyncio.run(mw({"type": "http", "path": "/api/some-future-public-view",
+                        "headers": headers}, None, send))
+        return b"".join(m.get("body", b"") for m in out if m["type"] == "http.response.body")
+
+    os.environ[opsauth.TOKEN_VAR] = TOKEN
+    try:
+        public = call([]).decode("utf-8")
+        assert refs and not _leaks(public), _leaks(public)
+        assert "[customer]" in public
+        _json.loads(public)                      # still valid JSON after the scrub
+        operator = call([(b"authorization", f"Bearer {TOKEN}".encode())])
+        assert refs[0].encode() in operator      # the operator reads the row as stored
+    finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
+
+
 def test_a_card_that_does_quote_a_buyer_is_redacted_on_render():
     """Defence in depth: the next write path that forgets the rule is still not a leak."""
     from brambleloop.core.models import OwnerAction
