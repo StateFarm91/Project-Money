@@ -31,6 +31,12 @@ ALLOWED = {
     ("core/decision_index.py", "DECISION_LOG.md"): (
         "read only by the index generator (`main`) in the repository; at runtime `recorded()` "
         "reads the shipped core/decision_index.json (test_w3_decision_index keeps it in sync)"),
+    ("intel/research.py", "BUILD_STATE.md"): (
+        "F-405 internal search reads it only when present; in the image the file is absent and "
+        "the corpus is reported unavailable, never skipped "
+        "(test_w4_fmbatch2_research_docs_absent)"),
+    ("intel/research.py", "DECISION_LOG.md"): (
+        "as BUILD_STATE.md above (test_w4_fmbatch2_research_docs_absent)"),
     ("laura/memory/provenance.py", "DECISION_LOG.md"): (
         "read when present (repository); in the image the OSError path falls back to the "
         "shipped core/decision_index.json (test_runtime_readers_fall_back_to_the_index...)"),
