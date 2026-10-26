@@ -209,6 +209,21 @@ def handle_capability_scorecard(ctx: JobContext) -> dict:
             "work_done": max(1, len(rep["periods"]))}
 
 
+
+@handlers.register("creative.photo_principles")
+def handle_photo_principles(ctx: JobContext) -> dict:
+    """F-224: the photographic-principles profile and the Launch-0 plan comparison."""
+    from ..visual import photo_principles as PP
+    from .etsy_ops import store_reading
+
+    out = PP.run(ctx.db)
+    store_reading(ctx.db, PP.READING, out)
+    measured = sum(1 for p in out["profile"]["pods"].values() if p["state"] == "MEASURED")
+    ctx.audit(PP.READING, detail={"judged_listings": out["profile"]["judged_listings"],
+                                  "pods_measured": measured, "gaps": out["gaps"]})
+    return {"judged_listings": out["profile"]["judged_listings"], "pods_measured": measured,
+            "gaps": out["gaps"], "plans_changed": 0, "work_done": measured}
+
 # F-456/F-482: the shared contracts this module was built against. A contract that moves on
 # without this module migrating fails here, at import, instead of drifting silently.
 from ..core import contracts as _contracts  # noqa: E402

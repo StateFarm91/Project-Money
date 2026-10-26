@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T09:07:38.223475+00:00",
+ "generated_at": "2026-10-26T10:05:32.365320+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 125,
-  "handlers": 155,
+  "cadences": 126,
+  "handlers": 156,
   "agents": 32,
   "follow_on_edges": 78
  },
@@ -539,12 +539,14 @@
      "seasonal.sentinel",
      "creative.outcome_learning",
      "creative.family_engine",
+     "creative.photo_principles",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.sentinel": "orchestrator",
      "creative.outcome_learning": "creative_director",
      "creative.family_engine": "creative_director",
+     "creative.photo_principles": "creative_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -667,6 +669,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "photo_principles",
+      "agent": "creative_director",
+      "job_type": "creative.photo_principles",
+      "period_seconds": 86400
+     },
+     {
       "name": "salvage_review",
       "agent": "creative_director",
       "job_type": "creative.salvage_review",
@@ -718,7 +726,8 @@
     "overdue_cadence_catch_up": [
      "seasonal.sentinel",
      "creative.outcome_learning",
-     "creative.family_engine"
+     "creative.family_engine",
+     "creative.photo_principles"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -746,6 +755,7 @@
      "creative.grid_tournament",
      "creative.north_star",
      "creative.outcome_learning",
+     "creative.photo_principles",
      "creative.reference_reading",
      "creative.salvage_review",
      "creative.style_learning",

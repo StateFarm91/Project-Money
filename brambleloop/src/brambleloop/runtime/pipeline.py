@@ -2461,6 +2461,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # here so the useful-work judge knows the key rather than falling back to the counters.
     "creative.capability_scorecard": ("work_done",),
     "creative.family_engine": ("work_done",),
+    "creative.photo_principles": ("work_done",),
     "creative.salvage_review": ("work_done",),
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),

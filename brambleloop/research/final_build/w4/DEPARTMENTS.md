@@ -563,3 +563,33 @@ W-AGENTS W4 and W5 then re-implemented F-405, F-432, F-420, F-444 and F-449 insi
 - Keep and adapt to the API: `test_w4_research_agent.py`'s agent tests (declaration, method selection, invocation, sweep, flags, weekly review, F-404, retention).
 - Drop with their code: my F-405, F-432, F-444 and F-449 tests.
 - Keep the F-420 no-change stop test, routed through `R.stop`.
+
+## Workstream C batch W7: photographic principles from the judged benchmark galleries (F-224; 2026-10-26)
+
+**Prior work checked.** Neither `origin/claude/w4-FMBATCH1` nor any other branch's log names F-224.
+
+**Row.** "Sanctioned MJs gallery images are judged into a closed non-copying merchandising vocabulary, but those observations are not converted into Brambleloop photographic standards or prompts."
+
+**Built.**
+- **`visual/photo_principles.py`.** It reads only each judged image's `shot_type` (the closed vocabulary `intel.vision.SHOT_TYPES`) and its gallery rank, joined to the listing's pod.
+  - Per pod it measures the first-image shot shares, the share of galleries that include each shot type, and the median number of images judged.
+  - A shot type that at least half of a pod's judged galleries include becomes a **principle**, over at least 5 judged listings. A pod below that floor is INSUFFICIENT and has no principles.
+  - The free-text observation fields (composition, setting, ...) are never read, so no competitor wording or composition can reach a principle.
+- **Comparison with the shot plans.** Each Launch-0 shot plan (`visual.shot_plans`) is compared with its pod's principles, using a shot-type to gallery-job map (for example `detail_macro` to DETAIL, `scale_reference` to SCALE, `in_use` to LIFESTYLE).
+  - A principle whose job the plan lacks is an **advisory gap**.
+  - No plan is changed. The plan's own gates (F-852, the disclosed-render rule, one job per frame) still decide what may fill a role.
+- **Agent wiring.** New job `creative.photo_principles` for the Creative Director:
+  - classed RESEARCH, generatable in Product Design, on a daily cadence;
+  - declared in WORK_KEYS, and the autonomy map regenerated with no never-woken job types;
+  - it stores the `creative.photo_principles` reading.
+
+**Not built.** The row's "prompts" half. FLUX and model prompts are stub-only in this lane, and a generated image cannot fill a listing role under F-852. The profile is in the reading for the visual lane to consume once a provider path exists.
+
+**Tests** (`tests/test_w4_photo_principles.py`, 5/5):
+- no judged gallery gives no principle;
+- a pod below the floor is INSUFFICIENT;
+- wide shot types become principles and missing jobs are advisory gaps, with no competitor text carried;
+- the handler stores a reading and changes no plan;
+- every judged shot type maps to a gallery job.
+
+Regression: `test_roles`, `test_r2_autonomy_useful_work`, `test_vacuity`, `test_w4_departments`, `test_reachability`, `test_w4_contracts` and `test_v11_autonomy_orchestrator` pass.

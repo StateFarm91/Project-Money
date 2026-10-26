@@ -90,6 +90,9 @@ SAFE_GENERATED: dict[str, str] = {
                          "row and queues content.draft proposals; no Etsy write, CA$0",
     # W4-AGENTS W3: the Research Agent's self-trigger. Reads research tasks, lessons and the
     # repository research record; writes task rows and audit rows; no network, no model, CA$0.
+    "creative.photo_principles": "runtime.engineering_ops + visual.photo_principles: reads "
+                                 "judged benchmark shot types and the shot plans; one "
+                                 "reading; changes no plan; CA$0",
     "research.sweep": "runtime.intel_ops + intel.research_agent: internal retrieval only; "
                       "writes research-task and audit rows; CA$0",
 }
@@ -213,7 +216,8 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("creative.", "seasonal."),
        job_types={"cir.draft", "cir.revise", "collection.assemble"},
        generatable=("seasonal.sentinel", "creative.outcome_learning",
-                    "creative.family_engine", "autonomy.department_review"),
+                    "creative.family_engine", "creative.photo_principles",
+                    "autonomy.department_review"),
        forbidden=("create a beauty image and ask a model to guess instructions",
                   "certify its own pattern"),
        inputs=("coverage_gaps", "pattern_versions", "lessons"),
