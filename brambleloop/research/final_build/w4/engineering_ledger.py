@@ -112,6 +112,15 @@ BRANCH_WORK = {
     "F-455": ('E', 'claude/w4-FMBATCH1 3ca8d4de: ops/context_pack.py per-lane context pack'),
     "F-464": ('B', 'claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block (product-engine lane converts them)'),
     "F-550": ('E', 'claude/w4-FMBATCH1 3102036d: intel/etsy_ops_report daily exceptions + quarterly audit, read-only'),
+    "F-618": ('E', 'claude/w4-FMBATCH1 3cdb7837: analytics/metrics.py canonical KPI definitions used by runrate, loops and books'),
+    "F-549": ('E', 'claude/w4-FMBATCH1 8e37ca96: intel/etsy_scorecard + /api/etsy/scorecard (operator-only)'),
+    "F-671": ('E', 'claude/w4-FMBATCH1 544a2055: products/dossier.py across every product-keyed table'),
+    "F-672": ('B', 'claude/w4-FMBATCH1 14c80e22: products/lifecycle.py derived stages + guarded transitions; handlers do not yet call transition()'),
+    "F-465": ('E', 'claude/w4-FMBATCH1 b65b59d8: build2/critical_path.py; executor.queue carries the path and downstream counts'),
+    "F-673": ('E', 'claude/w4-FMBATCH1 0f1fa531: radar/cards.py opportunity cards at /api/opportunities (operator-only)'),
+    "F-723": ('E', 'claude/w4-FMBATCH1 5122f5c5: finance/learning_value.py gates research spend; gallery batch wired; report in /api/spend-report'),
+    "F-146": ('E', 'claude/w4-FMBATCH1 d762c7f6: test pins exactly one EXIT trap in run_tests.sh'),
+    "F-624": ('E', 'claude/w4-FMBATCH1 c118c4a3: autonomy/capability_audit.py quarterly decision records from the morning handoff'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).
     11: ("H", "code live (orders_ingest every 6 h, 0 receipts); waits on real buyers"),

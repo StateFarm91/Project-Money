@@ -746,3 +746,58 @@ add or change routes, or change `ListingPayload` or the CIR:
 3. re-run the test.
 
 The coordinator decided to keep the route pin (2026-10-26).
+
+## 28. Batch Y: F-618, F-549, F-671, F-672 (partial), F-465, F-673, F-723, F-146, F-624; proposals F-147, F-148, F-607
+
+| Row | Commit | What | Test |
+|---|---|---|---|
+| F-618 | 3cdb7837 | `analytics/metrics.py` canonical KPI functions; runrate, growth loops, books use them | test_w4_fmbatch1_metrics |
+| F-549 | 8e37ca96 | `intel/etsy_scorecard.py`, `/api/etsy/scorecard` (operator-only) | test_w4_fmbatch1_etsy_scorecard |
+| F-671 | 544a2055 | `products/dossier.py`, `/api/product/{slug}/dossier` (operator-only) | test_w4_fmbatch1_dossier |
+| F-672 (B) | 14c80e22 | `products/lifecycle.py` derived stages and guarded transitions; handlers do not yet call `transition()` (product-engine lane) | test_w4_fmbatch1_lifecycle |
+| F-465 | b65b59d8 | `build2/critical_path.py`: longest chain over `executor.DEPENDENCIES` + gate parks; `executor.queue` carries `critical_path` and each READY item's `unblocks_downstream`; unreadable reads UNKNOWN; cycles refused | test_w4_fmbatch1_critical_path |
+| F-673 | 0f1fa531 | `radar/cards.py`, `/api/opportunities` (operator-only): radar score, department arbitrage (UNMEASURED when not rankable), rights lane via `culture.engine.file_topic` + `rights.route`, Class C blocker, next pre-production experiment | test_w4_fmbatch1_opportunity_cards |
+| F-723 | 5122f5c5 | `finance/learning_value.py`: research spend >= CA$0.25 needs question, decision informed and new observations (>= 4 per CA$); refusals recorded; gallery batch wired before any reservation and realised after; report in `/api/spend-report` | test_w4_fmbatch1_learning_value |
+| F-146 | d762c7f6 | test pins exactly one EXIT trap in run_tests.sh and INT/TERM exiting through it | test_w4_fmbatch1_runtests_trap |
+| F-624 | c118c4a3 | `autonomy/capability_audit.py`: quarterly Etsy-surface + closure audit as decision records, run once per quarter from the morning handoff (no new cadence or permission) | test_w4_fmbatch1_capability_audit |
+
+Also in 5122f5c5: retention decisions for `etsy.credential_health`, `gateway.provider_change` and `plan.strategy_reviewed`, which this branch's F-549/F-099/F-661 readers began reading by literal; `test_cost_governance_wave2` had been failing on them.
+
+Proposals (not applied): `OVERRIDES_PROPOSED_FMBATCH1_D.json`.
+- F-147 and F-148 are stale: W3-HYG built the leak census and `tests/_tmp.py`, with tests.
+- F-607: the Accountant cycle exists (F-901). Splitting a separate `accountant` agent needs the cadence agent changed, and that is pinned to `cfo` in `test_v11_wiring` and the Laura-lane `test_w3_laura_core_wiring`. Left for the integrator.
+
+## 29. Retention guard: audit actions read through constants (coordinator priority)
+
+`ops.retention.unknown_read_actions` matched only `AuditLog.action == "literal"`. It now uses `ops/read_actions.py`, an AST scan that resolves:
+- constants, including imported ones and class-level ones;
+- module attributes (`vision.TASK`);
+- dict keys (or values, when subscripted or read through `.values()`);
+- comprehension and loop variables, including tuple unpacking over `.items()`;
+- dataclass fields of instance literals (`art.actions`);
+- the return values of zero-argument helpers;
+- helper parameters, followed transitively through every call site, or the parameter default.
+
+**Result:**
+- 183 read actions were found. 101 were unclassified, and all 101 are now classified in `_RESOLVED_READ_ACTIONS`, which is merged with `setdefault` so the AGENTS branch's own entries win on merge.
+- Prefix reads go in `KNOWN_READ_PREFIXES`. `recovery.` is protected through `PROTECTED_PREFIXES`.
+- Unresolvable sites must be listed in `UNRESOLVED_READ_SITES` (3 sealed-chain/emergency sites), or the guard reports `unresolved:<path::function>` and fails closed.
+
+**Classification rules:**
+- `lifetime_total` (protected), because keep-per-action is global and does not preserve these reads:
+  - a newest-row read filtered by artifact;
+  - a per-entity last-N read;
+  - an unwindowed count;
+  - a window longer than the 90-day horizon (the seasonal 365-day evidence windows).
+- `windowed`: 30-day and lights-out windows.
+- `latest`: global newest-row reads.
+
+The test also asserts:
+- every `GrantLedger(...)` chain action is protected;
+- the unresolved allowlist matches exactly what is still unresolved.
+
+**Fail-before-fix:** `evidence_FMBATCH1/retention_guard_fail_before_fix.txt` shows 3 of the 5 tests failing against the previous `retention.py`.
+
+**Cost:** the first scan takes about 3–15 s under load and is cached by source mtime. It runs only in the daily retention job.
+
+Also fixed: `test_vacuity` flagged three earlier FMBATCH1 tests for loops over possibly-empty iterables. Non-emptiness assertions were added.

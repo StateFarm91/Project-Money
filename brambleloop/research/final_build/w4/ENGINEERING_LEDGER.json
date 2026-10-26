@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 46,
-    "B": 121,
+    "A": 43,
+    "B": 116,
     "C": 8,
     "D": 1,
-    "E": 64,
+    "E": 72,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 681,
+    "numerator": 689,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 142,
+    "missing implementation": 134,
     "missing prerequisite": 5,
-    "missing integration": 49
+    "missing integration": 57
    }
   }
  },
@@ -5797,13 +5797,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: One cleanup function and trap exist, but no lint/test fails when a second `trap ... EXIT` is added.",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 d762c7f6: test pins exactly one EXIT trap in run_tests.sh",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; One cleanup function and trap exist, but no lint/test fails when a second `trap ... EXIT` is added."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 d762c7f6: test pins exactly one EXIT trap in run_tests.sh"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9905,13 +9905,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 b65b59d8: build2/critical_path.py; executor.queue carries the path and downstream counts",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no critical-path computation anywhere; executor.priority_of is section weight + status bonus + id; critical path appears only as prose (ops/ORG_BOARD.md 'Visual is on the critical "
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 b65b59d8: build2/critical_path.py; executor.queue carries the path and downstream counts"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11109,13 +11109,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 8e37ca96: intel/etsy_scorecard + /api/etsy/scorecard (operator-only)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no single Etsy scorecard; components exist on separate routes (/api/launch, /api/trust, /api/leading, /api/etsy/oauth/status, /api/policy, /api/owner-actions, /api/spend-report)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 8e37ca96: intel/etsy_scorecard + /api/etsy/scorecard (operator-only)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11998,13 +11998,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: No canonical metric-definition registry; contribution/revenue are computed in several modules (books, pricing, order contribution, runrate) without a shared def",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 3cdb7837: analytics/metrics.py canonical KPI definitions used by runrate, loops and books",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "No canonical metric-definition registry; contribution/revenue are computed in several modules (books, pricing, order contribution, runrate) without a shared definition."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 3cdb7837: analytics/metrics.py canonical KPI definitions used by runrate, loops and books"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12082,13 +12082,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: No daily executive brief (daily plan.cycle only re-runs the radar), monthly review is 30-day not post-close, no quarterly Etsy/company capability audit; weekly ",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 c118c4a3: autonomy/capability_audit.py quarterly decision records from the morning handoff",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "No daily executive brief (daily plan.cycle only re-runs the radar), monthly review is 30-day not post-close, no quarterly Etsy/company capability audit; weekly retrospective exists."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 c118c4a3: autonomy/capability_audit.py quarterly decision records from the morning handoff"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12450,13 +12450,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 544a2055: products/dossier.py across every product-keyed table",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; No single per-product record spanning opportunity, research, CIR, materials, 3D, imagery, PDFs, QA, safety, Etsy, marketing, customers, finance, experiments and history; data is sp"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 544a2055: products/dossier.py across every product-keyed table"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -12467,10 +12467,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: Products carry a free-text status (default 'concept', 'certified') and listings a state (drafted/published/withdrawn/retired); no enumerated DISCOVERED->...->RE",
+    "why": "claude/w4-FMBATCH1 14c80e22: products/lifecycle.py derived stages + guarded transitions; handlers do not yet call transition()",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "Products carry a free-text status (default 'concept', 'certified') and listings a state (drafted/published/withdrawn/retired); no enumerated DISCOVERED->...->RETIRED lifecycle, no board, no explicit r"
+     "detail": "claude/w4-FMBATCH1 14c80e22: products/lifecycle.py derived stages + guarded transitions; handlers do not yet call transition()"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -12482,13 +12482,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Scores exist (demand, competition, seasonality, price/economics, arbitrage with measured-share confidence) but no 'card' combining confidence, policy feasibilit",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 0f1fa531: radar/cards.py opportunity cards at /api/opportunities (operator-only)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Scores exist (demand, competition, seasonality, price/economics, arbitrage with measured-share confidence) but no 'card' combining confidence, policy feasibility and a recommended next experiment."
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 0f1fa531: radar/cards.py opportunity cards at /api/opportunities (operator-only)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -13170,13 +13170,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: Improvement cost, ROI realised vs baseline, stagnation throttling and governor marginal value exist; learning value (risk reduction, capability) is not scored a",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 5122f5c5: finance/learning_value.py gates research spend; gallery batch wired; report in /api/spend-report",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "Improvement cost, ROI realised vs baseline, stagnation throttling and governor marginal value exist; learning value (risk reduction, capability) is not scored and does not gate expensive research spen"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 5122f5c5: finance/learning_value.py gates research spend; gallery batch wired; report in /api/spend-report"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
