@@ -2204,3 +2204,25 @@ publication stays blocked.
 - **F-463 (long-running task handoff): build tooling never writes to the production database.** Build-lane state stays in the repository and the local registry files (`ops/registry.py`, `ops/board.py`).
   - The requirement asks that another session pick up completion *without the file*, and the file-based registry does not satisfy that. The row is therefore blocked by design, not satisfied.
 - **F-579 (accounting integration decision): owner-gated.** Choosing an accounting vendor (QuickBooks Online, Xero or none) is an owner decision, and the scored comparison needs vendor facts this build has not read. Nothing connects until the owner decides.
+
+## D-W4-FMBATCH1-REVIEW-CBD4FF1 — delta review findings N-1..N-8 (2026-10-26)
+
+Fixed. Each fix has a test that fails before it and passes after; the evidence is in `research/final_build/w4/evidence_FMBATCH1/review_cbd4ff1_n*_fail_before_fix.txt`.
+
+- **N-1 (High).** The owner finance view is now served at operator-only `/api/finance/owner` and has been removed from the public `/api/finance`.
+  - A route audit test covers every GET this branch added. These are now operator-only:
+    - the department workspace;
+    - the product lifecycle board;
+    - spend-governance detail.
+  - `/m` shows owner decisions only as a count, with a link to the owner session.
+- **N-2.** A taxonomy drift held for the owner (re-queue OFF) now blocks `store.publish` through the publish verdict. It still does not halt `gate.certify`.
+- **N-3.** "First sale" reads UNKNOWN (`met` None) while the order source is not connected.
+- **N-4.** A standing `AUTO_ROLLBACK_REASON` no longer authorises anything.
+  - An automatic rollback needs `AUTO_ROLLBACK=1` **and** `--auto-rollback-reason "<owner's reason>"` on that `deploy.sh` invocation.
+  - The header now documents the default as 0.
+  - This replaces the reviewer's "record the standing reason" option. No standing reason exists to record.
+- **N-5.** An unencodable (IDN) redirect target is raised as a recorded `FetchRefused`.
+- **N-6.** `/api/verify` `status` reads OK only when the smoke matrix is PASS. UNKNOWN outranks DEGRADED in the smoke headline. `ok` and the HTTP status are unchanged.
+- **N-7.** An executive plan not refreshed for 6 h gives no lane boost.
+  - Accepted, not built: counting idle wakes per day in `useful_work`. Every wake is already bounded to one per five minutes, and the ceilings are unchanged.
+- **N-8.** `compat_pack` records a call once. If the release after the record fails, the reservation is left to the abandoned-reservation sweep.

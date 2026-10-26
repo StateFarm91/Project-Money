@@ -902,3 +902,32 @@ These are recorded in DECISION_LOG `D-W4-FMBATCH1-BUILDSIDE` and proposed as gat
 - F-652 product imagery is held off the public `/` page until launch, by coordinator decision. The rest of its design pass shipped with F-670.
 
 **No unblocked rows remain** in the 74-row list.
+
+## 36. Delta review of cbd4ff1: N-1 to N-8
+
+| Finding | Commit | Fix | Test (fails before, passes after) |
+|---|---|---|---|
+| N-1 (High) | 15e06e61 | `/api/finance/owner` is operator-only and `owner_view` is gone from the public `/api/finance`. Route audit: the department workspace, the lifecycle board and the new `/api/spend-report/governance` are operator-only, and `/m` shows only a decision count with a link to `/cc/`. | test_w4_fmbatch1_finance_owner (negative test: unauthenticated `/api/finance` carries none of the owner keys or a bank line id); test_w4_fmbatch1_route_audit (every added route, by name) |
+| N-2 | 9d2b1ce6 | `taxonomy_drift.held_drift` feeds `release_gates.for_publish`. A held drift blocks publication; `gate.certify` is still not halted. | test_w4_fmbatch1_drift (default path) |
+| N-3 | 635281e4 | `executive_plan._goals` reads the order-source state: UNKNOWN / `met` None when disconnected. The earlier assertion of a measured 0 codified the defect and was corrected. | test_w4_fmbatch1_executive_plan |
+| N-4..N-8 | 9ab57408 | N-4: the reason is given per invocation (`--auto-rollback-reason`), a standing env reason is refused, and the header is fixed. N-5: an IDN redirect raises `FetchRefused`. N-6: `_verify_status`, and UNKNOWN outranks DEGRADED. N-7: `PLAN_MAX_AGE` is 6 h. N-8: record once, with a `billed` flag. | test_w4_fmbatch1_rollback, test_w4_fmbatch1_research_run, test_w4_fmbatch1_provider_health, test_w4_fmbatch1_executive_plan, test_w4_fmbatch1_compat |
+
+**Route audit result.**
+
+*Public, carrying no owner, finance, customer or unpublished-product data:*
+- `/api/finance`, now aggregates only (as at 871b84a);
+- `/api/useful-work`;
+- `/api/company/departments`;
+- `/api/spend-report`, as before this branch;
+- `/api/owned`;
+- `/m`.
+
+*Operator-only:* `/api/finance/owner`, `/api/orchestrator`, `/api/opportunities`, `/api/etsy/scorecard`, the product dossier, `/api/products/lifecycle`, `/api/evidence`, the constellation, the department workspace, `/api/physical-truth` and `/api/spend-report/governance`.
+
+*Gated by the Learn editor credential:* `/api/learn/curriculum`.
+
+*Default-deny (POST):* `/api/research/evidence`.
+
+**Note.** `/` (not added by this branch) still renders the owner inbox cards publicly. `/m` no longer does. Whether `/` should match is for the owner.
+
+**Pre-existing failure (not from these fixes).** `test_cert_publish_gates` fails 3 tests identically at 871b84a and at the head before N-2: "store.publish never evaluated the release gates" and two related failures. It belongs to the publication lane.
