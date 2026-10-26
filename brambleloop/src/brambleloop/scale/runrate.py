@@ -92,35 +92,36 @@ class Observed:
     repeat_orders: int | None = None
     listings: int | None = None
 
+    # F-618: each rate is the canonical definition in analytics.metrics.
     @property
     def conversion(self) -> float | None:
-        if self.visits and self.orders is not None:
-            return self.orders / self.visits
-        return None
+        from ..analytics import metrics
+
+        return metrics.conversion(self.orders, self.visits)
 
     @property
     def ctr(self) -> float | None:
-        if self.impressions and self.visits is not None:
-            return self.visits / self.impressions
-        return None
+        from ..analytics import metrics
+
+        return metrics.ctr(self.visits, self.impressions)
 
     @property
     def aov_cad(self) -> float | None:
-        if self.orders and self.revenue_cad is not None:
-            return self.revenue_cad / self.orders
-        return None
+        from ..analytics import metrics
+
+        return metrics.aov(self.revenue_cad, self.orders)
 
     @property
     def revenue_per_visitor(self) -> float | None:
-        if self.visits and self.revenue_cad is not None:
-            return self.revenue_cad / self.visits
-        return None
+        from ..analytics import metrics
+
+        return metrics.revenue_per_visitor(self.revenue_cad, self.visits)
 
     @property
     def contribution_per_visitor(self) -> float | None:
-        if self.visits and self.contribution_cad is not None:
-            return self.contribution_cad / self.visits
-        return None
+        from ..analytics import metrics
+
+        return metrics.contribution_per_visitor(self.contribution_cad, self.visits)
 
     def to_dict(self) -> dict:
         return {
@@ -517,7 +518,9 @@ def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
         revenue = round(sum(float(o.revenue_cad or 0.0) for o in kept), 2)
         contribution = round(sum(float(o.contribution_cad or 0.0) for o in kept), 2)
         repeat = sum(1 for o in kept if o.is_repeat)
-        refund_rate = (len(_void) / len(orders)) if orders else None
+        from ..analytics import metrics as _metrics
+
+        refund_rate = _metrics.refund_rate(len(_void), len(orders))
         support_rate = (len(support) / len(orders)) if orders else None
     else:
         n_orders = revenue = contribution = repeat = refund_rate = support_rate = None

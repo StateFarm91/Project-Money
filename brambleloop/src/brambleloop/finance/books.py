@@ -143,8 +143,10 @@ class ProfitAndLoss:
     @property
     def contribution_margin_cad(self) -> float:
         """Net sales less the costs that vary with selling: fees and ads."""
-        variable = self.platform_fees_cad + self.cost_by_kind.get("ads", 0.0)
-        return round(self.net_sales_cad - variable, 2)
+        from ..analytics import metrics       # F-618: the canonical definition
+
+        return round(metrics.contribution_margin(self.net_sales_cad, self.platform_fees_cad,
+                                                 self.cost_by_kind.get("ads", 0.0)), 2)
 
     @property
     def net_profit_cad(self) -> float:
