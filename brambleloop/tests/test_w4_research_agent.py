@@ -207,6 +207,70 @@ def test_the_weekly_review_reads_the_flags():
     assert RA.architecture_flags(db) == []
 
 
+# ---- batch W4: F-405 internal evidence first, F-432 research memory, F-404 confidence trigger
+
+def test_f405_every_internal_store_is_searched_before_any_external_method():
+    from datetime import date as _date
+
+    from brambleloop.core.models import Incident, RegisteredExperiment
+    from brambleloop.improve.failure_memory import FailureRecord
+
+    db = _db()
+    with db.session() as s:
+        s.add(Incident(severity="P3", signature="test:bobble", summary="bobble stitch "
+                       "rows pucker on the twin"))
+        s.add(RegisteredExperiment(key="x:bobble", product_slug="x", hypothesis="a bobble "
+                                   "stitch hero earns a click", metric="m", design="holdout",
+                                   success_threshold=1, failure_threshold=0, minimum_sample=1,
+                                   higher_is_better=True, stop_on=_date.today().isoformat(),
+                                   cost_cad=0, owner="o", state="registered"))
+        s.add(FailureRecord(fingerprint="f" * 64, cell="visual", method="bobble stitch "
+                            "displacement render", source="test", reason="bobble stitch "
+                            "shading flattened"))
+    opened = R.open_question(db, question="Why do bobble stitch rows pucker in the twin?",
+                             trigger="test:bobble-q", decision_ref="cir.twin",
+                             domain="techniques", query_terms=["bobble stitch"])
+    out = RA.investigate(db, opened["task"])
+    kinds = {e.split(":")[0] for e in out["evidence"]}
+    assert {"incidents", "experiments", "failure_memory"} <= kinds, out["evidence"]
+    assert out["status"] == RA.EVIDENCE_GATHERED
+
+
+def test_f432_a_question_already_answered_and_fresh_is_not_researched_again():
+    db = _db()
+    q = "What palettes are rising for nursery blankets this season?"
+    a = R.open_question(db, question=q, trigger="test:dup-a", decision_ref="x",
+                        domain="aesthetics", query_terms=["zzqq-none"])
+    first = RA.investigate(db, a["task"])
+    assert first["status"] == RA.UNRESOLVED and first["answered"]
+    b = R.open_question(db, question=q.upper(), trigger="test:dup-b", decision_ref="x",
+                        domain="aesthetics", query_terms=["zzqq-none"])
+    second = RA.investigate(db, b["task"])
+    assert second["status"] == RA.STOPPED_DUPLICATE and second["reused"]["task"] == a["task"]
+    states = {t["id"]: t["state"] for t in R.tasks(db)}
+    assert states[b["task"]] == R.STOPPED and states[a["task"]] == R.ANSWERED
+
+
+def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
+    from datetime import date as _date, datetime as _dt, timedelta as _td, timezone as _tz
+
+    from brambleloop.core.models import LearningObservation
+
+    db = _db()
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="test", citation="c",
+                                  observed_on=_dt.now(_tz.utc) - _td(days=60),
+                                  summary="an old reading of the policy"))
+    first = RA.stale_domains_to_research(db)
+    assert len(first["opened"]) == 1 and first["stale_domains"] >= 1
+    assert RA.stale_domains_to_research(db)["opened"] == []          # still open: once
+    tid = first["opened"][0]
+    out = RA.investigate(db, tid)                                     # blocked: official docs
+    assert out["status"] == RA.BLOCKED_ON_METHOD and out["answered"]
+    assert RA.stale_domains_to_research(db)["opened"] == []          # answered, unexpired
+    assert isinstance(_date.today(), _date)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

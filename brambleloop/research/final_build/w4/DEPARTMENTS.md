@@ -419,3 +419,32 @@ FMBATCH1 owns the F-45x to F-49x swarm and build-side rows. From now on W-AGENTS
   - repoint the six consumer pins and `tests/test_w4_contracts.py` accordingly.
 
 **Correction to the W2 section.** F-476's build-side duplicate-lane refusal is built by FMBATCH1 (`ops/registry.py`). W-AGENTS did not build it, and the row belongs to that lane.
+
+## Workstream C batch W4: research evidence and triggers (F-405, F-432, F-404; 2026-10-26)
+
+**Built (extends the Research Agent).**
+- **F-405, internal evidence first.** `research_agent.search_all_internal` searches every internal store before any external method:
+  - lessons and learning observations;
+  - incidents;
+  - pre-registered experiments;
+  - the listing-test memory;
+  - the failure memory;
+  - earlier answered research.
+
+  BUILD_STATE.md and DECISION_LOG.md are read first among repository records when they are present. They are not copied into the production image, so there repository inspection reports itself unavailable rather than returning empty. Every hit becomes an `internal` ref the task's findings may rest on.
+- **F-432, research memory.** Before investigating, `prior_answer` looks for the same question (normalised) in the same domain that is already answered and still within its freshness. If one exists, the task is STOPPED as a duplicate, citing the prior task, and no work is repeated.
+- **F-404, confidence trigger.** `stale_domains_to_research` is called by `research.sweep`. A learning domain whose observations have all gone stale becomes one research question per stale episode:
+  - not re-opened while one is open;
+  - not re-opened while an answer is unexpired;
+  - the answer's own freshness re-opens it.
+
+**Tests** (`tests/test_w4_research_agent.py`, now 11/11):
+- `test_f405_every_internal_store_is_searched_before_any_external_method`
+- `test_f432_a_question_already_answered_and_fresh_is_not_researched_again`
+- `test_f404_a_stale_domain_becomes_one_research_question_per_episode`
+
+**Not built.**
+- F-404's "conflicting evidence" half: no deterministic contradiction detector exists, and a keyword guess would be theatre.
+- F-402's "before designing novel machinery" hook: nothing at runtime designs machinery autonomously, so there is no consumer to gate.
+
+**Pre-existing behaviour noted, not changed.** `intel.research.detect_unknowns` re-opens an unobserved-domain question the day after it is answered. It is W4-RESEARCH's code; the F-432 duplicate stop now ends each re-open at once.

@@ -219,6 +219,8 @@ def handle_research_sweep(ctx: JobContext) -> dict:
     from ..intel import research, research_agent
 
     found = research.detect_unknowns(ctx.db)
+    stale = research_agent.stale_domains_to_research(ctx.db)          # F-404
+    found = {**found, "opened": list(found["opened"]) + list(stale["opened"])}
     reopened = research.expire_due(ctx.db)
     due = research_agent.due_for_investigation(ctx.db)
     day = datetime.now(timezone.utc).date().isoformat()

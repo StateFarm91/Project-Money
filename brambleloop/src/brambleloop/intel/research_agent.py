@@ -134,13 +134,21 @@ def select_method(domain: str) -> dict:
             "alternatives": alternatives}
 
 
+# F-405: the repository's own records, read when they are present (they are not copied into
+# the production image, so there this is honestly unavailable rather than silently empty).
+REPO_RECORDS = (REPO_RESEARCH.parent / "BUILD_STATE.md", REPO_RESEARCH.parent / "DECISION_LOG.md")
+STOPPED_DUPLICATE = "STOPPED_DUPLICATE"
+
+
 def _repo_hits(terms) -> list[dict]:
-    """Repository research files that mention every term (read-only, bounded)."""
+    """Repository records and research files that mention every term (read-only, bounded):
+    BUILD_STATE and DECISION_LOG first (F-405), then the research record."""
     terms = [str(t).strip().lower() for t in terms or () if str(t).strip()]
     if not terms or not _repo_available():
         return []
     out = []
-    for p in sorted(REPO_RESEARCH.rglob("*.md")):
+    files = [p for p in REPO_RECORDS if p.is_file()] + sorted(REPO_RESEARCH.rglob("*.md"))
+    for p in files:
         try:
             text = p.read_text(encoding="utf-8", errors="ignore").lower()
         except OSError:
@@ -151,6 +159,126 @@ def _repo_hits(terms) -> list[dict]:
             if len(out) >= REPO_HITS_MAX:
                 break
     return out
+
+
+def _all_terms(text: str, terms) -> bool:
+    t = (text or "").lower()
+    return all(x.lower() in t for x in terms)
+
+
+def search_all_internal(db, terms, *, exclude_task: int | None = None) -> list[dict]:
+    """F-405: every internal record a question can be answered from, before any external
+    method: lessons and learning observations (`intel.research.search_internal`), incidents,
+    pre-registered experiments, the listing-test memory, the failure memory and earlier
+    research. Every hit is a ref the task's findings may rest on (retrieval `internal`)."""
+    from sqlalchemy import select
+
+    terms = [str(t).strip() for t in terms or () if str(t).strip()]
+    if not terms:
+        return []
+    out = list(R.search_internal(db, terms))
+    from ..core.models import Incident, ListingMemory, RegisteredExperiment
+
+    with db.session() as s:
+        for r in s.scalars(select(Incident).order_by(Incident.id.desc()).limit(500)):
+            if _all_terms(f"{r.signature} {r.summary}", terms):
+                out.append({"ref": f"incidents:{r.id}", "kind": "incident",
+                            "text": (r.summary or "")[:300], "retrieval": "internal"})
+        for r in s.scalars(select(RegisteredExperiment).limit(500)):
+            if _all_terms(f"{r.key} {r.hypothesis}", terms):
+                out.append({"ref": f"experiments:{r.key}", "kind": "experiment",
+                            "text": f"{r.hypothesis} [{r.state}]"[:300],
+                            "retrieval": "internal"})
+        for r in s.scalars(select(ListingMemory).limit(500)):
+            if _all_terms(f"{r.idea} {r.context} {r.note}", terms):
+                out.append({"ref": f"listing_memory:{r.id}", "kind": "listing_test",
+                            "text": f"{r.idea} {r.outcome} in {r.context}"[:300],
+                            "retrieval": "internal"})
+        try:
+            from ..improve.failure_memory import FailureRecord
+
+            for r in s.scalars(select(FailureRecord).order_by(FailureRecord.id.desc())
+                               .limit(500)):
+                if _all_terms(f"{r.method} {r.reason}", terms):
+                    out.append({"ref": f"failure_memory:{r.id}", "kind": "failure",
+                                "text": f"{r.method}: {r.reason}"[:300],
+                                "retrieval": "internal"})
+        except Exception:  # noqa: BLE001 - a store that is not there holds no evidence
+            pass
+        for r in s.scalars(select(R.ResearchTask).where(R.ResearchTask.state == R.ANSWERED)
+                           .limit(500)):
+            if r.id != exclude_task and _all_terms(f"{r.question} {r.outcome}", terms):
+                out.append({"ref": f"research_tasks:{r.id}", "kind": "prior_research",
+                            "text": f"{r.question} -> {r.outcome}"[:300],
+                            "retrieval": "internal"})
+    return out
+
+
+def _norm_q(q: str) -> str:
+    return " ".join("".join(c for c in (q or "").lower() if c.isalnum() or c == " ").split())
+
+
+def prior_answer(db, task_id: int) -> dict | None:
+    """F-432: the same question, in the same domain, already answered and still fresh."""
+    from sqlalchemy import select
+
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        me = s.get(R.ResearchTask, task_id)
+        if me is None:
+            return None
+        for r in s.scalars(select(R.ResearchTask).where(
+                R.ResearchTask.state == R.ANSWERED, R.ResearchTask.domain == me.domain,
+                R.ResearchTask.id != task_id)):
+            if _norm_q(r.question) != _norm_q(me.question):
+                continue
+            exp = R._aware(r.expires_on)
+            if exp is not None and exp <= now:
+                continue
+            return {"task": r.id, "outcome": r.outcome, "confidence": r.confidence,
+                    "expires_on": exp.isoformat() if exp else None}
+    return None
+
+
+def _stop(db, task_id: int, outcome: str) -> None:
+    with db.session() as s:
+        row = s.get(R.ResearchTask, task_id)
+        row.state = R.STOPPED
+        row.outcome = outcome[:2000]
+
+
+def stale_domains_to_research(db, *, today: date | None = None) -> dict:
+    """F-404: a learning domain whose only observations have gone stale is a decision being
+    made on stale evidence -- it becomes a research question (once per stale episode)."""
+    from . import learning
+
+    from sqlalchemy import select
+
+    radar = learning.radar(db, today=today)
+    opened, kept = [], []
+    now = datetime.now(timezone.utc)
+    for d in radar["stale"]:
+        trigger = f"learning.stale:{d['domain']}"
+        R._ensure(db)
+        with db.session() as s:
+            live = [r for r in s.scalars(select(R.ResearchTask).where(
+                R.ResearchTask.dedupe_key == R._key(trigger),
+                R.ResearchTask.state == R.ANSWERED))
+                if R._aware(r.expires_on) is None or R._aware(r.expires_on) > now]
+        if live:
+            # this stale episode was already researched; its own expiry re-opens it
+            kept.append(live[0].id)
+            continue
+        r = R.open_question(
+            db, question=f"What is currently true about {d['what']}? The newest observation "
+                         f"here has gone stale.",
+            trigger=trigger,
+            decision_ref=f"intel.learning.radar:{d['domain']}", domain=d["domain"],
+            query_terms=[d["domain"].replace("_", " ")],
+            stop_condition=f"one observation fresher than {d['fresh_for_days']} days, or "
+                           f"recorded unresolved with why")
+        (opened if r["opened"] else kept).append(r["task"])
+    return {"opened": opened, "already_open": kept, "stale_domains": len(radar["stale"])}
 
 
 def _task(db, task_id: int):
@@ -172,9 +300,23 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     t = _task(db, task_id)
     if t is None or t["state"] != R.OPEN:
         return {"task": task_id, "status": NOT_OPEN, "work_done": 0}
+    # F-432: an identical question already answered and still fresh is not researched again.
+    prior = prior_answer(db, task_id)
+    if prior is not None:
+        _stop(db, task_id, f"{STOPPED_DUPLICATE}: the same question was answered by research "
+                           f"task {prior['task']} ({prior['outcome'][:300]}); still fresh "
+                           f"until {prior['expires_on'] or 'no date'}")
+        return {"task": task_id, "question": t["question"], "status": STOPPED_DUPLICATE,
+                "confidence": prior["confidence"] or "as the prior answer",
+                "evidence": [f"research_tasks:{prior['task']}"], "new_internal": 0,
+                "new_sources": [], "method": select_method(t["domain"]),
+                "constraints": ["CA$0", "no network call", "no model call"],
+                "applicability": {"domain": t["domain"], "decision": t["decision_ref"]},
+                "unresolved": [], "next_test": "none: reuse the prior answer",
+                "reused": prior, "answered": None, "work_done": 1}
     plan = select_method(t["domain"])
-    # F-402: internal evidence first, refreshed (a lesson may have arrived since opening).
-    internal = R.search_internal(db, t["terms"])
+    # F-402 / F-405: every internal record first, refreshed (evidence may have arrived since).
+    internal = search_all_internal(db, t["terms"], exclude_task=task_id)
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
         have = {x["ref"] for x in row.internal_evidence or []}
