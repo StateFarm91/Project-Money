@@ -4690,6 +4690,14 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/etsy/scorecard")
+def api_etsy_scorecard() -> dict:
+    """F-549: one evidence-backed Etsy shop scorecard, each line from its owning source."""
+    from ..intel import etsy_scorecard
+
+    return etsy_scorecard.scorecard(db)
+
+
 @app.get("/api/orchestrator")
 def api_orchestrator() -> dict:
     """F-451: the master orchestrator view (requirements, departments, dependencies, owner

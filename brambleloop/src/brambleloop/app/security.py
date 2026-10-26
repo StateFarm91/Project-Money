@@ -168,6 +168,8 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/physical-truth",
     # W4-FMBATCH1 (F-451): the master view carries the owner queue and spend -> operator.
     "/api/orchestrator",
+    # F-549: revenue, margin and owner actions in one card -> operator.
+    "/api/etsy/scorecard",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in
