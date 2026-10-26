@@ -185,6 +185,8 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
+    "provider-change": ("ops.dependencies (gateway.provider_watch)", "routing economics "
+                        "re-run on the change; resolves on the next unchanged snapshot"),
     # W4-FMBATCH1 ops/signal_hygiene (F-139, F-140, F-149).
     "dead-letters": ("ops.health sweep (signal_hygiene)", "resolves when no defect dead "
                      "letter of the job type remains (fixed by a deploy that re-drives them)"),

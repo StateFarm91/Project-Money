@@ -6841,6 +6841,17 @@ def handle_dependency_sweep(ctx: JobContext) -> dict:
               + fragility["incidents_opened"],
               "resolved": mapped["incidents_resolved"] + fragility["incidents_resolved"],
               "existential": fragility["existential"], "axes": fragility["axes"]}
+    # W4-FMBATCH1: F-099 provider change watch, F-092 AI dependency register, F-094 trigger.
+    from ..gateway import provider_watch
+
+    for key, fn in (("provider_watch", lambda: provider_watch.watch(ctx.db)),
+                    ("ai_register", lambda: anti_fragility.register(ctx.db)),
+                    ("diversification_trigger",
+                     lambda: anti_fragility.diversification_trigger(ctx.db))):
+        try:
+            detail[key] = fn()
+        except Exception as exc:  # noqa: BLE001 - reported UNKNOWN, never as clean
+            detail[key] = {"state": "UNKNOWN", "error": f"{type(exc).__name__}: {exc}"[:200]}
     ctx.audit("ops.dependencies", detail=detail)
     return {**detail, "probes": mapped["probes"]}
 

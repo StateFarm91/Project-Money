@@ -294,3 +294,18 @@ guarded: a failure records UNKNOWN and never fails the sweep.
   test_w3_k7_ops_truth, test_vacuity.
 
 **Status:** dev-proven on this branch only (E).
+
+## 10. Workstream B batch P (post-launch): provider dependency
+
+| row | criterion (quoted) | built | status |
+|---|---|---|---|
+| F-092 | "Measure provider concentration by calls, spend, critical workflows and requirements lost during outage." | `scale.dependency.register`: per provider and workload (judgement_vision or image_generation): spend, calls, shares, critical workflows (purposes ranked by spend), and the Build 2 requirements lost if the provider is down (`build2.executor` gate table). The `ai_provider` axis now counts judgement and vision only; image generation has its own axis | E |
+| F-093 | "...explicitly an existential dependency until tested fallback exists." | A second billed judgement provider does not clear EXISTENTIAL without a passing `provider.fallback_drill` record from the last 30 days. An image provider never counts | E |
+| F-094 | "Do not add a second paid provider for symmetry; trigger diversification when outage, price/terms, volume, revenue dependence or downtime cost justifies it." | `diversification_trigger`: measured thresholds only (probe failure at least 20%, at least 10 parked jobs, a recorded provider change, at least 80% of the monthly ceiling, revenue-dependent concentration). Concentration alone never triggers. An unmeasurable reason is listed as unmeasured. The trigger is carried on the F-100 funding packet | E |
+| F-095 | "Define required structured output, vision, context, quality, latency and cost before a fallback can satisfy a gate." | `gateway/fallback_contract.py`: a per-tier contract plus `evaluate` (static capabilities, recorded evals and latency, cost bound). `failover.decide` never routes a fallback whose contract FAILs. A cross-provider fallback is routed only on PASS | **B, partial.** A same-provider approved fallback still routes when quality or latency is UNKNOWN; its verdict is shown on the row. Closing this needs recorded golden-task evals per model |
+| F-099 | "Version provider pricing/model availability and re-run routing economics on material change." | `gateway/provider_watch.py`, run on the daily `ops.dependencies` cadence. It keeps a versioned snapshot (prices, tier models, DOWN or serving). On a change it records `gateway.provider_change`, re-runs `routing.plan` (`routing.economics_review`) and opens a P2 `provider-change:` incident, which an unchanged snapshot resolves | E |
+
+**Tests:**
+- `tests/test_w4_fmbatch1_providers.py` 6/6, both positive and negative cases.
+- Green: test_dependency, test_cert_dependencies, test_w4_funding, test_v11_reliability_gateway,
+  test_incident_lifecycle.

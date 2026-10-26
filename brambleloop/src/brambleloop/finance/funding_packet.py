@@ -159,11 +159,22 @@ def diversification_packet(db, *, now: datetime | None = None) -> dict:
                      "for a week and compare failure share and cost per call with the "
                      "incumbent"),
         },
+        # F-094 (W4-FMBATCH1): whether a measured reason justifies diversifying now.
+        "trigger": _trigger(db, now),
         "owner_action": ("Decide whether to fund/connect a second model provider, reading the "
                          "measured value above; approval is setting that provider's key in "
                          "the hosting environment. Declining keeps the incumbent only"),
         "approves_itself": False,
     }
+
+
+def _trigger(db, now):
+    try:
+        from ..scale import dependency
+
+        return dependency.diversification_trigger(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - unknown, never "not triggered"
+        return {"triggered": None, "error": f"{type(exc).__name__}"}
 
 
 def packets(db) -> dict:
