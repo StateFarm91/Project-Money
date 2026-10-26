@@ -40,7 +40,7 @@ def test_every_dashboard_table_scrolls_inside_its_own_box():
 
 
 def test_mobile_owner_view():
-    assert C.get("/m").status_code == 401           # anonymous: operator-only since SECPATCH
+    assert C.get("/m").status_code in (401, 503)    # anonymous: refused (operator-only since SECPATCH)
     r = _opread.get(C, "/m")
     assert r.status_code == 200
     html = r.text

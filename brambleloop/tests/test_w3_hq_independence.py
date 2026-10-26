@@ -31,6 +31,10 @@ ALLOWED = {
     ("core/decision_index.py", "DECISION_LOG.md"): (
         "read only by the index generator (`main`) in the repository; at runtime `recorded()` "
         "reads the shipped core/decision_index.json (test_w3_decision_index keeps it in sync)"),
+    ("intel/research_agent.py", "research"): (
+        "the Research Agent's repository_inspection method reads the research record only when "
+        "the directory is present (`_repo_available`); in the image it is absent and the method "
+        "is reported unavailable with why (methods(), test_w4_research_agent)"),
     ("intel/research.py", "BUILD_STATE.md"): (
         "F-405 internal search reads it only when present; in the image the file is absent and "
         "the corpus is reported unavailable, never skipped "

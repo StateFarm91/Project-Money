@@ -129,8 +129,12 @@ def refresh(db, *, env: dict | None = None, now: datetime | None = None) -> dict
     return plan
 
 
-def priority_agents(db) -> set[str]:
-    """The agents of critical-path departments, from the last stored plan (empty if none)."""
+def priority_agents(db, *, now: datetime | None = None) -> set[str]:
+    """The agents of critical-path departments, from the last stored plan (empty if none).
+
+    INTEG7: the age check uses the caller's clock (`orchestrate.allocate(now=...)`), so an
+    allocation computed for a stated time judges the plan's age at that time, not the wall
+    clock's."""
     from . import memory
 
     try:
@@ -141,7 +145,7 @@ def priority_agents(db) -> set[str]:
     # a plan any more; its boost stops rather than persisting forever.
     try:
         updated = datetime.fromisoformat(str((row or {}).get("updated_at")))
-        if datetime.now(timezone.utc) - updated > PLAN_MAX_AGE:
+        if (now or datetime.now(timezone.utc)) - updated > PLAN_MAX_AGE:
             return set()
     except (TypeError, ValueError):
         return set()

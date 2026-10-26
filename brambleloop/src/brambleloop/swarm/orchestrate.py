@@ -1523,7 +1523,7 @@ def allocate(db, *, now: datetime | None = None,
     try:
         from ..autonomy.executive_plan import priority_agents
 
-        critical = priority_agents(db)
+        critical = priority_agents(db, now=now)
     except Exception:  # noqa: BLE001 - no plan is no boost
         critical = set()
 

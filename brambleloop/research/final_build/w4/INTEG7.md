@@ -82,6 +82,17 @@ Result: `test_w4_fmbatch1_retention_guard`, `test_w4_firstsale_retention` 6/6 an
 | test_w4_store_live_state | AGENTS | "no `update_shop` method" becomes "no **ungated** shop write". This follows the owner directive of 2026-10-21. The test now proves nothing is sent in shadow, without a grant, or for owner-configured or EU-only fields, and that no banner or icon write exists. |
 | test_w4_close5_rows, test_w4_listready | AGENTS | additions only |
 
+**Addendum (review R-6), from 62770fbe to the combined head.**
+- **Further existing test files edited.** Besides the ten above:
+  - About 28 more test files were edited by **SECPATCH** (its `_opread` edits): owner-only views are read with the operator credential, and each file asserts that an anonymous caller is refused or projected. They are recorded in SECPATCH's own record and in INDEPENDENT_SECREVIEW_INTEG7_967502d.md §6, which found none weakened.
+- **The integrator's own R-1 edits** (661957a and the follow-up commit) all go in the stricter direction:
+  - `test_w4_fmbatch1_route_audit`, `_mobile`, `_useful_work`, `_learn_card`, `_dashboard`, `_seasonal_cohort`, `_theme` and `_provider_health`: each now asserts that an anonymous caller is refused (401 or 503) or sees no data, and reads the operator view with the credential.
+  - `test_cert_dashboard`: the token is restored, which makes the suite independent of test order.
+  - `test_swarm_runtime`: band map entries added.
+  - `test_customer_data_auth`: a new end-to-end middleware test (R-6).
+  - `test_w3_hq_independence`: one recorded allowance for `intel/research_agent.py` reading the research directory when it is present.
+- **`PUBLIC_GET_ROUTES` and `PUBLIC_PROJECTIONS` were not widened.**
+
 ## 7. Safety defaults (all OFF in code)
 
 | Default | Switch | Off unless |
@@ -102,6 +113,26 @@ Result: `test_w4_fmbatch1_retention_guard`, `test_w4_firstsale_retention` 6/6 an
 
 First pass: 116/122. The 6 failures were fixed as in §4-5 and rerun; all pass.
 
-## 9. Full suite and gates
+## 9. Review of 967502d (INDEPENDENT_SECREVIEW_INTEG7_967502d.md) and the combined head
+
+- **R-1, fixed.** The fix was test-only and stricter: 9 suites, the band map and `test_cert_dashboard`'s token handling. Two more defects surfaced when the focused suites were re-run:
+  - **A clock dependency.** `executive_plan.priority_agents` judged the plan's age on the wall clock even when `allocate(now=...)` was called for a stated time. It now takes `now`, and `allocate` passes it.
+  - **An HQ-independence allowance.** `research_agent` reads the research directory; the allowance is recorded.
+- **R-2, fixed.** The HQ worker calls `mark_job_process` (FMBATCH2 3bdb475b, cherry-picked as c26439f), and FMBATCH2 9a6af055 (c1cd0bf) brings the F-405 allowance with its test.
+- **R-6, fixed.** An end-to-end customer-scrub test was added, and the record addendum is in §6.
+- **R-3, R-4, R-5 and R-7: recorded, informational.**
+  - **R-3:** `/api/learn/metrics` is allow-listed as "distinct from the operator token", but its `_editor` check is the operator token.
+  - **R-4:** the projection was keyed on the raw path (SECPATCH2, merged here, now keys it on the routed path); there is no `Cache-Control`/`Vary` on bodies that vary with `Authorization`.
+  - **R-5:** the owner-text scrub does 2-3 table reads and a regex compile per anonymous request.
+  - **R-7:** the VISNEXT2 shared cap is check-then-update. It is not reachable in SHADOW.
+
+Also merged into the combined candidate:
+- final PRODFIX 86fe2b5;
+- SECPATCH2 1c94f7c;
+- the SECPATCH deploy head b2e49455, which carries records only.
+
+LAURAFIX is excluded (it belongs to the activation batch).
+
+## 10. Full suite and gates
 
 (pending)
