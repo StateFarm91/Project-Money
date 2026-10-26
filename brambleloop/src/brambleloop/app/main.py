@@ -866,7 +866,12 @@ def _finance_owner_view() -> dict:
 
         lines = reconciliation.statement_lines(db)
         open_ = [ln for ln in lines if ln.get("state") == "unmatched"]
+        # F-681: the items themselves, not only their count, newest first.
         return {"statement_lines": len(lines), "unreconciled": len(open_),
+                "unreconciled_cad": round(sum(ln["amount_cad"] for ln in open_), 4),
+                "items": [{k: ln[k] for k in ("id", "source", "external_id", "at", "kind",
+                                              "reference", "amount_cad")}
+                          for ln in sorted(open_, key=lambda x: x["at"], reverse=True)[:50]],
                 "basis": "imported statement lines still `unmatched` "
                          "(finance.accounting.reconciliation)"}
 

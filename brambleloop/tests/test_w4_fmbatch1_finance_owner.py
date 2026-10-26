@@ -47,6 +47,27 @@ def test_ad_spend_split_into_credit_and_cash():
     assert ads["estimated_cash_ad_spend_cad"] == 6.0
 
 
+
+def test_f681_unreconciled_items_listed_and_totals_equal_sql():
+    from sqlalchemy import func, select
+
+    from brambleloop.finance.accounting import reconciliation
+    from brambleloop.finance.accounting.models import AcctStatementLine
+
+    reconciliation.import_statement(main.db, "bank", [
+        {"external_id": "b1", "kind": "charge", "amount": -12.5, "at": "2026-10-20T00:00:00+00:00",
+         "reference": "UNKNOWN-VENDOR"},
+        {"external_id": "b2", "kind": "deposit", "amount": 40.0, "at": "2026-10-21T00:00:00+00:00",
+         "reference": "NO-PAYOUT"}])
+    v = TestClient(main.app).get("/api/finance").json()["owner_view"]["unreconciled"]
+    with main.db.session() as s:
+        n, micros = s.execute(select(func.count(), func.sum(AcctStatementLine.amount_micros))
+                              .where(AcctStatementLine.state == "unmatched")).one()
+    assert v["unreconciled"] == n == len(v["items"]) == 2
+    assert v["unreconciled_cad"] == round(micros / 1e6, 4) == 27.5
+    assert [i["external_id"] for i in v["items"]] == ["b2", "b1"]
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):
