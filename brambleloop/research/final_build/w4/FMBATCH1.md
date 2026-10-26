@@ -360,3 +360,20 @@ F-145..F-148.
     row is still present inside its fold.
   - Green: test_cert_dashboard (F-206's ordering is unchanged), test_dashboard_spend.
 - **Status:** E.
+
+## 13. F-412 Research-to-Experiment Bridge
+
+- **Criterion:** "Translate promising research into the smallest bounded experiment that can
+  falsify or support its applicability before a large build or spend."
+- **Built:** `research.bridge(task, cell=, rollback_ref=)`.
+  - An answered task whose effect produced a hypothesis with a bounded next test becomes an
+    `improve.cells.propose` proposal. The improvement loop's own baseline, rollback, governance
+    and failure-memory rules apply.
+  - The proposal carries the falsification condition, the day bound and the spend bound, and
+    it cites `research_tasks:<id>`.
+  - The bridge is idempotent.
+  - It is refused for an unanswered task, a task with no hypothesis or bounded test, and a
+    method that did not transfer (F-411 `adopt` false). That last case means the research
+    itself prevented the experiment.
+- **Test:** `test_f412_...` in `tests/test_w4_fmbatch1_research.py`, now 13/13.
+- **Status:** E.

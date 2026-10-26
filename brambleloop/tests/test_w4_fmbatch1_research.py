@@ -404,6 +404,51 @@ def test_learn_scan_enforces_the_time_bound():
     assert any(e["task"] == tid for e in R.escalations(db))
 
 
+def test_f412_a_hypothesis_becomes_the_smallest_bounded_experiment_once():
+    from brambleloop.core.models import Improvement
+
+    db = _db()
+    tid = _open(db)["task"]
+    R.add_source(db, tid, source="Etsy", citation="https://etsy.com/p", retrieval="fetched",
+                 read_on=NOW.date())
+    R.add_finding(db, tid, statement="no cap is published", claim_class="fact",
+                  rests_on=("S1",))
+    R.add_finding(db, tid, statement="bundles of five files convert better than twenty",
+                  claim_class="hypothesis")
+    assert "only an answered" in _refused(lambda: R.bridge(db, tid, cell="pricing",
+                                                         rollback_ref="none needed"))
+    nt = {"what": "list one product as a 5-file and a 20-file bundle for two weeks",
+          "falsified_if": "conversion is equal within noise", "max_days": 14,
+          "max_spend_cad": 0}
+    R.answer(db, tid, outcome="test it", now=NOW,
+             effect={"kind": "hypothesis_produced", "statement": "bundle size hypothesis"},
+             conclusion=_empty(next_test=nt))
+    out = R.bridge(db, tid, cell="pricing", rollback_ref="restore the single-bundle listing")
+    assert out["bridged"] is True
+    with db.session() as s:
+        imp = s.get(Improvement, out["improvement"])
+        assert imp.state == "proposed" and imp.cell == "pricing"
+        assert "falsified if conversion is equal" in imp.hypothesis
+        assert "at most 14 days" in imp.hypothesis and imp.rollback_ref
+    again = R.bridge(db, tid, cell="pricing", rollback_ref="x")
+    assert again["bridged"] is False and again["improvement"] == out["improvement"]
+    # A method that did not transfer has nothing to test.
+    t2 = _open(db, kind=R.METHOD_ADOPTION, trigger="t:m2", domain="mathematical",
+               question="Does a knitting yarn model transfer to crochet chart rendering?",
+               decision="visual.renderer")["task"]
+    R.add_source(db, t2, source="paper", citation="https://arxiv.org/abs/2",
+                 retrieval="fetched", read_on=NOW.date())
+    R.add_finding(db, t2, statement="assumes knitted loops", claim_class="fact",
+                  rests_on=("S1",))
+    app = {k: {"verdict": "does_not_transfer", "why": "topology"}
+           for k in R.APPLICABILITY_DIMENSIONS}
+    R.answer(db, t2, outcome="no", now=NOW,
+             effect={"kind": "constraint_established", "statement": "topology differs"},
+             conclusion=_empty(constraints=["crochet topology"], applicability=app))
+    assert "did not transfer" in _refused(lambda: R.bridge(db, t2, cell="pricing",
+                                                          rollback_ref="x"))
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     failed = 0

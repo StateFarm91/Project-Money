@@ -612,6 +612,57 @@ def answer(db, task_id: int, *, outcome: str, confidence: str = "", effect: dict
                 "freshness_why": why, "conclusion": concl}
 
 
+def bridge(db, task_id: int, *, cell: str, rollback_ref: str, proposed_by: str = "research",
+           now: datetime | None = None) -> dict:
+    """F-412: a promising finding becomes the smallest bounded experiment in the improvement
+    loop, before any large build or spend.
+
+    Only an answered task whose effect produced a hypothesis with a bounded next test is
+    bridged; a method whose applicability did not transfer (F-411 `adopt` false) is not --
+    there is nothing left to test. The experiment is an `improve.cells.propose` proposal
+    (baseline taken now, rollback named, governance and failure memory applied) carrying the
+    falsification condition, the day bound and the spend bound; it cites the task as its
+    evidence. Idempotent: a task is bridged once.
+    """
+    from ..improve import cells
+
+    with db.session() as s:
+        row = s.get(ResearchTask, task_id)
+        if row is None:
+            raise ResearchRefused(f"no research task {task_id}")
+        d = dict(row.detail or {})
+        if d.get("bridged_improvement"):
+            return {"task": task_id, "improvement": d["bridged_improvement"], "bridged": False,
+                    "why": "already bridged"}
+        c = d.get("conclusion") or {}
+        state = row.state
+    if state != ANSWERED or not c:
+        raise ResearchRefused("only an answered task with a conclusion is bridged (F-412)")
+    if c.get("adopt") is False:
+        raise ResearchRefused("the method did not transfer (F-411): there is no experiment "
+                              "to run, which is the research having prevented one")
+    nt = c.get("next_test") or {}
+    hyp = [f for f in (row.findings or []) if f["claim_class"] == "hypothesis"]
+    if (c.get("effect") or {}).get("kind") != "hypothesis_produced" or not hyp or not nt:
+        raise ResearchRefused("a bridge needs a hypothesis and its bounded next test (F-412)")
+    hypothesis = (f"{hyp[-1]['statement']}. Smallest test: {nt['what']}; falsified if "
+                  f"{nt['falsified_if']} (research task {task_id}, at most {nt['max_days']} "
+                  f"days, CA${float(nt.get('max_spend_cad') or 0):.2f})")
+    iid = cells.propose(
+        db, cell=cell, hypothesis=hypothesis,
+        expected_effect=f"supports or falsifies: {hyp[-1]['statement']}"[:500],
+        rollback_ref=rollback_ref, spend_cad=float(nt.get("max_spend_cad") or 0.0),
+        proposed_by=proposed_by, premise=row.question[:300],
+        method=f"research:{task_id}", evidence_ids=(f"research_tasks:{task_id}",),
+        scope={"max_days": int(nt["max_days"]), "decision_ref": row.decision_ref})
+    with db.session() as s:
+        row = s.get(ResearchTask, task_id)
+        d = dict(row.detail or {})
+        d["bridged_improvement"] = iid
+        row.detail = d
+    return {"task": task_id, "improvement": iid, "bridged": True}
+
+
 def conclusion(db, task_id: int) -> dict | None:
     """F-435: the stored machine-usable conclusion of an answered task."""
     _ensure(db)
