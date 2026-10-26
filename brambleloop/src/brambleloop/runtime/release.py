@@ -6743,12 +6743,13 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                         f"{report['stale']} recorded artefact(s)"))
         detail["rebuild_enqueued"] = queued["enqueued"][:50]
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
+        detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
         detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
                                   for ref, fp in sorted(changed.items())}
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
-                                   "rebuild_order", "fingerprints")})
+                                   "rebuild_retried", "rebuild_order", "fingerprints")})
     return detail
 
 
@@ -7051,7 +7052,7 @@ def handle_capability_probes(ctx: JobContext) -> dict:
         # ever called it -- so a capability that had been demonstrably working for hours was
         # recorded nowhere, and twelve requirements stayed parked on the absence of a row
         # nobody was writing. A gate that reads evidence needs something that produces it.
-        "image_generation": images.probe(ctx.db, job_id=ctx.job.id),
+        "image_generation": images.probe_if_due(ctx.db, job_id=ctx.job.id),
         # W4-B2GATES: the `owned_surfaces` gate read `owned_surface.probe` rows and nothing
         # wrote one, so seven rows could never un-park however many surfaces the owner opened.
         # Reads only: the site's owner-published verification file, a Pinterest board list.

@@ -1230,6 +1230,19 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
 
 # ---- #172 / #173: staleness --------------------------------------------------------------
 
+def _systemic_halt_is_staleness_only(db) -> bool:
+    """True when the open company-wide halt rests only on widespread stale-artefact rows."""
+    from ..ops.incident_lifecycle import systemic_evidence
+
+    try:
+        with db.session() as s:
+            ev = systemic_evidence(s)
+    except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
+        return False
+    return bool(ev["systemic"]) and not ev["integrity_failures"] and \
+        set(ev["widespread_families"]) == {"stale-artefact"}
+
+
 def staleness(db, *, slug: str) -> dict:
     """Open halting incidents (the sentinel's among them) and the rebuild graph's verdict."""
     from ..gates.incidents import IncidentTracker
@@ -1267,8 +1280,19 @@ def staleness(db, *, slug: str) -> dict:
     # are unchanged, and any other halting incident still refuses the rebuild too.
     own_marketing = {f"stale-artefact:{k}" for k in outstanding
                      if str(k).startswith("marketing_asset:")}
+    # W4-PRODFIX: the company-wide halt is the same staleness escalated (#173 -> F-168) when
+    # its only evidence is widespread stale-artefact rows and no integrity failure. Counting
+    # it re-created R4's deadlock one level up: stale marketing in >= 3 products opens the
+    # systemic halt, the systemic halt refuses every marketing rebuild, so the staleness that
+    # holds the halt open can never be cured (production 051dbee2: 123 stale marketing rows,
+    # halt open since 2026-10-11). It is waived for this rebuild flag only; `halted`,
+    # `reasons` and `blocks` -- what publication reads -- still carry it, and a systemic halt
+    # with any other evidence (an integrity failure, another family) still refuses.
+    staleness_only_halt = _systemic_halt_is_staleness_only(db)
     halting_other = [i for i in tracker.open_incidents(slug)
-                     if i.halts_publication and i.signature not in own_marketing]
+                     if i.halts_publication and i.signature not in own_marketing
+                     and not (staleness_only_halt
+                              and str(i.signature).startswith("systemic-halt:"))]
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
     only_marketing = (bool(outstanding) and not halting_other and not policy
