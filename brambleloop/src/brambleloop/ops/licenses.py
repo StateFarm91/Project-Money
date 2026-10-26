@@ -66,21 +66,32 @@ FONTS_REGISTER: dict[str, dict] = {
 }
 
 
-def _terms(what: str) -> dict:
+def _terms(what: str, reversibility: str) -> dict:
+    # F-441: how hard it is to leave (read from this codebase) and who maintains it (not read).
     return {"kind": "service", "licence": f"{what} terms of service / API terms",
             "commercial_use": UNVERIFIED, "obligations": UNVERIFIED,
             "basis": "terms not read by this build; owner or counsel review required",
-            "verified": False}
+            "verified": False, "reversibility": reversibility, "maintenance": UNVERIFIED}
+
+
+_IMAGE_SWAP = ("swappable: one row in gateway.images.PROVIDERS; generation is benchmarked "
+               "per provider (image_bench) and the incumbent is chosen by measured trial")
 
 
 SERVICES: dict[str, dict] = {
-    "anthropic": _terms("Anthropic API (text and vision models)"),
-    "bfl": _terms("Black Forest Labs API (FLUX image models)"),
-    "openai": _terms("OpenAI API (image model)"),
-    "google": _terms("Google Gemini API (image model)"),
-    "volcengine": _terms("Volcengine API (Seedream image model)"),
-    "wikimedia_pageviews": _terms("Wikimedia REST API (pageview data)"),
-    "etsy_open_api": _terms("Etsy Open API v3"),
+    "anthropic": _terms("Anthropic API (text and vision models)",
+                        "replaceable at the vendor boundary: gateway.providers.register_vendor "
+                        "(F-091); prompts and budgets are vendor-neutral"),
+    "bfl": _terms("Black Forest Labs API (FLUX image models)", _IMAGE_SWAP),
+    "openai": _terms("OpenAI API (image model)", _IMAGE_SWAP),
+    "google": _terms("Google Gemini API (image model)", _IMAGE_SWAP),
+    "volcengine": _terms("Volcengine API (Seedream image model)", _IMAGE_SWAP),
+    "wikimedia_pageviews": _terms("Wikimedia REST API (pageview data)",
+                                  "one module (culture.feeds); readings are stored rows, so "
+                                  "history survives leaving"),
+    "etsy_open_api": _terms("Etsy Open API v3",
+                            "not reversible while Etsy is the storefront: the shop is the "
+                            "channel, not an interchangeable supplier"),
 }
 
 

@@ -47,6 +47,8 @@ def test_unread_terms_are_unverified_and_queued():
     assert set(L.SERVICES) <= q
     for k, v in L.SERVICES.items():
         assert v["commercial_use"] == L.UNVERIFIED and v["verified"] is False, k
+        # F-441: reversibility recorded from the code; maintenance not read, so UNVERIFIED.
+        assert v["reversibility"].strip() and v["maintenance"] == L.UNVERIFIED, k
     assert all(v["verified"] for v in {**L.PACKAGES, **L.FONTS_REGISTER}.values())
 
 
