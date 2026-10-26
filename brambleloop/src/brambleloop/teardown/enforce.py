@@ -203,9 +203,10 @@ def current_release(db, slug: str) -> dict | None:
         product = s.scalar(select(Product).where(Product.slug == slug))
         if product is None:
             return None
-        pv = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id, PatternVersion.certified == True)  # noqa: E712
-            .order_by(desc(PatternVersion.id)).limit(1))
+        # W4-LISTREADY (N1): newest by version, never the row inserted last.
+        from ..ops.artefacts import newest_release
+
+        pv = newest_release(s, product.id)
         if pv is None:
             return None
         return {"release_hash": pv.release_hash or "", "version": pv.version}

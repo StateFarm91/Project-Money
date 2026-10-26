@@ -124,6 +124,8 @@ OWNER_ONE_SHOTS: dict[str, str] = {
     "visual.provider_trial": "owner-authorised CA$4.00 provider trial (2026-09-23)",
     "visual.controlled_experiment": "owner-authorised controlled visual experiment (frozen "
                                     "definition, Command Center step-up, W-VISNEXT)",
+    "assets.launch_review": "owner-authorised Launch-0 image-review batch, CA$7.07 "
+                            "(D-W4-LAUNCH-VISION-BATCH, Command Center step-up)",
 }
 
 

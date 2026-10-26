@@ -200,6 +200,62 @@ def listing_fees_request(listings: int) -> OwnerRequest:
 # read succeeded, 2026-09-19), asking the owner to "open the Etsy shop" asks for something
 # already done. What software still cannot see is whether KYC, payout and tax show complete
 # in Shop Manager, so the payout request becomes that confirmation.
+def payout_evidence(db, *, now: float | None = None) -> dict:
+    """W-AGENTAUDIT E-8: the payout requirement's evidence path. Ready only on all three:
+    a fresh getShop reading (<= 7 days) showing `is_etsy_payments_onboarded` true; the owner's
+    fresh Store-tab confirmation of the payout bank account (`payout_details`); and the
+    owner's fresh, complete legal_and_tax reading with a stated tax position. Each missing
+    part is named; unreadable is not ready."""
+    import time as _time
+
+    now = now if now is not None else _time.time()
+    out = {"ready": False, "onboarded": None, "payout_confirmed": False,
+           "tax_recorded": False, "identity_verified": False, "missing": []}
+    try:
+        from ..runtime.etsy_ops import SHOP_READING, latest_reading
+
+        snap = latest_reading(db, SHOP_READING) or {}
+        fresh = (snap.get("observed_at") is not None
+                 and 0 <= (now - float(snap["observed_at"])) / 86400.0 <= 7)
+        shop = snap.get("shop") or {}
+        if fresh and "is_etsy_payments_onboarded" in shop:
+            out["onboarded"] = shop["is_etsy_payments_onboarded"] is True
+    except Exception:  # noqa: BLE001 - unreadable is unknown
+        out["onboarded"] = None
+    try:
+        from ..store_foundation import shop_sync
+
+        out["payout_confirmed"] = shop_sync.fresh_confirmation(db, "payout_details") is not None
+    except Exception:  # noqa: BLE001
+        out["payout_confirmed"] = False
+    try:
+        from ..commerce import shop_observations
+
+        got = shop_observations.latest(db, "legal_and_tax")
+        obs = got.get("observation") or {}
+        values = obs.get("values") or {}
+        out["tax_recorded"] = (got.get("state") == "FRESH"
+                               and bool(str(values.get("tax_position") or "").strip()))
+        # Final review R11: the payout also needs identity verification, read from the same
+        # dated owner reading -- never inferred from Payments onboarding.
+        out["identity_verified"] = (got.get("state") == "FRESH"
+                                    and values.get("identity_verified") is True)
+    except Exception:  # noqa: BLE001
+        out["tax_recorded"] = False
+    if out["onboarded"] is not True:
+        out["missing"].append("a fresh getShop reading showing Etsy Payments onboarded"
+                              if out["onboarded"] is None else
+                              "Etsy reports Payments not onboarded")
+    if not out["payout_confirmed"]:
+        out["missing"].append("the owner's Store-tab confirmation of the payout bank account")
+    if not out["tax_recorded"]:
+        out["missing"].append("the owner's Legal and tax reading with the tax position")
+    if not out["identity_verified"]:
+        out["missing"].append("the owner's Legal and tax reading showing identity verified")
+    out["ready"] = not out["missing"]
+    return out
+
+
 ETSY_PAYOUT_CONFIRM = OwnerRequest(
     key="payout",
     action=("Confirm in Etsy Shop Manager > Settings > Payment settings that identity "
@@ -213,6 +269,23 @@ ETSY_PAYOUT_CONFIRM = OwnerRequest(
     minutes=15,
     consequence_of_delay="Listings cannot go live and no revenue can be paid out.",
     blocks="publishing, and any revenue at all",
+)
+
+# W-AGENTAUDIT E-8: Etsy reports Payments onboarded, so nothing is to be added. What remains is
+# the owner's own record of what Etsy shows: the payout account (one tap) and the tax position.
+ETSY_PAYOUT_CONFIRM_ONBOARDED = OwnerRequest(
+    key="payout",
+    action=("Etsy reports Payments onboarded. In the Command Center: on the Store tab, tap "
+            "Confirm on 'Payout bank account and tax details' if Shop Manager > Finances > "
+            "Payment settings shows your Canadian payout account; and record the Legal and tax "
+            "reading (identity verification and your GST/HST position)."),
+    reason=("getShop shows is_etsy_payments_onboarded, but the payout account and the tax "
+            "position are not in any API. Your dated confirmation and reading are the only "
+            "evidence; nothing is assumed from onboarding alone."),
+    max_cost_cad=0.0,
+    minutes=5,
+    consequence_of_delay="The payout requirement stays open, so launch readiness cannot pass.",
+    blocks="launch readiness (payout)",
 )
 
 
@@ -700,13 +773,16 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                   {"note": "cannot be automated: platform identity verification"}),
         owner_request=None if shop_open else ETSY_ACCOUNT))
 
+    payout = payout_evidence(db) if shop_open else {"ready": False, "onboarded": None}
     out.append(Requirement(
         key="payout",
         description="a payout account and tax details are on the shop",
-        ready=False, blocked_by=BLOCKED_OWNER,
+        ready=bool(payout["ready"]), blocked_by=None if payout["ready"] else BLOCKED_OWNER,
         evidence={"note": "banking credentials are entered by the account holder",
-                  "shop_exists": shop_open},
-        owner_request=ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT))
+                  "shop_exists": shop_open, **payout},
+        owner_request=(None if payout["ready"] else
+                       ETSY_PAYOUT_CONFIRM_ONBOARDED if payout.get("onboarded") is True else
+                       ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT)))
 
     out.append(Requirement(
         key="listing_fees",
@@ -1543,20 +1619,40 @@ def etsy_first_sale_surfaces(db, *, now: float | None = None) -> Requirement:
         readings = {}
     shop = readings.get("shop_snapshot") or {}
     failing = [c.get("key") for c in ((shop.get("status") or {}).get("checks") or [])
-               if c.get("result") != es.PASS]
+               if c.get("result") not in es.SATISFIES]
+    # W4-FIRSTSALE2: the five surfaces that had no collector read theirs here; a record is
+    # keyed by (collector, surface) because one collector (the owner's page observation)
+    # serves two surfaces with different readings.
+    from . import first_sale_surfaces
+
+    per_surface = first_sale_surfaces.readings(db, now=now)
     rows = []
     for s in es.first_sale_blockers():
-        record = readings.get(s.collector) if s.collector else None
+        if s.collector and (s.collector, s.key) in per_surface:
+            record = per_surface[(s.collector, s.key)]
+        else:
+            record = readings.get(s.collector) if s.collector else None
         state = es.evidence_state(s, record, now=now)
+        action = s.owner_action.key if s.owner_action else None
+        if action is None and record and record.get("owner_action"):
+            # Raised only while the reading says the owner is needed (e.g. the orders gate
+            # is closed); never a standing reference to a step already done.
+            action = record["owner_action"]
         rows.append({"surface": s.key, "name": s.name, "verdict": s.verdict,
                      "work_class": s.work_class, "evidence_state": state,
-                     "owner_action": s.owner_action.key if s.owner_action else None,
+                     "owner_action": action,
+                     "why": (record or {}).get("why", "")[:200] if record else "",
                      "why_required": s.why_required[:200]})
     all_fresh = all(r["evidence_state"] == es.FRESH for r in rows)
     ready = bool(rows) and all_fresh and not failing and bool(shop)
+    # LAUNCHPREP E4: a failing shop check opens only the owner action it is evidence for
+    # (`etsy_ops.CHECK_OWNER_ACTION`), never every surface's action at once. A failing check
+    # no action covers is named as itself, so it is never silently dropped.
+    from ..runtime.etsy_ops import CHECK_OWNER_ACTION
+
     owner_open = sorted({r["owner_action"] for r in rows if r["owner_action"]
-                         and r["evidence_state"] != es.FRESH} | (
-        {r["owner_action"] for r in rows if r["owner_action"]} if failing else set()))
+                         and r["evidence_state"] != es.FRESH}
+                        | {CHECK_OWNER_ACTION.get(k, f"shop_check:{k}") for k in failing})
     return Requirement(
         key="etsy_first_sale_surfaces",
         description=("every Etsy surface required before the first sale has fresh evidence "

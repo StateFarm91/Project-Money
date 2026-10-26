@@ -13,6 +13,7 @@ import { api } from "../api.js";
 import { card, guardedAction, statusPill, freshness } from "../components.js";
 import { formatMoney, UNKNOWN_TEXT } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, backLink } from "./_shared.js";
+import { shopReadingsCard } from "./_shop_readings.js";
 
 const ORDER = [["store_foundation", "Store foundation"],
   ["live_drift", "Live shop vs repo drafts (drift)"], ["store_readiness", "Store readiness"],
@@ -76,7 +77,8 @@ function settingsCard(st, stale, rerender) {
       kids.push(h("button", { class: "btn", type: "button", disabled: stale, onclick: async () => {
         const lines = [r.prefilled_statement || "", ...evidenceLines(r.evidence), `Where: ${r.where}`];
         const done = await guardedAction({ title: `Confirm: ${r.label}?`, lines,
-          confirmLabel: "Confirm", run: () => api.confirmStoreSetting(r.key, r.prefilled_statement || ""),
+          confirmLabel: "Confirm", requiresStepUp: true,
+          run: () => api.confirmStoreSetting(r.key, r.prefilled_statement || ""),
           success: "Recorded as OWNER-CONFIRMED." });
         if (done) rerender();
       } }, r.state === "OWNER-CONFIRMED" ? "Re-confirm" : "Confirm"));
@@ -382,5 +384,7 @@ export async function render({ params = [], rerender } = {}) {
     settingsCard(settings, result.stale, rerender || (() => {})),
     etsyCard(etsy, result.stale, rerender || (() => {})),
     observationCard(s.live_drift, result.stale, rerender || (() => {})),
+    // LAUNCHPREP E5: the owner's dated Shop Manager readings, from the phone (step-up).
+    shopReadingsCard(rerender || (() => {}), { labelId: "store-shop-readings" }),
     evidenceGroup(data, result));
 }

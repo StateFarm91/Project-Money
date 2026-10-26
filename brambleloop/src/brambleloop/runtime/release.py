@@ -499,11 +499,33 @@ def handle_assets_build(ctx: JobContext) -> dict:
 
     from ..visual.frame_role import expected_labels
 
-    review = _review_frames(ctx, slug, version, frames, frame_paths,
-                            shas={f["position"]: f["sha256"] for f in stored_frames},
-                            families=product_families(cir), truth=truth,
-                            plan_findings=list(structural),
-                            labels=expected_labels(frames, cir, twin))
+    # W4-LISTREADY (D-W4-LAUNCH-VISION-BATCH): on a job the owner's launch image-review batch
+    # enqueued, the review's calls are that batch's -- its caps, its frame scope, its expiry
+    # (`finance.launch_review`). The review itself, and the gate that reads it, are unchanged.
+    from contextlib import nullcontext
+
+    from ..finance import launch_review
+
+    batch_frames = (launch_review.scoped_frames(ctx.db, slug, version)
+                    if ctx.job.inputs.get(launch_review.INPUT_KEY) else None)
+    review_scope = nullcontext()
+    if batch_frames is not None:
+        launch_review.review_started(ctx.db, slug, version)
+        review_scope = launch_review.reviewing(
+            str(ctx.job.inputs[launch_review.INPUT_KEY]), f"{slug}@{version}",
+            [{"position": f["position"], "role": f["role"], "sha256": f["sha256"]}
+             for f in stored_frames])
+    with review_scope:
+        review = _review_frames(ctx, slug, version, frames, frame_paths,
+                                shas={f["position"]: f["sha256"] for f in stored_frames},
+                                families=product_families(cir), truth=truth,
+                                plan_findings=list(structural),
+                                labels=expected_labels(frames, cir, twin))
+    if batch_frames is not None:
+        launch_review.review_finished(
+            ctx.db, slug, version,
+            unreviewed=[k for k, v in review["verdicts"].items()
+                        if v.get("verdict") != "clear"])
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -3038,6 +3060,27 @@ def handle_image_production(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("assets.launch_review")
+def handle_launch_review(ctx: JobContext) -> dict:
+    """The owner's batch-scoped Launch-0 image review (D-W4-LAUNCH-VISION-BATCH).
+
+    Enqueued only by the owner's step-up activation. It queues each scoped release's
+    `assets.build` once, marked for the batch, with a single attempt, so the frame review runs
+    under the batch's caps and scope and a bill-unknown call is never resent. It spends nothing
+    itself; the batch closes by itself when complete, expired or exhausted."""
+    from ..finance import launch_review
+
+    def enqueue(inputs, key):
+        return ctx.enqueue("publishing", "assets.build", inputs, idempotency_key=key,
+                           max_attempts=1)
+
+    out = launch_review.run(ctx.db, enqueue)
+    ctx.audit("launch_review.run", artifact=launch_review.BATCH_ID,
+              detail={k: out.get(k) for k in ("ran", "why", "queued", "interrupted",
+                                               "no_completed_build")})
+    return out
+
+
 @handlers.register("visual.controlled_experiment")
 def handle_controlled_experiment(ctx: JobContext) -> dict:
     """One owner-authorised controlled visual experiment run (`experiments.controlled`).
@@ -4401,7 +4444,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
             continue
         if fresh is None:
             continue
-        stale_design = fresh.to_dict() != pv.cir_json
+        # W4-LISTREADY: compared as stored. `cir_json` is the JSON the database holds, and
+        # `to_dict()` carries tuples where JSON has lists, so the raw comparison called every
+        # engineered design "changed" (materials, provenance) and redrafted it once per
+        # fingerprint even when nothing moved. Normalised through the same JSON encoding, a
+        # real design change still differs and is still redrafted.
+        stale_design = json.loads(json.dumps(fresh.to_dict(), default=str)) != pv.cir_json
         stale_document = (pv.certificate or {}).get("doc_version") != DOC_VERSION
         if not (stale_design or stale_document):
             continue
@@ -4430,6 +4478,21 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         if job is not None:
             collections_started.append(seed.slug)
 
+    # W4-LISTREADY (R3, R5): a certification halted by an incident is retried once its halt
+    # has cleared (once per halt episode), and a Launch-0 release the chain never drafted is
+    # drafted -- both through the normal draft/compile/certify gates. Whole-catalogue runs
+    # only: a request scoped to named products (`slugs`) does exactly what it names.
+    recovery: dict = {}
+    if scope is None:
+        from . import release_recovery
+
+        for name, step in (("halted_certifications", release_recovery.retry_halted),
+                           ("launch0_seed", release_recovery.seed_launch0)):
+            try:
+                recovery[name] = step(ctx)
+            except Exception as exc:  # noqa: BLE001 - recorded, never fails the rebuild
+                recovery[name] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
                                        "doc_version": DOC_VERSION,
                                        "certified": len(certified),
@@ -4440,11 +4503,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "collections_restarted": collections_started,
                                        "withheld": withheld_releases,
                                        "repriced": repriced,
-                                       "listings": reasons})
+                                       "listings": reasons,
+                                       "recovery": recovery})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
             "redrafted": redrafted, "collections_restarted": collections_started,
-            "withheld": withheld_releases, "repriced": repriced}
+            "withheld": withheld_releases, "repriced": repriced, "recovery": recovery}
 
 
 def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str | None:
@@ -4544,9 +4608,8 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
 
     with ctx.db.session() as s:
         product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
-                       .order_by(desc(PatternVersion.id)).limit(1))
-              if product is not None else None)
+        # W4-LISTREADY (N1): the rebuild targets the newest release by version.
+        pv = provenance.newest_release(s, product.id) if product is not None else None
         version = pv.version if pv is not None else ""
         release = pv.release_hash or "" if pv is not None else ""
         cir_json = dict(pv.cir_json) if pv is not None else None
@@ -6623,6 +6686,14 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
                                                        expected=expected)
         gate = provenance.graduation(session, current=current, expected=expected)
 
+    # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
+    from . import release_recovery
+
+    try:
+        superseded_live = release_recovery.superseded_live_listings(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - recorded; never fails the sentinel
+        superseded_live = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
     detail = {
         "checked": report["checked"], "fresh": report["fresh"],
         "stale": report["stale"], "unproven": report["unproven"],
@@ -6635,6 +6706,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "publication_blocked": report["publication_blocked"],
         "rebuild": report["rebuild"],
         "may_enforce_unproven": gate["may_enforce_unproven"],
+        "superseded_live": superseded_live,
     }
     ctx.audit("ops.sentinel", detail=detail)
 

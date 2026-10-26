@@ -74,6 +74,13 @@ def make_router(db):
             return refused
         from . import shop_observations
 
+        if str(body.get("page") or "") in shop_observations.OWNER_ATTESTED_PAGES:
+            # Review F7: the operator credential is shared with automation; an owner's
+            # attestation of KYC, tax or the message inbox is not accepted on it.
+            return JSONResponse({"error": "this page is the owner's own attestation: record it "
+                                          "from the Command Center (owner session + step-up, "
+                                          "POST /api/cc/etsy/shop-observation)",
+                                 "code": "OWNER_SESSION_REQUIRED"}, status_code=403)
         try:
             return shop_observations.record(
                 db, page=str(body.get("page") or ""), observed_at=body.get("observed_at"),

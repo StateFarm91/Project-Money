@@ -1259,7 +1259,19 @@ def staleness(db, *, slug: str) -> dict:
     # C-80 defect 11: a structured flag for the one exception marketing.schedule may take --
     # the only thing outstanding is marketing content and nothing halts the product -- so
     # the caller reads a field, not the wording of a reason.
-    only_marketing = (bool(outstanding) and not halting
+    # W4-LISTREADY (R4): "nothing halts the product" means nothing *besides* the sentinel's
+    # own rows for exactly this outstanding marketing content. Those rows exist because the
+    # content is stale, so counting them made stale marketing unrebuildable by construction
+    # (the rebuild was refused on the staleness it exists to cure). This flag lets only the
+    # marketing rebuild proceed; `halted`, `reasons` and `blocks` -- what publication reads --
+    # are unchanged, and any other halting incident still refuses the rebuild too.
+    own_marketing = {f"stale-artefact:{k}" for k in outstanding
+                     if str(k).startswith("marketing_asset:")}
+    halting_other = [i for i in tracker.open_incidents(slug)
+                     if i.halts_publication and i.signature not in own_marketing]
+    # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
+    # waived by the marketing rebuild exception.
+    only_marketing = (bool(outstanding) and not halting_other and not policy
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
@@ -1337,6 +1349,46 @@ def launch_price_check(slug: str, listing_price_cad) -> dict:
     return {"state": "MATCH", "plan_cad": plan["price_cad"], "why": "listing carries the plan"}
 
 
+def superseded_release(db, *, slug: str, version: str) -> dict:
+    """W4-LISTREADY (R1): whether a newer certified release of this product exists.
+
+    The stale-artefact sentinel judges an artefact against the release it was built from, so
+    an older release's artefacts are `superseded` rather than stale and raise no halt. This is
+    the guard that keeps a superseded release from being published on the strength of that:
+    only the product's newest certified release may publish. Unreadable state refuses.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    try:
+        with db.session() as s:
+            rows = list(s.execute(
+                select(PatternVersion.id, PatternVersion.version)
+                .join(Product, PatternVersion.product_id == Product.id)
+                .where(Product.slug == slug, PatternVersion.certified == True)))  # noqa: E712
+    except Exception as exc:  # noqa: BLE001 - unreadable is a refusal, never a pass
+        return {"superseded": True, "newest": None,
+                "why": f"superseded release (R1): certified releases unreadable "
+                       f"({type(exc).__name__})"}
+    if not rows:
+        return {"superseded": False, "newest": None, "why": ""}
+    # Review F2: newest by version, never by the row inserted last. Unorderable refuses.
+    from ..ops.artefacts import newest_version
+
+    newest = newest_version([r[1] for r in rows])
+    if newest is None:
+        return {"superseded": True, "newest": None,
+                "why": (f"superseded release (R1): the certified versions of {slug} cannot be "
+                        f"ordered ({sorted({r[1] for r in rows})}), so the newest is unknown; "
+                        f"refused")}
+    if newest == version:
+        return {"superseded": False, "newest": newest, "why": ""}
+    return {"superseded": True, "newest": newest,
+            "why": (f"superseded release (R1): {slug}@{version} is not the product's newest "
+                    f"certified release ({slug}@{newest}); only the newest may publish")}
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None,
                 read_only: bool = False) -> dict:
@@ -1351,6 +1403,9 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
                               issue=not stale["blocks"] and window["may_launch_seasonally"],
                               persist_supplements=not read_only)
     reasons = list(stale["reasons"])
+    superseded = superseded_release(db, slug=slug, version=version)
+    if superseded["superseded"]:
+        reasons.append(superseded["why"])
     originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
@@ -1399,7 +1454,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
         reasons.append(f"LISTING_PRICE_NOT_PLAN: {price_check['why']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict, "search": search, "standards": standards,
+            "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
             "withholding": held, "publication_scope": scope, "originality": originality}
 
 

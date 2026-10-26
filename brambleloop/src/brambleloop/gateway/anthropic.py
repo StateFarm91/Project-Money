@@ -582,10 +582,31 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
                 ceiling=provider_ceiling,
                 committed=round(provider_spent + mine + others_provider_cad, 6))
 
+    # 2b. W4-LISTREADY (D-W4-LAUNCH-VISION-BATCH): the owner's batch-scoped authorisation of
+    #     the Launch-0 image review. None unless this call is one of that batch's own review
+    #     calls (`finance.launch_review.grant_in`); then the batch's total cap, daily cap,
+    #     open/expiry state and frame scope are read here, under this lock, in the step that
+    #     writes the reservation. The month above is unchanged and still checked first.
+    from ..finance import launch_review
+
+    review_grant = launch_review.grant_in(locked_session, agent=agent, purpose=purpose,
+                                          estimate=estimate, now=now)
+    if review_grant is not None and review_grant.get("refused"):
+        return _refusal(BudgetExceeded, "launch_review_batch",
+                        f"{review_grant['refused']}. Refused before the call; nothing was "
+                        f"sent", estimate=estimate)
+
     # 3. This agent's daily permission. After the month, because the month is authoritative
     #    and a per-agent ceiling is a permission rather than a slice of it.
     permission = agent_daily_ceiling(db, agent, now=now)
     agent_which = "agent_daily_ceiling"
+    if review_grant is not None and permission is not None:
+        # This call only: the agent's day is held to the batch's daily cap instead of its
+        # registry ceiling. The registry value is untouched; every other call reads it.
+        permission = {**permission, "daily_ceiling_cad": review_grant["daily_cap_cad"],
+                      "agent_ceiling_cad": permission["daily_ceiling_cad"],
+                      "raised_by": f"{review_grant['batch_id']} (owner, batch-scoped)"}
+        agent_which = "launch_review_batch_daily"
     if agent_daily_cap_cad is not None:
         # W4-PLACT: an owner authorisation narrower than the agent's ceiling, enforced here,
         # under the lock, so the check and the reservation are one step (security review L1).
@@ -642,6 +663,11 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
             model=model, job_id=job_id, now=now, detail=held_detail,
             ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
                          else ttl_seconds))
+    if review_grant is not None and reserve:
+        # Counted against the batch in the same locked step, at the padded estimate, whether
+        # or not the call is ever billed: a bill-unknown call is never counted at less.
+        launch_review.record_in(locked_session, review_grant, estimate=estimate,
+                                reservation_id=reservation_id, now=now)
 
     return {"spent_cad": spent, "committed_cad": committed, "ceiling_cad": ceiling,
             "estimate_cad": estimate,

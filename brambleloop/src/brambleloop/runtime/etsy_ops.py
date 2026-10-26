@@ -94,10 +94,95 @@ POLICY_DEADLINE_DAYS = 2
 CLOSES_ON_SHOP_CHECKS: dict[str, tuple[str, ...]] = {
     "info_and_appearance_setup": ("icon_set", "banner_set"),
     "payment_settings_setup": ("etsy_payments_onboarded",),
+    # LAUNCHPREP E3: `policy_additional_unset` is no longer a readiness check.
     "policy_settings_paste": ("policy_payment_set", "policy_shipping_set",
-                              "policy_refunds_set", "policy_privacy_set",
-                              "policy_additional_unset"),
+                              "policy_refunds_set", "policy_privacy_set"),
 }
+
+#: LAUNCHPREP E4: the owner action a failing (or unevidenced) shop check is evidence for.
+#: A check no seeded action covers names what would close it instead.
+CHECK_OWNER_ACTION: dict[str, str] = {
+    **{c: a for a, checks in CLOSES_ON_SHOP_CHECKS.items() for c in checks},
+    "has_a_digital_listing": "publication_grant",
+}
+
+
+def shop_check_context(db, *, now: float | None = None) -> dict:
+    """The owner evidence `assess_shop` may read besides getShop (LAUNCHPREP E1, E2): the
+    Store-tab confirmations and the owner's dated `delivery_policy` reading. Unreadable is
+    empty -- no evidence, never a pass."""
+    out: dict = {}
+    try:
+        from ..store_foundation import shop_sync
+
+        out["owner_confirmed"] = shop_sync.confirmations(db)
+    except Exception:  # noqa: BLE001
+        out["owner_confirmed"] = {}
+    try:
+        from ..commerce import shop_observations
+
+        out["delivery_policy"] = shop_observations.latest(db, "delivery_policy").get(
+            "observation")
+    except Exception:  # noqa: BLE001
+        out["delivery_policy"] = None
+    return out
+
+
+# LAUNCHPREP E6: on 2026-10-21 `store.shop_sync` and this snapshot both read getShop within
+# the same minute and Etsy answered 429. The snapshot now keeps a gap after the sync's last
+# read and retries a 429 a bounded number of times. Both are module values so a test can set
+# them to zero.
+SNAPSHOT_GAP_SECONDS = 60.0
+SNAPSHOT_429_DELAYS = (5.0, 20.0)
+_sleep = time.sleep
+
+
+def _is_rate_limited(exc: BaseException) -> bool:
+    import re
+
+    status = getattr(exc, "status", None)
+    if status == 429:
+        return True
+    return bool(re.search(r"\b429\b", str(exc)))
+
+
+def _seconds_since_shop_sync(db) -> float | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(AuditLog).where(AuditLog.action == "store.shop_sync")
+                           .order_by(desc(AuditLog.id)).limit(1))
+            at = row.at if row is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+    if at is None:
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - at).total_seconds()
+
+
+def _get_shop_spaced(db, client) -> tuple[dict, dict]:
+    """getShop, at least SNAPSHOT_GAP_SECONDS after the shop sync's last read, with bounded
+    retries on a 429. Returns (body, how) or raises the last error."""
+    how: dict = {"waited_s": 0.0, "retries": 0}
+    since = _seconds_since_shop_sync(db)
+    if since is not None and 0 <= since < SNAPSHOT_GAP_SECONDS:
+        wait = SNAPSHOT_GAP_SECONDS - since
+        _sleep(wait)
+        how["waited_s"] = round(wait, 1)
+    for attempt in range(len(SNAPSHOT_429_DELAYS) + 1):
+        try:
+            return client.get_shop(), how
+        except Exception as e:  # noqa: BLE001 - only a rate limit is retried
+            if not _is_rate_limited(e) or attempt >= len(SNAPSHOT_429_DELAYS):
+                raise
+            _sleep(SNAPSHOT_429_DELAYS[attempt])
+            how["retries"] = attempt + 1
+    raise RuntimeError("unreachable")  # pragma: no cover
 
 #: The storefront checks whose failure means the shop is missing a trust surface (F-515).
 TRUST_SURFACE_CHECKS = ("icon_set", "banner_set", "title_set", "announcement_set",
@@ -923,7 +1008,7 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
                                                        "environment; nothing was read"})
         return {"evidence": "NO_EVIDENCE", "reason": "no credentials"}
     try:
-        body = client.get_shop()
+        body, read_how = _get_shop_spaced(ctx.db, client)
     except EtsyAuthNeedsOwner as e:
         auth = record_auth_needs_owner(ctx.db, e, where="etsy.shop_snapshot")
         ctx.audit("etsy.shop_snapshot", detail={"evidence": "NO_EVIDENCE", "auth": auth})
@@ -936,7 +1021,8 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
     now = time.time()
     previous = latest_reading(ctx.db, SHOP_READING)
     snapshot = {"observed_at": now, "shop": body}
-    status = etsy_surfaces.assess_shop(snapshot, now=now)
+    status = etsy_surfaces.assess_shop(snapshot, now=now,
+                                       context=shop_check_context(ctx.db, now=now))
     # K8: F-537 live policy text vs its canonical sources; F-585 the Options registry;
     # F-514 the surface inventory re-verified against what is held today.
     from ..commerce import policy_consistency, shop_observations, shop_options, \
@@ -1020,7 +1106,7 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
                 results = [checks[k].result if k in checks else etsy_surfaces.UNEVIDENCED
                            for k in needed]
                 full = f"{SURFACE_PREFIX}{key}"
-                if all(r == etsy_surfaces.PASS for r in results):
+                if all(r in etsy_surfaces.SATISFIES for r in results):
                     if _set_owner_action(s, full, done=True):
                         closed.append(full)
                 elif any(r == etsy_surfaces.FAIL for r in results):
@@ -1031,7 +1117,10 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
         "failures": [c.key for c in status.failures],
         "unevidenced": [c.key for c in status.unevidenced],
         "incidents_opened": opened, "incidents_resolved": resolved,
-        "owner_actions_closed": closed, "owner_actions_reopened": reopened})
+        "owner_actions_closed": closed, "owner_actions_reopened": reopened,
+        "read": read_how,
+        "not_applicable": [c.key for c in status.checks
+                           if c.result == etsy_surfaces.NOT_APPLICABLE_HERE]})
     return {"evidence": status.evidence_state, "green": status.green,
             "failures": [c.key for c in status.failures], "incidents_opened": opened,
             "policy_consistent": policy["consistent"], "options_drift": options["drift"],
@@ -1320,7 +1409,16 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
             if not row["owner_configured"] or row["status"] == live_state.UNKNOWN:
                 continue
             signature = f"{LIVE_OWNER_FIELD_BLANK}{row['field']}"
-            if row["status"] == live_state.LIVE_BLANK_OWNER_FIELD:
+            confirmed = (row["field"] == "shop_banner"
+                         and shop_sync.fresh_confirmation(ctx.db, "banner") is not None)
+            if row["status"] == live_state.LIVE_BLANK_OWNER_FIELD and confirmed:
+                # LAUNCHPREP E1: the API cannot show a Big Banner; the owner's fresh
+                # confirmation is the evidence, so the blank read is not a finding.
+                resolved += lifecycle.resolve_signatures(
+                    s, [signature], resolution=("the owner confirmed the banner from the "
+                                                "Store tab; getShop exposes only the "
+                                                "760x100 banner"))
+            elif row["status"] == live_state.LIVE_BLANK_OWNER_FIELD:
                 _, new = lifecycle.open_or_restate(
                     s, signature=signature, severity="P3", halts_publication=False,
                     summary=f"{row['label']}: the owner configured it but the live read "

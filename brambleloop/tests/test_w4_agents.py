@@ -223,7 +223,9 @@ def test_review_draft_and_apply_in_shadow_send_nothing():
         drafted = _run(db, "storefront_director", "content.draft", {"kind": "storefront"})
         assert drafted["recorded"] >= 2 and drafted["apply_jobs"], drafted
         assert "policy_shipping" in drafted["owner_steps"]
-        assert "policy_additional" in drafted["owner_steps"]
+        # LISTREADY E3: never asked to clear policy_additional; Etsy holds the value.
+        assert "policy_additional" not in drafted["owner_steps"]
+        assert all(p["surface"] != "policy_additional" for p in director.proposals(db))
         props = director.proposals(db)
         ann = next(p for p in props if p["surface"] == "announcement")
         assert ann["valid"] and ann["source"].startswith("store_foundation.content")
@@ -333,13 +335,14 @@ def test_agent_doable_store_cards_are_superseded_not_asked():
     with db.session() as s:
         s.add(OwnerAction(requirement_key="store:OA-D1", action="Create sections"))
     out = R.sync_owner_actions(db, {})
-    assert "store:OA-D1" not in out["created"] and "store:OA-E" not in out["created"]
-    assert "OA-D1" in out["skipped"] and "OA-E" in out["skipped"]
+    assert "store:OA-D1" not in out["created"] and "OA-D1" in out["skipped"]
+    # LISTREADY: OA-E closes only on getShop evidence, so with none it is still asked.
+    assert "store:OA-E" in out["created"]
     with db.session() as s:
         row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-D1"))
         assert row.done and row.state == "superseded" and "agent work" in row.state_reason
         oac = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == "store:OA-C"))
-        assert oac is not None and "(C5)" in oac.action and "agent work" in oac.action
+        assert oac is not None and "drafted by the Storefront Director" in oac.action
         assert s.scalar(select(AuditLog.id).where(AuditLog.action ==
                                                   "owner_action.lifecycle")) is not None
 

@@ -400,6 +400,10 @@ export const DATA = {
         fingerprint: { last4: "wxyz", sha256_prefix: "0f1e2d3c4b5a" }, latest: { at: ago(30) }, owner_action: "" },
       { provider: "anthropic", label: "Anthropic (Claude vision)", var: "ANTHROPIC_API_KEY", status: "UNKNOWN",
         fingerprint: null, latest: null, owner_action: "Set ANTHROPIC_API_KEY in Railway → Variables." }] }),
+  // W4-LISTREADY (GET /api/cc/launch-review): the batch before activation, frames not yet built.
+  launchReview: () => ({ batch_id: "launch_image_review_2026_10", status: "not_activated",
+    effective_daily_ceiling_cad: 1.0, frames_ready: false,
+    missing_releases: ["market-basket-small@1.2.0", "hexagon-coaster-set@1.2.0"] }),
   firstSale: () => tab("FIRST_SALE", { first_sale: { status: "BLOCKED", as_of: new Date().toISOString(), basis: "measured",
     reason: "no product is first-sale ready", owner_actions: ["publication_grant: owner records a sealed draft grant"],
     shop: [{ gate: "operating_phase", state: "FAIL", status: "BLOCKED", why: "operating phase shadow", evidence: "core.phase.resolve", who_acts: "owner", action: "owner go-live" }],

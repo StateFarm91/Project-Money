@@ -126,7 +126,7 @@ The autonomy map was regenerated (`python -m brambleloop.autonomy.map --write`).
 
 - **P-1 (owner decision).** Approve storefront writes per proposal via `/api/owner/storefront/approve`, and set `BRAMBLELOOP_STOREFRONT_WRITES_AUTHORISED=1`. Both are needed together with a phase out of SHADOW (P-3, card #7). Until then every proposal is held. No new OAuth scope is needed (shops_w was granted 2026-09-25). Cost CA$0.
 - **P-2.** The shop title stays owner-configured (`OWNER_CONFIGURED`), so the agent never proposes it.
-- **P-4 (no Etsy API).** These stay owner steps: banner, icon, About, member bio, the delivery/returns/privacy/FAQ texts, location, listing order, sold visibility, digital prints, Offsite Ads, KYC, banking and tax. For the blank delivery policy and the non-blank `policy_additional`, the Director records ready-to-paste or clear proposals (`OWNER_STEP`).
+- **P-4 (no Etsy API).** These stay owner steps: banner, icon, About, member bio, the delivery/returns/privacy/FAQ texts, location, listing order, sold visibility, digital prints, Offsite Ads, KYC, banking and tax. For the blank delivery policy the Director records a ready-to-paste proposal (`OWNER_STEP`). `policy_additional` is not a check (LISTREADY E3): Etsy holds its value, the company never writes it, and the Director never asks to clear it (fixed after the LISTREADY merge).
 - **Not built.**
   - `store.update` for live *listing* edits: there is no proposal source. It returns `ran: false` with the reason.
   - Separate Branding and Marketing agents: no requirement authorises them (see §1).

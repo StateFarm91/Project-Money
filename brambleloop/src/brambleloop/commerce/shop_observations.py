@@ -24,6 +24,14 @@ ACTION = "etsy.shop_observation"
 
 #: The pages this intake accepts, the owner action a complete reading evidences, and how
 #: old a reading may be before it is stale.
+# W4-LISTREADY (review F7): pages whose reading is the owner's own attestation -- identity
+# verification and the tax position (KYC), and where buyer messages reach -- are accepted only
+# from the owner's Command Center session with step-up (`POST /api/cc/etsy/shop-observation`),
+# never from the shared operator credential.
+# Final review R1: `delivery_policy` too -- it lets a blank delivery policy read not
+# applicable, so it is the owner's attestation, never the shared operator token's.
+OWNER_ATTESTED_PAGES = frozenset({"messages", "legal_and_tax", "delivery_policy"})
+
 PAGES: dict[str, dict[str, Any]] = {
     "policy_violations": {"owner_action": "policy_violations_check", "max_age_days": 7,
                           "values": "items: list of {source_text, listing_id?, kind, "
@@ -32,12 +40,51 @@ PAGES: dict[str, dict[str, Any]] = {
                       "values": "people: list of {label, permissions}; [] when empty"},
     "apps": {"owner_action": "apps_none_installed", "max_age_days": 30,
              "values": "apps: list of installed app names; [] when none"},
+    # W4-FIRSTSALE2: two first-sale surfaces Etsy publishes no API for at all (no messaging
+    # resource; no identity, entity or tax-registration resource). Evidenced only by the
+    # owner's dated, complete reading; `SATISFIED` decides whether it closes the action.
+    "messages": {"owner_action": "messages_watch", "max_age_days": 30,
+                 "values": "notifications_inbox: the address Etsy message notifications go "
+                           "to (non-empty); reply_window_hours: the agreed reply window (> 0)"},
+    "legal_and_tax": {"owner_action": "legal_and_tax_setup", "max_age_days": 90,
+                      "values": "identity_verified: bool (Etsy shows verification complete); "
+                                "tax_position: the GST/HST position chosen, as stated "
+                                "(non-empty); decided_on: ISO date the position was chosen"},
+    # LAUNCHPREP E2: whether Policy settings shows an editable delivery text box for this
+    # digital-only shop. A dated `false` is the evidence that lets a blank policy_shipping read
+    # not applicable (`intel.etsy_surfaces`); `true` keeps the check as it is.
+    "delivery_policy": {"owner_action": None, "max_age_days": 90,
+                        "values": "editable_delivery_box: bool (true if Policy settings shows a "
+                                  "delivery/shipping text box you can type in; false if only "
+                                  "Etsy's fixed 'Instant downloads' policy is shown)"},
     "options": {"owner_action": None, "max_age_days": 30,
                 "values": "controls: {control_key: value as shown}; labels: every control "
                           "label on the page"},
 }
 
 LIST_FIELD = {"policy_violations": "items", "shared_access": "people", "apps": "apps"}
+
+
+def _text(v) -> bool:
+    return isinstance(v, str) and bool(v.strip())
+
+
+#: Pages whose reading closes its owner action only when the values say the requirement is
+#: met (not when a list is empty). Only the owner's stated values are read; nothing inferred.
+SATISFIED = {
+    "messages": lambda v: _text(v.get("notifications_inbox"))
+    and isinstance(v.get("reply_window_hours"), (int, float))
+    and not isinstance(v.get("reply_window_hours"), bool) and v["reply_window_hours"] > 0,
+    "legal_and_tax": lambda v: v.get("identity_verified") is True
+    and _text(v.get("tax_position")) and _text(v.get("decided_on")),
+}
+
+
+def satisfied(page: str, observation: dict | None) -> bool | None:
+    """True/False for a complete reading of a SATISFIED page; None when there is none."""
+    if page not in SATISFIED or not observation or not observation.get("complete"):
+        return None
+    return bool(SATISFIED[page](observation.get("values") or {}))
 
 
 class ObservationRefused(ValueError):
@@ -79,6 +126,23 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
         raise ObservationRefused(f"values.{field} must be a list ([] when the page is empty)")
     if page == "options" and not isinstance(values.get("controls"), dict):
         raise ObservationRefused("values.controls must be an object of control -> value")
+    if page == "messages" and not (_text(values.get("notifications_inbox"))
+                                   and "reply_window_hours" in values):
+        raise ObservationRefused("values.notifications_inbox (text) and "
+                                 "values.reply_window_hours are required")
+    if page == "delivery_policy" and not isinstance(values.get("editable_delivery_box"), bool):
+        raise ObservationRefused("values.editable_delivery_box must be true or false")
+    if page == "legal_and_tax":
+        if not isinstance(values.get("identity_verified"), bool):
+            raise ObservationRefused("values.identity_verified must be true or false")
+        if values.get("decided_on"):
+            try:
+                decided = datetime.fromisoformat(str(values["decided_on"]))
+            except ValueError as e:
+                raise ObservationRefused("values.decided_on must be an ISO date") from e
+            # W4-LISTREADY (review F7): a decision cannot be dated after the reading of it.
+            if (decided if decided.tzinfo else decided.replace(tzinfo=timezone.utc)) > now:
+                raise ObservationRefused("values.decided_on is in the future")
     detail = {"page": page, "observed_at": when.isoformat(), "complete": complete,
               "values": values, "statement": str(statement)[:500]}
     with db.session() as s:
@@ -90,7 +154,11 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
     out: dict[str, Any] = {"id": obs_id, "page": page, "complete": complete,
                            "owner_action": None}
     key = PAGES[page]["owner_action"]
-    if key and complete:
+    if key and complete and page in SATISFIED:
+        done = bool(SATISFIED[page](values))
+        out["owner_action"] = {"key": f"etsy_surface:{key}",
+                               "changed": _set_action(db, key, done=done), "done": done}
+    elif key and complete:
         empty = not values.get(field)
         out["owner_action"] = {"key": f"etsy_surface:{key}",
                                "changed": _set_action(db, key, done=empty),

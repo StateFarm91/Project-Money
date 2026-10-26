@@ -461,6 +461,18 @@ class OwnerAction:
 COLLECTORS: dict[str, str] = {
     "shop_snapshot": "assess_shop(): the fields `getShop` returns, checked one at a time",
     "listing_census": "listing_census_drift(): our listing set against what the shop shows",
+    # W4-FIRSTSALE2: the five first-sale surfaces that had no collector (W4-CLOSE6 §11).
+    # Each is computed by `launch.first_sale_surfaces`; a reading that measured a failing
+    # condition is FAILING, never FRESH.
+    "orders_ingest": "commerce.orders_ingest: the latest completed getShopReceipts read "
+                     "(commerce.orders_ingested ran=true) with the transactions_r gate open",
+    "taxonomy_match": "integrations.etsy_taxonomy snapshot read through commerce.category: "
+                      "every Launch-0 release's stored search profile CHOSEN on a node of "
+                      "the newest Etsy tree, with its attributes complete",
+    "digital_deliverables": "commerce.deliverables: every Launch-0 release's certified PDFs "
+                            "held durably (re-hashed) and within Etsy's digital-file rules",
+    "shop_observation": "commerce.shop_observations: the owner's dated, complete reading of a "
+                        "Shop Manager page no API exposes",
 }
 
 
@@ -641,6 +653,8 @@ _SURFACES: tuple[Surface, ...] = (
                                  "message is unread until somebody happens to look.",
             blocks_first_sale=False,
         ),
+        collector="shop_observation",
+        max_age_days=30,
     ),
 
     # -- 4. Orders ---------------------------------------------------------
@@ -665,10 +679,12 @@ _SURFACES: tuple[Surface, ...] = (
                                    "when an order receives payment.\"", "dev_webhooks"),
             Evidence(OPENAPI_SAYS, "Every one of those reads requires the transactions_r "
                                    "scope.", "openapi"),
-            Evidence(INFERRED, "transactions_r is NOT in the scope set Etsy granted this "
-                               "shop on 2026-09-25. As things stand this system cannot see "
-                               "its own first sale -- not the order, not the buyer's note, "
-                               "not the money. The read exists; the authorisation does not.",
+            Evidence(INFERRED, "transactions_r was absent from the 2026-09-25 grant and has "
+                               "since been granted: production records "
+                               "commerce.orders_ingested with ran=true and gate_missing [] on "
+                               "every cadence (read 2026-10-20, W4-FIRSTSALE2). The "
+                               "`orders_ingest` collector re-reads that every time, so a lost "
+                               "scope shows again as a closed gate and an owner action.",
                      "build_state"),
             Evidence(OPENAPI_SAYS, "updateShopReceipt and createReceiptShipment exist and "
                                    "write fulfilment state; for a digital download there is "
@@ -683,30 +699,12 @@ _SURFACES: tuple[Surface, ...] = (
                      "support, the first-hundred programme, and any revenue figure that is "
                      "not a guess.",
         work_class=CLASS_A,
-        owner_action=OwnerAction(
-            key="reauthorise_transactions_r",
-            surface="orders",
-            action="Re-authorise the Brambleloop app in a browser with transactions_r added "
-                   "to the scope set (listings_r listings_w listings_d shops_r shops_w "
-                   "transactions_r). Start the flow at /api/etsy/oauth/start as before.",
-            why_software_cannot="Etsy grants scope only through the authorization-code flow, "
-                                "which requires a human to approve the consent screen in a "
-                                "browser. A refresh grant \"has the same scope as the token "
-                                "granted by the initial Authorization Code grant\", so no "
-                                "amount of refreshing widens it.",
-            minutes=6,
-            risk="Moderate and reversible. The new grant replaces the stored credential; if "
-                 "the flow fails midway the old refresh token may already be spent, and the "
-                 "write path is down until the flow is completed. Do it while you are at a "
-                 "keyboard, not before a launch window.",
-            evidence_required="A /api/etsy/oauth/status response whose granted scope list "
-                              "contains transactions_r, plus the credential still openable.",
-            consequence_of_delay="The shop can sell and this system will not know. Every "
-                                 "customer-facing promise that depends on knowing who bought "
-                                 "what is unenforceable until it is done.",
-            blocks_first_sale=False,
-        ),
-        collector=None,
+        # W4-FIRSTSALE2: no standing owner action. The scope is granted and receipts are read
+        # every cadence; launch readiness raises `reauthorise_transactions_r` only while the
+        # orders gate is actually closed (`commerce.orders_ingest.gate`).
+        owner_action=None,
+        collector="orders_ingest",
+        max_age_days=1,
         unknowns=("Whether Etsy's consent screen re-grants the existing five scopes silently "
                   "or presents them again for approval. Settled by doing it once.",),
     ),
@@ -1194,7 +1192,8 @@ _SURFACES: tuple[Surface, ...] = (
                      "tax position has to be chosen before the first invoice rather than "
                      "corrected after it.",
         work_class=CLASS_A,
-        collector=None,
+        collector="shop_observation",
+        max_age_days=90,
         owner_action=OwnerAction(
             key="legal_and_tax_setup",
             surface="legal_and_tax",
@@ -1359,18 +1358,20 @@ _SURFACES: tuple[Surface, ...] = (
         owner_action=OwnerAction(
             key="info_and_appearance_setup",
             surface="info_and_appearance",
-            action="Upload the shop banner and icon and paste the About story from "
-                   "`brand/storefront.ABOUT` into Shop Manager > Settings > Info & "
-                   "appearance.",
+            # W-AGENTAUDIT E-6: one ask per surface. The About story is asked once, under
+            # store:OA-OBS (it has no API field); this card is the banner and icon only.
+            action="Upload the shop banner and icon in Shop Manager > Settings > Info & "
+                   "appearance (the About story is recorded once, under store:OA-OBS).",
             why_software_cannot="updateShop writes five text fields and none of them is an "
                                 "image or the About story; Etsy publishes no shop-image "
                                 "upload endpoint at all.",
             minutes=20,
             risk="Low. The assets and the words are prepared; this is pasting and "
                  "uploading, not composing.",
-            evidence_required="getShop returning non-empty icon_url_fullxfull and "
-                              "image_url_760x100 -- checked by `assess_shop`, so this closes "
-                              "on a reading.",
+            evidence_required="getShop returning non-empty icon_url_fullxfull, and either a "
+                              "non-empty image_url_760x100 or -- for a Big Banner, which getShop "
+                              "cannot show -- the owner's fresh Store-tab banner confirmation; "
+                              "checked by `assess_shop`, so this closes on evidence.",
             consequence_of_delay="The storefront reads as abandoned to the first buyer who "
                                  "reaches it.",
             blocks_first_sale=True,
@@ -1698,7 +1699,8 @@ _SURFACES: tuple[Surface, ...] = (
         why_required="A digital listing with no file sells a buyer nothing, and Etsy "
                      "delivers whatever is attached without asking us.",
         work_class=CLASS_A,
-        collector=None,
+        collector="digital_deliverables",
+        max_age_days=1,
     ),
 
     # -- 32. Taxonomy and attributes ---------------------------------------
@@ -1731,7 +1733,8 @@ _SURFACES: tuple[Surface, ...] = (
                      "a listing in the wrong category -- which Etsy accepts silently, so "
                      "nothing fails and nobody finds it.",
         work_class=CLASS_A,
-        collector=None,
+        collector="taxonomy_match",
+        max_age_days=2,
         unknowns=("Whether taxonomy id 66 is the crochet-patterns node, and whether that node "
                   "marks any property is_required. One API-key GET answers both.",),
     ),
@@ -2095,17 +2098,27 @@ NO_COLLECTOR = "NO_COLLECTOR"   # nothing could produce evidence for this surfac
 NO_EVIDENCE = "NO_EVIDENCE"     # a collector exists and has never returned anything
 STALE = "STALE"                 # a record exists and is older than the surface tolerates
 FRESH = "FRESH"                 # a record exists and is current
-EVIDENCE_STATES = (NO_COLLECTOR, NO_EVIDENCE, STALE, FRESH)
+# W4-FIRSTSALE2: a current reading that MEASURED the requirement unmet (a record whose
+# `satisfied` is False). Current evidence of a gap is not readiness.
+FAILING = "FAILING"
+EVIDENCE_STATES = (NO_COLLECTOR, NO_EVIDENCE, STALE, FAILING, FRESH)
 
 PASS = "PASS"
 FAIL = "FAIL"
 UNEVIDENCED = "NO_EVIDENCE"
+# W4-LISTREADY (LAUNCHPREP E2): a check that does not apply to this shop, *on evidence*: the
+# owner's dated reading plus what getShop itself shows. Never inferred from a blank field.
+NOT_APPLICABLE_HERE = "NOT_APPLICABLE"
+#: Check results that satisfy a check. Anything else -- FAIL, NO_EVIDENCE -- does not.
+SATISFIES = (PASS, NOT_APPLICABLE_HERE)
+#: How old an owner confirmation (`store.owner_confirmed`) or page reading may be (days).
+OWNER_EVIDENCE_MAX_DAYS = 90
 
 
 @dataclass(frozen=True)
 class Check:
     key: str
-    result: str          # PASS / FAIL / UNEVIDENCED
+    result: str          # PASS / FAIL / UNEVIDENCED / NOT_APPLICABLE_HERE (on evidence)
     detail: str
 
     def to_dict(self) -> dict:
@@ -2133,7 +2146,7 @@ class SurfaceStatus:
             return False
         if not self.checks:
             return False
-        return all(c.result == PASS for c in self.checks)
+        return all(c.result in SATISFIES for c in self.checks)
 
     @property
     def failures(self) -> tuple[Check, ...]:
@@ -2163,7 +2176,11 @@ def evidence_state(surface: Surface, record: Mapping | None, *, now: float) -> s
     if age_days < 0:
         # A record from the future is a clock problem, and a clock problem is not freshness.
         return STALE
-    return FRESH if age_days <= max_age else STALE
+    if age_days > max_age:
+        return STALE
+    if record.get("satisfied") is False:
+        return FAILING
+    return FRESH
 
 
 # ---------------------------------------------------------------------------
@@ -2183,7 +2200,10 @@ def evidence_state(surface: Surface, record: Mapping | None, *, now: float) -> s
 SHOP_CHECKS: tuple[tuple[str, str, str, object, str], ...] = (
     ("icon_set", "icon_url_fullxfull", "nonblank", None,
      "a shop with no icon reads as abandoned; closes info_and_appearance_setup"),
-    ("banner_set", "image_url_760x100", "nonblank", None,
+    # LAUNCHPREP E1: Etsy's Shop schema exposes only the 760x100 banner, so a Big Banner reads
+    # blank: blank is missing evidence (NO_EVIDENCE), never FAIL. The owner's fresh one-tap
+    # confirmation (`store.owner_confirmed`, setting `banner`) is the evidence that closes it.
+    ("banner_set", "image_url_760x100", "nonblank_or_owner_confirmed", "banner",
      "the banner is the first thing a buyer sees; closes info_and_appearance_setup"),
     ("title_set", "title", "nonblank", None,
      "written by updateShop, so a blank one means the write never happened"),
@@ -2193,15 +2213,19 @@ SHOP_CHECKS: tuple[tuple[str, str, str, object, str], ...] = (
      "the only message that reaches every buyer, delivered at purchase and unretrofittable"),
     ("policy_payment_set", "policy_payment", "nonblank", None,
      "typed by a person; closes policy_settings_paste"),
-    ("policy_shipping_set", "policy_shipping", "nonblank", None,
+    # LAUNCHPREP E2: for a digital-only shop whose Policy settings has no delivery text box
+    # (the owner's dated `delivery_policy` reading), a blank policy_shipping is not applicable
+    # -- the buyer is told by digital_sale_message, which must be set. Otherwise unchanged.
+    ("policy_shipping_set", "policy_shipping", "nonblank_or_na_digital", None,
      "delivery policy -- for a download this is where the file is and what to do if it fails"),
     ("policy_refunds_set", "policy_refunds", "nonblank", None,
      "the most likely first complaint is about a return on a non-returnable item"),
     ("policy_privacy_set", "policy_privacy", "nonblank", None,
      "CASL and buyer trust; buying must not put anybody on a list"),
-    ("policy_additional_unset", "policy_additional", "blank", None,
-     "Etsy lets only EU shops set policy_additional (lane I, verified Help Center); a Canadian "
-     "shop must leave it empty -- the licence lives in the FAQ/About copy"),
+    # LAUNCHPREP E3: no `policy_additional_unset` check. "Only EU shops may set it" is a
+    # restriction on our updateShop *write* (kept: shop_package / etsy_constraints refuse it),
+    # not a fact about the shop: Etsy holds a value for this Canadian shop. Its content is
+    # checked instead, by `commerce.policy_consistency` (contradiction patterns on every field).
     ("etsy_payments_onboarded", "is_etsy_payments_onboarded", "true", None,
      "no payout route without it; closes payment_settings_setup"),
     ("not_on_vacation", "is_vacation", "false", None,
@@ -2213,8 +2237,47 @@ SHOP_CHECKS: tuple[tuple[str, str, str, object, str], ...] = (
 )
 
 
+def _fresh(at_iso, now: float, max_days: float) -> bool:
+    try:
+        from datetime import datetime as _dt
+        at = _dt.fromisoformat(str(at_iso).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return False
+    return 0 <= (now - at) / 86400.0 <= max_days
+
+
+def _owner_confirmation(context: Mapping | None, setting: str, now: float) -> Mapping | None:
+    conf = ((context or {}).get("owner_confirmed") or {}).get(setting)
+    if isinstance(conf, Mapping) and _fresh(conf.get("confirmed_at"), now,
+                                            OWNER_EVIDENCE_MAX_DAYS):
+        return conf
+    return None
+
+
+def _no_delivery_box(context: Mapping | None, body: Mapping, now: float) -> str:
+    """Why policy_shipping does not apply to this shop, on evidence, or "" when it may."""
+    obs = (context or {}).get("delivery_policy")
+    if not isinstance(obs, Mapping) or not obs.get("complete"):
+        return ""
+    if not _fresh(obs.get("observed_at"), now, OWNER_EVIDENCE_MAX_DAYS):
+        return ""
+    if (obs.get("values") or {}).get("editable_delivery_box") is not False:
+        return ""
+    active, digital = body.get("listing_active_count"), body.get("digital_listing_count")
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in (active, digital)):
+        return ""
+    if active != digital:
+        return ""                                   # a physical listing exists: it applies
+    msg = body.get("digital_sale_message")
+    if not (isinstance(msg, str) and msg.strip()):
+        return ""                                   # nothing else tells the buyer: it applies
+    return (f"not applicable: the owner's reading of {str(obs.get('observed_at'))[:10]} shows "
+            f"no editable delivery box for a digital-only shop; getShop shows "
+            f"{active} active listing(s), all digital, and digital_sale_message is set")
+
+
 def assess_shop(snapshot: Mapping | None, *, now: float,
-                max_age_days: int = 7) -> SurfaceStatus:
+                max_age_days: int = 7, context: Mapping | None = None) -> SurfaceStatus:
     """Check a `getShop` response field by field, distinguishing absent from empty.
 
     The distinction is the whole design. Etsy returning ``"policy_refunds": null`` means the
@@ -2251,6 +2314,32 @@ def assess_shop(snapshot: Mapping | None, *, now: float,
                                 f"it. ({why})"))
             continue
         value = body[field_name]
+        if kind == "nonblank_or_owner_confirmed":
+            if isinstance(value, str) and value.strip():
+                checks.append(Check(key, PASS, f"{field_name} is set"))
+                continue
+            conf = _owner_confirmation(context, str(expect), now)
+            if conf is not None:
+                checks.append(Check(key, PASS, (
+                    f"{field_name} is blank in getShop (Etsy's Shop schema shows only that "
+                    f"banner size); the owner confirmed it on "
+                    f"{str(conf.get('confirmed_at'))[:10]}: "
+                    f"{str(conf.get('statement') or '')[:160]}")))
+            else:
+                checks.append(Check(key, UNEVIDENCED, (
+                    f"{field_name} is {value!r}: Etsy's Shop schema exposes only this banner "
+                    f"size, so a Big Banner reads blank -- missing evidence, not a missing "
+                    f"banner. Confirm it from the Store tab. ({why})")))
+            continue
+        if kind == "nonblank_or_na_digital":
+            if isinstance(value, str) and value.strip():
+                checks.append(Check(key, PASS, f"{field_name} is set"))
+                continue
+            na = _no_delivery_box(context, body, now)
+            checks.append(Check(key, NOT_APPLICABLE_HERE, na) if na else Check(
+                key, FAIL, f"{field_name} is {value!r}: Etsy returned it and it is empty. "
+                           f"({why})"))
+            continue
         if kind == "nonblank":
             ok = isinstance(value, str) and value.strip() != ""
             detail = (f"{field_name} is set" if ok else

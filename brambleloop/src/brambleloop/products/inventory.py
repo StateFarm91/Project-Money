@@ -159,10 +159,15 @@ def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> 
             out["jobs"] = sorted({f"{j.job_type}:{j.status.value if hasattr(j.status, 'value') else j.status}"
                                   for j in jobs})
             return out
-        q = select(PatternVersion).where(PatternVersion.product_id == product.id)
         if version:
-            q = q.where(PatternVersion.version == version)
-        pv = s.scalar(q.order_by(PatternVersion.id.desc()).limit(1))
+            pv = s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == version)
+                .order_by(PatternVersion.id.desc()).limit(1))
+        else:
+            # W4-LISTREADY (N1): "the release" is the newest by version.
+            from ..ops.artefacts import newest_release
+
+            pv = newest_release(s, product.id)
         listing = s.scalar(select(Listing).where(Listing.product_slug == slug)
                            .order_by(Listing.id.desc()).limit(1))
         out["release"] = None if pv is None else {

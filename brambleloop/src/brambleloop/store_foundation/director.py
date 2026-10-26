@@ -248,20 +248,18 @@ def review(db, *, now: datetime | None = None) -> dict:
                  or (isinstance(value, dict) and value.get("present") is False))
         status = UNKNOWN if s.get("state", UNKNOWN) == UNKNOWN else ("MISSING" if blank else OK)
         row(f, OWNER_STEP, status, where, live_state=s.get("state", UNKNOWN))
+    # LISTREADY E3: Etsy holds whatever value policy_additional has; it is not a check, the
+    # company never writes it and never asks the owner to clear it. Reported, never a gap.
     pa = snap.get("policy_additional") or {}
-    pv = pa.get("value")
-    row("policy_additional", PROTECTED,
-        UNKNOWN if pa.get("state", UNKNOWN) == UNKNOWN else
-        ("OK" if not str(pv or "").strip() else "SET_ON_NON_EU_SHOP"),
-        "EU-only (Etsy); must stay blank for this Canadian shop; clearing it is an owner step",
-        live_state=pa.get("state", UNKNOWN))
+    row("policy_additional", PROTECTED, "NOT_A_CHECK",
+        "Etsy holds this value (LISTREADY E3); the company never writes it (EU-only field) "
+        "and asks nobody to change it", live_state=pa.get("state", UNKNOWN))
     counts: dict[str, int] = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
     agent_gaps = [r["surface"] for r in rows if r["actor"] == AGENT_PROPOSAL
                   and r["status"] in ("MISSING", "LIVE_FAILS_RULES")]
-    owner_gaps = [r["surface"] for r in rows if r["status"] in ("MISSING",
-                                                                "SET_ON_NON_EU_SHOP")
+    owner_gaps = [r["surface"] for r in rows if r["status"] == "MISSING"
                   and r["actor"] != AGENT_PROPOSAL]
     return {"at": now.isoformat(), "agent": AGENT, "surfaces": rows, "counts": counts,
             "agent_gaps": agent_gaps, "owner_gaps": owner_gaps,
@@ -296,13 +294,6 @@ def build_proposals(db, rev: dict | None = None) -> list[dict]:
                         "where": OWNER_ONLY[f], "text": text, "source": d[f]["source"],
                         "problems": text_problems(text, surface=f, db=db),
                         "digest": digest({"owner_step": f, "text": text})})
-    if (by.get("policy_additional") or {}).get("status") == "SET_ON_NON_EU_SHOP":
-        out.append({"surface": "policy_additional", "api_writable": False, "kind": OWNER_STEP,
-                    "where": "Settings > Policy Settings: clear the additional-terms field",
-                    "text": "", "source": "integrations.etsy_constraints "
-                                          "policy_additional_eu_only",
-                    "problems": [], "digest": digest({"owner_step": "policy_additional",
-                                                      "text": ""})})
     return out
 
 

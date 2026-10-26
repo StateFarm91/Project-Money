@@ -319,8 +319,11 @@ def drift_status(drift: dict, field: str) -> str:
 # ---- consolidated owner-action checklist -------------------------------------------------
 
 
-def owner_actions(drift: dict) -> list[dict]:
-    """One batched list: exact action, why, max cost, minutes, consequence of waiting."""
+def owner_actions(drift: dict, *, shop: dict | None = None) -> list[dict]:
+    """One batched list: exact action, why, max cost, minutes, consequence of waiting.
+
+    `shop` is a fresh getShop body when one is held: a part of a card it shows done is left
+    out of that card's text (OA-C's announcement), never assumed done without it."""
     def oa(id_, action, why, minutes, wait, cost="CA$0"):
         return {"id": id_, "action": action, "why": why, "max_cost": cost,
                 "minutes": minutes, "if_you_wait": wait}
@@ -347,9 +350,12 @@ def owner_actions(drift: dict) -> list[dict]:
            "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and "
            "the repo gates found items only you can rule on", 3,
            "crop/footer findings stay unresolved"),
-        oa("OA-C", "Shop settings still open: location (C9), listing order Custom (C10), sold "
-           "visibility off (C11). The announcement (C5) is agent work now: the Storefront "
-           "Director proposes it (updateShop)", "trust surfaces and ordering", 5,
+        oa("OA-C", ("Shop settings still open: location (C9), listing order Custom (C10), sold "
+                    "visibility off (C11)" if shop and _nonblank(shop, "announcement") else
+                    "Shop settings still open: announcement (C5), drafted by the Storefront Director "
+                    "(applying it needs your storefront grant); location (C9), listing "
+                    "order Custom (C10), sold visibility off (C11)"),
+           "trust surfaces and ordering", 5,
            "shop snapshot keeps reporting missing trust surfaces"),
         oa("OA-D1", "Create sections for populated categories only (today: Home, Baby)",
            "D-FB-18 item 3: never advertise empty categories", 3,
@@ -401,8 +407,8 @@ _NOT_ASKED = {"OA-A2": "company work: etsy.shop_snapshot reads the shop state af
 _AGENT_WORK = {
     "OA-D1": "agent work: storefront_director proposes createShopSection for each populated "
              "category; store.update applies it under the owner's storefront grant",
-    "OA-E": "agent work: storefront_director proposes updateShop sale_message / "
-            "digital_sale_message; store.update applies it under the owner's storefront grant",
+    # OA-E (buyer messages) is NOT here: LISTREADY closes it on the getShop evidence and
+    # never without it; the Director still proposes the messages in parallel.
 }
 # An alias is already represented by another producer's row under any of these keys.
 _ALREADY_ASKED_UNDER = {"OA-A1": ("reauthorise_transactions_r", "etsy.auth:reauthorise",
@@ -421,6 +427,41 @@ def _cost_cad(text: str) -> tuple[float, str]:
     return 0.0, "stated"
 
 
+# W-AGENTAUDIT E-6 (W4-LISTREADY): a store card whose whole ask the live getShop reading shows
+# done is closed on that reading, and a card that is a strict subset of another producer's card
+# is merged into it (one ask per surface). Only a fresh reading closes anything; a blank,
+# missing or stale reading closes nothing.
+SHOP_READING_MAX_DAYS = 7
+_SHOWN_DONE_BY = {
+    # Message to Buyers + Message for Digital Items: both are getShop fields.
+    "OA-E": ("sale_message", "digital_sale_message"),
+}
+#: OA-F (privacy, FAQ with licence, cancellations) is inside the registry's
+#: policy_settings_paste (the six prepared policies, FAQ included).
+_MERGED_INTO = {"OA-F": "etsy_surface:policy_settings_paste"}
+
+
+def _fresh_shop(db, *, now: float | None = None) -> dict | None:
+    import time as _time
+
+    try:
+        from ..runtime.etsy_ops import SHOP_READING, latest_reading
+
+        snap = latest_reading(db, SHOP_READING) or {}
+    except Exception:  # noqa: BLE001 - unreadable closes nothing
+        return None
+    now = now if now is not None else _time.time()
+    at = snap.get("observed_at")
+    if at is None or not 0 <= (now - float(at)) / 86400.0 <= SHOP_READING_MAX_DAYS:
+        return None
+    shop = snap.get("shop")
+    return shop if isinstance(shop, dict) else None
+
+
+def _nonblank(shop: dict, field: str) -> bool:
+    return field in shop and isinstance(shop[field], str) and bool(shop[field].strip())
+
+
 def sync_owner_actions(db, drift: dict | None = None) -> dict:
     """Upsert the store owner actions as OwnerAction rows; idempotent, never duplicates."""
     from sqlalchemy import select
@@ -428,17 +469,39 @@ def sync_owner_actions(db, drift: dict | None = None) -> dict:
     from ..core.models import OwnerAction
 
     drift = drift if drift is not None else {}
-    items = owner_actions(drift)
+    shop = _fresh_shop(db)
+    items = owner_actions(drift, shop=shop)
+    closed: dict[str, str] = {}
     created, updated, skipped = [], [], {}
     with db.session() as s:
         open_rows = {r.requirement_key: r for r in s.scalars(select(OwnerAction).where(
             OwnerAction.done == False))}  # noqa: E712
         done_keys = {k for (k,) in s.execute(select(OwnerAction.requirement_key).where(
             OwnerAction.done == True))}  # noqa: E712
+        all_keys = {k for (k,) in s.execute(select(OwnerAction.requirement_key))}
         for it in items:
             oid = it["id"]
             if oid in _NOT_ASKED:
                 skipped[oid] = _NOT_ASKED[oid]
+                continue
+            own = STORE_KEY_PREFIX + oid
+            why_closed = ""
+            if oid in _SHOWN_DONE_BY and shop is not None and all(
+                    _nonblank(shop, f) for f in _SHOWN_DONE_BY[oid]):
+                why_closed = ("the live getShop reading shows "
+                              + " and ".join(_SHOWN_DONE_BY[oid]) + " set")
+            elif oid in _MERGED_INTO and _MERGED_INTO[oid] in open_rows:
+                # Final review R3: merged only into an *open* card. A done target (closed on
+                # its getShop checks) does not evidence the FAQ or cancellations, so OA-F
+                # stays visible until those are evidenced.
+                why_closed = f"merged into {_MERGED_INTO[oid]} (the same ask, asked once)"
+            if why_closed:
+                row = open_rows.get(own)
+                if row is not None:
+                    row.done = True
+                    row.reason = (f"{row.reason or ''} -- closed: {why_closed}")[:2000]
+                    closed[own] = why_closed
+                skipped[oid] = why_closed
                 continue
             if oid in _AGENT_WORK:
                 skipped[oid] = _AGENT_WORK[oid]
@@ -477,7 +540,7 @@ def sync_owner_actions(db, drift: dict | None = None) -> dict:
                 row.minutes, row.max_cost_cad = int(it["minutes"]), cost
                 updated.append(key)
     return {"created": created, "updated": updated, "skipped": skipped,
-            "items": len(items)}
+            "closed": closed, "items": len(items)}
 
 
 # ---- rendering ---------------------------------------------------------------------------

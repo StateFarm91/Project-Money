@@ -2194,3 +2194,46 @@ Before publishing, verify that the specific image use complies with Etsy's appli
 **Scope.** The exception covers product-only, lifestyle and detail roles. Existing owner-made FLUX images are NOT certified by
 this amendment. Etsy compliance for each specific image use must be verified before publication; while it is unresolved,
 publication stays blocked.
+
+### D-W4-LAUNCH-VISION-BATCH — owner approval of the Launch-0 independent image review (2026-10-21)
+
+**Owner's approval, as relayed by the coordinator (summarised faithfully):** "I approve up to CA$7.07 in total paid
+independent image-review usage for the 59–69 launch listing images." For this launch review batch ONLY, a temporary increase
+of the image reviewer's (`quality_director`) daily ceiling to CA$8.00. It does NOT increase the CA$100 company monthly ceiling
+and does not authorise unrelated generation. The temporary limit must revert automatically to CA$1.00/day after the batch
+completes or its authorisation expires. Reserve spend before each call. Preserve all quality and Product Truth gates. UNKNOWN
+is never PASS. Do not publish, leave SHADOW mode or incur Etsy fees.
+
+**Implemented (W4-LISTREADY, `finance/launch_review.py`):** one scoped record `launch_image_review_2026_10`.
+- **Caps:** total CA$7.07; agent `quality_director`; daily cap CA$8.00 for that agent, on this batch's own review calls only.
+- **Scope:** the exact Launch-0 frames, by sha256, fixed at activation.
+- **Expiry:** 14 days from activation.
+- **Activation:** owner session + step-up, `POST /api/cc/launch-review/activate`, after the listings release is deployed.
+- **Per-call checks.** Each call is checked inside the budget lock, in the same step that writes its reservation:
+  - the CA$100 month, which is unchanged and checked first;
+  - the batch is open (not completed, not expired, not exhausted);
+  - the release's stored frames equal the scope;
+  - the per-release call allowance;
+  - the batch total;
+  - the batch day.
+- **Calls outside the batch:** checked against the unchanged registry CA$1.00.
+- **Closing:** the batch closes in code when it completes, expires or cannot fit another call. From then on the effective
+  ceiling is CA$1.00.
+- **Gates:** unchanged. A refused or failed review leaves the frame unreviewed (UNKNOWN). A bill-unknown review is never resent:
+  each release is reviewed once, with a single attempt.
+
+### D-W4-STOREFRONT-E3 — `policy_additional` is not a readiness check for a Canadian shop (2026-10-21)
+
+**Commission:** the owner's coordinator commissioned W-LAUNCHPREP's storefront findings for the first sale (LAUNCHPREP.md
+§B4, E1–E7), relayed to W-LISTREADY on 2026-10-21. E3 reads: "`policy_additional_unset` must not be a readiness check for a
+Canadian shop. Add the field's content to the policy-consistency check instead."
+
+**Decision.** "Only EU shops may set `policy_additional`" is a restriction on *our* `updateShop` write (Etsy Open API). That
+refusal is kept in `commerce/shop_package` and `integrations/etsy_constraints`. Etsy itself holds a value for this Canadian
+shop, so "must be blank" is not a fact about the shop's readiness.
+
+- The check is removed from `intel.etsy_surfaces.SHOP_CHECKS` and from `policy_settings_paste`'s closures.
+- The field's **content** is still checked: `commerce.policy_consistency` runs every contradiction pattern on it (licence,
+  returns, shipping, mailing-list facts).
+- Nothing is deleted from the shop.
+- One existing test that asserted the old rule was rewritten to assert the new one; it is named in its own comment.
