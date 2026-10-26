@@ -148,16 +148,36 @@ UNREGISTERED = [
      "text": ("6-hour meaningful market/store/ad signal review; daily sales/traffic/pricing/ads/"
               "support/competitor/pipeline/cash review"),
      "jobs": ["radar.scan", "mjs.scan"], "ledger": "cadence only; no row"},
-    {"id": "SEEDS-05", "topic": "watchlist", "source": "spec/05_Competitor_and_Market_Seeds.txt",
-     "text": ("Use these as initial research targets, not designs to copy. [HanJanCrochet, IvyLoop, "
-              "MJsOffTheHookDesigns, LoveandStitchDesigns, FireflyCrochets, the crochet-pattern "
-              "search seed] Research objectives: category mix and whitespace; release cadence and "
-              "seasonality; product ladders and bundles; regular vs promotional pricing "
-              "observations; first-image/thumbnail patterns; use of recurring human models; PDF + "
-              "video positioning; reviews: delight, confusion, missing features; external "
-              "traffic/content ecosystems; bestseller/trending signals where publicly visible"),
-     "jobs": [], "ledger": "OMISSION: only MJs is registered (intel/benchmarks.REGISTRY); the "
-                           "four other seed shops are not in the registry or the ledger"},
+    {"id": "SEEDS-05", "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": 'Use these as initial research targets, not designs to copy. ... Research objectives: category mix and whitespace; release cadence and seasonality; product ladders and bundles; regular vs promotional pricing observations; first-image/thumbnail patterns; use of recurring human models; PDF + video positioning; reviews: delight, confusion, missing features; external traffic/content ecosystems; bestseller/trending signals where publicly visible; do NOT copy protected designs, charts, text or photography',
+     "jobs": [], "modules": ["radar/market.py"],
+     "ledger": "OMISSION: the seed list and its ten research objectives have no ledger row; "
+               "radar/market.COMPETITORS holds one dated profile per seed shop (observed "
+               "2026-09-17), which is a snapshot, not monitoring"},
+    {"id": 'SEEDS-05-HANJAN', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "HanJanCrochet shop\nhttps://www.etsy.com/ca/shop/HanJanCrochet?ref=shop_profile&listing_id=4564723597\n\nHanJan Fall Crochet Blanket example\nhttps://www.etsy.com/ca/listing/4564723597/pattern-video-fall-crochet-blanket",
+     "jobs": ['intel.panel_discovery'], "modules": ['radar/market.py', 'intel/second_market.py', 'intel/panel_discovery.py'],
+     "ledger": "OMISSION: no ledger row for the seed. Code: a dated static profile (radar/market.COMPETITORS, observed 2026-09-17) and a second-market candidate (intel/second_market.CANDIDATES, D-W4-GATESB-1) that intel.panel_discovery joins and scans weekly once getShop verifies its stated market. Production: panel_discovery ran 3 times (last job 27000) and the second_market_benchmark gate reads OPEN at 17:24Z, so some non-US benchmark has observed listings; whether it is HanJanCrochet needs operator readback"},
+    {"id": 'SEEDS-05-IVYLOOP', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "IvyLoop shop\nhttps://www.etsy.com/ca/shop/IvyLoop?ref=shop_profile&listing_id=4554452706",
+     "jobs": [], "modules": ['radar/market.py'],
+     "ledger": "OMISSION: no ledger row. Code: radar/market.COMPETITORS profile reads 'Seeded by owner; profile to be filled on first live scan' / 'Not yet observed' -- never registered, never scanned"},
+    {"id": 'SEEDS-05-MJS', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "MJsOffTheHookDesigns shop\nhttps://www.etsy.com/ca/shop/MJsOffTheHookDesigns?ref=shop_profile&listing_id=1812302425\n\nMJs Autumn's Charm example\nhttps://www.etsy.com/ca/listing/1812302425/crochet-pattern-video-autumns-charm",
+     "jobs": ['mjs.scan'], "modules": ['intel/benchmarks.py'],
+     "ledger": "covered: became the #301 anchor (Build 2 #205-#320)"},
+    {"id": 'SEEDS-05-LOVEANDSTITCH', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "LoveandStitchDesigns\nhttps://www.etsy.com/ca/shop/LoveandStitchDesigns?ref=shop_profile&listing_id=1296978586\n\nEveryday Striped example\nhttps://www.etsy.com/ca/listing/754562757/crochet-pattern-video-everyday-striped",
+     "jobs": [], "modules": ['radar/market.py'],
+     "ledger": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel"},
+    {"id": 'SEEDS-05-FIREFLY', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "FireflyCrochets\nhttps://www.etsy.com/ca/shop/FireflyCrochets?ref=shop_profile&listing_id=735974986\n\nChristmas Moose / Reindeer example\nhttps://www.etsy.com/ca/listing/735974986/christmas-crochet-moose-pattern-reindeer",
+     "jobs": [], "modules": ['radar/market.py'],
+     "ledger": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: character amigurumi, low price point); never registered or scanned"},
+    {"id": 'SEEDS-05-SEARCH', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
+     "text": "Current crochet-pattern search seed\nhttps://www.etsy.com/search?as_prefix=crochet&q=crochet%%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true",
+     "jobs": ['intel.serp_capture'], "modules": ['intel/serp.py'],
+     "ledger": "partly covered: the rendered search page answers software with 403 (B-268/B-500); the sanctioned substitute is the API search index (intel.serp_capture, 16 production runs), labelled PROXY"},
     {"id": "OWNER-2026-10-26-WATCHLIST", "topic": "watchlist",
      "source": "owner directive relayed by the coordinator, 2026-10-26",
      "text": ("Watchlist (permanent, exact): MJsOffTheHookDesigns (Mrs J) "
@@ -195,12 +215,19 @@ CHAIN = {
     "imagery": (None, _TOURNAMENTS), "seasonal": (None, _TOURNAMENTS),
     "differentiation": (None, _TOURNAMENTS), "opportunities": (None, _TOURNAMENTS),
     "watchlist": (False, "MadelineMaeCo, ZKBDESIGNER and TheEasyDesign were not observed in "
-                         "production; the elite panel had one member (intel/benchmarks.REGISTRY "
-                         "== (MJS,) at b2e49455)"),
+                         "production. The code-declared registry is Mrs J only "
+                         "(intel/benchmarks.REGISTRY == (MJS,) at b2e49455); panel members "
+                         "join only from evidence (intel.panel_discovery, 3 runs) -- the "
+                         "second_market_benchmark gate reads open, so at least one non-US "
+                         "panel member is observed; which needs operator readback"),
     "laura": (False, "laura/executive/loop.py PROVIDERS had no intelligence provider: competitor "
                      "findings reached Laura only as idle-queue generator candidates"),
     "research_agent": (False, "research.sweep / research.investigate are in the combined "
                               "candidate only; 0 executions in production"),
+    "seeds": (None, "a seed shop is a research target (spec/05); it feeds decisions only as "
+                    "the static radar/market profile read by pricing_intel and seo.truth, "
+                    "or -- for a shop panel discovery joined -- through the observed rows; "
+                    "rejoining the permanent watchlist is an owner decision"),
     "library": (False, "the benchmark library is owner-gated: no benchmark has been purchased "
                         "(production /api/benchmark-selection: purchased 0), so there is "
                         "nothing to tear down or learn from yet"),
@@ -381,7 +408,8 @@ def summarise(rows) -> dict:
         out[step] = c
     return {"requirements": len(rows), "by_step": out,
             "omissions": [r["id"] for r in rows if str(r["ledger_state"]).startswith(
-                ("OMISSION", "NEW"))]}
+                ("OMISSION", "NEW"))],
+            "seed_shops": [r["id"] for r in rows if r["id"].startswith("SEEDS-05-")]}
 
 
 def _mark(ok) -> str:

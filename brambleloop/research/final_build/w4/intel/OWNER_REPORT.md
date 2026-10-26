@@ -31,12 +31,12 @@ Everything else is marked **needs operator readback**. `ACCEPTANCE_PLAN.md` list
 | 4 | ZKBDESIGNER and TheEasyDesign fully integrated | **PARTIAL** | Registered, scanned, compared and routed to decisions on INTELREC, with offline tests only. Not deployed and not reviewed, so they have no production observation. |
 | 5 | Trend radar works | **PARTIAL** | The culture radar (`culture.sweep`, 37 runs), radar scan and score (211 and 544), seasonal engine and harvest (16 each) and SERP capture (16) all execute. The trend-provenance discount is live (#38 PROVEN). The "trending crochet patterns" search page itself is reachable only through the browser boundary, and Etsy refuses that with 403. Whether these runs produced useful signals needs readback. |
 | 6 | Product Family Engine works | **NO in production; PARTIAL in code** | `creative.family_engine` exists in the combined candidate only, with 0 production runs. It reads families, bundle readiness and recolour duplicates. INTELREC 4b makes it delegate follow-ons. Amplification stays UNMEASURED below 5 orders, and production has no orders. |
-| 7 | Winner Amplification works | **NO in production; PARTIAL in code** | There are no orders, so no winner can be detected. INTELREC 4b wires this, offline-tested only: winner → original follow-on (radar.score → pre-engineering gate → cir.draft, or a divergent tournament) → measured follow-on orders → hold after two empty attempts. **Still missing:** investigation of why the winner sells (`commerce.replication.study` is deployed but not called from this path); price and merchandising tests (owner-gated #295 / live listings). See §3. |
+| 7 | Winner Amplification works | **NO in production; PARTIAL in code** | There are no orders, so no winner can be detected. INTELREC 4b wires this, offline-tested only: winner → original follow-on (radar.score → pre-engineering gate → cir.draft, or a divergent tournament) → measured follow-on orders → hold after two empty attempts. Investigation of why the best seller sells now calls `commerce.replication.study` (bounded study and ranked testable causes; below its 30-order, 4-week floor it records the module's own refusal). The follow-on brief carries the causes to hold. **Still missing:** price and merchandising tests (owner-gated #295 / live listings). See §3. |
 | 8 | Laura uses the intelligence | **NO in production; built on INTELREC** | Production Laura (`laura.executive_tick`, 4,352 deterministic runs) has seven providers, none of them intelligence. INTELREC adds the `intelligence` provider and the delegated `intel.opportunity_review`. Laura's model-backed CEO paths are OFF (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF). The deterministic tick does not need the model. |
 | 9 | Agents create original products from it | **PARTIAL, stalled** | Competitor evidence drives original divergent tournaments (`creative.tournament`, 191 runs, last 33597). No tournament has reached engineering since `cir.draft` job 24731, and 0 `cir.draft` have run since. The reason sits in `creative.winner_intake` audit rows (needs readback). |
 | 10 | The company learns and improves | **PARTIAL** | Lessons are published, and `radar.score` acts on them (544 runs). Also running: `improve.mine` 117, `improve.measure` 32, `creative.outcome_learning` 16, `learn.scan` 364. No production record yet shows a lesson changing a product outcome: there is no measured outcome, because there are no live listings and no orders. `improve.weekly` dead-lettered once; the PRODFIX2 fix is pending deploy. |
-| 11 | Engineering-complete % | **75.8%** | 72 of 95 traced requirements are implemented, tested and integrated (TRACEABILITY). |
-| 12 | Production-verified % | **16.8% by record; 0% by acceptance readback** | 16 of 95 have a production execution record, a valid output reading and a PROVEN ledger row. All 16 are Mrs J catalogue rows. None has been verified end to end against its acceptance text by an operator readback in this reconciliation. |
+| 11 | Engineering-complete % | **71.3%** | 72 of 101 traced requirements are implemented, tested and integrated (TRACEABILITY). |
+| 12 | Production-verified % | **15.8% by record; 0% by acceptance readback** | 16 of 101 have a production execution record, a valid output reading and a PROVEN ledger row. All 16 are Mrs J catalogue rows. None has been verified end to end against its acceptance text by an operator readback in this reconciliation. |
 | 13 | Exact remaining work | See §7 | Also `REMEDIATION_LEDGER.md`. |
 
 ---
@@ -137,6 +137,46 @@ They have not become engineered products since job 24731 (§2).
 - Last collection: none (not deployed).
 - AI-operation is never assumed. The comparison carries an `ai_use` slot with assessment UNKNOWN and hypothesis-only. No evidence collector exists for it, and none is claimed.
 
+### 1.5 The original seed shops (spec/05)
+
+**What the spec required of all of them.** `spec/05_Competitor_and_Market_Seeds.txt` says, verbatim:
+
+> "Use these as initial research targets, not designs to copy."
+
+It then lists HanJanCrochet, IvyLoop, MJsOffTheHookDesigns, LoveandStitchDesigns and FireflyCrochets, with example listings, plus the crochet-pattern search seed. The ten research objectives are:
+
+- category mix and whitespace;
+- release cadence and seasonality;
+- product ladders and bundles;
+- regular vs promotional pricing observations;
+- first-image/thumbnail patterns;
+- use of recurring human models;
+- PDF + video positioning;
+- reviews: delight, confusion, missing features;
+- external traffic/content ecosystems;
+- bestseller/trending signals where publicly visible.
+
+The spec adds: "do NOT copy protected designs, charts, text or photography".
+
+**No ledger row** carries the seed list (TRACEABILITY `SEEDS-05`, plus one row per shop). The spec calls them *initial* research targets, not permanent monitoring targets. Only Mrs J was later made permanent, by #301.
+
+| Seed | Registered today? | Monitored today? | Evidence | Restoration proposal (owner decision; no code added) |
+|---|---|---|---|---|
+| **HanJanCrochet** | Not in the code registry. A **second-market candidate** (`intel/second_market.CANDIDATES`, decision D-W4-GATESB-1, UK market), which `intel.panel_discovery` joins once `getShop` verifies its stated location. | **Possibly, weekly.** `intel.panel_discovery` ran 3 times in production (last job 27000) and scans every joined panel member. The `second_market_benchmark` gate reads **open** at 17:24Z (`evidence/prod_gates_…`). That means observed listings exist for two or more stated markets, so some non-US shop is observed. **Whether that is HanJanCrochet, or LakesideLoops (the Canadian candidate), needs readback** of the `Benchmark` rows or the `intel.panel_discovery` audit. | Also a dated static profile in `radar/market.COMPETITORS`, observed 2026-09-17: overlay-mosaic blankets, a pattern-plus-video format, a 50% display discount with a timer, "Bestseller… 200+ bought in the last week", 8.4k reviews on the hero listing. It is read by `commerce.pricing_intel` and by `seo.truth`'s competitor-name refusal. | Option A: add it to the permanent watchlist (role `seed`; one `Member` line plus one registry spec, the same mechanism as ZKBDESIGNER). Option B: keep it as a panel or second-market member, observed weekly as now. |
+| **IvyLoop** | No | **No** | `radar/market.COMPETITORS` says "Seeded by owner; profile to be filled on first live scan" and "Not yet observed". | Option A: add it to the watchlist. Option B: leave it to panel discovery, which joins category leaders from the API search index. Option C: close the seed with a recorded owner decision. |
+| **LoveandStitchDesigns** | No | **No** | A dated static profile only, observed 2026-09-17: everyday garments, a recurring human model, a 55% display discount from about CA$22. It is read by pricing intel and the SEO name refusal. | As IvyLoop. |
+| **FireflyCrochets** | No | **No** | A dated static profile only, observed 2026-09-17: character amigurumi at CA$2.75–8.78, frequent deep discounts. | As IvyLoop. |
+| **MJsOffTheHookDesigns** | Yes. It became the #301 anchor. | Yes (§1.1) | `mjs.scan`: 266 runs | — |
+| **Search seed** (crochet pattern, star seller) | n/a | **Partly.** The rendered page answers software with 403 (B-268, B-500). The sanctioned substitute, the API search index, runs as `intel.serp_capture` (16 production runs, PROXY-labelled). | `intel/serp.py`, `MARKETINTEL.md` | Keep as it is. The rendered page stays a browser-boundary item. |
+
+**Proposal for the owner.**
+
+- Decide per shop whether HanJanCrochet, IvyLoop, LoveandStitchDesigns and FireflyCrochets rejoin the permanent watchlist.
+- If yes, the change is one `Member` and one `BenchmarkSpec` each, plus a test. They then get the same scan, comparison and Laura chain as the new watchlist shops.
+- Nothing has been added to monitoring code. This is the owner's call.
+
+**A correction to an earlier statement.** The code-declared registry at production b2e49455 is Mrs J only. But the elite panel in production is **not** necessarily one seller: panel discovery joins members from evidence, and the second-market gate is open. "Three of the four watchlist shops are unobserved" stands. "The panel has one member" does not.
+
 ---
 
 ## 2. Chain trace
@@ -185,7 +225,7 @@ The deterministic Laura tick runs. Her model paths are OFF. INTELREC adds the st
 **Winner Amplification, step by step.** It does not operate end to end.
 
 1. **Detect a winner.** `commerce/attribution` and `family_engine` (combined only) need orders, and there are 0. **Missing: a production order source.**
-2. **Investigate why.** `commerce/replication.py` (#22) is deployed and PROVEN, but has never been triggered, for lack of a winner. **Still missing:** the amplification path below does not call `replication.study`; the study needs a SKU catalogue built from orders.
+2. **Investigate why.** `commerce/replication.py` (#22) is deployed and PROVEN, but has never been triggered, for lack of a winner. **Built on INTELREC (offline-tested):** `family_engine.investigate` builds the SKU catalogue from certified rows, orders and the pool's declared traits, then calls `replication.study` for the family's best seller. A credible winner gets a bounded study with ranked, testable explanations, which the follow-on brief carries as `amplify_holds`. Below the winner floor, the refusal is recorded in the module's own words and no cause is guessed.
 3. **Delegate original related designs.** **Built on INTELREC 4b (dd04c40f, offline-tested).** `family_engine.amplify` sends the next declared member through `radar.score` and the pre-engineering gate, whose novelty floor refuses a recolour. With no declared member, it briefs an original divergent tournament. One attempt is open per family, and the family is held after two empty attempts.
 4. **Test pricing and merchandising.** Price experiments wait on live listings. Paid scaling (#295) is OWNER-GATED (`ad_authority`).
 5. **Measure the follow-ons.** **Built on INTELREC 4b.** Follow-on orders are counted only for members certified after the decision. Production has nothing to measure yet.
@@ -280,27 +320,27 @@ The deterministic Laura tick runs. Her model paths are OFF. INTELREC adds the st
 
 ## 6. Reconciliation summary
 
-From TRACEABILITY: 95 requirements, and the counts reconcile to the rows.
+From TRACEABILITY: 101 requirements, and the counts reconcile to the rows. The six spec/05 seed rows were added in this revision.
 
 | stage | Y | N | ? |
 |---|---|---|---|
-| specified | 95 | 0 | 0 |
-| implemented | 89 | 6 | 0 |
-| tested | 75 | 20 | 0 |
-| integrated | 83 | 12 | 0 |
-| reviewed (per row) | 0 | 0 | 95 |
-| deployed | 86 | 3 | 6 |
-| scheduled and executing | 62 | 6 | 27 |
-| valid evidence | 17 | 0 | 78 |
-| feeds decisions | 0 | 28 | 67 |
-| verified (ledger) | 65 | 30 | 0 |
+| specified | 101 | 0 | 0 |
+| implemented | 96 | 5 | 0 |
+| tested | 75 | 26 | 0 |
+| integrated | 83 | 18 | 0 |
+| reviewed (per row) | 0 | 0 | 101 |
+| deployed | 93 | 3 | 5 |
+| scheduled and executing | 65 | 6 | 30 |
+| valid evidence | 17 | 0 | 84 |
+| feeds decisions | 0 | 27 | 74 |
+| verified (ledger) | 65 | 36 | 0 |
 
 **Omissions** (no ledger row):
 
 - MP1.2 §4: multi-shop competitor digital twins;
 - MP1.2 §5: Winner Amplification as a named row;
 - MP1.2 §9: competitor price and promotion scanner;
-- spec/05: the four other seed shops and the ten research objectives;
+- spec/05: the seed list and its ten research objectives, plus four seed shops with no ledger row: HanJanCrochet, IvyLoop, LoveandStitchDesigns and FireflyCrochets (§1.5);
 - the 2026-10-26 watchlist directive.
 
 The restorations are in `TRACEABILITY.md` and `REMEDIATION_LEDGER.md`.
@@ -316,7 +356,7 @@ The full list is in `REMEDIATION_LEDGER.md`.
 1. **Review and deploy INTELREC 876b4fee** (activation). Then the operator reads in `ACCEPTANCE_PLAN.md` §1–§3.
 2. **Find out why tournaments stopped reaching engineering** after `cir.draft` 24731 (external evidence, then code). Start with the `creative.winner_intake` readback.
 3. **Deploy PRODFIX and PRODFIX2** (activation). These clear the stale-artefact halt, the paid repeats and the `improve.weekly` dead letter. Then the owner records the `listing_image_rules` policy review.
-4. **Review and deploy INTELREC 4b** (dd04c40f): Winner Amplification delegation and the Research Agent questions. Remaining code: call `commerce.replication.study` from the amplification path. Everything here becomes useful only once orders exist.
+4. **Review and deploy INTELREC 4b and 4c**: Winner Amplification delegation with the `commerce.replication.study` investigation, and the Research Agent questions. No code item remains on this list. Everything here becomes useful only once orders exist.
 5. **Deploy the combined candidate** (activation) so the Research Agent and the Family Engine run at all.
 6. **Owner decisions:**
    - the acceptance ruling (#320);

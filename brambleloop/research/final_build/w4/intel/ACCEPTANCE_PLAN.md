@@ -22,6 +22,14 @@ Rules for every demonstration:
 - **Read:** `GET /api/audit?action=mjs.benchmark_health&limit=1`.
 - **Pass:** four results, one per registry shop (MJs, MadelineMaeCo, ZKBDESIGNER, TheEasyDesign). Each is `healthy` or `moved`, resolved by exact shop name. No `wrong_shop`.
 
+## §1b The spec/05 seed shops and the production panel
+
+- **Read:** the `Benchmark` registry rows (operator DB read, or `GET /api/audit?action=intel.panel_discovery&limit=3`).
+- **Pass:** a recorded answer to two questions:
+  - which panel shops are observed (the `second_market_benchmark` gate reads open, so at least one non-US shop is);
+  - whether HanJanCrochet joined as the second-market benchmark, or was refused with the reason Etsy's record gave.
+- **Not required:** IvyLoop, LoveandStitchDesigns and FireflyCrochets are not monitored unless the owner decides they rejoin the watchlist (OWNER_REPORT §1.5).
+
 ## §2 First observation of each new shop
 
 - **Wait for:** the first 6-hourly `intel.watchlist_scan`. Or run it once with `force: true` from the operator queue.

@@ -1,0 +1,19 @@
+{
+ "source": "anonymous GET /api/build on production 051dbee2 (pre-SECPATCH), file mtime 2026-10-26T17:24Z",
+ "gates": {
+  "second_market_benchmark": {
+   "key": "second_market_benchmark",
+   "what": "a benchmark shop outside the United States, which is a choice of shop rather than a credential or a capability",
+   "how_it_is_checked": "observed listings exist for two or more distinct stated markets -- one shop's term frequencies are one market's language however many listings they came from",
+   "requirement_ids": [],
+   "open": true
+  },
+  "benchmark_observation": {
+   "key": "benchmark_observation",
+   "what": "read-only Etsy API credentials that can actually serve a request",
+   "how_it_is_checked": "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set",
+   "requirement_ids": [],
+   "open": true
+  }
+ }
+}
