@@ -572,3 +572,38 @@ or independent review items.
 - Remaining for real evidence: the owner or operator installs a key and an allowed-signers
   file, per the doc. Until then, F-153 can only be closed as "unavailable, reported honestly",
   if the gate accepts that.
+
+## 21. Batch T: F-107, F-089, F-096, F-091
+
+- **F-107** (d2fd5071): `finance/value_units.py`.
+  - `scope(requirement_id, benchmark_key)` stamps every bill through `spend_report.attribution`.
+  - The read side falls back to the job's inputs.
+  - `what_it_bought` gains `by_requirement` and `by_benchmark`; unattributed spend keeps its
+    dollars.
+  - Test: `test_w4_fmbatch1_value_units.py` (3). Regression: `test_spend_policy.py`, green.
+- **F-089** (fccea594): `quality/physical_truth.py` and `GET /api/physical-truth`.
+  - The route is operator-only (in `OPERATOR_GET_ROUTES`), because it names testers.
+  - Each Class B/C product row carries tester, version, stage, samples, due, must-start-by,
+    overdue, findings, yarn and size deltas, and launch_blocked.
+  - A row is blocked until a sample has passed; a failed sample is a finding, and an unknown
+    risk class is never treated as Class A.
+  - Tests: `test_w4_fmbatch1_physical_truth.py` (4); regression `test_route_auth_default_deny.py` 7/7.
+- **F-096** (ae9d7b89): `gateway/compat_pack.py`.
+  - Five golden-task families: extraction, vision gallery, creative jury, benchmark comparison
+    and improvement analysis, all scored by deterministic code.
+  - UNSUPPORTED and ERROR never count as a pass. `compare()` reports tasks a swap would lose.
+  - A live run reserves through the ceilings (the `test_model_spend_paths` scan caught the
+    first draft, which did not).
+  - `provider_watch.watch` asks for a fresh pack on any provider change.
+  - Tests: `test_w4_fmbatch1_compat.py` (6), plus an assertion added to the F-099 test.
+  - Still open: no live provider has run the pack, since that is a paid drill.
+- **F-091** (this commit): **partial; engineering is not complete.**
+  - Added `gateway/providers.py`: vendor selection by task, a vendor registry, an
+    unknown vendor refused, and neutral ledger names.
+  - Migrated `culture/classify.py`.
+  - Corrected the false "swap without touching the callers" claim in `ops/dependencies.py`.
+  - `test_w4_fmbatch1_provider_boundary.py` (4) uses an AST scan as a ratchet: a new direct
+    vendor importer fails, and so does a migrated file left on the list.
+  - 28 modules still import `gateway.anthropic` directly. Many are in the visual, creative and
+    publish lanes (Workstream C and W-LISTREADY); others read the ceiling ledger.
+    `intel/serp.py` and `intel/vision.py` are next.

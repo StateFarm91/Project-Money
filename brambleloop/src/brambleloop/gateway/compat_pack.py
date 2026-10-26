@@ -130,10 +130,24 @@ TASKS: tuple[Task, ...] = (
 FAMILIES = tuple(sorted({t.family for t in TASKS}))
 
 
-def run(provider, *, tasks: tuple[Task, ...] = TASKS, max_tokens: int = 400) -> dict:
+def run(provider, *, db=None, agent: str = "orchestrator",
+        tasks: tuple[Task, ...] = TASKS, max_tokens: int = 400) -> dict:
+    """Every task through `provider`. With `db` (a live drill), each call is reserved against
+    the ceilings first and released with its cost after, like every other model-spend path;
+    without `db` only a stub provider may be passed (tests)."""
+    from . import providers as gw
+
+    if db is None and getattr(provider, "cost_per_1k_input_cad", 0) and not getattr(
+            provider, "scripted", None):
+        raise ValueError("a billed provider is only run with `db`, so its spend is reserved")
     results = []
     for t in tasks:
+        reservation = None
         try:
+            if db is not None:
+                reservation = gw.check_budget(
+                    db, model=provider.model, input_tokens=len(t.prompt) // 4,
+                    max_tokens=max_tokens, agent=agent, purpose="compat_pack")["reservation_id"]
             if t.vision:
                 see = getattr(provider, "see", None)
                 if not callable(see):
@@ -143,8 +157,15 @@ def run(provider, *, tasks: tuple[Task, ...] = TASKS, max_tokens: int = 400) -> 
                 resp = see(SYSTEM, t.prompt, list(t.image_urls), max_tokens=max_tokens)
             else:
                 resp = provider.complete(SYSTEM, t.prompt, max_tokens=max_tokens)
+            if db is not None:
+                cost = (resp.input_tokens * provider.cost_per_1k_input_cad
+                        + resp.output_tokens * provider.cost_per_1k_output_cad) / 1000
+                gw.release_reservation(db, reservation, actual_cad=round(cost, 8))
+                reservation = None
             out = _parse(getattr(resp, "text", resp))
         except Exception as exc:  # noqa: BLE001 - an error is a result, never a pass
+            if db is not None and reservation is not None:
+                gw.release_reservation(db, reservation)
             results.append({"task": t.key, "family": t.family, "status": ERROR,
                             "problems": [f"{type(exc).__name__}: {exc}"[:200]]})
             continue

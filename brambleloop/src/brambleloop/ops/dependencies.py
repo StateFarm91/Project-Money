@@ -119,8 +119,10 @@ DEPENDENCIES: tuple[Dependency, ...] = (
         "model_provider", "language and vision capability for the agent swarm",
         DEGRADING,
         "the deterministic spine keeps running; nothing can read an image or write in a voice",
-        ("the gateway already routes across providers and refuses rather than degrading; "
-         "swap the key for another vendor's without touching the callers"),
+        ("text judgement routes through the provider-neutral gateway and refuses rather "
+         "than degrading; a second vendor joins gateway/providers.py's registry, but several "
+         "vision callers (visual/*) still import the Anthropic module directly, so a vendor "
+         "swap is not yet caller-free (F-091)"),
         recovery_minutes=10,
         env_probe=("ANTHROPIC_API_KEY",)),
     Dependency(

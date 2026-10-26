@@ -111,13 +111,13 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     gallery analysis -- where a batch would invite an answer about the set -- each topic here
     is filed independently and named in the answer, so a batch cannot blur them.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: the vendor-neutral boundary
 
     topics = [t for t in topics if t][:MAX_TOPICS_PER_CALL]
     if not topics:
         return {"filed": {}, "sensitive": [], "reason": "no topics to file"}
 
-    provider = provider or gw.provider_for(TASK)
+    provider = provider or gw.for_task(TASK)
     flagged = sorted(t for t in topics if sensitive(t))
     estimate = 0.0
     # The reservation this call holds while it runs, released below whatever happens. The
