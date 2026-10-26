@@ -6,6 +6,12 @@
 # Versions are those of the venv the focused suites ran on; hashes are every sha256 PyPI
 # publishes for that exact version (read 2026-10-21 from pypi.org/pypi/<name>/<ver>/json).
 # anyio, h11 and idna come from requirements.lock.
+# INTEG7 (2026-10-26, PRODFIX review environment note): starlette's TestClient warns
+# "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead". The
+# warning is harmless. Every certified full suite (listings 09acd42, Batch 2 413a29c, SECPATCH)
+# ran on venv-integ4 with exactly these pins. httpx2 is NOT adopted: a client swap is a test
+# dependency change with its own hashes and review. A reviewer whose HTTP suites fail outside
+# this lock should install it as above, not a newer httpx.
 certifi==2026.10.18 \
     --hash=sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62 \
     --hash=sha256:b9995d97b64d0431a5af837d8ca8cd6238104d1f319f04bd93ea43124d6c861e
