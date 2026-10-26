@@ -53,24 +53,26 @@ def _fake_host(*, rss_kb=None, mem_max=None, psi=None, meminfo_kb=None) -> tuple
 
 
 def test_memory_or_cpu_pressure_saturates_and_host_load_never_does():
+    # INTEG7: the fake host fakes storage too (storage_paths={}); otherwise F-470 reads the real
+    # machine's disk, and this test judged the integration host rather than the logic.
     proc, cg = _fake_host(rss_kb=900 * 1024, mem_max=1024 * 1024 * 1024)
-    r = resources.read(None, proc=proc, cgroup=cg, load=lambda: (99.0, 0, 0))
+    r = resources.read(None, proc=proc, cgroup=cg, storage_paths={}, load=lambda: (99.0, 0, 0))
     assert r["saturated"] is True and "memory" in r["why"], r
     assert r["load_per_cpu"] and "informational" in r["load_note"]
     proc, cg = _fake_host(rss_kb=100 * 1024, mem_max=1024 * 1024 * 1024, psi=91.5)
-    r = resources.read(None, proc=proc, cgroup=cg, load=lambda: (0.1, 0, 0))
+    r = resources.read(None, proc=proc, cgroup=cg, storage_paths={}, load=lambda: (0.1, 0, 0))
     assert r["saturated"] is True and "CPU pressure" in r["why"]
     proc, cg = _fake_host(rss_kb=100 * 1024, mem_max=1024 * 1024 * 1024, psi=5.0)
-    r = resources.read(None, proc=proc, cgroup=cg, load=lambda: (99.0, 0, 0))
+    r = resources.read(None, proc=proc, cgroup=cg, storage_paths={}, load=lambda: (99.0, 0, 0))
     assert r["saturated"] is False, "host-wide load must not scale the pool down"
 
 
 def test_unreadable_resources_are_unknown_not_healthy():
     proc, cg = _fake_host()
-    r = resources.read(None, proc=proc, cgroup=cg, load=lambda: (0.1, 0, 0))
+    r = resources.read(None, proc=proc, cgroup=cg, storage_paths={}, load=lambda: (0.1, 0, 0))
     assert r["saturated"] is None and r["why"].startswith("UNKNOWN")
     proc, cg = _fake_host(rss_kb=1024, meminfo_kb=8 * 1024 * 1024)
-    r = resources.read(None, proc=proc, cgroup=cg, load=lambda: (0.1, 0, 0))
+    r = resources.read(None, proc=proc, cgroup=cg, storage_paths={}, load=lambda: (0.1, 0, 0))
     assert r["memory_limit_source"].startswith("MemTotal") and r["saturated"] is False
     assert resources.db_connections(_db())["in_use"] is None  # SQLite: not applicable
 
