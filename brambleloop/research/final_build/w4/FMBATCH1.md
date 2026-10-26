@@ -931,3 +931,24 @@ These are recorded in DECISION_LOG `D-W4-FMBATCH1-BUILDSIDE` and proposed as gat
 **Note.** `/` (not added by this branch) still renders the owner inbox cards publicly. `/m` no longer does. Whether `/` should match is for the owner.
 
 **Pre-existing failure (not from these fixes).** `test_cert_publish_gates` fails 3 tests identically at 871b84a and at the head before N-2: "store.publish never evaluated the release gates" and two related failures. It belongs to the publication lane.
+
+## 37. Owner-inbox text off every unauthenticated page (coordinator decision, 2026-10-26)
+
+**What changed.**
+- **Public `/`:** owner decisions now appear as a count with a link to `/cc/`, matching `/m`. The operator, presenting the credential, still sees the full table.
+- **Scrub middleware:** `security.OwnerTextScrubMiddleware` redacts every owner-inbox text from unauthenticated JSON and HTML responses. It covers:
+  - an OwnerAction's action, reason, consequence, blocks and why-software-cannot;
+  - an access request's action, purpose, consequence, scope and continues-without.
+
+  Each text is matched in full and by its first 48 characters, so a truncated display leaks nothing.
+
+**How the leaks were found.** `test_w4_fmbatch1_route_audit::test_no_unauthenticated_page_carries_owner_inbox_text` seeds a marked OwnerAction and requests every public GET route, plus the access-request texts. Before the fix it found the texts on `/`, `/api/build`, `/api/console`, `/api/owner-actions` and `/api/war-room` (`evidence_FMBATCH1/owner_inbox_public_fail_before_fix.txt`). None of those routes was added by this branch.
+
+**Not scrubbed.** Gate names and gate conditions (`gate.what`, `gate.how`) are left alone; they describe build gates throughout the public build pages.
+
+**Tests changed to follow the decision.** Three tests read card texts without the credential, and now present it:
+- `test_customer_data_auth`;
+- `test_cert_dashboard` (the merge case);
+- `test_w3_wire4`, which already sent the credential and now gets the operator table.
+
+**`test_cert_publish_gates`.** I left it unchanged, as instructed. LISTREADY's `tests/pinned_clock.py` (09acd42) fixes it at merge.

@@ -242,7 +242,12 @@ def test_owner_card_routes_never_carry_the_recorded_buyer():
             assert not _leaks(r.text), (path, _leaks(r.text))
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
-    body = c.get("/api/owner-actions").text
+    # Coordinator decision 2026-10-26: owner-inbox text is shown only to the operator.
+    os.environ[opsauth.TOKEN_VAR] = TOKEN
+    try:
+        body = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"}).text
+    finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
     assert f"support case {_STATE['recorded_case']}" in body, "the card itself must still show"
 
 

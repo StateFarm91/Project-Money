@@ -86,6 +86,65 @@ def test_mutating_research_evidence_is_gated():
     assert TestClient(main.app).post("/api/research/evidence", json={}).status_code == 401
 
 
+MARK_ACTION = "zq-owner-action-text-7731"
+MARK_REASON = "zq-owner-reason-text-7732"
+MARK_DELAY = "zq-owner-delay-text-7733"
+
+
+def _public_get_paths():
+    from fastapi.routing import APIRoute
+
+    out = []
+    for r in main.app.routes:
+        if not isinstance(r, APIRoute) or "GET" not in r.methods or "{" in r.path:
+            continue
+        if security.requires_operator("GET", r.path):
+            continue
+        out.append(r.path)
+    return sorted(out)
+
+
+def test_no_unauthenticated_page_carries_owner_inbox_text():
+    """Coordinator decision 2026-10-26: owner decisions appear on public pages only as a
+    count linking to /cc/. Every public GET (no path parameter) is swept for the texts an
+    owner action carries."""
+    from brambleloop.core.models import OwnerAction
+
+    with main.db.session() as s:
+        s.add(OwnerAction(requirement_key="zq-req", action=MARK_ACTION, reason=MARK_REASON,
+                          consequence_of_delay=MARK_DELAY, minutes=5))
+    c = TestClient(main.app)
+    paths = _public_get_paths()
+    assert "/" in paths and "/m" in paths and len(paths) > 20
+    leaks = []
+    for p in paths:
+        try:
+            r = c.get(p)
+        except Exception:                                  # noqa: BLE001 - not a leak
+            continue
+        for mark in (MARK_ACTION, MARK_REASON, MARK_DELAY):
+            if mark in r.text:
+                leaks.append((p, mark))
+    # An access request's own texts reach the inbox too (gate cards); they are owner inbox
+    # text as much as an OwnerAction row is.
+    from brambleloop.launch import access
+
+    req = access.pending_requests(dict(os.environ))
+    if req:
+        for p in ("/", "/api/owner-actions", "/api/build", "/api/console"):
+            body = c.get(p).text
+            for r in req:
+                for text in (r.action, r.purpose, r.consequence_of_declining):
+                    if len(text) >= 24 and text[:60] in body:
+                        leaks.append((p, text[:40]))
+    assert not leaks, leaks
+    # The operator, presenting the credential, still reads the inbox as stored.
+    op = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"}).text
+    assert MARK_ACTION in op
+    home = c.get("/").text
+    assert 'href="/cc/"' in home, "the public dashboard links the owner session"
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

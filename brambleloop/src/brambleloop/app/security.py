@@ -431,3 +431,42 @@ class CustomerRefScrubMiddleware:
             await send(message)
 
         await self.app(scope, receive, _send)
+
+
+# ---- 5. owner-inbox text scrub (coordinator decision 2026-10-26) ------------------------
+#
+# No owner-inbox text (an OwnerAction's action, reason, consequence, blocks or why-software-
+# cannot; an access request's action, purpose, scope or consequence) appears on a response to
+# a request that did not present the operator credential. Pages show decisions as a count with
+# a link to the owner session (/cc/). A full text and its first PREFIX characters are both
+# redacted, so a display that truncates a text still leaks nothing.
+
+OWNER_REDACTED = "[owner decision: see /cc/]"
+OWNER_MIN_LENGTH = 16
+OWNER_PREFIX = 48
+
+
+def build_owner_scrubber(texts: Iterable[str]) -> Callable[[str], str] | None:
+    variants: set[str] = set()
+    for t in texts:
+        t = str(t or "").strip()
+        if len(t) < OWNER_MIN_LENGTH:
+            continue
+        for v in {t, t[:OWNER_PREFIX]} if len(t) > OWNER_PREFIX else {t}:
+            variants.add(v)
+            variants.add(_html.escape(v, quote=True))
+    if not variants:
+        return None
+    pattern = re.compile("|".join(re.escape(v) for v in sorted(variants, key=len, reverse=True)))
+    return lambda text: pattern.sub(OWNER_REDACTED, text)
+
+
+class OwnerTextScrubMiddleware(CustomerRefScrubMiddleware):
+    """Redact owner-inbox texts from unauthenticated JSON and HTML responses."""
+
+    def _scrubber(self):
+        try:
+            return build_owner_scrubber(self.refs_provider())
+        except Exception:  # noqa: BLE001 - no database yet means no owner texts to scrub
+            return None
+

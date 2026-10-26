@@ -85,9 +85,28 @@ def _known_customer_refs() -> list[str]:
     return [r for r in refs if r]
 
 
-# Order matters: the scrub runs inside the header middleware, so every response -- including
-# one the scrub rewrote -- leaves with the security headers.
+def _owner_inbox_texts() -> list[str]:
+    """Every text an owner-inbox card can carry, for the unauthenticated scrub (coordinator
+    decision 2026-10-26: no owner inbox text on any unauthenticated page)."""
+    from ..core.models import OwnerAction
+    from ..launch import access
+
+    out: list[str] = []
+    with db.session() as s:
+        for a in s.scalars(select(OwnerAction)):
+            out += [a.action, a.reason, a.consequence_of_delay, a.blocks,
+                    getattr(a, "why_software_cannot", "")]
+    for c in access.CAPABILITIES:
+        r = c.request
+        out += [r.action, r.purpose, r.consequence_of_declining, r.security_scope,
+                r.continues_without]
+    return [t for t in out if t]
+
+
+# Order matters: the scrubs run inside the header middleware, so every response -- including
+# one a scrub rewrote -- leaves with the security headers.
 app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
+app.add_middleware(security.OwnerTextScrubMiddleware, refs_provider=_owner_inbox_texts)
 app.add_middleware(security.SecurityHeadersMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
@@ -5997,7 +6016,10 @@ href="/">full dashboard</a></div></header><main>{''.join(blocks)}</main></body><
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard() -> str:
+def dashboard(authorization: str = Header(default="")) -> str:
+    # Coordinator decision 2026-10-26: owner-inbox texts render only for the operator; the
+    # public page shows a count linking to the owner session (as /m).
+    operator_view = security.presents_operator_credential(authorization)
     st = api_status()
     q = JobQueue(db)
 
@@ -6081,15 +6103,21 @@ def dashboard() -> str:
                 return rows([], [[]], "nothing is waiting on the owner")
             return rows([], [[]], "queue empty but UNPROVEN: "
                         + str(es.get("why") or "the empty-queue check did not run"))
-        return rows(
-            [(c["gate"] or c["requirement_key"], c["action"],
-              _owner_cost_text(c), f"{c['minutes']} min",
-              c.get("consequence_of_waiting", ""), c["unblocks_count"],
-              c.get("evidence", ""))
-             for c in cards],
-            [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
-              "Unblocks", "Evidence it is done"]],
-            "")
+        if operator_view:
+            return rows(
+                [(c["gate"] or c["requirement_key"], c["action"],
+                  _owner_cost_text(c), f"{c['minutes']} min",
+                  c.get("consequence_of_waiting", ""), c["unblocks_count"],
+                  c.get("evidence", ""))
+                 for c in cards],
+                [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
+                  "Unblocks", "Evidence it is done"]],
+                "")
+        # Coordinator decision 2026-10-26: `/` is public, so it shows how many decisions wait
+        # and links to the owner session; the card texts stay behind the owner login (as /m).
+        return Markup(f'<div class="card owner"><b>{len(cards)}</b><span>decision(s) waiting'
+                      f'</span><small><a href="/cc/">open the Command Center to see and '
+                      f'answer them</a></small></div>')
 
     def _external() -> str:
         """F-196: gates no owner action can open. Listed, never asked for."""
