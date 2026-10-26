@@ -524,60 +524,48 @@ _GRAMMAR_FIXED = (
     r"launch(?:es|ed|ing)?|deploy(?:s|ed|ing|ment|ments)?",
     r"ceo|strategy|strategic|titles?|tags?|descriptions?|charts?|keywords?|stock",
     r"decisions?|risks?|items?|units?|money|cad|ca",
-    # Numbers only in the shapes the structured renderer understands (3b9c4f5 review T-5):
-    # a count up to 99, an ordinal, a year, or a priority id written "#123".
-    r"\d{1,2}|\d{1,2}(?:st|nd|rd|th)|20\d\d|#\d{1,4}")
+    # Numbers (3b9c4f5 review T-5, 0209cdb review U-2): at most two digits -- a count, an
+    # ordinal or a short priority id "#12" -- and at most ONE number in the whole text
+    # (`business_grammar`). No years, no 4-digit ids: anything longer needs a step-up.
+    r"#?\d{1,2}|\d{1,2}(?:st|nd|rd|th)")
 _GRAMMAR_RX = re.compile(r"(?i)^(?:" + "|".join(_GRAMMAR_FIXED) + r")$")
 #: The whole text: words separated by single spaces, at most one terminal ? or . -- no other
 #: punctuation (no dash, bracket, slash, comma, colon, ellipsis, second sentence).
 _GRAMMAR_SHAPE = re.compile(r"^[A-Za-z0-9#'\u2019]+(?:[ -][A-Za-z0-9#'\u2019]+)*[?.]?$")
-#: What a whole product phrase becomes before the word check (3b9c4f5 review T-1).
-PRODUCT_TOKEN = "product"
+_NUMBER = re.compile(r"^#?\d+(?:st|nd|rd|th)?$", re.I)
 
 
-def _product_phrases(product_slugs: dict[str, str] | None) -> list[re.Pattern]:
-    """Each product slug and title as a WHOLE phrase (3b9c4f5 review T-1): its words in order,
-    joined by spaces or hyphens, on word boundaries, optionally possessive. A one-word title
-    or slug is ignored -- "Rose" alone is as likely a person as a product -- so it fails toward
-    a step-up. Longest first, so "Rose Cardigan Kit" wins over "Rose Cardigan"."""
-    words = set()
-    for slug, title in (product_slugs or {}).items():
-        for x in (slug, title):
-            w = tuple(normalise(x).split())
-            if len(w) >= 2:
-                words.add(w)
-    return [re.compile(r"(?i)(?<![A-Za-z0-9])" + r"[ -]+".join(map(re.escape, w)) +
-                       r"(?:['\u2019]s)?(?![A-Za-z0-9])")
-            for w in sorted(words, key=lambda w: (-len(w), w))]
-
-
-def business_grammar(text: str, *, product_slugs: dict[str, str] | None = None) -> bool:
+def business_grammar(text: str) -> bool:
     """True when `text` is one business question or request in the closed vocabulary above.
-    A product the company already has counts only as its WHOLE slug or title, which is
-    replaced by one placeholder token; its words are never vocabulary on their own."""
+
+    Product names are NOT vocabulary (0209cdb review U-1): titles are data that agents write
+    (concept rows included), so a title such as "Grandma Rose", "Thinking of You" or
+    "Mark Overdosed" would let a personal sentence through. A question naming a product needs
+    a step-up for the owner's own words; the structured request (`extract_params`, which
+    matches product slugs) still goes automatically."""
     t = unicodedata.normalize("NFKC", str(text or "")).strip()
     t = " ".join(t.split())
     t = re.sub(r" ([?.])$", r"\1", t)          # "overnight ?" (NBSP before "?"): T-5
     if not t or len(t) > 200 or not _GRAMMAR_SHAPE.match(t) or not _BUSINESS.search(t):
         return False
-    for rx in _product_phrases(product_slugs):
-        t = rx.sub(PRODUCT_TOKEN, t)
+    numbers = 0
     for raw in re.split(r"[ -]", t.rstrip("?.").replace("\u2019", "'")):
         w = raw.casefold()
         base = w[:-2] if w.endswith("'s") else w
         if not (w in _GRAMMAR_WORDS or base in _GRAMMAR_WORDS or _GRAMMAR_RX.match(w)
                 or _GRAMMAR_RX.match(base)):
             return False
-    return True
+        numbers += bool(_NUMBER.match(w))
+    return numbers <= 1
 
 
-def one_tap_business(text: str, *, product_slugs: dict[str, str] | None = None) -> bool:
+def one_tap_business(text: str) -> bool:
     """Delta review N-1: one tap is allowed only when EVERY clause of the offered text carries
     a business signal and none carries a personal signal (private words, a screen category,
     or first-person talk about oneself -- "I", "I've", "my" + anything but a business noun),
     AND (2c29b42 review Q-1) the whole text is one question in the closed business grammar
     (`business_grammar`). Otherwise sharing needs a fresh step-up."""
-    if not business_grammar(text, product_slugs=product_slugs):
+    if not business_grammar(text):
         return False
     clauses = [c.strip() for c in _CLAUSE.findall(str(text or "")) if c.strip()]
     if not clauses:
@@ -630,8 +618,7 @@ def plan_brief(intent: dict, cls: dict, owner_text: str, *,
     if draft and normalise(draft) not in (normalise(owner_text), normalise(out["send"])):
         offer = {"text": draft, "origin": "laura_draft", "stepup": True, "kind": "draft"}
     elif label in (BUSINESS, MIXED) and cls["business_text"]:
-        tap = clean_business and one_tap_business(cls["business_text"],
-                                                 product_slugs=product_slugs)
+        tap = clean_business and one_tap_business(cls["business_text"])
         offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": not tap,
                  "kind": ("mixed" if label == MIXED else "business" if tap else "personal")}
     elif not out["send"]:

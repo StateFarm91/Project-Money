@@ -1641,45 +1641,109 @@ def test_review_q1_one_tap_needs_the_closed_business_grammar():
     for text in cases:
         assert U.business_grammar(text) is False, text
         assert U.one_tap_business(text) is False, text
-    # Product titles the company already has count as vocabulary.
+    # 0209cdb review U-1: product titles are NOT vocabulary (agents write them), so a question
+    # naming a product needs a step-up for her own words -- with or without the product.
     slugs = {"meadow-shawl": "Meadow Shawl"}
     assert U.business_grammar("How are sales of the Meadow Shawl this week?") is False
-    assert U.business_grammar("How are sales of the Meadow Shawl this week?",
-                              product_slugs=slugs) is True
+    plan = U.plan_brief({"tool": "business.ask", "brief": ""},
+                        U.classify("How are sales of the Meadow Shawl this week?"),
+                        "How are sales of the Meadow Shawl this week?", product_slugs=slugs)
+    assert plan["offer"]["stepup"] is True and plan["params"]["products"] == ["meadow-shawl"]
 
 
 def test_review_t1_product_titles_count_only_as_whole_phrases():
-    """3b9c4f5 review T-1: a product counts only as its WHOLE title or slug (one placeholder
-    token); its words are never vocabulary on their own, so a person who shares a first name
-    with a product cannot be written about with one tap. Also T-5 (numbers, NBSP)."""
+    """3b9c4f5 review T-1, tightened by 0209cdb review U-1: product titles and slugs are never
+    one-tap vocabulary -- not loose words (T-1), not whole phrases (U-1: agent-written concept
+    titles such as "Grandma Rose", "Thinking of You", "Mark Overdosed"). A question naming a
+    product needs a step-up for her own words; the structured request still names the product
+    from its slug. Also T-5 / U-2 (numbers, NBSP)."""
     prods = {"rose-cardigan": "Rose Cardigan", "willow-wrap": "Willow Wrap",
              "grief-shawl-for-mark": "Grief Shawl for Mark",
-             "mothers-day-blanket": "Mother's Day Blanket", "rose": "Rose"}
+             "mothers-day-blanket": "Mother's Day Blanket",
+             "grandma-rose": "Grandma Rose", "thinking-of-you": "Thinking of You",
+             "mark-overdosed": "Mark Overdosed", "product-mark": "Product Mark",
+             "alpha-beta-gamma": "Alpha Beta Gamma",
+             "rose-cardigan-kit": "Rose Cardigan Kit"}
     person = ("Is Rose going to make it to the launch?",
               "Did Willow go to the shop launch?",
               "How is Mark doing with the grief shawl launch?",
               "Is Mother going to make it to the launch?",
-              "Did Rose sell anything at the shop launch?")          # one-word title "Rose"
-    assert len(person) == 5
+              # U-1: whole person-like / loaded / adversarial titles
+              "Is Grandma Rose going to make it to the shop launch?",
+              "Thinking of you at the shop launch tonight.",
+              "Mark overdosed at the shop launch?",
+              # U-3: chained titles cover a word in no title
+              "How are Alpha Beta Gamma Mark sales this week?")
+    assert len(person) == 8
     for text in person:
-        assert U.business_grammar(text, product_slugs=prods) is False, text
-        assert U.one_tap_business(text, product_slugs=prods) is False, text
+        assert U.business_grammar(text) is False, text
+        assert U.one_tap_business(text) is False, text
         plan = U.plan_brief({"tool": "business.ask", "brief": ""}, U.classify(text), text,
                             product_slugs=prods)
         assert plan["offer"] is None or plan["offer"]["stepup"] is True, (text, plan)
+    # U-4: the one-word-title case, written so only the vocabulary rule decides it.
+    assert U.business_grammar("Did Rose sell at the shop launch?") is False
+    assert U.business_grammar("Did the shop sell at the launch?") is True       # control
+    # U-5: the matcher properties now all resolve to "step-up": a whole title, a hyphenated
+    # slug, a possessive, the longer of two overlapping titles, and a title inside a longer
+    # word each need a step-up for her own words.
     product_qs = ("How are sales of the Rose Cardigan this week?",
                   "How are rose-cardigan orders this week?",
                   "What were the Willow Wrap's sales overnight?",
-                  "How many Grief Shawl for Mark orders sold this week?")
-    assert len(product_qs) == 4
+                  "How are Rose Cardigan Kit sales this week?",
+                  "How are Primrose Cardigan sales this week?",
+                  "How are sales of the Mother's Day Blanket this week?")
+    assert len(product_qs) == 6
     for text in product_qs:
-        assert U.business_grammar(text, product_slugs=prods) is True, text
-        assert U.one_tap_business(text, product_slugs=prods) is True, text
-    # 3b9c4f5 review T-5: numbers only in renderer shapes; a space before "?" is tolerated.
-    assert U.business_grammar("Show sales 4821 at the shop.") is False
+        assert U.business_grammar(text) is False, text
+        plan = U.plan_brief({"tool": "business.ask", "brief": ""}, U.classify(text), text,
+                            product_slugs=prods)
+        assert plan["offer"]["stepup"] is True, (text, plan)
+    # ... while the structured request still carries the product id, from its slug.
+    plan = U.plan_brief({"tool": "business.ask", "brief": ""},
+                        U.classify(product_qs[0]), product_qs[0], product_slugs=prods)
+    assert "rose-cardigan" in plan["params"]["products"] and "rose-cardigan" in plan["send"]
+    # T-5 / U-2: at most ONE number of at most two digits; a space before "?" is tolerated.
+    for text in ("Show sales 4821 at the shop.", "Show sales 2048 at the shop.",
+                 "Show sales #4821 at the shop.", "Show sales #4821 #2048 #1999 at the shop.",
+                 "Show sales 20 48 21 at the shop.", "Show sales 4 8 at the shop."):
+        assert U.business_grammar(text) is False, text
     assert U.business_grammar("What were sales for priority #12 this week?") is True
+    assert U.business_grammar("What were the top 5 listings this week?") is True
     assert U.business_grammar("What were sales overnight\u00a0?") is True
     assert U.business_grammar("What were sales overnight ?") is True
+
+
+def test_review_u1_agent_written_concept_titles_never_open_one_tap_end_to_end():
+    """0209cdb review U-1, end to end: concept products titled like a person or an event exist;
+    the owner's sentence using that exact phrase gets a step-up and one tap is refused."""
+    from brambleloop.core.models import Product
+
+    cases = (("grandma-rose", "Grandma Rose",
+              "Is Grandma Rose going to make it to the shop launch?"),
+             ("thinking-of-you", "Thinking of You", "Thinking of you at the shop launch tonight."),
+             ("mark-overdosed", "Mark Overdosed", "Mark overdosed at the shop launch?"))
+    assert len(cases) == 3
+    for slug, title, text in cases:
+        db = _db()
+        with db.session() as s_:
+            s_.add(Product(slug=slug, title=title, status="concept"))
+            s_.commit()
+        sid = _open(db)
+        biz = Biz()
+        with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+            out = _turn(db, sid, text, biz)
+        assert out["label"] == "business" and out["intent"]["screen"] == [], (text, out)
+        assert out["crossing"]["requires_stepup"] is True, (text, out["crossing"])
+        assert text not in biz.blob()
+        with unified(Venice()):
+            try:
+                PC.unified_crossing(db, sid, out["crossing"]["id"], approve=True,
+                                    provider_factory=biz.factory)
+                raise AssertionError("a concept-title sentence crossed with one tap: " + text)
+            except PC.PrivateUnavailable as exc:
+                assert exc.code == "STEP_UP_REQUIRED"
+        assert _rows(db, LauraBoundaryCrossing) == [] and text not in biz.blob()
 
 
 def test_review_n2_feed_validators_check_the_full_value_before_any_cut():
