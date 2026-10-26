@@ -413,10 +413,7 @@ FMBATCH1 owns the F-45x to F-49x swarm and build-side rows. From now on W-AGENTS
 **How the two contract mechanisms relate.** Nothing is removed here; the integrator reconciles them at merge.
 - **FMBATCH1 (F-482):** `core/contracts.py` with `fingerprint()` / `fingerprints()`, plus `tests/test_w4_fmbatch1_contracts.py` and `ops/CONTRACT_CHANGES.md`. It pins schema and interface shapes: the CIR dataclasses, `ListingPayload` and every API route. A pin cannot be bumped without a dated declaration.
 - **W-AGENTS W1 (this lane):** its own `core/contracts.py`, plus `contracts.json`, `CHANGELOG` and `require(name, version)`. It covers runtime module contracts: versioned shapes for the CIR, the Etsy write schemas, shop policy sections, the storefront proposal and live-shop evidence. Consumer modules pin them at import with `require()`.
-- **Merge collision.** Both branches add `src/brambleloop/core/contracts.py`, and their `fingerprint` signatures are incompatible (FMBATCH1 `fingerprint()`, W1 `fingerprint(name)`). This is an add/add conflict at merge. A suggested reconciliation:
-  - keep FMBATCH1's module at that path, with `ops/CONTRACT_CHANGES.md` as the one declaration record;
-  - move W1's registry under another name (for example `core/module_contracts.py`), or fold its five shapes and `require()` into FMBATCH1's `fingerprints()`;
-  - repoint the six consumer pins and `tests/test_w4_contracts.py` accordingly.
+- **Path collision: resolved.** FMBATCH1 renamed its module to `core/contract_pins.py` (9347050d). W1's `core/contracts.py` keeps its path, so the two no longer collide. They remain complementary: FMBATCH1 pins schema and route shapes behind a declaration; W1 pins runtime module contracts with `require()` at import.
 
 **Correction to the W2 section.** F-476's build-side duplicate-lane refusal is built by FMBATCH1 (`ops/registry.py`). W-AGENTS did not build it, and the row belongs to that lane.
 
@@ -512,3 +509,57 @@ Regression: `test_w4_agents`, `test_w4_c3`, `test_w4_children`, `test_storefront
 **Owner or provider dependent (not built).**
 - Live icon and banner legibility: needs the artwork bytes. Fetching Etsy's CDN image is an Etsy call this lane does not make. The owner can supply the files to `preview(icon=…, banner=…)`.
 - The live storefront as Etsy renders it: browser worker, gate `rendered_pages`.
+
+## Reconciliation with FMBATCH1's research rules (2026-10-26)
+
+**What happened.** FMBATCH1 built the research rules first, in `intel/research.py`:
+- batch R (024897cc): F-405, F-408, F-411, F-419, F-420, F-426, F-432, F-435, F-444, F-449;
+- F-412 (13a32db7);
+- the F-431 fetch-and-promotion run, `intel/research_fetch.py` (2716d560).
+
+W-AGENTS W4 and W5 then re-implemented F-405, F-432, F-420, F-444 and F-449 inside the Research Agent (`intel/research_agent.py`), without checking FMBATCH1's log. Nothing is deleted here. This note is for the integrator. From now on W-AGENTS checks `origin/claude/w4-FMBATCH1` before every row.
+
+**Principle.** The **rules** belong in `intel/research.py` (FMBATCH1): the task record, what opening and answering require, reuse, stop and escalation, metrics. The **agent** belongs in `intel/research_agent.py` (W-AGENTS): who runs research, when it runs, with which method, and the architecture flags. The agent should call the rules, not restate them.
+
+**Per row: which implementation survives, and what the other adds.**
+
+- **F-405, internal evidence first.** Survives: FMBATCH1's `search_internal_report`.
+  - Why: it covers more stores (section-9 experiments, benchmark titles, test names), records each store searched with its hit count or why it was unreadable, and is applied when a task opens.
+  - What mine adds: the listing-test memory, and earlier answered research as an evidence ref. Both are small additions to their corpus list.
+  - At merge: `research_agent.investigate` should call `R.search_internal_report` and drop `search_all_internal`.
+- **F-432, research memory.** Survives: FMBATCH1.
+  - Why: `question_key` (content words, domain, decision) is applied when a task opens. A reused answer is never re-opened, and the reuse is counted (`reuse_count`, `spend_avoided_cad`). It also has an explicit `reopen_because` path.
+  - What mine adds: only a check at investigation time (`prior_answer`), which their open-time check makes redundant. Drop `prior_answer` and `STOPPED_DUPLICATE`.
+- **F-420, no research theatre.** Survives: FMBATCH1's answer rule. An answer must name its effect (confidence changed, alternatives narrowed, constraint established, hypothesis produced, or stop justified), and every source must support a finding.
+  - What mine adds, which should be kept but call theirs: an agent-side stop after `NO_CHANGE_LIMIT` investigations that add no evidence. Their rules judge an answer; they do not stop an agent that keeps re-reading. Keep `_unchanged_runs` and replace `_stop()` with `R.stop(...)`, so the stop carries their F-444 escalation.
+- **F-444, research failure escalation.** Survives: FMBATCH1's `stop()` / `stop_overdue()` / `escalations()`.
+  - Why: the smallest action is named when the task opens (`if_unresolved`), recorded on the stopped task, and the time bound is enforced.
+  - What mine adds: the method ladder can supply that smallest action automatically (the missing adequate method and what it needs). Pass `select_method(domain)`'s blocked method as `if_unresolved` when the agent opens a task. Drop `research_agent.escalations`.
+- **F-449, research quality metrics.** Survives: FMBATCH1's `metrics()`.
+  - Why: it derives from their richer detail (reuse counts, conclusions, effects); "materially improved" is defined as unseeable, and an empty table gives None, not 0.
+  - Mine adds only the agent-side counters (`investigations`, `stopped_no_change`). Merge those two into theirs, or report them next to it. Drop `research_agent.metrics`. The daily readings in `research.sweep` should store `R.metrics` and `R.escalations`.
+- **F-435, machine-usable output.** Survives: FMBATCH1's checked conclusion, stored on the task when it is answered.
+  - Mine adds a per-investigation conclusion for tasks still open. Keep it as the audit detail only.
+- **F-412, research-to-experiment bridge.** FMBATCH1 only (`R.bridge` into `improve.cells`). Mine noted it as not built; theirs stands.
+- **Only in W-AGENTS, kept, but adapted to their API:**
+  - F-401: the Research Agent, invoked through `request_research` and self-triggered by `research.sweep`;
+  - F-436: method selection;
+  - F-437: official docs are required for platform behaviour;
+  - F-429 / F-430: architecture flags read by `improve.weekly`;
+  - F-404: stale-domain triggers.
+
+**Merge breakpoints the integrator must fix** (their stricter API against my calls, all in `intel/research_agent.py` and `runtime/intel_ops.py`):
+1. `R.open_question` now requires `evidence_needed`, `stop_condition` and `if_unresolved`. These calls do not pass them, so they would raise `ResearchRefused`:
+   - `stale_domains_to_research`: this would break `research.sweep`;
+   - the `research.investigate` request path: refused cleanly;
+   - several test fixtures.
+2. `R.answer` now requires `effect=` and `conclusion=`. The unresolved branch of `investigate` calls `R.answer(outcome, confidence)`. It should call `R.stop(...)` (FMBATCH1's state for "could not resolve"), or answer with `effect={"kind": "stop_justified", …}` and a full conclusion.
+3. `_stop()` writes `state = STOPPED` directly. It should be `R.stop()`, so an escalation is recorded.
+4. `research.sweep` repeats `detect_unknowns` and `expire_due`, which FMBATCH1's `learn.scan` also runs alongside `stop_overdue` and the fetch run. Both calls are idempotent, but the sweep should keep only what is the agent's own: stale triggers, due investigations and the readings.
+5. Once FMBATCH1's allowlisted fetch step is switched on, the ladder's `official_docs` is available for allowlisted hosts. `methods()` should read `research_fetch`'s switch rather than reporting the method unavailable.
+
+**Tests.**
+- Survive: FMBATCH1's rule tests (`test_w4_fmbatch1_research.py`, `test_w4_fmbatch1_research_run.py`).
+- Keep and adapt to the API: `test_w4_research_agent.py`'s agent tests (declaration, method selection, invocation, sweep, flags, weekly review, F-404, retention).
+- Drop with their code: my F-405, F-432, F-444 and F-449 tests.
+- Keep the F-420 no-change stop test, routed through `R.stop`.
