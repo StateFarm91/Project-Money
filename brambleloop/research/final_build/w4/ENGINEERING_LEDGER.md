@@ -32,7 +32,7 @@
 
 | measure | Build 2 | Final Master |
 |---|---|---|
-| **Engineering completion** (built + integrated + tested) | **316 / 320** | **674 / 917** |
+| **Engineering completion** (built + integrated + tested) | **316 / 320** | **678 / 917** |
 | **Acceptance completion** (the full original criterion, production and customer evidence included) | **98 / 320** | **360 / 917** |
 
 - Engineering completion counts rows in E, F or G, plus H rows whose engineering half is
@@ -114,3 +114,7 @@
   - Now E: F-485, F-467, F-476. Partial (B): F-451 and F-482.
   - **Build 2 has nothing left to build.** Of the 4 remaining rows, #32, #56 and #197 are NA,
     and #94 has moved to Workstream C.
+- **Later update (batch W): Final Master engineering is 678 / 917.**
+  - Now E: F-482 (all three pins), F-462, F-455, F-550.
+  - Partial (B): F-464, because its mechanism is built but the render handlers belong to the
+    product-engine lane.

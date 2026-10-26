@@ -6,7 +6,7 @@
   "matrix": "final-candidate-d69a3ec closure_matrix.json",
   "ledgers": "FM_LEDGER.json / BUILD2_LEDGER.json at b997efd",
   "deployed": "b997efd (production /health 15800536, 2026-10-26)",
-  "branch_work": "claude/w4-FMBATCH1 (rows above, through 97cd3a9e), claude/w4-CLOSE6 ff788bd"
+  "branch_work": "claude/w4-FMBATCH1 (rows above, through the batch W commit), claude/w4-CLOSE6 ff788bd"
  },
  "definitions": {
   "engineering_completion": "status E, F or G; or H with the engineering half integrated and tested (FM: matrix maturity >= INTEGRATED with cited tests; Build 2: a live runtime consumer and a cited test). Independent review is not tracked per row, so it is not part of the numerator's evidence",
@@ -39,10 +39,10 @@
    "total": 917,
    "by_status": {
     "A": 46,
-    "B": 128,
+    "B": 124,
     "C": 8,
     "D": 1,
-    "E": 57,
+    "E": 61,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 674,
+    "numerator": 678,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 149,
+    "missing implementation": 145,
     "missing prerequisite": 5,
-    "missing integration": 42
+    "missing integration": 46
    }
   }
  },
@@ -9749,13 +9749,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: practised by scoped briefs (e.g. research/final_build/mapping/MAPPING_BRIEF.md + sN_uids.json) and per-lane instructions; no code mechanism assembles per-depart",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 3ca8d4de: ops/context_pack.py per-lane context pack",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; practised by scoped briefs (e.g. research/final_build/mapping/MAPPING_BRIEF.md + sN_uids.json) and per-lane instructions; no code mechanism assembles per-department context packs; "
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 3ca8d4de: ops/context_pack.py per-lane context pack"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9857,13 +9857,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: runtime leases are narrow (per job, per build-task claim, single-flight Etsy exercise, per-holder spend reservation) but the build-side ops/lock.py is one globa",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 b7ee0598: scoped leases (ops/lock.py --scope)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "runtime leases are narrow (per job, per build-task claim, single-flight Etsy exercise, per-holder spend reservation) but the build-side ops/lock.py is one global heartbeat lease"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 b7ee0598: scoped leases (ops/lock.py --scope)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9890,10 +9890,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: external waits park instead of occupying slots (executor gates), but a synchronous long handler holds a worker thread; build-side waiting is mitigated by ops/bo",
+    "why": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block (product-engine lane converts them)",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "external waits park instead of occupying slots (executor gates), but a synchronous long handler holds a worker thread; build-side waiting is mitigated by ops/board.py COMPLETE_UNREPORTED only"
+     "detail": "claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block (product-engine lane converts them)"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -10149,13 +10149,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "claude/w4-FMBATCH1 97cd3a9e: CIR contract pinned with a required declaration; listing payload keys and API schemas not yet pinned",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 97cd3a9e + 8efe4bb2: CIR, listing payload and API routes pinned; each change needs a declaration in ops/CONTRACT_CHANGES.md",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "claude/w4-FMBATCH1 97cd3a9e: CIR contract pinned with a required declaration; listing payload keys and API schemas not yet pinned"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 97cd3a9e + 8efe4bb2: CIR, listing payload and API routes pinned; each change needs a declaration in ops/CONTRACT_CHANGES.md"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -11125,13 +11125,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: daily/weekly/monthly cadences exist (growth.journey, commerce.readings, remerchandising weekly, strategy monthly, seasonal engine), but there is no Etsy-specifi",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 3102036d: intel/etsy_ops_report daily exceptions + quarterly audit, read-only",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "daily/weekly/monthly cadences exist (growth.journey, commerce.readings, remerchandising weekly, strategy monthly, seasonal engine), but there is no Etsy-specific daily exception report or quarterly de"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 3102036d: intel/etsy_ops_report daily exceptions + quarterly audit, read-only"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {

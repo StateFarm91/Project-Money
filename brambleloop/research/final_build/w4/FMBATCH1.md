@@ -718,3 +718,13 @@ behaviour tests do fail before the fix.
   - Both stay gated on `transactions_r` and a real settlement. The dry run is clean.
 - **Build 2:** none of the 4 remaining rows is buildable here: #32, #56 and #197 are NA, and
   #94 is with Workstream C.
+
+## 26. Batch W: F-482, F-462, F-455, F-464, F-550
+
+| Row | Commit | Built | Test |
+|---|---|---|---|
+| F-482 | 8efe4bb2 | The listing payload (`ListingPayload`) and API routes (path and methods) are now pinned beside the CIR. Each change needs a dated row in `ops/CONTRACT_CHANGES.md` and the new pin in the same commit. **Note for integration:** a lane that adds a route must declare it. | `test_w4_fmbatch1_contracts.py` (5) |
+| F-462 | b7ee0598 | `ops/lock.py --scope LANE` takes a lease on one lane only (`ops/LOCK.<scope>`, now gitignored), and `leases` lists every lease. The unscoped global heartbeat lease is unchanged. | `test_w4_fmbatch1_lease_scope.py` (2) |
+| F-455 | 3ca8d4de | `ops/context_pack.py` builds a lane's own rows: requirement, gap, next action, tests and the files to read first, and nothing else. It is driven by `--rows`, or by the lane's enrolled rows (`registry.py enrol --rows`). | `test_w4_fmbatch1_context_pack.py` (3) |
+| F-464 (partial) | ba097848 | `runtime/awaiting.py`: `defer` and `check` make a wait on an external operation a durable poll job. No thread is held; giving up is recorded. The render handlers themselves are the product-engine lane's to convert. | `test_w4_fmbatch1_awaiting.py` (3) |
+| F-550 | 3102036d | `intel/etsy_ops_report.py`, read-only, runs on the daily `commerce.readings` cadence. A daily exception report covers Etsy/listing incidents, Etsy-side dead letters, stale Etsy cadences and the probe state. A deep audit runs once per calendar quarter. There is no Etsy call and no listing change. | `test_w4_fmbatch1_etsy_ops.py` (2); `test_cert_commerce_readings` green |
