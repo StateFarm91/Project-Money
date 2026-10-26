@@ -28,7 +28,7 @@ def test_plan_has_goals_path_priorities_and_decisions():
     db = boot()
     plan = EP.refresh(db, env={}, now=NOW)
     goals = {g["key"]: g for g in plan["goals"]}
-    assert goals["first_sale"]["met"] is False and goals["first_sale"]["reading"] == 0
+    assert goals["first_sale"]["met"] is None and goals["first_sale"]["reading"] == "UNKNOWN"  # N-3: no order source
     assert goals["sustainable_monthly"]["reading"] == "UNMEASURED"
     assert plan["critical_path"], "a fresh company has closed gates real work waits on"
     counts = [i["unblocks"] for i in plan["critical_path"]]
@@ -59,6 +59,24 @@ def test_no_plan_is_no_boost():
     JobQueue(db).enqueue("market_radar", "radar.score", {})
     out = orc.allocate(db, now=NOW)
     assert not any("executive plan" in b for b in out["lanes"]["market_radar"]["boosts"])
+
+
+def test_n3_first_sale_is_unknown_not_zero_when_the_order_source_is_not_connected():
+    """Review cbd4ff1 N-3: zero orders on file with a disconnected source is not a measured
+    zero; the goal reads UNKNOWN and `met` is None."""
+    import tempfile as _tf
+    from datetime import datetime as _d, timezone as _tz
+
+    from brambleloop.autonomy import executive_plan as EP
+    from brambleloop.core.db import Database
+
+    d = _tf.mkdtemp(prefix="fmb1n3_")
+    db = Database(f"sqlite:///{d}/n3.db")
+    db.create_all()
+    goals = {g["key"]: g for g in EP._goals(db, _d.now(_tz.utc))}
+    fs = goals["first_sale"]
+    assert fs["reading"] == "UNKNOWN" and fs["met"] is None, fs
+    assert "order source" in fs["basis"]
 
 
 if __name__ == "__main__":

@@ -38,9 +38,19 @@ def _goals(db, now) -> list[dict]:
         orders = s.scalar(select(func.count()).select_from(Order)) or 0
         rev30 = float(s.scalar(select(func.coalesce(func.sum(Order.revenue_cad), 0.0)).where(
             Order.at >= now - timedelta(days=30))) or 0.0)
+    # Review cbd4ff1 N-3: zero orders only means "no sale" when the order source is read.
+    try:
+        from ..finance.accounting import health as H
+
+        state = H.reading(db, now=now)["sources"]["orders"]["state"]
+        fig = H.figure_reading(state, orders > 0)
+    except Exception as exc:  # noqa: BLE001 - an unreadable source is UNKNOWN, never 0
+        state, fig = f"unreadable: {type(exc).__name__}", "UNKNOWN"
+    first = ({"reading": "UNKNOWN", "met": None} if fig == "UNKNOWN" else
+             {"reading": orders, "met": orders > 0})
     return [
-        {"key": "first_sale", "statement": "the first real sale",
-         "reading": orders, "met": orders > 0, "source": "orders"},
+        {"key": "first_sale", "statement": "the first real sale", **first,
+         "source": "orders", "basis": f"order source {state} ({fig})"},
         {"key": "sustainable_monthly", "statement":
          f"a sustainable CA${MONTHLY_TARGET_CAD:,.0f} a month",
          "reading": round(rev30, 2) if orders else "UNMEASURED",
