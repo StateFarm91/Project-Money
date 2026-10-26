@@ -7226,6 +7226,23 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                                 "the cadence is sized to fit the authorised ceiling. The "
                                 "backlog is unchanged and the next run takes it")}
 
+    # F-723: a batch above the research threshold names what it expects to learn, computed
+    # from the backlog; a drained backlog buys nothing and is refused before any reservation.
+    from ..finance import learning_value
+
+    unjudged = int(vision.pending_count(ctx.db, benchmarks.MJS_KEY).get("unjudged") or 0)
+    try:
+        lv = learning_value.require(
+            ctx.db, purpose=vision.TASK, job_id=ctx.job.id,
+            amount_cad=fit["units"] * vision.per_image_estimate_cad(),
+            expected=learning_value.Expected(
+                question="which gallery traits separate best-sellers per pod",
+                informs="creative.blind_review per-pod parity floor",
+                new_observations=min(int(fit["units"]), unjudged)))
+    except learning_value.LearningValueRefused as exc:
+        ctx.audit("intel.gallery_analysis_capped", detail={"learning_value": str(exc)})
+        return {"ran": False, "reason": str(exc), "constrained": "learning value below floor"}
+
     # W4-B2VISION: the pods our own catalogue is judged in are drained breadth-first, so the
     # blind review (#67/#218) reaches its per-pod floor in days rather than months.
     from ..creative import blind_review
@@ -7242,6 +7259,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
         "batch_derived_from": fit["binding_ceiling"],
         "batch_units": fit["units"], "stopped_by": result.get("stopped_by", ""),
         "failures": result["failures"][:5]})
+    learning_value.realise(ctx.db, lv.get("receipt"), observations=result["judged"],
+                           cost_cad=result["cost_cad"])
     if result.get("stopped_by") == "preempted":
         # F-473: what was judged is recorded; the job goes back to the queue (un-counted)
         # and resumes the backlog once the higher-band work has run.

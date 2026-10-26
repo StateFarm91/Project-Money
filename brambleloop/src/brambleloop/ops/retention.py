@@ -113,6 +113,15 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W4-FMBATCH1: readers added on that branch without an entry (caught by
+    # test_cost_governance_wave2; F-549 scorecard, F-099 trigger, F-661 executive block), and
+    # F-723's learning-value report, which reads the newest 200 rows.
+    "etsy.credential_health": ("latest", "intel.etsy_scorecard reads the newest reading"),
+    "gateway.provider_change": ("windowed", "scale.dependency counts the last 30 days"),
+    "plan.strategy_reviewed": ("latest", "command_center.executive reads the newest review"),
+    "learning_value.expected": ("latest", "finance.learning_value.report: newest 200 rows"),
+    "learning_value.realised": ("latest", "finance.learning_value.report: newest 200 rows"),
+    "learning_value.refused": ("latest", "finance.learning_value.report: newest 200 rows"),
     # W4-RETENTIONFIX: two readers merged in W4 without an entry. F-399's "repeated failures
     # avoided" counts refusals inside the retrospective window (days); the owner overview
     # reads the newest production self-check only.

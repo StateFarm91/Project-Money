@@ -2089,6 +2089,15 @@ def api_spend_policy() -> dict:
     return spend_policy.state(db)
 
 
+def _learning_value_reading() -> dict:
+    try:
+        from ..finance import learning_value
+
+        return learning_value.report(db)
+    except Exception as exc:  # noqa: BLE001 - an unreadable reading is UNKNOWN, by name
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
 @app.get("/api/spend-report")
 def api_spend_report() -> dict:
     """What the money bought, by every dimension the owner asked to see it by.
@@ -2112,6 +2121,8 @@ def api_spend_report() -> dict:
             # actually said no. Both are how a guard is told apart from one that never fires.
             "drift": spend_report.estimate_drift(db),
             "refusals": spend_report.refusals(db),
+            # F-723: research spend's expected learning value beside what it realised.
+            "learning_value": _learning_value_reading(),
             "this_week": {"period": "iso_week",
                           "spent_cad": round(sum(float(r.amount_cad or 0.0)
                                                  for r in spend_report.rows(db, period="week")),
