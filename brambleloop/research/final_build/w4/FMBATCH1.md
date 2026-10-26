@@ -607,3 +607,9 @@ or independent review items.
   - 28 modules still import `gateway.anthropic` directly. Many are in the visual, creative and
     publish lanes (Workstream C and W-LISTREADY); others read the ceiling ledger.
     `intel/serp.py` and `intel/vision.py` are next.
+- **F-091, continued:** `intel/serp.py` and `intel/vision.py` now use `gateway/providers.py`
+  (`for_task`, `check_budget`, `release_reservation`, and the neutral names). The facade's
+  `check_budget` now requires `purpose`; `test_w4_spend_paid_discipline` caught a version that
+  did not. 26 direct importers remain, all listed with reasons.
+  - Tests, all green: boundary (4), `test_w4_spend_paid_discipline`, `test_model_spend_paths`,
+    `test_intel`, `test_w4_marketintel`, `test_w4_b2vision`, `test_w4_close5_vision_timeout`.

@@ -71,11 +71,12 @@ def for_task(task_key: str, *, env=None, **kw) -> TextProvider:
     return factory(task_key, **kw)
 
 
-def check_budget(db, **kw) -> dict:
-    """The pre-call reservation against every ceiling; vendor-neutral (it prices by model)."""
+def check_budget(db, *, purpose: str, **kw) -> dict:
+    """The pre-call reservation against every ceiling; vendor-neutral (it prices by model).
+    `purpose` is required here: a reservation always names the question it pays for."""
     from . import anthropic
 
-    return anthropic.check_budget(db, **kw)
+    return anthropic.check_budget(db, purpose=purpose, **kw)
 
 
 def release_reservation(db, reservation_id, **kw):

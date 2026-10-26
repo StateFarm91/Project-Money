@@ -45,9 +45,6 @@ PENDING = {
     "scale/dependency.py": "dependency register names the vendor it measures",
     "intel/insights_budget.py": "ceiling ledger reader",
     "intel/market_map.py": "gallery analysis path; vision judge",
-    # Research vision callers: provider_for + budget; next to migrate.
-    "intel/serp.py": "vision caller (provider_for, check_budget); next to migrate",
-    "intel/vision.py": "vision caller (provider_for, check_budget); next to migrate",
 }
 
 
@@ -78,7 +75,8 @@ def test_no_new_direct_vendor_importer_and_pending_only_shrinks():
     stale = sorted(set(PENDING) - found)
     assert not new, f"business modules importing a vendor module directly: {new}"
     assert not stale, f"migrated, remove from PENDING: {stale}"
-    assert "culture/classify.py" not in found
+    for migrated in ("culture/classify.py", "intel/serp.py", "intel/vision.py"):
+        assert migrated not in found, migrated
 
 
 def test_vendor_is_chosen_at_the_boundary_and_unknown_refuses():
