@@ -674,6 +674,8 @@ def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> di
             "model": r.model, "overall": r.overall(), "fabric": fabric_mean,
             "by_dimension": {d.key: r.mean(d.key) for d in RUBRIC},
             "identity_match": r.mean(IDENTITY_DIMENSION.key),
+            "identity_subscores": identity_subscores(
+                {"identity_match": r.mean(IDENTITY_DIMENSION.key)}),
             "cad_per_image": BY_KEY[r.model].cad_per_image if r.model in BY_KEY else None,
             "judged_images": len(r.scores), "failures": len(r.failures),
             "repeatability": r.repeatability(),
@@ -1068,6 +1070,21 @@ SUPERSEDED: dict = {
 SUPERSEDED_ACTION = "image.benchmark_superseded"
 
 
+def identity_subscores(result_row: dict) -> dict:
+    """F-217: face, whole-person morphology and overall identity, reported separately.
+
+    This benchmark asked one identity question, about the face (geometry, hair, eyes, age).
+    So its retained score is the FACE subscore only; whole-person morphology was never asked
+    and is UNMEASURED; and overall identity is the minimum of the two -- UNMEASURED here -- so
+    a high face score can never hide a morphology failure inside an average. The canonical
+    model's production frames carry the real split (`publish.model_photography` floors)."""
+    face = result_row.get("identity_match")
+    return {"face_identity": face if face is not None else "UNMEASURED",
+            "whole_person_morphology": "UNMEASURED",
+            "overall_identity": "UNMEASURED",
+            "rule": "overall = min(face, morphology); an unmeasured part is never averaged in"}
+
+
 def superseded_record(db) -> dict:
     """Record once (idempotent) which benchmark rows are superseded, keeping every row."""
     from sqlalchemy import select
@@ -1120,6 +1137,7 @@ def state(db=None) -> dict:
             "is"),
         **_measured_state(db),
         "supersession": SUPERSEDED,
+        "identity_subscores_rule": identity_subscores({})["rule"],
     }
 
 
@@ -1206,6 +1224,8 @@ def _measured_state(db) -> dict:
                             / max(len([1 for f in FABRIC_DIMENSIONS
                                        if r.mean(f) is not None]), 1), 3),
             "identity_match": r.mean(IDENTITY_DIMENSION.key),
+            "identity_subscores": identity_subscores(
+                {"identity_match": r.mean(IDENTITY_DIMENSION.key)}),
             "by_dimension": {d.key: r.mean(d.key) for d in RUBRIC},
             "judged_images": len(r.scores),
             "repeatability": r.repeatability(),

@@ -222,3 +222,15 @@ def next_work(db) -> list[dict]:
              "external_effect": False, "job_type": "gate.quality",
              "why": (f"{len(stale)} certified release(s) not re-verified in "
                      f"{FRESH_HOURS} h: {', '.join(stale[:5])}")}]
+
+
+
+@handlers.register("visual.model_ledger")
+def handle_model_ledger(ctx: JobContext) -> dict:
+    """F-744: harvest every model experiment into the durable model evidence ledger
+    (visual.model_ledger), so retention never erases a failed approach. Read-only, CA$0."""
+    from ..visual import model_ledger
+
+    out = model_ledger.harvest(ctx.db)
+    ctx.audit("visual.model_ledger", detail=out)
+    return {**out, "work_done": out["harvested"]}

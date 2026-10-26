@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T02:44:22.164548+00:00",
+ "generated_at": "2026-10-26T03:08:45.507933+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 120,
-  "handlers": 148,
+  "cadences": 121,
+  "handlers": 149,
   "agents": 31,
   "follow_on_edges": 75
  },
@@ -1028,6 +1028,12 @@
       "period_seconds": 604800
      },
      {
+      "name": "model_ledger",
+      "agent": "publishing",
+      "job_type": "visual.model_ledger",
+      "period_seconds": 86400
+     },
+     {
       "name": "visual_rnd",
       "agent": "publishing",
       "job_type": "visual.rnd.cycle",
@@ -1081,6 +1087,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -1098,6 +1105,7 @@
      "visual.controlled_experiment",
      "visual.identity_drift",
      "visual.image_production",
+     "visual.model_ledger",
      "visual.portrait_repair",
      "visual.provider_trial",
      "visual.rnd.cycle"

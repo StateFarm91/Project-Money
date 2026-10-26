@@ -74,7 +74,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "ops.sentinel": _O, "ops.slo": _O, "ops.thrash": _O, "physical.photo": _O,
     "physical.record": _O, "physical.upgrade_impact": _O, "portfolio.review": _O,
     "seasonal.harvest": _O, "seasonal.sentinel": _O, "swarm.review": _O,
-    "visual.identity_drift": _O, "mjs.seasonal_sentinel": _O,
+    "visual.identity_drift": _O, "visual.model_ledger": _O, "mjs.seasonal_sentinel": _O,
     # research: intelligence, learning, measurement experiments that change nothing live
     "creative.benchmark_memory": _R, "creative.blind_review": _R, "creative.blinded": _R,
     "creative.expedition": _R, "creative.four_season": _R, "creative.grid_tournament": _R,

@@ -225,3 +225,21 @@ New code: `creative/children.py`, plus the job `intel.children_portfolio` (marke
 - F-365 is advisory only. "Baby & Kids" is not yet a section in the brand architecture (`copy_v2.SECTIONS`), so no `createShopSection` is drafted for it; adding it is a brand decision.
 - F-366 evaluates the launch mix; it does not re-select the curated Launch-0 list.
 - The depth threshold of 4 and the category patterns are this module's own constants; no row gives figures.
+
+## Cluster C2: canonical-model evidence (ledger rows, 2026-10-26)
+
+No provider is called; everything reads committed files and rows. Tests are in `tests/test_w4_c2_visual.py` (F-218's is in `test_w4_departments`).
+
+| Row (ledger status) | Gap the matrix named | Built | Test |
+|---|---|---|---|
+| F-217 (B) Identity Subscores Exposed | `image_bench` scored a single `identity_match` | `image_bench.identity_subscores`. The benchmark's retained score is the **face** subscore only (its question was facial); **whole-person morphology = UNMEASURED** because it was never asked; **overall = min = UNMEASURED**, so a high face score cannot hide a morphology failure. It is on every per-model row of `decide`/`_measured_state`. The benchmark itself is superseded (F-126); production frames keep the real six-floor split. The `identity_match` key is kept (`test_image_bench` pins it). | `test_f217_benchmark_reports_face_morphology_and_overall_separately` |
+| F-218 (B) Canonical Model Drift Sentinel | ternary verdicts, so narrow passes were invisible | built in the visual batch (4766be8a): an incident on repeated near-threshold passes | `test_w4_departments.test_f218_*` |
+| F-744 (B) Model Evidence Ledger | experiments spread across audit rows; no single queryable ledger; `assets.model_photography` rows pruned after the retention window | `visual/model_ledger.py`. `harvest` normalises every experiment row (model photography, provider trials, benchmark trials and candidates, reference packs, portrait repairs) into one durable record, `operating_readings` `visual.model_experiment`, which retention does not prune. Each record carries canonical version, provider/model/mode, references, prompt, settings, output hash, identity (face and morphology), Product Truth, realism, cost, accepted and reason; anything never recorded is UNKNOWN. `failed_approaches` groups rejections. Daily job `visual.model_ledger` (publishing, OBSERVE) | `test_f744_every_experiment_is_kept_as_a_durable_normalised_record` (the failed approach survives deletion of its source rows) |
+| F-738 (B) Identity-Preserving Promotion | no evidence comparator | `visual/model_promotion.py`. `summarise` reads the F-744 records per canonical version. `compare` returns PROMOTE only when identity retention is at least the incumbent's AND realism is strictly better; a realism win with identity loss is REFUSE; fewer than 5 judged frames is UNKNOWN. PROMOTE is an owner-decision recommendation only. `regression` is the rollback trigger. | `test_f738_a_realism_win_with_identity_loss_is_refused_and_unknown_never_promotes` |
+| F-747 (B) Brand Asset Portability | the body frames existed only in production storage | **That gap is closed by the committed originals** (FLUX3 ruling: the three canonical files are committed and byte-identical, a42aeac7, afe6191f, f32bac68). `visual/portability.bundle` is the provider-neutral migration bundle (identity id, decisions, locked specification, committed hash-verified frames, with a check that no vendor is named in the specification). `restore_check` copies the frames out and re-verifies every hash. | `test_f747_identity_is_portable_without_any_provider` |
+
+**Not wired (frozen Laura identity code):**
+- `model_promotion.compare` is not yet a precondition inside `visual.model_registry.replace_canonical`. That function has no runtime caller, and the canonical identity code is frozen with Laura.
+- Making a PROMOTE verdict required there is a one-line integration once the freeze lifts.
+
+**Regression:** test_image_bench, test_roles, test_v11_autonomy_timeline, test_vacuity, test_w3_k11_authority, test_w4_close5_rows and test_w4_departments pass.

@@ -217,7 +217,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "visual.image_production",
                             # W-VISNEXT: an owner-authorised controlled experiment (frozen
                             # definition, owner step-up, its own caps inside this ceiling).
-                            "visual.controlled_experiment"],
+                            "visual.controlled_experiment",
+                            # W4-AGENTS C2 (F-744): the durable model evidence ledger.
+                            "visual.model_ledger"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

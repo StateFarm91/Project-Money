@@ -910,6 +910,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS C1: the priority children's family -- research coverage (F-353), style
     # segments (F-358), launch mix (F-366), Baby & Kids architecture (F-365). CA$0.
     ("children_portfolio", "market_radar", "intel.children_portfolio", 24 * 60 * 60),
+    # W4-AGENTS C2 (F-744): every model experiment kept as a durable normalised record. CA$0.
+    ("model_ledger", "publishing", "visual.model_ledger", 24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
