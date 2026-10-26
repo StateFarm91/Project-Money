@@ -59,6 +59,21 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION,
 app.add_exception_handler(security.OperatorRefused, security.operator_refused_handler)
 
 
+@app.middleware("http")
+async def _unblock_fan_out(request: Request, call_next):
+    """F-467: a successful write to a gate-opening route recomputes the build graph now."""
+    response = await call_next(request)
+    try:
+        from ..build2 import unblock
+
+        if 200 <= response.status_code < 300 and unblock.opens_gates(request.method,
+                                                                     request.url.path):
+            unblock.request_recompute(db, trigger=request.url.path)
+    except Exception:  # noqa: BLE001 - a recompute request never changes the response
+        pass
+    return response
+
+
 def _known_customer_refs() -> list[str]:
     """Every stored buyer identifier, for the response scrub (A3-04 defence in depth)."""
     from ..core.models import Customer, Order
