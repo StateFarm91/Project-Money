@@ -275,6 +275,30 @@ def test_owner_text_scrub_is_defence_in_depth():
     assert OA_TITLE not in out and INCIDENT_TEXT[:48] not in out and "short" in out, out
 
 
+def test_the_owner_text_scrub_leaves_the_command_center_alone():
+    """The owner, in /cc/ with their session, must read the decisions, not the marker."""
+    import asyncio
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": json.dumps(OA_TITLE).encode()})
+
+    mw = security.OwnerTextScrubMiddleware(app, refs_provider=lambda: [OA_TITLE])
+
+    def call(path):
+        out = []
+
+        async def send(m):
+            out.append(m)
+
+        asyncio.run(mw({"type": "http", "path": path, "headers": []}, None, send))
+        return b"".join(m.get("body", b"") for m in out if m["type"] == "http.response.body")
+
+    assert OA_TITLE.encode() in call("/api/cc/approvals")
+    assert OA_TITLE.encode() not in call("/api/war-room")
+
+
 def test_static_bundles_carry_no_embedded_state():
     c = client()
     static = ROOT / "src" / "brambleloop" / "app" / "command_center" / "static"

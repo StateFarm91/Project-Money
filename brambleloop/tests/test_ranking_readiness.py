@@ -7,6 +7,7 @@ proxy `search_share`.
 Run: cd brambleloop && PYTHONPATH=src $PY tests/test_ranking_readiness.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import inspect
@@ -149,7 +150,7 @@ def test_the_catalogue_shows_the_certificate_verdict_not_the_proxy():
     with main.db.session() as s:
         s.add(Listing(product_slug=SLUG, version=VERSION, title="t", description="d",
                       tags=[], price_cad=8.5, seo_score=0.91))
-    body = TestClient(main.app).get("/api/catalogue").json()
+    body = _opread.get(TestClient(main.app), "/api/catalogue").json()
     row = next(r for r in body["listings"] if r["slug"] == SLUG)
     assert "search_share" not in row, row
     assert row["search_certificate"] == "NONE"

@@ -564,9 +564,9 @@ def test_stats_ingest_benchmarks_and_scale_routes_read_the_database():
         ok = c.post("/api/attribution/stats", content=csv_text, headers=auth)
         assert ok.status_code == 200, ok.text
         assert ok.json()["vanity_terms"] == ["mosaic blanket"]
-        bench = c.get("/api/benchmarks").json()
+        bench = c.get("/api/benchmarks", headers=auth).json()
         assert "diagnoses" in bench and "opportunities" in bench
-        scale = c.get("/api/scale").json()
+        scale = c.get("/api/scale", headers=auth).json()
         for key in ("probability", "scenarios", "conditions", "calibration", "cac_split"):
             assert key in scale, key
 

@@ -230,14 +230,30 @@ def test_operator_gets_refuse_without_the_credential():
 
 
 def test_public_reads_stay_public():
-    """The dashboard's read-only views are still an absent owner opening a URL."""
+    """The allow-listed public reads stay open (the deploy readback reads them); the owner's
+    views are not public (W4-SECPATCH: /api/owner-actions served the whole owner inbox)."""
     c = client()
     os.environ[opsauth.TOKEN_VAR] = TOKEN
     try:
-        for path in ("/", "/health", "/api/status", "/api/owner-actions", "/ops/teardown"):
+        for path in ("/", "/health", "/api/status", "/ops/teardown"):
             assert c.get(path).status_code in (200, 503), path
+        for path in ("/api/owner-actions", "/api/incidents", "/api/jobs", "/api/console"):
+            assert c.get(path).status_code == 401, path
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
+
+
+def test_every_get_is_gated_unless_on_the_public_allow_list():
+    """W4-SECPATCH: reads are default-deny too; a public GET needs a written reason."""
+    routes = list(security.iter_api_routes(main.app))
+    assert len(routes) > 100, len(routes)
+    for path, methods, _ in routes:
+        if "GET" not in methods or security.owner_session_route(path):
+            continue
+        if path in security.PUBLIC_GET_ROUTES:
+            assert len(security.PUBLIC_GET_NOTES[path]) > 20, path
+            continue
+        assert security.requires_operator("GET", path), f"GET {path} is public by default"
 
 
 if __name__ == "__main__":

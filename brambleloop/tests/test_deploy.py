@@ -66,23 +66,31 @@ def test_health_reports_a_real_database_check():
 
 
 def test_status_endpoint_exposes_what_an_absent_owner_needs():
-    with _client() as c:
-        body = c.get("/api/status").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/status", headers=h).json()
+        public = c.get("/api/status").json()
     for key in ("queue", "dead_letters", "products", "certified_versions",
                 "open_incidents", "agent_opex_cad", "revenue_cad",
                 "owner_actions_open", "runner", "model_providers"):
         assert key in body, key
+        # W4-SECPATCH: the owner reads it with the credential; anonymously it is not there.
+        assert key not in public, key
+    assert public["build"]["commit"] == body["build"]["commit"], (public, body["build"])
+    assert set(public) <= {"version", "build", "boot_guard"}, sorted(public)
     # No API key is configured here, and the status endpoint must say so rather than imply a
     # model integration that does not exist.
     assert body["model_providers"] == []
 
 
 def test_dashboard_renders_without_a_build_step():
-    with _client() as c:
-        r = c.get("/")
+    with _client() as c, _operator() as h:
+        r = c.get("/", headers=h)
         assert r.status_code == 200
         assert "BRAMBLELOOP STUDIO" in r.text
         assert "Runner:" in r.text
+        # W4-SECPATCH: anonymously, `/` is the public page with none of the dashboard.
+        public = c.get("/")
+        assert public.status_code == 200 and "Runner:" not in public.text
 
 
 def test_the_container_runs_the_company_by_itself():
@@ -94,7 +102,8 @@ def test_the_container_runs_the_company_by_itself():
     """
     with _client() as c:
         assert runner.wait_for_tick(timeout=15), "embedded worker never ticked"
-        assert c.get("/health").json()["runner"]["enabled"] is True
+        with _operator() as h:
+            assert c.get("/health", headers=h).json()["runner"]["enabled"] is True
 
         # The scheduler's own cadence enqueues the planning cycle; wait for the chain to
         # reach the far end of itself, which is the publish refusal, not merely the first
@@ -114,7 +123,8 @@ def test_the_container_runs_the_company_by_itself():
             time.sleep(0.5)
 
         assert products, "the embedded runner produced no products unattended"
-        body = c.get("/api/status").json()
+        with _operator() as h:
+            body = c.get("/api/status", headers=h).json()
         assert body["runner"]["worker_alive"] is True
         assert body["certified_versions"] >= 1
 
@@ -142,8 +152,11 @@ def test_a_planning_cycle_can_be_started_on_demand_and_is_idempotent_per_date():
 
 
 def test_the_catalogue_endpoint_is_explicit_that_nothing_is_published():
-    with _client() as c:
-        body = c.get("/api/catalogue").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/catalogue", headers=h).json()
+        public = c.get("/api/catalogue").json()
+    # W4-SECPATCH: anonymously only the readback's `published` flag is served.
+    assert public == {"published": False}, public
     assert body["published"] is False
     assert "shadow" in body["why"]
     assert "no Etsy" in body["why"]
@@ -154,8 +167,9 @@ def test_the_catalogue_endpoint_is_explicit_that_nothing_is_published():
 def test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast():
     """F-608: with no order source connected the endpoint used to report CA$0.00 as
     observed. Missing data is UNKNOWN, never silently zero."""
-    with _client() as c:
-        body = c.get("/api/finance").json()
+    with _client() as c, _operator() as h:
+        assert c.get("/api/finance").status_code == 401  # W4-SECPATCH: owner-only
+        body = c.get("/api/finance", headers=h).json()
     assert body["profit_and_loss"]["all_figures_observed"] is False
     assert body["profit_and_loss"]["sales_reading"] == "UNMEASURED"
     assert body["profit_and_loss"]["gross_sales_cad"] is None
@@ -243,8 +257,12 @@ def test_the_requirement_registry_travels_with_its_package():
 
 def test_verify_endpoint_reports_the_standing_safety_assertions():
     """"Railway says deployed" is not "the company is alive and behaving"."""
-    with _client() as c:
-        body = c.get("/api/verify").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/verify", headers=h).json()
+        public = c.get("/api/verify").json()
+    # W4-SECPATCH: anonymously each check is its name and verdict only, no evidence.
+    assert [{"check": ch["check"], "ok": ch["ok"]} for ch in body["checks"]] == public["checks"]
+    assert set(public) == {"ok", "checks"}, sorted(public)
     names = {ch["check"] for ch in body["checks"]}
     for expected in ("phase_is_shadow", "nothing_published", "no_paid_advertising",
                      "no_revenue_claimed", "every_agent_has_a_cost_ceiling",
@@ -272,8 +290,10 @@ def test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing():
     from brambleloop.core.models import CostEntry
     from brambleloop.finance.spend_policy import ceiling_cad
 
-    with _client() as c:
-        body = c.get("/api/verify").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/verify", headers=h).json()
+        public = c.get("/api/verify").text
+    assert "spent_this_month_cad" not in public and "monthly_ceiling_cad" not in public
 
     by_name = {ch["check"]: ch for ch in body["checks"]}
     assert "no_model_provider_configured" not in by_name
@@ -351,8 +371,11 @@ def test_verify_survives_the_one_condition_it_exists_to_report():
         s.flush()
         planted_id = planted.id
     try:
-        with _client() as c:
-            response = c.get("/api/verify")
+        with _client() as c, _operator() as h:
+            response = c.get("/api/verify", headers=h)
+            public = c.get("/api/verify")
+        # W4-SECPATCH: the anonymous readback sees the same verdict, without the evidence.
+        assert public.status_code == 503 and "verify.probe" not in public.text
         assert response.status_code == 503, response.status_code
         check = {ch["check"]: ch for ch in response.json()["checks"]}[
             "no_unexpected_dead_letters_in_24h"]
@@ -367,8 +390,8 @@ def test_verify_survives_the_one_condition_it_exists_to_report():
 
 def test_verify_fails_loudly_rather_than_reporting_green_on_ephemeral_storage():
     """A SQLite-backed container must not be able to report itself durably deployed."""
-    with _client() as c:
-        body = c.get("/api/verify").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/verify", headers=h).json()
     durable = next(ch for ch in body["checks"]
                    if ch["check"] == "state_is_in_a_durable_database")
     assert durable["ok"] is False, "a SQLite test container claimed durable state"
@@ -443,8 +466,8 @@ def test_the_launch_endpoint_separates_what_is_ours_from_what_is_the_owners():
     Asking the owner for an Etsy account because it will eventually be needed is exactly what
     the Execution Directive forbids, so the report has to be able to tell the difference.
     """
-    with _client() as c:
-        body = c.get("/api/launch").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/launch", headers=h).json()
 
     assert body["ready"] is False, "shadow mode cannot be launch-ready"
     keys = {r["key"]: r for r in body["requirements"]}
@@ -527,8 +550,8 @@ def test_the_status_endpoint_says_which_commit_is_running():
     """
     from brambleloop.core import build
 
-    with _client() as c:
-        body = c.get("/api/status").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/status", headers=h).json()
     assert "build" in body, "status does not report which code it is running"
     assert set(body["build"]) == {"commit", "commit_short", "branch", "known"}
     # In a test environment there is usually no build commit, and `unknown` is the honest
@@ -538,7 +561,11 @@ def test_the_status_endpoint_says_which_commit_is_running():
 
     with _client() as c:
         health = c.get("/health").json()
+        public = c.get("/api/status").json()
     assert health["build"]["commit"] == body["build"]["commit"]
+    # W4-SECPATCH: anonymously, what ops/deployed_sha.py reads and nothing more.
+    assert public["build"]["commit"] == body["build"]["commit"]
+    assert public["build"]["known"] == body["build"]["known"]
 
 
 def test_an_unknown_build_never_matches_a_commit():
@@ -771,8 +798,8 @@ def test_verify_reports_whether_the_runner_is_starting_rather_than_deciding_sile
     """
     from brambleloop.app import runner as runner_mod
 
-    with _client() as c:
-        body = c.get("/api/verify").json()
+    with _client() as c, _operator() as h:
+        body = c.get("/api/verify", headers=h).json()
 
     checks = {x["check"]: x for x in body["checks"]}
     for name in ("worker_is_alive", "scheduler_has_ticked"):
@@ -794,7 +821,8 @@ def test_the_command_centre_shows_every_build_2_subsystem():
     revenue target is, whether the creative standard is being met, what is improving, and
     what capabilities and spend are live.
     """
-    body = _client().get("/").text
+    with _operator() as h:
+        body = _client().get("/", headers=h).text
 
     for block in ("Build 2 coverage", "MJs mission", "Seasonal deadlines",
                   "CA$5,000/month model", "Creative standard", "Improvement",
@@ -813,7 +841,8 @@ def test_one_unhappy_subsystem_does_not_take_the_whole_dashboard_down():
     """
     import brambleloop.app.main as main
 
-    body = _client().get("/").text
+    with _operator() as h:
+        body = _client().get("/", headers=h).text
     assert "unavailable:" not in body, "a block is already failing on a healthy system"
 
     # Break one block's data source and confirm the page still renders everything else.
@@ -827,7 +856,8 @@ def test_one_unhappy_subsystem_does_not_take_the_whole_dashboard_down():
         real = confidence.probability
         confidence.probability = explode
         try:
-            broken = _client().get("/")
+            with _operator() as h:
+                broken = _client().get("/", headers=h)
             assert broken.status_code == 200
             assert "unavailable: RuntimeError" in broken.text
             # Everything else still rendered.

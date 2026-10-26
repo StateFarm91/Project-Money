@@ -497,7 +497,7 @@ def test_the_manifest_and_clearance_routes_write_and_are_authenticated():
                     json={"signal_key": "nothing", "kind": "generic",
                           "evidence": "x", "recorded_by": "owner"})
     assert r.status_code == 400 and r.json()["lane"] == rights.ORIGINAL
-    assert client.get("/api/culture/development").status_code == 200
+    assert client.get("/api/culture/development", headers=auth).status_code == 200
 
 
 if __name__ == "__main__":

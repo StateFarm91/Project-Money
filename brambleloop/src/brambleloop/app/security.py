@@ -562,7 +562,16 @@ def build_owner_scrubber(texts: Iterable[str]) -> Callable[[str], str] | None:
 
 
 class OwnerTextScrubMiddleware(CustomerRefScrubMiddleware):
-    """Redact owner-inbox and incident texts from unauthenticated JSON and HTML responses."""
+    """Redact owner-inbox and incident texts from unauthenticated JSON and HTML responses.
+
+    Not on the Command Center: `/api/cc/*` and OWNER_SESSION_PAGES are refused by the owner-
+    session gate to anyone without the owner's session, and the owner reading them must see
+    the decisions they are asked to make, not the redaction marker."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and owner_session_route(scope.get("path") or ""):
+            return await self.app(scope, receive, send)
+        return await super().__call__(scope, receive, send)
 
     def _scrubber(self):
         try:
