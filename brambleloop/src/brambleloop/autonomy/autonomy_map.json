@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T01:19:50.829751+00:00",
+ "generated_at": "2026-10-26T01:45:16.564054+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -11,9 +11,9 @@
  "counts": {
   "departments": 11,
   "cadences": 117,
-  "handlers": 144,
+  "handlers": 145,
   "agents": 31,
-  "follow_on_edges": 72
+  "follow_on_edges": 74
  },
  "departments": [
   {
@@ -632,6 +632,7 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "chain.rebuild",
+     "cir.compile",
      "cir.draft",
      "creative/intake.py:intake",
      "creative/intake.py:regate_held",
@@ -674,12 +675,14 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:product_design:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.engineering_ops",
      "brambleloop.runtime.orders",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
      "cir.draft",
+     "cir.revise",
      "collection.assemble",
      "creative.benchmark_memory",
      "creative.blind_review",
@@ -698,9 +701,7 @@
      "seasonal.harvest",
      "seasonal.sentinel"
     ],
-    "permitted_without_handler": [
-     "cir.revise"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "CIR drafts",
@@ -715,6 +716,10 @@
    "follow_on": [
     {
      "from": "cir.draft",
+     "to": "cir.compile"
+    },
+    {
+     "from": "cir.revise",
      "to": "cir.compile"
     }
    ],
@@ -820,6 +825,7 @@
     "follow_on_from": [
      "cir.compile",
      "cir.draft",
+     "cir.revise",
      "gate.certify",
      "gate.quality",
      "owner/API route api_physical_photo",
@@ -890,6 +896,10 @@
     "learn"
    ],
    "follow_on": [
+    {
+     "from": "cir.compile",
+     "to": "cir.revise"
+    },
     {
      "from": "gate.certify",
      "to": "listing.draft"
@@ -2382,16 +2392,6 @@
    ],
    "department": [
     "intelligence"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "crochet_engineer",
-   "job_types": [
-    "cir.revise"
-   ],
-   "department": [
-    "product_design"
    ]
   },
   {

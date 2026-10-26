@@ -86,9 +86,24 @@ Two enqueuers passed such slugs without checking for a CIR, and both now skip th
 
 The cadence's own picker already skipped CIR-less slugs. Test: `test_w4_departments.test_photography_is_never_requested_for_a_slug_with_no_cir`.
 
+### Batch 3 (done): Product Development revises a failed CIR once (`cir.revise`)
+
+**Finding: `cir.draft` has no model path.** It drafts from engineered designs, `concept_to_cir` and `creative.prototype.author`, which are all deterministic, and Master Plan §2 forbids asking a model for instructions. So `cir.revise` is deterministic too: no model, no network, CA$0, inside the crochet_engineer CA$4.00 ceiling. No stub was needed.
+
+How it works (`runtime/engineering_ops.py`):
+- `cir.compile` used to end a failing concept with "the concept dies here". It now hands the failure to the crochet engineer **once** (`MAX_REVISIONS = 1`, keyed on the CIR fingerprint).
+- The engineer applies only rules that change declared geometry parameters, never the design's idea. There is one rule today:
+  - `REPEAT_DIVISIBILITY`, which answers the compiler's REPEAT / COUNT_MISMATCH / UNDERRUN / OVERRUN errors on a uniform flat panel;
+  - the width becomes the nearest multiple of the repeat unit, with every row, declared count and the foundation moving together;
+  - the width change is recorded.
+- A revision that compiles goes back through `cir.compile`, then `gate.certify`. Deterministic validation decides.
+- Anything else is recorded as `cir.revise_unrepairable` with its finding codes, not guessed at.
+- `cir.revise` leaves `DECLARED_BUT_UNBUILT`.
+
+Tests: `test_w4_departments.test_a_failed_compile_is_revised_once_and_goes_back_through_the_compiler` and `test_an_unrepairable_failure_is_recorded_not_guessed`.
+
 ### Next batches (not done yet; each is authorised and bounded)
 
-- **B3 Product Development.** `cir.revise`: draft a revision of a CIR that failed compile, from the compiler's findings, through the existing `cir.draft` model path under the crochet_engineer CA$4 ceiling. Deterministic validation still decides.
 - **B4 Market Intelligence.** `radar.competitor_snapshot`: a read-only snapshot of the existing sanctioned observations. It is for demand and merchandising only and never copies instructions or images.
 - **Stays unbuilt, by authority:**
   - `pricing.experiment` (PUBLISH, protected; owner authority required);

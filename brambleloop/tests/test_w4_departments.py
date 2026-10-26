@@ -157,6 +157,61 @@ def test_photography_is_never_requested_for_a_slug_with_no_cir():
     assert asked == [real_slug], asked
 
 
+def _bad_panel(width=50):
+    """A concept_to_cir panel whose width the 4-stitch repeat does not divide."""
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+
+    return concept_to_cir(Concept(slug="revise-fixture", title="Revise Fixture Panel",
+                                  category="coaster", stitch_repeat=[("sc", 2), ("dc", 2)],
+                                  width_stitches=width, rows=8,
+                                  colors={"A": "cream", "B": "sage"}))
+
+
+def test_a_failed_compile_is_revised_once_and_goes_back_through_the_compiler():
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.runtime import engineering_ops as EO
+
+    bad = _bad_panel(50)
+    assert not compile_cir(bad).ok
+    db = _db()
+    out = _run(db, "validator", "cir.compile", {"cir": bad.to_dict()})
+    assert out["compiled"] is False and out["revise_job"], out
+    with db.session() as s:
+        rev = s.get(Job, out["revise_job"])
+    assert rev.agent == "crochet_engineer" and rev.job_type == "cir.revise"
+    res = handlers.get("cir.revise")(JobContext(job=rev, db=db, queue=JobQueue(db),
+                                                registry=Registry(db), phase=Phase.SHADOW))
+    assert res["revised"] and res["detail"]["width_to"] == 52, res
+    with db.session() as s:
+        comp = s.scalars(select(Job).where(Job.job_type == "cir.compile",
+                                           Job.id != rev.id)).all()
+    nxt = [j for j in comp if j.inputs.get("revision") == 1]
+    assert len(nxt) == 1
+    from brambleloop.cir.model import CIR
+
+    assert compile_cir(CIR.from_dict(nxt[0].inputs["cir"])).ok
+    # a second failure is not revised again: the bound is one revision
+    again = _run(db, "validator", "cir.compile", {"cir": bad.to_dict(), "revision": 1})
+    assert again["revise_job"] is None
+    assert handlers.get("cir.revise") is not None and EO.MAX_REVISIONS == 1
+    Registry(db).authorize("crochet_engineer", "cir.revise")
+
+
+def test_an_unrepairable_failure_is_recorded_not_guessed():
+    from brambleloop.cir.model import Op
+    from brambleloop.core.models import AuditLog
+
+    bad = _bad_panel(50)
+    bad.components[0].rows[2].ops.append(Op("dc", 3))   # breaks the uniform-panel shape
+    db = _db()
+    res = _run(db, "crochet_engineer", "cir.revise", {"cir": bad.to_dict()})
+    assert res["revised"] is False and res["unrepairable"] and res["codes"]
+    with db.session() as s:
+        assert s.scalar(select(AuditLog.id).where(
+            AuditLog.action == "cir.revise_unrepairable")) is not None
+        assert not s.scalars(select(Job).where(Job.job_type == "cir.compile")).all()
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

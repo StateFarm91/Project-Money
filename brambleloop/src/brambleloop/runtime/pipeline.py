@@ -812,9 +812,21 @@ def handle_cir_compile(ctx: JobContext) -> dict:
     ctx.audit("cir.compiled", artifact=f"{cir.slug}@{cir.version}",
               detail={"ok": result.ok, "errors": len(result.errors)})
     if not result.ok:
-        # A failing compile is a real outcome, not an exception: the concept dies here.
+        # A failing compile is a real outcome, not an exception. W4-AGENTS batch 3: it is
+        # handed to the Crochet Engineer once (`cir.revise`, deterministic repair rules); a
+        # revision that does not compile, or a second failure, ends the concept here.
+        revise_job = None
+        from .engineering_ops import MAX_REVISIONS
+
+        if int(ctx.job.inputs.get("revision") or 0) < MAX_REVISIONS:
+            revise_job = ctx.enqueue(
+                "crochet_engineer", "cir.revise",
+                {"cir": ctx.job.inputs["cir"],
+                 "revision": int(ctx.job.inputs.get("revision") or 0)},
+                idempotency_key=f"revise:{cir.slug}:{cir.version}:{cir.fingerprint}")
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
-                "errors": [str(f) for f in result.errors]}
+                "errors": [str(f) for f in result.errors],
+                "revise_job": getattr(revise_job, "id", None)}
     certify_inputs = {"cir": ctx.job.inputs["cir"]}
     if isinstance(ctx.job.inputs.get("correction"), dict):
         certify_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
@@ -3059,6 +3071,7 @@ from . import ops_watch  # noqa: E402,F401  (FB-4: F-125 maturity disagreements 
 from . import storefront_watch  # noqa: E402,F401  (F-280: launch-week Search Visibility)
 from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director)
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
+from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 
 
 def _listing_parity(ctx: JobContext) -> dict:
