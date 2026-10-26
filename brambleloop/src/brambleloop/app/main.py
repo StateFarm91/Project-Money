@@ -5240,7 +5240,15 @@ def api_verify() -> JSONResponse:
         smoke = smoke_matrix(db)
     except Exception as exc:  # noqa: BLE001
         smoke = {"verdict": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
-    return JSONResponse({"ok": passed, "checks": checks,
+    # F-171 (W4-FMBATCH1): a model provider that answers its probe with a failure (credit,
+    # auth, ...) is not a safety breach, so it does not flip `ok`; it makes the status
+    # DEGRADED and is named, with its reason class only (never the provider's error body).
+    provider_health = [c for c in (smoke.get("checks") or [])
+                       if str(c.get("check", "")).startswith("provider_health:")]
+    unhealthy = [c for c in provider_health if c.get("verdict") in ("FAIL", "DEGRADED")]
+    status = "FAIL" if not passed else "DEGRADED" if unhealthy else "OK"
+    return JSONResponse({"ok": passed, "status": status, "checks": checks,
+                         "provider_health": provider_health,
                          "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
 

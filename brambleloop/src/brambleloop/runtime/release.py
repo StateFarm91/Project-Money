@@ -6595,6 +6595,15 @@ def handle_health_sweep(ctx: JobContext) -> dict:
                 ctx.db, session, facts=(_runner_state() or {}).get("disk"))
     except Exception as exc:  # noqa: BLE001
         detail["hygiene"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W4-FMBATCH1 (F-171): a model/vision probe that answered with a failure opens an
+    # incident naming the provider and reason class (owner-actionable for credit/auth).
+    from ..ops import provider_health
+
+    try:
+        with ctx.db.session() as session:
+            detail["provider_health"] = provider_health.reconcile(ctx.db, session)
+    except Exception as exc:  # noqa: BLE001
+        detail["provider_health"] = {"state": "UNKNOWN", "error": type(exc).__name__}
 
     # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
     # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning

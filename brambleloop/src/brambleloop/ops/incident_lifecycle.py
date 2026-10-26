@@ -187,6 +187,10 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
     "provider-change": ("ops.dependencies (gateway.provider_watch)", "routing economics "
                         "re-run on the change; resolves on the next unchanged snapshot"),
+    # W4-FMBATCH1 ops/provider_health (F-171): a probe that answered but failed.
+    "provider-health": ("owner (credit/auth) or the provider (rate limit/outage)",
+                        "top up or fix the account; resolves when the next model and vision "
+                        "probes answer ok"),
     # W4-FMBATCH1 ops/signal_hygiene (F-139, F-140, F-149).
     "dead-letters": ("ops.health sweep (signal_hygiene)", "resolves when no defect dead "
                      "letter of the job type remains (fixed by a deploy that re-drives them)"),
