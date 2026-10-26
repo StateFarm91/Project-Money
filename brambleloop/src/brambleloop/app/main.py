@@ -4809,6 +4809,18 @@ def api_company_departments() -> dict:
     return departments.coverage(db)
 
 
+@app.get("/api/company/departments/{key}")
+def api_company_department(key: str):
+    """F-667: one department's workspace -- agents and jobs, queue, spend, experiments,
+    incidents and blockers together."""
+    from ..autonomy import department_workspace
+
+    try:
+        return department_workspace.workspace(db, key)
+    except KeyError:
+        return JSONResponse({"error": f"no department {key!r}"}, status_code=404)
+
+
 @app.get("/api/physical-truth")
 def api_physical_truth() -> dict:
     """F-089: every Class B/C product's tester, version, stage, due date, findings, deltas
