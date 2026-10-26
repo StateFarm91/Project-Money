@@ -8397,7 +8397,10 @@ def _representative_slug(db) -> str:
     if waiting:
         waiting.sort()
         return waiting[0][-1]
-    return product_first[0][0] if product_first else (rows[0] if rows else "")
+    # W4-AGENTS2: never fall back to a product with no CIR. Production ran this cadence ten
+    # times on `market-basket-trio`, which has none, and every run was the same "no CIR"
+    # no-op; with nothing product-first to photograph the honest answer is "nothing".
+    return product_first[0][0] if product_first else ""
 
 
 def owned_asset_coverage(db) -> dict:

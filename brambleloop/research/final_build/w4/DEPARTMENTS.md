@@ -627,3 +627,59 @@ No open Workstream C row remains that is free of owner or provider dependencies,
 - **Need a design or owner decision:** F-114, re-engineering legacy products. Re-gauging a legacy CIR means authoring new rows for a design no prototype may invent (`creative.prototype` refuses to invent pattern content). Which legacy products are worth rescuing follows the F-113 recommendations, which are an owner/portfolio decision.
 - **Need a provider or network:** F-357 (new culture-feed series), F-406 / F-438 (external research), F-224's prompt half (FLUX is stub-only, and F-852 applies).
 - **Need a live shop with data:** F-035, F-036, F-355, F-369, F-372, F-384, F-390, F-502, F-507, F-509, F-511.
+
+## W4-AGENTS2 batch 1: departments report what they produced, quality-reviewed, to Laura (2026-10-26)
+
+**Owner direction.** Departments do real work through the job queue, return evidence, pass quality review and report to Laura. In scope: Storefront, Growth, Marketing, Product Development, Visual Production, Market Intelligence, Finance and Customer Experience.
+
+**Prior work checked.** Neither FMBATCH1 nor FMBATCH2 changes `autonomy/kpis.py` or adds department evidence. FMBATCH1's F-667 is a department workspace *view* (`/api/company/departments/{key}`), not the report.
+
+**The stub, found in code.** Laura reads each department's report as the `kpi_snapshot` that `autonomy.department_review` writes from `autonomy.kpis.compute`. That snapshot carried only three generic activity KPIs, the same for every charter: useful completions, defect dead letters and cadence freshness. `kpis.compute` listed each charter's `kpis` definitions but measured nothing a department produced. No report said what Storefront drafted, what Finance booked or what Intelligence observed.
+
+**Built (no new department, agent, job type or table).**
+- **`autonomy/department_evidence.py`.** One reader per department, over rows and readings its own jobs write:
+  - **Storefront** (`store_commerce`): surfaces OK, agent and owner gaps, unknown surfaces (newest `storefront.review`), listings drafted.
+  - **Growth and Marketing** (`growth`):
+    - listings audited and friction incidents (`growth.journey`), pins ready (`growth.distribution`);
+    - experiments registered and concluded;
+    - content pieces drafted and published (`marketing.schedule`'s `content_pieces`).
+  - **Product Development** (`product_design`): certified and uncertified versions, `cir.draft` and `cir.revise` completions in 7 days.
+  - **Visual Production** (`visual`): gallery assets, approved assets, shot-plan gaps (`creative.photo_principles`).
+  - **Market Intelligence** (`intelligence`): benchmark listings observed, competitor-snapshot groups, research tasks open and answered.
+  - **Finance**: net sales from the newest `finance.reconciled`, recorded spend over 30 days, and CFO challenges and blocking challenges from the newest `finance.challenged`.
+  - **Customer Experience** (`support`): cases, open cases, drafted replies.
+- **Item format.** Every item is `{value, status, sources, why}`:
+  - OK when sourced and recent;
+  - STALE when the newest source is older than 48 h;
+  - UNKNOWN with no value when nothing recorded it. That includes spend with no cost row ("not rendered as CA$0.00", the morning brief's rule) and Customer Experience with no case.
+- **Quality review (`review`).** Before it is reported, an OK or STALE item must cite a source and carry a value, an UNKNOWN item must carry no value, and a count must be non-negative. A failing item is REJECTED and listed; it is never passed through.
+- **Reporting.**
+  - `kpis.compute` adds `evidence`, so every `autonomy.department_review` snapshot Laura reads carries it. A charter outside the eight carries `None`, not an invented block.
+  - The morning brief (`autonomy.morning_handoff`) adds `department_evidence`: per department, items passed, rejected, unknown and stale, and the reported values. Laura code is untouched (frozen).
+- **Retention.** `finance.reconciled` and `finance.challenged` are classified `latest` (read through a parameter, which the literal scan cannot see).
+
+**Tests** (`tests/test_w4_department_evidence.py`, 6/6):
+- every named department has a reader on a real charter;
+- nothing recorded is UNKNOWN, never 0, and passes review;
+- a reading is cited and goes STALE;
+- the review rejects unsourced, UNKNOWN-valued and negative items;
+- the department review writes the evidence into Laura's snapshot;
+- no cost row means UNKNOWN spend, and the morning brief carries the evidence.
+
+## W4-AGENTS2 batch 2: Visual Production's photography cadence no longer loops on a product with no CIR (2026-10-26)
+
+**Found in code.** `runtime.release._representative_slug` fell back to the first product row when no product-first product needed work, whether or not that product has a CIR. Production ran `assets.owned_photography` ten times on `market-basket-trio`, which has none, and each run was the same "no CIR" no-op.
+
+**Fixed.** With nothing product-first to photograph, it returns nothing, and the handler reports "no certified product to photograph". The product-first ordering and the finished-catalogue fallback (a product with a CIR) are unchanged.
+
+**Test.** `tests/test_w4_department_work.py::test_owned_photography_never_falls_back_to_a_product_with_no_cir` fails on the old fallback and passes now.
+
+**Department duties checked and not built here**, in code, for the other named departments:
+- **Storefront / pricing.** `pricing.experiment` is classed PUBLISH ("changes a live price"). It needs owner authority and a live listing, so it stays unbuilt by authority.
+- **Growth / Marketing.**
+  - `growth.journey`, `growth.distribution`, `growth.preproduction` and `marketing.schedule` are real handlers.
+  - The growth agent's `content.draft` drafts only storefront content. Marketing content is `marketing.schedule`'s by design; no caller enqueues another kind.
+- **Product Development.** `radar.score` promotes on a principled threshold and gate. "0 drafts in the window" is the promotion bar working, not a stub.
+- **Visual Production.** Its other duties are provider-bound: owned and model photography need image generation, and `visual.rnd` paid arms.
+- **Market Intelligence.** `intel.acceptance` failing is a missing-evidence result, gated on vision (provider).
+- **Finance and Customer Experience.** Real handlers. Customer Experience has no case to work until there are customers (shop-blocked).
