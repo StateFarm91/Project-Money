@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 43,
-    "B": 116,
+    "A": 37,
+    "B": 112,
     "C": 8,
     "D": 1,
-    "E": 72,
+    "E": 82,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 689,
+    "numerator": 699,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 134,
+    "missing implementation": 124,
     "missing prerequisite": 5,
-    "missing integration": 57
+    "missing integration": 67
    }
   }
  },
@@ -8425,13 +8425,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: seasonal engine/lead-time cover events incl. baby showers generally; no children's-garment specific seasonal demand tracking",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 3e6a7d9d: seasonal/childrens_demand.py monthly series -> demand windows in the seasonal war room",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "seasonal engine/lead-time cover events incl. baby showers generally; no children's-garment specific seasonal demand tracking"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 3e6a7d9d: seasonal/childrens_demand.py monthly series -> demand windows in the seasonal war room"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9089,13 +9089,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: retrieval class (fetched vs search summary vs rendered image) and jurisdiction are recorded only for children's safety sources; no general primary/secondary ran",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 d303315e: intel/evidence.py source hierarchy used by learning.record and policy readings",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "retrieval class (fetched vs search summary vs rendered image) and jurisdiction are recorded only for children's safety sources; no general primary/secondary ranking"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 d303315e: intel/evidence.py source hierarchy used by learning.record and policy readings"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9169,13 +9169,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 26712fd6: method-adoption answers must list existing methods considered",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no recorded 'existing methods considered' step at runtime; builders follow it by process (e.g. reportlab/pypdf/numpy adopted)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 26712fd6: method-adoption answers must list existing methods considered"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9197,13 +9197,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 816f999c: ops/licenses.py register; check() fails on an unregistered dependency",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no licence/attribution register for dependencies, models, datasets or assets"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 816f999c: ops/licenses.py register; check() fails on an unregistered dependency"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9225,13 +9225,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 74583308: ops/adoptions.py per-adoption cost and footprint in /api/spend-report",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no per-adoption cost/infrastructure record; finance/unit_cost measures running costs only"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 74583308: ops/adoptions.py per-adoption cost and footprint in /api/spend-report"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9277,13 +9277,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 26712fd6: intel/search_strategy.py iterative rounds on new research tasks",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no iterative search strategy implementation"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 26712fd6: intel/search_strategy.py iterative rounds on new research tasks"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9293,13 +9293,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 26712fd6: glossary + discovered terms (+ owner terms, 1df15b44)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no terminology discovery step"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 26712fd6: glossary + discovered terms (+ owner terms, 1df15b44)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9309,13 +9309,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 26712fd6: cross-domain bridge round",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no runtime cross-domain search; visual R&D sessions used textile/knitting literature (process, R&D branch)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 26712fd6: cross-domain bridge round"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -9550,10 +9550,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: providers chosen by measured trials (image benchmark, provider trial) but licence/maintenance/reversibility not recorded",
+    "why": "claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "no test cited; providers chosen by measured trials (image benchmark, provider trial) but licence/maintenance/reversibility not recorded"
+     "detail": "claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -9641,13 +9641,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: owner-supplied URLs, policy snapshots and Stats CSVs are ingested as rows; owner-supplied terminology/links in chat are not captured as research evidence",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 1df15b44: POST /api/research/evidence owner-supplied evidence",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "owner-supplied URLs, policy snapshots and Stats CSVs are ingested as rows; owner-supplied terminology/links in chat are not captured as research evidence"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 1df15b44: POST /api/research/evidence owner-supplied evidence"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10045,13 +10045,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: provenance, competitor evidence cache, intel memory and the lesson bus are durable and queryable, but there is no general cross-department evidence index/search",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 4cae8bfb: intel/evidence_index.py + /api/evidence",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "provenance, competitor evidence cache, intel memory and the lesson bus are durable and queryable, but there is no general cross-department evidence index/search"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 4cae8bfb: intel/evidence_index.py + /api/evidence"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {

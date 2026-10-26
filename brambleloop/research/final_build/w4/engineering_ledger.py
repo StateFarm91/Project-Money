@@ -121,6 +121,17 @@ BRANCH_WORK = {
     "F-723": ('E', 'claude/w4-FMBATCH1 5122f5c5: finance/learning_value.py gates research spend; gallery batch wired; report in /api/spend-report'),
     "F-146": ('E', 'claude/w4-FMBATCH1 d762c7f6: test pins exactly one EXIT trap in run_tests.sh'),
     "F-624": ('E', 'claude/w4-FMBATCH1 c118c4a3: autonomy/capability_audit.py quarterly decision records from the morning handoff'),
+    "F-357": ('E', 'claude/w4-FMBATCH1 3e6a7d9d: seasonal/childrens_demand.py monthly series -> demand windows in the seasonal war room'),
+    "F-407": ('E', 'claude/w4-FMBATCH1 d303315e: intel/evidence.py source hierarchy used by learning.record and policy readings'),
+    "F-415": ('E', 'claude/w4-FMBATCH1 816f999c: ops/licenses.py register; check() fails on an unregistered dependency'),
+    "F-417": ('E', 'claude/w4-FMBATCH1 74583308: ops/adoptions.py per-adoption cost and footprint in /api/spend-report'),
+    "F-413": ('E', 'claude/w4-FMBATCH1 26712fd6: method-adoption answers must list existing methods considered'),
+    "F-421": ('E', 'claude/w4-FMBATCH1 26712fd6: intel/search_strategy.py iterative rounds on new research tasks'),
+    "F-422": ('E', 'claude/w4-FMBATCH1 26712fd6: glossary + discovered terms (+ owner terms, 1df15b44)'),
+    "F-423": ('E', 'claude/w4-FMBATCH1 26712fd6: cross-domain bridge round'),
+    "F-448": ('E', 'claude/w4-FMBATCH1 1df15b44: POST /api/research/evidence owner-supplied evidence'),
+    "F-475": ('E', 'claude/w4-FMBATCH1 4cae8bfb: intel/evidence_index.py + /api/evidence'),
+    "F-441": ('B', 'claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).
     11: ("H", "code live (orders_ingest every 6 h, 0 receipts); waits on real buyers"),

@@ -1,0 +1,35 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_E.json --dry-run",
+  "note": "Stale matrix text (mapped before W4-RESEARCH and FMBATCH1 batch R). Engineering is not re-claimed beyond the cited tests; F-458 and F-479 are process rows the matrix itself marks as at target maturity."
+ },
+ "overrides": {
+  "F-450": {
+   "producer": "src/brambleloop/learn/runtime.py::handle_scan",
+   "tests": [
+    "tests/test_w4_fmbatch1_research.py::test_learn_scan_enforces_the_time_bound",
+    "tests/test_w4_research.py",
+    "tests/test_w4_fmbatch1_search_strategy.py::test_terminology_discovery_and_cross_domain_find_what_the_literal_search_missed",
+    "tests/test_w4_fmbatch1_research_run.py"
+   ],
+   "missing_part": "none for the loop: every learn.scan runs research.detect_unknowns (UNKNOWNs on decision paths become research tasks), the iterative internal search (search_strategy.run), bounded allowlisted fetches (research_fetch.run) and promotion into lessons; time bounds and expiry are enforced",
+   "reason": "F-450: the matrix says there is no autonomous 'I do not know enough' -> research loop; intel/research.py (W4-RESEARCH) plus the FMBATCH1 wiring is that loop"
+  },
+  "F-446": {
+   "producer": "src/brambleloop/learn/runtime.py::handle_scan",
+   "tests": ["tests/test_w4_fmbatch1_research.py::test_learn_scan_enforces_the_time_bound"],
+   "missing_part": "research runs in its own cadence job (learn.scan), so an open research task never blocks other work; blocked build work parks independently. There is no dedicated worker lane for research; proposed as sufficient for launch, integrator to decide",
+   "reason": "F-446: research is parallel by construction (its own job on its own cadence); a separate lane is optional"
+  },
+  "F-458": {
+   "missing_part": "none: process practice; each lane works in its own worktree and branch, recorded in ops/registry.py",
+   "reason": "F-458: the matrix's own next action is 'none -- at target maturity for launch'"
+  },
+  "F-479": {
+   "missing_part": "none: process practice",
+   "reason": "F-479: the matrix's own next action is 'none -- at target maturity for launch'"
+  }
+ }
+}

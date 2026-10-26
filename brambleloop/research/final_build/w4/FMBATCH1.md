@@ -801,3 +801,39 @@ The test also asserts:
 **Cost:** the first scan takes about 3–15 s under load and is cached by source mtime. It runs only in the daily retention job.
 
 Also fixed: `test_vacuity` flagged three earlier FMBATCH1 tests for loops over possibly-empty iterables. Non-emptiness assertions were added.
+
+## 30. Production retention question (read-only, from code at 15800536)
+
+**The question:** does the audit-log retention job delete evidence that code still reads?
+
+**The job:** it runs daily (`retention_sweep`, agent `orchestrator`, GREEN authority), so it runs in SHADOW, and it does not run as a dry run. It deletes audit rows that meet all of these:
+- older than 90 days;
+- not among the 2 newest rows of their action;
+- not in `PROTECTED_ACTIONS`.
+
+At 15800536 the literal-string guard reports nothing unknown, so the job does not refuse.
+
+**Exposure:**
+- 93 of the 101 newly classified actions are read by production code; 50 of those should be `lifetime_total`.
+- Production was first deployed on 2026-09-17, so no row reaches the horizon before about 2026-12-16.
+- No evidence is lost today, unless rows from before 2026-09-17 were imported. A read-only count of `audit_log` rows older than 90 days would settle that.
+
+**Mitigation:** ship 026365a1 before about 2026-12-16. The interim fallback is to raise `AUDIT_RETENTION_DAYS` above 365.
+
+## 31. Batch Z: F-357, F-407, F-415, F-417, F-413, F-421–F-423, F-448, F-475, F-441 (partial); proposals F-446, F-450, F-458, F-479
+
+| Row | Commit | What | Test |
+|---|---|---|---|
+| F-357 | 3e6a7d9d | `seasonal/childrens_demand.py`: monthly Wikimedia series per children's sub-category, read through the existing sanctioned feed with no credential or spend, at most once a month. Gives peak months, lead class and list-by date. UNMEASURED with less than 12 months of data. Appears in `/api/seasonal` | test_w4_fmbatch1_childrens_demand |
+| F-407 | d303315e | `intel/evidence.py`: retrieval class plus authority tier (primary, secondary, community, unclassified); rank and conflict. `learning.record` stores tier and retrieval. Policy readings expose `source_tiers` without changing their digests | test_w4_fmbatch1_evidence |
+| F-415 | 816f999c | `ops/licenses.py`: covers every locked package (licences from installed metadata), the 10 OFL fonts and the 7 providers. Provider terms are UNVERIFIED and in the review queue | test_w4_fmbatch1_licenses |
+| F-417 | 74583308 | `ops/adoptions.py`: per-adoption cost (provider spend measured from cost entries, hosting as declared, packages free) and footprint (installed MB). Appears in `/api/spend-report` | test_w4_fmbatch1_adoptions |
+| F-413, F-421–F-423 | 26712fd6 | `intel/search_strategy.py`: search rounds of exact terms, then terminology (glossary plus discovered terms), then broadened, then cross-domain. Runs on newly opened research tasks inside `learn.scan`, records each round, and stops at the evidence it needs. F-413: a method-adoption answer must list the existing methods considered, and a new build must name one it rejected | test_w4_fmbatch1_search_strategy; test_w4_fmbatch1_research updated |
+| F-448 | 1df15b44 | `POST /api/research/evidence` (operator-only): owner-supplied sources and terms become `source_claim` observations, and the owner's terms join the search glossary. Route pin declared | test_w4_fmbatch1_owner_evidence |
+| F-475 | 4cae8bfb | `intel/evidence_index.py`, `/api/evidence?subject=` (operator-only): the research corpora plus provenance, pod lessons, trend provenance and company memory. Lists every corpus searched. Route pin declared | test_w4_fmbatch1_evidence_index |
+| F-441 (B) | cdf4dea0 | Each provider row records reversibility (from the code) and maintenance (UNVERIFIED). The provider-trial records themselves are in the visual lane | test_w4_fmbatch1_licenses |
+
+**Proposals:** `OVERRIDES_PROPOSED_FMBATCH1_E.json`.
+- F-450 is stale: `learn.scan` already runs the "unknown → research" loop.
+- F-446: research is parallel through its own cadence. Whether that is enough is the integrator's call.
+- F-458 and F-479: the matrix itself marks both as at target maturity.
