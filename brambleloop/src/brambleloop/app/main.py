@@ -3352,6 +3352,17 @@ def api_evidence(subject: str = "") -> dict:
     return evidence_index.search(db, subject)
 
 
+@app.get("/api/marketing/constellation/{slug}")
+def api_constellation(slug: str):
+    """F-814: the product's content constellation with Learn members, each with a reason."""
+    from ..growth import constellation
+
+    try:
+        return constellation.constellation(db, slug)
+    except KeyError:
+        return JSONResponse({"error": f"no product {slug!r}"}, status_code=404)
+
+
 @app.get("/api/opportunities")
 def api_opportunities(limit: int = 20) -> dict:
     """F-673: one card per concept -- radar score, department arbitrage, rights feasibility,

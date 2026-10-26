@@ -17,3 +17,4 @@ below.
 | 2026-10-26 | API routes | d5d77e45a60ee06d | F-448: POST /api/research/evidence (operator-only owner-supplied research evidence) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | 4c5e4f01ca7b16dc | F-475: GET /api/evidence (operator-only internal evidence index) | additive: no existing route changed; no dependant to migrate |
 | 2026-10-26 | API routes | 85e9ae1b15253cb8 | F-667: GET /api/company/departments/{key} (department workspace, read-only) | additive: no existing route changed; no dependant to migrate |
+| 2026-10-26 | API routes | 887396069856321f | F-814: GET /api/marketing/constellation/{slug} (operator-only content constellation) | additive: no existing route changed; no dependant to migrate |

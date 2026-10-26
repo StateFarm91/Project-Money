@@ -172,6 +172,7 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/etsy/scorecard",
     "/api/opportunities",
     "/api/evidence",
+    "/api/marketing/constellation/{slug}",
     # F-671: the dossier includes support cases and orders -> operator.
     "/api/product/{slug}/dossier",
 })
