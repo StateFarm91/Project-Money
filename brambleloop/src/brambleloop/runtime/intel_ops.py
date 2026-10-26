@@ -229,7 +229,13 @@ def handle_research_sweep(ctx: JobContext) -> dict:
         job = ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
                           idempotency_key=f"research.investigate:{tid}:{day}")
         queued += job is not None
-    ctx.audit("research.swept", detail={"opened": len(found["opened"]),
+    # F-444 / F-449: the escalation report and the research metrics, one reading per day each.
+    from .etsy_ops import store_reading
+
+    esc = research_agent.escalations(ctx.db)
+    store_reading(ctx.db, research_agent.ESCALATIONS, {"items": esc, "count": len(esc)})
+    store_reading(ctx.db, research_agent.METRICS, research_agent.metrics(ctx.db))
+    ctx.audit("research.swept", detail={"opened": len(found["opened"]), "escalations": len(esc),
                                         "reopened": len(reopened), "due": len(due),
                                         "queued": queued})
     return {"opened": len(found["opened"]), "reopened": len(reopened), "due": len(due),

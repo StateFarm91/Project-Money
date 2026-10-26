@@ -271,6 +271,65 @@ def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
     assert isinstance(_date.today(), _date)
 
 
+# ---- batch W5: F-420 no research theatre, F-444 escalation, F-449 metrics, retention ------
+
+def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification():
+    db = _db()
+    with db.session() as s:
+        s.add(Lesson(origin_cell="test", subject="moss stitch", statement="moss stitch "
+                     "edges curl less than single crochet on blankets", confidence="medium"))
+    opened = R.open_question(db, question="Do moss stitch edges curl less on blankets?",
+                             trigger="test:moss", decision_ref="cir.draft edge",
+                             domain="techniques", query_terms=["moss stitch"])
+    tid = opened["task"]
+    runs = []
+    for _ in range(3):
+        out, _job = _run(db, RA.AGENT, "research.investigate", {"task_id": tid})
+        runs.append(out)
+    assert runs[0]["changed"] is True and runs[0]["stopped"] is None
+    assert runs[1]["changed"] is False and runs[1]["unchanged_runs"] == 1
+    assert runs[2]["stopped"] and RA.STOPPED_NO_CHANGE in runs[2]["stopped"]
+    assert "Next:" in runs[2]["stopped"]
+    assert {t["id"]: t["state"] for t in R.tasks(db)}[tid] == R.STOPPED
+
+
+def test_f444_and_f449_the_sweep_stores_escalations_and_metrics():
+    from brambleloop.core.models import OperatingReading
+
+    db = _db()
+    pol = R.open_question(db, question="What does Etsy currently require for digital "
+                          "download licence wording?", trigger="test:esc", decision_ref=
+                          "listing policy gate", domain="marketplace_policy",
+                          query_terms=["zzqq-nothing"])
+    RA.investigate(db, pol["task"])
+    esc = RA.escalations(db)
+    item = next(e for e in esc if e["task"] == pol["task"])
+    assert item["why_it_matters"] == "listing policy gate"
+    assert item["smallest_action"]["method"] == "official_docs"
+    assert item["searched"]["terms"] == ["zzqq-nothing"] and item["still_unknown"]
+    out, _ = _run(db, RA.AGENT, "research.sweep")
+    with db.session() as s:
+        kinds = {r.kind: r.payload for r in s.scalars(select(OperatingReading))}
+    assert kinds[RA.ESCALATIONS]["count"] >= 1
+    m = kinds[RA.METRICS]
+    assert m["questions"] >= 1 and m["recorded_unresolved"] >= 1
+    # no source links research to a decision outcome yet: UNMEASURED, never 0
+    for k in ("experiments_prevented", "spend_avoided_cad", "decisions_materially_improved"):
+        assert m[k] == "UNMEASURED", (k, m[k])
+
+
+def test_retention_protects_the_storefront_grant_chain_and_classifies_research_reads():
+    from brambleloop.ops import retention
+    from brambleloop.ops import storefront_authority as sfa
+    from brambleloop.runtime import quality_ops
+
+    for a in (sfa.APPROVED, sfa.REVOKED, sfa.REBASED):
+        assert a in retention.PROTECTED_ACTIONS, a
+    for a in (RA.INVESTIGATED, RA.FLAGGED, quality_ops.READING):
+        assert a in retention.KNOWN_READ_ACTIONS, a
+    assert RA.INVESTIGATED in retention.PROTECTED_ACTIONS     # metrics count every row
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -138,6 +138,10 @@ def select_method(domain: str) -> dict:
 # the production image, so there this is honestly unavailable rather than silently empty).
 REPO_RECORDS = (REPO_RESEARCH.parent / "BUILD_STATE.md", REPO_RESEARCH.parent / "DECISION_LOG.md")
 STOPPED_DUPLICATE = "STOPPED_DUPLICATE"
+STOPPED_NO_CHANGE = "STOPPED_NO_CHANGE"
+NO_CHANGE_LIMIT = 2
+ESCALATIONS = "research.escalations"
+METRICS = "research.metrics"
 
 
 def _repo_hits(terms) -> list[dict]:
@@ -240,6 +244,25 @@ def prior_answer(db, task_id: int) -> dict | None:
     return None
 
 
+def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
+    """How many most-recent investigations of this task ended with exactly this evidence."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    n = 0
+    with db.session() as s:
+        for a in s.scalars(select(AuditLog).where(
+                AuditLog.action == INVESTIGATED,
+                AuditLog.artifact == f"research_task:{task_id}").order_by(AuditLog.id.desc())
+                           .limit(10)):
+            if sorted((a.detail or {}).get("evidence") or []) == sorted(evidence):
+                n += 1
+            else:
+                break
+    return n
+
+
 def _stop(db, task_id: int, outcome: str) -> None:
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
@@ -334,6 +357,10 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
             added_sources.append(hit["path"])
     t = _task(db, task_id)
     evidence = [x["ref"] for x in t["internal"]] + [x["ref"] for x in t["sources"]]
+    # F-420: research must change something. An investigation that adds no evidence to a task
+    # still open is counted; after NO_CHANGE_LIMIT in a row the task is stopped with the
+    # justification and its next test, instead of being re-read every week for show.
+    unchanged_runs = _unchanged_runs(db, task_id, evidence)
     if plan["chosen"] is None:
         status = BLOCKED_ON_METHOD
         next_test = (f"use {plan['blocked_on']} ({plan['blocked_why']}); internal evidence is "
@@ -351,7 +378,13 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
                                              if a["adequate"] and not a["available"]),
                                             "a pre-registered bounded experiment"))
     answered = None
-    if status in (UNRESOLVED, BLOCKED_ON_METHOD):
+    stopped = None
+    if status in (EVIDENCE_GATHERED, BLOCKED_ON_METHOD) and evidence \
+            and unchanged_runs >= NO_CHANGE_LIMIT:
+        stopped = (f"{STOPPED_NO_CHANGE}: {unchanged_runs + 1} investigations in a row added "
+                   f"no evidence; stopped rather than re-read. Next: {next_test}")
+        _stop(db, task_id, stopped)
+    if status in (UNRESOLVED, BLOCKED_ON_METHOD) and stopped is None:
         # Recorded once as unresolved, so the question is not re-asked blindly; the task's
         # domain freshness re-opens it later (intel.research.expire_due).
         if not any(f["claim_class"] == "unresolved" for f in t["findings"]):
@@ -370,6 +403,8 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
         "applicability": {"domain": t["domain"], "decision": t["decision_ref"]},
         "unresolved": [] if status == EVIDENCE_GATHERED else [next_test],
         "next_test": next_test, "answered": answered,
+        "changed": bool(new_internal or added_sources) or unchanged_runs == 0,
+        "unchanged_runs": unchanged_runs, "stopped": stopped,
         "work_done": 1,
     }
     return conclusion
@@ -466,3 +501,82 @@ def request_architecture_review(ctx, *, task_id: int, assumption: str, evidence_
                        {"task_id": int(task_id), "assumption": assumption,
                         "evidence_refs": list(evidence_refs), "why": why},
                        idempotency_key=f"research.flag:{task_id}:{R._key(assumption)[:24]}")
+
+
+# ---- F-444 escalation and F-449 metrics --------------------------------------------------
+
+def escalations(db) -> list[dict]:
+    """F-444: every question research could not resolve, with what was searched, what is
+    still unknown, why it matters and the smallest action that could resolve it."""
+    from sqlalchemy import select
+
+    R._ensure(db)
+    out = []
+    with db.session() as s:
+        rows = list(s.scalars(select(R.ResearchTask).order_by(R.ResearchTask.id)))
+    for r in rows:
+        unresolved = [f for f in r.findings or [] if f.get("claim_class") == "unresolved"]
+        blocked = r.state == R.OPEN and select_method(r.domain)["chosen"] is None
+        if not (unresolved and r.state in (R.ANSWERED, R.OPEN)) and not blocked:
+            continue
+        plan = select_method(r.domain)
+        missing = [a for a in plan["alternatives"] if a["adequate"] and not a["available"]]
+        out.append({
+            "task": r.id, "question": r.question, "domain": r.domain,
+            "why_it_matters": r.decision_ref,
+            "searched": {"terms": list(r.query_terms or []),
+                         "internal_hits": len(r.internal_evidence or []),
+                         "sources": len(r.sources or []),
+                         "methods_used": [m for m in ("internal_retrieval",
+                                                      "repository_inspection")
+                                          if m in plan["adequate"] or m == "internal_retrieval"]},
+            "still_unknown": (unresolved[-1]["statement"] if unresolved else r.question)[:500],
+            "smallest_action": ({"method": missing[0]["method"], "needs": missing[0]["why"]}
+                                if missing else
+                                {"method": "bounded_experiment",
+                                 "needs": "pre-register one in growth.experiments"}),
+        })
+    return out
+
+
+def metrics(db) -> dict:
+    """F-449: research quality, from the task rows and the investigation audit. A measure
+    with no source is UNMEASURED, never 0."""
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog
+
+    R._ensure(db)
+    with db.session() as s:
+        rows = list(s.scalars(select(R.ResearchTask)))
+        investigations = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == INVESTIGATED)) or 0
+        reused = sum(1 for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == INVESTIGATED))
+            if any(str(e).startswith("research_tasks:")
+                   for e in (a.detail or {}).get("evidence") or []))
+    findings = [f for r in rows for f in r.findings or []]
+    graded = [f for f in findings if f.get("claim_class") in ("fact", "inference")]
+    resolved = [r for r in rows if r.state == R.ANSWERED
+                and any(f.get("claim_class") == "fact" for f in r.findings or [])]
+    return {
+        "questions": len(rows),
+        "resolved_with_a_fact": len(resolved),
+        "recorded_unresolved": sum(1 for r in rows if r.state == R.ANSWERED
+                                   and r not in resolved),
+        "duplicates_avoided": sum(1 for r in rows if r.state == R.STOPPED
+                                  and (r.outcome or "").startswith(STOPPED_DUPLICATE)),
+        "stopped_no_change": sum(1 for r in rows if r.state == R.STOPPED
+                                 and (r.outcome or "").startswith(STOPPED_NO_CHANGE)),
+        "stale_refreshed": sum(1 for r in rows if "#after:" in (r.trigger or "")),
+        "investigations": investigations,
+        "reuse_rate": (round(reused / investigations, 3) if investigations else "UNMEASURED"),
+        "source_quality": (round(sum(1 for f in findings if f.get("claim_class") == "fact")
+                                 / len(graded), 3) if graded else "UNMEASURED"),
+        "experiments_prevented": "UNMEASURED",
+        "spend_avoided_cad": "UNMEASURED",
+        "decisions_materially_improved": "UNMEASURED",
+        "note": ("experiments prevented, spend avoided and decisions improved have no source "
+                 "row yet: nothing links a research answer to a decision outcome, so they are "
+                 "UNMEASURED rather than counted"),
+    }

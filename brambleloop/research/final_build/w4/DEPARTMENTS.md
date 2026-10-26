@@ -448,3 +448,42 @@ FMBATCH1 owns the F-45x to F-49x swarm and build-side rows. From now on W-AGENTS
 - F-402's "before designing novel machinery" hook: nothing at runtime designs machinery autonomously, so there is no consumer to gate.
 
 **Pre-existing behaviour noted, not changed.** `intel.research.detect_unknowns` re-opens an unobserved-domain question the day after it is answered. It is W4-RESEARCH's code; the F-432 duplicate stop now ends each re-open at once.
+
+## Workstream C batch W5: research discipline and reporting (F-420, F-444, F-449), plus a retention fix (2026-10-26)
+
+**Built.**
+- **F-420, no research theatre.** Each investigation records whether it changed anything (`changed`, `unchanged_runs`). An open task that two investigations in a row leave with exactly the same evidence is stopped on the third (`STOPPED_NO_CHANGE`), with the justification and its next bounded test. It is not re-read weekly for show.
+- **F-444, research failure escalation.** `research_agent.escalations` lists every question research could not resolve, with:
+  - what was searched (terms, internal hits, sources, methods);
+  - what is still unknown;
+  - why it matters (the decision it serves);
+  - the smallest action that could resolve it (the missing adequate method and what it needs).
+
+  `research.sweep` stores it daily as the `research.escalations` reading.
+- **F-449, research quality metrics.** `research_agent.metrics` is stored daily as `research.metrics`. It counts:
+  - questions resolved with a fact, and those recorded unresolved;
+  - duplicates avoided and tasks stopped for no change;
+  - stale questions refreshed;
+  - reuse rate and source quality.
+
+  Experiments prevented, spend avoided and decisions materially improved are **UNMEASURED**: no row yet links a research answer to a decision outcome, so none is counted as 0.
+
+**Retention defect found and fixed (my lane's code).** `ops.retention.unknown_read_actions` finds the audit actions code reads only when they are written as string literals. Actions read through constants are invisible to it. Two consequences:
+- The storefront grant chain (`owner.storefront.approved/revoked/rebased`, a sealed chain like the publication one) was unprotected. Pruning one old row would have made every storefront grant refuse (fail closed) and raised a tamper incident.
+- F-126's claim that superseded image-benchmark evidence is retained was not true past 90 days.
+
+These are now in `KNOWN_READ_ACTIONS`:
+- the three storefront chain actions, `image.benchmark_trial` / `_candidate` and `research.investigated`, as `lifetime_total` (protected);
+- `quality.reverified` and `research.architecture_flag` as `windowed`;
+- `image.benchmark_superseded` as `latest`.
+
+**Cross-lane finding, not fixed here.** A scan that resolves module constants finds **51** audit actions read by name through a constant that are not in `KNOWN_READ_ACTIONS`. The eight W4-AGENTS ones are classified above; the other 43 belong to other lanes. Examples: `etsy.shop_observation`, `store.live_observation`, `store.owner_confirmed`, `commerce.orders_ingested`, `routing.evidence`, `spend.provider_settlement`, `visual.hero_review`. Each needs its owning lane to decide how it is read, and the guard should resolve constants so the next one is caught.
+
+**Tests** (`tests/test_w4_research_agent.py`, now 14/14):
+- `test_f420_investigations_that_add_nothing_are_stopped_with_a_justification`
+- `test_f444_and_f449_the_sweep_stores_escalations_and_metrics`
+- `test_retention_protects_the_storefront_grant_chain_and_classifies_research_reads`
+
+The retention-list tests (`test_cost_governance_wave2`, `test_etsy_oauth_callback`, `test_model_spend_paths`, `test_w4_close5_grid_spend`, `test_w4_firstsale_retention`) and `test_vacuity` pass.
+
+**Not built.** F-412 (research-to-experiment bridge): the agent never writes a hypothesis on its own, so a bridge would have no producer. It becomes meaningful once an adequate external method (owner or provider) can produce hypotheses.
