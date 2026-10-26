@@ -665,6 +665,12 @@ class Gate:
                           if key == self.key})
         out = {"key": self.key, "what": self.what, "how_it_is_checked": self.how,
                "requirement_ids": waiting}
+        if self.key == "owned_surfaces":
+            # F-198: which surfaces count and why each parked requirement needs one.
+            from . import gate_clearance
+
+            out["acceptable_surfaces"] = list(gate_clearance.ACCEPTABLE_SURFACES)
+            out["why_required"] = gate_clearance.why_required()
         if db is not None:
             out["open"] = self.open(db, env)
         return out

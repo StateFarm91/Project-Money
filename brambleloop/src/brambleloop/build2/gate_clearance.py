@@ -174,6 +174,17 @@ MISSING_SURFACES: dict[str, dict] = {
 }
 
 
+# F-198: what counts as an owned surface for this gate (the probe opens on the first two;
+# each later one un-parks only the rows that name it) -- the Etsy shop is not one.
+ACCEPTABLE_SURFACES: tuple[str, ...] = ("site", "pinterest", "email", "video")
+
+
+def why_required() -> dict[int, dict]:
+    """F-198: per parked requirement, the surfaces it needs and what Etsy already covers."""
+    return {rid: {"needs": list(v["needs"]), "etsy_satisfies": v["etsy_satisfies"]}
+            for rid, v in sorted(OWNED_SURFACE_NEEDS.items())}
+
+
 def owned_surfaces_inventory(db, env: dict | None = None) -> dict:
     """Which owned surfaces exist, which portion the Etsy shop satisfies, what is missing."""
     from . import executor
@@ -364,6 +375,14 @@ def prerequisite(db, gate: str, env: dict | None = None) -> str | None:
             return ("no listing is ready to sell yet: " + "; ".join(state["why_not"])
                     + ". The initial budget is recommended (paid_media.CONSERVATIVE_CAPS) "
                     "the day it is")
+    if gate == "owned_surfaces" and not is_open("live_listings"):
+        # F-198: every row parked here is post-launch growth work (content, pins, video,
+        # email) whose funnel ends on a live listing; asking the owner to open accounts
+        # before one exists is a card that unblocks nothing yet. Asked the day one is live.
+        return ("no listing is live yet: the requirements parked on owned_surfaces ("
+                + ", ".join(f"#{r}" for r in sorted(OWNED_SURFACE_NEEDS))
+                + ") are post-launch growth work whose funnel ends on a live listing; "
+                "acceptable surfaces: " + ", ".join(ACCEPTABLE_SURFACES))
     # physical_proof stays askable: it is the same owner decision as tester_roster
     # (owner_queue DECISIONS `tester_outreach`, F-197) -- the owner confirms the outreach and
     # approves the first agreed tester's paid make in one answer.
@@ -437,6 +456,10 @@ def card_fields(db, gate: str, env: dict | None = None) -> dict:
             "minutes": inv["minutes_all"],
             "consequence_of_waiting": ("free content, pins, video and the email list have "
                                        "nowhere to publish; acquisition is Etsy search only"),
+            # F-198: the acceptable surfaces and the requirement each serves.
+            "acceptable_surfaces": list(ACCEPTABLE_SURFACES),
+            "requirement_ids": sorted(OWNED_SURFACE_NEEDS),
+            "why_required": why_required(),
         }
     return {}
 
