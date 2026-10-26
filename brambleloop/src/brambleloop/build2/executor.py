@@ -1259,7 +1259,35 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
         record(db, kind="unpark", summary=(
             f"{len(unparked)} requirements un-parked because their gate opened"),
             detail={"requirement_ids": unparked, "gates_open": open_gates})
+    # F-466: the same fan-out for Final Master rows. Recorded when the set of rows whose gate
+    # is open changes, so a gate opening is one event naming every row it released.
+    result["fm_fanout"] = _fm_fanout(db, env)
     return result
+
+
+def _fm_fanout(db, env) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import BuildEvent
+
+    try:
+        from . import fm_graph
+
+        out = fm_graph.fanout(db, env=env)
+    except Exception as exc:  # noqa: BLE001 - an unreadable snapshot is UNKNOWN, never a crash
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    with db.session() as s:
+        last = s.scalar(select(BuildEvent).where(BuildEvent.kind == "fm_unblocked")
+                        .order_by(BuildEvent.id.desc()).limit(1))
+        before = sorted((last.detail or {}).get("rows") or []) if last else []
+    if out["unblocked_rows"] != before:
+        record(db, kind="fm_unblocked", summary=(
+            f"{len(out['unblocked_rows'])} Final Master rows wait on gates that are open"),
+            detail={"rows": out["unblocked_rows"], "by_gate": out["unblocked"],
+                    "previous": before})
+    return {k: out[k] for k in ("unblocked", "unblocked_rows")} | {
+        "still_gated": {k: len(v) for k, v in out["still_gated"].items()},
+        "unevaluable": sorted(out["unevaluable"])}
 
 
 def record(db, *, kind: str, summary: str, requirement_id: int | None = None,

@@ -17,7 +17,7 @@ def _with(deps, gates, statuses):
     executor.DEPENDENCIES = deps
     executor.gate_for = lambda rid: gates.get(rid)
     try:
-        return cp.analyse(statuses)
+        return cp.analyse(statuses, include_fm=False)
     finally:
         executor.DEPENDENCIES, executor.gate_for = old_d, old_g
 
