@@ -232,8 +232,15 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
                                  f"{brief['decisions_needed']['open_owner_actions']} owner "
                                  f"decisions open"),
                         refs=[f"company_memory:{key}"], at=now)
+    # F-624: the quarterly capability audit rides the daily handoff, once per quarter.
+    try:
+        from . import capability_audit
+
+        audit = capability_audit.run(ctx.db, now=now)
+    except Exception as exc:  # noqa: BLE001 - the brief never fails on the audit
+        audit = {"ran": False, "state": "UNKNOWN", "why": f"{type(exc).__name__}: {exc}"[:200]}
     return {"ran": True, "brief": key, "new_brief": new_brief, "content_hash": content,
-            "completed_total": brief["completed_total"]}
+            "completed_total": brief["completed_total"], "capability_audit": audit}
 
 
 # W3-D: Laura's executive tick handler registers with the runtime here, because this module is
