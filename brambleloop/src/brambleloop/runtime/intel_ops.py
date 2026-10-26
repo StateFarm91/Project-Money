@@ -201,7 +201,18 @@ def handle_research_investigate(ctx: JobContext) -> dict:
             opened = research.open_question(
                 ctx.db, question=str(i["question"]), trigger=str(i.get("trigger") or ""),
                 decision_ref=str(i.get("decision_ref") or ""), domain=str(i.get("domain") or ""),
-                query_terms=i.get("query_terms") or ())
+                query_terms=i.get("query_terms") or (),
+                # INTEG7 (breakpoint 1): FMBATCH1's F-419/F-444 fields. A requester may name
+                # them; otherwise the agent states what would answer it, its stop condition and
+                # the smallest action its method ladder cannot take.
+                evidence_needed=str(i.get("evidence_needed") or
+                                    "a held record or source that answers the question for "
+                                    f"the decision {i.get('decision_ref') or ''}"),
+                stop_condition=str(i.get("stop_condition") or
+                                   "a fact-grade finding answers it, or it is recorded "
+                                   "unresolved with why"),
+                if_unresolved=str(i.get("if_unresolved") or
+                                  research_agent.smallest_action(str(i.get("domain") or ""))))
         except research.ResearchRefused as exc:
             return {"ran": False, "why": f"refused: {exc}"}
         tid = opened["task"]
@@ -222,10 +233,12 @@ def handle_research_sweep(ctx: JobContext) -> dict:
     """F-401 self-trigger: unknowns become tasks, due tasks become investigations."""
     from ..intel import research, research_agent
 
-    found = research.detect_unknowns(ctx.db)
+    # INTEG7 (breakpoint 4): detect_unknowns, expire_due and stop_overdue are FMBATCH1's
+    # learn.scan work; the sweep keeps only the agent's own: stale-domain triggers (F-404), due
+    # investigations and the daily readings.
     stale = research_agent.stale_domains_to_research(ctx.db)          # F-404
-    found = {**found, "opened": list(found["opened"]) + list(stale["opened"])}
-    reopened = research.expire_due(ctx.db)
+    found = {"opened": list(stale["opened"])}
+    reopened: list = []
     due = research_agent.due_for_investigation(ctx.db)
     day = datetime.now(timezone.utc).date().isoformat()
     queued = 0

@@ -63,6 +63,12 @@ def _repo_available() -> bool:
     return REPO_RESEARCH.is_dir()
 
 
+def _fetch_on() -> bool:
+    from . import research_fetch
+
+    return research_fetch.fetch_enabled()
+
+
 def methods() -> tuple[Method, ...]:
     """F-436's ladder, cheapest first, with what this agent can use today."""
     return (
@@ -70,9 +76,13 @@ def methods() -> tuple[Method, ...]:
         Method("repository_inspection", 0, "the repository's own research record",
                _repo_available(),
                "" if _repo_available() else "the research record is not in this image"),
-        Method("official_docs", 1, "current official documentation, read in full", False,
-               "no sanctioned fetch path for this agent; an owner-approved documentation "
-               "fetcher would make it available"),
+        # INTEG7 (breakpoint 5): FMBATCH1's allowlisted fetch run (`intel.research_fetch`,
+        # learn.scan) reads official documentation for allowlisted hosts when its switch is on.
+        Method("official_docs", 1, "current official documentation, read in full",
+               _fetch_on(),
+               "" if _fetch_on() else
+               "the allowlisted research fetch step is off (BRAMBLELOOP_RESEARCH_FETCH is not "
+               "1 in this deployment)"),
         Method("marketplace_observation", 2, "market_radar's sanctioned scans", False,
                "delegated: market_radar observes on its own cadence; this agent reads what "
                "it stored (internal retrieval)"),
@@ -137,7 +147,6 @@ def select_method(domain: str) -> dict:
 # F-405: the repository's own records, read when they are present (they are not copied into
 # the production image, so there this is honestly unavailable rather than silently empty).
 REPO_RECORDS = (REPO_RESEARCH.parent / "BUILD_STATE.md", REPO_RESEARCH.parent / "DECISION_LOG.md")
-STOPPED_DUPLICATE = "STOPPED_DUPLICATE"
 STOPPED_NO_CHANGE = "STOPPED_NO_CHANGE"
 NO_CHANGE_LIMIT = 2
 ESCALATIONS = "research.escalations"
@@ -170,45 +179,26 @@ def _all_terms(text: str, terms) -> bool:
     return all(x.lower() in t for x in terms)
 
 
-def search_all_internal(db, terms, *, exclude_task: int | None = None) -> list[dict]:
-    """F-405: every internal record a question can be answered from, before any external
-    method: lessons and learning observations (`intel.research.search_internal`), incidents,
-    pre-registered experiments, the listing-test memory, the failure memory and earlier
-    research. Every hit is a ref the task's findings may rest on (retrieval `internal`)."""
+def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dict]:
+    """F-405 (INTEG7 reconciliation): FMBATCH1's `intel.research.search_internal_report` is the
+    internal search. This agent adds only its two extra corpora, the listing-test memory and
+    earlier answered research, as refs that the task's findings may rest on (retrieval
+    `internal`)."""
     from sqlalchemy import select
 
     terms = [str(t).strip() for t in terms or () if str(t).strip()]
     if not terms:
         return []
-    out = list(R.search_internal(db, terms))
-    from ..core.models import Incident, ListingMemory, RegisteredExperiment
+    out, _searched = R.search_internal_report(db, terms)
+    out = list(out)
+    from ..core.models import ListingMemory
 
     with db.session() as s:
-        for r in s.scalars(select(Incident).order_by(Incident.id.desc()).limit(500)):
-            if _all_terms(f"{r.signature} {r.summary}", terms):
-                out.append({"ref": f"incidents:{r.id}", "kind": "incident",
-                            "text": (r.summary or "")[:300], "retrieval": "internal"})
-        for r in s.scalars(select(RegisteredExperiment).limit(500)):
-            if _all_terms(f"{r.key} {r.hypothesis}", terms):
-                out.append({"ref": f"experiments:{r.key}", "kind": "experiment",
-                            "text": f"{r.hypothesis} [{r.state}]"[:300],
-                            "retrieval": "internal"})
         for r in s.scalars(select(ListingMemory).limit(500)):
             if _all_terms(f"{r.idea} {r.context} {r.note}", terms):
                 out.append({"ref": f"listing_memory:{r.id}", "kind": "listing_test",
                             "text": f"{r.idea} {r.outcome} in {r.context}"[:300],
                             "retrieval": "internal"})
-        try:
-            from ..improve.failure_memory import FailureRecord
-
-            for r in s.scalars(select(FailureRecord).order_by(FailureRecord.id.desc())
-                               .limit(500)):
-                if _all_terms(f"{r.method} {r.reason}", terms):
-                    out.append({"ref": f"failure_memory:{r.id}", "kind": "failure",
-                                "text": f"{r.method}: {r.reason}"[:300],
-                                "retrieval": "internal"})
-        except Exception:  # noqa: BLE001 - a store that is not there holds no evidence
-            pass
         for r in s.scalars(select(R.ResearchTask).where(R.ResearchTask.state == R.ANSWERED)
                            .limit(500)):
             if r.id != exclude_task and _all_terms(f"{r.question} {r.outcome}", terms):
@@ -216,32 +206,6 @@ def search_all_internal(db, terms, *, exclude_task: int | None = None) -> list[d
                             "text": f"{r.question} -> {r.outcome}"[:300],
                             "retrieval": "internal"})
     return out
-
-
-def _norm_q(q: str) -> str:
-    return " ".join("".join(c for c in (q or "").lower() if c.isalnum() or c == " ").split())
-
-
-def prior_answer(db, task_id: int) -> dict | None:
-    """F-432: the same question, in the same domain, already answered and still fresh."""
-    from sqlalchemy import select
-
-    now = datetime.now(timezone.utc)
-    with db.session() as s:
-        me = s.get(R.ResearchTask, task_id)
-        if me is None:
-            return None
-        for r in s.scalars(select(R.ResearchTask).where(
-                R.ResearchTask.state == R.ANSWERED, R.ResearchTask.domain == me.domain,
-                R.ResearchTask.id != task_id)):
-            if _norm_q(r.question) != _norm_q(me.question):
-                continue
-            exp = R._aware(r.expires_on)
-            if exp is not None and exp <= now:
-                continue
-            return {"task": r.id, "outcome": r.outcome, "confidence": r.confidence,
-                    "expires_on": exp.isoformat() if exp else None}
-    return None
 
 
 def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
@@ -263,11 +227,26 @@ def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
     return n
 
 
-def _stop(db, task_id: int, outcome: str) -> None:
+def smallest_action(domain: str) -> str:
+    """F-444 (INTEG7): the smallest action that resolves a question research cannot, named up
+    front. It is the cheapest adequate method that is not available here, and what it needs."""
+    plan = select_method(domain)
+    missing = [a for a in plan["alternatives"] if a["adequate"] and not a["available"]]
+    if missing:
+        return f"make {missing[0]['method']} available: {missing[0]['why']}"
+    return "pre-register a bounded experiment in growth.experiments"
+
+
+def _stop(db, task_id: int, why: str, remains_unknown: str) -> dict:
+    """Stop through FMBATCH1's `R.stop`, so the stop carries its F-444 escalation. The smallest
+    action is the one named when the task opened; the method ladder supplies it for a task
+    opened without one."""
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
-        row.state = R.STOPPED
-        row.outcome = outcome[:2000]
+        named = str((row.detail or {}).get("if_unresolved") or "").strip() if row else ""
+        domain = row.domain if row else ""
+    return R.stop(db, task_id, why=why[:2000], remains_unknown=remains_unknown[:1000],
+                  smallest_action="" if named else smallest_action(domain))
 
 
 def stale_domains_to_research(db, *, today: date | None = None) -> dict:
@@ -288,6 +267,15 @@ def stale_domains_to_research(db, *, today: date | None = None) -> dict:
                 R.ResearchTask.dedupe_key == R._key(trigger),
                 R.ResearchTask.state == R.ANSWERED))
                 if R._aware(r.expires_on) is None or R._aware(r.expires_on) > now]
+            # INTEG7: research that could not resolve the episode stops with an escalation
+            # (R.stop). That escalation stands for the domain's freshness window, so the same
+            # stale episode is not re-opened and re-stopped every day.
+            days, _why = R.freshness_for(d["domain"])
+            live += [r for r in s.scalars(select(R.ResearchTask).where(
+                R.ResearchTask.dedupe_key == R._key(trigger),
+                R.ResearchTask.state == R.STOPPED))
+                if days is None or (R._aware(r.answered_at) is not None
+                                    and R._aware(r.answered_at) + timedelta(days=days) > now)]
         if live:
             # this stale episode was already researched; its own expiry re-opens it
             kept.append(live[0].id)
@@ -298,8 +286,11 @@ def stale_domains_to_research(db, *, today: date | None = None) -> dict:
             trigger=trigger,
             decision_ref=f"intel.learning.radar:{d['domain']}", domain=d["domain"],
             query_terms=[d["domain"].replace("_", " ")],
+            evidence_needed=f"one observation of {d['what']} fresher than "
+                            f"{d['fresh_for_days']} days",
             stop_condition=f"one observation fresher than {d['fresh_for_days']} days, or "
-                           f"recorded unresolved with why")
+                           f"recorded unresolved with why",
+            if_unresolved=smallest_action(d["domain"]))
         (opened if r["opened"] else kept).append(r["task"])
     return {"opened": opened, "already_open": kept, "stale_domains": len(radar["stale"])}
 
@@ -323,23 +314,11 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     t = _task(db, task_id)
     if t is None or t["state"] != R.OPEN:
         return {"task": task_id, "status": NOT_OPEN, "work_done": 0}
-    # F-432: an identical question already answered and still fresh is not researched again.
-    prior = prior_answer(db, task_id)
-    if prior is not None:
-        _stop(db, task_id, f"{STOPPED_DUPLICATE}: the same question was answered by research "
-                           f"task {prior['task']} ({prior['outcome'][:300]}); still fresh "
-                           f"until {prior['expires_on'] or 'no date'}")
-        return {"task": task_id, "question": t["question"], "status": STOPPED_DUPLICATE,
-                "confidence": prior["confidence"] or "as the prior answer",
-                "evidence": [f"research_tasks:{prior['task']}"], "new_internal": 0,
-                "new_sources": [], "method": select_method(t["domain"]),
-                "constraints": ["CA$0", "no network call", "no model call"],
-                "applicability": {"domain": t["domain"], "decision": t["decision_ref"]},
-                "unresolved": [], "next_test": "none: reuse the prior answer",
-                "reused": prior, "answered": None, "work_done": 1}
+    # F-432: reuse of an answered, fresh question happens when the task opens
+    # (`R.open_question`); an open task is always researched.
     plan = select_method(t["domain"])
     # F-402 / F-405: every internal record first, refreshed (evidence may have arrived since).
-    internal = search_all_internal(db, t["terms"], exclude_task=task_id)
+    internal = internal_evidence(db, t["terms"], exclude_task=task_id)
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
         have = {x["ref"] for x in row.internal_evidence or []}
@@ -383,7 +362,7 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
             and unchanged_runs >= NO_CHANGE_LIMIT:
         stopped = (f"{STOPPED_NO_CHANGE}: {unchanged_runs + 1} investigations in a row added "
                    f"no evidence; stopped rather than re-read. Next: {next_test}")
-        _stop(db, task_id, stopped)
+        _stop(db, task_id, stopped, remains_unknown=t["question"])
     if status in (UNRESOLVED, BLOCKED_ON_METHOD) and stopped is None:
         # Recorded once as unresolved, so the question is not re-asked blindly; the task's
         # domain freshness re-opens it later (intel.research.expire_due).
@@ -391,8 +370,10 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
             R.add_finding(db, task_id, statement=f"{status}: {next_test}",
                           claim_class="unresolved", confidence="none")
         if status == UNRESOLVED or not evidence:
-            answered = R.answer(db, task_id, outcome=f"{status}: {next_test}",
-                                confidence="none")
+            # INTEG7 (breakpoint 2): "could not resolve" is FMBATCH1's STOPPED state with its
+            # escalation, not an answer (an answer must name its effect and a conclusion).
+            stopped = f"{status}: {next_test}"
+            answered = _stop(db, task_id, stopped, remains_unknown=t["question"])
     conclusion = {
         "task": task_id, "question": t["question"], "status": status,
         "confidence": "none" if status != EVIDENCE_GATHERED else "low",
@@ -506,77 +487,25 @@ def request_architecture_review(ctx, *, task_id: int, assumption: str, evidence_
 # ---- F-444 escalation and F-449 metrics --------------------------------------------------
 
 def escalations(db) -> list[dict]:
-    """F-444: every question research could not resolve, with what was searched, what is
-    still unknown, why it matters and the smallest action that could resolve it."""
-    from sqlalchemy import select
-
-    R._ensure(db)
-    out = []
-    with db.session() as s:
-        rows = list(s.scalars(select(R.ResearchTask).order_by(R.ResearchTask.id)))
-    for r in rows:
-        unresolved = [f for f in r.findings or [] if f.get("claim_class") == "unresolved"]
-        blocked = r.state == R.OPEN and select_method(r.domain)["chosen"] is None
-        if not (unresolved and r.state in (R.ANSWERED, R.OPEN)) and not blocked:
-            continue
-        plan = select_method(r.domain)
-        missing = [a for a in plan["alternatives"] if a["adequate"] and not a["available"]]
-        out.append({
-            "task": r.id, "question": r.question, "domain": r.domain,
-            "why_it_matters": r.decision_ref,
-            "searched": {"terms": list(r.query_terms or []),
-                         "internal_hits": len(r.internal_evidence or []),
-                         "sources": len(r.sources or []),
-                         "methods_used": [m for m in ("internal_retrieval",
-                                                      "repository_inspection")
-                                          if m in plan["adequate"] or m == "internal_retrieval"]},
-            "still_unknown": (unresolved[-1]["statement"] if unresolved else r.question)[:500],
-            "smallest_action": ({"method": missing[0]["method"], "needs": missing[0]["why"]}
-                                if missing else
-                                {"method": "bounded_experiment",
-                                 "needs": "pre-register one in growth.experiments"}),
-        })
-    return out
+    """F-444 (INTEG7): FMBATCH1's escalation report (`R.escalations`) is the one report."""
+    return R.escalations(db)
 
 
 def metrics(db) -> dict:
-    """F-449: research quality, from the task rows and the investigation audit. A measure
-    with no source is UNMEASURED, never 0."""
+    """F-449 (INTEG7): FMBATCH1's research metrics (`R.metrics`), with this agent's own
+    counters beside them. A measure with no source stays UNMEASURED or None, never 0."""
     from sqlalchemy import func, select
 
     from ..core.models import AuditLog
 
     R._ensure(db)
+    out = dict(R.metrics(db))
     with db.session() as s:
-        rows = list(s.scalars(select(R.ResearchTask)))
         investigations = s.scalar(select(func.count()).select_from(AuditLog).where(
             AuditLog.action == INVESTIGATED)) or 0
-        reused = sum(1 for a in s.scalars(select(AuditLog).where(
-            AuditLog.action == INVESTIGATED))
-            if any(str(e).startswith("research_tasks:")
-                   for e in (a.detail or {}).get("evidence") or []))
-    findings = [f for r in rows for f in r.findings or []]
-    graded = [f for f in findings if f.get("claim_class") in ("fact", "inference")]
-    resolved = [r for r in rows if r.state == R.ANSWERED
-                and any(f.get("claim_class") == "fact" for f in r.findings or [])]
-    return {
-        "questions": len(rows),
-        "resolved_with_a_fact": len(resolved),
-        "recorded_unresolved": sum(1 for r in rows if r.state == R.ANSWERED
-                                   and r not in resolved),
-        "duplicates_avoided": sum(1 for r in rows if r.state == R.STOPPED
-                                  and (r.outcome or "").startswith(STOPPED_DUPLICATE)),
-        "stopped_no_change": sum(1 for r in rows if r.state == R.STOPPED
-                                 and (r.outcome or "").startswith(STOPPED_NO_CHANGE)),
-        "stale_refreshed": sum(1 for r in rows if "#after:" in (r.trigger or "")),
-        "investigations": investigations,
-        "reuse_rate": (round(reused / investigations, 3) if investigations else "UNMEASURED"),
-        "source_quality": (round(sum(1 for f in findings if f.get("claim_class") == "fact")
-                                 / len(graded), 3) if graded else "UNMEASURED"),
-        "experiments_prevented": "UNMEASURED",
-        "spend_avoided_cad": "UNMEASURED",
-        "decisions_materially_improved": "UNMEASURED",
-        "note": ("experiments prevented, spend avoided and decisions improved have no source "
-                 "row yet: nothing links a research answer to a decision outcome, so they are "
-                 "UNMEASURED rather than counted"),
-    }
+        stopped_no_change = sum(1 for r in s.scalars(select(R.ResearchTask).where(
+            R.ResearchTask.state == R.STOPPED))
+            if STOPPED_NO_CHANGE in str(((r.detail or {}).get("escalation") or {})
+                                        .get("why_stopped") or ""))
+    out["agent"] = {"investigations": investigations, "stopped_no_change": stopped_no_change}
+    return out
