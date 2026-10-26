@@ -76,9 +76,18 @@ All of this already exists, and every department uses it:
 - F-892 (charters: an agent is only real with authority it can use);
 - F-701 (autonomy is core).
 
+### Batch 2 (done): Visual Production stops asking to photograph slugs with no CIR
+
+Production ran `assets.owned_photography` 10 times in 32 hours on `market-basket-trio` (E-12). That slug is a retired concept with no CIR (`products.launch0.LEGACY_DUPLICATES`), so every run was a no-op.
+
+Two enqueuers passed such slugs without checking for a CIR, and both now skip them:
+- the blind-review "return to development" path (`runtime/release.py`), which records `creative.return_skipped` with the reason;
+- the MJs director's photography-coverage request (`intel/mission_runtime.company_standing`).
+
+The cadence's own picker already skipped CIR-less slugs. Test: `test_w4_departments.test_photography_is_never_requested_for_a_slug_with_no_cir`.
+
 ### Next batches (not done yet; each is authorised and bounded)
 
-- **B2 Visual.** Stop `assets.owned_photography` choosing a slug with no CIR (E-12; 10 no-op runs in 32 h), and route it to products with a certified CIR.
 - **B3 Product Development.** `cir.revise`: draft a revision of a CIR that failed compile, from the compiler's findings, through the existing `cir.draft` model path under the crochet_engineer CA$4 ceiling. Deterministic validation still decides.
 - **B4 Market Intelligence.** `radar.competitor_snapshot`: a read-only snapshot of the existing sanctioned observations. It is for demand and merchandising only and never copies instructions or images.
 - **Stays unbuilt, by authority:**

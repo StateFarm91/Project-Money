@@ -129,6 +129,34 @@ def test_laura_and_the_coo_may_delegate_the_quality_sweep():
     assert followon.green_allowed("product_truth", "gate.quality") is None
 
 
+def test_photography_is_never_requested_for_a_slug_with_no_cir():
+    """Batch 2 (E-12): production ran assets.owned_photography 10 times in 32 h on
+    `market-basket-trio`, a retired concept slug with no CIR -- a daily no-op."""
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import mission_runtime as MR, pods
+    from brambleloop.products.builder import for_slug
+
+    assert for_slug("market-basket-trio") is None
+    real_slug = next(sl for sl in launch0.LAUNCH0_SLUGS if for_slug(sl) is not None)
+    db = _db()
+    pod = next(k for k in pods.POD_KEYS if k != pods.UNCLASSIFIED)
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key="t", listing_ref="1", pod=pod))
+    saved = (MR._our_dims, MR._their_dims, pods.Director.standing)
+    MR._our_dims = lambda db_, pod_: {"_slugs": ["market-basket-trio", real_slug]}
+    MR._their_dims = lambda db_, pod_, key=None: {}
+    pods.Director.standing = lambda self, ours, theirs: {
+        d: (pods.BEHIND if d == "photography_coverage" else pods.UNKNOWN)
+        for d in pods.DIMENSIONS}
+    asked = []
+    try:
+        MR.company_standing(db, enqueue=lambda agent, jt, inputs, **kw: asked.append(
+            inputs["slug"]))
+    finally:
+        MR._our_dims, MR._their_dims, pods.Director.standing = saved
+    assert asked == [real_slug], asked
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -7311,6 +7311,13 @@ def handle_blind_review(ctx: JobContext) -> dict:
             continue
         slug = row["slug"]
         cir = for_slug(slug)
+        if cir is None:
+            # W4-AGENTS batch 2 (E-12): a slug with no CIR (a retired concept slug such as
+            # market-basket-trio) cannot be photographed; queueing it only made a daily no-op.
+            ctx.audit("creative.return_skipped", artifact=slug,
+                      detail={"why": "no CIR for this slug; nothing to photograph",
+                              "review_audit_id": row.get("audit_id")})
+            continue
         plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None,
                                gate_open=gates_now(ctx.db))
         job_type = ("assets.model_photography"
