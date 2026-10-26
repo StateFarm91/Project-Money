@@ -133,6 +133,15 @@ def handle_department_review(ctx: JobContext) -> dict:
             "lessons_routed": lessons}
 
 
+def _evidence_summary(db) -> list | dict:
+    try:
+        from . import department_evidence
+
+        return department_evidence.summary(db)
+    except Exception as exc:  # noqa: BLE001 - reported beside the brief, never fatal to it
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
 def build_brief(db, *, now: datetime, hours: int = 12) -> dict:
     """The morning handoff (F-896): what changed while nobody was watching."""
     from ..core import models as m
@@ -191,6 +200,9 @@ def build_brief(db, *, now: datetime, hours: int = 12) -> dict:
                                       "key": o.requirement_key} for o in owner]},
         "blocked_departments": [{"department": b["department"],
                                  "reason": b["body"].get("reason")} for b in blocks],
+        # W4-AGENTS2: what each department produced, as its last quality-reviewed snapshot
+        # reported it (autonomy.department_evidence).
+        "department_evidence": _evidence_summary(db),
         "sources": ["jobs", "cost_entries", "incidents", "owner_actions", "company_memory"],
     }
 

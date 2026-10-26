@@ -147,6 +147,12 @@ def department_guards(db, key: str, *, since: datetime) -> list[str]:
     return breaches
 
 
+def _evidence(db, key: str, now: datetime) -> dict | None:
+    from . import department_evidence
+
+    return department_evidence.collect(db, key, now=now)
+
+
 def compute(db, key: str, *, now: datetime | None = None, window_hours: int = 24) -> dict:
     """Every KPI of one department over the window, with guardrails applied."""
     from ..queue.durable import DEFECT, classify_dead_letter
@@ -223,6 +229,9 @@ def compute(db, key: str, *, now: datetime | None = None, window_hours: int = 24
                     "defects": len(defects), "cadences": len(cadences),
                     "fresh_cadences": fresh},
         "guardrails": {"tripped": void, "breaches": guard_breaches[:20]},
+        # W4-AGENTS2: what the department produced, quality-reviewed before it is reported
+        # (autonomy.department_evidence). None for a charter with no evidence reader.
+        "evidence": _evidence(db, key, now),
         "kpi_definitions": [{"key": k.key, "direction": k.direction, "reads": k.reads,
                              "guardrails": list(k.guardrails)} for k in charter.kpis],
         "sources": ["jobs", "worker.CADENCES", "support_cases", "pattern_versions",
