@@ -143,7 +143,7 @@ def parse_reading(text: str) -> dict:
 
 def read_listing(image_ref: str, *, db=None, provider=None) -> dict:
     """One construction reading of one competitor image (#278)."""
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     estimate = 0.0
@@ -432,7 +432,7 @@ def run(db, *, provider=None, env: dict | None = None, today=None,
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing, OperatingReading
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..intel import benchmarks, vision
 
     today = today or datetime.now(timezone.utc).date()

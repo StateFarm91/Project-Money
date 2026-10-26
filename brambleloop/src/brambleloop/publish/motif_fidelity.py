@@ -355,7 +355,7 @@ def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
     from pathlib import Path
 
     from ..core import workspace
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from .charts import ChartSpec, render_chart
 
     want = expected(cir, twin)

@@ -90,7 +90,7 @@ def _outage(db, since, provider: str) -> dict:
 
 def credit_packet(db, provider: str = "anthropic", *, now: datetime | None = None) -> dict:
     """F-871: the prepared packet for topping up a provider's credit."""
-    from ..gateway.anthropic import monthly_ceiling_cad, spent_this_month_cad
+    from ..gateway.providers import monthly_ceiling_cad, spent_this_month_cad
 
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=WINDOW_DAYS)

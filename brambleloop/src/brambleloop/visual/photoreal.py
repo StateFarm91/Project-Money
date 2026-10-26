@@ -93,7 +93,7 @@ def prompt() -> str:
 def judge(image_ref: str, *, db=None, provider=None) -> dict:
     """Ask a model what it can see. Returns readings, never a verdict."""
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     estimate, held = 0.0, None

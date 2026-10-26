@@ -172,7 +172,7 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool | None
         # Read from the evidence rather than defaulted to False. It defaulted to False while
         # nothing could look at an image, which was right then and became a map reporting
         # every visual column absent against a database filling with judgements.
-        from ..gateway.anthropic import vision_usable
+        from ..gateway.providers import vision_usable
 
         vision_available = vision_usable(db)
 

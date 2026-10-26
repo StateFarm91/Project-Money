@@ -971,7 +971,7 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
     stopped, because a discovery run that consumes the month's model allowance is a worse
     outcome than a shorter one that can be repeated.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway import routing
 
     catalogue = list(catalogue or [])
@@ -1272,7 +1272,7 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     everything. Depth within an arena is what makes a benchmark comparison possible at all:
     a field spread over twelve departments puts two or three concepts against each of them.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway import routing
 
     found = arenas(db, today=today)

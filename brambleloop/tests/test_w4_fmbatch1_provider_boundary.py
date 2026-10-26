@@ -16,35 +16,16 @@ sys.path.insert(0, str(ROOT / "src"))
 from brambleloop.gateway import model_gateway, providers  # noqa: E402
 
 VENDOR_MODULES = {"anthropic"}
-LANE_C = "visual/ is the product-engine lane (Workstream C); migration handed to that lane"
+# The rest of F-091 (FMBATCH2) migrated 22 callers to the facade. What remains is the
+# vendor's own probe plumbing -- the live probe call, the vendor provider class, its
+# no-key wording and default model -- which is vendor-specific by design: a second vendor
+# brings its own probe, it does not reuse these.
+VENDOR_PROBE = "drives the vendor's own probe/provider objects; vendor-specific by design"
 PENDING = {
-    "visual/model_registry.py": LANE_C,
-    "visual/photoreal.py": LANE_C,
-    "visual/inspect.py": LANE_C,
-    "visual/tournament.py": LANE_C,
-    "visual/bible.py": LANE_C,
-    "visual/fidelity.py": LANE_C,
-    "runtime/release.py": "product-run handlers (Workstream C); vision probes and judges",
-    "runtime/worker.py": "worker boot reads the vendor's probe state; operator plumbing",
-    "ops/provider_accounts.py": "vendor account bookkeeping is vendor-specific by design",
-    "ops/health.py": "reads the vendor probe record (last_probe) for the health sweep",
-    "app/main.py": "the model-probe API route reads vendor probe state",
-    # Product engine / creative pipeline (Workstream C lane):
-    "creative/blinded.py": LANE_C, "creative/image_stages.py": LANE_C,
-    "creative/intake.py": LANE_C, "creative/prospecting.py": LANE_C,
-    "creative/reference.py": LANE_C, "experiments/controlled.py": LANE_C,
-    # Publication (W-LISTREADY lane):
-    "publish/motif_fidelity.py": "publication lane (W-LISTREADY); provider_for for a judge",
-    # Ceiling-ledger readers: they import the ledger, not a model; neutral names exist in
-    # providers.NEUTRAL, migration is an import change each.
-    "finance/funding_packet.py": "ceiling ledger reader (check_budget_cad, probe)",
-    "finance/governor.py": "ceiling ledger reader",
-    "finance/spend_policy.py": "ceiling ledger reader (check_budget_cad)",
-    "build2/executor.py": "reads vendor probe/capability state for closure checks",
-    "launch/readiness.py": "reads vendor probe state (last_probe) for readiness",
-    "scale/dependency.py": "dependency register names the vendor it measures",
-    "intel/insights_budget.py": "ceiling ledger reader",
-    "intel/market_map.py": "gallery analysis path; vision judge",
+    "runtime/release.py": VENDOR_PROBE + " (probe, vision_probe, AnthropicProvider)",
+    "runtime/worker.py": VENDOR_PROBE + " (NO_KEY_REASON at worker boot)",
+    "app/main.py": VENDOR_PROBE + " (the model-probe route: last_vision_probe, state)",
+    "experiments/controlled.py": VENDOR_PROBE + " (DEFAULT_MODEL for the control arm)",
 }
 
 
@@ -135,6 +116,34 @@ def test_migrated_caller_uses_the_boundary(monkeypatch=None):
         os.environ.pop(providers.VENDOR_VAR, None)
         providers.unregister_vendor("stubv")
     assert seen.get("called") and seen.get("task") == C.TASK
+
+
+def test_every_name_a_migrated_caller_reads_resolves_through_the_facade():
+    """F-091 rest: a caller moved to the facade must find every name it used there -- an
+    import change that compiles but raises AttributeError at call time is not a migration."""
+    used: dict[str, set[str]] = {}
+    for p in SRC.rglob("*.py"):
+        rel = p.relative_to(SRC).as_posix()
+        if rel.startswith("gateway/"):
+            continue
+        tree = ast.parse(p.read_text(), filename=rel)
+        aliases = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                if mod.endswith("gateway.providers"):
+                    used.setdefault(rel, set()).update(a.name for a in node.names)
+                if mod.endswith("gateway"):
+                    aliases |= {a.asname or a.name for a in node.names if a.name == "providers"}
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                    and node.value.id in aliases):
+                used.setdefault(rel, set()).add(node.attr)
+    assert len(used) >= 22, sorted(used)          # the migrated callers are really scanned
+    missing = {rel: sorted(n for n in names if not hasattr(providers, n))
+               for rel, names in used.items()}
+    assert not any(missing.values()), {k: v for k, v in missing.items() if v}
+    assert providers.provider_for is providers.for_task
 
 
 def test_the_dependency_register_no_longer_claims_a_caller_free_swap():

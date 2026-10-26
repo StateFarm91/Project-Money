@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..gateway.anthropic import USD_TO_CAD as ASSUMED_USD_CAD
+from ..gateway.providers import USD_TO_CAD as ASSUMED_USD_CAD
 
 # Etsy Plus, the upgrade #37 names, at its published USD 10 a month converted at the one
 # assumed rate the gateway already labels an assumption -- read from there rather than

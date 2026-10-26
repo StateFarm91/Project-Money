@@ -969,7 +969,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     """
     from ..core.resilience import PermanentError, TransientError
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     # CB2-D01: fix which bytes are being judged before spending on the judge. A board with
     # no identifiable content cannot carry a judgement, so it is not sent to one.
@@ -1034,7 +1034,7 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
     winner with no judgement is judged here first when its board exists and a vision model
     is usable; otherwise `held` says exactly which input it still waits on.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from . import ideation
 
     latest: dict[str, dict] = {}
