@@ -69,6 +69,13 @@ def router(db):
         _editor(authorization)
         return graph(db, node)
 
+    @routes.get("/api/learn/curriculum")
+    def read_curriculum(authorization: str | None = Header(default=None)):
+        # F-800: tracks from the prerequisite ladder, editor-only like the graph.
+        _editor(authorization)
+        from .curriculum import tracks
+        return tracks(db)
+
     @routes.get("/api/learn/metrics")
     def read_metrics(authorization: str | None = Header(default=None)):
         # F-799: queue, coverage, gap age, calendar and experiments; editor-only like the
