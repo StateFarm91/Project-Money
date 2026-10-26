@@ -1135,10 +1135,16 @@ def company_standing(db, *, enqueue: Callable | None = None,
 
     requested: list[dict] = []
     if enqueue is not None:
+        from ..products.builder import for_slug
+
         for pod, slugs in behind_photography:
             for slug in slugs:
                 if len(requested) >= PHOTOGRAPHY_REQUESTS_PER_RUN:
                     break
+                # W4-AGENTS batch 2 (E-12): only a slug with a CIR can be photographed; a
+                # retired concept slug (market-basket-trio) produced a daily no-op job.
+                if for_slug(slug) is None:
+                    continue
                 job = enqueue("publishing", "assets.owned_photography",
                               {"slug": slug, "requested_by": "mjs.director",
                                "because": f"behind the benchmark on photography coverage "

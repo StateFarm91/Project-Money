@@ -331,6 +331,16 @@ def _visual_item(item: dict) -> tuple[str, str] | None:
     return None
 
 
+def _quality_item(item: dict) -> tuple[str, str] | None:
+    # W4-AGENTS: Product Truth's re-verification (runtime.quality_ops.next_work). Internal,
+    # deterministic, CA$0; it never certifies or blocks, so it is safe idle work.
+    if item.get("kind") != "internal" or item.get("external_effect"):
+        return None
+    if item.get("job_type") == "gate.quality":
+        return "gate.quality", str(item.get("key") or "quality.reverify")
+    return None
+
+
 # department -> [(provider label, module, function, adapter)]
 PROVIDERS: dict[str, tuple[tuple[str, str, str, object], ...]] = {
     "learn": (("learn", "brambleloop.learn.improvement_status", "next_work", _learn_item),),
@@ -339,6 +349,8 @@ PROVIDERS: dict[str, tuple[tuple[str, str, str, object], ...]] = {
     "store_commerce": (("seo", "brambleloop.seo.status", "next_work", _seo_item),),
     "growth": (("ads", "brambleloop.growth.ads_readiness", "next_work", _ads_item),),
     "visual": (("visual_rnd", "brambleloop.visual.rnd.status", "next_work", _visual_item),),
+    "product_truth": (("quality", "brambleloop.runtime.quality_ops", "next_work",
+                       _quality_item),),
 }
 
 
@@ -357,6 +369,10 @@ def provider_module(module: str):
         from ..growth import ads_readiness as mod
     elif module == "brambleloop.visual.rnd.status":
         from ..visual.rnd import status as mod
+    elif module == "brambleloop.runtime.quality_ops":  # W4-AGENTS
+        from ..runtime import quality_ops as mod
+    elif module == "brambleloop.store_foundation.director":  # W4-AGENTS
+        from ..store_foundation import director as mod
     elif module == "brambleloop.ops.slo":
         from ..ops import slo as mod
     elif module == "brambleloop.autonomy.status":

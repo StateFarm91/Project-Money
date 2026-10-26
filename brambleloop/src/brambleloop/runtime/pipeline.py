@@ -812,9 +812,22 @@ def handle_cir_compile(ctx: JobContext) -> dict:
     ctx.audit("cir.compiled", artifact=f"{cir.slug}@{cir.version}",
               detail={"ok": result.ok, "errors": len(result.errors)})
     if not result.ok:
-        # A failing compile is a real outcome, not an exception: the concept dies here.
+        # A failing compile is a real outcome, not an exception. W4-AGENTS batch 3: it is
+        # handed to the Crochet Engineer once (`cir.revise`, deterministic repair rules); a
+        # revision that does not compile, or a second failure, ends the concept here.
+        revise_job = None
+        from .engineering_ops import MAX_REVISIONS
+
+        prior = max(0, int(ctx.job.inputs.get("revision") or 0))   # I-3: never negative
+        if prior < MAX_REVISIONS:
+            revise_job = ctx.enqueue(
+                "crochet_engineer", "cir.revise",
+                {"cir": ctx.job.inputs["cir"],
+                 "revision": prior},
+                idempotency_key=f"revise:{cir.slug}:{cir.version}:{cir.fingerprint}")
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
-                "errors": [str(f) for f in result.errors]}
+                "errors": [str(f) for f in result.errors],
+                "revise_job": getattr(revise_job, "id", None)}
     certify_inputs = {"cir": ctx.job.inputs["cir"]}
     if isinstance(ctx.job.inputs.get("correction"), dict):
         certify_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
@@ -2443,6 +2456,20 @@ DURABLE_KEYS: tuple[str, ...] = ("artifact", "artifact_id", "created_ids", "writ
 # `UNMEASURED` labels, per-run reading ids) is context, not work. An empty tuple declares a
 # job type that never counts as useful work on its own (pure liveness).
 WORK_KEYS: dict[str, tuple[str, ...]] = {
+    # W4-AGENTS cadences and generatable types: each handler reports a measured `work_done`
+    # (rows recorded, checks run, jobs queued), which `did_no_work` reads first; declared
+    # here so the useful-work judge knows the key rather than falling back to the counters.
+    "creative.capability_scorecard": ("work_done",),
+    "creative.family_engine": ("work_done",),
+    "creative.photo_principles": ("work_done",),
+    "creative.salvage_review": ("work_done",),
+    "gate.quality": ("work_done",),
+    "intel.children_portfolio": ("work_done",),
+    "listing.cross_sell_graph": ("work_done",),
+    "radar.competitor_snapshot": ("work_done",),
+    "research.sweep": ("work_done",),
+    "storefront.review": ("work_done",),
+    "visual.model_ledger": ("work_done",),
     "ads.adjust": ("enqueued", "escalations"),
     "assets.build": ("pdf_sha256",),
     "autonomy.department_review": ("new_finding", "lessons_routed"),
@@ -3057,6 +3084,10 @@ from . import growth_ops  # noqa: E402,F401  (C-60: growth, ads, journey, steer)
 from . import etsy_ops  # noqa: E402,F401  (FB-1 B: Etsy read-back, census, shop snapshot)
 from . import ops_watch  # noqa: E402,F401  (FB-4: F-125 maturity disagreements cadence)
 from . import storefront_watch  # noqa: E402,F401  (F-280: launch-week Search Visibility)
+from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director)
+from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
+from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
+from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

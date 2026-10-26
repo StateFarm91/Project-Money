@@ -117,21 +117,32 @@ class OwnerGrant:
     # created (second file, listing properties, images) -- and only that draft. Asked for
     # with this action name; never a grant action of its own.
     PUBLISH_COMPLETE = "store.publish.complete"
+    # W4-AGENTS: the owner's grant for ONE storefront change (updateShop text fields or a shop
+    # section), sealed and content-bound in `ops.storefront_authority`. It covers exactly the
+    # change it was approved for -- the operation and the fields/values sent -- and nothing
+    # else; a listing publication or activation grant never covers a storefront write.
+    STOREFRONT = "store.update.storefront"
 
-    def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str, version: str,
-                 release: str = "", listing_id: str = "") -> None:
-        if action not in (self.ACTIVATE, self.PUBLISH):
+    def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str = "",
+                 version: str = "", release: str = "", listing_id: str = "",
+                 change: dict | None = None) -> None:
+        if action not in (self.ACTIVATE, self.PUBLISH, self.STOREFRONT):
             raise ValueError(f"unknown grant action {action!r}")
         self.db, self.action, self.approval_id = db, action, approval_id
         self.slug, self.version, self.release = slug, version, release
         self.listing_id = str(listing_id or "")
+        self.change = dict(change) if isinstance(change, dict) else None
 
     def __repr__(self) -> str:  # pragma: no cover
         return (f"OwnerGrant({self.action} {self.slug}@{self.version} "
                 f"approval={self.approval_id})")
 
-    def refusal(self, *, action: str, listing_id: str = "") -> str | None:
-        """Why this grant does not authorise `action` now, or None. Fails closed."""
+    def refusal(self, *, action: str, listing_id: str = "",
+                change: dict | None = None) -> str | None:
+        """Why this grant does not authorise `action` now, or None. Fails closed.
+
+        For STOREFRONT, `change` is the exact change about to be sent (operation + fields);
+        the sealed grant must have been approved for that same change."""
         try:
             if action == self.PUBLISH_COMPLETE and self.action == self.PUBLISH:
                 return self._completion_refusal(str(listing_id or ""))
@@ -145,6 +156,14 @@ class OwnerGrant:
             if live not in PHASES_THAT_MAY_PUBLISH:
                 return (f"the effective runtime phase is {live!r} (environment and the "
                         f"owner's recorded phase); it does not permit {action}")
+            if action == self.STOREFRONT:
+                if not isinstance(change, dict) or not change:
+                    return "a storefront grant is checked against the exact change sent"
+                if self.change is not None and self.change != change:
+                    return "owner storefront grant was approved for a different change"
+                from ..ops import storefront_authority
+
+                return storefront_authority.validate(self.db, self.approval_id, change=change)
             if action == self.ACTIVATE:
                 if not self.listing_id or str(listing_id) != self.listing_id:
                     return "owner activation grant names another listing"
@@ -661,6 +680,18 @@ UPDATE_WRITABLE = frozenset({
     "is_taxable", "taxonomy_id", "tags", "who_made", "when_made", "featured_rank", "state",
     "is_supply", "production_partner_ids", "type",
 })
+
+# W4-AGENTS: `updateShop`'s whole request schema, as `intel.etsy_surfaces` records it from
+# Etsy's OpenAPI document ("PUT /shops/{shop_id} accepts exactly five fields"). Being in the
+# schema is not permission: every field is put through `store_foundation.live_state.
+# write_refusal`, which refuses the owner-configured shop title outright and refuses
+# `policy_additional` for this (Canadian, non-EU) shop, so only announcement, sale_message
+# and digital_sale_message can ever be sent -- and only under a sealed storefront grant.
+SHOP_UPDATE_SCHEMA = frozenset({"title", "announcement", "sale_message",
+                                "digital_sale_message", "policy_additional"})
+# Etsy help 360000345048: "A section name can be up to 24 characters."; "up to 20 custom
+# sections" (integrations.etsy_constraints section_name_max_chars / sections_max).
+SECTION_TITLE_MAX = 24
 
 # `price` is conspicuously absent from that set, and it is the field most likely to be
 # reached for. Etsy moves price to the inventory endpoint -- `updateListingInventory`, PUT,
@@ -1356,6 +1387,93 @@ class EtsyClient:
                 f"not the one we think it is cannot be undone.")
         response = self._call("DELETE", f"/listings/{listing_id}",
                               operation="deleteListing")
+        return response.status in (200, 204)
+
+    # ---- the storefront (W4-AGENTS): updateShop and shop sections ---------
+    #
+    # These change what every buyer sees on the shop home, so they are never draft-lane
+    # writes: `shadow_writes_authorised` does not reach them. Each one needs, in this order,
+    # (1) a publishing phase on this client, (2) every field through the live-state write
+    # gate (`store_foundation.live_state.write_refusal`: owner-configured fields and the
+    # EU-only `policy_additional` are refused permanently), and (3) the owner's sealed,
+    # content-bound storefront grant (`OwnerGrant.STOREFRONT`, `ops.storefront_authority`),
+    # re-resolved from the database -- effective phase included -- for the exact change being
+    # sent. Only then are the credentials asked for and the request made.
+
+    def _authorise_storefront_write(self, operation: str, change: dict, fields,
+                                    grant: Any) -> Credentials:
+        if self.phase not in PHASES_THAT_MAY_PUBLISH:
+            raise EtsyNotPermitted(
+                f"{operation} refused at the client: BRAMBLELOOP_PHASE={self.phase} does not "
+                f"permit a storefront write. Shadow and staging record the change as a "
+                f"proposal; nothing is sent to Etsy.")
+        from ..store_foundation import live_state
+
+        refused = [r for r in (live_state.write_refusal(f, grant=grant, change=change)
+                               for f in fields) if r]
+        if refused:
+            raise EtsyNotPermitted(f"{operation} refused at the client: " + "; ".join(refused))
+        return self._require(Authority.READ)
+
+    def update_shop(self, fields: dict[str, Any], *,
+                    grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """PUT /shops/{shop_id}, form-encoded: announcement and the two buyer messages only.
+
+        A field outside `updateShop`'s schema is refused (it would be silently ignored); the
+        shop title (owner-configured, 2026-10-06) and `policy_additional` (EU-only) are refused
+        by the live-state gate whatever grant is presented."""
+        if not fields:
+            raise EtsyRejected("update_shop was called with no fields")
+        unknown = sorted(set(fields) - SHOP_UPDATE_SCHEMA)
+        if unknown:
+            raise EtsyRejected(f"updateShop has no such field(s): {unknown}")
+        clean = {k: str(v) for k, v in fields.items()}
+        change = {"operation": "updateShop", "fields": clean}
+        creds = self._authorise_storefront_write("updateShop", change, sorted(clean), grant)
+        response = self._call("PUT", f"/shops/{creds.shop_id}", operation="updateShop",
+                              form=dict(clean))
+        return response.body
+
+    @staticmethod
+    def _section_title(title: str) -> str:
+        t = " ".join(str(title or "").split())
+        if not t:
+            raise EtsyRejected("a shop section needs a title")
+        if len(t) > SECTION_TITLE_MAX:
+            raise EtsyRejected(f"section title {t!r} is {len(t)} characters; Etsy allows "
+                               f"{SECTION_TITLE_MAX}")
+        return t
+
+    def create_shop_section(self, title: str, *,
+                            grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """POST /shops/{shop_id}/sections, form-encoded `title` (shops_w)."""
+        t = self._section_title(title)
+        change = {"operation": "createShopSection", "title": t}
+        creds = self._authorise_storefront_write("createShopSection", change,
+                                                 ["shop_section"], grant)
+        return self._call("POST", f"/shops/{creds.shop_id}/sections",
+                          operation="createShopSection", form={"title": t}).body
+
+    def update_shop_section(self, shop_section_id: str, title: str, *,
+                            grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """PUT /shops/{shop_id}/sections/{shop_section_id} (rename; shops_w)."""
+        t = self._section_title(title)
+        change = {"operation": "updateShopSection", "shop_section_id": str(shop_section_id),
+                  "title": t}
+        creds = self._authorise_storefront_write("updateShopSection", change,
+                                                 ["shop_section"], grant)
+        return self._call("PUT", f"/shops/{creds.shop_id}/sections/{shop_section_id}",
+                          operation="updateShopSection", form={"title": t}).body
+
+    def delete_shop_section(self, shop_section_id: str, *,
+                            grant: OwnerGrant | None = None) -> bool:
+        """DELETE /shops/{shop_id}/sections/{shop_section_id} (shops_w). The Storefront
+        Director never proposes a deletion; the method exists so the grant covers it too."""
+        change = {"operation": "deleteShopSection", "shop_section_id": str(shop_section_id)}
+        creds = self._authorise_storefront_write("deleteShopSection", change,
+                                                 ["shop_section"], grant)
+        response = self._call("DELETE", f"/shops/{creds.shop_id}/sections/{shop_section_id}",
+                              operation="deleteShopSection")
         return response.status in (200, 204)
 
     # ---- activation: the one that costs money ----------------------------

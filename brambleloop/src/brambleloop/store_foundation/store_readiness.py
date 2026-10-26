@@ -352,7 +352,8 @@ def owner_actions(drift: dict, *, shop: dict | None = None) -> list[dict]:
            "crop/footer findings stay unresolved"),
         oa("OA-C", ("Shop settings still open: location (C9), listing order Custom (C10), sold "
                     "visibility off (C11)" if shop and _nonblank(shop, "announcement") else
-                    "Shop settings still open: announcement (C5), location (C9), listing "
+                    "Shop settings still open: announcement (C5), drafted by the Storefront Director "
+                    "(applying it needs your storefront grant); location (C9), listing "
                     "order Custom (C10), sold visibility off (C11)"),
            "trust surfaces and ordering", 5,
            "shop snapshot keeps reporting missing trust surfaces"),
@@ -397,6 +398,24 @@ STORE_KEY_PREFIX = "store:"
 _ALIASED = {"OA-A1": "reauthorise_transactions_r", "OA-LAUNCH": "phase"}
 _NOT_ASKED = {"OA-A2": "company work: etsy.shop_snapshot reads the shop state after OA-A1",
               "OA-STATS": "deferred: only meaningful after the first listings are live"}
+# W4-AGENTS: cards whose work has an Etsy write API are agent work, not owner work. The
+# Storefront Director drafts them as recorded proposals (`content.draft`) and `store.update`
+# applies one only under the owner's sealed storefront grant (never in SHADOW). The card is
+# not asked again, and an open one is moved to SUPERSEDED (not satisfied: the shop may still
+# lack the change) with that reason. What remains for the owner is the grant itself
+# (`storefront:write_authority`, raised by store.update when only the grant is missing).
+# L-5 (review of a14c9ef): an agent-work card is superseded only when something replaces it
+# for the owner -- the open `storefront:write_authority` grant card -- and closed only on live
+# evidence (the shop_sync sections reading shows every populated category). Otherwise it is
+# still asked, so the owner never sees neither a sections card nor a grant ask.
+GRANT_CARD = "storefront:write_authority"
+_AGENT_WORK = {
+    "OA-D1": "agent work: storefront_director proposes createShopSection for each populated "
+             "category; store.update applies it under the owner's storefront grant "
+             "(asked as storefront:write_authority)",
+    # OA-E (buyer messages) is NOT here: LISTREADY closes it on the getShop evidence and
+    # never without it; the Director still proposes the messages in parallel.
+}
 # An alias is already represented by another producer's row under any of these keys.
 _ALREADY_ASKED_UNDER = {"OA-A1": ("reauthorise_transactions_r", "etsy.auth:reauthorise",
                                   "transactions_r"),
@@ -449,6 +468,18 @@ def _nonblank(shop: dict, field: str) -> bool:
     return field in shop and isinstance(shop[field], str) and bool(shop[field].strip())
 
 
+def _sections_evidenced(db) -> bool:
+    """True only when a FRESH shop_sync reading shows every populated category's section."""
+    try:
+        from . import director
+
+        row = next((r for r in director.review(db)["surfaces"] if r["surface"] == "sections"),
+                   None)
+    except Exception:  # noqa: BLE001 - no evidence is not evidence
+        return False
+    return bool(row and row.get("status") == director.OK and row.get("live_state") == "FRESH")
+
+
 def sync_owner_actions(db, drift: dict | None = None) -> dict:
     """Upsert the store owner actions as OwnerAction rows; idempotent, never duplicates."""
     from sqlalchemy import select
@@ -490,6 +521,40 @@ def sync_owner_actions(db, drift: dict | None = None) -> dict:
                     closed[own] = why_closed
                 skipped[oid] = why_closed
                 continue
+            if oid == "OA-D1" and _sections_evidenced(db):
+                why = ("the live shop_sync reading shows a section for every populated "
+                       "category")
+                row = open_rows.get(own)
+                if row is not None:
+                    row.done = True
+                    row.reason = (f"{row.reason or ''} -- closed: {why}")[:2000]
+                    closed[own] = why
+                skipped[oid] = why
+                continue
+            if oid in _AGENT_WORK and GRANT_CARD in open_rows:
+                skipped[oid] = _AGENT_WORK[oid]
+                row = open_rows.get(STORE_KEY_PREFIX + oid)
+                if row is not None:
+                    from ..ops import owner_queue
+
+                    owner_queue.transition(s, row, owner_queue.SUPERSEDED, _AGENT_WORK[oid],
+                                           actor="storefront_director")
+                    updated.append(STORE_KEY_PREFIX + oid)
+                continue
+            if oid in _AGENT_WORK and own not in open_rows:
+                # L-5: superseded earlier, but nothing replaces it for the owner now (no open
+                # grant card, no evidence): reopen it rather than leave the owner with neither.
+                prev = s.scalar(select(OwnerAction).where(
+                    OwnerAction.requirement_key == own, OwnerAction.state == "superseded"))
+                if prev is not None:
+                    from ..ops import owner_queue
+
+                    owner_queue.transition(
+                        s, prev, owner_queue.OPEN,
+                        f"reopened: {GRANT_CARD} is not open and no live reading shows the "
+                        f"sections, so this is still the owner's ask", actor="storefront_director")
+                    open_rows[own] = prev
+                    updated.append(own)
             if oid in _ALREADY_ASKED_UNDER and any(
                     k in open_rows for k in _ALREADY_ASKED_UNDER[oid]):
                 skipped[oid] = "already asked under " + next(

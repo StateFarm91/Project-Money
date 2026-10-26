@@ -122,6 +122,12 @@ SCOPES_REQUIRED = {
     # own grant. Etsy's security block for getShopByOwnerUserId: api_key + oauth2 shops_r.
     "getShopByOwnerUserId": ("shops_r",),
     "updateShop": ("shops_w",),
+    # W4-AGENTS: the shop-section writes. `intel.etsy_surfaces` (shop_sections) records the
+    # OpenAPI security block: "POST /shops/{shop_id}/sections takes one required field,
+    # `title`, form-encoded, under shops_w"; update and delete carry the same scope.
+    "createShopSection": ("shops_w",),
+    "updateShopSection": ("shops_w",),
+    "deleteShopSection": ("shops_w",),
     # The two taxonomy reads step 6 of the authenticated exercise needs. Empty for the same
     # reason `getShop` and `getListing` are: Etsy's document gives both root-level `api_key`
     # security. That reading is UNVERIFIED like every other write-path claim here, and it is

@@ -79,7 +79,10 @@ AUDIT_FINDINGS: list[dict] = [
                 "content.draft, store.update, pricing.experiment, "
                 "radar.competitor_snapshot). Agents asset_truth and policy hold only "
                 "unhandled job types, so they can never run anything.",
-     "status": "DECIDED (v1.1 wiring): kept as declared-but-unbuilt",
+     "status": "PARTLY REPAIRED (W4-AGENTS): content.draft, store.update, gate.quality, "
+               "gate.policy, gate.asset_truth, cir.twin and cir.reverse now have handlers; "
+               "the quality ones re-verify already-certified releases only and are never a "
+               "verdict path (runtime.quality_ops). The rest stay declared-but-unbuilt",
      "repair": "gate.quality/gate.policy/gate.asset_truth/cir.twin/cir.reverse already "
                "execute in-process inside gate.certify (gates.certificate.certify: "
                "build_twin, reverse_compare, check_assets, check_listing), so standalone "

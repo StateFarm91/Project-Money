@@ -626,6 +626,10 @@ def _etsy_mutating_methods():
     raise AssertionError("EtsyClient not found")
 
 
+STOREFRONT_WRITES = {"update_shop", "create_shop_section", "update_shop_section",
+                     "delete_shop_section"}
+
+
 def test_f8_every_etsy_write_is_authorised_at_the_client_boundary():
     """Owner directive / review F8 (1 of 2): every EtsyClient method that writes to Etsy
     checks authority at the effect boundary itself -- a verified owner grant, or the
@@ -645,6 +649,11 @@ def test_f8_every_etsy_write_is_authorised_at_the_client_boundary():
         elif name == "activate":
             assert "launch_authorisation" in body and "_grant_refusal" in body or \
                 "_authorise_write(" in body, body[:200]
+        elif name in STOREFRONT_WRITES:
+            # W4-AGENTS: storefront writes never ride the shadow draft lane; they need a
+            # publishing phase, the live-state gate and the owner's storefront grant.
+            assert "_authorise_storefront_write(" in body, name
+            assert "_authorise_write(" not in body, name
         else:
             assert "_authorise_write(" in body, name
     # publish (the composite) verifies the owner grant itself before any write
@@ -680,6 +689,9 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
             "write-path probe's exercise listing: shadow lane only, activation asserted refused",
         ("commerce/listing_rollback.py", "execute"):
             "owner-grant rollback of an existing listing's fields; no caller in src",
+        ("runtime/storefront_ops.py", "handle_store_update"):
+            "W4-AGENTS store.update: a recorded storefront proposal, held in SHADOW; sent only "
+            "with the owner's sealed storefront grant for that exact change",
     }
     found = set()
     for path in src_root.rglob("*.py"):

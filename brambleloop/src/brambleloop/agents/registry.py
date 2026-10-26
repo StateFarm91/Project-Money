@@ -99,7 +99,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).
-                            "culture.sweep", "intel.gallery_analysis"],
+                            "culture.sweep", "intel.gallery_analysis",
+                            # W4-AGENTS C1: the priority baby & children's family (F-351..366).
+                            "intel.children_portfolio"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     # The creative side of #94: it judges this catalogue against an observed human one and
     # records the result. It writes no product, publishes nothing and contacts nobody; the
@@ -143,7 +145,18 @@ DEFAULT_AGENTS: list[dict] = [
                             # benchmark image; renders nothing and copies nothing
                             # (2026-09-22, after two renders were blocked on checks a real
                             # photograph might not have cleared either).
-                            "creative.photoreal_calibration"],
+                            "creative.photoreal_calibration",
+                            # W4-AGENTS: the Product Family Engine over the certified
+                            # catalogue (deterministic, reads own rows, CA$0).
+                            "creative.family_engine",
+                            # W4-AGENTS C3 (F-113): legacy re-gate; recommends retirement only.
+                            "creative.salvage_review",
+                            # Build 2 #94: the complete creativity capability scorecard.
+                            "creative.capability_scorecard",
+                            # W4-AGENTS W7 (F-224): photographic principles from the judged
+                            # benchmark galleries (closed shot vocabulary only), compared with
+                            # each Launch-0 shot plan. Advisory, CA$0.
+                            "creative.photo_principles"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that
@@ -212,7 +225,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "visual.image_production",
                             # W-VISNEXT: an owner-authorised controlled experiment (frozen
                             # definition, owner step-up, its own caps inside this ceiling).
-                            "visual.controlled_experiment"],
+                            "visual.controlled_experiment",
+                            # W4-AGENTS C2 (F-744): the durable model evidence ledger.
+                            "visual.model_ledger"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
@@ -237,7 +252,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "listing.search_visibility_watch",
                             # v1.1 lane G (§11): the SEO cycle -- proposals only, no Etsy
                             # write, no spend.
-                            "seo.cycle"],
+                            "seo.cycle",
+                            # W4-AGENTS C3 (F-775): the cross-sell graph (reads; CA$0).
+                            "listing.cross_sell_graph"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
@@ -843,6 +860,33 @@ QUALITY_OVERRIDES[LAURA_PRIVATE_AGENT] = {
 
 
 # ---------------------------------------------------------------------------
+# W4-AGENTS (Master Plan v1.2 sections 6 and 16; owner directive 2026-10-21): the Storefront
+# Director, which "owns banner, icon, About, policies, sections, announcement, thumbnails and
+# grid coherence". It reads the shop state already stored, evaluates it against the brand
+# rules and Etsy's constraints, and drafts storefront content as recorded proposals
+# (`store_foundation.director`). GREEN and CA$0: deterministic, no model, no network. It can
+# never write to Etsy: applying a proposal is `store.update`, held by `store_operator`,
+# protected, and refused in SHADOW or without the owner's sealed storefront grant.
+DEFAULT_AGENTS.append(dict(
+    name="storefront_director",
+    description=("Storefront Director (Master Plan s6/s16): reviews the live shop against the "
+                 "brand rules and Etsy constraints and drafts announcement, buyer messages, "
+                 "sections and policy text as proposals. Writes, publishes, spends and "
+                 "messages nothing."),
+    allowed_job_types=["storefront.review", "content.draft"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["storefront_director"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["storefront_director"] = {
+    "inputs": ["operating_readings etsy.shop_snapshot / store.shop_sync",
+               "audit store.live_observation", "store_foundation copy and navigation"],
+    "outputs": ["operating_readings storefront.review / storefront.proposal",
+                "jobs content.draft", "jobs store.update (held in SHADOW)"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "storefront jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
 # W4-FINHEALTH: what a CA$0 daily ceiling means, said once.
 #
 # `/api/verify`'s `every_agent_has_a_cost_ceiling` failed in production on `learn`, `coo` and
@@ -913,3 +957,25 @@ def ceiling_audit(agents: Iterable[tuple[str, float | None]],
             "positive estimate before it is made. Declared in agents.registry.DEFAULT_AGENTS; "
             "raising it is an owner decision"),
     }
+
+# W4-AGENTS W3 (Final Master s44, F-401/F-429/F-436): the Research Agent. Investigates the
+# research tasks (`intel.research`) with the lowest-cost adequate method it holds -- internal
+# retrieval and the repository's research record -- and records unresolved questions with the
+# next bounded test, or flags architecture for the weekly review. CA$0: no network, no model,
+# no spend, no publication; never writes a `fact` on its own.
+DEFAULT_AGENTS.append(dict(
+    name="research_agent",
+    description=("Research Agent (Final Master s44): investigates unknowns on decision paths "
+                 "from internal evidence first, records machine-usable conclusions and flags "
+                 "contradicted assumptions for review. Spends, publishes and fetches nothing."),
+    allowed_job_types=["research.investigate", "research.sweep", "research.flag_architecture"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["research_agent"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["research_agent"] = {
+    "inputs": ["research_tasks", "lessons", "learning_observations",
+               "repository research/*.md (read-only)"],
+    "outputs": ["research_tasks sources/findings", "audit research.investigated / "
+                "research.architecture_flag / research.swept", "jobs research.investigate"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "research jobs whose outputs report work done"}

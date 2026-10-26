@@ -913,6 +913,39 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
     # drift becomes incidents and proposals, never an Etsy write.
     ("store_live_drift", "orchestrator", "store.live_drift", 86400),
+    # W4-AGENTS: the Storefront Director's daily review (stored readings only, CA$0); gaps it
+    # can fix become content.draft proposals, applied only by store.update under the owner's
+    # storefront grant -- never in SHADOW.
+    ("storefront_review", "storefront_director", "storefront.review", 24 * 60 * 60),
+    # W4-AGENTS department batch 1: Quality & Compliance re-verifies every certified release
+    # daily (compile, twin, reverse compile US/UK, claims, listing policy). Regression
+    # detection only -- never a verdict path; a disagreement is a P2 incident. CA$0.
+    ("quality_reverify", "quality_director", "gate.quality", 24 * 60 * 60),
+    # W4-AGENTS batch 4: a daily, read-only aggregate of the competitor listings already
+    # observed (demand/merchandising only; no competitor text, image or URL stored). CA$0.
+    ("competitor_snapshot", "market_radar", "radar.competitor_snapshot", 24 * 60 * 60),
+    # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
+    # tasks become investigations (internal retrieval first, CA$0, no network).
+    ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),
+    # W4-AGENTS product-engine batch: families of the certified catalogue (s33 bundle-ready
+    # family, F-359 recolour duplicates, s5 amplification gated on orders). CA$0.
+    ("family_engine", "creative_director", "creative.family_engine", 24 * 60 * 60),
+    # W4-AGENTS W7 (F-224): the judged benchmark galleries as photographic principles, each
+    # Launch-0 shot plan compared with its pod's (advisory; closed shot vocabulary only; CA$0).
+    ("photo_principles", "creative_director", "creative.photo_principles", 24 * 60 * 60),
+    # W4-AGENTS C1: the priority children's family -- research coverage (F-353), style
+    # segments (F-358), launch mix (F-366), Baby & Kids architecture (F-365). CA$0.
+    ("children_portfolio", "market_radar", "intel.children_portfolio", 24 * 60 * 60),
+    # W4-AGENTS C2 (F-744): every model experiment kept as a durable normalised record. CA$0.
+    ("model_ledger", "publishing", "visual.model_ledger", 24 * 60 * 60),
+    # W4-AGENTS C3: F-113 legacy salvage re-gate (weekly; recommends only) and the F-775
+    # cross-sell graph (daily). Both CA$0, no writes beyond their reading.
+    ("salvage_review", "creative_director", "creative.salvage_review", 7 * 24 * 60 * 60),
+    ("cross_sell_graph", "listing", "listing.cross_sell_graph", 24 * 60 * 60),
+    # Build 2 #94: novelty, desirability, survival, fatigue, CTR/conversion and winner rate
+    # combined per month; unmeasured stays UNMEASURED. CA$0.
+    ("capability_scorecard", "creative_director", "creative.capability_scorecard",
+     24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),

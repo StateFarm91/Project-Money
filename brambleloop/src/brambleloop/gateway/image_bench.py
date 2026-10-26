@@ -674,6 +674,8 @@ def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> di
             "model": r.model, "overall": r.overall(), "fabric": fabric_mean,
             "by_dimension": {d.key: r.mean(d.key) for d in RUBRIC},
             "identity_match": r.mean(IDENTITY_DIMENSION.key),
+            "identity_subscores": identity_subscores(
+                {"identity_match": r.mean(IDENTITY_DIMENSION.key)}),
             "cad_per_image": BY_KEY[r.model].cad_per_image if r.model in BY_KEY else None,
             "judged_images": len(r.scores), "failures": len(r.failures),
             "repeatability": r.repeatability(),
@@ -1051,6 +1053,60 @@ def _judge(db, images_shown, dimensions: tuple[Dimension, ...]) -> str:
     return response.text
 
 
+# F-126 (Superseded Evidence Retention): "Keep invalid/confounded experiments marked superseded
+# with reason." The owner's FLUX 3 ruling (D-W4-LAURA-FLUX3, 2026-10-19) made FLUX 3 the
+# permanent visual production generator, so this benchmark's measured order no longer selects
+# a provider. Its trials and results are RETAINED (never deleted) and marked superseded here,
+# and the cadence stops re-rendering and spending on a decision that has been made.
+SUPERSEDED: dict = {
+    "superseded": True,
+    "by": "D-W4-LAURA-FLUX3",
+    "on": "2026-10-19",
+    "why": ("the owner ruled FLUX 3 the permanent visual production standard for every "
+            "listing featuring Laura (spec/12); the provider benchmark's ranking no longer "
+            "selects a generator. Its results are kept as evidence, not as a decision"),
+    "evidence_retained": True,
+}
+SUPERSEDED_ACTION = "image.benchmark_superseded"
+
+
+def identity_subscores(result_row: dict) -> dict:
+    """F-217: face, whole-person morphology and overall identity, reported separately.
+
+    This benchmark asked one identity question, about the face (geometry, hair, eyes, age).
+    So its retained score is the FACE subscore only; whole-person morphology was never asked
+    and is UNMEASURED; and overall identity is the minimum of the two -- UNMEASURED here -- so
+    a high face score can never hide a morphology failure inside an average. The canonical
+    model's production frames carry the real split (`publish.model_photography` floors)."""
+    face = result_row.get("identity_match")
+    return {"face_identity": face if face is not None else "UNMEASURED",
+            "whole_person_morphology": "UNMEASURED",
+            "overall_identity": "UNMEASURED",
+            "rule": "overall = min(face, morphology); an unmeasured part is never averaged in"}
+
+
+def superseded_record(db) -> dict:
+    """Record once (idempotent) which benchmark rows are superseded, keeping every row."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        prior = s.scalar(select(AuditLog).where(AuditLog.action == SUPERSEDED_ACTION))
+        if prior is not None:
+            return {**SUPERSEDED, "record": prior.id, "created": False}
+        kept = list(s.scalars(select(AuditLog.id).where(AuditLog.action.in_(
+            (CANDIDATE_ACTION, TRIAL_ACTION, "image.benchmark", "image.benchmark_blocked",
+             "image.benchmark_capped")))))
+        row = AuditLog(actor="creative_director", action=SUPERSEDED_ACTION,
+                       artifact="image_benchmark",
+                       detail={**SUPERSEDED, "retained_rows": kept[:500],
+                               "retained_count": len(kept)})
+        s.add(row)
+        s.flush()
+        return {**SUPERSEDED, "record": row.id, "created": True, "retained_count": len(kept)}
+
+
 def state(db=None) -> dict:
     """The benchmark's design, its cost and its honest status."""
     try:
@@ -1080,6 +1136,8 @@ def state(db=None) -> dict:
             "competitor's product would be commissioning a copy to see how good the copier "
             "is"),
         **_measured_state(db),
+        "supersession": SUPERSEDED,
+        "identity_subscores_rule": identity_subscores({})["rule"],
     }
 
 
@@ -1166,6 +1224,8 @@ def _measured_state(db) -> dict:
                             / max(len([1 for f in FABRIC_DIMENSIONS
                                        if r.mean(f) is not None]), 1), 3),
             "identity_match": r.mean(IDENTITY_DIMENSION.key),
+            "identity_subscores": identity_subscores(
+                {"identity_match": r.mean(IDENTITY_DIMENSION.key)}),
             "by_dimension": {d.key: r.mean(d.key) for d in RUBRIC},
             "judged_images": len(r.scores),
             "repeatability": r.repeatability(),

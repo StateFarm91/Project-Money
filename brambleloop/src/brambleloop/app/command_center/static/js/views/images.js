@@ -107,6 +107,28 @@ function decisionBlock(title, d, ...extra) {
     h("p", { class: "muted small" }, String(d.what || "")), ...extra);
 }
 
+// Stage A (W-VISNEXT2): the Laura identity anchor. Confirming lets it be used as identity
+// context for this listing; it never turns any check into a pass.
+function anchorBlock(c, reload) {
+  const a = c.identity_anchor;
+  const decide = async (decision) => {
+    try {
+      const r = await api.identityReview(c.run_key, decision, "");
+      toast(r.resolved ? `Recorded: ${decision}` : r.why, r.resolved ? "ok" : "bad");
+      reload();
+    } catch (err) { toast(err.message, "bad"); }
+  };
+  return h("div", { class: "stack" },
+    h("h3", { class: "section-title" }, "Laura identity anchor"),
+    a.image_url ? h("img", { src: a.image_url, alt: a.label, loading: "lazy", width: 240, height: 240 }) : null,
+    h("p", { class: "row-detail" }, `${a.technical_status} · attempts ${a.attempts} · unknown ${(a.unknown || []).join(", ") || "none"}`),
+    a.review_needed ? h("div", { class: "row" },
+      h("button", { class: "btn", type: "button", onclick: () => decide("confirmed_same_person") }, "This is Laura"),
+      h("button", { class: "btn", type: "button", onclick: () => decide("not_laura") }, "Not Laura"),
+      h("button", { class: "btn", type: "button", onclick: () => decide("inconclusive") }, "Can't tell")) :
+      h("p", { class: "muted small" }, a.review ? `Review: ${a.review.decision || a.review.state}` : ""));
+}
+
 export function galleryCard(c, reload) {
   const d = c.decisions || {};
   const vis = d.visual_approval || {}, tech = d.technical_certification || {}, pub = d.publication_authorization || {};
@@ -136,6 +158,7 @@ export function galleryCard(c, reload) {
   return card({ title: `${c.experiment ? (c.label || "EXPERIMENT") + ": " : ""}Gallery: ${c.listing}`,
     subtitle: `${c.status} · spent CA$${c.spent_cad} · ${c.generation_calls} generation call(s) · restarts ${c.restarts}` },
     h("div", { class: "gallery-grid" }, (c.frames || []).map(frameFigure)),
+    c.identity_anchor ? anchorBlock(c, reload) : null,
     decisionBlock("1. Visual approval (your look only)", vis,
       vis.record ? h("p", { class: "row-detail" }, `${vis.record.approved_look ? "Liked" : "Not liked"} by ${vis.record.by} at ${vis.record.at}`) : null,
       note,

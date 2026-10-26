@@ -3109,7 +3109,10 @@ def handle_controlled_experiment(ctx: JobContext) -> dict:
     into the job: `gateway.images` reads it from the environment at call time."""
     from ..experiments import controlled
 
-    out = controlled.run_job(ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id)
+    out = controlled.run_job(
+        ctx.db, dict(ctx.job.inputs), job_id=ctx.job.id,
+        enqueue=lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
+                                                inputs, idempotency_key=key))
     ctx.audit(controlled.ACTION_RUN, artifact=str(ctx.job.inputs.get("definition_id")),
               detail={k: out.get(k) for k in ("run_id", "ran", "image", "status", "refused",
                                                "why", "image_sha256")})
@@ -6091,6 +6094,15 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
     return detail
 
 
+def _research_flags(db) -> list | dict:
+    try:
+        from ..intel import research_agent
+
+        return research_agent.architecture_flags(db)
+    except Exception as exc:  # noqa: BLE001 - reported beside the review, never fatal to it
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
 @handlers.register("improve.weekly")
 def handle_weekly_evolution(ctx: JobContext) -> dict:
     """The weekly deep cycle, and the architecture review that must be able to subtract (#194).
@@ -6251,6 +6263,9 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                                 "nothing_to_stop_because"),
                             "card": stop_card},
               "conflicts": director.conflicts(ctx.db),
+              # W4-AGENTS W3 (F-429): evidence the Research Agent says contradicts a current
+              # assumption, for this review to weigh. Read only; a flag changes nothing.
+              "research_architecture_flags": _research_flags(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in
                                    ("promotions", "assessed", "spent_cad", "hit_rate")}}
@@ -7393,6 +7408,13 @@ def handle_blind_review(ctx: JobContext) -> dict:
             continue
         slug = row["slug"]
         cir = for_slug(slug)
+        if cir is None:
+            # W4-AGENTS batch 2 (E-12): a slug with no CIR (a retired concept slug such as
+            # market-basket-trio) cannot be photographed; queueing it only made a daily no-op.
+            ctx.audit("creative.return_skipped", artifact=slug,
+                      detail={"why": "no CIR for this slug; nothing to photograph",
+                              "review_audit_id": row.get("audit_id")})
+            continue
         plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None,
                                gate_open=gates_now(ctx.db))
         job_type = ("assets.model_photography"
@@ -7866,6 +7888,16 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
 
     from ..finance import spend_policy
     from ..gateway import image_bench
+
+    # F-126: superseded by the owner's FLUX 3 ruling. The evidence is retained and marked;
+    # nothing is re-rendered and nothing is spent on a decision already made.
+    # A job input cannot lift it: re-opening the benchmark is a new owner decision and a code
+    # change, not a flag a caller can set.
+    if image_bench.SUPERSEDED["superseded"]:
+        rec = image_bench.superseded_record(ctx.db)
+        return {"ran": False, "superseded": True, "by": rec["by"], "why": rec["why"],
+                "evidence_retained": True, "record": rec["record"],
+                "work_done": 1 if rec["created"] else 0}
 
     # The approved benchmark budget as a stop, not as a number in a report. It was being
     # applied per run, so four runs each stayed inside a figure the owner approved once and

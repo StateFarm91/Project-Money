@@ -419,6 +419,120 @@ def state() -> dict:
     }
 
 
+# ---- runtime wiring (F-505, W4-AGENTS W2) ------------------------------------------------
+#
+# The memory had no runtime caller: `growth.experiments.conclude_all` concluded listing
+# experiments without ever writing what they established, and `persist` registered a test
+# of an idea already disproved in the same context. Both now go through here. Nothing is
+# guessed: a context that cannot be measured from stored records is UNKNOWN, and an UNKNOWN
+# context writes nothing and refuses nothing (it can match no memory entry).
+
+#: The launch-pack experiment (by key suffix, `<product>:<suffix>`) -> the listing variables
+#: it changes. Experiments not named here are not listing tests and never touch the memory.
+EXPERIMENT_VARIABLES: dict[str, tuple[str, ...]] = {
+    "thumbnail": ("thumbnail",), "price": ("price",), "search": ("title", "tags"),
+    "bundle": ("bundle",),
+}
+
+
+def experiment_variables(key: str) -> tuple[str, ...] | None:
+    return EXPERIMENT_VARIABLES.get(str(key or "").rsplit(":", 1)[-1])
+
+
+def _idea_of(variables: tuple[str, ...]) -> str:
+    return variables[0] if len(variables) == 1 else "+".join(sorted(variables))
+
+
+def context_for(db, slug: str) -> tuple[Context | None, str]:
+    """The listing's context from stored records, or (None, why) when any part is UNKNOWN.
+
+    pod and season come from the concept seed (`radar.opportunity.POOL`, the department map
+    `seasonal.daily.DEPARTMENT_OF`); the price band from the drafted listing's price; the
+    shop's maturity from booked orders and the first listing's age -- the same derivation
+    the benchmark observations use (`runtime.growth_ops.benchmark_observations`).
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..radar.opportunity import POOL
+    from ..seasonal.daily import DEPARTMENT_OF
+    from . import benchmarks, orders_ingest
+
+    seed = next((c for c in POOL if c.slug == slug), None)
+    if seed is None:
+        return None, f"{slug}: no concept seed, so its pod and season are UNKNOWN"
+    pod = DEPARTMENT_OF.get(seed.category)
+    if pod not in POD_KEYS:
+        return None, f"{slug}: category {seed.category!r} has no pod (UNKNOWN)"
+    season = seed.season or "none"
+    if season not in SEASONS:
+        return None, f"{slug}: season {season!r} is not on the calendar (UNKNOWN)"
+    with db.session() as s:
+        listings = [r for r in s.scalars(select(Listing)) if r.version != "collection"]
+        held = orders_ingest.held_refs(s)
+        orders = [o for o in orders_ingest.booked_orders(s)
+                  if orders_ingest.countable(o, held)]
+    mine = next((r for r in listings if r.product_slug == slug), None)
+    if mine is None or not (mine.price_cad or 0) > 0:
+        return None, f"{slug}: no drafted listing price, so the price band is UNKNOWN"
+    created = [r.created_at if r.created_at.tzinfo else r.created_at.replace(
+        tzinfo=timezone.utc) for r in listings if r.created_at]
+    days_live = (datetime.now(timezone.utc) - min(created)).days if created else 0
+    maturity = benchmarks.maturity_for(days_live=days_live, orders=len(orders))
+    return Context(pod=pod, price_band=benchmarks.band_for(float(mine.price_cad)),
+                   season=season, shop_maturity=maturity), ""
+
+
+def registration_refusal(db, experiment: Experiment, product_slug: str) -> str | None:
+    """Why this experiment may not be registered: its idea is disproved in this context."""
+    variables = experiment_variables(experiment.key)
+    if not variables or not product_slug:
+        return None
+    ctx, _why = context_for(db, product_slug)
+    if ctx is None:
+        return None
+    with db.session() as s:
+        memory = load(s)
+    verdict = may_test(memory, idea=_idea_of(variables), context=ctx)
+    return None if verdict["may_test"] else f"listing memory (F-505): {verdict['why']}"
+
+
+def remember_conclusion(db, key: str, *, discipline: dict, on: date | None = None) -> dict:
+    """Write a concluded listing experiment to the memory, when it has earned a place."""
+    from sqlalchemy import select
+
+    from ..core.models import RegisteredExperiment
+    from ..growth import experiments as X
+
+    with db.session() as s:
+        row = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+        if row is None:
+            return {"written": False, "why": f"no registered experiment {key!r}"}
+        metric, slug, detail = row.metric, row.product_slug, dict(row.detail or {})
+    if metric not in X.LISTING_METRICS:
+        return {"written": False, "why": f"{metric} is not a listing metric"}
+    variables = experiment_variables(key)
+    if not variables:
+        return {"written": False, "why": f"{key} changes no listing variable"}
+    if detail.get("confounded"):
+        return {"written": False, "why": ("confounded by a launch-variable change (#241): "
+                                          "a confounded result closes nothing")}
+    ctx, why = context_for(db, slug)
+    if ctx is None:
+        return {"written": False, "why": why}
+    pre = X.pre_period(db, key)
+    test = ListingTest(key=key[:80], listing_ref=slug, plan=X.load(db, key),
+                       variables=variables, context=ctx, pre_period_days=pre["days"],
+                       pre_period_value=pre["value"],
+                       window_days=int(((discipline or {}).get("window") or {}).get("days")
+                                       or 0),
+                       exposure=(discipline or {}).get("exposure"))
+    with db.session() as s:
+        return write(s, test, on=on)
+
+
 # ---- variant content and activation (F-779) -----------------------------------------------
 #
 # Conversion work may change the words, the order, the first image and the price. It may not

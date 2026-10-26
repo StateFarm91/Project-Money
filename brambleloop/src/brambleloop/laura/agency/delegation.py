@@ -41,6 +41,9 @@ DEPARTMENTS: dict[str, str] = {
     "operations": "platform",
     "product truth": "product_truth", "qa": "product_truth", "quality": "product_truth",
     "executive": "executive", "coo": "executive",
+    # W4-AGENTS: the Storefront Director staffs Store / Commerce (Master Plan s6/s16).
+    "storefront": "store_commerce", "storefront director": "store_commerce",
+    "brand": "store_commerce", "branding": "store_commerce",
 }
 
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
@@ -133,12 +136,27 @@ def parse(question: str) -> dict | None:
             "task": task[:240], "count": _count(task)}
 
 
+# W4-AGENTS: storefront review/drafting work goes to the Storefront Director as a
+# storefront.review mission (it reads the shop, then records content.draft proposals). A
+# "sale message" is a buyer message, not a price: only price/discount wording stays protected.
+_STOREFRONT = re.compile(r"\b(storefront|announcement|shop sections?|sections|sale messages?|"
+                         r"buyer messages?|digital (sale )?messages?|shop policy|policies|"
+                         r"about (page|text|section)|shop home)\b", re.I)
+_PRICE_WORDS = re.compile(r"\b(price|prices|pricing|discount|coupon)\b", re.I)
+
+
 def plan(d: dict) -> dict:
     """Classify a parsed delegation: refused / protected (owner action) / green mission."""
     task = d["task"]
     for rx, why in _REFUSED:
         if rx.search(task):
             return {**d, "route": "refused", "why": why, "job_type": None}
+    if _STOREFRONT.search(task) and not _PRICE_WORDS.search(task) and not re.search(
+            r"\b(publish|activate|listing)\b", task, re.I):
+        return {**d, "route": "mission", "job_type": "storefront.review",
+                "department": "store_commerce", "gated": [],
+                "why": "storefront review and drafting by the Storefront Director: proposals "
+                       "only; applying one needs the owner's storefront grant"}
     for rx, jt, owner_dept in _PROTECTED:
         if rx.search(task):
             return {**d, "route": "owner_action", "job_type": jt,

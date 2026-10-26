@@ -485,6 +485,35 @@ def make_router(db) -> APIRouter:
                             "approved": bool(body.get("approved"))})
         return ok(out)
 
+    @router.post("/images/runs/identity-review")
+    async def images_identity_review(request: Request):
+        """The owner's review of a held stage-A identity anchor (step-up)."""
+        from ...queue.durable import DuplicateJob, JobQueue
+        from ...visual import image_production
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "images.identity_review")
+        q = JobQueue(db)
+
+        def follow(inputs, key):
+            try:
+                return q.enqueue(image_production.AGENT, image_production.JOB_TYPE, inputs,
+                                 idempotency_key=key)
+            except DuplicateJob:
+                return None
+        try:
+            out = await run_in_threadpool(lambda: image_production.resolve_identity_anchor_review(
+                db, str(body.get("run_key") or ""), decision=str(body.get("decision") or ""),
+                by=actor(request), note=str(body.get("note") or "")[:1000], follow=follow))
+        except ValueError as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        auth.record(db, kind="action", outcome="ok" if out.get("resolved") else "refused",
+                    request=request, session_public_id=auth.current_public_id(request),
+                    detail={"action": "images.identity_review", "run_key": body.get("run_key"),
+                            "decision": body.get("decision")})
+        return ok(out)
+
     @router.post("/images/runs/restart")
     async def images_restart(request: Request):
         from ...queue.durable import DuplicateJob, JobQueue
@@ -775,8 +804,17 @@ def make_router(db) -> APIRouter:
         if approvals.ACTIONS[action][0]:
             auth.require_stepup(db, request, action)
         try:
-            out = await run_in_threadpool(approvals.execute, db, action, body,
-                                          actor=actor(request))
+            if action.startswith("storefront."):
+                # M-2R defence in depth: the owner-request context a storefront grant needs,
+                # set only here, after the session, CSRF/nonce and step-up checks above.
+                from ...ops import storefront_authority as _sfa
+
+                with _sfa.owner_request(auth.current_public_id(request) or "owner"):
+                    out = await run_in_threadpool(approvals.execute, db, action, body,
+                                                  actor=actor(request))
+            else:
+                out = await run_in_threadpool(approvals.execute, db, action, body,
+                                              actor=actor(request))
         except approvals.ActionNotFound as exc:
             raise auth.refuse(db, request, 404, "NOT_FOUND", str(exc), kind="action",
                               session_public_id=auth.current_public_id(request)) from None

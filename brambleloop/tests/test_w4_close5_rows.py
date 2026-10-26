@@ -113,6 +113,11 @@ SCRATCH = {
         "cli", "finance/accounting/shadow_dataset.py::runtime_proof", ("out_dir",)),
     "brand/moat.py::measure_recognisability": ("reading", "brand/moat.py::evidence", ()),
     "core/offsite.py::archive": ("durable", "core/offsite.py::archive", ("AuditLog(",)),
+    # VISNEXT2 (merged into w4-AGENTS): the pipeline definition's references are re-rendered
+    # into scratch only to compare fingerprints with the frozen definition (the durable
+    # evidence); the comparison is returned to `verify`, which the experiment run records.
+    "experiments/controlled.py::verify_pipeline": ("caller", "experiments/controlled.py::verify",
+                                                   ("verify_pipeline(",)),
     "gateway/image_bench.py::run": ("caller", "runtime/release.py::handle_image_benchmark",
                                     ("ctx.audit(",)),
     "gateway/images.py::reference_probe": ("durable", "gateway/images.py::reference_probe",

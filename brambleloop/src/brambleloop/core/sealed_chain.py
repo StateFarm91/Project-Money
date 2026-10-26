@@ -169,11 +169,16 @@ class GrantLedger:
     """
 
     def __init__(self, *, approved: str, revoked: str, rebased: str, principal: str,
-                 seal: Callable[[dict], str], signature: str, label: str) -> None:
+                 seal: Callable[[dict], str], signature: str, label: str,
+                 verify: Callable[[dict, str], bool] | None = None) -> None:
         self.approved, self.revoked, self.rebased = approved, revoked, rebased
         self.actions = (approved, revoked, rebased)
         self.principal = principal
         self._seal = seal
+        # W4-AGENTS M-2: an asymmetric family verifies with a public key, so the process that
+        # verifies (the worker) never holds the key that seals. Without `verify` the seal is
+        # recomputed and compared, as every HMAC family has always done.
+        self._verify = verify
         self.signature = signature
         self.label = label
 
@@ -182,6 +187,13 @@ class GrantLedger:
 
         d = dict(detail or {})
         seal = d.pop("seal", "")
+        if self._verify is not None:
+            try:
+                ok = bool(self._verify(d, str(seal)))
+            except ValueError:
+                return "verification key unavailable, so no grant row can be verified"
+            return None if ok else (f"{self.label} row seal invalid (edited, hand-inserted or "
+                                    f"key rotated)")
         try:
             expected = self._seal(d)
         except ValueError:

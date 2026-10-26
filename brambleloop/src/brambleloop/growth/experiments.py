@@ -282,7 +282,7 @@ def persist(db, experiment: Experiment, *, product_slug: str = "",
     if not experiment.owner.strip():
         raise ExperimentRefused(
             f"{experiment.key}: an experiment with no owner is one nobody reads the result of")
-    kill = experiment.kill_reason()
+    kill = experiment.kill_reason() or _memory_refusal(db, experiment, product_slug)
     state = (KILLED if kill else
              GATED if experiment.gated_on and gate_open is not True else REGISTERED)
     with db.session() as s:
@@ -307,6 +307,14 @@ def persist(db, experiment: Experiment, *, product_slug: str = "",
                                    **fields)
         s.add(row)
     return {"key": experiment.key, "created": True, "state": state, "killed_reason": kill}
+
+
+def _memory_refusal(db, experiment: Experiment, product_slug: str) -> str | None:
+    """F-505: an idea the listing memory holds as disproved in this context is not
+    registered again (stored as killed, with the disproof as its reason)."""
+    from ..commerce import listing_tests
+
+    return listing_tests.registration_refusal(db, experiment, product_slug)
 
 
 def load(db, key: str) -> Experiment:
@@ -533,6 +541,32 @@ def listing_discipline(db, row, reading: dict) -> dict:
     return {"applies": True, "may_conclude": not problems, "problems": problems,
             "exposure": reading.get("exposure"), "window": reading.get("window"),
             "baseline": baseline}
+
+
+def pre_period(db, key: str) -> dict:
+    """F-505: the listing metric over the recorded periods BEFORE registration -- the
+    baseline a listing test needs. UNMEASURED (value None) when nothing was recorded."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingOutcome, RegisteredExperiment
+
+    with db.session() as s:
+        row = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+        since = _aware(row.created_at).date().isoformat() if row and row.created_at else ""
+        before = [o for o in s.scalars(select(ListingOutcome).where(
+            ListingOutcome.product_slug == (row.product_slug if row else "")))
+            if since and (o.period_end or "") < since]
+        metric = row.metric if row else ""
+    days = _window(before)["days"]
+    value = None
+    if metric == "listing_click_through_rate":
+        imp = sum(int(o.impressions or 0) for o in before)
+        value = round(sum(int(o.visits or 0) for o in before) / imp, 5) if imp else None
+    elif metric == "conversion_rate":
+        counted = [o for o in before if o.orders is not None]
+        visits = sum(int(o.visits or 0) for o in counted)
+        value = round(sum(int(o.orders) for o in counted) / visits, 5) if visits else None
+    return {"days": days, "value": value}
 
 
 def control_present(db, row) -> dict:
@@ -774,7 +808,19 @@ def conclude_all(db, *, today: date | None = None) -> dict:
                                       "at": datetime.now(timezone.utc).isoformat()}
             fresh.detail = detail
             state = fresh.state
+        memory = None
+        if state == CONCLUDED and discipline.get("applies"):
+            # F-505: what the conclusion established goes to the listing memory, under its
+            # own discipline (exposure, pre-period, window, confounders, one variable).
+            from ..commerce import listing_tests
+
+            try:
+                memory = listing_tests.remember_conclusion(db, key, discipline=discipline,
+                                                           on=today)
+            except listing_tests.ListingTestRefused as exc:
+                memory = {"written": False, "why": str(exc)}
         results.append({"key": key, "state": state, "concluded": state == CONCLUDED,
+                        "memory": memory,
                         "verdict": verdict.get("verdict"), "causal": causal,
                         "measured_effect": attr["measured_effect"],
                         "retain_or_rollback": attr["retain_or_rollback"],

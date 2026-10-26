@@ -78,6 +78,23 @@ SAFE_GENERATED: dict[str, str] = {
     "improve.monitor": "docstring: 'GREEN: reads capability points, may revert an "
                        "improvement row, writes an audit record'",
     "learn.scan": "learn agent: 'no publication/spend', CA$0 ceiling",
+    # W4-AGENTS: the Storefront Director's review. Reads stored getShop/shop_sync readings
+    # and owner observations; writes a review row and (only) queues content.draft, which
+    # records proposals. No network, no Etsy write, CA$0 (runtime.storefront_ops).
+    "creative.family_engine": "runtime.engineering_ops: reads certified releases, the radar "
+                              "pool and orders; one reading; creates no product; CA$0",
+    "gate.quality": "runtime.quality_ops: re-runs the certificate's deterministic stages on "
+                    "already-certified releases; never certifies or blocks; a disagreement is "
+                    "a non-halting P2 incident; CA$0",
+    "storefront.review": "runtime.storefront_ops: reads stored readings, writes a review "
+                         "row and queues content.draft proposals; no Etsy write, CA$0",
+    # W4-AGENTS W3: the Research Agent's self-trigger. Reads research tasks, lessons and the
+    # repository research record; writes task rows and audit rows; no network, no model, CA$0.
+    "creative.photo_principles": "runtime.engineering_ops + visual.photo_principles: reads "
+                                 "judged benchmark shot types and the shot plans; one "
+                                 "reading; changes no plan; CA$0",
+    "research.sweep": "runtime.intel_ops + intel.research_agent: internal retrieval only; "
+                      "writes research-task and audit rows; CA$0",
 }
 
 
@@ -177,11 +194,11 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="intelligence", name="Intelligence",
        mission="Observe demand, benchmarks, trends and seasonality from sanctioned sources "
                "and turn them into scored opportunities.",
-       agents=("market_radar",),
-       prefixes=("radar.", "mjs.", "intel.", "culture."),
+       agents=("market_radar", "research_agent"),
+       prefixes=("radar.", "mjs.", "intel.", "culture.", "research."),
        job_types={"etsy.probe", "teardown.enforce"},
        generatable=("radar.score", "intel.benchmark_refresh", "intel.pod_learning",
-                    "autonomy.department_review"),
+                    "autonomy.department_review", "research.sweep"),
        forbidden=("copy competitor instructions, charts or photography",
                   "buy benchmarks or spend beyond its ceiling"),
        inputs=("benchmark_listings", "coverage_gaps", "culture_signals", "serp_snapshots"),
@@ -199,6 +216,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("creative.", "seasonal."),
        job_types={"cir.draft", "cir.revise", "collection.assemble"},
        generatable=("seasonal.sentinel", "creative.outcome_learning",
+                    "creative.family_engine", "creative.photo_principles",
                     "autonomy.department_review"),
        forbidden=("create a beauty image and ask a model to guess instructions",
                   "certify its own pattern"),
@@ -217,7 +235,8 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("gate.", "physical.", "cir.compile", "cir.twin", "cir.reverse"),
        job_types={"ops.sentinel", "ops.provenance_backfill", "cir.compile", "cir.twin",
                   "cir.reverse"},
-       generatable=("ops.sentinel", "physical.upgrade_impact", "autonomy.department_review"),
+       generatable=("ops.sentinel", "physical.upgrade_impact", "gate.quality",
+                    "autonomy.department_review"),
        forbidden=("weaken a gate", "certify without deterministic validation"),
        inputs=("pattern_versions", "artefact_provenance", "incidents", "listing_assets"),
        outputs=("certificates", "incidents", "audit ops.sentinel"),
@@ -250,12 +269,13 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="store_commerce", name="Store / Commerce",
        mission="Turn certified releases into correct listings, keep the shop's read-back true, "
                "and prepare (never perform) publication for owner approval.",
-       agents=("listing", "store_operator", "pricing"),
+       agents=("listing", "store_operator", "pricing", "storefront_director"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
-                 "etsy.listing", "seo."),
+                 "etsy.listing", "seo.", "storefront."),
        job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
                   "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify"},
-       generatable=("seasonal.remerchandising", "seo.cycle", "autonomy.department_review"),
+       generatable=("seasonal.remerchandising", "seo.cycle", "storefront.review",
+                    "autonomy.department_review"),
        forbidden=("publish or activate a listing without owner authority",
                   "change a live price"),
        inputs=("pattern_versions", "listings", "etsy snapshots"),

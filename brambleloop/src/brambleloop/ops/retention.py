@@ -177,6 +177,31 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # would refuse every grant and drop the recorded phase to shadow).
     "owner.phase.transition": ("lifetime_total",
                                "core.phase.chain verifies every transition from genesis"),
+    # W4-AGENTS (found in W5): the storefront grant family is a sealed chain like the
+    # publication one (`ops.storefront_authority` over `core.sealed_chain.GrantLedger`), read
+    # through constants, so the literal scan below never saw it. Pruning one row would refuse
+    # every storefront grant (fail closed) and raise a tamper incident.
+    "owner.storefront.approved": ("lifetime_total",
+                                  "ops.storefront_authority grant chain (sealed_chain)"),
+    "owner.storefront.revoked": ("lifetime_total",
+                                 "ops.storefront_authority grant chain (sealed_chain)"),
+    "owner.storefront.rebased": ("lifetime_total",
+                                 "ops.storefront_authority grant chain (sealed_chain)"),
+    # W4-AGENTS readers that name their action through a constant:
+    "quality.reverified": ("windowed", "runtime.quality_ops.next_work reads the last 24 h"),
+    "research.investigated": ("lifetime_total",
+                              "intel.research_agent.metrics counts every investigation "
+                              "(reuse rate); _unchanged_runs reads the newest ten"),
+    "research.architecture_flag": ("windowed", "intel.research_agent.architecture_flags reads "
+                                               "35 days for the weekly review"),
+    # F-126 (superseded evidence retention): the benchmark's trials and candidates are the
+    # evidence the superseded record keeps; the superseded record is read as the newest row.
+    "image.benchmark_trial": ("lifetime_total", "gateway.image_bench superseded evidence "
+                                                "(F-126) and the trial history"),
+    "image.benchmark_candidate": ("lifetime_total", "gateway.image_bench superseded evidence "
+                                                    "(F-126)"),
+    "image.benchmark_superseded": ("latest", "gateway.image_bench.superseded_record reads "
+                                             "the newest row"),
     "owner.publication.approved": ("lifetime_total",
                                    "ops.publication_authority grant chain (sealed_chain)"),
     "owner.publication.revoked": ("lifetime_total",

@@ -39,6 +39,12 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # write, so they could never open. These are those doors; each records only.
     "acceptance.rule": (True, "record the owner's ruling on the API+vision acceptance wording"),
     "ads.set_limit": (True, "set the owner's ads SpendLimit (capped at the conservative caps)"),
+    # W4-AGENTS M-1: storefront grants (announcement, buyer messages, sections). Owner session,
+    # CSRF/nonce and a fresh step-up for approve and rebase; preview reads; revoke tightens.
+    "storefront.preview": (False, "read the exact storefront change a grant would bind"),
+    "storefront.approve": (True, "record a signed 24 h owner storefront grant"),
+    "storefront.revoke": (False, "revoke a storefront grant (tightens)"),
+    "storefront.rebase": (True, "re-anchor the storefront grant chain (voids earlier grants)"),
 }
 
 #: The two answers the `acceptance_ruling` gate asks for (#189/#221/#222/#320). Either opens
@@ -470,6 +476,31 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 # would report success for nothing and pre-revoke a future id (audit L2).
                 raise ActionNotFound(f"no {action.split('.')[0]} grant {ident}")
             result = mod.revoke(db, authorization=_ops_token(), approval_id=ident)
+        elif action.startswith("storefront."):
+            from ...ops import storefront_authority as sfa
+
+            if action == "storefront.preview":
+                content = sfa.snapshot(db, body.get("proposal"))
+                return {"result": {"content": content, "digest": sfa.digest(content)},
+                        "audit_id": None}
+            if action == "storefront.approve":
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                # Only reached after the route's require_stepup (ACTIONS[...][0] is True).
+                result = sfa.approve(db, actor=actor, proposal=body.get("proposal"),
+                                     expected_digest=body.get("expected_digest"),
+                                     reason=tagged, stepped_up=True)
+            elif action == "storefront.revoke":
+                ident = _int(body, "approval_id")
+                with db.session() as s:
+                    row = s.get(AuditLog, ident)
+                    if row is None or row.action != sfa.APPROVED:
+                        raise ActionNotFound(f"no storefront grant {ident}")
+                result = sfa.revoke(db, approval_id=ident, actor=actor)
+            else:
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                result = sfa.rebase(db, actor=actor, reason=reason, stepped_up=True)
         elif action == "improvement.approve":
             from ...improve import cells
 

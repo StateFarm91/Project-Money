@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T14:02:48.730826+00:00",
+ "generated_at": "2026-10-26T14:03:11.515260+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 115,
-  "handlers": 136,
-  "agents": 30,
-  "follow_on_edges": 68
+  "cadences": 126,
+  "handlers": 156,
+  "agents": 32,
+  "follow_on_edges": 80
  },
  "departments": [
   {
@@ -260,23 +260,27 @@
    "mission": "Observe demand, benchmarks, trends and seasonality from sanctioned sources and turn them into scored opportunities.",
    "agents": [
     "market_radar",
-    "orchestrator"
+    "orchestrator",
+    "research_agent"
    ],
    "charter_agents": [
-    "market_radar"
+    "market_radar",
+    "research_agent"
    ],
    "authority": {
     "generatable": [
      "radar.score",
      "intel.benchmark_refresh",
      "intel.pod_learning",
-     "autonomy.department_review"
+     "autonomy.department_review",
+     "research.sweep"
     ],
     "generatable_agents": {
      "radar.score": "market_radar",
      "intel.benchmark_refresh": "market_radar",
      "intel.pod_learning": "market_radar",
-     "autonomy.department_review": "coo"
+     "autonomy.department_review": "coo",
+     "research.sweep": "research_agent"
     },
     "forbidden": [
      "copy competitor instructions, charts or photography",
@@ -378,16 +382,37 @@
       "agent": "orchestrator",
       "job_type": "teardown.enforce",
       "period_seconds": 86400
+     },
+     {
+      "name": "competitor_snapshot",
+      "agent": "market_radar",
+      "job_type": "radar.competitor_snapshot",
+      "period_seconds": 86400
+     },
+     {
+      "name": "research_sweep",
+      "agent": "research_agent",
+      "job_type": "research.sweep",
+      "period_seconds": 86400
+     },
+     {
+      "name": "children_portfolio",
+      "agent": "market_radar",
+      "job_type": "intel.children_portfolio",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "app/command_center/etsy_connect.py:recheck",
+     "intel/research_agent.py:request_architecture_review",
+     "intel/research_agent.py:request_research",
      "owner/API route api_etsy_probe",
      "owner/API route api_mjs_scan",
      "plan.cycle",
      "portfolio.review",
      "radar.scan",
+     "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
     ]
    },
@@ -414,7 +439,8 @@
     ],
     "overdue_cadence_catch_up": [
      "intel.benchmark_refresh",
-     "intel.pod_learning"
+     "intel.pod_learning",
+     "research.sweep"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -422,6 +448,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
@@ -431,6 +458,7 @@
      "intel.acceptance",
      "intel.benchmark_health",
      "intel.benchmark_refresh",
+     "intel.children_portfolio",
      "intel.gallery_analysis",
      "intel.panel_discovery",
      "intel.pod_learning",
@@ -438,13 +466,15 @@
      "mjs.reviews",
      "mjs.scan",
      "mjs.seasonal_sentinel",
+     "radar.competitor_snapshot",
      "radar.scan",
      "radar.score",
+     "research.flag_architecture",
+     "research.investigate",
+     "research.sweep",
      "teardown.enforce"
     ],
-    "permitted_without_handler": [
-     "radar.competitor_snapshot"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "coverage_gaps scores",
@@ -509,11 +539,15 @@
     "generatable": [
      "seasonal.sentinel",
      "creative.outcome_learning",
+     "creative.family_engine",
+     "creative.photo_principles",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.sentinel": "orchestrator",
      "creative.outcome_learning": "creative_director",
+     "creative.family_engine": "creative_director",
+     "creative.photo_principles": "creative_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -628,11 +662,36 @@
       "agent": "creative_director",
       "job_type": "creative.tournament",
       "period_seconds": 604800
+     },
+     {
+      "name": "family_engine",
+      "agent": "creative_director",
+      "job_type": "creative.family_engine",
+      "period_seconds": 86400
+     },
+     {
+      "name": "photo_principles",
+      "agent": "creative_director",
+      "job_type": "creative.photo_principles",
+      "period_seconds": 86400
+     },
+     {
+      "name": "salvage_review",
+      "agent": "creative_director",
+      "job_type": "creative.salvage_review",
+      "period_seconds": 604800
+     },
+     {
+      "name": "capability_scorecard",
+      "agent": "creative_director",
+      "job_type": "creative.capability_scorecard",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "chain.rebuild",
+     "cir.compile",
      "cir.draft",
      "creative/intake.py:intake",
      "creative/intake.py:regate_held",
@@ -667,7 +726,9 @@
     ],
     "overdue_cadence_catch_up": [
      "seasonal.sentinel",
-     "creative.outcome_learning"
+     "creative.outcome_learning",
+     "creative.family_engine",
+     "creative.photo_principles"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -675,23 +736,29 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:product_design:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.engineering_ops",
      "brambleloop.runtime.orders",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
      "cir.draft",
+     "cir.revise",
      "collection.assemble",
      "creative.benchmark_memory",
      "creative.blind_review",
      "creative.blinded",
      "creative.candidates_file",
+     "creative.capability_scorecard",
      "creative.expedition",
+     "creative.family_engine",
      "creative.four_season",
      "creative.grid_tournament",
      "creative.north_star",
      "creative.outcome_learning",
+     "creative.photo_principles",
      "creative.reference_reading",
+     "creative.salvage_review",
      "creative.style_learning",
      "creative.tournament",
      "creative.white_space",
@@ -699,9 +766,7 @@
      "seasonal.harvest",
      "seasonal.sentinel"
     ],
-    "permitted_without_handler": [
-     "cir.revise"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "CIR drafts",
@@ -716,6 +781,10 @@
    "follow_on": [
     {
      "from": "cir.draft",
+     "to": "cir.compile"
+    },
+    {
+     "from": "cir.revise",
      "to": "cir.compile"
     }
    ],
@@ -760,11 +829,13 @@
     "generatable": [
      "ops.sentinel",
      "physical.upgrade_impact",
+     "gate.quality",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "ops.sentinel": "orchestrator",
      "physical.upgrade_impact": "quality_director",
+     "gate.quality": "quality_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -807,13 +878,21 @@
       "agent": "orchestrator",
       "job_type": "ops.sentinel",
       "period_seconds": 3600
+     },
+     {
+      "name": "quality_reverify",
+      "agent": "quality_director",
+      "job_type": "gate.quality",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "cir.compile",
      "cir.draft",
+     "cir.revise",
      "gate.certify",
+     "gate.quality",
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
      "runtime/pipeline.py:_draft_creative",
@@ -841,7 +920,8 @@
     ],
     "overdue_cadence_catch_up": [
      "ops.sentinel",
-     "physical.upgrade_impact"
+     "physical.upgrade_impact",
+     "gate.quality"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -850,25 +930,25 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
      "cir.compile",
+     "cir.reverse",
+     "cir.twin",
+     "gate.asset_truth",
      "gate.certify",
      "gate.lanes",
+     "gate.policy",
+     "gate.quality",
      "ops.provenance_backfill",
      "ops.sentinel",
      "physical.photo",
      "physical.record",
      "physical.upgrade_impact"
     ],
-    "permitted_without_handler": [
-     "cir.reverse",
-     "cir.twin",
-     "gate.asset_truth",
-     "gate.policy",
-     "gate.quality"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "certificates",
@@ -881,6 +961,10 @@
     "learn"
    ],
    "follow_on": [
+    {
+     "from": "cir.compile",
+     "to": "cir.revise"
+    },
     {
      "from": "gate.certify",
      "to": "listing.draft"
@@ -986,6 +1070,12 @@
       "period_seconds": 604800
      },
      {
+      "name": "model_ledger",
+      "agent": "publishing",
+      "job_type": "visual.model_ledger",
+      "period_seconds": 86400
+     },
+     {
       "name": "visual_rnd",
       "agent": "publishing",
       "job_type": "visual.rnd.cycle",
@@ -1004,6 +1094,7 @@
      "runtime/release.py:_intake_photo",
      "runtime/release.py:enqueue",
      "runtime/release.py:follow",
+     "visual.controlled_experiment",
      "visual.image_production"
     ]
    },
@@ -1038,6 +1129,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -1055,6 +1147,7 @@
      "visual.controlled_experiment",
      "visual.identity_drift",
      "visual.image_production",
+     "visual.model_ledger",
      "visual.portrait_repair",
      "visual.provider_trial",
      "visual.rnd.cycle"
@@ -1125,22 +1218,26 @@
     "listing",
     "orchestrator",
     "pricing",
-    "store_operator"
+    "store_operator",
+    "storefront_director"
    ],
    "charter_agents": [
     "listing",
     "store_operator",
-    "pricing"
+    "pricing",
+    "storefront_director"
    ],
    "authority": {
     "generatable": [
      "seasonal.remerchandising",
      "seo.cycle",
+     "storefront.review",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.remerchandising": "listing",
      "seo.cycle": "listing",
+     "storefront.review": "storefront_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1203,6 +1300,18 @@
       "period_seconds": 86400
      },
      {
+      "name": "storefront_review",
+      "agent": "storefront_director",
+      "job_type": "storefront.review",
+      "period_seconds": 86400
+     },
+     {
+      "name": "cross_sell_graph",
+      "agent": "listing",
+      "job_type": "listing.cross_sell_graph",
+      "period_seconds": 86400
+     },
+     {
       "name": "etsy_openapi_reverify",
       "agent": "orchestrator",
       "job_type": "etsy.openapi_reverify",
@@ -1233,6 +1342,7 @@
      "app/command_center/api.py:store_settings_sync",
      "assets.build",
      "chain.rebuild",
+     "content.draft",
      "gate.certify",
      "growth.steer",
      "integrations/taxonomy_drift.py:after_refresh",
@@ -1268,7 +1378,8 @@
     ],
     "overdue_cadence_catch_up": [
      "seasonal.remerchandising",
-     "seo.cycle"
+     "seo.cycle",
+     "storefront.review"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": [
@@ -1278,10 +1389,12 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:store_commerce:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.engineering_ops",
      "brambleloop.runtime.etsy_ops",
      "brambleloop.runtime.listing_outcomes",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
      "brambleloop.seo.handler"
     ],
@@ -1291,6 +1404,7 @@
      "etsy.listing_census",
      "etsy.openapi_reverify",
      "etsy.shop_snapshot",
+     "listing.cross_sell_graph",
      "listing.draft",
      "listing.outcomes",
      "listing.search_visibility_watch",
@@ -1301,11 +1415,12 @@
      "seo.cycle",
      "store.activate",
      "store.live_drift",
-     "store.publish"
+     "store.publish",
+     "store.update",
+     "storefront.review"
     ],
     "permitted_without_handler": [
-     "pricing.experiment",
-     "store.update"
+     "pricing.experiment"
     ]
    },
    "durable_output": [
@@ -1333,6 +1448,10 @@
     {
      "from": "listing.seo",
      "to": "launch.plan"
+    },
+    {
+     "from": "storefront.review",
+     "to": "content.draft"
     }
    ],
    "learning_signal": [
@@ -1671,6 +1790,7 @@
     "ads",
     "experiment_steward",
     "growth",
+    "storefront_director",
     "swarm_steward"
    ],
    "charter_agents": [
@@ -1762,7 +1882,8 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "ads.adjust",
-     "launch.plan"
+     "launch.plan",
+     "storefront.review"
     ]
    },
    "cadence": [
@@ -1803,11 +1924,13 @@
     "handler_modules": [
      "brambleloop.runtime.growth_ops",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.v11_wiring"
     ],
     "executable_job_types": [
      "ads.adjust",
      "ads.campaign",
+     "content.draft",
      "growth.conclude",
      "growth.distribution",
      "growth.experiments",
@@ -1817,9 +1940,7 @@
      "marketing.ads_readiness",
      "marketing.schedule"
     ],
-    "permitted_without_handler": [
-     "content.draft"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "distribution plans",
@@ -1831,6 +1952,10 @@
     "learn"
    ],
    "follow_on": [
+    {
+     "from": "content.draft",
+     "to": "store.update"
+    },
     {
      "from": "growth.steer",
      "to": "chain.rebuild"
@@ -2344,75 +2469,6 @@
  "broken_links": [
   {
    "kind": "permission_without_handler",
-   "agent": "market_radar",
-   "job_types": [
-    "radar.competitor_snapshot"
-   ],
-   "department": [
-    "intelligence"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "crochet_engineer",
-   "job_types": [
-    "cir.revise"
-   ],
-   "department": [
-    "product_design"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "validator",
-   "job_types": [
-    "cir.reverse",
-    "cir.twin"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "quality_director",
-   "job_types": [
-    "gate.quality"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "asset_truth",
-   "job_types": [
-    "gate.asset_truth"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "agent_can_run_nothing",
-   "agent": "asset_truth"
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "policy",
-   "job_types": [
-    "gate.policy"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "agent_can_run_nothing",
-   "agent": "policy"
-  },
-  {
-   "kind": "permission_without_handler",
    "agent": "publishing",
    "job_types": [
     "assets.render"
@@ -2423,29 +2479,9 @@
   },
   {
    "kind": "permission_without_handler",
-   "agent": "growth",
-   "job_types": [
-    "content.draft"
-   ],
-   "department": [
-    "growth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
    "agent": "pricing",
    "job_types": [
     "pricing.experiment"
-   ],
-   "department": [
-    "store_commerce"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "store_operator",
-   "job_types": [
-    "store.update"
    ],
    "department": [
     "store_commerce"
@@ -2540,7 +2576,7 @@
    "departments": "product_truth",
    "link": "execution",
    "finding": "Registry permissions with no handler: gate.quality, gate.policy, gate.asset_truth, cir.twin, cir.reverse (and cir.revise, assets.render, content.draft, store.update, pricing.experiment, radar.competitor_snapshot). Agents asset_truth and policy hold only unhandled job types, so they can never run anything.",
-   "status": "DECIDED (v1.1 wiring): kept as declared-but-unbuilt",
+   "status": "PARTLY REPAIRED (W4-AGENTS): content.draft, store.update, gate.quality, gate.policy, gate.asset_truth, cir.twin and cir.reverse now have handlers; the quality ones re-verify already-certified releases only and are never a verdict path (runtime.quality_ops). The rest stay declared-but-unbuilt",
    "repair": "gate.quality/gate.policy/gate.asset_truth/cir.twin/cir.reverse already execute in-process inside gate.certify (gates.certificate.certify: build_twin, reverse_compare, check_assets, check_listing), so standalone handlers would be a second, uncertified verdict path; the rest are unbuilt capabilities (store.update and pricing.experiment are protected). The set is pinned by tests/test_roles.py DECLARED_BUT_UNBUILT (recorded decision). See research/final_build/v1_1/WIRING_REPORT.md"
   },
   {

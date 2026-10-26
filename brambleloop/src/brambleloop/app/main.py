@@ -110,11 +110,13 @@ app.add_middleware(security.OwnerTextScrubMiddleware, refs_provider=_owner_inbox
 app.add_middleware(security.SecurityHeadersMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
+from .storefront_authority_api import make_router as storefront_authority_router
 from .phase_api import make_router as phase_router
 from .ledger_mapping_api import make_router as ledger_mapping_router
 
 app.include_router(activation_authority_router(db))
 app.include_router(publication_authority_router(db))
+app.include_router(storefront_authority_router(db))  # W4-AGENTS
 app.include_router(phase_router(db))
 app.include_router(ledger_mapping_router(db))
 from ..learn.api import router as learn_router

@@ -325,6 +325,60 @@ def live_inspection(db) -> dict:
                     "inspection")}
 
 
+LIVE_FRESH_DAYS = 7
+
+
+def live_text(db, *, now: float | None = None) -> dict:
+    """F-239 on the shop Etsy actually holds: the live announcement's phone opening and the
+    live section titles at one phone-menu line, from the newest stored readings (getShop and
+    shop_sync). No reading, or a stale one, is UNKNOWN -- never a pass -- and a failure is
+    reported, never fixed here: the owner's live text stands (the Storefront Director may
+    propose; the owner decides)."""
+    import time as _t
+
+    now = now if now is not None else _t.time()
+    try:
+        from ..runtime.etsy_ops import latest_reading
+        from ..store_foundation import live_state
+
+        shop_r = latest_reading(db, live_state.SHOP_READING) if db is not None else None
+        sync_r = latest_reading(db, live_state.SYNC_READING) if db is not None else None
+    except Exception:  # noqa: BLE001 - unreadable readings are no evidence
+        shop_r = sync_r = None
+
+    def _state(r):
+        if not r or r.get("observed_at") is None:
+            return "UNKNOWN"
+        age = (now - float(r["observed_at"])) / 86400.0
+        return "FRESH" if 0 <= age <= LIVE_FRESH_DAYS else "STALE"
+
+    out = {"basis": "live_readings", "problems": []}
+    st = _state(shop_r)
+    body = (shop_r or {}).get("shop") if isinstance((shop_r or {}).get("shop"), dict) else None
+    if st != "FRESH" or body is None or "announcement" not in body:
+        out["announcement"] = {"state": "UNKNOWN" if st == "FRESH" else st, "ok": None,
+                               "why": "no fresh getShop reading holds the announcement"}
+    else:
+        a = announcement_opening(body.get("announcement") or "")
+        out["announcement"] = {"state": "FRESH", **a}
+        out["problems"] += [f"live {p}" for p in a["problems"]]
+    st = _state(sync_r)
+    secs = (sync_r or {}).get("sections")
+    if st != "FRESH" or not isinstance(secs, list):
+        out["sections"] = {"state": "UNKNOWN" if st == "FRESH" else st, "ok": None,
+                           "why": "no fresh shop_sync reading holds the sections"}
+    else:
+        titles = [str(x.get("title") or "") for x in secs if isinstance(x, dict)]
+        long_ = [t for t in titles if len(t) > SECTION_LABEL_MAX]
+        probs = [f"live sections: {t!r} is longer than one phone-menu line" for t in long_]
+        out["sections"] = {"state": "FRESH", "titles": titles, "ok": not probs,
+                           "problems": probs}
+        out["problems"] += probs
+    out["ok"] = (None if any(out[k]["ok"] is None for k in ("announcement", "sections"))
+                 else not out["problems"])
+    return out
+
+
 def preview(db, *, today=None, icon=None, banner=None, grid: dict | None = None,
             store_root=None) -> dict:
     """The whole pre-launch storefront preview, measured, at phone and desktop widths."""
@@ -375,4 +429,8 @@ def preview(db, *, today=None, icon=None, banner=None, grid: dict | None = None,
                         "phone_announcement_chars": PHONE_ANNOUNCEMENT_CHARS,
                         "basis": ASSUMED},
         "live_inspection": live_inspection(db),
+        # W4-AGENTS W6: the live shop's own text at phone width. Reported beside the
+        # simulation and not folded into this pre-launch verdict: the live text is the
+        # owner's, and a failure goes to the Storefront Director's review as advisory.
+        "live_text": live_text(db),
     }
