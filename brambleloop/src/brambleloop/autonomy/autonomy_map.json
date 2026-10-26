@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T14:03:11.515260+00:00",
+ "generated_at": "2026-10-26T22:28:40.328908+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 126,
-  "handlers": 156,
+  "cadences": 128,
+  "handlers": 159,
   "agents": 32,
   "follow_on_edges": 80
  },
@@ -273,14 +273,16 @@
      "intel.benchmark_refresh",
      "intel.pod_learning",
      "autonomy.department_review",
-     "research.sweep"
+     "research.sweep",
+     "intel.opportunity_review"
     ],
     "generatable_agents": {
      "radar.score": "market_radar",
      "intel.benchmark_refresh": "market_radar",
      "intel.pod_learning": "market_radar",
      "autonomy.department_review": "coo",
-     "research.sweep": "research_agent"
+     "research.sweep": "research_agent",
+     "intel.opportunity_review": "market_radar"
     },
     "forbidden": [
      "copy competitor instructions, charts or photography",
@@ -390,6 +392,18 @@
       "period_seconds": 86400
      },
      {
+      "name": "watchlist_scan",
+      "agent": "market_radar",
+      "job_type": "intel.watchlist_scan",
+      "period_seconds": 21600
+     },
+     {
+      "name": "watchlist_compare",
+      "agent": "market_radar",
+      "job_type": "intel.watchlist_compare",
+      "period_seconds": 86400
+     },
+     {
       "name": "research_sweep",
       "agent": "research_agent",
       "job_type": "research.sweep",
@@ -460,9 +474,12 @@
      "intel.benchmark_refresh",
      "intel.children_portfolio",
      "intel.gallery_analysis",
+     "intel.opportunity_review",
      "intel.panel_discovery",
      "intel.pod_learning",
      "intel.serp_capture",
+     "intel.watchlist_compare",
+     "intel.watchlist_scan",
      "mjs.reviews",
      "mjs.scan",
      "mjs.seasonal_sentinel",

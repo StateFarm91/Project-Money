@@ -89,6 +89,9 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
+                            # W4-INTELREC: the owner's permanent watchlist.
+                            "intel.watchlist_scan", "intel.watchlist_compare",
+                            "intel.opportunity_review",
                             "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
                             # #206 / #226 / #311: MJs URL health, pod learning, deadlines.

@@ -775,8 +775,10 @@ def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callabl
             unknown.append(rule.key)
         elif got:
             present.append((rule, what, value))
-    tokens = [rights.ProtectedToken(benchmarks.MJS_SHOP, rights.LOGO,
-                                    source="the benchmark shop's name")]
+    # W4-INTELREC: the shop this listing came from (any watchlist member), not always Mrs J.
+    _spec = benchmarks.spec_for(key)
+    tokens = [rights.ProtectedToken(_spec.shop_name if _spec else benchmarks.MJS_SHOP,
+                                    rights.LOGO, source="the benchmark shop's name")]
     mechanisms = [mech.Mechanism(listing_ref=ref, klass=r.klass, what=what, effect=r.effect,
                                  evidence_ref=evidence_ref, pod=pod)
                   for r, what, _v in present]

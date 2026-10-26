@@ -357,14 +357,16 @@ def test_repetition_moves_nothing_and_contradiction_raises_a_challenger_that_win
 def test_benchmark_health_is_unverified_without_a_capability_and_refuses_a_stranger():
     db = _db()
     out = _run(db, "intel.benchmark_health")
-    assert out["states"] == ["unverified"] and out["capability"] == "unverified"
+    # W4-INTELREC: the registry holds the owner's four watchlist shops (MJs first).
+    n = len(benchmarks.REGISTRY)
+    assert out["states"] == ["unverified"] * n and out["capability"] == "unverified"
 
     saved = benchmarks.fetcher_for
     try:
         benchmarks.fetcher_for = lambda db, env=None: (
             lambda url: (200, "https://www.etsy.com/ca/shop/Impostor"))
         out = _run(db, "intel.benchmark_health")
-        assert out["states"] == ["wrong_shop"] and out["incidents_opened"]
+        assert out["states"] == ["wrong_shop"] * n and out["incidents_opened"]
         with db.session() as s:
             row = s.scalar(select(Benchmark).where(Benchmark.key == benchmarks.MJS_KEY))
             assert row.canonical_url == benchmarks.MJS_CANONICAL_URL
@@ -375,7 +377,8 @@ def test_benchmark_health_is_unverified_without_a_capability_and_refuses_a_stran
         moved = "https://www.etsy.com/shop/MJsOffTheHookDesigns"
         benchmarks.fetcher_for = lambda db, env=None: (lambda url: (200, moved))
         out = _run(db, "intel.benchmark_health")
-        assert out["states"] == ["moved"]
+        # MJs's own route moved; every other shop is refused, never re-pointed at MJs.
+        assert out["states"] == ["moved"] + ["wrong_shop"] * (n - 1)
         benchmarks.seed(db)   # a deploy must not put the old route back
         with db.session() as s:
             row = s.scalar(select(Benchmark).where(Benchmark.key == benchmarks.MJS_KEY))

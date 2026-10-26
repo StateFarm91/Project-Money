@@ -33,6 +33,8 @@ SAFE_GENERATED: dict[str, str] = {
     "autonomy.morning_handoff": "reads jobs/costs/incidents/owner actions, writes a brief",
     "scale.trajectory": "nightly scenario analysis over stored orders; no external call",
     "radar.score": "scores the coverage gap queue; listed non-spending in swarm BACKLOG_JOBS",
+    "intel.opportunity_review": "one decision per validated watchlist gap; writes memory and "
+                                "queues existing jobs, bounded per run; spends nothing itself",
     "intel.benchmark_refresh": "benchmark refresh recommendations; cadence comment: 'free'",
     "intel.pod_learning": "pod capability readings from stored observations",
     "seasonal.sentinel": "docstring: 'publishes nothing, spends nothing, contacts nobody'",
@@ -198,7 +200,9 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("radar.", "mjs.", "intel.", "culture.", "research."),
        job_types={"etsy.probe", "teardown.enforce"},
        generatable=("radar.score", "intel.benchmark_refresh", "intel.pod_learning",
-                    "autonomy.department_review", "research.sweep"),
+                    "autonomy.department_review", "research.sweep",
+                    # W4-INTELREC: Laura's delegated review of watchlist opportunities.
+                    "intel.opportunity_review"),
        forbidden=("copy competitor instructions, charts or photography",
                   "buy benchmarks or spend beyond its ceiling"),
        inputs=("benchmark_listings", "coverage_gaps", "culture_signals", "serp_snapshots"),

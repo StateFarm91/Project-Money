@@ -272,3 +272,57 @@ def handle_research_flag(ctx: JobContext) -> dict:
     except (research.ResearchRefused, ValueError) as exc:
         return {"ran": False, "why": f"refused: {exc}", "work_done": 0}
     return {**out, "changes_nothing": True, "work_done": 1}
+
+
+# ---- W4-INTELREC: the owner's permanent watchlist -----------------------------------------
+
+@handlers.register("intel.watchlist_scan")
+def handle_watchlist_scan(ctx: JobContext) -> dict:
+    """Scan every non-anchor watchlist shop through the anchor's own scan and mission.
+
+    GREEN: official-API reads only (`intel.observe.scan`, `findShops`, `getReviewsByShop`);
+    writes observations, readings and the existing mission jobs. Mrs J keeps `mjs.scan`.
+    A per-shop outage is recorded and never fails the job (no retry loop on a refusal)."""
+    import os
+
+    from ..intel import watchlist
+
+    out = watchlist.scan_all(ctx.db, enqueue=ctx.enqueue, env=dict(os.environ),
+                             force=bool((ctx.job.inputs or {}).get("force")))
+    ctx.audit("intel.watchlist_scan", detail={
+        "ran": out["ran"], "observed": out.get("observed", 0),
+        "outages": out.get("outages", []), "reason": out.get("reason", "")[:200],
+        "shops": [{k: s.get(k) for k in ("ran", "state", "deferred", "changes",
+                                          "listings_seen")}
+                  | {"alias": watchlist.benchmark_alias_safe(s["key"])}
+                  for s in out.get("shops", [])]})
+    return {"ran": out["ran"], "observed": out.get("observed", 0),
+            "outages": len(out.get("outages", [])), "network_calls": None,
+            "work_done": out.get("observed", 0)}
+
+
+@handlers.register("intel.watchlist_compare")
+def handle_watchlist_compare(ctx: JobContext) -> dict:
+    """The structured four-shop comparison (aliases, own labels, numbers); validated arenas
+    enter the coverage-gap queue. CA$0, no network."""
+    from ..intel import watchlist
+
+    got = watchlist.record_comparison(ctx.db)
+    rep = got["report"]
+    ctx.audit("intel.watchlist_compare", detail={
+        "shops": len(rep["shops"]), "validated_arenas": rep["validated_arenas"],
+        "gaps": got["gaps"]})
+    return {"shops": len(rep["shops"]), "validated_arenas": len(rep["validated_arenas"]),
+            "gaps": got["gaps"], "network_calls": 0, "work_done": 1}
+
+
+@handlers.register("intel.opportunity_review")
+def handle_opportunity_review(ctx: JobContext) -> dict:
+    """Laura's delegated review: one durable decision per validated watchlist opportunity."""
+    from ..intel import watchlist
+
+    out = watchlist.review(ctx.db, enqueue=ctx.enqueue)
+    ctx.audit("intel.opportunity_review", detail={
+        "decisions": [{k: d.get(k) for k in ("gap", "last", "on")} for d in out["decisions"]]})
+    return {"decisions": len(out["decisions"]), "network_calls": 0,
+            "work_done": out["work_done"]}

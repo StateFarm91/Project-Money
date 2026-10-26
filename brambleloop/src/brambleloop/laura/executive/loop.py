@@ -60,6 +60,11 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
     # storefront.review mission for the Storefront Director (Store / Commerce).
     "storefront": ("brambleloop.store_foundation.director", "store_commerce",
                    "storefront.review"),
+    # W4-INTELREC: competitor intelligence reaches Laura. A watchlist outage or a validated
+    # opportunity awaiting a decision reads DEGRADED and becomes an intel.opportunity_review
+    # mission for Intelligence (the chain broke here: no provider read competitor findings).
+    "intelligence": ("brambleloop.intel.watchlist", "intelligence",
+                     "intel.opportunity_review"),
 }
 
 

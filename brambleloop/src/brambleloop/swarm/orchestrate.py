@@ -809,6 +809,9 @@ JOB_BANDS: dict[str, str] = {
     "intel.acceptance": "benchmark_change",
     "radar.scan": "benchmark_change",
     "radar.competitor_snapshot": "benchmark_change",
+    "intel.watchlist_scan": "benchmark_change",
+    "intel.watchlist_compare": "benchmark_change",
+    "intel.opportunity_review": "new_opportunity",
     "culture.sweep": "benchmark_change",
     "creative.blind_review": "benchmark_change",
     # Unproven, possibly valuable.
