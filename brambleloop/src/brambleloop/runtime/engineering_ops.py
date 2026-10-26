@@ -190,3 +190,20 @@ def handle_cross_sell_graph(ctx: JobContext) -> dict:
         return {"ran": False, "why": "no certified product to link"}
     store_reading(ctx.db, "listing.cross_sell_graph", g)
     return {"products": g["products"], "work_done": g["products"]}
+
+
+@handlers.register("creative.capability_scorecard")
+def handle_capability_scorecard(ctx: JobContext) -> dict:
+    """Build 2 #94: the complete creativity capability scorecard over time. Reads the rows the
+    company writes; unmeasured is UNMEASURED, never 0. One reading a day; CA$0."""
+    from ..creative import capability_scorecard as cs
+    from .etsy_ops import store_reading
+
+    rep = cs.scorecard(ctx.db)
+    store_reading(ctx.db, "creative.capability_scorecard", rep)
+    ctx.audit("creative.capability_scorecard", detail={
+        "periods": len(rep["periods"]), "objective": rep["objective"]["verdict"],
+        "pending_market_evidence": rep["pending_market_evidence"]})
+    return {"periods": len(rep["periods"]), "objective": rep["objective"]["verdict"],
+            "winner_rate": rep["market"]["winner_rate"],
+            "work_done": max(1, len(rep["periods"]))}

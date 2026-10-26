@@ -150,7 +150,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # catalogue (deterministic, reads own rows, CA$0).
                             "creative.family_engine",
                             # W4-AGENTS C3 (F-113): legacy re-gate; recommends retirement only.
-                            "creative.salvage_review"],
+                            "creative.salvage_review",
+                            # Build 2 #94: the complete creativity capability scorecard.
+                            "creative.capability_scorecard"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that

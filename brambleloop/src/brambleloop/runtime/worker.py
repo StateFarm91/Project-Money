@@ -916,6 +916,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # cross-sell graph (daily). Both CA$0, no writes beyond their reading.
     ("salvage_review", "creative_director", "creative.salvage_review", 7 * 24 * 60 * 60),
     ("cross_sell_graph", "listing", "listing.cross_sell_graph", 24 * 60 * 60),
+    # Build 2 #94: novelty, desirability, survival, fatigue, CTR/conversion and winner rate
+    # combined per month; unmeasured stays UNMEASURED. CA$0.
+    ("capability_scorecard", "creative_director", "creative.capability_scorecard",
+     24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),

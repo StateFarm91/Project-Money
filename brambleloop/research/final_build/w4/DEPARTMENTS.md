@@ -255,3 +255,32 @@ All deterministic, our own rows, CA$0. Tests are in `tests/test_w4_c3.py`.
 | F-113 (A) Commercial Salvage Test | missing | `creative/salvage.review`, weekly job `creative.salvage_review` (creative_director). For each legacy certified product (outside `launch0.launch_scope_slugs`) it re-runs today's gates:<br>• creative: the current MJs blind review;<br>• MJs-market: whether today's radar portfolio still selects it;<br>• seasonal: the #297 window;<br>• novelty: originality provenance;<br>• portfolio: cannibalising listing pairs.<br>The result is `retire_recommended`, `rescue_candidate` or `review`. **It only recommends:** it never deletes, unlists, deactivates or edits a product or listing. An unreadable gate is UNKNOWN. | `test_f113_salvage_only_recommends_and_never_writes` (row counts and the listing state unchanged after the job) |
 
 **Regression:** test_w4_agents, test_roles, test_v11_autonomy_timeline, test_vacuity, test_w3_k11_authority and test_w4_listready pass. The autonomy map was regenerated.
+
+## Build 2 #94: Creativity Capability Scorecard (2026-10-26)
+
+**Criterion:** "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas." Status: data_gated.
+
+**Before.** `tournament.scorecard`, `theme_fatigue`, `novelty` and `creative.blinded` each measured one thing, at one moment, over one set. Nothing combined them over time, and nothing computed CTR, conversion or winner rate per concept.
+
+**Built** (`creative/capability_scorecard.py`; daily job `creative.capability_scorecard`, creative_director, RESEARCH, reading `creative.capability_scorecard`). `scorecard(db)` reports, per UTC month and as a trend:
+
+| Measure | Source |
+|---|---|
+| tournament survival share | `creative.tournament` rows |
+| blinded human/agent comparison and desirability | `creative.blinded` rows; win rate counted only from **valid** runs (enough pairs, no position bias) |
+| novelty distance | each month's new products against every earlier product (`concept.nearest`), mean and minimum |
+| concept diversity | distinct pods |
+| repeated-theme fatigue | `theme_fatigue` over the cumulative catalogue |
+| market CTR and conversion per concept, combined over all periods | `listing_outcomes` |
+| winner rate | the share with a sale, among concepts with at least 200 impressions |
+
+`objective` compares the quality trends (novelty, desirability, survival, fatigue) with idea volume. More ideas with flat quality reads as "more ideas, not better ideas".
+
+**Anything without evidence is UNMEASURED, never 0.** Only the real market evidence (live traffic and sales) remains pending, and `pending_market_evidence` says so. The 200-impression floor and the "at least one sale" winner definition are this module's own, documented constants.
+
+**Tests** (`tests/test_w4_capability_scorecard.py`):
+- `test_an_empty_company_is_unmeasured_everywhere_never_zero`;
+- `test_every_named_measure_is_combined_per_month_and_trended` (an invalid blinded run never becomes a 0; CTR, conversion and winner computed only above the impression floor);
+- `test_the_scorecard_job_runs_daily_and_stores_one_reading`.
+
+test_roles, test_v11_autonomy_timeline and test_vacuity pass. The autonomy map was regenerated.
