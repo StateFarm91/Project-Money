@@ -180,3 +180,30 @@ Test: `test_w4_departments.test_family_engine_groups_certified_families_and_flag
 | FLUX rows | spec/12 §11 required tests (the three canonical references, refusal on a missing one, product references from the exact version, every reference reaching the provider, body proportions, one outfit per listing, no outfit reuse, automatic styling, product-only needing no Laura, Product Truth not bypassable, approvals before publication) | **No F-row names FLUX.** All eleven required tests already exist in `test_w4_flux3generator`, `test_w4_fluxapi`, `test_w4_fluxstages`, `test_w4_visnext` and `test_w4_visnext2`, all with stubs | No new code. Body proportions stay UNKNOWN until two independent judges read them (the integrator note). No paid call was made. |
 
 Tests: `test_w4_departments` (11 tests, all pass), plus test_image_bench, test_w4_close5_rows, test_fb2_i_repairs, test_cert_intel_wave2, test_w4_visnext2, test_v11_autonomy_timeline and test_roles.
+
+## F-515 Shop Completeness Gate (2026-10-26)
+
+**Criterion (v0.16):** "Before first publication and continuously thereafter, verify shop icon/logo, banner or chosen intentional absence, About/story, policies, branding consistency, support expectations and required seller information. Missing trust surfaces cannot silently pass launch readiness."
+
+**Board:** GATED / DEPLOYED / LAUNCH-CRITICAL, gate `etsy_shop` (owner): "daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build". The v0.15 row (Launch Non-Delay Rule) is POST-LAUNCH.
+
+**Finding: met in code; the board's gate reading is stale.**
+- **Continuously:** `etsy.shop_snapshot` runs daily and judges getShop with `intel.etsy_surfaces.assess_shop`.
+  - `launch/readiness`'s `etsy_first_sale_surfaces` item is not ready while any shop check fails or any first-sale surface lacks fresh evidence.
+  - Surfaces with no API (About/story, seller information, the banner's intentional state) take their evidence from the owner's dated observations (`launch.first_sale_surfaces`), which are never assumed done.
+  - The intended package and the owner's banner are checked by the `storefront` item (`check_storefront` + `storefront_gate`).
+  - Tests: `test_etsy_readback_observe::test_missing_trust_surfaces_cannot_pass_silently` and `test_etsy_surfaces::test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green`.
+- **Production** (`/api/launch`, read 2026-10-26): `etsy_shop` is **ready: true** ("shop identifier AND a recorded sanctioned read"), and `storefront` is ready: false, held by the banner's publication gates (the owner's rulings, D-FB-17). So the owner gate the board names has been cleared in production. The board still says GATED because its generator evaluates gates in the build environment, where no shop credential exists.
+- **The Storefront Director (b5226f7)** now evaluates the same surfaces continuously and drafts the API-writable ones, so a gap is acted on, not only reported.
+- **No code change, and the row is not re-classified by hand** (worker rule). Closing the row needs the board generator to read production gate evidence, or an integrator re-run against the deployed build.
+
+## Remaining department gaps
+
+| Gap | Status |
+|---|---|
+| `pricing.experiment` | PUBLISH, protected; needs owner authority. Unbuilt by authority. |
+| `assets.render` | no requirement row names it; `assets.build` covers rendering. Unbuilt by authority. |
+| Product Development: crochet_engineer ran 0 `cir.draft` in the window | radar.score ran 22 times and promoted nothing. Diagnosing why needs job outputs, which are not on the public read surface (`/api/jobs` lists no outputs; per-job reads are 404 without operator credentials). The next diagnostic step needs operator-authenticated read access. |
+| Visual Production: no useful output | waits on the paid image path (`image_generation` / owner spend authority) and on certified products needing renders. |
+| Growth: 64/64 experiments `no_data` | correct until listings are live (SHADOW). |
+| Pricing agent: 0 jobs | **not a defect.** `pricing.position` is woken by the release chain after `assets.build`; there was no new release in the window. |
