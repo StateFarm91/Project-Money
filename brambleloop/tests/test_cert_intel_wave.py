@@ -337,12 +337,25 @@ def test_director_company_view_uses_real_photography_and_queues_photography_when
     sys.path.insert(0, str(ROOT / "tests"))
     from test_cert_mjs import CROPPED
 
+    # INTEG7: since W-AGENTS E-12 the director requests photography only for a slug with a
+    # CIR, because assets.owned_photography refuses a slug for_slug cannot build. The fixture
+    # therefore gives striped-cardigan a CIR (any certified design stands in, since the director
+    # reads only that one exists), and adds a cardigan with no CIR, which must be skipped.
+    from brambleloop.products import builder as _builder
+
+    _builder.CATALOGUE["striped-cardigan"] = next(iter(_builder.CATALOGUE.values()))
     db = _db()
     with db.session() as s:
         s.add(Product(slug="striped-cardigan", title="Striped Cardigan"))
         s.add(ListingAsset(product_slug="striped-cardigan", version="1.0.0", position=1,
                            asset_class="product_first", role="hero", approved=True))
-    out = _mjs_mission(db, CROPPED)
+        s.add(Product(slug="retired-cardigan", title="Retired Cardigan"))
+        s.add(ListingAsset(product_slug="retired-cardigan", version="1.0.0", position=1,
+                           asset_class="product_first", role="hero", approved=True))
+    try:
+        out = _mjs_mission(db, CROPPED)
+    finally:
+        _builder.CATALOGUE.pop("striped-cardigan", None)
     assert out["mission"]["processed"] == 1
     with db.session() as s:
         reading = s.scalar(select(OperatingReading).where(
