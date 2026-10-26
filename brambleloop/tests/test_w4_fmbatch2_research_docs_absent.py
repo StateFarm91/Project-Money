@@ -28,4 +28,4 @@ def test_absent_repository_documents_are_reported_unavailable():
 
 if __name__ == "__main__":
     test_absent_repository_documents_are_reported_unavailable()
-    print("ok")
+    print("OK   test_absent_repository_documents_are_reported_unavailable")
