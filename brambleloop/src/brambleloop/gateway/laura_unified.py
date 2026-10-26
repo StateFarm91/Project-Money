@@ -510,38 +510,63 @@ launching ship shipped publish published list listed go went get got show tell g
 please today yesterday tonight overnight night week weeks month months year quarter day days
 morning seven thirty one two three four five six eight nine ten
 """.split())
+#: Every pattern is an explicit list of inflections -- no open `\w*` suffix (3b9c4f5 review
+#: T-2), so a run-together token ("prioritiesmarkdied") is not vocabulary.
 _GRAMMAR_FIXED = (
-    _BIZ_NOUN, r"business|company|brambleloop|shop|store(?:front)?|etsy|listings?|patterns?",
+    r"business|company|brambleloop|shop|store(?:front)?|etsy|listings?|patterns?|team|brand",
     r"sales?|revenue|income|earnings?|profits?|margins?|spend(?:ing)?|budgets?|traffic|views?",
     r"visits?|visitors?|favou?rites?|conversions?|seo|search|ranking|rankings|incidents?",
     r"errors?|failures?|orders?|customers?|buyers?|pric(?:e|es|ing)|metrics?|kpis?|okrs?",
-    r"departments?|design|marketing|finance|accounting|operations|support|quality|visual",
+    r"departments?|designs?|marketing|finance|accounting|operations|support|quality|visual",
     r"engineering|approvals?|catalog(?:ue)?|products?|releases?|agents?|queue|jobs?|ads?",
     r"campaigns?|roadmap|banners?|mock-?ups?|photos?|pictures?|inventory|refunds?|reviews?",
-    r"deploy\w*|ceo|strategy|strategic|titles?|tags?|descriptions?|charts?|keywords?|stock",
-    r"decisions?|risks?|items?|units?|money|cad|ca|\d{1,4}|\d{1,4}(?:st|nd|rd|th)|#\d{1,4}")
+    r"priorit(?:y|ies|ise[sd]?|ize[sd]?|ising|izing|isation|ization)",
+    r"launch(?:es|ed|ing)?|deploy(?:s|ed|ing|ment|ments)?",
+    r"ceo|strategy|strategic|titles?|tags?|descriptions?|charts?|keywords?|stock",
+    r"decisions?|risks?|items?|units?|money|cad|ca",
+    # Numbers only in the shapes the structured renderer understands (3b9c4f5 review T-5):
+    # a count up to 99, an ordinal, a year, or a priority id written "#123".
+    r"\d{1,2}|\d{1,2}(?:st|nd|rd|th)|20\d\d|#\d{1,4}")
 _GRAMMAR_RX = re.compile(r"(?i)^(?:" + "|".join(_GRAMMAR_FIXED) + r")$")
 #: The whole text: words separated by single spaces, at most one terminal ? or . -- no other
 #: punctuation (no dash, bracket, slash, comma, colon, ellipsis, second sentence).
-_GRAMMAR_SHAPE = re.compile(r"^[A-Za-z0-9#'’]+(?:[ -][A-Za-z0-9#'’]+)*[?.]?$")
+_GRAMMAR_SHAPE = re.compile(r"^[A-Za-z0-9#'\u2019]+(?:[ -][A-Za-z0-9#'\u2019]+)*[?.]?$")
+#: What a whole product phrase becomes before the word check (3b9c4f5 review T-1).
+PRODUCT_TOKEN = "product"
+
+
+def _product_phrases(product_slugs: dict[str, str] | None) -> list[re.Pattern]:
+    """Each product slug and title as a WHOLE phrase (3b9c4f5 review T-1): its words in order,
+    joined by spaces or hyphens, on word boundaries, optionally possessive. A one-word title
+    or slug is ignored -- "Rose" alone is as likely a person as a product -- so it fails toward
+    a step-up. Longest first, so "Rose Cardigan Kit" wins over "Rose Cardigan"."""
+    words = set()
+    for slug, title in (product_slugs or {}).items():
+        for x in (slug, title):
+            w = tuple(normalise(x).split())
+            if len(w) >= 2:
+                words.add(w)
+    return [re.compile(r"(?i)(?<![A-Za-z0-9])" + r"[ -]+".join(map(re.escape, w)) +
+                       r"(?:['\u2019]s)?(?![A-Za-z0-9])")
+            for w in sorted(words, key=lambda w: (-len(w), w))]
 
 
 def business_grammar(text: str, *, product_slugs: dict[str, str] | None = None) -> bool:
-    """True when `text` is one business question or request in the closed vocabulary above
-    (product slugs and titles the company already has count as vocabulary)."""
+    """True when `text` is one business question or request in the closed vocabulary above.
+    A product the company already has counts only as its WHOLE slug or title, which is
+    replaced by one placeholder token; its words are never vocabulary on their own."""
     t = unicodedata.normalize("NFKC", str(text or "")).strip()
     t = " ".join(t.split())
+    t = re.sub(r" ([?.])$", r"\1", t)          # "overnight ?" (NBSP before "?"): T-5
     if not t or len(t) > 200 or not _GRAMMAR_SHAPE.match(t) or not _BUSINESS.search(t):
         return False
-    extra = set()
-    for slug, title in (product_slugs or {}).items():
-        extra.update(normalise(slug).split())
-        extra.update(normalise(title).split())
-    for raw in re.split(r"[ -]", t.rstrip("?.").replace("’", "'")):
+    for rx in _product_phrases(product_slugs):
+        t = rx.sub(PRODUCT_TOKEN, t)
+    for raw in re.split(r"[ -]", t.rstrip("?.").replace("\u2019", "'")):
         w = raw.casefold()
         base = w[:-2] if w.endswith("'s") else w
         if not (w in _GRAMMAR_WORDS or base in _GRAMMAR_WORDS or _GRAMMAR_RX.match(w)
-                or _GRAMMAR_RX.match(base) or (base and base in extra)):
+                or _GRAMMAR_RX.match(base)):
             return False
     return True
 

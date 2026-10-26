@@ -276,6 +276,17 @@ Do not re-enable the register on the older release until you roll forward again.
 | **Q-6b** briefing suites set `BRAMBLELOOP_LAURA_CEO_MODEL=1` at module level | **ACCEPTED** | None. Each suite runs in its own process (`H.run`; no single-process runner or CI workflow exists), and the OFF proof in `test_w4_laura_ceo` pops the variable itself. Restoring it per test would add fixtures to three suites for a runner that does not exist. Revisit if a single-process runner is introduced | — |
 | **Q-6c** `boundary.py:58` docstring over 100 characters | **FIXED** | Line re-wrapped | — |
 
+## 10e. Response to the review of 3b9c4f5 (`INDEPENDENT_SECREVIEW_LAURAFIX_3b9c4f5.md`, NO BLOCKER)
+
+| Finding | Decision | Fix | Test |
+|---|---|---|---|
+| **T-1** (LOW) product-title words were vocabulary one by one ("Is Rose going to make it to the launch?" with a "Rose Cardigan" product got one tap) | **FIXED** | `business_grammar` matches each product slug and title as a WHOLE phrase (words in order, spaces or hyphens, word boundaries, optional possessive), longest first, and replaces it with one placeholder token (`product`). Title words are never vocabulary on their own. One-word titles or slugs are ignored, because "Rose" alone is as likely a person; such questions need a step-up | `test_review_t1_product_titles_count_only_as_whole_phrases` (the report's Rose, Willow, "Grief Shawl for Mark" and "Mother's Day Blanket" sentences, plus a one-word title; product questions by whole title or slug keep one tap). Fails on 3b9c4f5 |
+| **T-2** (INFO) open `\w*` suffixes (`priorit\w*`, `department\w*`, `launch\w*`, `deploy\w*`) | **FIXED** | `_GRAMMAR_FIXED` lists explicit inflections and no longer reuses `_BIZ_NOUN` | Four run-together tokens (incl. the report's `prioritiesmarkdied`, `departmentsarahleftme`) in `test_review_q1_one_tap_needs_the_closed_business_grammar`. Fails on 3b9c4f5 |
+| **T-3** (INFO) `_FIRST_PERSON` unpinned | **FIXED** (test) | none (code was right) | `FIRST_PERSON_CLEAN` (the report's three "my" sentences plus one "our") in the N-1 test: each passes the screen and the grammar, and must still be refused end to end. Fails when `_FIRST_PERSON` is removed from `one_tap_business` (scratch copy) |
+| **T-4** (INFO) the "may have left" direction of Q-4 unpinned | **FIXED** (test) | none (code was right) | `test_review_t4_a_failure_inside_the_send_counts_as_possibly_sent`: feed ON, Venice 503 inside `_send` → one `venice_context.sent` row with the transport code as `outcome`, and `exc.sent is True` directly. Fails when the flag is flipped after `_send` (mutation H, scratch copy) |
+| **T-5** (INFO) minor | **FIXED** (NBSP, numbers, style) / **ACCEPTED** (vocabulary weight) | A space or NBSP before the terminal `?`/`.` is tolerated. Number tokens are only a count up to 99, an ordinal, a year `20xx` or `#1234` (so "Show sales 4821 at the shop." needs a step-up). Blank lines fixed. The emotionally weighted vocabulary words (night, worst, need, support…) are kept: each clause still needs a business word, nothing crosses without the owner's tap, and the list is reviewed whenever it grows | in the T-1 test |
+| Integrator line (INTEG6b 1e44bd7) | **CARRIED** | The non-emptiness assertion before the Q-1 loop; the N-1 loop has one too | `test_vacuity` passes |
+
 ## 11. Not done / notes
 
 - The four register strings were never edited here. They come from the owner's commit fcb2bcd, merged unchanged.

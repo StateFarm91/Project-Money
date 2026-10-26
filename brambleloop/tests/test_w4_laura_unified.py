@@ -1538,7 +1538,14 @@ def test_review_n1_personal_sentences_never_get_a_one_tap_offer():
     # 2c29b42 review Q-2: a second set that PASSES the negative screen (screen == []), so the
     # step-up can only come from `one_tap_business` itself -- the clause split, the
     # first-person rule and the closed business grammar. Includes every Q-1 sentence.
-    for text in SCREEN_CLEAN_PERSONAL:
+    personal = SCREEN_CLEAN_PERSONAL + FIRST_PERSON_CLEAN
+    assert len(personal) == 21 and FIRST_PERSON_CLEAN, personal       # non-empty (test_vacuity)
+    # 3b9c4f5 review T-3: these pass the screen AND the closed grammar ("my"/"our" are
+    # vocabulary before a business noun), so only `_FIRST_PERSON` refuses them.
+    for text in FIRST_PERSON_CLEAN:
+        assert U.business_grammar(text) is True, text
+        assert U._FIRST_PERSON.search(text), text
+    for text in personal:
         db = _db()
         sid = _open(db)
         biz = Biz()
@@ -1559,6 +1566,16 @@ def test_review_n1_personal_sentences_never_get_a_one_tap_offer():
                 assert exc.code == "STEP_UP_REQUIRED"
         assert _rows(db, LauraBoundaryCrossing) == [] and text not in biz.blob()
     assert U.one_tap_business("How are my shop orders this week?") is True
+
+
+#: 3b9c4f5 review T-3: first-person talk in business words only ("my"/"our" + a word that is
+#: not a business noun). Pins `_FIRST_PERSON`.
+FIRST_PERSON_CLEAN = (
+    "How was my week for the shop?",
+    "How did my night go at the shop?",
+    "Is my money going to the shop?",
+    "How was our night at the shop?",
+)
 
 
 #: 2c29b42 review Q-1 / Q-2: personal text that passes the negative screen. Every sentence
@@ -1609,10 +1626,17 @@ def test_review_q1_one_tap_needs_the_closed_business_grammar():
     """2c29b42 review Q-1 (robust fix): one tap only for ONE question in the closed business
     vocabulary. An unknown word, a second sentence or any joining punctuation fails toward a
     step-up, whatever the personal phrasing."""
-    for text in SCREEN_CLEAN_PERSONAL + (
-            "Mark relapsed. What were sales overnight?",
-            "Grieving Mark how are shop orders this week?",       # no separator at all
-            "Mark wrecked the week what were sales overnight?"):
+    cases = SCREEN_CLEAN_PERSONAL + (
+        "Mark relapsed. What were sales overnight?",
+        "Grieving Mark how are shop orders this week?",       # no separator at all
+        "Mark wrecked the week what were sales overnight?",
+        # 3b9c4f5 review T-2: run-together tokens are not vocabulary (no open \w* suffix)
+        "How are prioritiesmarkdied this week for the shop?",
+        "What were sales departmentsarahleftme?",
+        "How did the launchmarkrelapsed go for the shop?",
+        "Show the deploymarkdied for the shop.")
+    assert len(cases) > 3 and SCREEN_CLEAN_PERSONAL, cases   # INTEG6b: test_vacuity non-emptiness
+    for text in cases:
         assert U.business_grammar(text) is False, text
         assert U.one_tap_business(text) is False, text
     # Product titles the company already has count as vocabulary.
@@ -1620,6 +1644,40 @@ def test_review_q1_one_tap_needs_the_closed_business_grammar():
     assert U.business_grammar("How are sales of the Meadow Shawl this week?") is False
     assert U.business_grammar("How are sales of the Meadow Shawl this week?",
                               product_slugs=slugs) is True
+
+
+def test_review_t1_product_titles_count_only_as_whole_phrases():
+    """3b9c4f5 review T-1: a product counts only as its WHOLE title or slug (one placeholder
+    token); its words are never vocabulary on their own, so a person who shares a first name
+    with a product cannot be written about with one tap. Also T-5 (numbers, NBSP)."""
+    prods = {"rose-cardigan": "Rose Cardigan", "willow-wrap": "Willow Wrap",
+             "grief-shawl-for-mark": "Grief Shawl for Mark",
+             "mothers-day-blanket": "Mother's Day Blanket", "rose": "Rose"}
+    person = ("Is Rose going to make it to the launch?",
+              "Did Willow go to the shop launch?",
+              "How is Mark doing with the grief shawl launch?",
+              "Is Mother going to make it to the launch?",
+              "Did Rose sell anything at the shop launch?")          # one-word title "Rose"
+    assert len(person) == 5
+    for text in person:
+        assert U.business_grammar(text, product_slugs=prods) is False, text
+        assert U.one_tap_business(text, product_slugs=prods) is False, text
+        plan = U.plan_brief({"tool": "business.ask", "brief": ""}, U.classify(text), text,
+                            product_slugs=prods)
+        assert plan["offer"] is None or plan["offer"]["stepup"] is True, (text, plan)
+    product_qs = ("How are sales of the Rose Cardigan this week?",
+                  "How are rose-cardigan orders this week?",
+                  "What were the Willow Wrap's sales overnight?",
+                  "How many Grief Shawl for Mark orders sold this week?")
+    assert len(product_qs) == 4
+    for text in product_qs:
+        assert U.business_grammar(text, product_slugs=prods) is True, text
+        assert U.one_tap_business(text, product_slugs=prods) is True, text
+    # 3b9c4f5 review T-5: numbers only in renderer shapes; a space before "?" is tolerated.
+    assert U.business_grammar("Show sales 4821 at the shop.") is False
+    assert U.business_grammar("What were sales for priority #12 this week?") is True
+    assert U.business_grammar("What were sales overnight\u00a0?") is True
+    assert U.business_grammar("What were sales overnight ?") is True
 
 
 def test_review_n2_feed_validators_check_the_full_value_before_any_cut():
@@ -1920,6 +1978,33 @@ def test_review_q4_no_feed_audit_row_when_the_wrapper_catches_a_pre_send_failure
         assert (exc.code, exc.sent) == ("PROVIDER_ERROR", False), (exc.code, exc.sent)
     finally:
         gw.check_budget_cad = orig
+
+
+def test_review_t4_a_failure_inside_the_send_counts_as_possibly_sent():
+    """3b9c4f5 review T-4: the other direction of Q-4. A transport failure INSIDE `_send` (a
+    5xx after the bytes may have left) is `sent=True`, so the feed's audit row is written --
+    the audit over-reports, never under (R-3)."""
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    mock = Venice(fail=(503, "{}"))
+    with unified(mock, **{U.BUSINESS_TO_VENICE_ENV: "1"}):
+        out = _turn(db, sid, EVERYDAY_TURN)
+    code = out["reason"]
+    assert code not in ("PROVIDER_ERROR", "REPLIED", "", None) and code in LR.REASONS, out
+    assert any(VC.FORMAT in json.dumps(c["body"]) for c in mock.calls), "the pack never left"
+    (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
+    assert row.detail["outcome"] == code, (row.detail, code)
+    # And directly: a failure inside `_send` carries sent=True.
+    with unified(Venice(fail=(503, "{}"))):
+        try:
+            LR.reply(db, system=LR.PROMPT.system,
+                     user=LR.render_user(facts=[], turns=[], message="hello"))
+            raise AssertionError("no failure")
+        except LR.ReplyUnavailable as exc:
+            assert exc.sent is True and exc.code == code, (exc.code, exc.sent)
+
 
 if __name__ == "__main__":
     H.run(globals())
