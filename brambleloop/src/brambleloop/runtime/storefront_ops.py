@@ -109,6 +109,23 @@ def _raise_write_authority_card(ctx: JobContext, held: dict) -> None:
                                 "owner's sealed grant for that exact change"))
 
 
+def _replaced_since_approval(ctx: JobContext, grant_id, change: dict) -> str | None:
+    from ..core.models import AuditLog
+    from ..ops import storefront_authority
+
+    with ctx.db.session() as s:
+        row = s.get(AuditLog, int(grant_id))
+        granted = ((row.detail or {}).get("content") or {}).get("replaces") if row else None
+    if not isinstance(granted, dict):
+        return "the grant records no live text it replaces; re-approve from a fresh preview"
+    now = storefront_authority.live_replaced(ctx.db, change)
+    for k, v in now.items():
+        if (granted.get(k) or {}).get("live_value") != v.get("live_value"):
+            return (f"the live {k} changed since the owner approved; the approval no longer "
+                    f"describes what would be overwritten -- preview and approve again")
+    return None
+
+
 @handlers.register("store.update")
 def handle_store_update(ctx: JobContext) -> dict:
     """Apply one recorded storefront proposal, or record it as held. Never raises in SHADOW."""
@@ -147,6 +164,12 @@ def handle_store_update(ctx: JobContext) -> dict:
     why, grant_id = storefront_authority.resolve(ctx.db, ident, change)
     if why:
         return hold(why, card=True)
+    # Review L-2: the grant binds the live text it replaces; if the live shop changed since the
+    # owner approved (e.g. the owner edited it by hand), the approval no longer describes what
+    # would be overwritten, so nothing is sent.
+    stale = _replaced_since_approval(ctx, grant_id, change)
+    if stale:
+        return hold(stale, card=True)
     grant = OwnerGrant(ctx.db, action=OwnerGrant.STOREFRONT, approval_id=grant_id,
                        change=change)
     from ..integrations.http import UrllibTransport

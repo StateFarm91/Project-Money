@@ -175,3 +175,12 @@ Until then every storefront write stays held.
 **Regression:** test_w4_agents, test_route_auth_default_deny, test_v11_cc_actions, test_r2_security_actions, test_rc1_auth, test_w4_listready and test_w4_finhealth pass.
 
 **Not changed:** L-1 (Laura's delegation ordering) is Laura code, frozen at 2c29b42; L-2 is not yet addressed. Both are Low.
+
+**L-2 (Low), fixed (2026-10-26): a DIFFERS proposal overwrote the owner's text without showing it.**
+- `storefront_authority.snapshot` now carries `replaces` (`live_replaced`):
+  - for updateShop, per field: the live value, its state, source and observed_at (UNKNOWN when no reading holds it);
+  - for createShopSection: the live section titles it adds to.
+- The preview therefore shows exactly what would be overwritten, and the signed digest the owner approves binds it.
+- At execution, `store.update` compares the granted `replaces` with the live shop now. If the owner edited the text after approving, nothing is sent: the proposal is held and the owner card is raised.
+- Tests (`tests/test_w4_agents_secfix.py`): `test_l2_the_preview_shows_and_binds_the_live_text_it_replaces` and `test_l2_execution_holds_when_the_live_text_changed_after_approval`.
+- L-1 stays open because it is Laura code (frozen).

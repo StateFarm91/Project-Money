@@ -140,7 +140,36 @@ def snapshot(db, proposal: str) -> dict:
     if problems:
         raise ValueError("the proposal no longer validates: " + "; ".join(problems)[:300])
     return {"action": ACTION, "proposal": p["digest"], "surface": p.get("surface"),
-            "change": p["change"]}
+            "change": p["change"], "replaces": live_replaced(db, p["change"])}
+
+
+def live_replaced(db, change: dict) -> dict:
+    """Review L-2: what the change replaces on the live shop, as last read, so the owner
+    sees -- and the signed digest binds -- the text that would be overwritten.
+
+    updateShop: per field, the live value and its source/observed_at (UNKNOWN when no reading
+    holds the field, `""` when live is blank). createShopSection: nothing is replaced; the live
+    section titles are shown so a duplicate is visible."""
+    from ..store_foundation import director, live_state
+
+    op = (change or {}).get("operation")
+    if op == "updateShop":
+        snap = live_state.snapshot(db)
+        out = {}
+        for k in (change.get("fields") or {}):
+            s = snap.get(k) or {}
+            out[k] = {"live_value": (s.get("value") if s.get("state", "UNKNOWN") != "UNKNOWN"
+                                     else "UNKNOWN"),
+                      "state": s.get("state", "UNKNOWN"), "source": s.get("source"),
+                      "observed_at": s.get("observed_at")}
+        return out
+    if op == "createShopSection":
+        from datetime import datetime, timezone
+
+        live = director._live_sections(db, datetime.now(timezone.utc))
+        return {"shop_section": {"live_value": None, "adds_to": live["titles"],
+                                 "state": live["state"]}}
+    return {}
 
 
 def approve(db, *, actor, proposal, expected_digest, reason, stepped_up: bool):

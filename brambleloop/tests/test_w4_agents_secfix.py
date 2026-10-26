@@ -215,6 +215,55 @@ def test_m2_no_worker_side_module_calls_approve_rebase_or_reads_the_signing_key(
     assert not bad, bad
 
 
+# ---- L-2 -----------------------------------------------------------------------------------
+
+def _owner_text_proposal(text="Owner wrote this announcement by hand."):
+    from brambleloop.runtime import etsy_ops
+    from brambleloop.store_foundation import director, live_state
+
+    shop = {"announcement": text, "digital_sale_message": "x"}
+    etsy_ops.store_reading(DB, etsy_ops.SHOP_READING, {"observed_at": time.time(), "shop": shop})
+    etsy_ops.store_reading(DB, live_state.SYNC_READING, {"observed_at": time.time(),
+                                                         "shop": shop, "sections": []})
+    for p in director.build_proposals(DB):
+        director.record_proposal(DB, p)
+    return next(p for p in director.proposals(DB) if p["surface"] == "announcement")
+
+
+def test_l2_the_preview_shows_and_binds_the_live_text_it_replaces():
+    p = _owner_text_proposal()
+    assert p["replaces_live_text"] is True
+    snap = sfa.snapshot(DB, p["digest"][:20])
+    rep = snap["replaces"]["announcement"]
+    assert rep["live_value"] == "Owner wrote this announcement by hand."
+    assert rep["state"] == "FRESH" and rep["source"]
+    # the digest the owner approves covers the replaced text
+    other = dict(snap, replaces={"announcement": {**rep, "live_value": "something else"}})
+    assert sfa.digest(other) != sfa.digest(snap)
+
+
+def test_l2_execution_holds_when_the_live_text_changed_after_approval():
+    import types
+
+    from brambleloop.runtime import storefront_ops
+
+    p = _owner_text_proposal("Text the owner had when approving.")
+    snap = sfa.snapshot(DB, p["digest"][:20])
+    with DB.session() as s:
+        # read by id; kept off the signed chain so the other tests' chain stays valid
+        row = AuditLog(actor=sfa.PRINCIPAL, action="test.storefront_grant_fixture",
+                       artifact=f"storefront:{p['digest'][:20]}",
+                       detail={"content": snap})
+        s.add(row)
+        s.flush()
+        gid = row.id
+    ctx = types.SimpleNamespace(db=DB)
+    assert storefront_ops._replaced_since_approval(ctx, gid, p["change"]) is None
+    _owner_text_proposal("The owner edited it again afterwards.")
+    why = storefront_ops._replaced_since_approval(ctx, gid, p["change"])
+    assert why and "changed since the owner approved" in why
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
