@@ -482,15 +482,78 @@ _FIRST_PERSON = re.compile(
     rf"my (?!{_BIZ_NOUN}\b)|our (?!{_BIZ_NOUN}\b))\b"
     r"|^\s*(?:can'?t|cannot|couldn'?t|barely|been|feeling|felt|throwing|crying|missing)\b")
 # Clauses split on commas and conjunctions too, so a personal half cannot hide behind ","
-# or "and" (R-1).
-_CLAUSE = re.compile(r"[^.!?;:,\n]+?(?=(?:[.!?;:,\n]|\band\b|\bbut\b|\bthen\b|$))", re.I)
+# or "and" (R-1), and on dashes, ellipses, slashes, brackets and the joining conjunctions
+# so/because/since/while/after (2c29b42 review Q-1).
+_CLAUSE = re.compile(
+    r"[^.!?;:,\n—–…/()]+?(?=(?:[.!?;:,\n—–…/()]|\s-+\s|\.\.\.|"
+    r"\band\b|\bbut\b|\bthen\b|\bso\b|\bbecause\b|\bsince\b|\bwhile\b|\bafter\b|$))", re.I)
+
+# 2c29b42 review Q-1, the robust half: one tap is allowed only when the offered text is ONE
+# question or request written entirely in a CLOSED business vocabulary -- the words the
+# structured renderer understands (METRICS, DATE_RANGES, TASK_OBJECTS, department names,
+# the business nouns) plus question words, auxiliaries and function words. Anything else --
+# a name, an unknown verb, a dash, a bracket, a second sentence -- needs a fresh step-up. This
+# does not try to enumerate personal phrasings; an unknown word simply fails toward privacy.
+_GRAMMAR_WORDS = frozenset("""
+what what's whats how how's hows which when where why who is are was were be been being do
+does did done doing has have had having should could can will would shall may might must
+many much the a an this that these those its it any all each every some our my of in on for
+to from by with at per than vs versus or and not no yes up down over now right
+currently current latest last next past recent recently new open live active pending far
+total overall best worst most least top bottom more fewer less better worse highest lowest
+average status update updates summary report numbers number figures count counts
+there here going trend trending tracking performing perform performed look looking
+looks like compare compared comparison change changed changes happen happened happening
+sell sells sold selling make made making earn earned spend spent cost costs need needs needed
+focus prioritise prioritize prioritised prioritized priority priorities launch launched
+launching ship shipped publish published list listed go went get got show tell give brief
+please today yesterday tonight overnight night week weeks month months year quarter day days
+morning seven thirty one two three four five six eight nine ten
+""".split())
+_GRAMMAR_FIXED = (
+    _BIZ_NOUN, r"business|company|brambleloop|shop|store(?:front)?|etsy|listings?|patterns?",
+    r"sales?|revenue|income|earnings?|profits?|margins?|spend(?:ing)?|budgets?|traffic|views?",
+    r"visits?|visitors?|favou?rites?|conversions?|seo|search|ranking|rankings|incidents?",
+    r"errors?|failures?|orders?|customers?|buyers?|pric(?:e|es|ing)|metrics?|kpis?|okrs?",
+    r"departments?|design|marketing|finance|accounting|operations|support|quality|visual",
+    r"engineering|approvals?|catalog(?:ue)?|products?|releases?|agents?|queue|jobs?|ads?",
+    r"campaigns?|roadmap|banners?|mock-?ups?|photos?|pictures?|inventory|refunds?|reviews?",
+    r"deploy\w*|ceo|strategy|strategic|titles?|tags?|descriptions?|charts?|keywords?|stock",
+    r"decisions?|risks?|items?|units?|money|cad|ca|\d{1,4}|\d{1,4}(?:st|nd|rd|th)|#\d{1,4}")
+_GRAMMAR_RX = re.compile(r"(?i)^(?:" + "|".join(_GRAMMAR_FIXED) + r")$")
+#: The whole text: words separated by single spaces, at most one terminal ? or . -- no other
+#: punctuation (no dash, bracket, slash, comma, colon, ellipsis, second sentence).
+_GRAMMAR_SHAPE = re.compile(r"^[A-Za-z0-9#'’]+(?:[ -][A-Za-z0-9#'’]+)*[?.]?$")
 
 
-def one_tap_business(text: str) -> bool:
+def business_grammar(text: str, *, product_slugs: dict[str, str] | None = None) -> bool:
+    """True when `text` is one business question or request in the closed vocabulary above
+    (product slugs and titles the company already has count as vocabulary)."""
+    t = unicodedata.normalize("NFKC", str(text or "")).strip()
+    t = " ".join(t.split())
+    if not t or len(t) > 200 or not _GRAMMAR_SHAPE.match(t) or not _BUSINESS.search(t):
+        return False
+    extra = set()
+    for slug, title in (product_slugs or {}).items():
+        extra.update(normalise(slug).split())
+        extra.update(normalise(title).split())
+    for raw in re.split(r"[ -]", t.rstrip("?.").replace("’", "'")):
+        w = raw.casefold()
+        base = w[:-2] if w.endswith("'s") else w
+        if not (w in _GRAMMAR_WORDS or base in _GRAMMAR_WORDS or _GRAMMAR_RX.match(w)
+                or _GRAMMAR_RX.match(base) or (base and base in extra)):
+            return False
+    return True
+
+
+def one_tap_business(text: str, *, product_slugs: dict[str, str] | None = None) -> bool:
     """Delta review N-1: one tap is allowed only when EVERY clause of the offered text carries
     a business signal and none carries a personal signal (private words, a screen category,
-    or first-person talk about oneself -- "I", "I've", "my" + anything but a business noun).
-    Otherwise sharing needs a fresh step-up."""
+    or first-person talk about oneself -- "I", "I've", "my" + anything but a business noun),
+    AND (2c29b42 review Q-1) the whole text is one question in the closed business grammar
+    (`business_grammar`). Otherwise sharing needs a fresh step-up."""
+    if not business_grammar(text, product_slugs=product_slugs):
+        return False
     clauses = [c.strip() for c in _CLAUSE.findall(str(text or "")) if c.strip()]
     if not clauses:
         return False
@@ -542,7 +605,8 @@ def plan_brief(intent: dict, cls: dict, owner_text: str, *,
     if draft and normalise(draft) not in (normalise(owner_text), normalise(out["send"])):
         offer = {"text": draft, "origin": "laura_draft", "stepup": True, "kind": "draft"}
     elif label in (BUSINESS, MIXED) and cls["business_text"]:
-        tap = clean_business and one_tap_business(cls["business_text"])
+        tap = clean_business and one_tap_business(cls["business_text"],
+                                                 product_slugs=product_slugs)
         offer = {"text": cls["business_text"], "origin": "owner_quote", "stepup": not tap,
                  "kind": ("mixed" if label == MIXED else "business" if tap else "personal")}
     elif not out["send"]:

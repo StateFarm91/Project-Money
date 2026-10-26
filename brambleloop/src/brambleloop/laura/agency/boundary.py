@@ -55,7 +55,8 @@ def redact(db, *, turn_ids=(), crossing_ids=()) -> dict:
     """The owner marked a thread exchange private AFTER a business record was made from it:
     redact what was derived from it (D-W4-LAURA-UNIFIED-FEED). The business turn's brief,
     answer, cited facts and proposals are replaced; an approved crossing's text AND its hash
-    are cleared (the row and its time stay as proof that a crossing happened). Ids and costs stay. Returns counts."""
+    are cleared (the row and its time stay as proof that a crossing happened). Ids and costs
+    stay. Returns counts."""
     from .models import LauraTurn
 
     ensure_tables(db)

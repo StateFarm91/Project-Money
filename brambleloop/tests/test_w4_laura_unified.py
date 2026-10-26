@@ -24,6 +24,7 @@ import io
 import json
 import logging
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -1534,7 +1535,91 @@ def test_review_n1_personal_sentences_never_get_a_one_tap_offer():
                 raise AssertionError("a personal sentence crossed with one tap")
             except PC.PrivateUnavailable as exc:
                 assert exc.code == "STEP_UP_REQUIRED"
+    # 2c29b42 review Q-2: a second set that PASSES the negative screen (screen == []), so the
+    # step-up can only come from `one_tap_business` itself -- the clause split, the
+    # first-person rule and the closed business grammar. Includes every Q-1 sentence.
+    for text in SCREEN_CLEAN_PERSONAL:
+        db = _db()
+        sid = _open(db)
+        biz = Biz()
+        with unified(Venice(route=lambda u: {"tool": "business.ask", "brief": ""})):
+            out = _turn(db, sid, text, biz)
+        assert out["label"] == "business" and out["intent"]["screen"] == [], (text, out["intent"])
+        assert U.one_tap_business(text) is False, text
+        assert out["crossing"]["requires_stepup"] is True, (text, out["crossing"])
+        assert out["crossing"]["kind"] == "personal", (text, out["crossing"])
+        assert text not in biz.blob() and not re.search(r"\bMark\b|grieving|overdose|"
+                                                        r"relapsed|Sarah|terrible", biz.blob()), text
+        with unified(Venice()):
+            try:
+                PC.unified_crossing(db, sid, out["crossing"]["id"], approve=True,
+                                    provider_factory=biz.factory)
+                raise AssertionError("a personal sentence crossed with one tap: " + text)
+            except PC.PrivateUnavailable as exc:
+                assert exc.code == "STEP_UP_REQUIRED"
+        assert _rows(db, LauraBoundaryCrossing) == [] and text not in biz.blob()
     assert U.one_tap_business("How are my shop orders this week?") is True
+
+
+#: 2c29b42 review Q-1 / Q-2: personal text that passes the negative screen. Every sentence
+#: from the review, plus each separator and conjunction it names.
+SCREEN_CLEAN_PERSONAL = (
+    # Q-1, end to end in the review (one tap, approved with no credentials, on 2c29b42)
+    "Mark's overdose wrecked the week — what were sales overnight?",
+    "Still grieving Mark so how are shop orders this week?",
+    # Q-1, rule level: em dash / hyphen / ellipsis / slash
+    "Still grieving Mark — how are shop orders this week?",
+    "Still grieving Mark - how are shop orders this week?",
+    "Still grieving Mark … how are shop orders this week?",
+    "Still grieving Mark / how are shop orders this week?",
+    "Grieving Mark since the overdose — how are shop orders?",
+    "Mark hit Sarah again — how are shop orders?",
+    # Q-1 fix list: en dash, bracket and the joining conjunctions
+    "Still grieving Mark – how are shop orders this week?",
+    "Still grieving Mark (how are shop orders this week?)",
+    "Still grieving Mark... how are shop orders this week?",
+    "Mark relapsed because the week was hard so how are shop orders?",
+    "Mark relapsed since the launch how are shop orders?",
+    "Mark relapsed while the shop sold out how are orders?",
+    "Mark relapsed after the launch how are shop orders?",
+    # Q-2's own examples
+    "Still grieving Mark, how are shop orders?",
+    "We had a terrible night, how are shop orders?",
+)
+
+
+def test_review_q1_clause_split_covers_dashes_slashes_brackets_and_conjunctions():
+    """2c29b42 review Q-1 (minimum fix, kept as defence in depth under the closed grammar):
+    `_CLAUSE` splits on em/en dash, " - ", ellipsis, slash, "(" and so/because/since/while/
+    after, so the personal half is its own clause and carries no business word."""
+    for sep in (" — ", " – ", " - ", " … ", "... ", " / ", " (", " so ",
+                " because ", " since ", " while ", " after "):
+        text = f"Still grieving Mark{sep}how are shop orders this week?"
+        clauses = [c.strip() for c in U._CLAUSE.findall(text) if c.strip()]
+        assert len(clauses) >= 2 and clauses[0].startswith("Still grieving Mark") and \
+            "orders" not in clauses[0], (sep, clauses)
+    # A clean business question is still one clause and still one tap.
+    for ok in ("What were sales overnight?", "How many listings are live in the shop?",
+               "What should the shop prioritise this week?", "Which listings sold best overnight?"):
+        assert U.one_tap_business(ok) is True, ok
+        assert U.business_grammar(ok) is True, ok
+
+
+def test_review_q1_one_tap_needs_the_closed_business_grammar():
+    """2c29b42 review Q-1 (robust fix): one tap only for ONE question in the closed business
+    vocabulary. An unknown word, a second sentence or any joining punctuation fails toward a
+    step-up, whatever the personal phrasing."""
+    for text in SCREEN_CLEAN_PERSONAL + (
+            "Mark relapsed. What were sales overnight?",
+            "Grieving Mark how are shop orders this week?",       # no separator at all
+            "Mark wrecked the week what were sales overnight?"):
+        assert U.business_grammar(text) is False, text
+        assert U.one_tap_business(text) is False, text
+    # Product titles the company already has count as vocabulary.
+    slugs = {"meadow-shawl": "Meadow Shawl"}
+    assert U.business_grammar("How are sales of the Meadow Shawl this week?") is False
+    assert U.business_grammar("How are sales of the Meadow Shawl this week?",
+                              product_slugs=slugs) is True
 
 
 def test_review_n2_feed_validators_check_the_full_value_before_any_cut():
@@ -1589,6 +1674,35 @@ def test_review_mixed_and_personal_offers_use_honest_wording():
     assert "One tap" in b["crossing"]["question"]
     kinds = {x["id"]: x["kind"] for x in _view(db, sid)["crossings"]}       # sealed, durable
     assert kinds == {m["crossing"]["id"]: "mixed", b["crossing"]["id"]: "business"}
+
+
+def test_review_q3_mixed_offer_overlapping_earlier_private_turn_is_relabelled_personal():
+    """2c29b42 review Q-3 (R-10, `private_context._request_crossing`): a MIXED offer whose
+    business sentence repeats words from an EARLIER private turn is upgraded to a step-up and
+    relabelled `personal` -- it must not tell the owner "the personal part stays between us"
+    when the quoted part itself carries our private words."""
+    db = _db()
+    sid = _open(db)
+    secret = f"honey the lantern code is {S_CODE} blue morning glass"
+    quote = f"For the shop listings, use the lantern code is {S_CODE} blue morning glass."
+    with unified(Venice(replies=[R[0]])):
+        p = _turn(db, sid, secret)
+    assert p["label"] == "private"
+    with unified(Venice(replies=[R[1]])):
+        m = _turn(db, sid, f"I love you. {quote}")
+    assert m["label"] == "mixed", m
+    x = m["crossing"]
+    assert x["text"] == quote and x["overlaps_private"] is True, x
+    assert x["kind"] == "personal", x
+    assert x["requires_stepup"] is True
+    assert "stays between us" not in x["question"] and "partly personal" not in x["question"]
+    kinds = {c["id"]: c["kind"] for c in _view(db, sid)["crossings"]}       # sealed, durable
+    assert kinds[x["id"]] == "personal", kinds
+    # Control: the same mixed shape with no overlap keeps the honest "mixed" wording.
+    with unified(Venice(replies=[R[2]])):
+        c_ = _turn(db, sid, "I love you. Which listings sold best overnight?")
+    assert c_["crossing"]["kind"] == "mixed" and c_["crossing"]["overlaps_private"] is False
+    assert "stays between us" in c_["crossing"]["question"]
 
 
 def test_review_n4_feed_audit_row_only_when_the_request_left():
@@ -1770,6 +1884,42 @@ def test_review_r3_feed_audit_row_written_when_reconciliation_fails_after_the_se
     (row,) = [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION]
     assert row.detail["outcome"] == "BUDGET"
 
+
+
+def test_review_q4_no_feed_audit_row_when_the_wrapper_catches_a_pre_send_failure():
+    """2c29b42 review Q-4: an unexpected failure BEFORE `_send` (here the budget step raising)
+    is PROVIDER_ERROR with sent=False -- nothing left, so no `venice_context.sent` row. R-3's
+    post-send row (test above) is unchanged."""
+    from brambleloop.gateway import anthropic as gw
+    from brambleloop.laura.agency import venice_context as VC
+
+    db = _seed_feed_db()
+    sid = _open(db)
+    mock = Venice(replies=[R[0]])
+    orig = gw.check_budget_cad
+
+    def boom(*a, **k):
+        raise RuntimeError("unexpected failure before the send")
+    gw.check_budget_cad = boom
+    try:
+        with unified(mock, **{U.BUSINESS_TO_VENICE_ENV: "1"}):
+            out = _turn(db, sid, EVERYDAY_TURN)
+    finally:
+        gw.check_budget_cad = orig
+    assert out["reason"] == "PROVIDER_ERROR", out
+    assert mock.calls == [] and mock.routes == []                  # nothing left
+    assert [r for r in _rows(db, AuditLog) if r.action == VC.AUDIT_ACTION] == []
+    # And directly: the flag is False for a pre-send failure.
+    gw.check_budget_cad = boom
+    try:
+        with unified(mock):
+            LR.reply(db, system=LR.PROMPT.system,
+                     user=LR.render_user(facts=[], turns=[], message="hello"))
+        raise AssertionError("no failure")
+    except LR.ReplyUnavailable as exc:
+        assert (exc.code, exc.sent) == ("PROVIDER_ERROR", False), (exc.code, exc.sent)
+    finally:
+        gw.check_budget_cad = orig
 
 if __name__ == "__main__":
     H.run(globals())

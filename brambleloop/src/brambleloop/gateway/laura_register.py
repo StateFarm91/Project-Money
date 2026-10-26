@@ -428,14 +428,18 @@ def reply(db, *, system: str, user: str, registry=None, now: datetime | None = N
     `system` must be the pinned LAURA_PRIVATE_REPLY system prompt (anything else is refused:
     the purpose billed is that prompt). Never raises anything but ReplyUnavailable.
     """
+    track = {"sent": False}
     try:
         return _reply(db, system=system, user=user, registry=registry, now=now, env=env,
-                      prompt=prompt)
+                      prompt=prompt, track=track)
     except ReplyUnavailable:
         raise
     except Exception:  # noqa: BLE001 - nothing private may ride out on an exception
-        # Unknown where it failed: count it as possibly sent (audit over-reports, never under).
-        raise ReplyUnavailable("PROVIDER_ERROR", sent=True) from None
+        # 2c29b42 review Q-4: "sent" only once `_send` was entered (`track` flips immediately
+        # before the call). A failure inside `_send` still counts as possibly sent (audit
+        # over-reports, never under); a failure before it (budget, estimate, payload, key) is
+        # not a crossing.
+        raise ReplyUnavailable("PROVIDER_ERROR", sent=track["sent"]) from None
 
 
 def _venice_live(db, model: str) -> dict | None:
@@ -462,7 +466,7 @@ def _prompt_and_parser(prompt):
     raise ReplyUnavailable("REFUSED")
 
 
-def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
+def _reply(db, *, system, user, registry, now, env, prompt=None, track=None) -> dict:
     from ..agents.registry import BudgetExceeded, PermissionDenied, Registry
     from . import anthropic as gw
     from . import failover, paid_calls
@@ -547,9 +551,12 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
         payload = json.dumps({"model": model, "max_tokens": max_out, "system": system,
                               "messages": [{"role": "user", "content": user}]}).encode()
     started = time.time()
+    track = {"sent": False} if track is None else track
     try:
+        key = provider.key()
+        track["sent"] = True       # from here on the request may have left (Q-4)
         # Directly, not `_guarded`: the paid-call journal stores response text (G-6).
-        response = provider._send(payload, provider.key())
+        response = provider._send(payload, key)
     except Exception as exc:  # noqa: BLE001
         clean = _sanitised(exc)
         gateway._note_attempt(provider, AGENT, PURPOSE_, ok=False, error=clean)
@@ -561,7 +568,7 @@ def _reply(db, *, system, user, registry, now, env, prompt=None) -> dict:
         except BudgetExceeded:
             pass
         raise ReplyUnavailable(venice.reply_code(exc) if is_venice
-                               else "PROVIDER_ERROR", sent=True) from None
+                               else "PROVIDER_ERROR", sent=track["sent"]) from None
     elapsed = (time.time() - started) * 1000
     try:
         text = parse(response.text)
