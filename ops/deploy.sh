@@ -12,8 +12,13 @@
 #   REMOTE=origin (default)
 #   VERIFY_DEPLOY=0                          (skip the post-push wait; default 1)
 #   READBACK=0                               (skip the per-feature readback; default 1, exit 5 on fail)
-#   AUTO_ROLLBACK=0                          (report a P0 readback regression, exit 6, instead of
-#                                             rolling back to the predecessor; default 1, F-381)
+#   AUTO_ROLLBACK=1 ... --auto-rollback-reason "<owner's reason for THIS deploy>"
+#                                            (roll a P0 readback regression back to the
+#                                             predecessor; default 0: the P0 is reported with
+#                                             the exact command, exit 6, and nothing is pushed.
+#                                             The reason must be given on each invocation; a
+#                                             standing AUTO_ROLLBACK_REASON is refused. F-381,
+#                                             review F-3 and cbd4ff1 N-4)
 #   DEPLOY_VERIFY_TIMEOUT=900 DEPLOY_VERIFY_INTERVAL=15   (seconds)
 #
 # RELENG (2026-10-11): after pushing, ops/verify_deploy.py polls production /health until
@@ -31,11 +36,13 @@ branch=claude/repository-setup-nc9x6o
 deployed=""
 rollback_to=""
 reason=""
+auto_reason=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --deployed) deployed=${2:-}; shift 2 ;;
     --rollback-to) rollback_to=${2:-}; shift 2 ;;
     --reason) reason=${2:-}; shift 2 ;;
+    --auto-rollback-reason) auto_reason=${2:-}; shift 2 ;;
     *) echo "deploy.sh: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -107,7 +114,7 @@ if [ "$rb" -ne 0 ]; then
   # W4-FMBATCH1 (F-381): the failure's severity decides containment. A P0 regression (safety,
   # spend ceilings, the runtime itself, or production unreachable) is rolled back to the commit
   # production ran before this push -- the rollback rehearsed above -- through the same guarded
-  # path only when the owner turned it on (AUTO_ROLLBACK=1 + AUTO_ROLLBACK_REASON); a P1 is fixed
+  # path only when the owner turned it on (AUTO_ROLLBACK=1 + --auto-rollback-reason); a P1 is fixed
   # forward. By default the P0 decision is reported with the exact command and nothing is pushed.
   dec=0
   python3 "$top/ops/rollback_decision.py" --readback "$rb_out" --previous "$deployed" || dec=$?
@@ -132,15 +139,21 @@ if [ "$rb" -ne 0 ]; then
     fi
     # Review F-3: automatic production rollback is a push to production. It is OFF unless
     # AUTO_ROLLBACK=1, and even then it carries only a reason the owner wrote
-    # (AUTO_ROLLBACK_REASON, recorded when they accepted automatic containment) -- this
+    # (--auto-rollback-reason, given for this deploy) -- this
     # script never writes an "owner reason" itself.
-    if [ "${AUTO_ROLLBACK:-0}" != "1" ] || [ -z "$deployed" ] || [ -z "${AUTO_ROLLBACK_REASON:-}" ]; then
-      echo "deploy.sh: P0 regression on $sha: roll back with ops/deploy.sh --rollback-to $deployed --reason \"<your reason>\" (automatic rollback is off unless AUTO_ROLLBACK=1 with AUTO_ROLLBACK_REASON set; exit 6)" >&2
+    # Review cbd4ff1 N-4: the owner's reason is given on THIS invocation
+    # (--auto-rollback-reason); a standing AUTO_ROLLBACK_REASON in the environment would
+    # authorise every future rollback with one old sentence, so it is refused.
+    if [ "${AUTO_ROLLBACK:-0}" != "1" ] || [ -z "$deployed" ] || [ -z "$auto_reason" ]; then
+      if [ -n "${AUTO_ROLLBACK_REASON:-}" ] && [ -z "$auto_reason" ]; then
+        echo "deploy.sh: AUTO_ROLLBACK_REASON in the environment is ignored: give the reason for this deploy with --auto-rollback-reason" >&2
+      fi
+      echo "deploy.sh: P0 regression on $sha: roll back with ops/deploy.sh --rollback-to $deployed --reason \"<your reason>\" (automatic rollback is off unless AUTO_ROLLBACK=1 with --auto-rollback-reason on this invocation; exit 6)" >&2
       exit 6
     fi
     echo "deploy.sh: P0 regression on $sha: rolling back to $deployed (AUTO_ROLLBACK=1)" >&2
     exec "$top/ops/deploy.sh" --rollback-to "$deployed" \
-      --reason "$AUTO_ROLLBACK_REASON" --deployed "$sha"
+      --reason "$auto_reason" --deployed "$sha"
   fi
   exit 5
 fi

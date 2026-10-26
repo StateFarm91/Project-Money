@@ -784,6 +784,19 @@ def api_catalogue() -> dict:
     }
 
 
+def _verify_status(passed: bool, smoke: dict, unhealthy: list) -> str:
+    """Review cbd4ff1 N-6: `status` reads OK only when the checks pass AND the smoke matrix
+    is PASS; it never says OK beside a FAIL or UNKNOWN matrix. `ok`/HTTP status unchanged."""
+    v = (smoke or {}).get("verdict")
+    if not passed or v == "FAIL":
+        return "FAIL"
+    if v == "UNKNOWN" or v is None:
+        return "UNKNOWN"
+    if unhealthy or v == "DEGRADED":
+        return "DEGRADED"
+    return "OK" if v == "PASS" else "UNKNOWN"
+
+
 @app.get("/api/finance")
 def api_finance() -> dict:
     """The books, the CFO's view and where CA$100K stands. Each figure carries its basis (measured / modelled / unknown); nothing unobserved is presented as observed."""
@@ -5480,7 +5493,7 @@ def api_verify() -> JSONResponse:
     provider_health = [c for c in (smoke.get("checks") or [])
                        if str(c.get("check", "")).startswith("provider_health:")]
     unhealthy = [c for c in provider_health if c.get("verdict") in ("FAIL", "DEGRADED")]
-    status = "FAIL" if not passed else "DEGRADED" if unhealthy else "OK"
+    status = _verify_status(passed, smoke, unhealthy)
     return JSONResponse({"ok": passed, "status": status, "checks": checks,
                          "provider_health": provider_health,
                          "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},

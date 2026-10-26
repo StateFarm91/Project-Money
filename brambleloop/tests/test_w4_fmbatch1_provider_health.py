@@ -116,6 +116,30 @@ def test_verify_reports_degraded_with_the_provider_named():
     assert smoke_resp.status_code == 503 and smoke_resp.json()["verdict"] != "PASS"
 
 
+def test_review_n6_unknown_outranks_degraded_in_the_smoke_headline():
+    real = smoke.continuity_proof
+    smoke.continuity_proof = lambda s, now: smoke._check(
+        "continuity_restore_proven", smoke.UNKNOWN, "not yet judged", {})
+    try:
+        m = smoke.smoke_matrix(_with_probe("HTTP 529 overloaded_error"), now=NOW)
+    finally:
+        smoke.continuity_proof = real
+    assert m["degraded"] and m["unknown"]
+    assert m["verdict"] == "UNKNOWN", m["verdict"]
+
+
+def test_review_n6_verify_status_is_ok_only_when_the_smoke_matrix_passes():
+    from brambleloop.app import main
+
+    st = main._verify_status
+    assert st(True, {"verdict": "PASS"}, []) == "OK"
+    assert st(True, {"verdict": "FAIL"}, []) == "FAIL"
+    assert st(True, {"verdict": "UNKNOWN"}, []) == "UNKNOWN"
+    assert st(True, {"verdict": "DEGRADED"}, []) == "DEGRADED"
+    assert st(True, {"verdict": "PASS"}, [{"verdict": "FAIL"}]) == "DEGRADED"
+    assert st(False, {"verdict": "PASS"}, []) == "FAIL"
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

@@ -179,6 +179,29 @@ def test_review_f5_vision_reserves_its_image_tokens_and_text_only_reserves_nothi
         gw.check_budget = real
 
 
+def test_review_n8_a_failed_release_after_billing_is_not_billed_twice():
+    from brambleloop.gateway import providers as gw
+
+    db = _paid_db()
+    real = gw.release_reservation
+    calls = []
+
+    def flaky(db_, reservation, **kw):
+        calls.append(kw)
+        if kw.get("actual_cad") is not None and len(calls) == 1:
+            raise RuntimeError("release failed after the record was written")
+        return real(db_, reservation, **kw)
+
+    gw.release_reservation = flaky
+    try:
+        C.run(_Paid(scripted=_script({"From this text": GOOD["extract"], **GOOD})), db=db,
+              tasks=(C.TASKS[0],))
+    finally:
+        gw.release_reservation = real
+    billed = [r for r in _ledger(db) if r[0] == "compat_pack"]
+    assert len(billed) == 1, billed
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

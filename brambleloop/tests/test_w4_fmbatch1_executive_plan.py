@@ -61,6 +61,22 @@ def test_no_plan_is_no_boost():
     assert not any("executive plan" in b for b in out["lanes"]["market_radar"]["boosts"])
 
 
+def test_review_n7_a_stale_plan_gives_no_boost():
+    """Review cbd4ff1 N-7: a plan older than PLAN_MAX_AGE (refresh failing) stops boosting."""
+    import tempfile as _tf
+    from datetime import timedelta as _td
+
+    d = _tf.mkdtemp(prefix="fmb1n7_")
+    db = Database(f"sqlite:///{d}/n7.db")
+    db.create_all()
+    old = datetime.now(timezone.utc) - _td(hours=7)
+    memory.remember(db, EP.MEMORY_KEY, kind="executive_plan", body={"priority_agents": ["a"]},
+                    now=old)
+    assert EP.priority_agents(db) == set()
+    memory.remember(db, EP.MEMORY_KEY, kind="executive_plan", body={"priority_agents": ["a"]})
+    assert EP.priority_agents(db) == {"a"}
+
+
 def test_n3_first_sale_is_unknown_not_zero_when_the_order_source_is_not_connected():
     """Review cbd4ff1 N-3: zero orders on file with a disconnected source is not a measured
     zero; the goal reads UNKNOWN and `met` is None."""

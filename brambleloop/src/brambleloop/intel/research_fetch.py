@@ -123,6 +123,12 @@ def _default_get(url: str, *, max_bytes: int = MAX_BYTES) -> tuple[int, bytes]:
         return exc.code, b""
     except FetchRefused:
         raise
+    except UnicodeError as exc:
+        # Review cbd4ff1 N-5: urllib encodes a redirect target as Latin-1 before the
+        # allowlist sees it, so an IDN Location raises here. Not followed, and recorded as a
+        # refusal like any other off-allowlist redirect.
+        raise FetchRefused(f"unreadable redirect target ({type(exc).__name__}); "
+                           "not followed") from exc
     except (urllib.error.URLError, OSError) as exc:
         # Review F-8: a DNS failure, timeout or TLS error is "not fetched", never a crash.
         raise FetchUnavailable(f"{type(exc).__name__}: {str(exc)[:160]}") from exc

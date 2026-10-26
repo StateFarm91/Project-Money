@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 
 MEMORY_KEY = "executive:plan"
 MONTHLY_TARGET_CAD = 3000.0
+PLAN_MAX_AGE = timedelta(hours=6)
 
 
 def _goals(db, now) -> list[dict]:
@@ -135,5 +136,13 @@ def priority_agents(db) -> set[str]:
     try:
         row = memory.get(db, MEMORY_KEY)
     except Exception:  # noqa: BLE001 - no plan is no boost, never a failure
+        return set()
+    # Review cbd4ff1 N-7: a plan the hourly refresh has not renewed for PLAN_MAX_AGE is not
+    # a plan any more; its boost stops rather than persisting forever.
+    try:
+        updated = datetime.fromisoformat(str((row or {}).get("updated_at")))
+        if datetime.now(timezone.utc) - updated > PLAN_MAX_AGE:
+            return set()
+    except (TypeError, ValueError):
         return set()
     return set(((row or {}).get("body") or {}).get("priority_agents") or [])

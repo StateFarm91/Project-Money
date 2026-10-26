@@ -149,7 +149,7 @@ def run(provider, *, db=None, agent: str = "orchestrator",
             results.append({"task": t.key, "family": t.family, "status": UNSUPPORTED,
                             "problems": ["provider has no vision method"]})
             continue
-        reservation, estimate, resp = None, 0.0, None
+        reservation, estimate, resp, billed = None, 0.0, None, False
         try:
             if db is not None:
                 # Review F-5: a vision call reserves its image tokens as the vision callers do.
@@ -164,12 +164,16 @@ def run(provider, *, db=None, agent: str = "orchestrator",
             else:
                 resp = provider.complete(SYSTEM, t.prompt, max_tokens=max_tokens)
             if db is not None:
-                _bill(db, provider, resp, agent=agent, estimate=estimate,
-                      reservation=reservation)
+                # Review cbd4ff1 N-8: recorded once. If the release after the record fails,
+                # the except branch must not record the same call again; the reservation is
+                # left to the abandoned-reservation sweep.
+                cost = _record(db, provider, resp, agent=agent, estimate=estimate)
+                billed = True
+                gw.release_reservation(db, reservation, actual_cad=cost)
                 reservation = None
             out = _parse(getattr(resp, "text", resp))
         except Exception as exc:  # noqa: BLE001 - an error is a result, never a pass
-            if db is not None and reservation is not None:
+            if db is not None and reservation is not None and not billed:
                 if resp is not None:
                     # Review F-4: the provider answered, so the call is billed: recorded at
                     # its cost (or the reservation estimate when the cost cannot be read),
@@ -192,6 +196,14 @@ def run(provider, *, db=None, agent: str = "orchestrator",
 
 
 def _bill(db, provider, resp, *, agent: str, estimate: float, reservation) -> float:
+    from . import providers as gw
+
+    cost = _record(db, provider, resp, agent=agent, estimate=estimate)
+    gw.release_reservation(db, reservation, actual_cad=cost)
+    return cost
+
+
+def _record(db, provider, resp, *, agent: str, estimate: float) -> float:
     """Review F-4: every billed response is a `spend_report` row (what the ceilings, the
     monthly report and the value units read), then its reservation is released at that cost.
     A response whose cost cannot be computed is counted at the reservation estimate."""
@@ -213,7 +225,6 @@ def _bill(db, provider, resp, *, agent: str, estimate: float, reservation) -> fl
                         model=str(getattr(provider, "model", ""))[:80],
                         estimated_cad=float(estimate), tokens_in=tin, tokens_out=tout,
                         kind="llm", detail=basis)
-    gw.release_reservation(db, reservation, actual_cad=cost)
     return cost
 
 

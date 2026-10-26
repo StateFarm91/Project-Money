@@ -243,13 +243,15 @@ def smoke_matrix(db, *, now: datetime | None = None) -> dict:
                              f"could not be read: {type(exc).__name__}: {str(exc)[:160]}", {})
             checks.extend(got if isinstance(got, list) else [got])
     verdicts = {c["verdict"] for c in checks}
-    verdict = (FAIL if FAIL in verdicts else DEGRADED if DEGRADED in verdicts
-               else UNKNOWN if (UNKNOWN in verdicts or not checks) else PASS)
+    # Review cbd4ff1 N-6: a check nobody could judge outranks a provider that answered
+    # degraded, so the headline never hides an UNKNOWN behind DEGRADED.
+    verdict = (FAIL if FAIL in verdicts else UNKNOWN if (UNKNOWN in verdicts or not checks)
+               else DEGRADED if DEGRADED in verdicts else PASS)
     return {"verdict": verdict, "as_of": now.isoformat(), "checks": checks,
             "failing": [c["check"] for c in checks if c["verdict"] == FAIL],
             "unknown": [c["check"] for c in checks if c["verdict"] == UNKNOWN],
             "degraded": [c["check"] for c in checks if c["verdict"] == DEGRADED],
-            "rule": ("FAIL if any check fails; DEGRADED if none fails and a provider answered "
-                     "with a transient or self-imposed failure; UNKNOWN if none fails and any cannot be judged "
-                     "yet; PASS only when every check passes. Read from rows the runtime "
-                     "wrote, never from configuration")}
+            "rule": ("FAIL if any check fails; UNKNOWN if none fails and any cannot be judged "
+                     "yet; DEGRADED if every check was judged and a provider answered with a "
+                     "transient or self-imposed failure; PASS only when every check passes. "
+                     "Read from rows the runtime wrote, never from configuration")}

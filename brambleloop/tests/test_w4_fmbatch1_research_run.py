@@ -239,6 +239,27 @@ def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
         urllib.request.OpenerDirector.open = real
 
 
+def test_review_n5_an_unencodable_redirect_target_is_a_refusal_with_its_audit():
+    """Review cbd4ff1 N-5: urllib raises UnicodeEncodeError on an IDN redirect target before
+    the allowlist sees it; that must surface as FetchRefused so the fetch is recorded."""
+    import urllib.request
+
+    real = urllib.request.OpenerDirector.open
+
+    def idn(self, *a, **k):
+        "https://\u0435n.wikipedia.org/x".encode("iso-8859-1")   # what http_error_302 does
+
+    urllib.request.OpenerDirector.open = idn
+    try:
+        try:
+            F._default_get("https://www.cpsc.gov/a")
+            raise AssertionError("an unencodable redirect escaped")
+        except F.FetchRefused as exc:
+            assert "redirect target" in str(exc)
+    finally:
+        urllib.request.OpenerDirector.open = real
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     failed = 0

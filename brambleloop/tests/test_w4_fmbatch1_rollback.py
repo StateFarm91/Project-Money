@@ -148,14 +148,14 @@ def _world():
     return base, remote, repo, deployed, candidate
 
 
-def _deploy(repo, base, plan, **env):
+def _deploy(repo, base, plan, *args, **env):
     names = [f for f, *_ in RB.MANIFEST]
     (base / "plan.json").write_text(json.dumps({**plan, "names": names}))
     e = {k: v for k, v in os.environ.items() if k != "TMPDIR"}
     e.update({"RB_PLAN": str(base / "plan.json"), "RB_LOG": str(base / "rb.log"),
               "TMPDIR": str(base)}, **env)
     return subprocess.run(["sh", str(repo / "ops" / "deploy.sh"), "--deployed",
-                           plan["_deployed"]],
+                           plan["_deployed"], *args],
                           cwd=str(repo), env=e, capture_output=True, text=True)
 
 
@@ -168,7 +168,8 @@ def test_deploy_sh_rolls_a_p0_regression_back_to_the_predecessor():
     try:
         r = _deploy(repo, base, {"_deployed": deployed,
                                  candidate: [["shadow phase holds", "FAIL"]]},
-                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="owner accepted automatic containment (test)", READBACK_RETRY_S="0")
+                    "--auto-rollback-reason", "owner accepted automatic containment (test)",
+                    AUTO_ROLLBACK="1", READBACK_RETRY_S="0")
         assert r.returncode == 0, (r.returncode, r.stderr)
         assert "rolling back to " + deployed in r.stderr, r.stderr
         prod = _production(remote)
@@ -233,6 +234,27 @@ def test_auto_rollback_without_an_owner_reason_refuses_to_push():
         shutil.rmtree(base, ignore_errors=True)
 
 
+def test_n4_a_standing_environment_reason_never_authorises_a_rollback():
+    """Review cbd4ff1 N-4: the reason must be given on this invocation; a standing
+    AUTO_ROLLBACK_REASON in the environment is refused and nothing is pushed."""
+    base, remote, repo, deployed, candidate = _world()
+    try:
+        r = _deploy(repo, base, {"_deployed": deployed,
+                                 candidate: [["shadow phase holds", "FAIL"]]},
+                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="standing reason set months ago",
+                    READBACK_RETRY_S="0")
+        assert r.returncode == 6 and _production(remote) == candidate, r.stderr
+        assert "rolling back to" not in r.stderr
+        assert "--auto-rollback-reason" in r.stderr
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_n4_header_documents_the_real_default():
+    head = (OPS / "deploy.sh").read_text().split("\n\n", 1)[0]
+    assert "default 1, F-381" not in head and "default 0" in head
+
+
 def test_a_p0_that_clears_on_the_re_read_is_not_rolled_back():
     base, remote, repo, deployed, candidate = _world()
     try:
@@ -251,7 +273,8 @@ def test_a_rollback_that_itself_regresses_is_not_rolled_back_again():
     try:
         r = _deploy(repo, base, {"_deployed": deployed,
                                  "*": [["shadow phase holds", "FAIL"]]},
-                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="owner accepted automatic containment (test)", READBACK_RETRY_S="0")
+                    "--auto-rollback-reason", "owner accepted automatic containment (test)",
+                    AUTO_ROLLBACK="1", READBACK_RETRY_S="0")
         assert r.returncode == 6, (r.returncode, r.stderr)
         assert "NOT rolling back again" in r.stderr
         # candidate, its re-read, then one rollback (which is never rolled back again)
