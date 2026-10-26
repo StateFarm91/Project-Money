@@ -5921,6 +5921,32 @@ def dashboard() -> str:
             [["Observed", "Domain", "Source", "What changed"]],
             "nothing observed yet -- which is a state, not a quiet week")
 
+    def _studio_learn() -> str:
+        """F-827: Studio Learn from the database -- lessons by state, learner-need coverage and
+        what is waiting for review. Empty tables say so; a count nobody took is not zero."""
+        from ..learn.models import LearnGap, Lesson as LearnLesson
+
+        try:
+            with db.session() as s:
+                lessons = dict(s.execute(select(LearnLesson.state, func.count())
+                                         .group_by(LearnLesson.state)).all())
+                gaps = dict(s.execute(select(LearnGap.state, func.count())
+                                      .group_by(LearnGap.state)).all())
+        except Exception as exc:  # noqa: BLE001 - tables absent here: UNKNOWN, not zero
+            return f'<div class="empty">unavailable: {esc(type(exc).__name__)}</div>'
+        total_gaps = sum(gaps.values())
+        coverage = (f"{gaps.get('COVERED', 0)} / {total_gaps}" if total_gaps
+                    else "UNMEASURED (no learner need recorded)")
+        return rows([
+            ("lessons", ", ".join(f"{k}: {v}" for k, v in sorted(lessons.items()))
+             or "none written yet"),
+            ("awaiting review", str(sum(v for k, v in lessons.items()
+                                        if k == "DRAFT"))),
+            ("learner needs covered", coverage),
+            ("needs by state", ", ".join(f"{k}: {v}" for k, v in sorted(gaps.items()))
+             or "none recorded"),
+        ], [["Studio Learn", "Value"]], "")
+
     def _health() -> str:
         """Online means work is progressing, not that this page rendered (#185)."""
         from ..ops import health
@@ -6233,6 +6259,7 @@ def dashboard() -> str:
         + _block("CA$5,000/month model", _scale)
         + _block("Creative standard", _creative)
         + _block("Improvement", _improve)
+        + _block("Studio Learn", _studio_learn)
         + _block("Capabilities and spend", _models)
     )
 
