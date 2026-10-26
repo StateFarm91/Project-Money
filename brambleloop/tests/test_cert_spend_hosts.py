@@ -48,6 +48,10 @@ DECLARED = {
     # calls it, after check_budget_cad reserved on `laura_private` (atomic, CA$0.50/day).
     "brambleloop/gateway/venice.py": "Private Laura transport: laura_register reserves via "
                                      "check_budget_cad first",
+    # INTEG7 (FMBATCH1 F-417): the adoption register names each called service's host as data
+    # (cost and footprint report). It imports no HTTP client and makes no request.
+    "brambleloop/ops/adoptions.py": "data only: provider host names in the F-417 adoption "
+                                    "register; no request",
 }
 
 
@@ -88,6 +92,14 @@ def test_free_check_and_transport_modules_address_only_their_allowlisted_urls():
         found = {u.rstrip(".") for u in _URL.findall(text)}
         assert found, rel
         assert found <= allowed, (rel, sorted(found - allowed))
+
+
+def test_the_data_only_declaration_holds_no_http_client():
+    """INTEG7: `ops/adoptions.py` is declared as data only, so it must not grow a request path."""
+    text = (SRC / "brambleloop/ops/adoptions.py").read_text(encoding="utf-8")
+    for client in ("urllib", "urlopen", "http.client", "requests", "httpx", "socket",
+                   "Request("):
+        assert client not in text, client
 
 
 def test_the_scan_would_see_a_new_one():
