@@ -119,6 +119,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "etsy.credential_health": ("latest", "intel.etsy_scorecard reads the newest reading"),
     "gateway.provider_change": ("windowed", "scale.dependency counts the last 30 days"),
     "plan.strategy_reviewed": ("latest", "command_center.executive reads the newest review"),
+    "seasonal.childrens_series": ("lifetime_total",
+                                  "seasonal.childrens_demand reads the newest series per "
+                                  "sub-category (4 rows a month)"),
     "learning_value.expected": ("latest", "finance.learning_value.report: newest 200 rows"),
     "learning_value.realised": ("latest", "finance.learning_value.report: newest 200 rows"),
     "learning_value.refused": ("latest", "finance.learning_value.report: newest 200 rows"),

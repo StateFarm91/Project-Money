@@ -760,7 +760,16 @@ def catalogue_plans(db, today: date | None = None,
     # F-194: which cohort each row belongs to, so a legacy catalogue product at risk is never
     # read as a current launch candidate or a future seasonal programme item.
     cohort_counts = tag_cohorts(rows)
+    # F-357: measured demand windows for children's sub-categories (UNMEASURED until a year
+    # of monthly series exists), beside the event plans they inform.
+    try:
+        from . import childrens_demand
+
+        kids = childrens_demand.windows(db, today=today)
+    except Exception as exc:  # noqa: BLE001 - the war room never fails on this reading
+        kids = {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
     return {
+        "childrens_demand_windows": kids,
         "counts_by_cohort": cohort_counts,
         "today": today.isoformat(),
         "calibration": calibration,

@@ -7097,6 +7097,12 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     colour_sweep = (_colour.sweep_colour_signals(ctx.db) if result["recorded"] else
                     {"recorded": 0, "failures": [{"why": "skipped: the main culture sweep "
                                                           "recorded nothing this run"}]})
+    # F-357: children's sub-category monthly series, at most monthly (one call per
+    # sub-category per calendar month), skipped like the colour sweep when the feed refused.
+    from ..seasonal import childrens_demand as _kids
+
+    kids_sweep = (_kids.sweep_if_due(ctx.db) if result["recorded"] else
+                  {"recorded": [], "failures": [{"why": "skipped: main sweep recorded nothing"}]})
 
     # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
     # one series cannot lead anything.
@@ -7127,6 +7133,8 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "attempted": result["attempted"], "failures": result["failures"][:5],
         "colour_recorded": colour_sweep["recorded"],
         "colour_failures": colour_sweep["failures"][:3],
+        "childrens_recorded": kids_sweep["recorded"],
+        "childrens_failures": kids_sweep["failures"][:3],
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
