@@ -142,8 +142,24 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # release that is not retried -- never one certified twice.
     # LAUNCHPREP E6: etsy_ops reads the newest shop-sync row only (the snapshot's spacing).
     "store.shop_sync": ("latest", "etsy_ops._seconds_since_shop_sync reads the newest row"),
-    "gate.certified": ("windowed", "release_recovery reads rows newer than a queued certify "
-                                   "job and each release's newest outcome"),
+    # INTEG7: LISTREADY classified gate.certified `windowed`. FMBATCH1's read-actions audit
+    # finds it read with no window by finance.governor, finance.unit_cost, improve.presale,
+    # ops.backfill, runtime.pipeline and runtime.release. The stricter classification wins, so
+    # nothing any reader needs is pruned. Its halt and outcome partners in
+    # release_recovery.halted_releases are protected with it: a pruned outcome under a kept
+    # halt would make a certified release look halted and be retried.
+    "gate.certified": ("lifetime_total",
+                       "release_recovery reads rows newer than a queued certify job and each "
+                       "release's newest outcome; finance.governor, finance.unit_cost, "
+                       "improve.presale, ops.backfill, runtime.pipeline and runtime.release "
+                       "read it with no window or row limit"),
+    "gate.halted": ("lifetime_total",
+                    "release_recovery.halted_releases compares each release's newest halt with "
+                    "its newest certify outcome (per artifact, which keep-per-action does not "
+                    "protect)"),
+    "gate.version_conflict": ("lifetime_total",
+                              "release_recovery.halted_releases: a certify outcome per artifact, "
+                              "read with gate.halted"),
     # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as
     # the newest row only (assurance, owner_queue, command_center.tabs, launch.visibility,
     # core.phase readiness evidence), so pruning older rows changes nothing they show.
@@ -719,6 +735,10 @@ UNRESOLVED_READ_SITES: dict[str, str] = {
         "chain family is classified lifetime_total by its owner above"),
     "core/sealed_chain.py::refusal": (
         "GrantLedger.revoked of each sealed chain; lifetime_total above"),
+    # INTEG7 (LISTREADY x FMBATCH1): the scan cannot resolve `(HALTED,) + OUTCOMES`.
+    "runtime/release_recovery.py::halted_releases": (
+        "AuditLog.action in (gate.halted, gate.certified, gate.blocked, "
+        "gate.version_conflict); all four lifetime_total above"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
