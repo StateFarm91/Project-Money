@@ -3058,6 +3058,7 @@ from . import etsy_ops  # noqa: E402,F401  (FB-1 B: Etsy read-back, census, shop
 from . import ops_watch  # noqa: E402,F401  (FB-4: F-125 maturity disagreements cadence)
 from . import storefront_watch  # noqa: E402,F401  (F-280: launch-week Search Visibility)
 from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director)
+from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

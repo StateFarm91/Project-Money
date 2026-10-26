@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T01:01:10.927927+00:00",
+ "generated_at": "2026-10-26T01:19:50.829751+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 116,
-  "handlers": 139,
+  "cadences": 117,
+  "handlers": 144,
   "agents": 31,
-  "follow_on_edges": 68
+  "follow_on_edges": 72
  },
  "departments": [
   {
@@ -759,11 +759,13 @@
     "generatable": [
      "ops.sentinel",
      "physical.upgrade_impact",
+     "gate.quality",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "ops.sentinel": "orchestrator",
      "physical.upgrade_impact": "quality_director",
+     "gate.quality": "quality_director",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -806,6 +808,12 @@
       "agent": "orchestrator",
       "job_type": "ops.sentinel",
       "period_seconds": 3600
+     },
+     {
+      "name": "quality_reverify",
+      "agent": "quality_director",
+      "job_type": "gate.quality",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -813,6 +821,7 @@
      "cir.compile",
      "cir.draft",
      "gate.certify",
+     "gate.quality",
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
      "runtime/pipeline.py:_draft_creative",
@@ -840,7 +849,8 @@
     ],
     "overdue_cadence_catch_up": [
      "ops.sentinel",
-     "physical.upgrade_impact"
+     "physical.upgrade_impact",
+     "gate.quality"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -849,25 +859,25 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
      "cir.compile",
+     "cir.reverse",
+     "cir.twin",
+     "gate.asset_truth",
      "gate.certify",
      "gate.lanes",
+     "gate.policy",
+     "gate.quality",
      "ops.provenance_backfill",
      "ops.sentinel",
      "physical.photo",
      "physical.record",
      "physical.upgrade_impact"
     ],
-    "permitted_without_handler": [
-     "cir.reverse",
-     "cir.twin",
-     "gate.asset_truth",
-     "gate.policy",
-     "gate.quality"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "certificates",
@@ -2386,55 +2396,6 @@
   },
   {
    "kind": "permission_without_handler",
-   "agent": "validator",
-   "job_types": [
-    "cir.reverse",
-    "cir.twin"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "quality_director",
-   "job_types": [
-    "gate.quality"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "asset_truth",
-   "job_types": [
-    "gate.asset_truth"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "agent_can_run_nothing",
-   "agent": "asset_truth"
-  },
-  {
-   "kind": "permission_without_handler",
-   "agent": "policy",
-   "job_types": [
-    "gate.policy"
-   ],
-   "department": [
-    "product_truth"
-   ]
-  },
-  {
-   "kind": "agent_can_run_nothing",
-   "agent": "policy"
-  },
-  {
-   "kind": "permission_without_handler",
    "agent": "publishing",
    "job_types": [
     "assets.render"
@@ -2542,7 +2503,7 @@
    "departments": "product_truth",
    "link": "execution",
    "finding": "Registry permissions with no handler: gate.quality, gate.policy, gate.asset_truth, cir.twin, cir.reverse (and cir.revise, assets.render, content.draft, store.update, pricing.experiment, radar.competitor_snapshot). Agents asset_truth and policy hold only unhandled job types, so they can never run anything.",
-   "status": "DECIDED (v1.1 wiring): kept as declared-but-unbuilt",
+   "status": "PARTLY REPAIRED (W4-AGENTS): content.draft, store.update, gate.quality, gate.policy, gate.asset_truth, cir.twin and cir.reverse now have handlers; the quality ones re-verify already-certified releases only and are never a verdict path (runtime.quality_ops). The rest stay declared-but-unbuilt",
    "repair": "gate.quality/gate.policy/gate.asset_truth/cir.twin/cir.reverse already execute in-process inside gate.certify (gates.certificate.certify: build_twin, reverse_compare, check_assets, check_listing), so standalone handlers would be a second, uncertified verdict path; the rest are unbuilt capabilities (store.update and pricing.experiment are protected). The set is pinned by tests/test_roles.py DECLARED_BUT_UNBUILT (recorded decision). See research/final_build/v1_1/WIRING_REPORT.md"
   },
   {

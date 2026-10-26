@@ -897,6 +897,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # can fix become content.draft proposals, applied only by store.update under the owner's
     # storefront grant -- never in SHADOW.
     ("storefront_review", "storefront_director", "storefront.review", 24 * 60 * 60),
+    # W4-AGENTS department batch 1: Quality & Compliance re-verifies every certified release
+    # daily (compile, twin, reverse compile US/UK, claims, listing policy). Regression
+    # detection only -- never a verdict path; a disagreement is a P2 incident. CA$0.
+    ("quality_reverify", "quality_director", "gate.quality", 24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
     ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),

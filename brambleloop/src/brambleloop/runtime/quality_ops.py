@@ -1,0 +1,192 @@
+"""Quality & Compliance as operational agents (W4-AGENTS department batch 1).
+
+`validator`, `asset_truth`, `policy` and `quality_director` each held job types with no
+handler (autonomy.map AM-10), so three of the four agents could never run anything. AM-10 kept
+them unbuilt because a standalone handler would be "a second, uncertified verdict path". These
+handlers are deliberately NOT a verdict path: they never certify, revoke, block or change a
+release. They re-run, on releases that are ALREADY certified, the same deterministic stages
+`gates.certificate.certify` ran (compile, digital twin, written pattern -> independent reverse
+compile in US and UK terms, the title's shape/technique claims, the listing's policy and claim
+checks), and a disagreement becomes one deduplicated P2 incident (non-halting) for the owner of
+the code that drifted. That is regression detection: a compiler, writer or policy change that
+silently breaks a release already on sale is caught the next day, not by a buyer.
+
+* `gate.quality` (quality_director, daily cadence): enumerate the newest certified release per
+  product and queue one re-verification of each kind under its owning agent.
+* `cir.twin` / `cir.reverse` (validator), `gate.asset_truth` (asset_truth), `gate.policy`
+  (policy): one release each. Deterministic, no model, no network, CA$0.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from .worker import JobContext, handlers
+
+READING = "quality.reverified"
+CHECKS = {"cir.twin": "validator", "cir.reverse": "validator",
+          "gate.asset_truth": "asset_truth", "gate.policy": "policy"}
+
+
+def certified_releases(db) -> list[dict]:
+    """The newest certified PatternVersion per product."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        rows = s.execute(select(Product.slug, PatternVersion.version, PatternVersion.id,
+                                PatternVersion.release_hash)
+                         .join(PatternVersion, PatternVersion.product_id == Product.id)
+                         .where(PatternVersion.certified == True)  # noqa: E712
+                         .order_by(PatternVersion.id)).all()
+    for slug, version, pid, rh in rows:
+        out[slug] = {"slug": slug, "version": version, "release_hash": rh or ""}
+    return sorted(out.values(), key=lambda r: r["slug"])
+
+
+def _cir(db, slug: str, version: str):
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product, PatternVersion.product_id ==
+                                                  Product.id)
+                      .where(Product.slug == slug, PatternVersion.version == version,
+                             PatternVersion.certified == True))  # noqa: E712
+        return CIR.from_dict(pv.cir_json) if pv is not None else None
+
+
+def _errors(findings) -> list[str]:
+    return [f"{getattr(f, 'code', '?')}: {str(getattr(f, 'message', f))[:120]}"
+            for f in findings if getattr(f, "is_error", False)
+            or str(getattr(f, "severity", "")).upper() == "ERROR"]
+
+
+def reverify(db, check: str, slug: str, version: str) -> dict:
+    """Re-run one certificate stage on a certified release. Never raises for a finding."""
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    cir = _cir(db, slug, version)
+    if cir is None:
+        return {"check": check, "ok": None, "why": f"{slug}@{version} is not certified"}
+    result = compile_cir(cir)
+    problems = _errors(result.findings) if not result.ok else []
+    if check == "cir.twin":
+        from ..quality.physical import calibration_from_db
+
+        if not problems:
+            twin = build_twin(cir, result, calibration=calibration_from_db(db, cir))
+            if not twin.stitch_types_used:
+                problems.append("twin: no stitches modelled")
+    elif check == "cir.reverse":
+        from ..cir.reverse import compare
+        from ..cir.writer import write_pattern
+
+        if not problems:
+            for term in ("US", "UK"):
+                problems += [f"{term} {p}" for p in
+                             _errors(compare(cir, write_pattern(cir, result, term), term))]
+    elif check == "gate.asset_truth":
+        from ..gates.asset_truth import check_shape_claims, check_technique_claims
+
+        if not problems:
+            twin = build_twin(cir, result)
+            texts = [("cir.title", cir.title)] + [
+                (f"listing.{k}", v) for k, v in _listing(db, slug, version).items()
+                if k in ("title", "description") and v]
+            for where, text in texts:
+                problems += _errors(check_shape_claims(text, cir, twin, where))
+                problems += _errors(check_technique_claims(text, cir, twin, where))
+    elif check == "gate.policy":
+        from ..gates.policy import ListingDraft, check_listing
+
+        lst = _listing(db, slug, version)
+        if not lst:
+            return {"check": check, "ok": None, "why": "no drafted listing to check"}
+        problems += _errors(check_listing(ListingDraft(
+            title=lst["title"], description=lst["description"], tags=list(lst["tags"]),
+            price_cad=float(lst["price_cad"] or 0)), cir))
+    else:
+        return {"check": check, "ok": None, "why": f"unknown check {check!r}"}
+    return {"check": check, "ok": not problems, "problems": problems[:20]}
+
+
+def _listing(db, slug: str, version: str) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        return ({"title": row.title, "description": row.description, "tags": row.tags or [],
+                 "price_cad": row.price_cad} if row is not None else {})
+
+
+def _incident(db, slug: str, version: str, check: str, problems: list[str]) -> int | None:
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    sig = f"quality.reverify:{check}:{slug}@{version}"[:200]
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == sig,
+                                              Incident.resolved == False))  # noqa: E712
+        if row is not None:
+            row.report_count = (row.report_count or 1) + 1
+            return None
+        inc = Incident(severity="P2", product_slug=slug, signature=sig,
+                       halts_publication=False,
+                       summary=(f"certified {slug}@{version} no longer passes {check} on "
+                                f"re-verification: {problems[0] if problems else ''}")[:500],
+                       detail={"problems": problems[:20], "check": check,
+                               "note": "regression detection only; the certificate is "
+                                       "unchanged and nothing was blocked"})
+        s.add(inc)
+        s.flush()
+        return inc.id
+
+
+def _run_check(ctx: JobContext) -> dict:
+    i = dict(ctx.job.inputs or {})
+    slug, version, check = i.get("slug"), i.get("version"), ctx.job.job_type
+    if not slug or not version:
+        return {"ran": False, "why": "needs slug and version of a certified release"}
+    r = reverify(ctx.db, check, slug, version)
+    if r["ok"] is None:
+        return {"ran": False, **r}
+    inc = None if r["ok"] else _incident(ctx.db, slug, version, check, r["problems"])
+    ctx.audit(READING, artifact=f"{slug}@{version}",
+              detail={**r, "incident": inc, "release_hash": i.get("release_hash", "")})
+    return {**r, "slug": slug, "version": version, "incident": inc,
+            "certificate_changed": False, "work_done": 1}
+
+
+for _jt in CHECKS:
+    handlers.register(_jt)(_run_check)
+
+
+@handlers.register("gate.quality")
+def handle_gate_quality(ctx: JobContext) -> dict:
+    """Queue the day's re-verification of every certified release under its owning agent."""
+    day = datetime.now(timezone.utc).date().isoformat()
+    queued = 0
+    releases = certified_releases(ctx.db)
+    for r in releases:
+        key = f"{r['slug']}:{(r['release_hash'] or r['version'])[:16]}:{day}"
+        # Literal job types, so the autonomy map sees each wake edge (AST, literals only).
+        jobs = (ctx.enqueue("validator", "cir.twin", dict(r),
+                            idempotency_key=f"reverify:cir.twin:{key}"),
+                ctx.enqueue("validator", "cir.reverse", dict(r),
+                            idempotency_key=f"reverify:cir.reverse:{key}"),
+                ctx.enqueue("asset_truth", "gate.asset_truth", dict(r),
+                            idempotency_key=f"reverify:gate.asset_truth:{key}"),
+                ctx.enqueue("policy", "gate.policy", dict(r),
+                            idempotency_key=f"reverify:gate.policy:{key}"))
+        queued += sum(j is not None for j in jobs)
+    ctx.audit("quality.reverify_planned", detail={"releases": len(releases), "queued": queued})
+    return {"releases": len(releases), "queued": queued, "work_done": queued}
