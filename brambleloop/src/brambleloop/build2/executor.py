@@ -1262,6 +1262,13 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
     # F-466: the same fan-out for Final Master rows. Recorded when the set of rows whose gate
     # is open changes, so a gate opening is one event naming every row it released.
     result["fm_fanout"] = _fm_fanout(db, env)
+    # F-488: the critical path's movement, recorded when it changes.
+    try:
+        from . import critical_path
+
+        result["critical_path"] = critical_path.record_movement(db)
+    except Exception as exc:  # noqa: BLE001 - a reading, never a reason the tick fails
+        result["critical_path"] = {"state": "UNKNOWN", "why": f"{type(exc).__name__}"}
     return result
 
 

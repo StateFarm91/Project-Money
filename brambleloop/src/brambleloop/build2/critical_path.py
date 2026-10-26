@@ -88,3 +88,48 @@ def analyse(statuses: dict[int, str] | None = None, *, top: int = 10,
                                           for r in ranking if r["node"].startswith("gate:")),
                                          key=lambda x: -x["unblocks"])[:top],
             "downstream": {n: len(reach[n]) for n in succ if _work(n)}}
+
+
+MOVEMENT_EVENT = "critical_path"
+
+
+def record_movement(db, *, analysis: dict | None = None) -> dict:
+    """F-488: write a `critical_path` build event when the path's length or head changed."""
+    from sqlalchemy import select
+
+    from ..core.models import BuildEvent
+    from . import executor
+
+    cp = analysis or analyse()
+    reading = {"length": cp["length"], "head": cp["critical_path"][:4],
+               "top_gate": (cp["gates_by_unblocked"][0] if cp["gates_by_unblocked"] else None)}
+    with db.session() as s:
+        last = s.scalar(select(BuildEvent).where(BuildEvent.kind == MOVEMENT_EVENT)
+                        .order_by(BuildEvent.id.desc()).limit(1))
+        before = dict(last.detail or {}) if last else None
+    if before is None or (before.get("length"), before.get("head")) != (reading["length"],
+                                                                        reading["head"]):
+        executor.record(db, kind=MOVEMENT_EVENT, actor="critical_path",
+                        summary=f"critical path {reading['length']} step(s)", detail=reading)
+    return reading
+
+
+def movement(db) -> dict:
+    """The newest critical-path reading against the one before it. UNMEASURED with none."""
+    from sqlalchemy import select
+
+    from ..core.models import BuildEvent
+
+    with db.session() as s:
+        rows = list(s.scalars(select(BuildEvent).where(BuildEvent.kind == MOVEMENT_EVENT)
+                              .order_by(BuildEvent.id.desc()).limit(2)))
+        rows = [(r.at, dict(r.detail or {})) for r in rows]
+    if not rows:
+        return {"state": "UNMEASURED", "why": "no critical-path reading recorded yet"}
+    (at, now), prev = rows[0], (rows[1] if len(rows) > 1 else None)
+    return {"state": "MEASURED", "length": now.get("length"), "head": now.get("head"),
+            "top_gate": now.get("top_gate"), "at": at.isoformat() if at else None,
+            "previous": prev[1].get("length") if prev else None,
+            "previous_at": prev[0].isoformat() if prev and prev[0] else None,
+            "delta": (now.get("length") - prev[1].get("length"))
+            if prev and isinstance(prev[1].get("length"), int) else None}
