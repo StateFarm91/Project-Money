@@ -119,6 +119,7 @@ def executive(db, now: datetime | None = None) -> dict:
              "escalated_support_awaiting_reply": escalated_waiting, "state": "MEASURED",
              "why": "open P0/P1 incidents plus escalated support cases awaiting a reply"},
         ]
+        items += _executive_operations(db, now)
         measured = any(v.get("state") == "MEASURED" for v in rev.values())
         return envelope("OK" if measured else "DEGRADED", items,
                         ["ledger", "orders", "listings", "incidents", "support_cases",
@@ -128,6 +129,69 @@ def executive(db, now: datetime | None = None) -> dict:
                         "revenue windows are UNMEASURED until the order source is read")
 
     return guard("executive", read, sources=["ledger", "listings", "incidents"])
+
+
+def _executive_operations(db, now: datetime) -> list[dict]:
+    """W4-FMBATCH1 (F-661): the objective, incidents, active departments, completed work and
+    owner decisions -- the parts of the executive block CLOSE5 found missing. Each item is a
+    reading or UNKNOWN with why; none is defaulted."""
+    from ...core.models import AuditLog, Incident, Job, JobStatus
+    from . import readers
+
+    since = now - timedelta(hours=24)
+    out: list[dict] = []
+    with db.session() as s:
+        plan = s.scalar(select(AuditLog).where(AuditLog.action == "plan.strategy_reviewed")
+                        .order_by(AuditLog.id.desc()).limit(1))
+        open_incidents = int(s.scalar(select(func.count()).select_from(Incident).where(
+            Incident.resolved == False)) or 0)  # noqa: E712
+        done = list(s.execute(select(Job.job_type, Job.inputs).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= since)).all())
+    if plan is None:
+        out.append({"metric": "objective", "label": "Objective (today / month / 90 days)",
+                    "value": None, "state": "UNKNOWN",
+                    "why": "no plan.strategy review has been recorded"})
+    else:
+        traj = (plan.detail or {}).get("trajectory") or {}
+        out.append({"metric": "objective", "label": "Objective (today / month / 90 days)",
+                    "value": traj.get("target_cad") or traj.get("target"),
+                    "trajectory": traj, "state": "RECORDED",
+                    "as_of": (plan.detail or {}).get("as_of"),
+                    "why": ("the monthly strategy review's trajectory; a refusal to forecast "
+                            "is shown as such" if not traj.get("is_forecast") else None)})
+    out.append({"metric": "open_incidents", "label": "Open incidents", "value": open_incidents,
+                "state": "MEASURED"})
+    try:
+        from ...autonomy import kpis
+
+        depts = {kpis.job_department(jt, inp) for jt, inp in done} - {None}
+        out.append({"metric": "active_departments", "label": "Departments with completed work (24 h)",
+                    "value": len(depts), "departments": sorted(depts), "state": "MEASURED"})
+    except Exception as exc:  # noqa: BLE001
+        out.append({"metric": "active_departments", "value": None, "state": "UNKNOWN",
+                    "why": f"department mapping unreadable: {type(exc).__name__}"})
+    out.append({"metric": "completed_work_24h", "label": "Completed jobs (24 h)",
+                "value": len(done), "state": "MEASURED"})
+    try:
+        own = readers.owner_actions_summary(db)
+        n = own.get("open_actions") if isinstance(own, dict) else None
+    except Exception:  # noqa: BLE001
+        n = None
+    out.append({"metric": "owner_decisions", "label": "Owner decisions waiting", "value": n,
+                "state": "MEASURED" if n is not None else "UNKNOWN",
+                "why": None if n is not None else "owner inbox unreadable"})
+    return out
+
+
+#: W4-FMBATCH1 (F-668): which improvement cells' lessons count as a department's learning.
+#: A stated mapping (charter key -> improve.cells keys); a department with none reads UNKNOWN.
+DEPARTMENT_CELLS: dict[str, tuple[str, ...]] = {
+    "intelligence": ("market_radar",), "product_design": ("product_creativity",
+                                                         "pattern_engineering"),
+    "product_truth": ("quality",), "visual": ("creative_assets",),
+    "store_commerce": ("seo_search", "pricing", "portfolio"),
+    "support": ("customer_experience",), "finance": ("finance",), "growth": ("growth",),
+    "learn": ("learn",), "platform": ("runtime",)}
 
 
 # ---- F-668 -----------------------------------------------------------------------------------
@@ -163,6 +227,24 @@ def agents_workspace(db, now: datetime | None = None) -> dict:
                 Job.status.in_([JobStatus.FAILED, JobStatus.DEAD]), Job.finished_at >= since)
                 .group_by(Job.agent)).all())
             ever = {a for a in s.scalars(select(Job.agent).distinct()) if a}
+            # Heartbeat: the newest start or finish this agent recorded.
+            beats = {}
+            for agent, st, fin in s.execute(select(Job.agent, func.max(Job.started_at),
+                                                   func.max(Job.finished_at))
+                                            .group_by(Job.agent)).all():
+                cand = [_aware(x) for x in (st, fin) if x is not None]
+                beats[agent] = max(cand).isoformat() if cand else None
+            from ...core.models import Lesson
+
+            lessons_by_cell = dict(s.execute(select(Lesson.origin_cell, func.count()).where(
+                Lesson.at >= now - timedelta(days=30)).group_by(Lesson.origin_cell)).all()) \
+                if hasattr(Lesson, "at") else {}
+        try:
+            from ...autonomy import charters as _ch
+
+            lead_of = {c.key: c.agents[0] for c in _ch.CHARTERS if c.agents}
+        except Exception:  # noqa: BLE001
+            lead_of = {}
         spend = spend_report.per_agent_today(db, now=now)
         spent = {r["agent"]: r for r in spend.get("agents") or []}
         items = []
@@ -180,6 +262,15 @@ def agents_workspace(db, now: datetime | None = None) -> dict:
                 "spent_today_cad": sp.get("spent_today_cad"),
                 "daily_ceiling_cad": sp.get("daily_ceiling_cad"),
                 "over_ceiling": any(o.get("agent") == a.name for o in spend.get("over") or []),
+                # W4-FMBATCH1 (F-668): role in the org chart, heartbeat and learning.
+                "role": ("director" if dept_of_agent.get(a.name)
+                         and lead_of.get(dept_of_agent[a.name]) == a.name else
+                         "worker" if dept_of_agent.get(a.name) else "UNKNOWN"),
+                "heartbeat": beats.get(a.name),
+                "department_lessons_30d": (
+                    sum(int(lessons_by_cell.get(c, 0)) for c in
+                        DEPARTMENT_CELLS[dept_of_agent[a.name]])
+                    if dept_of_agent.get(a.name) in DEPARTMENT_CELLS else None),
                 "why": (None if state != "UNKNOWN" else
                         "no job has ever been recorded for this agent here"),
                 "source": f"agents:{a.name}"})
@@ -187,10 +278,22 @@ def agents_workspace(db, now: datetime | None = None) -> dict:
             return envelope("UNKNOWN", [], ["agents"], basis="unknown",
                             reason="no agent is registered", provider="executive.agents")
         unregistered = spend.get("spenders_with_no_agent_row") or []
+        org: dict[str, dict] = {}
+        for it in items:
+            d = it["department"] or "unassigned"
+            node = org.setdefault(d, {"director": None, "workers": []})
+            if it["role"] == "director":
+                node["director"] = {"agent": it["agent"], "state": it["state"]}
+            else:
+                node["workers"].append({"agent": it["agent"], "state": it["state"]})
         return envelope("DEGRADED" if any(i["over_ceiling"] for i in items) else "OK", items,
                         ["agents", "jobs", "cost_entries (spend_report.per_agent_today)"],
                         provider="executive.agents_workspace", as_of=now.isoformat(),
                         spenders_with_no_agent_row=unregistered, day=spend.get("day"),
+                        org_chart=org,
+                        org_basis=("director = the first agent its charter lists "
+                                   "(autonomy.charters); learning = lessons in 30 days from "
+                                   "the department's improvement cells (DEPARTMENT_CELLS)"),
                         note="completed/failed are finished jobs in the last 24 h; spend is "
                              "recorded today (UTC) against the agent's daily ceiling")
 
@@ -250,6 +353,7 @@ def autonomy_health(db, *, auto: dict | None = None, owner: dict | None = None,
              "why": None if states is not None else
              "the autonomy agents provider reported no agents"},
         ]
+        items += _autonomy_extra(db, now)
         return envelope("OK" if any_job else "UNKNOWN", items,
                         ["jobs", "build2.executor.approval_inbox", "autonomy agents"],
                         basis="measured" if any_job else "unknown",
@@ -257,3 +361,87 @@ def autonomy_health(db, *, auto: dict | None = None, owner: dict | None = None,
                         reason=None if any_job else "no job has ever been recorded")
 
     return guard("autonomy_health", read, sources=["jobs"])
+
+
+def _autonomy_extra(db, now: datetime) -> list[dict]:
+    """W4-FMBATCH1 (F-729): restarts recovered, experiments, improvements promoted/reverted and
+    unintentionally idle departments -- the parts CLOSE5 found missing."""
+    from ...core.models import Improvement, Job, JobStatus, RegisteredExperiment
+
+    since = now - timedelta(hours=24)
+    week = now - timedelta(days=7)
+    with db.session() as s:
+        recovered = list(s.execute(select(Job.job_type).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= since, Job.attempts > 1)).all())
+        exp_states = dict(s.execute(select(RegisteredExperiment.state, func.count())
+                                    .group_by(RegisteredExperiment.state)).all())
+        promoted = int(s.scalar(select(func.count()).select_from(Improvement).where(
+            Improvement.promoted_at >= week)) or 0)
+        reverted = int(s.scalar(select(func.count()).select_from(Improvement).where(
+            Improvement.reverted_at >= week)) or 0)
+        ready = list(s.execute(select(Job.job_type, Job.inputs).where(
+            Job.status == JobStatus.PENDING, Job.run_after <= now)).all())
+        done = list(s.execute(select(Job.job_type, Job.inputs).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= since)).all())
+    out = [
+        {"metric": "restarts_recovered_24h", "value": len(recovered),
+         "job_types": sorted({r[0] for r in recovered})[:20],
+         "why": "jobs that completed on a second or later attempt (retried or reclaimed)"},
+        {"metric": "experiments", "by_state": {str(k): int(v) for k, v in exp_states.items()},
+         "value": sum(int(v) for v in exp_states.values())},
+        {"metric": "improvements_7d", "promoted": promoted, "reverted": reverted},
+    ]
+    try:
+        from ...autonomy import kpis
+
+        waiting = {kpis.job_department(jt, i) for jt, i in ready} - {None}
+        working = {kpis.job_department(jt, i) for jt, i in done} - {None}
+        idle = sorted(waiting - working)
+        out.append({"metric": "unintentionally_idle_departments", "value": len(idle),
+                    "departments": idle,
+                    "why": ("ready work is waiting and the department completed nothing in "
+                            "24 h" if idle else "every department with ready work completed "
+                            "something in 24 h")})
+    except Exception as exc:  # noqa: BLE001
+        out.append({"metric": "unintentionally_idle_departments", "value": None,
+                    "why": f"department mapping unreadable: {type(exc).__name__}"})
+    return out
+
+
+def kpi_trend(db, *, days: int = 7, now: datetime | None = None) -> dict:
+    """W4-FMBATCH1 (F-621): each department's charter KPIs per UTC day -- useful completions
+    (distinct non-noop results) and defect dead letters -- read in one pass over job rows with
+    the same rules `autonomy.kpis.compute` applies to its 24 h window."""
+    from ...core.models import Job, JobStatus
+    from ...queue.durable import DEFECT, classify_dead_letter
+    from ...autonomy import kpis
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    labels = [(start + timedelta(days=i)).date().isoformat() for i in range(days)]
+    with db.session() as s:
+        rows = list(s.execute(select(Job.job_type, Job.inputs, Job.outputs, Job.status,
+                                     Job.last_error, Job.finished_at)
+                              .where(Job.finished_at >= start)).all())
+    if not rows:
+        return {"days": labels, "by_department": {}, "basis": "unknown",
+                "why": "no job finished in the window"}
+    useful: dict[str, list[set]] = {}
+    defects: dict[str, list[int]] = {}
+    for jt, inp, outp, status, err, fin in rows:
+        d = kpis.job_department(jt, inp)
+        if d is None or jt in kpis.SELF_MEASUREMENT_TYPES:
+            continue
+        i = (_aware(fin).date() - start.date()).days
+        if not 0 <= i < days:
+            continue
+        useful.setdefault(d, [set() for _ in labels])
+        defects.setdefault(d, [0] * days)
+        st = getattr(status, "value", status)
+        if st == "done" and not kpis.did_no_work(outp, jt):
+            useful[d][i].add((jt, kpis.fingerprint(outp)))
+        elif st == "dead" and classify_dead_letter(jt, err or "") == DEFECT:
+            defects[d][i] += 1
+    return {"days": labels, "basis": "measured", "source": "jobs (autonomy.kpis rules)",
+            "by_department": {d: {"useful_completions": [len(x) for x in useful[d]],
+                                  "defect_dead_letters": defects[d]} for d in useful}}

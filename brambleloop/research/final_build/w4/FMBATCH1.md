@@ -459,3 +459,28 @@ These are the next batch.
     area that Workstream C owns.
   - F-431, the `research.run` job with an external fetch step, makes network fetches and is the
     next candidate.
+
+## 17. Batch C: Command Center gaps CLOSE5 named (F-621, F-661, F-668, F-729)
+
+All changes are in `app/command_center/executive.py` and `company.py`. None of the Laura files
+or routes were touched.
+
+| row | gap (CLOSE5) | built |
+|---|---|---|
+| F-621 | no charter-KPI trend | `kpi_trend`: per department per UTC day over 7 days, useful completions (distinct non-noop results) and defect dead letters, read in one pass with `autonomy.kpis` rules. Carried as `kpi_trend_7d` on every department. With no finished job it reads unknown |
+| F-661 | objective, incidents, active departments, completed work, owner decisions missing | The executive block adds:<ul><li>the objective, from the latest `plan.strategy_reviewed` trajectory (UNKNOWN when never reviewed);</li><li>open incidents;</li><li>departments with completed work in 24 h;</li><li>jobs completed in 24 h;</li><li>owner decisions waiting.</li></ul> |
+| F-668 | no org chart, heartbeat or learning | Each agent row has:<ul><li>`role`: director is the first agent its charter lists;</li><li>`heartbeat`: its newest recorded start or finish, None if it never ran;</li><li>`department_lessons_30d`, from the stated `DEPARTMENT_CELLS` mapping.</li></ul>The workspace adds an `org_chart` (department → director plus workers) and states its basis |
+| F-729 | restarts, experiments, improvements, idle departments missing | Autonomy health adds:<ul><li>restarts recovered in 24 h (jobs done on a second or later attempt);</li><li>experiments by state;</li><li>improvements promoted and reverted in 7 days;</li><li>unintentionally idle departments: ready work waiting and nothing completed in 24 h.</li></ul> |
+
+**Tests:**
+- `tests/test_w4_fmbatch1_cc.py` 4/4.
+- Green: test_w4_ccfm1, test_w4_ccfm2, test_w4_cc_company.
+
+**Limit:** the new fields are served through the Command Center providers. The Company tab's
+JavaScript does not yet chart `kpi_trend_7d`; it shows the existing completed-work trend.
+
+**Status:** E.
+
+**Design-quality rows:** F-652 and F-670 are visual-review criteria ("premium, image-rich",
+"strong typography"). They need a human or vision review, not code, so they are left as owner
+or independent review items.

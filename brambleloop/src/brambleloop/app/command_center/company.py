@@ -210,6 +210,12 @@ def departments(db, auto: dict | None = None) -> dict:
         facts = _job_facts(db)
         missions = _missions()
         trend = guard("completed_trend", lambda: completed_trend(db, dept_of))
+        from .executive import kpi_trend as _kpi_trend
+
+        try:
+            kpi_t = _kpi_trend(db)
+        except Exception as exc:  # noqa: BLE001 - unknown, never an empty trend
+            kpi_t = {"basis": "unknown", "why": f"{type(exc).__name__}"}
         spend = department_spend(db)
         items = []
         rows = [i for i in (auto.get("items") or []) if isinstance(i, dict) and i.get("department")]
@@ -269,6 +275,14 @@ def departments(db, auto: dict | None = None) -> dict:
                     if isinstance(trend, dict) and trend.get("basis") == "measured" else
                     {"days": None, "counts": None, "basis": "unknown",
                      "why": (trend or {}).get("why") or (trend or {}).get("reason")}),
+                # W4-FMBATCH1 (F-621): the charter KPIs, per day over 7 days.
+                "kpi_trend_7d": (
+                    {"days": kpi_t.get("days"),
+                     **((kpi_t.get("by_department") or {}).get(key) or
+                        {"useful_completions": [0] * len(kpi_t.get("days") or []),
+                         "defect_dead_letters": [0] * len(kpi_t.get("days") or [])}),
+                     "basis": "measured"} if kpi_t.get("basis") == "measured" else
+                    {"basis": "unknown", "why": kpi_t.get("why")}),
                 "source": "autonomy.status.summary"})
         counts = {s: sum(1 for i in items if i["state"] == s) for s in STATES}
         status = ("UNKNOWN" if not items or counts["UNKNOWN"] == len(items) else
