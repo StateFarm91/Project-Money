@@ -148,6 +148,15 @@ BRANCH_WORK = {
     "F-670": ('E', 'claude/w4-FMBATCH1 f9e25ef7: light/dark tokens, SVG chart component, drill-down Trends block'),
     "F-712": ('E', 'claude/w4-FMBATCH1 1f5a2454: ops/task_contract.py validated contracts'),
     "F-713": ('E', 'claude/w4-FMBATCH1 1f5a2454: integration boundary check against owned_paths'),
+    "F-807": ('E', 'claude/w4-FMBATCH1 360a25b3: learn/graph_feeds.py taxonomy-derived prerequisite ladder'),
+    "F-803": ('E', 'claude/w4-FMBATCH1 360a25b3: search phrases queue Learn gaps (US/UK ambiguity named)'),
+    "F-830": ('E', 'claude/w4-FMBATCH1 360a25b3: solved support cases become reusable FAQ nodes'),
+    "F-814": ('E', 'claude/w4-FMBATCH1 15949000: growth/constellation.py with Learn members'),
+    "F-824": ('E', 'claude/w4-FMBATCH1 8df9f3e6: learn/accessibility.py checks on Learn pages'),
+    "F-800": ('E', 'claude/w4-FMBATCH1 e85d5571: learn/curriculum.py tracks from the ladder'),
+    "F-864": ('E', 'claude/w4-FMBATCH1 73addbc7: ops/session_log.py checkpoint'),
+    "F-868": ('E', 'claude/w4-FMBATCH1 73addbc7: per-model session outcomes summarised'),
+    "F-869": ('E', 'claude/w4-FMBATCH1 73addbc7: approval prompts per session recorded'),
     "F-441": ('B', 'claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).

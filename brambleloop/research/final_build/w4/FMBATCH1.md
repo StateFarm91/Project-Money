@@ -881,3 +881,24 @@ These are recorded in DECISION_LOG `D-W4-FMBATCH1-BUILDSIDE` and proposed as gat
 - **F-707.** Visual `METHOD_VERSION` belongs to the Workstream C visual lane.
 
 **Incident:** while choosing suites by grep, I started the forbidden `test_cert_wiring.py`. It ran for about 10 minutes before I stopped it by PID; no other process was touched. Suites are now picked by name only.
+
+## 35. Batch AC: the last 22 rows (Learn, process, session log)
+
+**Prerequisite check.** F-815 (knowledge graph) is built: `/api/learn/graph`, `link_topics` and `expand_topics` exist. Launch has not happened; the company is in SHADOW. Rows whose own next action says "post-launch" are therefore gated on launch.
+
+| Row | Commit | What | Test |
+|---|---|---|---|
+| F-807 / F-803 / F-830 | 360a25b3 | `learn/graph_feeds.py`, run in `learn.scan`. Prerequisite edges are derived from the stitch taxonomy, and `ladder()` gives the learning path. SEO keyword phrases naming a stitch (US or UK) queue its Learn gap; an ambiguous name such as "double crochet" queues both readings and records the ambiguity. Resolved support cases become reusable `faq:<label>` nodes | test_w4_fmbatch1_learn_graph |
+| F-814 | 15949000 | `growth/constellation.py`, `/api/marketing/constellation/{slug}` (operator-only): the product's held content, approved lessons for its pattern topics (through the graph), gauge help, FAQ members and internal links. Needs with no lesson are named. Route pin declared | test_w4_fmbatch1_constellation |
+| F-824 | 8df9f3e6 | `learn/accessibility.py`. A diagram needs an accessible name and one text label per stage; one that fails is not served. Lessons carry alt text and an accessibility report, state their terminology, and keep steps worded and short | test_w4_fmbatch1_learn_a11y |
+| F-800 | e85d5571 | `learn/curriculum.py`, `/api/learn/curriculum` (editor-only): foundations, building and advanced tracks set by depth on the prerequisite ladder, techniques placed by a table, unknown topics listed as `unplaced`, coverage per track | test_w4_fmbatch1_curriculum |
+| F-864 / F-868 / F-869 | 73addbc7 | `ops/session_log.py`, writing to `research/final_build/SESSION_LOG.jsonl` in the repository. It records each session's outcome by model, a checkpoint (last pushed SHA plus uncommitted paths) and approval prompts. The summary shows UNMEASURED, never zero | test_w4_fmbatch1_session_log |
+
+**Proposals** (`OVERRIDES_PROPOSED_FMBATCH1_G.json`):
+- Gated on launch: F-804, F-809, F-816, F-817, F-823, F-828.
+- F-818 belongs to the staleness lane (it registers lesson artefacts through `ops/artefacts`).
+- F-829 is stale: the Learn improvement cell already exists.
+- F-861, F-862, F-863, F-865 and F-866 are "keep practice" rows.
+- F-652 product imagery is held off the public `/` page until launch, by coordinator decision. The rest of its design pass shipped with F-670.
+
+**No unblocked rows remain** in the 74-row list.

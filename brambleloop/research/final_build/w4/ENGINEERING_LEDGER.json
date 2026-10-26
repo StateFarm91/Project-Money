@@ -38,11 +38,11 @@
   "final_master": {
    "total": 917,
    "by_status": {
-    "A": 33,
-    "B": 99,
+    "A": 29,
+    "B": 94,
     "C": 8,
     "D": 1,
-    "E": 99,
+    "E": 108,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 716,
+    "numerator": 725,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 107,
+    "missing implementation": 98,
     "missing prerequisite": 5,
-    "missing integration": 84
+    "missing integration": 93
    }
   }
  },
@@ -14151,13 +14151,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 e85d5571: learn/curriculum.py tracks from the ladder",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no curriculum/track model"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 e85d5571: learn/curriculum.py tracks from the ladder"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14191,13 +14191,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 360a25b3: search phrases queue Learn gaps (US/UK ambiguity named)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; SEO query sets exist for listings but are not compared with a Learn graph"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 360a25b3: search phrases queue Learn gaps (US/UK ambiguity named)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14247,13 +14247,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 360a25b3: learn/graph_feeds.py taxonomy-derived prerequisite ladder",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; publish/difficulty.py derives a pattern difficulty but no prerequisite graph"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 360a25b3: learn/graph_feeds.py taxonomy-derived prerequisite ladder"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14343,13 +14343,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: marketing ecosystem drafts listing/article/pins/video/email per product and holds them; no lesson/gauge-help/FAQ/internal-link members and no value filter per a",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 15949000: growth/constellation.py with Learn members",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "marketing ecosystem drafts listing/article/pins/video/email per product and holds them; no lesson/gauge-help/FAQ/internal-link members and no value filter per asset"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 15949000: growth/constellation.py with Learn members"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14483,13 +14483,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: accessibility exists for pattern charts (colour-independent cues); no educational pages to apply it to",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 8df9f3e6: learn/accessibility.py checks on Learn pages",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "accessibility exists for pattern charts (colour-independent cues); no educational pages to apply it to"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 8df9f3e6: learn/accessibility.py checks on Learn pages"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -14571,13 +14571,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: support answers become stored support_knowledge artefacts per release; no cross-product reusable knowledge base beyond that",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 360a25b3: solved support cases become reusable FAQ nodes",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "support answers become stored support_knowledge artefacts per release; no cross-product reusable knowledge base beyond that"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 360a25b3: solved support cases become reusable FAQ nodes"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -15011,13 +15011,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: checkpointing is manual (patches/*.mbox, uncommitted.diff snapshots); no automatic checkpoint before session limits",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 73addbc7: ops/session_log.py checkpoint",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; checkpointing is manual (patches/*.mbox, uncommitted.diff snapshots); no automatic checkpoint before session limits"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 73addbc7: ops/session_log.py checkpoint"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -15071,13 +15071,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: runtime model routing/league exists for production agents (gateway/routing.py, improve/league.py); development-model routing by measured outcome is not recorded",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 73addbc7: per-model session outcomes summarised",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "runtime model routing/league exists for production agents (gateway/routing.py, improve/league.py); development-model routing by measured outcome is not recorded"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 73addbc7: per-model session outcomes summarised"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -15087,13 +15087,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "A",
-    "why": "matrix coverage PARTIAL maturity MISSING",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 73addbc7: approval prompts per session recorded",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "no test cited; no measurement of development approval prompts"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 73addbc7: approval prompts per session recorded"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {

@@ -32,7 +32,7 @@
 
 | measure | Build 2 | Final Master |
 |---|---|---|
-| **Engineering completion** (built + integrated + tested) | **316 / 320** | **716 / 917** |
+| **Engineering completion** (built + integrated + tested) | **316 / 320** | **725 / 917** |
 | **Acceptance completion** (the full original criterion, production and customer evidence included) | **98 / 320** | **360 / 917** |
 
 - Engineering completion counts rows in E, F or G, plus H rows whose engineering half is
