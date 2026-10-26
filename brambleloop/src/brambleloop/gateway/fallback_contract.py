@@ -32,14 +32,17 @@ COST_HEADROOM = 1.0
 
 #: Published capabilities of the models the gateway can route to. A model absent here is
 #: UNKNOWN on these checks.
-CAPABILITIES: dict[str, dict] = {
-    "claude-haiku-4-5": {"provider": "anthropic", "structured_output": True, "vision": True,
-                         "context_tokens": 200_000},
-    "claude-sonnet-5": {"provider": "anthropic", "structured_output": True, "vision": True,
-                        "context_tokens": 200_000},
-    "claude-opus-5": {"provider": "anthropic", "structured_output": True, "vision": True,
-                      "context_tokens": 200_000},
-}
+#: Built from the routing table (the one place a model is named), so a tier's model change
+#: carries its capability record with it rather than leaving a stale literal here.
+def _capabilities() -> dict[str, dict]:
+    from .routing import TIERS
+
+    return {t.model: {"provider": "anthropic", "structured_output": True,
+                      "vision": bool(t.vision), "context_tokens": 200_000}
+            for t in TIERS.values()}
+
+
+CAPABILITIES: dict[str, dict] = _capabilities()
 
 
 def contract_for(task_key: str) -> dict:
