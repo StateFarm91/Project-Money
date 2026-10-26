@@ -6585,6 +6585,16 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             raised.append(signature)
     detail["escalated"] = raised
     detail["recovered"] = life["resolved"]
+    # W4-FMBATCH1 (F-139/F-140/F-149): one incident per homogeneous dead-letter backlog,
+    # noisy signals raised as defects, and the disk trend read before ENOSPC. Guarded.
+    from ..ops import signal_hygiene
+
+    try:
+        with ctx.db.session() as session:
+            detail["hygiene"] = signal_hygiene.sweep(
+                ctx.db, session, facts=(_runner_state() or {}).get("disk"))
+    except Exception as exc:  # noqa: BLE001
+        detail["hygiene"] = {"state": "UNKNOWN", "error": type(exc).__name__}
 
     # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
     # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning

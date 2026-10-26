@@ -185,6 +185,13 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
+    # W4-FMBATCH1 ops/signal_hygiene (F-139, F-140, F-149).
+    "dead-letters": ("ops.health sweep (signal_hygiene)", "resolves when no defect dead "
+                     "letter of the job type remains (fixed by a deploy that re-drives them)"),
+    "noisy-signal": ("ops.health sweep (signal_hygiene)", "fix the signal's detector; resolves "
+                     "when it stops flapping and is confirmed again"),
+    "disk-trend": ("ops.health sweep (signal_hygiene)", "find the growing writer; resolves "
+                   "when the trend no longer predicts exhaustion"),
     # F-010: Etsy changed the schema a listing was certified on (integrations.taxonomy_drift).
     "taxonomy-drift": ("listing.taxonomy_refresh + listing.seo",
                        "listing.seo is re-queued on the new snapshot; resolves when the "

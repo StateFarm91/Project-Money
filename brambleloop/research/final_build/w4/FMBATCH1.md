@@ -275,3 +275,22 @@ W4-RESEARCH had built the module. Each row's own criterion was implemented as an
 
 **F-412** (the research-to-experiment bridge) is only partly done. A bounded `next_test` is
 recorded in the conclusion, but nothing yet feeds it into `improve/runner`. It remains open.
+
+## 9. Workstream B batch O (post-launch): signal hygiene
+
+`src/brambleloop/ops/signal_hygiene.py` runs on every 15-minute `ops.health` sweep. It is
+guarded: a failure records UNKNOWN and never fails the sweep.
+
+| row | criterion | built |
+|---|---|---|
+| F-139 | "Homogeneous large backlogs create one actionable incident with count/scope while retaining item evidence." | Defect dead letters of one job type (3 or more) become one `dead-letters:<type>` incident. It carries the count, the first and last time, every job id (up to 200, with the truncation stated) and an error histogram. It is restated, never duplicated, and resolves when the backlog clears. Deliberate refusals are never aggregated |
+| F-140 | "A permanently noisy/false health signal is itself a defect." | `noisy-signal:<sig>` opens when a watched signature opens 4 or more times in 7 days (flapping), or stays open with no detector confirming it for 14 days. It resolves when that pattern stops |
+| F-149 | "Monitor scratch/cache growth, disk utilization and abnormal file-count growth before ENOSPC." | Each sweep stores an `ops.disk_sample` (free GB per filesystem, leftover temp directories). Over 24 h, temp-directory growth above 20 a day, or free space projected to run out within 48 h, opens `disk-trend:<what>` (P1). Fewer than 4 samples reads UNKNOWN |
+
+**Tests:**
+- `tests/test_w4_fmbatch1_hygiene.py` 6/6, both positive and negative cases, including a real
+  `ops.health` worker run.
+- Regression suites green: test_health, test_incident_lifecycle, test_w4_owner_incidents,
+  test_w3_k7_ops_truth, test_vacuity.
+
+**Status:** dev-proven on this branch only (E).
