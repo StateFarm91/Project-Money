@@ -346,6 +346,23 @@ def test_f218_repeated_near_threshold_morphology_opens_an_incident_though_each_f
     assert out2["near_threshold"]["frames"] == 0 and out2["incidents_opened"] == []
 
 
+def test_quality_sweep_reaches_the_coo_and_lauras_idle_priorities_without_laura_code():
+    from datetime import datetime, timezone
+
+    from brambleloop.autonomy import charters, generators
+
+    cir = _cir()
+    db = _db(cir)
+    items = quality_ops.next_work(db)
+    assert items and items[0]["job_type"] == "gate.quality"
+    snap = generators.Snapshot.read(db, datetime.now(timezone.utc))
+    cands = generators.provider_candidates(db, charters.BY_KEY["product_truth"], snap)
+    assert [c.job_type for c in cands] == ["gate.quality"]
+    # once every release has a fresh re-verification there is nothing to offer
+    _run(db, "validator", "cir.twin", {"slug": cir.slug, "version": cir.version})
+    assert quality_ops.next_work(db) == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

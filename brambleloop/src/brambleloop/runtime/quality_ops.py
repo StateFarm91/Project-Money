@@ -190,3 +190,35 @@ def handle_gate_quality(ctx: JobContext) -> dict:
         queued += sum(j is not None for j in jobs)
     ctx.audit("quality.reverify_planned", detail={"releases": len(releases), "queued": queued})
     return {"releases": len(releases), "queued": queued, "work_done": queued}
+
+
+FRESH_HOURS = 24
+
+
+def next_work(db) -> list[dict]:
+    """Product Truth's next_work provider (autonomy.generators.PROVIDERS): one internal item
+    when any certified release has no re-verification in the last FRESH_HOURS. The COO turns
+    it into a `gate.quality` mission, and Laura's idle priorities read the same candidates
+    (laura.executive.loop._idle_priorities -> generators.candidates), so neither needs code of
+    its own. Deterministic, read-only."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    releases = certified_releases(db)
+    if not releases:
+        return []
+    since = datetime.now(timezone.utc) - timedelta(hours=FRESH_HOURS)
+    with db.session() as s:
+        recent = {a for (a,) in s.execute(select(AuditLog.artifact).where(
+            AuditLog.action == READING, AuditLog.at >= since)).all()}
+    stale = [f"{r['slug']}@{r['version']}" for r in releases
+             if f"{r['slug']}@{r['version']}" not in recent]
+    if not stale:
+        return []
+    return [{"key": f"quality.reverify:{len(stale)}", "kind": "internal",
+             "external_effect": False, "job_type": "gate.quality",
+             "why": (f"{len(stale)} certified release(s) not re-verified in "
+                     f"{FRESH_HOURS} h: {', '.join(stale[:5])}")}]
