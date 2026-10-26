@@ -5542,6 +5542,7 @@ def api_etsy_exercise(mode: str = "full",
 # ---- dashboard ------------------------------------------------------------
 
 _CSS = """
+details.fold summary{cursor:pointer;font-size:13px;margin:4px 0 10px}
 :root{--ink:#1A2B3C;--pine:#244A3A;--cream:#FAF6EB;--gold:#C49545;--wine:#6E1F2A;
 --muted:#6b7280;--line:#e5e0d3}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);
@@ -5655,6 +5656,14 @@ def dashboard() -> str:
     # Built because the owner said they should not have to infer progress from code logs.
     # Every block is guarded: a dashboard that fails to render because one subsystem is
     # unhappy tells the owner nothing about the twelve that are fine.
+    # F-200 (W4-FMBATCH1): the page reads in owner-decision order -- health/phase, owner
+    # actions, launch blockers (readiness, incidents), product/creative truth, spend, then
+    # operations detail and the audit trail. F-201: the large tables open as one summary line
+    # with the full table one tap away; nothing is dropped, only folded.
+    def _fold(summary: str, inner: str, *, open_: bool = False) -> str:
+        return (f'<details class="fold"{" open" if open_ else ""}><summary>{esc(summary)}'
+                f'</summary>{inner}</details>')
+
     def _block(title: str, build) -> str:
         # F-203: every block states when it was read. The blocks are computed on request, so
         # the as-of is the query time; a block reading an older snapshot says so itself.
@@ -6045,8 +6054,23 @@ def dashboard() -> str:
 &middot; last clean /api/verify: <b>{esc(last_ok_at)}</b></div>
 </header><main>
 {headline_html}
+{_block("Health", _health)}
 {_block("Waiting on the owner", _approvals)}
 {_block("External capability unavailable", _external)}
+{launch_html}
+<h2>Open incidents</h2>
+{_newest_row_line(i.at for i in incidents)}
+{_fold(f"{len(incidents)} open, {sum(1 for i in incidents if i.halts_publication)} halting publication",
+       rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
+              "HALTS" if i.halts_publication else "") for i in incidents],
+            [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents."),
+       open_=any(i.halts_publication for i in incidents))}
+{command_centre}
+<h2>Products</h2>
+{_newest_row_line(p.created_at for p in products)}
+{rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
+      [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
+{_spend_governance_html()}
 <h2>Volume and operations</h2>
 <div class="sub" style="color:var(--muted);font-size:12px">Output volume, not business readiness.</div>
 <div class="grid">
@@ -6068,33 +6092,23 @@ Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
 &middot; scheduler {esc(st['runner']['scheduler_last_tick'] or 'never')}
 {('&middot; last error: ' + esc(st['runner']['last_error'])) if st['runner']['last_error'] else ''}
 </div>
-{command_centre}
-{_block("Health", _health)}
-{_block("Learning changes", _learning)}
-{launch_html}
+{_block("Learning changes", lambda: _fold("learning changes (expand)", _learning()))}
 <h2>Recent jobs</h2>
 {_newest_row_line(t for j in jobs for t in (j.finished_at, j.started_at, j.created_at))}
-{rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
-        (j.last_error or "")[:70]) for j in jobs],
-      [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet.")}
-<h2>Products</h2>
-{_newest_row_line(p.created_at for p in products)}
-{rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
-      [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
-<h2>Open incidents</h2>
-{_newest_row_line(i.at for i in incidents)}
-{rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
-        "HALTS" if i.halts_publication else "") for i in incidents],
-      [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents.")}
-{_spend_governance_html()}
+{_fold(f"{len(jobs)} most recent jobs, {sum(1 for j in jobs if j.status.value == 'dead')} dead",
+       rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
+              (j.last_error or "")[:70]) for j in jobs],
+            [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet."))}
 <h2>Agents</h2>
-{rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
-        "on" if a.enabled else "off") for a in agents],
-      [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents.")}
+{_fold(f"{len(agents)} agents, {sum(1 for a in agents if a.enabled)} enabled",
+       rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
+              "on" if a.enabled else "off") for a in agents],
+            [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents."))}
 <h2>Audit trail</h2>
 {_newest_row_line(a.at for a in audits)}
-{rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
-      [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet.")}
+{_fold(f"{len(audits)} most recent audit rows" + (f", newest {audits[0].action}" if audits else ""),
+       rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
+            [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet."))}
 </main></body></html>"""
 
 

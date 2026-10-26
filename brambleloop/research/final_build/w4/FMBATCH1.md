@@ -338,3 +338,25 @@ guarded: a failure records UNKNOWN and never fails the sweep.
 
 **Status:** E. The producer is operator tooling, so its ceiling is TESTED, the same basis as
 F-145..F-148.
+
+## 12. Workstream B batch D: dashboard (F-200, F-201)
+
+- **F-200.** Criterion: "order the page by owner decision value: health/phase -> true active
+  owner actions -> launch blockers -> product/creative truth -> spend -> operations
+  detail/audit trail". The `/` page now runs in that order:
+  1. headline and health;
+  2. waiting on the owner, then external capability;
+  3. launch readiness and open incidents;
+  4. command centre and products;
+  5. spend governance;
+  6. volume and operations, learning, jobs, agents, audit trail.
+- **F-201.** Criterion: "Large tables (audit trail, incidents, agents, learning changes) default
+  to concise summaries with expandable/drilldown detail".
+  - The audit trail, incidents, agents, learning changes and recent jobs each open as one
+    summary line (counts) inside a `<details>` fold, with the full table inside.
+  - The incident fold opens by default while any incident halts publication.
+- **Tests:**
+  - `tests/test_w4_fmbatch1_dashboard.py` 2/2: the section order is asserted, and every audit
+    row is still present inside its fold.
+  - Green: test_cert_dashboard (F-206's ordering is unchanged), test_dashboard_spend.
+- **Status:** E.
