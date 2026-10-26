@@ -164,3 +164,19 @@ Test: `test_w4_departments.test_family_engine_groups_certified_families_and_flag
   - F-786 to F-792 gate any publishable output (licence terms, Meaningful Redesign, Independent Instruction Draft).
 - **Conflict.** The row's scope, "reconstruct … stitch logic, grading … to design a better product" (with F-790), goes beyond CLAUDE.md's non-negotiable that "competitor research is for demand and merchandising intelligence only". It also depends on *purchased* benchmarks, which are an owner spend card.
 - **Decision.** I did not widen the reconstruction. The existing reader already limits it to our own closed vocabulary and numbers. Any extension (for example, reconstructed grading feeding design) needs an owner ruling reconciling F-789/F-790 with CLAUDE.md.
+
+## Visual batch (2026-10-26)
+
+**VISNEXT2 merged** (`origin/claude/w4-VISNEXT2` 5d16506, commit 13bd73e3).
+- Its only conflict was the generated autonomy map, which was regenerated.
+- One interaction fix: `test_w4_close5_rows` SCRATCH now classifies VISNEXT2's new scratch site, `experiments/controlled.py::verify_pipeline` (caller `verify`). Its re-rendered references are only compared with the frozen definition's fingerprints.
+- `test_w4_visnext2` passes.
+
+| Row | Criterion | Before | Done |
+|---|---|---|---|
+| F-126 | Keep invalid/confounded experiments marked superseded with reason | POST-LAUNCH, no producer. The provider image benchmark kept re-running daily and reporting a "winner" (nano-banana-2) after the owner's FLUX 3 ruling | `gateway/image_bench.SUPERSEDED` (by D-W4-LAURA-FLUX3, 2026-10-19, with the reason) and `superseded_record`: one idempotent audit row listing every retained benchmark row. Nothing is deleted. `creative.image_benchmark` now records the supersession and renders and spends nothing; no job input can lift it. `state()` exposes `supersession`. |
+| F-217 | Identity subscores exposed: face, whole-person morphology and overall reported separately; a high face score cannot hide a morphology failure | POST-LAUNCH / DEPLOYED (`publish/model_photography.py`) | **Already met.** `face_identity` and `whole_person_morphology` are separate FLOORS, each of which must pass on its own; there is no average. No change. |
+| F-218 | Repeated near-threshold morphology drift raises an incident even if individual images narrowly pass | POST-LAUNCH / INTEGRATED (`visual/drift_series.py`), but it counted only `drift` verdicts, so narrow passes were invisible | `drift_series` now counts **near-threshold passes**: a morphology group that passed with only the minimum readable dimensions, or a biometric BORDERLINE band. Three or more across two or more batches open one P2 incident that halts publication (`identity_drift_series:near_threshold_morphology`). It resolves only on a measured window without repeats. |
+| FLUX rows | spec/12 §11 required tests (the three canonical references, refusal on a missing one, product references from the exact version, every reference reaching the provider, body proportions, one outfit per listing, no outfit reuse, automatic styling, product-only needing no Laura, Product Truth not bypassable, approvals before publication) | **No F-row names FLUX.** All eleven required tests already exist in `test_w4_flux3generator`, `test_w4_fluxapi`, `test_w4_fluxstages`, `test_w4_visnext` and `test_w4_visnext2`, all with stubs | No new code. Body proportions stay UNKNOWN until two independent judges read them (the integrator note). No paid call was made. |
+
+Tests: `test_w4_departments` (11 tests, all pass), plus test_image_bench, test_w4_close5_rows, test_fb2_i_repairs, test_cert_intel_wave2, test_w4_visnext2, test_v11_autonomy_timeline and test_roles.

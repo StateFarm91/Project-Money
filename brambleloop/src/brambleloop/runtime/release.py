@@ -7795,6 +7795,16 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     from ..finance import spend_policy
     from ..gateway import image_bench
 
+    # F-126: superseded by the owner's FLUX 3 ruling. The evidence is retained and marked;
+    # nothing is re-rendered and nothing is spent on a decision already made.
+    # A job input cannot lift it: re-opening the benchmark is a new owner decision and a code
+    # change, not a flag a caller can set.
+    if image_bench.SUPERSEDED["superseded"]:
+        rec = image_bench.superseded_record(ctx.db)
+        return {"ran": False, "superseded": True, "by": rec["by"], "why": rec["why"],
+                "evidence_retained": True, "record": rec["record"],
+                "work_done": 1 if rec["created"] else 0}
+
     # The approved benchmark budget as a stop, not as a number in a report. It was being
     # applied per run, so four runs each stayed inside a figure the owner approved once and
     # the cumulative total passed it while every individual run looked compliant.

@@ -285,6 +285,67 @@ def test_family_engine_groups_certified_families_and_flags_recolours():
         assert len(s.scalars(select(Product)).all()) == 4    # the engine created nothing
 
 
+def test_f126_image_benchmark_is_superseded_with_reason_and_evidence_retained():
+    from brambleloop.core.models import AuditLog
+    from brambleloop.gateway import image_bench as IB
+
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=IB.CANDIDATE_ACTION,
+                       artifact="nano-banana-2", detail={"overall": 3.9}))
+    called = []
+    real = IB.run
+    IB.run = lambda *a, **k: called.append(1) or {}
+    try:
+        out = _run(db, "creative_director", "creative.image_benchmark", {})
+        again = _run(db, "creative_director", "creative.image_benchmark", {"owner_rerun": 1})
+    finally:
+        IB.run = real
+    assert called == [], "a superseded benchmark renders and spends nothing"
+    assert out["superseded"] and out["by"] == "D-W4-LAURA-FLUX3" and out["evidence_retained"]
+    assert out["work_done"] == 1 and again["work_done"] == 0 and again["superseded"]
+    with db.session() as s:
+        rows = s.scalars(select(AuditLog).where(AuditLog.action ==
+                                                IB.SUPERSEDED_ACTION)).all()
+        assert len(rows) == 1 and rows[0].detail["retained_count"] == 1
+        assert s.scalar(select(AuditLog).where(AuditLog.action == IB.CANDIDATE_ACTION))
+    assert IB.state(db)["supersession"]["by"] == "D-W4-LAURA-FLUX3"
+
+
+def _frames(db, readable: int, batches: int = 3):
+    from brambleloop.core.models import AuditLog
+    from brambleloop.publish import model_photography
+    from brambleloop.visual import identity
+
+    morph = list(identity.MORPHOLOGY_DIMENSIONS)
+    for b in range(1, batches + 1):
+        job = JobQueue(db).enqueue("publishing", "assets.model_photography", {"b": b}).id
+        dims = {d: "match" for d in identity.FACE_DIMENSIONS}
+        dims.update({d: ("match" if i < readable else "unmeasurable")
+                     for i, d in enumerate(morph)})
+        with db.session() as s:
+            s.add(AuditLog(actor="publishing", action=model_photography.ACTION, job_id=job,
+                           detail={"identity": {"dimensions": dims}}))
+
+
+def test_f218_repeated_near_threshold_morphology_opens_an_incident_though_each_frame_passed():
+    from brambleloop.core.models import Incident
+    from brambleloop.visual import drift_series as DS, identity
+
+    db = _db()
+    _frames(db, readable=identity.MIN_MEASURABLE["morphology"])   # each passes at the floor
+    out = DS.run(db)
+    assert out["gradual_drift"] == [] and out["near_threshold"]["repeated"] is True
+    assert DS.NEAR_SIGNATURE in out["incidents_opened"]
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == DS.NEAR_SIGNATURE))
+        assert inc is not None and inc.halts_publication and "F-218" in inc.summary
+    healthy = _db()
+    _frames(healthy, readable=6)                                   # comfortably readable
+    out2 = DS.run(healthy)
+    assert out2["near_threshold"]["frames"] == 0 and out2["incidents_opened"] == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

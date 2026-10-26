@@ -1051,6 +1051,45 @@ def _judge(db, images_shown, dimensions: tuple[Dimension, ...]) -> str:
     return response.text
 
 
+# F-126 (Superseded Evidence Retention): "Keep invalid/confounded experiments marked superseded
+# with reason." The owner's FLUX 3 ruling (D-W4-LAURA-FLUX3, 2026-10-19) made FLUX 3 the
+# permanent visual production generator, so this benchmark's measured order no longer selects
+# a provider. Its trials and results are RETAINED (never deleted) and marked superseded here,
+# and the cadence stops re-rendering and spending on a decision that has been made.
+SUPERSEDED: dict = {
+    "superseded": True,
+    "by": "D-W4-LAURA-FLUX3",
+    "on": "2026-10-19",
+    "why": ("the owner ruled FLUX 3 the permanent visual production standard for every "
+            "listing featuring Laura (spec/12); the provider benchmark's ranking no longer "
+            "selects a generator. Its results are kept as evidence, not as a decision"),
+    "evidence_retained": True,
+}
+SUPERSEDED_ACTION = "image.benchmark_superseded"
+
+
+def superseded_record(db) -> dict:
+    """Record once (idempotent) which benchmark rows are superseded, keeping every row."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        prior = s.scalar(select(AuditLog).where(AuditLog.action == SUPERSEDED_ACTION))
+        if prior is not None:
+            return {**SUPERSEDED, "record": prior.id, "created": False}
+        kept = list(s.scalars(select(AuditLog.id).where(AuditLog.action.in_(
+            (CANDIDATE_ACTION, TRIAL_ACTION, "image.benchmark", "image.benchmark_blocked",
+             "image.benchmark_capped")))))
+        row = AuditLog(actor="creative_director", action=SUPERSEDED_ACTION,
+                       artifact="image_benchmark",
+                       detail={**SUPERSEDED, "retained_rows": kept[:500],
+                               "retained_count": len(kept)})
+        s.add(row)
+        s.flush()
+        return {**SUPERSEDED, "record": row.id, "created": True, "retained_count": len(kept)}
+
+
 def state(db=None) -> dict:
     """The benchmark's design, its cost and its honest status."""
     try:
@@ -1080,6 +1119,7 @@ def state(db=None) -> dict:
             "competitor's product would be commissioning a copy to see how good the copier "
             "is"),
         **_measured_state(db),
+        "supersession": SUPERSEDED,
     }
 
 

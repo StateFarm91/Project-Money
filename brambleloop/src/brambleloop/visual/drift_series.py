@@ -29,6 +29,15 @@ WINDOW_DAYS = 60
 TREND_BATCHES = 3
 RISE = 0.25
 MIN_READABLE = 2
+# F-218 (W4-AGENTS): "Repeated near-threshold morphology drift raises an incident even if
+# individual images narrowly pass." Verdicts here are categorical, so a narrow pass is defined
+# from what the frame record holds: a morphology group that passed with no drift but with only
+# the minimum number of readable dimensions (it cleared the floor by nothing), or a biometric
+# floor in its BORDERLINE band. NEAR_REPEAT such frames across NEAR_BATCHES batches in the
+# window open one incident (halting the model-bearing path) although every frame passed.
+NEAR_SIGNATURE = SIGNATURE + "near_threshold_morphology"
+NEAR_REPEAT = 3
+NEAR_BATCHES = 2
 
 
 def series(db, *, now: datetime | None = None) -> dict:
@@ -58,6 +67,14 @@ def series(db, *, now: datetime | None = None) -> dict:
         b = batches.setdefault(key, {"at": (at or now).isoformat(), "frames": 0,
                                      "counts": {}})
         b["frames"] += 1
+        morph = {d: str(dims.get(d) or identity.UNMEASURABLE).lower()
+                 for d in identity.MORPHOLOGY_DIMENSIONS}
+        readable = [d for d, v in morph.items() if v in ("match", "drift")]
+        bio = str(((detail.get("identity") or {}).get("biometric") or {}).get("status") or "")
+        if "drift" not in morph.values() and (
+                len(readable) == identity.MIN_MEASURABLE["morphology"]
+                or bio.upper() == "BORDERLINE"):
+            b["near_threshold"] = b.get("near_threshold", 0) + 1
         for d in identity.DRIFT_DIMENSIONS:
             v = str(dims.get(d) or identity.UNMEASURABLE).lower()
             c = b["counts"].setdefault(d, {"match": 0, "drift": 0, "unmeasurable": 0})
@@ -82,8 +99,15 @@ def series(db, *, now: datetime | None = None) -> dict:
         if rising or late - early >= RISE:
             gradual.append({"dimension": d, "shares": known, "early": round(early, 4),
                             "late": round(late, 4), "rising": rising})
+    near_batches = [b for _k, b in ordered if b.get("near_threshold")]
+    near = {"frames": sum(b["near_threshold"] for b in near_batches),
+            "batches": len(near_batches),
+            "repeated": (sum(b["near_threshold"] for b in near_batches) >= NEAR_REPEAT
+                         and len(near_batches) >= NEAR_BATCHES),
+            "rule": (f">= {NEAR_REPEAT} passing frames at the morphology floor (or biometric "
+                     f"BORDERLINE) across >= {NEAR_BATCHES} batches")}
     return {"batches": len(ordered), "frames": sum(b["frames"] for _k, b in ordered),
-            "per_dimension": per_dim, "gradual_drift": gradual,
+            "per_dimension": per_dim, "gradual_drift": gradual, "near_threshold": near,
             "measurable": len(ordered) >= TREND_BATCHES,
             "reason": ("" if len(ordered) >= TREND_BATCHES else
                        f"{len(ordered)} batch(es) of model-bearing frames in {WINDOW_DAYS} "
@@ -100,6 +124,10 @@ def run(db, *, today: date | None = None) -> dict:
     today = today or datetime.now(timezone.utc).date()
     out = series(db)
     drifting = {f"{SIGNATURE}{g['dimension']}": g for g in out["gradual_drift"]}
+    near = out.get("near_threshold") or {}
+    if near.get("repeated"):
+        drifting[NEAR_SIGNATURE] = {"dimension": "morphology (near threshold)",
+                                    "early": 0.0, "late": 0.0, **near}
     # CB2-I07: only a measured "not rising" resolves an incident. With too few batches
     # (UNMEASURED, e.g. evidence aged out of the window), or a dimension without enough
     # readable batches of its own, the drift is unknown -- and unknown keeps the halt.
@@ -108,6 +136,9 @@ def run(db, *, today: date | None = None) -> dict:
                 if out.get("measurable") else set())
 
     def still_open(inc) -> bool:
+        if inc.signature == NEAR_SIGNATURE:
+            # resolves only on a measured window without repeated narrow passes
+            return inc.signature in drifting or not out.get("measurable")
         return (inc.signature in drifting
                 or inc.signature[len(SIGNATURE):] not in measured)
     with db.session() as s:
@@ -124,7 +155,11 @@ def run(db, *, today: date | None = None) -> dict:
         for sig, g in drifting.items():
             _r, new = lifecycle.open_or_restate(
                 s, signature=sig, severity="P2", halts_publication=True,
-                summary=(f"gradual identity drift on {g['dimension']}: drift share "
+                summary=((f"repeated near-threshold morphology (F-218): {g['frames']} "
+                          f"frames passed only at the floor across {g['batches']} batches; "
+                          f"gradual body drift is suspected although each frame passed")
+                         if sig == NEAR_SIGNATURE else
+                         f"gradual identity drift on {g['dimension']}: drift share "
                          f"{g['early']:.0%} -> {g['late']:.0%} across batches (#201). "
                          f"Model-bearing frames regenerate against the frozen pack before "
                          f"any is released"),
