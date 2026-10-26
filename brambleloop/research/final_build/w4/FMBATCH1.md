@@ -309,3 +309,32 @@ guarded: a failure records UNKNOWN and never fails the sweep.
 - `tests/test_w4_fmbatch1_providers.py` 6/6, both positive and negative cases.
 - Green: test_dependency, test_cert_dependencies, test_w4_funding, test_v11_reliability_gateway,
   test_incident_lifecycle.
+
+## 11. Workstream B batch T: ops and test hygiene
+
+**F-146, F-147 and F-148: already implemented; not rebuilt.**
+- The single EXIT trap: run_tests.sh, with the note at lines 327-336.
+- The per-suite leak census: `TMP LEAKED`, with `TMP_LEAK_STRICT` making a leaking suite a
+  failing one.
+- `tests/_tmp.py`: the per-process sandbox, plus the static guard in `test_w3_tmp_hygiene.py`.
+- Their TESTED-target overrides are **already ACCEPTED** in CLOSE6
+  (`OVERRIDES_PROPOSED_CLOSE6.json`, D-W4-CLOSE6-OVERRIDES). They only need applying. Their
+  matrix `missing_part` text is stale.
+
+**F-150 Failure Classification Before Revert: built.**
+- Criterion: "Classify ENOSPC/permissions/network/provider failures before reverting code."
+- `scripts/classify_failure.py` matches the literal markers that the OS, Python and the
+  providers print.
+- For each failing suite whose output matches, `run_tests.sh` prints
+  `ENVIRONMENT FAILURE (<class>): <line> -- not a code regression; do not revert for it`.
+- The summary adds `ENVIRONMENT FAILURES: n of the m failing suites`.
+- An assertion or code failure is never labelled as an environment failure.
+
+**Tests:**
+- `tests/test_w4_fmbatch1_failclass.py` 2/2. It covers the four classes plus an assertion, and a
+  real `run_tests.sh` run in a sandbox repository with an ENOSPC suite, an assertion suite and a
+  passing suite.
+- Green: test_run_tests_script, test_w3_tmp_hygiene.
+
+**Status:** E. The producer is operator tooling, so its ceiling is TESTED, the same basis as
+F-145..F-148.
