@@ -5,6 +5,13 @@ from .service import scan
 @handlers.register("learn.scan")
 def handle_scan(ctx):
     result = scan(ctx.db)
+    # F-807 / F-803 / F-830: prerequisite ladder, search demand and solved questions.
+    try:
+        from .graph_feeds import run as _feeds
+
+        result["graph_feeds"] = _feeds(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - a feed failure is reported beside the scan
+        result["graph_feeds"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     # F-799: every scan also takes the department's operating reading (queue, coverage, age
     # of the oldest queued gap, lessons by state), so RUN produces a metric each hour.
     from .metrics import department_metrics
