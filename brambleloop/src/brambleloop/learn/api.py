@@ -12,6 +12,16 @@ from .models import LearnGap, Lesson
 from .service import approved_lesson, graph, link_topics, save_lesson, review_lesson
 from . import swatch as _swatch
 from . import technique as _technique
+from . import accessibility as _a11y
+
+
+def _stitch_name(code: str) -> str:
+    from ..cir import stitches
+
+    try:
+        return stitches.get(code).name_us
+    except (KeyError, ValueError):
+        return code
 
 EDITOR = "learn-operator-editor"
 
@@ -134,10 +144,14 @@ def router(db):
         # F-806: only generated, verified technique diagrams are linked.
         diagrams = [{"stitch": a["stitch"], "loop": a.get("loop", "both"),
                      "href": f"/learn/{slug}/technique/{a['stitch']}.svg?revision="
-                             f"{lesson['revision']}&loop={a.get('loop', 'both')}"}
+                             f"{lesson['revision']}&loop={a.get('loop', 'both')}",
+                     # F-824: every diagram carries alt text.
+                     "alt": _a11y.alt_text(_stitch_name(a["stitch"]), a["stitch"],
+                                           a.get("loop", "both"))}
                     for a in spec.get("assets", []) if a.get("kind") == "technique_diagram"]
         if diagrams:
             out["technique_diagrams"] = diagrams
+        out["accessibility"] = {"problems": _a11y.check_lesson(spec)}
         return out
 
     @routes.get("/learn/{slug}/technique/{stitch}.svg")
@@ -156,6 +170,9 @@ def router(db):
         except (_technique.UnsupportedTechnique, _technique.DiagramRefused, KeyError):
             # Fail closed: a diagram that does not verify is never served.
             raise HTTPException(404, "Technique diagram unavailable")
+        # F-824: an inaccessible diagram is not served (fail closed, like verify).
+        if _a11y.check_svg(svg, len(_technique.technique(stitch, loop).stages())):
+            raise HTTPException(404, "Technique diagram fails the accessibility check")
         if declared[0].get("sha256") != _technique.hashlib.sha256(svg).hexdigest():
             raise HTTPException(404, "Technique diagram revision mismatch")
         return Response(content=svg, media_type="image/svg+xml", headers={
