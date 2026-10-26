@@ -677,17 +677,24 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         tokens_out += response.output_tokens
         try:
             observation = parse_observation(response.text)
-            record(db, item, observation, env=env)
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
-            # W4-PRODFIX: this answer was paid for. Re-asking is the identical request
-            # (same prompt, image and schema), so each retry bought the same evidence again
-            # from a different job -- production's spend-repeat-paid-request incidents fire
-            # at exactly FAILED_ATTEMPTS (3) jobs. A paid, unusable answer gives the image
-            # up at once; an unanswered (provider error) attempt keeps its retries.
+            # W4-PRODFIX: this answer was paid for and does not parse into the closed
+            # vocabulary. Re-asking is the identical request (same prompt, image and schema),
+            # so each retry bought the same evidence again from a different job --
+            # production's spend-repeat-paid-request incidents fire at exactly
+            # FAILED_ATTEMPTS (3) jobs. The image is given up at once.
             _mark_failed(db, item, give_up=True)
             systematic.record(db, TASK, method, {"closed_vocabulary_observation": "fail"},
                               agent=AGENT)
+            continue
+        try:
+            record(db, item, observation, env=env)
+        except AnalysisRefused as exc:
+            # Review F2: a refusal to *record* (e.g. the provider is not visible to this
+            # process) says nothing about the answer; the image keeps its counted retries.
+            failures.append({"key": item.key, "why": str(exc)[:200]})
+            _mark_failed(db, item)
             continue
         systematic.record(db, TASK, method, {"closed_vocabulary_observation": "pass"},
                           agent=AGENT)

@@ -140,7 +140,8 @@ def test_the_review_clears_the_policy_block_and_records_exactly_what_was_confirm
     assert stale["policy_changes_unreviewed"] == [SOURCE]
     c, csrf = session()
     shown = _preview(c, csrf)
-    for bad in (_body(shown, confirm="ok"), _body(shown, tested=""),
+    for bad in (_body(shown, confirm="ok"), _body(shown, confirm="REVIEWED AND TESTED"),
+                _body(shown, tested=""),
                 _body(shown, expected_digest="0" * 64)):
         r = post(c, csrf, "policy.review", bad)
         assert r.status_code == 409 and r.json()["code"] == "REFUSED_BY_AUTHORITY", r.text

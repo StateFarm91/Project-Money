@@ -502,7 +502,7 @@ def _review_policy_change(db, body: dict, *, actor: str) -> dict:
     shown = _policy_change(db, source)
     confirmed = str(body.get("confirm") or "").strip()
     tested = str(body.get("tested") or "").strip()
-    if confirmed.lower() != POLICY_REVIEW_CONFIRMATION:
+    if confirmed != POLICY_REVIEW_CONFIRMATION:          # verbatim (review F9)
         raise ActionRefused(f"confirm must be exactly {POLICY_REVIEW_CONFIRMATION!r}")
     if not tested:
         raise ActionRefused("tested must say what was re-tested against the changed policy")
@@ -510,8 +510,11 @@ def _review_policy_change(db, body: dict, *, actor: str) -> dict:
         raise ActionRefused("approval preview changed; review the current content")
     try:
         out = platform_policy.review_change(db, source, reviewed_by="owner:command-center",
-                                            tested=tested)
+                                            tested=tested, snapshot_id=shown["snapshot_id"])
     except platform_policy.PolicyRefused as exc:
+        if "newer change arrived" in str(exc):
+            raise ActionRefused("approval preview changed; review the current content") \
+                from None
         raise ActionRefused(str(exc)[:500]) from None
     record = {"source": source, "snapshot_id": shown["snapshot_id"],
               "confirmed": confirmed, "tested": tested[:2000],
