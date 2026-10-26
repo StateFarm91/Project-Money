@@ -83,6 +83,10 @@ def test_a_proven_family_gets_one_original_follow_on_and_is_measured():
         follow = s.scalar(select(Job).where(Job.job_type == "radar.score"))
         assert follow is not None and follow.inputs["amplify_family"] == "nordic-forest"
         follow_id = follow.id
+    # #22: the best seller was investigated by commerce.replication.study -- 5 orders is
+    # below its winner floor, so it says so in its own words and names no cause.
+    inv = fe._amp_state(db, "nordic-forest")["investigation"]
+    assert inv["credible"] is False and "not a credible winner" in inv["reasons"][0]
     # idempotent: the open attempt is not duplicated
     assert fe.amplify(db, fe.family_report(db), enqueue=_enq(db))["decisions"] == []
     # the follow-on member is certified and sells: measured as a follow-on, not inferred
@@ -96,6 +100,30 @@ def test_a_proven_family_gets_one_original_follow_on_and_is_measured():
     assert st["follow_on"]["members"] == ["nordic-forest-stocking"]
     assert st["follow_on"]["orders"] == 2
     assert st.get("failed_attempts", 0) == 0
+
+
+def test_a_credible_winner_gets_a_bounded_study_and_the_follow_on_holds_its_causes():
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.commerce import replication
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    for slug in ("cloudline-baby-blanket", "autumn-oak-mosaic-throw", "nordic-forest-stocking"):
+        _certify(db, slug, rows=2)
+        _orders(db, slug, 3, start=500 + len(slug))
+    _orders(db, "nordic-forest-mosaic-throw", replication.MIN_ORDERS)
+    with db.session() as s:
+        for o in s.scalars(select(Order).where(Order.product_slug == "nordic-forest-mosaic-throw")):
+            o.at = datetime.now(timezone.utc) - timedelta(weeks=replication.MIN_WEEKS + 1)
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+    inv = fe._amp_state(db, "nordic-forest")["investigation"]
+    assert inv["credible"] is True and inv["winner"] == "nordic-forest-mosaic-throw"
+    assert inv["ends"]                                     # the study is bounded
+    with db.session() as s:
+        job = s.scalar(select(Job).where(Job.job_type.in_(("radar.score",
+                                                            "creative.tournament"))))
+        assert job.inputs["amplify_holds"] == [e["dimension"] for e in inv["explanations"]][:3]
 
 
 def test_two_attempts_without_a_new_member_hold_the_family():

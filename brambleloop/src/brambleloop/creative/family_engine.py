@@ -192,16 +192,20 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
             _save_amp(db, f["family"], st)
             continue
         attempt = int(st.get("attempts") or 0) + 1
+        # #22: before more capacity goes to the family, ask WHY its best seller sells.
+        st["investigation"] = investigate(db, f, today=today)
         nxt = (f.get("next_members") or [None])[0]
         if nxt is not None:
-            job = enqueue("market_radar", "radar.score", {"slug": nxt["seed"],
-                                                           "amplify_family": f["family"]},
+            job = enqueue("market_radar", "radar.score",
+                          {"slug": nxt["seed"], "amplify_family": f["family"],
+                           "amplify_holds": _holds(st["investigation"])},
                           idempotency_key=f"amplify:{f['family']}:{nxt['seed']}:{attempt}")
             how = f"next declared member {nxt['seed']} through the ordinary funnel"
         else:
             inputs = breakthrough.release_brief(db, arena=f["family"], pod=f["family"],
                                                 listing_ref="")
-            inputs.update({"amplify_family": f["family"], "attempt": attempt})
+            inputs.update({"amplify_family": f["family"], "attempt": attempt,
+                           "amplify_holds": _holds(st["investigation"])})
             job = enqueue("creative_director", "creative.tournament", inputs,
                           idempotency_key=f"amplify_design:{f['family']}:{attempt}")
             how = "no declared member left: an original divergent follow-on tournament"
@@ -214,6 +218,69 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
         _save_amp(db, f["family"], st)
         decided.append({"family": f["family"], "job_id": job.id, "how": how})
     return {"decisions": decided}
+
+
+def _holds(investigation: dict) -> list[str]:
+    """The candidate causes a follow-on should hold (and change the rest), or none."""
+    return [r["dimension"] for r in (investigation.get("explanations") or [])][:3]
+
+
+def _skus(db, today) -> list:
+    """Every certified product as a `commerce.replication.Sku`, from rows and the pool."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import func, select
+
+    from ..commerce.replication import Sku
+    from ..core.models import Order
+    from ..radar.opportunity import POOL
+
+    by = {p.slug: p for p in POOL}
+    orders = _orders_by_slug(db)
+    with db.session() as s:
+        first = {slug: at for slug, at in s.execute(
+            select(Order.product_slug, func.min(Order.at)).group_by(Order.product_slug))}
+    out = []
+    for r in _certified(db):
+        seed = by.get(r["slug"])
+        at = first.get(r["slug"])
+        if at is not None and at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        weeks = (max(0, (datetime.now(timezone.utc) - at).days // 7) if at else 0)
+        traits = {}
+        if seed is not None:
+            traits = {"theme": seed.family or seed.slug, "category": seed.category,
+                      "season": seed.season or "evergreen",
+                      "price": ("under_8" if seed.price_cad < 8 else
+                                "8_to_14" if seed.price_cad <= 14 else "over_14"),
+                      "bundle": "bundle" if seed.is_bundle else "single"}
+        out.append(Sku(slug=r["slug"], orders=orders.get(r["slug"], 0), weeks_live=weeks,
+                       traits=traits))
+    return out
+
+
+def investigate(db, family: dict, *, today) -> dict:
+    """#22 `commerce.replication.study` for the family's best seller: a credible winner gets
+    a bounded study (ranked, testable explanations); anything less is recorded with the
+    replication module's own reasons -- never a guessed cause."""
+    from ..commerce import replication
+
+    members = sorted(family.get("members") or [], key=lambda m: -m["orders"])
+    if not members:
+        return {"credible": False, "reasons": ["no member"]}
+    catalogue = _skus(db, today)
+    winner = next((s for s in catalogue if s.slug == members[0]["slug"]), None)
+    if winner is None:
+        return {"credible": False, "reasons": ["best seller is not certified"]}
+    try:
+        st = replication.study(winner, catalogue, capacity_share=0.2, starts=today)
+    except replication.ReplicationRefused as exc:
+        return {"credible": False, "winner": winner.slug, "reasons": [str(exc)[:300]],
+                "explanations": []}
+    return {"credible": True, "winner": st["winner"], "ends": st["ends"],
+            "explanations": [{"dimension": e["dimension"], "contrast": e["contrast"]}
+                             for e in st["explanations"]],
+            "confounded": st["confounded"], "attributable": st["attributable"]}
 
 
 def _save_amp(db, family: str, body: dict) -> None:
