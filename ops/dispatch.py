@@ -110,6 +110,16 @@ def cards(ready: list[dict], *, registry_data: dict, limit: int = 5) -> dict:
                       f"<branch> --rows {row}"
                       + (f" --owns {','.join(paths)}" if paths else "")),
             "likely_paths": paths or "UNKNOWN: no producer module mapped",
+            # F-712: the contract the lane is dispatched under; base_sha and tests are filled
+            # in at dispatch, and `ops/integrate.py enqueue --contract` validates it.
+            "contract_template": {
+                "base_sha": "<target HEAD at dispatch>",
+                "objective": f"Build {row} ({t.get('title')}) to its acceptance text",
+                "owned_paths": paths or ["<declare before dispatch>"],
+                "authority": "BUILD_ONLY",
+                "budget": {"max_hours": 4, "max_spend_cad": 0},
+                "dependencies": [], "outputs": [f"{row} implemented with a focused test"],
+                "tests": ["<targeted test file>"], "sentinel": f"{lane} DONE"},
             "context_pack": f"python3 ops/context_pack.py --rows {row} --md",
             "files_to_read_first": pack["files_to_read_first"],
             "brief": (f"Build {row} ({t.get('title')}). Start from the context pack; run only "

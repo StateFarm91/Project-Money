@@ -17,7 +17,7 @@ a local target branch, and only in this checkout:
   5. records the merge commit on the lane in ops/registry.py, and prints the push command
      for the integrator. **It never pushes, never deploys, and never touches a remote.**
 
-  python3 ops/integrate.py enqueue LANE BRANCH [--tests a.py,b.py]
+  python3 ops/integrate.py enqueue LANE BRANCH [--tests a.py,b.py] [--contract C.json]
   python3 ops/integrate.py list
   python3 ops/integrate.py next --target BRANCH [--repo DIR]
 """
@@ -61,11 +61,22 @@ def _save(d: dict) -> None:
     os.replace(tmp, QUEUE)
 
 
-def enqueue(lane: str, branch: str, tests: list[str] | None = None) -> dict:
+def enqueue(lane: str, branch: str, tests: list[str] | None = None,
+            contract: dict | None = None) -> dict:
     d = _load()
     if any(e["lane"] == lane for e in d["queue"]):
         raise Refused(f"{lane} is already queued")
+    if contract is not None:
+        # F-712: a lane dispatched under a contract is queued only with a valid one.
+        sys.path.insert(0, str(HERE))
+        import task_contract
+
+        try:
+            task_contract.validate(contract)
+        except task_contract.ContractRefused as exc:
+            raise Refused(f"task contract refused: {exc}") from exc
     d["queue"].append({"lane": lane, "branch": branch, "tests": list(tests or []),
+                       "contract": contract,
                        "enqueued_utc": datetime.now(timezone.utc).isoformat()})
     _save(d)
     return {"queued": lane, "position": len(d["queue"])}
@@ -109,6 +120,15 @@ def next_lane(*, target: str, repo: Path, python: str = sys.executable,
             return {**result, "merged": False, "why": "merge conflict: resolve on the lane "
                     "branch and re-queue", "detail": m.stdout[-400:]}
         checks = _checklist(wt, entry.get("tests") or [], python)
+        contract = entry.get("contract")
+        if contract:
+            # F-713: the lane changed only what its contract owns.
+            sys.path.insert(0, str(HERE))
+            import task_contract
+
+            outside = task_contract.boundary(repo, base, branch_sha, contract["owned_paths"])
+            checks.append({"check": "owned_paths boundary", "ok": not outside,
+                           "outside": outside[:20]})
         result["checks"] = checks
         if not all(c["ok"] for c in checks):
             return {**result, "merged": False,
@@ -144,7 +164,7 @@ def next_lane(*, target: str, repo: Path, python: str = sys.executable,
 def main(argv: list[str]) -> int:
     argv = list(argv)
     opts = {}
-    for flag in ("--tests", "--target", "--repo"):
+    for flag in ("--tests", "--target", "--repo", "--contract"):
         if flag in argv:
             i = argv.index(flag)
             opts[flag[2:]] = argv[i + 1]
@@ -152,7 +172,9 @@ def main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "list"
     try:
         if cmd == "enqueue" and len(argv) >= 4:
-            out = enqueue(argv[2], argv[3], [t for t in (opts.get("tests") or "").split(",") if t])
+            out = enqueue(argv[2], argv[3], [t for t in (opts.get("tests") or "").split(",") if t],
+                          contract=(json.loads(Path(opts["contract"]).read_text())
+                                    if opts.get("contract") else None))
         elif cmd == "list":
             out = _load()
         elif cmd == "next" and opts.get("target"):
