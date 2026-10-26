@@ -31,6 +31,11 @@
    "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
    "observed": "2026-10-20T03:49Z",
    "evidence": "owner-approved deploy 2026-10-20 ('approve b931d17'); pre-deploy backup brambleloop_prod_20261020T034535Z.dump 400678877 B sha256 73532964 restore_ok 133 tables 142931 rows; ops/deploy.sh pushed 1b21e81..b931d17; production /health build.commit b931d17a738d known:true; /api/status boot_guard enforced ok record RELEASE_324927f1003808dd07a14b0cb0bce29e5c7d7cbc.json; worker_started_at 2026-10-20T03:48:42Z alive restarts 0; readback 10/12 PASS, the 2 FAILs were worker still starting (alive at 03:49) and 5 creative.reference_reading dead letters from the previous build (last 00:10:59Z, before deploy)"
+  },
+  {
+   "sha": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+   "observed": "2026-10-26T11:01Z",
+   "evidence": "production build.commit read by `python3 ops/deployed_sha.py` (read-only GET of the production /api/status) at 2026-10-26T11:01Z returned 15800536290bce6b3c85dbfcf460ff0b63a4329a (first-sale release: b997efd + release record f19b264e + merge of b931d17). The deploy was made by the operator session; its backup and readback evidence are held there. W-INTEG5 records only the observed running commit, which the first-sale deploy did not append."
   }
  ]
 }
