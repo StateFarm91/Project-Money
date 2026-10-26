@@ -100,6 +100,11 @@ BRANCH_WORK = {
     'F-653': ('E', 'claude/w4-FMBATCH1 60ba9bb5: breakpoints, scrolling tables, /m'),
     'F-620': ('E', 'claude/w4-FMBATCH1 956a6a3f: /api/finance owner_view'),
     'F-827': ('E', 'claude/w4-FMBATCH1 8eaaec6b: Studio Learn dashboard card'),
+    "F-485": ('E', 'claude/w4-FMBATCH1 d4986567: ops/registry.py wait-for graph, cycle and dangling-wait detection'),
+    "F-467": ('E', 'claude/w4-FMBATCH1 952f1113: gate-opening writes enqueue build.tick at once'),
+    "F-451": ('B', 'claude/w4-FMBATCH1 c7df4c70: /api/orchestrator joins every runtime section; build-side lanes stay outside the runtime'),
+    "F-476": ('E', 'claude/w4-FMBATCH1 8c319836: registry refuses a duplicate live lane (rows or question)'),
+    "F-482": ('B', 'claude/w4-FMBATCH1 97cd3a9e: CIR contract pinned with a required declaration; listing payload keys and API schemas not yet pinned'),
     # Build 2: the cohort/LTV code is live; only real buyers' orders are missing. The re-park
     # transactions_r -> customers is ACCEPTED on claude/w4-CLOSE6 (B2_REGATE_PROPOSED_CLOSE6).
     11: ("H", "code live (orders_ingest every 6 h, 0 receipts); waits on real buyers"),
@@ -298,7 +303,7 @@ def build(board, matrix, fm_ledger, b2_ledger, tree) -> dict:
                         "matrix": "final-candidate-d69a3ec closure_matrix.json",
                         "ledgers": "FM_LEDGER.json / BUILD2_LEDGER.json at b997efd",
                         "deployed": "b997efd (production /health 15800536, 2026-10-26)",
-                        "branch_work": "claude/w4-FMBATCH1 (rows above, through 8eaaec6b), claude/w4-CLOSE6 ff788bd"},
+                        "branch_work": "claude/w4-FMBATCH1 (rows above, through 97cd3a9e), claude/w4-CLOSE6 ff788bd"},
             "definitions": {
                 "engineering_completion": "status E, F or G; or H with the engineering half "
                     "integrated and tested (FM: matrix maturity >= INTEGRATED with cited tests; "

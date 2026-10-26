@@ -6,7 +6,7 @@
   "matrix": "final-candidate-d69a3ec closure_matrix.json",
   "ledgers": "FM_LEDGER.json / BUILD2_LEDGER.json at b997efd",
   "deployed": "b997efd (production /health 15800536, 2026-10-26)",
-  "branch_work": "claude/w4-FMBATCH1 (rows above, through 8eaaec6b), claude/w4-CLOSE6 ff788bd"
+  "branch_work": "claude/w4-FMBATCH1 (rows above, through 97cd3a9e), claude/w4-CLOSE6 ff788bd"
  },
  "definitions": {
   "engineering_completion": "status E, F or G; or H with the engineering half integrated and tested (FM: matrix maturity >= INTEGRATED with cited tests; Build 2: a live runtime consumer and a cited test). Independent review is not tracked per row, so it is not part of the numerator's evidence",
@@ -39,10 +39,10 @@
    "total": 917,
    "by_status": {
     "A": 46,
-    "B": 131,
+    "B": 128,
     "C": 8,
     "D": 1,
-    "E": 54,
+    "E": 57,
     "F": 90,
     "G": 360,
     "H": 220,
@@ -50,7 +50,7 @@
    },
    "unclear": 10,
    "engineering_completion": {
-    "numerator": 671,
+    "numerator": 674,
     "denominator": 917
    },
    "acceptance_completion": {
@@ -59,9 +59,9 @@
    },
    "blocked_engineering_blockers": {
     "missing production evidence": 34,
-    "missing implementation": 152,
+    "missing implementation": 149,
     "missing prerequisite": 5,
-    "missing integration": 39
+    "missing integration": 42
    }
   }
  },
@@ -9686,10 +9686,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: no single orchestrator view joining requirements, departments, dependencies, owner gates, external blockers, spend, deployments and active agent work; build-sid",
+    "why": "claude/w4-FMBATCH1 c7df4c70: /api/orchestrator joins every runtime section; build-side lanes stay outside the runtime",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "no single orchestrator view joining requirements, departments, dependencies, owner gates, external blockers, spend, deployments and active agent work; build-side Claude sessions/lanes are tracked only"
+     "detail": "claude/w4-FMBATCH1 c7df4c70: /api/orchestrator joins every runtime section; build-side lanes stay outside the runtime"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -9937,13 +9937,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: recompute is hourly (build_tick), not immediate on gate change; newly READY build work is not dispatched to an agent automatically (the deployed worker writes n",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 952f1113: gate-opening writes enqueue build.tick at once",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "recompute is hourly (build_tick), not immediate on gate change; newly READY build work is not dispatched to an agent automatically (the deployed worker writes no code)"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 952f1113: gate-opening writes enqueue build.tick at once"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10061,13 +10061,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: runtime dedupe exists (idempotency keys, fingerprint-skipped scans, insights re-query suppression, exclusive build-task claims); build-side duplicate-lane preve",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 8c319836: registry refuses a duplicate live lane (rows or question)",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "runtime dedupe exists (idempotency keys, fingerprint-skipped scans, insights re-query suppression, exclusive build-task claims); build-side duplicate-lane prevention is manual"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 8c319836: registry refuses a duplicate live lane (rows or question)"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {
@@ -10150,10 +10150,10 @@
     "board_root": "engineering_open",
     "unclear": false,
     "status": "B",
-    "why": "matrix coverage PARTIAL: declare-before-merge is a written rule (lanes must STOP and report rather than change the CIR contract); no code-level pin/migrate mechanism beyond additive DB ",
+    "why": "claude/w4-FMBATCH1 97cd3a9e: CIR contract pinned with a required declaration; listing payload keys and API schemas not yet pinned",
     "blocker": {
      "kind": "missing implementation",
-     "detail": "no test cited; declare-before-merge is a written rule (lanes must STOP and report rather than change the CIR contract); no code-level pin/migrate mechanism beyond additive DB migrations"
+     "detail": "claude/w4-FMBATCH1 97cd3a9e: CIR contract pinned with a required declaration; listing payload keys and API schemas not yet pinned"
     },
     "engineering_complete": false,
     "acceptance_complete": false
@@ -10197,13 +10197,13 @@
     "board_class": "blocked_engineering",
     "board_root": "engineering_open",
     "unclear": false,
-    "status": "B",
-    "why": "matrix coverage PARTIAL: cycles are refused (executor, rebuild graph), stale leases reclaimed and stalls distinguished from all-parked; mutually waiting departments across build lanes a",
+    "status": "E",
+    "why": "claude/w4-FMBATCH1 d4986567: ops/registry.py wait-for graph, cycle and dangling-wait detection",
     "blocker": {
-     "kind": "missing implementation",
-     "detail": "cycles are refused (executor, rebuild graph), stale leases reclaimed and stalls distinguished from all-parked; mutually waiting departments across build lanes are not detected"
+     "kind": "missing integration",
+     "detail": "claude/w4-FMBATCH1 d4986567: ops/registry.py wait-for graph, cycle and dangling-wait detection"
     },
-    "engineering_complete": false,
+    "engineering_complete": true,
     "acceptance_complete": false
    },
    {

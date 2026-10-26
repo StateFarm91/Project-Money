@@ -700,3 +700,21 @@ behaviour tests do fail before the fix.
   - Each block is guarded: an unreadable source reads UNKNOWN, and no recorded ads reads
     UNMEASURED, never 0.
   - Test: `test_w4_fmbatch1_finance_owner.py` (2).
+
+## 25. Batch V: F-485, F-467, F-451, F-476, F-482; F-273/F-538 proposal
+
+| Row | Commit | Built | Test |
+|---|---|---|---|
+| F-485 | d4986567 | `ops/registry.py` keeps a wait-for graph across live lanes: `wait` and `unwait`, cycles (deadlocks) and dangling waits. The survey carries `deadlocks`, and the CLI exits 1 on a deadlock. | `test_w4_fmbatch1_deadlock.py` (4) |
+| F-467 | 952f1113 | An HTTP middleware enqueues `build.tick` at once after any successful write to a gate-opening route (owner decision, phase, publication or activation grants, ledger mapping, Insights, Etsy OAuth). It is idempotent per route per minute, and refused writes do nothing. | `test_w4_fmbatch1_unblock.py` (2) |
+| F-451 (partial) | c7df4c70 | `/api/orchestrator` (operator-only) joins requirements, departments, dependencies, owner gates, external blockers, spend, deployments and active work. Each section is guarded, so an unreadable one is UNKNOWN. Build-side lanes stay outside the runtime. | `test_w4_fmbatch1_master_view.py` (3) |
+| F-476 | 8c319836 | Registry enrolment refuses a second live lane holding the same requirement rows or the same question (a normalised fingerprint). Integrated lanes and re-enrolment do not count. | `test_w4_fmbatch1_dupwork.py` (3) |
+| F-482 (partial) | 97cd3a9e | `core/contracts.py` fingerprints the CIR dataclasses. The pin in the test must move together with a dated declaration in `ops/CONTRACT_CHANGES.md`. Listing payload keys and API schemas are not yet pinned. | `test_w4_fmbatch1_contracts.py` (3) |
+
+- **Proposal, not applied:** `OVERRIDES_PROPOSED_FMBATCH1_C.json`.
+  - F-538 and F-273: the matrix's "no reader" / "never set" text is stale. `finance/reconcile.py`
+    in b997efd reads the payment-account ledger and sets `offsite_ad_attributed`, with the
+    cited `test_money_truth` tests.
+  - Both stay gated on `transactions_r` and a real settlement. The dry run is clean.
+- **Build 2:** none of the 4 remaining rows is buildable here: #32, #56 and #197 are NA, and
+  #94 is with Workstream C.
