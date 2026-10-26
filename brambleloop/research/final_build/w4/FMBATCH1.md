@@ -552,3 +552,23 @@ or independent review items.
     `svg.chart rect` in the row. It now counts the completed-work chart's bars apart from the
     new KPI charts. It still requires exactly 7.
   - The Unknown-department check now also requires 0 KPI bars.
+
+## 20. Batch S: commit signing (F-153, F-156, F-157)
+
+- **F-153**: `ops/signing_audit.py` reads `%G? %GK` for a range. An empty
+  `user.signingkey`, or a key path whose file is missing or empty, counts as no key. A
+  configured key with unsigned commits is `claimed_but_unsigned`, which is refused. Measured
+  2026-10-26 on b997efda..HEAD: 16 commits, all `N`. The configured
+  `/home/claude/.ssh/commit_signing_key.pub` is 0 bytes, so the status is `unavailable`, not
+  claimed. Signing is **not** in place; this row proves the honest reporting, not signatures.
+- **F-157**: `deploy_guard.signing_evidence` is written into `RELEASE_<sha>.json` as
+  `signing` (with status, unsigned commits and `intentional_unsigned`).
+  `BRAMBLELOOP_SIGNING_REQUIRED=1` refuses an unsigned commit, and `_record_problems` flags a
+  tracked record whose signing was required or claimed but whose commit is unsigned.
+- **F-156**: `ops/SIGNING_RECOVERY.md` gives the steps to restore signing, with no private key
+  in git. A test asserts that no tracked file holds a private-key block.
+- Tests: `tests/test_w4_fmbatch1_signing.py` (7 tests, temporary git repos, positive and
+  negative) is green, and `tests/test_deploy_guard.py` is green.
+- Remaining for real evidence: the owner or operator installs a key and an allowed-signers
+  file, per the doc. Until then, F-153 can only be closed as "unavailable, reported honestly",
+  if the gate accepts that.
