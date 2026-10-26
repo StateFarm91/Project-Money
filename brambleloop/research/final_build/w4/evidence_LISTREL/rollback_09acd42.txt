@@ -1,0 +1,31 @@
+{
+  "check": {
+    "candidate": "ab53ed2f25a19a8a2b0f4484f08b8f650f1827e2",
+    "deployed": "051dbee286077fa760858701e32e385af34c8bd9",
+    "mode": "rollback",
+    "note": "verdict only; this script never deploys (F-461, A3-06)",
+    "reasons": [],
+    "rollback": {
+      "reason": "rehearsal: listings release 09acd42 rolled back to first-sale 15800536",
+      "to": "15800536290bce6b3c85dbfcf460ff0b63a4329a"
+    },
+    "suite_run": null,
+    "verdict": "ALLOW"
+  },
+  "commit": "ab53ed2f25a19a8a2b0f4484f08b8f650f1827e2",
+  "ok": true
+}
+{
+  "candidate": "ab53ed2f25a19a8a2b0f4484f08b8f650f1827e2",
+  "deployed": "051dbee286077fa760858701e32e385af34c8bd9",
+  "mode": "rollback",
+  "note": "verdict only; this script never deploys (F-461, A3-06)",
+  "reasons": [],
+  "rollback": {
+    "reason": "rehearsal: listings release 09acd42 rolled back to first-sale 15800536",
+    "to": "15800536290bce6b3c85dbfcf460ff0b63a4329a"
+  },
+  "suite_run": null,
+  "verdict": "ALLOW"
+}
+deploy.sh: ALLOW ab53ed2f25a19a8a2b0f4484f08b8f650f1827e2 (dry run; nothing pushed)
