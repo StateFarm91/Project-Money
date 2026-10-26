@@ -142,30 +142,42 @@ def run(provider, *, db=None, agent: str = "orchestrator",
         raise ValueError("a billed provider is only run with `db`, so its spend is reserved")
     results = []
     for t in tasks:
-        reservation = None
+        see = getattr(provider, "see", None) if t.vision else None
+        if t.vision and not callable(see):
+            # Review F-5: checked before anything is reserved, so nothing is held for a call
+            # that is never made.
+            results.append({"task": t.key, "family": t.family, "status": UNSUPPORTED,
+                            "problems": ["provider has no vision method"]})
+            continue
+        reservation, estimate, resp = None, 0.0, None
         try:
             if db is not None:
-                reservation = gw.check_budget(
-                    db, model=provider.model, input_tokens=len(t.prompt) // 4,
-                    max_tokens=max_tokens, agent=agent, purpose="compat_pack")["reservation_id"]
+                # Review F-5: a vision call reserves its image tokens as the vision callers do.
+                images = gw.IMAGE_TOKENS_ESTIMATE * len(t.image_urls) if t.vision else 0
+                budget = gw.check_budget(
+                    db, model=provider.model, input_tokens=len(t.prompt) // 4 + images,
+                    max_tokens=max_tokens, agent=agent, purpose="compat_pack")
+                reservation = budget["reservation_id"]
+                estimate = float(budget.get("estimate_cad") or 0.0)
             if t.vision:
-                see = getattr(provider, "see", None)
-                if not callable(see):
-                    results.append({"task": t.key, "family": t.family, "status": UNSUPPORTED,
-                                    "problems": ["provider has no vision method"]})
-                    continue
                 resp = see(SYSTEM, t.prompt, list(t.image_urls), max_tokens=max_tokens)
             else:
                 resp = provider.complete(SYSTEM, t.prompt, max_tokens=max_tokens)
             if db is not None:
-                cost = (resp.input_tokens * provider.cost_per_1k_input_cad
-                        + resp.output_tokens * provider.cost_per_1k_output_cad) / 1000
-                gw.release_reservation(db, reservation, actual_cad=round(cost, 8))
+                _bill(db, provider, resp, agent=agent, estimate=estimate,
+                      reservation=reservation)
                 reservation = None
             out = _parse(getattr(resp, "text", resp))
         except Exception as exc:  # noqa: BLE001 - an error is a result, never a pass
             if db is not None and reservation is not None:
-                gw.release_reservation(db, reservation)
+                if resp is not None:
+                    # Review F-4: the provider answered, so the call is billed: recorded at
+                    # its cost (or the reservation estimate when the cost cannot be read),
+                    # never released as if nothing was spent.
+                    _bill(db, provider, resp, agent=agent, estimate=estimate,
+                          reservation=reservation)
+                else:
+                    gw.release_reservation(db, reservation)
             results.append({"task": t.key, "family": t.family, "status": ERROR,
                             "problems": [f"{type(exc).__name__}: {exc}"[:200]]})
             continue
@@ -177,6 +189,32 @@ def run(provider, *, db=None, agent: str = "orchestrator",
     return {"provider": getattr(provider, "name", "?"), "model": getattr(provider, "model", "?"),
             "results": results, "counts": counts,
             "compatible": counts[PASS] == len(results) and bool(results)}
+
+
+def _bill(db, provider, resp, *, agent: str, estimate: float, reservation) -> float:
+    """Review F-4: every billed response is a `spend_report` row (what the ceilings, the
+    monthly report and the value units read), then its reservation is released at that cost.
+    A response whose cost cannot be computed is counted at the reservation estimate."""
+    from ..finance import spend_report
+    from . import providers as gw
+
+    try:
+        tin, tout = int(resp.input_tokens), int(resp.output_tokens)
+        cost = round((tin * provider.cost_per_1k_input_cad
+                      + tout * provider.cost_per_1k_output_cad) / 1000, 8)
+        basis = {}
+    except Exception:  # noqa: BLE001 - unreadable usage is billed at the estimate, never 0
+        tin = tout = 0
+        cost = round(float(estimate), 8)
+        basis = {"cost_basis_note": "provider usage unreadable; counted at the reservation "
+                                    "estimate, never as zero"}
+    spend_report.record(db, agent=agent, amount_cad=cost, purpose="compat_pack",
+                        provider=str(getattr(provider, "name", ""))[:40],
+                        model=str(getattr(provider, "model", ""))[:80],
+                        estimated_cad=float(estimate), tokens_in=tin, tokens_out=tout,
+                        kind="llm", detail=basis)
+    gw.release_reservation(db, reservation, actual_cad=cost)
+    return cost
 
 
 def compare(current: dict, candidate: dict) -> dict:
