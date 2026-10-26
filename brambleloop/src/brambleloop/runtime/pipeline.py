@@ -3072,6 +3072,7 @@ from . import storefront_watch  # noqa: E402,F401  (F-280: launch-week Search Vi
 from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director)
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
+from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

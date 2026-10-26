@@ -212,6 +212,34 @@ def test_an_unrepairable_failure_is_recorded_not_guessed():
         assert not s.scalars(select(Job).where(Job.job_type == "cir.compile")).all()
 
 
+def test_competitor_snapshot_is_aggregates_only_and_never_copies_content():
+    from brambleloop.core.models import BenchmarkListing, OperatingReading
+    from brambleloop.runtime import intel_ops
+
+    db = _db()
+    empty = _run(db, "market_radar", "radar.competitor_snapshot", {})
+    assert empty["ran"] is False                      # nothing observed: honest no-op
+    secret = "Rival Exact Title With Their Words"
+    with db.session() as s:
+        for i, price in enumerate((8.0, 10.0, 0.0)):
+            s.add(BenchmarkListing(benchmark_key="mjs", listing_ref=str(i), title=secret,
+                                   url="https://example.invalid/rival", pod="home",
+                                   price_cad=price, on_sale=(i == 0), media_count=5 + i,
+                                   product_type="basket", seasonal="Christmas" if i else ""))
+    out = _run(db, "market_radar", "radar.competitor_snapshot", {})
+    assert out["groups"] == 1 and out["listings"] == 3 and out["network_calls"] == 0
+    with db.session() as s:
+        snap = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == intel_ops.READING)).payload
+    g = snap["groups"][0]
+    assert g["price_median_cad"] == 9.0 and g["price_min_cad"] == 8.0    # 0.0 = unobserved
+    assert g["on_sale_share"] == round(1 / 3, 3) and g["product_types"] == {"basket": 3}
+    blob = repr(snap)
+    assert secret not in blob and "example.invalid" not in blob
+    assert set(g) <= intel_ops.ALLOWED_KEYS
+    Registry(db).authorize("market_radar", "radar.competitor_snapshot")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

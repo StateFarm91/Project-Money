@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T01:45:16.564054+00:00",
+ "generated_at": "2026-10-26T01:53:15.869022+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 117,
-  "handlers": 145,
+  "cadences": 118,
+  "handlers": 146,
   "agents": 31,
   "follow_on_edges": 74
  },
@@ -377,6 +377,12 @@
       "agent": "orchestrator",
       "job_type": "teardown.enforce",
       "period_seconds": 86400
+     },
+     {
+      "name": "competitor_snapshot",
+      "agent": "market_radar",
+      "job_type": "radar.competitor_snapshot",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -421,6 +427,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
@@ -437,13 +444,12 @@
      "mjs.reviews",
      "mjs.scan",
      "mjs.seasonal_sentinel",
+     "radar.competitor_snapshot",
      "radar.scan",
      "radar.score",
      "teardown.enforce"
     ],
-    "permitted_without_handler": [
-     "radar.competitor_snapshot"
-    ]
+    "permitted_without_handler": []
    },
    "durable_output": [
     "coverage_gaps scores",
@@ -2384,16 +2390,6 @@
   }
  ],
  "broken_links": [
-  {
-   "kind": "permission_without_handler",
-   "agent": "market_radar",
-   "job_types": [
-    "radar.competitor_snapshot"
-   ],
-   "department": [
-    "intelligence"
-   ]
-  },
   {
    "kind": "permission_without_handler",
    "agent": "publishing",

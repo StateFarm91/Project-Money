@@ -362,7 +362,7 @@ DECLARED_BUT_UNBUILT: frozenset[str] = frozenset({
     # content.draft and store.update left this list in W4-AGENTS (runtime.storefront_ops);
     # cir.twin, cir.reverse, gate.asset_truth, gate.policy and gate.quality left it in the
     # W4-AGENTS department batch 1 (runtime.quality_ops, re-verification only).
-    "pricing.experiment", "radar.competitor_snapshot",
+    "pricing.experiment",  # radar.competitor_snapshot left in W4-AGENTS batch 4
 })
 
 

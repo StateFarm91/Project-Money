@@ -102,9 +102,21 @@ How it works (`runtime/engineering_ops.py`):
 
 Tests: `test_w4_departments.test_a_failed_compile_is_revised_once_and_goes_back_through_the_compiler` and `test_an_unrepairable_failure_is_recorded_not_guessed`.
 
-### Next batches (not done yet; each is authorised and bounded)
+### Batch 4 (done): Market Intelligence takes a competitor snapshot (`radar.competitor_snapshot`)
 
-- **B4 Market Intelligence.** `radar.competitor_snapshot`: a read-only snapshot of the existing sanctioned observations. It is for demand and merchandising only and never copies instructions or images.
-- **Stays unbuilt, by authority:**
+`runtime/intel_ops.py` runs a daily cadence, `competitor_snapshot` (market_radar). It aggregates the competitor listings already observed through sanctioned sources (`benchmark_listings`) per benchmark and pod:
+- listing count and new listings in the last 7 days;
+- price band (min / median / max CA$), with UNKNOWN when no price was observed, never 0;
+- share on sale and median gallery size;
+- seasonal mix and product types;
+- the change since the previous snapshot.
+
+**No competitor content is stored**: no title, description, URL, image, chart or instruction. The payload keys are restricted to `ALLOWED_KEYS` and checked before storing. It makes no network or model call and costs CA$0. With nothing observed it reports `ran: false`. `radar.competitor_snapshot` leaves `DECLARED_BUT_UNBUILT`.
+
+Test: `test_w4_departments.test_competitor_snapshot_is_aggregates_only_and_never_copies_content`.
+
+### Remaining
+
+- **Still unbuilt, by authority** (the only entries left in `DECLARED_BUT_UNBUILT`):
   - `pricing.experiment` (PUBLISH, protected; owner authority required);
   - `assets.render` (no requirement row names a separate render job; `assets.build` covers it).
