@@ -40,7 +40,7 @@ by `ops/deployed_sha.py` at about 16:20Z. Every Laura switch is OFF by default i
 **2. Other differences visible to users with every switch OFF.**
 - **Non-briefing answers are unchanged.** The phrasing call (`laura_phrase`) still runs as in production.
 - **Private Laura (the owner-private register).** The reply now requires `BRAMBLELOOP_PRIVATE_PROVIDER=venice` and a Venice key; `@3` runs only on Venice (`REGISTER_NEEDS_VENICE`).
-  - If production today has the private reply enabled on the Anthropic transport (`BRAMBLELOOP_PRIVATE_REPLY`-style register switch, plus a daily figure), **those replies stop after this deploy**. They report `PROVIDER_NOT_SELECTED` (no provider set) or `REGISTER_NEEDS_VENICE` (provider set to Anthropic) until Venice is configured.
+  - If production today has the private reply enabled on the Anthropic transport (`BRAMBLELOOP_LAURA_PRIVATE_REGISTER=1`, `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD` > 0, and `ANTHROPIC_API_KEY`), **those replies stop after this deploy**. They report `PROVIDER_NOT_SELECTED` (no provider set) or `REGISTER_NEEDS_VENICE` (provider set to Anthropic) until Venice is configured.
   - W-INTEG5 cannot read production's switches (they sit behind owner auth). **The owner should confirm.**
 - **The Laura view** also reads the unified status on every open; with the switch OFF the view is unchanged. The CC shell cache version moves to `cc-shell-v25`, so phones fetch the new shell once.
 
