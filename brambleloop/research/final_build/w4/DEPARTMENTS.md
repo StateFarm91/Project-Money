@@ -243,3 +243,15 @@ No provider is called; everything reads committed files and rows. Tests are in `
 - Making a PROMOTE verdict required there is a one-line integration once the freeze lifts.
 
 **Regression:** test_image_bench, test_roles, test_v11_autonomy_timeline, test_vacuity, test_w3_k11_authority, test_w4_close5_rows and test_w4_departments pass.
+
+## Cluster C3: storefront and product commerce (ledger rows, 2026-10-26)
+
+All deterministic, our own rows, CA$0. Tests are in `tests/test_w4_c3.py`.
+
+| Row (ledger status) | Gap | Built | Test |
+|---|---|---|---|
+| F-527 (B) Brand Asset Health | no detection of stale, missing, low-resolution or off-brand assets on the live shop | `store_foundation/asset_health.check`, run in the Storefront Director's daily `storefront.review` (reading `storefront.asset_health`). It detects:<br>• shop icon missing, unread or stale, routed to `storefront_director` (owner step; no API);<br>• certified product with no approved hero;<br>• images only for older versions (stale);<br>• gate-blocked (off-brand or untrue) images;<br>• images under Etsy's 2000 px recommendation, where a size is recorded.<br>The last four route to `publishing`. A blank banner field is UNKNOWN, never "missing" (LISTREADY E7). Live colour and typography are UNMEASURED: no API returns them. | `test_f527_missing_stale_blocked_and_low_resolution_assets_are_routed` |
+| F-775 (B) Cross-Sell Graph | pairs and bundles existed; tutorials and materials were not in the graph | `commerce/cross_sell.graph`, daily job `listing.cross_sell_graph` (listing). Per certified product: related family siblings, the family's bundles, its collection (`brand.storefront.section_for`), **approved** learn lessons for its own techniques (`learn.service.listing_help_links`), the CIR's materials, and next projects (same collection, planned family members). Edges point only at certified products; attach rate is UNMEASURED until orders exist. | `test_f775_cross_sell_links_only_certified_products_with_tutorials_and_materials` |
+| F-113 (A) Commercial Salvage Test | missing | `creative/salvage.review`, weekly job `creative.salvage_review` (creative_director). For each legacy certified product (outside `launch0.launch_scope_slugs`) it re-runs today's gates:<br>• creative: the current MJs blind review;<br>• MJs-market: whether today's radar portfolio still selects it;<br>• seasonal: the #297 window;<br>• novelty: originality provenance;<br>• portfolio: cannibalising listing pairs.<br>The result is `retire_recommended`, `rescue_candidate` or `review`. **It only recommends:** it never deletes, unlists, deactivates or edits a product or listing. An unreadable gate is UNKNOWN. | `test_f113_salvage_only_recommends_and_never_writes` (row counts and the listing state unchanged after the job) |
+
+**Regression:** test_w4_agents, test_roles, test_v11_autonomy_timeline, test_vacuity, test_w3_k11_authority and test_w4_listready pass. The autonomy map was regenerated.

@@ -159,3 +159,34 @@ def handle_family_engine(ctx: JobContext) -> dict:
             "portfolio_has_bundle_ready_family": rep["portfolio_has_bundle_ready_family"],
             "recolour_duplicates": len(rep["recolour_duplicates"]),
             "work_done": len(rep["families"]) + len(rep["single_products"])}
+
+
+
+@handlers.register("creative.salvage_review")
+def handle_salvage_review(ctx: JobContext) -> dict:
+    """F-113: re-gate legacy certified products today. RECOMMENDS only -- never deletes,
+    unlists, deactivates or edits a product or listing. One reading; CA$0."""
+    from ..creative import salvage
+    from .etsy_ops import store_reading
+
+    rep = salvage.review(ctx.db)
+    if not rep["count"]:
+        return {"ran": False, "why": "no legacy certified product outside the launch scope"}
+    store_reading(ctx.db, "creative.salvage_review", rep)
+    ctx.audit("creative.salvage_review", detail={"legacy": rep["count"],
+                                                 "retire_recommended": rep["retire_recommended"]})
+    return {"legacy": rep["count"], "retire_recommended": len(rep["retire_recommended"]),
+            "writes": 0, "work_done": rep["count"]}
+
+
+@handlers.register("listing.cross_sell_graph")
+def handle_cross_sell_graph(ctx: JobContext) -> dict:
+    """F-775: the cross-sell graph of the certified catalogue. One reading; CA$0."""
+    from ..commerce import cross_sell
+    from .etsy_ops import store_reading
+
+    g = cross_sell.graph(ctx.db)
+    if not g["products"]:
+        return {"ran": False, "why": "no certified product to link"}
+    store_reading(ctx.db, "listing.cross_sell_graph", g)
+    return {"products": g["products"], "work_done": g["products"]}

@@ -34,6 +34,12 @@ def handle_storefront_review(ctx: JobContext) -> dict:
     from ..store_foundation import director
 
     rev = _review_and_record(ctx)
+    # F-527 (W4-AGENTS C3): brand asset health, findings routed to the agent that fixes them.
+    from ..store_foundation import asset_health
+    from .etsy_ops import store_reading
+
+    health = asset_health.check(ctx.db)
+    store_reading(ctx.db, "storefront.asset_health", health)
     queued = None
     if rev["agent_gaps"]:
         job = ctx.enqueue("storefront_director", "content.draft",
@@ -48,6 +54,7 @@ def handle_storefront_review(ctx: JobContext) -> dict:
                                            "draft_job": queued})
     return {"surfaces": len(rev["surfaces"]), "agent_gaps": rev["agent_gaps"],
             "owner_gaps": rev["owner_gaps"], "unknown": rev["unknown"],
+            "asset_health": {"fixes": health["fix_count"], "routes": health["routes"]},
             "draft_job": queued, "writes_performed": 0, "etsy_calls": 0,
             "work_done": len(rev["surfaces"]) - len(rev["unknown"])}
 

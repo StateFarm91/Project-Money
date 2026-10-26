@@ -148,7 +148,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "creative.photoreal_calibration",
                             # W4-AGENTS: the Product Family Engine over the certified
                             # catalogue (deterministic, reads own rows, CA$0).
-                            "creative.family_engine"],
+                            "creative.family_engine",
+                            # W4-AGENTS C3 (F-113): legacy re-gate; recommends retirement only.
+                            "creative.salvage_review"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that
@@ -244,7 +246,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "listing.search_visibility_watch",
                             # v1.1 lane G (§11): the SEO cycle -- proposals only, no Etsy
                             # write, no spend.
-                            "seo.cycle"],
+                            "seo.cycle",
+                            # W4-AGENTS C3 (F-775): the cross-sell graph (reads; CA$0).
+                            "listing.cross_sell_graph"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",

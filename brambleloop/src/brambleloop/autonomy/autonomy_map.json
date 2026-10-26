@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T03:08:45.507933+00:00",
+ "generated_at": "2026-10-26T03:28:17.217384+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 121,
-  "handlers": 149,
+  "cadences": 123,
+  "handlers": 151,
   "agents": 31,
   "follow_on_edges": 75
  },
@@ -648,6 +648,12 @@
       "agent": "creative_director",
       "job_type": "creative.family_engine",
       "period_seconds": 86400
+     },
+     {
+      "name": "salvage_review",
+      "agent": "creative_director",
+      "job_type": "creative.salvage_review",
+      "period_seconds": 604800
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -717,6 +723,7 @@
      "creative.north_star",
      "creative.outcome_learning",
      "creative.reference_reading",
+     "creative.salvage_review",
      "creative.style_learning",
      "creative.tournament",
      "creative.white_space",
@@ -1264,6 +1271,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "cross_sell_graph",
+      "agent": "listing",
+      "job_type": "listing.cross_sell_graph",
+      "period_seconds": 86400
+     },
+     {
       "name": "etsy_openapi_reverify",
       "agent": "orchestrator",
       "job_type": "etsy.openapi_reverify",
@@ -1340,6 +1353,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:store_commerce:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.engineering_ops",
      "brambleloop.runtime.etsy_ops",
      "brambleloop.runtime.listing_outcomes",
      "brambleloop.runtime.pipeline",
@@ -1354,6 +1368,7 @@
      "etsy.listing_census",
      "etsy.openapi_reverify",
      "etsy.shop_snapshot",
+     "listing.cross_sell_graph",
      "listing.draft",
      "listing.outcomes",
      "listing.search_visibility_watch",
