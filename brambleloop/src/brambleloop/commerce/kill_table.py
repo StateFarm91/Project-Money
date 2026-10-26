@@ -154,13 +154,15 @@ def _defect_rate(numerator: int | None, orders: int | None) -> float | None:
 
 
 def route(observed: runrate.Observed, *, support_cases: int | None = None,
-          refunds: int | None = None, needed_visits: int | None = None) -> dict:
+          refunds: int | None = None, needed_visits: int | None = None,
+          thresholds: dict[str, Threshold] | None = None) -> dict:
     """Which row fires for one listing's signals, and which rows cannot be read.
 
     Every rule reports one of three things: it fired, it did not fire, or its inputs are
     UNMEASURED. A rule with an unmeasured input never fires and never counts as passed.
     """
-    t = {k: v.value for k, v in THRESHOLDS.items()}
+    table = thresholds or THRESHOLDS
+    t = {k: v.value for k, v in table.items()}
     ctr = observed.ctr
     conversion = observed.conversion
     visits = observed.visits
@@ -235,14 +237,18 @@ def route(observed: runrate.Observed, *, support_cases: int | None = None,
         "owner": BY_KEY[fired].owner if fired else None,
         "signals": signals, "unmeasured": unmeasured, "enough_sample": enough,
         "rows": rows,
-        "thresholds": {k: v.to_dict() for k, v in THRESHOLDS.items()},
+        "thresholds": {k: v.to_dict() for k, v in table.items()},
         "note": ("every threshold is UNLEARNED: a borrowed default with its source named, "
-                 "to be replaced by a baseline learned from this shop's own data (#23)"),
+                 "to be replaced by a baseline learned from this shop's own data (#23)"
+                 if all(v.status == UNLEARNED for v in table.values()) else
+                 "funnel thresholds LEARNED from this shop's listing outcomes; defect "
+                 "ceilings stay policy (#23)"),
     }
 
 
 def compose(observed: runrate.Observed, *, support_cases: int | None = None,
-            refunds: int | None = None, target_cad: float = 3000.0) -> dict:
+            refunds: int | None = None, target_cad: float = 3000.0,
+            thresholds: dict[str, Threshold] | None = None) -> dict:
     """The table and `scale.runrate.constraint` side by side, with whether they agree.
 
     Two modules that can each name a constraint must name the same one, or a listing is
@@ -255,7 +261,7 @@ def compose(observed: runrate.Observed, *, support_cases: int | None = None,
                                     refund_rate=refund_rate, support_rate=support_rate)
     needed = constraint.get("needed_visits_per_month")
     routed = route(observed, support_cases=support_cases, refunds=refunds,
-                   needed_visits=int(needed) if needed else None)
+                   needed_visits=int(needed) if needed else None, thresholds=thresholds)
 
     fired = routed["verdict"] if routed["verdict"] in BY_KEY else None
     runrate_rule = constraint.get("rule")
@@ -293,3 +299,93 @@ def state() -> dict:
                  "table says so on each row rather than routing a listing nobody has seen "
                  "(#23)."),
     }
+
+
+# ---- #23: learning the thresholds from this shop's own data ------------------------------
+
+LEARNED = "LEARNED"
+# Listings with a fair sample needed before a shop baseline exists at all. One listing's
+# rate is that listing, not the shop.
+MIN_LISTINGS_TO_LEARN = 5
+
+
+def _median(xs: list[float]) -> float:
+    xs = sorted(xs)
+    n = len(xs)
+    return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+def learn(db) -> dict:
+    """Baselines from recorded listing outcomes and orders, and the thresholds they replace.
+
+    Funnel thresholds (CTR, conversion) become LEARNED once MIN_LISTINGS_TO_LEARN listings
+    each have `min_visits_to_judge` visits: strong = the shop median, weak = half of it --
+    the same shape as the borrowed defaults, now anchored on this shop. The defect ceilings
+    (support, refund) are policy and are never loosened by learning: the observed rates are
+    reported as baselines beside them. Contribution per visitor and paid CAC are baselines
+    only, UNMEASURED until their rows exist. Anything not learned keeps its UNLEARNED default.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry, ListingOutcome, Order, SupportCase
+
+    floor = THRESHOLDS["min_visits_to_judge"].value
+    per: dict[str, dict] = {}
+    with db.session() as s:
+        for r in s.scalars(select(ListingOutcome)):
+            p = per.setdefault(r.product_slug, {"impressions": 0, "visits": 0, "orders": 0,
+                                                 "orders_known": True})
+            p["impressions"] += int(r.impressions or 0)
+            p["visits"] += int(r.visits or 0)
+            if r.orders is None:
+                p["orders_known"] = False
+            else:
+                p["orders"] += int(r.orders)
+        orders = s.scalar(select(func.count()).select_from(Order)) or 0
+        contribution = float(s.scalar(select(func.coalesce(func.sum(
+            Order.contribution_cad), 0.0))) or 0.0)
+        support = s.scalar(select(func.count()).select_from(SupportCase)) or 0
+        ad_spend = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                                  .where(CostEntry.kind == "ads")) or 0.0)
+        paid_orders = s.scalar(select(func.count()).select_from(Order).where(
+            Order.acquisition_source == "etsy_ads")) or 0
+    fair = [p for p in per.values() if p["visits"] >= floor and p["impressions"] > 0]
+    ctrs = [p["visits"] / p["impressions"] for p in fair]
+    convs = [p["orders"] / p["visits"] for p in fair if p["orders_known"]]
+    total_visits = sum(p["visits"] for p in per.values())
+
+    table = dict(THRESHOLDS)
+    learned = []
+    if len(ctrs) >= MIN_LISTINGS_TO_LEARN:
+        m = _median(ctrs)
+        src = f"median CTR of {len(ctrs)} listings with >= {int(floor)} visits"
+        table["ctr_strong_at"] = Threshold("ctr_strong_at", m, LEARNED, src,
+                                           THRESHOLDS["ctr_strong_at"].meaning)
+        table["ctr_weak_below"] = Threshold("ctr_weak_below", m * 0.5, LEARNED,
+                                            "half the " + src,
+                                            THRESHOLDS["ctr_weak_below"].meaning)
+        learned += ["ctr_strong_at", "ctr_weak_below"]
+    if len(convs) >= MIN_LISTINGS_TO_LEARN:
+        m = _median(convs)
+        src = f"median conversion of {len(convs)} listings with >= {int(floor)} visits"
+        table["conversion_strong_at"] = Threshold(
+            "conversion_strong_at", m, LEARNED, src,
+            THRESHOLDS["conversion_strong_at"].meaning)
+        table["conversion_weak_below"] = Threshold(
+            "conversion_weak_below", m * 0.5, LEARNED, "half the " + src,
+            THRESHOLDS["conversion_weak_below"].meaning)
+        learned += ["conversion_strong_at", "conversion_weak_below"]
+    min_orders = THRESHOLDS["min_orders_for_defect_rate"].value
+    baselines = {
+        "ctr_median": round(_median(ctrs), 5) if ctrs else UNMEASURED,
+        "conversion_median": round(_median(convs), 5) if convs else UNMEASURED,
+        "contribution_per_visitor_cad": (round(contribution / total_visits, 4)
+                                         if total_visits and orders else UNMEASURED),
+        "support_rate": round(support / orders, 4) if orders >= min_orders else UNMEASURED,
+        "paid_cac_cad": (round(ad_spend / paid_orders, 2) if paid_orders else UNMEASURED),
+        "listings_with_fair_sample": len(fair),
+    }
+    return {"thresholds": table, "learned": learned, "baselines": baselines,
+            "min_listings_to_learn": MIN_LISTINGS_TO_LEARN,
+            "note": ("defect ceilings are policy and never loosened by learning; observed "
+                     "defect rates are baselines beside them")}

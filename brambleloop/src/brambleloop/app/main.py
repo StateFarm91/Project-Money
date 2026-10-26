@@ -4309,6 +4309,7 @@ def api_owned() -> dict:
     return {
         "counterparts": owned.counterparts(db),
         "owned_share": owned.owned_share(db),
+        "assisted_conversions": owned.assisted_conversions(db),
         "casl": {
             "bases": owned.BASES,
             "implied_lifetime_days": owned.IMPLIED_LIFETIME_DAYS,

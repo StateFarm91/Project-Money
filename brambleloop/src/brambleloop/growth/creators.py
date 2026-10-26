@@ -675,3 +675,61 @@ def state() -> dict:
                  "claim with its source, and a permission is scoped or it is not a "
                  "permission (#9, #21)."),
     }
+
+
+# ---- #21: outcomes measured from rows -------------------------------------------------------
+
+COHORT_PREFIX = "creator:"
+
+
+def measure_outcome(db, creator_ref: str) -> Outcome:
+    """One creator's collaboration outcome, read from rows -- `None` wherever no row exists.
+
+    * attributable sessions and conversions: the launch cohorts recorded for the
+      collaboration (`Cohort.key` starting `creator:<ref>`, arm `creator`), which is where a
+      traffic-source export or a tracked link's reading lands. No cohort, no number.
+    * usable proof assets: physical photographs the creator took with a recorded rights basis.
+    * support impact: support cases whose detail names the creator (`detail.creator_ref`),
+      counted only once a cohort exists (otherwise there is no denominator to read it against).
+    * spend: cost entries whose purpose is `creator:<ref>`.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import Cohort, CostEntry, PhysicalPhoto, SupportCase
+
+    with db.session() as s:
+        cohorts = [c for c in s.scalars(select(Cohort).where(
+            Cohort.key.like(f"{COHORT_PREFIX}{creator_ref}%")))]
+        assets = s.scalar(select(func.count()).select_from(PhysicalPhoto).where(
+            PhysicalPhoto.taken_by == creator_ref, PhysicalPhoto.rights_basis != "")) or 0
+        cases = [c for c in s.scalars(select(SupportCase))
+                 if (c.detail or {}).get("creator_ref") == creator_ref]
+        spend = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                               .where(CostEntry.purpose == f"{COHORT_PREFIX}{creator_ref}"))
+                      or 0.0)
+        last = max((c.at for c in cohorts), default=None)
+    return Outcome(
+        creator_ref=creator_ref, usable_assets=int(assets),
+        attributable_sessions=sum(int(c.visits or 0) for c in cohorts) if cohorts else None,
+        conversions=sum(int(c.orders or 0) for c in cohorts) if cohorts else None,
+        support_cases=len(cases) if cohorts else None,
+        spend_cad=round(spend, 2),
+        measured_on=last.date() if last else None)
+
+
+def scaling_decision(db) -> dict:
+    """#21 end to end: every rostered creator's measured outcome, then `may_scale` on them."""
+    from sqlalchemy import select
+
+    from ..core.models import CreatorProfile
+
+    with db.session() as s:
+        refs = [r.ref for r in s.scalars(select(CreatorProfile)) if (r.delivered or 0) > 0]
+    outcomes = [measure_outcome(db, ref) for ref in refs]
+    return {"outcomes": [{"creator_ref": o.creator_ref, "usable_assets": o.usable_assets,
+                          "attributable_sessions": o.attributable_sessions,
+                          "conversions": o.conversions, "support_cases": o.support_cases,
+                          "spend_cad": o.spend_cad,
+                          "measured_on": o.measured_on.isoformat() if o.measured_on else None,
+                          "unmeasured": o.unmeasured()} for o in outcomes],
+            **may_scale(outcomes)}

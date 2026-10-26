@@ -40,7 +40,11 @@ def read(db, *, today: date | None = None) -> dict:
     with db.session() as s:
         support_cases = s.query(SupportCase).count()
     # Refunds have no source until orders exist; None is UNMEASURED, never zero.
-    out["kill_table"] = kill_table.compose(observed, support_cases=support_cases, refunds=None)
+    learned = kill_table.learn(db)                    # #23: thresholds from real data
+    out["kill_table"] = kill_table.compose(observed, support_cases=support_cases, refunds=None,
+                                           thresholds=learned["thresholds"])
+    out["kill_table"]["learned"] = {"keys": learned["learned"],
+                                    "baselines": learned["baselines"]}
 
     # #257: review learning. This shop has no reviews; buyer themes that do exist come
     # from triaged support cases, and they are routed the same way review themes are.

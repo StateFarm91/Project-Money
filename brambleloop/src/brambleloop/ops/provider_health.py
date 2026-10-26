@@ -1,4 +1,4 @@
-"""Provider-health honesty: a probe that ran is not a provider that works (F-171, F-873).
+"""Provider-health honesty: a probe that ran is not a provider that works (F-171; F-871).
 
 Production, 2026-10-26 00:00Z: the model and vision probes ran on time and the provider
 answered "credit balance is too low" (`ok: false`). The smoke matrix said PASS, because its
