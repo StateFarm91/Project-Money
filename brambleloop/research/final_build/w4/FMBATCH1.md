@@ -484,3 +484,55 @@ JavaScript does not yet chart `kpi_trend_7d`; it shows the existing completed-wo
 **Design-quality rows:** F-652 and F-670 are visual-review criteria ("premium, image-rich",
 "strong typography"). They need a human or vision review, not code, so they are left as owner
 or independent review items.
+
+## 18. F-431 Durable Knowledge Promotion: the research run (fetch step + promotion)
+
+- **Criterion:** "Validated research findings become structured durable knowledge, regression
+  tests, capability metadata, architecture notes or decision records so later agents reuse
+  them."
+- **The gap CLOSE5 named:** the research run and the fetch step were missing.
+
+**Built:** `intel/research_fetch.py`, run by the existing `learn.scan` cadence.
+
+*Fetch step* (within the coordinator's bounds):
+- **Allowlist.** Only `ALLOWED_HOSTS`, each with its stated basis:
+  - Justice Laws;
+  - canada.ca;
+  - cpsc.gov;
+  - en.wikipedia.org;
+  - help.etsy.com.
+
+  www.etsy.com and AAP are not on the list.
+- **No credentials.** The URL must be https. A URL with credentials or a key/token parameter is
+  refused, and no auth header or cookie is ever sent.
+- **robots.txt.** It is read first and obeyed; an unreadable robots.txt is a refusal.
+- **Politeness.** An identifying user agent, a 3-second per-host floor, a 512 KB cap and at most
+  5 fetches per run.
+- **Free reads only.** No paid host can appear on the list (the `test_cert_spend_hosts` scan),
+  so research spend stays at CA$0.
+- **Recording.** A fetched page becomes a `fetched` source on its task (url, date, bytes, sha256,
+  bounded excerpt), and every attempt has a `research.fetch` audit row.
+- **Planning.** Planned fetches are the open children's-safety tasks whose primary page is
+  allowlisted.
+
+*Switch:*
+- The fetch step runs only with `BRAMBLELOOP_RESEARCH_FETCH=1`. Otherwise the run says so and
+  makes no request.
+- Turning it on in production is a Railway variable, which is for the coordinator or owner.
+  This lane changes no Railway setting.
+
+*Promotion:*
+- An answered task with at least one fact becomes a lesson on the improvement bus (`confirmed`,
+  idempotent on `research_tasks:<id>`), routed by its domain. The new subject `platform_policy`
+  routes to seo_search, portfolio, customer_experience and quality.
+- When the task expires (F-433 freshness), its lesson is withdrawn.
+- A domain with no subject is reported, never forced.
+
+**Tests:**
+- `tests/test_w4_fmbatch1_research_run.py` 5/5. Sockets are refused for the whole file and every
+  answer is a stub. It covers the allowlist and credential refusals, robots disallow and
+  unreadable robots, the run's plan and the off switch, promote-once, withdrawal on expiry, and
+  an unrouted domain.
+- Green: test_w4_research, test_w4_fmbatch1_research, test_mine.
+
+**Status:** E. The fetch step stays off until the switch is set.

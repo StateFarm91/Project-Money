@@ -36,6 +36,10 @@ def handle_scan(ctx):
                               "expired_reopened": len(research.expire_due(ctx.db)),
                               # W4-FMBATCH1 (F-419/F-444): the time bound is enforced.
                               "overdue_stopped": len(research.stop_overdue(ctx.db))}
+        # W4-FMBATCH1 (F-431): bounded allowlisted fetches, then promotion into lessons.
+        from ..intel import research_fetch
+
+        result["research"]["run"] = research_fetch.run(ctx.db)
     except Exception as exc:  # noqa: BLE001
         result["research"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     ctx.audit("learn.scanned", detail=result)
