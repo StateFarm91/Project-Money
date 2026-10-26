@@ -5611,7 +5611,24 @@ tr:last-child td{border-bottom:none}
 .card small{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
 .card.alarm{border-left:4px solid #cf222e}
 .asof{color:var(--muted);font-size:11px;margin:-6px 0 6px}
+/* F-653: wide tables scroll inside their own box; the page itself never scrolls sideways */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin-bottom:4px}
+td{overflow-wrap:anywhere}
+@media (max-width:600px){main{padding:12px}header{padding:14px 16px}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{padding:10px}
+.card b{font-size:18px}th,td{padding:6px 8px;font-size:12px}
+.m-act{display:block;padding:12px;margin:8px 0;border-radius:10px;background:#fff;
+border:1px solid var(--line);min-height:44px}}
+@media (min-width:601px) and (max-width:1024px){main{padding:16px}
+.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 """
+
+
+def _wrap_tables(html: str) -> str:
+    """F-653: every dashboard table scrolls inside its own box, whichever block drew it."""
+    return re.sub(r"<table(\b[^>]*)>(.*?)</table>",
+                  lambda m: f'<div class="tw"><table{m.group(1)}>{m.group(2)}</table></div>',
+                  html, flags=re.S)
 
 
 def _counts() -> dict:
@@ -5647,6 +5664,74 @@ def _pill(status: str) -> Markup:
     cls = {"done": "done", "dead": "dead", "running": "running",
            "failed": "failed"}.get(status, "pending")
     return Markup(f'<span class="pill {cls}">{esc(status)}</span>')
+
+
+@app.get("/m", response_class=HTMLResponse)
+def dashboard_mobile() -> str:
+    """F-653: the owner's phone view -- health, what is waiting on the owner, today's numbers.
+
+    Same exposure as `/` (read-only aggregates; the owner inbox shows what `/` shows), laid
+    out for a narrow touch screen: one column, 44 px touch targets, no table wider than the
+    viewport. Each block degrades to "unavailable" on its own; UNKNOWN is never zero.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+
+    now = _dt.now(timezone.utc)
+    blocks = []
+
+    def block(title, fn):
+        try:
+            body = fn()
+        except Exception as exc:  # noqa: BLE001 - one block never takes the page down
+            body = f'<div class="empty">unavailable: {esc(type(exc).__name__)}</div>'
+        blocks.append(f"<h2>{esc(title)}</h2>{body}")
+
+    def _health():
+        st = api_status()
+        q = st.get("queue") or {}
+        r = st.get("runner") or {}
+        worker = ("live" if r.get("worker_alive") else
+                  "off" if not r.get("enabled") else "stalled")
+        cards = [("worker", worker), ("pending", q.get(JobStatus.PENDING.value, "UNKNOWN")),
+                 ("dead letters", q.get(JobStatus.DEAD.value, "UNKNOWN"))]
+        return '<div class="grid">' + "".join(
+            f'<div class="card"><b>{esc(v)}</b><span>{esc(k)}</span></div>'
+            for k, v in cards) + "</div>"
+
+    def _owner():
+        from ..build2 import executor
+
+        cards = executor.approval_inbox(db, env=dict(os.environ))["cards"]
+        if not cards:
+            return '<div class="empty">Nothing is waiting on you.</div>'
+        return "".join(f'<div class="m-act owner"><b>{esc(c.get("what") or c.get("gate"))}'
+                       f'</b><br><small>{esc(c.get("action") or "")}</small></div>'
+                       for c in cards[:6])
+
+    def _today():
+        since = now - _td(hours=24)
+        day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        with db.session() as s:
+            done = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.DONE, Job.finished_at >= since)) or 0
+            dead = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.DEAD, Job.finished_at >= since)) or 0
+            spent = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                                   .where(CostEntry.at >= day)) or 0.0)
+        cards = [("jobs done 24h", done), ("dead letters 24h", dead),
+                 ("spend today", f"CA${spent:,.2f}")]
+        return '<div class="grid">' + "".join(
+            f'<div class="card"><b>{esc(v)}</b><span>{esc(k)}</span></div>'
+            for k, v in cards) + "</div>"
+
+    block("Health", _health)
+    block("Waiting on you", _owner)
+    block("Today", _today)
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Brambleloop</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>{_CSS}</style></head><body><header><h1>Brambleloop</h1>
+<div class="sub">as of {esc(now.strftime('%Y-%m-%d %H:%M UTC'))} · <a style="color:inherit"
+href="/">full dashboard</a></div></header><main>{''.join(blocks)}</main></body></html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -6090,7 +6175,7 @@ def dashboard() -> str:
         last_ok_at = f"{last_ok.at:%Y-%m-%d %H:%M} UTC" if last_ok else "never recorded"
     started = st["runner"].get("worker_started_at") or "unknown"
 
-    return f"""<!doctype html><html><head><meta charset="utf-8">
+    return _wrap_tables(f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Brambleloop Studio OS</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>{_CSS}</style></head><body>
 <header><h1>BRAMBLELOOP STUDIO</h1>
@@ -6154,7 +6239,7 @@ Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
 {_fold(f"{len(audits)} most recent audit rows" + (f", newest {audits[0].action}" if audits else ""),
        rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
             [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet."))}
-</main></body></html>"""
+</main></body></html>""")
 
 
 # ---------------------------------------------------------------------------
