@@ -241,6 +241,21 @@ def review(db, *, now: datetime | None = None) -> dict:
         live.get("why") or (f"missing {missing}" if missing else "every populated category "
                                                                   "has a section"),
         live_state=live["state"], missing=missing, live_titles=live["titles"])
+    # W4-AGENTS W6 (F-239): the live announcement and section titles at phone width. Advisory:
+    # the owner's live text stands; a failure is named for the owner, never auto-replaced.
+    try:
+        from ..brand import storefront_preview as _sp
+
+        lt = _sp.live_text(db, now=now.timestamp())
+        row("mobile_live_text", "ADVISORY",
+            UNKNOWN if lt["ok"] is None else (OK if lt["ok"] else "LIVE_FAILS_MOBILE"),
+            "; ".join(lt["problems"])[:300] if lt["problems"] else
+            ("no fresh live reading of the announcement or sections" if lt["ok"] is None
+             else "the live announcement opening and section titles fit a phone"),
+            live_state=lt["announcement"].get("state", UNKNOWN))
+    except Exception as exc:  # noqa: BLE001 - an unreadable check is UNKNOWN, never OK
+        row("mobile_live_text", "ADVISORY", UNKNOWN, f"not evaluated: {type(exc).__name__}",
+            live_state=UNKNOWN)
     # F-365 (W4-AGENTS C1): a Baby & Kids collection is proposed only when catalogue depth
     # justifies it (creative.children.architecture). Advisory: the section name is not yet in
     # the brand's section architecture, so no createShopSection is drafted for it.

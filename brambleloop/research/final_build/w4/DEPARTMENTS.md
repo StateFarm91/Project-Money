@@ -487,3 +487,28 @@ These are now in `KNOWN_READ_ACTIONS`:
 The retention-list tests (`test_cost_governance_wave2`, `test_etsy_oauth_callback`, `test_model_spend_paths`, `test_w4_close5_grid_spend`, `test_w4_firstsale_retention`) and `test_vacuity` pass.
 
 **Not built.** F-412 (research-to-experiment bridge): the agent never writes a hypothesis on its own, so a bridge would have no producer. It becomes meaningful once an adequate external method (owner or provider) can produce hypotheses.
+
+## Workstream C batch W6: the live shop's text at phone width (F-239; F-040 assessed; 2026-10-26)
+
+**Where the rows stand at HEAD.**
+- F-040's next action ("wire `etsy_surfaces.assess_shop` into readiness via getShop") was done by other lanes after the closure-matrix snapshot: `etsy_ops` judges the daily getShop reading, and `launch.readiness.etsy_first_sale_surfaces` requires its checks. Nothing to add here.
+- F-239's pre-launch preview (`brand.storefront_preview`, F-293) measures the **drafts**: a simulated icon and banner, the draft announcement, and the sections the opening grid populates. The text Etsy actually holds was never measured at phone width.
+
+**Built.**
+- **`storefront_preview.live_text(db)`.** It reads the newest stored getShop and shop_sync readings. It applies the same phone rules to the live announcement (the opening sentence must fit the phone opening, cut between words) and to the live section titles (one phone-menu line).
+  - A missing or stale reading is UNKNOWN (`ok: None`), never a pass.
+  - It is reported beside the simulation as `preview()["live_text"]` and is deliberately not folded into the pre-launch verdict.
+- **Storefront Director.** The review gains an ADVISORY row, `mobile_live_text`, with status OK, LIVE_FAILS_MOBILE or UNKNOWN. The owner's live text stands. No proposal is drafted from this row, and nothing is replaced.
+
+**Tests** (`tests/test_w4_mobile_live_text.py`, 5/5):
+- no reading is UNKNOWN;
+- fitting text passes;
+- a cut opening sentence and an over-long section title are advisory findings;
+- a stale reading is not evidence;
+- the preview reports live text beside the simulation.
+
+Regression: `test_w4_agents`, `test_w4_c3`, `test_w4_children`, `test_storefront_fb4`, `test_w4_b2close`, `test_w4_cap1_gates_intact`, `test_launch` and `test_vacuity` pass.
+
+**Owner or provider dependent (not built).**
+- Live icon and banner legibility: needs the artwork bytes. Fetching Etsy's CDN image is an Etsy call this lane does not make. The owner can supply the files to `preview(icon=…, banner=…)`.
+- The live storefront as Etsy renders it: browser worker, gate `rendered_pages`.
