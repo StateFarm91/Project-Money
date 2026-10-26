@@ -109,3 +109,10 @@ def check(shop: dict | None) -> dict:
             "fields": fields, "differs": differs, "contradictions": contradictions,
             "internal_problems": internal,
             "facts": {k: {"owner": v[0], "answer": v[2]} for k, v in FACTS.items()}}
+
+
+# F-456/F-482: the shared contracts this module was built against. A contract that moves on
+# without this module migrating fails here, at import, instead of drifting silently.
+from ..core import contracts as _contracts  # noqa: E402
+
+_contracts.require("shop_policy_sections", 1)

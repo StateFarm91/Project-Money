@@ -284,3 +284,42 @@ All deterministic, our own rows, CA$0. Tests are in `tests/test_w4_c3.py`.
 - `test_the_scorecard_job_runs_daily_and_stores_one_reading`.
 
 test_roles, test_v11_autonomy_timeline and test_vacuity pass. The autonomy map was regenerated.
+
+## Workstream C batch W1: Shared Truth Contracts and the Contract Change Barrier (F-456, F-482; 2026-10-26)
+
+**Rows.**
+- F-456: cross-department contracts are versioned and authoritative.
+- F-482: a contract change is declared before merge, and dependants pin or migrate; silent drift is prohibited.
+
+**Built.**
+- **Registry.** `core/contracts.py` declares five shared contracts:
+  - `cir` (the CIR dataclasses);
+  - `etsy_write_schemas` (the draft payload, `UPDATE_WRITABLE`, `SHOP_UPDATE_SCHEMA` and the section-title cap);
+  - `shop_policy_sections`;
+  - `storefront_proposal` (the Director's proposal record and agent-writable fields);
+  - `live_shop_evidence` (live-shop field keys and drift statuses).
+- **Version and fingerprint.** Each contract has a version and a deterministic SHA-256 fingerprint of its shape, and `contracts.json` pins both.
+- **What `check()` reports:**
+  - a shape change without a version bump (silent drift);
+  - a version without a CHANGELOG entry (an undeclared change);
+  - a bump whose pins were not regenerated;
+  - an unpinned contract, or a pin for a contract that is no longer declared.
+- **Consumer pins.** These consumers call `_contracts.require(name, version)` at import, so a contract that moves on fails them loudly until they migrate:
+  - `runtime/storefront_ops` pins `storefront_proposal` and `etsy_write_schemas`;
+  - `store_foundation/director` pins `live_shop_evidence` and `etsy_write_schemas`;
+  - `runtime/quality_ops` and `runtime/engineering_ops` pin `cir`;
+  - `brand/storefront` and `commerce/policy_consistency` pin `shop_policy_sections`.
+- **Declaring a change.** Bump the version, add a CHANGELOG line, migrate or re-pin the dependants, then run `python -m brambleloop.core.contracts --write`.
+
+**Tests** (`tests/test_w4_contracts.py`, 8/8):
+- the contracts hold at HEAD;
+- silent drift is caught;
+- an undeclared or unregenerated bump is caught;
+- removed and unpinned contracts are reported;
+- `require` refuses a stale pin;
+- every contract has at least one consumer pin at the current version (AST scan);
+- the pinned consumers import cleanly.
+
+**Not claimed.**
+- Product IDs, evidence formats beyond the live-shop evidence, external APIs and quality floors are not yet registered contracts. Each is added by declaring its shape function here.
+- The registry catches drift at test and import time. It is not a merge hook in CI, because no CI exists for this repository.

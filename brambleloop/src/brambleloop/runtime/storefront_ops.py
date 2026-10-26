@@ -209,3 +209,11 @@ def handle_store_update(ctx: JobContext) -> dict:
     return {"written": True, "proposal": ident, "grant": grant_id,
             "etsy_calls": len(client.calls), "response_keys": sorted(body)[:20],
             "work_done": 1}
+
+
+# F-456/F-482: the shared contracts this module was built against. A contract that moves on
+# without this module migrating fails here, at import, instead of drifting silently.
+from ..core import contracts as _contracts  # noqa: E402
+
+_contracts.require("storefront_proposal", 1)
+_contracts.require("etsy_write_schemas", 1)

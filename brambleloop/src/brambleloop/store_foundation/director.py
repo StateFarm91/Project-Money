@@ -397,3 +397,11 @@ def summary(db) -> dict:
         return {"status": UNKNOWN, "as_of": r.get("at"), "reason": "no live shop reading"}
     return {"status": "OK", "as_of": r.get("at"),
             "reason": f"no agent-doable gap; owner steps open: {r.get('owner_gaps') or []}"}
+
+
+# F-456/F-482: the shared contracts this module was built against. A contract that moves on
+# without this module migrating fails here, at import, instead of drifting silently.
+from ..core import contracts as _contracts  # noqa: E402
+
+_contracts.require("live_shop_evidence", 1)
+_contracts.require("etsy_write_schemas", 1)

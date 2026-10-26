@@ -536,3 +536,10 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
                       "uncleared legacy (publish.eligibility.legacy_status); strength is "
                       "measured orders where any exist, else the radar opportunity prior, "
                       "each tile labelled")}
+
+
+# F-456/F-482: the shared contracts this module was built against. A contract that moves on
+# without this module migrating fails here, at import, instead of drifting silently.
+from ..core import contracts as _contracts  # noqa: E402
+
+_contracts.require("shop_policy_sections", 1)
