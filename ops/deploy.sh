@@ -107,21 +107,40 @@ if [ "$rb" -ne 0 ]; then
   # W4-FMBATCH1 (F-381): the failure's severity decides containment. A P0 regression (safety,
   # spend ceilings, the runtime itself, or production unreachable) is rolled back to the commit
   # production ran before this push -- the rollback rehearsed above -- through the same guarded
-  # path; a P1 is fixed forward. AUTO_ROLLBACK=0 reports the decision without acting on it.
+  # path only when the owner turned it on (AUTO_ROLLBACK=1 + AUTO_ROLLBACK_REASON); a P1 is fixed
+  # forward. By default the P0 decision is reported with the exact command and nothing is pushed.
   dec=0
   python3 "$top/ops/rollback_decision.py" --readback "$rb_out" --previous "$deployed" || dec=$?
+  if [ "$dec" -eq 6 ] && [ -z "$rollback_to" ]; then
+    # Review F-3: one re-read after a short delay, so a cold start that is briefly
+    # unreachable is not read as a P0 regression.
+    sleep "${READBACK_RETRY_S:-30}"
+    rb=0
+    python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_out" || rb=$?
+    dec=0
+    if [ "$rb" -ne 0 ]; then
+      python3 "$top/ops/rollback_decision.py" --readback "$rb_out" --previous "$deployed" || dec=$?
+    else
+      echo "deploy.sh: DEPLOYED $sha (readback PASS on re-read)"
+      exit 0
+    fi
+  fi
   if [ "$dec" -eq 6 ]; then
     if [ -n "$rollback_to" ]; then
       echo "deploy.sh: P0 regression on the rollback $sha itself; NOT rolling back again (exit 6)" >&2
       exit 6
     fi
-    if [ "${AUTO_ROLLBACK:-1}" = "0" ] || [ -z "$deployed" ]; then
-      echo "deploy.sh: P0 regression on $sha: roll back with ops/deploy.sh --rollback-to $deployed (AUTO_ROLLBACK=0 or no predecessor; exit 6)" >&2
+    # Review F-3: automatic production rollback is a push to production. It is OFF unless
+    # AUTO_ROLLBACK=1, and even then it carries only a reason the owner wrote
+    # (AUTO_ROLLBACK_REASON, recorded when they accepted automatic containment) -- this
+    # script never writes an "owner reason" itself.
+    if [ "${AUTO_ROLLBACK:-0}" != "1" ] || [ -z "$deployed" ] || [ -z "${AUTO_ROLLBACK_REASON:-}" ]; then
+      echo "deploy.sh: P0 regression on $sha: roll back with ops/deploy.sh --rollback-to $deployed --reason \"<your reason>\" (automatic rollback is off unless AUTO_ROLLBACK=1 with AUTO_ROLLBACK_REASON set; exit 6)" >&2
       exit 6
     fi
-    echo "deploy.sh: P0 regression on $sha: rolling back to $deployed" >&2
+    echo "deploy.sh: P0 regression on $sha: rolling back to $deployed (AUTO_ROLLBACK=1)" >&2
     exec "$top/ops/deploy.sh" --rollback-to "$deployed" \
-      --reason "automatic containment: P0 post-deploy readback failure on $sha" --deployed "$sha"
+      --reason "$AUTO_ROLLBACK_REASON" --deployed "$sha"
   fi
   exit 5
 fi

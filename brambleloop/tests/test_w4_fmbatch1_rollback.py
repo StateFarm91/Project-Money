@@ -103,9 +103,14 @@ args = sys.argv[1:]
 sha = args[args.index("--sha") + 1]
 out = args[args.index("--json") + 1]
 plan = json.loads(open(os.environ["RB_PLAN"]).read())
+seen = 0
+if os.path.exists(os.environ["RB_LOG"]):
+    seen = open(os.environ["RB_LOG"]).read().split().count(sha)
 with open(os.environ["RB_LOG"], "a") as f:
     f.write(sha + "\n")
 failed = dict(plan.get(sha, plan.get("*", [])))
+if plan.get("_pass_on_second") and seen >= 1:
+    failed = {}
 features = [{"feature": n, "verdict": failed.get(n, "PASS")} for n in plan["names"]]
 verdict = "FAIL" if any(f["verdict"] != "PASS" for f in features) else "PASS"
 json.dump({"sha": sha, "verdict": verdict, "reachable": True, "features": features},
@@ -162,7 +167,8 @@ def test_deploy_sh_rolls_a_p0_regression_back_to_the_predecessor():
     base, remote, repo, deployed, candidate = _world()
     try:
         r = _deploy(repo, base, {"_deployed": deployed,
-                                 candidate: [["shadow phase holds", "FAIL"]]})
+                                 candidate: [["shadow phase holds", "FAIL"]]},
+                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="owner accepted automatic containment (test)", READBACK_RETRY_S="0")
         assert r.returncode == 0, (r.returncode, r.stderr)
         assert "rolling back to " + deployed in r.stderr, r.stderr
         prod = _production(remote)
@@ -171,9 +177,10 @@ def test_deploy_sh_rolls_a_p0_regression_back_to_the_predecessor():
         assert _git(remote, "rev-parse", prod + "^{tree}") == _git(repo, "rev-parse",
                                                                     deployed + "^{tree}")
         assert _git(remote, "rev-parse", prod + "^") == candidate
-        assert "automatic containment" in _git(remote, "log", "-1", "--format=%s", prod)
-        # Both deploys were read back: the candidate, then the rollback (which passed).
-        assert (base / "rb.log").read_text().split() == [candidate, prod]
+        assert "owner accepted automatic containment" in _git(remote, "log", "-1",
+                                                               "--format=%B", prod)
+        # The candidate was read back twice (one re-read before acting), then the rollback.
+        assert (base / "rb.log").read_text().split() == [candidate, candidate, prod]
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
@@ -194,8 +201,46 @@ def test_auto_rollback_off_reports_the_p0_and_never_pushes_a_rollback():
     try:
         r = _deploy(repo, base, {"_deployed": deployed,
                                  candidate: [["every agent has a cost ceiling", "FAIL"]]},
-                    AUTO_ROLLBACK="0")
+                    AUTO_ROLLBACK="0", READBACK_RETRY_S="0")
         assert r.returncode == 6 and "--rollback-to " + deployed in r.stderr, r.stderr
+        assert _production(remote) == candidate
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_by_default_a_p0_is_reported_and_production_is_not_pushed():
+    """Review F-3: no AUTO_ROLLBACK in the environment means no automatic push."""
+    base, remote, repo, deployed, candidate = _world()
+    try:
+        r = _deploy(repo, base, {"_deployed": deployed,
+                                 candidate: [["shadow phase holds", "FAIL"]]},
+                    READBACK_RETRY_S="0")
+        assert r.returncode == 6 and "--rollback-to " + deployed in r.stderr, r.stderr
+        assert "rolling back to" not in r.stderr
+        assert _production(remote) == candidate
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_auto_rollback_without_an_owner_reason_refuses_to_push():
+    base, remote, repo, deployed, candidate = _world()
+    try:
+        r = _deploy(repo, base, {"_deployed": deployed,
+                                 candidate: [["shadow phase holds", "FAIL"]]},
+                    AUTO_ROLLBACK="1", READBACK_RETRY_S="0")
+        assert r.returncode == 6 and _production(remote) == candidate, r.stderr
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_a_p0_that_clears_on_the_re_read_is_not_rolled_back():
+    base, remote, repo, deployed, candidate = _world()
+    try:
+        r = _deploy(repo, base, {"_deployed": deployed,
+                                 candidate: [["shadow phase holds", "FAIL"]],
+                                 "_pass_on_second": True},
+                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="x", READBACK_RETRY_S="0")
+        assert r.returncode == 0 and "PASS on re-read" in r.stdout, (r.stdout, r.stderr)
         assert _production(remote) == candidate
     finally:
         shutil.rmtree(base, ignore_errors=True)
@@ -205,10 +250,12 @@ def test_a_rollback_that_itself_regresses_is_not_rolled_back_again():
     base, remote, repo, deployed, candidate = _world()
     try:
         r = _deploy(repo, base, {"_deployed": deployed,
-                                 "*": [["shadow phase holds", "FAIL"]]})
+                                 "*": [["shadow phase holds", "FAIL"]]},
+                    AUTO_ROLLBACK="1", AUTO_ROLLBACK_REASON="owner accepted automatic containment (test)", READBACK_RETRY_S="0")
         assert r.returncode == 6, (r.returncode, r.stderr)
         assert "NOT rolling back again" in r.stderr
-        assert len((base / "rb.log").read_text().split()) == 2     # candidate + one rollback
+        # candidate, its re-read, then one rollback (which is never rolled back again)
+        assert len((base / "rb.log").read_text().split()) == 3
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
