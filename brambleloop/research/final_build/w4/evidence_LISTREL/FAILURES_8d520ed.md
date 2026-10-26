@@ -27,7 +27,9 @@ failing 4, `release_eligible: false`.
 - **Full suite.** 7514 s: 9102 passing, 4 suites failing. `test_cert_wiring` **passed**; alone it was
   16/16 in 776 s.
 - **Clock dependence.** The 4 failures depend on the calendar. They passed on 10-21, and the same 4
-  fail on **production b931d17 today** (the same counts; run alone).
+  fail **today on b931d17 code** (the same counts; run alone). b931d17 is the *previous*
+  production, git-archived. Current production is 15800536, whose source tree is b997efd; b931d17
+  predates it, so the failures predate both this release and 15800536.
 - **Causes.**
 
   | Suite | Cause |

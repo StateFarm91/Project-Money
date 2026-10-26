@@ -7,7 +7,7 @@ and no limit were changed.
 | run | tree | result |
 |---|---|---|
 | quiet_…T1539Z_cand_d69a3ec | candidate d69a3ec | 12/16; "did not drain: 272 jobs in 1200s"; handler total 1533 s over 265 jobs |
-| quiet_…T1606Z_prod_b931d17 | **production b931d17** (git archive) | **11/16; "did not drain: 268 jobs in 1258s"**; handler total 1429 s |
+| quiet_…T1606Z_prod_b931d17 | **b931d17**, the production before 15800536 (git archive) | **11/16; "did not drain: 268 jobs in 1258s"**; handler total 1429 s |
 | measure_uncapped_…_cand_d69a3ec | candidate, measured with a **scratch copy** of the test (`measure_copy_of_test_cert_wiring.py`): `max_seconds` set to 7200 and the drain time printed | **full drain: 293 jobs in 1220.2 s**; 15/16. The one failure is the copy's own path artefact (ROOT points at scratch), not a drain problem |
 | INTEG4 baseline (2026-10-21T0005Z) | b997efd / b931d17 | 16/16 in 844 s / 825 s |
 
