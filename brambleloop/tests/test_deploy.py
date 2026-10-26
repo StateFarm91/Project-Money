@@ -802,9 +802,11 @@ def test_the_command_centre_shows_every_build_2_subsystem():
         assert block in body, f"{block} is missing from the command centre"
 
     # The numbers are rendered, not just the headings.
-    assert "executable left" in body
-    assert "modelled probability" in body
-    assert "binding layer" in body
+    for rendered in ("executable left", "modelled probability", "binding layer"):
+        assert rendered in body, (
+            f"{rendered!r} is missing from the command centre; unavailable blocks: "
+            + str([body[i:i + 200] for i in range(len(body))
+                   if body.startswith("unavailable:", i)][:5]))
 
 
 def test_one_unhappy_subsystem_does_not_take_the_whole_dashboard_down():
