@@ -1609,10 +1609,12 @@ def test_review_q1_one_tap_needs_the_closed_business_grammar():
     """2c29b42 review Q-1 (robust fix): one tap only for ONE question in the closed business
     vocabulary. An unknown word, a second sentence or any joining punctuation fails toward a
     step-up, whatever the personal phrasing."""
-    for text in SCREEN_CLEAN_PERSONAL + (
-            "Mark relapsed. What were sales overnight?",
-            "Grieving Mark how are shop orders this week?",       # no separator at all
-            "Mark wrecked the week what were sales overnight?"):
+    cases = SCREEN_CLEAN_PERSONAL + (
+        "Mark relapsed. What were sales overnight?",
+        "Grieving Mark how are shop orders this week?",       # no separator at all
+        "Mark wrecked the week what were sales overnight?")
+    assert len(cases) > 3 and SCREEN_CLEAN_PERSONAL, cases   # INTEG6b: test_vacuity non-emptiness
+    for text in cases:
         assert U.business_grammar(text) is False, text
         assert U.one_tap_business(text) is False, text
     # Product titles the company already has count as vocabulary.
