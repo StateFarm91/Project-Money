@@ -709,7 +709,7 @@ behaviour tests do fail before the fix.
 | F-467 | 952f1113 | An HTTP middleware enqueues `build.tick` at once after any successful write to a gate-opening route (owner decision, phase, publication or activation grants, ledger mapping, Insights, Etsy OAuth). It is idempotent per route per minute, and refused writes do nothing. | `test_w4_fmbatch1_unblock.py` (2) |
 | F-451 (partial) | c7df4c70 | `/api/orchestrator` (operator-only) joins requirements, departments, dependencies, owner gates, external blockers, spend, deployments and active work. Each section is guarded, so an unreadable one is UNKNOWN. Build-side lanes stay outside the runtime. | `test_w4_fmbatch1_master_view.py` (3) |
 | F-476 | 8c319836 | Registry enrolment refuses a second live lane holding the same requirement rows or the same question (a normalised fingerprint). Integrated lanes and re-enrolment do not count. | `test_w4_fmbatch1_dupwork.py` (3) |
-| F-482 (partial) | 97cd3a9e | `core/contracts.py` fingerprints the CIR dataclasses. The pin in the test must move together with a dated declaration in `ops/CONTRACT_CHANGES.md`. Listing payload keys and API schemas are not yet pinned. | `test_w4_fmbatch1_contracts.py` (3) |
+| F-482 (partial) | 97cd3a9e | `core/contract_pins.py` fingerprints the CIR dataclasses. The pin in the test must move together with a dated declaration in `ops/CONTRACT_CHANGES.md`. Listing payload keys and API schemas are not yet pinned. | `test_w4_fmbatch1_contracts.py` (3) |
 
 - **Proposal, not applied:** `OVERRIDES_PROPOSED_FMBATCH1_C.json`.
   - F-538 and F-273: the matrix's "no reader" / "never set" text is stale. `finance/reconcile.py`
@@ -741,7 +741,7 @@ behaviour tests do fail before the fix.
 in `brambleloop/tests/test_w4_fmbatch1_contracts.py`. When merging this branch with lanes that
 add or change routes, or change `ListingPayload` or the CIR:
 1. add one dated row per changed contract to `ops/CONTRACT_CHANGES.md`;
-2. update `PINNED` in the test to the merged tree's `core.contracts.fingerprints()` in the same
+2. update `PINNED` in the test to the merged tree's `core.contract_pins.fingerprints()` in the same
    commit;
 3. re-run the test.
 

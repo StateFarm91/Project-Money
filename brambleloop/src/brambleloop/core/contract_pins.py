@@ -1,4 +1,8 @@
-"""F-482: the contract-change barrier -- a shared contract cannot drift silently.
+"""F-482: the contract-change barrier -- a shared contract cannot drift silently (test pins).
+
+Complementary to `core.contracts` (W4-AGENTS: versioned runtime contracts with `require()`
+pins, F-456/F-482): this module is the test-side fingerprint of the CIR shape, the Etsy
+listing payload and the served API routes, pinned in tests/test_w4_fmbatch1_contracts.py.
 
 The CIR is the contract every product, compiler, reverse compiler, twin and listing is built
 on; the Execution Directive makes it the one thing a lane must stop and declare rather than

@@ -13,11 +13,11 @@ os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR", os.path.join(_T, "a"))
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from brambleloop.core import contracts as C  # noqa: E402
+from brambleloop.core import contract_pins as C  # noqa: E402
 
 PINNED_CIR = "8265022276e81c44"
 PINNED = {"cir": PINNED_CIR, "listing_payload": "655954b9510590d0",
-          "api_routes": "0c95a60b30810b0d"}
+          "api_routes": "95876e3d16e90313"}
 CHANGES = ROOT.parent / "ops" / "CONTRACT_CHANGES.md"
 
 
