@@ -275,17 +275,17 @@ repository**, so `httpx` and `pytest` were installed unpinned for `TestClient`.
 
 <!-- results -->
 - `test_w4_secpatch_public_surface.py`: **10/10 passed** (82 s).
-- Modified suites that have finished (exit code, last summary line):
+- **All 28 modified suites exited 0** (exit code, then last summary line):
   - `test_cert_culture_teardown`: EXIT 0 (0 failed)
-  - `test_cert_dashboard`: still running at commit time
+  - `test_cert_dashboard`: EXIT 0 (19/19 passed in 230s)
   - `test_cert_growth_ops`: EXIT 0 (PASS: 0 failing)
   - `test_cert_growth_seasonal`: EXIT 0 (0 failure(s))
-  - `test_cert_wiring`: still running at commit time
-  - `test_closure`: still running at commit time
+  - `test_cert_wiring`: EXIT 0 (16/16 passed in 842s)
+  - `test_closure`: EXIT 0 (27 passing, 0 failing)
   - `test_customer_data_auth`: EXIT 0 (9/9 passed in 24s)
   - `test_dashboard_spend`: EXIT 0 (8 passing, 0 failing)
-  - `test_deploy`: still running at commit time
-  - `test_health`: still running at commit time
+  - `test_deploy`: EXIT 0 (OK   test_verify_survives_the_one_condition_it_exists_to_report)
+  - `test_health`: EXIT 0 (OK   test_work_completed_before_the_window_does_not_count)
   - `test_incident_lifecycle`: EXIT 0 (OK   test_the_snapshot_groups_by_kind_and_keeps_a_day_of_resolutions)
   - `test_policy_intake`: EXIT 0 (9 passing, 0 failing)
   - `test_provenance_backfill`: EXIT 0 (OK   test_without_an_audit_row_the_job_is_unknown_and_the_artefact_stays_unprove)
@@ -295,7 +295,7 @@ repository**, so `httpx` and `pytest` were installed unpinned for `TestClient`.
   - `test_swarm_runtime`: EXIT 0 (OK   test_the_runtime_routes_report_what_the_handlers_decided)
   - `test_w3_laura_cc_providers`: EXIT 0 (7/7 passed in 26s)
   - `test_w4_board_close`: EXIT 0 (6/6 passed in 35s)
-  - `test_w4_cc_company`: still running at commit time
+  - `test_w4_cc_company`: EXIT 0 (23/23 passed in 176s)
   - `test_w4_close5_r1`: EXIT 0 (PASS: 0 failing)
   - `test_w4_close5_rows4`: EXIT 0 (PASS: 0 failing of 2)
   - `test_w4_fmclose_etsy`: EXIT 0 (PASS: 0 failing)
@@ -303,7 +303,7 @@ repository**, so `httpx` and `pytest` were installed unpinned for `TestClient`.
   - `test_w4_integ4_secfixes`: EXIT 0 (12/12 passed)
   - `test_w4_rel2`: EXIT 0 (PASS: 0 failing)
   - `test_w4_secfix_insights_private`: EXIT 0 (4/4 passed)
-  - `test_web_security`: still running at commit time
+  - `test_web_security`: EXIT 0 (tables that refused the hostile row: {'job_checkpoints': 'IntegrityError: (sqlit)
 <!-- /results -->
 
 Independent probes, written for this review and run from the scratchpad, not committed:
