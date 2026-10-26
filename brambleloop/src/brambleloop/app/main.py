@@ -70,9 +70,33 @@ def _known_customer_refs() -> list[str]:
     return [r for r in refs if r]
 
 
-# Order matters: the scrub runs inside the header middleware, so every response -- including
-# one the scrub rewrote -- leaves with the security headers.
+def _owner_only_texts() -> list[str]:
+    """Every text an owner-inbox card or an open incident can carry, for the unauthenticated
+    scrub (FMBATCH1 62fcf5ed, extended to incidents by W4-SECPATCH)."""
+    from ..core.models import OwnerAction
+    from ..launch import access
+
+    out: list[str] = []
+    with db.session() as s:
+        for a in s.scalars(select(OwnerAction)):
+            out += [a.action, a.reason, a.consequence_of_delay, a.blocks,
+                    getattr(a, "why_software_cannot", "")]
+        for i in s.scalars(select(Incident).where(Incident.resolved == False)):  # noqa: E712
+            out += [i.summary, i.signature]
+    for c in access.CAPABILITIES:
+        r = c.request
+        out += [r.action, r.purpose, r.consequence_of_declining, r.security_scope,
+                r.continues_without]
+    return [str(t) for t in out if t]
+
+
+# W4-SECPATCH: the projection is innermost, so the public readback endpoints are cut to their
+# allow-listed fields before anything else sees the body; then the two text scrubs.
+# Order matters: the scrubs run inside the header middleware, so every response -- including
+# one a scrub rewrote -- leaves with the security headers.
+app.add_middleware(security.PublicProjectionMiddleware)
 app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
+app.add_middleware(security.OwnerTextScrubMiddleware, refs_provider=_owner_only_texts)
 app.add_middleware(security.SecurityHeadersMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
@@ -5610,7 +5634,26 @@ def _pill(status: str) -> Markup:
     return Markup(f'<span class="pill {cls}">{esc(status)}</span>')
 
 
+_PUBLIC_ROOT = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brambleloop Studio</title></head><body>
+<h1>Brambleloop Studio</h1>
+<p>This service has no public pages.</p>
+<p><a href="/cc/">Owner sign-in</a></p>
+</body></html>"""
+
+
 @app.get("/", response_class=HTMLResponse)
+def root(request: Request) -> str:
+    """W4-SECPATCH: the operations dashboard is owner-only. An unauthenticated caller gets a
+    page with no operational data at all (no inbox, incidents, spend, jobs, gates, products,
+    not even counts); the owner's surface is the authenticated Command Center at `/cc/`. The
+    full dashboard is served only to a request presenting the operator credential."""
+    if security.presents_operator_credential(request.headers.get("authorization")):
+        return dashboard()
+    return _PUBLIC_ROOT
+
+
 def dashboard() -> str:
     st = api_status()
     q = JobQueue(db)

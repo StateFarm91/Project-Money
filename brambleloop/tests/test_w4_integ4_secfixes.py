@@ -93,10 +93,14 @@ def test_b1_a_kept_customer_pdf_is_never_served_even_after_a_redeploy():
     Path(stored.path).unlink()
     r = _image(c, stored.sha256)
     assert r.status_code == 404 and b"%PDF" not in r.content
-    # And the public audit trail no longer carries the address.
-    rows = c.get("/api/audit?action=assets.built").json()["audit"]
+    # And the audit trail is no public read at all any more (W4-SECPATCH); were it ever
+    # public again, the shortening still keeps the address out.
+    anon = c.get("/api/audit?action=assets.built")
+    assert anon.status_code == 401 and stored.sha256 not in anon.text
+    rows = c.get("/api/audit?action=assets.built",
+                 headers={"Authorization": f"Bearer {OPS}"}).json()["audit"]
     assert rows, "the row is there"
-    blob = str(rows)
+    blob = str(main._shorten_digests(rows))
     assert stored.sha256 not in blob and stored.sha256[:12] + "…" in blob
 
 
@@ -166,7 +170,9 @@ def test_b1_the_operator_reads_the_audit_digests_unchanged():
     sha = hashlib.sha256(b"operator-visible").hexdigest()
     _audit("integ4.digest_probe", {"sha256": sha, "text": f"made {sha} today"})
     c = _client()
-    pub = c.get("/api/audit?action=integ4.digest_probe").json()["audit"][0]["detail"]
+    anon = c.get("/api/audit?action=integ4.digest_probe")
+    assert anon.status_code == 401 and sha not in anon.text  # W4-SECPATCH: owner-only
+    pub = main._shorten_digests({"sha256": sha, "text": f"made {sha} today"})
     assert pub == {"sha256": sha[:12] + "…", "text": f"made {sha[:12]}… today"}, pub
     op = c.get("/api/audit?action=integ4.digest_probe",
                headers={"Authorization": f"Bearer {OPS}"}).json()["audit"][0]["detail"]
@@ -179,7 +185,11 @@ def test_b1_the_operator_reads_the_audit_digests_unchanged():
 def test_i7_the_public_audit_shortens_glued_digests_and_the_artifact_column():
     a, b = hashlib.sha256(b"one").hexdigest(), hashlib.sha256(b"two").hexdigest()
     _audit("integ4.glued_probe", {"blob": f"ab{a}{b}", "upper": a.upper()}, artifact=a)
-    row = _client().get("/api/audit?action=integ4.glued_probe").json()["audit"][0]
+    c = _client()
+    assert c.get("/api/audit?action=integ4.glued_probe").status_code == 401  # W4-SECPATCH
+    row = main._shorten_digests(c.get("/api/audit?action=integ4.glued_probe",
+                                      headers={"Authorization": f"Bearer {OPS}"}
+                                      ).json()["audit"][0])
     text = str(row)
     for d in (a, b, a.upper()):
         assert d not in text, d

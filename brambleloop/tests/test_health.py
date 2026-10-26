@@ -6,6 +6,7 @@ queue is empty, the database answers -- and the system has achieved nothing. An 
 health check calls that healthy, which is how a week of achieving nothing passes.
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
@@ -417,7 +418,7 @@ def test_the_console_answers_both_of_an_absent_owners_questions():
     """Is it working, and is anything waiting on me. A count of queued actions answers
     neither, which is why approvals arrive as cards with their consequence of waiting."""
     with _client() as c:
-        body = c.get("/api/console").json()
+        body = _opread.get(c, "/api/console").json()
     assert set(body) >= {"health", "queues", "products", "agents", "spend", "incidents",
                          "approvals", "experiments", "deployment", "learning_changes"}
     assert body["approvals"]["cards"]
@@ -430,7 +431,7 @@ def test_the_console_never_reports_healthy_while_nothing_is_happening():
     this harness the worker is deliberately not running, so the verdict is `down` -- and the
     reading that matters is `progress`, which is idle whatever the processes are doing."""
     with _client() as c:
-        body = c.get("/api/console").json()
+        body = _opread.get(c, "/api/console").json()
     readings = {r["signal"]: r["state"] for r in body["health"]["readings"]}
     assert readings["progress"] == H.IDLE
     assert body["health"]["state"] != H.HEALTHY
@@ -438,7 +439,10 @@ def test_the_console_never_reports_healthy_while_nothing_is_happening():
 
 def test_the_dashboard_carries_the_two_views_the_requirement_named():
     with _client() as c:
-        page = c.get("/").text
+        page = _opread.get(c, "/").text
+        public = c.get("/").text
+    # W4-SECPATCH: the views are the operator's; the public page carries neither.
+    assert "Waiting on the owner" not in public and "Health</h2>" not in public
     assert "<h2>Waiting on the owner</h2>" in page
     assert "<h2>Learning changes</h2>" in page
     assert "<h2>Health</h2>" in page
@@ -448,7 +452,7 @@ def test_the_dashboard_carries_the_two_views_the_requirement_named():
 
 def test_the_signals_endpoint_carries_its_evidence():
     with _client() as c:
-        body = c.get("/api/health-signals").json()
+        body = _opread.get(c, "/api/health-signals").json()
     assert body["verdict"]["state"] in (H.HEALTHY, H.IDLE, H.DEGRADED, H.DOWN)
     assert body["remediation"]["repaired_here"] == []
     assert "restart_container" in body["cannot_repair"]

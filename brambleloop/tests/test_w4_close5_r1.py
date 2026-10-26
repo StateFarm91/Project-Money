@@ -8,6 +8,7 @@ Local, deterministic; sockets refused by the REL2 harness; no provider is called
 Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_w4_close5_r1.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import asyncio
@@ -109,7 +110,7 @@ def test_r1_the_route_answers_503_with_no_db_work_when_saturated_then_recovers()
     called = []
     try:
         c, main = R._app()
-        before = c.get("/api/etsy").json()["webhooks"]
+        before = _opread.get(c, "/api/etsy").json()["webhooks"]
         refused_before = dict(before["refused"])
         wh.refuse = lambda *a, **k: called.append("refuse") or real_refuse(*a, **k)
         wh.receive = lambda *a, **k: called.append("receive") or real_receive(*a, **k)
@@ -137,7 +138,7 @@ def test_r1_the_route_answers_503_with_no_db_work_when_saturated_then_recovers()
         finally:
             for _ in range(wh.GATE.slots):
                 wh.GATE.leave()
-        after = c.get("/api/etsy").json()["webhooks"]
+        after = _opread.get(c, "/api/etsy").json()["webhooks"]
         assert after["refused"] == refused_before, "a shed request did database work"
         assert after["gate"]["in_flight"] == 0 and after["gate"]["slots"] == wh.WEBHOOK_SLOTS
         # free again: a bad signature is a counted 401, a good delivery is accepted
@@ -147,7 +148,7 @@ def test_r1_the_route_answers_503_with_no_db_work_when_saturated_then_recovers()
                    headers={**h, "content-type": "application/json"})
         assert r.status_code == 202, r.text
         assert called == ["receive", "refuse", "receive"], called
-        refused = c.get("/api/etsy").json()["webhooks"]["refused"]
+        refused = _opread.get(c, "/api/etsy").json()["webhooks"]["refused"]
         assert refused.get("bad_signature", 0) == refused_before.get("bad_signature", 0) + 1
     finally:
         wh.refuse, wh.receive = real_refuse, real_receive

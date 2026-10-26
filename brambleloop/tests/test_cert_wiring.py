@@ -13,6 +13,7 @@ as wired, a spy is installed on the function and the real caller is run; the spy
 Run: cd brambleloop && $PY tests/test_cert_wiring.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
@@ -553,8 +554,8 @@ def test_api_paths_reach_radar_memory_and_the_stress_test():
         from brambleloop.app import main
 
         c = TestClient(main.app)
-        assert c.get("/api/culture").status_code == 200
-        assert c.get("/api/growth").status_code == 200
+        assert _opread.get(c, "/api/culture").status_code == 200
+        assert _opread.get(c, "/api/growth").status_code == 200
     finally:
         spy_mem.restore()
         spy_st.restore()

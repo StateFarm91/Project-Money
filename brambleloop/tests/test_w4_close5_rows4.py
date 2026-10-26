@@ -15,6 +15,7 @@ assert the "output/evidence" clause the agents view did not carry.
 Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_w4_close5_rows4.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
@@ -77,7 +78,7 @@ def test_f487_departments_route_serves_a_backed_off_job_type_instead_of_a_500():
     parked = orchestrate.suspended_job_types(main.db)
     assert parked[backoff]["kind"] == orchestrate.BACKOFF and "why" not in parked[backoff], \
         "premise: a backoff entry has no `why` (the shape that raised in production)"
-    r = TestClient(main.app).get("/api/departments")
+    r = _opread.get(TestClient(main.app), "/api/departments")
     assert r.status_code == 200, (r.status_code, r.text[:300])
     rows = {row["agent"]: row for row in r.json()["agents"]}
     held = rows[_agent_holding(main.db, backoff)]["parked_job_types"]

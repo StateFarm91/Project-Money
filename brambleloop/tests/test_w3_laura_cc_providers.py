@@ -16,6 +16,7 @@
 Run: cd brambleloop && PYTHONPATH=src python tests/test_w3_laura_cc_providers.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import sys
 
@@ -136,7 +137,7 @@ def test_k8_estate_routes_are_mounted_and_customer_data_is_operator_only():
     assert r.status_code in (401, 503), r.status_code
     r = c.get("/api/cx/workspace", headers={"Authorization": f"Bearer {H.OPS}"})
     assert r.status_code == 200, r.text[:200]
-    assert c.get("/api/etsy/estate").status_code == 200
+    assert _opread.get(c, "/api/etsy/estate").status_code == 200
 
 
 def test_phrasing_uses_the_spend_lane_task_and_one_prompt():

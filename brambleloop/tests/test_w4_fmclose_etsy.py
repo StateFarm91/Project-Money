@@ -15,6 +15,7 @@ Sockets are refused; nothing calls Etsy.
 Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_w4_fmclose_etsy.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import base64
@@ -265,7 +266,7 @@ def test_f512_route_is_public_signed_and_reported_on_api_etsy():
                      headers={**h, "webhook-signature": "v1,AAAA",
                               "content-type": "application/json"})
         assert bad.status_code == 401, bad.text
-        e = c.get("/api/etsy").json()["webhooks"]
+        e = _opread.get(c, "/api/etsy").json()["webhooks"]
         assert e["configured"] is True and e["received"] >= 1, e
         assert SECRET not in json.dumps(e), "the secret is never reported"
     finally:

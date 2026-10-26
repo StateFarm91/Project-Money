@@ -167,7 +167,9 @@ def test_no_public_get_route_serves_owner_recorded_insights():
     checked = 0
     try:
         for path in _get_routes():
-            if security.requires_operator("GET", path) or security.owner_session_route(path):
+            # W4-SECPATCH: reads are default-deny, so only ~a dozen GETs are public; every
+            # route is fetched without the credential (a gated one must refuse, leaking none).
+            if security.owner_session_route(path):
                 continue
             try:
                 r = c.get(path)

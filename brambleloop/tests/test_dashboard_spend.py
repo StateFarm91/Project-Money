@@ -49,8 +49,11 @@ with patch('brambleloop.build2.closure.matrix', return_value={'counts': {'UNKNOW
                               estimated_cad=1, detail={'price_basis':'assumed'}))
     html = main._spend_governance_html()
     data = main._spend_governance_data()
-    response = c.get("/")
+    import _opread  # W4-SECPATCH: the full dashboard is operator-only
+
+    response = _opread.get(c, "/")
     page = response.text
+    public_page = c.get("/").text
 check("the block names the monthly ceiling as a figure", f"{spend_policy.CEILING_CAD:.2f}" in html
       or f"{int(spend_policy.CEILING_CAD)}" in html, html[:300])
 check("scoped paid-media caps are reported as none configured with the reason",
@@ -63,6 +66,9 @@ check("mixed recorded costs do not become observed actual", data['month']['cost_
       and data['month']['cost_basis']['actual_cad'] is None)
 check("page renders with nullable actual and explicit unknown closure", response.status_code==200
       and 'closure: UNKNOWN' in page)
+check("the public page carries no spend figure or governance block (W4-SECPATCH)",
+      "Scoped caps" not in public_page and "CA$" not in public_page
+      and f"{spend_policy.CEILING_CAD:.2f}" not in public_page, public_page[:300])
 main.db.engine.dispose()  # release Windows SQLite handles before TemporaryDirectory cleanup
 _restore_network()
 print(f"\n  {PASSED} passing, {FAILED} failing")

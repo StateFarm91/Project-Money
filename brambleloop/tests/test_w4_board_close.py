@@ -11,6 +11,7 @@
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_w4_board_close.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
@@ -231,7 +232,7 @@ def test_f182_a_satisfied_action_still_presented_fails_the_verification():
         assert executor.GATE_BY_KEY["etsy_shop"].open(main.db, dict(os.environ))
 
         def chk():
-            v = client.get("/api/verify").json()
+            v = _opread.get(client, "/api/verify").json()
             return {c["check"]: c for c in v["checks"]}["no_satisfied_owner_action_presented"]
 
         green = chk()
