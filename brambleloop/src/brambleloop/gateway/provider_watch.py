@@ -105,5 +105,15 @@ def watch(db, *, now: datetime | None = None) -> dict:
                 summary=(f"provider {c['what']} changed {c['from']!r} -> {c['to']!r}; routing "
                          f"economics re-run (v{version}, F-099)"),
                 detail={"change": c, "review_ok": review["ok"]}, now=now)
+    # F-096: a changed provider needs a fresh compatibility pack before it is trusted; the
+    # last recorded pack is shown, and it is stale by definition once the snapshot moved.
+    from . import compat_pack
+
+    last_pack = compat_pack.latest(db)
     return {"version": version, "changed": changes, "baseline": False,
-            "review": review["ok"]}
+            "review": review["ok"],
+            "compat_pack": {"required": True, "families": list(compat_pack.FAMILIES),
+                            "last": ({"at": last_pack["at"],
+                                      "compatible": last_pack.get("compatible")}
+                                     if last_pack else None),
+                            "stale": True}}

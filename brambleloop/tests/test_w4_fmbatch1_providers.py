@@ -187,6 +187,8 @@ def test_f099_prices_are_versioned_and_a_change_reruns_routing_economics():
         anthropic.PRICES_USD_PER_MTOK[model] = saved
     assert out["version"] == 2 and [c["what"] for c in out["changed"]] == [
         f"prices_usd_per_mtok:{model}"], out
+    # F-096: a provider change asks for a fresh compatibility pack; none has been recorded.
+    assert out["compat_pack"]["required"] is True and out["compat_pack"]["last"] is None
     with db.session() as s:
         actions = [r.action for r in s.scalars(select(AuditLog))]
         inc = [r.signature for r in s.scalars(select(Incident).where(
