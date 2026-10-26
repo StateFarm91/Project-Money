@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, RedirectResponse
@@ -5781,7 +5781,14 @@ def api_etsy_exercise(mode: str = "full",
 _CSS = """
 details.fold summary{cursor:pointer;font-size:13px;margin:4px 0 10px}
 :root{--ink:#1A2B3C;--pine:#244A3A;--cream:#FAF6EB;--gold:#C49545;--wine:#6E1F2A;
---muted:#6b7280;--line:#e5e0d3}
+--muted:#6b7280;--line:#e5e0d3;--surface:#fff;--surface-2:#f7f4ea;--warn-bg:#fffaf0;
+--ok-bg:#e6f2ec;--bad-bg:#fae8ea;--amber-bg:#fdf3e2;--grey-bg:#eef0f2;--alarm:#cf222e;
+color-scheme:light dark}
+/* F-670: dark tokens follow the reader's system setting; every colour below is a token */
+@media (prefers-color-scheme:dark){:root{--ink:#e8e4d8;--pine:#86c3a4;--cream:#13181e;
+--gold:#d9b06a;--wine:#e7909b;--muted:#9aa3ad;--line:#2c333b;--surface:#1b222a;
+--surface-2:#222a33;--warn-bg:#2a2518;--ok-bg:#1d3329;--bad-bg:#3a2026;--amber-bg:#352b17;
+--grey-bg:#262d35;--alarm:#ff7b72}}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);
 font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
 header{background:var(--pine);color:var(--cream);padding:18px 24px}
@@ -5790,37 +5797,53 @@ h1{margin:0;font-size:20px;letter-spacing:.02em}
 main{max-width:1100px;margin:0 auto;padding:24px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;
 margin-bottom:24px}
-.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
 .card b{display:block;font-size:22px;color:var(--pine)}
 .card span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
 margin:24px 0 8px}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
 border-radius:10px;overflow:hidden}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
-th{background:#f7f4ea;font-weight:600;text-transform:uppercase;font-size:11px;
+th{background:var(--surface-2);font-weight:600;text-transform:uppercase;font-size:11px;
 letter-spacing:.05em;color:var(--muted)}
 tr:last-child td{border-bottom:none}
 .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.done{background:#e6f2ec;color:var(--pine)}.dead{background:#fae8ea;color:var(--wine)}
-.running{background:#fdf3e2;color:var(--gold)}.pending{background:#eef0f2;color:var(--muted)}
-.failed{background:#fdf3e2;color:#9a6b1f}
+.done{background:var(--ok-bg);color:var(--pine)}.dead{background:var(--bad-bg);color:var(--wine)}
+.running{background:var(--amber-bg);color:var(--gold)}.pending{background:var(--grey-bg);color:var(--muted)}
+.failed{background:var(--amber-bg);color:var(--gold)}
 .empty{color:var(--muted);font-style:italic;padding:12px}
-.owner{border-left:4px solid var(--gold);background:#fffaf0}
+.owner{border-left:4px solid var(--gold);background:var(--warn-bg)}
 .card small{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
-.card.alarm{border-left:4px solid #cf222e}
+.card.alarm{border-left:4px solid var(--alarm)}
 .asof{color:var(--muted);font-size:11px;margin:-6px 0 6px}
+/* F-670: the chart component (inline SVG sparklines) and drill-down links */
+.spark{display:block;width:100%;height:44px;color:var(--pine)}
+.trend a{color:var(--pine);font-size:12px}
 /* F-653: wide tables scroll inside their own box; the page itself never scrolls sideways */
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin-bottom:4px}
 td{overflow-wrap:anywhere}
 @media (max-width:600px){main{padding:12px}header{padding:14px 16px}
 .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{padding:10px}
 .card b{font-size:18px}th,td{padding:6px 8px;font-size:12px}
-.m-act{display:block;padding:12px;margin:8px 0;border-radius:10px;background:#fff;
+.m-act{display:block;padding:12px;margin:8px 0;border-radius:10px;background:var(--surface);
 border:1px solid var(--line);min-height:44px}}
 @media (min-width:601px) and (max-width:1024px){main{padding:16px}
 .grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 """
+
+
+def _sparkline(values: list[float], *, label: str, width: int = 240, height: int = 44) -> str:
+    """F-670: the dashboard's chart component -- an inline SVG sparkline (no script; CSP-safe).
+    An empty or all-zero series is drawn flat and says so in its label."""
+    vals = [float(v or 0.0) for v in values] or [0.0]
+    top = max(vals) or 1.0
+    step = width / max(1, len(vals) - 1)
+    pts = " ".join(f"{i * step:.1f},{height - 2 - (v / top) * (height - 4):.1f}"
+                   for i, v in enumerate(vals))
+    return (f'<svg class="spark" viewBox="0 0 {width} {height}" role="img" '
+            f'aria-label="{esc(label)}" preserveAspectRatio="none"><polyline fill="none" '
+            f'stroke="currentColor" stroke-width="2" points="{pts}"/></svg>')
 
 
 def _wrap_tables(html: str) -> str:
@@ -6378,8 +6401,36 @@ def dashboard() -> str:
         headline_html = (f'<div class="empty">headline unavailable: {esc(type(e).__name__)}: '
                          f'{esc(e)}</div>')
 
+    def _trends() -> str:
+        """F-670: 14-day charts with drill-down to the route each one is read from."""
+        days = [(utcnow() - timedelta(days=13 - i)).date() for i in range(14)]
+        start = datetime.combine(days[0], datetime.min.time(), tzinfo=timezone.utc)
+        spend = {d: 0.0 for d in days}
+        done = {d: 0 for d in days}
+        with db.session() as s:
+            for at, amt in s.execute(select(CostEntry.at, CostEntry.amount_cad)
+                                     .where(CostEntry.at >= start)):
+                d = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).date()
+                if d in spend:
+                    spend[d] += float(amt or 0.0)
+            for (at,) in s.execute(select(Job.finished_at).where(
+                    Job.status == JobStatus.DONE, Job.finished_at >= start)):
+                d = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).date()
+                if d in done:
+                    done[d] += 1
+        cells = [("Model and tool spend, CA$/day", list(spend.values()),
+                  f"CA${sum(spend.values()):,.2f} over 14 days", "/api/spend-report"),
+                 ("Jobs completed per day", list(done.values()),
+                  f"{sum(done.values())} over 14 days", "/api/status")]
+        return '<div class="grid">' + "".join(
+            f'<div class="card trend"><span>{esc(t)}</span>'
+            f'{_sparkline(v, label=f"{t}: {tot}")}<small>{esc(tot)} &middot; '
+            f'<a href="{esc(href)}">drill down</a></small></div>'
+            for t, v, tot, href in cells) + "</div>"
+
     command_centre = (
-        _block("Build 2 coverage", _build2)
+        _block("Trends", _trends)
+        + _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
         + _block("Etsy surfaces", _etsy_surfaces)
