@@ -4690,6 +4690,14 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/product/{slug}/dossier")
+def api_product_dossier(slug: str) -> dict:
+    """F-671: every table that knows this product, read where it lives (operator-only)."""
+    from ..products import dossier
+
+    return dossier.dossier(db, slug)
+
+
 @app.get("/api/etsy/scorecard")
 def api_etsy_scorecard() -> dict:
     """F-549: one evidence-backed Etsy shop scorecard, each line from its owning source."""

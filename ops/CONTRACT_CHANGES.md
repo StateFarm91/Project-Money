@@ -11,3 +11,4 @@ below.
 | 2026-10-26 | listing payload (`integrations.etsy.ListingPayload`) | 655954b9510590d0 | baseline pinned | none: no change |
 | 2026-10-26 | API routes (path + methods of every app route) | fdcf14772c7b1442 | baseline pinned | none: no change |
 | 2026-10-26 | API routes | cac741d8d33870a0 | added GET /api/etsy/scorecard (F-549, operator-only) | additive: no existing route changed; no dependant to migrate |
+| 2026-10-26 | API routes | 0c95a60b30810b0d | added GET /api/product/{slug}/dossier (F-671, operator-only) | additive: no existing route changed; no dependant to migrate |
