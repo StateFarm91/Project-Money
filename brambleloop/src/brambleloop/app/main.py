@@ -5929,12 +5929,17 @@ def dashboard() -> str:
         counts = room["counts"]
         head = rows([(k.replace("_", " "), str(v)) for k, v in counts.items()],
                     [["Window", "Products"]], "")
+        # F-194: the same windows split by cohort (legacy / launch candidate / programme).
+        by_cohort = room.get("counts_by_cohort") or {}
+        head += rows([(c.replace("_", " "), ", ".join(
+            f"{k.replace('_', ' ')}: {v}" for k, v in by_cohort[c].items()))
+            for c in sorted(by_cohort)], [["Cohort", "Windows"]], "")
         if not at_risk:
             return head + '<div class="empty">Nothing is inside its last actionable window.</div>'
         return head + rows(
-            [(r["slug"], r["event"], f"{r['days_to_latest']}d",
-              r["latest_effective_launch"]) for r in at_risk[:10]],
-            [["At risk", "Event", "Runway", "Last viable launch"]], "")
+            [(r["slug"], r.get("cohort", "unknown").replace("_", " "), r["event"],
+              f"{r['days_to_latest']}d", r["latest_effective_launch"]) for r in at_risk[:10]],
+            [["At risk", "Cohort", "Event", "Runway", "Last viable launch"]], "")
 
     def _scale() -> str:
         from ..scale.confidence import probability, progress_text
