@@ -90,6 +90,7 @@ def test_n1_public_finance_carries_no_owner_data_and_the_owner_route_needs_the_c
          "at": "2026-10-19T00:00:00+00:00", "reference": "N1"}])
     c = TestClient(main.app)
     body = c.get("/api/finance").text
+    assert OWNER_KEYS, OWNER_KEYS              # INTEG7: test_vacuity non-emptiness
     for k in OWNER_KEYS + ("n1-secret-line",):
         assert k not in body, f"public /api/finance leaks {k!r}"
     assert c.get("/api/finance/owner").status_code == 401

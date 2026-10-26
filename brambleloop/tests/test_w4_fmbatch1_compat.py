@@ -1,4 +1,5 @@
 """F-096: provider compatibility pack -- deterministic golden tasks, stubs only."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 from dataclasses import dataclass
 import sys

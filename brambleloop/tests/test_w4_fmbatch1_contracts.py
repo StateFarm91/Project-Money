@@ -1,5 +1,6 @@
 """F-482: the CIR contract is pinned; a silent change fails here until the pin and a
 declaration in ops/CONTRACT_CHANGES.md move together."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import dataclasses
 import os
 import sys

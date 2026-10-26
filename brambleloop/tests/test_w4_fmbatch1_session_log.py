@@ -1,5 +1,6 @@
 """F-864/F-868/F-869: session outcomes, checkpoints and approval prompts are recorded in the
 repository (never production) and summarised per model, UNMEASURED never zero."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import subprocess
 import sys
 import tempfile

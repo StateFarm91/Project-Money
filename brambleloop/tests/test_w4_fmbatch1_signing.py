@@ -2,6 +2,7 @@
 
 Runs against throwaway git repos with their own config; never signs with a real key.
 """
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import re
 import os

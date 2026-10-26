@@ -1,6 +1,7 @@
 """F-824: Learn pages get the accessibility checks pattern charts get -- diagrams need an
 accessible name and a text label per stage, lessons need alt text, explicit terminology and
 short worded steps; an inaccessible diagram is not served."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 

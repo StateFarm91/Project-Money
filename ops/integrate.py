@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -142,6 +143,7 @@ def next_lane(*, target: str, repo: Path, python: str = sys.executable,
                            "(re-run next to integrate onto the new base)"}
     finally:
         _git(repo, "worktree", "remove", "--force", str(wt), check=False)
+        shutil.rmtree(wt, ignore_errors=True)   # INTEG7: also when `worktree add` never ran
     d = _load()
     d["queue"] = [e for e in d["queue"] if e["lane"] != entry["lane"]]
     d["done"].append({**entry, "commit": new, "target": target,

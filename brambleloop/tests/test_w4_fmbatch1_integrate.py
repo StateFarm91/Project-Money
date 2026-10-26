@@ -1,6 +1,7 @@
 """F-459 / F-460: the local merge queue integrates one lane at a time behind the integration
 checklist, refuses conflicts, failed checks, a moved target and protected branches, and never
 pushes."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import subprocess
 import sys
