@@ -258,7 +258,8 @@ def unreviewed_changes(db) -> list[dict]:
                 if not (r.detail or {}).get("reviewed_at")]
 
 
-def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
+def review_change(db, source: str, *, reviewed_by: str, tested: str,
+                  snapshot_id: int | None = None) -> dict:
     """Record that a material change was reviewed and the affected workflows re-tested.
 
     Both halves are required: a review with no statement of what was tested is a signature,
@@ -279,6 +280,11 @@ def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
             .order_by(PolicySnapshot.id.desc())).first()
         if row is None or (row.detail or {}).get("reviewed_at"):
             raise PolicyRefused(f"{source}: there is no material change to review")
+        # W4-PRODFIX review F8: a review bound to the snapshot the owner was shown refuses
+        # when a newer material change arrived in between (checked and written here, in one
+        # session), rather than marking text nobody saw.
+        if snapshot_id is not None and row.id != int(snapshot_id):
+            raise PolicyRefused(f"{source}: a newer change arrived; review the current content")
         detail = dict(row.detail or {})
         detail.update(reviewed_at=datetime.now(timezone.utc).isoformat(),
                       reviewed_by=reviewed_by.strip(), tested=tested.strip()[:2000])

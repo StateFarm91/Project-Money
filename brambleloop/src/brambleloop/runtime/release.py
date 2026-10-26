@@ -4707,9 +4707,15 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
     stages = [st for st in STAGE_ORDER if any(REBUILD_STAGE.get(c) == st for c in classes)]
     stage = stages[0] if stages else None
+    # W4-PRODFIX (review F1): a sentinel retry (`retry`, its own daily key) is a new attempt
+    # at the same change, so its stage keys must move -- with the first attempt's token the
+    # stage enqueue hit the refused attempt's key and nothing was rebuilt. Within one retry
+    # the token is stable, so a re-run of the same retry job stays idempotent.
+    stamp = {"artefacts": sorted(stale), "fingerprints": fingerprints}
+    if i.get("retry"):
+        stamp["retry"] = str(i["retry"])
     token = hashlib.sha256(json.dumps(
-        {"artefacts": sorted(stale), "fingerprints": fingerprints},
-        sort_keys=True, default=str).encode()).hexdigest()[:12]
+        stamp, sort_keys=True, default=str).encode()).hexdigest()[:12]
     stage_job = None
     if stage == "gate.certify":
         stage_job = ctx.enqueue(STAGE_AGENT[stage], stage, {"cir": cir_json},
@@ -7060,7 +7066,10 @@ def handle_capability_probes(ctx: JobContext) -> dict:
     }
     opened = sorted(k for k, v in results.items() if v.get("ok"))
     ctx.audit("ops.capability_probes", detail={
-        "results": {k: {"ok": v.get("ok"), "reason": v.get("reason", "")[:200]}
+        "results": {k: {"ok": v.get("ok"), "reason": v.get("reason", "")[:200],
+                        # review F7: a reused probe is distinguishable from a fresh one
+                        **({"reused": True, "probe_at": v.get("at")} if v.get("reused")
+                           else {})}
                     for k, v in results.items()},
         "working": opened})
     return {"probed": sorted(results), "working": opened,

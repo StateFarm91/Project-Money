@@ -224,26 +224,32 @@ def _bounded_key(prefix: str, stamp: str) -> str:
 RETRY_AFTER = timedelta(hours=12)
 
 
-def _retry_key(db, slug: str, key: str, *, now: datetime | None = None) -> str | None:
-    """A fresh daily key when no chain.rebuild for `slug` is in flight and the newest one
-    ended at least RETRY_AFTER ago; otherwise None (the existing attempt stands)."""
-    from sqlalchemy import select
+def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
+    """Products with a chain.rebuild in flight, or one that ended inside RETRY_AFTER.
+
+    Review F6: one bounded query per sentinel run (in-flight rows plus rows touched inside the
+    window), never every chain.rebuild ever written once per product."""
+    from sqlalchemy import or_, select
 
     from ..core.models import Job, JobStatus
 
+    since = now - RETRY_AFTER
+    rows = db.execute(select(Job.inputs).where(
+        Job.job_type == "chain.rebuild",
+        or_(Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)),
+            Job.finished_at >= since,
+            Job.finished_at.is_(None) & (Job.created_at >= since))))
+    return {str((inputs or {}).get("product_slug") or "") for (inputs,) in rows}
+
+
+def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
+               recent: set[str] | None = None) -> str | None:
+    """A fresh daily key when no chain.rebuild for `slug` is in flight and none ended inside
+    RETRY_AFTER; otherwise None (the existing attempt stands)."""
     now = now or datetime.now(timezone.utc)
-    newest_end = None
-    for j in db.scalars(select(Job).where(Job.job_type == "chain.rebuild")):
-        if (j.inputs or {}).get("product_slug") != slug:
-            continue
-        if j.status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED):
-            return None
-        end = j.finished_at or j.created_at
-        if end is not None and end.tzinfo is None:
-            end = end.replace(tzinfo=timezone.utc)
-        if end is not None and (newest_end is None or end > newest_end):
-            newest_end = end
-    if newest_end is not None and now - newest_end < RETRY_AFTER:
+    if recent is None:
+        recent = _recent_rebuild_slugs(db, now)
+    if slug in recent:
         return None
     return job_key(f"{key}:retry", now.date().isoformat())
 
@@ -274,6 +280,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         for row in plan["rebuild"]:
             by_product.setdefault(row["product_slug"], []).append(row)
         retried: list[str] = []
+        recent: set[str] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
             payload = {"product_slug": slug,
@@ -291,11 +298,13 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 # good and the artefacts were never asked for again -- production 051dbee2
                 # had 299 stale artefacts and no rebuild for days. Once the last attempt
                 # for this product is terminal and old enough, ask again, once a day.
-                again = _retry_key(db, slug, key, now=now)
+                if recent is None:
+                    recent = _recent_rebuild_slugs(db, now or datetime.now(timezone.utc))
+                again = _retry_key(db, slug, key, now=now, recent=recent)
                 if again:
                     try:
                         queue.enqueue("listing", "chain.rebuild",
-                                      {**payload, "retry_of_key": key},
+                                      {**payload, "retry_of_key": key, "retry": again},
                                       idempotency_key=again)
                         enqueued.extend(r["key"] for r in rows)
                         retried.append(slug)

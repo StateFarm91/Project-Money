@@ -1230,17 +1230,33 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
 
 # ---- #172 / #173: staleness --------------------------------------------------------------
 
-def _systemic_halt_is_staleness_only(db) -> bool:
-    """True when the open company-wide halt rests only on widespread stale-artefact rows."""
-    from ..ops.incident_lifecycle import systemic_evidence
+def _halting_other_than_staleness(db, slug: str, own: set[str]) -> list:
+    """Open halting incidents for `slug` other than its own stale-marketing rows and other
+    than a company-wide halt whose only evidence is widespread stale-artefact rows.
 
-    try:
-        with db.session() as s:
+    Review F3/F5: the waiver names exactly `SYSTEMIC_SIGNATURE` (not any `systemic-halt:`
+    row), and the evidence and the incident list are read in one session, so a tamper row
+    opened between two reads cannot ride a stale "staleness only" verdict. Unreadable
+    evidence never waives a halt."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+
+    with db.session() as s:
+        try:
             ev = systemic_evidence(s)
-    except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
-        return False
-    return bool(ev["systemic"]) and not ev["integrity_failures"] and \
-        set(ev["widespread_families"]) == {"stale-artefact"}
+            staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
+                              and set(ev["widespread_families"]) == {"stale-artefact"})
+        except Exception:  # noqa: BLE001
+            staleness_only = False
+        rows = list(s.scalars(select(Incident).where(
+            Incident.resolved == False,  # noqa: E712
+            Incident.halts_publication.is_(True),
+            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+        return [r.signature for r in rows
+                if r.signature not in own
+                and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
 
 
 def staleness(db, *, slug: str) -> dict:
@@ -1288,11 +1304,7 @@ def staleness(db, *, slug: str) -> dict:
     # halt open since 2026-10-11). It is waived for this rebuild flag only; `halted`,
     # `reasons` and `blocks` -- what publication reads -- still carry it, and a systemic halt
     # with any other evidence (an integrity failure, another family) still refuses.
-    staleness_only_halt = _systemic_halt_is_staleness_only(db)
-    halting_other = [i for i in tracker.open_incidents(slug)
-                     if i.halts_publication and i.signature not in own_marketing
-                     and not (staleness_only_halt
-                              and str(i.signature).startswith("systemic-halt:"))]
+    halting_other = _halting_other_than_staleness(db, slug, own_marketing)
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
     only_marketing = (bool(outstanding) and not halting_other and not policy
