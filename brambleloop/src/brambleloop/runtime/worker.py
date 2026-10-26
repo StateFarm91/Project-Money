@@ -904,6 +904,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS batch 4: a daily, read-only aggregate of the competitor listings already
     # observed (demand/merchandising only; no competitor text, image or URL stored). CA$0.
     ("competitor_snapshot", "market_radar", "radar.competitor_snapshot", 24 * 60 * 60),
+    # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
+    # tasks become investigations (internal retrieval first, CA$0, no network).
+    ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),
     # W4-AGENTS product-engine batch: families of the certified catalogue (s33 bundle-ready
     # family, F-359 recolour duplicates, s5 amplification gated on orders). CA$0.
     ("family_engine", "creative_director", "creative.family_engine", 24 * 60 * 60),

@@ -88,6 +88,10 @@ SAFE_GENERATED: dict[str, str] = {
                     "a non-halting P2 incident; CA$0",
     "storefront.review": "runtime.storefront_ops: reads stored readings, writes a review "
                          "row and queues content.draft proposals; no Etsy write, CA$0",
+    # W4-AGENTS W3: the Research Agent's self-trigger. Reads research tasks, lessons and the
+    # repository research record; writes task rows and audit rows; no network, no model, CA$0.
+    "research.sweep": "runtime.intel_ops + intel.research_agent: internal retrieval only; "
+                      "writes research-task and audit rows; CA$0",
 }
 
 
@@ -187,11 +191,11 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="intelligence", name="Intelligence",
        mission="Observe demand, benchmarks, trends and seasonality from sanctioned sources "
                "and turn them into scored opportunities.",
-       agents=("market_radar",),
-       prefixes=("radar.", "mjs.", "intel.", "culture."),
+       agents=("market_radar", "research_agent"),
+       prefixes=("radar.", "mjs.", "intel.", "culture.", "research."),
        job_types={"etsy.probe", "teardown.enforce"},
        generatable=("radar.score", "intel.benchmark_refresh", "intel.pod_learning",
-                    "autonomy.department_review"),
+                    "autonomy.department_review", "research.sweep"),
        forbidden=("copy competitor instructions, charts or photography",
                   "buy benchmarks or spend beyond its ceiling"),
        inputs=("benchmark_listings", "coverage_gaps", "culture_signals", "serp_snapshots"),

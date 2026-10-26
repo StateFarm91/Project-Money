@@ -6077,6 +6077,15 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
     return detail
 
 
+def _research_flags(db) -> list | dict:
+    try:
+        from ..intel import research_agent
+
+        return research_agent.architecture_flags(db)
+    except Exception as exc:  # noqa: BLE001 - reported beside the review, never fatal to it
+        return {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
 @handlers.register("improve.weekly")
 def handle_weekly_evolution(ctx: JobContext) -> dict:
     """The weekly deep cycle, and the architecture review that must be able to subtract (#194).
@@ -6237,6 +6246,9 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                                 "nothing_to_stop_because"),
                             "card": stop_card},
               "conflicts": director.conflicts(ctx.db),
+              # W4-AGENTS W3 (F-429): evidence the Research Agent says contradicts a current
+              # assumption, for this review to weigh. Read only; a flag changes nothing.
+              "research_architecture_flags": _research_flags(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in
                                    ("promotions", "assessed", "spent_cad", "hit_rate")}}

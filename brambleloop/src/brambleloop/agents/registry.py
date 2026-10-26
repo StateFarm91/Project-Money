@@ -947,3 +947,25 @@ def ceiling_audit(agents: Iterable[tuple[str, float | None]],
             "positive estimate before it is made. Declared in agents.registry.DEFAULT_AGENTS; "
             "raising it is an owner decision"),
     }
+
+# W4-AGENTS W3 (Final Master s44, F-401/F-429/F-436): the Research Agent. Investigates the
+# research tasks (`intel.research`) with the lowest-cost adequate method it holds -- internal
+# retrieval and the repository's research record -- and records unresolved questions with the
+# next bounded test, or flags architecture for the weekly review. CA$0: no network, no model,
+# no spend, no publication; never writes a `fact` on its own.
+DEFAULT_AGENTS.append(dict(
+    name="research_agent",
+    description=("Research Agent (Final Master s44): investigates unknowns on decision paths "
+                 "from internal evidence first, records machine-usable conclusions and flags "
+                 "contradicted assumptions for review. Spends, publishes and fetches nothing."),
+    allowed_job_types=["research.investigate", "research.sweep", "research.flag_architecture"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["research_agent"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["research_agent"] = {
+    "inputs": ["research_tasks", "lessons", "learning_observations",
+               "repository research/*.md (read-only)"],
+    "outputs": ["research_tasks sources/findings", "audit research.investigated / "
+                "research.architecture_flag / research.swept", "jobs research.investigate"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "research jobs whose outputs report work done"}

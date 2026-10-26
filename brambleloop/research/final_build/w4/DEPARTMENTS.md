@@ -361,3 +361,47 @@ test_roles, test_v11_autonomy_timeline and test_vacuity pass. The autonomy map w
 Existing tests still pass: `test_listing_tests`, `test_experiment_persistence`, `test_k3_listing_outcomes`, `test_w4_ccgrow`, `test_w4_controlled_experiments`, `test_reachability` and `test_vacuity`.
 
 **F-476: assessed, not built here.** Its missing part is "build-side duplicate-lane prevention is manual". That concerns how coordinators assign build lanes, not a runtime department. Runtime dedupe (idempotency keys, fingerprint-skipped scans, exclusive build-task claims) is already in place. Building it would mean inventing coordination tooling outside the brambleloop runtime, which the directive excludes, so the row stays PARTIAL for the coordinator's lane.
+
+## Workstream C batch W3: the Research Agent (F-401, F-429, F-436, with F-402/F-430/F-435/F-437; 2026-10-26)
+
+**Rows.**
+- F-401: no dedicated research capability that agents can invoke or that triggers itself.
+- F-429: no path for evidence to flag architecture for review.
+- F-436: no research-method selection.
+
+**Built.**
+- **The agent.** `research_agent` is a new agent in the Intelligence charter (CA$0, GREEN). It holds `research.investigate`, `research.sweep` and `research.flag_architecture`, all classed RESEARCH. `intel/research_agent.py` holds the method; `runtime/intel_ops.py` holds the handlers. It works the existing research-task store (`intel.research`); no new table.
+- **Invoked and self-triggered (F-401).**
+  - Any agent invokes it with `request_research(ctx, …)`, which queues `research.investigate` for `research_agent`.
+  - Its own daily `research.sweep` (cadence, and generatable by the COO and Laura through the Intelligence charter) runs `detect_unknowns` and `expire_due`, then queues an investigation for each open task not investigated in 7 days.
+- **Method choice (F-436, F-402, F-437).**
+  - An eight-method ladder, cheapest first: internal retrieval, repository inspection, official docs, marketplace observation, web search, academic literature, controlled browser, bounded experiment.
+  - It records which methods are adequate per learning domain, and which are available to this agent now: only internal retrieval and the repository's research record.
+  - It picks the lowest-cost method that is both adequate and available. Internal evidence is always searched first.
+  - Marketplace policy and media capability are adequate only through official docs or an experiment (F-437), so those tasks report BLOCKED_ON_METHOD with what would unblock them, rather than an answer from notes.
+- **Machine-usable conclusions (F-435).** Each run returns and audits (`research.investigated`):
+  - question, status (EVIDENCE_GATHERED / UNRESOLVED / BLOCKED_ON_METHOD) and confidence;
+  - evidence refs and the method choice with its alternatives;
+  - constraints and applicability;
+  - unresolved issues and the recommended bounded next test.
+
+  It never writes a `fact` on its own. A question with no held evidence is recorded `unresolved` with the next test and answered, so it reopens on its domain's freshness.
+- **Architecture flags (F-429, F-430).** `research.flag_architecture` (requested with `request_architecture_review`) records an `inference` finding plus a `research.architecture_flag` audit row.
+  - It needs evidence the task holds that was read in full or measured internally.
+  - It refuses any assumption naming a hard floor: certification, Shadow Mode, spend or budget, owner approval, KYC, legal acceptance, fake reviews, CAPTCHA.
+  - The weekly evolution review (`improve.weekly`) now reports `research_architecture_flags`. A flag changes nothing.
+- **Autonomy map** regenerated: +1 agent, +1 cadence, +3 handlers, `never_woken_job_types` empty.
+
+**Tests** (`tests/test_w4_research_agent.py`, 8/8):
+- the agent is declared, chartered, classed and scheduled;
+- method selection, including the F-437 block;
+- invocation by another agent, with internal evidence first and no network (socket refused);
+- an unresolved question records the next test and reopens on freshness;
+- policy questions are blocked on official docs;
+- the sweep self-triggers once per task;
+- architecture flags need graded evidence and refuse hard floors;
+- the weekly review reads the flags.
+
+**Not built (provider or owner).** Official-docs fetch, web search, literature access and controlled-browser research. Each is named in the ladder with what would make it available. Connecting any of them is a provider or owner decision.
+
+**Found while regressing W3:** `test_r2_autonomy_useful_work.test_every_cadence_and_generatable_type_declares_its_work_keys` was failing for 10 W4-AGENTS types: the nine from earlier batches (`storefront.review`, `gate.quality`, `radar.competitor_snapshot`, `creative.family_engine`, `creative.salvage_review`, `listing.cross_sell_graph`, `creative.capability_scorecard`, `intel.children_portfolio`, `visual.model_ledger`) plus `research.sweep`. Those batches had not run this test. Each of these handlers already reports a measured `work_done` (checked handler by handler). They are now declared in `pipeline.WORK_KEYS` as `("work_done",)`, and the test passes.

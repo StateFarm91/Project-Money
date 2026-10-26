@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T08:20:11.436542+00:00",
+ "generated_at": "2026-10-26T09:07:38.223475+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 124,
-  "handlers": 152,
-  "agents": 31,
-  "follow_on_edges": 75
+  "cadences": 125,
+  "handlers": 155,
+  "agents": 32,
+  "follow_on_edges": 78
  },
  "departments": [
   {
@@ -259,23 +259,27 @@
    "mission": "Observe demand, benchmarks, trends and seasonality from sanctioned sources and turn them into scored opportunities.",
    "agents": [
     "market_radar",
-    "orchestrator"
+    "orchestrator",
+    "research_agent"
    ],
    "charter_agents": [
-    "market_radar"
+    "market_radar",
+    "research_agent"
    ],
    "authority": {
     "generatable": [
      "radar.score",
      "intel.benchmark_refresh",
      "intel.pod_learning",
-     "autonomy.department_review"
+     "autonomy.department_review",
+     "research.sweep"
     ],
     "generatable_agents": {
      "radar.score": "market_radar",
      "intel.benchmark_refresh": "market_radar",
      "intel.pod_learning": "market_radar",
-     "autonomy.department_review": "coo"
+     "autonomy.department_review": "coo",
+     "research.sweep": "research_agent"
     },
     "forbidden": [
      "copy competitor instructions, charts or photography",
@@ -385,6 +389,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "research_sweep",
+      "agent": "research_agent",
+      "job_type": "research.sweep",
+      "period_seconds": 86400
+     },
+     {
       "name": "children_portfolio",
       "agent": "market_radar",
       "job_type": "intel.children_portfolio",
@@ -394,11 +404,14 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "app/command_center/etsy_connect.py:recheck",
+     "intel/research_agent.py:request_architecture_review",
+     "intel/research_agent.py:request_research",
      "owner/API route api_etsy_probe",
      "owner/API route api_mjs_scan",
      "plan.cycle",
      "portfolio.review",
      "radar.scan",
+     "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
     ]
    },
@@ -425,7 +438,8 @@
     ],
     "overdue_cadence_catch_up": [
      "intel.benchmark_refresh",
-     "intel.pod_learning"
+     "intel.pod_learning",
+     "research.sweep"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -454,6 +468,9 @@
      "radar.competitor_snapshot",
      "radar.scan",
      "radar.score",
+     "research.flag_architecture",
+     "research.investigate",
+     "research.sweep",
      "teardown.enforce"
     ],
     "permitted_without_handler": []

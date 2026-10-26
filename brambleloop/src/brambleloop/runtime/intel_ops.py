@@ -179,3 +179,71 @@ def handle_children_portfolio(ctx: JobContext) -> dict:
             "children_in_launch": rep["launch_mix"]["children_in_launch"],
             "propose_collection": rep["architecture"]["propose_collection"],
             "network_calls": 0, "work_done": 1}
+
+
+# ---- the Research Agent (F-401 / F-429 / F-436; W4-AGENTS W3) -----------------------------
+
+@handlers.register("research.investigate")
+def handle_research_investigate(ctx: JobContext) -> dict:
+    """Investigate one research task (by id, or open it from the request). CA$0, no network."""
+    from ..intel import research, research_agent
+
+    i = dict(ctx.job.inputs or {})
+    tid = i.get("task_id")
+    if tid is None:
+        if not i.get("question"):
+            return {"ran": False, "why": "research.investigate needs task_id or a question"}
+        try:
+            opened = research.open_question(
+                ctx.db, question=str(i["question"]), trigger=str(i.get("trigger") or ""),
+                decision_ref=str(i.get("decision_ref") or ""), domain=str(i.get("domain") or ""),
+                query_terms=i.get("query_terms") or ())
+        except research.ResearchRefused as exc:
+            return {"ran": False, "why": f"refused: {exc}"}
+        tid = opened["task"]
+    out = research_agent.investigate(ctx.db, int(tid))
+    if out["status"] == research_agent.NOT_OPEN:
+        return {"ran": False, "task": tid, "why": "the task is not open", "work_done": 0}
+    ctx.audit(research_agent.INVESTIGATED, artifact=f"research_task:{tid}",
+              detail={**{k: out[k] for k in ("status", "confidence", "evidence",
+                                             "new_internal", "new_sources", "next_test",
+                                             "applicability")},
+                      "method": out["method"]["chosen"],
+                      "blocked_on": out["method"]["blocked_on"]})
+    return out
+
+
+@handlers.register("research.sweep")
+def handle_research_sweep(ctx: JobContext) -> dict:
+    """F-401 self-trigger: unknowns become tasks, due tasks become investigations."""
+    from ..intel import research, research_agent
+
+    found = research.detect_unknowns(ctx.db)
+    reopened = research.expire_due(ctx.db)
+    due = research_agent.due_for_investigation(ctx.db)
+    day = datetime.now(timezone.utc).date().isoformat()
+    queued = 0
+    for tid in due[:25]:
+        job = ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                          idempotency_key=f"research.investigate:{tid}:{day}")
+        queued += job is not None
+    ctx.audit("research.swept", detail={"opened": len(found["opened"]),
+                                        "reopened": len(reopened), "due": len(due),
+                                        "queued": queued})
+    return {"opened": len(found["opened"]), "reopened": len(reopened), "due": len(due),
+            "queued": queued, "work_done": len(found["opened"]) + queued}
+
+
+@handlers.register("research.flag_architecture")
+def handle_research_flag(ctx: JobContext) -> dict:
+    """F-429: evidence contradicting an assumption is flagged for the weekly review."""
+    from ..intel import research, research_agent
+
+    i = dict(ctx.job.inputs or {})
+    try:
+        out = research_agent.flag_architecture(
+            ctx.db, int(i.get("task_id") or 0), assumption=str(i.get("assumption") or ""),
+            evidence_refs=i.get("evidence_refs") or (), why=str(i.get("why") or ""))
+    except (research.ResearchRefused, ValueError) as exc:
+        return {"ran": False, "why": f"refused: {exc}", "work_done": 0}
+    return {**out, "changes_nothing": True, "work_done": 1}
