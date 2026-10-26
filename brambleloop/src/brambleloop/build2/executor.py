@@ -1323,6 +1323,18 @@ def reconciliation(db) -> dict:
     }
 
 
+def _critical_path_reading(ready: list[dict]) -> dict:
+    try:
+        from . import critical_path
+
+        cp = critical_path.analyse()
+    except Exception as exc:  # noqa: BLE001 - an unreadable path is UNKNOWN, never a crash
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:120]}"}
+    for r in ready:
+        r["unblocks_downstream"] = cp["downstream"].get(f"#{r['requirement_id']}", 0)
+    return {k: cp[k] for k in ("critical_path", "length", "gates_by_unblocked")}
+
+
 def queue(db, *, limit: int = 25) -> dict:
     """What is ready, what is parked, what is blocked — and why, for each.
 
@@ -1380,6 +1392,8 @@ def queue(db, *, limit: int = 25) -> dict:
         "in_progress": in_progress,
         "done_total": sum(1 for r in rows if r["state"] == DONE),
         "next": ready[0] if ready else None,
+        # F-465: what each READY item unblocks downstream, and the path/gates that are longest.
+        "critical_path": _critical_path_reading(ready),
         "note": ("Ready, parked and blocked are reported together: a queue showing only "
                  "ready work looks identical whether twelve requirements are parked on a "
                  "credential or none are."),
