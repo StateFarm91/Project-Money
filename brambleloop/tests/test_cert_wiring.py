@@ -144,7 +144,13 @@ def _fast_forward(db: Database) -> list[tuple[int, str]]:
     return due
 
 
-def _drain(db: Database, w: Worker, limit: int = 3000, max_seconds: float = 1200.0) -> int:
+# Drain time limit 1525 s (was 1200 s): owner approval of 2026-10-25, for this test only, as
+# "I approve raising the test_cert_wiring drain limit to 1,525 seconds for that test only".
+# Basis: measured full drain 1220.2 s (293 jobs) on a quiet machine, +25% margin; production
+# b931d17 code also exceeded 1200 s on the same host. Evidence:
+# research/final_build/w4/evidence_LISTREL/cert_wiring_timing/README.md (claude/w4-LISTREL).
+# D-W4-CERTWIRING-LIMIT. No assertion changed.
+def _drain(db: Database, w: Worker, limit: int = 3000, max_seconds: float = 1525.0) -> int:
     n, t0, forwards = 0, time.monotonic(), 0
     while True:
         while w.run_once():
