@@ -4603,6 +4603,15 @@ def api_dependencies() -> dict:
     return dependencies.map_state(db)
 
 
+@app.get("/api/departments")
+def api_departments() -> dict:
+    """F-601 / F-454 / F-656: the named departments with mandate, backlog (by RUN/GROW/
+    IMPROVE class), KPIs, evidence and improvement loop, each PRESENT or MISSING."""
+    from ..autonomy import departments
+
+    return departments.coverage(db)
+
+
 @app.get("/api/physical-truth")
 def api_physical_truth() -> dict:
     """F-089: every Class B/C product's tester, version, stage, due date, findings, deltas

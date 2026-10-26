@@ -240,6 +240,29 @@ def reconcile_missions(db, *, now: datetime | None = None) -> dict:
 DEPARTMENT_ORDER = sorted(charters.CHARTERS, key=lambda c: (c.protected_kind, c.key))
 
 
+def _watching(db, department: str, now: datetime) -> None:
+    """Record (or extend) this department's current WATCHING span (F-656)."""
+    key = f"department.watching:{department}"
+    prev = memory.get(db, key)
+    open_span = prev is not None and prev.get("state") == "watching"
+    since = (prev["body"].get("since") if open_span else None) or now.isoformat()
+    memory.remember(db, key, kind="department.watching", department=department,
+                    subject=f"{department} watching", state="watching",
+                    body={"since": since, "last_seen": now.isoformat()},
+                    sources=["jobs", "company_memory"], now=now)
+
+
+def _end_watching(db, department: str, now: datetime, why: str) -> None:
+    key = f"department.watching:{department}"
+    prev = memory.get(db, key)
+    if prev is None or prev.get("state") != "watching":
+        return
+    memory.remember(db, key, kind="department.watching", department=department,
+                    subject=f"{department} watching", state="ended",
+                    body={**prev["body"], "ended": now.isoformat(), "ended_by": why},
+                    sources=["jobs", "company_memory"], now=now)
+
+
 def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> dict:
     """One pass of the company loop. Safe to call as often as you like."""
     from ..queue.durable import JobQueue
@@ -279,6 +302,7 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
                 continue
             if entry["open_jobs"]:
                 entry["state"] = "BUSY"
+                _end_watching(db, key, now, "busy")
                 continue
             cands = generators.candidates(db, charter, snap)
             for c in [c for c in cands if c.protected]:
@@ -295,13 +319,24 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
                 done_keys = set(s.scalars(select(Job.idempotency_key).where(
                     Job.idempotency_key.in_(list(keys)))))
             runnable = [c for k, c in keys.items() if k not in done_keys]
-            runnable.sort(key=lambda c: -c.value)
+            # F-656: RUN before GROW before IMPROVE; value orders within a class.
+            from . import departments as _dept
+
+            runnable.sort(key=lambda c: (_dept.pull_rank(c.job_type), -c.value))
+            entry["queues"] = {cls: sum(1 for c in runnable
+                                        if _dept.work_class(c.job_type) == cls)
+                               for cls in _dept.PULL_ORDER}
             if not runnable:
                 entry["state"] = "SATURATED"
+                # F-656: nothing runnable in any queue is WATCHING: no job, no tokens. The
+                # span is recorded so "how long was this department watching" is a query.
+                entry["mode"] = _dept.WATCHING
+                _watching(db, key, now)
                 entry["why"] = ("every candidate for the current evidence was already "
                                 "generated; next work arrives with new evidence or the next "
                                 "review window")
                 continue
+            entry["work_class"] = _dept.work_class(runnable[0].job_type)
             if created >= MAX_MISSIONS_PER_TICK:
                 entry["state"] = "DEFERRED"
                 continue
@@ -309,6 +344,7 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
             created += 1 if mission["created"] else 0
             report["missions"].append(mission)
             entry.update(state="GENERATED", mission=mission["key"])
+            _end_watching(db, key, now, f"generated {runnable[0].job_type}")
         except Exception as exc:  # noqa: BLE001 - one department never stops the others
             entry["state"] = "DEGRADED"
             report["errors"][key] = f"{type(exc).__name__}: {exc}"[:300]
