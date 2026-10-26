@@ -323,3 +323,41 @@ test_roles, test_v11_autonomy_timeline and test_vacuity pass. The autonomy map w
 **Not claimed.**
 - Product IDs, evidence formats beyond the live-shop evidence, external APIs and quality floors are not yet registered contracts. Each is added by declaring its shape function here.
 - The registry catches drift at test and import time. It is not a merge hook in CI, because no CI exists for this repository.
+
+## Workstream C batch W2: the listing-test memory has a runtime caller (F-505; F-476 assessed; 2026-10-26)
+
+**F-505.** The row's missing part: "the listing-test disproof memory (`commerce/listing_tests.write`/`may_test`) has no runtime caller".
+
+**Built.**
+- **Writing the memory.** `growth.experiments.conclude_all` now passes each concluded listing experiment to `listing_tests.remember_conclusion`. It builds a `ListingTest` from:
+  - the stored registration;
+  - the measured window and exposure (the same discipline reading the conclusion used);
+  - a pre-period baseline (`experiments.pre_period`: the same metric over the periods recorded before registration, UNMEASURED when there are none);
+  - the variables the experiment changes (`EXPERIMENT_VARIABLES`: thumbnail, price, search = title+tags, bundle).
+
+  It writes through `listing_tests.write`, so every existing rule applies:
+  - nothing is written without exposure, a pre-period and a full window;
+  - a confounded result (#241) writes nothing;
+  - a disproof needs a causal design;
+  - a multi-variable change is remembered as a bundle;
+  - a re-run is idempotent.
+
+  The conclusion result now carries `memory`.
+- **Checking it before registering.** `growth.experiments.persist` asks `listing_tests.registration_refusal` (`may_test`) before registering. An idea the memory holds as disproved in the same context is stored as killed, with the disproof as its reason, and reopens only in a changed context.
+- **Context.** `listing_tests.context_for` takes the context from stored records only:
+  - pod and season from the concept seed;
+  - price band from the drafted listing's price;
+  - shop maturity from booked orders and the first listing's age, the same derivation as `growth_ops.benchmark_observations`.
+
+  Any part it cannot measure makes the context UNKNOWN. An UNKNOWN context writes nothing and refuses nothing.
+
+**Tests** (`tests/test_w4_listing_memory.py`, 5/5):
+- a concluded disproof is written once;
+- a disproved idea is refused in the same context and allowed in another price band;
+- an UNKNOWN context writes and refuses nothing;
+- a test with no baseline is never remembered;
+- only listing variables touch the memory.
+
+Existing tests still pass: `test_listing_tests`, `test_experiment_persistence`, `test_k3_listing_outcomes`, `test_w4_ccgrow`, `test_w4_controlled_experiments`, `test_reachability` and `test_vacuity`.
+
+**F-476: assessed, not built here.** Its missing part is "build-side duplicate-lane prevention is manual". That concerns how coordinators assign build lanes, not a runtime department. Runtime dedupe (idempotency keys, fingerprint-skipped scans, exclusive build-task claims) is already in place. Building it would mean inventing coordination tooling outside the brambleloop runtime, which the directive excludes, so the row stays PARTIAL for the coordinator's lane.
