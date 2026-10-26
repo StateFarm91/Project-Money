@@ -454,7 +454,15 @@ def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplica
     assert not [c for c in inbox["cards"] if c["gate"] == "image_vision"]
     vision = [g for g in inbox["suppressed_unblocks_nothing"] if g["gate"] == "image_vision"]
     assert len(vision) == 1 and sid in vision[0]["owner_action_ids"], vision
-    html = seeded().get("/").text
+    # Coordinator decision 2026-10-26: card texts render on `/` only for the operator; the
+    # public page shows a count (asserted in test_w4_fmbatch1_route_audit).
+    from brambleloop.core import opsauth
+
+    os.environ[opsauth.TOKEN_VAR] = "d" * 40
+    try:
+        html = seeded().get("/", headers={"Authorization": "Bearer " + "d" * 40}).text
+    finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
     assert html.count("MERGE-SENTINEL") == 1
     with main.db.session() as s:
         s.get(OwnerAction, sid).done = True

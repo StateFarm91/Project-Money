@@ -1,0 +1,126 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; the coordinator accepts or rejects each row (policy from 2026-10-20: every Final Master re-gate is proposed first). No row is closed by this file.",
+  "how_to_accept": "In research/final_build/closure_matrix.json (via the close5.py / close_board.py edit blocks, not by hand) set the row's gate to the 'to' value and append the note; for a proposed new gate key add its ROOT entry to research/final_build/w4/completion_board_final.py as written in 'board_root'; then regenerate the board and run tests/test_w4_board.py."
+ },
+ "rows": {
+  "F-396": {
+   "gate": {
+    "from": "owner:offsite_storage",
+    "to": "data:production_window"
+   },
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_offsite_20261021T0242Z.json (production b931d17): configured true, bucket outside the provider (Backblaze B2), encryption key present, archives refused without the key, last_archive 2026-10-21T00:00Z ok",
+    "BOARD_CLOSURES.json F-697: offsite archive and restore drill run in production (closed on 1b21e81)"
+   ],
+   "remaining": "the 24 h unattended production window of a build carrying the CLOSE5 gallery-timeout fix (b997efd): autonomy.off_device_proof passed=true on real rows (#195)",
+   "acceptance_rationale": "the owner's half (an off-provider bucket and its credential) is done and read in production; what is left is exactly #195's window, so the row waits on the same gate as F-371/F-654."
+  },
+  "F-628": {
+   "gate": {
+    "from": "owner:offsite_storage",
+    "to": "data:production_window"
+   },
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_offsite_20261021T0242Z.json (production b931d17): configured true, bucket outside the provider (Backblaze B2), encryption key present, archives refused without the key, last_archive 2026-10-21T00:00Z ok",
+    "BOARD_CLOSURES.json F-697: offsite archive and restore drill run in production (closed on 1b21e81)"
+   ],
+   "remaining": "the 24 h unattended production window of a build carrying the CLOSE5 gallery-timeout fix (b997efd): autonomy.off_device_proof passed=true on real rows (#195)",
+   "acceptance_rationale": "the owner's half (an off-provider bucket and its credential) is done and read in production; what is left is exactly #195's window, so the row waits on the same gate as F-371/F-654."
+  },
+  "F-005": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "data:taxonomy_schema_read (proposed new key)"
+   },
+   "board_root": "taxonomy_schema_read: ('release_not_deployed', 'blocked_engineering', 'engineering: deploy b997efd+, then the first daily refresh reads the pattern node property schemas; Etsy\\'s answer decides CHOSEN or UNKNOWN')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_20261021T0242Z.json (production b931d17): etsy_api OPEN, the daily refresh reads the real tree (3065 nodes, network_calls 1, snapshot 1 confirmed), no pattern-and-crochet node, so no property schema is read on b931d17",
+    "W4-LISTREADY LISTREADY.md 3a: the unchanged matcher lands every Launch-0 category on 'Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints' by the property route on a replica of Etsy's real names; b997efd's refresh reads that node's and its parent's schemas (2 reads)",
+    "tests/test_search_truth.py (32/32 on this branch), test_w4_firstsale_taxonomy.py (7/7), test_w4_prodready_taxonomy.py (3/3)",
+    "F-010 (this lane): the first property-schema read is a new snapshot, so taxonomy_drift re-queues listing.seo for the UNKNOWN Launch-0 profiles; without it they would stay UNKNOWN until an unrelated chain re-run"
+   ],
+   "remaining": "release b997efd (or later) + one daily refresh; then CHOSEN only if Etsy's schema offers Crochet, otherwise UNKNOWN honestly and an owner reading of the category picker",
+   "acceptance_rationale": "the engineering is done and tested; the board's 'gate OPEN, re-verify' was re-verified: what is left is the release and Etsy's own answer, not an owner action and not engineering. Coordinate with W-LISTREADY, which owns the search certificate."
+  },
+  "F-007": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "data:taxonomy_schema_read (proposed new key)"
+   },
+   "board_root": "taxonomy_schema_read: ('release_not_deployed', 'blocked_engineering', 'engineering: deploy b997efd+, then the first daily refresh reads the pattern node property schemas; Etsy\\'s answer decides CHOSEN or UNKNOWN')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_20261021T0242Z.json (production b931d17): etsy_api OPEN, the daily refresh reads the real tree (3065 nodes, network_calls 1, snapshot 1 confirmed), no pattern-and-crochet node, so no property schema is read on b931d17",
+    "W4-LISTREADY LISTREADY.md 3a: the unchanged matcher lands every Launch-0 category on 'Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints' by the property route on a replica of Etsy's real names; b997efd's refresh reads that node's and its parent's schemas (2 reads)",
+    "tests/test_search_truth.py (32/32 on this branch), test_w4_firstsale_taxonomy.py (7/7), test_w4_prodready_taxonomy.py (3/3)",
+    "F-010 (this lane): the first property-schema read is a new snapshot, so taxonomy_drift re-queues listing.seo for the UNKNOWN Launch-0 profiles; without it they would stay UNKNOWN until an unrelated chain re-run"
+   ],
+   "remaining": "release b997efd (or later) + one daily refresh; then CHOSEN only if Etsy's schema offers Crochet, otherwise UNKNOWN honestly and an owner reading of the category picker",
+   "acceptance_rationale": "the engineering is done and tested; the board's 'gate OPEN, re-verify' was re-verified: what is left is the release and Etsy's own answer, not an owner action and not engineering. Coordinate with W-LISTREADY, which owns the search certificate."
+  },
+  "F-009": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "data:taxonomy_schema_read (proposed new key)"
+   },
+   "board_root": "taxonomy_schema_read: ('release_not_deployed', 'blocked_engineering', 'engineering: deploy b997efd+, then the first daily refresh reads the pattern node property schemas; Etsy\\'s answer decides CHOSEN or UNKNOWN')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_20261021T0242Z.json (production b931d17): etsy_api OPEN, the daily refresh reads the real tree (3065 nodes, network_calls 1, snapshot 1 confirmed), no pattern-and-crochet node, so no property schema is read on b931d17",
+    "W4-LISTREADY LISTREADY.md 3a: the unchanged matcher lands every Launch-0 category on 'Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints' by the property route on a replica of Etsy's real names; b997efd's refresh reads that node's and its parent's schemas (2 reads)",
+    "tests/test_search_truth.py (32/32 on this branch), test_w4_firstsale_taxonomy.py (7/7), test_w4_prodready_taxonomy.py (3/3)",
+    "F-010 (this lane): the first property-schema read is a new snapshot, so taxonomy_drift re-queues listing.seo for the UNKNOWN Launch-0 profiles; without it they would stay UNKNOWN until an unrelated chain re-run"
+   ],
+   "remaining": "release b997efd (or later) + one daily refresh; then CHOSEN only if Etsy's schema offers Crochet, otherwise UNKNOWN honestly and an owner reading of the category picker",
+   "acceptance_rationale": "the engineering is done and tested; the board's 'gate OPEN, re-verify' was re-verified: what is left is the release and Etsy's own answer, not an owner action and not engineering. Coordinate with W-LISTREADY, which owns the search certificate."
+  },
+  "F-243": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "data:taxonomy_schema_read (proposed new key)"
+   },
+   "board_root": "taxonomy_schema_read: ('release_not_deployed', 'blocked_engineering', 'engineering: deploy b997efd+, then the first daily refresh reads the pattern node property schemas; Etsy\\'s answer decides CHOSEN or UNKNOWN')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_20261021T0242Z.json (production b931d17): etsy_api OPEN, the daily refresh reads the real tree (3065 nodes, network_calls 1, snapshot 1 confirmed), no pattern-and-crochet node, so no property schema is read on b931d17",
+    "W4-LISTREADY LISTREADY.md 3a: the unchanged matcher lands every Launch-0 category on 'Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints' by the property route on a replica of Etsy's real names; b997efd's refresh reads that node's and its parent's schemas (2 reads)",
+    "tests/test_search_truth.py (32/32 on this branch), test_w4_firstsale_taxonomy.py (7/7), test_w4_prodready_taxonomy.py (3/3)",
+    "F-010 (this lane): the first property-schema read is a new snapshot, so taxonomy_drift re-queues listing.seo for the UNKNOWN Launch-0 profiles; without it they would stay UNKNOWN until an unrelated chain re-run"
+   ],
+   "remaining": "release b997efd (or later) + one daily refresh; then CHOSEN only if Etsy's schema offers Crochet, otherwise UNKNOWN honestly and an owner reading of the category picker",
+   "acceptance_rationale": "the engineering is done and tested; the board's 'gate OPEN, re-verify' was re-verified: what is left is the release and Etsy's own answer, not an owner action and not engineering. Coordinate with W-LISTREADY, which owns the search certificate."
+  },
+  "F-247": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "data:taxonomy_schema_read (proposed new key)"
+   },
+   "board_root": "taxonomy_schema_read: ('release_not_deployed', 'blocked_engineering', 'engineering: deploy b997efd+, then the first daily refresh reads the pattern node property schemas; Etsy\\'s answer decides CHOSEN or UNKNOWN')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_20261021T0242Z.json (production b931d17): etsy_api OPEN, the daily refresh reads the real tree (3065 nodes, network_calls 1, snapshot 1 confirmed), no pattern-and-crochet node, so no property schema is read on b931d17",
+    "W4-LISTREADY LISTREADY.md 3a: the unchanged matcher lands every Launch-0 category on 'Craft Supplies & Tools > Patterns & How To > Patterns & Blueprints' by the property route on a replica of Etsy's real names; b997efd's refresh reads that node's and its parent's schemas (2 reads)",
+    "tests/test_search_truth.py (32/32 on this branch), test_w4_firstsale_taxonomy.py (7/7), test_w4_prodready_taxonomy.py (3/3)",
+    "F-010 (this lane): the first property-schema read is a new snapshot, so taxonomy_drift re-queues listing.seo for the UNKNOWN Launch-0 profiles; without it they would stay UNKNOWN until an unrelated chain re-run"
+   ],
+   "remaining": "release b997efd (or later) + one daily refresh; then CHOSEN only if Etsy's schema offers Crochet, otherwise UNKNOWN honestly and an owner reading of the category picker",
+   "acceptance_rationale": "the engineering is done and tested; the board's 'gate OPEN, re-verify' was re-verified: what is left is the release and Etsy's own answer, not an owner action and not engineering. Coordinate with W-LISTREADY, which owns the search certificate."
+  },
+  "F-437": {
+   "gate": {
+    "from": "owner:etsy_api",
+    "to": "owner:etsy_exercise_authorisation (proposed new key)"
+   },
+   "board_root": "etsy_exercise_authorisation: ('etsy_credential_403', 'blocked_owner', 'owner: authorise the Etsy create/read/delete exercise (an Etsy write)')",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_credential_health_20261021T0242Z.json and evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json (CLOSE6 branch): authenticated live reads already run in production (getShop daily, receipts + payment ledger every 6 h, taxonomy daily, token refresh daily)",
+    "integrations/etsy_exercise.py + POST /api/etsy/exercise create a draft listing and delete it: an Etsy write, which only the owner authorises"
+   ],
+   "remaining": "owner: authorise one POST /api/etsy/exercise run (Etsy write; draft created and deleted); then record its verification matrix",
+   "acceptance_rationale": "etsy_api being OPEN does not make the row engineering work: the live capability evidence that needs no write exists; the write round trip is the owner's authorisation."
+  }
+ },
+ "not_re_gated_here": {
+  "B2#11, B2#12": "already re-parked transactions_r -> customers in B2_REGATE_PROPOSED_CLOSE6.json (ACCEPTED, D-W4-CLOSE6-OVERRIDES) on claude/w4-CLOSE6; NOT in b997efd or INTEG5 -- the integrator still has to merge/apply it",
+  "F-273, F-538": "already re-gated transactions_r -> customers in FM_REGATE_PROPOSED_CLOSE6.json (ACCEPTED, D-W4-CLOSE6-FMREGATE) on claude/w4-CLOSE6, same caveat",
+  "F-027, F-031, F-041, F-252 (vision half)": "W-LISTREADY lane: the batch-scoped Launch-0 image review (D-W4-LAUNCH-VISION-BATCH, max CA$7.07) and its Command Center activation card; not duplicated here"
+ }
+}

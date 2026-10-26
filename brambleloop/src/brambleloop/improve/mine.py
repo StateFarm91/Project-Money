@@ -380,6 +380,10 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         "note": (f"read {total_read} failure row(s) in {len(groups)} group(s); "
                  f"{len(published)} new lesson(s), {len(reused)} already on the bus"),
     }
+    # F-694: finance, policy and customer readings join the same bus in the same stage.
+    from . import readings_bus
+
+    detail["readings_published"] = readings_bus.publish_all(db, now=now)
     with db.session() as s:
         s.add(AuditLog(actor="improvement", action=ACTION, detail=detail))
     return detail

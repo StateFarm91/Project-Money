@@ -36,6 +36,9 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     "pricing_response": ("pricing", "portfolio", "finance"),
     "search_language": ("seo_search", "product_creativity", "growth"),
     "delivery_experience": ("customer_experience", "creative_assets", "quality"),
+    # W4-FMBATCH1 (F-431): a researched platform/regulatory rule reaches the cells that act on
+    # it -- listing copy and search, the catalogue, and customer experience.
+    "platform_policy": ("seo_search", "portfolio", "customer_experience", "quality"),
     # W4-LEARN: a defect, an unclear instruction or a sizing failure is also something a
     # learner needs help with, and Learn is the one routed department that acts on it before
     # any sale: `learn.metrics.calendar` moves the matching gap up the editor's plan and

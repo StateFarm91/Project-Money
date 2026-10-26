@@ -71,32 +71,47 @@ def candidates(db) -> dict:
     """Certified products that could be sold into a season, with proof stated honestly."""
     from sqlalchemy import select
 
-    from ..core.models import LedgerEntry, PatternVersion, Product
+    from ..core.models import LedgerEntry, Order, PatternVersion, Product
+    from .leadtime import EVERGREEN, occasion_for
 
     with db.session() as s:
         products = list(s.scalars(select(Product)))
         certified = {v.product_id for v in s.scalars(select(PatternVersion))
                      if getattr(v, "certified", False)}
-        sales = [e for e in s.scalars(select(LedgerEntry))
-                 if e.category == "sale"]
+        # B2 #292 (W4-FMBATCH1): a sale names its product exactly. The ledger match used to
+        # be a substring of the evidence reference, so a sale of "hat-xl" proved "hat" too;
+        # now an order row's slug, or a ledger reference token equal to the slug.
+        orders = [o.product_slug for o in s.scalars(select(Order))]
+        ledger = [(e.evidence_ref or "") for e in s.scalars(select(LedgerEntry))
+                  if e.category == "sale"]
+    sales = orders + ledger
 
-    by_slug: dict[str, int] = {}
-    for sale in sales:
-        ref = (sale.evidence_ref or "")
-        for product in products:
-            if product.slug and product.slug in ref:
-                by_slug[product.slug] = by_slug.get(product.slug, 0) + 1
+    slugs = {p.slug for p in products if p.slug}
+    from_orders: dict[str, int] = {}
+    for slug in orders:
+        from_orders[slug] = from_orders.get(slug, 0) + 1
+    from_ledger: dict[str, int] = {}
+    for ref in ledger:
+        for tok in set(ref.replace("/", ":").split(":")) & slugs:
+            from_ledger[tok] = from_ledger.get(tok, 0) + 1
+    # The same sale is usually in both; the larger count, never the sum.
+    by_slug = {sl: max(from_orders.get(sl, 0), from_ledger.get(sl, 0)) for sl in slugs}
 
     rows = [Candidate(slug=p.slug, title=p.title, certified=p.id in certified,
                       orders=by_slug.get(p.slug, 0))
             for p in products]
     eligible = [c for c in rows if c.certified]
     proven = [c for c in eligible if c.proven]
+    evergreen = {c.slug for c in eligible if occasion_for(c.slug) == EVERGREEN}
 
     return {
         "products": len(rows),
         "eligible": [{"slug": c.slug, "title": c.title, "orders": c.orders,
-                      "proven": c.proven} for c in eligible],
+                      "proven": c.proven, "evergreen": c.slug in evergreen}
+                     for c in eligible],
+        # #292's own subject: proven *evergreen* products, the ones a season is a new
+        # occasion for rather than their own.
+        "proven_evergreen": sorted(c.slug for c in proven if c.slug in evergreen),
         "proven": [c.slug for c in proven],
         "proof_measurable": bool(sales),
         "note": ("no sale has been recorded, so 'proven' cannot be established and every "

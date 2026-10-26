@@ -146,6 +146,67 @@ def parallelism(runner_state: dict | None) -> dict:
     }
 
 
+#: F-489 (W4-FMBATCH1): last_error markers of a job that lost to concurrent work rather than
+#: failing on its own merits -- a lease taken over, a lost race, a lock or a unique clash.
+CONFLICT_MARKERS = ("lease", "lost the race", "lost a race", "deadlock", "database is locked",
+                    "could not serialize", "UniqueViolation", "IntegrityError",
+                    "DuplicateJob", "already held")
+
+
+def parallel_window(db, *, hours: int = 24, now: datetime | None = None) -> dict:
+    """F-489, read from durable job rows (survives restarts, unlike the process counters).
+
+    * wall_clock_compression: summed job run-time over the wall-clock span those jobs
+      occupied. 1.0 is serial; 2.0 means two hours of work done per hour of clock.
+    * useful_parallel_seconds: run-time that overlapped another running job -- throughput
+      attributable to running in parallel.
+    * conflict_rate: share of attempts in the window whose error shows they collided with
+      concurrent work (CONFLICT_MARKERS), over all finished or failed attempts.
+    None, with the reason, when the window holds no finished job.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=hours)
+    spans, conflicts, attempts = [], 0, 0
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.finished_at.is_not(None),
+                                             Job.finished_at >= since)):
+            if j.started_at is None:
+                continue
+            a, b = _aware(j.started_at), _aware(j.finished_at)
+            if b > a:
+                spans.append((a, b))
+            attempts += max(1, int(j.attempts or 1))
+            err = j.last_error or ""
+            if j.status in (JobStatus.FAILED, JobStatus.DEAD, JobStatus.DONE) and any(
+                    m.lower() in err.lower() for m in CONFLICT_MARKERS):
+                conflicts += 1
+    if not spans:
+        return {"wall_clock_compression": None, "useful_parallel_seconds": None,
+                "conflict_rate": None, "window_hours": hours,
+                "why": "no job finished in the window: nothing to measure"}
+    work = sum((b - a).total_seconds() for a, b in spans)
+    events = sorted([(a, 1) for a, _ in spans] + [(b, -1) for _, b in spans])
+    running, last, covered, overlapped = 0, None, 0.0, 0.0
+    for t, d in events:
+        if last is not None and running > 0:
+            dt = (t - last).total_seconds()
+            covered += dt
+            if running > 1:
+                overlapped += dt * running
+        running += d
+        last = t
+    return {"wall_clock_compression": round(work / covered, 3) if covered else None,
+            "useful_parallel_seconds": round(overlapped, 1),
+            "work_seconds": round(work, 1), "busy_wall_seconds": round(covered, 1),
+            "conflict_rate": round(conflicts / attempts, 4) if attempts else None,
+            "conflicts": conflicts, "attempts": attempts, "window_hours": hours,
+            "basis": "durable job rows (started_at/finished_at, attempts, last_error)"}
+
+
 def _parked_why(entry: dict) -> str:
     """Why a job type is parked, for either kind of suspension (#34): a suspended paid loop
     says why; an unchanged poll in backoff is described by its backoff."""

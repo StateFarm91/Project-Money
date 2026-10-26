@@ -39,7 +39,31 @@ def _refused(fn) -> str:
     raise AssertionError("expected a refusal")
 
 
+# W4-FMBATCH1 (F-405): the internal search now also reads the repository's BUILD_STATE /
+# DECISION_LOG and the test names. Point them at an empty fixture so these counts measure
+# the lessons/observations this file writes, not whatever the repository says today.
+_EMPTY = Path(_TMP) / "no-docs"
+_EMPTY.mkdir(exist_ok=True)
+research.DOCUMENTS = {name: _EMPTY / name for name in research.DOCUMENTS}
+research.TESTS_DIR = _EMPTY
+
+# W4-FMBATCH1 (F-419/F-444/F-420/F-435): a task defines its evidence, stop condition and
+# fallback action, and an answer states its effect and a structured conclusion.
+_SPEC = {"stop_condition": "the policy page read in full",
+         "evidence_needed": "the platform's published file-count rule",
+         "if_unresolved": "owner reads the policy page and records it"}
+
+
+def _closed(**kw):
+    return {"effect": kw.pop("effect", {"kind": "stop_justified",
+                                         "statement": "no primary text could be read"}),
+            "conclusion": {"alternatives": [], "constraints": [], "unresolved": [],
+                           "next_test": None, "applicability": None}}
+
+
 def _task(db, domain="marketplace_policy", **kw):
+    for k, v in _SPEC.items():
+        kw.setdefault(k, v)
     return research.open_question(
         db, question="Does the platform allow pattern bundles of more than ten files?",
         trigger=kw.pop("trigger", "test:bundles"), decision_ref="listing.bundle_policy",
@@ -114,21 +138,21 @@ def test_claims_and_guesses_cannot_close_a_task():
     assert "unresolved" in _refused(lambda: research.answer(db, tid, outcome="done", now=NOW))
     research.add_finding(db, tid, statement="no primary text could be read",
                          claim_class="unresolved")
-    assert research.answer(db, tid, outcome="open: page refused", now=NOW)["state"] == "answered"
+    assert research.answer(db, tid, outcome="open: page refused", now=NOW, **_closed())["state"] == "answered"
 
 
 def test_answers_expire_by_their_domain_and_mathematical_never_does():
     db = _db()
     tid = _task(db, domain="marketplace_policy")["task"]
     research.add_finding(db, tid, statement="unresolved for now", claim_class="unresolved")
-    out = research.answer(db, tid, outcome="x", now=NOW)
+    out = research.answer(db, tid, outcome="x", now=NOW, **_closed())
     assert out["expires_on"] == (NOW + timedelta(days=21)).isoformat(), out
     t2 = _task(db, domain="mathematical", trigger="test:maths")["task"]
     research.add_finding(db, t2, statement="unresolved", claim_class="unresolved")
-    assert research.answer(db, t2, outcome="x", now=NOW)["expires_on"] is None
+    assert research.answer(db, t2, outcome="x", now=NOW, **_closed())["expires_on"] is None
     t3 = _task(db, domain="pricing", trigger="test:pricing")["task"]  # an improvement cell
     research.add_finding(db, t3, statement="unresolved", claim_class="unresolved")
-    assert research.answer(db, t3, outcome="x", now=NOW)["expires_on"] == (
+    assert research.answer(db, t3, outcome="x", now=NOW, **_closed())["expires_on"] == (
         NOW + timedelta(days=3)).isoformat()
     assert "freshness" in _refused(lambda: _task(db, domain="vibes", trigger="test:v"))
     assert research.expire_due(db, now=NOW + timedelta(days=2)) == []  # nothing due yet

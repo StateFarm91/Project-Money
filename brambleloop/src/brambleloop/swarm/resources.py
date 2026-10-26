@@ -25,6 +25,10 @@ from pathlib import Path
 MEMORY_SATURATED = 0.85      # RSS share of the memory limit
 CPU_PRESSURE_SATURATED = 80.0  # % of the last minute some task waited for CPU (PSI avg60)
 DB_SATURATED = 0.80          # connections in use / max_connections
+# W4-FMBATCH1 (F-470): storage capacity and I/O pressure, the half CLOSE5 found unmeasured.
+STORAGE_FREE_SHARE_MIN = 0.02  # free share of a working filesystem below this saturates
+STORAGE_FREE_GB_MIN = 2.0      # ... or free GB below this, whichever bites first
+IO_PRESSURE_SATURATED = 50.0   # % of the last minute some task waited on I/O (PSI avg60)
 
 _PROC = Path("/proc")
 _CGROUP = Path("/sys/fs/cgroup")
@@ -96,6 +100,43 @@ def cpu_seconds(proc: Path = _PROC) -> float | None:
         return None
 
 
+def io_pressure_avg60(cgroup: Path = _CGROUP) -> float | None:
+    text = _read(cgroup / "io.pressure")
+    for line in (text or "").splitlines():
+        if line.startswith("some "):
+            for part in line.split():
+                if part.startswith("avg60="):
+                    try:
+                        return float(part.split("=", 1)[1])
+                    except ValueError:
+                        return None
+    return None
+
+
+def storage(paths: dict[str, str] | None = None) -> dict:
+    """Free space where this container writes (temp and artifacts), per filesystem."""
+    import shutil
+    import tempfile
+
+    paths = paths if paths is not None else {
+        "tmp": tempfile.gettempdir(),
+        "artifacts": os.environ.get("BRAMBLELOOP_ARTIFACT_DIR", "artifacts")}
+    out = {}
+    for name, path in paths.items():
+        target = path if os.path.isdir(path) else None
+        if target is None:
+            out[name] = {"free_share": None, "why": f"{path} does not exist here"}
+            continue
+        try:
+            u = shutil.disk_usage(target)
+        except OSError as exc:
+            out[name] = {"free_share": None, "why": f"unreadable: {exc}"[:120]}
+            continue
+        out[name] = {"free_gb": round(u.free / 1e9, 3), "total_gb": round(u.total / 1e9, 3),
+                     "free_share": round(u.free / u.total, 4) if u.total else None}
+    return out
+
+
 def db_connections(db) -> dict:
     eng = getattr(db, "engine", None)
     if eng is None or eng.dialect.name != "postgresql":
@@ -116,7 +157,8 @@ def db_connections(db) -> dict:
             "why": "pg_stat_activity / max_connections"}
 
 
-def read(db=None, *, proc: Path = _PROC, cgroup: Path = _CGROUP, load=None) -> dict:
+def read(db=None, *, proc: Path = _PROC, cgroup: Path = _CGROUP, load=None,
+         storage_paths: dict[str, str] | None = None) -> dict:
     rss = rss_bytes(proc)
     limit, limit_src = memory_limit_bytes(cgroup, proc)
     cpus, cpu_src = usable_cpus(cgroup)
@@ -135,6 +177,15 @@ def read(db=None, *, proc: Path = _PROC, cgroup: Path = _CGROUP, load=None) -> d
         hot.append(f"CPU pressure {psi}% (PSI some avg60)")
     if dbc.get("share") is not None and dbc["share"] >= DB_SATURATED:
         hot.append(f"database connections at {dbc['share']:.0%} of max_connections")
+    io = io_pressure_avg60(cgroup)
+    if io is not None and io >= IO_PRESSURE_SATURATED:
+        hot.append(f"I/O pressure {io}% (PSI some avg60)")
+    disks = storage(storage_paths)
+    for name, d in disks.items():
+        share, free = d.get("free_share"), d.get("free_gb")
+        if share is not None and (share < STORAGE_FREE_SHARE_MIN
+                                  or (free is not None and free < STORAGE_FREE_GB_MIN)):
+            hot.append(f"storage {name}: {free} GB free ({share:.0%})")
     measured = mem_share is not None or psi is not None
     return {
         "rss_bytes": rss, "memory_limit_bytes": limit, "memory_limit_source": limit_src,
@@ -143,11 +194,18 @@ def read(db=None, *, proc: Path = _PROC, cgroup: Path = _CGROUP, load=None) -> d
         "load_note": "host-wide inside a container: informational, never saturation",
         "cpu_pressure_avg60": psi, "cpu_seconds": cpu_seconds(proc),
         "db_connections": dbc,
+        "io_pressure_avg60": io, "storage": disks,
+        # The memory and CPU limits read above are the hosting platform's container limits
+        # (Railway sets them as the cgroup), so "platform capacity" is those readings.
+        "platform_capacity_source": f"{limit_src}; {cpu_src}",
         "saturated": bool(hot) if measured else None,
         "why": ("; ".join(hot) if hot else
                 "within thresholds" if measured else
                 "UNKNOWN: neither memory nor CPU pressure is readable on this platform"),
         "thresholds": {"memory_share": MEMORY_SATURATED,
                        "cpu_pressure_avg60": CPU_PRESSURE_SATURATED,
-                       "db_share": DB_SATURATED},
+                       "db_share": DB_SATURATED,
+                       "io_pressure_avg60": IO_PRESSURE_SATURATED,
+                       "storage_free_share_min": STORAGE_FREE_SHARE_MIN,
+                       "storage_free_gb_min": STORAGE_FREE_GB_MIN},
     }

@@ -1452,6 +1452,13 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     price_check = launch_price_check(slug, None if row is None else row.price_cad)
     if price_check["state"] == "DRIFT":
         reasons.append(f"LISTING_PRICE_NOT_PLAN: {price_check['why']}")
+    # Review cbd4ff1 N-2: an Etsy taxonomy drift held for the owner (re-queue OFF) does not
+    # halt gate.certify -- that would block the rebuild -- but it does stop publication.
+    from ..integrations.taxonomy_drift import held_drift
+
+    for h in held_drift(db, slug):
+        reasons.append(f"taxonomy drift held for the owner (incident {h['id']}): "
+                       f"{h['summary']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,

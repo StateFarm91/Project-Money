@@ -183,10 +183,14 @@ def states_from_db(db, slug: str, version: str = "") -> dict[str, bool]:
     granted certificate whose `stages_run` contains "reverse" is precisely the claim rung two
     makes -- a second implementation read the written pattern back and agreed.
 
-    Rungs four and five read False for as long as this company has no orders. False here
-    means "not established", which is the same thing a listing has to say, and the key is
-    present rather than absent because a missing key and an unreached rung look identical to
-    a caller and mean completely different things.
+    Rungs four and five are read from rows too (B2 #8, W4-FMBATCH1), and read False until
+    those rows exist. False here means "not established", which is the same thing a listing
+    has to say, and the key is present rather than absent because a missing key and an
+    unreached rung look identical to a caller and mean completely different things.
+
+    * customer_project: a `physical_photos` row from source `customer` for this pattern with
+      a recorded rights basis (an unconsented photo is received and never counts);
+    * repeat_purchase: a customer who ordered this pattern has at least two orders in total.
     """
     from sqlalchemy import select
 
@@ -216,7 +220,26 @@ def states_from_db(db, slug: str, version: str = "") -> dict[str, bool]:
     # thing came out, and a sample that disagreed with the pattern is the most valuable
     # possible result and the opposite of a proof point.
     states["physical_tester_example"] = any(t.passed for t in tests)
+    states["customer_project"], states["repeat_purchase"] = _customer_rungs(db, slug, version)
     return states
+
+
+def _customer_rungs(db, slug: str, version: str = "") -> tuple[bool, bool]:
+    from sqlalchemy import func, select
+
+    from ..core.models import Order, PhysicalPhoto
+
+    with db.session() as s:
+        photos = [p for p in s.scalars(select(PhysicalPhoto).where(
+            PhysicalPhoto.product_slug == slug, PhysicalPhoto.source == "customer"))
+            if (not version or not p.version or p.version == version)
+            and (p.rights_basis or "").strip()]
+        buyers = set(s.scalars(select(Order.customer_id).where(Order.product_slug == slug)))
+        repeat = bool(buyers) and bool(s.scalar(
+            select(func.count()).select_from(
+                select(Order.customer_id).where(Order.customer_id.in_(buyers))
+                .group_by(Order.customer_id).having(func.count(Order.id) >= 2).subquery())))
+    return bool(photos), repeat
 
 
 def report(db, slug: str, version: str = "") -> dict:
@@ -232,8 +255,11 @@ def report(db, slug: str, version: str = "") -> dict:
                     "licenses": list(r.licenses), "established": states.get(r.key, False)}
                    for r in LADDER],
         **out,
-        "not_reachable_yet": {
-            "customer_project": "waits on orders, which is the customers gate",
-            "repeat_purchase": "waits on a buyer returning, which is the same gate twice",
-        },
+        # The customer rungs not yet established, with the row that would establish each.
+        "not_reachable_yet": {k: v for k, v in {
+            "customer_project": ("waits on a consented customer photograph "
+                                 "(physical_photos, source=customer, rights basis recorded)"),
+            "repeat_purchase": ("waits on a buyer of this pattern placing a second order "
+                                "(orders)"),
+        }.items() if not states.get(k)},
     }

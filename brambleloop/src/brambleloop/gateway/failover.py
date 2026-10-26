@@ -273,6 +273,24 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
         if not available:
             waits.append(h.get("retry_after_s", 0))
             continue
+        if row["is_fallback"]:
+            # F-095 (W4-FMBATCH1): a fallback is checked against the tier's capability
+            # contract; a FAIL is never routed, and the verdict is on the row either way.
+            from . import fallback_contract
+
+            try:
+                gate = fallback_contract.may_route(_DbView(db), provider="anthropic",
+                                                   primary_provider="anthropic",
+                                                   model=model, task_key=task_key)
+                row["contract"] = gate["contract"]["verdict"]
+                if not gate["allowed"]:
+                    row["contract_refused"] = True
+                    continue
+            except Exception as exc:  # noqa: BLE001 - an unreadable contract is reported
+                # Review F-10: and not routed. UNKNOWN is never routed, here as everywhere.
+                row["contract"] = f"UNKNOWN: {type(exc).__name__}"
+                row["contract_refused"] = True
+                continue
         if fits_month and fits_day:
             order.append(model)
     if order:

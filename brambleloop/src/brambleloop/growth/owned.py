@@ -209,27 +209,78 @@ def counterparts(db) -> dict:
 
 
 def owned_share(db) -> dict:
-    """How much traffic arrives through something this company owns.
+    """How much business arrives through something this company owns (#20).
 
-    The number #20 exists to move, and it needs visits. Reported unmeasurable with the reason
-    rather than as zero, because a company with no traffic has no marketplace dependence
-    either and that is not the finding anybody wants recorded.
+    Read from orders by channel (`finance.channel_comparison.channel_of`): owned = the owned
+    direct channel (site, email, search to our own pages) plus social posts we published.
+    It previously read `Cohort.arm == "organic"`, which is the *unpaid Etsy* arm of a launch
+    cohort -- marketplace traffic, the very dependence #20 asks to reduce -- so it would have
+    reported Etsy search as "owned". Reported unmeasurable with the reason rather than as
+    zero when there are no orders.
     """
     from sqlalchemy import select
 
-    from ..core.models import Cohort
+    from ..core.models import Order
+    from ..finance.channel_comparison import channel_of
 
     with db.session() as s:
-        cohorts = [(c.arm, c.visits) for c in s.scalars(select(Cohort))]
-
-    total = sum(visits for _arm, visits in cohorts)
-    if not total:
+        channels = [channel_of(o.acquisition_source) for o in s.scalars(select(Order))]
+    if not channels:
         return {"measurable": False,
-                "reason": ("no visit has been recorded, so the share arriving through owned "
+                "reason": ("no order has been recorded, so the share arriving through owned "
                            "channels is unknown. A company with no traffic has no "
                            "marketplace dependence either, and that is not the same finding"),
                 "feeds": "the traffic_source axis of the anti-fragility rule (#29)"}
-    owned = sum(visits for arm, visits in cohorts if arm == "organic")
-    return {"measurable": True, "visits": total, "owned_visits": owned,
-            "owned_share": round(owned / total, 3),
+    owned = sum(1 for c in channels if c in OWNED_ORDER_CHANNELS)
+    known = sum(1 for c in channels if c != "unattributed")
+    return {"measurable": True, "orders": len(channels), "owned_orders": owned,
+            "unattributed_orders": len(channels) - known,
+            "owned_share": round(owned / len(channels), 3),
+            "marketplace_share": round(sum(1 for c in channels if c in (
+                "organic_search", "etsy_ads", "offsite_ads", "share_and_save"))
+                / len(channels), 3),
+            "basis": "orders by acquisition channel; unattributed orders count as not owned",
             "feeds": "the traffic_source axis of the anti-fragility rule (#29)"}
+
+
+OWNED_ORDER_CHANNELS: tuple[str, ...] = ("owned_direct", "social")
+
+
+def assisted_conversions(db) -> dict:
+    """#20: orders the owned channels produced directly, and marketplace orders they assisted.
+
+    Direct: an order credited to an owned channel. Assisted: a marketplace-credited order from
+    a customer whose *earlier* order came through an owned channel -- the owned audience
+    brought them back through Etsy. Per product, plus the launch-cohort `assisted` counts
+    where a cohort recorded them. Unmeasurable (never zero) with no orders.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Cohort, Order
+    from ..finance.channel_comparison import channel_of
+
+    with db.session() as s:
+        orders = sorted(((o.customer_id, o.at, o.product_slug, channel_of(o.acquisition_source))
+                         for o in s.scalars(select(Order))), key=lambda t: (t[0], t[1]))
+        cohort_assisted = {}
+        for c in s.scalars(select(Cohort)):
+            cohort_assisted[c.product_slug] = cohort_assisted.get(c.product_slug, 0) + int(
+                c.assisted or 0)
+    if not orders:
+        return {"measurable": False, "reason": "no order has been recorded",
+                "cohort_assisted": cohort_assisted}
+    per: dict[str, dict] = {}
+    seen_owned: set = set()
+    for cust, _at, slug, ch in orders:
+        row = per.setdefault(slug, {"orders": 0, "direct": 0, "assisted": 0})
+        row["orders"] += 1
+        if ch in OWNED_ORDER_CHANNELS:
+            row["direct"] += 1
+            seen_owned.add(cust)
+        elif cust in seen_owned:
+            row["assisted"] += 1
+    total = {k: sum(r[k] for r in per.values()) for k in ("orders", "direct", "assisted")}
+    return {"measurable": True, "by_product": per, "total": total,
+            "cohort_assisted": cohort_assisted,
+            "rule": ("assisted = a marketplace order from a customer whose earlier order came "
+                     "through an owned channel; one credit per order, never two")}

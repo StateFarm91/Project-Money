@@ -45,6 +45,8 @@
 > - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings come only from the owner's commit fcb2bcd, merged unchanged.
 > - **Owner actions.** OA-LCONT-1..4 in `research/final_build/w4/LAURAONE.md` §8.
 
+> **2026-10-21 -- W4-FMBATCH1 (branch `claude/w4-FMBATCH1` from b997efd, NOT deployed).** Triage of the 40 blocked_engineering Build 2 + FM launch-critical board rows: (a) 2 built -- F-010 attribute drift monitor (`integrations/taxonomy_drift.py`: a changed Etsy schema opens a halting P1 per affected product and re-queues listing.seo; resolves on rebuild) and F-381 severity containment (`ops/rollback_decision.py`: a P0 post-deploy readback regression is rolled back to the predecessor through the guarded path, P1 fixes forward); (c) 10 already implemented (closure proposals for F-540 and F-100 on production evidence); (b) 23 blocked on deploy + 24h window, real buyers, Etsy's schema answer or an owner Etsy-write authorisation; 5 excluded (other lanes). Finding: `claude/w4-CLOSE6` (accepted proposals for 9 of these rows) is in neither b997efd nor INTEG5. Proposals: `OVERRIDES_PROPOSED_FMBATCH1.json`, `FM_REGATE_PROPOSED_FMBATCH1.json`. Report: `research/final_build/w4/FMBATCH1.md`.
+
 > **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3
 > (D-W4-CONTRACT3) letters every word Launch-0 uploads at 58 px / titles 66 px on 2000 (>= 11.2 px at display size);
 > the verifier re-letters the new lines exactly, nothing relaxed; re-chained, all 8 Launch-0 products' uploaded images

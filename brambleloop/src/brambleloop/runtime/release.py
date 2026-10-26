@@ -1465,6 +1465,10 @@ def _persist_search_profile(ctx: JobContext, slug: str, version: str, *, copy, c
         row.certificate = json.loads(json.dumps(certificate, default=str))
         row.fingerprint = fingerprint
         row.updated_at = datetime.now(timezone.utc)
+        # F-010: rebuilt on the snapshot a drift incident names -> that incident resolves.
+        from ..integrations import taxonomy_drift
+
+        taxonomy_drift.resolve_if_current(s, slug, row.snapshot_id)
 
 
 @handlers.register("listing.taxonomy_refresh")
@@ -1489,6 +1493,19 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
     if got.get("etsy_error"):
         summary["etsy_error"] = got["etsy_error"]
     summary["gate_missing"] = (got.get("gate") or {}).get("missing", [])
+    # F-010: a changed schema re-validates the listings it touches (taxonomy_drift).
+    if got.get("ran") and got.get("new_snapshot") and got.get("snapshot_id") is not None:
+        from ..integrations import taxonomy_drift
+
+        try:
+            drift = taxonomy_drift.after_refresh(ctx, snapshot_id=int(got["snapshot_id"]))
+        except Exception as exc:  # noqa: BLE001 - an unjudged drift is UNKNOWN, never "none"
+            drift = {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {exc}"[:300]}
+            ctx.audit(taxonomy_drift.ACTION, detail=drift)
+        summary["drift"] = {k: drift.get(k) for k in ("state", "why", "first_snapshot",
+                                                      "incidents_opened", "requeued",
+                                                      "not_requeued", "requeue_enabled",
+                                                      "held_for_owner") if k in drift}
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)
     return summary
@@ -6632,6 +6649,33 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             raised.append(signature)
     detail["escalated"] = raised
     detail["recovered"] = life["resolved"]
+    # W4-FMBATCH1 (F-139/F-140/F-149): one incident per homogeneous dead-letter backlog,
+    # noisy signals raised as defects, and the disk trend read before ENOSPC. Guarded.
+    from ..ops import signal_hygiene
+
+    try:
+        with ctx.db.session() as session:
+            detail["hygiene"] = signal_hygiene.sweep(
+                ctx.db, session, facts=(_runner_state() or {}).get("disk"))
+    except Exception as exc:  # noqa: BLE001
+        detail["hygiene"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W4-FMBATCH1 (F-171): a model/vision probe that answered with a failure opens an
+    # incident naming the provider and reason class (owner-actionable for credit/auth).
+    from ..ops import provider_health
+
+    try:
+        with ctx.db.session() as session:
+            detail["provider_health"] = provider_health.reconcile(ctx.db, session)
+    except Exception as exc:  # noqa: BLE001
+        detail["provider_health"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W4-FMBATCH1 (F-720): stale ready work with an idle worker is diagnosed by cause.
+    from ..ops import useful_work
+
+    try:
+        with ctx.db.session() as session:
+            detail["ready_work_alarm"] = useful_work.alarm(ctx.db, session)
+    except Exception as exc:  # noqa: BLE001
+        detail["ready_work_alarm"] = {"state": "UNKNOWN", "error": type(exc).__name__}
 
     # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
     # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning
@@ -6887,6 +6931,17 @@ def handle_dependency_sweep(ctx: JobContext) -> dict:
               + fragility["incidents_opened"],
               "resolved": mapped["incidents_resolved"] + fragility["incidents_resolved"],
               "existential": fragility["existential"], "axes": fragility["axes"]}
+    # W4-FMBATCH1: F-099 provider change watch, F-092 AI dependency register, F-094 trigger.
+    from ..gateway import provider_watch
+
+    for key, fn in (("provider_watch", lambda: provider_watch.watch(ctx.db)),
+                    ("ai_register", lambda: anti_fragility.register(ctx.db)),
+                    ("diversification_trigger",
+                     lambda: anti_fragility.diversification_trigger(ctx.db))):
+        try:
+            detail[key] = fn()
+        except Exception as exc:  # noqa: BLE001 - reported UNKNOWN, never as clean
+            detail[key] = {"state": "UNKNOWN", "error": f"{type(exc).__name__}: {exc}"[:200]}
     ctx.audit("ops.dependencies", detail=detail)
     return {**detail, "probes": mapped["probes"]}
 
@@ -7114,6 +7169,12 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     colour_sweep = (_colour.sweep_colour_signals(ctx.db) if result["recorded"] else
                     {"recorded": 0, "failures": [{"why": "skipped: the main culture sweep "
                                                           "recorded nothing this run"}]})
+    # F-357: children's sub-category monthly series, at most monthly (one call per
+    # sub-category per calendar month), skipped like the colour sweep when the feed refused.
+    from ..seasonal import childrens_demand as _kids
+
+    kids_sweep = (_kids.sweep_if_due(ctx.db) if result["recorded"] else
+                  {"recorded": [], "failures": [{"why": "skipped: main sweep recorded nothing"}]})
 
     # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
     # one series cannot lead anything.
@@ -7144,6 +7205,8 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "attempted": result["attempted"], "failures": result["failures"][:5],
         "colour_recorded": colour_sweep["recorded"],
         "colour_failures": colour_sweep["failures"][:3],
+        "childrens_recorded": kids_sweep["recorded"],
+        "childrens_failures": kids_sweep["failures"][:3],
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
@@ -7243,6 +7306,23 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                                 "the cadence is sized to fit the authorised ceiling. The "
                                 "backlog is unchanged and the next run takes it")}
 
+    # F-723: a batch above the research threshold names what it expects to learn, computed
+    # from the backlog; a drained backlog buys nothing and is refused before any reservation.
+    from ..finance import learning_value
+
+    unjudged = int(vision.pending_count(ctx.db, benchmarks.MJS_KEY).get("unjudged") or 0)
+    try:
+        lv = learning_value.require(
+            ctx.db, purpose=vision.TASK, job_id=ctx.job.id,
+            amount_cad=fit["units"] * vision.per_image_estimate_cad(),
+            expected=learning_value.Expected(
+                question="which gallery traits separate best-sellers per pod",
+                informs="creative.blind_review per-pod parity floor",
+                new_observations=min(int(fit["units"]), unjudged)))
+    except learning_value.LearningValueRefused as exc:
+        ctx.audit("intel.gallery_analysis_capped", detail={"learning_value": str(exc)})
+        return {"ran": False, "reason": str(exc), "constrained": "learning value below floor"}
+
     # W4-B2VISION: the pods our own catalogue is judged in are drained breadth-first, so the
     # blind review (#67/#218) reaches its per-pod floor in days rather than months.
     from ..creative import blind_review
@@ -7259,6 +7339,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
         "batch_derived_from": fit["binding_ceiling"],
         "batch_units": fit["units"], "stopped_by": result.get("stopped_by", ""),
         "failures": result["failures"][:5]})
+    learning_value.realise(ctx.db, lv.get("receipt"), observations=result["judged"],
+                           cost_cad=result["cost_cad"])
     if result.get("stopped_by") == "preempted":
         # F-473: what was judged is recorded; the job goes back to the queue (un-counted)
         # and resumes the backlog once the higher-band work has run.

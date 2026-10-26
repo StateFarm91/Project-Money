@@ -326,9 +326,16 @@ class Worker:
         registry: HandlerRegistry | None = None,
         lease_seconds: int = 300,
         live_phase: bool = False,
+        refill_on_idle: bool = False,
     ):
         self.db = db
         self.name = name
+        # F-722: a deployed worker asks the orchestrator for the next department work the
+        # moment a job's end leaves nothing runnable, instead of waiting for the next
+        # scheduler tick or 15-minute window (`autonomy.orchestrator.idle_wake`, keyed per
+        # five minutes so it cannot flood). Off for hand-built test workers.
+        self.refill_on_idle = refill_on_idle
+        self.refill_wakes = 0
         self.phase = phase
         # rc1-AUTH A1: a deployed worker re-resolves the effective phase for every job rather
         # than keeping the one it booted with, so an owner rollback recorded while it runs
@@ -534,7 +541,20 @@ class Worker:
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1
+        self._refill_after(job)
         return True
+
+    def _refill_after(self, job) -> None:
+        """F-722: on a terminal event that empties the runnable queue, wake the orchestrator."""
+        if not self.refill_on_idle or job.job_type.startswith("autonomy."):
+            return
+        try:
+            from ..autonomy.orchestrator import idle_wake
+
+            if idle_wake(self.db, self.queue):
+                self.refill_wakes += 1
+        except Exception:  # noqa: BLE001 - a refill wake never fails the job that ended
+            pass
 
     def run(self, *, max_jobs: int | None = None, idle_sleep: float = 2.0,
             max_seconds: float | None = None) -> WorkerStats:

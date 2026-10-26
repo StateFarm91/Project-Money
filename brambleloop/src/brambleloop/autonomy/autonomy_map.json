@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-21T00:58:34.272564+00:00",
+ "generated_at": "2026-10-26T14:02:48.730826+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 115,
   "handlers": 136,
   "agents": 30,
-  "follow_on_edges": 66
+  "follow_on_edges": 68
  },
  "departments": [
   {
@@ -142,6 +142,7 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
+     "build2/unblock.py:request_recompute",
      "listing.seo",
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
@@ -1234,6 +1235,7 @@
      "chain.rebuild",
      "gate.certify",
      "growth.steer",
+     "integrations/taxonomy_drift.py:after_refresh",
      "launch.plan",
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",

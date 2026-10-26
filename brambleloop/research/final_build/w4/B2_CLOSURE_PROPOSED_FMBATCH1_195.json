@@ -1,0 +1,26 @@
+{
+ "_meta": {
+  "status": "PROPOSED: not applied; the coordinator accepts or rejects (F-867)",
+  "what": "Build 2 #195 Proof of Off-Device Autonomy: production_window satisfied",
+  "how_to_accept": "In build2/requirements.json clear parked_on 'production_window' on id 195 and append the note; regenerate BUILD2_LEDGER and the board; run tests/test_build2_*.py and test_w4_board.py",
+  "judgement_for_the_coordinator": "the criterion asks to 'record ... restart/recovery evidence'. The window had no restart (restart_recovery: 0 recoveries; worker_restarts 0), so the recorded recovery evidence is 'none was needed', not a demonstrated recovery. Recovery itself is proven in tests (test_persistence sigkill) and by the b997efd deploy replacing the container on 2026-10-21. Reject if a restart inside the window is required."
+ },
+ "rows": {
+  "195": {
+   "parked_on": {
+    "from": "production_window",
+    "to": null
+   },
+   "state": {
+    "from": "OWNER-GATED",
+    "to": "PROVEN (on acceptance)"
+   }
+  }
+ },
+ "note_to_append": "W4-FMBATCH1 2026-10-26 (PROPOSED): production b997efd autonomy.off_device_proof passed=true over 2026-10-25T01:03Z..10-26T01:03Z: 1417 jobs, 97 job types, 25 active hours, scheduler alive 25 h, 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery 0 (no restart in window).",
+ "evidence": {
+  "proof": "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+  "verify": "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd",
+  "continuity": "research/final_build/w4/evidence_FMBATCH1/prod_api_continuity_20261026T0130Z.json and prod_api_offsite_20261026T0130Z.json: nightly continuity proof ok (132 tables, 193817 rows, round-trip digest == source digest), retained archives 10-24/25/26, off-provider encrypted archive 2026-10-26T00:02Z complete with 132 tables restored; survives container replacement, redeploy and provider loss"
+ }
+}

@@ -67,6 +67,12 @@ AXES: tuple[Axis, ...] = (
     Axis("ai_provider", "how much of the system's judgement runs on one provider",
          "a provider outage or a price change stops every agent at once",
          "the system depends on model calls to operate"),
+    # W4-FMBATCH1 (F-092): image generation is a different workload from judgement and vision
+    # and is reported on its own axis, so a billed image provider can never read as a second
+    # judgement provider.
+    Axis("image_generation", "how much of the image generation runs on one provider",
+         "an image provider outage stops new renders, not the judgement the company runs on",
+         "images have been generated and paid for in the window"),
     Axis("marketplace", "how much of the business lives on one platform",
          "a policy change or a suspension is the end, and there is no appeal worth having",
          "a listing is live and earning"),
@@ -160,12 +166,17 @@ def report(db) -> dict:
     since = datetime.now(timezone.utc) - timedelta(days=30)
     with db.session() as s:
         spent: dict[str, float] = {}
+        image_spent: dict[str, float] = {}
         for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
             name = (c.provider or "").strip()
-            if name and (c.kind or "llm") in ("llm", "model", "vision", "image", "api"):
+            kind = c.kind or "llm"
+            if name and kind in JUDGEMENT_KINDS:
                 spent[name] = spent.get(name, 0.0) + float(c.amount_cad or 0.0)
+            elif name and kind in IMAGE_KINDS:
+                image_spent[name] = image_spent.get(name, 0.0) + float(c.amount_cad or 0.0)
     providers = ({k: v for k, v in spent.items() if v > 0}
                  or {name: 1 for name in available_providers()})
+    images = {k: v for k, v in image_spent.items() if v > 0}
     # A marketplace counts once a listing exists for it, drafted or live. Etsy is the only
     # integration this company has, so this reads one by construction today -- and saying so
     # from a count rather than from a constant is what makes it change by itself later.
@@ -185,8 +196,22 @@ def report(db) -> dict:
                reason=("no model provider is configured, so nothing in this system that "
                        "needs judgement can run at all. That is a different state from a "
                        "diversified one and a worse one")),
+        assess("image_generation", images, load_bearing=bool(images),
+               reason="no image generation was paid for in the window"),
         assess("marketplace", marketplaces, load_bearing=earning),
     ]
+    # F-093: a second judgement provider clears the existential verdict only with a tested
+    # fallback -- a recorded drill that passed recently. Spread by billing is not resilience.
+    drill = latest_fallback_drill(db)
+    for a in axes:
+        if a["axis"] == "ai_provider" and a["verdict"] == SOUND and not drill["fresh"]:
+            a.update(verdict=EXISTENTIAL, untested_fallback=True,
+                     why=(f"{a['holders']} judgement providers are billed but no fallback "
+                          f"drill has passed in {FALLBACK_DRILL_MAX_AGE_DAYS} days "
+                          f"({drill['why']}): an untested second provider is not a "
+                          "fallback (F-093)"))
+        if a["axis"] == "ai_provider":
+            a["fallback_drill"] = drill
 
     live = [a for a in axes if a["verdict"] == EXISTENTIAL]
     plans = [a for a in axes if a["verdict"] == PLAN]
@@ -230,6 +255,175 @@ def report(db) -> dict:
 
 
 ANTI_FRAGILITY_SIGNATURE = "anti-fragility"
+
+# ---- W4-FMBATCH1: F-092 register, F-093 drill rule, F-094 diversification trigger -------------
+
+JUDGEMENT_KINDS = ("llm", "model", "vision", "api")
+IMAGE_KINDS = ("image",)
+#: F-097's evidence row: written by whoever runs a provider fallback drill, never assumed.
+FALLBACK_DRILL_ACTION = "provider.fallback_drill"
+FALLBACK_DRILL_MAX_AGE_DAYS = 30
+#: Gates whose requirements stop when the judgement/vision provider is down.
+OUTAGE_GATES = {"judgement_vision": ("model_provider", "image_vision"),
+                "image_generation": ("image_generation",)}
+TRIGGER_PROBE_FAILURE_SHARE = 0.20
+TRIGGER_PARKED_JOBS = 10
+TRIGGER_CEILING_SHARE = 0.80
+TRIGGER_REVENUE_SHARE = 0.90
+
+
+def latest_fallback_drill(db, *, now=None) -> dict:
+    """F-093: the newest recorded fallback drill and whether it passed recently enough."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FALLBACK_DRILL_ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        if row is None:
+            return {"fresh": False, "why": "no fallback drill has ever been recorded"}
+        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
+        passed = bool((row.detail or {}).get("passed"))
+        fresh = passed and now - at <= timedelta(days=FALLBACK_DRILL_MAX_AGE_DAYS)
+        return {"fresh": fresh, "at": at.isoformat(), "passed": passed,
+                "workload": (row.detail or {}).get("workload"),
+                "why": ("passed recently" if fresh else
+                        "the last drill failed" if not passed else
+                        f"the last passing drill is older than {FALLBACK_DRILL_MAX_AGE_DAYS} "
+                        "days")}
+
+
+def register(db, *, now=None) -> dict:
+    """F-092: provider concentration by calls, spend, critical workflows and what stops.
+
+    Per provider, from the cost ledger over 30 days: spend, calls (cost rows), the workload it
+    carries (judgement_vision or image_generation, from the row kind), and its critical
+    workflows (the purposes it is billed for, by spend). Per workload, the Build 2
+    requirements that stop while it is down: those whose gate is that workload's provider gate
+    (build2.executor GATES), read from the table rather than remembered.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=30)
+    rows: dict[str, dict] = {}
+    with db.session() as s:
+        for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+            name = (c.provider or "").strip()
+            kind = c.kind or "llm"
+            if not name or kind not in JUDGEMENT_KINDS + IMAGE_KINDS:
+                continue
+            workload = "image_generation" if kind in IMAGE_KINDS else "judgement_vision"
+            r = rows.setdefault((name, workload), {"provider": name, "workload": workload,
+                                                   "spend_cad": 0.0, "calls": 0,
+                                                   "purposes": {}})
+            amt = float(c.amount_cad or 0.0)
+            r["spend_cad"] += amt
+            r["calls"] += 1
+            p = (c.purpose or "").strip() or "unattributed"
+            r["purposes"][p] = r["purposes"].get(p, 0.0) + amt
+    try:
+        from ..build2 import executor
+
+        lost = {w: sorted({rid for g in gates if g in executor.GATE_BY_KEY
+                           for rid in executor.GATE_BY_KEY[g].requirement_ids})
+                for w, gates in OUTAGE_GATES.items()}
+        lost_why = "build2.executor GATES requirement_ids for each workload's provider gates"
+    except Exception as exc:  # noqa: BLE001 - unknown, never "nothing lost"
+        lost, lost_why = {w: None for w in OUTAGE_GATES}, f"unreadable: {type(exc).__name__}"
+    by_workload: dict[str, dict] = {}
+    for r in rows.values():
+        r["spend_cad"] = round(r["spend_cad"], 4)
+        r["critical_workflows"] = [k for k, _v in sorted(r.pop("purposes").items(),
+                                                         key=lambda kv: -kv[1])][:10]
+        w = by_workload.setdefault(r["workload"], {"spend_cad": 0.0, "calls": 0,
+                                                   "providers": []})
+        w["spend_cad"] = round(w["spend_cad"] + r["spend_cad"], 4)
+        w["calls"] += r["calls"]
+        w["providers"].append(r["provider"])
+    out_rows = sorted(rows.values(), key=lambda r: (r["workload"], -r["spend_cad"]))
+    for r in out_rows:
+        w = by_workload[r["workload"]]
+        r["spend_share"] = round(r["spend_cad"] / w["spend_cad"], 4) if w["spend_cad"] else None
+        r["call_share"] = round(r["calls"] / w["calls"], 4) if w["calls"] else None
+    return {"window_days": 30, "providers": out_rows, "workloads": by_workload,
+            "requirements_lost_if_down": lost, "requirements_lost_basis": lost_why,
+            "measured": bool(out_rows),
+            "why": None if out_rows else "no billed model or image call in 30 days: unmeasured"}
+
+
+def diversification_trigger(db, *, now=None, provider: str = "anthropic") -> dict:
+    """F-094: diversify only when outage, price/terms, volume, revenue dependence or downtime
+    cost justifies it -- never for symmetry. Each reason is a measured threshold."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog, LedgerEntry
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=30)
+    reasons, unmeasured = [], []
+    try:
+        from ..finance.funding_packet import _outage
+
+        o = _outage(db, since, provider)
+    except Exception as exc:  # noqa: BLE001
+        o = {"probe_failure_share": None, "model_jobs_parked": None,
+             "why_null": f"unreadable: {type(exc).__name__}"}
+    share = o.get("probe_failure_share")
+    if share is None:
+        unmeasured.append(f"outage: {o.get('why_null')}")
+    elif share >= TRIGGER_PROBE_FAILURE_SHARE:
+        reasons.append({"kind": "outage", "value": share,
+                        "why": f"{share:.0%} of model probes failed in 30 days "
+                               f"(threshold {TRIGGER_PROBE_FAILURE_SHARE:.0%})"})
+    parked = o.get("model_jobs_parked")
+    if parked is not None and parked >= TRIGGER_PARKED_JOBS:
+        reasons.append({"kind": "downtime_cost", "value": parked,
+                        "why": f"{parked} model jobs parked in 30 days waiting on the provider "
+                               f"(threshold {TRIGGER_PARKED_JOBS})"})
+    with db.session() as s:
+        changes = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "gateway.provider_change", AuditLog.at >= since)) or 0
+        revenue = float(s.scalar(select(func.coalesce(func.sum(LedgerEntry.gross_cad), 0.0))
+                                 .where(LedgerEntry.gross_cad > 0)) or 0.0)
+    if changes:
+        reasons.append({"kind": "price_or_terms", "value": changes,
+                        "why": f"{changes} provider price/availability change(s) recorded in "
+                               "30 days (gateway.provider_watch)"})
+    try:
+        from ..gateway.anthropic import monthly_ceiling_cad, spent_this_month_cad
+
+        ceiling, month = float(monthly_ceiling_cad()), float(spent_this_month_cad(db))
+        if ceiling and month / ceiling >= TRIGGER_CEILING_SHARE:
+            reasons.append({"kind": "volume", "value": round(month / ceiling, 4),
+                            "why": f"CA${month:.2f} of the CA${ceiling:.2f} monthly ceiling "
+                                   f"spent (threshold {TRIGGER_CEILING_SHARE:.0%})"})
+    except Exception as exc:  # noqa: BLE001
+        unmeasured.append(f"volume: {type(exc).__name__}")
+    reg = register(db, now=now)
+    jv = [r for r in reg["providers"] if r["workload"] == "judgement_vision"]
+    top = max(jv, key=lambda r: r["spend_cad"]) if jv else None
+    if not revenue:
+        unmeasured.append("revenue dependence: no revenue recorded, so a provider cannot "
+                          "yet be what revenue depends on")
+    elif top and (top["spend_share"] or 0) >= TRIGGER_REVENUE_SHARE:
+        reasons.append({"kind": "revenue_dependence", "value": top["spend_share"],
+                        "why": f"revenue exists and {top['provider']} carries "
+                               f"{top['spend_share']:.0%} of the judgement it depends on"})
+    return {"triggered": bool(reasons), "reasons": reasons, "unmeasured": unmeasured,
+            "rule": ("concentration or symmetry alone never triggers diversification "
+                     "(F-094); only a measured outage, downtime cost, price/terms change, "
+                     "volume or revenue dependence does")}
 
 
 def act(db) -> dict:

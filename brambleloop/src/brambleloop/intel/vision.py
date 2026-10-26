@@ -462,7 +462,7 @@ def per_image_estimate_cad(model: str | None = None) -> float:
     been wrong about the image-token figure twice, both times optimistically -- see
     `gateway.anthropic.IMAGE_TOKENS_ESTIMATE`, which carries the story.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: vendor-neutral boundary
     from ..gateway import routing
 
     if model is None:
@@ -574,7 +574,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     to an empty backlog.
     """
     from ..core.resilience import PermanentError, TransientError
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: vendor-neutral boundary
 
     # The declared tier for this task, not a hardcoded cheap model. This called
     # `VISION_PROBE_MODEL` -- the probe's model, chosen because a probe should be the
@@ -582,7 +582,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     # spending priority through the cheapest tier while `routing.TASKS` declared `standard`.
     # A probe's model is not an analysis model, and the two sharing a constant is how the
     # substitution happened without anybody choosing it.
-    provider = provider or gw.provider_for(TASK)
+    provider = provider or gw.for_task(TASK)
     # F-318: the backlog before the run, counted the same way as after it, so a run that
     # paid and left the backlog where it was is visible as exactly that.
     pending_before = pending_count(db, benchmark_key)["unjudged"]
@@ -819,7 +819,7 @@ def coverage(db, *, benchmark_key: str = "") -> dict:
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing, BenchmarkObservation
-    from ..gateway.anthropic import vision_usable
+    from ..gateway.providers import vision_usable  # F-091
     from . import benchmarks
 
     benchmark_key = benchmark_key or benchmarks.MJS_KEY

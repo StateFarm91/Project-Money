@@ -141,6 +141,11 @@ try {
   const inc = incTile.find(([l]) => l === "Open incidents");
   check(!!inc && inc[1] === "Unknown", "company: null incidents count renders Unknown, never 0", JSON.stringify(inc));
   check(await page.isVisible("#main a[href='#/laura']"), "company: Talk to Laura link present");
+  // W4-FMBATCH1 (F-621): the charter-KPI trend is drawn per department; Unknown, never zeros.
+  const kpi = await page.$$eval("section[aria-labelledby='company-departments'] li.row", (els) => els.map((e) => ({
+    labels: [...e.querySelectorAll(".kpi-trend svg")].map((g) => g.getAttribute("aria-label") || ""), text: e.textContent })));
+  check(kpi.some((r) => r.labels.length === 2 && /useful completions per day/i.test(r.labels[0]) && /defect dead letters/i.test(r.labels[1])), "company: KPI trend drawn as two charts", JSON.stringify(kpi.map((r) => r.labels)));
+  check(kpi.some((r) => /KPI trend:\s*Unknown/.test(r.text)), "company: unmeasured KPI trend reads Unknown", "");
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
   // INTEG4: the first-sale card (W4-FIRSTSALE) has its own rows; the lanes are the other sections.
@@ -654,12 +659,15 @@ try {
   await page.goto(`${BASE}/cc/#/company`);
   await settle();
   const deptsF = await page.$$eval("section[aria-labelledby='company-departments'] li.row", (els) => els.map((e) => ({
-    t: e.textContent, bars: e.querySelectorAll("svg.chart rect").length })));
+    // The completed-work chart's bars; the KPI-trend charts (W4-FMBATCH1) are counted apart.
+    t: e.textContent, bars: [...e.querySelectorAll("svg.chart")].filter((g) => !g.closest(".kpi-trend"))
+      .reduce((n, g) => n + g.querySelectorAll("rect").length, 0),
+    kpiBars: e.querySelectorAll(".kpi-trend svg.chart rect").length })));
   const exe = deptsF.find((d) => /^Executive/.test(d.t)) || {};
   const vis = deptsF.find((d) => /^Visual/.test(d.t)) || {};
   check(/Objective\s*Prioritise company work/.test(exe.t || "") && /Spend \(30 d, recorded\)\s*CA\$1\.25/.test(exe.t || "") && exe.bars === 7,
     "ccfm1 company: department objective, recorded spend and a 7-day completed-work chart", JSON.stringify(exe).slice(0, 300));
-  check(/Spend \(30 d, recorded\)\s*Unknown/.test(vis.t || "") && /Completed work trend: Unknown/.test(vis.t || "") && vis.bars === 0,
+  check(/Spend \(30 d, recorded\)\s*Unknown/.test(vis.t || "") && /Completed work trend: Unknown/.test(vis.t || "") && vis.bars === 0 && vis.kpiBars === 0,
     "ccfm1 company: unknown spend and trend read Unknown, no bars drawn", JSON.stringify(vis).slice(0, 300));
   await noHScroll("ccfm1 company");
   await page.goto(`${BASE}/cc/#/money`);

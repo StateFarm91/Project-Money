@@ -5,6 +5,13 @@ from .service import scan
 @handlers.register("learn.scan")
 def handle_scan(ctx):
     result = scan(ctx.db)
+    # F-807 / F-803 / F-830: prerequisite ladder, search demand and solved questions.
+    try:
+        from .graph_feeds import run as _feeds
+
+        result["graph_feeds"] = _feeds(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - a feed failure is reported beside the scan
+        result["graph_feeds"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     # F-799: every scan also takes the department's operating reading (queue, coverage, age
     # of the oldest queued gap, lessons by state), so RUN produces a metric each hour.
     from .metrics import department_metrics
@@ -31,9 +38,21 @@ def handle_scan(ctx):
         from ..intel import research
 
         found = research.detect_unknowns(ctx.db)
+        # F-421/F-422/F-423: newly opened questions get the iterative internal search
+        # (terminology, broadened, cross-domain) before anything external is fetched.
+        from ..intel import search_strategy
+
+        strategy = [search_strategy.run(ctx.db, tid)["stopped"] for tid in found["opened"]]
         result["research"] = {"opened": len(found["opened"]),
                               "already_open": len(found["already_open"]),
-                              "expired_reopened": len(research.expire_due(ctx.db))}
+                              "expired_reopened": len(research.expire_due(ctx.db)),
+                              # W4-FMBATCH1 (F-419/F-444): the time bound is enforced.
+                              "overdue_stopped": len(research.stop_overdue(ctx.db)),
+                              "search_strategy": strategy}
+        # W4-FMBATCH1 (F-431): bounded allowlisted fetches, then promotion into lessons.
+        from ..intel import research_fetch
+
+        result["research"]["run"] = research_fetch.run(ctx.db)
     except Exception as exc:  # noqa: BLE001
         result["research"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     ctx.audit("learn.scanned", detail=result)

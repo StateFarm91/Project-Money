@@ -445,7 +445,7 @@ done
 wait
 
 total=0; failed=0; fail_tests=0; skip_tests=0; failing_list=""; nopass_list=""
-leak_entries=0; leak_bytes=0; leak_list=""
+leak_entries=0; leak_bytes=0; leak_list=""; env_failures=0
 {
 for t in "${SUITES[@]}"; do
   safe="${t//\//_}"
@@ -466,6 +466,14 @@ for t in "${SUITES[@]}"; do
   skip_tests=$((skip_tests + $(grep -c '^SKIP' "$outdir/$safe.out" || true)))
   code=$(cat "$outdir/$safe.code" 2>/dev/null || echo 1)
   [ "$code" -ne 0 ] && failed=$((failed+1)) && failing_list+="$t"$'\n'
+  # F-150 (W4-FMBATCH1): a failure the environment caused is named before anybody reverts.
+  if [ "$code" -ne 0 ] && [ -f scripts/classify_failure.py ]; then
+    envc=$("$PY" scripts/classify_failure.py "$outdir/$safe.out" 2>/dev/null || true)
+    if [ -n "$envc" ]; then
+      echo "   ENVIRONMENT FAILURE (${envc%%$'\t'*}): ${envc#*$'\t'} -- check the environment before reverting code for it"
+      env_failures=$((env_failures+1))
+    fi
+  fi
   # A suite that exits clean and reports no passes is not a passing suite; it is a suite
   # whose results are not reaching this total. Nine files printing a lowercase marker were
   # counted as zero here for a whole session -- exit codes still caught their failures, so
@@ -496,6 +504,7 @@ if [ "$failed" -eq 0 ]; then status=passed; else status=failed; fi
   cat "$outdir/report"
   echo
   echo "TOTAL PASSING: $total ; suites failing: $failed"
+  echo "ENVIRONMENT FAILURES: $env_failures of the $failed failing suites (ENOSPC/permission/network/provider; F-150)"
   echo "TMP LEAKED: $leak_entries entries, $leak_bytes bytes across $(printf '%s' "$leak_list" | grep -c . || true) suites (removed; TMPDIR was $BRAMBLELOOP_RUN_TMP)"
   echo "RUN FINISHED: $RUN_FINISHED"
   echo "DURATION: ${DURATION}s"

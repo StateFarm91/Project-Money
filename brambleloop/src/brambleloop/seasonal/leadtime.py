@@ -757,7 +757,20 @@ def catalogue_plans(db, today: date | None = None,
             rows.append(row)
 
     rows.sort(key=lambda r: (r["event_date"], r["latest_effective_launch"]))
+    # F-194: which cohort each row belongs to, so a legacy catalogue product at risk is never
+    # read as a current launch candidate or a future seasonal programme item.
+    cohort_counts = tag_cohorts(rows)
+    # F-357: measured demand windows for children's sub-categories (UNMEASURED until a year
+    # of monthly series exists), beside the event plans they inform.
+    try:
+        from . import childrens_demand
+
+        kids = childrens_demand.windows(db, today=today)
+    except Exception as exc:  # noqa: BLE001 - the war room never fails on this reading
+        kids = {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
     return {
+        "childrens_demand_windows": kids,
+        "counts_by_cohort": cohort_counts,
         "today": today.isoformat(),
         "calibration": calibration,
         "products_scheduled": sum(1 for p in products if "estimate" in p),
@@ -774,3 +787,35 @@ def catalogue_plans(db, today: date | None = None,
                  "object. Every figure marked 'assumed' has not yet been measured against a "
                  "real maker or a real buyer."),
     }
+
+
+COHORT_LAUNCH, COHORT_LEGACY, COHORT_PROGRAMME = "launch_candidate", "legacy", "programme"
+COHORTS = (COHORT_LAUNCH, COHORT_LEGACY, COHORT_PROGRAMME)
+
+
+def cohort_for(slug: str) -> str:
+    """F-194: `launch_candidate` (on the launch list), `legacy` (the Build-1 builder
+    catalogue, not on the launch list) or `programme` (anything else certified: a future
+    seasonal programme item). The launch list wins over the legacy catalogue."""
+    try:
+        from ..products.launch0 import LAUNCH0_SLUGS
+    except Exception:  # noqa: BLE001 - unreadable list: nothing is called a launch candidate
+        LAUNCH0_SLUGS = ()
+    if slug in LAUNCH0_SLUGS:
+        return COHORT_LAUNCH
+    try:
+        from ..products.builder import CATALOGUE
+    except Exception:  # noqa: BLE001
+        CATALOGUE = {}
+    return COHORT_LEGACY if slug in CATALOGUE else COHORT_PROGRAMME
+
+
+def tag_cohorts(rows: list[dict]) -> dict[str, dict[str, int]]:
+    """Stamp `cohort` on every plan row; return window counts per cohort (F-194)."""
+    out: dict[str, dict[str, int]] = {}
+    for r in rows:
+        r["cohort"] = cohort_for(r["slug"])
+        c = out.setdefault(r["cohort"], {st: 0 for st in (
+            ON_TRACK, PAST_PREFERRED, AT_RISK, MISSED)})
+        c[r["status"]] = c.get(r["status"], 0) + 1
+    return out

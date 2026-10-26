@@ -40,7 +40,11 @@ def read(db, *, today: date | None = None) -> dict:
     with db.session() as s:
         support_cases = s.query(SupportCase).count()
     # Refunds have no source until orders exist; None is UNMEASURED, never zero.
-    out["kill_table"] = kill_table.compose(observed, support_cases=support_cases, refunds=None)
+    learned = kill_table.learn(db)                    # #23: thresholds from real data
+    out["kill_table"] = kill_table.compose(observed, support_cases=support_cases, refunds=None,
+                                           thresholds=learned["thresholds"])
+    out["kill_table"]["learned"] = {"keys": learned["learned"],
+                                    "baselines": learned["baselines"]}
 
     # #257: review learning. This shop has no reviews; buyer themes that do exist come
     # from triaged support cases, and they are routed the same way review themes are.
@@ -262,6 +266,13 @@ def handle_commerce_readings(ctx: JobContext) -> dict:
         "insights_keywords": sum(len(v) for v in
                                  (reading["insights_plan"].get("keywords") or {}).values()),
     }
+    # F-550: the Etsy loop's daily exception report and quarterly deep audit (read-only).
+    try:
+        from ..intel import etsy_ops_report
+
+        summary["etsy_ops"] = etsy_ops_report.run(ctx.db)
+    except Exception as e:  # noqa: BLE001 - a report failure never stops the readings
+        summary["etsy_ops"] = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
     ctx.audit(ACTION, detail={"summary": summary, "reading": _jsonable(reading)})
     return summary
 

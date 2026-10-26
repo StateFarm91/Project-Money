@@ -147,6 +147,9 @@ def attribution(product_slug: str, detail: dict | None) -> tuple[str, dict]:
     elif not product_slug and running:
         out["shared_override_of"] = running
     out["attribution"] = ATTRIBUTION_PRODUCT if product_slug else ATTRIBUTION_SHARED
+    from . import value_units
+
+    value_units.stamp(out)                     # F-107: requirement / benchmark value units
     return product_slug, out
 
 
@@ -357,6 +360,9 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
     days_in_month = (date(now.year + (now.month // 12), (now.month % 12) + 1, 1)
                      - date(now.year, now.month, 1)).days
     burn = round(spent / elapsed_days, 6)
+    from . import value_units
+
+    units = value_units.buckets(db, month, UNATTRIBUTED)
 
     return {
         "month": start.date().isoformat(),
@@ -374,6 +380,9 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
         "by_agent": _bucket(month, "agent"),
         "by_department": _bucket(month, "department"),
         "by_product": _bucket(month, "product_slug"),
+        # F-107: the requirement and benchmark each call served (detail, then job inputs).
+        "by_requirement": units["by_requirement"],
+        "by_benchmark": units["by_benchmark"],
         # F-303: the closed economic class of every row, one-time creation apart from
         # recurring operation; unknown purposes counted as `unclassified`, never dropped.
         "by_economic_class": _economic(month),

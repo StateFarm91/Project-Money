@@ -338,6 +338,29 @@ def _tournament_kpi(t: dict) -> dict:
             "why": f"cohort {t['name']} ({t['generator']}): {t.get('why', '')}"}
 
 
+def _critical_path_kpi(db) -> dict:
+    """F-488: company-wide progress as the critical path's length and its movement."""
+    try:
+        from ..build2 import critical_path
+
+        m = critical_path.movement(db)
+    except Exception as exc:  # noqa: BLE001
+        m = {"state": "UNKNOWN", "why": type(exc).__name__}
+    measured = m.get("state") == "MEASURED"
+    delta = m.get("delta")
+    return {"key": "critical_path", "label": "Critical path (build steps)",
+            "value": (f"{m['length']}" + (f" ({delta:+d})" if isinstance(delta, int) else ""))
+            if measured else str(m.get("state")),
+            "alarm": not measured or (isinstance(delta, int) and delta > 0),
+            "evidence": evidence("build_events (kind critical_path, written by build.tick)",
+                                 transform="longest chain of open Build 2 + Final Master work "
+                                           "behind gates and prerequisites",
+                                 confidence="measured" if measured else "unmeasured"),
+            "why": (f"head {', '.join(m.get('head') or [])}; most-blocking gate "
+                    f"{(m.get('top_gate') or {}).get('gate', '-')}; previous "
+                    f"{m.get('previous', '-')}" if measured else m.get("why", ""))}
+
+
 def headline(db, status: dict, inbox: dict | None = None) -> dict:
     """The commercial-truth headline (F-206) plus the demoted volume counts."""
     survivors = creative_survivors(db)
@@ -396,6 +419,7 @@ def headline(db, status: dict, inbox: dict | None = None) -> dict:
                                         "OwnerAction rows by requirement_key",
                               confidence="measured (gates re-evaluated on request)"),
          "why": "external capability gaps are listed separately and are not owner requests"},
+        _critical_path_kpi(db),
         {"key": "dead_letters", "label": "Dead letters", "value": dead["text"],
          "alarm": dead["defects"] > 0, "evidence": dead["evidence"],
          "why": "expected refusals (shadow mode, stand-asides) are not defects"},

@@ -496,6 +496,66 @@ def audit_stamp(db, improvement_id: int, env: dict | None = None) -> dict:
             "spend_cad": round(total, 6) if rows else None, "spend_rows": rows}
 
 
+#: F-398: the fields an adopted improvement's audit record must carry.
+AUDIT_FIELDS = ("trigger_evidence", "old_version", "new_version", "tests",
+                "quality_floor_verdicts", "spend", "deployment", "observed_outcome",
+                "rollback_ref")
+
+
+def audit_record(row) -> dict:
+    """F-398: one record joining everything an adopted improvement must record.
+
+    Each field is read from the row; a field the row does not hold is None and named in
+    `missing`, never filled with a default. `complete` is true only when nothing is missing.
+    """
+    ev = dict(row.evidence or {})
+    change = ev.get("change") or {}
+    trigger = {k: ev[k] for k in ("evidence_ids", "premise", "method", "proposed_by",
+                                  "sandbox_trial") if ev.get(k)}
+    rec = {
+        "trigger_evidence": ({**trigger, "baseline_ref": row.baseline_ref} if trigger
+                             or row.baseline_ref else None),
+        "old_version": (change.get("from") if change.get("from") is not None else
+                        ({"baseline": row.baseline_value, "ref": row.baseline_ref}
+                         if row.baseline_value is not None else None)),
+        "new_version": (change.get("to") if change.get("to") is not None else
+                        ({"result": row.result_value} if row.result_value is not None
+                         else None)),
+        "tests": ev.get("tests") or None,
+        "quality_floor_verdicts": ({"tier": ev.get("tier"),
+                                    "satisfied": ev.get("tier_evidence")}
+                                   if ev.get("tier") else None),
+        "spend": ({"spend_cad": row.spend_cad, "declared_cad": row.cost_cad}
+                  if row.spend_cad is not None else None),
+        "deployment": ({"build_sha": row.build_sha,
+                        "promoted_at": row.promoted_at.isoformat() if row.promoted_at
+                        else None} if row.build_sha else None),
+        "observed_outcome": ((ev.get("observed_outcomes") or [None])[-1]
+                             if ev.get("observed_outcomes") else None),
+        "rollback_ref": row.rollback_ref or None,
+    }
+    missing = [k for k in AUDIT_FIELDS if rec[k] is None]
+    return {**rec, "missing": missing, "complete": not missing}
+
+
+def audit_gaps(db) -> dict:
+    """Adopted (promoted or later reverted) improvements whose audit record is incomplete."""
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        rows = [r for r in s.scalars(select(Improvement)) if r.promoted_at is not None]
+        gaps = [{"id": r.id, "cell": r.cell, "missing": audit_record(r)["missing"]}
+                for r in rows]
+    gaps = [g for g in gaps if g["missing"]]
+    return {"adopted": len(rows), "incomplete": gaps,
+            "why": ("every adopted improvement records trigger, versions, tests, floors, "
+                    "spend, deployment, observed outcome and rollback (F-398)" if not gaps
+                    else f"{len(gaps)} adopted improvement(s) lack part of their audit record")
+            if rows else "no improvement has been adopted yet: nothing to audit"}
+
+
 def history(db, *, limit: int = 50) -> list[dict]:
     """F-398: the improvement audit trail -- state, dates, spend and the build it shipped on."""
     from sqlalchemy import select
@@ -514,7 +574,8 @@ def history(db, *, limit: int = 50) -> list[dict]:
                  "build_sha": r.build_sha,
                  "proposed_at": r.at.isoformat() if r.at else None,
                  "promoted_at": r.promoted_at.isoformat() if r.promoted_at else None,
-                 "reverted_at": r.reverted_at.isoformat() if r.reverted_at else None}
+                 "reverted_at": r.reverted_at.isoformat() if r.reverted_at else None,
+                 "audit": audit_record(r)}
                 for r in rows]
 
 
@@ -643,6 +704,12 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
         below_baseline = baseline is not None and (
             observed < baseline if up else observed > baseline)
         degraded = degraded or below_baseline
+        # F-398 (W4-FMBATCH1): every observation of a promotion in the wild is kept on the row,
+        # so the audit record carries the observed outcome whether it held or reverted.
+        seen = list((row.evidence or {}).get("observed_outcomes") or [])
+        seen.append({"observed": observed, "expected": expected, "baseline": baseline,
+                     "degraded": bool(degraded), "at": datetime.now(timezone.utc).isoformat()})
+        row.evidence = {**(row.evidence or {}), "observed_outcomes": seen[-20:]}
 
         if degraded:
             row.state = REVERTED

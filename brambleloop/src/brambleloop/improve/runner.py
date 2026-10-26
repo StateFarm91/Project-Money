@@ -171,11 +171,81 @@ def trial_policy_loop(db, improvement_id: int) -> dict:
 # consumer reads (`policy_loops.active`).
 POLICY_LOOP_IMPLEMENTS = "policy_loop_parameter"
 
+def _price_points(db, slug: str) -> dict[float, dict]:
+    """Measured price points for `slug` from listing_outcomes: periods whose detail records
+    the price charged and whose orders are known. Visits and orders summed per price."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingOutcome
+
+    out: dict[float, dict] = {}
+    with db.session() as s:
+        for r in s.scalars(select(ListingOutcome).where(ListingOutcome.product_slug == slug)):
+            price = (r.detail or {}).get("price_cad")
+            if price is None or r.orders is None:
+                continue
+            p = out.setdefault(round(float(price), 2), {"visits": 0, "orders": 0, "rows": []})
+            p["visits"] += int(r.visits or 0)
+            p["orders"] += int(r.orders)
+            p["rows"].append(r.id)
+    return out
+
+
+def trial_pricing_shadow(db, improvement_id: int) -> dict:
+    """F-374: a price proposal scored on prices this listing has actually been sold at.
+
+    Shadow evaluation over stored listing rows, never a live price change: the value is the
+    net contribution per visitor measured at the proposed price (orders x net contribution
+    per sale / visits). A price never charged is not extrapolated -- the trial does not run --
+    and a point below `commerce.pricing.MIN_POINT_VISITS` visits is a few people, not a
+    measurement. A proposal whose price nets less than the per-sale floor is refused outright.
+    This trial has no executor: a passed proposal is an owner card, and the price itself is
+    still decided by `commerce.pricing.decide_price` with the owner's approval.
+    """
+    from ..commerce import pricing
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise SandboxRefused(f"no improvement {improvement_id}")
+        change = dict((row.evidence or {}).get("change") or {})
+    slug, proposed = change.get("slug"), change.get("price_cad")
+    if not slug or proposed is None:
+        return {"ran": False, "trial": "pricing_shadow",
+                "why": "the proposal names no listing slug and price_cad"}
+    proposed = round(float(proposed), 2)
+    if proposed < pricing.MIN_PRICE_CAD:
+        raise SandboxRefused(f"CA${proposed:.2f} is below the CA${pricing.MIN_PRICE_CAD:.2f} "
+                             "regulatory floor")
+    net = float(pricing.net_contribution(proposed)["net_contribution"]["amount"])
+    if net < pricing.MIN_NET_CONTRIBUTION_CAD:
+        raise SandboxRefused(f"CA${proposed:.2f} nets CA${net:.2f} per sale, below the "
+                             f"CA${pricing.MIN_NET_CONTRIBUTION_CAD:.2f} floor")
+    point = _price_points(db, slug).get(proposed)
+    if point is None or point["visits"] < pricing.MIN_POINT_VISITS:
+        have = 0 if point is None else point["visits"]
+        return {"ran": False, "trial": "pricing_shadow",
+                "why": (f"{slug} has {have} measured visits at CA${proposed:.2f} (needs "
+                        f"{pricing.MIN_POINT_VISITS}); a price not yet measured is not "
+                        f"extrapolated")}
+    value = round(point["orders"] * net / point["visits"], 6)
+    return {"ran": True, "trial": "pricing_shadow", "value": value,
+            "run_ref": f"listing_outcomes:{slug}:{proposed}:{point['rows']}"[:190],
+            "reads": {"slug": slug, "price_cad": proposed, "visits": point["visits"],
+                      "orders": point["orders"], "net_per_sale_cad": net},
+            "why": (f"{point['orders']} orders from {point['visits']} visits at "
+                    f"CA${proposed:.2f}, CA${net:.2f} net each: CA${value:.4f} per visitor")}
+
+
 TRIALS: dict[str, Callable[..., dict]] = {
     "counterfactual_rollback": trial_counterfactual_rollback,
     "league_replay": trial_league_replay,
     "self_audit": trial_self_audit,
     "policy_loop": trial_policy_loop,
+    # F-374: listing-copy proposals are the `policy_loop` seo_lesson_match loop; pricing
+    # proposals are scored here, on measured price points only.
+    "pricing_shadow": trial_pricing_shadow,
 }
 
 
@@ -320,7 +390,8 @@ VERIFIERS: dict[str, Callable[..., dict]] = {
     "policy_loop": _verify_policy_loop}
 
 # Which trial answers which self-review proposal kind.
-TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback"}
+TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback",
+                                  "price_point": "pricing_shadow"}
 
 
 def trial_for(evidence: dict) -> str | None:
