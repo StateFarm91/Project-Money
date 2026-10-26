@@ -613,3 +613,40 @@ or independent review items.
   did not. 26 direct importers remain, all listed with reasons.
   - Tests, all green: boundary (4), `test_w4_spend_paid_discipline`, `test_model_spend_paths`,
     `test_intel`, `test_w4_marketintel`, `test_w4_b2vision`, `test_w4_close5_vision_timeout`.
+
+## 22. Batch U: F-190, F-194, F-198, F-374, F-389
+
+- **F-190** (b555f5f1): `scale.confidence.gate_status` carries `classes` (have, need, share,
+  met for every evidence class).
+  - The dashboard's CA$5K block renders one row per class.
+  - The CC company item carries `evidence_classes`.
+  - Test: `test_w4_fmbatch1_dashboard.py::test_f190`; `test_scale.py` green.
+- **F-194** (07807184): `seasonal.leadtime.cohort_for` and `tag_cohorts`.
+  - Cohorts: `launch_candidate` (LAUNCH0), `legacy` (builder catalogue), `programme` (other).
+  - `catalogue_plans` returns `counts_by_cohort`, and the dashboard shows a cohort table and a
+    cohort column on at-risk rows.
+  - Test: `test_w4_fmbatch1_seasonal_cohort.py` (3); `test_leadtime.py` green.
+- **F-198** (7f4a898f): the owned_surfaces gate lists `acceptable_surfaces` (site, pinterest,
+  email, video; not the Etsy shop) and `why_required` per parked requirement (#4 #10 #246
+  #247 #248 #251 #255).
+  - The owner card is held under `not_yet_askable` until `live_listings` is open, and carries
+    requirement_ids and why_required once asked.
+  - Test: `test_w4_fmbatch1_owned_surfaces.py` (2). Green: gatesb, b2gates, executor,
+    k7_owner_queue, owner_actions, board_close, wire4.
+- **F-374** (c26c58f0): listing copy was already covered by the `policy_loop` trial
+  (seo_lesson_match). Pricing is new.
+  - New trial `runner.TRIALS["pricing_shadow"]` (kind `price_point`) scores net contribution
+    per visitor at measured price points only. It needs MIN_POINT_VISITS and known orders;
+    an unmeasured price is never extrapolated, and prices below the price or net floors are
+    refused.
+  - It has no executor, so it never changes a live price.
+  - Test: `test_w4_fmbatch1_pricing_trial.py` (4); improve cert suites green.
+- **F-389** (this commit): `improve/cost_learning.py`, run inside `league.cycle`.
+  - Per routed task: this month's measured spend, saving per call against the cheaper tier,
+    projected monthly saving, and `proposable` only when `routing.equivalence` holds.
+    Results are ranked by saving and never applied; `override_route` still gates the change.
+  - Context-size drift is reported against the declared typical_input_tokens, needing 5 or
+    more calls, or it reads UNMEASURED. A failure is audited, not swallowed.
+  - Test: `test_w4_fmbatch1_cost_learning.py` (3); `test_league`, `test_weekly` green.
+  - Still open: no route evidence has been recorded in production, so nothing is proposable
+    yet.
