@@ -67,7 +67,24 @@ def plan(job_types: list[str], *, cloud_types: list[str] | None = None,
             "lease_fallback": "an expired HQ lease returns the job to PENDING for the cloud"}
 
 
+def _mark_job_process() -> bool | None:
+    """INTEG7 review R-2 (AGENTS M-2R): this process runs jobs, so it may never sign a
+    storefront grant -- declared, and the signing key scrubbed from the environment, before
+    anything else runs. Returns whether a key was removed, or None on a line that does not
+    carry the storefront grant authority yet (nothing there can sign)."""
+    try:
+        from ..ops import storefront_authority as _sfa
+    except ImportError:
+        return None
+    removed = _sfa.mark_job_process()
+    if removed:
+        print("removed the storefront signing key from the HQ worker environment: a job "
+              "process never signs storefront grants", file=sys.stderr)
+    return removed
+
+
 def main() -> int:
+    _mark_job_process()
     from ..core.db import Database
     from ..core.phase import effective_phase
     from ..runtime.worker import Worker
