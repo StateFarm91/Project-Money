@@ -32,6 +32,26 @@ def test_cards_for_ready_unheld_work_only():
         (True, False, False, False)
 
 
+def test_f484_a_task_whose_likely_files_a_live_lane_owns_is_held_back():
+    import json as _j
+
+    snap = _j.loads((OPS.parent / "brambleloop/src/brambleloop/build2/"
+                     "final_master_closure.json").read_text())
+    row = next(r for r in snap["rows"] if r.get("producer_module"))
+    paths = D.likely_paths(row["uid"])
+    assert paths == ["brambleloop/src/brambleloop/" + row["producer_module"]]
+    task = [{"requirement_id": row["uid"], "title": row["title"], "state": "READY"}]
+    free = D.cards(task, registry_data={"jobs": {}}, limit=5)
+    assert free["cards"] and f"--owns {paths[0]}" in free["cards"][0]["enrol"]
+    busy = {"jobs": {"other": {"rows": [], "owns": [paths[0].rsplit("/", 1)[0] + "/*"],
+                               "integrated": None, "role": "work"}}}
+    held = D.cards(task, registry_data=busy, limit=5)
+    assert not held["cards"]
+    assert held["skipped"][0]["why"] == "path overlap with a live lane"
+    assert held["skipped"][0]["conflicts"][0]["lane"] == "other"
+    assert D.likely_paths("#99999") == []
+
+
 def test_cli_reads_a_saved_ready_list_and_writes_cards_only():
     with TemporaryDirectory() as d:
         src = Path(d) / "build.json"

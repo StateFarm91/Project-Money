@@ -56,9 +56,30 @@ def _held_rows(reg_data: dict) -> set[str]:
     return out
 
 
+_B2 = HERE.parent / "brambleloop" / "src" / "brambleloop" / "build2"
+_SRC_PREFIX = "brambleloop/src/brambleloop/"
+
+
+def likely_paths(row: str) -> list[str]:
+    """F-484: the source paths a task is likely to touch, from the closure mapping.
+
+    A Final Master row names its producer module; a Build 2 row reaches the producer modules
+    of the launch-critical Final Master rows that list it (`build2/launch_scope.json`).
+    Unknown is an empty list, which conflicts with nothing and is said on the card."""
+    try:
+        snap = json.loads((_B2 / "final_master_closure.json").read_text())
+        scope = json.loads((_B2 / "launch_scope.json").read_text())
+    except (OSError, ValueError):
+        return []
+    producers = {r["uid"]: r.get("producer_module") for r in snap.get("rows") or []}
+    uids = [row] if row.startswith("F-") else scope.get(row.lstrip("#"), [])
+    return sorted({_SRC_PREFIX + producers[u] for u in uids if producers.get(u)})
+
+
 def cards(ready: list[dict], *, registry_data: dict, limit: int = 5) -> dict:
     sys.path.insert(0, str(HERE))
     import context_pack
+    import registry
 
     held = _held_rows(registry_data)
     out, skipped = [], []
@@ -73,12 +94,22 @@ def cards(ready: list[dict], *, registry_data: dict, limit: int = 5) -> dict:
             skipped.append({"task": row, "why": "already held by a live lane or claimed"})
             continue
         lane = f"build-{key.strip('#').lower()}"
+        paths = likely_paths(row)
+        # F-484: a task whose likely files a live lane owns is held back, not dispatched into
+        # a merge conflict; the card names the lane and the overlapping paths.
+        conflicts = registry.ownership_conflicts(registry_data, lane, paths)
+        if conflicts:
+            skipped.append({"task": row, "why": "path overlap with a live lane",
+                            "conflicts": conflicts[:5]})
+            continue
         pack = context_pack.build([row])
         out.append({
             "task": row, "title": t.get("title"), "priority": t.get("priority"),
             "lane": lane,
             "enrol": (f"python3 ops/registry.py enrol {lane} <log-path> {lane} "
-                      f"<branch> --rows {row}"),
+                      f"<branch> --rows {row}"
+                      + (f" --owns {','.join(paths)}" if paths else "")),
+            "likely_paths": paths or "UNKNOWN: no producer module mapped",
             "context_pack": f"python3 ops/context_pack.py --rows {row} --md",
             "files_to_read_first": pack["files_to_read_first"],
             "brief": (f"Build {row} ({t.get('title')}). Start from the context pack; run only "

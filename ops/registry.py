@@ -443,7 +443,8 @@ class Registry:
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
               integration_ref: str = INTEGRATION_REF, role: str = "work",
               watches: str | None = None, owns: tuple[str, ...] | list[str] = (),
-              rows: tuple[str, ...] | list[str] = (), question: str = "") -> dict:
+              rows: tuple[str, ...] | list[str] = (), question: str = "",
+              stop: dict | None = None) -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
@@ -464,6 +465,7 @@ class Registry:
             if clash:
                 raise OwnershipConflict(clash)
         rows = sorted({str(r).strip().upper() for r in rows or () if str(r).strip()})
+        stop = validate_stop(stop) if stop else None
         qfp = question_fingerprint(question)
         if role == "work" and (rows or qfp):
             dup = duplicate_work(data, job.name, rows, qfp)
@@ -501,6 +503,8 @@ class Registry:
             # live lane on the same work is refused before it is dispatched.
             "rows": rows or prior.get("rows") or [],
             "question_fp": qfp or prior.get("question_fp") or "",
+            # F-492: the lane's own stop and escalation criteria, checked by `survey`.
+            "stop": stop or prior.get("stop"),
             # A re-enrolment is a new run of the lane; an old acknowledgement or merge would
             # otherwise be inherited by work it never saw.
             "acknowledged": None,
@@ -646,6 +650,8 @@ class Registry:
             "integrated": [r["job"] for r in rows if r["state"] == INTEGRATED],
             # F-485: lanes waiting on each other in a cycle can never finish.
             "deadlocks": wait_for_cycles(data),
+            # F-492: live lanes past their own escalation or stop criteria.
+            "stop_criteria": stop_states(data, now=now),
             "registry": str(self.path),
             "host": here,
             "rule": ("completion comes from the job's own terminal evidence, never from a "
@@ -794,6 +800,56 @@ def _live(rec: dict) -> bool:
     return not rec.get("integrated") and rec.get("role", "work") == "work"
 
 
+STOP_KEYS = ("escalate_after_hours", "stop_after_hours", "escalate_to", "stop_when")
+
+
+def validate_stop(stop: dict) -> dict:
+    """F-492: a lane's stop/escalation criteria. Hours are checkable; the prose names what
+    stopping means for this lane. A criterion with neither hour bound is refused."""
+    if not isinstance(stop, dict) or set(stop) - set(STOP_KEYS):
+        raise ValueError(f"stop criteria take only {STOP_KEYS}")
+    out = {}
+    for k in ("escalate_after_hours", "stop_after_hours"):
+        if stop.get(k) is not None:
+            v = float(stop[k])
+            if v <= 0:
+                raise ValueError(f"{k} must be positive")
+            out[k] = v
+    if not out:
+        raise ValueError("stop criteria need escalate_after_hours or stop_after_hours")
+    if out.get("escalate_after_hours", 0) > out.get("stop_after_hours", float("inf")):
+        raise ValueError("escalation comes before the stop")
+    if not str(stop.get("escalate_to") or "").strip() or not str(
+            stop.get("stop_when") or "").strip():
+        raise ValueError("stop criteria name who is escalated to and what stopping means")
+    out["escalate_to"] = str(stop["escalate_to"]).strip()
+    out["stop_when"] = str(stop["stop_when"]).strip()
+    return out
+
+
+def stop_states(data: dict, *, now: float | None = None) -> list[dict]:
+    """Live work lanes with criteria, past escalation or stop, from the enrolment time."""
+    now_dt = (datetime.fromtimestamp(now, timezone.utc) if now is not None
+              else datetime.now(timezone.utc))
+    out = []
+    for name, rec in sorted((data.get("jobs") or {}).items()):
+        st = rec.get("stop")
+        if not st or rec.get("integrated") or rec.get("role", "work") != "work":
+            continue
+        try:
+            started = datetime.fromisoformat(str(rec.get("enrolled_utc")).replace("Z", "+00:00"))
+        except ValueError:
+            out.append({"lane": name, "state": "UNKNOWN", "why": "no readable enrolment time"})
+            continue
+        hours = (now_dt - started).total_seconds() / 3600
+        state = ("stop" if hours >= st.get("stop_after_hours", float("inf")) else
+                 "escalate" if hours >= st.get("escalate_after_hours", float("inf")) else None)
+        if state:
+            out.append({"lane": name, "state": state, "hours": round(hours, 1),
+                        "escalate_to": st["escalate_to"], "stop_when": st["stop_when"]})
+    return out
+
+
 def wait_for_cycles(data: dict) -> dict:
     """F-485: the wait-for graph across live lanes (lane A waits on lane B), its cycles, and
     waits naming a lane that is not enrolled or no longer live (which can never clear).
@@ -868,7 +924,7 @@ def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
     argv = list(argv)
     opts = {}
-    for flag in ("--role", "--watches", "--owns", "--rows", "--question"):
+    for flag in ("--role", "--watches", "--owns", "--rows", "--question", "--stop"):
         if flag in argv:
             i = argv.index(flag)
             if i + 1 >= len(argv):
@@ -882,7 +938,8 @@ def _cli(argv: list[str]) -> int:
         out = reg.survey()
         out["reliability"] = reliability_lines()
         print(json.dumps(out, indent=2, sort_keys=True))
-        return 1 if out["needs_attention"] or out["deadlocks"]["deadlocked"] else 0
+        return 1 if (out["needs_attention"] or out["deadlocks"]["deadlocked"]
+                     or out["stop_criteria"]) else 0
     if cmd == "wait" and len(argv) >= 4:
         # ops/registry.py wait NAME ON1,ON2 WHY...
         try:
@@ -908,7 +965,8 @@ def _cli(argv: list[str]) -> int:
                             watches=opts.get("watches"),
                             owns=[p for p in (opts.get("owns") or "").split(",") if p],
                             rows=[r for r in (opts.get("rows") or "").split(",") if r],
-                            question=opts.get("question") or "")
+                            question=opts.get("question") or "",
+                            stop=json.loads(opts["stop"]) if opts.get("stop") else None)
         except ValueError as exc:
             print(f"refused: {exc}")
             return 2
