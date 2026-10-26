@@ -1,0 +1,22 @@
+{
+ "cir": {
+  "fingerprint": "db210fa9e8191c6404f01fc0c3b05902588be9450f7c167bd5103b344e932c92",
+  "version": 1
+ },
+ "etsy_write_schemas": {
+  "fingerprint": "e32d709898c9979de351cee5b5241ed1ed709575630a868dec5a9b9a89a6fc66",
+  "version": 1
+ },
+ "live_shop_evidence": {
+  "fingerprint": "fe0808a4747247a64dc980d5b44179581387cd8e2734c6ffc6dde001611dc61a",
+  "version": 1
+ },
+ "shop_policy_sections": {
+  "fingerprint": "898ca56eca04cc02e3a4fe55a01f0cfba6312839e19e8a5df78c47109ba6c2fa",
+  "version": 1
+ },
+ "storefront_proposal": {
+  "fingerprint": "a73def733c503694d2fa165c0aa7c0a0f047f9e850c8f47a2735a2a906c4c32a",
+  "version": 1
+ }
+}
