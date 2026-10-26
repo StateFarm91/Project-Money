@@ -23,3 +23,6 @@ tmp/
 # because the checkout does, which is the whole requirement. The integration record that
 # matters long term is the merge commit itself, and that is already in git.
 ops/JOBS.json
+
+# F-462 scoped leases (ops/lock.py --scope): working state, like the global lease.
+ops/LOCK.*
