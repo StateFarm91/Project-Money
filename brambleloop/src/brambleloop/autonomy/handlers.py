@@ -7,6 +7,8 @@ its lease reclaimed leaves exactly the rows a single run would have left.
 """
 from __future__ import annotations
 
+import os
+
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
@@ -48,6 +50,19 @@ def handle_orchestrate(ctx: JobContext) -> dict:
         report["event_wakes"] = scan(ctx.db, ctx.queue, now=_now(ctx))
     except Exception as exc:  # noqa: BLE001 - a failed scan never stops the company loop
         report["event_wakes"] = {"error": type(exc).__name__}
+    # F-602: the executive plan (goals, critical path, priorities, owner decisions),
+    # refreshed at most hourly; swarm.allocate reads it.
+    try:
+        from . import executive_plan, memory
+
+        prev = memory.get(ctx.db, executive_plan.MEMORY_KEY)
+        age_ok = prev and prev.get("updated_at") and (
+            _now(ctx) - datetime.fromisoformat(prev["updated_at"])).total_seconds() < 3600
+        if not age_ok:
+            plan = executive_plan.refresh(ctx.db, env=dict(os.environ), now=_now(ctx))
+            report["executive_plan"] = {"critical_departments": plan["critical_departments"]}
+    except Exception as exc:  # noqa: BLE001 - a failed plan never stops the company loop
+        report["executive_plan"] = {"error": type(exc).__name__}
     return {"ran": True, "enqueued": report["created"],
             "event_wakes": [w["kind"] for w in report["event_wakes"].get("woken", [])],
             "missions": [m["key"] for m in report["missions"]],

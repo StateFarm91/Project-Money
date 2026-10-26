@@ -1504,6 +1504,14 @@ def allocate(db, *, now: datetime | None = None,
         if band <= BAND_BY_KIND["proven_winner"]:
             valuable[agent_name] = valuable.get(agent_name, 0) + 1
 
+    # F-602: the executive plan's critical-path departments (autonomy.executive_plan).
+    try:
+        from ..autonomy.executive_plan import priority_agents
+
+        critical = priority_agents(db)
+    except Exception:  # noqa: BLE001 - no plan is no boost
+        critical = set()
+
     lanes: dict[str, dict] = {}
     for agent in Registry(db).all():
         if not agent.enabled:
@@ -1524,6 +1532,8 @@ def allocate(db, *, now: datetime | None = None,
         if pending and valuable.get(agent.name):
             granted, boosts = granted + 1, boosts + [
                 f"{valuable[agent.name]} open job(s) at proven-winner value or above"]
+        if pending and agent.name in critical:
+            granted, boosts = granted + 1, boosts + ["executive plan: critical path"]
         granted = min(granted, affordable) if pending else fo["granted"]
         if agent.name in unproductive and granted > 1:
             # #31: spend that produced no validated pattern caps the lane that spent it.
