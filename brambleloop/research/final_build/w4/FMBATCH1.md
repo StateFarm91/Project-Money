@@ -377,3 +377,33 @@ F-145..F-148.
     itself prevented the experiment.
 - **Test:** `test_f412_...` in `tests/test_w4_fmbatch1_research.py`, now 13/13.
 - **Status:** E.
+
+## 14. Window rows read against the 24 h proof (proposals; not applied)
+
+**Proof:** production b997efd, `autonomy.off_device_proof` passed=true over 2026-10-25T01:03Z
+to 10-26T01:03Z.
+- 1417 jobs of 97 types, completions in 25 distinct hours, scheduler alive in 25 hours.
+- 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.17.
+- No restart happened in the window.
+- Saved as `evidence_FMBATCH1/prod_api_build_20261026T0103Z.json`.
+
+**Closures proposed:**
+
+| file | rows | dry run |
+|---|---|---|
+| `OVERRIDES_PROPOSED_FMBATCH1_WINDOW.json` | F-371, F-654, F-701, F-849, F-396, F-628, each with its own criterion quoted and read against the proof | problems [], all 6 COMPLETE |
+| `B2_CLOSURE_PROPOSED_FMBATCH1_195.json` | #195 | not dry-run (Build 2 proposal) |
+
+- **F-628** also cites the continuity and off-provider archive restores (132 tables).
+- **F-849** also cites b997efd's release-record full suite, which includes
+  test_cert_claude_independence.
+- **#195 carries a stated judgement.** Its criterion asks for "restart/recovery evidence", and
+  there was no restart in the window. Reject the proposal if a restart inside the window is
+  required.
+
+**Not proposed:**
+
+| rows | reason |
+|---|---|
+| F-495 | No department was blocked during the window, so "independence while others are blocked" is not shown |
+| F-880, F-881, F-895, F-923, F-924 | Each needs the ops/slo soak grade, department useful-work, the external availability probe or the SLO budgets. These are operator-credentialed reads: one GET `/api/cc/operations/soak?start=2026-10-25T01:03:35Z` would evidence them |
