@@ -347,6 +347,35 @@ def _literal_prefix(pattern: str) -> str:
     return pattern[:cut]
 
 
+class DuplicateWork(ValueError):
+    """F-476: another live lane already holds these rows or this question."""
+
+    def __init__(self, dups: list[dict]):
+        self.duplicates = dups
+        super().__init__("duplicate work with a live lane: " + "; ".join(
+            f"{d['lane']} ({d['why']})" for d in dups))
+
+
+def question_fingerprint(question: str) -> str:
+    import hashlib
+
+    words = re.findall(r"[a-z0-9]+", (question or "").lower())
+    return hashlib.sha256(" ".join(words).encode()).hexdigest()[:16] if words else ""
+
+
+def duplicate_work(data: dict, name: str, rows: list[str], qfp: str) -> list[dict]:
+    out = []
+    for other, rec in (data.get("jobs") or {}).items():
+        if other == name or rec.get("integrated") or rec.get("role", "work") != "work":
+            continue
+        shared = sorted(set(rows) & set(rec.get("rows") or []))
+        if shared:
+            out.append({"lane": other, "why": f"already holds rows {shared}"})
+        elif qfp and rec.get("question_fp") == qfp:
+            out.append({"lane": other, "why": "already answering the same question"})
+    return out
+
+
 def paths_overlap(a: str, b: str) -> bool:
     """Conservative: two manifests overlap when either one's literal prefix contains the
     other's, path-segment aware (`src/a` does not overlap `src/ab`)."""
@@ -413,7 +442,8 @@ class Registry:
     # -- writing ------------------------------------------------------------------------
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
               integration_ref: str = INTEGRATION_REF, role: str = "work",
-              watches: str | None = None, owns: tuple[str, ...] | list[str] = ()) -> dict:
+              watches: str | None = None, owns: tuple[str, ...] | list[str] = (),
+              rows: tuple[str, ...] | list[str] = (), question: str = "") -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
@@ -433,6 +463,12 @@ class Registry:
             clash = ownership_conflicts(data, job.name, owns)
             if clash:
                 raise OwnershipConflict(clash)
+        rows = sorted({str(r).strip().upper() for r in rows or () if str(r).strip()})
+        qfp = question_fingerprint(question)
+        if role == "work" and (rows or qfp):
+            dup = duplicate_work(data, job.name, rows, qfp)
+            if dup:
+                raise DuplicateWork(dup)
         if role == "observer":
             target = data["jobs"].get(watches or "")
             if target is None:
@@ -461,6 +497,10 @@ class Registry:
             "integration_ref": integration_ref,
             "enrolled_utc": utc(),
             "owns": owns or prior.get("owns") or [],
+            # F-476: the requirement rows and the question this lane answers, so a second
+            # live lane on the same work is refused before it is dispatched.
+            "rows": rows or prior.get("rows") or [],
+            "question_fp": qfp or prior.get("question_fp") or "",
             # A re-enrolment is a new run of the lane; an old acknowledgement or merge would
             # otherwise be inherited by work it never saw.
             "acknowledged": None,
@@ -828,7 +868,7 @@ def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
     argv = list(argv)
     opts = {}
-    for flag in ("--role", "--watches", "--owns"):
+    for flag in ("--role", "--watches", "--owns", "--rows", "--question"):
         if flag in argv:
             i = argv.index(flag)
             if i + 1 >= len(argv):
@@ -866,7 +906,9 @@ def _cli(argv: list[str]) -> int:
             rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
                             branch=branch, role=opts.get("role", "work"),
                             watches=opts.get("watches"),
-                            owns=[p for p in (opts.get("owns") or "").split(",") if p])
+                            owns=[p for p in (opts.get("owns") or "").split(",") if p],
+                            rows=[r for r in (opts.get("rows") or "").split(",") if r],
+                            question=opts.get("question") or "")
         except ValueError as exc:
             print(f"refused: {exc}")
             return 2
