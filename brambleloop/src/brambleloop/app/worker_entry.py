@@ -28,6 +28,13 @@ _log_secret_guard.install()
 
 
 def main() -> int:
+    # M-2R: this process runs jobs, so it may never sign a storefront grant; the signing key
+    # is scrubbed from its environment before any handler can read it.
+    from ..ops import storefront_authority as _sfa
+
+    if _sfa.mark_job_process():
+        log.warning("removed the storefront signing key from the worker environment: "
+                    "a job process never signs storefront grants")
     # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
     # build runs as SHADOW (the phase env is forced before the effective phase is read below).
     from ..ops import release_record

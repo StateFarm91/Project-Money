@@ -73,10 +73,65 @@ def _b64key(var: str) -> bytes:
     return key
 
 
+# M-2R (review of a14c9ef): in the single-container deployment the embedded worker runs job
+# handlers inside the web process, so "the key is only on the web service" separates nothing.
+# Signing therefore refuses in ANY process that runs jobs -- the embedded worker is on
+# (`BRAMBLELOOP_EMBEDDED_WORKER` defaults to "1", exactly as `app.runner.start` reads it), or
+# the process declared itself a job process (`mark_job_process`, called by the worker entry
+# and the embedded runner, which also scrub the key). Storefront approval becomes possible only
+# once the worker runs as its own service: an owner spend decision (BUILD_STATE precondition).
+EMBEDDED_VAR = "BRAMBLELOOP_EMBEDDED_WORKER"
+_JOB_PROCESS = {"is": False}
+
+
+def mark_job_process() -> bool:
+    """Called at worker startup: this process runs jobs, so it may never sign. Scrubs the
+    signing key from the environment. Returns whether a key was present."""
+    _JOB_PROCESS["is"] = True
+    return os.environ.pop(SIGNING_KEY_VAR, None) is not None
+
+
+def signing_refusal() -> str | None:
+    if _JOB_PROCESS["is"]:
+        return "this process runs jobs, so it may never sign a storefront grant"
+    if os.environ.get(EMBEDDED_VAR, "1") == "1":
+        return (f"{EMBEDDED_VAR} is on: job handlers share this process, so it may not sign a "
+                f"storefront grant until the worker runs as its own service")
+    return None
+
+
+# Defence in depth: minting also needs the owner-request context that only the Command
+# Center action route sets, after the session, CSRF/nonce and step-up checks.
+import contextvars as _cv  # noqa: E402
+from contextlib import contextmanager as _cm  # noqa: E402
+
+_OWNER_REQUEST: _cv.ContextVar = _cv.ContextVar("storefront_owner_request", default=None)
+
+
+@_cm
+def owner_request(session_public_id: str):
+    token = _OWNER_REQUEST.set(str(session_public_id or ""))
+    try:
+        yield
+    finally:
+        _OWNER_REQUEST.reset(token)
+
+
+def _require_owner_request() -> str:
+    sid = _OWNER_REQUEST.get()
+    if not sid:
+        raise ValueError("a storefront grant is minted only inside the owner's Command Center "
+                         "request (session, CSRF/nonce and step-up)")
+    return sid
+
+
 def _seal(detail):
     """Ed25519 signature over the canonical JSON. Only a process with the signing key can."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+    why = signing_refusal()
+    if why:
+        raise ValueError(f"storefront signing refused: {why}")
     try:
         key = Ed25519PrivateKey.from_private_bytes(_b64key(SIGNING_KEY_VAR))
     except Exception as exc:  # noqa: BLE001
@@ -183,6 +238,7 @@ def approve(db, *, actor, proposal, expected_digest, reason, stepped_up: bool):
     reject_private((actor, proposal, expected_digest, reason), context="storefront")
     if stepped_up is not True:
         raise ValueError("a storefront grant needs the owner's fresh step-up")
+    session = _require_owner_request()
     if not isinstance(reason, str) or not reason.strip():
         raise ValueError("owner decision reason required")
     content = snapshot(db, proposal)
@@ -190,6 +246,7 @@ def approve(db, *, actor, proposal, expected_digest, reason, stepped_up: bool):
         raise ValueError("approval preview changed; review the current content")
     now = _now()
     detail = {"principal": PRINCIPAL, "actor": str(actor)[:120], "stepped_up": True,
+              "owner_session": session,
               "action": ACTION, "scope": f"storefront:{proposal}",
               "content": content, "digest": digest(content),
               "change_digest": digest(content["change"]), "reason": reason.strip(),
@@ -212,6 +269,7 @@ def rebase(db, *, actor, reason, stepped_up: bool):
     """Owner re-anchors a broken chain (voids every earlier grant). Command Center + step-up."""
     if stepped_up is not True:
         raise ValueError("a chain rebase needs the owner's fresh step-up")
+    _require_owner_request()
     return {"rebase_id": LEDGER.rebase(db, f"{reason} [owner {str(actor)[:80]}]"),
             "voids_grants_before": True}
 

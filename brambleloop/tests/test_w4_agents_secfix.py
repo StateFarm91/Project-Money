@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
 import ast
+import re
 import inspect
 import os
 import socket
@@ -47,14 +48,14 @@ socket.socket.connect = _no_network  # type: ignore[assignment]
 socket.create_connection = _no_network  # type: ignore[assignment]
 
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.app import main  # noqa: E402
 from brambleloop.app.command_center import approvals, auth  # noqa: E402
 from brambleloop.app.command_center.models import OwnerSession  # noqa: E402
 from brambleloop.core import opsauth  # noqa: E402
-from brambleloop.core.models import AuditLog  # noqa: E402
+from brambleloop.core.models import AuditLog, Job  # noqa: E402
 from brambleloop.ops import storefront_authority as sfa  # noqa: E402
 
 OPS = "q" * 40
@@ -151,7 +152,8 @@ def test_m1_the_owner_card_points_at_the_command_center_route():
 # ---- M-2 -----------------------------------------------------------------------------------
 
 def test_m2_the_worker_verifies_with_the_public_key_and_cannot_sign():
-    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, KEYS):
+    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, KEYS), \
+            sfa.owner_request("test-session"):
         out = sfa.approve(DB, actor="owner", proposal="w" * 20,
                           expected_digest=sfa.digest(CONTENT), reason="r", stepped_up=True)
     worker = {sfa.VERIFY_KEY_VAR: KEYS[sfa.VERIFY_KEY_VAR], sfa.KILL_SWITCH_VAR: "1",
@@ -161,7 +163,8 @@ def test_m2_the_worker_verifies_with_the_public_key_and_cannot_sign():
         assert sfa.validate(DB, out["approval_id"], change=CHANGE) is None
         assert "exact change" in sfa.validate(DB, out["approval_id"], change={
             "operation": "updateShop", "fields": {"announcement": "other"}})
-        with patch.object(sfa, "snapshot", return_value=CONTENT):
+        with patch.object(sfa, "snapshot", return_value=CONTENT), \
+                sfa.owner_request("test-session"):
             try:
                 sfa.approve(DB, actor="worker", proposal="w" * 20,
                             expected_digest=sfa.digest(CONTENT), reason="r", stepped_up=True)
@@ -176,7 +179,8 @@ def test_m2_a_row_signed_with_another_key_never_verifies():
     # Rows signed with the real key do not verify under another key pair: the chain is
     # refused (fail closed), so a key swapped into the environment can neither mint a new
     # grant nor validate an existing one.
-    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, other):
+    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, other), \
+            sfa.owner_request("test-session"):
         try:
             sfa.approve(DB, actor="owner", proposal="z" * 20,
                         expected_digest=sfa.digest(CONTENT), reason="r", stepped_up=True)
@@ -195,24 +199,130 @@ def test_m2_a_row_signed_with_another_key_never_verifies():
 def test_m2_no_worker_side_module_calls_approve_rebase_or_reads_the_signing_key():
     src = ROOT / "src" / "brambleloop"
     bad = []
-    for sub in ("runtime", "agents", "laura", "store_foundation", "autonomy", "queue"):
-        for p in (src / sub).rglob("*.py"):
+    # M-2R: the whole package, not a list of worker-side directories. Only the Command Center
+    # action executor and the authority module itself may mint, and only the authority module
+    # and the two startup scrubs may name the signing key.
+    minting = {"app/command_center/approvals.py", "ops/storefront_authority.py"}
+    for p in sorted(src.rglob("*.py")):
+        rel = str(p.relative_to(src))
+        if rel in minting:
+            continue
+        if True:
             text = p.read_text()
             tree = ast.parse(text)
             for node in ast.walk(tree):
                 if isinstance(node, ast.Attribute) and node.attr in (
-                        "approve", "rebase", "generate_keypair", "SIGNING_KEY_VAR") and \
+                        "approve", "rebase", "generate_keypair", "SIGNING_KEY_VAR", "LEDGER",
+                        "_seal", "owner_request", "_OWNER_REQUEST", "_JOB_PROCESS") and \
                         "storefront_authority" in (ast.get_source_segment(text, node.value)
                                                    or ""):
                     bad.append(f"{p.relative_to(src)}: {node.attr}")
                 if isinstance(node, ast.ImportFrom) and (node.module or "").endswith(
                         "storefront_authority") and any(
-                        a.name in ("approve", "rebase", "generate_keypair", "_seal")
+                        a.name in ("approve", "rebase", "generate_keypair", "_seal", "LEDGER",
+                                   "owner_request", "_OWNER_REQUEST", "SIGNING_KEY_VAR")
                         for a in node.names):
                     bad.append(f"{p.relative_to(src)}: import {node.names[0].name}")
             if "BRAMBLELOOP_STOREFRONT_SIGNING_KEY" in text:
                 bad.append(f"{p.relative_to(src)}: names the signing key")
     assert not bad, bad
+
+
+# ---- M-2R ----------------------------------------------------------------------------------
+
+def _mint():
+    return sfa.approve(DB, actor="job", proposal="j" * 20, expected_digest=sfa.digest(CONTENT),
+                       reason="minted from a job", stepped_up=True)
+
+
+def test_m2r_a_job_in_the_embedded_worker_cannot_mint_a_grant():
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import HandlerRegistry, Worker
+
+    reg = HandlerRegistry()
+    seen = {}
+
+    @reg.register("store.update")
+    def _attempt(ctx):
+        # store.update is the storefront job itself. The worst case: a handler that forges the owner-request context itself and has the
+        # signing key in its environment, in the default single-container deployment
+        with sfa.owner_request("forged"):
+            try:
+                seen["out"] = _mint()
+            except ValueError as exc:
+                seen["refused"] = str(exc)
+        return {"work_done": False}
+
+    with DB.session() as s:
+        before = s.scalar(select(func.count()).select_from(AuditLog)
+                          .where(AuditLog.action == sfa.APPROVED))
+    env = dict(KEYS)
+    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, env):
+        os.environ.pop(sfa.EMBEDDED_VAR, None)          # the default: embedded worker ON
+        JobQueue(DB).enqueue("store_operator", "store.update", {"m2r": True})
+        assert Worker(DB, "m2r-worker", registry=reg).run_once()
+    with DB.session() as s:
+        job = s.scalar(select(Job).where(Job.job_type == "store.update").order_by(Job.id.desc()))
+        assert job is not None and job.status.value == "done", (
+            job and (job.status, job.last_error))
+    assert "out" not in seen, seen
+    assert sfa.EMBEDDED_VAR in seen["refused"] and "signing refused" in seen["refused"]
+    with DB.session() as s:
+        after = s.scalar(select(func.count()).select_from(AuditLog)
+                         .where(AuditLog.action == sfa.APPROVED))
+    assert after == before
+
+
+def test_m2r_worker_startup_scrubs_the_key_and_the_process_never_signs_again():
+    from brambleloop.app import runner
+
+    saved = dict(sfa._JOB_PROCESS)
+    try:
+        with patch.dict(os.environ, {**KEYS, sfa.EMBEDDED_VAR: "1"}), \
+                patch.object(runner, "_threads", []), \
+                patch("brambleloop.core.phase.effective_phase",
+                      side_effect=RuntimeError("stop after the scrub")):
+            try:
+                runner.start(DB)
+            except RuntimeError:
+                pass
+            assert sfa.SIGNING_KEY_VAR not in os.environ
+        # even with the key put back and the embedded flag off, this process stays a job
+        # process and refuses
+        with patch.object(sfa, "snapshot", return_value=CONTENT), \
+                patch.dict(os.environ, {**KEYS, sfa.EMBEDDED_VAR: "0"}), \
+                sfa.owner_request("test-session"):
+            try:
+                _mint()
+                raise AssertionError("a job process minted a grant")
+            except ValueError as exc:
+                assert "runs jobs" in str(exc), exc
+    finally:
+        sfa._JOB_PROCESS.clear()
+        sfa._JOB_PROCESS.update(saved)
+    src = (ROOT / "src/brambleloop/app/worker_entry.py").read_text()
+    assert "mark_job_process()" in src.split("def main", 1)[1][:600]
+
+
+def test_m2r_minting_needs_the_owner_request_context_set_only_by_the_cc_route():
+    with patch.object(sfa, "snapshot", return_value=CONTENT), patch.dict(os.environ, KEYS):
+        try:
+            _mint()
+            raise AssertionError("minted outside the owner request")
+        except ValueError as exc:
+            assert "Command Center request" in str(exc), exc
+        try:
+            sfa.rebase(DB, actor="job", reason="r", stepped_up=True)
+            raise AssertionError("rebased outside the owner request")
+        except ValueError as exc:
+            assert "Command Center request" in str(exc), exc
+    api = (ROOT / "src/brambleloop/app/command_center/api.py").read_text()
+    assert "_sfa.owner_request(" in api
+    hits = [p for p in (ROOT / "src/brambleloop").rglob("*.py")
+            if re.search(r"(?<![\w.])(?:_?sfa|storefront_authority)\.owner_request\(|"
+                         r"^def owner_request\(", p.read_text(), re.M)]
+    assert sorted(str(p.relative_to(ROOT / "src/brambleloop")) for p in hits) == [
+        "app/command_center/api.py", "ops/storefront_authority.py"], hits
 
 
 # ---- L-2 -----------------------------------------------------------------------------------

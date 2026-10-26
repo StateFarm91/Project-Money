@@ -184,3 +184,19 @@ Until then every storefront write stays held.
 - At execution, `store.update` compares the granted `replaces` with the live shop now. If the owner edited the text after approving, nothing is sent: the proposal is held and the owner card is raised.
 - Tests (`tests/test_w4_agents_secfix.py`): `test_l2_the_preview_shows_and_binds_the_live_text_it_replaces` and `test_l2_execution_holds_when_the_live_text_changed_after_approval`.
 - L-1 stays open because it is Laura code (frozen).
+
+## 7. Independent review of a14c9ef: M-2R and the Low findings (2026-10-26)
+
+**M-2R (Medium), fixed: "signing key on the web service only" separated nothing.**
+The embedded worker (`BRAMBLELOOP_EMBEDDED_WORKER`, default `1`, as deployed) runs job handlers inside the web process, so a job could read the signing key and mint a grant. Closed in code three ways:
+- **Signing refuses in any process that runs jobs.** `storefront_authority._seal` refuses while `BRAMBLELOOP_EMBEDDED_WORKER` is on, and in any process marked by `mark_job_process()`.
+- **Startup scrub.** `app.worker_entry.main` and `app.runner.start` (embedded) call `mark_job_process()`, which removes `BRAMBLELOOP_STOREFRONT_SIGNING_KEY` from `os.environ` before the first handler runs. The process then never signs, even if the key is put back.
+- **Owner-request context.** `approve` and `rebase` require the `owner_request` context. Only the Command Center action route sets it, after the session, CSRF/nonce and step-up checks. The session id is recorded in the signed row.
+
+**Correction to the §6 operator setup.** "Web service only" is not enough while the embedded worker is on. A storefront grant can be minted only when the worker runs as its own service and the web service sets `BRAMBLELOOP_EMBEDDED_WORKER=0`. That is a Railway service split, which is an owner spend decision. Until the owner makes it, approval refuses, so every storefront write stays held. This is recorded as a precondition, not a step to perform.
+
+**Tests (`tests/test_w4_agents_secfix.py`):**
+- `test_m2r_a_job_in_the_embedded_worker_cannot_mint_a_grant`: a real `store.update` job runs through `Worker.run_once` with the embedded worker on, the signing key set and a forged owner-request context. It is refused, and no APPROVED row is added.
+- `test_m2r_worker_startup_scrubs_the_key_and_the_process_never_signs_again`
+- `test_m2r_minting_needs_the_owner_request_context_set_only_by_the_cc_route`
+- The AST scan now covers the whole package, except the action executor and the authority module.

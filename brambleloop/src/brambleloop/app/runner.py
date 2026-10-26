@@ -372,6 +372,11 @@ def start(db: Database) -> RunnerState:
     """Start the embedded worker and scheduler. Idempotent within a process."""
     if _threads or os.environ.get("BRAMBLELOOP_EMBEDDED_WORKER", "1") != "1":
         return STATE
+    # M-2R: job handlers are about to run in this process, so it may never sign a storefront
+    # grant; the signing key leaves the environment before the first handler runs.
+    from ..ops import storefront_authority as _sfa
+
+    _sfa.mark_job_process()
     _stop.clear()  # a previous stop() must not silently disarm a fresh start
     # F-299: the environment AND the recorded owner transition; disagreement -> the more
     # restrictive phase plus an incident. Shadow when nothing is recorded.

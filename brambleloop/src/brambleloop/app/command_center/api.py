@@ -804,8 +804,17 @@ def make_router(db) -> APIRouter:
         if approvals.ACTIONS[action][0]:
             auth.require_stepup(db, request, action)
         try:
-            out = await run_in_threadpool(approvals.execute, db, action, body,
-                                          actor=actor(request))
+            if action.startswith("storefront."):
+                # M-2R defence in depth: the owner-request context a storefront grant needs,
+                # set only here, after the session, CSRF/nonce and step-up checks above.
+                from ...ops import storefront_authority as _sfa
+
+                with _sfa.owner_request(auth.current_public_id(request) or "owner"):
+                    out = await run_in_threadpool(approvals.execute, db, action, body,
+                                                  actor=actor(request))
+            else:
+                out = await run_in_threadpool(approvals.execute, db, action, body,
+                                              actor=actor(request))
         except approvals.ActionNotFound as exc:
             raise auth.refuse(db, request, 404, "NOT_FOUND", str(exc), kind="action",
                               session_public_id=auth.current_public_id(request)) from None
