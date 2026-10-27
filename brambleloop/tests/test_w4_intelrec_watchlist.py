@@ -653,6 +653,39 @@ def test_paid_job_types_derive_from_the_worker_and_withheld_steps_say_so():
     assert "already queued" not in bt["why"]
 
 
+def test_a_withheld_listing_is_revisited_once_paid_work_is_authorised():
+    """Review 720b291 N-5 residual: a listing whose paid step was withheld is processed for a
+    run that would withhold it again, and pending again for a run that would not."""
+    from brambleloop.core.models import BenchmarkObservation, MjsMissionEvent
+    from brambleloop.intel import mission_runtime
+
+    db = _db()
+    key = "zkbdesigner"
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key=key, listing_ref="L1", title="Fall hat pattern",
+                               pod="hats", fingerprint="fp1"))
+        s.add(BenchmarkObservation(benchmark_key=key, kind="official_api_read", detail={
+            "changes": [{"what": "new listing", "listing_ref": "L1"}]}))
+        s.add(MjsMissionEvent(benchmark_key=key, listing_ref="L1", fingerprint="fp1",
+                              event_fingerprint="ev1", what="new listing", pod="hats",
+                              steps={"breakthrough": {"withheld": True}}))
+    paid = watchlist.PAID_JOB_TYPES
+    assert mission_runtime.pending(db, benchmark_key=key, withholds=paid) == []
+    assert "ev1" in mission_runtime.seeded_director(db, benchmark_key=key,
+                                                    withholds=paid).seen
+    again = mission_runtime.pending(db, benchmark_key=key, withholds=frozenset())
+    assert [p["listing_ref"] for p in again] == ["L1"]
+    assert "ev1" not in mission_runtime.seeded_director(db, benchmark_key=key,
+                                                        withholds=frozenset()).seen
+    # once revisited (the same event re-run without a withheld step), it is settled for every
+    # run
+    with db.session() as s:
+        ev = s.scalar(select(MjsMissionEvent).where(MjsMissionEvent.listing_ref == "L1"))
+        ev.steps = {"breakthrough": {"enqueued": True}, "revisited_from": {"withheld": [
+            "creative.tournament"]}}
+    assert mission_runtime.pending(db, benchmark_key=key, withholds=frozenset()) == []
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):

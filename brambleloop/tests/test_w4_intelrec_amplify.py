@@ -113,9 +113,13 @@ def test_a_credible_winner_gets_a_bounded_study_and_the_follow_on_holds_its_caus
         _certify(db, slug, rows=2)
         _orders(db, slug, 3, start=500 + len(slug))
     _orders(db, "nordic-forest-mosaic-throw", replication.MIN_ORDERS)
+    # Review N-8: weeks live count from first certification, not from the first order.
     with db.session() as s:
-        for o in s.scalars(select(Order).where(Order.product_slug == "nordic-forest-mosaic-throw")):
-            o.at = datetime.now(timezone.utc) - timedelta(weeks=replication.MIN_WEEKS + 1)
+        for pv in s.scalars(select(PatternVersion).join(
+                Product, PatternVersion.product_id == Product.id).where(
+                Product.slug == "nordic-forest-mosaic-throw")):
+            pv.created_at = datetime.now(timezone.utc) - timedelta(
+                weeks=replication.MIN_WEEKS + 1)
     fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
     inv = fe._amp_state(db, "nordic-forest")["investigation"]
     assert inv["credible"] is True and inv["winner"] == "nordic-forest-mosaic-throw"
@@ -244,6 +248,47 @@ def test_an_identical_rescore_is_a_repeat_not_a_second_failure():
     st = fe._amp_state(db, "nordic-forest")
     assert st["failed_attempts"] == 1 and st["last_outcome"] == "repeat_measurement", st
     assert not st.get("held")
+
+
+def test_n8_weeks_live_count_from_certification_not_the_first_order():
+    from datetime import date, datetime, timedelta, timezone
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", 3)
+    with db.session() as s:
+        for o in s.scalars(select(Order)):
+            o.at = datetime.now(timezone.utc) - timedelta(weeks=40)   # an old first order
+        pv = s.scalar(select(PatternVersion))
+        today = date.today()
+        pv.created_at = datetime(today.year, today.month, today.day,
+                                 tzinfo=timezone.utc) - timedelta(weeks=3)
+    sku = next(k for k in fe._skus(db, today) if k.slug == "nordic-forest-mosaic-throw")
+    assert sku.weeks_live == 3, sku.weeks_live
+
+
+def test_n8_a_follow_on_that_is_not_adjacent_is_parked_not_queued():
+    from brambleloop.radar.opportunity import POOL
+
+    seed = next(p.slug for p in POOL if p.family)
+    clone = fe.adjacency({"winner": seed, "credible": False}, seed)
+    assert clone["adjacent"] is False and any("changes nothing" in r for r in clone["reasons"])
+    unknown = fe.adjacency({"winner": "no-such-seed"}, "also-no-such-seed")
+    assert unknown["adjacent"] is None                     # UNKNOWN, never passed
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
+    real = fe.adjacency
+    fe.adjacency = lambda inv, nxt: {"adjacent": False, "reasons": ["palette only"]}
+    try:
+        out = fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+    finally:
+        fe.adjacency = real
+    assert [d["decision"] for d in out["decisions"]] == ["not_adjacent"]
+    with db.session() as s:
+        assert s.scalar(select(Job).where(Job.job_type == "radar.score")) is None
+    assert "not an adjacent experiment" in fe._amp_state(db, "nordic-forest")["how"]
 
 
 if __name__ == "__main__":

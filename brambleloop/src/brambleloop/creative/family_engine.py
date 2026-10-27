@@ -162,8 +162,10 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
       failed attempts the family is held (no endless repetition). A promoted member is not
       re-scored while it waits for certification (N-2); an identical re-score is a repeat
       measurement, not a second attempt (N-3);
-    * `amplify_holds` (the #22 study's candidate causes) is recorded for the follow-on and
-      NOT yet enforced: radar.score does not read it (review N-8);
+    * the follow-on must be an adjacent experiment (`commerce.replication.check_proposal`,
+      enforced by `adjacency`): a clone of the winner, or one holding none of the #22
+      study's candidate causes, is parked, not queued (review N-8). `amplify_holds` still
+      travels with the radar.score job for the record;
     * follow-on orders are orders of members certified AFTER the decision -- measured, never
       inferred. Nothing here prices, publishes or spends.
     """
@@ -229,6 +231,19 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
         st.setdefault("study_starts", today.isoformat())
         st["investigation"] = investigate(db, f, today=date.fromisoformat(st["study_starts"]))
         nxt = (f.get("next_members") or [None])[0]
+        adj = adjacency({**st["investigation"], "winner": st["investigation"].get("winner")
+                         or (sorted(f["members"], key=lambda m: -m["orders"]) or [{}])[0]
+                         .get("slug")}, nxt["seed"]) if nxt is not None else None
+        st["adjacency"] = adj
+        if adj is not None and adj.get("adjacent") is False:
+            st.update(not_adjacent=today.isoformat(),
+                      parked_until=(today + timedelta(days=AMPLIFY_PARK_DAYS)).isoformat(),
+                      how=f"{nxt['seed']} is not an adjacent experiment: "
+                          f"{'; '.join(adj['reasons'])[:300]}")
+            _save_amp(db, f["family"], st)
+            decided.append({"family": f["family"], "job_id": None,
+                            "decision": "not_adjacent", "reasons": adj["reasons"]})
+            continue
         if nxt is not None:
             job = enqueue("market_radar", "radar.score",
                           {"slug": nxt["seed"], "amplify_family": f["family"],
@@ -267,31 +282,76 @@ def _skus(db, today) -> list:
     from sqlalchemy import func, select
 
     from ..commerce.replication import Sku
-    from ..core.models import Order
     from ..radar.opportunity import POOL
+
+    from ..core.models import PatternVersion, Product
 
     by = {p.slug: p for p in POOL}
     orders = _orders_by_slug(db)
+    # Review 720b291 N-8: weeks are counted from when the product was first certified (the
+    # earliest it could be on sale), not from its first order -- counting from the first
+    # order made every product look newer than it is, and a product that sold late look
+    # like a fast seller. Measured against `today`, which this function now honours.
     with db.session() as s:
-        first = {slug: at for slug, at in s.execute(
-            select(Order.product_slug, func.min(Order.at)).group_by(Order.product_slug))}
+        since = {slug: at for slug, at in s.execute(
+            select(Product.slug, func.min(PatternVersion.created_at))
+            .join(PatternVersion, PatternVersion.product_id == Product.id)
+            .where(PatternVersion.certified == True)  # noqa: E712
+            .group_by(Product.slug))}
+    now = (datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+           if today is not None else datetime.now(timezone.utc))
     out = []
     for r in _certified(db):
-        seed = by.get(r["slug"])
-        at = first.get(r["slug"])
+        at = since.get(r["slug"])
         if at is not None and at.tzinfo is None:
             at = at.replace(tzinfo=timezone.utc)
-        weeks = (max(0, (datetime.now(timezone.utc) - at).days // 7) if at else 0)
-        traits = {}
-        if seed is not None:
-            traits = {"theme": seed.family or seed.slug, "category": seed.category,
-                      "season": seed.season or "evergreen",
-                      "price": ("under_8" if seed.price_cad < 8 else
-                                "8_to_14" if seed.price_cad <= 14 else "over_14"),
-                      "bundle": "bundle" if seed.is_bundle else "single"}
+        weeks = (max(0, (now - at).days // 7) if at else 0)
         out.append(Sku(slug=r["slug"], orders=orders.get(r["slug"], 0), weeks_live=weeks,
-                       traits=traits))
+                       traits=seed_traits(by.get(r["slug"]))))
     return out
+
+
+def seed_traits(seed) -> dict:
+    """The replication dimensions a radar seed states (the rest are not recorded)."""
+    if seed is None:
+        return {}
+    return {"theme": seed.family or seed.slug, "category": seed.category,
+            "season": seed.season or "evergreen",
+            "price": ("under_8" if seed.price_cad < 8 else
+                      "8_to_14" if seed.price_cad <= 14 else "over_14"),
+            "bundle": "bundle" if seed.is_bundle else "single"}
+
+
+def adjacency(investigation: dict, next_seed: str) -> dict:
+    """Review 720b291 N-8: `commerce.replication.check_proposal` enforced on the follow-on.
+
+    The follow-on holds the winner's traits it shares and changes the ones it does not, over
+    the dimensions both record. With a credible study it must also hold at least one of the
+    study's candidate causes, or it learns nothing about why the winner sells. A proposal the
+    check calls a clone (palette only, nothing held or nothing changed) is not queued."""
+    from ..commerce import replication
+    from ..radar.opportunity import POOL
+
+    by = {p.slug: p for p in POOL}
+    win = seed_traits(by.get(investigation.get("winner") or ""))
+    nxt = seed_traits(by.get(next_seed))
+    shared = [d for d in replication.DIMENSIONS if d in win and d in nxt]
+    if not shared:
+        return {"adjacent": None, "why": "neither the winner nor the follow-on records a "
+                                         "comparable trait; adjacency UNKNOWN, not passed"}
+    holds = tuple(d for d in shared if win[d] == nxt[d])
+    changes = tuple(d for d in shared if win[d] != nxt[d])
+    verdict = replication.check_proposal(
+        replication.Proposal(slug=next_seed, holds=holds, changes=changes),
+        replication.Sku(slug=investigation.get("winner") or "", orders=0, weeks_live=0,
+                        traits=win))
+    causes = [e["dimension"] for e in investigation.get("explanations") or []]
+    if verdict["adjacent"] and investigation.get("credible") and causes \
+            and not set(causes) & set(holds):
+        verdict = {**verdict, "adjacent": False, "reasons": [
+            f"holds none of the study's candidate causes {causes[:3]}, so it cannot test "
+            f"why the winner sells"]}
+    return verdict
 
 
 def investigate(db, family: dict, *, today) -> dict:
