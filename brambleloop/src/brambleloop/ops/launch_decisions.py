@@ -215,10 +215,14 @@ def listing_fees_state(db, listings: int) -> dict:
     terms = _fee_terms()
     approved_n = int(content.get("listings") or 0)
     out["approved_listings"] = approved_n
-    if content.get("fee_per_listing_usd") != terms["fee_per_listing_usd"]:
-        out["why"] = (f"the approval was for US${content.get('fee_per_listing_usd')} per "
-                      f"listing and Etsy's fee is now US${terms['fee_per_listing_usd']}; "
-                      f"re-approve at the current fee")
+    # Review F-6: every fee term the owner previewed and sealed is bound -- the listing fee
+    # (USD and CAD), its period, the transaction rate and the dated fee reading. Any change
+    # is a different approval and is re-asked.
+    changed = sorted(k for k, v in terms.items() if content.get(k) != v)
+    if changed:
+        out["why"] = (f"the approved fee terms differ from today's on {changed}; re-approve "
+                      f"the current fees")
+        out["changed_terms"] = changed
         return out
     if approved_n < int(listings):
         out["why"] = (f"the approval covers {approved_n} listings and the catalogue now holds "

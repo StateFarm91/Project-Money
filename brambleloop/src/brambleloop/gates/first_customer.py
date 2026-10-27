@@ -656,6 +656,11 @@ def check_etsy_remote_state(db=None) -> Check:
         return Check("etsy_remote_state", UNVERIFIABLE,
                      f"a launch-blocking gap names no Etsy claim, so no run can settle it: "
                      f"{unsettleable[0]}", source)
+    if evidence.get("stale"):
+        return Check("etsy_remote_state", UNVERIFIABLE,
+                     f"the newest sealed live round trip (evidence {evidence.get('live_run_id')}, "
+                     f"{evidence.get('live_run_at')}) is older than the evidence window; Etsy's "
+                     f"contract drifts, so re-run the controlled exercise", source)
     verified = set(evidence.get("verified_claims") or [])
     missing = [c for c in needed if c not in verified]
     if missing:
@@ -670,14 +675,17 @@ def check_etsy_remote_state(db=None) -> Check:
                           "settle this" if never else
                           f"The newest live run (audit {evidence.get('live_run_id')}) did not "
                           f"verify them; re-run the controlled exercise")), source)
-    if needed and not evidence.get("round_trip_clean"):
+    # Review F-4: a fresh, sealed live round trip of its own is required even when every
+    # claim is also in the static matrix.
+    if not evidence.get("live_run_id") or not evidence.get("round_trip_clean"):
         return Check("etsy_remote_state", UNVERIFIABLE,
-                     f"the live run verified the claims but its round trip is not clean: "
+                     f"no fresh sealed live round trip of its own is on record, or it is not "
+                     f"clean: "
                      f"drafts created {evidence.get('drafts_created', 0)}, unmatched "
                      f"{evidence.get('drafts_unmatched') or []}. Every test draft must be "
                      f"verifiably removed first", source)
-    basis = (f"run audit {evidence.get('live_run_id')} at {evidence.get('live_run_at')}"
-             if needed else "listing_schema.ETSY_VERIFIED_FACTS")
+    basis = (f"sealed evidence {evidence.get('live_run_id')} at "
+             f"{evidence.get('live_run_at')}")
     return Check("etsy_remote_state", PASS,
                  f"every launch-blocking Etsy claim is verified against Etsy "
                  f"({sorted(static_verified | set(needed))}; {basis}), and every test draft "

@@ -288,7 +288,8 @@ def record(db, body: dict, *, actor: str, today: date | None = None) -> dict:
     try:
         result = pp.record_page_reading(
             db, source=source, text=text, version=str(body.get("version") or ""),
-            summary=summary, read_by=reader, checked_on=checked_on, today=today)
+            summary=summary, read_by=reader, checked_on=checked_on, today=today,
+            owner_attested=True)
     except pp.PolicyRefused as exc:
         raise ReadingRefused(str(exc)[:300]) from None
     reg = Registry(db)

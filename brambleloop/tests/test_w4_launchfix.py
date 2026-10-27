@@ -97,17 +97,28 @@ def _blocking_claims() -> list[str]:
 
 
 def _run(db, claims: dict[str, str], *, ok_=True, mode="full", status=LIVE, drafts=("901",),
-         removed=True):
-    """The rows `etsy_exercise.run` writes, in its order: draft created, removed (only when a
-    read of Etsy confirmed it gone), finished with the per-claim states."""
+         removed=True, transport=None):
+    """The rows `etsy_exercise.run` writes, through its own writers: this run's drafts (the
+    removal only when a read of Etsy confirmed it gone), the finished row, and the SEALED
+    evidence row (`_seal_evidence`, review F-2) bound to this run's drafts and transport."""
+    from brambleloop.integrations.http import UrllibTransport
+
+    start = EX._last_audit_id(db)
+    EX._audit(db, EX.RUN_STARTED, {"mode": mode})
     for lid in drafts:
         EX._audit(db, EX.DRAFT_CREATED, {"listing_id": lid, "title": "DO NOT BUY"})
         if removed:
-            EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": lid, "verified": True})
+            EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": lid,
+                                             "confirmed_by": "read of Etsy returned 404"})
+    claim_rows = [{"claim": c, "state_after": st} for c, st in claims.items()]
     EX._audit(db, EX.RUN_FINISHED, {
         "mode": mode, "ok": ok_, "status": status, "shop_is_clean": removed, "rotations": 3,
-        "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX),
-        "claims": [{"claim": c, "state_after": st} for c, st in claims.items()]})
+        "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX), "claims": claim_rows})
+    report = {"ok": ok_, "status": status,
+              "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX),
+              "exercise": {"claims": claim_rows}}
+    return EX._seal_evidence(db, mode=mode, report=report, start_id=start,
+                             transport=transport if transport is not None else UrllibTransport())
 
 
 def _all_verified() -> dict[str, str]:

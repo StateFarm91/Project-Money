@@ -295,7 +295,7 @@ def review_change(db, source: str, *, reviewed_by: str, tested: str,
 
 def record_page_reading(db, *, source: str, text: str, version: str = "", summary: str = "",
                         read_by: str, checked_on: str = "",
-                        today: date | None = None) -> dict:
+                        today: date | None = None, owner_attested: bool = False) -> dict:
     """An operator's reading of an Etsy policy page, recorded and acted on at once.
 
     Etsy's bot protection refuses automated retrieval of these pages (recorded in
@@ -325,17 +325,18 @@ def record_page_reading(db, *, source: str, text: str, version: str = "", summar
         raise PolicyRefused(f"checked_on {checked!r} is not an ISO date") from e
     if age < 0:
         raise PolicyRefused("a reading cannot be dated in the future")
-    # W4-LAUNCHFIX E3: "material" compares a person's page reading only with an earlier page
-    # reading of the same source. Before this the comparison fell through to whatever row
-    # came last -- the repository's excerpt seed -- so the first ever reading of every page
-    # differed from an excerpt by construction, was recorded as a material Etsy change and
-    # opened a halting `policy_changed` review for a change Etsy never made. The first page
-    # reading is now the baseline; a later page reading whose text differs is still a
-    # material change and still blocks until reviewed (`unreviewed_changes`).
-    # `policy_reader.read_help_center` has passed its own basis the same way since W4-GATESI.
+    # W4-LAUNCHFIX E3, narrowed after review F-1. Only a reading the OWNER attested through
+    # the Command Center form (`app.command_center.policy_readings.record`: owner session,
+    # step-up, verbatim confirmation) is compared with earlier page readings alone, so the
+    # owner's first reading is the baseline rather than a "change" from the repository's
+    # excerpt seed. Every other caller -- POST /api/policy/snapshot with the operator token,
+    # where `read_by` is a body field -- keeps the original comparison against the newest
+    # reading of any basis: its first reading differs from the seed, is a material change,
+    # and opens the owner's `policy:<source>` review card exactly as before.
     res = record_snapshot(db, source, text=text, version=version or checked,
                           summary=summary, checked_on=checked, read_by=read_by.strip(),
-                          basis=PAGE_BASIS, compare_basis=PAGE_BASIS)
+                          basis=PAGE_BASIS,
+                          compare_basis=PAGE_BASIS if owner_attested is True else None)
     resolved: list[int] = []
     current = age <= MAX_AGE_DAYS
     if current:
