@@ -109,11 +109,11 @@ DOMAINS: dict[str, tuple[str, ...]] = {
     "etsy_commerce": ("listing", "store_operator"),
     "seo_marketing": ("growth", "ads"),
     "catalogue": ("creative_director",),
-    "analytics": (),
+    "analytics": ("analyst",),                      # W4-F454 (Learn / Improvement charter)
     "customer_experience": ("support",),
     "finance_cost": ("cfo", "cost_optimiser"),
     "reliability": ("reliability_engineer", "orchestrator"),
-    "integration": (),
+    "integration": ("integration_steward",),        # W4-F454 (Platform; Store / Commerce)
 }
 
 

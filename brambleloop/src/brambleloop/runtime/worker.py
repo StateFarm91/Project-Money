@@ -614,7 +614,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirements 90, 94. Daily: one deterministic query per capability cell. An identical
     # reading is not re-recorded, so running it beside the nightly sweep cannot manufacture
     # a flat history for the plateau detector to read as a defect.
-    ("capability_measure", "orchestrator", "improve.measure", 24 * 60 * 60),
+    # W4-F454: the analytics domain's focused agent owns measurement.
+    ("capability_measure", "analyst", "improve.measure", 24 * 60 * 60),
     # Requirement 97. Six-hourly: failures mined into routed lessons, idempotent on evidence,
     # so a defect open for a month is one lesson a month old. Nightly is the minimum sweep.
     ("failure_mine", "orchestrator", "improve.mine", 6 * 60 * 60),
@@ -904,7 +905,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
     # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
     # recovery, unmapped paid provider or existential concentration raised as an incident.
-    ("dependency_sweep", "orchestrator", "ops.dependencies", 24 * 60 * 60),
+    # W4-F454: the integration domain's focused agent.
+    ("dependency_sweep", "integration_steward", "ops.dependencies", 24 * 60 * 60),
     # #95 / #180 / #187: the league's producer of runs -- historical jobs replayed under the
     # job-priority policy and its challengers, newest days held out. Deterministic, no model.
     ("improve_replay", "orchestrator", "improve.replay", 24 * 60 * 60),
@@ -970,7 +972,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("capability_scorecard", "creative_director", "creative.capability_scorecard",
      24 * 60 * 60),
     # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
-    ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
+    ("etsy_openapi_reverify", "integration_steward", "etsy.openapi_reverify",
+     7 * 24 * 60 * 60),     # W4-F454: integration domain
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
     # v1.1 lane A (PRIORITY ZERO, F-893/F-894): the Executive Orchestrator. Every fifteen
     # minutes it reads every department, reconciles the missions it created, and gives each

@@ -281,7 +281,9 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="store_commerce", name="Store / Commerce",
        mission="Turn certified releases into correct listings, keep the shop's read-back true, "
                "and prepare (never perform) publication for owner approval.",
-       agents=("listing", "store_operator", "pricing", "storefront_director"),
+       agents=("listing", "store_operator", "pricing", "storefront_director",
+               # W4-F454: integration -- the Etsy API surface and credential health.
+               "integration_steward"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
                  "etsy.listing", "seo.", "storefront."),
        job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
@@ -364,7 +366,9 @@ CHARTERS: tuple[Charter, ...] = (
                "promote only measured improvements with rollback.",
        agents=("learn", "orchestrator", "evaluator", "failure_miner", "experiment_designer",
                "prompt_tool_challenger", "cost_optimiser", "reliability_engineer",
-               "creative_critic", "lesson_router"),
+               "creative_critic", "lesson_router",
+               # W4-F454: analytics -- measurement already lives in this department.
+               "analyst"),
        prefixes=("improve.", "learn."),
        job_types=set(),
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
@@ -388,7 +392,9 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="platform", name="Platform / Reliability",
        mission="Keep the runtime alive and honest: health, continuity, retention, "
                "dependencies, thrash and dead-letter recovery.",
-       agents=("orchestrator",),
+       agents=("orchestrator",
+               # W4-F454: integration -- dependency and provider-credential health.
+               "integration_steward"),
        prefixes=("ops.", "model.probe"),
        job_types={"ops.heartbeat", "ops.queue_check", "ops.health", "ops.continuity",
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
