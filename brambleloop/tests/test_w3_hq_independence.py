@@ -41,6 +41,11 @@ ALLOWED = {
         "(test_w4_fmbatch2_research_docs_absent)"),
     ("intel/research.py", "DECISION_LOG.md"): (
         "as BUILD_STATE.md above (test_w4_fmbatch2_research_docs_absent)"),
+    ("quality/benchmark_e2e.py", "research"): (
+        "the F-678 benchmark replay reads the research/bench2 freeze; nothing in the runtime calls "
+        "run() (no job type, route or schedule), and where the freeze is absent, as in the image, "
+        "run() returns UNKNOWN with why, never PASS (test_f678_..., `BE.run(absent)`). The freeze "
+        "is the purchased Benchmark 2's page-cited facts, which stay out of the shipped image"),
     ("laura/memory/provenance.py", "DECISION_LOG.md"): (
         "read when present (repository); in the image the OSError path falls back to the "
         "shipped core/decision_index.json (test_runtime_readers_fall_back_to_the_index...)"),
