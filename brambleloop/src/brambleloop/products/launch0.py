@@ -615,6 +615,64 @@ _NURSERY_STATEMENTS = ch.required_statements("nursery_decor", ch.UNDER_3)
 
 
 _BASE_CANDIDATES: tuple[Candidate, ...] = (
+    # D-W4-OWNER-BASKET-IDENTITY (owner, 2026-10-27): "I approve positioning the Hexagonal
+    # Bread Basket 1.2.0 as a kitchen and home product. The first listing sells the small
+    # basket only. Remove inaccurate nursery, baby-product and three-size nesting-basket
+    # claims from its listing package and customer PDF. Preserve the existing larger basket
+    # family for separately verified future releases. Keep the proposed CA$6.50 price pending
+    # final pricing verification."
+    #
+    # The small basket (CIR `market-basket-small`, unchanged: same builder, same version, same
+    # instructions and content hash) is therefore its own Launch-0 product: one size, kitchen
+    # and home, not merchandised to a child. The three-size nursery family below is kept
+    # verbatim as a reserve candidate for separately verified future releases; it no longer
+    # claims the small CIR while a launched product sells it (`candidate_for_cir`).
+    Candidate(
+        slug="hexagonal-bread-basket",
+        title="Hexagonal Bread Basket",
+        what_it_is=(
+            "One hexagonal basket worked in the round from a flat base into straight walls: "
+            "16.0 cm across the points, 13.9 cm across the flats and about 9 cm tall at the "
+            "stated gauge, in cream with wine bands, for the kitchen and the table."),
+        why_at_launch=(
+            "The owner's decision of 2026-10-27 (D-W4-OWNER-BASKET-IDENTITY): the CIR is "
+            "already titled a bread basket, it is the smallest and cheapest basket to sample "
+            "(the only one with a tester kit bound to its content hash), and a basket's "
+            "geometry is the kind `cir.geometry` measures exactly: the base disc sets how "
+            "wide, the wall rounds set how tall. Sold alone, in one size, as a kitchen and "
+            "home product."),
+        variants=(
+            Variant("small", "16.0 cm across the points, 13.9 cm across the flats, "
+                             "9 cm tall", "basket_small"),
+        ),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",)),
+        # Not a children's product: stated, not left as an omission.
+        subcategory=None,
+        audience=None,
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=6.50, basis=SOURCED,
+            why=("the band is the CA$4-12 crochet-pattern cluster recorded in "
+                 "radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: "
+                 "no profiled shop's basket price was captured, so the proposal sits mid-band "
+                 "rather than pretending to a comparable. CA$6.50 is the owner's proposed "
+                 "price, kept pending final pricing verification "
+                 "(D-W4-OWNER-BASKET-IDENTITY)")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge, which would make the "
+            "stated height a number rather than a basket",
+            "a base disc that does not lie flat, which the increase arithmetic predicts and "
+            "only a sample confirms",
+        ),
+        aspiration=(
+            "every finished measurement is arithmetic from the stated gauge; twin.calibrated "
+            "is False and no basket has been crocheted",
+            "the firm cotton gauge that makes a basket stand up is asserted by the CIR and "
+            "unverified in fabric",
+        ),
+    ),
+    # Reserve since D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the three-size nursery family,
+    # preserved unchanged for separately verified future releases. Not in LAUNCH0_SLUGS.
     Candidate(
         slug="nursery-nesting-baskets",
         title="Nesting Baskets, three sizes",
@@ -855,8 +913,10 @@ _BASE_CANDIDATES: tuple[Candidate, ...] = (
 
 # The slugs Launch-0 actually launches, in listing order. The reserve is in CANDIDATES and not
 # here, so the gate results for it are still computed and reported.
+# D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the first basket listing is the small Hexagonal
+# Bread Basket alone; `nursery-nesting-baskets` is a reserve candidate (CANDIDATES only).
 _CORE_LAUNCH0_SLUGS: tuple[str, ...] = (
-    "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+    "hexagonal-bread-basket", "cloudline-baby-blanket", "hexagon-coaster-set",
     "nordic-star-ornaments", "winter-village-graphghan",
 )
 
@@ -1043,10 +1103,15 @@ def candidate_for_cir(slug: str) -> Candidate | None:
     global _CANDIDATE_OF_CIR
     if _CANDIDATE_OF_CIR is None:
         out: dict[str, str] = {}
-        for cand in CANDIDATES:
-            out[cand.slug] = cand.slug
+        # A CIR that a launched candidate sells belongs to that candidate: a reserve
+        # candidate that also lists it (the preserved nursery family's small basket,
+        # D-W4-OWNER-BASKET-IDENTITY) never re-claims it. Launched candidates go first and
+        # nothing overwrites a claim.
+        ordered = (sorted(CANDIDATES, key=lambda c: c.slug not in LAUNCH0_SLUGS))
+        for cand in ordered:
+            out.setdefault(cand.slug, cand.slug)
             for v in cand.variants:
-                out[cir_for(v.build).slug] = cand.slug
+                out.setdefault(cir_for(v.build).slug, cand.slug)
         _CANDIDATE_OF_CIR = out
     key = _CANDIDATE_OF_CIR.get(slug)
     return candidate(key) if key else None
@@ -1162,8 +1227,13 @@ def _cir_audience_map() -> dict[str, tuple[str, str]]:
             if cand.subcategory is None:
                 continue
             for v in cand.variants:
-                out[cir_for(v.build).slug] = (cand.subcategory,
-                                              cand.audience or ch.UNDER_3)
+                slug = cir_for(v.build).slug
+                # The audience is the merchandising decision of the candidate that sells the
+                # CIR, never of a reserve that also lists it (D-W4-OWNER-BASKET-IDENTITY).
+                owner = candidate_for_cir(slug)
+                if owner is not None and owner.slug != cand.slug:
+                    continue
+                out[slug] = (cand.subcategory, cand.audience or ch.UNDER_3)
         for slug, pair in EXTRA_CHILDRENS_ASSIGNMENTS.items():
             if slug in out and out[slug] != pair:
                 raise ValueError(
