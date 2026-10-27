@@ -56,6 +56,11 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # statement here -- the original file (kept by hash) and its totals, reconciled against
     # the ledger. Records evidence only; moves nothing.
     "finance.statement_archive": (False, "archive an Etsy monthly statement and its totals"),
+    # W-ADOPT (E-4): link a listing the owner made by hand in Shop Manager to its certified
+    # release. Reads Etsy (never writes), records the verification and blocks a duplicate
+    # automated create. Step-up: it binds a live listing to a release's records.
+    "listing.adopt_manual": (True, "adopt a hand-made Etsy listing as a certified release's "
+                                   "listing (reads Etsy; never writes)"),
 }
 
 #: The words the owner confirms, verbatim. Anything else is refused.
@@ -645,6 +650,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             result = _review_policy_change(db, body, actor=actor)
         elif action == "finance.statement_archive":
             result = _archive_statement(db, body, actor=actor)
+        elif action == "listing.adopt_manual":
+            result = _adopt_manual(db, body, reason, actor=actor)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
@@ -673,7 +680,9 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "improvement", "owner_approved", "acknowledged",
                                            "deferred", "source", "snapshot_id",
                                            "reviewed", "review_audit_id", "confirmed",
-                                           "period", "sha256", "version", "archived")}})
+                                           "period", "sha256", "version", "archived",
+                                           "etsy_listing_id", "verification", "repeat",
+                                           "audit_id", "review_incident_id")}})
     return {"result": result, "audit_id": audit_id}
 
 
@@ -693,3 +702,18 @@ def _archive_statement(db, body: dict, *, actor: str) -> dict:
                               totals=body.get("totals") if isinstance(body.get("totals"), dict)
                               else {}, recorded_by=f"owner:{actor}"[:64])
 
+
+
+def _adopt_manual(db, body: dict, reason: str, *, actor: str) -> dict:
+    """W-ADOPT: `publish.manual_adoption.adopt`, behind session + CSRF + nonce + step-up."""
+    from ...publish import manual_adoption
+
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    try:
+        return manual_adoption.adopt(
+            db, etsy_listing_id=body.get("etsy_listing_id"), slug=str(body.get("slug") or ""),
+            version=str(body.get("version") or ""), release=str(body.get("release") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None

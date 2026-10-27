@@ -1137,12 +1137,20 @@ def _expected_listings(db) -> dict[str, dict]:
     from ..core.models import Listing
     from ..integrations import etsy_exercise
 
+    from ..publish import manual_adoption
+
+    # W-ADOPT: a listing the owner made by hand and adopted (`listing.adopt_manual`) is one
+    # of ours; its expected state is the one read from Etsy when it was adopted.
+    adopted = manual_adoption.adopted_states(db)
     out: dict[str, dict] = {}
     with db.session() as s:
         for row in s.scalars(select(Listing).where(Listing.etsy_listing_id != "")):
-            out[str(row.etsy_listing_id)] = {
+            lid = str(row.etsy_listing_id)
+            out[lid] = {
                 "slug": row.product_slug, "version": row.version,
-                "state": EXPECTED_REMOTE_STATE.get(row.state, "draft"),
+                "state": (adopted.get(lid, "active")
+                          if row.state == manual_adoption.LISTING_STATE
+                          else EXPECTED_REMOTE_STATE.get(row.state, "draft")),
                 "local_state": row.state}
     for draft in etsy_exercise.outstanding_drafts(db):
         out.setdefault(str(draft["listing_id"]), {"slug": None, "version": None,

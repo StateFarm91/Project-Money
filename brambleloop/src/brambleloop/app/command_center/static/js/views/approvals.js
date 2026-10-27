@@ -195,6 +195,44 @@ function notYetAskableCard(env) {
     sourcesList(env.sources));
 }
 
+// W-ADOPT (E-4): link a listing made by hand in Etsy Shop Manager to its certified release.
+// The server reads the listing from Etsy (never writes), records VERIFIED or UNVERIFIED with
+// every difference, and blocks a second automated listing for that release. Step-up required.
+function adoptListingCard() {
+  const inp = (id, placeholder) => h("input", { id, type: "text", placeholder, required: true });
+  const lid = inp("adopt-listing-id", "Etsy listing id, from the listing URL");
+  const slug = inp("adopt-slug", "e.g. hexagon-coaster-set");
+  const version = inp("adopt-version", "e.g. 1.2.0");
+  const release = inp("adopt-release", "certified release hash (64 hex)");
+  const out = h("div", { class: "preview-out" });
+  const row = (label, el) => h("label", { class: "field" }, h("span", null, label), el);
+  const btn = h("button", { class: "btn btn-primary", type: "submit" }, "Adopt listing");
+  const form = h("form", { class: "stack" }, row("Etsy listing id", lid), row("Product slug", slug),
+    row("Version", version), row("Release hash", release), btn);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const params = { etsy_listing_id: lid.value.trim(), slug: slug.value.trim(),
+      version: version.value.trim(), release: release.value.trim() };
+    const body = await guardedAction({
+      title: `Adopt Etsy listing ${params.etsy_listing_id} as ${params.slug}@${params.version}?`,
+      lines: ["Reads the listing from Etsy and records what it holds; nothing is written to Etsy.",
+        "Differences from the certified package are recorded and open a review item.",
+        "Afterwards the system will not create another listing for this release."],
+      confirmLabel: "Adopt", requiresStepUp: true, reasonLabel: "Why are you deciding this?",
+      reasonRequired: true, run: (reason) => api.action("listing.adopt_manual", { ...params, reason }),
+      success: "Adoption recorded.",
+    });
+    const res = (body && body.result) || null;
+    if (!res) return;
+    const diffs = Array.isArray(res.differences) ? res.differences : [];
+    clear(out).append(h("div", { class: res.verification === "VERIFIED" && !diffs.length ? "callout callout-info" : "callout callout-warn" },
+      h("p", { class: "answer" }, `${res.verification}${res.repeat ? " (already adopted)" : ""}: Etsy listing ${res.etsy_listing_id}`),
+      diffs.length ? h("ul", null, diffs.map((d) => h("li", null, `${d.field}${d.note ? `: ${d.note}` : ""}`))) : null));
+  });
+  return card({ title: "Adopt a hand-made Etsy listing", labelId: "approvals-adopt",
+    subtitle: "For a listing you published yourself in Shop Manager" }, form, out);
+}
+
 export async function render({ params, rerender }) {
   if (params[0]) {
     const result = await api.approval(params[0]);
@@ -226,6 +264,7 @@ export async function render({ params, rerender }) {
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     releaseCard(data.release),
+    adoptListingCard(),
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,

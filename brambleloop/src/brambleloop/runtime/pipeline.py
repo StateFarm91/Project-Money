@@ -1715,16 +1715,21 @@ def handle_store_publish(ctx: JobContext) -> dict:
         copy = dict(title=listing.title, description=listing.description,
                     price_cad=listing.price_cad, tags=list(listing.tags))
         already = listing.etsy_listing_id
+        manual = listing.state == "published_manually"
         release = ctx.job.inputs.get("release") or listing.release_hash or ""
 
     if already:
         # Publishing twice must not create a second listing. Updating an existing one is a
         # different operation with a different risk profile, so it is refused here rather
-        # than guessed at.
+        # than guessed at. W-ADOPT: a listing the owner made by hand and adopted
+        # (`listing.adopt_manual`) stops here the same way.
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
-                  detail={"reason": f"already on Etsy as listing {already}"})
+                  detail={"reason": f"already on Etsy as listing {already}"
+                                    + (" (published manually and adopted)" if manual else ""),
+                          "published_manually": manual})
         return {"slug": slug, "version": version, "published": False,
-                "etsy_listing_id": already, "reason": "already published"}
+                "etsy_listing_id": already,
+                "reason": "already published manually" if manual else "already published"}
 
     # C-49: both names live in their own modules; importing them here is what lets a
     # non-shadow publish run at all rather than die with NameError on its first line.
