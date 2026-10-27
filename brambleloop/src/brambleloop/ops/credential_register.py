@@ -71,6 +71,30 @@ REGISTER: tuple[Exposure, ...] = (
                     "the Railway service, confirm one real model call succeeds, then revoke "
                     "the old key in the console"),
     ),
+    # F-160 (W4-D2): the operator token. BUILD_STATE, "2026-09-25 -- VERIFIED: Brambleloop is
+    # authorised on Etsy": typed onto a PowerShell command line instead of at the Read-Host
+    # prompt; rotation status unconfirmed (an equal-length replacement proves nothing).
+    Exposure(
+        name="BRAMBLELOOP_OPS_TOKEN",
+        provider="brambleloop (self-issued operator credential, held by Railway)",
+        held_in="Railway service variable (production); nowhere in this repository",
+        exposed_at="2026-09-25",
+        exposure=("typed onto a PowerShell command line during the Etsy authorisation flow "
+                  "instead of at the Read-Host prompt, so it reached (1) the console, (2) the "
+                  "PSReadLine shell history file and (3) a screenshot (BUILD_STATE, "
+                  "2026-09-25 Etsy authorisation entry); rotation since is unconfirmed -- the "
+                  "current value having the same length as the exposed one proves nothing. "
+                  "It guards /api/etsy/oauth/start, /status, the continuity export and every "
+                  "operator route, and seals publication grants"),
+        rotate_how=("generate a new random value without it ever appearing on a command line "
+                    "(enter it at a Read-Host -AsSecureString prompt or generate it in "
+                    "Railway), set it as BRAMBLELOOP_OPS_TOKEN on the Railway service and let "
+                    "it redeploy, confirm an operator call (GET /status) succeeds with the new "
+                    "value and is refused with the old one, re-issue any sealed publication "
+                    "grant under the new value, then delete the old line from the PSReadLine "
+                    "history file ((Get-PSReadLineOption).HistorySavePath) and delete the "
+                    "screenshot; tell Claude the date it was confirmed, never the value"),
+    ),
 )
 
 # The release secret scan's patterns, restated narrowly so this module does not import tests.
