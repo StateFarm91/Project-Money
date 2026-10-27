@@ -5653,7 +5653,12 @@ def api_readback_evidence() -> JSONResponse:
     product slugs -- no payloads, error text, conversations, owner or customer data, secrets."""
     from ..ops.production_evidence import evidence
 
-    return JSONResponse(evidence(db), headers={"Cache-Control": "no-store"})
+    # The deploy readback's operator-only rows, projected (production_evidence.DEPLOY_READBACK).
+    handlers = {"/api/departments": api_departments, "/api/swarm/runtime": api_swarm_runtime,
+                "/api/funding/packets": api_funding_packets, "/api/offsite": api_offsite,
+                "/api/continuity": api_continuity, "/api/etsy": api_etsy}
+    return JSONResponse(evidence(db, deploy_handlers=handlers),
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/verify/smoke")

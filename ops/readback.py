@@ -20,6 +20,18 @@ Exit codes: 0 every feature PASS; 5 any FAIL or UNKNOWN (UNKNOWN is never a pass
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
 A status-code readback (e.g. a gated route answers 401) proves the route exists and is gated
 without needing the credential; an unknown path under the same prefix answers 404.
+
+Operator-only reads (INTEG8, after SECPATCH made every unlisted GET operator-only): the rows on
+`OPERATOR_ENDPOINTS` read a route an anonymous caller cannot. With the operator credential in
+BRAMBLELOOP_OPS_TOKEN (sent as a bearer header to those routes only, never printed or written)
+they are read like any other row. Without it they are NEEDS_OPERATOR -- not fetched, never a
+pass -- so the report says which features still need an operator readback instead of reading
+the anonymous 401 as a missing field (UNKNOWN) or a broken feature (FAIL).
+
+W4-READBACK: when BRAMBLELOOP_READBACK_TOKEN is set, those rows are read instead from
+`/api/readback/evidence` (`deploy_readback`: each route's status and only the row's projected
+field), so the deploy readback does not need the full operator credential. The operator token
+is the fallback when only it is set; with neither the rows stay NEEDS_OPERATOR.
 """
 from __future__ import annotations
 
@@ -35,6 +47,7 @@ PRODUCTION_URL = os.environ.get("BRAMBLELOOP_PRODUCTION_URL",
                                 "https://brambleloop-os-production.up.railway.app")
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
+NEEDS_OPERATOR = "NEEDS_OPERATOR"
 
 
 def _dig(body, path: str):
@@ -97,6 +110,12 @@ MANIFEST = (
      lambda v, _s: v is True),
 )
 
+# SECPATCH made these GETs operator-only; their rows need the operator credential (above).
+# test_w4_secpatch_public_surface asserts this set is exactly the manifest's operator-only
+# endpoints, so a route moving either way fails a test rather than a deploy.
+OPERATOR_ENDPOINTS = frozenset({"/api/departments", "/api/swarm/runtime", "/api/funding/packets",
+                                "/api/offsite", "/api/continuity", "/api/etsy"})
+
 # Where `ops/deploy.sh` writes each readback, and where the completion board reads it: a
 # Final Master row the manifest names is not verified_complete unless the readback of the
 # deployed commit passed for every feature that names it (F-144).
@@ -112,9 +131,11 @@ def rows_by_feature() -> dict[str, list[str]]:
     return {feature: list(rows) for feature, rows, *_ in MANIFEST}
 
 
-def _fetch(url: str, headers: dict | None = None) -> tuple[int | None, object]:
-    req = urllib.request.Request(url, headers={"Accept": "application/json",
-                                               **(headers or {})})
+def _fetch(url: str, token: str | None = None) -> tuple[int | None, object]:
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL
             code, raw = r.status, r.read()
@@ -126,15 +147,80 @@ def _fetch(url: str, headers: dict | None = None) -> tuple[int | None, object]:
         return code, None
 
 
-def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
+def _from_evidence(body, endpoint: str) -> tuple[int | None, object]:
+    """W4-READBACK: an operator row read from `/api/readback/evidence`'s `deploy_readback`
+    section -- (the route's status, a body holding only the row's projected field). A list
+    travels as its length only and is rebuilt as a list of that length, so a predicate on
+    "a non-empty list" still applies and no element ever leaves the server."""
+    row = ((body or {}).get("deploy_readback") or {}).get(endpoint) \
+        if isinstance(body, dict) else None
+    if not isinstance(row, dict) or not isinstance(row.get("status"), int):
+        return None, None
+    fields = {}
+    for k, v in (row.get("fields") or {}).items():
+        if isinstance(v, dict) and isinstance(v.get("list_length"), int):
+            v = [None] * v["list_length"]
+        fields[k] = v
+    return row["status"], fields
+
+
+def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = None,
+        readback_token: str | None = None) -> dict:
+    """The rows on OPERATOR_ENDPOINTS need a credential. In order of preference:
+
+    * `readback_token` (BRAMBLELOOP_READBACK_TOKEN, W4-READBACK): the rows are read, projected,
+      from `/api/readback/evidence`; the operator credential is not needed and not sent;
+    * `token` (the operator credential): the routes themselves are read with it;
+    * neither: NEEDS_OPERATOR, never a pass.
+
+    `fetch(url)` reads a public route, `fetch(url, token)` an authenticated one."""
     fetch = fetch or _fetch
     cache: dict[str, tuple] = {}
     items = []
     reachable = False
+    base = url.rstrip("/")
     for feature, rows, endpoint, field, expected, pred in MANIFEST:
+        operator = endpoint in OPERATOR_ENDPOINTS
+        if operator and not token and not readback_token:
+            items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
+                          "field": field, "expected": expected, "http": None, "value": None,
+                          "verdict": NEEDS_OPERATOR,
+                          "why": "operator-only route; no readback or operator credential "
+                                 "was supplied"})
+            continue
+        if operator and readback_token:
+            if EVIDENCE_ENDPOINT not in cache:
+                try:
+                    cache[EVIDENCE_ENDPOINT] = fetch(base + EVIDENCE_ENDPOINT, readback_token)
+                except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN
+                    cache[EVIDENCE_ENDPOINT] = (None, None, f"{type(exc).__name__}")
+            ev = cache[EVIDENCE_ENDPOINT]
+            if ev[0] is not None:
+                reachable = True
+            key = f"{EVIDENCE_ENDPOINT}#{endpoint}"
+            cache[key] = (_from_evidence(ev[1], endpoint) if ev[0] == 200 else (None, None))
+            got = cache[key]
+            code, body = got[0], got[1]
+            if code is None:
+                verdict, value = UNKNOWN, None
+            else:
+                value = code if field == "@status" else _dig(body, field)
+                verdict = UNKNOWN if value is None and field != "@status" else None
+                if verdict is None:
+                    try:
+                        verdict = PASS if pred(value, sha) else FAIL
+                    except Exception:  # noqa: BLE001
+                        verdict = UNKNOWN
+            items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
+                          "field": field, "expected": expected, "http": code,
+                          "via": EVIDENCE_ENDPOINT,
+                          "value": value if isinstance(value, (bool, int, str, type(None)))
+                          else json.dumps(value)[:200], "verdict": verdict})
+            continue
         if endpoint not in cache:
             try:
-                cache[endpoint] = fetch(url.rstrip("/") + endpoint)
+                cache[endpoint] = (fetch(base + endpoint, token) if operator
+                                   else fetch(base + endpoint))
             except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never a pass
                 cache[endpoint] = (None, None, f"{type(exc).__name__}: {str(exc)[:120]}")
         got = cache[endpoint]
@@ -158,7 +244,8 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
                       else json.dumps(value)[:200], "verdict": verdict})
     verdicts = {i["verdict"] for i in items}
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
-               UNKNOWN if UNKNOWN in verdicts else PASS)
+               UNKNOWN if UNKNOWN in verdicts else
+               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else PASS)
     import datetime as _dt
 
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
@@ -182,6 +269,7 @@ EVIDENCE_ITEMS = (
     ("weekly jobs completing", "weekly_jobs", "weekly_jobs_completing"),
     ("products progressing through certification", "certification_pipeline", None),
     ("autonomous company loop", "autonomy_loop", None),
+    ("Etsy category resolvable (crochet offered by the chosen node)", "etsy_taxonomy", None),
 )
 
 
@@ -206,6 +294,20 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         return ((PASS if not missing else FAIL),
                 f"{len(stages) - len(missing)}/{len(stages)} stages show useful work"
                 + (f"; none in {missing}" if missing else ""))
+    if name == "etsy_taxonomy":
+        if section.get("refreshed") is not True:
+            return UNKNOWN, "the taxonomy has never been refreshed"
+        offers = {c: v.get("schema_offers_crochet")
+                  for c, v in (section.get("category_choices") or {}).items()}
+        if not offers:
+            return UNKNOWN, "no category choices on the refresh row"
+        no = sorted(c for c, v in offers.items() if v is False)
+        unk = sorted(c for c, v in offers.items() if v is None)
+        if no:
+            return FAIL, f"the chosen node offers no 'Crochet' value for {no}"
+        if unk:
+            return UNKNOWN, f"no stored schema for {unk}"
+        return PASS, f"refreshed {section.get('refreshed_at')}; {len(offers)} categories"
     if not isinstance(judged, bool):
         return UNKNOWN, "no server judgement"
     if name == "dead_letters_24h":
@@ -247,8 +349,7 @@ def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
         why = f"{READBACK_TOKEN_VAR} is not set in this environment"
     else:
         try:
-            http, evidence = fetch(base + EVIDENCE_ENDPOINT,
-                                   {"Authorization": "Bearer " + token})[:2]
+            http, evidence = fetch(base + EVIDENCE_ENDPOINT, token)[:2]
         except Exception as exc:  # noqa: BLE001
             why = f"unreachable ({type(exc).__name__})"
         else:
@@ -324,7 +425,8 @@ def main(argv: list[str] | None = None) -> int:
     if not _SHA.match(a.sha):
         print(f"readback: need a full 40-hex sha, got {a.sha!r}", file=sys.stderr)
         return 2
-    out = run(a.sha, url=a.url)
+    out = run(a.sha, url=a.url, token=os.environ.get("BRAMBLELOOP_OPS_TOKEN") or None,
+              readback_token=(os.environ.get(READBACK_TOKEN_VAR) or "").strip() or None)
     if a.json:
         with open(a.json, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=1)

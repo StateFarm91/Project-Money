@@ -473,6 +473,80 @@ def autonomy_loop(db, *, now: datetime, days: int = LOOP_WINDOW_DAYS) -> dict:
                 (x["stage"] for x in stages if not x["evidenced"]), None)}
 
 
+_NAME_MAX = 120
+
+
+def _name(v) -> str | None:
+    return str(v)[:_NAME_MAX] if isinstance(v, (str, int)) and not isinstance(v, bool) else None
+
+
+def _int(v) -> int | None:
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def etsy_taxonomy(db, *, now: datetime) -> dict:
+    """The newest `etsy.taxonomy_refreshed` row, projected for resolving the Etsy category
+    without the operator token (W-LAUNCHFIX E4). Etsy's own public taxonomy ids and names
+    only: per reported category the chosen node and whether that node's stored schema offers
+    the value "Crochet"; per property candidate node its property ids and names; the refresh
+    time. No free text (`why`), no possible-value lists, no credential or gate detail."""
+    from sqlalchemy import select
+
+    from ..commerce import category as cat
+    from ..core.models import AuditLog, EtsyTaxonomySnapshot
+    from ..integrations.etsy_taxonomy import REFRESHED_ACTION
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == REFRESHED_ACTION)
+                       .order_by(AuditLog.id.desc()).limit(1))
+        detail = dict(row.detail or {}) if row is not None else {}
+        sid = _int(detail.get("snapshot_id"))
+        snap_row = s.get(EtsyTaxonomySnapshot, sid) if sid is not None else None
+        properties = dict(snap_row.properties or {}) if snap_row is not None else None
+    if row is None:
+        return {"readable": True, "refreshed": False, "refreshed_at": None}
+    snapshot = {"properties": properties or {}}
+
+    def offers(node_id) -> bool | None:
+        if properties is None or _int(node_id) is None or str(node_id) not in properties:
+            return None
+        return cat.crochet_property(snapshot, int(node_id)) is not None
+
+    def basis(b) -> dict | None:
+        if not isinstance(b, dict):
+            return None
+        return {"via": _name(b.get("via")), "property_id": _int(b.get("property_id")),
+                "property": _name(b.get("property")), "value_id": _int(b.get("value_id")),
+                "value": _name(b.get("value"))}
+
+    choices = {}
+    for c, ch in sorted((detail.get("category_choices") or {}).items()):
+        if not isinstance(ch, dict):
+            continue
+        tid = _int(ch.get("taxonomy_id"))
+        choices[str(c)[:40]] = {
+            "status": _name(ch.get("status")), "taxonomy_id": tid,
+            "path_ids": [x for x in (ch.get("path_ids") or []) if _int(x) is not None][:20],
+            "path_names": [_name(x) for x in (ch.get("path_names") or [])][:20],
+            "crochet_basis": basis(ch.get("crochet_basis")),
+            "schema_offers_crochet": offers(tid) if tid is not None else None}
+    candidates = []
+    for n in (detail.get("property_candidates") or [])[:40]:
+        if not isinstance(n, dict) or _int(n.get("id")) is None:
+            continue
+        nid = n["id"]
+        props = None if properties is None else [
+            {"property_id": _int(p.get("property_id")),
+             "name": _name(p.get("name") or p.get("display_name"))}
+            for p in (properties.get(str(nid)) or []) if isinstance(p, dict)][:60]
+        candidates.append({"node_id": nid, "path": _name(n.get("path")),
+                           "properties": props, "schema_offers_crochet": offers(nid)})
+    return {"readable": True, "refreshed": True, "refreshed_at": _iso(row.at),
+            "refresh_age_hours": _age_h(row.at, now), "snapshot_id": sid,
+            "snapshot_readable": properties is not None,
+            "category_choices": choices, "property_candidates": candidates}
+
+
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
 SECTIONS = {
@@ -483,6 +557,7 @@ SECTIONS = {
     "weekly_jobs": weekly_jobs,
     "certification_pipeline": certification,
     "autonomy_loop": autonomy_loop,
+    "etsy_taxonomy": etsy_taxonomy,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
@@ -566,10 +641,67 @@ def checks(db, *, now: datetime | None = None) -> list[dict]:
     ]
 
 
-def evidence(db, *, now: datetime | None = None) -> dict:
+# W4-READBACK: the deploy readback's operator-only rows (ops/readback.py OPERATOR_ENDPOINTS),
+# served here so the deploy readback needs only the read-only token. Each route's handler is
+# called in-process; what leaves is its status and the ONE field the manifest row reads,
+# projected: a bool, number or null as is, a list as its length only, anything else null.
+# None means the row reads the status only.
+DEPLOY_READBACK: dict[str, str | None] = {
+    "/api/departments": None,
+    "/api/swarm/runtime": None,
+    "/api/funding/packets": "packets",
+    "/api/offsite": "configured",
+    "/api/continuity": "last_proof_ok",
+    "/api/etsy": "usable",
+}
+
+
+def _project_value(v):
+    if v is None or isinstance(v, (bool, int, float)):
+        return v
+    if isinstance(v, (list, tuple)):
+        return {"list_length": len(v)}
+    return None
+
+
+def deploy_readback(handlers: dict) -> dict:
+    """{route: {"status", "fields"}} for DEPLOY_READBACK, from `handlers[route]()`."""
+    import json as _json
+
+    out: dict[str, dict] = {}
+    for route, field in DEPLOY_READBACK.items():
+        fn = handlers.get(route)
+        if fn is None:
+            out[route] = {"status": None, "fields": {}, "error_class": "NotServed"}
+            continue
+        try:
+            body = fn()
+            status = 200
+            if hasattr(body, "status_code") and hasattr(body, "body"):
+                status = int(body.status_code)
+                try:
+                    body = _json.loads(bytes(body.body).decode("utf-8"))
+                except (ValueError, UnicodeDecodeError):
+                    body = None
+        except Exception as exc:  # noqa: BLE001 - the route would have answered 500
+            out[route] = {"status": 500, "fields": {}, "error_class": type(exc).__name__}
+            continue
+        fields = {}
+        if field is not None:
+            fields[field] = _project_value(body.get(field) if isinstance(body, dict) else None)
+        out[route] = {"status": status, "fields": fields}
+    return out
+
+
+def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = None) -> dict:
     """The body of GET /api/readback/evidence (read-only token)."""
     now = _aware(now) or datetime.now(timezone.utc)
     sections = {name: _section(name, db, now) for name in SECTIONS}
+    if deploy_handlers is not None:
+        try:
+            sections["deploy_readback"] = deploy_readback(deploy_handlers)
+        except Exception as exc:  # noqa: BLE001
+            sections["deploy_readback"] = _unreadable(exc)
     judged = {
         "publishing_halt_clear": judge_publishing_halt(sections["publishing_halt"]),
         "stale_artefacts_rebuilding": judge_stale_rebuilds(sections["stale_artefact_rebuilds"]),

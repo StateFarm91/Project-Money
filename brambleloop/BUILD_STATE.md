@@ -10185,6 +10185,16 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
   - The ops token is refused, and the readback token is refused on every other route.
 - `ops/readback.py --evidence` reads the token from the environment only and judges each item PASS / FAIL / UNKNOWN. UNKNOWN is never a pass.
 - Contract pin: api_routes `750cd12d5d99f93d` (row in `ops/CONTRACT_CHANGES.md`).
-- Tests: `tests/test_w4_readback_evidence.py` is written but has NOT been run yet. Free disk was below the 6 GB guard (4.9 GB) while another long run was active, so no suite ran. The run is due before merge.
+- Deploy readback without the operator token: `/api/readback/evidence` also carries `deploy_readback`. These are the six operator-only manifest rows (departments, swarm runtime, funding packets, offsite, continuity, etsy).
+  - Each handler is called in-process; only its status and the row's one field leave. A list is reduced to its length.
+  - `ops/readback.py` reads these rows with `BRAMBLELOOP_READBACK_TOKEN`. It falls back to the ops token (INTEG8 707f9113's path) when only that is set, and otherwise reports NEEDS_OPERATOR, never PASS.
+- `etsy_taxonomy` section (for W-LAUNCHFIX E4): the newest `etsy.taxonomy_refreshed` row, projected to:
+  - category choices (ids and path names), and whether each chosen node's stored schema offers "Crochet";
+  - property-candidate nodes with their property ids and names;
+  - the refresh time.
+- Tests (2026-10-27, run one at a time; the later ones through `testslot.sh`): `test_w4_readback_evidence` 19/19. The suites listed below also pass; the last results are in the commit message:
+  - `test_w4_secpatch_public_surface`, `test_w4_secpatch2`, `test_route_auth_default_deny`, `test_w4_fmbatch1_route_audit`, `test_w4_fmbatch1_contracts`;
+  - `test_deploy`: its exact anonymous key-set pin gained `evidence_checks`, with each item `{check, ok}` only and equal to the operator view;
+  - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
 
 **Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.

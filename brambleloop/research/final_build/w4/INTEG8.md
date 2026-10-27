@@ -76,6 +76,16 @@ All are merged with `--no-ff`, in this order:
   - Where the freeze is absent, as it is in the image, `run()` returns UNKNOWN with a reason, never PASS. C07's own `test_f678_...` asserts this.
   - The freeze holds page-cited facts from the purchased Benchmark 2, so promoting it into the image would be the wrong fix.
   - `test_every_allowance_is_still_needed` will flag the entry as soon as the read goes away.
+- **1326e633: SCRATCH entry for `quality/benchmark_e2e.py::run` (kind `reading`).** The scratch holds only a reference rebuilt to be hashed against the frozen manifest. The verdict is returned and never stored, and the marker `_sha(` is checked in the home function.
+- **d8f5e852: finhealth's declared-CA$0 list gains F454's `analyst` and `integration_steward`.** The registry declares 0.0 for both. `ceiling_audit` must still report none misconfigured, and no ceiling was raised or exempted.
+- **Readback operator rows** (ops/readback.py, `OPERATOR_ENDPOINTS`).
+  - SECPATCH made six manifest routes operator-only, so anonymous readback read them as UNKNOWN or FAIL.
+  - Readback now sends the operator credential (BRAMBLELOOP_OPS_TOKEN) to those routes only. Without it, the rows are NEEDS_OPERATOR, which is never a pass. No route was reopened.
+  - The anonymous no-UNKNOWN assertion is unchanged. The test now also asserts:
+    - the operator set equals the gated manifest routes;
+    - an anonymous run is not PASS;
+    - with the credential, no row is UNKNOWN or held.
+  - `test_w4_smoke` adds the no-credential and wrong-credential cases. Its stand-in server refuses operator routes without the credential, as production does.
 - **Also for review** (not changed by the integrator): C07 329d0566 (spend-path pin extended for F-464's deferred render submit/poll) and the C01 hook.
 
 ## 4. B0 ledger

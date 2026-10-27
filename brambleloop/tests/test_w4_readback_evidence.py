@@ -458,8 +458,16 @@ def test_the_readback_token_is_refused_on_every_other_route():
     c = client()
     routes = [(p, m) for p, methods, _ in security.iter_api_routes(main.app)
               for m in sorted(methods - {"HEAD", "OPTIONS"}) if not security.readback_route(p)]
-    gated = [(p, m) for p, m in routes if not _is_public(m, p)]
-    public_reads = [(p, m) for p, m in routes if m == "GET" and _is_public(m, p)]
+    # An owner-session GET that answers an anonymous caller 200 is a public read too: the one
+    # such route is /api/cc/auth/status, which says only whether a session exists. It is
+    # compared with the anonymous view below; it is not exempted.
+    anon_open = {p for p, m in routes if m == "GET" and security.owner_session_route(p)
+                 and c.get(_concrete(p)).status_code == 200}
+    assert anon_open <= {"/api/cc/auth/status"}, anon_open
+    gated = [(p, m) for p, m in routes if not _is_public(m, p)
+             and not (m == "GET" and p in anon_open)]
+    public_reads = [(p, m) for p, m in routes if m == "GET"
+                    and (_is_public(m, p) or p in anon_open)]
     assert len(gated) > 200 and len(public_reads) >= 5, (len(gated), len(public_reads))
     bad = []
     with both_tokens():
@@ -525,15 +533,19 @@ def test_the_evidence_carries_no_private_field():
     assert OPS_TOKEN not in text and READBACK_TOKEN not in text
 
 
-def _fetcher(c, echo: bool = False):
-    def fetch(url, headers=None):
-        r = c.get(url.replace("https://prod.invalid", ""), headers=headers or {})
+def _fetcher(c, echo: bool = False, seen: list | None = None):
+    """ops/readback.py's fetch contract: fetch(url) public, fetch(url, token) authenticated."""
+    def fetch(url, token=None):
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        if seen is not None:
+            seen.append((url.replace("https://prod.invalid", ""), token))
+        r = c.get(url.replace("https://prod.invalid", ""), headers=headers)
         try:
             body = r.json()
         except ValueError:
             body = None
         if echo and isinstance(body, dict):
-            body["echo"] = (headers or {}).get("Authorization")  # a hostile server
+            body["echo"] = headers.get("Authorization")  # a hostile server
         return r.status_code, body
     return fetch
 
@@ -552,7 +564,7 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         assert "improve.weekly:TypeError" in by["dead letters in 24 h by job type"]["detail"]
         assert by["publishing halt clear"]["verdict"] == readback.FAIL, by  # the seeded halt
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
-                   for i in out["items"]) and len(out["items"]) == 11, out["items"]
+                   for i in out["items"]) and len(out["items"]) == 12, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN
@@ -590,6 +602,174 @@ def test_readback_evidence_names_the_checks_the_server_serves():
     assert {s for _i, s, _k in readback.EVIDENCE_ITEMS} == set(pe.SECTIONS)
     assert readback.READBACK_TOKEN_VAR == readbackauth.TOKEN_VAR
     assert readback.EVIDENCE_ENDPOINT in security.READBACK_ROUTES
+
+
+# ---- 7. deploy readback's operator-only rows read with the readback token only -------------
+
+SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _seed_continuity():
+    # The continuity row reads the newest proof; record one, as the daily cadence would (the
+    # same seed test_w4_secpatch_public_surface uses for the operator path).
+    with main.db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action="continuity.verified", detail={}))
+
+
+def test_the_readback_token_suffices_for_the_operator_rows():
+    import readback
+
+    c = client()
+    _seed_continuity()
+    seen: list = []
+    with both_tokens():
+        out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(c, seen=seen),
+                           readback_token=READBACK_TOKEN)
+        op = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(c), token=OPS_TOKEN)
+    rows = [i for i in out["features"] if i["endpoint"] in readback.OPERATOR_ENDPOINTS]
+    assert {i["endpoint"] for i in rows} == set(readback.OPERATOR_ENDPOINTS), rows
+    held = [i for i in rows if i["verdict"] in (readback.UNKNOWN, readback.NEEDS_OPERATOR)]
+    assert not held, held
+    assert all(i.get("via") == readback.EVIDENCE_ENDPOINT for i in rows), rows
+    # The same verdict as reading the routes themselves with the operator credential.
+    by_op = {i["feature"]: i["verdict"] for i in op["features"]}
+    assert {i["feature"]: i["verdict"] for i in rows} == {
+        i["feature"]: by_op[i["feature"]] for i in rows}, (rows, by_op)
+    # The operator token was never sent, the operator routes were never fetched, and the
+    # readback token went only to the evidence endpoint.
+    assert all(t != OPS_TOKEN for _u, t in seen), seen
+    assert {u for u, t in seen if t} == {readback.EVIDENCE_ENDPOINT}, seen
+    assert not {u for u, _t in seen} & set(readback.OPERATOR_ENDPOINTS), seen
+    assert READBACK_TOKEN not in json.dumps(out) and OPS_TOKEN not in json.dumps(out)
+
+
+def test_the_operator_rows_fall_back_to_the_ops_token_else_need_an_operator():
+    import readback
+
+    c = client()
+    _seed_continuity()
+    with both_tokens():
+        seen: list = []
+        op = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(c, seen=seen),
+                          token=OPS_TOKEN)
+        rows = [i for i in op["features"] if i["endpoint"] in readback.OPERATOR_ENDPOINTS]
+        assert len(rows) == len(readback.OPERATOR_ENDPOINTS) and not any(
+            i.get("via") for i in rows), rows
+        assert readback.EVIDENCE_ENDPOINT not in {u for u, _t in seen}, seen
+        none = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(c))
+        held = {i["endpoint"] for i in none["features"]
+                if i["verdict"] == readback.NEEDS_OPERATOR}
+        assert held == set(readback.OPERATOR_ENDPOINTS) and none["verdict"] != readback.PASS
+        wrong = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(c),
+                             readback_token="w" * 40)
+        bad = [i for i in wrong["features"] if i["endpoint"] in readback.OPERATOR_ENDPOINTS]
+        assert len(bad) == len(readback.OPERATOR_ENDPOINTS)
+        assert {i["verdict"] for i in bad} == {readback.UNKNOWN}, bad
+        assert wrong["verdict"] != readback.PASS
+    # The CLI reads the token from the environment and prefers the readback token.
+    with _env(**{opsauth.TOKEN_VAR: None, readbackauth.TOKEN_VAR: READBACK_TOKEN}):
+        os.environ[readbackauth.TOKEN_VAR] = READBACK_TOKEN
+        saved = readback._fetch
+        calls: list = []
+        readback._fetch = _fetcher(c, seen=calls)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as o, \
+                    contextlib.redirect_stderr(io.StringIO()) as e:
+                readback.main(["--sha", SHA, "--url", "https://prod.invalid"])
+        finally:
+            readback._fetch = saved
+        assert (readback.EVIDENCE_ENDPOINT, READBACK_TOKEN) in calls, calls
+        assert READBACK_TOKEN not in o.getvalue() + e.getvalue()
+        assert "NEEDS_OPERATOR" not in e.getvalue(), e.getvalue()[-800:]
+
+
+def test_the_deploy_rows_are_projected_with_no_private_value():
+    import readback
+
+    c = client()
+    with both_tokens():
+        body = c.get("/api/readback/evidence", headers=bearer(READBACK_TOKEN)).json()
+    dr = body["deploy_readback"]
+    assert set(dr) == set(pe.DEPLOY_READBACK) == set(readback.OPERATOR_ENDPOINTS), sorted(dr)
+    manifest = {e: f for _f, _r, e, f, *_ in readback.MANIFEST if e in readback.OPERATOR_ENDPOINTS}
+    assert manifest == {e: (f or "@status") for e, f in pe.DEPLOY_READBACK.items()}, manifest
+    for route, row in dr.items():
+        assert set(row) <= {"status", "fields", "error_class"}, (route, row)
+        assert isinstance(row["status"], int), (route, row)
+        for v in row["fields"].values():
+            ok = v is None or isinstance(v, (bool, int, float)) or (
+                isinstance(v, dict) and set(v) == {"list_length"})
+            assert ok, (route, v)
+    assert pe._project_value([{"secret": PRIVATE["payload"]}]) == {"list_length": 1}
+    assert pe._project_value(PRIVATE["payload"]) is None
+    assert pe._project_value({"k": PRIVATE["payload"]}) is None
+
+
+# ---- 8. the Etsy taxonomy refresh, projected for the category decision (W-LAUNCHFIX E4) ----
+
+
+def test_the_taxonomy_refresh_is_projected_ids_and_names_only():
+    import readback
+    from brambleloop.core.models import EtsyTaxonomySnapshot
+
+    d = _fresh_db()
+    ev = pe.etsy_taxonomy(d, now=NOW)
+    assert ev == {"readable": True, "refreshed": False, "refreshed_at": None}, ev
+    assert readback._judge_section("etsy_taxonomy", ev, None)[0] == readback.UNKNOWN
+    crochet = {"property_id": 46, "name": "Craft type", "possible_values": [
+        {"value_id": 9001, "name": "Crochet"}, {"value_id": 9002, "name": "Knitting"}]}
+    with d.session() as s:
+        snap = EtsyTaxonomySnapshot(sha256="0" * 64, node_count=3, nodes=[],
+                                    properties={"100": [crochet],
+                                                "200": [{"property_id": 47, "name": "Size",
+                                                         "possible_values": []}]})
+        s.add(snap)
+        s.flush()
+        sid = snap.id
+    at = NOW - timedelta(hours=5)
+    detail = {
+        "ran": True, "snapshot_id": sid, "gate": {"secret": PRIVATE["payload"]},
+        "why": PRIVATE["error_text"],
+        "property_candidates": [{"id": 100, "path": "Craft Supplies > Patterns"},
+                                {"id": 200, "path": "Craft Supplies > Patterns > Home"}],
+        "category_choices": {
+            "basket": {"status": "CHOSEN", "taxonomy_id": 100, "path_ids": [1, 100],
+                       "path_names": ["Craft Supplies", "Patterns"], "why": PRIVATE["incident"],
+                       "crochet_basis": {"via": "property", "property_id": 46,
+                                         "property": "Craft type", "value_id": 9001,
+                                         "value": "Crochet"}},
+            "coaster": {"status": "UNKNOWN", "taxonomy_id": 200, "path_ids": [1, 100, 200],
+                        "path_names": ["Craft Supplies", "Patterns", "Home"],
+                        "crochet_basis": None, "why": PRIVATE["incident"]}}}
+    _audit(d, "etsy.taxonomy_refreshed", detail, at)
+    ev = pe.etsy_taxonomy(d, now=NOW)
+    assert ev["refreshed"] is True and ev["refreshed_at"] == at.isoformat(), ev
+    assert ev["refresh_age_hours"] == 5.0 and ev["snapshot_readable"] is True, ev
+    ch = ev["category_choices"]
+    assert ch["basket"]["schema_offers_crochet"] is True and ch["basket"]["taxonomy_id"] == 100
+    assert ch["basket"]["crochet_basis"]["value_id"] == 9001, ch["basket"]
+    assert ch["basket"]["path_names"] == ["Craft Supplies", "Patterns"], ch["basket"]
+    assert ch["coaster"]["schema_offers_crochet"] is False, ch["coaster"]
+    cands = {c["node_id"]: c for c in ev["property_candidates"]}
+    assert cands[100]["properties"] == [{"property_id": 46, "name": "Craft type"}], cands
+    assert cands[100]["schema_offers_crochet"] is True and cands[200][
+        "schema_offers_crochet"] is False, cands
+    text = json.dumps(ev)
+    for private in (PRIVATE["payload"], PRIVATE["error_text"], PRIVATE["incident"]):
+        assert private not in text, private
+    assert '"why"' not in text and '"gate"' not in text and "possible_values" not in text
+    assert readback._judge_section("etsy_taxonomy", ev, None)[0] == readback.FAIL
+    # Once every chosen node offers "Crochet", the item passes.
+    detail["category_choices"]["coaster"]["taxonomy_id"] = 100
+    _audit(d, "etsy.taxonomy_refreshed", detail, NOW - timedelta(hours=1))
+    ev = pe.etsy_taxonomy(d, now=NOW)
+    assert readback._judge_section("etsy_taxonomy", ev, None)[0] == readback.PASS, ev
+    # And it is served on the endpoint, to the readback token.
+    c = client()
+    with both_tokens():
+        body = c.get("/api/readback/evidence", headers=bearer(READBACK_TOKEN)).json()
+    assert body["etsy_taxonomy"] == {"readable": True, "refreshed": False,
+                                     "refreshed_at": None}, body["etsy_taxonomy"]
 
 
 if __name__ == "__main__":
