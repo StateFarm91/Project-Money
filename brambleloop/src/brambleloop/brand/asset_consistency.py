@@ -17,7 +17,8 @@ asset we hold before it reaches Etsy. This module checks those, deterministicall
 * **resolution** -- a raster brand asset must meet its surface's minimum (Etsy shop icon 500 px
   square; banner 1200 px wide; listing image 2000 px shortest side).
 
-Findings carry `route_to` (`brand` for marks and pages, `publishing` for listing images),
+Findings carry `route_to` (`storefront_director`, which reviews the shop against the brand
+rules, for marks and pages, `publishing` for listing images),
 the same shape as `asset_health` findings, so the storefront review can route them unchanged.
 Read-only, local, CA$0.
 """
@@ -74,15 +75,15 @@ def check_svg(name: str, text: str) -> list[dict]:
     visible = re.sub(r"<(mask|clipPath)\b.*?</\1>", "", text, flags=re.S)
     off = sorted({_norm(m.group(0)) for m in _HEX.finditer(visible)} - allowed)
     if off:
-        out.append(_f("MARK_OFF_PALETTE", name, "brand",
+        out.append(_f("MARK_OFF_PALETTE", name, "storefront_director",
                       f"colours outside the brand palette: {off[:8]}"))
     if re.search(r"<text[\s>]", text):
-        out.append(_f("MARK_LIVE_TEXT", name, "brand",
+        out.append(_f("MARK_LIVE_TEXT", name, "storefront_director",
                       "a mark carries live <text>; marks are outlined artwork"))
     return out
 
 
-def check_css(name: str, text: str, *, route: str = "brand") -> list[dict]:
+def check_css(name: str, text: str, *, route: str = "storefront_director") -> list[dict]:
     out = []
     off = sorted({_norm(m.group(0)) for m in _HEX.finditer(text)} - brand_colours())
     if off:
@@ -102,7 +103,7 @@ def check_css(name: str, text: str, *, route: str = "brand") -> list[dict]:
 
 
 def check_raster(name: str, data: bytes, surface: str) -> list[dict]:
-    route = "publishing" if surface == "listing_image" else "brand"
+    route = "publishing" if surface == "listing_image" else "storefront_director"
     try:
         from PIL import Image
 

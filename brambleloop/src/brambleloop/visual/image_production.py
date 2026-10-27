@@ -818,19 +818,22 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
         laura_roles = [r for r in SP.generated_roles(plan) if r["laura"]]
         if stage == "load_laura_references":
-            from . import canonical
+            from . import canonical_registry
 
             if not laura_roles:
                 _update(db, key, stage=stage, status=st,
                         record={"outputs": {"laura": "not in this listing's shot plan"}})
                 return {"run_key": key, "next": go(_next(stage))}
-            check = canonical.verify()
-            if not check.get("ok"):
+            # F-733 (WIRE1): Laura is resolved from the canonical asset registry -- manifest
+            # bytes, approved views, conditioning packages and the approval record -- never
+            # from a constant the stage remembers.
+            reg = canonical_registry.resolve(db)
+            if not reg.get("ok"):
                 return block(f"Laura's canonical references failed verification: "
-                             f"{check.get('problems')}")
+                             f"{reg.get('problems')}")
             _update(db, key, stage=stage, status=st, record={"outputs": {
-                "identity_id": canonical.IDENTITY_ID,
-                "references": dict(canonical.CURRENT_REFERENCE_HASHES)}})
+                "identity_id": reg["identity_id"], "registry": reg["registry"],
+                "references": {f: v["sha256"] for f, v in reg["approved_views"].items()}}})
             return {"run_key": key, "next": go(_next(stage))}
 
         if stage == "reserve_outfit":
