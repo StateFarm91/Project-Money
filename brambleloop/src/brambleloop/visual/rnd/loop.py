@@ -816,6 +816,23 @@ def execute_paid(db, experiment_id: int) -> dict:
 
 # ---------------------------------------------------------------------------- the cycle
 
+def canonical_model_cell(db, *, now: datetime | None = None) -> dict:
+    """W4-C08: the canonical-model side of the R&D cycle, all CA$0 readings and proposals:
+    F-737/F-745 improvement loop (and F-738 rollback watch), F-739 provider benchmark, F-859
+    visual economics. One failing part is reported, never stops the cycle."""
+    from .. import economics, model_rnd, provider_routing
+
+    out: dict = {}
+    for name, fn in (("improvement", lambda: model_rnd.cycle(db, now=now)),
+                     ("provider_benchmark", lambda: provider_routing.record(db)),
+                     ("economics", lambda: economics.record(db))):
+        try:
+            out[name] = fn()
+        except Exception as exc:  # noqa: BLE001 - a reading that fails is recorded as such
+            out[name] = {"error": f"{type(exc).__name__}: {exc}"[:300]}
+    return out
+
+
 def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
           experiments_per_class: int = 1, hero: bool = True,
           imagery: bool | None = None) -> dict:
@@ -835,6 +852,7 @@ def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
         from .. import launch_imagery
 
         report["launch_imagery"] = launch_imagery.refresh(db)
+        report["canonical_model"] = canonical_model_cell(db, now=now)
     for cls in (classes or list(P.PRODUCT_CLASSES)):
         entry: dict = {}
         cirs = cat.get(cls, [])
