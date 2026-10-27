@@ -140,11 +140,15 @@ def test_declared_zero_ceilings_are_no_spend_not_missing():
     # DECISION_LOG D-W4-LAURA1-BUDGET); the no-spend semantics are unchanged for the rest.
     # `storefront_director` joined on W4-AGENTS: deterministic, no model, CA$0 by declaration.
     # `research_agent` joined on W4-AGENTS W3: internal retrieval only, CA$0 by declaration.
-    assert declared_zero == ["coo", "learn", "research_agent", "storefront_director"], declared_zero
+    # `analyst` and `integration_steward` joined on W4-F454: deterministic measurement and
+    # read-only integration checks (no model call), GREEN, CA$0 by declaration in the registry.
+    want = ["analyst", "coo", "integration_steward", "learn", "research_agent",
+            "storefront_director"]
+    assert declared_zero == want, declared_zero
     assert declared_daily_ceiling("laura") == 0.50
     out = ceiling_audit(_seeded_rows(db))
     assert out["ok"] is True, out
-    assert out["declared_no_spend"] == ["coo", "learn", "research_agent", "storefront_director"]
+    assert out["declared_no_spend"] == want
     assert out["misconfigured"] == []
 
 
