@@ -839,6 +839,27 @@ def intake_rows(db, *, slug: str | None = None, mjs_event_id: int | None = None,
     return rows
 
 
+def latest_per_slug(db) -> list[tuple[int, str, dict]]:
+    """The newest intake row of every design, newest first, however old.
+
+    W4-AGENTS2 (research-to-product stall): `regate_held` read only the newest
+    `REGATE_ROWS` intake rows of any design. Once that many newer rows existed (191
+    tournaments in production, each writing one), an older winner left WAITING was never
+    re-presented, even the day its judgement arrived."""
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        ids = [i for (i,) in s.execute(
+            select(func.max(AuditLog.id)).where(AuditLog.action == INTAKE_ACTION)
+            .group_by(AuditLog.artifact)).all()]
+        rows = [(r.id, r.artifact or "", dict(r.detail or {}))
+                for r in s.scalars(select(AuditLog).where(AuditLog.id.in_(ids))
+                                   .order_by(AuditLog.id.desc()))] if ids else []
+    return rows
+
+
 def verify_funnel(db, slug: str) -> dict:
     """What `cir.draft` asks before drafting a new creative concept (#3)."""
     rows = intake_rows(db, slug=slug, limit=5)
@@ -1038,11 +1059,12 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
     from . import ideation
 
     latest: dict[str, dict] = {}
-    for row_id, slug, detail in intake_rows(ctx.db):
+    for row_id, slug, detail in latest_per_slug(ctx.db):
         latest.setdefault(slug, {"id": row_id, **detail})
     presented, queued, held = [], [], []
     vision_ok = gw.vision_usable(ctx.db)
     stopped = False
+    asked_n = 0
     for slug, detail in list(latest.items()):
         if len(presented) >= REGATE_LIMIT:
             break
@@ -1051,7 +1073,10 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
         board = board_for(ctx.db, slug)
         judged = judgement_for(ctx.db, slug)
         asked: dict = {}
-        if not judged and board and vision_ok and not stopped:
+        if not judged and board and vision_ok and not stopped and asked_n < REGATE_LIMIT:
+            # The wider window (every design, not the newest REGATE_ROWS) never widens the
+            # paid judging: at most REGATE_LIMIT judge calls per run, inside the budget.
+            asked_n += 1
             asked = judge_held(ctx, slug=slug, board=board, provider=provider)
             stopped = bool(asked.get("stopped"))
             judged = judgement_for(ctx.db, slug) if asked.get("judged") else None

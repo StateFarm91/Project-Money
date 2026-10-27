@@ -204,6 +204,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "owner.storefront.rebased": ("lifetime_total",
                                  "ops.storefront_authority grant chain (sealed_chain)"),
     # W4-AGENTS readers that name their action through a constant:
+    # W4-AGENTS2: department evidence reads the newest reconcile and CFO challenge only.
+    "finance.reconciled": ("latest", "autonomy.department_evidence reads the newest row"),
+    "finance.challenged": ("latest", "autonomy.department_evidence reads the newest row"),
     "quality.reverified": ("windowed", "runtime.quality_ops.next_work reads the last 24 h"),
     "research.investigated": ("lifetime_total",
                               "intel.research_agent.metrics counts every investigation "
