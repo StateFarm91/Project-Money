@@ -86,29 +86,52 @@ def test_f226_copy_paste_sameness_is_rejected_and_natural_variation_is_permitted
     assert "SYNTHETIC_LOOK" in {f["code"] for f in N.check_sequence(glam)["findings"]}
     drift = [dict(varied[0]), dict(varied[1], identity="FAIL")]
     assert "IDENTITY_NOT_LOCKED" in {f["code"] for f in N.check_sequence(drift)["findings"]}
+    # a flat fill has no picture to compare: unmeasurable (UNKNOWN), not copy-paste
+    from PIL import Image
+
+    flat = io.BytesIO()
+    Image.new("RGB", (64, 64), (200, 180, 160)).save(flat, format="PNG")
+    flats = N.check_sequence([dict(base, data=flat.getvalue()), dict(base, data=flat.getvalue())])
+    assert flats["status"] == "UNKNOWN" and not flats["findings"]
     # undeclared variation is UNKNOWN, never a pass
     bare = [dict(base, data=x) for x in (a, b, _png(3))]
     assert N.check_sequence(bare)["status"] == "UNKNOWN"
 
 
-def test_f226_the_gallery_consistency_gate_refuses_two_laura_frames_that_are_one_photo():
+def test_f226_a_gallery_of_two_laura_frames_that_are_one_photo_cannot_be_published():
     from brambleloop.core.artifacts import ArtifactStore
-    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP, naturalism as N
+    from brambleloop.visual import shot_plans as SP
 
     st = ArtifactStore()
     s1 = st.put("a", _png(11), "image/png").sha256
     s2 = st.put("b", _png(11, shift=4), "image/png").sha256
     s3 = st.put("c", _png(12), "image/png").sha256
     row = {"listing": "L", "version": "1", "release": "r", "cir_fingerprint": "f",
-           "laura_present": True, "outfit_id": "o1"}
-    ok = CG.campaign_consistency([dict(row, sha256=s1), dict(row, sha256=s3)])
-    assert ok["status"] == "PASS", ok
-    bad = CG.campaign_consistency([dict(row, sha256=s1), dict(row, sha256=s2)])
-    assert bad["status"] == "FAIL" and "copy-paste" in bad["why"], bad
+           "laura_present": True, "outfit_id": "o1", "publishable": False, "blockers": [],
+           "technical_status": "PASS"}
+    assert N.sameness_only([dict(row, sha256=s1), dict(row, sha256=s3)])["status"] == "PASS"
     # a product-only frame is never compared as Laura
-    prod = CG.campaign_consistency([dict(row, sha256=s1),
-                                    dict(row, sha256=s2, laura_present=False)])
-    assert prod["status"] == "PASS"
+    assert N.sameness_only([dict(row, sha256=s1),
+                            dict(row, sha256=s2, laura_present=False)])["status"] == "PASS"
+    role = {"position": 0, "job": "LIFESTYLE", "campaign_role": "x", "laura": True,
+            "required_by": [], "conditional": False, "preferred_source": "generated",
+            "generate": True, "sources": {SP.DISCLOSED: SP.NOT_DRAWABLE}}
+    plan = {"category": "c", "image_count": 2,
+            "roles": [dict(role, position=1, role="lifestyle"),
+                      dict(role, position=2, role="fit")]}
+    db = _db()
+    for pair, bad in (((s1, s3), False), ((s1, s2), True)):
+        picks = {"lifestyle": dict(row, sha256=pair[0]), "fit": dict(row, sha256=pair[1])}
+        saved = IP._best
+        IP._best = lambda _db, *, listing, role, run=None: picks[role]
+        try:
+            view = IP.readiness(db, "L", plan=plan)
+        finally:
+            IP._best = saved
+        blocked = [b for b in view["publication_blockers"] if b.startswith("F-226")]
+        assert bool(blocked) is bad, view["publication_blockers"]
+        assert view["naturalism"]["status"] == ("FAIL" if bad else "PASS")
 
 
 # ---- F-733 -----------------------------------------------------------------------------------

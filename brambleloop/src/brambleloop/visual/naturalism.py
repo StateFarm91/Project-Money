@@ -12,8 +12,11 @@ What already existed and is reused, not rebuilt:
   `processing_is_restrained`), carried into each candidate's `realism` check.
 
 What was missing is the sequence-level property: two frames of Laura that are the same
-photograph. `check_sequence(frames)` adds it, deterministically:
-* `COPY_PASTE_SAMENESS` -- identical bytes, or a perceptual difference hash (dHash, 64 bits)
+photograph. `check_sequence(frames)` adds it, deterministically (and
+`image_production.readiness` turns gallery sameness into a publication blocker, so such a
+gallery can never be approved for publication; the owner still sees the card and why):
+* `COPY_PASTE_SAMENESS` -- (on frames with picture structure; a flat fill is unmeasurable)
+  identical bytes, or a perceptual difference hash (dHash, 64 bits)
   within `MAX_COPY_DISTANCE` bits of another frame: the same picture re-used, re-encoded or
   lightly re-toned is not "photographed on a different day";
 * `NO_NATURAL_VARIATION` -- three or more frames whose declared pose, expression, hair and
@@ -36,6 +39,9 @@ MAX_COPY_DISTANCE = 6
 VARIATION_AXES = ("pose", "expression", "hair", "setting")
 MIN_FRAMES_FOR_VARIATION = 3
 KIND = "visual.naturalism"
+# Thumbnail grey-level standard deviation below which a frame has no structure (a flat fill):
+# its sameness is unmeasurable, never evidence either way. No photograph is this flat.
+MIN_STRUCTURE = 2.0
 
 
 def dhash(data: bytes) -> int | None:
@@ -47,6 +53,9 @@ def dhash(data: bytes) -> int | None:
     except Exception:  # noqa: BLE001 - unreadable bytes are UNKNOWN, not an error
         return None
     px = list(img.getdata())
+    mean = sum(px) / len(px)
+    if (sum((v - mean) ** 2 for v in px) / len(px)) ** 0.5 < MIN_STRUCTURE:
+        return None                # a flat frame carries no picture to compare
     bits = 0
     for row in range(8):
         for col in range(8):
@@ -85,11 +94,13 @@ def check_sequence(frames: list[dict]) -> dict:
         data = f.get("data")
         h = dhash(data) if data else None
         if h is None:
-            unknown.append(f"frame {i}: bytes unreadable, sameness not measured")
+            unknown.append(f"frame {i}: bytes unreadable or flat, sameness not measured")
         else:
             hashes[i] = h
     seen_sha: dict[str, int] = {}
     for i, f in enumerate(frames):
+        if i not in hashes:
+            continue
         sha = f.get("sha256") or (hashlib.sha256(f["data"]).hexdigest() if f.get("data")
                                   else None)
         if sha and sha in seen_sha:
@@ -153,3 +164,9 @@ def sameness_only(rows: list[dict], *, db=None, store=None) -> dict:
     full = check_sequence([{"sha256": f["sha256"], "data": f["data"]} for f in frames])
     same = [f for f in full["findings"] if f["code"] == "COPY_PASTE_SAMENESS"]
     return {"status": FAIL if same else PASS, "findings": same, "frames": len(frames)}
+
+
+def publication_blockers(sameness: dict) -> list[str]:
+    """The gallery's publication blockers for copy-paste sameness (`image_production.readiness`)."""
+    return [f"F-226 copy-paste sameness between Laura frames {f['frames']}: {f['why']}"
+            for f in sameness.get("findings") or [] if f.get("code") == "COPY_PASTE_SAMENESS"]

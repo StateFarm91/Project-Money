@@ -1545,10 +1545,19 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
         {"kind": "no_valid_frames"}]}
     consistency = CG.campaign_consistency(chosen) if chosen else CG._c(
         CG.NA, "no generated images yet")
+    # F-226 (W4-C08): two Laura frames that are one photograph are copy-paste sameness, not a
+    # real person photographed on different days. The owner still sees the card; the gallery
+    # cannot be approved for publication while the blocker stands.
+    from . import naturalism
+
+    sameness = naturalism.sameness_only(chosen) if chosen else {"status": "PASS",
+                                                                "findings": []}
+    blockers |= set(naturalism.publication_blockers(sameness))
     return {"listing": listing, "category": plan["category"], "roles": roles,
             "image_count": plan["image_count"],
             "set_check": {"ok": set_check["ok"], "problems": set_check["problems"]},
             "campaign_consistency": consistency,
+            "naturalism": sameness,
             "ruling_conflicts": plan.get("ruling_conflicts") or [],
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
