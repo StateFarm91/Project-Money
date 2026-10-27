@@ -59,6 +59,23 @@ def _legible_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int
 # Every use of MUTED in this module is small type on the chart's cream ground.
 MUTED = _legible_on(bible.rgb255("muted"), CREAM)
 
+# WCAG 2.1 SC 1.4.11: a graphical object a reader needs in order to understand the content
+# must reach 3:1 against what it sits on. The cell and wedge outlines are exactly that -- a
+# round chart's caption tells the maker to *count the wedges in a ring* -- and they were drawn
+# in the brand's `line` at 1.3:1 on cream, so on the printed basket chart the rings could not be
+# counted at all. The brand colour is kept as the starting point and darkened only as far as
+# the floor requires, by the same rule the text uses.
+GRAPHIC_CONTRAST = 3.0
+
+
+def _graphic_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int, int, int]:
+    r, g, b = bible.legible(tuple(c / 255 for c in fg), tuple(c / 255 for c in bg),
+                            minimum=GRAPHIC_CONTRAST)
+    return (round(r * 255), round(g * 255), round(b * 255))
+
+
+GRID = _graphic_on(LINE, CREAM)
+
 # Stitch glyphs. Deliberately ASCII-safe: a chart that depends on an exotic font renders as
 # empty boxes on someone else's machine, and we cannot see that happen.
 GLYPHS: dict[str, str] = {
@@ -697,7 +714,7 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
             x = left + c_idx * cell
             color_id = row_colors[c_idx] if c_idx < len(row_colors) else None
             bg = _hex_to_rgb(cir.colors.get(color_id) if color_id else None)
-            d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=LINE)
+            d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=GRID)
             ink = _readable_on(bg)
             cue = cues.get(color_id or "")
             if spec.show_glyphs and cell >= 10:
@@ -885,13 +902,13 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
             # A wedge is the ring band between two radii; drawing the outer pie and then the
             # inner one in the background colour is the cheap, dependency-free way to get it.
             d.pieslice([cx - edge, cy - edge, cx + edge, cy + edge],
-                       start=start, end=start + step, fill=bg, outline=LINE)
+                       start=start, end=start + step, fill=bg, outline=GRID)
         if sector:
             d.pieslice([cx - inner, cy - inner, cx + inner, cy + inner],
-                       start=arc0, end=arc0 + span, fill=CREAM, outline=LINE)
+                       start=arc0, end=arc0 + span, fill=CREAM, outline=GRID)
         else:
             d.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
-                      fill=CREAM, outline=LINE)
+                      fill=CREAM, outline=GRID)
 
         # Mark the shaping where it falls, which is the only thing a round chart really has
         # to show: six stacked marks are a hexagon, six that drift are a circle.

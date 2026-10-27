@@ -576,6 +576,12 @@ def test_no_type_in_the_customer_document_is_set_below_the_brand_minimum():
         for match in re.finditer(r'setFont\("Helvetica(?:-Bold)?",\s*(\d+)\)', line):
             if int(match.group(1)) < minimum:
                 offenders.append((number, line.strip()))
+        # The embedded brand faces (brand.pdf_fonts) are named by FONT_* constants, and every
+        # string is drawn through `_Doc.text(x, y, s, FONT_*, size, ...)`: a literal size after
+        # a face constant is a size the document sets.
+        for match in re.finditer(r"\bFONT_[A-Z_]+,\s*(\d+(?:\.\d+)?)\b", line):
+            if float(match.group(1)) < minimum:
+                offenders.append((number, line.strip()))
         for match in re.finditer(r"\bsize=(\d+)\b", line):
             if int(match.group(1)) < minimum:
                 offenders.append((number, line.strip()))

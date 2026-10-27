@@ -9,6 +9,16 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 from pypdf import PdfReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from brambleloop.publish import pdf
+from brambleloop.brand import pdf_fonts
+
+# The document embeds the brand faces (brand.pdf_fonts); a run's /BaseFont is the subset tag
+# plus the face's PostScript name, mapped back here to the name the engine draws it under.
+_REGISTERED = {Path(f).stem: name for name, f in pdf_fonts.FACES.items()}
+
+
+def _face(base_font: str) -> str:
+    base = base_font.removeprefix("/").split("+", 1)[-1]
+    return _REGISTERED.get(base, base)
 from brambleloop.products.builder import for_slug
 from brambleloop.cir.compiler import compile_cir
 from brambleloop.cir.twin import build_twin
@@ -22,7 +32,7 @@ class LayoutBounds(unittest.TestCase):
         page=PdfReader(io.BytesIO(d.finish())).pages[0];runs=[]
         def visit(text,cm,tm,font,size):
             text=text.strip()
-            if text:runs.append((text,tm[4],tm[5],font["/BaseFont"].removeprefix("/"),size))
+            if text:runs.append((text,tm[4],tm[5],_face(font["/BaseFont"]),size))
         extracted=page.extract_text(visitor_text=visit)
         body=[r for r in runs if not r[0].startswith("page ")]
         # Two key/value pairs were drawn; a page that extracted to nothing would pass every
@@ -32,8 +42,8 @@ class LayoutBounds(unittest.TestCase):
             self.assertGreaterEqual(size,9)
             self.assertGreaterEqual(x,pdf.MARGIN-.01)
             self.assertLessEqual(x+stringWidth(text,font,size),pdf.PAGE_W-pdf.MARGIN+.01)
-        labels=[r for r in body if r[3]=="Helvetica-Bold" and r[0]!="NEXT"]
-        vals=[r for r in body if r[3]=="Helvetica" and r[0]!="next row"]
+        labels=[r for r in body if r[3]==pdf.FONT_LABEL and r[0]!="NEXT"]
+        vals=[r for r in body if r[3]==pdf.FONT_BODY and r[0]!="next row"]
         self.assertEqual(" ".join(r[0] for r in labels),key)
         self.assertEqual(" ".join(r[0] for r in vals),value)
         for text,x,y,font,size in labels:
@@ -45,14 +55,14 @@ class LayoutBounds(unittest.TestCase):
     def test_oversize_url_keeps_every_character_inside_printable_width(self):
         d=pdf._Doc("url");d.new_page()
         url="https://publications.aap.org/pediatrics/article/150/1/e2022057991/188305/Evidence-Base-for-2022-Updated-Recommendations-for"
-        lines=pdf._wrap(d.c,url,"Helvetica",9,pdf.PAGE_W-2*pdf.MARGIN)
+        lines=pdf._wrap(d.c,url,pdf.FONT_BODY,9,pdf.PAGE_W-2*pdf.MARGIN)
         self.assertEqual("".join(lines),url);self.assertGreater(len(lines),1)
         d.para(url,size=9);runs=[]
         def visit(text,cm,tm,font,size):
             if text.strip() and not text.startswith("page "):runs.append((text.strip(),tm[4],size))
         PdfReader(io.BytesIO(d.finish())).pages[0].extract_text(visitor_text=visit)
         self.assertEqual("".join(r[0] for r in runs),url)
-        for text,x,size in runs:self.assertLessEqual(x+stringWidth(text,"Helvetica",size),pdf.PAGE_W-pdf.MARGIN+.01)
+        for text,x,size in runs:self.assertLessEqual(x+stringWidth(text,pdf.FONT_BODY,size),pdf.PAGE_W-pdf.MARGIN+.01)
 
     def test_impossible_chart_floor_is_structured_refusal_not_exception(self):
         cir=for_slug("cloudline-baby-blanket");twin=build_twin(cir,compile_cir(cir))

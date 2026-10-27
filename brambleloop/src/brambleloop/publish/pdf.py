@@ -15,16 +15,20 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from datetime import date
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as rl_canvas
 
-from ..brand import bible
+from ..brand import bible, identity_system, pdf_fonts
+from ..gates import platform_policy
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
@@ -42,14 +46,39 @@ from .difficulty import difficulty as _difficulty
 PAGE_W, PAGE_H = LETTER
 MARGIN = 18 * mm
 
-# Read from the brand system rather than restated here. `brand/bible.py` says "anything that
-# renders an asset reads from here", and this module held its own copy of the same six hex
-# codes -- so the brand was locked everywhere except in the one artefact the customer keeps.
-INK = colors.HexColor(bible.PALETTE["ink"])
-PINE = colors.HexColor(bible.PALETTE["pine"])
-CREAM = colors.HexColor(bible.PALETTE["cream"])
-GOLD = colors.HexColor(bible.PALETTE["gold"])
-LINE = colors.HexColor(bible.PALETTE["line"])
+# The brand's typefaces, embedded (brand.pdf_fonts). The document was set in Helvetica, which
+# is not one of the identity's families and is not embedded: the page a buyer's reader drew
+# was whichever sans-serif it had to hand.
+FONT_DISPLAY = "BL-Display"            # Cormorant Garamond SemiBold: titles and sections
+FONT_DISPLAY_BOLD = "BL-Display-Bold"
+FONT_DISPLAY_ITALIC = "BL-Display-Italic"
+FONT_BODY = "BL-Body"                  # Lora: everything a maker reads
+FONT_BODY_ITALIC = "BL-Body-Italic"
+FONT_BODY_BOLD = "BL-Body-SemiBold"
+FONT_UI = "BL-UI"                      # Work Sans: labels, running heads, folios
+FONT_UI_MEDIUM = "BL-UI-Medium"
+FONT_UI_BOLD = "BL-UI-SemiBold"
+# What a key/value row sets its label in, named for the layout checks that look for it.
+FONT_LABEL = FONT_UI_MEDIUM
+
+# The palette, read from the brand identity (`brand.identity_system`, D-FB-16/17) rather than
+# restated here. It was read from `brand.bible`'s older palette, which the identity superseded
+# for every customer surface except, until now, the one the customer keeps.
+_ROLES = identity_system.ROLES
+_IDP = identity_system.PALETTE
+PAPER = colors.HexColor(_ROLES["background"])
+SURFACE = colors.HexColor(_ROLES["surface"])
+FOREST = colors.HexColor(_ROLES["text"])
+ROSE = colors.HexColor(_ROLES["accent"])          # decoration only, never small text
+SAGE_MIST = colors.HexColor(_IDP["sage_mist"])
+LINE = colors.HexColor(_IDP["yarn_light"])
+GOLD = colors.HexColor(_IDP["pollen"])            # decoration only
+
+# Names the rest of the package (and its tests) read. INK is body text, PINE the heading
+# colour, CREAM the paper.
+INK = FOREST
+PINE = FOREST
+CREAM = PAPER
 
 # The smallest type this document may set, taken from the brand's own declared minimum. The
 # footer was at 8pt against a brand rule that says 9, which is the kind of drift a constant
@@ -70,23 +99,27 @@ def contrast(fg, bg) -> float:
 def _legible(fg, bg, *, minimum: float = MIN_CONTRAST):
     """The brand colour, darkened only as far as it has to be to be readable on this paper.
 
-    The brand's `muted` grey measures 4.48:1 on the brand's cream -- a fraction under the AA
-    floor, and it is the colour of the yarn-tolerance note, the substitution caveats, the
-    chart instructions and the page numbers, which is most of the explanatory prose in the
-    document. Rather than move a palette that the storefront and the chart renderer also
-    read, the document darkens its own ink until it passes and leaves the brand alone.
-
     The maths lives in `brand.bible` so that the chart renderer applies the same rule to the
-    same palette; this is the reportlab wrapper around it.
+    same palette; this is the reportlab wrapper around it. Every text colour below is the
+    brand's own colour passed through this, measured on the darker of the two grounds the
+    document sets text on (the paper; the panels are lighter still).
     """
     r, g, b = bible.legible((fg.red, fg.green, fg.blue), (bg.red, bg.green, bg.blue),
                             minimum=minimum)
     return colors.Color(r, g, b)
 
 
-MUTED = _legible(colors.HexColor(bible.PALETTE["muted"]), CREAM)
-# The cover's subtitle sits on the pine band, where the brand gold measures 3.65:1.
-GOLD_ON_PINE = _legible(GOLD, PINE)
+MUTED = _legible(colors.HexColor(_ROLES["text_muted"]), PAPER)
+ACCENT = _legible(colors.HexColor(_ROLES["accent_text"]), PAPER)    # rose_deep: kickers, counts
+TAUPE = _legible(colors.HexColor(_ROLES["descriptor"]), PAPER)      # small caps labels
+# Text set on the forest ground (the cover's lower band).
+GOLD_ON_PINE = _legible(colors.HexColor(_IDP["rose_light"]), FOREST)
+PAPER_ON_FOREST = _legible(colors.HexColor(_ROLES["inverse_text"]), FOREST)
+
+# Vertical rhythm.
+HEADER_Y = PAGE_H - 11 * mm
+CONTENT_TOP = PAGE_H - MARGIN - 3 * mm
+FOOTER_Y = 9 * mm
 
 
 @dataclass
@@ -111,6 +144,9 @@ class PatternDocument:
     # against what the buyer reads rather than against the writer's instruction text, which
     # is one section of eight and the only one anything was ever measuring.
     prose: str = ""
+    # Every picture the document places, in order: what it is and where it came from. A
+    # reviewer checks the provenance of each image from here rather than by guessing.
+    figures: list[dict] = field(default_factory=list)
 
     def size_label(self) -> str:
         if not self.finished_size_cm:
@@ -132,12 +168,20 @@ class _Doc:
     stored hash proves only that *a* render happened, not that the file a customer downloads
     is the one that passed the gates. With the render fixed, the hash means what
     `assets.build` says it means.
+
+    Every string is drawn through `text`, which checks it against the face it is set in
+    (`brand.pdf_fonts.missing_glyphs`): an embedded TrueType face draws an empty box for a
+    character it lacks, and the extracted text still reads correctly, so nothing downstream
+    could see it.
     """
 
     def __init__(self, title: str, *, total_pages: int = 0, author: str = "",
-                 subject: str = ""):
+                 subject: str = "", footer_left: str = "", header_right: str = ""):
+        pdf_fonts.register()
         self.buf = io.BytesIO()
-        self.c = rl_canvas.Canvas(self.buf, pagesize=LETTER, invariant=1)
+        # `initialFontName` so the page streams never reference an unembedded base-14 face.
+        self.c = rl_canvas.Canvas(self.buf, pagesize=LETTER, invariant=1,
+                                  initialFontName=FONT_BODY, initialFontSize=10)
         self.c.setTitle(title)
         # Set because a PDF with no author and no subject is an untitled file in a downloads
         # folder six months later, and because assistive software reads them first.
@@ -146,36 +190,24 @@ class _Doc:
         if subject:
             self.c.setSubject(subject)
         # reportlab's default is the literal string "anonymous", which is what a buyer sees
-        # under Application in any reader's document-properties panel. On a premium product
-        # that is a small, visible piece of nobody-checked.
+        # under Application in any reader's document-properties panel.
         self.c.setCreator("Brambleloop Studio pattern compiler")
         # The document's natural language, in the catalogue where assistive software looks
-        # for it. reportlab has no setter for this, so it is written to the catalogue
-        # directly; without it a screen reader guesses the language from the system locale
-        # and reads an English pattern in whatever voice that produces.
+        # for it; without it a screen reader guesses from the system locale.
         self.c.setCatalogEntry("Lang", "en-GB")
-        # Known only on the second pass. A footer that says "page 5" cannot tell a customer
-        # whether their download stopped early; "page 5 of 7" can, which is the cheapest
-        # download-integrity check a buyer can run without any software at all.
+        # Known only on the second pass. "page 5 of 7" lets a buyer see that a download
+        # stopped early, which "page 5" cannot.
         self.total_pages = total_pages
         self.pages = 0
-        self.y = PAGE_H - MARGIN
-        # Every word this document sets, in the order it sets it.
-        #
-        # Kept because the checks that read the document were reading the *instruction text*
-        # -- the writer's output, one section of eight -- and calling the answer a property of
-        # the document. The cover, the gauge block, the materials, the key and the finishing
-        # prose are all set here and none of them was measured. A UK render stated its gauge
-        # "in sc" on page 1, in a document whose key defines `dc`, and every check passed.
-        #
-        # Accumulated rather than extracted from the finished PDF so the checks run on what
-        # the module chose to say rather than on what a text extractor could recover from the
-        # glyphs; the extraction is a separate proof, and the tests do it too.
+        self.y = CONTENT_TOP
+        self.footer_left = footer_left
+        self.header_right = header_right
+        # Every word this document sets, in the order it sets it -- what the checks read.
         self.prose: list[str] = []
-        # Bookmark keys, in the order they were made. A key is derived from the heading and
-        # its ordinal rather than from anything outside the render, so the outline is a pure
-        # function of the document like everything else in it -- see the note on `invariant`.
         self.bookmarks: list[str] = []
+        self.glyph_problems: list[str] = []
+        self.figures: list[dict] = []
+        self.running_head: str | None = None
 
     def _bookmark(self, title: str) -> None:
         key = f"section-{len(self.bookmarks) + 1}-{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
@@ -183,66 +215,146 @@ class _Doc:
         self.c.bookmarkPage(key)
         self.c.addOutlineEntry(title, key, level=0)
 
-    # -- primitives --------------------------------------------------------
+    # -- the one way text reaches the page -----------------------------------------------
+    def text(self, x: float, y: float, s: str, font: str = FONT_BODY, size: float = 10,
+             color=INK, *, align: str = "left", track: float = 0.0) -> float:
+        """Draw one line; returns its width. Refuses nothing, records every missing glyph."""
+        if size < MIN_BODY_PT:
+            self.glyph_problems.append(
+                f"PDF_TYPE_BELOW_BRAND_MINIMUM: {s[:40]!r} set at {size}pt")
+        missing = pdf_fonts.missing_glyphs(font, s)
+        if missing:
+            self.glyph_problems.append(
+                f"PDF_GLYPH_MISSING: {font} has no glyph for {list(missing)} in {s[:60]!r}")
+        self.c.setFont(font, size)
+        self.c.setFillColor(color)
+        width = self.width(s, font, size, track)
+        if align == "right":
+            x -= width
+        elif align == "centre":
+            x -= width / 2
+        if track:
+            self.c.drawString(x, y, s, charSpace=track)
+        else:
+            self.c.drawString(x, y, s)
+        return width
+
+    @staticmethod
+    def width(s: str, font: str, size: float, track: float = 0.0) -> float:
+        return stringWidth(s, font, size) + track * max(0, len(s) - 1)
+
+    # -- pages ---------------------------------------------------------------------------
     def new_page(self, running_head: str | None = None) -> None:
         if self.pages:
             self._footer()
             self.c.showPage()
         self.pages += 1
-        self.c.setFillColor(CREAM)
+        self.c.setFillColor(PAPER)
         self.c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-        self.y = PAGE_H - MARGIN
+        self.y = CONTENT_TOP
+        self.running_head = running_head
         if running_head:
-            self.c.setFillColor(MUTED)
-            self.c.setFont("Helvetica", MIN_BODY_PT)
-            self.c.drawString(MARGIN, PAGE_H - MARGIN + 6 * mm, running_head.upper())
+            self.text(MARGIN, HEADER_Y, running_head.upper(), FONT_UI_MEDIUM, MIN_BODY_PT,
+                      TAUPE, track=0.9)
+            if self.header_right:
+                self.text(PAGE_W - MARGIN, HEADER_Y, self.header_right.upper(), FONT_UI,
+                          MIN_BODY_PT, TAUPE, align="right", track=0.9)
+            self.c.setStrokeColor(LINE)
+            self.c.setLineWidth(0.6)
+            self.c.line(MARGIN, HEADER_Y - 3 * mm, PAGE_W - MARGIN, HEADER_Y - 3 * mm)
+
+    # Set by a page whose foot sits on a dark ground (the cover's forest band), so the folio
+    # is drawn in the reversed ink rather than in a grey that measures 1.5:1 on it.
+    reversed_footer_pages: set
 
     def _footer(self) -> None:
-        self.c.setFillColor(MUTED)
-        self.c.setFont("Helvetica", MIN_BODY_PT)
-        self.c.drawRightString(PAGE_W - MARGIN, MARGIN - 8 * mm,
-                               f"page {self.pages} of {self.total_pages or self.pages}")
+        dark = self.pages in getattr(self, "reversed_footer_pages", set())
+        ink = PAPER_ON_FOREST if dark else MUTED
+        if not dark:
+            self.c.setStrokeColor(LINE)
+            self.c.setLineWidth(0.6)
+            self.c.line(MARGIN, FOOTER_Y + 5 * mm, PAGE_W - MARGIN, FOOTER_Y + 5 * mm)
+        if self.footer_left:
+            self.text(MARGIN, FOOTER_Y, self.footer_left, FONT_UI, MIN_BODY_PT, ink)
+        self.text(PAGE_W - MARGIN, FOOTER_Y,
+                  f"page {self.pages} of {self.total_pages or self.pages}",
+                  FONT_UI_MEDIUM, MIN_BODY_PT, ink, align="right")
 
     def space(self, amount: float) -> None:
         self.y -= amount
 
-    def need(self, amount: float, running_head: str | None = None) -> None:
+    def need(self, amount: float, running_head: str | None = None) -> bool:
+        """Start a new page if `amount` does not fit; True when it did."""
         if self.y - amount < MARGIN:
-            self.new_page(running_head)
+            self.new_page(running_head if running_head is not None else self.running_head)
+            return True
+        return False
 
     # Headings at or above this size are the document's sections, and each one becomes a
-    # bookmark. A buyer works this pattern from a phone or a tablet with the piece in their
-    # hands, and a ten-page PDF with no outline is ten pages of scrolling every time they
-    # want the chart back. The outline is also the structure assistive software reads to
-    # offer "jump to section" in a document reportlab cannot tag.
+    # bookmark: a buyer works this pattern from a phone with the piece in their hands, and a
+    # PDF with no outline is pages of scrolling every time they want the chart back.
     OUTLINE_HEADING_PT = 15
 
-    def heading(self, text: str, size: int = 15) -> None:
+    def heading(self, text: str, size: int = 15, *, kicker: str = "") -> None:
+        """A section title (size >= 15) or a subheading. `kicker` is the small label above."""
         self.prose.append(text)
-        self.need(size + 10 * mm)
         if size >= self.OUTLINE_HEADING_PT:
+            self.need(26 * mm)
             self._bookmark(text)
-        self.c.setFillColor(PINE)
-        self.c.setFont("Helvetica-Bold", size)
-        self.c.drawString(MARGIN, self.y, text)
-        self.y -= size + 3
-        self.c.setStrokeColor(GOLD)
-        self.c.setLineWidth(1)
-        self.c.line(MARGIN, self.y, MARGIN + 28 * mm, self.y)
-        self.y -= 7 * mm
+            if kicker:
+                self.text(MARGIN, self.y, kicker.upper(), FONT_UI_BOLD, MIN_BODY_PT, ACCENT,
+                          track=1.2)
+                self.y -= 9 * mm
+            else:
+                self.y -= 4 * mm
+            self.text(MARGIN, self.y, text, FONT_DISPLAY, 27, FOREST)
+            self.y -= 5 * mm
+            self.c.setStrokeColor(ROSE)
+            self.c.setLineWidth(1.4)
+            self.c.line(MARGIN, self.y, MARGIN + 16 * mm, self.y)
+            self.y -= 8 * mm
+        else:
+            self.need(16 * mm)
+            self.y -= 2 * mm
+            self.text(MARGIN, self.y, text, FONT_DISPLAY_BOLD, 16, FOREST)
+            self.y -= 6.5 * mm
 
-    def para(self, text: str, size: int = 10, color=INK, leading: float = 4.6 * mm,
-             running_head: str | None = None) -> None:
+    def label(self, text: str, *, x: float | None = None, color=None) -> None:
+        """A small tracked-caps label line (Work Sans), e.g. above a table."""
         self.prose.append(text)
-        self.c.setFont("Helvetica", size)
-        self.c.setFillColor(color)
-        usable = PAGE_W - 2 * MARGIN
-        for line in _wrap(self.c, text, "Helvetica", size, usable):
+        self.need(7 * mm)
+        self.text(MARGIN if x is None else x, self.y, text.upper(), FONT_UI_BOLD,
+                  MIN_BODY_PT, color or TAUPE, track=1.0)
+        self.y -= 5.5 * mm
+
+    def para(self, text: str, size: float = 10, color=INK, leading: float | None = None,
+             running_head: str | None = None, *, font: str = FONT_BODY,
+             x: float | None = None, width: float | None = None) -> None:
+        self.prose.append(text)
+        leading = leading or size * 1.42
+        x = MARGIN if x is None else x
+        usable = (PAGE_W - MARGIN - x) if width is None else width
+        lines = _wrap(self.c, text, font, size, usable)
+        # No widows or orphans: a short paragraph moves whole, a long one keeps at least two
+        # lines at the foot of a page and carries at least two to the next.
+        if len(lines) <= 4:
+            self.need(len(lines) * leading, running_head)
+        else:
+            self.need(2 * leading, running_head)
+        for n, line in enumerate(lines):
+            if len(lines) > 4 and n == len(lines) - 2:
+                self.need(2 * leading, running_head)
             self.need(leading, running_head)
-            self.c.setFont("Helvetica", size)
-            self.c.setFillColor(color)
-            self.c.drawString(MARGIN, self.y, line)
+            if line:
+                self.text(x, self.y, line, font, size, color)
             self.y -= leading
+        self.y -= 1.2 * mm
+
+    def para_height(self, text: str, size: float = 10, *, font: str = FONT_BODY,
+                    width: float | None = None, leading: float | None = None) -> float:
+        leading = leading or size * 1.42
+        usable = PAGE_W - 2 * MARGIN if width is None else width
+        return len(_wrap(self.c, text, font, size, usable)) * leading + 1.2 * mm
 
     def kv(self, key: str, value: str, *, upper: bool = True) -> None:
         """A label and its value. `upper` is off for anything the maker has to type-match.
@@ -252,26 +364,48 @@ class _Doc:
         made them do a translation the document was supposed to do for them.
         """
         self.prose.append(f"{key} {value}")
-        key_lines = _wrap(self.c, key.upper() if upper else key,
-                          "Helvetica-Bold", 9, 39 * mm)
-        value_lines = _wrap(self.c, value, "Helvetica", 10,
-                            PAGE_W - 2 * MARGIN - 42 * mm)
-        line_height = 5.2 * mm
-        self.need(max(len(key_lines), len(value_lines)) * line_height)
-        for i in range(max(len(key_lines), len(value_lines))):
-            # Repeat the space check for unusually long values that span a page.
+        key_font = FONT_LABEL if upper else FONT_BODY_BOLD
+        key_size = MIN_BODY_PT if upper else 10
+        key_lines = _wrap(self.c, key.upper() if upper else key, key_font, key_size, 39 * mm)
+        value_lines = _wrap(self.c, value, FONT_BODY, 10, PAGE_W - 2 * MARGIN - 44 * mm)
+        line_height = 5.0 * mm
+        rows = max(len(key_lines), len(value_lines))
+        self.need(min(rows, 3) * line_height + 2 * mm)
+        for i in range(rows):
             self.need(line_height)
             if i < len(key_lines):
-                self.c.setFont("Helvetica-Bold", 9)
-                self.c.setFillColor(MUTED)
-                self.c.drawString(MARGIN, self.y, key_lines[i])
+                self.text(MARGIN, self.y, key_lines[i], key_font, key_size,
+                          TAUPE if upper else FOREST)
             if i < len(value_lines):
-                self.c.setFont("Helvetica", 10)
-                self.c.setFillColor(INK)
-                self.c.drawString(MARGIN + 42 * mm, self.y, value_lines[i])
+                self.text(MARGIN + 44 * mm, self.y, value_lines[i], FONT_BODY, 10, INK)
             self.y -= line_height
+        self.c.setStrokeColor(LINE)
+        self.c.setLineWidth(0.4)
+        self.c.line(MARGIN, self.y + 2.6 * mm, PAGE_W - MARGIN, self.y + 2.6 * mm)
+        self.y -= 1.6 * mm
 
-    def image(self, img, running_head: str | None = None, *, max_height=None) -> None:
+    def panel(self, x: float, top: float, w: float, h: float, *, fill=SURFACE,
+              stroke=LINE, radius: float = 2.5 * mm) -> None:
+        self.c.setFillColor(fill)
+        self.c.setStrokeColor(stroke)
+        self.c.setLineWidth(0.6)
+        self.c.roundRect(x, top - h, w, h, radius, fill=1, stroke=1 if stroke else 0)
+
+    def place(self, img, x: float, top: float, w: float, h: float, *,
+              figure: dict | None = None) -> tuple[float, float]:
+        """Fit `img` inside the box (x, top, w, h), centred; returns the drawn size."""
+        from reportlab.lib.utils import ImageReader
+
+        scale = min(w / img.width, h / img.height)
+        dw, dh = img.width * scale, img.height * scale
+        self.c.drawImage(ImageReader(img), x + (w - dw) / 2, top - (h - dh) / 2 - dh,
+                         width=dw, height=dh, preserveAspectRatio=True, mask="auto")
+        if figure is not None:
+            self.figures.append(dict(figure, page=self.pages))
+        return dw, dh
+
+    def image(self, img, running_head: str | None = None, *, max_height=None,
+              figure: dict | None = None) -> None:
         from reportlab.lib.utils import ImageReader
 
         usable_w = PAGE_W - 2 * MARGIN
@@ -282,8 +416,10 @@ class _Doc:
             scale *= height_limit / h
             w, h = img.width * scale, img.height * scale
         self.need(h + 4 * mm, running_head)
-        self.c.drawImage(ImageReader(img), MARGIN, self.y - h, width=w, height=h,
-                         preserveAspectRatio=True, mask="auto")
+        self.c.drawImage(ImageReader(img), MARGIN + (usable_w - w) / 2, self.y - h,
+                         width=w, height=h, preserveAspectRatio=True, mask="auto")
+        if figure is not None:
+            self.figures.append(dict(figure, page=self.pages))
         self.y -= h + 5 * mm
 
     def finish(self) -> bytes:
@@ -292,7 +428,7 @@ class _Doc:
         return self.buf.getvalue()
 
 
-def _wrap(c, text: str, font: str, size: int, width: float) -> list[str]:
+def _wrap(c, text: str, font: str, size: float, width: float) -> list[str]:
     out: list[str] = []
     for paragraph in text.split("\n"):
         if not paragraph.strip():
@@ -531,7 +667,7 @@ def care_note(cir: CIR) -> str | None:
     if not fibres:
         return None
     return (f"This pattern is written for {' and '.join(fibres)} yarn. Wash and dry the "
-            f"finished garment as the ball band of the yarn you used says -- it, not this "
+            f"finished garment as the ball band of the yarn you used says — it, not this "
             f"pattern, decides temperature and drying. Dry it flat and ease it to the "
             f"finished measurements above: a crochet garment dried on a hanger stretches in "
             f"length.")
@@ -785,7 +921,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       designer: str = "Brambleloop Studio",
                       released_on: date | None = None,
                       childrens: tuple[str, str] | None = None,
-                      lesson_links: list[dict] | None = None) -> PatternDocument:
+                      lesson_links: list[dict] | None = None,
+                      sample_photo_placeholders: bool = False) -> PatternDocument:
     """Render the full pattern document.
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
@@ -844,6 +981,11 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # document has been laid out, and laying it out twice must not mean drawing a
     # two-thousand-pixel chart twice.
     art = _chart_art(cir, twin)
+    # The pictures of the finished piece and of its construction, drawn once by the
+    # deterministic renderers and placed by every layout pass.
+    views = _disclosed_views(cir)
+    from .construction_diagrams import stages as _stages
+    stages = _stages(cir)
 
     # Laid out until the count it prints is the count it has. Printing "of 7" on a document
     # that turned out to be 8 pages long is worse than printing nothing, because a customer
@@ -860,7 +1002,9 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         doc, claims, problems = _render(cir, twin, result, text=text, art=art,
                                         terminology=terminology, designer=designer,
                                         released_on=released_on, total_pages=total,
-                                        childrens=childrens, lesson_links=lesson_links)
+                                        childrens=childrens, lesson_links=lesson_links,
+                                        views=views, stages=stages,
+                                        sample_photo_placeholders=sample_photo_placeholders)
         if doc.pages == total:
             break
         total = doc.pages
@@ -898,6 +1042,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         released_on=released_on,
         problems=problems,
         prose="\n".join(doc.prose),
+        figures=list(doc.figures),
     )
 
 
@@ -1021,145 +1166,862 @@ def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_byte
         f"carries {list(audit['present'])}. " + " | ".join(reasons))
 
 
+# ---- the premium layout: facts, pictures and pieces of page furniture ---------------------
+#
+# Everything below decides *where* things go and what they look like. None of it decides what
+# the pattern says: every number is read from the twin, the compiler or the writer's text, and
+# every picture is drawn by the deterministic renderers (`visual.disclosed_render`,
+# `publish.construction_diagrams`, `publish.charts`) or is the owner's canonical artwork.
+
+_NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+                 7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
+_SHAPE_ADJ = {3: "triangular", 4: "square", 5: "pentagonal", 6: "hexagonal", 8: "octagonal"}
+
+# The sentence every picture of the finished piece carries, from the render contract the
+# pictures themselves letter (`visual.render_contract.DISCLOSURE`).
+IMAGE_DISCLOSURE = (
+    "About the pictures: every image of the finished piece in this document is a digital "
+    "rendering of the pattern's finished design, not a photograph. Each one is drawn stitch "
+    "by stitch from this pattern's own data at the stated gauge, and the construction "
+    "diagrams beside the instructions are drawn the same way.")
+
+
+def physical_status(twin: TwinModel) -> str:
+    """What this edition's numbers rest on, stated as a fact about the edition.
+
+    Read from the twin's calibration, which is the only physical evidence a render can see:
+    it says whether the measurements in *this file* were calibrated on a worked sample. It
+    deliberately says nothing about whether a sample exists somewhere else -- a fixed "no
+    sample has been made" sentence would become false the day one is, without this document
+    changing.
+    """
+    if twin.calibrated:
+        return ("Physical testing: the yarn amounts in this edition were calibrated against "
+                "a physically worked sample.")
+    return ("Physical testing: unverified in this edition. Its finished size and yarn amounts "
+            "are computed from the gauge, not calibrated on a worked sample, and are marked as "
+            "estimates wherever they appear. The stitch counts are checked by the pattern "
+            "compiler and do not depend on a sample.")
+
+
+def _rows_by_index(twin: TwinModel) -> dict[int, list]:
+    rows: dict[int, list] = {}
+    for c in twin.cells:
+        rows.setdefault(c.row, []).append(c)
+    return dict(sorted(rows.items()))
+
+
+def _colour_runs(twin: TwinModel) -> list[tuple[str, int, int]]:
+    runs: list[tuple[str, int, int]] = []
+    for index, cells in _rows_by_index(twin).items():
+        colour = cells[0].color
+        if runs and runs[-1][0] == colour and runs[-1][2] == index - 1:
+            runs[-1] = (colour, runs[-1][1], index)
+        else:
+            runs.append((colour, index, index))
+    return runs
+
+
+def _rings(twin: TwinModel):
+    rings = list(getattr(getattr(twin, "geometry", None), "rings", []) or [])
+    return [r for r in rings if r.rise_cm <= 0], [r for r in rings if r.rise_cm > 0]
+
+
+def _sides(cir: CIR, result) -> int | None:
+    from ..cir.geometry import corners
+
+    if len(cir.components) != 1:
+        return None
+    name = cir.components[0].name
+    try:
+        return corners([r for r in result.rows if r.component == name])
+    except Exception:  # a flat piece has no corners to report
+        return None
+
+
+def _short_size(twin: TwinModel) -> str:
+    """The finished size in the fewest words that still name their convention (cover strip)."""
+    if not twin.width_cm:
+        return "see inside"
+    if twin.sides and twin.across_points_cm:
+        if twin.shape not in (None, "disc") and twin.height_cm:
+            return f"{twin.across_points_cm:.1f} cm across the points, {twin.height_cm:.1f} cm tall"
+        return (f"{twin.across_points_cm:.1f} cm across the points, "
+                f"{twin.across_flats_cm:.1f} cm across the flats")
+    if twin.shape is not None:
+        return (f"{twin.width_cm:.1f} cm across" + (f", {twin.height_cm:.1f} cm tall"
+                if twin.shape != "disc" and twin.height_cm else ""))
+    return f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm" if twin.height_cm else \
+        f"{twin.width_cm:.0f} cm wide"
+
+
+def _yarn_weight_label(cir: CIR) -> str:
+    weights = sorted({m.yarn_weight for m in cir.materials if m.yarn_weight})
+    named = ", ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in weights)
+    cyc = cir.gauge.yarn_weight if cir.gauge and cir.gauge.yarn_weight else ""
+    if cyc and cyc.lower() not in {w.lower() for w in weights}:
+        return f"{named} weight ({cyc.replace('_', ' ')})"
+    return f"{named} weight" if named else "see Materials"
+
+
+def _metres(m: float, tol: float) -> tuple[float, float]:
+    return m * (1 - tol), m * (1 + tol)
+
+
+def _span_words(first: int, last: int) -> str:
+    return f"{first}" if first == last else f"{first} to {last}"
+
+
+def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
+                        terminology: str) -> list[str]:
+    """What this pattern makes and how, in sentences built from the compiled pattern."""
+    from ..cir.twin import size_statement
+
+    comp = cir.components[0]
+    make = sum(c.make for c in cir.components)
+    piece = comp.name.replace("_", " ")
+    sides = _sides(cir, result)
+    shape = _SHAPE_ADJ.get(sides or 0, "")
+    count = _NUMBER_WORDS.get(make, str(make))
+    noun = piece + ("s" if make != 1 and not piece.endswith("s") else "")
+    rows = _rows_by_index(twin)
+    unit = "round" if "round" in comp.construction else "row"
+    out = []
+    first = (f"This pattern makes {count} {shape + ' ' if shape else ''}{noun}"
+             if len(cir.components) == 1 else
+             f"This pattern makes {cir.title.lower()}, from {make} pieces")
+    size = size_statement(twin) if twin.width_cm else None
+    if size and shape:
+        # "hexagonal coasters: hexagon, 9.7 cm ..." says the shape twice.
+        size = re.sub(r"^[a-z]+(,| base)\s*", lambda m: "base " if "base" in m.group(0) else "",
+                      size)
+    if size:
+        first += f", {'each ' if make > 1 else ''}{size} at the stated gauge"
+        first += "." if not twin.calibrated else ", measured on a worked sample."
+        if not twin.calibrated:
+            first = first[:-1] + ", computed rather than measured."
+    else:
+        first += "."
+    out.append(first)
+
+    if len(cir.components) == 1 and rows:
+        used = sorted(twin.stitch_types_used)
+        base_codes = [c for c in used if c not in ("inc", "dec")]
+        names = ", ".join(abbreviations.meaning(c, terminology) for c in base_codes)
+        how = (f"{'Each' if make > 1 else 'It'} is worked in {len(rows)} "
+               f"{comp.construction.replace('_', ' ').replace('rounds', '').strip()} "
+               f"{unit}s of {names}")
+        if "magic ring" in text:
+            how += ", starting from a magic ring"
+        base, wall = _rings(twin)
+        if base and wall:
+            how += (f". {unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
+                    f"grow a flat base, and {unit}s "
+                    f"{_span_words(wall[0].index, wall[-1].index)} rise straight up from it "
+                    f"to make the wall")
+        elif sides:
+            how += f", with the increases stacked so that they build {sides} corners"
+        out.append(how + ".")
+
+        runs = _colour_runs(twin)
+        totals: dict[str, int] = {}
+        for c in twin.cells:
+            totals[c.color] = totals.get(c.color, 0) + 1
+        if len(totals) > 1:
+            main = max(sorted(totals), key=lambda k: totals[k])
+            others = []
+            for colour in sorted(k for k in totals if k != main):
+                spans = [_span_words(a, b) for name, a, b in runs if name == colour]
+                label = unit + ("s" if len(spans) > 1 or "to" in spans[0] else "")
+                others.append(f"{colour} in {label} {' and '.join(spans)}")
+            out.append(f"The main colour is {main}, with {'; '.join(others)}.")
+
+    close = f"It is written in {terminology.upper()} crochet terms."
+    if "sts)" in text:
+        close += f" Every {unit} is written out with its stitch count,"
+        close += " and the pattern includes construction diagrams, a chart, a schematic, and "
+        close += "tips and troubleshooting."
+    out.append(close)
+    return out
+
+
+# -- small vector icons for the project-details panel ----------------------------------------
+#
+# Drawn, not imported: a line icon in the brand's accent, the same weight everywhere. Each is
+# an illustration of a category (a hook, a ball of yarn), never of this product.
+
+def _icon(c, kind: str, cx: float, cy: float, r: float, *, level: int = 0,
+          of: int = 3, fill=None) -> None:
+    c.saveState()
+    c.setFillColor(SURFACE)
+    c.setStrokeColor(LINE)
+    c.setLineWidth(0.6)
+    c.circle(cx, cy, r, fill=1, stroke=1)
+    c.setStrokeColor(ACCENT)
+    c.setFillColor(ACCENT)
+    c.setLineWidth(0.9)
+    c.setLineCap(1)
+    s = r * 0.55
+    if kind == "skill":
+        for i in range(of):
+            x = cx + (i - (of - 1) / 2) * s * 0.75
+            c.circle(x, cy, s * 0.26, fill=1 if i < level else 0, stroke=1)
+    elif kind == "size":
+        c.rect(cx - s, cy - s * 0.32, 2 * s, s * 0.64, fill=0, stroke=1)
+        for i in range(1, 6):
+            x = cx - s + i * 2 * s / 6
+            c.line(x, cy + s * 0.32, x, cy + s * (0.02 if i % 2 else -0.12))
+    elif kind == "yarn":
+        c.circle(cx, cy, s * 0.8, fill=0, stroke=1)
+        for k in (-0.45, 0, 0.45):
+            p = c.beginPath()
+            p.moveTo(cx - s * 0.62, cy + k * s - s * 0.2)
+            p.curveTo(cx - s * 0.2, cy + k * s + s * 0.25, cx + s * 0.2, cy + k * s + s * 0.25,
+                      cx + s * 0.62, cy + k * s - s * 0.2)
+            c.drawPath(p, fill=0, stroke=1)
+    elif kind == "hook":
+        c.line(cx - s * 0.7, cy - s * 0.8, cx + s * 0.45, cy + s * 0.55)
+        p = c.beginPath()
+        p.moveTo(cx + s * 0.45, cy + s * 0.55)
+        p.curveTo(cx + s * 0.7, cy + s * 0.85, cx + s * 0.95, cy + s * 0.55, cx + s * 0.7,
+                  cy + s * 0.4)
+        c.drawPath(p, fill=0, stroke=1)
+    elif kind == "gauge":
+        c.rect(cx - s * 0.75, cy - s * 0.75, 1.5 * s, 1.5 * s, fill=0, stroke=1)
+        for k in (-0.25, 0.25):
+            c.line(cx - s * 0.75, cy + k * s, cx + s * 0.75, cy + k * s)
+            c.line(cx + k * s, cy - s * 0.75, cx + k * s, cy + s * 0.75)
+    elif kind == "rounds":
+        for f in (0.85, 0.5):
+            pts = [(cx + s * f * math.cos(math.pi / 3 * k), cy + s * f * math.sin(math.pi / 3 * k))
+                   for k in range(7)]
+            p = c.beginPath()
+            p.moveTo(*pts[0])
+            for pt in pts[1:]:
+                p.lineTo(*pt)
+            c.drawPath(p, fill=0, stroke=1)
+        c.circle(cx, cy, s * 0.12, fill=1, stroke=0)
+    elif kind == "time":
+        c.circle(cx, cy, s * 0.8, fill=0, stroke=1)
+        c.line(cx, cy, cx, cy + s * 0.55)
+        c.line(cx, cy, cx + s * 0.38, cy - s * 0.1)
+    elif kind == "colours":
+        for i, col in enumerate(fill or []):
+            x = cx + (i - (len(fill) - 1) / 2) * s * 0.7
+            c.setFillColor(col)
+            c.setStrokeColor(FOREST)
+            c.setLineWidth(0.4)
+            c.circle(x, cy, s * 0.36, fill=1, stroke=1)
+    elif kind == "pieces":
+        for k in (-0.3, 0.3):
+            c.roundRect(cx - s * 0.55 + k * s, cy - s * 0.55 - k * s * 0.6, s * 0.9, s * 0.9,
+                        s * 0.12, fill=0, stroke=1)
+    elif kind == "needle":
+        c.line(cx - s * 0.8, cy - s * 0.8, cx + s * 0.8, cy + s * 0.8)
+        c.ellipse(cx + s * 0.45, cy + s * 0.35, cx + s * 0.75, cy + s * 0.75, fill=0, stroke=1)
+    elif kind == "marker":
+        p = c.beginPath()
+        p.moveTo(cx - s * 0.2, cy - s * 0.8)
+        p.lineTo(cx - s * 0.2, cy + s * 0.3)
+        p.curveTo(cx - s * 0.2, cy + s * 0.9, cx + s * 0.6, cy + s * 0.9, cx + s * 0.6, cy + s * 0.3)
+        p.lineTo(cx + s * 0.6, cy - s * 0.1)
+        c.drawPath(p, fill=0, stroke=1)
+    elif kind == "pins":
+        for k in (-0.35, 0.35):
+            c.line(cx + k * s, cy - s * 0.8, cx + k * s, cy + s * 0.4)
+            c.circle(cx + k * s, cy + s * 0.55, s * 0.18, fill=1, stroke=0)
+    elif kind == "info":
+        c.circle(cx, cy + s * 0.45, s * 0.12, fill=1, stroke=0)
+        c.line(cx, cy - s * 0.6, cx, cy + s * 0.15)
+    c.restoreState()
+
+
+def _yarn_ball(c, cx: float, cy: float, r: float, rgb) -> None:
+    """A drawn ball of yarn in one of the pattern's colours (an illustration of the colour)."""
+    c.saveState()
+    c.setFillColor(rgb)
+    c.setStrokeColor(FOREST)
+    c.setLineWidth(0.7)
+    c.circle(cx, cy, r, fill=1, stroke=1)
+    shade = colors.Color(rgb.red * 0.72, rgb.green * 0.72, rgb.blue * 0.72)
+    lum = bible.relative_luminance((rgb.red, rgb.green, rgb.blue))
+    c.setStrokeColor(shade if lum > 0.2 else colors.Color(min(1, rgb.red * 1.6 + 0.15),
+                                                          min(1, rgb.green * 1.6 + 0.12),
+                                                          min(1, rgb.blue * 1.6 + 0.12)))
+    c.setLineWidth(0.8)
+    p = c.beginPath()
+    p.circle(cx, cy, r)
+    c.clipPath(p, stroke=0, fill=0)
+    for k in range(-3, 4):
+        q = c.beginPath()
+        q.moveTo(cx - r, cy + k * r * 0.3 - r * 0.25)
+        q.curveTo(cx - r * 0.3, cy + k * r * 0.3 + r * 0.35, cx + r * 0.3,
+                  cy + k * r * 0.3 + r * 0.35, cx + r, cy + k * r * 0.3 - r * 0.25)
+        c.drawPath(q, fill=0, stroke=1)
+    c.restoreState()
+    c.saveState()
+    c.setStrokeColor(FOREST)
+    c.setLineWidth(0.7)
+    q = c.beginPath()
+    q.moveTo(cx + r * 0.7, cy - r * 0.7)
+    q.curveTo(cx + r * 1.2, cy - r * 1.1, cx + r * 1.5, cy - r * 0.7, cx + r * 1.9, cy - r * 1.0)
+    c.drawPath(q, fill=0, stroke=1)
+    c.restoreState()
+
+
+def _rounded_image(doc: "_Doc", img, x: float, top: float, w: float, h: float, *,
+                   figure: dict) -> tuple[float, float]:
+    """An image fitted into a rounded frame, centred; returns the frame's drawn size."""
+    from reportlab.lib.utils import ImageReader
+
+    scale = min(w / img.width, h / img.height)
+    dw, dh = img.width * scale, img.height * scale
+    x0, y0 = x + (w - dw) / 2, top - (h - dh) / 2 - dh
+    c = doc.c
+    c.saveState()
+    p = c.beginPath()
+    p.roundRect(x0, y0, dw, dh, 3 * mm)
+    c.clipPath(p, stroke=0, fill=0)
+    c.drawImage(ImageReader(img), x0, y0, width=dw, height=dh, mask="auto")
+    c.restoreState()
+    c.setStrokeColor(LINE)
+    c.setLineWidth(0.8)
+    c.roundRect(x0, y0, dw, dh, 3 * mm, fill=0, stroke=1)
+    doc.figures.append(dict(figure, page=doc.pages))
+    return dw, dh
+
+
+def _png_sha(img) -> str:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return hashlib.sha256(buf.getvalue()).hexdigest()
+
+
+GALLERY_CELL = 70 * mm
+LOGO_EMBED_PX = 1016    # 86 mm at 300 dpi
+
+
+@lru_cache(maxsize=1)
+def _cover_logo():
+    """The owner's canonical artwork, resampled to 300 dpi at the size the cover places it.
+
+    D-FB-17 allows the hero artwork to be "resampled only to fit the space". Embedded at its
+    native 1536 px it was 2.5 MB of a 3.7 MB coaster pattern; at the placed size it is the
+    same picture at print resolution. Encoded as a high-quality baseline JPEG (deterministic in
+    Pillow for identical input), so the PDF's bytes stay a pure function of the inputs.
+    """
+    from PIL import Image
+
+    src = Image.open(identity_system.owner_logo_path()).convert("RGB")
+    img = src.resize((LOGO_EMBED_PX, round(src.height * LOGO_EMBED_PX / src.width)),
+                     Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92, subsampling=0, optimize=False)
+    out = Image.open(io.BytesIO(buf.getvalue()))
+    out.load()
+    return out
+
+
+def _disclosed_views(cir: CIR) -> dict:
+    """The disclosed renders this product has: view -> (PIL image, png sha256)."""
+    from PIL import Image
+
+    from ..visual import disclosed_render as D
+
+    out = {}
+    for view in ("hero", "angle", "detail", "scale"):
+        try:
+            frame = D.render(cir, view)
+        except D.RenderRefused:
+            continue
+        img = Image.open(io.BytesIO(frame.png))
+        img.load()
+        out[view] = (img, hashlib.sha256(frame.png).hexdigest())
+    return out
+
+
+_STEP = re.compile(r"^(?P<label>(?:Rnds?|Rows?|Rounds?)\s+\d[^:]*:)\s*(?P<body>.*)$")
+_COUNT = re.compile(r"(?P<count>\(\d+ sts?\))\s*$")
+_STEP_NUMBER = re.compile(r"^(?:Rnds?|Rows?|Rounds?)\s+(\d+)")
+
+
+def _rich_lines(c, segments: list[tuple[str, str, object]], width: float,
+                size: float) -> list[list[tuple[str, str, object]]]:
+    """Greedy wrap of styled segments into lines of (text, font, colour) runs."""
+    words: list[tuple[str, str, object]] = []
+    for text, font, color in segments:
+        if _COUNT.fullmatch(text):
+            # "(42 sts)" is one unit; split across two lines it reads as a stray "sts)".
+            words.append((text, font, color))
+            continue
+        for w in text.split(" "):
+            if w:
+                words.append((w, font, color))
+    lines: list[list[tuple[str, str, object]]] = [[]]
+    used = 0.0
+    space = stringWidth(" ", FONT_BODY, size)
+    for w, font, color in words:
+        ww = stringWidth(w, font, size)
+        extra = ww + (space if lines[-1] else 0)
+        if lines[-1] and used + extra > width:
+            lines.append([])
+            used = 0.0
+            extra = ww
+        lines[-1].append((w, font, color))
+        used += extra
+    return lines
+
+
+def _draw_rich(doc: "_Doc", lines, x: float, y: float, size: float, leading: float) -> float:
+    space = stringWidth(" ", FONT_BODY, size)
+    for line in lines:
+        cx = x
+        # Runs of one style are drawn as one string so a text extractor reads them as words.
+        runs: list[list] = []
+        for w, font, color in line:
+            if runs and runs[-1][1] == font and runs[-1][2] == color:
+                runs[-1][0] += " " + w
+            else:
+                runs.append([w, font, color])
+        for text, font, color in runs:
+            cx += doc.text(cx, y, text, font, size, color) + space
+        y -= leading
+    return y
+
+
+def _step_segments(line: str, colours: dict) -> tuple[list, object | None]:
+    """A written instruction line split into label / body / count runs, unchanged in words."""
+    m = _STEP.match(line)
+    if not m:
+        return [(line, FONT_BODY, INK)], None
+    body = m.group("body")
+    count = ""
+    cm = _COUNT.search(body)
+    if cm:
+        count = cm.group("count")
+        body = body[:cm.start()].rstrip()
+    segs = [(m.group("label"), FONT_BODY_BOLD, FOREST)]
+    if body:
+        segs.append((body, FONT_BODY, INK))
+    if count:
+        segs.append((count, FONT_BODY_BOLD, ACCENT))
+    colour = None
+    cm2 = re.search(r"\(([^)]+)\):$", m.group("label"))
+    if cm2 and cm2.group(1) in colours:
+        colour = colours[cm2.group(1)]
+    return segs, colour
+
+
+def _parse_writer(text: str) -> dict:
+    """The writer's text cut into its header, its component blocks and its finishing block.
+
+    Cut, not changed: every line comes back exactly as the writer wrote it.
+    """
+    header: list[str] = []
+    blocks: list[tuple[str, list[str]]] = []
+    for raw in text.split("\n"):
+        line = raw.rstrip()
+        if line.startswith("#") or (line.endswith(":") and not _STEP.match(line)
+                                    and blocks is not None and line and len(line) < 60):
+            blocks.append((line.lstrip("# ").strip().rstrip(":"), []))
+            continue
+        if not blocks:
+            header.append(line)
+        else:
+            blocks[-1][1].append(line)
+    return {"header": [h for h in header if h.strip()], "blocks": blocks}
+
+
 def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             terminology: str, designer: str, released_on: date,
             total_pages: int,
             childrens: tuple[str, str] | None = None,
-            lesson_links: list[dict] | None = None) -> tuple["_Doc", list[str], list[str]]:
-    """Lay the document out. Called twice: once to count the pages, once to print them."""
+            lesson_links: list[dict] | None = None,
+            views: dict | None = None, stages: list | None = None,
+            sample_photo_placeholders: bool = False) -> tuple["_Doc", list[str], list[str]]:
+    """Lay the document out. Called until the page count it prints is the count it has."""
+    from ..cir.twin import size_statement
+    from ..visual import render_contract as K
+    from . import tips as tips_mod
+
+    views = views or {}
+    stages = stages or []
+    year = released_on.year
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
-               subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")
-    head = f"{cir.title} - v{cir.version}"
+               subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}",
+               footer_left=f"© {year} {COPYRIGHT_HOLDER} · all rights reserved · "
+                           f"{cir.slug}@{cir.version}",
+               header_right=f"{terminology.upper()} terms · version {cir.version}")
+    head = f"Brambleloop · {cir.title}"
     problems: list[str] = []
+    usable = PAGE_W - 2 * MARGIN
+    comp = cir.components[0]
+    make_total = sum(c.make for c in cir.components)
+    piece = comp.name.replace("_", " ")
+    letters = color_letters(cir)
+    yarn_rgb = {name: colors.HexColor(value) for name, value in (cir.colors or {}).items()
+                if value}
+    difficulty_word = _difficulty(cir, twin)
+    from .difficulty import LADDER
 
-    # -- cover -------------------------------------------------------------
+    # ---------------------------------------------------------------- 1. the cover --------
     doc.new_page()
-    doc.c.setFillColor(PINE)
-    doc.c.rect(0, PAGE_H - 62 * mm, PAGE_W, 62 * mm, fill=1, stroke=0)
-    doc.c.setFillColor(CREAM)
-    doc.c.setFont("Helvetica-Bold", 11)
-    doc.c.drawString(MARGIN, PAGE_H - 22 * mm, designer.upper())
-    doc.c.setFont("Helvetica-Bold", 26)
-    doc.c.drawString(MARGIN, PAGE_H - 38 * mm, cir.title)
-    doc.c.setFont("Helvetica", 11)
-    doc.c.setFillColor(GOLD_ON_PINE)
-    doc.c.drawString(MARGIN, PAGE_H - 48 * mm,
-                     f"Crochet pattern - {terminology} terms - version {cir.version}")
-    doc.y = PAGE_H - 78 * mm
+    doc.reversed_footer_pages = {1}
+    band_h = 40 * mm
+    c = doc.c
+    c.setFillColor(FOREST)
+    c.rect(0, 0, PAGE_W, band_h, fill=1, stroke=0)
+    from PIL import Image as _PIL
 
+    logo = _cover_logo()
+    logo_w = 86 * mm
+    logo_h = logo_w * logo.height / logo.width
+    doc.c.setStrokeColor(LINE)
+    doc.c.setLineWidth(0.6)
+    doc.c.roundRect((PAGE_W - logo_w) / 2 - 1.5 * mm, PAGE_H - 8 * mm - logo_h - 1.5 * mm,
+                    logo_w + 3 * mm, logo_h + 3 * mm, 2 * mm, fill=0, stroke=1)
+    doc.place(logo, (PAGE_W - logo_w) / 2, PAGE_H - 8 * mm, logo_w, logo_h,
+              figure={"kind": "brand_artwork", "source": "brand.canonical_assets hero_logo "
+                      "(owner artwork, exact, resampled to fit)", "label": "Brambleloop"})
+    if sample_photo_placeholders:
+        doc.text(PAGE_W / 2, PAGE_H - 7 * mm, "PROOF COPY WITH PHOTO PLACEHOLDERS - NOT FOR SALE",
+                 FONT_UI_BOLD, MIN_BODY_PT, ACCENT, align="centre", track=0.8)
+    title_y = PAGE_H - 8 * mm - logo_h - 12 * mm
+    title_size = 34
+    while doc.width(cir.title, FONT_DISPLAY_BOLD, title_size) > usable and title_size > 20:
+        title_size -= 1
+    doc.prose.append(cir.title)
+    doc.text(PAGE_W / 2, title_y, cir.title, FONT_DISPLAY_BOLD, title_size, FOREST,
+             align="centre")
+    kicker = f"Crochet pattern · {terminology} terms · version {cir.version}"
+    doc.prose.append(kicker)
+    doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker.upper(), FONT_UI_MEDIUM, 9.5, TAUPE,
+             align="centre", track=1.1)
+    if make_total > 1:
+        # The CIR makes several pieces; the cover says how many (Component.make).
+        makes = f"Makes {make_total} {piece}s"
+        doc.prose.append(makes)
+        doc.text(PAGE_W / 2, title_y - 15 * mm, makes, FONT_DISPLAY_ITALIC, 15, ACCENT,
+                 align="centre")
+        title_y -= 7 * mm
+    cover_view = "angle" if "angle" in views else ("hero" if "hero" in views else None)
+    caption_y = band_h + 7 * mm
+    if cover_view:
+        img, sha = views[cover_view]
+        box_top = title_y - 15 * mm
+        box_h = box_top - (caption_y + 6 * mm)
+        _rounded_image(doc, img, MARGIN, box_top, usable, box_h,
+                       figure={"kind": "disclosed_render", "view": cover_view,
+                               "source": "visual.disclosed_render.render", "png_sha256": sha,
+                               "label": K.DISCLOSURE})
+        cap = ("Digital rendering of the finished design, drawn stitch by stitch from this "
+               "pattern - not a photograph.")
+        doc.prose.append(cap)
+        doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
+    # The facts strip in the forest band.
+    strip = [("Skill", difficulty_word.capitalize()),
+             ("Finished size", _short_size(twin)),
+             ("Yarn", _yarn_weight_label(cir)),
+             ("Hook", f"{cir.gauge.hook_mm:g} mm" if cir.gauge else "see Materials")]
+    col_w = usable / len(strip)
+    for i, (k, v) in enumerate(strip):
+        x = MARGIN + i * col_w
+        doc.prose.append(f"{k} {v}")
+        doc.text(x, 29 * mm, k.upper(), FONT_UI_BOLD, MIN_BODY_PT, GOLD_ON_PINE, track=1.0)
+        lines = _wrap(c, v, FONT_BODY, 10, col_w - 4 * mm)
+        if len(lines) > 3:
+            problems.append(f"PDF_TEXT_DOES_NOT_FIT: cover {k!r} needs {len(lines)} lines")
+        for j, line in enumerate(lines):
+            doc.text(x, 23.5 * mm - j * 4.6 * mm, line, FONT_BODY, 10, PAPER_ON_FOREST)
     claims: list[str] = []
-    doc.heading("At a glance")
-    if twin.width_cm and twin.height_cm:
-        # PT-10: a round piece names its convention (a hexagon is quoted across the points
-        # and across the flats); a flat piece is width x length. Every figure is computed
-        # from the stated gauge, and says so.
-        from ..cir.twin import size_statement
 
+    # ---------------------------------------------------------------- 2. overview ----------
+    doc.new_page(head)
+    doc.heading("Overview", kicker="About this pattern")
+    for p in overview_paragraphs(cir, result, twin, text, terminology):
+        doc.para(p, size=10.5)
+    doc.space(3 * mm)
+
+    # At a glance: the project-details panel.
+    rows: list[tuple[str, str, str, dict]] = []
+    if twin.width_cm and twin.height_cm:
         if twin.shape is not None and size_statement(twin):
             size = f"{size_statement(twin)} at the stated gauge"
         else:
             size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
         if not twin.calibrated:
             size += " (computed, not yet measured on a worked sample)"
-        doc.kv("finished size", size)
         claims.append(size)
-    doc.kv("difficulty", _difficulty(cir, twin))
-    doc.kv("construction", cir.construction.replace("_", " "))
+        rows.append(("size", "finished size", size, {}))
+    level = LADDER.index(difficulty_word) + 1 if difficulty_word in LADDER else len(LADDER)
+    rows.insert(0, ("skill", "difficulty", difficulty_word,
+                    {"level": level, "of": len(LADDER)}))
+    if make_total > 1:
+        rows.append(("pieces", "pieces", f"{make_total} {piece}s", {}))
+    construction = cir.construction.replace("_", " ")
+    if "magic ring" in text:
+        construction += ", from a magic ring"
+    rows.append(("rounds", "construction", construction, {}))
+    fibres, _why = fibres_named(cir)
+    yarn = _yarn_weight_label(cir)
+    if fibres:
+        yarn += f", {' and '.join(fibres)}"
+    rows.append(("yarn", "yarn", yarn, {}))
+    if twin.yarn_metres_by_color:
+        total = sum(twin.yarn_metres_by_color.values())
+        lo, hi = _metres(total, twin.yardage_tolerance)
+        rows.append(("yarn", "yarn amount",
+                     f"about {lo:.0f}-{hi:.0f} m in total ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd), "
+                     f"estimated", {}))
     if cir.gauge:
-        doc.kv("gauge", f"{cir.gauge.stitches_per_10cm} sts x {cir.gauge.rows_per_10cm} rows "
-                        f"= 10 cm in {_gauge_stitch(cir, terminology)}")
-        doc.kv("hook", f"{cir.gauge.hook_mm:g} mm")
-    doc.kv("colours", ", ".join(sorted(cir.colors)) or "one colour")
-    doc.kv("released", released_on.isoformat())
-    doc.space(4 * mm)
-    doc.para(AI_DISCLOSURE, size=9, color=MUTED)
+        rows.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm", {}))
+        rows.append(("gauge", "gauge", f"{cir.gauge.stitches_per_10cm} sts x "
+                     f"{cir.gauge.rows_per_10cm} rows = 10 cm in {_gauge_stitch(cir, terminology)}",
+                     {}))
+    rows.append(("colours", "colours", ", ".join(sorted(cir.colors)) or "one colour",
+                 {"fill": [yarn_rgb[k] for k in sorted(yarn_rgb)]}))
+    try:
+        from ..products import launch0 as _l0
 
-    # -- sizes and fit (graded garments: F-761, F-762, F-763, F-362) -------
-    chart = size_chart(cir)
-    if chart:
-        doc.new_page(head)
-        doc.heading(SIZES_HEADING)
-        doc.para(fit_statement(cir) or "", size=10, running_head=head)
-        from ..cir.graded import CHILD
-        if cir.grading.table == CHILD.name:
-            doc.para(AGE_IS_A_GUIDE, size=10, running_head=head)
-        doc.space(2 * mm)
-        for label, value in chart:
-            doc.kv(label, value)
-        note = care_note(cir)
-        if note:
-            doc.space(3 * mm)
-            doc.heading(CARE_HEADING, size=12)
-            doc.para(note, size=10, running_head=head)
+        hours = _l0.make_hours(cir.slug)
+    except Exception:  # a product outside the Launch-0 catalogue has no estimate
+        hours = None
+    if hours:
+        rows.append(("time", "making time",
+                     f"about {hours:.1f} hours{' for the set' if make_total > 1 else ''} "
+                     f"(estimated from the stitch count, not timed)", {}))
+    rows.append(("info", "released", f"{released_on.isoformat()} · version {cir.version}", {}))
 
-    # -- schematic ---------------------------------------------------------
-    # Multi-piece designs only: every piece's outline and every join, drawn from the same
-    # assembly model the certificate checked (publish/schematic.py). One-piece products keep
-    # the document they had.
-    from .schematic import schematic_for
-    schematic = schematic_for(cir, result)
-    if schematic is not None:
-        doc.new_page(head)
-        doc.heading("Schematic")
-        doc.para("Every piece as worked, to scale, with the joins that make it one object. "
-                 "Measurements are computed from the stated gauge.", size=9, color=MUTED)
-        doc.image(schematic.image, running_head=head)
+    doc.prose.append("At a glance")
+    col_gap = 6 * mm
+    col_w = (usable - col_gap) / 2
+    val_w = col_w - 14 * mm
+    heights = []
+    for icon, key, value, _kw in rows:
+        n = len(_wrap(c, value, FONT_BODY, 9.5, val_w))
+        heights.append(max(11 * mm, 5 * mm + n * 4.4 * mm) + 1.5 * mm)
+    half = (len(rows) + 1) // 2
+    panel_h = 14 * mm + max(sum(heights[:half]), sum(heights[half:])) + 2 * mm
+    doc.need(panel_h + 4 * mm)
+    top = doc.y + 2 * mm
+    doc.panel(MARGIN, top, usable, panel_h)
+    doc.text(MARGIN + 5 * mm, top - 8 * mm, "AT A GLANCE", FONT_UI_BOLD, 9.5, ACCENT,
+             track=1.2)
+    for col in (0, 1):
+        y = top - 15 * mm
+        x = MARGIN + 5 * mm + col * (col_w + col_gap - 3 * mm)
+        for (icon, key, value, kw), h in list(zip(rows, heights))[col * half:(col + 1) * half]:
+            _icon(c, icon, x + 4.5 * mm, y - 2.5 * mm, 4.3 * mm, **kw)
+            doc.prose.append(f"{key} {value}")
+            doc.text(x + 11.5 * mm, y, key.upper(), FONT_UI_BOLD, MIN_BODY_PT, TAUPE, track=0.6)
+            yy = y - 4.6 * mm
+            for line in _wrap(c, value, FONT_BODY, 9.5, val_w):
+                doc.text(x + 11.5 * mm, yy, line, FONT_BODY, 9.5, INK)
+                yy -= 4.4 * mm
+            y -= h
+    doc.y = top - panel_h - 7 * mm
 
-    # -- materials ---------------------------------------------------------
+    # About this pattern: how it was made, what the pictures are, what has been tested.
+    notes = [("How this pattern was made.", AI_DISCLOSURE.split(": ", 1)[1]),
+             ("About the pictures.", IMAGE_DISCLOSURE.split(": ", 1)[1]),
+             ("Physical testing:", physical_status(twin).split(": ", 1)[1])]
+    inner = usable - 10 * mm
+    laid = []
+    notes = [(k, t[:1].upper() + t[1:]) for k, t in notes]
+    for k, t in notes:
+        doc.prose.append(f"{k} {t}")
+        laid.append(_rich_lines(c, [(k, FONT_BODY_BOLD, ACCENT), (t, FONT_BODY, INK)], inner,
+                                9.5))
+    leading = 13.0
+    h = 9 * mm + sum(len(ls) * leading + 2 * mm for ls in laid)
+    doc.need(h + 3 * mm)
+    top = doc.y + 2 * mm
+    doc.panel(MARGIN, top, usable, h, fill=PAPER, stroke=ROSE)
+    y = top - 7 * mm
+    for ls in laid:
+        y = _draw_rich(doc, ls, MARGIN + 5 * mm, y, 9.5, leading) - 2 * mm
+    doc.y = top - h - 4 * mm
+
+    # ---------------------------------------------------------------- 3. materials ---------
     doc.new_page(head)
-    doc.heading("Materials")
-    for m in cir.materials:
+    doc.heading("Materials", kicker="What you need")
+    # Yarn cards: one per yarn, with the colour drawn, the yarn named as the CIR names it, and
+    # the amount per piece and in total from the twin's census.
+    mats = list(cir.materials)
+    per_row = 2 if len(mats) <= 4 else 3
+    card_gap = 5 * mm
+    card_w = (usable - card_gap * (per_row - 1)) / per_row
+    card_h = 33 * mm
+    tol = twin.yardage_tolerance
+    for i, m in enumerate(mats):
+        col = i % per_row
+        if col == 0:
+            doc.need(card_h + 4 * mm)
+            row_top = doc.y + 2 * mm
+        x = MARGIN + col * (card_w + card_gap)
+        doc.panel(x, row_top, card_w, card_h)
+        rgb = yarn_rgb.get(m.color_id or m.colorway or "", None)
+        if rgb is not None:
+            _yarn_ball(c, x + 12 * mm, row_top - card_h / 2, 7.5 * mm, rgb)
+        tx = x + 25 * mm
+        letter = letters.get(m.color_id) if m.color_id else None
+        tag = f"Colour {letter}" if letter else "Yarn"
         described = f"{m.name} ({m.yarn_weight})"
         if m.colorway:
-            # The colourway was in the CIR and in the written instructions, and the
-            # materials list -- the page a buyer takes to the yarn shop -- dropped it.
+            # The colourway was in the CIR and in the written instructions, and the materials
+            # list -- the page a buyer takes to the yarn shop -- once dropped it.
             described += f", colourway {m.colorway}"
-        doc.kv(m.color_id or m.name, described)
+        doc.prose.append(f"{m.color_id or m.name} {described}")
+        doc.text(tx, row_top - 7 * mm, tag.upper(), FONT_UI_BOLD, MIN_BODY_PT, ACCENT, track=1.0)
+        doc.text(tx, row_top - 12.5 * mm, (m.colorway or m.name).capitalize(), FONT_DISPLAY_BOLD,
+                 15, FOREST)
+        yy = row_top - 17.5 * mm
+        card_lines = _wrap(c, described, FONT_BODY, 9.5, card_w - 28 * mm)
+        for line in card_lines:
+            doc.text(tx, yy, line, FONT_BODY, 9.5, INK)
+            yy -= 4.3 * mm
+        metres = twin.yarn_metres_by_color.get(m.color_id or "", None)
+        if metres:
+            lo, hi = _metres(metres, tol)
+            amount = f"about {lo:.0f}-{hi:.0f} m ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd)"
+            if make_total > 1:
+                amount += f" for all {make_total}"
+            doc.prose.append(amount)
+            for line in _wrap(c, amount, FONT_BODY_BOLD, 9.5, card_w - 28 * mm):
+                doc.text(tx, yy, line, FONT_BODY_BOLD, 9.5, FOREST)
+                yy -= 4.3 * mm
+        if yy < row_top - card_h + 2 * mm:
+            problems.append(f"PDF_TEXT_DOES_NOT_FIT: the yarn card for {m.color_id or m.name} "
+                            f"overflows its panel")
+        if col == per_row - 1 or i == len(mats) - 1:
+            doc.y = row_top - card_h - 6 * mm
+
+    doc.heading("Hook and notions", size=12)
+    notions: list[tuple[str, str, str]] = []
     if cir.gauge and cir.gauge.hook_mm:
-        doc.kv("hook", f"{cir.gauge.hook_mm:g} mm, or whatever hook gets you the gauge below")
+        notions.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm, or whatever hook gets you "
+                                        f"the gauge below"))
     # The special-stitch methods are part of what this document asks the maker to do, so the
-    # tools they require belong on the shopping list too: without this the pattern told a
-    # maker to slip stitches onto a cable needle on page 3 and listed only yarn on page 2.
+    # tools they require belong on the shopping list too.
     instructed = "\n".join([text] + [abbreviations.method(code, terminology)
                                      for code in sorted(twin.stitch_types_used)])
-    for tool in _tools_required(cir, instructed):
-        doc.kv(tool[0], tool[1])
-    doc.space(3 * mm)
+    icon_for = {"tapestry needle": "needle", "blocking pins and a surface": "pins",
+                "stitch marker": "marker"}
+    for name, what in _tools_required(cir, instructed):
+        notions.append((icon_for.get(name, "info"), name, what))
+    if "sts)" in text and not any(n[1] == "stitch marker" for n in notions):
+        # The tips page asks for a marker in the first stitch of every round.
+        notions.append(("marker", "stitch marker", "optional, to mark the first stitch of each "
+                                                   "round"))
+    for icon, name, what in notions:
+        doc.need(11.5 * mm)
+        _icon(c, icon, MARGIN + 4 * mm, doc.y + 0.2 * mm, 3.8 * mm)
+        doc.prose.append(f"{name} {what}")
+        doc.text(MARGIN + 11 * mm, doc.y + 2.2 * mm, name.upper(), FONT_LABEL, MIN_BODY_PT,
+                 TAUPE)
+        doc.text(MARGIN + 11 * mm, doc.y - 2.6 * mm, what, FONT_BODY, 9.5, INK)
+        doc.y -= 11.5 * mm
+
+    doc.space(1 * mm)
     doc.heading("How much yarn", size=12)
     if twin.yarn_metres_by_color:
         for name, metres in sorted(twin.yarn_metres_by_color.items()):
-            low = metres * (1 - twin.yardage_tolerance)
-            high = metres * (1 + twin.yardage_tolerance)
-            doc.kv(name, f"about {low:.0f}-{high:.0f} m ({low * 1.094:.0f}-"
-                         f"{high * 1.094:.0f} yd)")
+            low, high = _metres(metres, tol)
+            value = f"about {low:.0f}-{high:.0f} m ({low * 1.094:.0f}-{high * 1.094:.0f} yd)"
+            if make_total > 1:
+                plo, phi = low / make_total, high / make_total
+                value += (f" for all {make_total} {piece}s; about {plo:.1f}-{phi:.1f} m "
+                          f"for each one")
+            doc.kv(name, value)
     tolerance_note = (
-        f"These quantities are estimates with a +/-{twin.yardage_tolerance * 100:.0f}% range, "
-        "not measurements. Yarn consumption genuinely varies with yarn, hook and tension, so "
-        "buy a little more than the top of the range if your dye lot matters to you."
+        f"These quantities are estimates with a ±{tol * 100:.0f}% range, not measurements. "
+        "Yarn consumption genuinely varies with yarn, hook and tension, so buy a little more "
+        "than the top of the range if your dye lot matters to you."
         if not twin.calibrated else
-        "These quantities were calibrated against a physically worked sample."
-    )
-    doc.para(tolerance_note, size=9, color=MUTED)
-    doc.space(4 * mm)
-    doc.heading("Gauge, and why it matters here", size=12)
+        "These quantities were calibrated against a physically worked sample.")
+    doc.para(tolerance_note, size=9.5, color=MUTED)
+
+    # -- substituting the yarn (#7) ----------------------------------------
+    try:
+        guide = substitution.guidance(cir, twin)
+    except substitution.SubstitutionRefused:
+        guide = None
+    if guide and guide["substitutes"]["weights"]:
+        doc.heading("Substituting the yarn", size=12)
+        names = ", ".join(
+            f"{w['weight'].replace('_', ' ')} (also called {w['also_called'][0]})"
+            for w in guide["substitutes"]["weights"])
+        doc.para(
+            f"Gauge decides this, not the name on the band. Any of these can be worked to "
+            f"this fabric: {names}. Swatch and change hook until your gauge matches — the "
+            f"gauge is what makes the finished size come out.", size=10)
+        for row in guide["how_much"]:
+            if not row.get("measurable"):
+                continue
+            doc.kv(f"if you use {row['to'].replace('_', ' ')}",
+                   f"about {row['buy_metres']:.0f} m in total "
+                   f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
+                   f"{row['fabric_changes']}")
+        if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
+            # F-112: a statement of fact about a released pattern, not a compensation.
+            doc.para(
+                f"Note: the gauge above sits outside the published band for "
+                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
+                f"tested gauge rather than the band's; match it with your own swatch.",
+                size=9.5, color=MUTED)
+        doc.para(
+            f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
+            f"Buying exactly enough is how a project ends one row short in a dye lot that has "
+            f"gone. Changing fibre as well — cotton for acrylic, say — changes how much "
+            f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
+            f"read off a table.", size=9.5, color=MUTED)
+
+    # ---------------------------------------------------------------- 4. gauge -------------
+    if doc.y < 150 * mm:
+        doc.new_page(head)
+    else:
+        doc.space(6 * mm)
+    doc.heading("Gauge, and why it matters here", kicker="Before you start")
     doc.para(
         "Work a swatch before you start. The finished size above is computed from the gauge "
         "above; if your gauge differs, your finished piece will differ by the same "
-        "proportion. The stitch counts in this pattern are correct at any gauge -- only the "
+        "proportion. The stitch counts in this pattern are correct at any gauge — only the "
         "measurements change.", size=10)
+    if cir.gauge:
+        stitch = _gauge_stitch(cir, terminology)
+        g = cir.gauge
+        steps = [
+            f"With the {g.hook_mm:g} mm hook and the yarn you will use, work a square of {stitch} "
+            f"a little over 12 cm wide and 12 cm tall.",
+            f"Lay it flat without stretching it. Across 10 cm in the middle you are aiming for "
+            f"{g.stitches_per_10cm:g} stitches, and up 10 cm for {g.rows_per_10cm:g} rows.",
+            "More stitches than that means your stitches are smaller than the pattern's: change "
+            "to a larger hook. Fewer stitches means they are larger: change to a smaller hook. "
+            "Swatch again until it matches.",
+        ]
+        try:
+            ms = value_stack.milestones(cir, twin)
+        except value_stack.ValueStackRefused:
+            ms = None
+        if ms and len(ms["milestones"]) > 1 and ms["unit"] == "round":
+            mark = ms["milestones"][1]
+            steps.append(f"On a piece worked in the round you can also check as you go: after "
+                         f"round {mark['row']} it should be {mark['measured']}.")
+        doc.label("How to check your gauge")
+        for n, s in enumerate(steps, 1):
+            doc.need(10 * mm)
+            doc.c.setFillColor(ACCENT)
+            doc.c.circle(MARGIN + 2.6 * mm, doc.y + 1.2 * mm, 2.6 * mm, fill=1, stroke=0)
+            doc.text(MARGIN + 2.6 * mm, doc.y - 0.1 * mm, str(n), FONT_UI_BOLD, MIN_BODY_PT,
+                     colors.white, align="centre")
+            doc.para(s, size=10, x=MARGIN + 8 * mm)
 
     # -- the row gauge the fabric actually has -----------------------------
     #
-    # The sentence above is true of the width and only half true of the length. The width is
-    # the stitch gauge multiplied by the stitch count; the length is accumulated row by row
-    # using each row's own stitch height, so a pattern whose gauge is stated in sc and whose
-    # fabric is mostly dc is *twice* as long as the stated row gauge implies.
-    #
-    # Found by reading the shipped document as a buyer: the Cloudline blanket states 18 rows
-    # = 10 cm, and its own progress table says 88 rows come to 97 cm, which is 9 rows to 10
-    # cm. A maker who checks their work against the stated gauge at row 22 finds the fabric
-    # apparently twice as long as it should be and rips out a correct blanket. Both numbers
-    # were right; the document simply never printed the one that reconciles them.
+    # The width is the stitch gauge multiplied by the stitch count; the length is accumulated
+    # row by row using each row's own stitch height, so a pattern whose gauge is stated in sc
+    # and whose fabric is mostly dc is *twice* as long as the stated row gauge implies. The
+    # document prints the number that reconciles them (Cloudline, 2026-09).
     fabric = _fabric_row_gauge(twin)
     taller = _taller_than_gauge(cir, twin)
     if fabric and cir.gauge and taller:
@@ -1175,30 +2037,19 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"is worked in taller stitches as well, so its rows stack up faster. Check "
                 f"your stitches across against the swatch gauge, and check your rows against "
                 f"the measurements in 'Checking your progress' below, which are the "
-                f"fabric's own.", size=9, color=MUTED)
+                f"fabric's own.", size=9.5, color=MUTED)
     else:
-        # A piece worked in the round has no swatch/fabric row gauge to reconcile -- the
-        # paragraph above does not apply to it -- but it does have a real question about
-        # which gauge governs which dimension, and leaving that unanswered is how the fix
-        # for one defect creates another.
         round_note = _round_gauge_note(cir, twin, terminology)
         if round_note:
-            doc.space(2 * mm)
-            doc.para(round_note, size=9, color=MUTED)
+            doc.space(1 * mm)
+            doc.para(round_note, size=9.5, color=MUTED)
 
     # -- how to know it is going right (#7) --------------------------------
-    #
-    # A maker halfway up a blanket is asking one question: is what is on my hook what should
-    # be on my hook. A progress picture they can only agree with does not answer it; a stitch
-    # count and a measurement do.
     try:
         progress = value_stack.milestones(cir, twin)
     except value_stack.ValueStackRefused:
         progress = None
     if progress and len(progress["milestones"]) > 2:
-        # The unit is the pattern's own. A basket's lines are rounds, the document calls them
-        # `Rnd`, and a table headed "row 17 of 70" over a pattern that has no rows is the
-        # small kind of wrong that makes a maker doubt the rest of the page.
         unit = progress["unit"]
         doc.heading("Checking your progress", size=12)
         doc.para(
@@ -1206,107 +2057,38 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"the difference is gauge, and it is easier to fix now than at {unit} "
             f"{progress['rows_total']}.", size=10)
         for mark in progress["milestones"]:
-            # `measured` is built where the measurement is: `value_stack` knows whether the
-            # centimetres came off the twin's own per-round accumulation or from dividing a
-            # total, and printing its sentence keeps the document from having a second
-            # opinion about a number the twin has already made.
             doc.kv(f"{mark['unit']} {mark['row']} of {progress['rows_total']}",
                    mark["measured"])
 
     # -- printing it (#7) ---------------------------------------------------
-    #
-    # Most home printers are greyscale, and a chart whose colours differ in hue but not in
-    # lightness prints as one flat block. Said in the document, because the person it affects
-    # is holding the document.
     printing = value_stack.print_safety(cir)
     if printing.get("measurable") and printing.get("prints") is False:
-        # Named, not counted. This said "two of these colours are close in lightness"
-        # regardless of how many pairs actually merge, and the measurement that decided to
-        # print it already knows which ones -- `print_safety` returns `weakest_pair`, and every
-        # pair that fails is in `pairs`. On a four-colour pattern where three merge, "two"
-        # sends a maker looking for a pair that is not the problem.
-        #
-        # It has never been printed. No pattern in the catalogue fails this check, so the one
-        # sentence in the document nobody has ever read was the one with the arithmetic
-        # wrong in it -- a claim whose only sample could not contain the broken case.
         merging = printing.get("merging_pairs", [])
         pairs = " and ".join(" / ".join(p["between"]) for p in merging) or "two of these"
         doc.para(
             f"Printing in black and white: {pairs} are close in lightness and "
             f"will merge on a greyscale printer. The chart carries a letter for each colour, "
-            f"so follow the letters rather than the shading.", size=9, color=MUTED)
+            f"so follow the letters rather than the shading.", size=9.5, color=MUTED)
 
-    # -- substituting the yarn (#7) ----------------------------------------
-    #
-    # The first question a buyer asks about a pattern is the one nobody answers: I cannot get
-    # that yarn, what can I use. It is answered here from this pattern's own gauge and
-    # yardage rather than from a paragraph somebody wrote, and where it cannot be answered it
-    # says so instead of offering a plausible number.
-    try:
-        guide = substitution.guidance(cir, twin)
-    except substitution.SubstitutionRefused:
-        guide = None
-    if guide and guide["substitutes"]["weights"]:
-        doc.heading("Substituting the yarn", size=12)
-        names = ", ".join(
-            f"{w['weight'].replace('_', ' ')} (also called {w['also_called'][0]})"
-            for w in guide["substitutes"]["weights"])
-        doc.para(
-            f"Gauge decides this, not the name on the band. Any of these can be worked to "
-            f"this fabric: {names}. Swatch and change hook until your gauge matches -- the "
-            f"gauge is what makes the finished size come out.", size=10)
-        for row in guide["how_much"]:
-            if not row.get("measurable"):
-                continue
-            doc.kv(f"if you use {row['to'].replace('_', ' ')}",
-                   f"about {row['buy_metres']:.0f} m in total "
-                   f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
-                   f"{row['fabric_changes']}")
-        if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
-            # F-112: this note used to be the whole answer -- "swatch before you buy" printed
-            # over a gauge the declared yarn cannot make. A warning is not a substitute for
-            # truth, so certification now refuses such a pattern (GAUGE_OUTSIDE_DECLARED_YARN
-            # _BAND) unless a physical test of this exact content is bound to it. What is left
-            # here is a statement of fact about a released pattern, not a compensation.
-            doc.para(
-                f"Note: the gauge above sits outside the published band for "
-                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
-                f"tested gauge rather than the band's; match it with your own swatch.",
-                size=9, color=MUTED)
-        doc.para(
-            f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
-            f"Buying exactly enough is how a project ends one row short in a dye lot that has "
-            f"gone. Changing fibre as well -- cotton for acrylic, say -- changes how much "
-            f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
-            f"read off a table.", size=9, color=MUTED)
-
-    # -- abbreviations ------------------------------------------------------
-    #
-    # The section this document did not have. Everything below is the document's own
-    # vocabulary: each entry is a token that appears in the instructions overleaf, and the
-    # meanings come from the canonical stitch registry rather than being restated here, so
-    # the key cannot disagree with the compiler about what a code means. See
-    # `publish/abbreviations.py` for why a key derived from the chart could not do this.
+    # ---------------------------------------------------------------- 5. abbreviations -----
     doc.new_page(head)
-    doc.heading("Abbreviations")
+    doc.heading("Abbreviations", kicker=f"{terminology.upper()} crochet terms")
     doc.para(f"This pattern is written in {terminology.upper()} terms. Every abbreviation it "
              f"uses is below; nothing in the instructions is left to be looked up "
              f"elsewhere.", size=10)
-    doc.space(2 * mm)
+    doc.space(1 * mm)
     key = abbreviations.stitch_key(text, terminology)
     for entry in key:
         doc.kv(entry.token, entry.means, upper=False)
 
     notation = abbreviations.notation_key(text)
     if notation:
-        doc.space(3 * mm)
         doc.heading("How to read a row", size=12)
         for entry in notation:
             doc.kv(entry.token, entry.means, upper=False)
 
     methods = [e for e in key if e.method]
     if methods:
-        doc.space(3 * mm)
         doc.heading("Special stitches", size=12)
         doc.para("These are the stitches in this pattern that are not simply worked into the "
                  "top of the stitch below. Work one of each before you start the piece.",
@@ -1314,179 +2096,391 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         for entry in methods:
             doc.space(1 * mm)
             doc.kv(entry.token, entry.means, upper=False)
-            doc.para(entry.method, size=9, color=MUTED)
+            doc.para(entry.method, size=9.5, color=MUTED)
     cables = abbreviations.CABLE_CODES & set(twin.stitch_types_used)
     if cables:
-        doc.para(abbreviations.CABLE_DIRECTION_NOTE, size=9, color=MUTED)
-        # Honest about what the document cannot say. The canonical `Stitch` record has no
-        # field for which side the held stitches wait on, so a cable held at the front and
-        # one held at the back are the same op to every check in this system -- and they are
-        # mirror images in the fabric. Naming a side here would print a fact the compiler
-        # never verified, which is the failure this company exists not to have.
+        doc.para(abbreviations.CABLE_DIRECTION_NOTE, size=9.5, color=MUTED)
+        # The canonical `Stitch` record has no field for which side the held stitches wait
+        # on; naming a side would print a fact the compiler never verified.
         problems.append(
             f"PDF_CABLE_DIRECTION_UNSPECIFIED: {sorted(cables)} cross four stitches over "
             f"each other and the CIR records no crossing direction, so the document cannot "
             f"tell a maker whether the held stitches wait at the front or the back. The "
             f"piece is makeable and its cables may mirror the product photography. Needs a "
             f"field on cir.stitches.Stitch before the document can state it")
+    techniques = abbreviations.techniques(text, terminology)
+    if techniques:
+        doc.heading("Techniques used", size=12)
+        for entry in techniques:
+            doc.need(14 * mm)
+            doc.prose.append(entry.token)
+            doc.text(MARGIN, doc.y, entry.token.capitalize(), FONT_BODY_BOLD, 10, FOREST)
+            doc.y -= 4.8 * mm
+            doc.para(entry.means, size=9.5, color=INK)
+            doc.space(1 * mm)
 
-    # -- instructions ------------------------------------------------------
-    doc.new_page(head)
-    # F-765: how the pieces become the object, before any row-level instruction. Derived
-    # from the CIR's own components and assembly, so it cannot describe a join the pattern
-    # does not make; absent for a one-piece item, which has nothing to explain.
+    # ---------------------------------------------------------------- 6. construction ------
+    from .schematic import schematic_for
+    schematic = schematic_for(cir, result)
     overview = construction_overview(cir)
-    if overview:
-        doc.heading("How it goes together", size=12)
-        for line in overview:
-            doc.para(line, size=10, running_head=head)
-        doc.space(3 * mm)
-    doc.heading(f"Instructions ({terminology} terms)")
-    for block in text.split("\n"):
-        if not block.strip():
+    scale_view = views.get("scale")
+    if schematic is not None or scale_view is not None or overview:
+        doc.new_page(head)
+        doc.heading("How it is made", kicker="Construction and schematic")
+        # F-765: how the pieces become the object, before any row-level instruction.
+        if overview:
+            doc.heading("How it goes together", size=12)
+            for line in overview:
+                doc.para(line, size=10, running_head=head)
             doc.space(2 * mm)
-            continue
-        if block.rstrip().endswith(":") or block.startswith("#"):
-            doc.need(8 * mm, head)
-            doc.c.setFont("Helvetica-Bold", 11)
-            doc.c.setFillColor(PINE)
-            doc.c.drawString(MARGIN, doc.y, block.lstrip("# ").strip())
-            doc.y -= 6 * mm
         else:
-            doc.para(block, size=10, running_head=head)
+            base, wall = _rings(twin)
+            rows_ix = _rows_by_index(twin)
+            unit = "round" if "round" in comp.construction else "row"
+            if base and wall:
+                doc.para(f"The {piece} is one piece, worked in joined {unit}s without turning. "
+                         f"{unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
+                         f"increase to grow a flat base of {len(rows_ix[base[-1].index])} "
+                         f"stitches; {unit}s {_span_words(wall[0].index, wall[-1].index)} keep "
+                         f"that count and rise straight up to make the wall. There are no "
+                         f"seams to sew.", size=10)
+            elif base:
+                doc.para(f"Each {piece} is one piece, worked outward from the centre in joined "
+                         f"{unit}s without turning, growing to {len(rows_ix[base[-1].index])} "
+                         f"stitches at {('Rnd' if unit == 'round' else 'Row')} "
+                         f"{base[-1].index}. There are no seams to sew.", size=10)
+        if schematic is not None:
+            doc.heading("Schematic", size=12)
+            doc.para("Every piece as worked, to scale, with the joins that make it one object. "
+                     "Measurements are computed from the stated gauge.", size=9.5, color=MUTED)
+            doc.image(schematic.image, running_head=head,
+                      figure={"kind": "schematic", "source": "publish.schematic.schematic_for",
+                              "label": "Schematic"})
+        elif scale_view is not None:
+            img, sha = scale_view
+            doc.prose.append("Schematic")
+            doc.label("Schematic with finished measurements")
+            box = max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm))
+            doc.need(box + 12 * mm)
+            top = doc.y
+            _rounded_image(doc, img, MARGIN, top, box, box,
+                           figure={"kind": "disclosed_render", "view": "scale",
+                                   "source": "visual.disclosed_render.render", "png_sha256": sha,
+                                   "label": "Schematic: " + K.DISCLOSURE})
+            # The measurements in text beside the picture, from the twin.
+            tx = MARGIN + box + 7 * mm
+            tw = usable - box - 7 * mm
+            facts = []
+            if twin.across_points_cm:
+                facts.append(("across the points", f"{twin.across_points_cm:.1f} cm"))
+                facts.append(("across the flats", f"{twin.across_flats_cm:.1f} cm"))
+            elif twin.width_cm:
+                facts.append(("across" if twin.shape else "width", f"{twin.width_cm:.1f} cm"))
+            if twin.shape not in (None, "disc") and twin.height_cm:
+                facts.append(("height", f"{twin.height_cm:.1f} cm"))
+            elif twin.shape is None and twin.height_cm:
+                facts.append(("length", f"{twin.height_cm:.1f} cm"))
+            rows_ix = _rows_by_index(twin)
+            if rows_ix:
+                facts.append(("stitches in the last round" if "round" in comp.construction
+                              else "stitches in the last row",
+                              f"{len(rows_ix[max(rows_ix)])}"))
+                facts.append(("rounds" if "round" in comp.construction else "rows",
+                              f"{len(rows_ix)}"))
+            yy = top - 4 * mm
+            doc.text(tx, yy, "FINISHED MEASUREMENTS", FONT_UI_BOLD, 9.5, ACCENT, track=1.0)
+            doc.prose.append("Finished measurements")
+            yy -= 8 * mm
+            for k, v in facts:
+                doc.prose.append(f"{k} {v}")
+                doc.text(tx, yy, k.upper(), FONT_LABEL, MIN_BODY_PT, TAUPE)
+                doc.text(tx, yy - 6 * mm, v, FONT_DISPLAY_BOLD, 18, FOREST)
+                yy -= 14 * mm
+            note = ("Computed from the pattern's stitches at the stated gauge; not measured on "
+                    "a worked sample." if not twin.calibrated else
+                    "Calibrated against a worked sample.")
+            doc.prose.append(note)
+            for line in _wrap(c, note, FONT_BODY_ITALIC, 9.5, tw):
+                doc.text(tx, yy, line, FONT_BODY_ITALIC, 9.5, MUTED)
+                yy -= 4.4 * mm
+            doc.y = top - box - 4 * mm
+            cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
+                   "photograph. The scale bar is in centimetres.")
+            doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC)
 
-    # -- charts ------------------------------------------------------------
+    # ---------------------------------------------------------------- 7. instructions ------
     doc.new_page(head)
-    doc.heading("Chart")
-    doc.para(art["caption"], size=9, color=MUTED)
-    doc.space(2 * mm)
+    doc.heading(f"Instructions ({terminology} terms)", kicker="Step by step")
+    parsed = _parse_writer(text)
+    # The writer's own header (title, version, gauge, materials, terminology) as a strip.
+    hdr = [h for h in parsed["header"]]
+    if hdr:
+        h_lines = [h for h in hdr if h != cir.title]
+        half = (len(h_lines) + 1) // 2
+        col_w = usable / 2 - 8 * mm
+        # Wrapped in full: a header line is the writer's text and is never cut to fit.
+        cols = [[_wrap(c, h, FONT_BODY, 9.5, col_w) for h in h_lines[:half]],
+                [_wrap(c, h, FONT_BODY, 9.5, col_w) for h in h_lines[half:]]]
+        rows_n = max(sum(len(w) for w in col) for col in cols)
+        hh = 5 * mm + rows_n * 4.8 * mm
+        doc.need(hh + 4 * mm)
+        top = doc.y + 2 * mm
+        doc.panel(MARGIN, top, usable, hh, fill=SURFACE)
+        if cir.title in hdr:
+            doc.prose.append(cir.title)
+        for col_i, col in enumerate(cols):
+            yy = top - 5.8 * mm
+            for h, wrapped in zip(h_lines[:half] if col_i == 0 else h_lines[half:], col):
+                doc.prose.append(h)
+                for line in wrapped:
+                    doc.text(MARGIN + 4 * mm + col_i * usable / 2, yy, line, FONT_BODY, 9.5, INK)
+                    yy -= 4.8 * mm
+        doc.y = top - hh - 6 * mm
+    if stages:
+        doc.para("Each card shows the piece after the last round in it, drawn from this "
+                 "pattern's stitch data - a construction diagram, not a photograph. The rose "
+                 "outline marks the edge of the round just worked; the first rounds are drawn "
+                 "enlarged so they can be seen.", size=9.5, color=MUTED,
+                 font=FONT_BODY_ITALIC)
+        doc.space(1 * mm)
+    stage_for = {}
+    for st in stages:
+        for k in range(st.first, st.round + 1):
+            stage_for[k] = st
+    finishing: list[str] = []
+    for title, lines in parsed["blocks"]:
+        if title.lower().startswith("finishing"):
+            finishing = lines
+            continue
+        shown = title[:1].upper() + title[1:]
+        doc.heading(shown, size=12)
+        steps = [ln for ln in lines if _STEP.match(ln)]
+        notes_ = [ln for ln in lines if ln.strip() and not _STEP.match(ln)]
+        for ln in notes_:
+            doc.need(10 * mm)
+            doc.para(ln, size=10, color=FOREST, font=FONT_BODY_ITALIC)
+        groups: list[tuple[object, list[str]]] = []
+        for ln in steps:
+            m = _STEP_NUMBER.match(ln)
+            st = stage_for.get(int(m.group(1))) if m else None
+            if groups and groups[-1][0] is st:
+                groups[-1][1].append(ln)
+            else:
+                groups.append((st, [ln]))
+        if stages and all(g[0] is not None for g in groups):
+            _step_cards(doc, groups, yarn_rgb, comp, head)
+        else:
+            for _st, group in groups:
+                for ln in group:
+                    _step_line(doc, ln, yarn_rgb, MARGIN, usable, head)
+        doc.space(3 * mm)
+
+    if finishing:
+        doc.need(60 * mm)
+        doc.heading("Finishing", kicker="Assembly and finishing")
+        for ln in finishing:
+            if not ln.strip():
+                continue
+            doc.need(9 * mm)
+            doc.c.setFillColor(ROSE)
+            doc.c.circle(MARGIN + 1.6 * mm, doc.y + 1.2 * mm, 1.1 * mm, fill=1, stroke=0)
+            doc.para(ln, size=10, x=MARGIN + 6 * mm, running_head=head)
+
+    # ---------------------------------------------------------------- 9. tips --------------
+    tip_list = tips_mod.tips(cir, result, twin, text, terminology)
+    if tip_list:
+        if doc.y < 150 * mm:
+            doc.new_page(head)
+        else:
+            doc.space(8 * mm)
+        doc.heading("Tips and troubleshooting", kicker="If something looks wrong")
+        gap = 6 * mm
+        cw = (usable - gap) / 2
+        inner = cw - 9 * mm
+        for i in range(0, len(tip_list), 2):
+            pair = tip_list[i:i + 2]
+            hs = [9 * mm + doc.para_height(t.text, 9.5, width=inner) + 5 * mm for t in pair]
+            h = max(hs)
+            doc.need(h + 4 * mm)
+            top = doc.y + 2 * mm
+            for j, t in enumerate(pair):
+                x = MARGIN + j * (cw + gap)
+                doc.panel(x, top, cw, h)
+                c.setFillColor(ROSE)
+                c.rect(x, top - h + 2.5 * mm, 1.4 * mm, h - 5 * mm, fill=1, stroke=0)
+                doc.prose.append(t.title)
+                doc.text(x + 5 * mm, top - 7 * mm, t.title, FONT_DISPLAY_BOLD, 14, FOREST)
+                doc.y = top - 12.5 * mm
+                doc.para(t.text, size=9.5, x=x + 5 * mm, width=inner)
+            doc.y = top - h - 5 * mm
+
+    # ---------------------------------------------------------------- 8. chart -------------
+    doc.new_page(head)
+    doc.heading("Chart", kicker="Chart and keys")
+    # The caption goes above the chart when both fit; otherwise below it, because the chart
+    # is placed at the size its legibility floor was measured at and cannot shrink to make room.
+    full_scale = min(1.0, (PAGE_W - 2 * MARGIN) / art["chart"].width)
+    caption_first = art.get("tiles") or (
+        doc.y - MARGIN >= art["chart"].height * full_scale + 4 * mm
+        + doc.para_height(art["caption"], 9.5) + 2 * mm)
+    if caption_first:
+        doc.para(art["caption"], size=9.5, color=MUTED)
+        doc.space(1 * mm)
+    chart_fig = {"kind": "chart", "source": "publish.charts (twin cell grid)", "label": "Chart"}
     if art.get("tiles"):
         doc.heading("Tile placement index", size=12)
         for start in dict.fromkeys(t["row_start"] for t in art["tiles"]):
             band = [(n, t) for n, t in enumerate(art["tiles"], 1) if t["row_start"] == start]
             doc.para(f"Rows {start}-{band[0][1]['row_end']}: " + "; ".join(
-                f"tile {n}, columns {t['column_start']}-{t['column_end']}" for n, t in band), size=9)
+                f"tile {n}, columns {t['column_start']}-{t['column_end']}" for n, t in band),
+                size=9.5)
         for number, tile in enumerate(art["tiles"], 1):
             doc.new_page(head)
             doc.heading("Chart continued")
-            doc.para(f"Tile {number} of {len(art['tiles'])}: rows {tile['row_start']}-{tile['row_end']}, "
-                     f"columns {tile['column_start']}-{tile['column_end']} (left to right).", size=9)
-            doc.image(tile["chart"], running_head=head, max_height=CHART_TILE_HEIGHT)
+            doc.para(f"Tile {number} of {len(art['tiles'])}: rows {tile['row_start']}-"
+                     f"{tile['row_end']}, columns {tile['column_start']}-{tile['column_end']} "
+                     f"(left to right).", size=9.5)
+            doc.image(tile["chart"], running_head=head, max_height=CHART_TILE_HEIGHT,
+                      figure=dict(chart_fig, label=f"Chart tile {number}"))
         doc.new_page(head)
         doc.heading("Chart key")
     else:
-        doc.image(art["chart"], running_head=head)
-    doc.image(art["legend"], running_head=head)
-    # What is wrong with the chart, measured on the chart as it lands on the page. Carried onto
-    # the document's problems so the release chain sees it, like every other finding here.
+        doc.image(art["chart"], running_head=head, figure=chart_fig,
+                  max_height=_chart_height_with_legend(doc, art, round_=is_round(cir, twin)))
+    if not caption_first:
+        doc.para(art["caption"], size=9.5, color=MUTED)
+        doc.space(1 * mm)
+    doc.image(art["legend"], running_head=head, max_height=70 * mm,
+              figure={"kind": "chart_legend", "source": "publish.charts.render_legend",
+                      "label": "Chart legend"})
     problems.extend(art.get("problems", ()))
-    doc.space(2 * mm)
-    # The chart's symbols, in text, because the chart cannot be read without them.
-    #
-    # The legend is a picture: nothing in it is searchable, selectable or readable by a screen
-    # reader, and it is gone entirely on a reader that dropped the images. The document used to
-    # answer that with one sentence -- "the stitch key in the image above is also written out
-    # under Abbreviations" -- and **that sentence was not true in the way that mattered**. The
-    # Abbreviations page writes out the *abbreviations*: `cable2x2` means a cable worked over
-    # four stitches. It has never contained a symbol. A maker who sees an X on the chart and
-    # follows that pointer arrives at a page with no X on it, and the mapping from mark to
-    # stitch existed in exactly one place in the whole deliverable: the rendered legend image.
-    #
-    # This is the same defect the colour key had on 2026-09-24 and the same fix, from the same
-    # sources: `charts.GLYPHS` for the mark, `cir.stitches` through `abbreviations` for the
-    # name, so the picture and the paragraph cannot disagree and neither can name a stitch in
-    # the wrong terminology.
+    # The chart's symbols, in text, because the chart cannot be read without them: the legend
+    # is a picture, invisible to a screen reader and to a search, and the Abbreviations page
+    # defines abbreviations, not marks.
     symbols = _chart_symbols(cir, twin, terminology)
     if symbols:
-        doc.space(2 * mm)
         doc.heading("Chart symbols", size=12)
         doc.para(_CHART_SYMBOL_NOTE_ROUND if is_round(cir, twin) else _CHART_SYMBOL_NOTE_FLAT,
-                 size=9, color=MUTED)
-        # Ordered by symbol, which is the direction this key is read in: a maker sees a mark
-        # on the chart and looks it up. The legend image orders by stitch because it is a
-        # stitch list; the mapping is the same mapping either way.
+                 size=9.5, color=MUTED)
         for symbol, means in symbols:
             doc.kv(symbol, means, upper=False)
-        doc.space(1 * mm)
         doc.para("The same key is drawn in the image above, and every stitch in it is also "
-                 "defined under Abbreviations, earlier in this document.", size=9,
+                 "defined under Abbreviations, earlier in this document.", size=9.5,
                  color=MUTED)
 
-    # The colour key, in text, because the document tells the maker to rely on it.
-    #
-    # The chart marks every square with its yarn's letter, and the printing note above says in
-    # so many words "follow the letters rather than the shading". The letter-to-yarn mapping
-    # existed in one place: the rendered legend image. So the document instructed a maker to
-    # use a key it had only drawn -- unsearchable, unselectable, invisible to a screen reader,
-    # and gone entirely if the images fail to render on a reader that dropped them.
-    #
-    # `charts.color_letters` is the single source of the mapping; this prints it rather than
-    # numbering the colours again, so the page and the picture cannot disagree.
-    #
-    # Printed only when the chart that was actually rendered carries letters, which is a
-    # narrower question than "does this pattern use more than one yarn". A cropped round chart
-    # of a basket shows rounds 1 to 24, and a basket's contrast bands are up the wall, in the
-    # straight rounds the chart no longer draws -- so every round on the picture is cream and
-    # not one of them carries a letter, while the document went on saying "each round number
-    # on the chart carries its yarn's letter". That is the 2026-09-24 finding about squares on
-    # a round chart arriving by a different route: a key describing a picture that is not in
-    # front of the reader.
+    # The colour key, in text, printed only when the chart that was rendered carries letters
+    # (`charts.color_letters` is the one source of the mapping).
     cues = art.get("cues") or {}
     colours = [name for name in cir.colors if name]
     if cues:
-        doc.space(2 * mm)
         doc.heading("Colour key", size=12)
         doc.para(COLOUR_CUE_NOTE_ROUND if is_round(cir, twin) else COLOUR_CUE_NOTE_FLAT,
-                 size=9, color=MUTED)
-        # Ordered by letter, which is the direction this key is read in: a maker sees a mark on
-        # the chart and looks it up. The legend image orders by colour name because it is a
-        # swatch list; the mapping is the same mapping either way.
+                 size=9.5, color=MUTED)
         for name, cue in sorted(cues.items(), key=lambda kv: kv[1]):
             doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
     elif len(colours) > 1:
-        # More than one yarn and a chart that says nothing about which is which. The colours
-        # still have to be listed -- they are on the materials page and in every written line
-        # -- but not under a heading promising a key the picture does not carry.
-        doc.space(2 * mm)
         doc.heading("Colours", size=12)
         doc.para("Every round this chart shows is worked in one colour, so no number on it "
                  "carries a colour letter. The written instructions name the yarn for every "
-                 "row and round in the pattern.", size=9, color=MUTED)
+                 "row and round in the pattern.", size=9.5, color=MUTED)
         for name in colours:
             doc.kv(name, cir.colors.get(name, ""), upper=False)
 
-    # -- the children's safety block ---------------------------------------
-    #
-    # Its own page, before the terms, because it is the section a buyer choosing a gift is
-    # looking for and the one a maker has to have read before they start. Rendered only when
-    # the catalogue says this product is merchandised to a child: a table runner acquiring a
-    # safe-sleep note would be noise, and noise is how a real warning stops being read.
-    #
-    # A statement whose facts are missing is NOT printed with a hole in it and NOT quietly
-    # dropped: it goes onto `problems` here and `build_pattern_pdf` then refuses to return
-    # the document at all, because a children's deliverable missing a safety statement looks
-    # finished.
+    # ---------------------------------------------------------------- 10. gallery ----------
+    # The detail view of a flat piece is the schematic without its dimension lines, so it is
+    # shown once (as the schematic); a vessel's detail is its base, which nothing else shows.
+    gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views
+               and (v != "detail" or _rings(twin)[1])]
+    if gallery or sample_photo_placeholders:
+        doc.new_page(head)
+        doc.heading("Gallery", kicker="The finished design")
+        doc.para(IMAGE_DISCLOSURE, size=9.5, color=MUTED)
+        if not sample_photo_placeholders:
+            doc.para("This edition contains no photographs: every picture in it is a rendering "
+                     "or a diagram drawn from the pattern.", size=9.5, color=MUTED)
+        doc.space(1 * mm)
+        captions = {"hero": "The finished design, front view",
+                    "angle": "Seen from above, showing the inside and the base",
+                    "detail": "Close view: every stitch of the " +
+                              ("base" if _rings(twin)[1] else piece)}
+        if comp.make > 1:
+            captions["hero"] = f"The set of {comp.make}, as the pattern makes them"
+        big, rest = (gallery[0], gallery[1:]) if gallery else (None, [])
+        if big:
+            v, (img, sha) = big
+            rest_w = min((usable - 5 * mm) / 2, GALLERY_CELL)
+            rest_h = (rest_w + 26 * mm) if (rest or sample_photo_placeholders) else 0
+            side = min(usable, doc.y - MARGIN - 14 * mm - rest_h)
+            doc.need(side + 10 * mm)
+            top = doc.y
+            dw, dh = _rounded_image(doc, img, MARGIN, top, usable, side,
+                                    figure={"kind": "disclosed_render", "view": v,
+                                            "source": "visual.disclosed_render.render",
+                                            "png_sha256": sha, "label": K.DISCLOSURE})
+            doc.y = top - side - 5 * mm
+            doc.para(captions[v] + ". Digital rendering, not a photograph.", size=9.5,
+                     color=MUTED, font=FONT_BODY_ITALIC)
+        if rest or sample_photo_placeholders:
+            cells = [("view", v, data) for v, data in rest]
+            if sample_photo_placeholders:
+                cells += [("placeholder", "sample", None)] * max(1, 2 - len(cells))
+            per = 2
+            cw = min((usable - 5 * mm) / per, GALLERY_CELL)
+            x0 = MARGIN + (usable - (per * cw + (per - 1) * 5 * mm)) / 2
+            for i in range(0, len(cells), per):
+                doc.need(cw + 14 * mm)
+                top = doc.y
+                for j, (kind, v, data) in enumerate(cells[i:i + per]):
+                    x = x0 + j * (cw + 5 * mm)
+                    if kind == "view":
+                        img, sha = data
+                        _rounded_image(doc, img, x, top, cw, cw,
+                                       figure={"kind": "disclosed_render", "view": v,
+                                               "source": "visual.disclosed_render.render",
+                                               "png_sha256": sha, "label": K.DISCLOSURE})
+                        cap = captions[v] + ". Digital rendering, not a photograph."
+                    else:
+                        c.saveState()
+                        c.setDash(4, 3)
+                        c.setStrokeColor(ACCENT)
+                        c.setFillColor(SURFACE)
+                        c.roundRect(x, top - cw, cw, cw, 3 * mm, fill=1, stroke=1)
+                        c.restoreState()
+                        doc.text(x + cw / 2, top - cw / 2 + 3 * mm, "PLACEHOLDER",
+                                 FONT_UI_BOLD, 11, ACCENT, align="centre", track=1.5)
+                        doc.text(x + cw / 2, top - cw / 2 - 3 * mm,
+                                 "for a photograph of a worked sample", FONT_BODY_ITALIC,
+                                 9.5, MUTED, align="centre")
+                        cap = "Placeholder for a photograph of a tester's sample. Not for sale."
+                        doc.figures.append({"kind": "photo_placeholder", "page": doc.pages,
+                                            "label": cap})
+                    doc.prose.append(cap)
+                    yy = top - cw - 4.5 * mm
+                    for line in _wrap(c, cap, FONT_BODY_ITALIC, 9.5, cw):
+                        doc.text(x, yy, line, FONT_BODY_ITALIC, 9.5, MUTED)
+                        yy -= 4.3 * mm
+                doc.y = top - cw - 14 * mm
+
+    # ---------------------------------------------------------------- 11. children's safety -
+    # Its own page, before the terms, rendered only when the catalogue says this product is
+    # merchandised to a child. A statement whose facts are missing goes onto `problems` and
+    # `build_pattern_pdf` refuses the document.
     if childrens is not None:
         rendered = childrens_statements(cir, twin, childrens)
         doc.new_page(head)
-        doc.heading(CHILDRENS_HEADING)
-        doc.para(CHILDRENS_INTRO, size=10)
-        doc.space(2 * mm)
+        doc.heading(CHILDRENS_HEADING, kicker="Please read before you start")
+        doc.para(CHILDRENS_INTRO, size=9.5)
+        doc.space(1 * mm)
         for statement_key in rendered.required:
             if statement_key not in rendered.text:
                 continue
-            doc.space(1 * mm)
             doc.heading(rendered.headings[statement_key], size=12)
             for block in rendered.text[statement_key].split("\n"):
-                doc.para(block, size=10, running_head=head)
+                doc.para(block, size=9.5, running_head=head)
             citation = rendered.citations.get(statement_key)
             if citation:
                 doc.para(citation, size=9, color=MUTED, running_head=head)
             else:
-                # Said on the page, not only in the code. Three of these ten sentences are
-                # this company's own practice rather than somebody's published rule, and a
-                # reader who sees a source under seven of them is entitled to know that the
-                # other three have none rather than assume the citation fell off.
                 doc.para("Source: none. This is Brambleloop Studio's own practice rather "
                          "than a published rule.", size=9, color=MUTED, running_head=head)
         for statement_key, why in sorted(rendered.unrenderable.items()):
@@ -1496,94 +2490,172 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"state it: {why}")
 
     # Approved contextual links supplied by assets.build, bound to lesson revisions.
-    # Missing public origin or approved coverage emits nothing, never a dead promise.
     if lesson_links:
         from urllib.parse import urlsplit
         doc.heading("Technique help")
         for lesson_link in lesson_links:
             target = lesson_link["url"]
-            parsed = urlsplit(target)
+            parsed_url = urlsplit(target)
             revision = lesson_link["revision"]
-            if (parsed.scheme != "https" or parsed.username or parsed.password
-                    or parsed.query != "revision=" + revision
-                    or not parsed.path.startswith("/learn/") or parsed.fragment):
+            if (parsed_url.scheme != "https" or parsed_url.username or parsed_url.password
+                    or parsed_url.query != "revision=" + revision
+                    or not parsed_url.path.startswith("/learn/") or parsed_url.fragment):
                 raise ValueError("unsafe or unversioned lesson link")
             label = ", ".join(lesson_link["topics"])
             doc.para(label, size=10)
             doc.need(6 * mm)
             doc.c.linkURL(target, (MARGIN, doc.y, PAGE_W - MARGIN, doc.y + 5 * mm),
                           relative=0, thickness=0)
-            # The URL is the thing a maker printing this page has to type in, so it is the
-            # last line on the page that may be set below the brand's minimum. It was 8pt.
             doc.para(target, size=MIN_BODY_PT)
 
-    # -- licence -----------------------------------------------------------
+    # ---------------------------------------------------------------- 12. terms ------------
     doc.new_page(head)
-    doc.heading("Terms and support")
-    # Rendered from `commerce.terms`, which is where these were decided. See
-    # `licence_paragraphs` for why this module no longer holds a licence of its own.
+    doc.heading("Terms and support", kicker="Licence, support and credits")
+    # Rendered from `commerce.terms`, which is where these were decided.
     for i, line in enumerate(licence_paragraphs()):
         if not line.strip():
             doc.space(2 * mm)
         elif i == 0:
-            # The decision's own heading for this surface, kept rather than paraphrased.
             doc.heading(line, size=12)
         elif line.startswith("- "):
-            doc.para(line, size=10)
+            doc.need(6 * mm)
+            doc.c.setFillColor(ROSE)
+            doc.c.circle(MARGIN + 1.6 * mm, doc.y + 1.2 * mm, 1.1 * mm, fill=1, stroke=0)
+            doc.para(line[2:], size=10, x=MARGIN + 6 * mm)
         else:
-            doc.para(line, size=10, color=MUTED)
-    doc.space(3 * mm)
+            doc.para(line, size=9.5, color=MUTED)
+    doc.heading("Customer support", size=12)
     doc.para("If anything in this pattern does not add up, tell us through the shop you "
              "bought it from and we will fix the pattern itself, not just answer your "
              "question. Every report is checked against the compiler that validated this "
              "release.", size=10)
-    doc.space(2 * mm)
     doc.para(support_scope(cir), size=10)
-    doc.space(3 * mm)
-    # A licence with no owner and no date is a paragraph of good intentions, and a support
-    # promise with no pattern id is one nobody can act on. Neither line was in the document.
-    #
-    # Set as prose rather than as a labelled row on purpose: a labelled row is a
-    # heading-shaped line, and the teardown reader's architecture schedule would then read
-    # the licence as its own addressable section. It is a paragraph on the support page, and
-    # the reader is right to report it as a mention and let the analyst decide.
+    doc.heading("About this document", size=12)
+    doc.para(AI_DISCLOSURE, size=9.5, color=MUTED)
+    doc.para(platform_policy.DISCLOSURES["deterministic_render"], size=9.5, color=MUTED)
+    doc.para(physical_status(twin), size=9.5, color=MUTED)
+    doc.para(f"Typefaces: Cormorant Garamond, Lora and Work Sans, used under the "
+             f"{pdf_fonts.LICENCE.split(' (')[0]}.", size=9.5, color=MUTED)
+    doc.space(1 * mm)
     credit = "" if designer == COPYRIGHT_HOLDER else f" Designed by {designer}."
     doc.para(f"(c) {released_on.year} {COPYRIGHT_HOLDER}. All rights reserved.{credit}",
-             size=9, color=MUTED)
-    doc.space(2 * mm)
+             size=9.5, color=MUTED)
+    doc.space(1 * mm)
     doc.kv("release version", cir.version)
     doc.kv("released", released_on.isoformat())
     doc.kv("terminology", f"{terminology} terms")
     doc.kv("pattern id", f"{cir.slug}@{cir.version}")
-    doc.space(3 * mm)
     doc.para(f"This document is {doc.total_pages or doc.pages} pages. If your copy is "
              f"shorter than that, the download did not finish; ask for it again rather than "
-             f"working from a partial pattern.", size=9, color=MUTED)
+             f"working from a partial pattern.", size=9.5, color=MUTED)
 
     # -- is the key a key? -------------------------------------------------
-    #
-    # Run here, last, because it is a property of the finished document and not of any one
-    # section. It was run on the writer's instruction text against a key derived from that
-    # same text, which is a comparison that cannot come out badly: every token in the string
-    # is in the key by construction. The check carried a `pragma: no cover` admitting the
-    # branch was unreachable, under a docstring calling itself "the inverse check, and the one
-    # that matters".
-    #
-    # Measured now on everything the document says, against the key it actually printed. That
-    # comparison can fail, and did: the cover's gauge line named `sc` in a UK document whose
-    # key defines `dc`.
+    # Measured on everything the document says, against the key it actually printed.
     missing = abbreviations.undefined_tokens(
         "\n".join(doc.prose), terminology,
         defined={entry.token for entry in key})
     if missing:
-        # Reported rather than silently omitted: a key that is quietly short is worse than
-        # no key, because the maker stops expecting to find things in it.
         problems.append(
             f"PDF_ABBREVIATION_UNDEFINED: {sorted(set(missing))} appear in this document and "
             f"the stitch key printed in it does not define them, so a maker meets a word the "
             f"document never explains")
+    # -- every glyph drawn, in a face that has it -----------------------------
+    problems.extend(sorted(set(doc.glyph_problems)))
 
     return doc, claims, problems
+
+
+def _chart_height_with_legend(doc: "_Doc", art: dict, *, round_: bool) -> float | None:
+    """How tall the chart may be so its legend fits under it -- never below the floor.
+
+    `art["cell_mm"]` is the readable unit (cell or ring) measured at the full-width fit
+    `_on_page_cell_mm` assumes. A smaller placement shrinks it in proportion, so the chart is
+    only reduced while the measured unit stays at or above the brand floor; otherwise it keeps
+    the full size the legibility check certified (None = the default fit).
+    """
+    img, legend = art["chart"], art["legend"]
+    usable_w = PAGE_W - 2 * MARGIN
+    full = min(1.0, usable_w / img.width)
+    if img.height * full > PAGE_H - 2 * MARGIN:
+        full *= (PAGE_H - 2 * MARGIN) / (img.height * full)
+    leg_scale = min(1.0, usable_w / legend.width, (70 * mm) / legend.height)
+    room = doc.y - MARGIN - legend.height * leg_scale - 12 * mm
+    if room <= 0 or img.height * full <= room:
+        return None
+    floor = CHART_MIN_RING_MM if round_ else CHART_MIN_CELL_MM
+    shrunk = room / (img.height * full)
+    if art.get("cell_mm") is None or art["cell_mm"] * shrunk < floor:
+        return None
+    return room
+
+
+def _step_line(doc: "_Doc", ln: str, yarn_rgb: dict, x: float, width: float,
+               head: str) -> None:
+    """One written line, full width, with its colour dot and its count emphasised."""
+    segs, colour = _step_segments(ln, yarn_rgb)
+    doc.prose.append(ln)
+    lines = _rich_lines(doc.c, segs, width - 6 * mm, 10)
+    leading = 14.2
+    doc.need(len(lines) * leading + 1 * mm, head)
+    if colour is not None:
+        _dot(doc.c, x + 1.8 * mm, doc.y + 1.2 * mm, colour)
+    doc.y = _draw_rich(doc, lines, x + 6 * mm, doc.y, 10, leading) - 1.5 * mm
+
+
+def _dot(c, cx: float, cy: float, rgb) -> None:
+    c.saveState()
+    c.setFillColor(rgb)
+    c.setStrokeColor(FOREST)
+    c.setLineWidth(0.5)
+    c.circle(cx, cy, 1.7 * mm, fill=1, stroke=1)
+    c.restoreState()
+
+
+def _step_cards(doc: "_Doc", groups: list, yarn_rgb: dict, comp, head: str) -> None:
+    """Instruction groups as cards, two to a row: the diagram of the piece after the group's
+    last round, beside the written lines of that group."""
+    usable = PAGE_W - 2 * MARGIN
+    gap = 5 * mm
+    cw = (usable - gap) / 2
+    pic = 28 * mm
+    tx_off = pic + 6 * mm
+    tw = cw - tx_off - 4 * mm
+    size = 9.5
+    leading = 13.2
+    label_word = "Rnd" if "round" in comp.construction else "Row"
+    laid = []
+    for st, lines in groups:
+        rich = []
+        for ln in lines:
+            segs, colour = _step_segments(ln, yarn_rgb)
+            rich.append((ln, colour, _rich_lines(doc.c, segs, tw - 4.5 * mm, size)))
+        text_h = sum(len(r[2]) * leading + 1.6 * mm for r in rich)
+        h = max(pic + 11 * mm, text_h + 8 * mm)
+        laid.append((st, rich, h))
+    for i in range(0, len(laid), 2):
+        pair = laid[i:i + 2]
+        h = max(p[2] for p in pair)
+        doc.need(h + 1 * mm, head)
+        top = doc.y + 1 * mm
+        for j, (st, rich, _h) in enumerate(pair):
+            x = MARGIN + j * (cw + gap)
+            doc.panel(x, top, cw, h)
+            doc.place(st.image(), x + 3 * mm, top - 3 * mm, pic, pic,
+                      figure={"kind": "construction_diagram", "round": st.round,
+                              "source": "publish.construction_diagrams.stages",
+                              "png_sha256": hashlib.sha256(st.png).hexdigest(),
+                              "label": f"after {label_word} {st.round}"})
+            lab = f"after {label_word} {st.round}"
+            doc.prose.append(lab)
+            doc.text(x + 3 * mm + pic / 2, top - pic - 7 * mm, lab, FONT_UI_MEDIUM, MIN_BODY_PT,
+                     MUTED, align="centre")
+            y = top - 7 * mm
+            for ln, colour, lines in rich:
+                doc.prose.append(ln)
+                if colour is not None:
+                    _dot(doc.c, x + tx_off + 1.6 * mm, y + 1.1 * mm, colour)
+                y = _draw_rich(doc, lines, x + tx_off + 4.5 * mm, y, size, leading) - 1.6 * mm
+        doc.y = top - h - 3.5 * mm
 
 
 # How far the fabric's own row gauge may sit from the swatch gauge before the document has to

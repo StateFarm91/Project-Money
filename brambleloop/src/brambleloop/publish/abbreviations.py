@@ -282,8 +282,72 @@ def method_names_no_stitch_literally() -> tuple[str, ...]:
     way -- so the property that can actually be checked is the stronger one: a method
     paragraph names no stitch except through the registry.
     """
-    return tuple(code for code, template in sorted(METHOD.items())
+    templates = sorted(METHOD.items()) + [(name, t) for name, _shape, t in TECHNIQUES]
+    return tuple(code for code, template in templates
                  if any(_contains(template.lower(), name) for name in _AMBIGUOUS_NAMES))
+
+
+# Techniques the written pattern asks for that are not stitches: how to make the ring it
+# starts in, how to close a round, where a colour change goes, how to work the shaping stitch.
+# Printed only when the document contains the words that ask for them, under the same rule as
+# `NOTATION`, and written under the same rule as `METHOD`: no stitch is named literally, every
+# name arrives through the registry for the document's terminology. The joined-round and
+# colour-change shapes are the writer's own sentences (`cir.writer.JOINED_LINE`,
+# `cir.writer.finishing_lines`), so a technique note can only appear beside the instruction
+# that needs it.
+TECHNIQUES: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    ("magic ring", re.compile(r"magic ring"),
+     "Wrap the yarn twice around two fingers, insert the hook under both strands, draw up a "
+     "loop and make 1 {ch}. Work the first round's stitches into the ring, over both strands "
+     "and the tail, then pull the tail firmly to close the centre."),
+    ("joining a round", re.compile(r"Join each round with a sl st to the first stitch"),
+     "Insert the hook into the first stitch of the round, yarn over, and draw the loop "
+     "through the stitch and the loop on the hook: that is the joining {slst}. Then make the "
+     "{ch} and begin the next round."),
+    ("changing colour at a join", re.compile(r"changes fall at the join"),
+     "Work the joining {slst} with the new colour: insert the hook into the first stitch, "
+     "drop the old colour and draw the new colour through. Leave the old colour resting on "
+     "the wrong side until it is needed again."),
+    ("increase", re.compile(r"\binc\b"),
+     "Work 2 {sc}s into the same stitch: one stitch in, two stitches out."),
+    ("decrease", re.compile(r"\bdec\b"),
+     "Insert the hook into the next stitch and pull up a loop, then into the following "
+     "stitch and pull up a loop, yarn over and draw through all 3 loops on the hook: two "
+     "stitches in, one stitch out, at the height of a {sc}."),
+    ("fastening off", re.compile(r"Fasten off"),
+     "Cut the yarn, leaving a tail of about 15 cm, yarn over and draw the tail all the way "
+     "through the loop on the hook."),
+)
+
+
+def _resolve(template: str, terminology: str) -> str:
+    names: dict[str, str] = {}
+    for ref in sorted(set(re.findall(r"\{([A-Za-z0-9_]+)\}", template))):
+        lookup = ref.lower()
+        if lookup not in stitches.known_codes():
+            raise KeyIncomplete(f"{ref!r} is not a stitch in the canonical registry")
+        word = meaning(lookup, terminology)
+        names[ref] = (word[:1].upper() + word[1:]) if ref[:1].isupper() else word
+    return template.format(**names)
+
+
+def techniques(text: str, terminology: str = "US") -> list["KeyEntry"]:
+    """The techniques this document's own words ask for, each with how it is worked.
+
+    `inc` and `dec` are matched on the tokens the document prints for them, so a UK document
+    (which prints `dc inc`) still gets the increase note, in UK names.
+    """
+    out = []
+    for name, shape, template in TECHNIQUES:
+        if name in ("increase", "decrease"):
+            code = "inc" if name == "increase" else "dec"
+            present = any(_contains(text.lower(), w.lower())
+                          for w in spellings(code, terminology))
+        else:
+            present = bool(shape.search(text))
+        if present:
+            out.append(KeyEntry(token=name, means=_resolve(template, terminology)))
+    return out
 
 
 # Crossings whose direction the CIR cannot state.
