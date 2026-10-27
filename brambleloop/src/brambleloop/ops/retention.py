@@ -157,6 +157,34 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # newest halt. Pruning older rows removes the older halt first, so the worst case is a
     # release that is not retried -- never one certified twice.
     # LAUNCHPREP E6: etsy_ops reads the newest shop-sync row only (the snapshot's spacing).
+    # FABLE-P0 §6: products.stage_register derives each product's stage from its NEWEST row
+    # per artifact of these actions and counts a product's refusals in its failure history.
+    # Keep-per-action does not protect a per-artifact newest row (the gate.halted precedent),
+    # so each is lifetime_total: pruning would move a product to an earlier stage or lower
+    # its refusal count.
+    "concept.gate_passed": ("lifetime_total",
+                            "products.stage_register: a product's newest gate verdict is its "
+                            "research stage"),
+    "concept.gate_refused": ("lifetime_total",
+                             "products.stage_register: newest gate verdict per artifact"),
+    "concept.gate_waiting": ("lifetime_total",
+                             "products.stage_register: newest gate verdict per artifact"),
+    "cir.draft_refused": ("lifetime_total",
+                          "products.stage_register: newest engineering event per product "
+                          "(REVISION_REQUIRED) and the refusal count"),
+    "cir.revise_unrepairable": ("lifetime_total",
+                                "products.stage_register: newest engineering event per "
+                                "product and the refusal count"),
+    "gate.release_withheld": ("lifetime_total",
+                              "products.stage_register: newest engineering event per product "
+                              "and the refusal count"),
+    "gate.lane_release_refused": ("lifetime_total",
+                                  "products.stage_register: newest engineering event per "
+                                  "product and the refusal count"),
+    "cir.revised": ("lifetime_total",
+                    "products.stage_register: newest engineering event per product"),
+    "gate.recertified": ("lifetime_total",
+                         "products.stage_register: newest engineering event per product"),
     "store.shop_sync": ("latest", "etsy_ops._seconds_since_shop_sync reads the newest row"),
     # INTEG7: LISTREADY classified gate.certified `windowed`. FMBATCH1's read-actions audit
     # finds it read with no window by finance.governor, finance.unit_cost, improve.presale,

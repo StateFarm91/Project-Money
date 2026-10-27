@@ -130,6 +130,22 @@ _REFUSAL_ACTIONS = ("cir.draft_refused", "cir.revise_unrepairable", "gate.releas
 _PROGRESS_ACTIONS = ("cir.drafted", "cir.compiled", "cir.revised", "gate.certified",
                      "gate.recertified", "assets.built", "listing.drafted",
                      "listing.seo_drafted")
+# The research-stage rows: the pre-engineering gate's verdicts (creative.preengineering
+# GATE_ACTION + decision) and the tournament winner intake (creative.intake INTAKE_ACTION).
+_RESEARCH_ACTIONS = ("concept.gate_passed", "concept.gate_refused", "concept.gate_waiting",
+                     "creative.winner_intake")
+# Every audit action this register reads, as literals so `ops.read_actions` resolves the
+# read and `ops.retention.KNOWN_READ_ACTIONS` holds a decision for each.
+READ_ACTIONS: tuple[str, ...] = (
+    "concept.gate_passed", "concept.gate_refused", "concept.gate_waiting",
+    "creative.winner_intake", "owner.publication.approved",
+    "cir.draft_refused", "cir.revise_unrepairable", "gate.release_withheld", "gate.halted",
+    "gate.lane_release_refused",
+    "cir.drafted", "cir.compiled", "cir.revised", "gate.certified", "gate.recertified",
+    "assets.built", "listing.drafted", "listing.seo_drafted",
+)
+assert set(READ_ACTIONS) == (set(_RESEARCH_ACTIONS) | {"owner.publication.approved"}
+                             | set(_REFUSAL_ACTIONS) | set(_PROGRESS_ACTIONS))
 
 
 def _aware(v):
@@ -188,14 +204,6 @@ def _read(db, *, now: datetime) -> dict:
     from ..core.models import (AuditLog, CostEntry, Incident, Job, JobStatus, Listing,
                                ListingAsset, OwnerAction, PatternVersion, PhysicalTest,
                                Product)
-    from ..creative import intake, preengineering
-    from ..ops import publication_authority as pa
-
-    gate_actions = tuple(f"{preengineering.GATE_ACTION}_{d}" for d in
-                         (preengineering.PASSED, preengineering.REFUSED,
-                          preengineering.WAITING))
-    actions = (gate_actions + (intake.INTAKE_ACTION, pa.APPROVED, "gate.quality",
-                               "cir.compiled") + _REFUSAL_ACTIONS + _PROGRESS_ACTIONS)
     window_start = now - timedelta(days=LOOP_WINDOW_DAYS)
     out: dict = {"products": {}, "versions": {}, "listings": {}, "assets": {},
                  "tests": {}, "cost": {}, "incidents": {}, "owner_actions": [],
@@ -247,7 +255,8 @@ def _read(db, *, now: datetime) -> dict:
                 "state": oa.state, "at": _aware(oa.at)})
         for row in s.execute(select(AuditLog.id, AuditLog.at, AuditLog.action,
                                     AuditLog.artifact, AuditLog.detail, AuditLog.actor)
-                             .where(AuditLog.action.in_(actions)).order_by(AuditLog.id)):
+                             .where(AuditLog.action.in_(READ_ACTIONS))
+                             .order_by(AuditLog.id)):
             rid, at, action, artifact, detail, actor = row
             slug = _artifact_slug(artifact)
             if slug is None:
