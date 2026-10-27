@@ -957,6 +957,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
     # tasks become investigations (internal retrieval first, CA$0, no network).
     ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),
+    # W5-CONCEPT: research-approved opportunities and proven families become radar concepts
+    # (database rows, validated, audited) and hand off to radar.score. CA$0, no model call.
+    ("concept_intake", "market_radar", "radar.concept_intake", 6 * 60 * 60),
     # W4-AGENTS product-engine batch: families of the certified catalogue (s33 bundle-ready
     # family, F-359 recolour duplicates, s5 amplification gated on orders). CA$0.
     ("family_engine", "creative_director", "creative.family_engine", 24 * 60 * 60),

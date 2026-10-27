@@ -664,9 +664,11 @@ def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> 
 def queue_scores(db, enqueue, slugs, *, key: str, context: dict, today: date) -> list[int]:
     """Non-spending route: one radar.score per pool concept (score + pre-engineering gate).
     Review M-2/M-4: Laura-delegable work never queues a paid job."""
-    from ..radar.opportunity import POOL, score_concept
+    from ..radar.intake import pool_with_intake
+    from ..radar.opportunity import score_concept
 
-    by_slug = {sd.slug: sd for sd in POOL}
+    # W5-CONCEPT: POOL plus the concepts radar.intake approved from recorded evidence.
+    by_slug = {sd.slug: sd for sd in pool_with_intake(db)}
     ids = []
     for slug in slugs:
         sd = by_slug.get(slug)
@@ -771,9 +773,10 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                            | {"gap": g["id"]})
             continue
         pod = pods.BY_KEY.get(g["pod"])
-        from ..radar.opportunity import POOL
+        from ..radar.intake import pool_with_intake
 
-        answered = [sd.slug for sd in POOL if pod is not None
+        # W5-CONCEPT: an arena an approved intake concept answers is routed like a POOL one.
+        answered = [sd.slug for sd in pool_with_intake(db) if pod is not None
                     and pod.matches(sd.slug.replace("-", " "))]
         if not answered:
             decided.append(_record_decision(

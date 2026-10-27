@@ -259,7 +259,7 @@ SEED_CORRECTIONS: dict[str, dict] = {
 }
 
 
-def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
+def _product_record(slug: str, inputs: dict | None = None, db=None) -> dict | None:
     """What this product IS, read from its own record -- never a default (PT-01).
 
     A Launch-0 product answers from `products.launch0.listing_identity`: its kind, its Etsy
@@ -276,13 +276,13 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
                 "techniques": list(identity.techniques), "season": None,
                 "launch0": slug in products_launch0.launch_scope_slugs(),
                 "source": f"products.launch0:{cand.slug if cand else slug}"}
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, db)      # W5-CONCEPT: an approved intake concept answers too
     if seed is not None:
         category = _truthful_category(seed.slug, seed.category)
         category = SEED_CORRECTIONS.get(slug, {}).get("category", category)
         return {"category": category, "kind": category, "nouns": [],
                 "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
-                "launch0": False, "source": f"radar.pool:{seed.slug}"}
+                "launch0": False, "source": seed.origin or f"radar.pool:{seed.slug}"}
     category = (inputs or {}).get("category")
     if category:
         return {"category": str(category), "kind": str(category), "nouns": [],
@@ -697,7 +697,7 @@ def _pricing_net_inputs(db, slug: str) -> dict:
 def handle_pricing_position(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         # PT-01: no default product type, so no default price band either.
         ctx.audit("pricing.refused", artifact=slug, detail={
@@ -709,7 +709,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     launch = products_launch0.launch_price(slug) if record["launch0"] else None
     if record["launch0"]:
         return _price_launch0(ctx, i, slug, record, launch)
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     category = record["category"]
     band = CATEGORY_BANDS_CAD.get(category, DEFAULT_BAND)
     sizes = len(ctx.job.inputs.get("sizes") or []) or 1
@@ -961,7 +961,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # PT-01: the title, tags and category come from the product's own record. A product
     # nobody has described is refused here -- there is no default product type.
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         why = (f"{UNKNOWN_PRODUCT}: no product record names what {slug} is (no Launch-0 "
                f"identity, no radar seed, no category in the job); no listing is drafted "
@@ -2102,7 +2102,7 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     today = (date.fromisoformat(i["as_of"]) if i.get("as_of") else date.today())
 
     window = None
@@ -2209,7 +2209,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     from ..teardown import lab as teardown_lab
     from .pipeline import _mark_withheld
 
-    seed_ = _seed_for(slug)
+    seed_ = _seed_for(slug, ctx.db)
     qa_ = teardown_lab.product_qa(ctx.db, slug,
                                   product_class=(seed_.category if seed_ else ""))
     if qa_.get("blocks_release"):
@@ -2281,7 +2281,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
 
     i = dict(ctx.job.inputs)
     slug, version = i["slug"], i["version"]
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     listing = i.get("listing") or {}
     launch_on = date.fromisoformat(i["launch"]["launch_on"])
 
@@ -2318,7 +2318,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         f"{name} about {m * (1 - tol):.0f}-{m * (1 + tol):.0f} m"
         for name, m in sorted(twin.yarn_metres_by_color.items())) or "see the pattern"
 
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         why = f"{UNKNOWN_PRODUCT}: no product record names what {slug} is"
         ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",

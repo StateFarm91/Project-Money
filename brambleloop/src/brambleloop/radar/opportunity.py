@@ -136,6 +136,9 @@ class ConceptSeed:
     evergreen: bool = False
     bundle_ready: bool = False
     is_bundle: bool = False   # a collection of other concepts, not a standalone design
+    # None for the static POOL; "radar.intake:<source_ref>" for a concept approved by
+    # `radar.intake` from recorded evidence (a database row, not code). Not scored.
+    origin: str | None = None
 
     @property
     def build_lead_days(self) -> int:
