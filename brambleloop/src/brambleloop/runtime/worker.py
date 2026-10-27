@@ -589,7 +589,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("signal_review", "market_radar", "radar.scan", 6 * 60 * 60),
     ("daily_review", "orchestrator", "plan.cycle", 24 * 60 * 60),
     ("portfolio_review", "orchestrator", "portfolio.review", 7 * 24 * 60 * 60),
-    ("finance_reconcile", "cfo", "finance.reconcile", 24 * 60 * 60),
+    ("finance_reconcile", "accountant", "finance.reconcile", 24 * 60 * 60),
     ("strategy_review", "orchestrator", "plan.strategy", 30 * 24 * 60 * 60),
     # Requirement 193. Daily, and deliberately the *minimum* comprehensive sweep rather than
     # the only way learning happens: it reads, compares and records, and queues nothing that
@@ -968,7 +968,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("visual_rnd", "publishing", "visual.rnd.cycle", 6 * 60 * 60),
     # Wave 3 closure K15 (F-909/F-916): the accountant's tax + handoff pack for the last closed
     # month, kept as a company_memory row (autonomy.period_packs). Prepared, never filed.
-    ("accounting_period_pack", "cfo", "finance.accounting.period_pack", 24 * 60 * 60),
+    ("accounting_period_pack", "accountant", "finance.accounting.period_pack", 24 * 60 * 60),
     # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
     # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
     # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).
@@ -977,7 +977,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("seo_cycle", "listing", "seo.cycle", 6 * 60 * 60),
     # Lane E (F-901): the Accountant cycle -- post, reconcile, anomalies, close check. Rows
     # only; moves no money, files nothing.
-    ("accounting_cycle", "cfo", "finance.accounting.cycle", 6 * 60 * 60),
+    ("accounting_cycle", "accountant", "finance.accounting.cycle", 6 * 60 * 60),
     # Lane H (F-686): Etsy Ads eligibility evidence re-evaluated hourly. Spends nothing and
     # activates nothing; a due refresh becomes an owner action.
     ("ads_readiness", "growth", "marketing.ads_readiness", 60 * 60),

@@ -72,7 +72,7 @@ def build(db, *, now: datetime | None = None, spec: str | None = None) -> dict:
                                  "finance.accounting.attribution.report",
                                  f"acct_journal_entries:period={spec}"], now=now)
         memory.record_event(db, f"finance.period_pack:{spec}:{fp}", kind="finance.period_pack",
-                            department="finance", actor="cfo",
+                            department="finance", actor="accountant",
                             summary=(f"Accountant pack {spec} prepared (not filed): "
                                      f"{len(hp['files'])} files, "
                                      f"{body['open_exceptions']} open exception(s)"),

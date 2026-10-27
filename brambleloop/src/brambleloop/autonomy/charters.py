@@ -307,7 +307,7 @@ CHARTERS: tuple[Charter, ...] = (
     _c(key="finance", name="Finance / Accounting",
        mission="Keep the books from observed entries only, reconcile, govern spend and "
                "challenge any proposal that breaks margin or cash policy.",
-       agents=("cfo",),
+       agents=("accountant", "cfo"),
        prefixes=("finance.", "commerce."),
        job_types=set(),
        generatable=("finance.reconcile", "commerce.order_readings", "commerce.readings",

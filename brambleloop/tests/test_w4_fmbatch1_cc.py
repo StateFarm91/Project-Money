@@ -83,10 +83,13 @@ def test_f668_org_chart_heartbeat_and_learning():
     env = X.agents_workspace(db)
     rows = _items(env)
     cfo = rows["cfo"]
-    assert cfo["role"] == "director" and cfo["heartbeat"] is not None
+    # W4-C04 (F-607): Finance is led by the Accountant/Controller; the CFO challenger is a
+    # worker in it.
+    assert cfo["role"] == "worker" and cfo["heartbeat"] is not None
     assert cfo["department_lessons_30d"] == 1
+    assert rows["accountant"]["role"] == "director"
     org = env["org_chart"]
-    assert org["finance"]["director"]["agent"] == "cfo"
+    assert org["finance"]["director"]["agent"] == "accountant"
     assert org["product_truth"]["director"]["agent"] == "quality_director"
     assert any(w["agent"] == "validator" for w in org["product_truth"]["workers"])
     assert rows["validator"]["heartbeat"] is None                 # never ran: not invented

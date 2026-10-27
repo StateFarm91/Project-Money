@@ -27,7 +27,7 @@ from brambleloop.runtime.worker import CADENCES, handlers  # noqa: E402
 from brambleloop.swarm.orchestrate import JOB_BANDS  # noqa: E402
 
 NEW = {"visual.rnd.cycle": ("visual_rnd", "publishing", 6 * 3600, "visual", "exploration"),
-       "finance.accounting.period_pack": ("accounting_period_pack", "cfo", 86400, "finance",
+       "finance.accounting.period_pack": ("accounting_period_pack", "accountant", 86400, "finance",
                                           "housekeeping"),
        "listing.outcomes": ("listing_outcomes", "cfo", 86400, None, "exploration")}
 

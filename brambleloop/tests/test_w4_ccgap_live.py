@@ -116,7 +116,7 @@ def test_live_company_work_comes_from_jobs():
     db = _db()
     q = JobQueue(db)
     q.enqueue("listing", "listing.draft", {}, idempotency_key="ccgap-a")
-    q.enqueue("cfo", "finance.accounting.cycle", {}, idempotency_key="ccgap-b")
+    q.enqueue("accountant", "finance.accounting.cycle", {}, idempotency_key="ccgap-b")
     with db.session() as s:
         j = s.query(Job).filter(Job.agent == "listing").one()
         j.status = JobStatus.RUNNING

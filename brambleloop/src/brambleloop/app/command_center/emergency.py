@@ -36,7 +36,7 @@ DEPARTMENTS: dict[str, tuple[str, ...]] = {
     "visual": ("publishing",),
     "store": ("store_operator", "listing", "pricing"),
     "support": ("support",),
-    "finance": ("cfo",),
+    "finance": ("accountant", "cfo"),
     "growth": ("growth", "ads"),
     "learn": ("learn", "evaluator", "failure_miner", "experiment_designer",
               "prompt_tool_challenger", "cost_optimiser", "creative_critic", "lesson_router",

@@ -38,7 +38,7 @@ from brambleloop.runtime.worker import CADENCES, Worker, handlers  # noqa: E402
 from brambleloop.swarm import orchestrate as swarm  # noqa: E402
 
 NEW_JOBS = {"seo.cycle": ("seo_cycle", "listing", "store_commerce"),
-            "finance.accounting.cycle": ("accounting_cycle", "cfo", "finance"),
+            "finance.accounting.cycle": ("accounting_cycle", "accountant", "finance"),  # F-607
             "marketing.ads_readiness": ("ads_readiness", "growth", "growth"),
             "ops.slo": ("slo_check", "orchestrator", "platform")}
 
@@ -242,7 +242,7 @@ def test_a_broken_provider_costs_only_its_own_candidates():
 def test_a_provider_does_not_re_ask_for_a_job_that_just_succeeded():
     db = boot()
     q = JobQueue(db)
-    q.enqueue("cfo", "finance.accounting.cycle", {}, idempotency_key="wire:acct")
+    q.enqueue("accountant", "finance.accounting.cycle", {}, idempotency_key="wire:acct")
     w = Worker(db, "wire", job_types=["finance.accounting.cycle"])
     assert w.run_once()
     snap = generators.Snapshot.read(db, datetime.now(timezone.utc))

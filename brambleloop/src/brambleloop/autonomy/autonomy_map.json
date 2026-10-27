@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-26T14:03:11.515260+00:00",
+ "generated_at": "2026-10-27T05:08:37.156083+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -12,7 +12,7 @@
   "departments": 11,
   "cadences": 126,
   "handlers": 156,
-  "agents": 32,
+  "agents": 33,
   "follow_on_edges": 80
  },
  "departments": [
@@ -1596,9 +1596,11 @@
    "name": "Finance / Accounting",
    "mission": "Keep the books from observed entries only, reconcile, govern spend and challenge any proposal that breaks margin or cash policy.",
    "agents": [
+    "accountant",
     "cfo"
    ],
    "charter_agents": [
+    "accountant",
     "cfo"
    ],
    "authority": {
@@ -1612,12 +1614,12 @@
      "autonomy.department_review"
     ],
     "generatable_agents": {
-     "finance.reconcile": "cfo",
+     "finance.reconcile": "accountant",
      "commerce.order_readings": "cfo",
      "commerce.readings": "cfo",
      "finance.escalation_check": "cfo",
-     "finance.accounting.cycle": "cfo",
-     "finance.accounting.period_pack": "cfo",
+     "finance.accounting.cycle": "accountant",
+     "finance.accounting.period_pack": "accountant",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1639,7 +1641,7 @@
     "scheduler_cadences": [
      {
       "name": "finance_reconcile",
-      "agent": "cfo",
+      "agent": "accountant",
       "job_type": "finance.reconcile",
       "period_seconds": 86400
      },
@@ -1675,13 +1677,13 @@
      },
      {
       "name": "accounting_period_pack",
-      "agent": "cfo",
+      "agent": "accountant",
       "job_type": "finance.accounting.period_pack",
       "period_seconds": 86400
      },
      {
       "name": "accounting_cycle",
-      "agent": "cfo",
+      "agent": "accountant",
       "job_type": "finance.accounting.cycle",
       "period_seconds": 21600
      }

@@ -269,8 +269,11 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="support", description="Customer replies. Cannot patch canonical patterns.",
          allowed_job_types=["support.reply", "support.triage"], authority=Authority.YELLOW,
          daily_cost_ceiling_cad=2.0),
-    dict(name="cfo", description="Challenges spend; reconciles the ledger",
-         allowed_job_types=["finance.reconcile", "finance.challenge",
+    # W4-C04 (F-607): the books (reconcile, the Accountant cycle, the period pack) moved to the
+    # `accountant` agent below; the CFO challenges spend and governs it, and may not also keep
+    # the books it challenges (FORBIDDEN_COMBINATIONS).
+    dict(name="cfo", description="Challenges and governs spend; the books are the accountant's",
+         allowed_job_types=["finance.challenge",
                             # #188: the governor enforces anomalies and parallelism advice.
                             "finance.governor",
                             # C-59: daily readings of the gated commerce machinery (read-only).
@@ -280,19 +283,13 @@ DEFAULT_AGENTS: list[dict] = [
                             "commerce.orders_ingest", "commerce.order_readings",
                             # W3 K3 (F-258): listing-outcome producer (read-only).
                             "listing.outcomes",
-                            # W3 K15 (F-909/F-916): the accountant's tax + handoff pack for
-                            # the last closed month, as a memory row. Files nothing.
-                            "finance.accounting.period_pack",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with
                             # nobody looking reached the first refusal with nobody told
                             # (2026-09-26). Reads the ledger, writes at most one owner
                             # action a month, spends nothing.
-                            "finance.escalation_check",
-                            # v1.1 lane E (F-901): the Accountant cycle. Rows only; moves no
-                            # money, files nothing, no network.
-                            "finance.accounting.cycle"],
+                            "finance.escalation_check"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
 ]
@@ -323,6 +320,20 @@ def _meta_agents() -> list[dict]:
 DEFAULT_AGENTS.extend(_meta_agents())
 
 
+# W4-C04 (F-607): the Accountant / Controller -- the Finance department's lead for the books:
+# reconciliation, the double-entry cycle (posting, matching, anomalies, month-end close), the
+# period pack, statement archive reconciliation and owner reporting. Independent of the CFO
+# challenger by FORBIDDEN_COMBINATIONS. Rows only: moves no money, files nothing, calls no
+# model -- a declared CA$0 ceiling.
+DEFAULT_AGENTS.append(
+    dict(name="accountant",
+         description=("Accountant / controller: keeps the books from observed entries, "
+                      "reconciles Etsy and bank statements, closes the month, reports to the "
+                      "owner. Independent of the CFO challenger; moves no money."),
+         allowed_job_types=["finance.reconcile", "finance.accounting.cycle",
+                            "finance.accounting.period_pack"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+
 FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
     "listing": {"ads.campaign", "ads.adjust"},
     "marketing": {"cir.draft", "cir.revise"},
@@ -332,6 +343,10 @@ FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
     "publishing": {"store.publish", "store.update", "cir.draft", "cir.revise", "gate.certify"},
     # Growth schedules attention. Pattern content and live publication are not its business.
     "growth": {"cir.draft", "cir.revise", "store.publish", "gate.certify"},
+    # W4-C04 (F-607): separation of duties. Whoever keeps the books does not challenge or
+    # govern the spend in them, and the challenger does not keep the books it challenges.
+    "accountant": {"finance.challenge", "finance.governor"},
+    "cfo": {"finance.reconcile", "finance.accounting.cycle", "finance.accounting.period_pack"},
 }
 
 
@@ -471,6 +486,11 @@ DECLARED_IO: dict[str, dict] = {
     "cfo": {"inputs": ["ledger", "cost_entries", "spend_reservations"],
             "outputs": ["incidents", "spend holds"], "function_metric": "useful_output_rate",
             "function_reads": "done finance jobs that reported work done"},
+    "accountant": {"inputs": ["ledger", "cost_entries", "orders", "statement lines"],
+                   "outputs": ["journal entries", "reconciliations", "accounting exceptions",
+                               "period packs"],
+                   "function_metric": "useful_output_rate",
+                   "function_reads": "done accounting jobs that reported work done"},
     "swarm_steward": {"inputs": ["jobs", "agents", "work items"],
                       "outputs": ["swarm_allocations", "incidents swarm.orphan"],
                       "function_metric": "orphans_resolved",

@@ -52,7 +52,7 @@ FUNCTION_OF_AGENT: dict[str, str] = {
     "pricing": MARKET_INTELLIGENCE, "experiment_steward": MARKET_INTELLIGENCE,
     "growth": DISTRIBUTION, "listing": DISTRIBUTION, "store_operator": DISTRIBUTION,
     "ads": DISTRIBUTION, "support": DISTRIBUTION,
-    "orchestrator": INFRASTRUCTURE, "cfo": INFRASTRUCTURE, "swarm_steward": INFRASTRUCTURE,
+    "orchestrator": INFRASTRUCTURE, "cfo": INFRASTRUCTURE, "accountant": INFRASTRUCTURE, "swarm_steward": INFRASTRUCTURE,
 }
 
 # The product engineering work a production lane's capacity is made of (#5: "making

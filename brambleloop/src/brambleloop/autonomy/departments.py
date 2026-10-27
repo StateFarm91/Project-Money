@@ -110,7 +110,7 @@ DOMAINS: dict[str, tuple[str, ...]] = {
     "catalogue": ("creative_director",),
     "analytics": (),
     "customer_experience": ("support",),
-    "finance_cost": ("cfo", "cost_optimiser"),
+    "finance_cost": ("accountant", "cfo", "cost_optimiser"),
     "reliability": ("reliability_engineer", "orchestrator"),
     "integration": (),
 }
