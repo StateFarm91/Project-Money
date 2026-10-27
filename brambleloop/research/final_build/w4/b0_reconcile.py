@@ -65,10 +65,14 @@ BRANCHES = {
     "claude/w4-RESUME": ("Workstream B", "resumable test runner"),
     "claude/w4-FMBATCH2": ("Workstream B", "Final Master batch rows, this ledger"),
     "claude/w4-C01": ("Workstream B", "build-side integration authority, review, handoffs"),
+    "claude/w4-C07": ("worker C07", "catalogue, CIR fields and primitives"),
 }
 # Rows built on a branch but held for an owner decision (coordinator, 2026-10-27).
 OWNER_HELD = {"F-607": "claude/w4-C04 9e86e842 (accountant agent)",
-              "F-579": "claude/w4-C04 fef3990d (accounting vendor)"}
+              "F-579": "claude/w4-C04 fef3990d (accounting vendor)",
+              # Built behind an owner card: cir.reengineer runs only on the owner's decided
+              # card and chosen slugs (clusters/C07.md, coordinator 2026-10-27).
+              "F-114": "claude/w4-C07 0d7da718 (owner-chosen re-engineering)"}
 # Reconciliation against the workers' own records (coordinator, 2026-10-27): the commit-message
 # heuristic is overridden where a cluster record, DEPARTMENTS/AGENTS/FMBATCH notes or the
 # traceability file plus a code check says otherwise. (class, A-H status, source, evidence).
@@ -147,8 +151,6 @@ EVIDENCE = {
     "F-789": ("OWNER_GATED", "H", "CLUSTERS_C05_C06.md",
               "not built: needs an owner ruling (conflicts with 'never copy competitor "
               "pattern instructions')"),
-    "F-114": ("OWNER_GATED", "H", "DEPARTMENTS.md",
-              "re-gauging a legacy CIR means authoring new rows; needs a design/owner decision"),
     "F-652": ("OWNER_GATED", "H", "FMBATCH1.md (coordinator decision)",
               "product imagery held off the public '/' until launch by coordinator decision; "
               "the rest of the design pass shipped with F-670"),
@@ -161,10 +163,8 @@ EVIDENCE = {
               "integrator's call"),
     "F-481": ("PROPOSED_COMPLETE", "C", "FMBATCH1.md s32 proposal",
               "matrix marks it at target maturity; acceptance pending"),
-    # (b) -> (d): only partly built.
-    "F-441": ("EXECUTABLE", "B", "CLUSTERS_C05_C06.md / FMBATCH1.md s31",
-              "partial: cdf4dea0 records licence/reversibility/maintenance per provider; the "
-              "provider-trial records are not built"),
+    # F-441 was partial (cdf4dea0); the provider-trial selection fields were built on
+    # claude/w4-C07 (clusters/C07.md), so branch detection classifies it.
 }
 
 # A commit whose subject is a record, report or note carries no code to integrate.
