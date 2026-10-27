@@ -660,6 +660,15 @@ def effective_route(db, task_key: str) -> tuple[Task, Tier, dict]:
     from ..core.models import AuditLog
 
     task, declared = route(task_key)
+    if outcome_routing_enabled():
+        # F-710 (W4-C03): switched on, a route the recorded outcomes justify -- re-derived
+        # from the league runs on every read, so a later losing run reverses it.
+        try:
+            oc = outcome_route(db, task_key)
+        except Exception as exc:  # noqa: BLE001 - an unreadable record routes as declared
+            oc = {"chosen": None, "why": f"{type(exc).__name__}: {str(exc)[:120]}"}
+        if oc.get("chosen"):
+            return task, TIERS[oc["chosen"]["tier"]], {"basis": "outcome", "outcome": oc}
     with db.session() as s:
         row = s.scalars(select(AuditLog).where(
             AuditLog.action == ROUTE_OVERRIDE_ACTION, AuditLog.artifact == task_key[:200])
@@ -674,6 +683,115 @@ def effective_route(db, task_key: str) -> tuple[Task, Tier, dict]:
     if not eq["equivalent"]:
         return task, declared, {"basis": "declared", "override_reversed": eq["reasons"]}
     return task, TIERS[to_tier], {"basis": "evidenced_override", "override": override}
+
+
+# F-710 Outcome-Based Model Routing (W4-C03). "Claude, GPT/ChatGPT Work/Codex, Fable and future
+# specialist models are bounded workers/capabilities under Brambleloop, not competing company
+# coordinators. Route tasks by demonstrated quality, cost, latency, context, tool access and
+# risk." Every candidate route is a league configuration (`improve.bootstrap` registers one
+# incumbent and a cheaper challenger per task; a model from another provider is registered the
+# same way with `provider` in its payload). A candidate is routable only when:
+#   * its provider has a text adapter in this gateway (ROUTABLE_PROVIDERS) -- a model the
+#     gateway cannot call is a recorded result, never a route;
+#   * its payload's tier and model are what the table runs now (a stale challenger is not);
+#   * the league's own `compare` says it beats the incumbent on the incumbent's shared task
+#     set and holdout, on quality, cost, latency and reliability (demonstrated, from runs);
+#   * the owner's decision is recorded on it (`league.record_owner_decision`): routing is
+#     code-mirrored, so a change of route stays the owner's call;
+#   * risk: a gate task (fallback_contract.GATE_TASKS) moves only to a model whose capability
+#     contract (structured output, vision, context, quality, latency, cost) PASSES.
+# The best routable candidate wins on quality, then cost, then latency. OFF unless
+# BRAMBLELOOP_OUTCOME_ROUTING=1; off, the declared table (and F-313 overrides) route as before.
+OUTCOME_SWITCH = "BRAMBLELOOP_OUTCOME_ROUTING"
+ROUTABLE_PROVIDERS: tuple[str, ...] = ("anthropic",)
+
+
+def outcome_routing_enabled() -> bool:
+    import os
+
+    return os.environ.get(OUTCOME_SWITCH, "").strip() == "1"
+
+
+def outcome_route(db, task_key: str) -> dict:
+    """The route recorded outcomes justify for this task, every candidate with its reason."""
+    import json
+
+    from ..core.models import ConfigVersion
+    from ..improve import bootstrap, league
+    from . import fallback_contract
+
+    task, declared = route(task_key)
+    key = f"{bootstrap.ROUTING_KEY_PREFIX}{task_key}"
+    with db.session() as s:
+        rows = [{"id": r.id, "incumbent": bool(r.incumbent), "retired": r.retired_at is not None,
+                 "why": r.why_changed or "", "outcome": dict(r.measured_outcome or {}),
+                 "payload": (r.detail or {}).get("payload")}
+                for r in s.query(ConfigVersion).filter(
+                    ConfigVersion.kind == bootstrap.ROUTING_KIND, ConfigVersion.key == key)
+                .order_by(ConfigVersion.id)]
+    base = {"task": task_key, "declared": {"tier": declared.key, "model": declared.model},
+            "chosen": None, "candidates": []}
+    inc = next((r for r in rows if r["incumbent"]), None)
+    if inc is None:
+        return {**base, "why": "no incumbent routing configuration is recorded for this task"}
+    runs = league._runs(db)
+    ir = (runs.get(inc["id"]) or [None])[-1]
+    if ir is None:
+        return {**base, "why": "the incumbent route has no recorded run; nothing is demonstrated"}
+    inc_result = league.result_of(inc["id"], ir)
+    ranked = []
+    for ch in (r for r in rows if not r["incumbent"] and not r["retired"]):
+        entry = {"config_id": ch["id"]}
+        try:
+            payload = json.loads(ch["payload"] or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        provider = str(payload.get("provider") or "anthropic")
+        tier_key, model = payload.get("tier"), payload.get("model")
+        entry.update(provider=provider, tier=tier_key, model=model)
+        cr = (runs.get(ch["id"]) or [None])[-1]
+        if provider not in ROUTABLE_PROVIDERS:
+            entry["why"] = f"{provider} has no text adapter in this gateway; recorded, not routed"
+        elif tier_key not in TIERS or TIERS[tier_key].model != model:
+            entry["why"] = "stale: the payload's tier no longer runs that model"
+        elif cr is None:
+            entry["why"] = "no recorded run; an unmeasured route is not demonstrated"
+        else:
+            try:
+                verdict = league.compare(inc_result, league.result_of(ch["id"], cr),
+                                         shared_tasks=tuple(sorted(ir["tasks"])),
+                                         touches=("model_routing",), hypothesis=ch["why"])
+            except league.LeagueRefused as exc:
+                verdict = {"promote": False, "reason": "refused", "blockers": [str(exc)[:200]]}
+            res = league.result_of(ch["id"], cr)
+            entry["measured"] = {"quality": round(res.quality, 4), "cost_cad": res.cost_cad,
+                                 "latency_s": res.latency_s, "reliability": res.reliability}
+            owner = (ch["outcome"].get("owner_approval") or {}).get("by") == "owner"
+            gate_ok = True
+            if fallback_contract.is_gate_task(task_key):
+                ev = fallback_contract.evaluate(db, provider=provider, model=model,
+                                                task_key=task_key)
+                gate_ok = ev["verdict"] == fallback_contract.PASS
+            if not verdict.get("promote"):
+                entry["why"] = ("did not beat the incumbent: "
+                                + str(verdict.get("reason") or verdict.get("why")
+                                      or verdict.get("blockers"))[:200])
+            elif not owner:
+                entry["why"] = "beat the incumbent; the owner's decision is not recorded"
+            elif not gate_ok:
+                entry["why"] = "a gate task, and this model's capability contract is not PASS"
+            else:
+                entry["why"] = "demonstrated better on recorded runs, owner-approved"
+                entry["routable"] = True
+                ranked.append((-res.quality, res.cost_cad, res.latency_s or 0.0, ch["id"],
+                               entry))
+        base["candidates"].append(entry)
+    if not ranked:
+        return {**base, "why": "no candidate route is demonstrated, approved and within risk"}
+    best = sorted(ranked, key=lambda t: t[:4])[0][4]
+    return {**base, "chosen": {"tier": best["tier"], "model": best["model"],
+                               "provider": best["provider"], "config_id": best["config_id"]},
+            "why": best["why"]}
 
 
 # F-314: escalation. A cheap or standard answer that says it is unsure, or that cannot be

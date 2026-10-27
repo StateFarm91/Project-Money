@@ -249,6 +249,16 @@ TRIALS: dict[str, Callable[..., dict]] = {
 }
 
 
+def _register_bounded() -> None:
+    """F-705: any cell's change, judged by its production readings inside a closed window."""
+    from . import bounded
+
+    TRIALS[bounded.TRIAL] = bounded.trial
+
+
+_register_bounded()
+
+
 # ---- what a promotion executes, how it is watched, and how it is undone -------------------
 
 
@@ -399,7 +409,14 @@ def trial_for(evidence: dict) -> str | None:
     named = str(evidence.get("sandbox_trial") or "").strip()
     if named:
         return named if named in TRIALS else None
-    return TRIAL_FOR_KIND.get(str(evidence.get("kind") or ""))
+    by_kind = TRIAL_FOR_KIND.get(str(evidence.get("kind") or ""))
+    if by_kind:
+        return by_kind
+    from . import bounded
+
+    # F-705 / F-412: a proposal that declared its experiment's day bound is a bounded
+    # experiment, whichever cell it is on.
+    return bounded.TRIAL if bounded.is_bounded(evidence) else None
 
 
 # ---- tests ---------------------------------------------------------------------------------
@@ -576,9 +593,25 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
     from . import backlog
 
     try:
-        bounded = backlog.evaluate(db, now=now)
+        bounded_backlog = backlog.evaluate(db, now=now)
     except Exception as exc:  # noqa: BLE001 - reported, never silent
-        bounded = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        bounded_backlog = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # 0c. F-412: answered research with a bounded next test becomes a bounded experiment
+    #     proposal here, so research reaches the loop without a person carrying it across.
+    from . import bounded
+
+    try:
+        research = bounded.research_intake(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - reported, never silent
+        research = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # 0d. F-707: every hand-maintained method version is compared with the versioned path;
+    #     a change no promoted improvement backs is an open incident, not a silent bump.
+    from . import methods
+
+    try:
+        method_audit = methods.audit(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - reported, never silent
+        method_audit = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     sandboxed, waiting, tested, approved, promoted, carded, held = [], [], [], [], [], [], []
     anchored, rejected, executed = [], [], []
     rules = discipline(db, now=now)
@@ -612,6 +645,13 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
                             "why": "no registered sandbox trial can evaluate this proposal, "
                                    "so it waits rather than being given an invented result"})
             continue
+        if r["baseline"] is None and name == bounded.TRIAL:
+            # A bounded experiment takes its baseline when it starts, before the change.
+            first = TRIALS[name](db, r["id"])
+            waiting.append({"improvement": r["id"], "cell": r["cell"], "trial": name,
+                            "why": (f"{first.get('why')}; its baseline is the cell's "
+                                    f"production reading taken at start")})
+            continue
         if r["baseline"] is None:
             if name in EXECUTORS or ev.get("trial_metric"):
                 first = TRIALS[name](db, r["id"])
@@ -630,6 +670,17 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
                             "why": "no baseline was captured at proposal time"})
             continue
         out = TRIALS[name](db, r["id"])
+        if out.get("confounded"):
+            # F-126: a confounded experiment is retained, marked superseded with the
+            # confounders named, and closed -- never read as a result or as a failure.
+            from . import superseded
+
+            superseded.supersede(db, r["id"], kind="confounded", by=RUNNER,
+                                 reason=str(out.get("why") or "confounded window"),
+                                 confounders=out["confounded"], now=now)
+            rejected.append({"improvement": r["id"], "trial": name, "superseded": True,
+                             "why": [out.get("why")]})
+            continue
         if not out.get("ran"):
             waiting.append({"improvement": r["id"], "cell": r["cell"], "trial": name,
                             "why": out.get("why")})
@@ -717,7 +768,10 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             "anchored": anchored, "rejected": rejected, "executed": executed,
             "prioritised": ordering["ranked"], "unprioritised": ordering["unprioritised"],
             "discipline": rules,
-            "backlog": bounded,
+            "backlog": bounded_backlog,
+            "research_intake": research,
+            "methods": {k: method_audit.get(k) for k in ("unversioned", "resolved", "error")
+                        if k in method_audit},
             "trials": sorted(TRIALS),
             "policy_loops": {k: {kk: v.get(kk) for kk in ("reading", "why")}
                              | {"state": (v.get("outcome") or {}).get("state")}
