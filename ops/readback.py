@@ -8,6 +8,13 @@ confirms production runs the pushed sha, `ops/deploy.sh` runs this; a feature wh
 does not PASS is not done, and the deploy exits 5 saying which one.
 
   python3 ops/readback.py --sha <40-hex> [--url URL] [--json OUT]
+  python3 ops/readback.py --evidence [--url URL] [--json OUT]
+
+`--evidence` (W4-READBACK) reads the production evidence surface: the anonymous `/api/verify`
+`evidence_checks`, and `GET /api/readback/evidence` with the read-only credential taken from
+the environment variable BRAMBLELOOP_READBACK_TOKEN (never printed, never an argument). It
+prints the evidence and judges each item PASS / FAIL / UNKNOWN; UNKNOWN (no token, an
+unreadable section, a missing field) is never a pass.
 
 Exit codes: 0 every feature PASS; 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
@@ -105,8 +112,9 @@ def rows_by_feature() -> dict[str, list[str]]:
     return {feature: list(rows) for feature, rows, *_ in MANIFEST}
 
 
-def _fetch(url: str) -> tuple[int | None, object]:
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+def _fetch(url: str, headers: dict | None = None) -> tuple[int | None, object]:
+    req = urllib.request.Request(url, headers={"Accept": "application/json",
+                                               **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL
             code, raw = r.status, r.read()
@@ -159,12 +167,160 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
             "not_done": [i["feature"] for i in items if i["verdict"] != PASS]}
 
 
+# ---- W4-READBACK: the production evidence surface -----------------------------------------
+
+READBACK_TOKEN_VAR = "BRAMBLELOOP_READBACK_TOKEN"
+EVIDENCE_ENDPOINT = "/api/readback/evidence"
+EVIDENCE_CHECKS = ("publishing_halt_clear", "stale_artefacts_rebuilding",
+                   "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
+# (item, evidence section, server judgement key or None)
+EVIDENCE_ITEMS = (
+    ("dead letters in 24 h by job type", "dead_letters_24h", "no_unexpected_dead_letters_in_24h"),
+    ("publishing halt clear", "publishing_halt", "publishing_halt_clear"),
+    ("stale artefacts rebuilding", "stale_artefact_rebuilds", "stale_artefacts_rebuilding"),
+    ("repeated paid calls prevented", "paid_call_dedupe", "no_repeated_paid_call_in_24h"),
+    ("weekly jobs completing", "weekly_jobs", "weekly_jobs_completing"),
+    ("products progressing through certification", "certification_pipeline", None),
+    ("autonomous company loop", "autonomy_loop", None),
+)
+
+
+def _judge_section(name: str, section, judged) -> tuple[str, str]:
+    """(verdict, short reason). UNKNOWN whenever the evidence is absent or unreadable."""
+    if not isinstance(section, dict):
+        return UNKNOWN, "section missing"
+    if section.get("readable") is not True:
+        return UNKNOWN, f"unreadable ({section.get('error_class') or 'no reason given'})"
+    if name == "certification_pipeline":
+        outcomes = section.get("certify_outcomes_7d") or {}
+        certified = (outcomes.get("gate.certified") or {}).get("count")
+        if not isinstance(certified, int):
+            return UNKNOWN, "no certification counts"
+        return ((PASS if certified > 0 else FAIL),
+                f"{certified} certified in 7 d; by stage {section.get('count_by_stage')}")
+    if name == "autonomy_loop":
+        stages = section.get("stages")
+        if not isinstance(stages, list) or not stages:
+            return UNKNOWN, "no stages"
+        missing = [s.get("stage") for s in stages if not s.get("evidenced")]
+        return ((PASS if not missing else FAIL),
+                f"{len(stages) - len(missing)}/{len(stages)} stages show useful work"
+                + (f"; none in {missing}" if missing else ""))
+    if not isinstance(judged, bool):
+        return UNKNOWN, "no server judgement"
+    if name == "dead_letters_24h":
+        types = [f"{g.get('job_type')}:{g.get('error_class')}x{g.get('count')}"
+                 for g in section.get("by_type") or [] if not g.get("expected_refusal")]
+        return (PASS if judged else FAIL), (f"unexpected: {types}" if types else "none unexpected")
+    return (PASS if judged else FAIL), ""
+
+
+def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
+    """Read and judge the evidence surface. The token is read here and never returned."""
+    fetch = fetch or _fetch
+    env = os.environ if env is None else env
+    token = (env.get(READBACK_TOKEN_VAR) or "").strip()
+    base = url.rstrip("/")
+    items = []
+    reachable = False
+
+    try:
+        code, body = fetch(base + "/api/verify")[:2]
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN
+        code, body = None, None
+        public_error = type(exc).__name__
+    else:
+        public_error = ""
+    reachable = reachable or code is not None
+    public = {c.get("check"): c.get("ok") for c in (body or {}).get("evidence_checks") or []
+              if isinstance(c, dict)} if isinstance(body, dict) else {}
+    for name in EVIDENCE_CHECKS:
+        v = public.get(name)
+        verdict = PASS if v is True else FAIL if v is False else UNKNOWN
+        items.append({"item": f"/api/verify {name}", "verdict": verdict,
+                      "detail": "" if v is not None else (public_error or "check not served")})
+
+    evidence = None
+    http = None
+    why = ""
+    if not token:
+        why = f"{READBACK_TOKEN_VAR} is not set in this environment"
+    else:
+        try:
+            http, evidence = fetch(base + EVIDENCE_ENDPOINT,
+                                   {"Authorization": "Bearer " + token})[:2]
+        except Exception as exc:  # noqa: BLE001
+            why = f"unreachable ({type(exc).__name__})"
+        else:
+            reachable = reachable or http is not None
+            if http != 200 or not isinstance(evidence, dict):
+                why = f"HTTP {http}: refused or unavailable"
+                evidence = None
+    judged = (evidence or {}).get("server_judgement") or {}
+    for item, section, key in EVIDENCE_ITEMS:
+        if evidence is None:
+            verdict, detail = UNKNOWN, why
+        else:
+            verdict, detail = _judge_section(section, evidence.get(section),
+                                             judged.get(key) if key else None)
+        items.append({"item": item, "section": section, "verdict": verdict, "detail": detail})
+    verdicts = {i["verdict"] for i in items}
+    overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
+               UNKNOWN if UNKNOWN in verdicts else PASS)
+    import datetime as _dt
+
+    out = {"url": url, "verdict": overall, "reachable": reachable,
+           "read_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "token_present": bool(token), "evidence_http": http,
+           "items": items, "evidence": evidence}
+    return _redact(out, token)
+
+
+def _redact(value, token: str):
+    """Defence in depth: the token never leaves this process, even if a server echoed it."""
+    if not token:
+        return value
+    if isinstance(value, dict):
+        return {_redact(k, token): _redact(v, token) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact(v, token) for v in value]
+    if isinstance(value, str) and token in value:
+        return value.replace(token, "[redacted]")
+    return value
+
+
+def main_evidence(a) -> int:
+    out = run_evidence(url=a.url)
+    if a.json:
+        with open(a.json, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=1)
+            f.write("\n")
+    print(json.dumps(out["evidence"], indent=1, sort_keys=True))
+    for i in out["items"]:
+        print(f"{i['verdict']:7} {i['item']}" + (f" ({i['detail']})" if i["detail"] else ""),
+              file=sys.stderr)
+    if not out["reachable"]:
+        print("readback --evidence: production unreachable; nothing verified", file=sys.stderr)
+        return 4
+    if out["verdict"] != PASS:
+        n = {v: sum(1 for i in out["items"] if i["verdict"] == v) for v in (PASS, FAIL, UNKNOWN)}
+        print(f"readback --evidence: {out['verdict']} (PASS {n[PASS]}, FAIL {n[FAIL]}, "
+              f"UNKNOWN {n[UNKNOWN]}; UNKNOWN is not a pass)", file=sys.stderr)
+        return 5
+    print(f"readback --evidence: PASS ({len(out['items'])} items)", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--sha", required=True)
+    ap.add_argument("--sha", default="")
+    ap.add_argument("--evidence", action="store_true",
+                    help=f"read the evidence surface (token from ${READBACK_TOKEN_VAR})")
     ap.add_argument("--url", default=PRODUCTION_URL)
     ap.add_argument("--json", default="")
     a = ap.parse_args(argv)
+    if a.evidence:
+        return main_evidence(a)
     if not _SHA.match(a.sha):
         print(f"readback: need a full 40-hex sha, got {a.sha!r}", file=sys.stderr)
         return 2

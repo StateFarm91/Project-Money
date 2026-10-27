@@ -5623,10 +5623,37 @@ def api_verify() -> JSONResponse:
                        if str(c.get("check", "")).startswith("provider_health:")]
     unhealthy = [c for c in provider_health if c.get("verdict") in ("FAIL", "DEGRADED")]
     status = _verify_status(passed, smoke, unhealthy)
+    # W4-READBACK: production-evidence checks (publishing halt, stale rebuilds, paid-call
+    # dedupe, weekly jobs). Each is false without evidence. They are readbacks of recovery,
+    # beside the safety checks: they never change `ok` or the status code. Anonymous callers
+    # get each one's name and ok only (security.PUBLIC_PROJECTIONS).
+    try:
+        from ..ops.production_evidence import checks as _evidence_checks
+
+        evidence_checks = _evidence_checks(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is false, never a pass
+        from ..ops.production_evidence import CHECK_NAMES
+
+        evidence_checks = [{"check": n, "ok": False,
+                            "evidence": {"readable": False, "error_class": type(exc).__name__}}
+                           for n in CHECK_NAMES]
     return JSONResponse({"ok": passed, "status": status, "checks": checks,
+                         "evidence_checks": evidence_checks,
                          "provider_health": provider_health,
                          "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
+
+
+@app.get("/api/readback/evidence")
+def api_readback_evidence() -> JSONResponse:
+    """W4-READBACK: projected operational evidence for the operator readback
+    (`ops/readback.py --evidence`). Authenticated ONLY by the separate read-only
+    `BRAMBLELOOP_READBACK_TOKEN` (`security.READBACK_ROUTES`, `core.readbackauth`); the
+    operator token is refused here. Read-only: counts, ids, job types, error classes, ages and
+    product slugs -- no payloads, error text, conversations, owner or customer data, secrets."""
+    from ..ops.production_evidence import evidence
+
+    return JSONResponse(evidence(db), headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/verify/smoke")

@@ -106,7 +106,9 @@ PUBLIC_FIELDS = {
     "/api/status": {"version": True,
                     "build": {"commit": True, "commit_short": True, "known": True},
                     "boot_guard": {"enforced": True, "ok": True}},
-    "/api/verify": {"ok": True, "checks": [{"check": True, "ok": True}]},
+    "/api/verify": {"ok": True, "checks": [{"check": True, "ok": True}],
+                    # W4-READBACK: the production-evidence checks, name and verdict only.
+                    "evidence_checks": [{"check": True, "ok": True}]},
     "/api/verify/smoke": {"verdict": True, "as_of": True},
     "/api/build": {"final_master": {"launch_ready": True}},
     "/api/catalogue": {"published": True},
@@ -197,6 +199,12 @@ def test_every_route_without_a_credential_refuses_or_leaks_nothing():
                     # The Command Center's own session gate (untouched); its one public read
                     # (/api/cc/auth/status) says only whether a session exists.
                     want = {200, 401, 403, 503}
+                if security.readback_route(path):
+                    # W4-READBACK: the read-only readback credential, never the operator
+                    # token; closed (503) while BRAMBLELOOP_READBACK_TOKEN is unset.
+                    from brambleloop.core import readbackauth
+
+                    want = {401} if readbackauth.configured() else {503}
                 if r.status_code not in want:
                     bad.append(f"{path}: {r.status_code} without a credential "
                                f"(token {'set' if token_set else 'unset'})")
