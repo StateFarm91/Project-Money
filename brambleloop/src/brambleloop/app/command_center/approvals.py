@@ -52,6 +52,10 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # preview shows the change; the review records exactly what the owner confirmed.
     "policy.review_preview": (False, "read a material platform-policy change before review"),
     "policy.review": (True, "record the owner's review and re-test of a policy change"),
+    # W4-C04 (F-576): Etsy has no statement endpoint, so the owner archives the monthly
+    # statement here -- the original file (kept by hash) and its totals, reconciled against
+    # the ledger. Records evidence only; moves nothing.
+    "finance.statement_archive": (False, "archive an Etsy monthly statement and its totals"),
 }
 
 #: The words the owner confirms, verbatim. Anything else is refused.
@@ -639,6 +643,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                     "audit_id": None}  # a read: nothing to audit
         elif action == "policy.review":
             result = _review_policy_change(db, body, actor=actor)
+        elif action == "finance.statement_archive":
+            result = _archive_statement(db, body, actor=actor)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
@@ -649,7 +655,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
     except Exception as exc:  # noqa: BLE001 - the authority's refusal, mapped to stable text
         name = type(exc).__name__
         if name in ("ValueError", "KeyError", "TypeError", "ImprovementRefused",
-                    "LeagueRefused", "PermissionError", "OpsAuthRefused"):
+                    "LeagueRefused", "PermissionError", "OpsAuthRefused",
+                    "StatementRefused"):
             raw = str(exc)[:500]
             log.info("command-center action %s refused: %s: %s", action, name, raw)
             raise ActionRefused(_owner_message(exc),
@@ -665,5 +672,24 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                   if k in ("approval_id", "revoked", "digest", "expires_at",
                                            "improvement", "owner_approved", "acknowledged",
                                            "deferred", "source", "snapshot_id",
-                                           "reviewed", "review_audit_id", "confirmed")}})
+                                           "reviewed", "review_audit_id", "confirmed",
+                                           "period", "sha256", "version", "archived")}})
     return {"result": result, "audit_id": audit_id}
+
+
+def _archive_statement(db, body: dict, *, actor: str) -> dict:
+    """F-576: the owner's monthly statement -- original bytes (base64) plus its totals."""
+    import base64
+    import binascii
+
+    from ...finance.accounting import statements
+
+    try:
+        raw = base64.b64decode(str(body.get("content_base64") or ""), validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ActionRefused("content_base64 is not valid base64") from exc
+    return statements.archive(db, period=str(body.get("period") or ""), original=raw,
+                              content_type=str(body.get("content_type") or "application/pdf"),
+                              totals=body.get("totals") if isinstance(body.get("totals"), dict)
+                              else {}, recorded_by=f"owner:{actor}"[:64])
+

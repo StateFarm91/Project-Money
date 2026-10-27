@@ -1219,7 +1219,17 @@ def _reconcile_fees(db, reader, *, since: datetime | None, now: datetime) -> dic
         return {"read": False, "basis": "modelled",
                 "why": f"the payment-account ledger read failed ({type(exc).__name__}: "
                        f"{str(exc)[:200]}); fees stay modelled and labelled"}
-    return {"read": True, **reconcile.apply(db, entries, source=SOURCE)}
+    out = {"read": True, **reconcile.apply(db, entries, source=SOURCE)}
+    # F-575: the same read is the Payment Account statement. Every entry becomes a statement
+    # line the Accountant's cycle matches (payouts, refunds, fees), and whatever the mapping
+    # cannot explain -- or a break in the running balance -- is an exception and an incident.
+    try:
+        from ..finance.accounting import reconciliation as acct
+
+        out["payment_account"] = acct.import_etsy_ledger(db, entries, now=now)
+    except Exception as exc:  # noqa: BLE001 - the order fees above stand either way
+        out["payment_account"] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    return out
 
 
 # ---------------------------------------------------------------------------

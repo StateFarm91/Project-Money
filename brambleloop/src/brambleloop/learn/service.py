@@ -397,6 +397,9 @@ def scan(db):
     Edges retain exact version hashes and support IDs without copying customer prose/PII.
     Transaction rollback prevents half-ingested graph state on malformed CIR.
     """
+    from . import ownership
+
+    cost = ownership.learn_cost_cad(db)  # read before the write transaction opens
     with db.session() as s:
         sources = []
         for pv, product in s.execute(select(PatternVersion, Product).join(Product)).all():
@@ -430,10 +433,34 @@ def scan(db):
         # Revoked coverage reopens even when its source is no longer returned by a scan.
         for gap in s.scalars(select(LearnGap)).all():
             gap.state = "COVERED" if gap.topic in approved else "QUEUED"
+        # F-828: each gap is owned by the department whose contribution is next missing
+        # (Pattern's technical truth, then Visual's diagram, then Learn), and the topic node
+        # records every department's part with its evidence.
+        from . import ownership
+
+        diagrams = set()
+        for lesson in s.scalars(select(Lesson)).all():
+            for asset in (lesson.spec or {}).get("assets", []):
+                if asset.get("kind") == "technique_diagram" and asset.get("illustrates"):
+                    diagrams.add("stitch:" + str(asset["illustrates"]))
+        owners: dict = {}
         gaps = s.scalars(select(LearnGap)).all()
-        return {"decision": "QUEUE" if any(g.state == "QUEUED" for g in gaps) else "WATCH",
-                "queued": sum(g.state == "QUEUED" for g in gaps), "sources": len(sources),
-                "generated": 0, "published": 0}
+        for gap in gaps:
+            r = ownership.route(gap.topic, list(gap.evidence or []), diagram_lessons=diagrams,
+                                search_demand=None, cost_cad=cost)
+            gap.owner = r["owner"] if gap.state == "QUEUED" else "learn"
+            owners[gap.owner] = owners.get(gap.owner, 0) + (gap.state == "QUEUED")
+            node = s.get(LearnNode, gap.topic)
+            if node is not None:
+                node.detail = {**(node.detail or {}), "routing": r["contributions"],
+                               "owner": gap.owner}
+        out = {"decision": "QUEUE" if any(g.state == "QUEUED" for g in gaps) else "WATCH",
+               "queued": sum(g.state == "QUEUED" for g in gaps), "sources": len(sources),
+               "generated": 0, "published": 0}
+        by_owner = {k: v for k, v in sorted(owners.items()) if v}
+        if by_owner:                     # F-828: only when something is queued
+            out["queued_by_owner"] = by_owner
+        return out
 
 
 def approved_lesson(db, slug):

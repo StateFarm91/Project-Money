@@ -125,7 +125,11 @@ def test_payout_matches_bank_deposit_and_unmatched_lines_become_exceptions():
          "reference": "UNKNOWN WIRE"}], now=NOW)
     rep = reconciliation.match(db, now=NOW)
     states = {l["external_id"]: l["state"] for l in reconciliation.statement_lines(db)}
-    assert states == {"et-p1": "matched", "bk-1": "matched", "bk-2": "unmatched"}, states
+    mine = {k: states.pop(k, None) for k in ("et-p1", "bk-1", "bk-2")}
+    assert mine == {"et-p1": "matched", "bk-1": "matched", "bk-2": "unmatched"}, mine
+    # W4-C04 (F-575): the seeded order ingest now also writes its Payment Account entries as
+    # statement lines; every one of those must match too, so `unmatched` is still exactly 1.
+    assert all(v == "matched" for v in states.values()), states
     assert rep["unmatched"] == 1
     assert any(x["kind"] == "unmatched_statement_line" for x in X.listing(db))
     posting_rules.post_all(db, now=NOW)
