@@ -375,7 +375,11 @@ def test_image_generation_is_outside_this_mechanism_and_the_set_is_pinned():
                 if (isinstance(node, ast.Call)
                         and ast.unparse(node.func) in ("_post", "_get")):
                     requesters.add(fn.name)
-    assert requesters == {"_generate_reserved"}, (
+    # W4-C07 F-464 PROPOSAL (decision pending): the deferred render's submit and its single
+    # poll are request sites too. Each runs inside a reservation it took or found durably
+    # recorded (`submit_render` reserves before `_post`; `poll_render` reads an ACCEPTED
+    # record holding the reservation), and the deferred test proves one bill per render.
+    assert requesters == {"_generate_reserved", "submit_render", "poll_render"}, (
         f"{sorted(requesters - {'_generate_reserved'})} send provider requests outside the "
         f"reserved render path: that is a render the ceiling cannot refuse")
     assert not KNOWN_IMAGE_GENERATION, (

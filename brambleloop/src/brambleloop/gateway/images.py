@@ -982,51 +982,11 @@ def record_render(db, provider: ImageProvider, budget: dict | None, *, agent: st
         kind=routing.IMAGE_COST_KIND, detail=detail)
 
 
-def generate(prompt: str, *, reference_urls: list[str] | None = None,
-             env: dict[str, str] | None = None, size: str = "1024x1024",
-             provider_key: str | None = None, work_dir: str | None = None,
-             timeout: float = 120.0, extra_fields: dict | None = None,
-             db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
-             spend_detail: dict | None = None) -> dict:
-    """Ask one provider for one image. Raises rather than returning nothing.
-
-    **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
-    one `CostEntry` of kind `image` per render the provider charged for, including renders
-    that failed after the provider accepted them. Callers must not write a second row; the
-    result's `cost_entry_id` is the row this call wrote. `spend_detail` is merged into that
-    row's detail (e.g. `{"attribution": "shared"}`).
-
-    **Every render is checked against the ceiling here, before the provider is asked.**
-    `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
-    the same month, the same agent permission and the same reservation table every
-    token-priced call passes through -- and the claim is released with the price once the
-    picture exists. A ceiling that is exhausted raises `BudgetExceeded` with no request sent.
-    `db`, `agent`, `purpose` and `job_id` attribute the reservation; a caller that passes none
-    is still checked (see `_budget_db`) and attributed to `gateway`.
-
-    Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
-    gives one and a path on this disk when it returns the bytes inline. Google returns
-    inline base64 and never a URL, so a caller that only read `url` would treat every
-    successful Google render as an answer with no picture in it.
-
-    **`work_dir` is required, and the refusal below is the fix for a real leak.** This used to
-    fall back to `tempfile.mkdtemp`, which removes nothing, and it could not be changed to
-    `TemporaryDirectory` here for a reason worth writing down: the returned `path` has to
-    outlive this call, so a directory this function cleaned up would hand every caller a path
-    to a file that no longer exists. The lifetime belongs to whoever consumes the bytes, and
-    every production caller but two already passed one. The two that did not -- the image
-    benchmark and this module's own reference probe -- are exactly where the `generated-`
-    directories in production came from. A render whose bytes nobody owns is the leak, so it
-    is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
-    caller that got a temporary directory had a slow disk failure nobody could attribute.
-    """
-    if not work_dir:
-        raise ImagesRefused(
-            "generate() needs a work_dir: the path it returns has to outlive the call, so "
-            "this function cannot own the directory and will not create one nobody owns. "
-            "Wrap the work in `core.workspace.work_dir(None, prefix=\"generated-\")` and "
-            "pass it in -- that is what removes the render when the work is finished")
-
+def _prepare(prompt: str, *, reference_urls, env, size: str, provider_key, extra_fields,
+             db) -> tuple:
+    """Everything `generate` checks before any budget is reserved (W4-C07 F-464: shared with
+    `submit_render`, so the deferred path meets exactly the same refusals). Returns
+    (provider, url, headers, payload, receipt). Moved verbatim from `generate`."""
     e = env if env is not None else os.environ
     # `provider_key` is how the benchmark asks for a specific candidate. Without it this
     # falls back to whichever provider the environment names, which is right for ordinary
@@ -1087,6 +1047,139 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     # before anything leaves. Never below the table price; an unpriceable input is refused.
     estimate = render_estimate_usd(provider, size, reference_urls, payload)
     receipt["price"] = {**estimate, "cad": round(estimate["usd"] * USD_TO_CAD, 6)}
+    return provider, url, headers, payload, receipt
+
+
+def _finish_render(provider: ImageProvider, body: dict, size: str, work_dir: str,
+                   timeout: float, started: float, budget: dict, db, billing: dict) -> dict:
+    """From a finished provider answer to bytes on disk and the one ledger row (W4-C07 F-464:
+    shared with `poll_render`). Moved verbatim from `_generate_reserved`."""
+    import base64
+    from pathlib import Path
+
+    image_url, b64, mime = _parse_image(provider, body)
+    if not image_url and not b64:
+        raise ImagesRefused(
+            f"{provider.key} answered without an image. A 200 with no picture in it is what "
+            f"a content refusal and a wrong payload shape both look like from here")
+
+    # Every render is written to this disk, whether it arrived as bytes or as a link.
+    #
+    # The link case is the one that had to be learned. Black Forest Labs returns a presigned
+    # URL that expires about ten minutes after it is issued -- measured 2026-09-21: issued
+    # 01:47Z, `se=2026-09-21T01:57:00Z`. Passing that along works for a benchmark that
+    # judges immediately and fails quietly everywhere else: a model whose thirty renders
+    # take longer than the expiry loses its earliest images before they are scored, and the
+    # canonical identity pack of #200 -- the frozen reference every future listing is
+    # conditioned on -- cannot be a set of links that stop resolving over lunch. A reference
+    # that expires is not a lock.
+    root = Path(work_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    if b64:
+        raw = base64.b64decode(b64)
+    else:
+        import urllib.request
+
+        try:
+            with urllib.request.urlopen(image_url, timeout=timeout) as response:
+                raw = response.read()
+                mime = mime or response.headers.get("content-type", "")
+        except Exception as exc:  # noqa: BLE001 - a link that will not fetch is no image
+            raise ImagesRefused(
+                f"{provider.key} returned a link that could not be fetched: {exc}. A "
+                f"presigned URL is only an image while it lasts") from exc
+
+    import hashlib
+
+    suffix = ".jpg" if "jpeg" in mime else ".webp" if "webp" in mime else ".png"
+    path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
+    Path(path).write_bytes(raw)
+    # Fingerprinted the moment it is on disk: the delivery URL expires (BFL: 10 minutes in the
+    # integration guidelines, 1 hour on the FLUX 3 page), the bytes and their hash do not.
+    output_sha256 = hashlib.sha256(raw).hexdigest()
+    result_meta = body.get("result") if isinstance(body.get("result"), dict) else {}
+    provider_receipt = {
+        **dict(billing.get("provider_submit") or {}),
+        "task_id": body.get("id") or (billing.get("provider_submit") or {}).get("id"),
+        "seed": result_meta.get("seed"),
+        "duration_s": result_meta.get("duration"),
+        "expanded_prompt_sha256": (hashlib.sha256(str(result_meta["prompt"]).encode())
+                                   .hexdigest() if result_meta.get("prompt") else None),
+        "settled_cost_credits": body.get("cost"),
+    }
+
+    # The picture exists, so the provider has billed: the ledger row is written and the
+    # claim comes back with the price (B2).
+    # Written before the release, so there is no instant in which neither is counted.
+    cost_entry_id = record_render(db, provider, budget, agent=billing.get("agent") or "",
+                                  purpose=billing.get("purpose") or "",
+                                  job_id=billing.get("job_id"), billing="rendered",
+                                  spend_detail=billing.get("spend_detail"))
+    billing["billed"] = True
+    # The claim is released by the caller (`_generate_reserved` / `poll_render`), right after
+    # this returns, so the reserved path keeps its own release (test_model_spend_paths pin).
+
+    return {"provider": provider.key, "url": image_url, "path": path,
+            "image_ref": path, "bytes": len(raw), "sha256": output_sha256,
+            "model": provider.model, "provider_receipt": provider_receipt,
+            # Reported rather than assumed: the first version defaulted this to image/png
+            # and said so about a JPEG that BFL had plainly labelled.
+            "mime": mime or "", "size": size,
+            "cad": float(budget.get("estimate_cad") or provider.cad_per_image),
+            "reservation_id": budget.get("reservation_id"),
+            "cost_entry_id": cost_entry_id,
+            "ceiling_headroom_cad": budget.get("headroom_cad"),
+            "latency_ms": round((time.time() - started) * 1000, 2)}
+
+
+def generate(prompt: str, *, reference_urls: list[str] | None = None,
+             env: dict[str, str] | None = None, size: str = "1024x1024",
+             provider_key: str | None = None, work_dir: str | None = None,
+             timeout: float = 120.0, extra_fields: dict | None = None,
+             db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
+             spend_detail: dict | None = None) -> dict:
+    """Ask one provider for one image. Raises rather than returning nothing.
+
+    **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
+    one `CostEntry` of kind `image` per render the provider charged for, including renders
+    that failed after the provider accepted them. Callers must not write a second row; the
+    result's `cost_entry_id` is the row this call wrote. `spend_detail` is merged into that
+    row's detail (e.g. `{"attribution": "shared"}`).
+
+    **Every render is checked against the ceiling here, before the provider is asked.**
+    `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
+    the same month, the same agent permission and the same reservation table every
+    token-priced call passes through -- and the claim is released with the price once the
+    picture exists. A ceiling that is exhausted raises `BudgetExceeded` with no request sent.
+    `db`, `agent`, `purpose` and `job_id` attribute the reservation; a caller that passes none
+    is still checked (see `_budget_db`) and attributed to `gateway`.
+
+    Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
+    gives one and a path on this disk when it returns the bytes inline. Google returns
+    inline base64 and never a URL, so a caller that only read `url` would treat every
+    successful Google render as an answer with no picture in it.
+
+    **`work_dir` is required, and the refusal below is the fix for a real leak.** This used to
+    fall back to `tempfile.mkdtemp`, which removes nothing, and it could not be changed to
+    `TemporaryDirectory` here for a reason worth writing down: the returned `path` has to
+    outlive this call, so a directory this function cleaned up would hand every caller a path
+    to a file that no longer exists. The lifetime belongs to whoever consumes the bytes, and
+    every production caller but two already passed one. The two that did not -- the image
+    benchmark and this module's own reference probe -- are exactly where the `generated-`
+    directories in production came from. A render whose bytes nobody owns is the leak, so it
+    is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
+    caller that got a temporary directory had a slow disk failure nobody could attribute.
+    """
+    if not work_dir:
+        raise ImagesRefused(
+            "generate() needs a work_dir: the path it returns has to outlive the call, so "
+            "this function cannot own the directory and will not create one nobody owns. "
+            "Wrap the work in `core.workspace.work_dir(None, prefix=\"generated-\")` and "
+            "pass it in -- that is what removes the render when the work is finished")
+
+    provider, url, headers, payload, receipt = _prepare(
+        prompt, reference_urls=reference_urls, env=env, size=size,
+        provider_key=provider_key, extra_fields=extra_fields, db=db)
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
                             estimate_cad=receipt["price"]["cad"])
     started = time.time()
@@ -1179,9 +1272,6 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
                        size: str, work_dir: str, timeout: float, started: float,
                        budget: dict, db, billing: dict | None = None) -> dict:
     """The provider call and everything after it, inside the reservation `generate` took."""
-    import base64
-    from pathlib import Path
-
     billing = billing if billing is not None else {"accepted": False}
     body = _post(url, headers, payload, label=provider.key, timeout=timeout)
     # The provider answered 2xx: from here on the work is billed whatever happens next.
@@ -1212,78 +1302,182 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
                 f"{provider.key} did not finish within "
                 f"{int(BFL_POLL_ATTEMPTS * BFL_POLL_SECONDS)}s")
 
-    image_url, b64, mime = _parse_image(provider, body)
-    if not image_url and not b64:
-        raise ImagesRefused(
-            f"{provider.key} answered without an image. A 200 with no picture in it is what "
-            f"a content refusal and a wrong payload shape both look like from here")
+    result = _finish_render(provider, body, size, work_dir, timeout, started, budget, db,
+                            billing)
+    release_render(db, budget, billed=True)
+    return result
 
-    # Every render is written to this disk, whether it arrived as bytes or as a link.
-    #
-    # The link case is the one that had to be learned. Black Forest Labs returns a presigned
-    # URL that expires about ten minutes after it is issued -- measured 2026-09-21: issued
-    # 01:47Z, `se=2026-09-21T01:57:00Z`. Passing that along works for a benchmark that
-    # judges immediately and fails quietly everywhere else: a model whose thirty renders
-    # take longer than the expiry loses its earliest images before they are scored, and the
-    # canonical identity pack of #200 -- the frozen reference every future listing is
-    # conditioned on -- cannot be a set of links that stop resolving over lunch. A reference
-    # that expires is not a lock.
-    root = Path(work_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    if b64:
-        raw = base64.b64decode(b64)
-    else:
-        import urllib.request
 
-        try:
-            with urllib.request.urlopen(image_url, timeout=timeout) as response:
-                raw = response.read()
-                mime = mime or response.headers.get("content-type", "")
-        except Exception as exc:  # noqa: BLE001 - a link that will not fetch is no image
-            raise ImagesRefused(
-                f"{provider.key} returned a link that could not be fetched: {exc}. A "
-                f"presigned URL is only an image while it lasts") from exc
+# ---- W4-C07 F-464: the deferred render (submit, then one poll per durable job) --------------
+#
+# `generate` holds a worker thread for up to BFL_POLL_ATTEMPTS x BFL_POLL_SECONDS while BFL
+# renders. These two calls are the same request split at the provider's acceptance, so a job
+# can `runtime.awaiting.defer` between them instead of sleeping. The invariants of `generate`
+# are kept, each stated where it is enforced:
+#
+# * the same refusals, before any budget is reserved (`_prepare`, shared);
+# * the reservation is taken before the request (`reserve_render`);
+# * acceptance is durable before the call returns: a `paid_call_records` row keyed by the
+#   request fingerprint, outcome ACCEPTED, holding the poll URL, the reservation and the
+#   estimate -- never the key, which is read from the environment at poll time. A second
+#   `submit_render` of the same request finds it and never submits again;
+# * a 2xx is billed whatever happens after it: a terminal poll status bills
+#   `accepted_then_failed` and the record becomes FAILED_BILLED;
+# * the CostEntry is written exactly once, by `_finish_render` on the ready poll, after which
+#   the record is OK and a later poll replays the stored result without billing.
+#
+# Nothing in production calls these yet. Converting the render handlers onto them, and
+# accepting the BFL status vocabulary and the ~10-minute presigned-URL expiry against a live
+# render, is the remaining step of the FMBATCH2 design and needs an owner-authorised render.
 
+DEFERRED_EFFECT = "image.render.deferred"
+ACCEPTED = "ACCEPTED"
+
+
+def _deferred_key(fp: str) -> str:
     import hashlib
 
-    suffix = ".jpg" if "jpeg" in mime else ".webp" if "webp" in mime else ".png"
-    path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
-    Path(path).write_bytes(raw)
-    # Fingerprinted the moment it is on disk: the delivery URL expires (BFL: 10 minutes in the
-    # integration guidelines, 1 hour on the FLUX 3 page), the bytes and their hash do not.
-    output_sha256 = hashlib.sha256(raw).hexdigest()
-    result_meta = body.get("result") if isinstance(body.get("result"), dict) else {}
-    provider_receipt = {
-        **dict(billing.get("provider_submit") or {}),
-        "task_id": body.get("id") or (billing.get("provider_submit") or {}).get("id"),
-        "seed": result_meta.get("seed"),
-        "duration_s": result_meta.get("duration"),
-        "expanded_prompt_sha256": (hashlib.sha256(str(result_meta["prompt"]).encode())
-                                   .hexdigest() if result_meta.get("prompt") else None),
-        "settled_cost_credits": body.get("cost"),
-    }
+    return hashlib.sha256(f"{DEFERRED_EFFECT}|{fp}".encode()).hexdigest()
 
-    # The picture exists, so the provider has billed: the ledger row is written and the
-    # claim comes back with the price (B2).
-    # Written before the release, so there is no instant in which neither is counted.
-    cost_entry_id = record_render(db, provider, budget, agent=billing.get("agent") or "",
-                                  purpose=billing.get("purpose") or "",
-                                  job_id=billing.get("job_id"), billing="rendered",
-                                  spend_detail=billing.get("spend_detail"))
-    billing["billed"] = True
+
+def classify_poll(body: dict) -> str:
+    """`ready`, `in_progress` or `terminal` -- the same vocabulary `_generate_reserved` reads."""
+    status = str(body.get("status") or "").strip().lower().replace(" ", "_")
+    if status in ("ready", "succeeded", "complete", "completed"):
+        return "ready"
+    return "in_progress" if status in BFL_IN_PROGRESS else "terminal"
+
+
+def submit_render(prompt: str, *, provider_key: str, reference_urls: list[str] | None = None,
+                  env: dict[str, str] | None = None, size: str = "1024x1024",
+                  extra_fields: dict | None = None, timeout: float = 120.0, db=None,
+                  agent: str = "", purpose: str = "", job_id: int | None = None,
+                  spend_detail: dict | None = None) -> dict:
+    """Send one render and return at the provider's acceptance: {fingerprint, op_ref, state}."""
+    from . import paid_calls
+
+    provider, url, headers, payload, receipt = _prepare(
+        prompt, reference_urls=reference_urls, env=env, size=size,
+        provider_key=provider_key, extra_fields=extra_fields, db=db)
+    if provider.dialect not in ("bfl", "bfl3"):
+        raise ImagesRefused(f"{provider.key} answers inline; deferral is for submit-then-poll "
+                            f"providers -- use generate()")
+    fp = paid_calls.fingerprint(DEFERRED_EFFECT, provider.key, prompt,
+                                list(reference_urls or []), size, extra_fields or {})
+    key = _deferred_key(fp)
+    bdb = _budget_db(db)
+    paid_calls.ensure_table(bdb)
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is not None and row.outcome in (ACCEPTED, paid_calls.OK):
+            return {"fingerprint": fp, "op_ref": (row.payload or {}).get("op_ref"),
+                    "state": row.outcome, "resubmitted": False}
+        if row is not None and row.outcome in (paid_calls.FAILED_BILLED, paid_calls.UNCERTAIN):
+            raise paid_calls.PaidCallReplayedFailure(
+                f"{provider.key}: this render was already billed ({row.outcome}); a new "
+                f"request is a new render, not a resend")
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
+                            estimate_cad=receipt["price"]["cad"])
+    try:
+        body = _post(url, headers, payload, label=provider.key, timeout=timeout)
+    except TimeoutError as exc:
+        bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                    billing="unknown_counted_at_estimate", error=f"{type(exc).__name__}: {exc}",
+                    spend_detail=spend_detail)
+        _store_deferred(bdb, key, fp, provider, budget, paid_calls.UNCERTAIN, {}, agent, job_id)
+        raise
+    except BaseException:
+        release_render(db, budget, billed=False)
+        raise
+    if not body.get("polling_url"):
+        bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                    billing="accepted_then_failed", error="accepted without a polling_url",
+                    spend_detail=spend_detail)
+        _store_deferred(bdb, key, fp, provider, budget, paid_calls.FAILED_BILLED, {}, agent,
+                        job_id)
+        raise ImagesRefused(f"{provider.key} accepted the request but returned no polling_url")
+    op = {"op_ref": str(body["polling_url"]),
+          "provider_submit": {k: body.get(k) for k in ("id", "cost", "input_mp", "output_mp")},
+          "size": size, "purpose": purpose, "spend_detail": spend_detail or {},
+          "conditioning": receipt}
+    _store_deferred(bdb, key, fp, provider, budget, ACCEPTED, op, agent, job_id)
+    return {"fingerprint": fp, "op_ref": op["op_ref"], "state": ACCEPTED,
+            "reservation_id": budget.get("reservation_id"), "resubmitted": True}
+
+
+def _store_deferred(bdb, key, fp, provider, budget, outcome, payload, agent, job_id):
+    from . import paid_calls
+
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is None:
+            row = paid_calls.PaidCallRecord(key=key, effect=DEFERRED_EFFECT, fingerprint=fp[:64])
+            s.add(row)
+        row.job_id, row.outcome, row.cost_kind = job_id, outcome, "image"
+        row.estimate_cad = float(budget.get("estimate_cad") or provider.cad_per_image)
+        row.reservation_id = budget.get("reservation_id")
+        row.provider, row.model, row.agent = provider.key, provider.key, agent or ""
+        row.payload = {**dict(row.payload or {}), **payload,
+                       "budget": {k: budget.get(k) for k in ("reservation_id", "estimate_cad",
+                                                             "headroom_cad")}}
+
+
+def poll_render(fingerprint: str, *, work_dir: str, env: dict[str, str] | None = None,
+                timeout: float = 120.0, db=None) -> dict:
+    """One GET for an accepted render: {done: False} while it renders, the result once ready."""
+    from . import paid_calls
+
+    if not work_dir:
+        raise ImagesRefused("poll_render() needs a work_dir, for the same reason generate does")
+    key = _deferred_key(fingerprint)
+    bdb = _budget_db(db)
+    paid_calls.ensure_table(bdb)
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is None:
+            raise ImagesRefused("no accepted render with this fingerprint")
+        outcome, payload, prov_key = row.outcome, dict(row.payload or {}), row.provider
+        agent, job_id = row.agent, row.job_id
+    if outcome == paid_calls.OK:
+        return {**payload.get("result", {}), "done": True, "replayed": True, "cad": 0.0}
+    if outcome != ACCEPTED:
+        raise paid_calls.PaidCallReplayedFailure(f"this render ended {outcome}; not repeated")
+    provider = BY_KEY[prov_key]
+    e = env if env is not None else os.environ
+    headers = {"x-key": key_for(provider.key, e)}
+    body = _get(payload["op_ref"], headers, label=provider.key, timeout=timeout)
+    state = classify_poll(body)
+    if state == "in_progress":
+        return {"done": False, "status": body.get("status")}
+    budget = dict(payload.get("budget") or {})
+    billing = {"accepted": True, "agent": agent, "purpose": payload.get("purpose") or "",
+               "job_id": job_id, "spend_detail": payload.get("spend_detail") or {},
+               "provider_submit": payload.get("provider_submit") or {}}
+    if state == "terminal":
+        bill_render(db, provider, budget, agent=agent, purpose=billing["purpose"],
+                    job_id=job_id, billing="accepted_then_failed",
+                    error=f"poll status {body.get('status')!r}",
+                    spend_detail=billing["spend_detail"])
+        _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED, {},
+                        agent, job_id)
+        raise ImagesRefused(f"{provider.key} returned {body.get('status') or 'no status'}")
+    try:
+        result = _finish_render(provider, body, payload.get("size") or "1024x1024", work_dir,
+                                timeout, time.time(), budget, db, billing)
+    except BaseException:
+        if not billing.get("billed"):
+            bill_render(db, provider, budget, agent=agent, purpose=billing["purpose"],
+                        job_id=job_id, billing="accepted_then_failed",
+                        error="the ready render could not be read",
+                        spend_detail=billing["spend_detail"])
+            _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED,
+                            {}, agent, job_id)
+        raise
     release_render(db, budget, billed=True)
-
-    return {"provider": provider.key, "url": image_url, "path": path,
-            "image_ref": path, "bytes": len(raw), "sha256": output_sha256,
-            "model": provider.model, "provider_receipt": provider_receipt,
-            # Reported rather than assumed: the first version defaulted this to image/png
-            # and said so about a JPEG that BFL had plainly labelled.
-            "mime": mime or "", "size": size,
-            "cad": float(budget.get("estimate_cad") or provider.cad_per_image),
-            "reservation_id": budget.get("reservation_id"),
-            "cost_entry_id": cost_entry_id,
-            "ceiling_headroom_cad": budget.get("headroom_cad"),
-            "latency_ms": round((time.time() - started) * 1000, 2)}
+    _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.OK,
+                    {"result": {k: v for k, v in result.items() if k != "provider_receipt"}},
+                    agent, job_id)
+    return {**result, "done": True, "conditioning": payload.get("conditioning")}
 
 
 REFERENCE_PROBE_ACTION = "image.reference_probe"
