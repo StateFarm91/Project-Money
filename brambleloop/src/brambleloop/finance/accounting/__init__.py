@@ -29,6 +29,8 @@ Module map:
 * `dashboard`       -- owner Money provider: summary / drill / next_work (F-914, F-915).
 * `controller`      -- the Accountant agent's cycle (F-901).
 * `activity`        -- last reconciliation, discrepancies, close, tax/threshold alerts (F-682).
+* `statements`      -- monthly statement archive: originals kept by hash, versions never
+                       overwritten, totals reconciled to the books (F-576).
 * `guardrails`      -- what this package must never be able to do (F-917).
 * `exceptions`      -- accounting exceptions: opened idempotently, resolved with a note.
 * `schema`          -- table registration and the Database/Session adapter.
