@@ -132,6 +132,13 @@ FM = {
               ["intel/research_agent.py", "intel/research_fetch.py"]),
     "F-231": ("imagery", ["creative.photo_principles"], ["intel/gallery_grammar.py"]),
     "F-565": ("opportunities", ["intel.serp_capture"], ["intel/insights_score.py"]),
+    # W4-INTELREC C06: the children's catalogue rows (C1 creative.children + launch.mix).
+    "F-353": ("families", ["intel.children_portfolio"], ["creative/children.py"]),
+    "F-358": ("families", ["intel.children_portfolio"], ["creative/children.py"]),
+    "F-359": ("families", ["intel.children_portfolio"], ["creative/children.py"]),
+    "F-365": ("families", ["intel.children_portfolio"], ["creative/children.py"]),
+    "F-366": ("families", [], ["launch/mix.py", "creative/children.py"]),
+    "F-370": ("families", [], ["launch/mix.py"]),
     "F-440": ("differentiation", [], []), "F-447": ("research_agent", [], []),
     "F-478": ("research_agent", [], []), "F-673": ("opportunities", [], []),
     "F-705": ("learning", ["improve.mine", "improve.weekly"], []),
