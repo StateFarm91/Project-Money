@@ -406,6 +406,60 @@ def ownership_conflicts(data: dict, name: str, owns: list[str]) -> list[dict]:
 
 
 # --- the registry ----------------------------------------------------------------------------
+# ---- F-865 bounded parallelism -------------------------------------------------------------
+# "Use disjoint ownership and one integrator; optimize for integrated tested work per resource
+# window, not maximum agent count." Disjoint ownership is `ownership_conflicts` (F-457) and the
+# one integrator is ops/integrate.py + ops/integration_authority.py (F-711). The bound: at most
+# this many live work lanes at once (the owner's 2026-10 directive runs 4-6 workers); a seventh
+# enrolment is refused until a lane is integrated or forgotten. `throughput` reports what the
+# bound is for: lanes integrated per window, per lane slot used -- not how many ran.
+MAX_WORK_LANES_ENV = "BRAMBLELOOP_MAX_WORK_LANES"
+DEFAULT_MAX_WORK_LANES = 6
+
+
+class ParallelismBound(ValueError):
+    """Enrolment refused: the live work lanes already fill the bound."""
+
+
+def max_work_lanes(env: dict | None = None) -> int:
+    env = os.environ if env is None else env
+    raw = str(env.get(MAX_WORK_LANES_ENV) or "").strip()
+    if not raw:
+        return DEFAULT_MAX_WORK_LANES
+    try:
+        n = int(raw)
+    except ValueError:
+        raise ValueError(f"{MAX_WORK_LANES_ENV}={raw!r} is not an integer") from None
+    if n < 1:
+        raise ValueError(f"{MAX_WORK_LANES_ENV} must be at least 1")
+    return n
+
+
+def _parse_utc(s) -> float | None:
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def throughput(data: dict, *, window_hours: float = 24.0, now: float | None = None,
+               env: dict | None = None) -> dict:
+    """Integrated work per resource window: lanes whose integration was recorded inside the
+    window, against the lane slots the bound allows. Live lane count is reported beside it,
+    never as the measure."""
+    now = time.time() if now is None else now
+    lo = now - window_hours * 3600
+    done = sorted(n for n, r in data.get("jobs", {}).items()
+                  if r.get("role", "work") == "work" and r.get("integrated")
+                  and (_parse_utc((r["integrated"] or {}).get("recorded_utc")) or 0) >= lo)
+    live = sorted(n for n, r in data.get("jobs", {}).items() if _live(r))
+    cap = max_work_lanes(env)
+    return {"window_hours": window_hours, "integrated": done,
+            "integrated_count": len(done), "live_work_lanes": live, "bound": cap,
+            "integrated_per_slot": round(len(done) / cap, 4),
+            "measure": "integrated lanes per window per lane slot (not agent count)"}
+
+
 class Registry:
     """A JSON file and the functions that read and write it. That is the whole mechanism."""
 
@@ -467,6 +521,15 @@ class Registry:
         rows = sorted({str(r).strip().upper() for r in rows or () if str(r).strip()})
         stop = validate_stop(stop) if stop else None
         qfp = question_fingerprint(question)
+        if role == "work":
+            # F-865: a new live work lane only while the bound has room. Re-enrolling a lane
+            # that is already live does not grow the count.
+            live = [n for n, r in data["jobs"].items() if n != job.name and _live(r)]
+            cap = max_work_lanes()
+            if len(live) >= cap:
+                raise ParallelismBound(
+                    f"{len(live)} live work lanes already fill the bound of {cap} "
+                    f"({MAX_WORK_LANES_ENV}); integrate or forget one first: {sorted(live)}")
         if role == "work" and (rows or qfp):
             dup = duplicate_work(data, job.name, rows, qfp)
             if dup:
@@ -652,6 +715,8 @@ class Registry:
             "deadlocks": wait_for_cycles(data),
             # F-492: live lanes past their own escalation or stop criteria.
             "stop_criteria": stop_states(data, now=now),
+            # F-865: integrated work per window, beside the bound.
+            "throughput": throughput(data, now=now),
             "registry": str(self.path),
             "host": here,
             "rule": ("completion comes from the job's own terminal evidence, never from a "
