@@ -3,21 +3,25 @@
  "version": "1.2.0",
  "title": "Hexagon Coaster Set (4)",
  "risk_class": "A (no section-8 feature; automated threshold)",
- "required": "partial_physical (first-customer floor, gates.risk_matrix.first_customer_requirement); the whole set of four is the smallest sample physical.record accepts, so the scope is full_make",
+ "required": "partial_physical (first-customer floor, gates.risk_matrix.first_customer_requirement); the kit is a full make of all four, which satisfies it and is the coaster's one physical claim: it lies flat",
  "scope": "full_make",
+ "size": "set_of_four",
  "make_hours_estimate": 3.46,
  "max_cost_cad": 92.03,
- "cost_basis": "gates.risk_matrix.owner_action_spec: ESTIMATED ceiling: 4.5 tester hours at CA$20/h + 35 m yarn at CA$0.06/m; no measured tester rate exists. ESTIMATED ceiling; no tester has been paid yet",
+ "cost_basis": "gates.risk_matrix.owner_action_spec: 4.5 tester hours (estimate x1.3) at CA$20/h + 35 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
  "content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
  "finished_size_cm": {
   "across_points": 9.7,
-  "across_flats": 8.4,
-  "per": "one coaster (Component.make = 4)"
+  "across_flats": 8.4
+ },
+ "pieces": {
+  "coaster": 4
  },
  "yarn_metres_by_colour": {
   "cream": 22.6,
   "wine": 6.2
  },
+ "yarn_metres_scope": "every piece the pattern makes (cir.twin._yardage x make)",
  "yardage_tolerance": 0.2,
  "materials": [
   {
@@ -59,13 +63,14 @@
  },
  "protocol": [
   "Weigh each full ball; record the ball band (grams and metres)",
-  "Work a 10 x 10 cm sc swatch; record sts and rounds per 10 cm and hook; then RE-WEIGH each ball",
+  "Work a 10 x 10 cm sc swatch; record stitches and rounds per 10 cm and the hook; then RE-WEIGH each ball and use that as its start weight, so the swatch's yarn is not counted as project yarn",
   "Make all FOUR coasters exactly as written; note every guess, re-read or rip-back by round",
   "Weigh what is left; grams used = re-weighed start minus end, per colour, for all four",
   "Measure each coaster across the points and the flats, flat on a table, unstretched (cm)",
-  "Lay each coaster on a flat table: lies flat, cups (edges lift) or ruffles (wavy edge)?",
+  "Lay each coaster on a flat table: does it lie flat? If one cups (edges lift) or ruffles (wavy edge), answer no and say which in the problems box",
   "Record total hours (all four, not the swatch) and whether you followed it exactly",
-  "Photograph in daylight on a plain surface: all four top-down, and one side-on at table level",
+  "Photograph in daylight on a real surface; keep every camera file UNEDITED (no filter, crop, resize or retouch), landscape or square, at least 2000 px each side, with space around",
+  "Shots: (1) all four laid flat in a 2 x 2 group, three-quarter angle -- the listing's first photo; (2) one coaster side-on at table level, not pressed down; (3) a ruler across the points; (4) close-up of a corner and the contrast round; (5) a mug on one coaster",
   "Return sheet and photos; the operator enters them (POST /api/physical-test, /api/physical-photo)"
  ],
  "record_fields": [
@@ -73,6 +78,11 @@
    "field": "tester_ref",
    "label": "your tester reference",
    "api": "tester_ref"
+  },
+  {
+   "field": "made_coaster",
+   "label": "coasters made (of 4)",
+   "api": "made.coaster"
   },
   {
    "field": "grams_cream",
@@ -100,9 +110,14 @@
    "api": "hook_mm"
   },
   {
-   "field": "swatch",
-   "label": "swatch: sts and rounds per 10 cm",
-   "api": "notes"
+   "field": "swatch_sts",
+   "label": "swatch: stitches per 10 cm",
+   "api": "swatch_stitches_per_10cm"
+  },
+  {
+   "field": "swatch_rows",
+   "label": "swatch: rounds per 10 cm",
+   "api": "swatch_rows_per_10cm"
   },
   {
    "field": "width_cm",
@@ -120,9 +135,9 @@
    "api": "notes"
   },
   {
-   "field": "flat",
-   "label": "lies flat? per coaster (flat/cups/ruffles)",
-   "api": "notes"
+   "field": "lies_flat",
+   "label": "all four lie flat? yes/no",
+   "api": "lies_flat"
   },
   {
    "field": "hours",
@@ -137,19 +152,25 @@
   {
    "field": "problems",
    "label": "anything unclear or wrong (round numbers)",
-   "api": "notes"
+   "api": "problem_notes"
   }
  ],
+ "covers_size": {
+  "slug": "hexagon-coaster-set",
+  "version": "1.2.0",
+  "size": "set_of_four",
+  "rule": "a sample covers exactly this one size"
+ },
  "intake": {
   "test": "POST /api/physical-test (queued job physical.record)",
   "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
-  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at",
+  "outcomes": "PASS binds; PARTIAL (not flat, shape not held, a problem recorded) goes to the owner and binds nothing; FAIL binds nothing; a size outside 12% halts this release"
  },
  "files": {
   "hexagon-coaster-set-1.2.0-TEST.pdf": "7d10fc229525b650a3a2d77171c36842a9c46abab4213157a04cedafb4739909",
-  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "892484a895fd55e33dbcd95d5b50c52bdb4efe6fc72d07e22ae88f931c77107e"
+  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "ded8995eba32060f6d3559d735934fb84b9e206310a495f3b0a01607ee4e2b17"
  },
  "pattern_pages": 7,
- "yarn_metres_scope": "all four coasters (cir.twin._yardage multiplies by make)",
- "built_by": "research/final_build/w4/tester_kit_coaster.py via quality.tester_kit.build"
+ "built_by": "quality.tester_kit.build(key='hexagon_coasters')"
 }

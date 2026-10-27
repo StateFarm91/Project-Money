@@ -104,9 +104,43 @@ class IncidentTracker:
                 s.expunge(r)
             return rows
 
-    def publication_halted(self, product_slug: str) -> bool:
-        """Gate E: a P0/P1 incident stops the publication workflow for that product."""
-        return any(i.halts_publication for i in self.open_incidents(product_slug))
+    def publication_halted(self, product_slug: str, *, content_hash=None) -> bool:
+        """Gate E: a P0/P1 incident stops the publication workflow for that product.
+
+        `content_hash` is passed only by certification of a specific content, and only lifts
+        a halt that is scoped to one *other* release content (`detail.release_scope`, e.g.
+        a physical sample whose size disagreed, F-168). It may be a callable, evaluated only
+        when such a halt exists. Every other halt, and every caller that does not name a
+        content, is unchanged."""
+        halting = [i for i in self.open_incidents(product_slug) if i.halts_publication]
+        if not halting or content_hash is None:
+            return bool(halting)
+        scoped = [i for i in halting if release_scope(i)]
+        if len(scoped) < len(halting):
+            return True
+        current = content_hash() if callable(content_hash) else content_hash
+        if not current:
+            return True
+        return any(release_scope(i).get("content_hash") == current for i in scoped)
+
+    def resolve_superseded_release_halts(self, product_slug: str, *, version: str,
+                                         content_hash: str) -> list[int]:
+        """Resolve release-scoped halts of this product whose content is no longer current.
+
+        Called once a different content of the product is certified: the halted release is
+        superseded, and the corrected one carries none of the halted release's evidence (it
+        needs its own sample, F-078)."""
+        resolved: list[int] = []
+        for inc in self.open_incidents(product_slug):
+            scope = release_scope(inc)
+            if (not scope or inc.product_slug != product_slug
+                    or not content_hash or scope.get("content_hash") == content_hash):
+                continue
+            self.resolve(inc.id, (f"superseded: {product_slug}@{version} (content "
+                                  f"{content_hash[:12]}) is certified; it needs its own "
+                                  f"physical sample"), new_version=version)
+            resolved.append(inc.id)
+        return resolved
 
     def resolve(self, incident_id: int, resolution: str, new_version: str | None = None) -> None:
         with self.db.session() as s:
@@ -120,6 +154,12 @@ class IncidentTracker:
             if new_version:
                 detail["fixed_in_version"] = new_version
             inc.detail = detail
+
+
+def release_scope(incident) -> dict:
+    """The one release content an incident halts, or {} for a product-wide incident."""
+    scope = (getattr(incident, "detail", None) or {}).get("release_scope")
+    return scope if isinstance(scope, dict) and scope.get("content_hash") else {}
 
 
 def apply_support_patch(*_args, **_kwargs):

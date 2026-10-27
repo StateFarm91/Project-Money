@@ -24,7 +24,7 @@ never lower it.
 the `automated_threshold` criteria are all met: it compiles, an independent reverse compile of
 the written text agrees, every stated finished dimension is inside tolerance of the twin
 (F-117), every stitch is a convention or calibrated primitive, and the gauge sits in the
-declared yarn's published band. Class B needs a partial physical test (a gauge/yardage swatch
+declared yarn's published band. Class B needs a partial physical test (a gauge swatch
 or a component) of this exact content; Class C needs a full physical make of it. "This exact
 content" is `gates.certificate.bind_physical_evidence` -- the content hash (F-078).
 
@@ -75,7 +75,7 @@ EVIDENCE_CLASSES: tuple[EvidenceClass, ...] = (
                   ("readability", "ambiguity"),
                   ("real gauge", "real yardage", "fit", "drape")),
     EvidenceClass(PARTIAL_PHYSICAL,
-                  "an independent tester works a gauge/yardage swatch or one component",
+                  "an independent tester works a gauge swatch or some of the pieces",
                   ("real gauge", "per-stitch yardage", "primitive calibration"),
                   ("whole-object size", "assembly", "fit", "full make time")),
     EvidenceClass(FULL_PHYSICAL_MAKE,
@@ -358,16 +358,31 @@ def owner_action_spec(*, slug: str, version: str, content_hash: str | None, requ
     else:
         hours, metres = SWATCH_TESTER_HOURS, SWATCH_YARN_METRES
     cost = round(hours * TESTER_FEE_CAD_PER_HOUR + metres * YARN_CAD_PER_METRE, 2)
-    scope = ("make the whole object" if full else
-             "work a 15 x 15 cm gauge/yardage swatch (or the named component)")
+    # PHYSFIX G1/G2: what is offered is exactly what the intake accepts. The partial offer is
+    # a gauge swatch, which `quality.physical` takes as gauge evidence only -- never as
+    # yardage for the whole -- and it is priced as a swatch. A component make is not offered
+    # here: it would need its own pieces named and priced.
+    from ..quality.physical import SCOPE_FIELDS
+
+    intake_scope = "full_make" if full else "swatch"
+    scope = ("make the whole object (every piece)" if full else
+             "work a 15 x 15 cm gauge swatch in the pattern's stitch (gauge evidence only)")
+    fields = {
+        "full_make": ("grams per colour, ball band, hook, which pieces were made (all of "
+                      "them), finished measurements, whether each flat piece lies flat and "
+                      "each 3-D piece holds its shape, and any problem found"),
+        "swatch": ("stitches and rows per 10 cm, hook, ball band and grams; no finished "
+                   "measurements"),
+    }[intake_scope]
     return {
         "requirement_key": retest_key(slug, version, content_hash),
         "action": (f"Approve commissioning one independent tester (not the owner) to {scope} "
                    f"from the customer PDF of {slug}@{version} (content "
                    f"{(content_hash or 'unknown')[:12]}), then record the result through the "
-                   f"physical.record job with scope "
-                   f"{'full_make' if full else 'swatch'}, grams per colour, ball band, hook "
-                   f"and finished measurements. Maximum CA${cost:.2f}."),
+                   f"physical.record job with scope {intake_scope}: {fields}. "
+                   f"Maximum CA${cost:.2f}."),
+        "intake": {"scope": intake_scope, "fields": list(SCOPE_FIELDS[intake_scope]),
+                   "evidence_class": SCOPE_CLASS[intake_scope]},
         "reason": ((f"{'Re-test: a material change invalidated the earlier evidence. ' if retest else ''}"
                     f"Effective risk class {effective_class} requires {required} of this exact "
                     f"content before live sale (F-073/F-078/F-081); nothing computed can stand "

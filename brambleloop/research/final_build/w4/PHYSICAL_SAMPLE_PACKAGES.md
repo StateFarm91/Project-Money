@@ -402,6 +402,8 @@ These use `quality.physical.assess` on the real twin, with a fabricated ball ban
 
 ## 6. Engineering gaps found (not fixed: this lane changes no `src/`)
 
+> **Update 2026-10-27 (W-PHYSFIX, `claude/w4-PHYSFIX`):** G1-G5 are fixed at the root; see `PHYSFIX.md`. The intake now records what was made, a swatch is accepted as gauge evidence only, flatness/shape/problem notes route to the owner as PARTIAL, a size mismatch halts that release, both kits are rebuilt by `quality.tester_kit.build` with the re-weigh step and unwrapped protocol lines, and a sample covers exactly one size. The record-sheet digests in §1.1 and §2.1 are superseded by `PHYSFIX.md` §5; the TEST.pdf digests and content hashes are unchanged.
+
 - **G1.** `physical.record` / `quality.physical.assess` compares any sample against the whole-pattern twin yardage. A `swatch` or `component` scope therefore fails with an implausible factor, or (between 0.4 and 1.0) passes with a false calibration. `risk_matrix.owner_action_spec` still prices a CA$32.40 swatch for the `partial_physical` requirement. The fix is to scale the estimate by the reported scope, or to refuse `calibration_from_db` for non-full scopes.
 - **G2.** The `quality.tester_kit.PROTOCOL_STEPS` swatch step does not tell the tester to re-weigh, so about 16% of swatch yarn is counted in the basket's grams. Step 3 is also truncated on the printed record sheet, because `_record_sheet_pdf` cuts lines at 118 characters.
 - **G3.** There is no record field for flatness or shape. A coaster that cups would be recorded `passed=True` if its spans fit.
