@@ -201,6 +201,48 @@ def test_f820_community_signals_reach_the_ledger_with_privacy_and_rights():
         assert len(list(s.scalars(select(Lesson)))) == 1
 
 
+# ---- F-825 -----------------------------------------------------------------------------------
+
+def test_f825_content_economics_redesigns_or_retires_high_cost_low_value_formats():
+    from brambleloop.analytics import content_economics as E
+
+    a = E.Assumptions(unit_cad={"email_signups": 2.0, "assisted_conversions": 5.0,
+                                "support_deflections": 4.0},
+                      basis={"email_signups": "fixture", "assisted_conversions": "fixture",
+                             "support_deflections": "fixture"})
+    base = {"months_live": 6, "maintenance_cad_per_month": 5, "search_visits": 900,
+            "email_signups": 0, "assisted_conversions": 0, "support_deflections": 0}
+    items = [
+        {**base, "slug": "faq-gauge", "format": "faq", "creation_cost_cad": 20,
+         "support_deflections": 20, "attributable_sales_cad": 0},             # 80 >= 50
+        {**base, "slug": "video-1", "format": "long_video", "creation_cost_cad": 400,
+         "attributable_sales_cad": 30, "email_signups": 10},                  # 50 of 430
+        {**base, "slug": "video-2", "format": "long_video", "creation_cost_cad": 300,
+         "attributable_sales_cad": 40},
+        {**base, "slug": "guide", "format": "printable", "creation_cost_cad": 60,
+         "attributable_sales_cad": 50},                                       # 50 of 90
+        {**base, "slug": "fresh", "format": "article", "creation_cost_cad": 30,
+         "months_live": 1, "attributable_sales_cad": 0},
+    ]
+    out = E.by_format(items, a)
+    v = {r["slug"]: r["verdict"] for r in out["items"]}
+    assert v == {"faq-gauge": "KEEP", "video-1": "RETIRE", "video-2": "RETIRE",
+                 "guide": "REDESIGN", "fresh": "UNKNOWN"}
+    assert out["formats"]["long_video"]["verdict"] == "RETIRE"
+    assert out["formats"]["faq"]["verdict"] == "KEEP"
+    assert E.economics({**items[3], "redesigned": True}, a)["verdict"] == "RETIRE"
+
+    # An unvalued proxy is UNKNOWN, never 0, and keeps a below-cost verdict open...
+    unvalued = E.economics(items[1])
+    assert unvalued["value_cad"] == "UNKNOWN" and unvalued["parts"]["email_signups"] is None
+    assert unvalued["verdict"] == "UNKNOWN"
+    # ...but cannot block a KEEP the measured value already earns.
+    assert E.economics({**items[0], "attributable_sales_cad": 100})["verdict"] == "KEEP"
+    # A missing measurement is not a zero either.
+    missing = E.economics({**items[3], "attributable_sales_cad": None}, a)
+    assert missing["parts"]["attributable_sales"] is None and missing["verdict"] == "UNKNOWN"
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):
