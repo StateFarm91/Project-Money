@@ -46,6 +46,11 @@
    "sha": "b2e49455ca0e93006752ced16cfe3af0cae86860",
    "observed": "2026-10-26T21:50Z",
    "evidence": "owner-approved deploy of SECPATCH (suite SHA 4ff953da, full suite 20261026T172357Z-3395: 9125 passing, 0 failing; independent review: ship yes). Readback 11/12; the one FAIL is the pre-existing improve.weekly dead letter, which PRODFIX2 fixes. The anonymous-exposure check is clean (as reported by the operator session). W-INTEG5 re-read the production build.commit with ops/deployed_sha.py."
+  },
+  {
+   "sha": "ee35a493dfd817bd105455091af601a3aa86eb9c",
+   "observed": "2026-10-27T16:06Z",
+   "evidence": "owner-approved deploy of the combined release (suite SHA 2aeb177f, full suite 20261027T104727Z-259: 9673 passing, 0 failing; independent review 46ed8b47 SHIP). Pre-deploy backup 20261027T160323Z restore_ok, 142 tables. Guard ALLOW, rehearsal ALLOW. Railway deployment 5e04aa22 SUCCESS. Readback 11/12; no_unexpected_dead_letters_in_24h is false, cause not publicly readable (as reported by the coordinator)."
   }
  ]
 }
