@@ -432,6 +432,8 @@ def state() -> dict:
 EXPERIMENT_VARIABLES: dict[str, tuple[str, ...]] = {
     "thumbnail": ("thumbnail",), "price": ("price",), "search": ("title", "tags"),
     "bundle": ("bundle",),
+    # F-054: the problem-solved phrasing arm (intent.solution_experiment).
+    "solution_language": ("title", "tags"),
 }
 
 

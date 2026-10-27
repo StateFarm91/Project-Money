@@ -73,7 +73,19 @@ FACETS: tuple[Facet, ...] = (
                            "no sew, video",
           "the qualifier that converts: a buyer filtering for 'no sew' has already decided "
           "to buy something", False),
+    # F-054: the shopper's problem the pattern solves. Optional, and only from the product's
+    # own facts (a scrap-friendly colour plan, a one-skein make) -- never a promise.
+    Facet("problem_solved", "the problem a maker has that this solves: stash buster, scrap "
+                            "yarn, last minute gift, one skein",
+          "a maker with a problem to solve searches for the solution, not the object", False),
 )
+
+# F-054: problem-solved phrases this module will model. Each is a claim about the product,
+# so a facet value outside this list is refused rather than invented.
+PROBLEMS: frozenset[str] = frozenset({
+    "stash buster", "scrap yarn", "last minute gift", "one skein", "weekend project",
+    "first project",
+})
 
 FACET_BY_KEY: dict[str, Facet] = {f.key: f for f in FACETS}
 
@@ -94,6 +106,7 @@ _PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("gift_led", ("crochet", "object", "for", "recipient_or_use")),
     ("aesthetic_led", ("aesthetic", "crochet", "object", "pattern")),
     ("season_led", ("crochet", "season_event", "decor pattern")),
+    ("problem_led", ("problem_solved", "crochet", "object", "pattern")),
 )
 
 _WORD = re.compile(r"[a-z0-9]+")
@@ -124,6 +137,10 @@ def map_product(**facets: str) -> dict:
                 f"{key}={value!r} uses our vocabulary ({', '.join(sorted(set(ours)))}). A "
                 f"facet filled with our language is worse than an empty one, because it "
                 f"produces phrases that look like research")
+        if key == "problem_solved" and text not in PROBLEMS:
+            raise IntentRefused(
+                f"problem_solved={value!r} is not a modelled shopper problem "
+                f"({sorted(PROBLEMS)}); a solution claim must be one the product supports")
         if all(w in EMPTY_FOR_SEARCH for w in _words(text)):
             raise IntentRefused(
                 f"{key}={value!r} is made only of words that describe nothing. A buyer does "
@@ -412,8 +429,12 @@ def listing_language(db, *, slug: str, category: str, season: str | None,
             "recipient_or_use": CATEGORY_USE.get(category, ""),
             "season_event": (season or "").split(" (")[0].replace("'s", "").lower(),
             "skill_feature": "beginner" if difficulty == "beginner" else "",
+            # F-055: an aesthetic word only when the product's own name carries it AND
+            # observed listings use it as an aesthetic -- never a trend word we like.
+            "aesthetic": evidenced_aesthetic(db, slug),
         }
-        source = "the product's category, season, techniques and printed difficulty"
+        source = ("the product's category, season, techniques, printed difficulty and the "
+                  "aesthetic its own name carries where observed listings use it")
     try:
         mapped = map_product(**{k: v for k, v in facets.items() if v})
     except IntentRefused as exc:
@@ -448,3 +469,67 @@ def listing_language(db, *, slug: str, category: str, season: str | None,
     return {"mapped": True, "source": source, "facets": mapped, "observed": rows_out,
             "assumed": [r["phrase"] for r in got["assumed"]], "queries": queries,
             "tags": tags, "observed_share": got["observed_share"], "note": got["note"]}
+
+
+# ---------------------------------------------------------------------------
+# F-053 / F-055: evidence-backed gift and aesthetic language
+
+GIFT_WORDS = frozenset({"gift", "gifts", "gifting"})
+
+
+def evidenced_aesthetic(db, slug: str) -> str:
+    """An aesthetic word from the product's own slug that observed titles also carry (F-055).
+
+    Empty when there is none: the facet stays absent rather than filled with a word nobody
+    searched for. Returns at most one word, the first in the slug.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    own = [w for w in _words((slug or "").replace("-", " "))
+           if _FACET_WORDS.get(w) == "aesthetic"]
+    if not own:
+        return ""
+    with db.session() as s:
+        titles = [(r.title or "").lower() for r in s.scalars(select(BenchmarkListing))]
+    for w in own:
+        if any(w in _WORD.findall(t) for t in titles):
+            return w
+    return ""
+
+
+def gift_supported(phrase: str, observed: set[str]) -> bool:
+    """A gift/recipient phrase is used only where an observed phrase backs it (F-053).
+
+    Backed means an observed title or keyword carries a gift word and every content word of
+    the phrase (furniture such as 'crochet' and 'pattern' aside). No observation, no gift tag.
+    """
+    words = [w for w in _words(phrase) if w not in MARKETPLACE_FURNITURE
+             and w not in GIFT_WORDS and w not in ("diy", "idea", "ideas")]
+    for o in observed:
+        ow = set(_WORD.findall(o))
+        if ow & GIFT_WORDS and all(w in ow for w in words):
+            return True
+    return False
+
+
+def solution_experiment(*, product: str, problem: str, today=None):
+    """F-054: the pre-registered listing test of a problem-solved phrase (title + tags)."""
+    from datetime import date, timedelta
+
+    from ..growth.experiments import PRE_POST, Experiment
+
+    if problem not in PROBLEMS:
+        raise IntentRefused(f"{problem!r} is not a modelled shopper problem")
+    today = today or date.today()
+    return Experiment(
+        key=f"{product}:solution_language",
+        hypothesis=(f"naming the problem {product} solves ({problem!r}) in its title and tags "
+                    f"reaches makers searching for that solution"),
+        metric="impressions_from_target_queries", design=PRE_POST,
+        success_threshold=500, failure_threshold=50, minimum_sample=14,
+        stop_on=today + timedelta(days=28), owner="listing",
+        decision=f"keep or remove the {problem!r} phrasing",
+        on_success="keep the solution phrasing", on_failure="remove the solution phrasing")
+

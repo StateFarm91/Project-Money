@@ -277,3 +277,50 @@ def state(db) -> dict:
             "status": ("UNMEASURED" if latest is None else "READ"),
             "rule": ("only a later, complete recorded reading clears an item; a code change "
                      "can only mark it REMEDIATED_PENDING")}
+
+
+# ---------------------------------------------------------------------------
+# F-038: first-party priority. Etsy's own Search Visibility recommendation for a listing (or
+# the shop) outranks our speculative SEO heuristics in the same area: it is worked first, and
+# an internal finding it covers is marked superseded, never silently dropped.
+
+AREA_OF_FINDING = (("LISTING_TAG", "tags"), ("TAG_", "tags"), ("LISTING_TITLE", "title"),
+                   ("LISTING_SUBJECTIVE", "title"), ("LISTING_STUFFED", "tags"),
+                   ("DESCRIPTION_", "description"), ("LISTING_DESCRIPTION", "description"),
+                   ("ATTRIBUTE", "attributes"), ("LISTING_LANGUAGE", "title"),
+                   ("LISTING_TYPO", "title"))
+AREA_WORDS = {"tags": ("tag",), "title": ("title",), "description": ("description",),
+              "attributes": ("attribute", "category", "property"),
+              "photos": ("photo", "image", "thumbnail")}
+
+
+def _area_of_finding(finding: str) -> str | None:
+    return next((area for prefix, area in AREA_OF_FINDING if finding.startswith(prefix)), None)
+
+
+def _area_of_item(item: dict) -> str | None:
+    text = f"{item.get('category', '')} {item.get('remediation', '')}".lower()
+    return next((a for a, words in AREA_WORDS.items() if any(w in text for w in words)), None)
+
+
+def precedence(db, *, listing_id: str, internal: list[str]) -> dict:
+    """First-party work first; internal findings in a covered area are superseded (F-038)."""
+    try:
+        rows = [r for r in items(db) if r["state"] in (OPEN, REMEDIATED_PENDING)
+                and (r["scope"] == "shop" or (listing_id and r["listing_id"] == listing_id))]
+    except Exception:  # noqa: BLE001 - no table, no readings: nothing first-party to apply
+        rows = []
+    covered = {a for a in (_area_of_item(r) for r in rows) if a}
+    first = [{"source": "etsy_search_visibility", "item": r["id"], "area": _area_of_item(r),
+              "category": r["category"], "remediation": r["remediation"]} for r in rows]
+    ordered, superseded = list(first), []
+    for f in internal or []:
+        area = _area_of_finding(f)
+        entry = {"source": "internal_heuristic", "finding": f, "area": area}
+        if area in covered:
+            entry["superseded_by_first_party"] = True
+            superseded.append(f)
+        ordered.append(entry)
+    return {"first_party": first, "ordered": ordered, "superseded": superseded,
+            "rule": "Etsy's own recommendation is worked before a speculative internal rule "
+                    "in the same area; the internal finding stays on record"}
