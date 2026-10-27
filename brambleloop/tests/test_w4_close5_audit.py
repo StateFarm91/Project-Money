@@ -56,7 +56,10 @@ def test_f251_a_foreign_language_title_is_refused_unless_a_deliberate_translatio
         assert any("impression bait" in p for p in bait["blocking"]), (title, bait["blocking"])
         ok = seo.check_search_copy(_copy(title=title, tags=english_tags), translation_record={
             "language": "de" if "Häkel" in title else "es",
-            "reason": "a translated edition of the PDF ships with this listing"})
+            "reason": "a translated edition of the PDF ships with this listing",
+            # W4-C09 (F-018): a sufficient quality review by someone else
+            "translated_by": "t",
+            "quality": {"verdict": "sufficient", "reviewed_by": "native-reader"}})
         assert not any(p.startswith("LISTING_LANGUAGE") for p in ok["blocking"]), ok
     # the English title with English tags is not asked for anything
     plain = seo.check_search_copy(_copy(tags=english_tags))

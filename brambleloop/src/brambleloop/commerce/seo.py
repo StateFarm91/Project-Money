@@ -705,6 +705,19 @@ def translation_problems(record) -> list[str]:
     if _BAIT.search(text):
         return [f"the recorded reason is search reach ({_BAIT.search(text).group(0)!r}); a "
                 f"translation is for buyers who read the language, not impression bait"]
+    # F-018: a supported translation is added only when its quality is sufficient -- a
+    # recorded review by someone other than the translator, with the verdict `sufficient`.
+    quality = record.get("quality") if isinstance(record, dict) else None
+    if not isinstance(quality, dict):
+        return ["no translation-quality review is recorded (F-018: translations only when "
+                "quality is sufficient)"]
+    if str(quality.get("verdict") or "").lower() != "sufficient":
+        return [f"the translation-quality review says {quality.get('verdict')!r}, not "
+                f"'sufficient' (F-018)"]
+    reviewer = str(quality.get("reviewed_by") or "").strip()
+    if not reviewer or reviewer == str(record.get("translated_by") or "").strip():
+        return ["the translation-quality review needs a named reviewer other than the "
+                "translator (F-018)"]
     return []
 
 
@@ -775,6 +788,15 @@ def check_search_copy(copy: ListingCopy, *, phrases: list[str] | None = None,
         # F-022: the release chain asks; ad-hoc callers checking someone else's copy do not.
         scan = front_scan(copy.title, differentiator=front_scan_differentiator)
         blocking.extend(scan["problems"])
+    # F-017: no deliberate (or ingested) misspelling in the title or tags.
+    from . import search_discipline as _sd
+
+    misspelt = [(w, near) for text in [copy.title] + list(copy.tags)
+                for w, near in _sd.typos(text)]
+    if misspelt:
+        blocking.append("LISTING_TYPO: " + ", ".join(f"{w!r} (did you mean {n!r}?)"
+                                                     for w, n in dict(misspelt).items())
+                        + " -- misspelling for search is prohibited (F-017)")
     foreign = language_findings([copy.title] + list(copy.tags))
     refused = translation_problems(translation_record) if foreign else []
     if foreign and refused:
