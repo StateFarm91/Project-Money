@@ -88,6 +88,119 @@ def test_f769_gallery_corroborates_but_never_overrides_or_replaces_testing():
     assert G.gallery_support(one_source, version="1.0")["state"] == "INSUFFICIENT"
 
 
+# ---- F-802 -----------------------------------------------------------------------------------
+
+def _approve_tension_lesson(db):
+    from brambleloop.learn import service as LS
+
+    spec = {"author": "pattern-engineering", "learner_problem": "keep an even tension",
+            "topics": ["failure:tension"], "terminology": "US",
+            "assumptions": {"hook_mm": 4, "yarn_weight": "worsted"},
+            "assets": [{"rights": "brambleloop_original", "source": "canonical-demo",
+                        "sha256": "a" * 64}],
+            "steps": [{"stitch": "sc", "repeat": 2, "consumes": 2, "produces": 2,
+                       "term": "sc", "instruction": "Work one sc in each of next two sts."}]}
+    rev = LS.save_lesson(db, "even-tension", spec)
+    LS.review_lesson(db, "even-tension", rev, "independent-qa",
+                     dict.fromkeys(LS.DIMENSIONS, "PASS"), "fixture-review:test-only")
+    assert LS.approved_lesson(db, "even-tension") is not None
+    return rev
+
+
+def test_f802_repeated_confusion_proposes_an_experiment_and_queues_learn():
+    from brambleloop.learn.models import LearnGap
+    from brambleloop.support import lesson_trigger as T
+
+    db = _db()
+    sig = [
+        # stitch counts: three people, two of them at row 12 of one product -> clarification
+        {"kind": "question", "ref": "q1", "reporter": "a", "product_slug": "p1", "row": 12,
+         "text": "my stitch count is off"},
+        {"kind": "refund", "ref": "r1", "reporter": "b", "product_slug": "p1", "row": 12,
+         "text": "refund please, extra stitches every time"},
+        {"kind": "failed_validation", "ref": "v1", "product_slug": "p1", "row": 3,
+         "text": "stitch count mismatch: count is wrong at row 3"},
+        # tension: three people across reviews and tickets, no shared row -> lesson revision
+        {"kind": "review_complaint", "ref": "rv1", "reporter": "c", "product_slug": "p2",
+         "text": "came out too tight"},
+        {"kind": "ticket", "ref": "t1", "reporter": "d", "product_slug": "p2",
+         "text": "the edge is curling"},
+        {"kind": "ticket", "ref": "t2", "reporter": "e", "product_slug": "p2",
+         "text": "fabric is wavy and loose"},
+        # sizing: one person repeating themselves is not repeated confusion
+        {"kind": "ticket", "ref": "t3", "reporter": "f", "product_slug": "p3",
+         "text": "it is too big"},
+        {"kind": "ticket", "ref": "t4", "reporter": "f", "product_slug": "p3",
+         "text": "still too big"},
+    ]
+    out = T.propose(db, sig)
+    by_mode = {p["mode"]: p for p in out["proposals"]}
+    assert set(by_mode) == {"stitch_counts", "tension"}
+    sc = by_mode["stitch_counts"]
+    assert sc["experiment"] == "pattern_clarification" and sc["target"]["row"] == 12
+    assert sc["distinct_reporters"] == 3 and sc["baseline"] == "UNMEASURED"
+    assert by_mode["tension"]["experiment"] == "new_lesson"
+    assert by_mode["tension"]["formats"] == ["diagram", "tutorial"]
+    assert any(w["mode"] == "sizing" for w in out["watching"])
+    with db.session() as s:
+        gap = s.get(LearnGap, "failure:tension")
+        assert gap.state == "QUEUED" and gap.evidence[0]["refs"] == ["rv1", "t1", "t2"]
+        assert "too tight" not in str(gap.evidence)
+
+    # An approved lesson on the topic turns the proposal into a revision of that lesson.
+    rev = _approve_tension_lesson(db)
+    again = {p["mode"]: p for p in T.propose(db, sig, orders=200)["proposals"]}
+    assert again["tension"]["experiment"] == "revise_lesson"
+    assert again["tension"]["target"] == {"slug": "even-tension", "revision": rev}
+    assert again["tension"]["baseline"] == 1.5
+    with db.session() as s:
+        gap = s.get(LearnGap, "failure:tension")
+        assert gap.state == "COVERED" and len(gap.evidence) == 1   # same evidence, once
+
+
+# ---- F-820 -----------------------------------------------------------------------------------
+
+def test_f820_community_signals_reach_the_ledger_with_privacy_and_rights():
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Lesson
+    from brambleloop.support import community as C
+
+    db = _db()
+    yes = {"learning": True, "reuse": False}
+    sig = [
+        {"kind": "project_photo", "ref": "ph1", "reporter": "ann@example.com",
+         "product_slug": "p1", "outcome": "failure", "text": "seams pulled apart",
+         "consent": {"learning": True, "reuse": True}, "photo_ref": "img://ph1"},
+        {"kind": "project_photo", "ref": "ph2", "reporter": "bob", "product_slug": "p1",
+         "outcome": "failure", "text": "the seaming gaps", "consent": yes,
+         "photo_ref": "img://ph2"},
+        {"kind": "community_post", "ref": "cp1", "reporter": "cat", "product_slug": "p1",
+         "outcome": "failure", "text": "whipstitch seams show"},
+        {"kind": "support", "ref": "s1", "reporter": "dan", "product_slug": "p1",
+         "outcome": "failure", "text": "my seam came undone", "consent": {}},
+        {"kind": "review", "ref": "rv1", "reporter": "eve", "product_slug": "p1",
+         "outcome": "success", "text": "border and blocking came out great"},
+    ]
+    out = C.intake(db, sig)
+    assert out["admitted"] == 4 and out["declined_no_consent"] == 1
+    pub = out["published"]
+    assert len(pub) == 1 and pub[0]["mode"] == "seaming" and pub[0]["contributors"] == 3
+    assert pub[0]["reusable_photos"] == ["img://ph1"]          # ph2 had no reuse consent
+    assert pub[0]["subject"] == "instruction_clarity"
+    with db.session() as s:
+        lessons = list(s.scalars(select(Lesson)))
+        assert len(lessons) == 1 and "learn" in lessons[0].routed_to
+        text = lessons[0].statement
+    assert "3 community members struggle with seaming" in text
+    for private in ("ann@example.com", "pulled apart", "img://ph2", "undone"):
+        assert private not in str(out) and private not in text
+    assert any(b["outcome"] == "success" for b in out["below_threshold"])
+    C.intake(db, sig)                                          # idempotent on the aggregate
+    with db.session() as s:
+        assert len(list(s.scalars(select(Lesson)))) == 1
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):
