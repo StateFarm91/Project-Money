@@ -251,6 +251,225 @@ def test_f818_lessons_are_monitored_and_updates_are_versioned_and_regression_che
         assert s.get(Lesson, "sc-dc").reviews == []
 
 
+# ---- F-823 -----------------------------------------------------------------------------------
+
+def _swatch_cir(stitch="sc", rows=3, width=6, hook=4.0, weight="worsted"):
+    return {"slug": "swatch", "title": "Practice swatch", "version": "1",
+            "construction": "flat_rows",
+            "gauge": {"stitches_per_10cm": 18, "rows_per_10cm": 20, "stitch_type": stitch,
+                      "hook_mm": hook},
+            "materials": [{"name": "practice yarn", "yarn_weight": weight}],
+            "components": [{"name": "swatch", "construction": "flat_rows", "foundation": width,
+                            "rows": [{"index": i, "ops": [{"stitch": stitch, "count": width}],
+                                      "declared_count": width, "turning_chain": 1}
+                                     for i in range(1, rows + 1)]}]}
+
+
+def test_f823_foundational_lessons_are_checked_against_beginner_mistakes():
+    from brambleloop.learn import beginner_sim as B
+
+    db = _db()
+    sc_step = {"stitch": "sc", "repeat": 2, "consumes": 2, "produces": 2, "term": "sc",
+               "instruction": "Work one sc under both loops of each of next two sts."}
+    guarded = {**_spec(topics=("technique:gauge", "stitch:sc"), problem="single crochet"),
+               "steps": [{**sc_step, "instruction": sc_step["instruction"] +
+                          " Keep the chain flat, not twisted."}],
+               "swatch": {"cir": _swatch_cir()}}
+    assert LS.validate_spec(guarded) == [], LS.validate_spec(guarded)
+    _approve(db, "sc-basics", guarded)
+    ok = B.check(db, "sc-basics")
+    assert ok["foundational"] and ok["verdict"] == "PASS", ok
+    m = ok["mistakes"]
+    assert m["wrong_stitch_count"]["state"] == "DETECTED"         # compiler disagrees
+    assert m["skipped_turning_chain"]["state"] == "DETECTED"      # written rows change
+    assert m["missed_gauge"]["state"] == "DETECTED"               # twin width moves
+    assert m["reversed_rs_ws"]["state"] == "NOT_APPLICABLE"
+
+    # The same lesson without its swatch, loop or chain warning leaves mistakes unguarded.
+    bare = {**_spec(topics=("technique:gauge",), problem="single crochet"),
+            "steps": [{**sc_step, "instruction": "Work one sc in each of next two sts."}]}
+    _approve(db, "sc-bare", bare)
+    bad = B.check(db, "sc-bare")
+    assert bad["verdict"] == "FAIL"
+    assert {"wrong_loop", "wrong_stitch_count", "missed_gauge"} <= set(bad["unguarded"])
+
+    from brambleloop.learn import graph_feeds
+    graph_feeds.seed_prerequisites(db)            # fpdc -> dc -> hdc -> sc -> ch: advanced
+    _approve(db, "dc-only", _spec(topics=("stitch:fpdc",), problem="front post dc"))
+    assert B.check(db, "dc-only")["verdict"] == "NOT_REQUIRED"
+
+
+# ---- F-829 -----------------------------------------------------------------------------------
+
+def test_f829_teaching_improves_through_the_loop_without_changing_technical_truth():
+    from brambleloop.learn import teaching_loop as L
+    from brambleloop.learn.models import Lesson
+
+    db = _db()
+    spec = _spec()
+    rev = _approve(db, "sc-dc", spec)
+    key = L.observe(db, "sc-dc", observation="learners stall at step 2",
+                    evidence_ref="support-cluster:fixture")
+    try:
+        L.experiment(db, key, variant=spec)
+        raise AssertionError("EXPERIMENT ran before HYPOTHESIS")
+    except L.TeachingRefused:
+        pass
+    L.hypothesise(db, key, change="explanation", hypothesis="name the turning chain first",
+                  metric="step-2 completion")
+    wrong = copy.deepcopy(spec)
+    wrong["steps"][1]["repeat"] = 4
+    wrong["steps"][1]["consumes"] = wrong["steps"][1]["produces"] = 4
+    for bad, needle in ((wrong, "technical truth"),):
+        try:
+            L.experiment(db, key, variant=bad)
+            raise AssertionError("a variant that changes the truth was accepted")
+        except L.TeachingRefused as exc:
+            assert needle in str(exc)
+    drifted = copy.deepcopy(spec)
+    drifted["steps"][1]["instruction"] = "Chain 5, then work one dc in each of next three sts."
+    try:
+        L.experiment(db, key, variant=drifted)
+        raise AssertionError("a variant stating a new number was accepted")
+    except L.TeachingRefused as exc:
+        assert "number 5" in str(exc)
+    better = copy.deepcopy(spec)
+    better["steps"][1]["instruction"] = ("First chain 3 for the turning chain, then work one "
+                                         "dc in each of next three sts.")
+    L.experiment(db, key, variant=better)
+    assert L.measure(db, key, baseline=0.5, result=0.7, n=10)["measurement"] == "UNMEASURED"
+    L.measure(db, key, baseline=0.5, result=0.6, n=40)
+    assert L.validate(db, key)["stage"] == "VALIDATE"
+    out = L.promote(db, key)
+    assert out["history"] == ["OBSERVE", "HYPOTHESIS", "EXPERIMENT", "MEASURE", "VALIDATE",
+                              "PROMOTE"]
+    with db.session() as s:
+        row = s.get(Lesson, "sc-dc")
+        assert row.revision == out["promoted_revision"] != rev and row.reviews == []
+
+    # A loop whose lesson changed revision mid-experiment is rejected, not promoted.
+    k2 = L.observe(db, "sc-dc", observation="o", evidence_ref="e")
+    L.hypothesise(db, k2, change="sequencing", hypothesis="dc first", metric="m")
+    swapped = copy.deepcopy(better)
+    swapped["steps"].reverse()
+    L.experiment(db, k2, variant=swapped)                      # reorder is allowed here
+    L.measure(db, k2, baseline=0.5, result=0.9, n=40)
+    LS.save_lesson(db, "sc-dc", {**better, "learner_problem": "work sc and dc"})
+    assert L.validate(db, k2)["stage"] == "REJECT"
+
+
+# ---- F-771 / F-811 ---------------------------------------------------------------------------
+
+def _free(**kw):
+    base = {"key": "article:granny-square", "topics": ["stitch:dc"],
+            "features": ["technique_steps"],
+            "steps": ["Chain 4 and join.", "Work 3 dc into the ring.", "Fasten off."],
+            "cta": [{"text": "The full blanket pattern is in the shop.", "position": 4}]}
+    return {**base, **kw}
+
+
+def test_f771_free_and_paid_are_differentiated_not_duplicated():
+    from brambleloop.learn import ladder as D
+
+    paid = {"slug": "granny-blanket", "topics": ["stitch:dc"],
+            "features": ["full_pattern", "all_sizes", "chart", "printable_pdf"]}
+    ok = D.rung(_free(), paid)
+    assert ok["state"] == "LADDER"
+    assert ok["paid_only"] == ["all_sizes", "chart", "full_pattern", "printable_pdf"]
+    dup = D.rung(_free(features=["technique_steps", "full_pattern", "chart", "all_sizes"]),
+                 paid)
+    assert dup["state"] == "DUPLICATE" and dup["paid_only"] == ["printable_pdf"]
+
+
+def test_f811_the_ladder_is_relevant_and_the_free_piece_stays_useful():
+    from brambleloop.learn import ladder as D
+
+    paid = {"slug": "granny-blanket", "topics": ["stitch:dc"],
+            "features": ["full_pattern", "chart"]}
+    assert D.rung(_free(), {**paid, "topics": ["stitch:tr"]})["state"] == "NOT_RELEVANT"
+    teaser = D.rung(_free(steps=["Chain 4 and join.",
+                                 "Buy the full pattern to finish the rest of the square."]), paid)
+    assert teaser["state"] == "DECEPTIVE" and "defers" in teaser["problems"][0]
+    early = D.rung(_free(cta=[{"text": "Shop now", "position": 1}]), paid)
+    assert early["state"] == "DECEPTIVE" and "interrupts" in early["problems"][0]
+    assert D.rung(_free(steps=[]), paid)["state"] == "DECEPTIVE"
+
+
+# ---- F-772 -----------------------------------------------------------------------------------
+
+def test_f772_one_canonical_record_fans_out_and_drift_is_found():
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.learn import distribution as M
+
+    db = _db()
+    with db.session() as s:
+        p = Product(slug="granny-blanket", title="Granny Blanket", status="certified")
+        s.add(p)
+        s.flush()
+        s.add(PatternVersion(product_id=p.id, version="1.0", cir_json={}, certified=True,
+                             release_hash="r1"))
+        s.add(PatternVersion(product_id=p.id, version="1.1", cir_json={}, certified=True,
+                             release_hash="r2"))
+        s.add(PatternVersion(product_id=p.id, version="2.0-draft", cir_json={},
+                             certified=False))
+    rec = M.canonical(db, "granny-blanket", price_cad=9.5, files={"US.pdf": "b" * 64},
+                      claims=["US and UK terms", "digital pattern"])
+    assert rec["version"] == "1.1" and rec["release_hash"] == "r2"   # newest certified only
+    out = M.fan_out(rec)
+    assert all(c["state"] == "CLOSED" and not c["sent"] for c in out["channels"].values())
+    assert {c["payload"]["price_cad"] for c in out["channels"].values()} == {9.5}
+    same = {k: rec[k] for k in M.FIELDS}
+    sync = M.sync(rec, {"etsy": same, "own_site": {**same, "price_cad": 8.0,
+                                                   "files": {"US.pdf": "c" * 64}}})
+    assert sync["channels"]["etsy"]["state"] == "IN_SYNC"
+    pend = sync["channels"]["own_site"]
+    assert pend["state"] == "UPDATE_PENDING"
+    assert {d["field"] for d in pend["differences"]} == {"price_cad", "files"}
+    assert sync["channels"]["email_store"]["state"] == "UNKNOWN"
+    try:
+        M.canonical(db, "granny-blanket", price_cad=9.5, files={"US.pdf": "short"}, claims=[])
+        raise AssertionError("a file without its digest was accepted")
+    except M.RecordRefused:
+        pass
+
+
+# ---- F-810 -----------------------------------------------------------------------------------
+
+def test_f810_lead_magnets_carry_goal_provenance_version_and_attribution():
+    from datetime import date
+
+    from brambleloop.learn import lead_magnets as G
+
+    db = _db()
+    magnet = {"slug": "gauge-checklist", "kind": "checklist", "version": "1",
+              "title": "Gauge checklist",
+              "goal": {"signups": 4, "by": "2026-12-31"},
+              "provenance": {"rights": "brambleloop_original", "sha256": "d" * 64,
+                             "sources": ["learn:gauge"]}}
+    for missing in ("goal", "provenance", "version"):
+        try:
+            G.register(db, {k: v for k, v in magnet.items() if k != missing})
+            raise AssertionError(f"registered without {missing}")
+        except G.MagnetRefused:
+            pass
+    G.register(db, magnet)
+    try:
+        G.register(db, {**magnet, "title": "rewritten"})
+        raise AssertionError("an existing version was rewritten")
+    except G.MagnetRefused:
+        pass
+    assert G.attribute(db, "gauge-checklist", "1")["state"] == "UNMEASURED"
+    sign = [{"subscriber": "s1", "consent": True, "purchases": [9.5]},
+            {"subscriber": "s2", "consent": True, "purchases": []},
+            {"subscriber": "s3", "consent": False, "purchases": [12.0]}]
+    a = G.attribute(db, "gauge-checklist", "1", signups=sign, today=date(2026, 11, 1))
+    assert a["state"] == "IN_PROGRESS" and a["signups"] == 2 and a["progress"] == 0.5
+    assert a["excluded_without_consent"] == 1 and a["attributed_revenue_cad"] == 9.5
+    assert a["buyer_share"] == 0.5
+    late = G.attribute(db, "gauge-checklist", "1", signups=sign, today=date(2027, 1, 2))
+    assert late["state"] == "MISSED"
+
+
 if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):
