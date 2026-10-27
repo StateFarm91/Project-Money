@@ -61,8 +61,17 @@ CATALOGUES = {
     "ZKBDESIGNER": [_listing(6000 + i, f"Slouchy Bucket Hat Crochet Pattern {i}", sale=i == 0)
                     for i in range(3)],
     "TheEasyDesign": [_listing(7000 + i, f"Market Tote Bag Crochet Pattern {i}") for i in range(3)],
+    # D-W4-OWNER-SEEDSHOPS: the four preserved seed shops, one fixture listing each in a pod
+    # no other shop occupies, so they corroborate no arena and change no gap below.
+    "HanJanCrochet": [_listing(8000, "Overlay Mosaic Blanket Crochet Pattern")],
+    "IvyLoop": [_listing(8100, "Snowflake Ornament Crochet Pattern")],
+    "LoveandStitchDesigns": [_listing(8200, "Christmas Stocking Crochet Pattern")],
+    "FireflyCrochets": [_listing(8300, "Moose Amigurumi Crochet Pattern")],
 }
-SHOPS = {"MadelineMaeCo": 1, "ZKBDESIGNER": 2, "TheEasyDesign": 3}
+SHOPS = {"MadelineMaeCo": 1, "ZKBDESIGNER": 2, "TheEasyDesign": 3, "HanJanCrochet": 4,
+         "IvyLoop": 5, "LoveandStitchDesigns": 6, "FireflyCrochets": 7}
+SEEDS = len(benchmarks.SEED_SHOPS)
+SEED_KEYS = {"hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets"}
 
 
 class Reader:
@@ -119,7 +128,8 @@ def _with_reader(reader):
 
 def test_the_watchlist_is_exact_and_permanent():
     keys = [m.key for m in watchlist.WATCHLIST]
-    assert keys == [benchmarks.MJS_KEY, "madeline_mae_co", "zkbdesigner", "the_easy_design"]
+    assert keys == [benchmarks.MJS_KEY, "madeline_mae_co", "zkbdesigner", "the_easy_design",
+                    "hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets"]
     roles = {m.shop_name: (m.role, m.special) for m in watchlist.WATCHLIST}
     assert roles["MJsOffTheHookDesigns"] == ("anchor", True)
     assert roles["MadelineMaeCo"] == ("special", True)
@@ -145,7 +155,7 @@ def test_offline_observation_to_lesson_through_the_real_job_system():
     _with_reader(Reader())
     try:
         scan = _run(db, "intel.watchlist_scan", {"force": True})
-        assert scan["ran"] and scan["observed"] == 3, scan
+        assert scan["ran"] and scan["observed"] == 3 + SEEDS, scan
         with db.session() as s:
             seen = {k: n for k, n in s.execute(
                 select(BenchmarkListing.benchmark_key, BenchmarkListing.id))}
@@ -242,7 +252,7 @@ def test_duplicates_retries_outage_and_restart():
     _with_reader(Reader(down={"ZKBDESIGNER"}, calls=calls))
     try:
         first = watchlist.scan_all(db, force=True)
-        assert first["observed"] == 2 and first["outages"] == ["zkbdesigner"]
+        assert first["observed"] == 2 + SEEDS and first["outages"] == ["zkbdesigner"]
         with db.session() as s:
             n1 = s.query(BenchmarkListing).count()
         # Duplicate suppression: the same unchanged catalogue adds no rows and no events.
@@ -569,7 +579,7 @@ def test_backoff_never_overflows_and_one_shop_never_stops_the_scan():
     try:
         out = watchlist.scan_all(db, now=now)
         assert {s["key"] for s in out["shops"]} == {"madeline_mae_co", "zkbdesigner",
-                                                    "the_easy_design"}
+                                                    "the_easy_design"} | SEED_KEYS
         assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 41
         # an unexpected fault in one shop becomes that shop's outage, not the job's failure
         real = watchlist.scan_member
@@ -583,7 +593,7 @@ def test_backoff_never_overflows_and_one_shop_never_stops_the_scan():
             out = watchlist.scan_all(db, now=now, force=True)
         finally:
             watchlist.scan_member = real
-        assert out["observed"] == 1 and "madeline_mae_co" in out["outages"], out
+        assert out["observed"] == 1 + SEEDS and "madeline_mae_co" in out["outages"], out
     finally:
         watchlist.reader_factory = None
 
@@ -684,6 +694,84 @@ def test_a_withheld_listing_is_revisited_once_paid_work_is_authorised():
         ev.steps = {"breakthrough": {"enqueued": True}, "revisited_from": {"withheld": [
             "creative.tournament"]}}
     assert mission_runtime.pending(db, benchmark_key=key, withholds=frozenset()) == []
+
+
+# ---- D-W4-OWNER-SEEDSHOPS (owner decision 2026-10-27) --------------------------------------
+
+
+def test_all_eight_shops_are_present_and_no_original_benchmark_is_dropped():
+    shops = [m.shop_name for m in watchlist.WATCHLIST]
+    assert shops == ["MJsOffTheHookDesigns", "MadelineMaeCo", "ZKBDESIGNER", "TheEasyDesign",
+                     "HanJanCrochet", "IvyLoop", "LoveandStitchDesigns", "FireflyCrochets"]
+    assert [b.shop_name for b in benchmarks.REGISTRY] == shops
+    from brambleloop.radar.market import COMPETITORS
+
+    seeded = {c.shop: c.url for c in COMPETITORS}
+    for m in watchlist.WATCHLIST:
+        if m.role == watchlist.SEED:
+            assert m.owner_url == seeded[m.shop_name], m       # spec/05 URL, no tracking
+            assert benchmarks.spec_for(m.key).mandatory
+    db = _db()
+    with db.session() as s:
+        rows = {b.key: b for b in s.scalars(select(Benchmark))}
+    assert SEED_KEYS <= set(rows) and all(rows[k].mandatory for k in SEED_KEYS)
+
+
+def test_an_inaccessible_shop_is_a_recorded_limitation_never_a_scan():
+    db = _db()
+    now = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+
+    class Gone(Reader):
+        def resolve_shop(self, name):
+            if name == "IvyLoop":
+                self.calls.append(("resolve", name))
+                raise ReadFailed("'IvyLoop' was not found exactly. Etsy returned [], and a "
+                                 "near match is a different seller")
+            return super().resolve_shop(name)
+
+    _with_reader(Gone())
+    try:
+        out = watchlist.scan_all(db, now=now, force=True)
+        again = watchlist.scan_all(db, now=now + timedelta(hours=1))
+    finally:
+        watchlist.reader_factory = None
+    ivy = next(x for x in out["shops"] if x["key"] == "ivyloop")
+    assert ivy["ran"] is False and ivy["scanned"] is False
+    assert ivy["state"] == watchlist.NOT_ACCESSIBLE
+    assert ivy["limitation"].startswith("not accessible: ") and ivy["on"] == "2026-10-27"
+    assert "COMPETITORS[IvyLoop]" in ivy["alternative_evidence"]
+    assert out["observed"] == 3 + SEEDS - 1 and "ivyloop" not in out["outages"]
+    assert out["not_accessible"][0]["key"] == "ivyloop"
+    st = watchlist._state(db, "ivyloop")
+    # Nothing scan-shaped was written: no ok time, no listings, no shop counters.
+    assert st["state"] == watchlist.NOT_ACCESSIBLE and st["monitoring"] == "kept"
+    assert not st.get("last_ok_at") and "listings_seen" not in st and "shop" not in st
+    with db.session() as s:
+        assert not list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == "ivyloop")))
+    # The member and its monitoring are preserved; it backs off rather than knocking.
+    assert "ivyloop" in watchlist.BY_KEY
+    assert next(x for x in again["shops"] if x["key"] == "ivyloop")["deferred"]
+    sm = watchlist.summary(db)
+    assert sm["status"] == "DEGRADED" and sm["not_accessible"], sm
+    assert "not accessible since 2026-10-27" in sm["reason"]
+
+
+def test_seed_shops_copy_no_competitor_content():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    rep = watchlist.record_comparison(db)["report"]
+    watchlist._assert_no_content(rep)                     # aliases only, all eight shops
+    text = json.dumps(rep)
+    for listings in CATALOGUES.values():
+        for item in listings:
+            assert item["title"] not in text and item["description"] not in text
+    for key in SEED_KEYS:
+        assert "title" not in json.dumps(watchlist._state(db, key))
 
 
 if __name__ == "__main__":

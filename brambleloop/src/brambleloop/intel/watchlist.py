@@ -86,6 +86,12 @@ def backoff_for(fails: int) -> timedelta:
     return min(BACKOFF_CAP, BACKOFF_BASE * (2 ** min(max(fails - 1, 0), BACKOFF_MAX_EXPONENT)))
 
 ANCHOR, SPECIAL, PERMANENT = "anchor", "special", "permanent"
+# D-W4-OWNER-SEEDSHOPS (2026-10-27): the original spec/05 seed shops, preserved.
+SEED = "seed"
+# A shop the sanctioned read path cannot reach (closed, renamed, not found). Recorded as a
+# dated limitation; the member and its monitoring job are kept; it is never "scanned".
+NOT_ACCESSIBLE = "not_accessible"
+NOT_FOUND_STATUSES = (404, 410)
 
 
 @dataclass(frozen=True)
@@ -107,6 +113,12 @@ WATCHLIST: tuple[Member, ...] = (
            PERMANENT, False),
     Member("the_easy_design", "TheEasyDesign", "https://www.etsy.com/ca/shop/TheEasyDesign",
            PERMANENT, False),
+) + tuple(
+    # D-W4-OWNER-SEEDSHOPS: "preserve the original seed-shop requirements for HanJanCrochet,
+    # IvyLoop, LoveandStitchDesigns and FireflyCrochets. Do not silently drop any original
+    # benchmark."
+    Member(spec.key, spec.shop_name, spec.owner_supplied_url, SEED, False)
+    for spec in benchmarks.SEED_SHOPS
 )
 BY_KEY = {m.key: m for m in WATCHLIST}
 
@@ -208,7 +220,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
             return {"key": member.key, "ran": False, "deferred": True, "why": due["why"]}
         fails = int(st.get("consecutive_failures") or 0)
         last = st.get("last_attempt_at")
-        if fails and last and st.get("state") in ("source_outage", "credential_refused"):
+        if fails and last and st.get("state") in ("source_outage", "credential_refused",
+                                                   NOT_ACCESSIBLE):
             wait = backoff_for(fails)
             if now - datetime.fromisoformat(last) < wait:
                 return {"key": member.key, "ran": False, "deferred": True,
@@ -234,6 +247,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
                        "recurring_themes": (len(themes.get("recurring") or [])
                                             if read else None)}
     except ReadFailed as exc:
+        if not exc.credential_refused and _not_found(exc):
+            return _record_not_accessible(db, member, st, str(exc), now=now)
         kind = "credential_refused" if exc.credential_refused else "source_outage"
         st.update(state=kind, last_error=str(exc)[:300], last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
@@ -275,6 +290,43 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
                        "paid_work_withheld": withheld}
     return {"key": member.key, "ran": True, "listings_seen": st["listings_seen"],
             "changes": st["changes"], "reviews": reviews, "mission": mission_out}
+
+
+def _not_found(exc) -> bool:
+    """The shop itself is not reachable by name (closed, renamed, not found) -- as distinct
+    from an outage of the source, which says nothing about the shop."""
+    return (getattr(exc, "status", None) in NOT_FOUND_STATUSES
+            or "was not found exactly" in str(exc))
+
+
+def alternative_evidence(member: Member) -> str:
+    """The permitted alternative evidence for a shop the read path cannot reach: the dated
+    public-profile observation the owner seeded (commercial signals only), if one exists."""
+    from ..radar.market import COMPETITORS
+
+    prof = next((c for c in COMPETITORS if c.shop.lower() == member.shop_name.lower()), None)
+    if prof is None:
+        return "none on file"
+    return (f"radar.market.COMPETITORS[{prof.shop}] public-profile seed observation, "
+            f"observed {prof.observed_on} (price band, formats, badges; no content)")
+
+
+def _record_not_accessible(db, member: Member, st: dict, reason: str, *,
+                           now: datetime) -> dict:
+    """D-W4-OWNER-SEEDSHOPS: "Where a shop cannot be accessed through an authorized source,
+    record the limitation, preserve the monitoring job and use permitted alternative evidence.
+    Do not pretend an inaccessible shop was scanned." Nothing scan-shaped is written: no
+    last_ok_at, no listings_seen, no shop counters, no mission."""
+    limitation = f"not accessible: {reason}"[:300]
+    st.update(state=NOT_ACCESSIBLE, limitation=limitation, limitation_on=now.date().isoformat(),
+              last_error=limitation, last_attempt_at=now.isoformat(),
+              consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,
+              alternative_evidence=alternative_evidence(member), monitoring="kept")
+    _save_state(db, member.key, st, now=now)
+    return {"key": member.key, "ran": False, "scanned": False, "state": NOT_ACCESSIBLE,
+            "limitation": limitation, "on": now.date().isoformat(),
+            "alternative_evidence": st["alternative_evidence"],
+            "consecutive_failures": st["consecutive_failures"]}
 
 
 def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
@@ -321,7 +373,10 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
     return {"ran": True, "shops": shops,
             "observed": sum(1 for s in shops if s.get("ran")),
             "outages": [s["key"] for s in shops if s.get("state") in
-                        ("source_outage", "credential_refused")]}
+                        ("source_outage", "credential_refused")],
+            "not_accessible": [{"key": s["key"], "limitation": s.get("limitation"),
+                                "on": s.get("on")} for s in shops
+                               if s.get("state") == NOT_ACCESSIBLE]}
 
 
 # ---- the four-shop comparison ------------------------------------------------------------
@@ -499,7 +554,7 @@ def summary(db) -> dict:
     source outage, a stale observation, or a validated opportunity awaiting a decision.
     """
     now = _now()
-    outages, stale, unobserved = [], [], []
+    outages, stale, unobserved, limited = [], [], [], []
     for m in WATCHLIST:
         if m.role == ANCHOR:
             continue
@@ -510,6 +565,10 @@ def summary(db) -> dict:
         if state == "source_outage" and \
                 int(st.get("consecutive_failures") or 0) >= OUTAGE_FAILURES:
             outages.append(f"{alias}:{state}")
+        if state == NOT_ACCESSIBLE:
+            # D-W4-OWNER-SEEDSHOPS: a recorded limitation, never an observation.
+            limited.append(f"{alias}:not accessible since {st.get('limitation_on')}")
+            continue
         if state in ("not_configured", "credential_refused") or not last:
             unobserved.append(f"{alias}:{state or 'never'}")
             continue
@@ -525,16 +584,19 @@ def summary(db) -> dict:
                        f"{'y' if len(waiting) == 1 else 'ies'} awaiting a decision")
     if outages:
         reasons.append(f"source outage: {outages}")
+    if limited:
+        reasons.append(f"limitation recorded (monitoring kept): {limited}")
     if stale:
         reasons.append(f"observation older than {int(STALE_AFTER.total_seconds() // 3600)} h: "
                        f"{stale}")
     # N-6: a known problem (outage, stale, waiting) is DEGRADED even when another shop is
     # unobserved; UNKNOWN only when being unobserved is the whole story.
-    status = ("DEGRADED" if (outages or stale or waiting) else
+    status = ("DEGRADED" if (outages or stale or waiting or limited) else
               "UNKNOWN" if unobserved else "OK")
     return {"status": status, "reason": "; ".join(reasons),
             "as_of": now.isoformat(), "waiting": [g["id"] for g in waiting],
-            "outages": outages, "stale": stale, "unobserved": unobserved}
+            "outages": outages, "stale": stale, "unobserved": unobserved,
+            "not_accessible": limited}
 
 
 def benchmark_alias_safe(key: str) -> str:
