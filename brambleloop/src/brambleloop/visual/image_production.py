@@ -145,6 +145,18 @@ def resolve_generator(db):
             flux3_generator.register(register_generator)
         except ImportError:
             return None
+    names = sorted(_GENERATORS)
+    if len(names) > 1:
+        # F-739 (W4-C08): with a choice, on-model work goes to the best demonstrated
+        # configuration (`provider_routing.route`), not to whichever name sorts first.
+        from . import provider_routing
+
+        gens = {n: _GENERATORS[n](db) for n in names}
+        prov = {n: str(getattr(g, "provider", None) or n) for n, g in gens.items()}
+        by_provider = {p: n for n, p in reversed(list(prov.items()))}
+        pick = provider_routing.route(db, available=sorted(by_provider),
+                                      default=prov[names[0]])
+        return gens[by_provider.get(pick["provider"], names[0])]
     for _name, factory in sorted(_GENERATORS.items()):
         return factory(db)
     return None
@@ -1533,10 +1545,19 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
         {"kind": "no_valid_frames"}]}
     consistency = CG.campaign_consistency(chosen) if chosen else CG._c(
         CG.NA, "no generated images yet")
+    # F-226 (W4-C08): two Laura frames that are one photograph are copy-paste sameness, not a
+    # real person photographed on different days. The owner still sees the card; the gallery
+    # cannot be approved for publication while the blocker stands.
+    from . import naturalism
+
+    sameness = naturalism.sameness_only(chosen) if chosen else {"status": "PASS",
+                                                                "findings": []}
+    blockers |= set(naturalism.publication_blockers(sameness))
     return {"listing": listing, "category": plan["category"], "roles": roles,
             "image_count": plan["image_count"],
             "set_check": {"ok": set_check["ok"], "problems": set_check["problems"]},
             "campaign_consistency": consistency,
+            "naturalism": sameness,
             "ruling_conflicts": plan.get("ruling_conflicts") or [],
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
