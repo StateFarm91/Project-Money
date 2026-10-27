@@ -620,6 +620,13 @@ def campaign_consistency(rows: list[dict]) -> dict:
     looks = {r.get("outfit_id") for r in rows if r.get("laura_present")}
     if len(looks) > 1:
         problems.append(f"Laura wears {len(looks)} outfits in one listing: {sorted(map(str, looks))}")
+    # F-226 (W4-C08): two Laura frames that are one photograph are copy-paste sameness, not a
+    # real person photographed on different days. Frames whose bytes are not held are skipped.
+    from . import naturalism
+
+    same = naturalism.sameness_only(rows)
+    for f in same["findings"]:
+        problems.append(f"copy-paste sameness between Laura frames {f['frames']}: {f['why']}")
     if problems:
         return _c(FAIL, "; ".join(problems))
     return _c(PASS, f"{len(rows)} image(s): one version, release, CIR and outfit")

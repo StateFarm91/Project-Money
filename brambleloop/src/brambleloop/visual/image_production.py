@@ -145,6 +145,18 @@ def resolve_generator(db):
             flux3_generator.register(register_generator)
         except ImportError:
             return None
+    names = sorted(_GENERATORS)
+    if len(names) > 1:
+        # F-739 (W4-C08): with a choice, on-model work goes to the best demonstrated
+        # configuration (`provider_routing.route`), not to whichever name sorts first.
+        from . import provider_routing
+
+        gens = {n: _GENERATORS[n](db) for n in names}
+        prov = {n: str(getattr(g, "provider", None) or n) for n, g in gens.items()}
+        by_provider = {p: n for n, p in reversed(list(prov.items()))}
+        pick = provider_routing.route(db, available=sorted(by_provider),
+                                      default=prov[names[0]])
+        return gens[by_provider.get(pick["provider"], names[0])]
     for _name, factory in sorted(_GENERATORS.items()):
         return factory(db)
     return None
