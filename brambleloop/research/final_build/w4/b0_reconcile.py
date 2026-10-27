@@ -68,6 +68,104 @@ BRANCHES = {
 # Rows built on a branch but held for an owner decision (coordinator, 2026-10-27).
 OWNER_HELD = {"F-607": "claude/w4-C04 9e86e842 (accountant agent)",
               "F-579": "claude/w4-C04 fef3990d (accounting vendor)"}
+# Reconciliation against the workers' own records (coordinator, 2026-10-27): the commit-message
+# heuristic is overridden where a cluster record, DEPARTMENTS/AGENTS/FMBATCH notes or the
+# traceability file plus a code check says otherwise. (class, A-H status, source, evidence).
+INTEGRATED = "COMPLETE"
+EVIDENCE = {
+    # (d) -> (a): already built and in INTEG7 (status E unless the commit is in production).
+    "F-217": (INTEGRATED, "E", "C08.md", "dea65bd5 gateway/image_bench.identity_subscores; "
+              "test_w4_c2_visual"),
+    "F-218": (INTEGRATED, "E", "C08.md", "4766be8a visual/drift_series; "
+              "test_w4_departments::test_f218_*"),
+    "F-744": (INTEGRATED, "E", "C08.md", "dea65bd5 visual/model_ledger + daily cadence; "
+              "test_w4_c2_visual::test_f744_*"),
+    "F-747": (INTEGRATED, "E", "C08.md", "dea65bd5 visual/portability (hash-verified restore); "
+              "test_w4_c2_visual::test_f747_*"),
+    "F-505": (INTEGRATED, "E", "C03.md", "76fa13ce listing-test memory runtime caller; "
+              "test_w4_listing_memory"),
+    "F-401": (INTEGRATED, "E", "AGENTS.md / CLUSTERS_C05_C06.md",
+              "4bd020fc intel/research_agent.py (invokable + research.sweep); "
+              "test_w4_research_agent"),
+    "F-404": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "4bd020fc/a587022c "
+              "stale_domains_to_research (+ FMBATCH1 F-426 conflict rule); "
+              "test_w4_research_agent"),
+    "F-429": (INTEGRATED, "E", "AGENTS.md / CLUSTERS_C05_C06.md",
+              "4bd020fc research.flag_architecture read by improve.weekly; "
+              "test_w4_research_agent"),
+    "F-436": (INTEGRATED, "E", "AGENTS.md / CLUSTERS_C05_C06.md",
+              "4bd020fc method ladder (cheapest adequate first); test_w4_research_agent"),
+    "F-450": (INTEGRATED, "E", "FMBATCH1.md s31 / coordinator ruling",
+              "ruled already met: learn.scan unknown->research + research_agent (4bd020fc)"),
+    "F-113": (INTEGRATED, "E", "DEPARTMENTS.md", "6ea10a52 creative/salvage.review, weekly "
+              "creative.salvage_review"),
+    "F-351": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "71fbab29 creative.children.portfolio; "
+              "test_w4_children"),
+    "F-353": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "71fbab29 13 core categories; "
+              "test_w4_children"),
+    "F-358": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "71fbab29 segment counts, no palette; "
+              "test_w4_children"),
+    "F-359": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "71fbab29 sibling sets; "
+              "test_w4_children"),
+    "F-365": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "71fbab29 Baby & Kids collection at "
+              "depth 4; test_w4_children"),
+    "F-367": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "954a3028 "
+              "creative.children.competitive_study; test_w4_children"),
+    "F-224": (INTEGRATED, "E", "CLUSTERS_C05_C06.md", "e5d54a36 visual/photo_principles.py; "
+              "test_w4_photo_principles"),
+    "F-456": (INTEGRATED, "E", "DEPARTMENTS.md (Workstream C W1)",
+              "3ace4014 core/contracts.py versioned, fingerprinted, pinned; test_w4_contracts"),
+    "F-147": (INTEGRATED, "F", "W3-HYG (run_tests.sh, tests/_tmp.py)",
+              "bb0f43d0 per-suite leak census + TMP_LEAK_STRICT; test_w3_tmp_hygiene"),
+    "F-148": (INTEGRATED, "F", "W3-HYG", "bb0f43d0 tests/_tmp.install in every direct run; "
+              "test_w3_tmp_hygiene"),
+    "F-590": (INTEGRATED, "F", "C13.md", "e642f1df commerce/sales_channels.observe from every "
+                                          "ingest; test_w4_fmclose_etsy"),
+    "F-595": (INTEGRATED, "F", "C13.md", "e642f1df commerce/first_ten + edit_hold; "
+              "test_w4_fmclose_etsy"),
+    # (d) -> (b): completed by work on an unmerged branch.
+    "F-402": ("MISSING_INTEGRATION", "E", "CLUSTERS_C05_C06.md",
+              "internal evidence first (INTEG7) then F-406's external escalation (INTELREC "
+              "4e2baef4)"),
+    # (d)/(b) -> (e): owner-gated, by design, held by decision, or proposed complete.
+    "F-463": ("BY_DESIGN", "H", "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
+              "blocked by design: build tooling never writes to the production database"),
+    "F-451": ("BY_DESIGN", "B", "FMBATCH2.md (F-454, F-451, F-602)",
+              "runtime half built: c7df4c70 /api/orchestrator joins every runtime section incl. "
+              "deployments (master_view); the remaining build-side lane state never enters the "
+              "production DB by the F-463 decision"),
+    "F-602": ("BY_DESIGN", "B", "FMBATCH2.md (F-454, F-451, F-602)",
+              "runtime half built: d6189dc2 executive plan read by swarm.allocate, a9cf46de "
+              "executive cell (FMBATCH2); merge/deploy queue and file ownership are build-side "
+              "(ops/deploy_guard, ops/registry) and stay out of the runtime by F-463"),
+    "F-483": ("OWNER_GATED", "H", "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
+              "CI on GitHub Actions uses the owner's minutes (~4,500-9,000/month)"),
+    "F-438": ("OWNER_GATED", "H", "CLUSTERS_C05_C06.md",
+              "not built: literature access needs a provider or a fetch-allowlist host "
+              "(coordinator/owner call)"),
+    "F-789": ("OWNER_GATED", "H", "CLUSTERS_C05_C06.md",
+              "not built: needs an owner ruling (conflicts with 'never copy competitor "
+              "pattern instructions')"),
+    "F-114": ("OWNER_GATED", "H", "DEPARTMENTS.md",
+              "re-gauging a legacy CIR means authoring new rows; needs a design/owner decision"),
+    "F-652": ("OWNER_GATED", "H", "FMBATCH1.md (coordinator decision)",
+              "product imagery held off the public '/' until launch by coordinator decision; "
+              "the rest of the design pass shipped with F-670"),
+    "F-458": ("PROPOSED_COMPLETE", "C", "FMBATCH1.md s31 proposal",
+              "matrix marks it at target maturity; acceptance pending"),
+    "F-479": ("PROPOSED_COMPLETE", "C", "FMBATCH1.md s31 proposal",
+              "matrix marks it at target maturity; acceptance pending"),
+    "F-446": ("PROPOSED_COMPLETE", "B", "FMBATCH1.md s31 / CLUSTERS_C05_C06.md",
+              "research runs on its own cadence and a blocked question holds no worker; "
+              "integrator's call"),
+    "F-481": ("PROPOSED_COMPLETE", "C", "FMBATCH1.md s32 proposal",
+              "matrix marks it at target maturity; acceptance pending"),
+    # (b) -> (d): only partly built.
+    "F-441": ("EXECUTABLE", "B", "CLUSTERS_C05_C06.md / FMBATCH1.md s31",
+              "partial: cdf4dea0 records licence/reversibility/maintenance per provider; the "
+              "provider-trial records are not built"),
+}
+
 # A commit whose subject is a record, report or note carries no code to integrate.
 RECORD_SUBJECT = re.compile(r"\b(record|records|report|notes|ledger)\b|C\d\d\.md|\bW4-B0\b",
                             re.I)
@@ -350,6 +448,11 @@ UNMERGED_WHY = re.compile(r"claude/w4-(CLOSE6|FMBATCH2|INTELREC|AGENTS2)\b")
 
 
 def classify(row: dict, rid: str, work: list) -> tuple[str, str]:
+    if rid in EVIDENCE and rid not in OWNER_HELD:
+        cls, status, source, ev = EVIDENCE[rid]
+        row["b0_status"] = status
+        row["b0_evidence_source"] = source
+        return cls, ev
     if row["engineering_complete"]:
         m = UNMERGED_WHY.search(row["why"])
         unmerged = [w for w in work if not w["merged_into_combined"]
@@ -404,7 +507,8 @@ def main() -> int:
         c = Counter()
         for row in led["rows"][scope]:
             rid = row[key] if scope == "final_master" else f"B2#{row[key]}"
-            for k in ("branch_work", "b0_class", "b0_reason", "b0_quote", "cluster"):
+            for k in ("branch_work", "b0_class", "b0_reason", "b0_quote", "cluster",
+                      "b0_status", "b0_evidence_source", "in_integ8"):
                 row.pop(k, None)
             w = work.get(rid, [])
             cls, why = classify(row, rid, w)
@@ -528,7 +632,19 @@ def write_clusters(led, executable, texts):
     (HERE / "CLUSTERS.md").write_text("\n".join(out) + "\n")
 
 
+OVERRIDE_BRANCH = {"F-402": ("claude/w4-INTELREC", "4e2baef4")}
+INTEG8 = "origin/claude/w4-INTEG8"
+E_CLASSES = (("AWAITING_EVIDENCE", "awaiting evidence (code in place)"),
+             ("OWNER_GATED", "owner-gated or held by an owner/coordinator decision"),
+             ("BY_DESIGN", "blocked by design (recorded decision)"),
+             ("PROPOSED_COMPLETE", "proposed at target maturity, acceptance pending"),
+             ("GENUINELY_GATED", "genuinely gated (requirement text quoted)"),
+             ("NOT_APPLICABLE", "not applicable"))
+
+
 def _branch_of(row) -> str:
+    if row["id"] in OVERRIDE_BRANCH:
+        return OVERRIDE_BRANCH[row["id"]][0]
     if row["b0_class"] == "COMPLETE_ON_BRANCH":
         m = UNMERGED_WHY.search(row["why"])
         return "claude/w4-CLOSE6b" if m.group(1) == "CLOSE6" else f"claude/w4-{m.group(1)}"
@@ -542,8 +658,25 @@ def _branch_of(row) -> str:
             else f"claude/w4-{m.group(1)}" if m else "unknown")
 
 
+def _ancestor(sha: str, ref: str) -> bool:
+    return subprocess.run(["git", "merge-base", "--is-ancestor", sha, ref], cwd=ROOT,
+                          capture_output=True).returncode == 0
+
+
+def _in_integ8(row) -> bool:
+    """Whether the work that completes this row is in INTEG8 (every code commit naming it)."""
+    if row["id"] in OVERRIDE_BRANCH:
+        return _ancestor(OVERRIDE_BRANCH[row["id"]][1], INTEG8)
+    shas = [x["sha"] for x in row.get("branch_work") or [] if not x["merged_into_combined"]
+            and x["sha"] not in NOT_CODE]
+    if not shas:
+        b = _branch_of(row)
+        return b != "unknown" and _ancestor(f"origin/{b}", INTEG8)
+    return all(_ancestor(sh, INTEG8) for sh in shas)
+
+
 def status_report(led) -> dict:
-    """(a)-(e) for the owner's report; each scope reconciles to its total."""
+    """(a)-(e) for the owner's report, against INTEG7 and against INTEG8; each reconciles."""
     out = {}
     for scope in ("final_master", "build2"):
         rows = led["rows"][scope]
@@ -552,25 +685,33 @@ def status_report(led) -> dict:
         for r in rows:
             by[r["b0_class"]].append(r)
         on_branch = defaultdict(list)
-        for r in by["MISSING_INTEGRATION"] + by["COMPLETE_ON_BRANCH"]:
+        b_rows = by["MISSING_INTEGRATION"] + by["COMPLETE_ON_BRANCH"]
+        for r in b_rows:
             on_branch[_branch_of(r)].append(rid(r))
+            r["in_integ8"] = _in_integ8(r)
+        in8 = sorted(rid(r) for r in b_rows if r["in_integ8"])
         rep = {
             "total": len(rows),
             "a_engineering_complete_integrated": len(by["COMPLETE"]),
             "b_built_on_branch_awaiting_integration": {
-                "count": len(by["MISSING_INTEGRATION"]) + len(by["COMPLETE_ON_BRANCH"]),
+                "count": len(b_rows),
                 "by_branch": {k: sorted(v) for k, v in sorted(on_branch.items())}},
             "c_built_owner_held": sorted(rid(r) for r in by["OWNER_HELD"]),
             "d_executable_not_built": sorted(rid(r) for r in by["EXECUTABLE"]),
-            "e_awaiting_evidence": sorted(rid(r) for r in by["AWAITING_EVIDENCE"]),
-            "e_genuinely_gated": sorted(rid(r) for r in by["GENUINELY_GATED"]),
-            "e_not_applicable": sorted(rid(r) for r in by["NOT_APPLICABLE"]),
+            "e": {cls: sorted(rid(r) for r in by[cls]) for cls, _ in E_CLASSES},
+            "integ8": {"a": len(by["COMPLETE"]) + len(in8), "b": len(b_rows) - len(in8),
+                       "b_rows_still_on_branches": sorted(rid(r) for r in b_rows
+                                                          if not r["in_integ8"]),
+                       "moved_into_a": in8},
+            "evidence_overrides": {rid(r): {"class": r["b0_class"],
+                                            "status": r.get("b0_status"),
+                                            "source": r.get("b0_evidence_source"),
+                                            "evidence": r["b0_reason"]}
+                                   for r in rows if r.get("b0_evidence_source")},
         }
-        total = (rep["a_engineering_complete_integrated"]
-                 + rep["b_built_on_branch_awaiting_integration"]["count"]
+        total = (rep["a_engineering_complete_integrated"] + len(b_rows)
                  + len(rep["c_built_owner_held"]) + len(rep["d_executable_not_built"])
-                 + len(rep["e_awaiting_evidence"]) + len(rep["e_genuinely_gated"])
-                 + len(rep["e_not_applicable"]))
+                 + sum(len(v) for v in rep["e"].values()))
         rep["reconciles"] = total == len(rows)
         if not rep["reconciles"]:
             raise SystemExit(f"{scope}: (a)+(b)+(c)+(d)+(e) = {total} != {len(rows)}")
@@ -583,40 +724,56 @@ def write_status(led) -> None:
     L = ["# Engineering status for the owner's report (W4-B0, generated)", "",
          f"Generated by `b0_reconcile.py`. Certification candidate: INTEG7 {CERT_CANDIDATE} "
          f"(the combined branch at {led['b0']['combined']} differs from it by records "
-         f"only). Every branch below is compared with the combined branch.", ""]
+         f"only). The INTEG8 column re-reads (b) against `{INTEG8}`.", ""]
     for scope, name in (("build2", "Build 2"), ("final_master", "Final Master")):
         r = sr[scope]
         b = r["b_built_on_branch_awaiting_integration"]
+        e_total = sum(len(v) for v in r["e"].values())
         L += [f"## {name} ({r['total']})", "",
-              "| class | rows |", "|---|---|",
-              f"| (a) engineering-complete, integrated | {r['a_engineering_complete_integrated']} |",
-              f"| (b) built and tested on a branch, awaiting integration | {b['count']} |",
-              f"| (c) built, owner-held | {len(r['c_built_owner_held'])} |",
-              f"| (d) executable, not yet built | {len(r['d_executable_not_built'])} |",
-              f"| (e) awaiting evidence | {len(r['e_awaiting_evidence'])} |",
-              f"| (e) genuinely gated | {len(r['e_genuinely_gated'])} |",
-              f"| (e) not applicable | {len(r['e_not_applicable'])} |",
-              f"| **total** | **{r['total']}** (reconciles: {r['reconciles']}) |", ""]
+              "| class | vs INTEG7 2aeb177f | vs INTEG8 |", "|---|---|---|",
+              f"| (a) engineering-complete, integrated | {r['a_engineering_complete_integrated']} "
+              f"| {r['integ8']['a']} |",
+              f"| (b) built and tested on a branch, awaiting integration | {b['count']} | "
+              f"{r['integ8']['b']} |",
+              f"| (c) built, owner-held | {len(r['c_built_owner_held'])} | "
+              f"{len(r['c_built_owner_held'])} |",
+              f"| (d) executable, not yet built | {len(r['d_executable_not_built'])} | "
+              f"{len(r['d_executable_not_built'])} |"]
+        for cls, label in E_CLASSES:
+            L.append(f"| (e) {label} | {len(r['e'][cls])} | {len(r['e'][cls])} |")
+        L += [f"| **total** | **{r['total']}** | **{r['total']}** (reconciles: "
+              f"{r['reconciles']}) |", ""]
         if b["by_branch"]:
-            L += ["**(b) by branch:**", ""]
+            L += ["**(b) by branch (vs INTEG7):**", ""]
             L += [f"- `{k}` ({len(v)}): {', '.join(v)}" for k, v in b["by_branch"].items()]
+            L += ["", f"**(b) still on a branch vs INTEG8 ({r['integ8']['b']}):** "
+                      f"{', '.join(r['integ8']['b_rows_still_on_branches']) or '-'}", ""]
+        if r["c_built_owner_held"]:
+            L += [f"**(c) owner-held:** {', '.join(r['c_built_owner_held'])}", ""]
+        if r["d_executable_not_built"]:
+            L += [f"**(d) executable, not yet built ({len(r['d_executable_not_built'])}):** "
+                  f"{', '.join(r['d_executable_not_built'])}", ""]
+        for cls, label in E_CLASSES:
+            if r["e"][cls]:
+                L += [f"**(e) {label}:** {', '.join(r['e'][cls])}", ""]
+        if r["evidence_overrides"]:
+            L += ["**Rows reclassified from the workers' records (evidence column):**", "",
+                  "| ID | class | A-H | evidence source | evidence |", "|---|---|---|---|---|"]
+            for k, v in sorted(r["evidence_overrides"].items()):
+                L.append(f"| {k} | {v['class']} | {v['status']} | {v['source']} | "
+                         f"{v['evidence'].replace('|', '/')} |")
             L.append("")
-        for key, label in (("c_built_owner_held", "(c) owner-held"),
-                           ("d_executable_not_built", "(d) executable, not yet built"),
-                           ("e_awaiting_evidence", "(e) awaiting evidence"),
-                           ("e_genuinely_gated", "(e) genuinely gated"),
-                           ("e_not_applicable", "(e) not applicable")):
-            if r[key]:
-                L += [f"**{label}:** {', '.join(r[key])}", ""]
     L += ["## Method", "",
-          "- (b) is read from each branch's commits that are not in the combined branch. "
-          "A commit whose subject is a record, report or note does not count, and neither "
-          "does a proposal-only commit.",
-          "- A row named in a code commit is counted as built and tested there. The branch's "
-          "own `Cxx.md` is the per-row evidence; the integrator's review decides acceptance.",
-          "- (a) is the ledger's engineering-complete rows minus those whose completing "
-          "work is still only on an unmerged branch (FMBATCH2, CLOSE6b, INTELREC, AGENTS2). "
-          "Those are counted in (b).", ""]
+          "- (b) is first read from each branch's code commits (docs-only commits never "
+          "count), then corrected against the workers' records: the cluster `Cxx.md` files, "
+          "`intel/CLUSTERS_C05_C06.md`, `DEPARTMENTS.md`, `AGENTS.md`, `FMBATCH1.md` and "
+          "`FMBATCH2.md`. Each correction names its source and its proving commit/test in the "
+          "table above.",
+          "- (a) is the ledger's engineering-complete rows plus rows the records show were "
+          "already built and are in INTEG7. It excludes rows whose completing work is only on "
+          "an unmerged branch; those are in (b).",
+          "- The INTEG8 column moves a (b) row to (a) only when every code commit naming it "
+          "is an ancestor of INTEG8.", ""]
     (HERE / "LEDGER_STATUS.md").write_text("\n".join(L))
 
 

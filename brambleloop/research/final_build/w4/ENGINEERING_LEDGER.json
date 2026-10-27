@@ -5204,7 +5204,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING"
+    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
+    "in_integ8": false
    },
    {
     "id": "F-017",
@@ -5230,7 +5231,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING"
+    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
+    "in_integ8": false
    },
    {
     "id": "F-018",
@@ -5256,7 +5258,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": false
    },
    {
     "id": "F-019",
@@ -5517,7 +5520,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-035",
@@ -5589,7 +5593,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING"
+    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
+    "in_integ8": false
    },
    {
     "id": "F-039",
@@ -5632,7 +5637,8 @@
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
-    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): About reading path"
+    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): About reading path",
+    "in_integ8": true
    },
    {
     "id": "F-041",
@@ -5718,7 +5724,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": false
    },
    {
     "id": "F-046",
@@ -5759,7 +5766,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING"
+    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
+    "in_integ8": false
    },
    {
     "id": "F-048",
@@ -5815,7 +5823,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Competing pairs counted and tag slots diversified; no 'strategic reason' exemption record"
+    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Competing pairs counted and tag slots diversified; no 'strategic reason' exemption record",
+    "in_integ8": false
    },
    {
     "id": "F-051",
@@ -5841,7 +5850,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Concentration/stuffing counted; no expansion planner"
+    "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Concentration/stuffing counted; no expansion planner",
+    "in_integ8": false
    },
    {
     "id": "F-052",
@@ -5882,7 +5892,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Recipient/use facet exists; gift tags ('handmade gift') are template-driven, not evidence-driven"
+    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Recipient/use facet exists; gift tags ('handmade gift') are template-driven, not evidence-driven",
+    "in_integ8": false
    },
    {
     "id": "F-054",
@@ -5908,7 +5919,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Only a 'recipient_or_use' facet; shopper problem not modelled or tested"
+    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Only a 'recipient_or_use' facet; shopper problem not modelled or tested",
+    "in_integ8": false
    },
    {
     "id": "F-055",
@@ -5934,7 +5946,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Aesthetic facet exists in map_product but the live listing_language fallback facets omit aesthetic unless the intake brief mapped it"
+    "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Aesthetic facet exists in map_product but the live listing_language fallback facets omit aesthetic unless the intake brief mapped it",
+    "in_integ8": false
    },
    {
     "id": "F-056",
@@ -6521,7 +6534,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-FMBATCH2 cd1f4a17, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects, accepted as by design (coordinator 2026-10-26) (§21)"
+    "b0_reason": "built on claude/w4-FMBATCH2 cd1f4a17, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects, accepted as by design (coordinator 2026-10-26) (§21)",
+    "in_integ8": false
    },
    {
     "id": "F-092",
@@ -6649,7 +6663,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 5aa78f39, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1: fallback contract built; a same-provider fallback with UNKNOWN quality/latency still routes (needs per-model golden evals); contract exceptions no longer route (review F-10, 5fec6b"
+    "b0_reason": "built on claude/w4-C03 5aa78f39, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1: fallback contract built; a same-provider fallback with UNKNOWN quality/latency still routes (needs per-model golden evals); contract exceptions no longer route (review F-10, 5fec6b",
+    "in_integ8": true
    },
    {
     "id": "F-096",
@@ -6697,7 +6712,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 5aa78f39, not in origin/claude/w4-INTEG7: owner: model provider credit"
+    "b0_reason": "built on claude/w4-C03 5aa78f39, not in origin/claude/w4-INTEG7: owner: model provider credit",
+    "in_integ8": true
    },
    {
     "id": "F-098",
@@ -6971,6 +6987,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "DEPARTMENTS.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -6979,9 +6997,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C07"
+    "b0_class": "COMPLETE",
+    "b0_reason": "6ea10a52 creative/salvage.review, weekly creative.salvage_review"
    },
    {
     "id": "F-114",
@@ -6998,10 +7015,11 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "DEPARTMENTS.md",
     "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: The chain exists (creative/prototype derives gauge from yarn band; compiler, twin, reverse compiler, release chain), but no path takes a legacy product through ",
-    "cluster": "C07"
+    "b0_class": "OWNER_GATED",
+    "b0_reason": "re-gauging a legacy CIR means authoring new rows; needs a design/owner decision"
    },
    {
     "id": "F-115",
@@ -7204,7 +7222,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 36a8c8d2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Confounded growth experiments keep a confounder log and reason (growth/experiments.log_confounders) and superseded visual/body frames are refused as references,"
+    "b0_reason": "built on claude/w4-C03 36a8c8d2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Confounded growth experiments keep a confounder log and reason (growth/experiments.log_confounders) and superseded visual/body frames are refused as references,",
+    "in_integ8": true
    },
    {
     "id": "F-127",
@@ -7514,7 +7533,8 @@
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
-    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): readback rule + 6 features"
+    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): readback rule + 6 features",
+    "in_integ8": true
    },
    {
     "id": "F-145",
@@ -7536,7 +7556,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-146",
@@ -7585,6 +7606,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "F",
+    "b0_evidence_source": "W3-HYG (run_tests.sh, tests/_tmp.py)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -7593,9 +7616,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: Leftover counting exists for production handlers (ops/health.disk_facts counts TEMP_PREFIXES dirs, surfaced by the disk signal) but run_tests.sh does not verify",
-    "cluster": "C02"
+    "b0_class": "COMPLETE",
+    "b0_reason": "bb0f43d0 per-suite leak census + TMP_LEAK_STRICT; test_w3_tmp_hygiene"
    },
    {
     "id": "F-148",
@@ -7612,6 +7634,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "F",
+    "b0_evidence_source": "W3-HYG",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -7626,9 +7650,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage FULL maturity MISSING",
-    "cluster": "C02"
+    "b0_class": "COMPLETE",
+    "b0_reason": "bb0f43d0 tests/_tmp.install in every direct run; test_w3_tmp_hygiene"
    },
    {
     "id": "F-149",
@@ -8784,6 +8807,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "C08.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -8792,9 +8817,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: model_photography floors and the model tournament report face and morphology separately, but image_bench scores a single identity_match dimension (no face/morph",
-    "cluster": "C08"
+    "b0_class": "COMPLETE",
+    "b0_reason": "dea65bd5 gateway/image_bench.identity_subscores; test_w4_c2_visual"
    },
    {
     "id": "F-218",
@@ -8811,6 +8835,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "C08.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -8819,9 +8845,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: series tracks drift share per batch and opens an incident on a rising trend, but verdicts are ternary so 'near-threshold' passes are not measured",
-    "cluster": "C08"
+    "b0_class": "COMPLETE",
+    "b0_reason": "4766be8a visual/drift_series; test_w4_departments::test_f218_*"
    },
    {
     "id": "F-219",
@@ -8913,6 +8938,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -8921,9 +8948,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: sanctioned MJs gallery images are judged into a closed non-copying merchandising vocabulary, but those observations are not converted into Brambleloop photograp",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "e5d54a36 visual/photo_principles.py; test_w4_photo_principles"
    },
    {
     "id": "F-225",
@@ -8970,7 +8996,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 8f454a56, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: over-smoothed skin/glamour is detected (the frozen reference itself fails skin_looks_real/processing_is_restrained); copy-paste sameness across frames is not ch"
+    "b0_reason": "built on claude/w4-C08 8f454a56, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: over-smoothed skin/glamour is detected (the frozen reference itself fails skin_looks_real/processing_is_restrained); copy-paste sameness across frames is not ch",
+    "in_integ8": false
    },
    {
     "id": "F-227",
@@ -9052,7 +9079,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: owner: buy benchmark set"
+    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: owner: buy benchmark set",
+    "in_integ8": true
    },
    {
     "id": "F-232",
@@ -9585,7 +9613,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-265",
@@ -9607,7 +9636,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-266",
@@ -9629,7 +9659,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-267",
@@ -9681,7 +9712,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-270",
@@ -9703,7 +9735,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-271",
@@ -9725,7 +9758,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-272",
@@ -9774,7 +9808,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 6faba33f, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 6faba33f, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-274",
@@ -9796,7 +9831,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-275",
@@ -10648,7 +10684,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-331",
@@ -10965,6 +11002,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -10973,9 +11012,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: priority is expressed in a curated Launch-0 list and hand-set radar priors; no runtime mechanism marks baby/children's as a priority family across research, exp",
-    "cluster": "C06"
+    "b0_class": "COMPLETE",
+    "b0_reason": "71fbab29 creative.children.portfolio; test_w4_children"
    },
    {
     "id": "F-352",
@@ -11007,6 +11045,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11015,9 +11055,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: research covers blankets, nursery decor, hats/booties, lovey, amigurumi, mobiles, garments as one class; no dedicated research of cardigans vs sweaters vs jacke",
-    "cluster": "C06"
+    "b0_class": "COMPLETE",
+    "b0_reason": "71fbab29 13 core categories; test_w4_children"
    },
    {
     "id": "F-354",
@@ -11105,6 +11144,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11113,9 +11154,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C06"
+    "b0_class": "COMPLETE",
+    "b0_reason": "71fbab29 segment counts, no palette; test_w4_children"
    },
    {
     "id": "F-359",
@@ -11132,6 +11172,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11146,9 +11188,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: family test is general; no sibling-set/coordinated children's variant evaluation",
-    "cluster": "C06"
+    "b0_class": "COMPLETE",
+    "b0_reason": "71fbab29 sibling sets; test_w4_children"
    },
    {
     "id": "F-360",
@@ -11240,6 +11281,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11248,9 +11291,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: section is 'Baby & Nursery' for categories baby/nursery only; children's garments/hats route to 'To Wear'; no size/age-range navigation",
-    "cluster": "C06"
+    "b0_class": "COMPLETE",
+    "b0_reason": "71fbab29 Baby & Kids collection at depth 4; test_w4_children"
    },
    {
     "id": "F-366",
@@ -11282,7 +11324,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC f525e3f1, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Launch-0 is a curated static list that includes children's products; no optimizer weighs children's vs adult/home/seasonal/accessories"
+    "b0_reason": "built on claude/w4-INTELREC f525e3f1, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Launch-0 is a curated static list that includes children's products; no optimizer weighs children's vs adult/home/seasonal/accessories",
+    "in_integ8": true
    },
    {
     "id": "F-367",
@@ -11295,6 +11338,8 @@
     "why": "owner: buy benchmark set",
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11303,9 +11348,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "children's-shop study extractor (demand/merchandising only) on fixtures",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "954a3028 creative.children.competitive_study; test_w4_children"
    },
    {
     "id": "F-368",
@@ -11357,7 +11401,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC f525e3f1, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-INTELREC f525e3f1, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-371",
@@ -11893,6 +11938,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "AGENTS.md / CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11901,9 +11948,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "4bd020fc intel/research_agent.py (invokable + research.sweep); test_w4_research_agent"
    },
    {
     "id": "F-402",
@@ -11920,10 +11966,12 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "MISSING_INTEGRATION",
+    "b0_reason": "internal evidence first (INTEG7) then F-406's external escalation (INTELREC 4e2baef4)",
+    "in_integ8": true
    },
    {
     "id": "F-403",
@@ -11955,6 +12003,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -11969,9 +12019,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "4bd020fc/a587022c stale_domains_to_research (+ FMBATCH1 F-426 conflict rule); test_w4_research_agent"
    },
    {
     "id": "F-405",
@@ -12043,7 +12092,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-407",
@@ -12175,7 +12225,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 36a8c8d2, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1: bounded next_test recorded; no path into improve/runner"
+    "b0_reason": "built on claude/w4-C03 36a8c8d2, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1: bounded next_test recorded; no path into improve/runner",
+    "in_integ8": true
    },
    {
     "id": "F-413",
@@ -12537,6 +12588,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "AGENTS.md / CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -12545,9 +12598,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "4bd020fc research.flag_architecture read by improve.weekly; test_w4_research_agent"
    },
    {
     "id": "F-430",
@@ -12691,6 +12743,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "AGENTS.md / CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -12699,9 +12753,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "4bd020fc method ladder (cheapest adequate first); test_w4_research_agent"
    },
    {
     "id": "F-437",
@@ -12737,6 +12790,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTELREC",
@@ -12745,8 +12800,8 @@
       "merged_into_combined": false
      }
     ],
-    "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_class": "OWNER_GATED",
+    "b0_reason": "not built: literature access needs a provider or a fetch-allowlist host (coordinator/owner call)"
    },
    {
     "id": "F-439",
@@ -12793,6 +12848,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "B",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md / FMBATCH1.md s31",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -12807,8 +12864,9 @@
       "merged_into_combined": false
      }
     ],
-    "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane"
+    "b0_class": "EXECUTABLE",
+    "b0_reason": "partial: cdf4dea0 records licence/reversibility/maintenance per provider; the provider-trial records are not built",
+    "cluster": "C05"
    },
    {
     "id": "F-442",
@@ -12904,6 +12962,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "B",
+    "b0_evidence_source": "FMBATCH1.md s31 / CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -12912,9 +12972,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: general: blocked requirements park while other work continues; no research-specific lane",
-    "cluster": "C05"
+    "b0_class": "PROPOSED_COMPLETE",
+    "b0_reason": "research runs on its own cadence and a blocked question holds no worker; integrator's call"
    },
    {
     "id": "F-447",
@@ -13006,6 +13065,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "FMBATCH1.md s31 / coordinator ruling",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13014,9 +13075,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL maturity MISSING",
-    "cluster": "C05"
+    "b0_class": "COMPLETE",
+    "b0_reason": "ruled already met: learn.scan unknown->research + research_agent (4bd020fc)"
    },
    {
     "id": "F-451",
@@ -13033,6 +13093,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "B",
+    "b0_evidence_source": "FMBATCH2.md (F-454, F-451, F-602)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13041,9 +13103,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: claude/w4-FMBATCH1 c7df4c70: /api/orchestrator joins every runtime section; build-side lanes stay outside the runtime",
-    "cluster": "C01"
+    "b0_class": "BY_DESIGN",
+    "b0_reason": "runtime half built: c7df4c70 /api/orchestrator joins every runtime section incl. deployments (master_view); the remaining build-side lane state never enters the production DB by the F-463 decision"
    },
    {
     "id": "F-452",
@@ -13158,6 +13219,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "DEPARTMENTS.md (Workstream C W1)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13172,9 +13235,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: shared contracts (CIR model, listing_schema, requirements registry, shop_package.POLICY_SECTIONS, commerce/terms) are single-sourced and tested, but carry no ex",
-    "cluster": "C01"
+    "b0_class": "COMPLETE",
+    "b0_reason": "3ace4014 core/contracts.py versioned, fingerprinted, pinned; test_w4_contracts"
    },
    {
     "id": "F-457",
@@ -13217,6 +13279,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "C",
+    "b0_evidence_source": "FMBATCH1.md s31 proposal",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13225,9 +13289,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: coverage FULL, maturity IMPLEMENTED",
-    "cluster": "C01"
+    "b0_class": "PROPOSED_COMPLETE",
+    "b0_reason": "matrix marks it at target maturity; acceptance pending"
    },
    {
     "id": "F-459",
@@ -13337,6 +13400,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13345,9 +13410,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: runtime jobs are durable (queue) and long handlers keep leases via renewal (post-fcb982d); build-side long runs (suites, research) are tracked by ops/board.py+o",
-    "cluster": "C01"
+    "b0_class": "BY_DESIGN",
+    "b0_reason": "blocked by design: build tooling never writes to the production database"
    },
    {
     "id": "F-464",
@@ -13699,6 +13763,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "C",
+    "b0_evidence_source": "FMBATCH1.md s31 proposal",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13707,9 +13773,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: coverage FULL, maturity IMPLEMENTED",
-    "cluster": "C01"
+    "b0_class": "PROPOSED_COMPLETE",
+    "b0_reason": "matrix marks it at target maturity; acceptance pending"
    },
    {
     "id": "F-480",
@@ -13741,6 +13806,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "C",
+    "b0_evidence_source": "FMBATCH1.md s32 proposal",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13749,9 +13816,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: coverage FULL, maturity IMPLEMENTED",
-    "cluster": "C01"
+    "b0_class": "PROPOSED_COMPLETE",
+    "b0_reason": "matrix marks it at target maturity; acceptance pending"
    },
    {
     "id": "F-482",
@@ -13824,6 +13890,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -13832,9 +13900,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: full regression is run manually by the integrator (run_tests.sh) before claims; no CI workflow or merge hook enforces it",
-    "cluster": "C02"
+    "b0_class": "OWNER_GATED",
+    "b0_reason": "CI on GitHub Actions uses the owner's minutes (~4,500-9,000/month)"
    },
    {
     "id": "F-484",
@@ -14265,6 +14332,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "C03.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -14273,9 +14342,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: failure mining and lessons are persisted and routed, but the listing-test disproof memory (commerce/listing_tests.write/may_test) has no runtime caller",
-    "cluster": "C03"
+    "b0_class": "COMPLETE",
+    "b0_reason": "76fa13ce listing-test memory runtime caller; test_w4_listing_memory"
    },
    {
     "id": "F-506",
@@ -14440,7 +14508,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: launch readiness blocks only on declared items, but no mechanism freezes the launch list or flags non-blocking work being promoted to blocking"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: launch readiness blocks only on declared items, but no mechanism freezes the launch list or flags non-blocking work being promoted to blocking",
+    "in_integ8": false
    },
    {
     "id": "F-516@v0.15",
@@ -14577,7 +14646,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-517@v0.16",
@@ -14605,7 +14675,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-518@v0.16",
@@ -14772,7 +14843,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: banner/icon briefs and brand bible checks exist; no detection of stale, missing, low-resolution or off-brand assets on the live Etsy shop"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: banner/icon briefs and brand bible checks exist; no detection of stale, missing, low-resolution or off-brand assets on the live Etsy shop",
+    "in_integ8": false
    },
    {
     "id": "F-528",
@@ -14956,7 +15028,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 6faba33f, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 6faba33f, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-539",
@@ -15091,7 +15164,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: verify_absence recounts Etsy's OpenAPI for capabilities (e.g. an Ads API appearing) and reports moved terms, but nothing fetches the document on a schedule; Sel"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: verify_absence recounts Etsy's OpenAPI for capabilities (e.g. an Ads API appearing) and reports moved terms, but nothing fetches the document on a schedule; Sel",
+    "in_integ8": false
    },
    {
     "id": "F-547",
@@ -15207,7 +15281,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: external: Etsy has no API"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: external: Etsy has no API",
+    "in_integ8": true
    },
    {
     "id": "F-552",
@@ -15235,7 +15310,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-553",
@@ -15282,7 +15358,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-555",
@@ -15310,7 +15387,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 5fc8115d, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-556",
@@ -15398,7 +15476,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: external: Etsy has no API"
+    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: external: Etsy has no API",
+    "in_integ8": true
    },
    {
     "id": "F-561",
@@ -15426,7 +15505,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 6efad5bb, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-562",
@@ -15454,7 +15534,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": true
    },
    {
     "id": "F-563",
@@ -15506,7 +15587,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: owner: Marketplace Insights paste"
+    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: owner: Marketplace Insights paste",
+    "in_integ8": true
    },
    {
     "id": "F-566",
@@ -15544,7 +15626,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": false
    },
    {
     "id": "F-568",
@@ -15675,7 +15758,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-576",
@@ -15697,7 +15781,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: owner: banking export"
+    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: owner: banking export",
+    "in_integ8": true
    },
    {
     "id": "F-577",
@@ -15793,7 +15878,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting",
+    "in_integ8": true
    },
    {
     "id": "F-581",
@@ -15873,7 +15959,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting",
+    "in_integ8": true
    },
    {
     "id": "F-584",
@@ -15961,7 +16048,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting"
+    "b0_reason": "built on claude/w4-C12 d5a01e8f, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting",
+    "in_integ8": true
    },
    {
     "id": "F-589",
@@ -15993,10 +16081,11 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "F",
+    "b0_evidence_source": "C13.md",
     "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: No runtime inventory; the receipt_type channel signal is not read by orders_ingest.",
-    "cluster": "C13"
+    "b0_class": "COMPLETE",
+    "b0_reason": "e642f1df commerce/sales_channels.observe from every ingest; test_w4_fmclose_etsy"
    },
    {
     "id": "F-591",
@@ -16078,10 +16167,11 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "F",
+    "b0_evidence_source": "C13.md",
     "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: No explicit first-ten cohort with per-sale inspection record (search source, conversion path, questions, download friction) or a listing edit freeze; order read",
-    "cluster": "C13"
+    "b0_class": "COMPLETE",
+    "b0_reason": "e642f1df commerce/first_ten + edit_hold; test_w4_fmclose_etsy"
    },
    {
     "id": "F-596",
@@ -16118,7 +16208,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": false
    },
    {
     "id": "F-598",
@@ -16140,7 +16231,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant"
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
+    "in_integ8": false
    },
    {
     "id": "F-599",
@@ -16166,7 +16258,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: API-document drift is detectable via absence probes but not scheduled; Shop Manager UI navigation drift has no observer; no review-task creation."
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: API-document drift is detectable via absence probes but not scheduled; Shop Manager UI navigation drift has no observer; no review-task creation.",
+    "in_integ8": false
    },
    {
     "id": "F-600",
@@ -16192,7 +16285,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: The surface registry is not reached at runtime and most surfaces lack collectors; continuous observe->learn loop exists only for internal cadences."
+    "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: The surface registry is not reached at runtime and most surfaces lack collectors; continuous observe->learn loop exists only for internal cadences.",
+    "in_integ8": false
    },
    {
     "id": "F-601",
@@ -16224,7 +16318,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-FMBATCH2 a9cf46de, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 a9cf46de: executive improvement cell (department complete); compliance/policy and analytics charters are W-AGENTS2 work"
+    "b0_reason": "built on claude/w4-FMBATCH2 a9cf46de, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 a9cf46de: executive improvement cell (department complete); compliance/policy and analytics charters are W-AGENTS2 work",
+    "in_integ8": false
    },
    {
     "id": "F-602",
@@ -16241,6 +16336,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "B",
+    "b0_evidence_source": "FMBATCH2.md (F-454, F-451, F-602)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -16249,9 +16346,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: claude/w4-FMBATCH1 d6189dc2: executive plan read by swarm.allocate; merge/deploy queue and file ownership stay build-side",
-    "cluster": "C01"
+    "b0_class": "BY_DESIGN",
+    "b0_reason": "runtime half built: d6189dc2 executive plan read by swarm.allocate, a9cf46de executive cell (FMBATCH2); merge/deploy queue and file ownership are build-side (ops/deploy_guard, ops/registry) and stay out of the runtime by F-463"
    },
    {
     "id": "F-603",
@@ -16467,7 +16563,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: Etsy Shop Manager setting",
+    "in_integ8": true
    },
    {
     "id": "F-615",
@@ -16489,7 +16586,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: owner: ad budget authority",
+    "in_integ8": true
    },
    {
     "id": "F-616",
@@ -16811,6 +16909,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "FMBATCH1.md (coordinator decision)",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -16819,9 +16919,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: Page is a table-heavy admin view (fixed max-width 1100px, uppercase table headers, no imagery, no charts); not image-rich or executive-readable as specified.",
-    "cluster": "C13"
+    "b0_class": "OWNER_GATED",
+    "b0_reason": "product imagery held off the public '/' until launch by coordinator decision; the rest of the design pass shipped with F-670"
    },
    {
     "id": "F-653",
@@ -17021,7 +17120,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 5d248cff, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 5d248cff, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-663",
@@ -17058,7 +17158,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b c8fcf17c, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b c8fcf17c, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-665",
@@ -17095,7 +17196,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b c8fcf17c, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b c8fcf17c, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-667",
@@ -17383,7 +17485,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Conditioning experiments were run as research waves (E1-E5, Bench1/2, V2 R&D) but no systematic RGB/depth/normals/edges/segmentation/multi-view comparison matri"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Conditioning experiments were run as research waves (E1-E5, Bench1/2, V2 R&D) but no systematic RGB/depth/normals/edges/segmentation/multi-view comparison matri",
+    "in_integ8": false
    },
    {
     "id": "F-680",
@@ -17409,7 +17512,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pieces are separate JSON endpoints (/api/visual-pipeline milestones, /api/visual-inspection, /api/portrait-repair, /api/provider-trial, /api/model-identity); no"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pieces are separate JSON endpoints (/api/visual-pipeline milestones, /api/visual-inspection, /api/portrait-repair, /api/provider-trial, /api/model-identity); no",
+    "in_integ8": false
    },
    {
     "id": "F-681",
@@ -17502,7 +17606,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-686",
@@ -17524,7 +17629,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-687",
@@ -17561,7 +17667,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here"
+    "b0_reason": "built on claude/w4-CLOSE6b 01b1c8cf, not in origin/claude/w4-INTEG7: in progress on claude/w4-CLOSE6; status of that branch's work not read here",
+    "in_integ8": true
    },
    {
     "id": "F-689",
@@ -17759,7 +17866,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 0b4a5db8, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Improvement loop covers cells, routing/image incumbents, prompts/tools/policies versioning and job-priority policy replay; business-strategy upgrades and model/"
+    "b0_reason": "built on claude/w4-C03 0b4a5db8, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Improvement loop covers cells, routing/image incumbents, prompts/tools/policies versioning and job-priority policy replay; business-strategy upgrades and model/",
+    "in_integ8": true
    },
    {
     "id": "F-700",
@@ -17870,7 +17978,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 3f244157, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: The loop runs for improvement cells (measure -> mine -> propose -> sandbox -> independent approve -> tier-gated promote -> monitor) but not every department has"
+    "b0_reason": "built on claude/w4-C03 3f244157, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: The loop runs for improvement cells (measure -> mine -> propose -> sandbox -> independent approve -> tier-gated promote -> monitor) but not every department has",
+    "in_integ8": true
    },
    {
     "id": "F-706",
@@ -17911,7 +18020,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 0b4a5db8, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned, tiered, reversible changes with fingerprinted evidence and post-promotion monitoring exist for cells, policies and registered incumbents; improvement"
+    "b0_reason": "built on claude/w4-C03 0b4a5db8, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned, tiered, reversible changes with fingerprinted evidence and post-promotion monitoring exist for cells, policies and registered incumbents; improvement",
+    "in_integ8": true
    },
    {
     "id": "F-708",
@@ -17967,7 +18077,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 41b383eb, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Text routing is static tiers by task shape on one provider (Anthropic); outcome-based promotion exists only for the deterministic job-priority policy (replay le"
+    "b0_reason": "built on claude/w4-C03 41b383eb, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Text routing is static tiers by task shape on one provider (Anthropic); outcome-based promotion exists only for the deterministic job-priority policy (replay le",
+    "in_integ8": true
    },
    {
     "id": "F-711",
@@ -18427,7 +18538,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are"
+    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are",
+    "in_integ8": false
    },
    {
     "id": "F-734",
@@ -18498,7 +18610,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pack iterations (v1-v16), portrait repair and realism calibration ran before the freeze; after freeze there is no continuous improvement cell for the canonical "
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pack iterations (v1-v16), portrait repair and realism calibration ran before the freeze; after freeze there is no continuous improvement cell for the canonical ",
+    "in_integ8": false
    },
    {
     "id": "F-738",
@@ -18530,7 +18643,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: replace_canonical requires an owner redesign approval, retires rather than deletes and increments version; no evidence comparator requiring equal-or-better iden"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: replace_canonical requires an owner redesign approval, retires rather than deletes and increments version; no evidence comparator requiring equal-or-better iden",
+    "in_integ8": false
    },
    {
     "id": "F-739",
@@ -18556,7 +18670,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: image_bench (identity dimension, reference-conditioned) and provider_trial (product truth, realism, cost) ran in production; routing is a hard-coded incumbent ("
+    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: image_bench (identity dimension, reference-conditioned) and provider_trial (product truth, realism, cost) ran in production; routing is a hard-coded incumbent (",
+    "in_integ8": false
    },
    {
     "id": "F-740",
@@ -18633,6 +18748,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "C08.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -18641,9 +18758,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: Audit rows record pack builds, model photography attempts (conditioned_on, floors, cost), benchmark trials and provider trials with artifact hashes; not one que",
-    "cluster": "C08"
+    "b0_class": "COMPLETE",
+    "b0_reason": "dea65bd5 visual/model_ledger + daily cadence; test_w4_c2_visual::test_f744_*"
    },
    {
     "id": "F-745",
@@ -18669,7 +18785,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Hourly model_reference_pack/model_tournament cadences and bounded trials ran autonomously under spend caps before the freeze; no post-freeze autonomous improvem"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Hourly model_reference_pack/model_tournament cadences and bounded trials ran autonomously under spend caps before the freeze; no post-freeze autonomous improvem",
+    "in_integ8": false
    },
    {
     "id": "F-746",
@@ -18701,6 +18818,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "E",
+    "b0_evidence_source": "C08.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -18709,9 +18828,8 @@
       "merged_into_combined": true
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: Identity specification is provider-neutral (pinned fields in the DB) and the approved face is committed with a hash manifest, but the approved body frames exist",
-    "cluster": "C08"
+    "b0_class": "COMPLETE",
+    "b0_reason": "dea65bd5 visual/portability (hash-verified restore); test_w4_c2_visual::test_f747_*"
    },
    {
     "id": "F-748",
@@ -18737,7 +18855,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Endpoints expose canonical version/state, enforcement proof, pack, benchmark and provider-trial results and rejected drift examples; missing a consolidated view"
+    "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Endpoints expose canonical version/state, enforcement proof, pack, benchmark and provider-trial results and rejected drift examples; missing a consolidated view",
+    "in_integ8": false
    },
    {
     "id": "F-749",
@@ -19024,7 +19143,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C14 03960fef, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C14 03960fef, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-767",
@@ -19076,7 +19196,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C14 03960fef, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C14 03960fef, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-770",
@@ -19113,7 +19234,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels",
+    "in_integ8": true
    },
    {
     "id": "F-772",
@@ -19135,7 +19257,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels",
+    "in_integ8": true
    },
    {
     "id": "F-773",
@@ -19197,7 +19320,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: cross-sell pairs/bundles exist; tutorial and materials links are not part of the graph"
+    "b0_reason": "built on claude/w4-C10 2d739856, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: cross-sell pairs/bundles exist; tutorial and materials links are not part of the graph",
+    "in_integ8": true
    },
    {
     "id": "F-776",
@@ -19409,6 +19533,8 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
+    "b0_status": "H",
+    "b0_evidence_source": "CLUSTERS_C05_C06.md",
     "branch_work": [
      {
       "branch": "claude/w4-INTEG7",
@@ -19423,8 +19549,8 @@
       "merged_into_combined": false
      }
     ],
-    "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: reader ingests every page and analyses dimensions/construction but does not reconstruct full graded architecture in src (bench2 did so in research)"
+    "b0_class": "OWNER_GATED",
+    "b0_reason": "not built: needs an owner ruling (conflicts with 'never copy competitor pattern instructions')"
    },
    {
     "id": "F-790",
@@ -19637,7 +19763,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C14 79329592, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C14 79329592, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-803",
@@ -19689,7 +19816,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: one canonical lesson specification exists (Lesson.spec, revision = sha256 of spec; any change resets reviews and revokes approval), but only two derived surface"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: one canonical lesson specification exists (Lesson.spec, revision = sha256 of spec; any change resets reviews and revokes approval), but only two derived surface",
+    "in_integ8": true
    },
    {
     "id": "F-805",
@@ -19786,7 +19914,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-810",
@@ -19808,7 +19937,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels",
+    "in_integ8": true
    },
    {
     "id": "F-811",
@@ -19830,7 +19960,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: owner: open owned channels",
+    "in_integ8": true
    },
    {
     "id": "F-812",
@@ -19871,7 +20002,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: value_stack names video as gated rather than promised; size/version statement for videos absent (see F-767)"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: value_stack names video as gated rather than promised; size/version statement for videos absent (see F-767)",
+    "in_integ8": true
    },
    {
     "id": "F-814",
@@ -19938,7 +20070,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-817",
@@ -19964,7 +20097,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-818",
@@ -19990,7 +20124,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: artefact staleness by fingerprint exists for PDFs/video modules; no lesson monitoring (no lessons)"
+    "b0_reason": "built on claude/w4-C11 be5a8141, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: artefact staleness by fingerprint exists for PDFs/video modules; no lesson monitoring (no lessons)",
+    "in_integ8": true
    },
    {
     "id": "F-819",
@@ -20027,7 +20162,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C14 79329592, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C14 79329592, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-821",
@@ -20083,7 +20219,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-824",
@@ -20131,7 +20268,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C14 d062fb95, not in origin/claude/w4-INTEG7: external: real buyers"
+    "b0_reason": "built on claude/w4-C14 d062fb95, not in origin/claude/w4-INTEG7: external: real buyers",
+    "in_integ8": true
    },
    {
     "id": "F-826",
@@ -20198,7 +20336,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pattern (PatternVersion CIR) and CX (SupportCase specialist labels) feed learn.scan; Visual is only a review dimension; no Marketing/SEO, Research or Finance in"
+    "b0_reason": "built on claude/w4-C04 92b75144, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pattern (PatternVersion CIR) and CX (SupportCase specialist labels) feed learn.scan; Visual is only a review dimension; no Marketing/SEO, Research or Finance in",
+    "in_integ8": true
    },
    {
     "id": "F-829",
@@ -20224,7 +20363,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING"
+    "b0_reason": "built on claude/w4-C11 c32c7c48, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
+    "in_integ8": true
    },
    {
     "id": "F-830",
@@ -20329,7 +20469,8 @@
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
-    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): consumer receipts; TESTED override accepted"
+    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: claude/w4-CLOSE6 (unmerged): consumer receipts; TESTED override accepted",
+    "in_integ8": true
    },
    {
     "id": "F-835",
@@ -20509,7 +20650,8 @@
     "acceptance_complete": false,
     "branch_work": [],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-CLOSE6, not in origin/claude/w4-INTEG7: TESTED target accepted on claude/w4-CLOSE6 (D-W4-CLOSE6-F846), not applied"
+    "b0_reason": "built on claude/w4-CLOSE6, not in origin/claude/w4-INTEG7: TESTED target accepted on claude/w4-CLOSE6 (D-W4-CLOSE6-F846), not applied",
+    "in_integ8": true
    },
    {
     "id": "F-847",
@@ -20730,7 +20872,8 @@
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: per-call spend is reserved/recorded and experiments report yields in research manifests; no cost-per-certified-listing-set or rejection-reason aggregate"
+    "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: per-call spend is reserved/recorded and experiments report yields in research manifests; no cost-per-certified-listing-set or rejection-reason aggregate",
+    "in_integ8": false
    },
    {
     "id": "F-860",
@@ -20997,7 +21140,8 @@
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
-    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: closed on production b931d17 by claude/w4-CLOSE6 (unmerged)"
+    "b0_reason": "engineering complete on claude/w4-CLOSE6, not in the certification candidate 2aeb177f: closed on production b931d17 by claude/w4-CLOSE6 (unmerged)",
+    "in_integ8": true
    },
    {
     "id": "F-873",
@@ -21913,18 +22057,21 @@
    "claude/w4-AGENTS2": "6ebe7103",
    "claude/w4-CLOSE6b": "31510b44",
    "claude/w4-RESUME": "f1cde398",
-   "claude/w4-FMBATCH2": "3a2846c8"
+   "claude/w4-FMBATCH2": "5dcef2a5"
   },
   "counts": {
    "final_master": {
     "AWAITING_EVIDENCE": 20,
-    "COMPLETE": 722,
+    "BY_DESIGN": 3,
+    "COMPLETE": 745,
     "COMPLETE_ON_BRANCH": 4,
-    "EXECUTABLE": 56,
+    "EXECUTABLE": 23,
     "GENUINELY_GATED": 5,
-    "MISSING_INTEGRATION": 101,
+    "MISSING_INTEGRATION": 99,
     "NOT_APPLICABLE": 7,
-    "OWNER_HELD": 2
+    "OWNER_GATED": 5,
+    "OWNER_HELD": 2,
+    "PROPOSED_COMPLETE": 4
    },
    "build2": {
     "AWAITING_EVIDENCE": 1,
@@ -21936,9 +22083,9 @@
   "status_report": {
    "final_master": {
     "total": 917,
-    "a_engineering_complete_integrated": 722,
+    "a_engineering_complete_integrated": 745,
     "b_built_on_branch_awaiting_integration": {
-     "count": 105,
+     "count": 103,
      "by_branch": {
       "claude/w4-C03": [
        "F-095",
@@ -22063,11 +22210,9 @@
        "F-231",
        "F-366",
        "F-370",
+       "F-402",
        "F-406",
-       "F-438",
-       "F-441",
-       "F-565",
-       "F-789"
+       "F-565"
       ]
      }
     },
@@ -22077,50 +22222,17 @@
     ],
     "d_executable_not_built": [
      "F-083",
-     "F-113",
-     "F-114",
      "F-134",
-     "F-147",
-     "F-148",
      "F-160",
-     "F-217",
-     "F-218",
-     "F-224",
-     "F-351",
-     "F-353",
-     "F-358",
-     "F-359",
-     "F-365",
-     "F-367",
-     "F-401",
-     "F-402",
-     "F-404",
-     "F-429",
-     "F-436",
-     "F-446",
-     "F-450",
-     "F-451",
+     "F-441",
      "F-454",
-     "F-456",
-     "F-458",
-     "F-463",
      "F-464",
-     "F-479",
-     "F-481",
-     "F-483",
-     "F-505",
-     "F-590",
-     "F-595",
-     "F-602",
-     "F-652",
      "F-675",
      "F-678",
      "F-711",
      "F-714",
      "F-715",
      "F-716",
-     "F-744",
-     "F-747",
      "F-758",
      "F-759",
      "F-848",
@@ -22133,44 +22245,399 @@
      "F-866",
      "F-876"
     ],
-    "e_awaiting_evidence": [
-     "F-005",
-     "F-007",
-     "F-009",
-     "F-027",
-     "F-031",
-     "F-041",
-     "F-243",
-     "F-247",
-     "F-248",
-     "F-252",
-     "F-253",
-     "F-278",
-     "F-280",
-     "F-396",
-     "F-437",
-     "F-461",
-     "F-507",
-     "F-515@v0.16",
-     "F-594",
-     "F-628"
-    ],
-    "e_genuinely_gated": [
-     "F-037",
-     "F-155",
-     "F-239",
-     "F-293",
-     "F-566"
-    ],
-    "e_not_applicable": [
-     "F-414",
-     "F-468",
-     "F-500",
-     "F-520@v0.15",
-     "F-698",
-     "F-717",
-     "F-842"
-    ],
+    "e": {
+     "AWAITING_EVIDENCE": [
+      "F-005",
+      "F-007",
+      "F-009",
+      "F-027",
+      "F-031",
+      "F-041",
+      "F-243",
+      "F-247",
+      "F-248",
+      "F-252",
+      "F-253",
+      "F-278",
+      "F-280",
+      "F-396",
+      "F-437",
+      "F-461",
+      "F-507",
+      "F-515@v0.16",
+      "F-594",
+      "F-628"
+     ],
+     "OWNER_GATED": [
+      "F-114",
+      "F-438",
+      "F-483",
+      "F-652",
+      "F-789"
+     ],
+     "BY_DESIGN": [
+      "F-451",
+      "F-463",
+      "F-602"
+     ],
+     "PROPOSED_COMPLETE": [
+      "F-446",
+      "F-458",
+      "F-479",
+      "F-481"
+     ],
+     "GENUINELY_GATED": [
+      "F-037",
+      "F-155",
+      "F-239",
+      "F-293",
+      "F-566"
+     ],
+     "NOT_APPLICABLE": [
+      "F-414",
+      "F-468",
+      "F-500",
+      "F-520@v0.15",
+      "F-698",
+      "F-717",
+      "F-842"
+     ]
+    },
+    "integ8": {
+     "a": 817,
+     "b": 31,
+     "b_rows_still_on_branches": [
+      "F-016",
+      "F-017",
+      "F-018",
+      "F-038",
+      "F-045",
+      "F-047",
+      "F-050",
+      "F-051",
+      "F-053",
+      "F-054",
+      "F-055",
+      "F-091",
+      "F-226",
+      "F-515@v0.15",
+      "F-527",
+      "F-546",
+      "F-567",
+      "F-597",
+      "F-598",
+      "F-599",
+      "F-600",
+      "F-601",
+      "F-679",
+      "F-680",
+      "F-733",
+      "F-737",
+      "F-738",
+      "F-739",
+      "F-745",
+      "F-748",
+      "F-859"
+     ],
+     "moved_into_a": [
+      "F-034",
+      "F-040",
+      "F-095",
+      "F-097",
+      "F-126",
+      "F-144",
+      "F-145",
+      "F-231",
+      "F-264",
+      "F-265",
+      "F-266",
+      "F-269",
+      "F-270",
+      "F-271",
+      "F-273",
+      "F-274",
+      "F-330",
+      "F-366",
+      "F-370",
+      "F-402",
+      "F-406",
+      "F-412",
+      "F-516@v0.16",
+      "F-517@v0.16",
+      "F-538",
+      "F-551",
+      "F-552",
+      "F-554",
+      "F-555",
+      "F-560",
+      "F-561",
+      "F-562",
+      "F-565",
+      "F-575",
+      "F-576",
+      "F-580",
+      "F-583",
+      "F-588",
+      "F-614",
+      "F-615",
+      "F-662",
+      "F-664",
+      "F-666",
+      "F-685",
+      "F-686",
+      "F-688",
+      "F-699",
+      "F-705",
+      "F-707",
+      "F-710",
+      "F-766",
+      "F-769",
+      "F-771",
+      "F-772",
+      "F-775",
+      "F-802",
+      "F-804",
+      "F-809",
+      "F-810",
+      "F-811",
+      "F-813",
+      "F-816",
+      "F-817",
+      "F-818",
+      "F-820",
+      "F-823",
+      "F-825",
+      "F-828",
+      "F-829",
+      "F-834",
+      "F-846",
+      "F-872"
+     ]
+    },
+    "evidence_overrides": {
+     "F-113": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "DEPARTMENTS.md",
+      "evidence": "6ea10a52 creative/salvage.review, weekly creative.salvage_review"
+     },
+     "F-114": {
+      "class": "OWNER_GATED",
+      "status": "H",
+      "source": "DEPARTMENTS.md",
+      "evidence": "re-gauging a legacy CIR means authoring new rows; needs a design/owner decision"
+     },
+     "F-147": {
+      "class": "COMPLETE",
+      "status": "F",
+      "source": "W3-HYG (run_tests.sh, tests/_tmp.py)",
+      "evidence": "bb0f43d0 per-suite leak census + TMP_LEAK_STRICT; test_w3_tmp_hygiene"
+     },
+     "F-148": {
+      "class": "COMPLETE",
+      "status": "F",
+      "source": "W3-HYG",
+      "evidence": "bb0f43d0 tests/_tmp.install in every direct run; test_w3_tmp_hygiene"
+     },
+     "F-217": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "C08.md",
+      "evidence": "dea65bd5 gateway/image_bench.identity_subscores; test_w4_c2_visual"
+     },
+     "F-218": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "C08.md",
+      "evidence": "4766be8a visual/drift_series; test_w4_departments::test_f218_*"
+     },
+     "F-224": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "e5d54a36 visual/photo_principles.py; test_w4_photo_principles"
+     },
+     "F-351": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "71fbab29 creative.children.portfolio; test_w4_children"
+     },
+     "F-353": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "71fbab29 13 core categories; test_w4_children"
+     },
+     "F-358": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "71fbab29 segment counts, no palette; test_w4_children"
+     },
+     "F-359": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "71fbab29 sibling sets; test_w4_children"
+     },
+     "F-365": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "71fbab29 Baby & Kids collection at depth 4; test_w4_children"
+     },
+     "F-367": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "954a3028 creative.children.competitive_study; test_w4_children"
+     },
+     "F-401": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "AGENTS.md / CLUSTERS_C05_C06.md",
+      "evidence": "4bd020fc intel/research_agent.py (invokable + research.sweep); test_w4_research_agent"
+     },
+     "F-402": {
+      "class": "MISSING_INTEGRATION",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "internal evidence first (INTEG7) then F-406's external escalation (INTELREC 4e2baef4)"
+     },
+     "F-404": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "4bd020fc/a587022c stale_domains_to_research (+ FMBATCH1 F-426 conflict rule); test_w4_research_agent"
+     },
+     "F-429": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "AGENTS.md / CLUSTERS_C05_C06.md",
+      "evidence": "4bd020fc research.flag_architecture read by improve.weekly; test_w4_research_agent"
+     },
+     "F-436": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "AGENTS.md / CLUSTERS_C05_C06.md",
+      "evidence": "4bd020fc method ladder (cheapest adequate first); test_w4_research_agent"
+     },
+     "F-438": {
+      "class": "OWNER_GATED",
+      "status": "H",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "not built: literature access needs a provider or a fetch-allowlist host (coordinator/owner call)"
+     },
+     "F-441": {
+      "class": "EXECUTABLE",
+      "status": "B",
+      "source": "CLUSTERS_C05_C06.md / FMBATCH1.md s31",
+      "evidence": "partial: cdf4dea0 records licence/reversibility/maintenance per provider; the provider-trial records are not built"
+     },
+     "F-446": {
+      "class": "PROPOSED_COMPLETE",
+      "status": "B",
+      "source": "FMBATCH1.md s31 / CLUSTERS_C05_C06.md",
+      "evidence": "research runs on its own cadence and a blocked question holds no worker; integrator's call"
+     },
+     "F-450": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "FMBATCH1.md s31 / coordinator ruling",
+      "evidence": "ruled already met: learn.scan unknown->research + research_agent (4bd020fc)"
+     },
+     "F-451": {
+      "class": "BY_DESIGN",
+      "status": "B",
+      "source": "FMBATCH2.md (F-454, F-451, F-602)",
+      "evidence": "runtime half built: c7df4c70 /api/orchestrator joins every runtime section incl. deployments (master_view); the remaining build-side lane state never enters the production DB by the F-463 decision"
+     },
+     "F-456": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "DEPARTMENTS.md (Workstream C W1)",
+      "evidence": "3ace4014 core/contracts.py versioned, fingerprinted, pinned; test_w4_contracts"
+     },
+     "F-458": {
+      "class": "PROPOSED_COMPLETE",
+      "status": "C",
+      "source": "FMBATCH1.md s31 proposal",
+      "evidence": "matrix marks it at target maturity; acceptance pending"
+     },
+     "F-463": {
+      "class": "BY_DESIGN",
+      "status": "H",
+      "source": "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
+      "evidence": "blocked by design: build tooling never writes to the production database"
+     },
+     "F-479": {
+      "class": "PROPOSED_COMPLETE",
+      "status": "C",
+      "source": "FMBATCH1.md s31 proposal",
+      "evidence": "matrix marks it at target maturity; acceptance pending"
+     },
+     "F-481": {
+      "class": "PROPOSED_COMPLETE",
+      "status": "C",
+      "source": "FMBATCH1.md s32 proposal",
+      "evidence": "matrix marks it at target maturity; acceptance pending"
+     },
+     "F-483": {
+      "class": "OWNER_GATED",
+      "status": "H",
+      "source": "FMBATCH1.md s33 (D-W4-FMBATCH1-BUILDSIDE)",
+      "evidence": "CI on GitHub Actions uses the owner's minutes (~4,500-9,000/month)"
+     },
+     "F-505": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "C03.md",
+      "evidence": "76fa13ce listing-test memory runtime caller; test_w4_listing_memory"
+     },
+     "F-590": {
+      "class": "COMPLETE",
+      "status": "F",
+      "source": "C13.md",
+      "evidence": "e642f1df commerce/sales_channels.observe from every ingest; test_w4_fmclose_etsy"
+     },
+     "F-595": {
+      "class": "COMPLETE",
+      "status": "F",
+      "source": "C13.md",
+      "evidence": "e642f1df commerce/first_ten + edit_hold; test_w4_fmclose_etsy"
+     },
+     "F-602": {
+      "class": "BY_DESIGN",
+      "status": "B",
+      "source": "FMBATCH2.md (F-454, F-451, F-602)",
+      "evidence": "runtime half built: d6189dc2 executive plan read by swarm.allocate, a9cf46de executive cell (FMBATCH2); merge/deploy queue and file ownership are build-side (ops/deploy_guard, ops/registry) and stay out of the runtime by F-463"
+     },
+     "F-652": {
+      "class": "OWNER_GATED",
+      "status": "H",
+      "source": "FMBATCH1.md (coordinator decision)",
+      "evidence": "product imagery held off the public '/' until launch by coordinator decision; the rest of the design pass shipped with F-670"
+     },
+     "F-744": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "C08.md",
+      "evidence": "dea65bd5 visual/model_ledger + daily cadence; test_w4_c2_visual::test_f744_*"
+     },
+     "F-747": {
+      "class": "COMPLETE",
+      "status": "E",
+      "source": "C08.md",
+      "evidence": "dea65bd5 visual/portability (hash-verified restore); test_w4_c2_visual::test_f747_*"
+     },
+     "F-789": {
+      "class": "OWNER_GATED",
+      "status": "H",
+      "source": "CLUSTERS_C05_C06.md",
+      "evidence": "not built: needs an owner ruling (conflicts with 'never copy competitor pattern instructions')"
+     }
+    },
     "reconciles": true
    },
    "build2": {
@@ -22182,15 +22649,27 @@
     },
     "c_built_owner_held": [],
     "d_executable_not_built": [],
-    "e_awaiting_evidence": [
-     "B2#94"
-    ],
-    "e_genuinely_gated": [],
-    "e_not_applicable": [
-     "B2#197",
-     "B2#32",
-     "B2#56"
-    ],
+    "e": {
+     "AWAITING_EVIDENCE": [
+      "B2#94"
+     ],
+     "OWNER_GATED": [],
+     "BY_DESIGN": [],
+     "PROPOSED_COMPLETE": [],
+     "GENUINELY_GATED": [],
+     "NOT_APPLICABLE": [
+      "B2#197",
+      "B2#32",
+      "B2#56"
+     ]
+    },
+    "integ8": {
+     "a": 316,
+     "b": 0,
+     "b_rows_still_on_branches": [],
+     "moved_into_a": []
+    },
+    "evidence_overrides": {},
     "reconciles": true
    }
   }
