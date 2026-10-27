@@ -228,6 +228,41 @@ def test_f412_answered_research_reaches_the_sandbox_as_a_bounded_experiment():
     assert again["bridged"] == [] and unowned
 
 
+# ---- Laura CEO execution of the loop ---------------------------------------------------------
+
+def test_laura_turns_a_stalled_experiment_into_a_measurement_mission():
+    from brambleloop.improve import bounded
+    from brambleloop.laura import executive
+    from brambleloop.laura.executive import loop
+
+    assert loop.PROVIDERS["self_improvement"] == ("brambleloop.improve.bounded", "learn",
+                                                  "improve.measure")
+    db = _db()
+    quiet = executive.tick(db)
+    assert "laura:provider:self_improvement" not in {p["key"] for p in quiet["priorities"]}
+    assert quiet["observed"]["providers"]["self_improvement"] == "OK"
+    now = datetime.now(timezone.utc)
+    _point(db, "customer_experience", 0.30, now - timedelta(days=20))
+    iid = _propose(db)
+    bounded.start(db, iid, applied_by="customer_experience", applied_ref="faq:v2",
+                  undo="restore the FAQ v1 text", now=now - timedelta(days=10))
+    assert bounded.summary(db)["status"] == "DEGRADED"
+    r = executive.tick(db)
+    p = next(x for x in r["priorities"] if x["key"] == "laura:provider:self_improvement")
+    assert p["department"] == "learn" and p["job_type"] == "improve.measure", p
+    out = next(o for o in r["outcomes"] if o["priority"] == p["key"])
+    # Delegated now, or already open from an earlier delegation: either way the measurement
+    # the experiment waits for is queued, once.
+    assert out["outcome"] in ("delegated", "in_progress"), out
+    from brambleloop.core.models import Job
+
+    with db.session() as s:
+        from sqlalchemy import select
+
+        assert [j.status for j in s.scalars(select(Job).where(
+            Job.job_type == "improve.measure"))], "no improve.measure job"
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     failed = 0

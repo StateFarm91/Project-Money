@@ -62,6 +62,12 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
                    "storefront.review"),
 }
 
+# W4-C03 (F-705): the learning loop's EXPERIMENT step reaches Laura. A bounded experiment whose
+# window closed without the production readings that judge it reads DEGRADED and becomes an
+# improve.measure mission for Learn -- the measurement is what the experiment is waiting for.
+# A separate statement, not a dict entry, so lanes adding providers above never collide here.
+PROVIDERS["self_improvement"] = ("brambleloop.improve.bounded", "learn", "improve.measure")
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
