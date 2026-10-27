@@ -675,6 +675,61 @@ def test_img_a_bound_unedited_first_sample_photo_passes_this_gate_only():
     ok("IMG passes: a bound, unedited, first sample photo satisfies this gate; copy follows facts")
 
 
+def test_img_stage_a_private_draft_is_not_blocked_by_the_photo_but_activation_is():
+    """Owner clarification 2026-10-27: Etsy's photo rule governs listings shown to buyers.
+    The same unsatisfied photo requirement refuses at activation and not at draft."""
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.publish import sample_photo as SP
+
+    db = _db()
+    saved = SP.requirement
+    SP.requirement = lambda *a, **k: {"satisfied": False, "first_frame": None,
+                                      "qualifying": [], "rejected": [],
+                                      "reasons": [f"{SP.CODE}: no photo (test)"]}
+    try:
+        draft = RG.for_publish(db, slug="no-such-product", version="1.0.0", read_only=True)
+        act = RG.for_publish(db, slug="no-such-product", version="1.0.0", read_only=True,
+                             stage=RG.STAGE_ACTIVATION)
+    finally:
+        SP.requirement = saved
+    assert not any(r.startswith(SP.CODE) for r in draft["reasons"]), draft["reasons"]
+    assert draft["stage"] == "draft" and draft["sample_photo"]["satisfied"] is False
+    assert any(r.startswith(SP.CODE) for r in act["reasons"]), act["reasons"]
+    try:
+        RG.for_publish(db, slug="x", version="1", read_only=True, stage="public")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown stage was judged")
+    ok("IMG stage: no photo does not block the private draft; it blocks activation")
+
+
+def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_internal_does():
+    import ast
+
+    src = (ROOT / "src/brambleloop/runtime/pipeline.py").read_text()
+    fns = {n.name: ast.get_source_segment(src, n) for n in ast.parse(src).body
+           if isinstance(n, ast.FunctionDef)}
+    act = fns["handle_store_activate"]
+    assert act.count('_release_gates(ctx, stage="activation")') == 3, act.count("_release_gates(")
+    assert "_release_gates(ctx)" not in act
+    for name in ("handle_store_publish", "_revalidate_publish_effect"):
+        assert 'stage="activation"' not in fns[name], name
+    # The photo gate refuses only inside for_publish at activation; the other src users of
+    # sample_photo only choose the truthful disclosure sentence. Internal callers of
+    # for_publish (e.g. products.inventory) use the default draft stage.
+    users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
+                   if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
+    assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/release_gates.py",
+                     "brambleloop/runtime/release.py"], users
+    rel = (ROOT / "src/brambleloop/runtime/release.py").read_text()
+    assert "_sample_photo.requirement(" in rel and "photographed_sample=_photographed" in rel
+    inv = (ROOT / "src/brambleloop/products/inventory.py").read_text()
+    assert "STAGE_ACTIVATION" not in inv and 'stage="activation"' not in inv
+    ok("IMG stage: only store.activate judges at activation; internal paths never do")
+
+
 # =============================================================================================
 # CC -- the policy-readings form (#/policy)
 

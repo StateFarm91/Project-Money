@@ -353,6 +353,30 @@ Renders, charts and the PDF page preview may follow.
 
 **Why this is a tightening only.** It adds one refusal to `for_publish`. It changes no other policy outcome. `classify`'s problems are unchanged, and only the disclosure sentence varies, from a fact.
 
+### 5c. IMG stage split (owner clarification 2026-10-27, follow-up commit)
+
+The photo requirement now blocks only the stage that genuinely needs it:
+
+| Stage | Is it blocked by the missing photo? |
+|---|---|
+| Internal development and package preparation (chain, certification, assets, listing copy, inventory, readiness views) | **Never.** Those paths do not call the gate in its refusing form. `products.inventory` uses `for_publish`'s default draft stage, and the listing writer only chooses the truthful disclosure sentence. |
+| Private Etsy draft (`store.publish` → `createDraftListing`) | **No.** Etsy's rule (Help 44297885802647 / 115015663347) governs the listing images buyers see. Nothing in the repo's verified evidence says a private draft needs a photo; the IMAGEPOLICY reading quotes no draft rule, and none was found. Every other gate still applies, as do the owner's sealed draft (publication) grant and the copy-truth check. A draft whose copy claims a sample photo it does not have, or still says "no sample has been photographed" beside one, is refused. Renders stay labelled by the existing disclosed-render export checks. |
+| Public publication (`store.activate`) | **Yes.** It needs the bound, unedited, first-frame sample photo, plus every other gate. |
+
+**Mechanism:**
+- `release_gates.for_publish(..., stage="draft" | "activation")`. The default is `draft`. An unknown stage raises, and `_release_gates` turns that into a closed gate.
+- `pipeline._release_gates(ctx, stage=...)`. All three gate reads inside `handle_store_activate` pass `stage="activation"`. `store.publish` and `_revalidate_publish_effect` use the draft stage.
+- The verdict always carries `sample_photo` (reported) and `stage`.
+
+**Tests:**
+- `test_img_stage_a_private_draft_is_not_blocked_by_the_photo_but_activation_is`;
+- `test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_internal_does`;
+- `tests/test_search_hero_publish.py` is restored byte-for-byte to its original (`b0133916`). The hold added in §6 is removed, and the test again proves end to end that a private draft is created, given its sealed grant, with no sample photo on file.
+
+**Harness updates (signature only, no assertion changed).** Two tests replace `pipeline._release_gates` with a one-argument lambda; they now also accept the `stage` keyword:
+- `tests/test_etsy_readback_observe.py` (two lambdas);
+- `tests/test_cert_commerce.py` (one `Spy` replacement).
+
 ## 6. Files changed
 
 - `src/brambleloop/gates/first_customer.py`: D1, the check and its wiring.
@@ -368,7 +392,7 @@ Renders, charts and the PDF page preview may follow.
 - `static/js/views/policy.js` (new), `routes.js`, `api.js`, `sw.js`, `views/approvals.js`, `views/completion.js`: the form view.
 - `tests/test_w4_launchfix.py` (new) and `tests/test_etsy_exercise.py` (one test added).
 
-`tests/test_search_hero_publish.py`: its end-to-end publish fixture has no physical sample, and the real `store.publish` path refused it with `SAMPLE_PHOTO_REQUIRED`. That refusal is the end-to-end proof that the new gate is on the publish path. The fixture now holds `sample_photo.requirement` the same way it already holds parity, the search grid and the Launch-0 scope gate, with a stated reason. The gate's refuse and pass behaviour is tested in `test_w4_launchfix`. This test's own assertions are unchanged.
+`tests/test_search_hero_publish.py`: on 0f0306dd it held the photo gate. Since the stage split (§5c) the file is restored to its original, and it passes unmodified.
 
 One existing test was edited, and it was made stricter, not looser. In `tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people`, `brand_clearance` is now expected among the company-side (`BLOCKED_BUILD`) items while no knock-out screening is recorded, and the test asserts that it is unready. The test pinned the old attribution (owner) for work that OWNER_ACTIONS assigns to the company. `test_nothing_blocked_on_build_is_ever_sent_to_the_owner` is unchanged. To keep it true, the trademark request is put to the owner only once a valid screening exists. No other test was weakened or edited except by addition. `test_first_customer_gate`'s
 `check_etsy_remote_state()` assertion still holds: with no db it is UNVERIFIABLE and says

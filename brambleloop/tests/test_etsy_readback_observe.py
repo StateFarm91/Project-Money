@@ -564,7 +564,7 @@ def _gates_pass():
     orig = (pipeline._listing_parity, pipeline._release_gates)
     pipeline._listing_parity = lambda ctx: {"verdict": "pass", "blocks_release": False,
                                             "why": "forced", "dimensions": {}}
-    pipeline._release_gates = lambda ctx: {"blocks_release": False, "reasons": []}
+    pipeline._release_gates = lambda ctx, **_kw: {"blocks_release": False, "reasons": []}
     return orig
 
 
@@ -651,7 +651,7 @@ def test_a_failing_release_gate_at_execution_blocks_activation():
     db = _db()
     os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = "1"
     orig = _gates_pass()
-    pipeline._release_gates = lambda ctx: {"blocks_release": True,
+    pipeline._release_gates = lambda ctx, **_kw: {"blocks_release": True,
                                            "reasons": ["halting incident open"]}
     try:
         with FakeEtsy() as fake:
