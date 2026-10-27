@@ -7,7 +7,7 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 138
+     "rows": 137
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
@@ -31,10 +31,10 @@
     },
     "b931d17": {
      "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
-     "rows": 39
+     "rows": 41
     }
    },
-   "rows_on_base": 489,
+   "rows_on_base": 488,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
@@ -466,7 +466,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-041",
@@ -1506,7 +1506,7 @@
    "reason": "local tests are not production truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-145",
@@ -8694,7 +8694,7 @@
    "reason": "order truth depends on transactions_r",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "GATED"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-873",

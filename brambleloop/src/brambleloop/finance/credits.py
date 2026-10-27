@@ -51,6 +51,27 @@ class ProviderCredit(Base):
     note: Mapped[str] = mapped_column(Text, default="")
 
 
+class AdsCreditCycle(Base):
+    """F-688: one Etsy Plus Ads-credit cycle, as Etsy states it -- never owner cash.
+
+    `entitlement_usd` is the official entitlement (Etsy states it in USD); `displayed_cad` is
+    the value Etsy's Shop Manager displays locally, recorded as read (it is NOT this system's
+    conversion, which is reported beside it and labelled as such). `used_displayed_cad` is
+    what Etsy reports as used this cycle; NULL is UNKNOWN, never 0.
+    """
+    __tablename__ = "ads_credit_cycles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cycle_start: Mapped[str] = mapped_column(String(10), index=True)
+    cycle_end: Mapped[str] = mapped_column(String(10))
+    entitlement_usd: Mapped[float] = mapped_column(Float)
+    displayed_cad: Mapped[float] = mapped_column(Float)
+    used_displayed_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str] = mapped_column(String(30), default="owner_reported")
+    evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+
+
 _LOCK = threading.Lock()
 _FLAG = "_brambleloop_provider_credits_ready"
 
@@ -62,7 +83,8 @@ def ensure_table(db) -> None:
     with _LOCK:
         if getattr(engine, _FLAG, False):
             return
-        Base.metadata.create_all(engine, tables=[ProviderCredit.__table__], checkfirst=True)
+        Base.metadata.create_all(engine, tables=[ProviderCredit.__table__,
+                                                 AdsCreditCycle.__table__], checkfirst=True)
         setattr(engine, _FLAG, True)
 
 
@@ -171,4 +193,98 @@ def wallet(db, *, now: datetime | None = None) -> dict:
         "why_empty": ("" if by_provider else
                       "no promotional or cloud credit has been recorded, so all recorded spend "
                       "is treated as cash exposure"),
+        "ads_credit": ads_credit(db, now=now),
+    }
+
+
+# ---------------------------------------------------------------------------------------------
+# F-688: Etsy Plus Ads credit, cycle by cycle, separate from owner cash.
+# ---------------------------------------------------------------------------------------------
+
+def record_ads_credit_cycle(db, *, cycle_start: str, cycle_end: str, entitlement_usd: float,
+                            displayed_cad: float, used_displayed_cad: float | None = None,
+                            source: str = "owner_reported", evidence_ref: str = "") -> dict:
+    """Record (or update, keyed by `cycle_start`) one Ads-credit cycle as Etsy states it.
+
+    Refuses: no evidence, an unknown source, unparseable or inverted dates, a non-positive
+    entitlement or displayed value, a negative use, or a use larger than the displayed credit
+    (a credit cannot absorb more than it holds; the excess is cash and is recorded as ad
+    spend, not here)."""
+    import math
+
+    if source not in SOURCES:
+        raise CreditRefused(f"{source!r} is not a credit source: {SOURCES}")
+    if not (evidence_ref or "").strip():
+        raise CreditRefused("an Ads-credit cycle with no evidence reference is a claim")
+    if date.fromisoformat(cycle_end) <= date.fromisoformat(cycle_start):
+        raise CreditRefused("a cycle ends after it starts")
+    ent, shown = float(entitlement_usd), float(displayed_cad)
+    if not (math.isfinite(ent) and ent > 0 and math.isfinite(shown) and shown > 0):
+        raise CreditRefused("entitlement and displayed value are positive amounts")
+    used = None if used_displayed_cad is None else float(used_displayed_cad)
+    if used is not None and not (math.isfinite(used) and 0 <= used <= shown):
+        raise CreditRefused("credit used is between 0 and the displayed credit")
+    ensure_table(db)
+    from sqlalchemy import select
+
+    with db.session() as s:
+        row = s.scalar(select(AdsCreditCycle).where(AdsCreditCycle.cycle_start == cycle_start))
+        if row is None:
+            row = AdsCreditCycle(cycle_start=cycle_start)
+            s.add(row)
+        row.cycle_end, row.entitlement_usd, row.displayed_cad = cycle_end, ent, shown
+        row.used_displayed_cad, row.source = used, source
+        row.evidence_ref = evidence_ref[:200]
+        s.flush()
+        return {"id": row.id, "cycle_start": cycle_start, "cycle_end": cycle_end}
+
+
+def ads_credit(db, *, now: datetime | None = None) -> dict:
+    """Every recorded Ads-credit cycle: entitlement, displayed CAD value, cycle, used and
+    expired credit, and the incremental CASH ad spend beyond it. The credit never raises a
+    ceiling and is never counted as owner cash."""
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    ensure_table(db)
+    now = now or datetime.now(timezone.utc)
+    today = now.date().isoformat()
+    with db.session() as s:
+        cycles = list(s.scalars(select(AdsCreditCycle).order_by(AdsCreditCycle.cycle_start)))
+        ads = [((e.at if e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)).date().isoformat(),
+                float(e.amount_cad or 0.0))
+               for e in s.scalars(select(CostEntry).where(CostEntry.kind == "ads"))]
+    out = []
+    for c in cycles:
+        spend = round(sum(a for d, a in ads if c.cycle_start <= d < c.cycle_end), 6)
+        ended = c.cycle_end <= today
+        used = c.used_displayed_cad
+        if used is None:
+            # Without Etsy's reading of what the credit absorbed, cash beyond it is unknown --
+            # unless nothing was spent at all.
+            cash = 0.0 if spend == 0 else None
+            expired = None
+        else:
+            cash = round(max(spend - used, 0.0), 6)
+            expired = round(c.displayed_cad - used, 6) if ended else 0.0
+        out.append({
+            "cycle_start": c.cycle_start, "cycle_end": c.cycle_end,
+            "official_entitlement_usd": c.entitlement_usd,
+            "displayed_cad": c.displayed_cad,
+            "converted_cad_at_assumed_rate": round(_to_cad(c.entitlement_usd, "USD"), 6),
+            "used_cad": used, "used_basis": "etsy_reported" if used is not None else "UNKNOWN",
+            "expired_cad": expired, "cycle_ended": ended,
+            "recorded_ad_spend_cad": spend,
+            "incremental_cash_spend_cad": cash,
+            "source": c.source, "evidence_ref": c.evidence_ref,
+        })
+    return {
+        "cycles": out,
+        "owner_cash_is_separate": True,
+        "ceilings_changed": 0,
+        "rule": ("Ads credit is Etsy's to spend, not the owner's cash: it is reported beside "
+                 "cash ad spend, never subtracted from a ceiling and never a budget"),
+        "why_empty": ("" if out else "no Etsy Plus Ads-credit cycle has been recorded: the "
+                      "entitlement is unverified and all recorded ad spend is cash"),
     }

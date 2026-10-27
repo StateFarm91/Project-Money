@@ -50,9 +50,18 @@ class JobContext:
     def enqueue(self, agent: str, job_type: str, inputs: dict | None = None, **kw) -> Job | None:
         """Queue follow-on work. Duplicate keys are a success, not an error."""
         try:
-            return self.queue.enqueue(agent, job_type, inputs, **kw)
+            child = self.queue.enqueue(agent, job_type, inputs, **kw)
         except DuplicateJob:
             return None
+        # F-662 (W4-CLOSE6): record which job caused this one, for the causal timeline.
+        # Best effort by design: a link that cannot be written never fails the enqueue.
+        from . import lineage
+
+        if kw.get("session") is None:
+            # A child enqueued inside the caller's own transaction may still roll back; its
+            # link is not written rather than written ahead of the job it names.
+            lineage.record(self.db, self.job, child)
+        return child
 
     def audit(self, action: str, **kw) -> None:
         self.registry.audit(self.job.agent, action, job_id=self.job.id, phase=self.phase, **kw)

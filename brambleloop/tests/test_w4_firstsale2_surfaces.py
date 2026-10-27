@@ -120,6 +120,14 @@ def _world(skip: str = "", *, now: float, mutate: dict | None = None):
                           "decided_on": "2026-10-01"},
                   statement="Identity verification complete; small-supplier position chosen",
                   now=at)
+    # CLOSE6b: F-040 (W4-CLOSE6) made the About story a readiness input -- getShop cannot see
+    # it, so the owner's dated reading is its evidence. A world where "every input is
+    # genuinely satisfied" has it.
+    if skip != "about":
+        so.record(db, page="about", observed_at=obs_at, complete=True,
+                  values={"about_present": True, "matches_storefront": True},
+                  statement="The About story is published and reads as the storefront's",
+                  now=at)
     return db
 
 

@@ -1,0 +1,306 @@
+{
+ "kind": "brambleloop.prod_readback",
+ "read_at": "20261020T1329Z",
+ "build": {
+  "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "commit_short": "b931d17a738d",
+  "branch": "claude/repository-setup-nc9x6o",
+  "known": true
+ },
+ "launch_ready": false,
+ "etsy_first_sale_surfaces": {
+  "key": "etsy_first_sale_surfaces",
+  "description": "every Etsy surface required before the first sale has fresh evidence (the bounded Etsy launch list, intel.etsy_surfaces)",
+  "ready": false,
+  "blocked_by": "owner",
+  "evidence": {
+   "surfaces": [
+    {
+     "surface": "listings",
+     "name": "Listings",
+     "verdict": "ACT",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": null,
+     "why_required": "There is no sale without an active listing, and Etsy refuses to activate one that has no image."
+    },
+    {
+     "surface": "messages",
+     "name": "Messages",
+     "verdict": "OWNER_ONLY",
+     "work_class": "A",
+     "evidence_state": "NO_COLLECTOR",
+     "owner_action": "messages_watch",
+     "why_required": "`digital_sale_message` is delivered at the instant of purchase and cannot be retrofitted to a sale already made, so it has to be set before the first one. The reply protocol itself is a person's job f"
+    },
+    {
+     "surface": "orders",
+     "name": "Orders & Delivery",
+     "verdict": "OBSERVE",
+     "work_class": "A",
+     "evidence_state": "NO_COLLECTOR",
+     "owner_action": "reauthorise_transactions_r",
+     "why_required": "Etsy delivers a digital file without us, so a sale completes whether or not we can see it. What breaks without transactions_r is every downstream obligation: knowing a customer exists, version-aware s"
+    },
+    {
+     "surface": "payment_settings",
+     "name": "Payment Settings",
+     "verdict": "OWNER_ONLY",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": "payment_settings_setup",
+     "why_required": "Without Etsy Payments onboarding and a deposit account, Etsy has nowhere to send money and in most jurisdictions the shop cannot open."
+    },
+    {
+     "surface": "legal_and_tax",
+     "name": "Legal and tax information",
+     "verdict": "OWNER_ONLY",
+     "work_class": "A",
+     "evidence_state": "NO_COLLECTOR",
+     "owner_action": "legal_and_tax_setup",
+     "why_required": "Etsy requires identity verification before a shop can sell, and the tax position has to be chosen before the first invoice rather than corrected after it."
+    },
+    {
+     "surface": "your_shop",
+     "name": "Your Shop (storefront)",
+     "verdict": "ACT",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": null,
+     "why_required": "A storefront with a blank announcement and no digital sale message sells to nobody and tells a buyer nothing after they pay. Both are writable, so leaving them empty would be a choice."
+    },
+    {
+     "surface": "info_and_appearance",
+     "name": "Info & Appearance",
+     "verdict": "OWNER_ONLY",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": "info_and_appearance_setup",
+     "why_required": "A shop with no icon, no banner and no About reads as abandoned to the only buyer we will ever get -- one with no reviews to reassure them."
+    },
+    {
+     "surface": "options",
+     "name": "Options",
+     "verdict": "OBSERVE",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": null,
+     "why_required": "Vacation mode on means no sales at all, and the wrong shop currency makes every price decision in this repository wrong by an exchange rate."
+    },
+    {
+     "surface": "policy_settings",
+     "name": "Policy Settings",
+     "verdict": "OWNER_ONLY",
+     "work_class": "A",
+     "evidence_state": "FRESH",
+     "owner_action": "policy_settings_paste",
+     "why_required": "A shop whose policy pages are blank is selling a non-returnable digital item with no stated position on returns, which is the single most likely first complaint."
+    },
+    {
+     "surface": "digital_files",
+     "name": "Digital files",
+     "verdict": "ACT",
+     "work_class": "A",
+     "evidence_state": "NO_COLLECTOR",
+     "owner_action": null,
+     "why_required": "A digital listing with no file sells a buyer nothing, and Etsy delivers whatever is attached without asking us."
+    },
+    {
+     "surface": "taxonomy_and_attributes",
+     "name": "Category & attributes",
+     "verdict": "OBSERVE",
+     "work_class": "A",
+     "evidence_state": "NO_COLLECTOR",
+     "owner_action": null,
+     "why_required": "A listing cannot be created without a taxonomy_id, and a wrong one is a listing in the wrong category -- which Etsy accepts silently, so nothing fails and nobody finds it."
+    }
+   ],
+   "count": 11,
+   "not_fresh": [
+    "messages",
+    "orders",
+    "legal_and_tax",
+    "digital_files",
+    "taxonomy_and_attributes"
+   ],
+   "shop_checks_failing": [
+    "banner_set",
+    "policy_shipping_set",
+    "policy_additional_unset",
+    "has_a_digital_listing"
+   ],
+   "owner_actions_open": [
+    "info_and_appearance_setup",
+    "legal_and_tax_setup",
+    "messages_watch",
+    "payment_settings_setup",
+    "policy_settings_paste",
+    "reauthorise_transactions_r"
+   ],
+   "source": "intel.etsy_surfaces.first_sale_blockers + etsy_ops readings"
+  }
+ },
+ "shop_snapshots": [
+  {
+   "id": 57264,
+   "at": "2026-10-20T00:09:48.124496+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 52470,
+   "at": "2026-10-19T00:16:09.974585+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 49913,
+   "at": "2026-10-18T01:03:45.958544+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 46850,
+   "at": "2026-10-17T00:14:52.802580+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 44293,
+   "at": "2026-10-16T00:08:31.674035+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 41746,
+   "at": "2026-10-15T00:12:47.382490+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  },
+  {
+   "id": 39182,
+   "at": "2026-10-14T00:07:39.712643+00:00",
+   "actor": "orchestrator",
+   "action": "etsy.shop_snapshot",
+   "artifact": null,
+   "phase": "shadow",
+   "detail": {
+    "evidence": "FRESH",
+    "green": false,
+    "failures": [
+     "banner_set",
+     "policy_shipping_set",
+     "policy_additional_unset",
+     "has_a_digital_listing"
+    ],
+    "unevidenced": [],
+    "incidents_opened": [],
+    "incidents_resolved": [],
+    "owner_actions_closed": [],
+    "owner_actions_reopened": []
+   }
+  }
+ ]
+}

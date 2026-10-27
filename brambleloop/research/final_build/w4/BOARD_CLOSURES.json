@@ -764,6 +764,45 @@
    ],
    "worker": "W4-CLOSE5 2026-10-20",
    "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-685",
+   "criterion": "Etsy Ads Eligibility - persist etsy_ads_status, eligible_from/next_check, evidence_source and last_verified_at. Current 2026-09-25 owner evidence says 9 days remain; do not hard-code a derived date as authoritative.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE6/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE6/prod_api_owner_actions_ads_20261020T1119Z.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "deployed b931d17: growth/ads_readiness.py unchanged since the deploy; production raised the recheck OwnerAction #32 (GET /api/owner-actions); the deployed-tree run of the F-685 test passes",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+    "tests/test_v11_ads_readiness.py::test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+    "tests/test_v11_ads_readiness.py::test_eligibility_evidence_expires_and_is_not_authority"
+   ],
+   "worker": "W4-CLOSE6 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
+  },
+  {
+   "source": "final_master",
+   "id": "F-872",
+   "criterion": "Etsy Scope Reauthorization - Required OAuth scopes such as transactions_r are explicitly reauthorized and proven by readback before trusted use.",
+   "evidence_files": [
+    "research/final_build/w4/evidence_CLOSE6/deployed_tree_tests_b931d17.json",
+    "research/final_build/w4/evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json",
+    "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json"
+   ],
+   "health_file": "research/final_build/w4/evidence_BOARD/prod_health_20261020T0416Z.json",
+   "reading": "deployed b931d17: commerce/orders_ingest.py, runtime/orders.py and build2/executor.py unchanged since the deploy; production commerce.orders_ingested reads measured after the authenticated receipt read on every run since 2026-10-13 (GET /api/audit); the deployed-tree run of the F-872 code tests passes (the production-evidence test reads branch evidence and is run on the branch)",
+   "tests": [
+    "tests/test_w4_close6_scope.py::test_no_receipt_is_read_until_scope_and_a_working_credential_are_both_proven",
+    "tests/test_w4_close6_scope.py::test_a_scope_refusal_is_never_trusted_and_a_working_read_clears_the_request",
+    "tests/test_w4_close6_scope.py::test_production_switched_from_unproven_to_read_back_after_reauthorisation",
+    "tests/test_money_truth.py::test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident"
+   ],
+   "worker": "W4-CLOSE6 2026-10-20",
+   "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57"
   }
  ]
 }

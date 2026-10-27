@@ -11,8 +11,7 @@
    "files": "build2/closure.py, build2/maturity.py, build2/reachability.py, build2/final_proof.py, build2/executor.py, launch/readiness.py (LAUNCH_SCOPE)",
    "owner_lane": "FM",
    "reasons": {
-    "maturity TESTED": 1,
-    "coverage PARTIAL": 1
+    "maturity TESTED": 1
    }
   },
   "PROCESS": {
@@ -33,18 +32,6 @@
    "title": "Wave-3 audit found an owner/data/external gate the canonical mapping does not record (gate key missing)",
    "rows": [
     "F-733"
-   ],
-   "size": 1,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "coverage PARTIAL": 1
-   }
-  },
-  "UNCLUSTERED": {
-   "title": "Launch-critical OPEN rows not in any wave-3 cluster",
-   "rows": [
-    "F-144"
    ],
    "size": 1,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",

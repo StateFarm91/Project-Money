@@ -107,8 +107,14 @@ if [ ! -f "$top/ops/readback.py" ]; then
   exit 0
 fi
 rb=0
-rb_out=${READBACK_JSON:-$(mktemp)}
-python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_out" || rb=$?
+# The readback is evidence: it is written where the completion board reads it (F-144), so a
+# row whose feature did not read back on the deployed commit cannot be counted complete. The
+# same file feeds the F-381 rollback decision below.
+rb_json="${READBACK_JSON:-$top/brambleloop/research/final_build/w4/evidence_BOARD/prod_readback_$(printf %.12s "$sha")_$(date -u +%Y%m%dT%H%MZ).json}"
+mkdir -p "$(dirname "$rb_json")"
+python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_json" || rb=$?
+echo "deploy.sh: readback evidence $rb_json"
+rb_out="$rb_json"   # the F-381 rollback decision below reads the same evidence
 if [ "$rb" -ne 0 ]; then
   echo "deploy.sh: DEPLOYED $sha but the production readback did not pass (readback exit $rb)" >&2
   # W4-FMBATCH1 (F-381): the failure's severity decides containment. A P0 regression (safety,

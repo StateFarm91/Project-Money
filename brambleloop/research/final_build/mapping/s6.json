@@ -3028,33 +3028,38 @@
   "uid": "F-538",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "money truth (fees, refunds, payouts) must reconcile from the first sale",
-  "maturity": "DEPLOYED",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "books compute P&L from observed ledger entries daily and ingested sales carry modelled fees; no reader for Etsy payment-account ledger/payouts, taxes or ad/subscription charges exists, and receipts are not yet readable (transactions_r)",
-  "producer": "src/brambleloop/finance/books.py::Books",
+  "missing_part": "orders, transaction/processing/offsite/regulatory/conversion/listing fees and refunds are reconciled against Etsy's payment-account ledger (finance/reconcile.py) and payouts against bank statement lines (finance/accounting); taxes/remittances, credits and subscription ledger types are deliberately unclassified (reported, never counted) and the type/unit mapping is unverified until a real settlement",
+  "producer": "src/brambleloop/finance/reconcile.py::apply; commerce/orders_ingest.py::_reconcile_fees",
   "durable_state": "ledger",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+  "consumer": "commerce/orders_ingest.py::ingest (fees_basis on every order); finance/books.py::Books; runtime/pipeline.py::handle_finance_reconcile",
   "protected_effect": "revenue is reported from observed entries only (zero is zero)",
   "tests": [
-   "tests/test_finance.py"
+   "tests/test_finance.py",
+   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+   "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+   "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+   "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
   ],
   "evidence": [
    "finance.reconcile daily cadence in production since Build 1",
-   "commerce/fee_schedule.py: unmodelled fees labelled secondary (test_etsy_surfaces.py::test_the_unmodelled_fees_are_labelled_secondary_because_etsy_refuses_to_be_read)"
+   "commerce/fee_schedule.py: unmodelled fees labelled secondary (test_etsy_surfaces.py::test_the_unmodelled_fees_are_labelled_secondary_because_etsy_refuses_to_be_read)",
+   "w4-CLOSE6 on deployed b931d17: the mapping's 'no reader for the payment-account ledger' is stale: commerce/orders_ingest reads getShopPaymentAccountLedgerEntries through the client transport and finance/reconcile applies it with an explicit allow-list (unknown types reported, never counted; fees 'unverified' until an owner-recorded mapping verification); transactions_r is open in production (research/final_build/w4/evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json)"
   ],
   "build2_rows": [
    "#269 COMPLETE+PROVEN",
    "#31 DATA-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "payment ledger and receipts need transactions_r"
+   "kind": "data",
+   "key": "customers",
+   "detail": "a real settlement is the only evidence that verifies the mapping; the criterion itself keeps unknown fee behaviour explicit until then"
   },
   "defect": null,
-  "next_action": "Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/payouts with ledger entries per receipt, keeping unknown fee behaviour explicit",
+  "next_action": "data: first real settlement; owner records the mapping verification; classify any tax/credit/subscription ledger types then seen",
   "confidence": "HIGH",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-539",

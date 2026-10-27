@@ -1213,33 +1213,39 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Checks draft storefront text (about, policies, sections, icon/banner briefs) not the actual Etsy shop icon/About state",
-  "producer": "src/brambleloop/brand/storefront.py::check_storefront + commerce/trust.py::accelerator",
-  "durable_state": null,
-  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop on a daily getShop); src/brambleloop/commerce/shop_observations.py::record (page 'about')",
+  "durable_state": "operating_readings etsy.shop_snapshot; audit etsy.shop_observation (etsy_page:about)",
+  "consumer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces (shop_checks_failing + about_story hold launch)",
   "protected_effect": "launch readiness blocked on store problems",
   "tests": [
    "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
    "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
-   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+   "tests/test_w4_close6_shop.py::test_a_complete_live_shop_with_its_about_observed_has_no_shop_failure",
+   "tests/test_w4_close6_shop.py::test_the_about_story_must_be_evidenced_published_and_fresh",
+   "tests/test_w4_close6_shop.py::test_a_missing_icon_or_no_shop_reading_holds_launch",
+   "tests/test_w4_close6_shop.py::test_production_holds_launch_on_the_live_shop_as_it_is",
+   "tests/test_etsy_surfaces.py::test_a_correct_and_current_shop_is_the_only_thing_that_reads_green"
   ],
   "evidence": [
-   "intel/etsy_surfaces.py assess_shop (live shop fields) is unreached"
+   "intel/etsy_surfaces.py assess_shop (live shop fields) is unreached",
+   "w4-CLOSE6 on deployed b931d17: the mapping's 'checks draft text, not the actual shop' is stale: production b931d17 reads the live shop daily (etsy.shop_snapshot FRESH) and launch readiness is held on what is missing there today -- banner, shipping/additional policy, a digital listing (research/final_build/w4/evidence_CLOSE6/prod_api_launch_shop_20261020T1329Z.json). The About story was the one element nothing could see (getShop has no About field): it is now evidenced by the owner's dated shop-page reading, and readiness holds when it is unobserved, stale, incomplete or not published. Dev-proven."
   ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_shop",
-   "detail": "verifying the live icon/About needs the shop and getShop read"
+   "kind": "none",
+   "key": null,
+   "detail": "the gate is enforced in code; completing the banner, policies and About in Shop Manager is the owner's (info_and_appearance_setup)"
   },
   "defect": null,
-  "next_action": "Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only drafts",
+  "next_action": "deploy W4-CLOSE6; the owner completes the shop and records the About reading (POST /api/etsy/shop-observation, page 'about')",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "w4-CLOSE5 on deployed b931d17"
  },
  {
   "uid": "F-041",

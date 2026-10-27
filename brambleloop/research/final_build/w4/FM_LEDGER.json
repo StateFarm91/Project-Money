@@ -8,28 +8,28 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 434,
-   "OWNER-GATED": 124,
-   "OPEN-DEFECT": 223,
-   "DATA-GATED": 94,
+   "PROVEN": 441,
+   "OWNER-GATED": 120,
+   "OPEN-DEFECT": 218,
+   "DATA-GATED": 96,
    "EXTERNAL-GATED": 35,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 377,
-   "OWNER-GATED": 53,
+   "PROVEN": 380,
+   "OWNER-GATED": 49,
    "EXTERNAL-GATED": 26,
-   "DATA-GATED": 29,
-   "OPEN-DEFECT": 5
+   "DATA-GATED": 31,
+   "OPEN-DEFECT": 4
   },
   "status_post_launch": {
-   "OPEN-DEFECT": 218,
-   "PROVEN": 57,
+   "OPEN-DEFECT": 214,
+   "PROVEN": 61,
    "OWNER-GATED": 71,
    "DATA-GATED": 65,
    "EXTERNAL-GATED": 9
   },
-  "launch_critical_open": 5,
+  "launch_critical_open": 4,
   "reachability_basis": "HEAD b931d17 (deployed production b931d17a738d6a5bcd96580f620069b669ca5f57 per /health build.commit 2026-10-20T04:16Z; clean detached worktree, W4-CLOSE5) reachability; production field in_production_fcb982d kept for aggregate.cap, in_production_0417f35 and in_production_b931d17 added",
   "unreached_modules": [
    "app/command_center/snapshots/__main__.py",
@@ -1148,26 +1148,25 @@
    "title": "Shop Quality Gate",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "PROVEN",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/brand/storefront.py::check_storefront + commerce/trust.py::accelerator",
-   "consumer": "src/brambleloop/launch/readiness.py::assess",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop on a daily getShop); src/brambleloop/commerce/shop_observations.py::record (page 'about')",
+   "consumer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces (shop_checks_failing + about_story hold launch)",
    "tests": [
     "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
     "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
-    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+    "tests/test_w4_close6_shop.py::test_a_complete_live_shop_with_its_about_observed_has_no_shop_failure",
+    "tests/test_w4_close6_shop.py::test_the_about_story_must_be_evidenced_published_and_fresh",
+    "tests/test_w4_close6_shop.py::test_a_missing_icon_or_no_shop_reading_holds_launch",
+    "tests/test_w4_close6_shop.py::test_production_holds_launch_on_the_live_shop_as_it_is",
+    "tests/test_etsy_surfaces.py::test_a_correct_and_current_shop_is_the_only_thing_that_reads_green"
    ],
-   "gate": {
-    "kind": "owner",
-    "key": "etsy_shop"
-   },
-   "reasons": [
-    "owner gate 'etsy_shop'",
-    "coverage PARTIAL: Checks draft storefront text (about, policies, sections, icon/banner briefs) not the actual Etsy shop icon/About state"
-   ],
-   "next_action": "Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only drafts",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6; the owner completes the shop and records the About reading (POST /api/etsy/shop-observation, page 'about')",
    "mapped_on": "6f9a2f7",
    "w3_triage": null,
    "w3_cluster": null,
@@ -4048,21 +4047,24 @@
    "title": "Production Readback Gate",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "EXERCISED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/app/main.py::api_verify",
-   "consumer": null,
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/ops/smoke.py::smoke_matrix (GET /api/verify/smoke); ops/readback.py::run (per-feature MANIFEST: endpoint, field, predicate, rows)",
+   "consumer": "ops/deploy.sh (exit 5 when a feature does not read back; writes the readback evidence); research/final_build/w4/completion_board_final.py::apply_readback (a row a feature names is not verified_complete unless the deployed commit's readback passed)",
    "tests": [
     "tests/test_deploy.py::test_the_status_endpoint_says_which_commit_is_running",
-    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions"
+    "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+    "tests/test_w4_close6_readback.py::test_the_manifest_reads_back_the_features_that_failed_unseen",
+    "tests/test_w4_close6_readback.py::test_a_row_is_not_complete_unless_its_deployed_readback_passed",
+    "tests/test_w4_close6_readback.py::test_deploy_writes_the_readback_where_the_board_reads_it",
+    "tests/test_w4_close6_readback.py::test_the_committed_board_applies_the_deployed_readback",
+    "tests/test_w4_smoke.py::test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do"
    ],
    "gate": null,
-   "reasons": [
-    "coverage PARTIAL: no per-feature readback rule: a launch-critical feature is not refused 'done' until its deployed readback passes; the deployed /api/verify itself is red on two "
-   ],
-   "next_action": "company: per-feature readback manifest (endpoint + expected field) for launch-critical features, run against production after each deploy; integrator decision on the 0.0 agent ceilings (not changed by this lane)",
+   "reasons": [],
+   "next_action": "deploy the next release with ops/deploy.sh; the row is held until that commit's readback passes (b931d17 reads FAIL: dead letters, /api/departments 500 -- both fixed on the branch)",
    "mapped_on": "0417f35",
    "w3_triage": null,
    "w3_cluster": null,
@@ -7635,26 +7637,27 @@
    "title": "Offsite Ads Accounting",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "DATA-GATED",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "PARTIAL",
-   "producer": "src/brambleloop/commerce/paid_media.py::offsite_ads_forecast (ads_plan)",
-   "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+   "producer": "src/brambleloop/finance/reconcile.py::apply (offsite_ads_fee -> offsite_ad_attributed); commerce/paid_media.py::offsite_ads_forecast",
+   "consumer": "commerce/orders_ingest.py::_reconcile_fees (every receipt read); runtime/growth_ops.py::handle_ads_adjust",
    "tests": [
     "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
     "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
-    "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
+    "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold",
+    "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
+    "kind": "data",
+    "key": "customers"
    },
    "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust,"
+    "data gate 'customers'",
+    "coverage PARTIAL: Offsite Ads fees are read from Etsy's payment-account ledger, deducted and set offsite_ad_attributed (finance/reconcile.py), but no sale has happened, so no rea"
    ],
-   "next_action": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
+   "next_action": "data: the first real offsite-attributed sale; the owner then records the ledger mapping verification (owner.etsy_ledger_mapping.verified)",
    "mapped_on": "8b67414",
    "w3_triage": "G",
    "w3_cluster": null,
@@ -15181,24 +15184,28 @@
    "title": "Finance Reconciliation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
-   "maturity": "DEPLOYED",
-   "maturity_claimed": "DEPLOYED",
+   "status": "DATA-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
    "coverage": "PARTIAL",
-   "producer": "src/brambleloop/finance/books.py::Books",
-   "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+   "producer": "src/brambleloop/finance/reconcile.py::apply; commerce/orders_ingest.py::_reconcile_fees",
+   "consumer": "commerce/orders_ingest.py::ingest (fees_basis on every order); finance/books.py::Books; runtime/pipeline.py::handle_finance_reconcile",
    "tests": [
-    "tests/test_finance.py"
+    "tests/test_finance.py",
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+    "tests/test_money_truth.py::test_the_production_reader_reads_the_ledger_through_the_client_transport"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
+    "kind": "data",
+    "key": "customers"
    },
    "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: books compute P&L from observed ledger entries daily and ingested sales carry modelled fees; no reader for Etsy payment-account ledger/payouts, taxes or ad/subs"
+    "data gate 'customers'",
+    "coverage PARTIAL: orders, transaction/processing/offsite/regulatory/conversion/listing fees and refunds are reconciled against Etsy's payment-account ledger (finance/reconcile.py"
    ],
-   "next_action": "Build a getShopPaymentAccountLedgerEntries reader (transactions_r) and a reconciliation that compares Etsy fees/refunds/payouts with ledger entries per receipt, keeping unknown fee behaviour explicit",
+   "next_action": "data: first real settlement; owner records the mapping verification; classify any tax/credit/subscription ledger types then seen",
    "mapped_on": "6f9a2f7",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18159,20 +18166,22 @@
    "launch_class": "MATURE",
    "launch_blocking": false,
    "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
+   "maturity": "TESTED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); src/brambleloop/app/command_center/causal.py::stories",
+   "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the Timeline view (static/js/views/timeline.js 'What the company did')",
    "tests": [
-    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain"
+    "tests/test_shadow.py::test_audit_trail_covers_the_whole_chain",
+    "tests/test_w4_close6_timeline.py::test_a_pipeline_run_is_one_causal_story_across_departments",
+    "tests/test_w4_close6_timeline.py::test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+    "tests/test_w4_close6_timeline.py::test_the_timeline_serves_the_stories"
    ],
    "gate": null,
    "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: Only a raw audit-log table (last 15 AuditLog rows: time, actor, action, artifact) -- the tool-call-level stream the requirement says to replace; no causal, huma"
+    "maturity TESTED below target INTEGRATED"
    ],
-   "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
+   "next_action": "deploy W4-CLOSE6",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18211,19 +18220,22 @@
    "title": "Ask Brambleloop",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No command/search bar, no natural-language question endpoint over company state."
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/ask.py::ask (spend_q, agents_q, opportunities_q added; overnight, profit, launch_blocked, product_blocked, approval_reason, incidents_q existing)",
+   "consumer": "POST /api/cc/ask (app/command_center/api.py) -> the Command Center Ask view (static/js/views/ask.js)",
+   "tests": [
+    "tests/test_w4_close6_ask.py::test_every_named_question_routes_to_a_reader",
+    "tests/test_w4_close6_ask.py::test_spend_agents_and_opportunities_are_answered_from_cited_rows",
+    "tests/test_w4_close6_ask.py::test_an_empty_company_answers_nothing_recorded_never_an_invention",
+    "tests/test_w4_close6_ask.py::test_the_surface_is_the_command_center_bar",
+    "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing"
    ],
-   "next_action": "Build /api/ask routing a question to a fixed set of deterministic answerers (what changed: timeline; why profit moved: finance.books delta; what blocks launch: launch.readiness; agents: swarm; spend: spend_report) with cited evidence; optional LLM phrasing under gateway budget; test each intent.",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18274,18 +18286,21 @@
    "launch_class": "MATURE",
    "launch_blocking": false,
    "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
+   "maturity": "TESTED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/brief.py::morning_sections; app/command_center/tabs.py::morning_brief",
+   "consumer": "GET /api/cc/brief/morning -> HOME 'Overnight handoff' card (static/js/views/home.js BRIEF_ORDER)",
+   "tests": [
+    "tests/test_w4_close6_brief.py::test_every_named_item_is_a_section_read_from_its_rows",
+    "tests/test_w4_close6_brief.py::test_unmeasured_sales_are_never_zero_and_an_unreadable_source_is_unknown",
+    "tests/test_w4_close6_brief.py::test_the_overnight_handoff_on_home_carries_every_named_item"
+   ],
    "gate": null,
    "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No 'while you were away' brief; ingredients exist separately (learning-changes block, /api/nightly improvement sweep, spend_report, incidents) but nothing aggre"
+    "maturity TESTED below target INTEGRATED"
    ],
-   "next_action": "Build /api/brief?since=<ts> composing jobs completed, products/status transitions, owned/model photography attempts, mjs findings, CostEntry sums, LedgerEntry sales, incidents and open owner actions; render on Studio home; test with seeded rows.",
+   "next_action": "deploy W4-CLOSE6",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18795,20 +18810,21 @@
    "title": "Etsy Ads Eligibility",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No persisted etsy_ads_status, eligible_from/next_check, evidence_source or last_verified_at; ad readiness is only the ad_authority SpendLimit gate."
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "DEPLOYED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/growth/ads_readiness.py::tick; growth/ads_readiness.py::locked_row (MarketplaceCapability row)",
+   "consumer": "growth/ads_readiness.py::_eligibility_gate (listing_readiness); launch/visibility.py etsy_ads; Command Center ads provider",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+    "tests/test_v11_ads_readiness.py::test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+    "tests/test_v11_ads_readiness.py::test_eligibility_evidence_expires_and_is_not_authority"
    ],
-   "next_action": "Add an AdsEligibility table (status, eligible_from, next_check, evidence_source, last_verified_at) with an owner-recorded reading endpoint (like /api/insights/snapshot); never derive ELIGIBLE from a countdown; test.",
-   "mapped_on": "019ebf0",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- deployed; the owner's reading is recorded through F-686's route",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []
@@ -18819,19 +18835,19 @@
    "title": "Ads Recheck",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No recheck cadence; no rule preventing a countdown from setting ELIGIBLE (nothing to set)."
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/growth/ads_readiness.py::tick; src/brambleloop/app/main.py::api_ads_eligibility (growth/ads_readiness.py::record_evidence)",
+   "consumer": "OwnerAction etsy_ads_eligibility_evidence (closed SATISFIED by the recorded reading); growth/ads_readiness.py::_eligibility_gate",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible",
+    "tests/test_w4_close6_ads.py::test_f686_the_owner_reading_completes_the_recheck_through_the_route"
    ],
-   "next_action": "Add ads.eligibility_recheck cadence that, at next_check, creates an owner-read request (no Etsy Ads API endpoint is authorised) and only an evidence reading changes status; test countdown-zero leaves status unchanged.",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6 (POST /api/ads/eligibility); then the owner records the reading OwnerAction #32 asks for",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -18873,19 +18889,19 @@
    "title": "Ads Credit Accounting",
    "launch_class": "MATURE",
    "launch_blocking": false,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "maturity_claimed": "MISSING",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity MISSING below target INTEGRATED",
-    "coverage PARTIAL: No record of Etsy Plus ads-credit entitlement (USD 5/cycle), local CAD display, cycle dates, consumed/expired credit or incremental cash spend; Etsy Plus appear"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/credits.py::ads_credit; finance/credits.py::record_ads_credit_cycle; src/brambleloop/app/main.py::api_ads_credit",
+   "consumer": "finance/credits.py::wallet -> finance/spend_report.py::governance (dashboard spend governance)",
+   "tests": [
+    "tests/test_w4_close6_ads.py::test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+    "tests/test_w4_close6_ads.py::test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"
    ],
-   "next_action": "Add AdsCreditCycle rows (official_entitlement_usd, displayed_cad, cycle_start/end, consumed, expired, owner_cash_spend) and keep them separate from SpendLimit cash; test that credit never counts as owner cash.",
+   "gate": null,
+   "reasons": [],
+   "next_action": "deploy W4-CLOSE6; the owner records each cycle as Etsy shows it",
    "mapped_on": "019ebf0",
    "w3_triage": null,
    "w3_cluster": null,
@@ -22847,20 +22863,22 @@
    "status": "OPEN-DEFECT",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/build2/final_proof.py::validate",
-   "consumer": null,
+   "coverage": "FULL",
+   "producer": "scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain; src/brambleloop/build2/final_proof.py::validate",
+   "consumer": "src/brambleloop/build2/final_proof.py::validate (refuses a row without bound durable_state/consumer/decision/effect/result receipts naming the row's own consumer) -> the integrator's release proof",
    "tests": [
     "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
     "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
-    "tests/test_final_proof.py::test_required_receipt_mutations"
+    "tests/test_final_proof.py::test_required_receipt_mutations",
+    "tests/test_w4_close6_proof.py::test_a_recorded_edge_gives_every_chain_stage_a_bound_receipt",
+    "tests/test_w4_close6_proof.py::test_an_unbound_read_claims_nothing_past_the_producer",
+    "tests/test_w4_close6_proof.py::test_the_recorded_rehearsal_binds_the_edge_on_this_head"
    ],
    "gate": null,
    "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: final_proof needs, per launch-critical row, chain receipts durable_state -> consumer -> decision -> effect -> result bound to one run on the candidate head, a p"
+    "maturity TESTED below target INTEGRATED"
    ],
-   "next_action": "company: extend scripts/emit_runtime_packets.py to read the rehearsal DB proofs into per-stage receipts and to bind the suite by the deploy-guard tree rule; then a separate session reviews the packets (independent_review). Not owner-gated",
+   "next_action": "integrator: accept the structural TESTED target proposed in w4/OVERRIDES_PROPOSED_CLOSE6.json (producer is a script + the offline adjudicator final_proof.py, so INTEGRATED is unreachable by construction, as for F-846); per row, an independent reviewer and production-producer / failure-test receipts",
    "mapped_on": "0417f35",
    "w3_triage": "O",
    "w3_cluster": "K13",
@@ -23852,26 +23870,24 @@
    "title": "Etsy Scope Reauthorization",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OWNER-GATED",
+   "status": "PROVEN",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "PARTIAL",
+   "coverage": "FULL",
    "producer": "src/brambleloop/build2/executor.py Gate('transactions_r')::_transactions_readable; commerce/orders_ingest.py",
    "consumer": "src/brambleloop/runtime/orders.py::handle_orders_ingest",
    "tests": [
     "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
-    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+    "tests/test_w4_close6_scope.py::test_no_receipt_is_read_until_scope_and_a_working_credential_are_both_proven",
+    "tests/test_w4_close6_scope.py::test_a_scope_refusal_is_never_trusted_and_a_working_read_clears_the_request",
+    "tests/test_w4_close6_scope.py::test_production_switched_from_unproven_to_read_back_after_reauthorisation",
+    "tests/test_money_truth.py::test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident"
    ],
-   "gate": {
-    "kind": "owner",
-    "key": "transactions_r"
-   },
-   "reasons": [
-    "owner gate 'transactions_r'",
-    "coverage PARTIAL: the gate checks stored grant scope AND a recorded etsy.probe; readback of a real receipt after reauthorisation not yet possible"
-   ],
-   "next_action": "Owner action: reauthorise_transactions_r; then run etsy.probe readback and record evidence",
-   "mapped_on": "6f9a2f7",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none -- re-authorised and read back in production",
+   "mapped_on": "b931d17",
    "w3_triage": null,
    "w3_cluster": null,
    "claims": []

@@ -1,0 +1,131 @@
+{
+ "kind": "brambleloop.deployed_tree_tests",
+ "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+ "src_tree_clean": true,
+ "run_at": "2026-10-20T13:25:17Z",
+ "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
+ "runs": [
+  {
+   "file": "tests/test_cert_orders.py",
+   "rc": 0,
+   "ok": 23,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_correcting_version_prepares_the_notice_for_its_buyers",
+    "test_a_crash_between_writes_then_a_rerun_converges_to_exactly_once",
+    "test_a_late_refund_is_reconciled_through_every_reader",
+    "test_a_routine_newer_version_is_not_a_correction",
+    "test_bundle_pairs_come_from_certified_product_facts",
+    "test_gate_closed_records_unmeasured_and_never_touches_the_reader",
+    "test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+    "test_launch_survival_needs_a_publication_not_a_draft",
+    "test_new_jobs_are_scheduled_permitted_and_banded",
+    "test_new_modules_are_reached_from_the_runtime",
+    "test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect",
+    "test_order_readings_drive_every_downstream_reader",
+    "test_out_of_order_arrival_yields_the_same_first_purchase_cohort",
+    "test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+    "test_pricing_decides_on_net_contribution_with_currency_normalised",
+    "test_pricing_refusals_stop_the_chain_rather_than_annotate",
+    "test_promotion_verdicts_reach_pricing",
+    "test_reinvestment_raises_an_owner_action_when_the_envelope_is_non_zero",
+    "test_the_delivered_version_comes_from_history_or_is_unknown",
+    "test_the_route_reads_the_database_not_an_empty_dict",
+    "test_trajectory_runs_nightly_from_the_database",
+    "test_unknown_acquisition_stays_unknown_and_loop_counters_reconcile_down",
+    "test_unpaid_cancelled_and_unknown_receipts_never_become_sales"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_money_truth.py",
+   "rc": 0,
+   "ok": 18,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_cancelled_receipt_keeps_no_revenue",
+    "test_a_receipt_level_fee_is_shared_across_its_lines_by_price",
+    "test_an_acquisition_source_without_evidence_is_refused",
+    "test_an_auth_failure_never_reopens_an_action_the_owner_closed",
+    "test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+    "test_break_even_and_maintenance_split_creation_from_recurring_cost",
+    "test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident",
+    "test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+    "test_launch_readiness_carries_the_sustainable_economics_requirement",
+    "test_the_books_measure_sales_only_after_a_connected_source_was_read",
+    "test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+    "test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
+    "test_the_forecast_refuses_on_thin_data_and_shows_only_a_floor",
+    "test_the_ledger_columns_are_added_to_an_existing_table_without_touching_its_rows",
+    "test_the_production_reader_reads_the_ledger_through_the_client_transport",
+    "test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_v11_ads_readiness.py",
+   "rc": 0,
+   "ok": 11,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+    "test_eligibility_evidence_expires_and_is_not_authority",
+    "test_fully_evidenced_listing_is_ready_with_modelled_basis",
+    "test_future_or_blank_evidence_refused",
+    "test_next_work_contract",
+    "test_offsite_exposure_is_modelled_and_labelled",
+    "test_summary_contract_on_empty_and_populated_db",
+    "test_trust_gate_unreadable_is_unknown_not_pass",
+    "test_uncertified_or_unpublished_or_truth_incident_blocks",
+    "test_unknown_economics_is_never_ready",
+    "test_unknown_gates_never_count_as_pass"
+   ],
+   "tail": [
+    "11 passing, 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close6_ads.py",
+   "rc": 1,
+   "ok": 2,
+   "fail": 3,
+   "failing": [
+    "test_f686_the_owner_reading_completes_the_recheck_through_the_route",
+    "test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+    "test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"
+   ],
+   "passed_tests": [
+    "test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+    "test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible"
+   ],
+   "tail": [
+    "FAIL: 3 failing of 5"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close6_scope.py",
+   "rc": 1,
+   "ok": 2,
+   "fail": 1,
+   "failing": [
+    "test_production_switched_from_unproven_to_read_back_after_reauthorisation"
+   ],
+   "passed_tests": [
+    "test_a_scope_refusal_is_never_trusted_and_a_working_read_clears_the_request",
+    "test_no_receipt_is_read_until_scope_and_a_working_credential_are_both_proven"
+   ],
+   "tail": [
+    "FAIL: 1 failing of 3"
+   ]
+  }
+ ]
+}

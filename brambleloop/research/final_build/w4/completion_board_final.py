@@ -148,6 +148,10 @@ ROOT_TITLES = {
                                         "criterion (BOARD_AUDIT.json)",
     "private_laura_owner_gates": "Private Laura register: owner gates, then production soak",
     "engineering_open": "Open engineering work",
+    "deployed_readback_failed": "Production readback of the deployed commit did not pass "
+                                "(ops/readback.py, F-144)",
+    "deployed_readback_missing": "No production readback of the deployed commit on file "
+                                 "(ops/readback.py, F-144)",
     "release_undeployed_code": "Proven only on the integration branch (release + production "
                                "evidence needed)",
 }
@@ -547,6 +551,63 @@ def apply_audit(rows: list[dict], audit: dict) -> None:
                  missing_evidence=a.get("downgrade_reason"))
 
 
+def _readback_manifest() -> dict[str, list[str]] | None:
+    """`ops/readback.py`'s feature -> Final Master rows (repo-root operator tooling)."""
+    import importlib.util
+
+    path = REPO / "ops" / "readback.py"
+    if not path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location("bl_ops_readback", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.rows_by_feature()
+
+
+def apply_readback(rows: list[dict], prod: dict) -> dict:
+    """F-144: downgrade, never upgrade. A Final Master row that a production readback feature
+    names is not verified_complete unless the readback of the DEPLOYED commit passed for every
+    feature naming it. No readback of the deployed commit on file is UNKNOWN, never a pass."""
+    manifest = _readback_manifest()
+    if manifest is None:
+        return {"status": "UNKNOWN", "why": "ops/readback.py absent"}
+    files = sorted(EV.glob(f"prod_readback_{prod['commit'][:12]}_*.json"))
+
+    def rel(p):
+        try:
+            return str(p.relative_to(BL))
+        except ValueError:
+            return str(p)
+
+    reading = json.loads(files[-1].read_text()) if files else None
+    if reading is not None and reading.get("sha") != prod["commit"]:
+        reading = None
+    verdict = {f["feature"]: f["verdict"] for f in (reading or {}).get("features", [])}
+    named: dict[str, list[str]] = {}
+    for feature, ids in manifest.items():
+        for rid in ids:
+            named.setdefault(rid, []).append(feature)
+    for x in rows:
+        if x["source"] != "final_master" or x["id"] not in named:
+            continue
+        failing = [f for f in named[x["id"]] if verdict.get(f) != "PASS"]
+        x["readback"] = {"features": named[x["id"]],
+                         "file": rel(files[-1]) if files else None,
+                         "not_passing": failing}
+        if failing and x["cls"] == "verified_complete":
+            x.update(cls="implemented_unverified",
+                     root=("deployed_readback_failed" if reading else
+                           "deployed_readback_missing"),
+                     blocked_by="engineering: the deployed commit does not read back",
+                     responsible="integrator (fix forward or roll back)",
+                     missing_evidence=(f"production readback of {prod['commit'][:12]}: "
+                                       f"{failing} not PASS" if reading else
+                                       f"no readback of {prod['commit'][:12]} on file"))
+    return {"status": (reading or {}).get("verdict", "UNKNOWN"),
+            "file": rel(files[-1]) if files else None,
+            "not_done": (reading or {}).get("not_done")}
+
+
 def _closures(prod: dict) -> dict:
     """Rows closed on committed production evidence of the DEPLOYED commit (BOARD_CLOSURES.json).
     Accepted only when every named evidence file exists and the production /health read with
@@ -659,6 +720,7 @@ def main() -> int:
                                                      "tests", "worker")}
     audit = _audit()
     apply_audit(b2 + fm, audit)
+    readback = apply_readback(fm, prod)
     tr_in = _rows_tracked()
     tracked = classify(tr_in, prod, in_prod, changed, branches, owner_by_gate)
     for rec, src in zip(tracked, tr_in):
@@ -761,6 +823,7 @@ def main() -> int:
                       "reclosed": sorted(
                           f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}"
                           for x in b2 + fm if (x.get("audit") or {}).get("reclosed_verified"))},
+            "deployed_readback": readback,
             "closed_on_production_evidence": sorted(
                 f"{'B2#' if x['source'] == 'build2' else ''}{x['id']}"
                 for x in b2 + fm if x.get("closed_on_production_evidence")),

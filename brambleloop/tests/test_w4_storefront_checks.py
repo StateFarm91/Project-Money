@@ -187,6 +187,13 @@ def test_e4_a_failing_check_opens_only_its_own_owner_action():
     st = _assess(_shop(image_url_760x100="https://x/b.jpg"), delivery_policy=_delivery(False))
     etsy_ops.store_reading(db, etsy_ops.SHOP_READING,
                            {"observed_at": NOW, "shop": _shop(), "status": st.to_dict()})
+    # CLOSE6b: the About story (F-040) is observed, so only the listing check fails.
+    from brambleloop.commerce import shop_observations
+
+    at = datetime.fromtimestamp(NOW, timezone.utc)
+    shop_observations.record(db, page="about", observed_at=at, complete=True,
+                             values={"about_present": True, "matches_storefront": True},
+                             statement="About story published", now=at)
     req = R.etsy_first_sale_surfaces(db, now=NOW)
     assert req.evidence["shop_checks_failing"] == ["has_a_digital_listing"]
     opened = set(req.evidence["owner_actions_open"])

@@ -520,6 +520,96 @@ def record_chain(rec: Recorder, db, cir, ctx: dict) -> dict:
     return state
 
 
+def record_edges(db, slug: str, version: str) -> dict:
+    """F-834 (W4-CLOSE6): the evidence edges producer -> durable state -> consumer -> decision ->
+    effect -> result, read from the rows this run wrote, so a packet can carry a receipt for
+    each stage instead of the producer alone.
+
+    `durable` names, per producer job type, the row it wrote and the job that wrote it (the
+    audit row the producer emitted carries the job id). `consumers["store.publish"]` records
+    that the publish job READ that state: its `store.release_gates` audit -- written by that
+    job -- names the same slug, version and release hash. It also records what the job decided
+    (refused in SHADOW, and whether the release gates would block), the effect it wrote (the
+    `store.publish_refused` audit row) and the result (no `store.published` row; the listing
+    has no Etsy id). Nothing is inferred: an edge whose rows are absent is not recorded.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job, Listing, PatternVersion, Product
+
+    jobs = {j["job_type"]: j for j in _jobs(db, CHAIN, slug)}
+    durable: dict = {}
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                                    PatternVersion.version == version))
+              if product else None)
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+        pv_d = ({"id": pv.id, "certified": bool(pv.certified), "release_hash": pv.release_hash}
+                if pv else None)
+        l_d = ({"id": listing.id, "release_hash": listing.release_hash,
+                "etsy_listing_id": listing.etsy_listing_id} if listing else None)
+
+    every = _jobs(db, CHAIN, slug)
+
+    def by_job(action, job_type):
+        """The newest audit row of `action` written by a job of `job_type` for this product,
+        and that job (a later re-run of the same type that has not finished yet does not
+        hide the run that wrote the row)."""
+        ids = {j["id"]: j for j in every if j["job_type"] == job_type}
+        rows = [a for a in _audits(db, action, slug) if a["job_id"] in ids]
+        return (ids[rows[-1]["job_id"]], rows[-1]) if rows else (None, None)
+
+    j, a = by_job("cir.compiled", "cir.compile")
+    if j and a and pv_d:
+        durable["cir.compile"] = {"identity": f"pattern_versions:{pv_d['id']}",
+                                  "job": j["id"], "audit": f"audit_log:{a['id']}"}
+    j, a = by_job("gate.certified", "gate.certify")
+    if j and a and pv_d and pv_d["certified"]:
+        durable["gate.certify"] = {
+            "identity": f"pattern_versions:{pv_d['id']}#certified:{pv_d['release_hash']}",
+            "job": j["id"], "audit": f"audit_log:{a['id']}",
+            "release_hash": pv_d["release_hash"]}
+    j, a = by_job("listing.seo_drafted", "listing.seo")
+    if j and a and l_d:
+        durable["listing.seo"] = {"identity": f"listings:{l_d['id']}", "job": j["id"],
+                                  "audit": f"audit_log:{a['id']}",
+                                  "release_hash": l_d["release_hash"]}
+    consumers: dict = {}
+    pub = jobs.get("store.publish")
+    if pub:
+        gates = [g for g in _audits(db, "store.release_gates", slug) if g["job_id"] == pub["id"]]
+        refused = [r for r in _audits(db, "store.publish_refused", slug)
+                   if r["job_id"] == pub["id"]]
+        published = _audits(db, "store.published")
+        if gates and refused:
+            g = gates[-1]["detail"]
+            rel = pv_d["release_hash"] if pv_d else None
+            consumers["store.publish"] = {
+                "job": pub["id"], "status": pub["status"],
+                # The publish job is keyed to the certified release it was enqueued for
+                # (runtime.release.chain_key("publish", slug, version, release, ...)), and the
+                # gates it computed name the same slug and version.
+                "reads": {"audit": f"audit_log:{gates[-1]['id']}",
+                          "slug": g.get("slug"), "version": g.get("version"),
+                          "same_version": g.get("version") == version,
+                          "idempotency_key": pub["idempotency_key"],
+                          "same_release": bool(rel) and f":{rel[:12]}:" in (pub["idempotency_key"]
+                                                                      or ""),
+                          "listing_same_release": bool(l_d and rel
+                                                       and l_d["release_hash"] == rel)},
+                "decision": {"refused": "capability not enabled" in pub["last_error"],
+                             "reason": refused[-1]["detail"].get("reason"),
+                             "release_gates_would_block": g.get("blocks_release")},
+                "effect": {"audit": f"audit_log:{refused[-1]['id']}",
+                           "action": "store.publish_refused"},
+                "result": {"store_published_rows": len(published),
+                           "listing": l_d["id"] if l_d else None,
+                           "etsy_listing_id": l_d["etsy_listing_id"] if l_d else None}}
+    return {"durable": durable, "consumers": consumers}
+
+
 # ---- phase 2: past-shadow simulated publish ---------------------------------------------
 
 PAST_SHADOW_PATH = ("staging", "limited_production")
@@ -908,9 +998,11 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
         Registry(db).seed_defaults()
     rec = Recorder()
     state: dict = {"slug": cir.slug, "version": cir.version}
+    edges: dict = {"durable": {}, "consumers": {}}
     try:
         ctx = run_shadow_chain(rec, db, url, tmp, artifacts, cir, fast=fast)
         state = record_chain(rec, db, cir, ctx)
+        edges = record_edges(db, cir.slug, cir.version)
         if state.get("search_profile") and state["search_profile"].get("verdict") != "PASS":
             rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
                        f"stored search verdict after listing.seo is "
@@ -948,6 +1040,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
             "support case taken in through CustomerExperience.intake (no messaging integration "
             "exists)"],
         "steps": rec.steps,
+        "chain_edges": edges,
         "outcomes": by,
         "blocking_defects": rec.defects,
         "complete": all(by.get(k) in GOOD for k in required),

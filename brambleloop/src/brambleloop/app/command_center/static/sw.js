@@ -7,7 +7,8 @@
 // requests are not intercepted at all; they go straight to the network. Non-GET requests are
 // never intercepted. Cross-origin requests are never intercepted.
 // INTEG6: listings (v24) and LAURAONE (v20) shells merged, so a new version.
-const VERSION = "cc-shell-v25";
+// CLOSE6b: CLOSE6's shell changes (timeline, Ask, overnight brief) merged on top, so v26.
+const VERSION = "cc-shell-v26";
 const SHELL = [
   "./",
   "index.html",

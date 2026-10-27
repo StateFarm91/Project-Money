@@ -57,6 +57,12 @@ PAGES: dict[str, dict[str, Any]] = {
                         "values": "editable_delivery_box: bool (true if Policy settings shows a "
                                   "delivery/shipping text box you can type in; false if only "
                                   "Etsy's fixed 'Instant downloads' policy is shown)"},
+    # F-040 (W4-CLOSE6): getShop carries the icon, banner, title and announcement but no
+    # About story, so the About can only be evidenced by the owner's dated reading of the
+    # shop page; launch readiness requires it fresh and present.
+    "about": {"owner_action": None, "max_age_days": 30,
+              "values": "about_present: bool (the About story is published on the shop "
+                        "page); matches_storefront: bool (it reads as brand/storefront.ABOUT)"},
     "options": {"owner_action": None, "max_age_days": 30,
                 "values": "controls: {control_key: value as shown}; labels: every control "
                           "label on the page"},
@@ -124,6 +130,8 @@ def record(db, *, page: str, observed_at, complete: bool, values: dict, statemen
     field = LIST_FIELD.get(page)
     if field is not None and not isinstance(values.get(field), list):
         raise ObservationRefused(f"values.{field} must be a list ([] when the page is empty)")
+    if page == "about" and not isinstance(values.get("about_present"), bool):
+        raise ObservationRefused("values.about_present must be true or false")
     if page == "options" and not isinstance(values.get("controls"), dict):
         raise ObservationRefused("values.controls must be an object of control -> value")
     if page == "messages" and not (_text(values.get("notifications_inbox"))
