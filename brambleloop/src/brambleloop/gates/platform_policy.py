@@ -579,7 +579,8 @@ class Classification:
 
 
 def classify(*, product_class: str, assets: list[AssetClaim],
-             ai_assisted_design: bool = False, digital: bool = True) -> Classification:
+             ai_assisted_design: bool = False, digital: bool = True,
+             photographed_sample: bool = False) -> Classification:
     """Classify a release and generate the disclosures it owes.
 
     The one rule worth stating separately: an image in a role that makes a claim about the
@@ -635,7 +636,11 @@ def classify(*, product_class: str, assets: list[AssetClaim],
     if any_deterministic:
         disclosures.append(DISCLOSURES["deterministic_render"])
     if any_disclosed:
-        disclosures.append(DISCLOSURES["disclosed_render"])
+        # W4-LAUNCHFIX: generated from the facts. "No sample has been photographed" is said
+        # only when no qualifying sample photograph leads the gallery.
+        from ..publish.sample_photo import disclosure_copy
+
+        disclosures.append(disclosure_copy(photographed_sample=photographed_sample))
 
     if not assets:
         problems.append(
@@ -722,13 +727,15 @@ def release_assets(frames: list[dict], generated: list[dict] | None = None,
 
 def classify_release(frames: list[dict], generated: list[dict] | None = None, *,
                      ai_assisted_design: bool = True,
-                     disclosed: list[dict] | None = None) -> Classification:
+                     disclosed: list[dict] | None = None,
+                     photographed_sample: bool = False) -> Classification:
     """#35 for one release: Brambleloop sells seller-designed digital patterns whose design
     was developed with AI assistance, so the class is `ai_assisted_design`, digital."""
     return classify(product_class=AI_ASSISTED_DESIGN if ai_assisted_design
                     else SELLER_DESIGNED_DIGITAL,
                     assets=release_assets(frames, generated, disclosed),
-                    ai_assisted_design=ai_assisted_design, digital=True)
+                    ai_assisted_design=ai_assisted_design, digital=True,
+                    photographed_sample=photographed_sample)
 
 
 def disclosure_block(classification: Classification) -> str:

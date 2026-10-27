@@ -1541,10 +1541,21 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for h in held_drift(db, slug):
         reasons.append(f"taxonomy drift held for the owner (incident {h['id']}): "
                        f"{h['summary']}")
+    # W4-LAUNCHFIX (Etsy Help 44297885802647 / 115015663347): a pattern listing needs an
+    # unedited photograph of a sample made from THIS release, first in the certified gallery,
+    # and copy that says so truthfully. Adds a refusal only; satisfies nothing else.
+    from . import sample_photo
+
+    photo = sample_photo.requirement(db, slug, version)
+    reasons.extend(photo["reasons"])
+    if row is not None:
+        reasons.extend(sample_photo.copy_problems(
+            row.description, photographed_sample=photo["satisfied"]))
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
-            "withholding": held, "publication_scope": scope, "originality": originality}
+            "withholding": held, "publication_scope": scope, "originality": originality,
+            "sample_photo": photo}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:

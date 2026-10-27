@@ -62,7 +62,7 @@ def bytes_on_file(db, sha: str) -> bool:
 
 def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
            rights_basis: str = "", taken_by: str = "", physical_test_id: int | None = None,
-           note: str = "") -> dict:
+           note: str = "", unedited: bool = False) -> dict:
     """Record one physical photograph. Idempotent on its hash.
 
     CB2-I04: a SHA-256 and a rights label are not a photograph. The bytes must be in the
@@ -89,7 +89,13 @@ def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
                                 physical_test_id=physical_test_id,
                                 state=(HELD_NO_BYTES if not present else
                                        "received" if rights_basis else HELD_NO_RIGHTS),
-                                detail={"note": note[:500]})
+                                detail={"note": note[:500],
+                                        # W4-LAUNCHFIX: the photographer's attestation that
+                                        # this file is unedited (Etsy requires one unedited
+                                        # photo of a made sample). Absent is not unedited.
+                                        "unedited": unedited is True,
+                                        "unedited_attested_by": (taken_by[:120]
+                                                                 if unedited is True else "")})
             s.add(row)
             s.flush()
             new = True

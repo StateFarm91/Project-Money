@@ -296,6 +296,53 @@ review, so it is only proposed here.
 
 ---
 
+## 5b. IMG: an unedited photograph of a made sample before a pattern lists (gate TIGHTENING)
+
+**Source:** coordinator scope item, from `claude/w4-IMAGEPOLICY` f8b21390
+(`research/final_build/w4/ETSY_IMAGE_COMPLIANCE.md`, with raw Help Center API JSON). Requirements
+touched: #64 (physical upgrade path), #35 (asset roles), F-852 (generated media never exported),
+D-FB-7 / D-FB-9 (render-only galleries, now overtaken for live sale).
+
+**Etsy, verbatim (Help Center article API, 2026-10-27):**
+- Help 44297885802647, edited 2026-10-16: "Craft patterns, recipes, seeds, or similar items: Include at least one real, unedited photo of something made using your product. AI-generated images cannot be the only images used to show the finished result."
+- Help 115015663347, edited 2026-10-22: "If you sell functional guides like patterns, recipes, or instructions, you'll also need to show an actual result made using your instructions, not an AI-generated or simulated result, so buyers know what to expect." It also says: "Make your first listing photo the clearest, most realistic representation of the item buyers will receive."
+
+**Before:** nothing in code required a real photograph. `platform_policy.classify` permits a deterministic render in a photograph-required role, and `physical_upgrade` was an optional upgrade.
+
+**Fix.** New `publish/sample_photo.py`. `release_gates.for_publish`, which runs at `store.publish` (draft creation, both revalidation boundaries) and at `store.activate`, now adds `SAMPLE_PHOTO_REQUIRED` unless the certified gallery leads with a photograph that meets every one of these conditions:
+1. It was recorded through the one photo intake, `physical_upgrade.intake`: bytes on file under its SHA-256 and a rights basis. There is no other path. An owner image upload is provenance `ai_generated_owner_submitted` and never enters it, and renders and generations never do either.
+2. It was attested unedited at intake. `intake(..., unedited=True)` is passed through from the `physical.photo` job input `unedited: true`. Absent means not unedited. A row marked `edited` or `ai_processed` is refused.
+3. It is of THIS release:
+   - the photo row names this slug@version;
+   - its `physical_test_id` is a passed, completed **full physical make** of this slug@version, bound to the release's content hash by `gates.first_customer.physical_binding`, the certificate's own binding.
+
+   A swatch does not count, since it is not "something made using your product" in the sense of the finished result. A compatible-variant sample of another product does not count, and neither does a sample of an older text.
+4. It is a frame of the valid listing-set certificate for this release (so it has been re-certified), and **the first frame**.
+
+Renders, charts and the PDF page preview may follow.
+
+**Disclosure copy is generated from facts:**
+- `sample_photo.disclosure_copy(photographed_sample)`. With no qualifying photo, it is exactly the existing `DISCLOSURES["disclosed_render"]` ("... no sample has been photographed ..."), which stays true. With a photo, it says the first image is an unedited photograph of a sample made from the pattern, and that the captioned images are renderings. It keeps the render caption phrase that `disclosed_listing` checks.
+- `platform_policy.classify_release(..., photographed_sample=)` emits the matching sentence. The listing writer (`runtime/release.py`) passes the measured fact; unknown is treated as not photographed, so the copy never over-claims.
+- `for_publish` also refuses copy that contradicts the gallery: the no-photo sentence beside a photo, or the photo sentence without one.
+
+**Not encoded:** whether Brambleloop patterns fall under Etsy's "AI-generated functional instructions, such as craft patterns" prohibition (Help 360024112614). That is an OWNER decision. Nothing here answers it.
+
+**Known follow-up (engineering, before the first sample photo arrives).** `physical_upgrade.plan_upgrade` appends the photo frame at the last position, in role `proof`. For the photo to become the first certified frame, the gallery ordering and listing-set certification must place it first (hero/DESIRE job). Until that is built, this gate refuses even with a good photo, which is fail-safe. It is moot today, because no physical sample exists for any Launch-0 release (LAUNCH_PATH E7).
+
+**Tests (`tests/test_w4_launchfix.py`):**
+- `test_img_deadlock_free_and_a_render_only_gallery_is_refused`;
+- `test_img_refuses_unbound_other_release_edited_or_not_first_photos`, covering:
+  - an unbound sample;
+  - a photo of another release;
+  - a sample of another release;
+  - a photo not attested unedited;
+  - a photo that is not first;
+  - a photo marked AI-processed;
+- `test_img_a_bound_unedited_first_sample_photo_passes_this_gate_only`: it passes this gate, and the disclosure follows the facts both ways.
+
+**Why this is a tightening only.** It adds one refusal to `for_publish`. It changes no other policy outcome. `classify`'s problems are unchanged, and only the disclosure sentence varies, from a fact.
+
 ## 6. Files changed
 
 - `src/brambleloop/gates/first_customer.py`: D1, the check and its wiring.
@@ -307,10 +354,11 @@ review, so it is only proposed here.
 - `src/brambleloop/app/command_center/approvals.py`: D2 actions, card actions, messages.
 - `src/brambleloop/gates/platform_policy.py`: E3.
 - `src/brambleloop/app/command_center/policy_readings.py` (new) and `api.py`: the form.
+- `src/brambleloop/publish/sample_photo.py` (new), `publish/release_gates.py`, `publish/physical_upgrade.py` (the `unedited` attestation), `runtime/release.py` (`_intake_photo` passes `unedited`; the listing writer passes the photographed fact), and `gates/platform_policy.py` (`classify` disclosure from facts): the IMG section.
 - `static/js/views/policy.js` (new), `routes.js`, `api.js`, `sw.js`, `views/approvals.js`, `views/completion.js`: the form view.
 - `tests/test_w4_launchfix.py` (new) and `tests/test_etsy_exercise.py` (one test added).
 
-No test was weakened or edited except by addition. `test_first_customer_gate`'s
+One existing test was edited, and it was made stricter, not looser. In `tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people`, `brand_clearance` is now expected among the company-side (`BLOCKED_BUILD`) items while no knock-out screening is recorded, and the test asserts that it is unready. The test pinned the old attribution (owner) for work that OWNER_ACTIONS assigns to the company. `test_nothing_blocked_on_build_is_ever_sent_to_the_owner` is unchanged. To keep it true, the trademark request is put to the owner only once a valid screening exists. No other test was weakened or edited except by addition. `test_first_customer_gate`'s
 `check_etsy_remote_state()` assertion still holds: with no db it is UNVERIFIABLE and says
 "authenticated".
 
@@ -336,3 +384,4 @@ Then the importers of the touched modules:
 - `test_w4_prodfix_policy_review`, `test_w4_b2gates`, `test_w4_agents_secfix`, `test_w4_c04_finance`, `test_w4_ccrel`
 - `test_v11_pwa_static`, `test_w4_launch_review_card`, `test_route_auth_default_deny`
 - `test_w4_firstsale_taxonomy`
+- for IMG: `test_cert_publish_gates`, `test_search_truth`, `test_w4_cap1_gates_intact`, `test_w4_cap1_placemat_price`, `test_w4_fmbatch1_drift`, `test_w4_listready`, `test_originality_runtime`, `test_disclosed_render`, `test_disclosed_render_runtime`, `test_disclosed_certified_upload`, `test_cert_intel_wave2`, `test_fb2_i_repairs`, `test_w4_ownerimg`, `test_search_hero_publish`, `test_cert_listing_frames`, `test_v11_autonomy_timeline`, `test_cost_governance_wave2`

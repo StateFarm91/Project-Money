@@ -291,8 +291,8 @@ def _knockout(**over) -> dict:
 
 def _listings(db, n):
     with db.session() as s:
-        for i in range(n):
-            s.add(Listing(product_slug=f"p{i}", version="1.0.0", title="t", description="d",
+        for _ in range(n):
+            s.add(Listing(product_slug=f"p{uuid.uuid4().hex[:8]}", version="1.0.0", title="t", description="d",
                           tags=[], price_cad=5.0, state="draft"))
 
 
@@ -542,6 +542,137 @@ def test_e4_on_the_real_names_crochet_is_never_a_node_and_needs_etsys_own_proper
         assert ch.taxonomy_id not in (3, 43), (cat, ch)
     assert any(ch.status == C.CHOSEN for ch in chosen.values()), chosen
     ok("E4: on Etsy's real names the node is Patterns & Blueprints, only with a Crochet value")
+
+
+# =============================================================================================
+# IMG -- an unedited photo of a sample made from THIS release, first in the certified gallery
+
+def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first=True,
+                   other_test_release=False):
+    """A certified release, a passed full make bound to its content, a photo recorded through
+    the one intake, and a valid listing-set certificate. Returns (slug, version, photo sha)."""
+    from datetime import datetime, timezone
+
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.core.models import (ListingSetCertificateRecord, PatternVersion,
+                                         PhysicalTest, Product)
+    from brambleloop.gates.certificate import _release_hash
+    from brambleloop.gates.risk_matrix import FULL_PHYSICAL_MAKE
+    from brambleloop.products import launch0 as l0
+    from brambleloop.publish import physical_upgrade as PU
+
+    cir = l0.cir_for(l0.candidate("hexagon-coaster-set").variants[0].build)
+    content = _release_hash(cir, write_pattern(cir, compile_cir(cir), "US"))
+    photo_bytes = b"\xff\xd8\xff" + uuid.uuid4().bytes * 64      # a JPEG-headed sample photo
+    sha = ArtifactStore().put(f"photo-{uuid.uuid4().hex}", photo_bytes, "image/jpeg").sha256
+    render_sha = "e" * 64
+    with db.session() as s:
+        prod = Product(slug=cir.slug, title="Hexagon coasters")
+        s.add(prod)
+        s.flush()
+        s.add(PatternVersion(product_id=prod.id, version=cir.version, cir_json=cir.to_dict(),
+                             release_hash=content, certified=True))
+        test = PhysicalTest(product_slug=cir.slug,
+                            version=("0.0.1" if other_test_release else cir.version),
+                            tester_ref="tester-1", passed=True,
+                            completed_at=datetime.now(timezone.utc),
+                            measured={"content_hash": content if bind else "f" * 64,
+                                      "evidence_class": FULL_PHYSICAL_MAKE})
+        s.add(test)
+        s.flush()
+        test_id = test.id
+        frames = [{"position": 1, "sha256": sha}, {"position": 2, "sha256": render_sha}]
+        if not first:
+            frames = [{"position": 1, "sha256": render_sha}, {"position": 2, "sha256": sha}]
+        s.add(ListingSetCertificateRecord(product_slug=cir.slug, version=cir.version,
+                                          release_hash=content, state="valid",
+                                          certificate={"frames": frames}))
+    PU.intake(db, slug=cir.slug, version=version_of_photo or cir.version, source="tester",
+              sha256=sha, rights_basis="tester_agreement", taken_by="tester-1",
+              physical_test_id=test_id, unedited=unedited)
+    return cir.slug, cir.version, sha
+
+
+def test_img_deadlock_free_and_a_render_only_gallery_is_refused():
+    from brambleloop.publish import sample_photo as SP
+
+    # Nothing in code required a photo before: for_publish now calls this gate.
+    rg = (ROOT / "src/brambleloop/publish/release_gates.py").read_text()
+    fp = rg[rg.index("def for_publish("):rg.index("def our_competitive_reading")]
+    assert "sample_photo.requirement(" in fp and "sample_photo.copy_problems(" in fp
+    db = _db()
+    # A certified release with only renders: refused, citing Etsy.
+    from brambleloop.cir.compiler import compile_cir  # noqa: F401  (fixture import check)
+    slug, version, _sha = _photo_fixture(db)
+    from brambleloop.core.models import PhysicalPhoto
+    with db.session() as s:
+        for p in s.scalars(select(PhysicalPhoto)):
+            s.delete(p)
+    r = SP.requirement(db, slug, version)
+    assert r["satisfied"] is False and SP.CODE in r["reasons"][0], r
+    assert "44297885802647" in r["reasons"][0] and "render can never" in r["reasons"][0]
+    ok("IMG refuses: a render-only gallery (no photograph through the intake)")
+
+
+def test_img_refuses_unbound_other_release_edited_or_not_first_photos():
+    from brambleloop.publish import sample_photo as SP
+
+    cases = {"no bound full make of this content": dict(bind=False),
+             "a photo of another release": dict(version_of_photo="9.9.9"),
+             "a sample of another release": dict(other_test_release=True),
+             "not attested unedited": dict(unedited=False)}
+    for label, kw in cases.items():
+        db = _db()
+        slug, version, _ = _photo_fixture(db, **kw)
+        r = SP.requirement(db, slug, version)
+        assert r["satisfied"] is False and not r["qualifying"], (label, r)
+    db = _db()
+    slug, version, _ = _photo_fixture(db, first=False)
+    r = SP.requirement(db, slug, version)
+    assert r["satisfied"] is False and r["qualifying"] and "first image" in r["reasons"][0], r
+    # Marked edited / AI-processed after intake: refused.
+    db = _db()
+    slug, version, sha = _photo_fixture(db)
+    from brambleloop.core.models import PhysicalPhoto
+    from sqlalchemy.orm.attributes import flag_modified
+    with db.session() as s:
+        p = s.scalar(select(PhysicalPhoto).where(PhysicalPhoto.sha256 == sha))
+        p.detail = {**p.detail, "ai_processed": True}
+        flag_modified(p, "detail")
+    assert SP.requirement(db, slug, version)["satisfied"] is False
+    ok("IMG refuses: unbound, other release, other sample, not unedited, not first, AI-processed")
+
+
+def test_img_a_bound_unedited_first_sample_photo_passes_this_gate_only():
+    from brambleloop.gates import platform_policy as P
+    from brambleloop.publish import sample_photo as SP
+
+    db = _db()
+    slug, version, sha = _photo_fixture(db)
+    r = SP.requirement(db, slug, version)
+    assert r["satisfied"] is True and r["reasons"] == [], r
+    assert r["first_frame"]["sha256"] == sha
+    # Only this gate: the photo is not a calibration, not a pass of any other area.
+    assert "sample_photo" in (ROOT / "src/brambleloop/publish/release_gates.py").read_text()
+    # Disclosure copy follows the facts, both ways.
+    no = SP.disclosure_copy(photographed_sample=False)
+    yes = SP.disclosure_copy(photographed_sample=True)
+    assert no == P.DISCLOSURES["disclosed_render"] and "no sample has been photographed" in no
+    assert "no sample has been photographed" not in yes and "unedited photograph" in yes
+    from brambleloop.visual.render_contract import DISCLOSURE
+    assert DISCLOSURE in yes
+    assert SP.copy_problems("x " + no, photographed_sample=True)
+    assert SP.copy_problems("x " + yes, photographed_sample=False)
+    assert not SP.copy_problems("x " + yes, photographed_sample=True)
+    assert not SP.copy_problems("x " + no, photographed_sample=False)
+    disclosed = [{"kind": "disclosed_render", "generated": False, "role": "hero",
+                  "disclosure": {"in_image": True, "in_alt_text": True}}]
+    c_no = P.classify_release([], disclosed=disclosed)
+    c_yes = P.classify_release([], disclosed=disclosed, photographed_sample=True)
+    assert no in c_no.disclosures and yes in c_yes.disclosures and no not in c_yes.disclosures
+    ok("IMG passes: a bound, unedited, first sample photo satisfies this gate; copy follows facts")
 
 
 # =============================================================================================

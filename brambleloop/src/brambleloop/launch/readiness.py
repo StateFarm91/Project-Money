@@ -864,7 +864,10 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         blocked_by=(None if brand_ready else
                     BLOCKED_OWNER if brand.get("knockout") == "VALID" else BLOCKED_BUILD),
         evidence={"name": "Brambleloop Studio", **brand},
-        owner_request=None if brand_ready else TRADEMARK_SCREEN))
+        # Asked of the owner only once there is a screening to decide on: a request on a
+        # build-blocked row would ask the owner for the company's own work.
+        owner_request=(TRADEMARK_SCREEN if not brand_ready
+                       and brand.get("knockout") == "VALID" else None)))
 
     # #168: the pre-launch benchmark challenge. Deliberately a requirement rather than a
     # report, because a comparison nobody is obliged to act on is a comparison that loses to
