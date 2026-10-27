@@ -5875,7 +5875,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-046",
@@ -6734,7 +6734,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-FMBATCH2 cd1f4a17, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 cd1f4a17: 22 of 26 callers moved to gateway/providers; 4 left drive the vendor probe objects, accepted as by design (coordinator 2026-10-26) (§21)",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-092",
@@ -7685,7 +7685,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-D2 b5eeba77, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: On 019ebf0 the watchdog alarms only when a CLAIMED task makes no progress; READY-but-unclaimed work reports 'awaiting_build_session' with alarm False, which is ",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-135",
@@ -8304,7 +8304,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-D2 39df91c3, not in origin/claude/w4-INTEG7: owner: credential_rotation",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-161",
@@ -15445,7 +15445,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: launch readiness blocks only on declared items, but no mechanism freezes the launch list or flags non-blocking work being promoted to blocking",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-516@v0.15",
@@ -16203,7 +16203,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: verify_absence recounts Etsy's OpenAPI for capabilities (e.g. an Ads API appearing) and reports moved terms, but nothing fetches the document on a schedule; Sel",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-547",
@@ -16869,7 +16869,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: external: real buyers",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-568",
@@ -17595,7 +17595,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-598",
@@ -17618,7 +17618,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: owner: go-live / publication grant",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-599",
@@ -17645,7 +17645,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: API-document drift is detectable via absence probes but not scheduled; Shop Manager UI navigation drift has no observer; no review-task creation.",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-600",
@@ -17672,7 +17672,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C13 6b6e3a37, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: The surface registry is not reached at runtime and most surfaces lack collectors; continuous observe->learn loop exists only for internal cadences.",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-601",
@@ -17705,7 +17705,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-FMBATCH2 a9cf46de, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH2 a9cf46de: executive improvement cell (department complete); compliance/policy and analytics charters are W-AGENTS2 work",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-602",
@@ -19769,7 +19769,7 @@
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C03 e5dc33ec, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned, tiered, reversible changes with fingerprinted evidence and post-promotion monitoring exist for cells, policies and registered incumbents; improvement",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-708",
@@ -24691,7 +24691,7 @@
    "claude/w4-AGENTS2": "6ebe7103",
    "claude/w4-CLOSE6b": "31510b44",
    "claude/w4-RESUME": "f1cde398",
-   "claude/w4-FMBATCH2": "43ec2790",
+   "claude/w4-FMBATCH2": "90381df5",
    "claude/w4-C01": "aad5ebf9",
    "claude/w4-C07": "0d7da718",
    "claude/w4-F454": "04685f31",
@@ -24926,23 +24926,9 @@
      ]
     },
     "integ8": {
-     "a": 858,
-     "b": 13,
-     "b_rows_still_on_branches": [
-      "F-045",
-      "F-091",
-      "F-134",
-      "F-160",
-      "F-515@v0.15",
-      "F-546",
-      "F-567",
-      "F-597",
-      "F-598",
-      "F-599",
-      "F-600",
-      "F-601",
-      "F-707"
-     ],
+     "a": 871,
+     "b": 0,
+     "b_rows_still_on_branches": [],
      "moved_into_a": [
       "F-016",
       "F-017",
@@ -24950,6 +24936,7 @@
       "F-034",
       "F-038",
       "F-040",
+      "F-045",
       "F-047",
       "F-050",
       "F-051",
@@ -24957,11 +24944,14 @@
       "F-054",
       "F-055",
       "F-083",
+      "F-091",
       "F-095",
       "F-097",
       "F-126",
+      "F-134",
       "F-144",
       "F-145",
+      "F-160",
       "F-226",
       "F-231",
       "F-264",
@@ -24981,10 +24971,12 @@
       "F-441",
       "F-454",
       "F-464",
+      "F-515@v0.15",
       "F-516@v0.16",
       "F-517@v0.16",
       "F-527",
       "F-538",
+      "F-546",
       "F-551",
       "F-552",
       "F-554",
@@ -24993,11 +24985,17 @@
       "F-561",
       "F-562",
       "F-565",
+      "F-567",
       "F-575",
       "F-576",
       "F-580",
       "F-583",
       "F-588",
+      "F-597",
+      "F-598",
+      "F-599",
+      "F-600",
+      "F-601",
       "F-614",
       "F-615",
       "F-662",
@@ -25012,6 +25010,7 @@
       "F-688",
       "F-699",
       "F-705",
+      "F-707",
       "F-710",
       "F-711",
       "F-714",
