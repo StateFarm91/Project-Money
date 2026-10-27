@@ -45,17 +45,32 @@ COMBINED = "origin/claude/w4-INTEG7"
 PRODUCTION = "b2e49455"                      # verified via /health 2026-10-26T21:50Z
 
 # Live branches (coordinator, 2026-10-27). Merged ones are listed so the map says so.
+CERT_CANDIDATE = "2aeb177f"                   # INTEG7, the certification candidate
 BRANCHES = {
     "claude/w4-INTEG7": ("integrator (coordinator)", "combined candidate"),
-    "claude/w4-INTELREC": ("Workstream C (AGENTS worker)", "competitive intelligence and learning"),
-    "claude/w4-AGENTS2": ("Workstream C (AGENTS worker)", "department workforce evidence"),
+    "claude/w4-C03": ("worker C03", "Laura CEO execution, self-improvement and learning"),
+    "claude/w4-C04": ("Workstream B", "finance"),
+    "claude/w4-C08": ("worker C08", "visual production"),
+    "claude/w4-C09": ("Workstream B", "SEO and listing language"),
+    "claude/w4-C10": ("worker C10", "paid-media planning"),
+    "claude/w4-C11": ("worker C11", "education and content"),
+    "claude/w4-C12": ("worker C12", "Etsy ops: Search Visibility, dashboard, registers"),
+    "claude/w4-C12wire": ("worker C12", "C12 runtime wiring (contains C12)"),
+    "claude/w4-C13": ("worker C13", "Etsy ops: channels, cohort, drift"),
+    "claude/w4-C14": ("worker C14", "customer feedback and content economics"),
+    "claude/w4-INTELREC": ("Workstream C", "competitive intelligence; C05/C06"),
+    "claude/w4-RETFIX": ("Workstream B", "retention duplicate key"),
+    "claude/w4-AGENTS2": ("Workstream C", "department workforce evidence"),
+    "claude/w4-CLOSE6b": ("Workstream B", "CLOSE6 merged onto INTEG7"),
+    "claude/w4-RESUME": ("Workstream B", "resumable test runner"),
     "claude/w4-FMBATCH2": ("Workstream B", "Final Master batch rows, this ledger"),
-    "claude/w4-CLOSE6": ("Workstream B (CLOSE6b conflict prep, batch B2)", "Command Center, closure"),
-    "claude/w4-LAURAFIX": ("Laura lane", "Laura CEO vocabulary and unified gateway"),
-    "claude/w4-PRODFIX": ("merged", "production deadlock fixes"),
-    "claude/w4-PRODFIX2": ("merged", "improve.weekly fix"),
-    "claude/w4-SECPATCH2": ("merged", "route-path and Authorization hardening"),
 }
+# Rows built on a branch but held for an owner decision (coordinator, 2026-10-27).
+OWNER_HELD = {"F-607": "claude/w4-C04 9e86e842 (accountant agent)",
+              "F-579": "claude/w4-C04 fef3990d (accounting vendor)"}
+# A commit whose subject is a record, report or note carries no code to integrate.
+RECORD_SUBJECT = re.compile(r"\b(record|records|report|notes|ledger)\b|C\d\d\.md|\bW4-B0\b",
+                            re.I)
 
 ID_RE = re.compile(r"\bF-\d{3}(?:@v0\.\d+)?\b|\bB2 ?#\d+\b")
 
@@ -96,6 +111,16 @@ AWAITING = {
              "it' predates that. What remains is the host: a direct push to the production "
              "branch still deploys, which only the owner's Railway trigger / branch "
              "protection setting can close (deploy_trigger_config)",
+    "F-007": "already built (W4-C09 check): commerce.category.properties_for decides every "
+             "property of the chosen node from Etsy's stored property schema and "
+             "integrations.etsy.set_listing_property is wired; the first authenticated "
+             "taxonomy read is what remains",
+    "F-248": "already built (W4-C09 check): commerce.search_visibility records the owner's "
+             "readings with date, listing, scope, category, remediation and a lifecycle only "
+             "a later complete reading can clear (POST /api/search-visibility); intake is "
+             "refused until the live_listings gate opens -- a live shop is what remains",
+    "F-280": "already built: runtime.storefront_watch inspects Search Visibility daily in "
+             "launch week (listing.search_visibility_watch cadence); needs the live shop",
     "B2#94": "the registry note says 'the instrument is complete' (scorecard, theme_fatigue, "
              "novelty, blinded); market CTR/conversion inputs need customers. No engineering "
              "defect found; reclassification is a proposal, not applied",
@@ -269,7 +294,29 @@ def text_by_id() -> dict:
     return out
 
 
-def branch_mentions() -> tuple[dict, dict]:
+def _docs_only(sha: str) -> bool:
+    """A commit that changes no source or test file carries no code to integrate."""
+    names = [n for n in git("show", "--name-only", "--format=", sha).split() if n]
+    return not any(n.startswith(("brambleloop/src/", "brambleloop/tests/", "ops/",
+                                 "brambleloop/scripts/", "brambleloop/run_tests.sh"))
+                   for n in names)
+
+
+def _canonical(rid: str, known: set) -> str:
+    """A bare F-516 maps to its one versioned ledger id (F-516@v0.16); ambiguous stays bare."""
+    if rid in known or "@" in rid:
+        return rid
+    versions = [k for k in known if k.startswith(rid + "@")]
+    if len(versions) == 1:
+        return versions[0]
+    open_versions = [k for k in versions if k in _INCOMPLETE]
+    return open_versions[0] if len(open_versions) == 1 else rid
+
+
+_INCOMPLETE: set = set()   # filled by main(): a bare id names the one version still open
+
+
+def branch_mentions(known: set | None = None) -> tuple[dict, dict]:
     """{row_id: [{branch, sha, subject}]} for unmerged commits, and branch heads."""
     found: dict = defaultdict(list)
     heads = {}
@@ -285,8 +332,10 @@ def branch_mentions() -> tuple[dict, dict]:
             if not line.strip():
                 continue
             sha, subject, *body = line.strip().split("\t")
+            if b != "claude/w4-INTEG7" and _docs_only(sha):
+                continue                      # a record or report: no code to integrate
             for rid in sorted(set(ID_RE.findall(subject + " " + " ".join(body)))):
-                rid = rid.replace(" ", "")
+                rid = _canonical(rid.replace(" ", ""), known or set())
                 found[rid].append({"branch": b, "sha": sha[:8], "subject": subject[:120],
                                    "merged_into_combined": b == "claude/w4-INTEG7"})
     return found, heads
@@ -295,14 +344,23 @@ def branch_mentions() -> tuple[dict, dict]:
 # Unmerged commits that carry notes, proposals or a duplicate of a change already in the
 # combined candidate -- no code to integrate. 8111ce1d is the same F-095 change as INTEG7's
 # 98607638.
-NOT_CODE = {"30839218", "ab3fdefb", "8111ce1d"}
+NOT_CODE = {"30839218", "ab3fdefb", "8111ce1d", "e584ff01"}
 
-UNMERGED_WHY = re.compile(r"claude/w4-(CLOSE6|FMBATCH2|INTELREC|AGENTS2|LAURAFIX)\b")
+UNMERGED_WHY = re.compile(r"claude/w4-(CLOSE6|FMBATCH2|INTELREC|AGENTS2)\b")
 
 
 def classify(row: dict, rid: str, work: list) -> tuple[str, str]:
     if row["engineering_complete"]:
-        return "COMPLETE", "ledger: engineering complete"
+        m = UNMERGED_WHY.search(row["why"])
+        unmerged = [w for w in work if not w["merged_into_combined"]
+                    and w["sha"] not in NOT_CODE]
+        if m and not any(w["merged_into_combined"] for w in work):
+            return "COMPLETE_ON_BRANCH", (f"engineering complete on claude/w4-{m.group(1)}, "
+                                          f"not in the certification candidate "
+                                          f"{CERT_CANDIDATE}: {row['why'][:160]}")
+        return "COMPLETE", "ledger: engineering complete, in the combined candidate"
+    if rid in OWNER_HELD:
+        return "OWNER_HELD", f"built and tested on {OWNER_HELD[rid]}; held for the owner"
     if row["status"] == "NA":
         return "NOT_APPLICABLE", row["why"]
     if rid in GATED:
@@ -314,6 +372,8 @@ def classify(row: dict, rid: str, work: list) -> tuple[str, str]:
     if unmerged or m:
         where = (f"{unmerged[0]['branch']} {unmerged[0]['sha']}" if unmerged
                  else f"claude/w4-{m.group(1)}")
+        where = where.replace("claude/w4-CLOSE6 ", "claude/w4-CLOSE6b (CLOSE6) ") \
+            if where.startswith("claude/w4-CLOSE6 ") or where == "claude/w4-CLOSE6" else where
         return "MISSING_INTEGRATION", f"built on {where}, not in {COMBINED}: {row['why'][:200]}"
     return "EXECUTABLE", NOTES.get(rid) or f"engineering half to build: {row['why'][:240]}"
 
@@ -321,7 +381,10 @@ def classify(row: dict, rid: str, work: list) -> tuple[str, str]:
 def main() -> int:
     led = json.loads(LEDGER.read_text())
     texts = text_by_id()
-    work, heads = branch_mentions()
+    known = {r["id"] for r in led["rows"]["final_master"]}
+    _INCOMPLETE.update(r["id"] for r in led["rows"]["final_master"]
+                       if not r["engineering_complete"])
+    work, heads = branch_mentions(known)
     cluster_of: dict = {}
     problems = []
     for cid, _, _, ids, _ in CLUSTERS:
@@ -358,8 +421,6 @@ def main() -> int:
                     problems.append(f"{rid}: EXECUTABLE but in no cluster")
                 else:
                     row["cluster"] = cluster_of[rid]
-            elif rid in cluster_of:
-                problems.append(f"{rid}: clustered but classified {cls}")
             c[cls] += 1
         counts[scope] = dict(sorted(c.items()))
     led["b0"] = {
@@ -373,7 +434,9 @@ def main() -> int:
                  "GENUINELY_GATED only with the requirement text quoted. Rows on unmerged "
                  "branches are MISSING_INTEGRATION, not missing. Nothing is closed here."),
     }
+    led["b0"]["status_report"] = status_report(led)
     LEDGER.write_text(json.dumps(led, indent=1, ensure_ascii=False) + "\n")
+    write_status(led)
     write_ownership(led, heads, work)
     write_clusters(led, executable, texts)
     for p in problems:
@@ -463,6 +526,98 @@ def write_clusters(led, executable, texts):
     for r in mi:
         out.append(f"| {r['id']} | {r['b0_reason'][:200]} |")
     (HERE / "CLUSTERS.md").write_text("\n".join(out) + "\n")
+
+
+def _branch_of(row) -> str:
+    if row["b0_class"] == "COMPLETE_ON_BRANCH":
+        m = UNMERGED_WHY.search(row["why"])
+        return "claude/w4-CLOSE6b" if m.group(1) == "CLOSE6" else f"claude/w4-{m.group(1)}"
+    w = [x for x in row.get("branch_work") or [] if not x["merged_into_combined"]
+         and x["sha"] not in NOT_CODE]
+    if w:
+        b = w[-1]["branch"]
+        return "claude/w4-C12wire" if b == "claude/w4-C12" else b
+    m = UNMERGED_WHY.search(row["why"])
+    return ("claude/w4-CLOSE6b" if m and m.group(1) == "CLOSE6"
+            else f"claude/w4-{m.group(1)}" if m else "unknown")
+
+
+def status_report(led) -> dict:
+    """(a)-(e) for the owner's report; each scope reconciles to its total."""
+    out = {}
+    for scope in ("final_master", "build2"):
+        rows = led["rows"][scope]
+        rid = (lambda r: r["id"]) if scope == "final_master" else (lambda r: f"B2#{r['id']}")
+        by = defaultdict(list)
+        for r in rows:
+            by[r["b0_class"]].append(r)
+        on_branch = defaultdict(list)
+        for r in by["MISSING_INTEGRATION"] + by["COMPLETE_ON_BRANCH"]:
+            on_branch[_branch_of(r)].append(rid(r))
+        rep = {
+            "total": len(rows),
+            "a_engineering_complete_integrated": len(by["COMPLETE"]),
+            "b_built_on_branch_awaiting_integration": {
+                "count": len(by["MISSING_INTEGRATION"]) + len(by["COMPLETE_ON_BRANCH"]),
+                "by_branch": {k: sorted(v) for k, v in sorted(on_branch.items())}},
+            "c_built_owner_held": sorted(rid(r) for r in by["OWNER_HELD"]),
+            "d_executable_not_built": sorted(rid(r) for r in by["EXECUTABLE"]),
+            "e_awaiting_evidence": sorted(rid(r) for r in by["AWAITING_EVIDENCE"]),
+            "e_genuinely_gated": sorted(rid(r) for r in by["GENUINELY_GATED"]),
+            "e_not_applicable": sorted(rid(r) for r in by["NOT_APPLICABLE"]),
+        }
+        total = (rep["a_engineering_complete_integrated"]
+                 + rep["b_built_on_branch_awaiting_integration"]["count"]
+                 + len(rep["c_built_owner_held"]) + len(rep["d_executable_not_built"])
+                 + len(rep["e_awaiting_evidence"]) + len(rep["e_genuinely_gated"])
+                 + len(rep["e_not_applicable"]))
+        rep["reconciles"] = total == len(rows)
+        if not rep["reconciles"]:
+            raise SystemExit(f"{scope}: (a)+(b)+(c)+(d)+(e) = {total} != {len(rows)}")
+        out[scope] = rep
+    return out
+
+
+def write_status(led) -> None:
+    sr = led["b0"]["status_report"]
+    L = ["# Engineering status for the owner's report (W4-B0, generated)", "",
+         f"Generated by `b0_reconcile.py`. Certification candidate: INTEG7 {CERT_CANDIDATE} "
+         f"(the combined branch at {led['b0']['combined']} differs from it by records "
+         f"only). Every branch below is compared with the combined branch.", ""]
+    for scope, name in (("build2", "Build 2"), ("final_master", "Final Master")):
+        r = sr[scope]
+        b = r["b_built_on_branch_awaiting_integration"]
+        L += [f"## {name} ({r['total']})", "",
+              "| class | rows |", "|---|---|",
+              f"| (a) engineering-complete, integrated | {r['a_engineering_complete_integrated']} |",
+              f"| (b) built and tested on a branch, awaiting integration | {b['count']} |",
+              f"| (c) built, owner-held | {len(r['c_built_owner_held'])} |",
+              f"| (d) executable, not yet built | {len(r['d_executable_not_built'])} |",
+              f"| (e) awaiting evidence | {len(r['e_awaiting_evidence'])} |",
+              f"| (e) genuinely gated | {len(r['e_genuinely_gated'])} |",
+              f"| (e) not applicable | {len(r['e_not_applicable'])} |",
+              f"| **total** | **{r['total']}** (reconciles: {r['reconciles']}) |", ""]
+        if b["by_branch"]:
+            L += ["**(b) by branch:**", ""]
+            L += [f"- `{k}` ({len(v)}): {', '.join(v)}" for k, v in b["by_branch"].items()]
+            L.append("")
+        for key, label in (("c_built_owner_held", "(c) owner-held"),
+                           ("d_executable_not_built", "(d) executable, not yet built"),
+                           ("e_awaiting_evidence", "(e) awaiting evidence"),
+                           ("e_genuinely_gated", "(e) genuinely gated"),
+                           ("e_not_applicable", "(e) not applicable")):
+            if r[key]:
+                L += [f"**{label}:** {', '.join(r[key])}", ""]
+    L += ["## Method", "",
+          "- (b) is read from each branch's commits that are not in the combined branch. "
+          "A commit whose subject is a record, report or note does not count, and neither "
+          "does a proposal-only commit.",
+          "- A row named in a code commit is counted as built and tested there. The branch's "
+          "own `Cxx.md` is the per-row evidence; the integrator's review decides acceptance.",
+          "- (a) is the ledger's engineering-complete rows minus those whose completing "
+          "work is still only on an unmerged branch (FMBATCH2, CLOSE6b, INTELREC, AGENTS2). "
+          "Those are counted in (b).", ""]
+    (HERE / "LEDGER_STATUS.md").write_text("\n".join(L))
 
 
 DEPENDS = {
