@@ -35,3 +35,17 @@ OFFLINE: all evidence here comes from fixtures, not production.
 **Pre-existing failures on INTELREC 1d1c012d, not caused here** (the same tests fail on a clean checkout of 1d1c012d):
 - `test_cert_intel_wave.test_director_company_view_uses_real_photography_and_queues_photography_when_behind`
 - `test_cert_intel_wave2.test_a_material_policy_change_opens_a_blocking_incident_until_reviewed`
+
+## C06: children's catalogue and launch mix (7 rows)
+
+| ID | Done here / where it stands | Test |
+|---|---|---|
+| F-351 | Built in AGENTS C1: `creative.children.portfolio`, the daily `intel.children_portfolio`. | `test_w4_children` |
+| F-353 | Built in C1: the 13 core categories, each researched or named as a gap. | `test_w4_children` |
+| F-358 | Built in C1: neutral, gendered and style segment counts; no palette inferred. | `test_w4_children` |
+| F-359 | Built in C1: children's sibling sets from `creative.family_engine` (recolour duplicates flagged). | `test_w4_children` |
+| F-365 | Built in C1: a Baby & Kids collection proposed only at depth 4, with navigation by family and by age range (age range UNMEASURED where no audience is recorded). | `test_w4_children` |
+| **F-366** | **Built:** `launch/mix.py` (`optimize`). It runs `radar.opportunity.select_portfolio`, measures the result by the five segments and repairs it: at least one children's product when an eligible one exists, and no segment above 50 % of the mix. Each swap evicts only a pick whose removal breaks none of section 33's constraints, and each is recorded. | `test_f366_*` (2) |
+| **F-370** | **Built:** `launch/mix.rebalance`. It proposes bounded share changes from measured per-segment conversion. It does nothing below 500 measured visits per segment or with fewer than two measured segments (UNMEASURED). It moves at most 10 points per review and never goes outside the owner's minimum and maximum share. It is a recommendation only: nothing is added, removed or repriced. | `test_f370_*` |
+
+The traceability generator now maps F-353, F-358, F-359, F-365, F-366 and F-370, and the file is regenerated.

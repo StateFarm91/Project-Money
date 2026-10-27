@@ -6440,11 +6440,11 @@
    "branch_sha": {
     "production": "b2e49455: ['intel/vision.py']",
     "combined": "claude/w4-INTEG7 67920948: []",
-    "intelrec": "claude/w4-INTELREC HEAD: []"
+    "intelrec": "claude/w4-INTELREC HEAD: ['intel/gallery_grammar.py']"
    },
    "tests": [],
    "integration": "no runtime consumer recorded",
-   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "security_review": "UNREVIEWED (INTELREC batch 4)",
    "deployment": "production b2e49455",
    "last_production_execution": "none in the snapshot",
    "evidence_quality": "code only",
@@ -6485,7 +6485,9 @@
        "intel/vision.py"
       ],
       "combined_candidate_only": [],
-      "intelrec_only_unreviewed": []
+      "intelrec_only_unreviewed": [
+       "intel/gallery_grammar.py"
+      ]
      }
     },
     "scheduled_executing": {
@@ -6598,6 +6600,453 @@
    }
   },
   {
+   "id": "F-353",
+   "topic": "families",
+   "title": "Core Category Coverage",
+   "acceptance_text": "Core Category Coverage - Research newborn/baby cardigans, toddler/children's cardigans, sweaters, jackets, dresses, tops/vests, hooded pieces, matching sets, bonnets/hats, decorative collars, blankets, seasonal/holiday garments, unisex designs and sibling/multi-size products.",
+   "ledger_state": "OPEN-DEFECT at IMPLEMENTED",
+   "implementation_path": [
+    "creative/children.py",
+    "intel/childrens.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: ['intel/childrens.py']",
+    "combined": "claude/w4-INTEG7 67920948: ['creative/children.py']",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [
+    "tests/test_childrens.py::test_the_table_covers_both_ends_of_the_decision"
+   ],
+   "integration": "no runtime consumer recorded",
+   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "deployment": "production b2e49455",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code + tests (offline)",
+   "missing_work": [
+    "activation: no production execution of intel.children_portfolio",
+    "evidence: ledger not PROVEN -- OPEN-DEFECT at IMPLEMENTED",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "never executed in production",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "creative/children.py",
+      "intel/childrens.py"
+     ]
+    },
+    "tested": {
+     "ok": true,
+     "evidence": [
+      "tests/test_childrens.py::test_the_table_covers_both_ends_of_the_decision"
+     ]
+    },
+    "integrated": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": true,
+     "evidence": {
+      "in_production_b2e49455": [
+       "intel/childrens.py"
+      ],
+      "combined_candidate_only": [
+       "creative/children.py"
+      ],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": false,
+     "evidence": {
+      "intel.children_portfolio": {
+       "n": 0
+      }
+     }
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
+   "id": "F-358",
+   "topic": "families",
+   "title": "Gender-Neutral & Style Segments",
+   "acceptance_text": "Gender-Neutral & Style Segments - Research gender-neutral as well as style-specific demand. Do not infer a fixed palette or aesthetic; use marketplace evidence and Brambleloop's creative differentiation system.",
+   "ledger_state": "OPEN-DEFECT at MISSING",
+   "implementation_path": [
+    "creative/children.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: []",
+    "combined": "claude/w4-INTEG7 67920948: ['creative/children.py']",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [],
+   "integration": "no runtime consumer recorded",
+   "security_review": "combined-candidate lane reviews (AGENTS a14c9ef/b199cdb, FMBATCH1 cbd4ff1, INTEG7 967502d); no per-requirement record",
+   "deployment": "combined candidate only",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code only",
+   "missing_work": [
+    "activation: deploy creative/children.py",
+    "activation: no production execution of intel.children_portfolio",
+    "evidence: ledger not PROVEN -- OPEN-DEFECT at MISSING",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "not deployed",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "creative/children.py"
+     ]
+    },
+    "tested": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "integrated": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": false,
+     "evidence": {
+      "in_production_b2e49455": [],
+      "combined_candidate_only": [
+       "creative/children.py"
+      ],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": false,
+     "evidence": {
+      "intel.children_portfolio": {
+       "n": 0
+      }
+     }
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
+   "id": "F-359",
+   "topic": "families",
+   "title": "Sibling / Family Variants",
+   "acceptance_text": "Sibling / Family Variants - Evaluate sibling sets, coordinated products and reusable design families where genuine customer value exists, while preventing low-value catalogue duplication.",
+   "ledger_state": "OPEN-DEFECT at INTEGRATED",
+   "implementation_path": [
+    "creative/children.py",
+    "creative/family.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: ['creative/family.py']",
+    "combined": "claude/w4-INTEG7 67920948: ['creative/children.py']",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [
+    "tests/test_family.py::test_a_family_member_is_never_the_hero_in_another_palette",
+    "tests/test_family.py::test_size_compatibility_alone_does_not_invent_a_member"
+   ],
+   "integration": [
+    "maturity INTEGRATED; consumer: src/brambleloop/creative/tournament.py"
+   ],
+   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "deployment": "production b2e49455",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code + tests (offline)",
+   "missing_work": [
+    "activation: no production execution of intel.children_portfolio",
+    "evidence: ledger not PROVEN -- OPEN-DEFECT at INTEGRATED",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "never executed in production",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "creative/children.py",
+      "creative/family.py"
+     ]
+    },
+    "tested": {
+     "ok": true,
+     "evidence": [
+      "tests/test_family.py::test_a_family_member_is_never_the_hero_in_another_palette",
+      "tests/test_family.py::test_size_compatibility_alone_does_not_invent_a_member"
+     ]
+    },
+    "integrated": {
+     "ok": true,
+     "evidence": [
+      "maturity INTEGRATED; consumer: src/brambleloop/creative/tournament.py"
+     ]
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": true,
+     "evidence": {
+      "in_production_b2e49455": [
+       "creative/family.py"
+      ],
+      "combined_candidate_only": [
+       "creative/children.py"
+      ],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": false,
+     "evidence": {
+      "intel.children_portfolio": {
+       "n": 0
+      }
+     }
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
+   "id": "F-365",
+   "topic": "families",
+   "title": "Store Architecture",
+   "acceptance_text": "Store Architecture - Brambleloop's storefront taxonomy must support a coherent Baby & Kids department/collection when catalogue depth justifies it, including useful navigation by garment/product family and size/age range where supported.",
+   "ledger_state": "OPEN-DEFECT at DEPLOYED",
+   "implementation_path": [
+    "brand/storefront.py",
+    "creative/children.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: ['brand/storefront.py']",
+    "combined": "claude/w4-INTEG7 67920948: ['creative/children.py']",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [
+    "tests/test_brand.py (section_for over seeds, line ~178)"
+   ],
+   "integration": [
+    "maturity DEPLOYED; consumer: src/brambleloop/launch/readiness.py::assess"
+   ],
+   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "deployment": "production b2e49455",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code + tests (offline)",
+   "missing_work": [
+    "activation: no production execution of intel.children_portfolio",
+    "evidence: ledger not PROVEN -- OPEN-DEFECT at DEPLOYED",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "never executed in production",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "brand/storefront.py",
+      "creative/children.py"
+     ]
+    },
+    "tested": {
+     "ok": true,
+     "evidence": [
+      "tests/test_brand.py (section_for over seeds, line ~178)"
+     ]
+    },
+    "integrated": {
+     "ok": true,
+     "evidence": [
+      "maturity DEPLOYED; consumer: src/brambleloop/launch/readiness.py::assess"
+     ]
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": true,
+     "evidence": {
+      "in_production_b2e49455": [
+       "brand/storefront.py"
+      ],
+      "combined_candidate_only": [
+       "creative/children.py"
+      ],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": false,
+     "evidence": {
+      "intel.children_portfolio": {
+       "n": 0
+      }
+     }
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
+   "id": "F-366",
+   "topic": "families",
+   "title": "Launch Mix Evaluation",
+   "acceptance_text": "Launch Mix Evaluation - Once the Product Truth/image architecture is resolved, the launch-catalogue optimizer must explicitly consider baby/children's products alongside adult garments, home/decor, seasonal and accessories rather than treating kids as a later afterthought.",
+   "ledger_state": "OPEN-DEFECT at TESTED",
+   "implementation_path": [
+    "creative/children.py",
+    "launch/mix.py",
+    "products/launch0.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: ['products/launch0.py']",
+    "combined": "claude/w4-INTEG7 67920948: ['creative/children.py']",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [
+    "tests/test_launch0.py::test_the_two_childrens_products_are_the_sub_categories_the_research_leads_with",
+    "tests/test_launch0.py::test_a_portfolio_holding_both_swings_less_than_either_alone"
+   ],
+   "integration": "no runtime consumer recorded",
+   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "deployment": "production b2e49455",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code + tests (offline)",
+   "missing_work": [
+    "evidence: ledger not PROVEN -- OPEN-DEFECT at TESTED",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "OPEN-DEFECT at TESTED",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "creative/children.py",
+      "launch/mix.py",
+      "products/launch0.py"
+     ]
+    },
+    "tested": {
+     "ok": true,
+     "evidence": [
+      "tests/test_launch0.py::test_the_two_childrens_products_are_the_sub_categories_the_research_leads_with",
+      "tests/test_launch0.py::test_a_portfolio_holding_both_swings_less_than_either_alone"
+     ]
+    },
+    "integrated": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": true,
+     "evidence": {
+      "in_production_b2e49455": [
+       "products/launch0.py"
+      ],
+      "combined_candidate_only": [
+       "creative/children.py"
+      ],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": null,
+     "evidence": "no job type executes this (API/gate/policy row)"
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
    "id": "F-367",
    "topic": "watchlist",
    "title": "Competitive Learning",
@@ -6671,6 +7120,81 @@
     "feeds_decisions": {
      "ok": false,
      "evidence": "MadelineMaeCo, ZKBDESIGNER and TheEasyDesign were not observed in production. The code-declared registry is Mrs J only (intel/benchmarks.REGISTRY == (MJS,) at b2e49455); panel members join only from evidence (intel.panel_discovery, 3 runs) -- the second_market_benchmark gate reads open, so at least one non-US panel member is observed; which needs operator readback"
+    },
+    "verified": {
+     "ok": false,
+     "evidence": "no evidence"
+    }
+   }
+  },
+  {
+   "id": "F-370",
+   "topic": "families",
+   "title": "Autonomous Rebalancing",
+   "acceptance_text": "Autonomous Rebalancing - After sufficient live evidence exists, Brambleloop may increase or reduce the share of baby/children's products based on measured performance, while preserving owner-set brand and quality constraints.",
+   "ledger_state": "DATA-GATED at MISSING",
+   "implementation_path": [
+    "launch/mix.py"
+   ],
+   "branch_sha": {
+    "production": "b2e49455: []",
+    "combined": "claude/w4-INTEG7 67920948: []",
+    "intelrec": "claude/w4-INTELREC HEAD: []"
+   },
+   "tests": [],
+   "integration": "no runtime consumer recorded",
+   "security_review": "none",
+   "deployment": "n/a (no module)",
+   "last_production_execution": "none in the snapshot",
+   "evidence_quality": "code only",
+   "missing_work": [
+    "activation: deploy ",
+    "evidence: ledger not PROVEN -- DATA-GATED at MISSING",
+    "external evidence: operator readback of what the runs produced"
+   ],
+   "acceptance_blocker": "not deployed",
+   "steps": {
+    "specified": {
+     "ok": true,
+     "evidence": "Final Master v0.11 (research/final_build/master_registry*.json)"
+    },
+    "implemented": {
+     "ok": true,
+     "evidence": [
+      "launch/mix.py"
+     ]
+    },
+    "tested": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "integrated": {
+     "ok": false,
+     "evidence": "no evidence"
+    },
+    "reviewed": {
+     "ok": null,
+     "evidence": "no per-row evidence: independent reviews are per branch (INDEPENDENT_SECREVIEW_*), not per requirement"
+    },
+    "deployed": {
+     "ok": false,
+     "evidence": {
+      "in_production_b2e49455": [],
+      "combined_candidate_only": [],
+      "intelrec_only_unreviewed": []
+     }
+    },
+    "scheduled_executing": {
+     "ok": null,
+     "evidence": "no job type executes this (API/gate/policy row)"
+    },
+    "valid_evidence": {
+     "ok": null,
+     "evidence": "needs operator readback"
+    },
+    "feeds_decisions": {
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "verified": {
      "ok": false,
@@ -7975,11 +8499,11 @@
    "branch_sha": {
     "production": "b2e49455: ['intel/insights.py']",
     "combined": "claude/w4-INTEG7 67920948: []",
-    "intelrec": "claude/w4-INTELREC HEAD: []"
+    "intelrec": "claude/w4-INTELREC HEAD: ['intel/insights_score.py']"
    },
    "tests": [],
    "integration": "no runtime consumer recorded",
-   "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
+   "security_review": "UNREVIEWED (INTELREC batch 4)",
    "deployment": "production b2e49455",
    "last_production_execution": "job id 32721 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
@@ -8019,7 +8543,9 @@
        "intel/insights.py"
       ],
       "combined_candidate_only": [],
-      "intelrec_only_unreviewed": []
+      "intelrec_only_unreviewed": [
+       "intel/insights_score.py"
+      ]
      }
     },
     "scheduled_executing": {
@@ -9830,56 +10356,56 @@
   }
  ],
  "summary": {
-  "requirements": 106,
+  "requirements": 112,
   "by_step": {
    "specified": {
-    "yes": 106,
+    "yes": 112,
     "no": 0,
     "unknown": 0
    },
    "implemented": {
-    "yes": 103,
+    "yes": 109,
     "no": 3,
     "unknown": 0
    },
    "tested": {
-    "yes": 75,
-    "no": 31,
+    "yes": 79,
+    "no": 33,
     "unknown": 0
    },
    "integrated": {
-    "yes": 83,
-    "no": 23,
+    "yes": 85,
+    "no": 27,
     "unknown": 0
    },
    "reviewed": {
     "yes": 0,
     "no": 0,
-    "unknown": 106
+    "unknown": 112
    },
    "deployed": {
-    "yes": 95,
-    "no": 8,
+    "yes": 99,
+    "no": 10,
     "unknown": 3
    },
    "scheduled_executing": {
     "yes": 67,
-    "no": 11,
-    "unknown": 28
+    "no": 15,
+    "unknown": 30
    },
    "valid_evidence": {
     "yes": 4,
     "no": 0,
-    "unknown": 102
+    "unknown": 108
    },
    "feeds_decisions": {
     "yes": 0,
     "no": 30,
-    "unknown": 76
+    "unknown": 82
    },
    "verified": {
     "yes": 65,
-    "no": 41,
+    "no": 47,
     "unknown": 0
    }
   },
