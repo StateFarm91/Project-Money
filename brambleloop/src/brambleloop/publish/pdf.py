@@ -981,11 +981,6 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # document has been laid out, and laying it out twice must not mean drawing a
     # two-thousand-pixel chart twice.
     art = _chart_art(cir, twin)
-    # The pictures of the finished piece and of its construction, drawn once by the
-    # deterministic renderers and placed by every layout pass.
-    views = _disclosed_views(cir)
-    from .construction_diagrams import stages as _stages
-    stages = _stages(cir)
 
     # Laid out until the count it prints is the count it has. Printing "of 7" on a document
     # that turned out to be 8 pages long is worse than printing nothing, because a customer
@@ -996,6 +991,12 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     _refuse_an_undecided_childrens_title(cir, childrens)
     if childrens is not None:
         _refuse_what_the_childrens_assessment_refuses(cir, childrens)
+
+    # The pictures of the finished piece and of its construction, drawn once (after every
+    # refusal) by the deterministic renderers and placed by every layout pass.
+    views = _disclosed_views(cir)
+    from .construction_diagrams import stages as _stages
+    stages = _stages(cir)
 
     total = 0
     for _ in range(4):
@@ -1698,8 +1699,10 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
              align="centre")
     kicker = f"Crochet pattern · {terminology} terms · version {cir.version}"
     doc.prose.append(kicker)
-    doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker.upper(), FONT_UI_MEDIUM, 9.5, TAUPE,
-             align="centre", track=1.1)
+    # Set as written, not in capitals: the cover is where a reader (and
+    # `visual.contents_frame`) looks for the words "version 1.2.0".
+    doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker, FONT_UI_MEDIUM, 10.5, TAUPE,
+             align="centre", track=0.5)
     if make_total > 1:
         # The CIR makes several pieces; the cover says how many (Component.make).
         makes = f"Makes {make_total} {piece}s"
@@ -1844,6 +1847,23 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     for ls in laid:
         y = _draw_rich(doc, ls, MARGIN + 5 * mm, y, 9.5, leading) - 2 * mm
     doc.y = top - h - 4 * mm
+
+    # -- sizes and fit (graded garments: F-761, F-762, F-763, F-362) -------
+    size_rows = size_chart(cir)
+    if size_rows:
+        doc.new_page(head)
+        doc.heading(SIZES_HEADING, kicker="Choosing your size")
+        doc.para(fit_statement(cir) or "", size=10, running_head=head)
+        from ..cir.graded import CHILD
+        if cir.grading.table == CHILD.name:
+            doc.para(AGE_IS_A_GUIDE, size=10, running_head=head)
+        doc.space(2 * mm)
+        for label, value in size_rows:
+            doc.kv(label, value)
+        note = care_note(cir)
+        if note:
+            doc.heading(CARE_HEADING, size=12)
+            doc.para(note, size=10, running_head=head)
 
     # ---------------------------------------------------------------- 3. materials ---------
     doc.new_page(head)
@@ -2553,7 +2573,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # ---------------------------------------------------------------- 12. terms ------------
     doc.new_page(head)
-    doc.heading("Terms and support", kicker="Licence, support and credits")
+    doc.heading("Terms and support", kicker="Support and credits")
     # Rendered from `commerce.terms`, which is where these were decided.
     for i, line in enumerate(licence_paragraphs()):
         if not line.strip():

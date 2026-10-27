@@ -141,7 +141,7 @@ def test_each_edition_states_its_own_terminology():
             _cir, doc = _doc(key, term)
             flat = _flat(doc)
             assert f"Instructions ({term} terms)" in flat
-            assert f"CROCHET PATTERN · {term} TERMS" in flat
+            assert f"Crochet pattern · {term} terms · version {_cir.version}" in flat
             other = "UK" if term == "US" else "US"
             assert f"Instructions ({other} terms)" not in flat
 
