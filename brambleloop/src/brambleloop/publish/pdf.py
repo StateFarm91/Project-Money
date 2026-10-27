@@ -1721,7 +1721,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                                "source": "visual.disclosed_render.render", "png_sha256": sha,
                                "label": K.DISCLOSURE})
         cap = ("Digital rendering of the finished design, drawn stitch by stitch from this "
-               "pattern - not a photograph.")
+               "pattern — not a photograph.")
         doc.prose.append(cap)
         doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
     # The facts strip in the forest band.
@@ -1865,7 +1865,135 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.heading(CARE_HEADING, size=12)
             doc.para(note, size=10, running_head=head)
 
-    # ---------------------------------------------------------------- 3. materials ---------
+    # ---------------------------------------------------------------- 3. construction
+    # Before the materials (as the schematic always was): what you are making, and its
+    # measurements, before what to buy for it. ------
+    from .schematic import schematic_for
+    schematic = schematic_for(cir, result)
+    overview = construction_overview(cir)
+    scale_view = views.get("scale")
+    if schematic is not None or scale_view is not None or overview:
+        doc.new_page(head)
+        doc.heading("How it is made", kicker="Construction and schematic")
+        # F-765: how the pieces become the object, before any row-level instruction.
+        if overview:
+            doc.heading("How it goes together", size=12)
+            for line in overview:
+                doc.para(line, size=10, running_head=head)
+            doc.space(2 * mm)
+        else:
+            base, wall = _rings(twin)
+            rows_ix = _rows_by_index(twin)
+            unit = "round" if "round" in comp.construction else "row"
+            if base and wall:
+                doc.para(f"The {piece} is one piece, worked in joined {unit}s without turning. "
+                         f"{unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
+                         f"increase to grow a flat base of {len(rows_ix[base[-1].index])} "
+                         f"stitches; {unit}s {_span_words(wall[0].index, wall[-1].index)} keep "
+                         f"that count and rise straight up to make the wall. There are no "
+                         f"seams to sew.", size=10)
+            elif base:
+                doc.para(f"Each {piece} is one piece, worked outward from the centre in joined "
+                         f"{unit}s without turning, growing to {len(rows_ix[base[-1].index])} "
+                         f"stitches at {('Rnd' if unit == 'round' else 'Row')} "
+                         f"{base[-1].index}. There are no seams to sew.", size=10)
+        if schematic is not None:
+            doc.heading("Schematic", size=12)
+            doc.para("Every piece as worked, to scale, with the joins that make it one object. "
+                     "Measurements are computed from the stated gauge.", size=9.5, color=MUTED)
+            doc.image(schematic.image, running_head=head,
+                      figure={"kind": "schematic", "source": "publish.schematic.schematic_for",
+                              "label": "Schematic"})
+        elif scale_view is not None:
+            img, sha = scale_view
+            doc.prose.append("Schematic")
+            doc.label("Schematic with finished measurements")
+            base_view = views.get("detail") if _rings(twin)[1] else None
+            box = (95 * mm if base_view is not None
+                   else max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm)))
+            doc.need(box + 12 * mm)
+            top = doc.y
+            _rounded_image(doc, img, MARGIN, top, box, box,
+                           figure={"kind": "disclosed_render", "view": "scale",
+                                   "source": "visual.disclosed_render.render", "png_sha256": sha,
+                                   "label": "Schematic: " + K.DISCLOSURE})
+            # The measurements in text beside the picture, from the twin.
+            tx = MARGIN + box + 7 * mm
+            tw = usable - box - 7 * mm
+            facts = []
+            if twin.across_points_cm:
+                facts.append(("across the points", f"{twin.across_points_cm:.1f} cm"))
+                facts.append(("across the flats", f"{twin.across_flats_cm:.1f} cm"))
+            elif twin.width_cm:
+                facts.append(("across" if twin.shape else "width", f"{twin.width_cm:.1f} cm"))
+            if twin.shape not in (None, "disc") and twin.height_cm:
+                facts.append(("height", f"{twin.height_cm:.1f} cm"))
+            elif twin.shape is None and twin.height_cm:
+                facts.append(("length", f"{twin.height_cm:.1f} cm"))
+            rows_ix = _rows_by_index(twin)
+            if rows_ix:
+                facts.append(("stitches in the last round" if "round" in comp.construction
+                              else "stitches in the last row",
+                              f"{len(rows_ix[max(rows_ix)])}"))
+                facts.append(("rounds" if "round" in comp.construction else "rows",
+                              f"{len(rows_ix)}"))
+            yy = top - 4 * mm
+            doc.text(tx, yy, "FINISHED MEASUREMENTS", FONT_UI_BOLD, 9.5, ACCENT, track=1.0)
+            doc.prose.append("Finished measurements")
+            yy -= 8 * mm
+            for k, v in facts:
+                doc.prose.append(f"{k} {v}")
+                doc.text(tx, yy, k.upper(), FONT_LABEL, MIN_BODY_PT, TAUPE)
+                doc.text(tx, yy - 6 * mm, v, FONT_DISPLAY_BOLD, 18, FOREST)
+                yy -= 14 * mm
+            note = ("Computed from the pattern's stitches at the stated gauge; not measured on "
+                    "a worked sample." if not twin.calibrated else
+                    "Calibrated against a worked sample.")
+            doc.prose.append(note)
+            for line in _wrap(c, note, FONT_BODY_ITALIC, 9.5, tw):
+                doc.text(tx, yy, line, FONT_BODY_ITALIC, 9.5, MUTED)
+                yy -= 4.4 * mm
+            doc.y = top - box - 4 * mm
+            cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
+                   "photograph. The scale bar is in centimetres.")
+            doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC)
+            if base_view is not None:
+                # A vessel's schematic needs its base as well as its wall: the elevation shows
+                # the height, the plan the base the wall stands on.
+                base, wall = _rings(twin)
+                rows_ix = _rows_by_index(twin)
+                bimg, bsha = base_view
+                side = min(70 * mm, doc.y - MARGIN - 8 * mm)
+                doc.need(side + 4 * mm)
+                top = doc.y - 2 * mm
+                _rounded_image(doc, bimg, MARGIN, top, side, side,
+                               figure={"kind": "disclosed_render", "view": "detail",
+                                       "source": "visual.disclosed_render.render",
+                                       "png_sha256": bsha,
+                                       "label": "Schematic, base: " + K.DISCLOSURE})
+                bx = MARGIN + side + 7 * mm
+                doc.prose.append("The base, from above")
+                doc.text(bx, top - 4 * mm, "THE BASE, FROM ABOVE", FONT_UI_BOLD, 9.5, ACCENT,
+                         track=1.0)
+                lab = "Rnd" if "round" in comp.construction else "Row"
+                lines_ = [f"{lab}s {base[0].index} to {base[-1].index}: a flat base of "
+                          f"{len(rows_ix[base[-1].index])} stitches"
+                          if len(base) > 1 else f"{lab} {base[0].index}",
+                          f"{twin.across_points_cm:.1f} cm across the points and "
+                          f"{twin.across_flats_cm:.1f} cm across the flats"
+                          if twin.across_points_cm else "",
+                          f"The wall ({lab}s {wall[0].index} to {wall[-1].index}) rises from "
+                          f"its edge."]
+                yy = top - 11 * mm
+                for ln in [x for x in lines_ if x]:
+                    doc.prose.append(ln)
+                    for w in _wrap(c, ln, FONT_BODY, 10, usable - side - 7 * mm):
+                        doc.text(bx, yy, w, FONT_BODY, 10, INK)
+                        yy -= 5 * mm
+                    yy -= 1.5 * mm
+                doc.y = top - side - 4 * mm
+
+    # ---------------------------------------------------------------- 4. materials ---------
     doc.new_page(head)
     doc.heading("Materials", kicker="What you need")
     # Yarn cards: one per yarn, with the colour drawn, the yarn named as the CIR names it, and
@@ -1999,7 +2127,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
             f"read off a table.", size=9.5, color=MUTED)
 
-    # ---------------------------------------------------------------- 4. gauge -------------
+    # ---------------------------------------------------------------- 5. gauge -------------
     if doc.y < 150 * mm:
         doc.new_page(head)
     else:
@@ -2093,7 +2221,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"will merge on a greyscale printer. The chart carries a letter for each colour, "
             f"so follow the letters rather than the shading.", size=9.5, color=MUTED)
 
-    # ---------------------------------------------------------------- 5. abbreviations -----
+    # ---------------------------------------------------------------- 6. abbreviations -----
     doc.new_page(head)
     doc.heading("Abbreviations", kicker=f"{terminology.upper()} crochet terms")
     doc.para(f"This pattern is written in {terminology.upper()} terms. Every abbreviation it "
@@ -2142,132 +2270,6 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.para(entry.means, size=9.5, color=INK)
             doc.space(1 * mm)
 
-    # ---------------------------------------------------------------- 6. construction ------
-    from .schematic import schematic_for
-    schematic = schematic_for(cir, result)
-    overview = construction_overview(cir)
-    scale_view = views.get("scale")
-    if schematic is not None or scale_view is not None or overview:
-        doc.new_page(head)
-        doc.heading("How it is made", kicker="Construction and schematic")
-        # F-765: how the pieces become the object, before any row-level instruction.
-        if overview:
-            doc.heading("How it goes together", size=12)
-            for line in overview:
-                doc.para(line, size=10, running_head=head)
-            doc.space(2 * mm)
-        else:
-            base, wall = _rings(twin)
-            rows_ix = _rows_by_index(twin)
-            unit = "round" if "round" in comp.construction else "row"
-            if base and wall:
-                doc.para(f"The {piece} is one piece, worked in joined {unit}s without turning. "
-                         f"{unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
-                         f"increase to grow a flat base of {len(rows_ix[base[-1].index])} "
-                         f"stitches; {unit}s {_span_words(wall[0].index, wall[-1].index)} keep "
-                         f"that count and rise straight up to make the wall. There are no "
-                         f"seams to sew.", size=10)
-            elif base:
-                doc.para(f"Each {piece} is one piece, worked outward from the centre in joined "
-                         f"{unit}s without turning, growing to {len(rows_ix[base[-1].index])} "
-                         f"stitches at {('Rnd' if unit == 'round' else 'Row')} "
-                         f"{base[-1].index}. There are no seams to sew.", size=10)
-        if schematic is not None:
-            doc.heading("Schematic", size=12)
-            doc.para("Every piece as worked, to scale, with the joins that make it one object. "
-                     "Measurements are computed from the stated gauge.", size=9.5, color=MUTED)
-            doc.image(schematic.image, running_head=head,
-                      figure={"kind": "schematic", "source": "publish.schematic.schematic_for",
-                              "label": "Schematic"})
-        elif scale_view is not None:
-            img, sha = scale_view
-            doc.prose.append("Schematic")
-            doc.label("Schematic with finished measurements")
-            base_view = views.get("detail") if _rings(twin)[1] else None
-            box = (95 * mm if base_view is not None
-                   else max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm)))
-            doc.need(box + 12 * mm)
-            top = doc.y
-            _rounded_image(doc, img, MARGIN, top, box, box,
-                           figure={"kind": "disclosed_render", "view": "scale",
-                                   "source": "visual.disclosed_render.render", "png_sha256": sha,
-                                   "label": "Schematic: " + K.DISCLOSURE})
-            # The measurements in text beside the picture, from the twin.
-            tx = MARGIN + box + 7 * mm
-            tw = usable - box - 7 * mm
-            facts = []
-            if twin.across_points_cm:
-                facts.append(("across the points", f"{twin.across_points_cm:.1f} cm"))
-                facts.append(("across the flats", f"{twin.across_flats_cm:.1f} cm"))
-            elif twin.width_cm:
-                facts.append(("across" if twin.shape else "width", f"{twin.width_cm:.1f} cm"))
-            if twin.shape not in (None, "disc") and twin.height_cm:
-                facts.append(("height", f"{twin.height_cm:.1f} cm"))
-            elif twin.shape is None and twin.height_cm:
-                facts.append(("length", f"{twin.height_cm:.1f} cm"))
-            rows_ix = _rows_by_index(twin)
-            if rows_ix:
-                facts.append(("stitches in the last round" if "round" in comp.construction
-                              else "stitches in the last row",
-                              f"{len(rows_ix[max(rows_ix)])}"))
-                facts.append(("rounds" if "round" in comp.construction else "rows",
-                              f"{len(rows_ix)}"))
-            yy = top - 4 * mm
-            doc.text(tx, yy, "FINISHED MEASUREMENTS", FONT_UI_BOLD, 9.5, ACCENT, track=1.0)
-            doc.prose.append("Finished measurements")
-            yy -= 8 * mm
-            for k, v in facts:
-                doc.prose.append(f"{k} {v}")
-                doc.text(tx, yy, k.upper(), FONT_LABEL, MIN_BODY_PT, TAUPE)
-                doc.text(tx, yy - 6 * mm, v, FONT_DISPLAY_BOLD, 18, FOREST)
-                yy -= 14 * mm
-            note = ("Computed from the pattern's stitches at the stated gauge; not measured on "
-                    "a worked sample." if not twin.calibrated else
-                    "Calibrated against a worked sample.")
-            doc.prose.append(note)
-            for line in _wrap(c, note, FONT_BODY_ITALIC, 9.5, tw):
-                doc.text(tx, yy, line, FONT_BODY_ITALIC, 9.5, MUTED)
-                yy -= 4.4 * mm
-            doc.y = top - box - 4 * mm
-            cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
-                   "photograph. The scale bar is in centimetres.")
-            doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC)
-            if base_view is not None:
-                # A vessel's schematic needs its base as well as its wall: the elevation shows
-                # the height, the plan the base the wall stands on.
-                base, wall = _rings(twin)
-                rows_ix = _rows_by_index(twin)
-                bimg, bsha = base_view
-                side = min(70 * mm, doc.y - MARGIN - 8 * mm)
-                doc.need(side + 4 * mm)
-                top = doc.y - 2 * mm
-                _rounded_image(doc, bimg, MARGIN, top, side, side,
-                               figure={"kind": "disclosed_render", "view": "detail",
-                                       "source": "visual.disclosed_render.render",
-                                       "png_sha256": bsha,
-                                       "label": "Schematic, base: " + K.DISCLOSURE})
-                bx = MARGIN + side + 7 * mm
-                doc.prose.append("The base, from above")
-                doc.text(bx, top - 4 * mm, "THE BASE, FROM ABOVE", FONT_UI_BOLD, 9.5, ACCENT,
-                         track=1.0)
-                lab = "Rnd" if "round" in comp.construction else "Row"
-                lines_ = [f"{lab}s {base[0].index} to {base[-1].index}: a flat base of "
-                          f"{len(rows_ix[base[-1].index])} stitches"
-                          if len(base) > 1 else f"{lab} {base[0].index}",
-                          f"{twin.across_points_cm:.1f} cm across the points and "
-                          f"{twin.across_flats_cm:.1f} cm across the flats"
-                          if twin.across_points_cm else "",
-                          f"The wall ({lab}s {wall[0].index} to {wall[-1].index}) rises from "
-                          f"its edge."]
-                yy = top - 11 * mm
-                for ln in [x for x in lines_ if x]:
-                    doc.prose.append(ln)
-                    for w in _wrap(c, ln, FONT_BODY, 10, usable - side - 7 * mm):
-                        doc.text(bx, yy, w, FONT_BODY, 10, INK)
-                        yy -= 5 * mm
-                    yy -= 1.5 * mm
-                doc.y = top - side - 4 * mm
-
     # ---------------------------------------------------------------- 7. instructions ------
     doc.new_page(head)
     doc.heading(f"Instructions ({terminology} terms)", kicker="Step by step")
@@ -2298,7 +2300,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         doc.y = top - hh - 6 * mm
     if stages:
         doc.para("Each card shows the piece after the last round in it, drawn from this "
-                 "pattern's stitch data - a construction diagram, not a photograph. The rose "
+                 "pattern's stitch data — a construction diagram, not a photograph. The rose "
                  "outline marks the edge of the round just worked; the first rounds are drawn "
                  "enlarged so they can be seen.", size=9.5, color=MUTED,
                  font=FONT_BODY_ITALIC)
@@ -2346,7 +2348,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.c.circle(MARGIN + 1.6 * mm, doc.y + 1.2 * mm, 1.1 * mm, fill=1, stroke=0)
             doc.para(ln, size=10, x=MARGIN + 6 * mm, running_head=head)
 
-    # ---------------------------------------------------------------- 9. tips --------------
+    # ---------------------------------------------------------------- 8. tips --------------
     tip_list = tips_mod.tips(cir, result, twin, text, terminology)
     if tip_list:
         if doc.y < 150 * mm:
@@ -2374,7 +2376,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 doc.para(t.text, size=9.5, x=x + 5 * mm, width=inner)
             doc.y = top - h - 5 * mm
 
-    # ---------------------------------------------------------------- 8. chart -------------
+    # ---------------------------------------------------------------- 9. chart -------------
     doc.new_page(head)
     doc.heading("Chart", kicker="Chart and keys")
     # The caption goes above the chart when both fit; otherwise below it, because the chart
