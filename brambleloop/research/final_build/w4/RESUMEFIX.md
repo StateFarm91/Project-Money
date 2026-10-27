@@ -82,8 +82,37 @@ and the last two assert more than before.
   HELD details keep the reviewer's EXPOSED-case prose with the observed values filled in, and are
   marked as such.
 
-## Validation run (slot gate, `venv-integ4`)
+## Validation run (2026-10-27, slot gate, `venv-integ4`, on the tree of this branch)
 
-See the commit message and the worker report for exact counts. The run covered
-`test_w4_resume_runner.py`, `test_deploy_guard.py`, the release-record suites (the
-`release_record`/`deploy_guard` importers), `test_run_tests_script.py` and `test_vacuity.py`.
+- **Probe, before:** `RESUME_REVIEW_probe_output.txt` (f1cde398 runner): 10 held, 16 exposed, 0 could not run.
+- **Probe, after:** `RESUMEFIX_probe_output.txt` (adapted probe, fixed runner): **26 held, 0 exposed, 0 could not run**.
+- **21 suites, 182 tests, 0 failing.** Each line gives OK / FAIL / exit code:
+  - Runner and the owner of the probes:
+    - `test_w4_resume_runner`: 40 / 0 / 0
+    - `test_run_tests_script`: 11 / 0 / 0
+    - `test_vacuity`: 8 / 0 / 0
+  - Deploy guard:
+    - `test_deploy_guard`: 7 / 0 / 0
+    - `test_deploy_path`: 9 / 0 / 0
+    - `test_w3_deploy_evidence`: 3 / 0 / 0
+    - `test_w4_rollback_rehearsal`: 5 / 0 / 0
+    - `test_w4_fmbatch1_rollback`: 14 / 0 / 0
+    - `test_w4_c01_integration_authority`: 3 / 0 / 0
+    - `test_w4_c01_review`: 3 / 0 / 0
+  - Release record and its readers:
+    - `test_w4_fm2_lock_boot_guard`: 3 / 0 / 0
+    - `test_w4_packetrel`: 6 / 0 / 0
+    - `test_w4_relfix_release_log`: 4 / 0 / 0
+    - `test_rc1_own_release`: 10 / 0 / 0
+    - `test_freeze_candidate`: 9 / 0 / 0
+    - `test_w4_ccrel`: 8 / 0 / 0
+    - `test_w4_plact`: 8 / 0 / 0
+    - `test_w3_final_master_gate`: 13 / 0 / 0
+    - `test_cert_claude_independence`: 4 / 0 / 0
+  - Supply chain and signing:
+    - `test_w3_supply_chain`: 6 / 0 / 0
+    - `test_w4_fmbatch1_signing`: 8 / 0 / 0
+- **Not run:**
+  - The 2.7 h full suite (by instruction). The change touches `src/brambleloop/ops/release_record.py`, so the deployable tree digest changes and a release from this tree needs its own uninterrupted full run, as always.
+- **Next step required by D-W4-OWNER-RESUME-POLICY:** a fresh independent review of this branch.
+  Until it approves, nothing here may be read as permission for a resumed run to certify, and the code refuses one regardless.
