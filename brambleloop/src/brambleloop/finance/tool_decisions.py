@@ -64,6 +64,13 @@ def check_scope(db, scope: str, decision_ref: int | None) -> dict | None:
     if not scope.startswith(SOFTWARE_PREFIX):
         return None
     tool = scope[len(SOFTWARE_PREFIX):].strip().lower()
+    # F-579: an accounting integration is connected only if the recorded evaluation of
+    # QuickBooks Online / Xero against our own books recommends it.
+    from .accounting.integration_decision import connection_allowed
+
+    allowed, why = connection_allowed(tool)
+    if not allowed:
+        raise ToolSpendRefused(f"{scope}: {why}")
     if decision_ref is None:
         raise ToolSpendRefused(f"{scope}: a software spend limit needs a recorded tool "
                                f"evaluation (decision_ref) naming the capability gap and ROI")

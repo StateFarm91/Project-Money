@@ -2531,3 +2531,18 @@ Fixed. Each fix has a test that fails before it and passes after; the evidence i
 **Context:** L-1 from the review of b5226f7, carried into the review of a14c9ef. It is Low, and its fix sits in `laura/agency/delegation`.
 
 **Decision:** accepted as open and deferred. The owner's coordinator froze Laura code at 2c29b42, and W-AGENTS does not change `laura/`. The finding stays open in AGENTS.md §7 and passes to whichever lane owns the next Laura change. Nothing is re-classified as closed.
+
+### D-W4-C04-F579: no accounting integration yet; our own books stay the ledger (2026-10-27)
+
+**Context:** F-579 asks for QuickBooks Online, Xero and other finance integrations to be evaluated against Brambleloop's ledger needs, duplication risk, cost and reconciliation quality before connecting one. F-575 (Payment Account reconciliation) and F-576 (statement archive) now exist on `claude/w4-C04`.
+
+**Decision:** keep the in-house double-entry books (`finance.accounting`) as the only ledger. Do not connect QuickBooks Online or Xero now. The scored comparison is `finance/accounting/integration_decision.py`, with criteria, weights, per-criterion reasons, and Canadian list prices read 2026-10-27 from the vendors' pages: QBO Essentials from CA$54/mo, Xero Standard CA$60/mo. The decision is recomputed from that table. `tool_decisions.check_scope` refuses a `software:quickbooks`, `software:qbo` or `software:xero` spend scope while the evaluation recommends the in-house books.
+
+**Why:** a second ledger fed from the same orders is two books to keep in agreement. Neither tool carries per-release attribution or the modelled/measured fee basis. Both cost money before any revenue exists. The human accountant receives `finance.accounting.handoff`.
+
+**Revisit when:**
+- a closed month with real orders produces an accountant request for a QBO or Xero file;
+- taxable supplies approach the CA$30,000 GST/HST small-supplier threshold;
+- payroll or a second sales channel needs a general-purpose ledger.
+
+Prices must be re-read before any purchase. Spend stays an owner decision.
