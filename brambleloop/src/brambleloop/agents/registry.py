@@ -254,7 +254,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # write, no spend.
                             "seo.cycle",
                             # W4-AGENTS C3 (F-775): the cross-sell graph (reads; CA$0).
-                            "listing.cross_sell_graph"],
+                            "listing.cross_sell_graph",
+                            # W4-C12 wiring: reads rows; writes a reading / incident state.
+                            "listing.search_visibility_aging", "listing.window_captures"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
@@ -765,7 +767,9 @@ for _agent in DEFAULT_AGENTS:
             # against Etsy's published OpenAPI document (GREEN, public read-only GET, CA$0).
             "etsy.openapi_reverify",
             # W4-CREDHEALTH: daily provider credential health (free authenticated reads).
-            "ops.provider_credentials"]
+            "ops.provider_credentials",
+            # W4-C12 wiring (F-551): stored orders/census -> owner tasks; no Etsy call.
+            "etsy.dashboard_harvest"]
     elif _agent["name"] == "store_operator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
 for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):

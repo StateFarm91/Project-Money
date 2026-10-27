@@ -942,6 +942,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # cross-sell graph (daily). Both CA$0, no writes beyond their reading.
     ("salvage_review", "creative_director", "creative.salvage_review", 7 * 24 * 60 * 60),
     ("cross_sell_graph", "listing", "listing.cross_sell_graph", 24 * 60 * 60),
+    # W4-C12 wiring (runtime/c12_ops): read-only or record-only, CA$0, no Etsy call --
+    # Search Visibility aging (F-248/F-280), boost-window captures due (F-034), and the
+    # dashboard task harvest of stored orders and census (F-551).
+    ("search_visibility_aging", "listing", "listing.search_visibility_aging", 24 * 60 * 60),
+    ("window_captures", "listing", "listing.window_captures", 24 * 60 * 60),
+    ("dashboard_harvest", "orchestrator", "etsy.dashboard_harvest", 24 * 60 * 60),
     # Build 2 #94: novelty, desirability, survival, fatigue, CTR/conversion and winner rate
     # combined per month; unmeasured stays UNMEASURED. CA$0.
     ("capability_scorecard", "creative_director", "creative.capability_scorecard",
