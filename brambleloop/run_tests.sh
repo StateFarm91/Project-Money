@@ -175,17 +175,40 @@ SCOPE_KEY="$SCOPE:$(printf '%s ' "${SUITES[@]}")"
 [ "$SCOPE" = "full" ] && SCOPE_KEY="full"
 
 # ---- W4-B1: checkpoints, resume and shards (behind CHECKPOINT=1 / RESUME / SHARD) -----------
-# Off by default and not used for the current certification. With it, every suite's result is
-# persisted the moment it finishes (scripts/suite_checkpoint.py documents the key and what
-# counts), RESUME=<run id> re-runs only suites with no passing result and refuses on any key
-# mismatch (exit 4), and SHARD=i/n runs a deterministic subset. A resumed or sharded run is
-# never release-eligible by default: that is an owner certification-policy decision.
-CKPT=""; CKPT_DIR=""; TO_RUN=("${SUITES[@]}")
+# Off by default and not used for certification. With it, every suite's FINAL verdict is
+# persisted, authenticated, the moment it is known (scripts/suite_checkpoint.py documents the
+# key and what counts), RESUME=<run id> continues only an INTERRUPTED run, never re-runs a
+# suite that already failed, and refuses on any key mismatch (exit 4); SHARD=i/n runs a
+# deterministic subset.
+#
+# W4-RESUMEFIX F1 (owner decision D-W4-OWNER-RESUME-POLICY): a CHECKPOINT, RESUME or SHARD run
+# is NEVER release-eligible -- not "unless finalize succeeds", but from the record's first
+# write -- and the deploy guard refuses any record carrying checkpoint or resume provenance. A
+# checkpoint-step failure fails the run. Certification is one uninterrupted, plain full run.
+#
+# F8: one segment per run id at a time. An exclusive flock (released by the kernel when the
+# holder dies, so it cannot go stale) is taken before anything reads the checkpoint, whatever
+# ALLOW_PARALLEL says; suites inherit it, so an orphaned suite of a killed segment still holds it.
+CKPT=""; CKPT_DIR=""; CKPT_MODE=""; TO_RUN=("${SUITES[@]}")
 if [ -n "${RESUME:-}" ] || [ -n "${SHARD:-}" ] || [ "${CHECKPOINT:-0}" = "1" ]; then
   CKPT="${CHECKPOINT_TOOL:-scripts/suite_checkpoint.py}"
   if [ ! -f "$CKPT" ]; then
     echo "CHECKPOINT/RESUME/SHARD need $CKPT, which is missing; nothing was run" >&2
     exit 2
+  fi
+  if [ -n "${RESUME:-}" ]; then CKPT_MODE="resume"
+  elif [ -n "${SHARD:-}" ]; then CKPT_MODE="shard"
+  else CKPT_MODE="checkpoint"; fi
+  if ! command -v flock >/dev/null 2>&1; then
+    echo "CHECKPOINT/RESUME/SHARD need flock(1) for the per-run lock; nothing was run" >&2
+    exit 2
+  fi
+  mkdir -p "$RECORD_DIR/locks"
+  exec 8>>"$RECORD_DIR/locks/run-$RUN_ID.flock"
+  if ! flock -n 8; then
+    echo "REFUSED: run $RUN_ID already has a live segment (per-run lock" \
+         "$RECORD_DIR/locks/run-$RUN_ID.flock is held); ALLOW_PARALLEL does not apply (F8)" >&2
+    exit 75
   fi
   if [ -n "${SHARD:-}" ]; then
     shard_out="$("$PY" "$CKPT" shard "$SHARD" "${SUITES[@]}")" || exit 2
@@ -193,12 +216,13 @@ if [ -n "${RESUME:-}" ] || [ -n "${SHARD:-}" ] || [ "${CHECKPOINT:-0}" = "1" ]; 
     if [ "${#SUITES[@]}" -eq 0 ]; then echo "SHARD $SHARD holds no suites" >&2; exit 2; fi
     SCOPE_KEY="$SCOPE_KEY|shard:$SHARD"
   fi
-  CKPT_DIR="${SUITE_RECORD_DIR:-artifacts/suite_runs}/$RUN_ID"
-  plan_out="$("$PY" "$CKPT" plan --dir "$CKPT_DIR" --jobs "$JOBS" --scope "$SCOPE_KEY" \
-              --shard "${SHARD:-}" ${RESUME:+--resume} -- "${SUITES[@]}")" || exit 4
+  CKPT_DIR="$RECORD_DIR/$RUN_ID"
+  plan_out="$("$PY" "$CKPT" plan --dir "$CKPT_DIR" --record-dir "$RECORD_DIR" --run-id "$RUN_ID" \
+              --jobs "$JOBS" --scope "$SCOPE_KEY" --shard "${SHARD:-}" ${RESUME:+--resume} \
+              -- "${SUITES[@]}")" || exit 4
   mapfile -t TO_RUN < <(printf '%s\n' "$plan_out" | grep .)
   if [ -n "${RESUME:-}" ]; then
-    echo "RESUME: run $RUN_ID; ${#TO_RUN[@]} of ${#SUITES[@]} suites have no passing result and run again"
+    echo "RESUME: run $RUN_ID; ${#TO_RUN[@]} of ${#SUITES[@]} suites run again (no verified passing result, or timing-sensitive); never release-eligible"
   fi
 fi
 
@@ -292,6 +316,8 @@ write_record() {
   RR_TAKEOVER="$TAKEOVER" RR_PY="$PY_REAL" RR_JOBS="$JOBS" RR_LOCK="${LOCK_HELD:+$LOCK_FILE}" \
   RR_JOB="suite-$RUN_ID" RR_MARKER="$JOB_MARKER" RR_ENROLLED="${ENROLLED:-}" \
   RR_LEAK_N="${leak_entries:-}" RR_LEAK_B="${leak_bytes:-}" RR_LEAKING="${leak_list:-}" \
+  RR_CKPT_MODE="${CKPT_MODE:-}" RR_CKPT_DIR="${CKPT_DIR:-}" RR_SHARD="${SHARD:-}" \
+  RR_FRAGMENT="${CKPT_FRAGMENT:-}" \
   "$PY" - <<'PYEOF'
 import json, os, socket
 e = os.environ
@@ -336,6 +362,30 @@ rec["release_eligible"] = bool(
     status == "passed" and rec["scope"] == "full" and rec["tree"] == "clean"
     and rec["git_sha"] not in ("", "UNKNOWN") and end_sha == rec["git_sha"]
     and rec["suites_failing"] == 0)
+# W4-RESUMEFIX F1 / D-W4-OWNER-RESUME-POLICY: a checkpointed, resumed or sharded run carries
+# its provenance and is never release-eligible, from this record's first write. Plain runs
+# write none of these keys, exactly as before.
+mode = e.get("RR_CKPT_MODE") or ""
+if mode:
+    frag = {}
+    if e.get("RR_FRAGMENT"):
+        try:
+            frag = json.load(open(e["RR_FRAGMENT"]))
+        except (OSError, ValueError):
+            frag = {}
+    ck = dict(frag.get("checkpoint") or {})
+    ck.update(mode=mode, dir=e.get("RR_CKPT_DIR") or None, shard=e.get("RR_SHARD") or None,
+              finalized=bool(frag))
+    rec["checkpoint_mode"] = mode
+    rec["checkpoint"] = ck
+    rec["resumed"] = bool(frag.get("resumed")) if frag else mode == "resume"
+    if frag:
+        rec["suite_results"] = frag.get("suite_results") or []
+        rec["started_utc"] = frag.get("started_utc") or rec["started_utc"]
+    rec["release_eligible"] = False
+    rec["release_eligible_reason"] = (
+        f"{mode} run: a checkpointed, resumed or sharded run never certifies a release "
+        "(owner decision D-W4-OWNER-RESUME-POLICY; W4-RESUMEFIX F1)")
 tmp = e["RR_RECORD"] + ".tmp"
 with open(tmp, "w") as f:
     json.dump(rec, f, indent=2, sort_keys=True)
@@ -410,6 +460,7 @@ header() {
   else echo "SCOPE: filtered (${#SUITES[@]} suites): ${SUITES[*]}"; fi
   [ -n "$TAKEOVER" ] && echo "LOCK: took over the stale lock of run $TAKEOVER"
   [ "$PARALLEL" = "1" ] && echo "LOCK: ALLOW_PARALLEL=1, no concurrency guard"
+  [ -n "$CKPT_MODE" ] && echo "CHECKPOINT MODE: $CKPT_MODE (never release-eligible; D-W4-OWNER-RESUME-POLICY)"
   echo "RUN RECORD: $RECORD_FILE"
   echo
 }
@@ -428,8 +479,9 @@ if [ "${SUITE_REGISTRY:-1}" != "0" ] && [ -f "$REGISTRY_CLI" ]; then
 fi
 write_record running
 if [ -n "$CKPT" ]; then
-  "$PY" "$CKPT" begin --dir "$CKPT_DIR" --run-id "$RUN_ID" --jobs "$JOBS" --scope "$SCOPE_KEY" \
-    --shard "${SHARD:-}" ${RESUME:+--resume} --to-run "${TO_RUN[@]}" -- "${SUITES[@]}" || exit 4
+  "$PY" "$CKPT" begin --dir "$CKPT_DIR" --record-dir "$RECORD_DIR" --run-id "$RUN_ID" \
+    --jobs "$JOBS" --scope "$SCOPE_KEY" --shard "${SHARD:-}" ${RESUME:+--resume} \
+    --to-run ${TO_RUN[@]+"${TO_RUN[@]}"} -- "${SUITES[@]}" || exit 4
   echo "CHECKPOINT: per-suite results in $CKPT_DIR" | tee -a "$LOG_FILE"
 fi
 
@@ -460,14 +512,20 @@ schedule() {
     mkdir -p "$st"
     [ -n "$CKPT" ] && "$PY" "$CKPT" start --dir "$CKPT_DIR" "$t"
     TMPDIR="$st" "$PY" "$t" >"$outdir/$safe.out" 2>&1; c=$?
-    # The durable result is written before the run-local code file, so a suite that has a
-    # code here always has its checkpoint too; a kill between the two re-runs it.
-    [ -n "$CKPT" ] && "$PY" "$CKPT" finish --dir "$CKPT_DIR" "$t" --code "$c" --out "$outdir/$safe.out"
-    echo "$c" >"$outdir/$safe.code"
     n=$(find "$st" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
     b=$(find "$st" -mindepth 1 -type f -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print s+0}')
     echo "$n $b" >"$outdir/$safe.leak"
     rm -rf "$st"
+    # W4-RESUMEFIX F5: the durable result is written only AFTER the leak census, so it is the
+    # suite's final verdict (TMP_LEAK_STRICT included), and before the run-local code file, so
+    # a suite with a code here always has its checkpoint; a kill between the two re-runs it. A
+    # checkpoint write that fails marks the suite failed (exit 70): no silent gap.
+    if [ -n "$CKPT" ] && ! "$PY" "$CKPT" finish --dir "$CKPT_DIR" "$t" --code "$c" \
+         --out "$outdir/$safe.out" --leak-entries "$n" --leak-bytes "$b"; then
+      echo "CHECKPOINT: the result of this suite could not be persisted; counted as failing" >>"$outdir/$safe.out"
+      c=70
+    fi
+    echo "$c" >"$outdir/$safe.code"
   ) &
 }
 
@@ -490,18 +548,23 @@ done
 wait
 
 # W4-B1: suites that passed in an earlier segment are reported from their checkpoint.
-[ -n "$CKPT" ] && "$PY" "$CKPT" restore --dir "$CKPT_DIR" --outdir "$outdir" -- "${SUITES[@]}"
+if [ -n "$CKPT" ] && ! "$PY" "$CKPT" restore --dir "$CKPT_DIR" --outdir "$outdir" -- "${SUITES[@]}"; then
+  echo "CHECKPOINT: restore failed; earlier segments' results are not counted" | tee -a "$LOG_FILE"
+fi
+: > "$outdir/verdicts"
 total=0; failed=0; fail_tests=0; skip_tests=0; failing_list=""; nopass_list=""
 leak_entries=0; leak_bytes=0; leak_list=""; env_failures=0
 {
 for t in "${SUITES[@]}"; do
   safe="${t//\//_}"
   echo "== $t"
+  failed_before=$failed
   if [ -f "$outdir/$safe.out" ]; then
     sed 's/^/   /' "$outdir/$safe.out"
   else
     echo "   NO OUTPUT: this suite never ran"
     failed=$((failed+1)); failing_list+="$t"$'\n'
+    printf '%s\tfailed\n' "$t" >> "$outdir/verdicts"
     continue
   fi
   n=$(grep -c '^OK' "$outdir/$safe.out" || true)
@@ -540,8 +603,26 @@ for t in "${SUITES[@]}"; do
     echo "   SUITE REPORTED NO PASSES: its results are not reaching the total"
     failed=$((failed+1)); failing_list+="$t"$'\n'; nopass_list+="$t"$'\n'
   fi
+  # F8: the one per-suite verdict, which both failing_suites and suite_results derive from.
+  if [ "$failed" -gt "$failed_before" ]; then v=failed; else v=passed; fi
+  printf '%s\t%s\n' "$t" "$v" >> "$outdir/verdicts"
 done
 } > "$outdir/report"
+
+# W4-RESUMEFIX F1: the checkpoint is merged BEFORE the terminal record is written, into a
+# fragment that write_record folds into that one write -- and a finalize failure (integrity,
+# ENOSPC, a crash, a disagreement with the report) fails the run. It cannot fail open: the
+# record is not release-eligible in any checkpoint mode whatever finalize does.
+CKPT_FRAGMENT=""
+if [ -n "$CKPT" ]; then
+  CKPT_FRAGMENT="$outdir/checkpoint-fragment.json"
+  if ! "$PY" "$CKPT" finalize --dir "$CKPT_DIR" --record-dir "$RECORD_DIR" --run-id "$RUN_ID" \
+       --verdicts "$outdir/verdicts" --fragment "$CKPT_FRAGMENT" -- "${SUITES[@]}" \
+       2>>"$outdir/report"; then
+    echo "CHECKPOINT FINALIZE FAILED: the run is failed (W4-RESUMEFIX F1)" >> "$outdir/report"
+    failed=$((failed+1))
+  fi
+fi
 
 END_SHA="$(git rev-parse HEAD 2>/dev/null || echo UNKNOWN)"
 RUN_FINISHED="$(utc)"
@@ -560,7 +641,12 @@ if [ "$failed" -eq 0 ]; then status=passed; else status=failed; fi
   echo "RUN RECORD: $RECORD_FILE ($status)"
 } | tee -a "$LOG_FILE"
 write_record "$status" "$RUN_FINISHED" "$DURATION" "$failed"
-[ -n "$CKPT" ] && "$PY" "$CKPT" finalize --dir "$CKPT_DIR" --record "$RECORD_FILE" -- "${SUITES[@]}"
+# Closes the segment in the checkpoint chain (a completed segment can never be resumed, F2).
+# A kill before this leaves a terminal record, which F2 also refuses to resume.
+if [ -n "$CKPT" ]; then
+  "$PY" "$CKPT" seal --dir "$CKPT_DIR" --run-id "$RUN_ID" --status "$status" --record "$RECORD_FILE" \
+    || echo "CHECKPOINT: seal failed; the record is terminal, so this run still cannot be resumed" | tee -a "$LOG_FILE"
+fi
 RUN_DONE=1
 # F-335: the terminal sentinel, last line of the job's own evidence, after the record.
 echo "EXIT $failed" >> "$LOG_FILE"
