@@ -1309,3 +1309,123 @@ def resolve_needs_owner(db, *, operation: str, now: datetime | None = None) -> d
         db, evidence=(f"an authenticated {operation} read succeeded at "
                       f"{(now or datetime.now(timezone.utc)).isoformat()}"),
         granted_scopes=granted_scopes(db))
+
+
+# ---- W4-C13 F-045: an Etsy-counted case is an incident with a root cause -------------------
+#
+# F-045: "Any Etsy-counted case triggers root-cause and corrective action." Etsy's API exposes
+# no case resource, so a case is the owner's dated reading of the order's case page. A case
+# Etsy counts against the shop opens a P1 incident at once; it resolves only when a root cause
+# and a corrective action are both recorded with evidence -- closing the case on Etsy is not
+# the same thing as knowing why it happened.
+
+CASE_KIND = "etsy.case"
+CASE_SIGNATURE = "etsy-case"
+
+
+class CaseRefused(ValueError):
+    """A case or root cause that would not be evidence."""
+
+
+def record_case(db, *, case_ref: str, order_ref: str, opened_on: str, reason: str,
+                etsy_counted: bool, source: str = "owner reading of the Etsy case page") -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import Incident, OperatingReading, Order
+
+    if not case_ref.strip() or not reason.strip() or not opened_on:
+        raise CaseRefused("a case names its reference, opening date and Etsy's stated reason")
+    with db.session() as s:
+        if s.scalar(select(Order).where(Order.external_ref == order_ref)) is None:
+            raise CaseRefused(f"order {order_ref!r} is not an order this shop has")
+        payload = {"case_ref": case_ref, "order_ref": order_ref, "opened_on": opened_on,
+                   "reason": reason[:300], "etsy_counted": bool(etsy_counted),
+                   "source": source[:120]}
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == CASE_KIND, OperatingReading.period_key == case_ref[:20]))
+        if row is None:
+            s.add(OperatingReading(kind=CASE_KIND, period_key=case_ref[:20], payload=payload))
+        else:
+            row.payload = {**dict(row.payload or {}), **payload}   # a later reading of it
+        incident = None
+        if etsy_counted:
+            sig = f"{CASE_SIGNATURE}:{case_ref}"[:200]
+            if s.scalar(select(Incident).where(Incident.signature == sig)) is None:
+                s.add(Incident(severity="P1", signature=sig, halts_publication=False,
+                               summary=(f"Etsy counted case {case_ref} on order {order_ref} "
+                                        f"({reason[:120]}): root cause and corrective action "
+                                        f"required"),
+                               detail={"owner": "support", "case": payload}))
+            incident = sig
+    return {**payload, "incident": incident}
+
+
+def record_root_cause(db, case_ref: str, *, cause: str, corrective_action: str,
+                      evidence: str, by: str) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    if len(cause.split()) < 4 or len(corrective_action.split()) < 4 or not evidence.strip():
+        raise CaseRefused("a root cause and a corrective action are each a sentence, with the "
+                          "evidence that the action was taken")
+    sig = f"{CASE_SIGNATURE}:{case_ref}"[:200]
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == sig))
+        if inc is None:
+            raise CaseRefused(f"no Etsy-counted case incident for {case_ref!r}")
+        inc.detail = {**(inc.detail or {}), "root_cause": {
+            "cause": cause[:500], "corrective_action": corrective_action[:500],
+            "evidence": evidence[:300], "by": by[:60],
+            "at": datetime.now(timezone.utc).isoformat()}}
+        inc.resolved = True
+    return {"case_ref": case_ref, "resolved": True}
+
+
+# ---- W4-C13 F-567: minimum standards are not Star Seller ------------------------------------
+#
+# F-567: "Track Etsy minimum customer-service standards separately from Star Seller targets.
+# Never report meeting the minimum as earning or approaching Star Seller without the required
+# evidence." Two separate judgements from separate evidence. Star Seller is EARNED only on
+# Etsy's own badge reading; APPROACHING only when every Star Seller criterion is measured and
+# met; otherwise NOT_EVIDENCED -- whatever the minimum standards say.
+
+STAR_SELLER = {"message_response_rate": 0.95, "average_rating": 4.8, "min_orders": 5,
+               "min_sales_usd": 300.0}
+STAR_SELLER_BASIS = ("Etsy Star Seller criteria as published (95% first messages answered "
+                     "within 24 h, 4.8 average rating, 5 orders and US$300 over 3 months; "
+                     "on-time dispatch is automatic for instant downloads)")
+
+
+def service_standards(*, open_counted_cases: int | None, unanswered_overdue_messages: int | None,
+                      star: dict | None = None, etsy_badge: bool | None = None) -> dict:
+    """The minimum standards and Star Seller, judged apart."""
+    if open_counted_cases is None or unanswered_overdue_messages is None:
+        minimum = {"state": "UNKNOWN", "why": "case and message readings are not both on file"}
+    elif open_counted_cases == 0 and unanswered_overdue_messages == 0:
+        minimum = {"state": "MET", "why": "no Etsy-counted case and no overdue message"}
+    else:
+        minimum = {"state": "NOT_MET",
+                   "why": (f"{open_counted_cases} counted case(s), "
+                           f"{unanswered_overdue_messages} overdue message(s)")}
+    star = dict(star or {})
+    if etsy_badge is True:
+        status = {"state": "EARNED", "why": "Etsy's own badge reading shows Star Seller"}
+    else:
+        missing = [k for k in ("message_response_rate", "average_rating", "orders",
+                               "sales_usd") if star.get(k) is None]
+        if missing:
+            status = {"state": "NOT_EVIDENCED", "missing": missing,
+                      "why": "meeting the minimum standards is not evidence of Star Seller"}
+        else:
+            short = [k for k, ok in (
+                ("message_response_rate", star["message_response_rate"]
+                 >= STAR_SELLER["message_response_rate"]),
+                ("average_rating", star["average_rating"] >= STAR_SELLER["average_rating"]),
+                ("orders", star["orders"] >= STAR_SELLER["min_orders"]),
+                ("sales_usd", star["sales_usd"] >= STAR_SELLER["min_sales_usd"])) if not ok]
+            status = ({"state": "APPROACHING",
+                       "why": "every criterion measured and met; Etsy has not shown the badge"}
+                      if not short else {"state": "NOT_MET", "short_of": short})
+    return {"minimum_standards": minimum, "star_seller": status, "basis": STAR_SELLER_BASIS,
+            "rule": "the two are never merged"}
