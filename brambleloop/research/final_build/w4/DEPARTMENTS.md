@@ -683,3 +683,37 @@ No open Workstream C row remains that is free of owner or provider dependencies,
 - **Visual Production.** Its other duties are provider-bound: owned and model photography need image generation, and `visual.rnd` paid arms.
 - **Market Intelligence.** `intel.acceptance` failing is a missing-evidence result, gated on vision (provider).
 - **Finance and Customer Experience.** Real handlers. Customer Experience has no case to work until there are customers (shop-blocked).
+
+## Batch C1 (Workstream C): the research-to-product stall, diagnosed from code (2026-10-27)
+
+**Requirement IDs** (`research/final_build/w4/intel/TRACEABILITY.json`, INTELREC):
+- Winner Amplification / Product Family Engine: MP1.2-s5, B2#22 (Bestseller Replication), B2#295 (Aggressive Winner Scaling, owner-gated on `ad_authority`), F-351;
+- the radar handoff into engineering: B2#2 (search-arbitrage scoring), B2#314 (MJs coverage gap queue, which advances `concepting` → `engineering`), F-673 (opportunity cards).
+
+**Production symptom.** 191 `creative.tournament` runs, and nothing reached engineering after `cir.draft` job 24731.
+
+**Path, from code.**
+1. `creative.tournament` hands its winner to `creative.intake.intake`. That records one `creative.winner_intake` row per winner, with `decision`, `funnel` and `gate.waiting_on`.
+2. A winner goes to `cir.draft` only if the funnel carried it to prototype (`funnel.may_engineer`, #3; otherwise `not_carried`) **and** the pre-engineering gate (`preengineering.gate_concept`) passes every check.
+3. Two checks can only be answered by a vision judgement:
+   - #88 `premise_thumbnail`: does it read at mobile-grid size (`thumbnail_reads_small`);
+   - #83 `jury`: taste (`craft_impression`).
+
+   With neither judged, the decision is `waiting`, with `waiting_on: ["image_vision"]`.
+4. `regate_held` runs from `mjs.seasonal_sentinel` and its siblings on cadence. It re-presents a WAITING winner once a named vision judge has recorded `concept.judged` against the content digest of the board on file (CB2-D01). It asks the judge itself when two things exist:
+   - **a board.** For LONG/FLAGSHIP make lanes the gate renders a deterministic digital-twin board (`creative.board.make_board`). For every other lane there is **no runtime producer**: the board is "Product-Only Visual V1 image generation (external)", and a featureless prototype fabric would not be an honest picture to judge taste on.
+   - **a usable vision model.** `gateway.anthropic.vision_usable` is true only when the newest vision probe succeeded.
+
+**Reproduced offline with the real job system** (`tests/test_w4_research_to_product_stall.py`):
+- Tournaments run through the handler registry, with only the model call substituted by the design-pipeline fixture generator.
+- Each carried winner is WAITING on `image_vision`. The sentinel's re-gate holds it, naming `board_image` and `vision_model`, and no `cir.draft` is queued.
+
+**Verdict: mostly a legitimate gate, plus one defect.**
+- **Legitimate gate.** With the vision provider's credit exhausted, the probe fails, nothing is judged and every winner waits. Non-expensive winners also wait on a board that only image generation can supply.
+  - What unblocks it: a working vision model (provider credit, an owner/provider decision); for LONG/FLAGSHIP winners, nothing more; for the rest, Product-Only Visual V1 boards (image generation: provider plus owner spend).
+  - The reason is visible per winner in `creative.winner_intake` (`gate.waiting_on`) and in the sentinel's `regated.held[].waiting_on`.
+- **Defect (fixed).** `regate_held` read only the newest `REGATE_ROWS` = 200 intake rows. After 191 tournaments, an older WAITING winner fell outside that window and would never have been re-presented, even after its judgement arrived. `intake.latest_per_slug` now reads the newest row of every design. Paid judge calls per run are capped at `REGATE_LIMIT` (20), so the wider window never widens the spend.
+
+**Tests:** `test_w4_research_to_product_stall.py`, 3/3. The window test and the `latest_per_slug` test fail on the pre-fix code; the reproduction test documents the gate.
+
+Regression: `test_cert_design_pipeline`, `test_w4_b2vision`, `test_w4_pipe2_candidates`, `test_w4_auto_pipe2_wiring` and `test_vacuity` pass.
