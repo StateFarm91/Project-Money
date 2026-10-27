@@ -113,18 +113,19 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
-    # INTEG8 (Batch 4): readers added on CLOSE6b, C03, C04, C11 and INTELREC without an entry
-    # (caught by test_cost_governance_wave2). Each reads every row of its action, so each is
+    # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
+    # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.
+    # (listing.learning_window and improve.method_version were here until C12 58317cc3 and
+    # C03 e5dc33ec moved those reads to operating_readings, which retention does not prune.)
     "finance.statement_archived": ("lifetime_total",
                                    "finance.accounting.statements numbers versions over every "
                                    "archived statement and finds the original by hash"),
-    "improve.method_version": ("lifetime_total",
-                               "improve.methods._recorded keeps the newest row per method over "
-                               "all rows; KEEP_PER_ACTION is per action, not per method"),
-    "listing.learning_window": ("lifetime_total",
-                                "commerce.listing_lifecycle reads every capture of a listing; "
-                                "a pruned capture would show its day as due again"),
+    # C09 F-050: every recorded strategic-overlap exemption is read; the newest reason per pair
+    # wins. A pruned exemption would re-flag a pair the owner already justified.
+    "portfolio.strategic_overlap": ("lifetime_total",
+                                    "commerce.portfolio.strategic_overlaps reads every recorded "
+                                    "exemption; portfolio overlap checks exempt those pairs"),
     "research.fetch": ("lifetime_total",
                        "intel.research_fetch reads every failed fetch so a failed page is not "
                        "fetched again for the same task"),
