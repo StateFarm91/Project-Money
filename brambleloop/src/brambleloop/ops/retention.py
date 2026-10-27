@@ -113,6 +113,21 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # INTEG8 (Batch 4): readers added on CLOSE6b, C03, C04, C11 and INTELREC without an entry
+    # (caught by test_cost_governance_wave2). Each reads every row of its action, so each is
+    # lifetime_total: pruning would change the answer, not just shorten a window.
+    "finance.statement_archived": ("lifetime_total",
+                                   "finance.accounting.statements numbers versions over every "
+                                   "archived statement and finds the original by hash"),
+    "improve.method_version": ("lifetime_total",
+                               "improve.methods._recorded keeps the newest row per method over "
+                               "all rows; KEEP_PER_ACTION is per action, not per method"),
+    "listing.learning_window": ("lifetime_total",
+                                "commerce.listing_lifecycle reads every capture of a listing; "
+                                "a pruned capture would show its day as due again"),
+    "research.fetch": ("lifetime_total",
+                       "intel.research_fetch reads every failed fetch so a failed page is not "
+                       "fetched again for the same task"),
     # W4-FMBATCH1: readers added on that branch without an entry (caught by
     # test_cost_governance_wave2; F-549 scorecard, F-099 trigger, F-661 executive block), and
     # F-723's learning-value report, which reads the newest 200 rows.
@@ -743,6 +758,11 @@ UNRESOLVED_READ_SITES: dict[str, str] = {
     "runtime/release_recovery.py::halted_releases": (
         "AuditLog.action in (gate.halted, gate.certified, gate.blocked, "
         "gate.version_conflict); all four lifetime_total above"),
+    # INTEG8 (CLOSE6b F-666): the scan cannot resolve `ADVANCED + REJECTED`, `IMAGE`, `ETSY`.
+    "app/command_center/brief.py::_audits": (
+        "AuditLog.action in brief.ADVANCED + REJECTED, IMAGE and ETSY, counted since the "
+        "owner's last view (or the last 12 h); windowed. gate.certified is lifetime_total above. "
+        "A last view older than AUDIT_RETENTION_DAYS would undercount the pruned actions"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
