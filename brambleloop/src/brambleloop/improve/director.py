@@ -236,12 +236,18 @@ def experiments(db, *, days: int = 7, now: datetime | None = None) -> dict:
 
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(days=days)
-    completed, killed = [], []
+    completed, killed, superseded = [], [], []
     with db.session() as s:
         for r in s.scalars(select(Improvement).order_by(Improvement.id)):
             if r.state not in (PROMOTED, REJECTED, REVERTED):
                 continue
             evidence = r.evidence or {}
+            mark = evidence.get("superseded") or {}
+            if mark.get("reason"):
+                # F-126: retained and reported, never counted as a verdict.
+                superseded.append({"improvement": r.id, "cell": r.cell, "state": r.state,
+                                   "kind": mark.get("kind"), "reason": mark["reason"]})
+                continue
             decided = (_aware(r.reverted_at) if r.state == REVERTED else
                        _aware(r.promoted_at) if r.state == PROMOTED else None)
             if decided is None and evidence.get("decided_at"):
@@ -255,7 +261,7 @@ def experiments(db, *, days: int = 7, now: datetime | None = None) -> dict:
             completed.append(entry)
             if r.state in (REJECTED, REVERTED):
                 killed.append(entry)
-    return {"completed": completed, "killed": killed}
+    return {"completed": completed, "killed": killed, "superseded": superseded}
 
 
 def stop_doing(db, *, stale_after_days: int = 30) -> list[dict]:

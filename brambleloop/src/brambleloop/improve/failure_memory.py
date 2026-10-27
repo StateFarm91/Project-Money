@@ -158,6 +158,8 @@ def _improvement_failures(db, cell: str) -> list[dict]:
                                                and r.result_value is not None)
             if not measured:
                 continue  # a refusal or a first measurement is not a failed experiment
+            if (ev.get("superseded") or {}).get("reason"):
+                continue  # F-126: a confounded or invalid result disproves nothing
             touches = tuple(ev.get("touches") or ())
             fp = ev.get("failure_fingerprint") or fingerprint(
                 r.cell, r.hypothesis, touches, ev.get("premise") or "")
