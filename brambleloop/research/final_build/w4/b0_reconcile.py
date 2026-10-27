@@ -64,6 +64,7 @@ BRANCHES = {
     "claude/w4-CLOSE6b": ("Workstream B", "CLOSE6 merged onto INTEG7"),
     "claude/w4-RESUME": ("Workstream B", "resumable test runner"),
     "claude/w4-FMBATCH2": ("Workstream B", "Final Master batch rows, this ledger"),
+    "claude/w4-C01": ("Workstream B", "build-side integration authority, review, handoffs"),
 }
 # Rows built on a branch but held for an owner decision (coordinator, 2026-10-27).
 OWNER_HELD = {"F-607": "claude/w4-C04 9e86e842 (accountant agent)",
