@@ -321,8 +321,10 @@ def test_physical_sample_is_an_attribute_never_an_internal_step():
         assert sample["state"] not in (pi.READY, pi.OWNER_APPROVAL_PENDING)
         passed = item(inv, "s-sample-passed")
         assert passed["state"] == pi.READY and passed["physical_sample"]["status"] == "passed"
-        assert inv["counts"][pi.READY] == 2  # s-ready and s-sample-passed, never s-sample
-        assert inv["public_ready"] == 2
+        # s-ready, s-owner (identical, owner gates opened here) and s-sample-passed; never s-sample
+        assert inv["counts"][pi.READY] == 3, inv["counts"]
+        assert inv["public_ready"] == 3
+        assert inv["private_draft_ready"] == 4  # the sample-pending one may be a private draft
         assert inv["attribute_counts"][pi.PHYSICAL_PENDING] == 1
         assert inv["attribute_counts"][pi.PHYSICAL_PASSED] == 1
     # PDF, visual and listing packages are reachable with no sample on record at all
@@ -354,7 +356,7 @@ def test_dashboard_shows_physical_beside_state():
     assert "s-sample@1.0.0" in rows[pi.LISTING_COMPLETED]["products"]
     assert "s-sample@1.0.0" not in rows[pi.READY]["products"]
     tiers = {t["title"]: t["count"] for t in data["sections"]["tiers"]["items"]}
-    assert tiers["Awaiting physical sample"] == 1 and tiers["Public publication ready"] == 2
+    assert tiers["Awaiting physical sample"] == 1 and tiers["Public publication ready"] == 3
     prod = {p["title"]: p for p in data["sections"]["products"]["items"]}
     assert prod["s-sample@1.0.0"]["physical_sample"] == "pending"
     assert "physical" in prod["s-sample@1.0.0"]["held"]
