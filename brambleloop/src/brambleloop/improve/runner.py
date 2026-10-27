@@ -604,6 +604,14 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
         research = bounded.research_intake(db, now=now)
     except Exception as exc:  # noqa: BLE001 - reported, never silent
         research = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    # 0d. F-707: every hand-maintained method version is compared with the versioned path;
+    #     a change no promoted improvement backs is an open incident, not a silent bump.
+    from . import methods
+
+    try:
+        method_audit = methods.audit(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - reported, never silent
+        method_audit = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     sandboxed, waiting, tested, approved, promoted, carded, held = [], [], [], [], [], [], []
     anchored, rejected, executed = [], [], []
     rules = discipline(db, now=now)
@@ -762,6 +770,8 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             "discipline": rules,
             "backlog": bounded_backlog,
             "research_intake": research,
+            "methods": {k: method_audit.get(k) for k in ("unversioned", "resolved", "error")
+                        if k in method_audit},
             "trials": sorted(TRIALS),
             "policy_loops": {k: {kk: v.get(kk) for kk in ("reading", "why")}
                              | {"state": (v.get("outcome") or {}).get("state")}
