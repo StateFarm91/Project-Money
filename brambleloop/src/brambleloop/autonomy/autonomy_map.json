@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T12:52:49.671373+00:00",
+ "generated_at": "2026-10-27T12:53:04.890081+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -11,9 +11,9 @@
  "counts": {
   "departments": 11,
   "cadences": 131,
-  "handlers": 162,
+  "handlers": 163,
   "agents": 32,
-  "follow_on_edges": 80
+  "follow_on_edges": 81
  },
  "departments": [
   {
@@ -760,6 +760,7 @@
     ],
     "executable_job_types": [
      "cir.draft",
+     "cir.reengineer",
      "cir.revise",
      "collection.assemble",
      "creative.benchmark_memory",
@@ -801,6 +802,10 @@
      "to": "cir.compile"
     },
     {
+     "from": "cir.reengineer",
+     "to": "cir.compile"
+    },
+    {
      "from": "cir.revise",
      "to": "cir.compile"
     }
@@ -823,7 +828,9 @@
     }
    ],
    "never_woken_job_types": [],
-   "owner_one_shots": {}
+   "owner_one_shots": {
+    "cir.reengineer": "owner-chosen legacy rescue (F-114 card from the salvage review)"
+   }
   },
   {
    "department": "product_truth",
@@ -907,6 +914,7 @@
     "follow_on_from": [
      "cir.compile",
      "cir.draft",
+     "cir.reengineer",
      "cir.revise",
      "gate.certify",
      "gate.quality",

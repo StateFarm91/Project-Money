@@ -180,6 +180,12 @@ def handle_salvage_review(ctx: JobContext) -> dict:
     if not rep["count"]:
         return {"ran": False, "why": "no legacy certified product outside the launch scope"}
     store_reading(ctx.db, "creative.salvage_review", rep)
+    # W4-C07 F-114: which legacy products to rescue is the owner's decision. Rescue
+    # candidates become one owner card; nothing here enqueues `cir.reengineer`.
+    rescue = sorted(r["slug"] for r in rep["legacy"]
+                    if r["recommendation"] == "rescue_candidate")
+    if rescue:
+        reengineer_card(ctx.db, rescue)
     ctx.audit("creative.salvage_review", detail={"legacy": rep["count"],
                                                  "retire_recommended": rep["retire_recommended"]})
     return {"legacy": rep["count"], "retire_recommended": len(rep["retire_recommended"]),
@@ -240,3 +246,72 @@ def handle_photo_principles(ctx: JobContext) -> dict:
 from ..core import contracts as _contracts  # noqa: E402
 
 _contracts.require("cir", 1)
+
+
+REENGINEER_CARD = "creative.reengineer:owner_choice"
+
+
+def reengineer_card(db, rescue: list[str]) -> int:
+    """One open owner card naming the F-113 rescue candidates; refreshed, never duplicated."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REENGINEER_CARD,
+            OwnerAction.done == False))  # noqa: E712
+        text = (f"Choose which legacy products to re-engineer (F-114). Rescue candidates from "
+                f"today's salvage test: {', '.join(rescue)}. A chosen product is re-derived "
+                f"through the yarn band, compiler, twin and reverse compiler and goes back "
+                f"through every certification gate as a new version; nothing is re-engineered "
+                f"until you choose.")
+        if card is None:
+            card = OwnerAction(requirement_key=REENGINEER_CARD, action=text,
+                               reason="F-113 salvage test recommends these for rescue",
+                               max_cost_cad=0.0, minutes=5,
+                               consequence_of_delay="legacy products stay as they are",
+                               blocks="F-114")
+            s.add(card)
+        else:
+            card.action = text
+        s.flush()
+        return card.id
+
+
+@handlers.register("cir.reengineer")
+def handle_cir_reengineer(ctx: JobContext) -> dict:
+    """F-114: each OWNER-CHOSEN product re-engineered (`products.reengineer.plan`) and, when
+    READY, handed to the ordinary release chain at `cir.compile` (which runs `gate.certify`).
+
+    Not scheduled and enqueued by nothing: it runs only with `owner_action_id` naming a
+    decided owner card and `slugs` the owner chose. Nothing here certifies; a plan that does
+    not compile or reverse-compile stops here."""
+    from ..core.models import OwnerAction
+    from ..products import reengineer
+
+    aid = ctx.job.inputs.get("owner_action_id")
+    with ctx.db.session() as s:
+        card = s.get(OwnerAction, int(aid)) if aid is not None else None
+        decided = bool(card is not None and card.done
+                       and card.requirement_key == REENGINEER_CARD)
+    if not decided:
+        return {"ran": False, "work_done": 0,
+                "why": "re-engineering needs the owner's decided choice (F-114 card); none given"}
+    out = []
+    for slug in ctx.job.inputs.get("slugs") or []:
+        p = reengineer.plan(ctx.db, slug)
+        row = {"slug": slug, "state": p["state"], "why": p.get("why")}
+        if p["state"] == reengineer.READY:
+            from ..cir.model import CIR
+
+            cir = CIR.from_dict(p["cir"])
+            ctx.enqueue("validator", "cir.compile",
+                        {"cir": p["cir"], "reengineered_from": p["from_version"]},
+                        idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+            row["version"] = p["version"]
+        ctx.audit("cir.reengineered", artifact=slug, detail={k: v for k, v in row.items()
+                                                             if k != "slug"})
+        out.append(row)
+    sent = sum(1 for r in out if r["state"] == reengineer.READY)
+    return {"plans": out, "sent_to_release_chain": sent, "work_done": len(out)}

@@ -226,7 +226,7 @@ CHARTERS: tuple[Charter, ...] = (
                "seasonal programme on time.",
        agents=("creative_director", "crochet_engineer"),
        prefixes=("creative.", "seasonal."),
-       job_types={"cir.draft", "cir.revise", "collection.assemble"},
+       job_types={"cir.draft", "cir.revise", "cir.reengineer", "collection.assemble"},
        generatable=("seasonal.sentinel", "creative.outcome_learning",
                     "creative.family_engine", "creative.photo_principles",
                     "autonomy.department_review"),

@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 OUTCOMES = {"PASS", "REFUSED_AS_EXPECTED", "BLOCKED", "FAILED", "SKIPPED"}
-REQUIRED = ["boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
+REQUIRED = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
             "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
             "store.publish[past-shadow]",
             "orders.ingest", "support.case", "ledger"]

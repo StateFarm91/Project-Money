@@ -129,6 +129,10 @@ OWNER_ONE_SHOTS: dict[str, str] = {
                                     "definition, Command Center step-up, W-VISNEXT)",
     "assets.launch_review": "owner-authorised Launch-0 image-review batch, CA$7.07 "
                             "(D-W4-LAUNCH-VISION-BATCH, Command Center step-up)",
+    # W4-C07 F-114: which legacy products are rescued is the owner's call (coordinator,
+    # owner-decision list). The salvage review raises an owner card; the job runs only with
+    # that decided card and the owner's chosen slugs, and nothing enqueues it autonomously.
+    "cir.reengineer": "owner-chosen legacy rescue (F-114 card from the salvage review)",
 }
 
 
