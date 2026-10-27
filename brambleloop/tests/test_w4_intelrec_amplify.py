@@ -134,10 +134,64 @@ def test_two_attempts_without_a_new_member_hold_the_family():
         fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
         with db.session() as s:
             for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
+                # MEASURED and not promoted: a real failed attempt (review H-1/L-5)
                 j.status = JobStatus.DONE
+                j.outputs = {"slug": j.inputs.get("slug"), "score": 0.31, "promoted": False}
     out = fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
     st = fe._amp_state(db, "nordic-forest")
     assert out["decisions"] == [] and st["held"] and st["failed_attempts"] == 2
+
+
+def test_a_refused_or_dead_follow_on_is_not_a_failed_attempt():
+    """Review L-5: a refusal, park or dead letter measured nothing, so it is not counted."""
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
+    for status, out in ((JobStatus.DEAD, None),
+                        (JobStatus.DONE, {"slug": "x", "promoted": False,
+                                          "reason": "not in the pool"}),
+                        (JobStatus.CANCELLED, None)):
+        fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+        with db.session() as s:
+            for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
+                j.status, j.outputs = status, out
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+    st = fe._amp_state(db, "nordic-forest")
+    assert st.get("failed_attempts", 0) == 0 and not st.get("held"), st
+    assert st["last_outcome"] == "not_attempted"
+
+
+def test_a_promoted_follow_on_is_progress_not_failure():
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+    with db.session() as s:
+        j = s.scalar(select(Job).where(Job.job_type == "radar.score"))
+        j.status = JobStatus.DONE
+        j.outputs = {"slug": j.inputs["slug"], "score": 0.9, "promoted": True}
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
+    st = fe._amp_state(db, "nordic-forest")
+    assert st["last_outcome"] == "progressed" and st.get("failed_attempts", 0) == 0
+
+
+def test_no_declared_member_records_needs_original_design_and_queues_no_paid_job():
+    """Review M-2: this handler is CA$0 delegable work; an original follow-on design is paid
+    creative work, so it is recorded and surfaced, never queued from here."""
+    db = _db()
+    queued = []
+
+    def enqueue(agent, job_type, inputs, **kw):
+        queued.append(job_type)
+        return None
+    rep = {"families": [{"family": "fixture-family", "amplification": {"orders": 9},
+                         "members": [{"slug": "fixture-a", "orders": 9}],
+                         "next_members": [], "orders": 9}]}
+    out = fe.amplify(db, rep, enqueue=enqueue)
+    assert queued == [], queued
+    assert out["decisions"] == [{"family": "fixture-family", "job_id": None,
+                                 "decision": "needs_original_design"}]
+    assert fe._amp_state(db, "fixture-family")["needs_original_design"]
 
 
 if __name__ == "__main__":

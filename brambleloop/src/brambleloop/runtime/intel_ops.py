@@ -281,7 +281,9 @@ def handle_watchlist_scan(ctx: JobContext) -> dict:
     """Scan every non-anchor watchlist shop through the anchor's own scan and mission.
 
     GREEN: official-API reads only (`intel.observe.scan`, `findShops`, `getReviewsByShop`);
-    writes observations, readings and the existing mission jobs. Mrs J keeps `mjs.scan`.
+    writes observations, readings and the mission's unpaid jobs -- paid job types the mission
+    asks for are withheld and reported (`paid_work_withheld`, review M-3). Mrs J keeps
+    `mjs.scan`.
     A per-shop outage is recorded and never fails the job (no retry loop on a refusal)."""
     import os
 

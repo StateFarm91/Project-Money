@@ -53,6 +53,17 @@ MAX_FAILED_ATTEMPTS = 2
 SETTLE = timedelta(days=1)
 REVIEW_LIMIT = 3
 MISSION_LIMIT = 5
+# Review INTELREC M-3: the watchlist runs the mission for non-anchor shops WITHOUT starting
+# paid work. These job types spend (model/render/vision); a non-anchor mission step that asks
+# for one is recorded as withheld. Paid design stays the creative director's own budgeted
+# cadence; widening it is an owner spend decision.
+PAID_JOB_TYPES = frozenset({"creative.tournament", "creative.grid_tournament",
+                            "creative.expedition", "assets.owned_photography",
+                            "assets.model_photography", "intel.gallery_analysis",
+                            "creative.blinded"})
+# L-6: a shop whose reads fail is retried with exponential backoff, never every run.
+BACKOFF_BASE = timedelta(hours=6)
+BACKOFF_CAP = timedelta(days=7)
 
 ANCHOR, SPECIAL, PERMANENT = "anchor", "special", "permanent"
 
@@ -148,6 +159,21 @@ def _reader(env=None):
     return r
 
 
+class _OnceReader:
+    """Review L-6: one scan resolves the shop once, not once per step (scan, reviews)."""
+
+    def __init__(self, inner):
+        self._inner, self._shops = inner, {}
+
+    def resolve_shop(self, name):
+        if name not in self._shops:
+            self._shops[name] = self._inner.resolve_shop(name)
+        return self._shops[name]
+
+    def __getattr__(self, attr):
+        return getattr(self._inner, attr)
+
+
 def scan_member(db, member: Member, reader, *, now: datetime | None = None,
                 enqueue=None, force: bool = False) -> dict:
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
@@ -160,6 +186,16 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         due = observe.scan_due(db, benchmark_key=member.key, now=now)
         if not due["due"] and st.get("state") == "ok":
             return {"key": member.key, "ran": False, "deferred": True, "why": due["why"]}
+        fails = int(st.get("consecutive_failures") or 0)
+        last = st.get("last_attempt_at")
+        if fails and last and st.get("state") in ("source_outage", "credential_refused"):
+            wait = min(BACKOFF_CAP, BACKOFF_BASE * (2 ** (fails - 1)))
+            if now - datetime.fromisoformat(last) < wait:
+                return {"key": member.key, "ran": False, "deferred": True,
+                        "state": st.get("state"),
+                        "why": f"backoff after {fails} failure(s): next read after "
+                               f"{(datetime.fromisoformat(last) + wait).isoformat()}"}
+    reader = _OnceReader(reader)
     try:
         shop = reader.resolve_shop(member.shop_name)
         facts = {f: shop.get(f) for f in SHOP_FIELDS}
@@ -172,8 +208,11 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         if force or not last_rev or now - datetime.fromisoformat(last_rev) >= REVIEW_INTERVAL:
             themes = observe.scan_reviews(db, shop_name=member.shop_name, reader=reader,
                                           benchmark_key=member.key)
-            reviews = {"read": themes.get("reviews_read"),
-                       "recurring_themes": len(themes.get("recurring") or [])}
+            read = int(themes.get("reviews_read") or 0)
+            # L-2: zero reviews read is UNMEASURED, not "no recurring complaint".
+            reviews = {"read": read,
+                       "recurring_themes": (len(themes.get("recurring") or [])
+                                            if read else None)}
     except ReadFailed as exc:
         kind = "credential_refused" if exc.credential_refused else "source_outage"
         st.update(state=kind, last_error=str(exc)[:300], last_attempt_at=now.isoformat(),
@@ -199,9 +238,18 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     _save_state(db, member.key, st, now=now)
     mission_out = None
     if enqueue is not None:
-        m = mission_runtime.process(db, enqueue=enqueue, today=now.date(),
+        withheld: list[str] = []
+
+        def unpaid(agent, job_type, inputs, **kw):
+            if job_type in PAID_JOB_TYPES:
+                withheld.append(job_type)
+                return None
+            return enqueue(agent, job_type, inputs, **kw)
+
+        m = mission_runtime.process(db, enqueue=unpaid, today=now.date(),
                                     benchmark_key=member.key, limit=MISSION_LIMIT)
-        mission_out = {"pending": m["pending"], "processed": m["processed"]}
+        mission_out = {"pending": m["pending"], "processed": m["processed"],
+                       "paid_work_withheld": withheld}
     return {"key": member.key, "ran": True, "listings_seen": st["listings_seen"],
             "changes": st["changes"], "reviews": reviews, "mission": mission_out}
 
@@ -223,6 +271,13 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
         return {"ran": False, "reason": str(exc)[:200], "shops": [],
                 "substituted": False}
     if reader_factory is None and auth_refused(last_probe(db)):
+        # Review M-1: recorded per shop, so Laura's provider does not read an unobserved
+        # watchlist as OK.
+        for m in members:
+            st = _state(db, m.key)
+            st.update(state="credential_refused", last_attempt_at=now.isoformat(),
+                      last_error="Etsy refused the read credential at the last etsy.probe")
+            _save_state(db, m.key, st, now=now)
         return {"ran": False, "reason": "Etsy refused the read credential at the last "
                                         "etsy.probe; the watchlist waits for a probe to "
                                         "succeed rather than knocking with a refused key",
@@ -273,29 +328,37 @@ def compare(db, *, now: datetime | None = None) -> dict:
         shop = st.get("shop") or {}
         as_of = st.get("last_ok_at") or (snap["at"] if listings else None)
         src = "etsy open api v3 (stored benchmark_listings)"
+        state = st.get("state") or ("rows_present" if listings else "never")
+        # Review L-1: a figure carried over from an earlier read while this shop's latest
+        # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
+        # stored rows are labelled rows_present, never "ok".)
+        fresh = state in ("ok", "rows_present")
+
+        def G(value, source, at, basis="MEASURED"):
+            return _grade(value, source, at, basis if fresh else "STALE")
         shops.append({
             "alias": alias, "role": m.role, "special_monitoring": m.special,
-            "observation": {"state": st.get("state") or ("ok" if listings else "never"),
+            "observation": {"state": state,
                             "last_ok_at": st.get("last_ok_at"),
                             "consecutive_failures": st.get("consecutive_failures", 0)},
             "figures": {
-                "listings_observed": _grade(listings or None, src, as_of),
-                "new_listings_7d": _grade(sum(g["new_7d"] for g in groups) if groups else None,
+                "listings_observed": G(listings or None, src, as_of),
+                "new_listings_7d": G(sum(g["new_7d"] for g in groups) if groups else None,
                                           src, as_of, "DERIVED"),
-                "price_median_cad": _grade(round(statistics.median(prices), 2) if prices
+                "price_median_cad": G(round(statistics.median(prices), 2) if prices
                                            else None, src, as_of),
-                "on_sale_share": _grade(round(sum(g["on_sale_share"] * g["listings"]
+                "on_sale_share": G(round(sum(g["on_sale_share"] * g["listings"]
                                                   for g in groups) / listings, 3)
                                         if listings else None, src, as_of),
-                "gallery_median_images": _grade(statistics.median(media) if media else None,
+                "gallery_median_images": G(statistics.median(media) if media else None,
                                                 src, as_of),
-                "category_mix": _grade(dict(sorted(mix.items())) or None, src, as_of,
+                "category_mix": G(dict(sorted(mix.items())) or None, src, as_of,
                                        "DERIVED"),
-                "public_sales": _grade(shop.get("transaction_sold_count"), "findShops", as_of),
-                "review_count": _grade(shop.get("review_count"), "findShops", as_of),
-                "review_average": _grade(shop.get("review_average"), "findShops", as_of),
-                "shop_favourites": _grade(shop.get("num_favorers"), "findShops", as_of),
-                "recurring_complaint_themes": _grade(
+                "public_sales": G(shop.get("transaction_sold_count"), "findShops", as_of),
+                "review_count": G(shop.get("review_count"), "findShops", as_of),
+                "review_average": G(shop.get("review_average"), "findShops", as_of),
+                "shop_favourites": G(shop.get("num_favorers"), "findShops", as_of),
+                "recurring_complaint_themes": G(
                     (st.get("reviews") or {}).get("recurring_themes"), "getReviewsByShop",
                     st.get("reviews_at"), "DERIVED"),
             },
@@ -395,22 +458,34 @@ def _assert_no_content(rep: dict) -> None:
 # ---- Laura's provider and the delegated review --------------------------------------------
 
 def summary(db) -> dict:
-    """Laura's `intelligence` provider. DEGRADED when a watchlist source is out or a
-    validated opportunity waits for a decision; OK otherwise."""
+    """Laura's `intelligence` provider.
+
+    Review M-1: UNKNOWN while any watchlist shop has never been read, or cannot be read
+    (no credential / refused credential) -- an unobserved watchlist is not OK. DEGRADED on a
+    source outage, a stale observation, or a validated opportunity awaiting a decision.
+    """
     now = _now()
-    outages, stale = [], []
+    outages, stale, unobserved = [], [], []
     for m in WATCHLIST:
         if m.role == ANCHOR:
             continue
         st = _state(db, m.key)
-        if int(st.get("consecutive_failures") or 0) >= OUTAGE_FAILURES:
-            outages.append(f"{benchmark_alias_safe(m.key)}:{st.get('state')}")
+        alias = benchmark_alias_safe(m.key)
+        state = st.get("state")
         last = st.get("last_ok_at")
-        if last and now - datetime.fromisoformat(last) > STALE_AFTER:
-            stale.append(benchmark_alias_safe(m.key))
-    waiting = [g for g in _open_gaps(db) if not (g["evidence"] or {}).get("design_job_id")
-               and not _deferred_today(db, g["id"], now.date())]
+        if state == "source_outage" and \
+                int(st.get("consecutive_failures") or 0) >= OUTAGE_FAILURES:
+            outages.append(f"{alias}:{state}")
+        if state in ("not_configured", "credential_refused") or not last:
+            unobserved.append(f"{alias}:{state or 'never'}")
+            continue
+        if now - datetime.fromisoformat(last) > STALE_AFTER:
+            stale.append(alias)
+    waiting = [g for g in _open_gaps(db) if not (g["evidence"] or {}).get("design_job_ids")
+               and not _parked(db, g, now.date())]
     reasons = []
+    if unobserved:
+        reasons.append(f"not observed: {unobserved}")
     if waiting:
         reasons.append(f"{len(waiting)} validated watchlist opportunit"
                        f"{'y' if len(waiting) == 1 else 'ies'} awaiting a decision")
@@ -419,9 +494,10 @@ def summary(db) -> dict:
     if stale:
         reasons.append(f"observation older than {int(STALE_AFTER.total_seconds() // 3600)} h: "
                        f"{stale}")
-    return {"status": "DEGRADED" if reasons else "OK", "reason": "; ".join(reasons),
+    status = "UNKNOWN" if unobserved else ("DEGRADED" if reasons else "OK")
+    return {"status": status, "reason": "; ".join(reasons),
             "as_of": now.isoformat(), "waiting": [g["id"] for g in waiting],
-            "outages": outages, "stale": stale}
+            "outages": outages, "stale": stale, "unobserved": unobserved}
 
 
 def benchmark_alias_safe(key: str) -> str:
@@ -450,9 +526,23 @@ def _decision(db, gap_id: int) -> dict:
     return dict((rec or {}).get("body") or {})
 
 
-def _deferred_today(db, gap_id: int, today: date) -> bool:
-    d = _decision(db, gap_id)
-    return d.get("last") == "deferred_by_lesson" and d.get("on") == today.isoformat()
+PARKED = ("deferred_by_lesson", "needs_original_design", "route_refused")
+REDECIDE_AFTER = timedelta(days=7)
+
+
+def _fingerprint(g: dict) -> list:
+    return sorted((g.get("evidence") or {}).get("corroborated_by") or [])
+
+
+def _parked(db, g: dict, today: date) -> bool:
+    """Review L-4: a deferred or needs-original-design gap is not re-decided every day. It is
+    re-opened when the corroborating shops change, or after REDECIDE_AFTER."""
+    d = _decision(db, g["id"])
+    if d.get("last") not in PARKED or not d.get("on"):
+        return False
+    if d.get("fingerprint") is not None and d["fingerprint"] != _fingerprint(g):
+        return False
+    return today - date.fromisoformat(d["on"]) < REDECIDE_AFTER
 
 
 def _record_decision(db, gap_id: int, decision: str, *, today: date, **detail) -> dict:
@@ -461,7 +551,8 @@ def _record_decision(db, gap_id: int, decision: str, *, today: date, **detail) -
     body = _decision(db, gap_id)
     hist = list(body.get("history") or [])[-19:]
     hist.append({"on": today.isoformat(), "decision": decision, **detail})
-    body.update(last=decision, on=today.isoformat(), history=hist)
+    body.update(last=decision, on=today.isoformat(), history=hist,
+                fingerprint=detail.get("fingerprint"))
     memory.remember(db, f"{DECISION_PREFIX}{gap_id}", kind="intel.opportunity_decision",
                     department="intelligence", subject=f"watchlist gap {gap_id}",
                     state=decision, body=body, sources=["coverage_gaps", COMPARE_READING])
@@ -479,16 +570,78 @@ def _research_state(db, task_id) -> str:
 
 
 def _lesson_statement(pod: str, n: int) -> str:
-    return (f"watchlist arena {pod}: {n} original design attempts produced no engineered "
-            f"product, so stop re-asking this arena until new evidence arrives")
+    return (f"watchlist arena {pod}: {n} scored attempts with pool concepts did not clear "
+            f"promotion, so stop re-asking this arena until new evidence arrives")
+
+
+def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> dict:
+    """Review H-1 / L-5: what the routed radar.score jobs actually produced.
+
+    wait          -- a job is still in flight or has not settled
+    progressed    -- a concept was promoted (scored and cleared the pre-engineering gate)
+    failed        -- concepts were MEASURED (a score was computed) and none was promoted
+    not_attempted -- nothing was measured: refused, parked, dead or missing jobs are not
+                     an attempt and teach nothing
+    """
+    from ..core.models import Job, JobStatus
+
+    measured, promoted, refused = [], [], []
+    for jid in job_ids or []:
+        with db.session() as s:
+            j = s.get(Job, int(jid))
+            if j is None:
+                refused.append({"job_id": jid, "why": "missing"})
+                continue
+            status, finished, out = j.status, j.finished_at, dict(j.outputs or {})
+        if finished is not None and finished.tzinfo is None:
+            finished = finished.replace(tzinfo=timezone.utc)
+        if status not in (JobStatus.DONE, JobStatus.DEAD, JobStatus.CANCELLED):
+            return {"outcome": "wait", "why": f"job {jid} is {getattr(status, 'value', status)}"}
+        if finished is not None and now - finished < settle:
+            return {"outcome": "wait", "why": f"job {jid} has not settled"}
+        if status != JobStatus.DONE or not isinstance(out.get("score"), (int, float)):
+            refused.append({"job_id": jid, "status": getattr(status, "value", status),
+                            "why": str(out.get("reason") or j.last_error or "no score")[:120]})
+        elif out.get("promoted"):
+            promoted.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"]})
+        else:
+            measured.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"]})
+    if promoted:
+        return {"outcome": "progressed", "promoted": promoted, "measured": measured,
+                "refused": refused}
+    if measured:
+        return {"outcome": "failed", "measured": measured, "refused": refused}
+    return {"outcome": "not_attempted", "refused": refused}
+
+
+def queue_scores(db, enqueue, slugs, *, key: str, context: dict, today: date) -> list[int]:
+    """Non-spending route: one radar.score per pool concept (score + pre-engineering gate).
+    Review M-2/M-4: Laura-delegable work never queues a paid job."""
+    from ..radar.opportunity import POOL, score_concept
+
+    by_slug = {sd.slug: sd for sd in POOL}
+    ids = []
+    for slug in slugs:
+        sd = by_slug.get(slug)
+        if sd is None:
+            continue
+        payload = score_concept(sd, today).to_dict()
+        payload.update(context)
+        job = enqueue("market_radar", "radar.score", payload,
+                      idempotency_key=f"{key}:{slug}")
+        if job is not None:
+            ids.append(job.id)
+    return ids
 
 
 def review(db, *, enqueue, today: date | None = None, now: datetime | None = None) -> dict:
-    """One decision per validated opportunity. Bounded, idempotent, lesson-aware."""
+    """One decision per validated opportunity. Bounded, idempotent, lesson-aware, and
+    non-spending: the only job it queues is radar.score. An arena no pool concept answers
+    is recorded `needs_original_design` (an original paid design is the creative
+    director's own budgeted cadence, not Laura's CA$0 delegation -- G14)."""
     from sqlalchemy.orm.attributes import flag_modified
 
-    from ..core.models import CoverageGap, Job, JobStatus
-    from ..creative import breakthrough
+    from ..core.models import CoverageGap
     from ..improve import bus, consume
     from . import coverage, pods
 
@@ -500,23 +653,39 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
             break
         ev = g["evidence"]
         attempts = list(ev.get("failed_attempts") or [])
-        job_id = ev.get("design_job_id")
-        if job_id:
-            with db.session() as s:
-                j = s.get(Job, job_id)
-                status, finished = (j.status, j.finished_at) if j is not None else (None, None)
-            if finished is not None and finished.tzinfo is None:
-                finished = finished.replace(tzinfo=timezone.utc)
-            terminal = status in (JobStatus.DONE, JobStatus.DEAD, JobStatus.CANCELLED)
-            if not terminal or (finished is not None and now - finished < SETTLE):
-                continue                          # in flight, or not yet settled: wait
-            attempts.append({"job_id": job_id, "status": getattr(status, "value", status),
-                             "ended": finished.isoformat() if finished else None})
+        job_ids = ev.get("design_job_ids")
+        if job_ids:
+            res = score_outcome(db, job_ids, now=now)
+            if res["outcome"] == "wait":
+                continue
             with db.session() as s:
                 row = s.get(CoverageGap, g["id"])
-                row.evidence = {**(row.evidence or {}), "failed_attempts": attempts,
-                                "design_job_id": None}
+                upd = {"design_job_ids": None}
+                if res["outcome"] == "failed":
+                    attempts.append({"job_ids": job_ids, "measured": res["measured"],
+                                     "on": today.isoformat()})
+                    upd["failed_attempts"] = attempts
+                elif res["outcome"] == "not_attempted":
+                    upd["refused_routes"] = (list(ev.get("refused_routes") or [])[-9:]
+                                             + [{"job_ids": job_ids, "on": today.isoformat(),
+                                                 "refused": res["refused"]}])
+                row.evidence = {**(row.evidence or {}), **upd}
                 flag_modified(row, "evidence")
+            if res["outcome"] == "progressed":
+                slug = res["promoted"][0]["slug"] or ""
+                coverage.advance(db, g["id"], coverage.CONCEPTING,
+                                 reason=f"radar.score promoted {slug} for this arena",
+                                 product_slug=slug)
+                decided.append(_record_decision(db, g["id"], "progressed", today=today,
+                                                promoted=res["promoted"]) | {"gap": g["id"]})
+                continue
+            if res["outcome"] == "not_attempted":
+                # Parked like a deferral (L-4): re-routed after REDECIDE_AFTER or new evidence.
+                decided.append(_record_decision(db, g["id"], "route_refused", today=today,
+                                                fingerprint=_fingerprint(g),
+                                                refused=res["refused"][:5])
+                               | {"gap": g["id"]})
+                continue
             if len(attempts) >= MAX_FAILED_ATTEMPTS:
                 lesson = bus.publish(db, origin_cell="product_creativity",
                                      subject="creative_rejection",
@@ -524,21 +693,23 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                                      evidence_ref=f"watchlist_gap:{g['id']}",
                                      confidence="observed")
                 coverage.advance(db, g["id"], coverage.NOT_PURSUING,
-                                 reason=f"{len(attempts)} attempts without an engineered "
-                                        f"product (lesson {lesson})")
+                                 reason=f"{len(attempts)} measured attempts without a "
+                                        f"promoted concept (lesson {lesson})")
                 decided.append(_record_decision(db, g["id"], "stopped_after_failures",
                                                 today=today, lesson=lesson,
                                                 attempts=len(attempts)) | {"gap": g["id"]})
                 continue
-        # A lesson from an earlier stopped arena with the same words defers this one.
+        if _parked(db, g, today):
+            continue
         against = [l for l in consume.matching(db, "market_radar",
-                                               f"watchlist arena {g['pod']} original design "
-                                               f"attempts engineered product")
+                                               f"watchlist arena {g['pod']} scored attempts "
+                                               f"pool concepts promotion")
                    if l["direction"] < 0]
         if against:
             consume.act(db, "market_radar", against,
                         how=f"watchlist gap {g['id']} ({g['pod']}) deferred by the lesson")
             decided.append(_record_decision(db, g["id"], "deferred_by_lesson", today=today,
+                                            fingerprint=_fingerprint(g),
                                             lessons=[l["id"] for l in against])
                            | {"gap": g["id"]})
             continue
@@ -547,30 +718,30 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
 
         answered = [sd.slug for sd in POOL if pod is not None
                     and pod.matches(sd.slug.replace("-", " "))]
+        if not answered:
+            decided.append(_record_decision(
+                db, g["id"], "needs_original_design", today=today,
+                fingerprint=_fingerprint(g),
+                how=("no pool concept answers this arena; an original design is paid "
+                     "creative work outside Laura's CA$0 delegation (G14, proposed)"))
+                | {"gap": g["id"]})
+            continue
         attempt = len(attempts) + 1
-        if answered:
-            job = enqueue("market_radar", "radar.score",
-                          {"handoff": {"source": "intel.opportunity_review", "gap": g["id"],
-                                       "pool_concepts": answered[:10]}},
-                          idempotency_key=f"watchlist_score:{g['id']}:{attempt}")
-            how = "pool concepts answer the arena: radar.score -> pre-engineering gate"
-        else:
-            inputs = breakthrough.release_brief(db, arena=g["pod"], pod=g["pod"],
-                                                listing_ref="")
-            inputs.update({"watchlist_gap_id": g["id"], "attempt": attempt,
-                           "source": "intel.opportunity_review"})
-            job = enqueue("creative_director", "creative.tournament", inputs,
-                          idempotency_key=f"watchlist_design:{g['id']}:{attempt}")
-            how = "no pool concept answers it: an original divergent tournament is briefed"
-        if job is None:
+        route = int(ev.get("routes") or 0) + 1       # a refused route is retried on a fresh key
+        ids = queue_scores(db, enqueue, answered[:10],
+                           key=f"watchlist_score:{g['id']}:{route}",
+                           context={"coverage_gaps": [g["id"]],
+                                    "source": "intel.opportunity_review"}, today=today)
+        if not ids:
             continue                              # this attempt is already queued
+        how = "pool concepts answer the arena: radar.score -> pre-engineering gate"
         with db.session() as s:
             row = s.get(CoverageGap, g["id"])
-            row.evidence = {**(row.evidence or {}), "design_job_id": job.id,
+            row.evidence = {**(row.evidence or {}), "design_job_ids": ids, "routes": route,
                             "design_started_on": today.isoformat(), "design_how": how}
             flag_modified(row, "evidence")
-        decided.append(_record_decision(db, g["id"], "routed", today=today, job_id=job.id,
-                                        job_type=job.job_type, how=how, attempt=attempt,
+        decided.append(_record_decision(db, g["id"], "routed", today=today, job_ids=ids,
+                                        job_type="radar.score", how=how, attempt=attempt,
                                         research_task_id=ev.get("research_task_id"),
                                         research=_research_state(db, ev.get(
                                             "research_task_id")))

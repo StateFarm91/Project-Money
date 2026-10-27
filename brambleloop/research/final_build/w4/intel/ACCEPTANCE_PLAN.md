@@ -50,7 +50,9 @@ Rules for every demonstration:
 - **Pass:**
   - a priority with `rule=provider` and `subject=intelligence` exists whenever a validated gap or an outage exists;
   - it delegates `intel.opportunity_review`;
-  - `GET /api/audit?action=intel.opportunity_review&limit=5` shows one decision per gap (`routed` or `deferred_by_lesson`), each with a job id.
+  - `GET /api/audit?action=intel.opportunity_review&limit=5` shows one decision per gap: `routed` (with `radar.score` job ids), `progressed`, `route_refused`, `deferred_by_lesson`, `needs_original_design` or `stopped_after_failures`;
+  - no job the review queued is a paid job type (`creative.tournament`, `creative.grid_tournament`, `creative.expedition`, `assets.*_photography`, `intel.gallery_analysis`);
+  - Laura's `intelligence` provider reads UNKNOWN (never OK) while a watchlist shop is unread, unconfigured or refused.
 
 ## §4 A competitor-derived original reaches engineering and certification
 
@@ -89,19 +91,20 @@ Rules for every demonstration:
 - **Pass:**
   - a family with 5 or more orders is detected;
   - `commerce.replication` investigates it;
-  - a divergent follow-on design is delegated and certified;
+  - the next declared member is delegated through `radar.score` and certified, or the family records `needs_original_design` (an original paid design is the G14 owner decision);
+  - an attempt counts as failed only when it was scored and not promoted;
   - pricing and merchandising are tested;
   - follow-on sales are measured against contribution (#45).
 
 ## §10 Reliability spot checks
 
 - **Duplicate suppression:** two consecutive scans of an unchanged shop add no `BenchmarkListing` rows and no mission events.
-- **Outage:** a shop whose read fails shows `source_outage`, Laura sees it after 2 failures, and there is no dead letter.
+- **Outage:** a shop whose read fails shows `source_outage`, Laura sees it after 2 failures, there is no dead letter, and the shop is re-read only after its backoff (6 h, 12 h, … capped at 7 days).
 - **Restart:** after a redeploy, watchlist state (`intel:watchlist:*` memory) persists and scans resume on interval.
 - **Spend:**
   - month spend stays under the ceiling;
   - the watchlist jobs write no `CostEntry`;
-  - review-started tournaments bill under `creative_director` within its ceiling.
+  - the watchlist scan and review start no paid job: `paid_work_withheld` in the `intel.watchlist_scan` audit lists what the per-shop mission asked for and did not get.
 - **Product Truth:** no lesson raises a hard floor or bypasses certification (the `improve.invariants` refusals audited).
 
 ## What the offline tests already show
@@ -110,6 +113,9 @@ Rules for every demonstration:
 
 - §2 and §3 (Laura delegation);
 - §8 (the lesson defers a later decision);
-- §10 (duplicates, outage, restart, spend, idempotent retry).
+- §10 (duplicates, outage, backoff, restart, spend, idempotent retry);
+- the review fixes: outcome classification (H-1), UNKNOWN summary (M-1), no paid job types queued (M-2/M-3), parked gaps (L-4), STALE and UNKNOWN grading (L-1/L-2/L-3).
+
+`tests/test_w4_intelrec_amplify.py` (offline) covers §9's classification and `needs_original_design`.
 
 §1, §4–§7 and §9 can only be shown in production.

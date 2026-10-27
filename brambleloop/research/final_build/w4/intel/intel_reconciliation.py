@@ -169,13 +169,13 @@ UNREGISTERED = [
     {"id": 'SEEDS-05-LOVEANDSTITCH', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
      "text": "LoveandStitchDesigns\nhttps://www.etsy.com/ca/shop/LoveandStitchDesigns?ref=shop_profile&listing_id=1296978586\n\nEveryday Striped example\nhttps://www.etsy.com/ca/listing/754562757/crochet-pattern-video-everyday-striped",
      "jobs": [], "modules": ['radar/market.py'],
-     "ledger": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel"},
+     "ledger": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel"},
     {"id": 'SEEDS-05-FIREFLY', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
      "text": "FireflyCrochets\nhttps://www.etsy.com/ca/shop/FireflyCrochets?ref=shop_profile&listing_id=735974986\n\nChristmas Moose / Reindeer example\nhttps://www.etsy.com/ca/listing/735974986/christmas-crochet-moose-pattern-reindeer",
      "jobs": [], "modules": ['radar/market.py'],
      "ledger": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: character amigurumi, low price point); never registered or scanned"},
     {"id": 'SEEDS-05-SEARCH', "topic": "seeds", "source": "spec/05_Competitor_and_Market_Seeds.txt",
-     "text": "Current crochet-pattern search seed\nhttps://www.etsy.com/search?as_prefix=crochet&q=crochet%%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true",
+     "text": "Current crochet-pattern search seed\nhttps://www.etsy.com/search?as_prefix=crochet&q=crochet%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true",
      "jobs": ['intel.serp_capture'], "modules": ['intel/serp.py'],
      "ledger": "partly covered: the rendered search page answers software with 403 (B-268/B-500); the sanctioned substitute is the API search index (intel.serp_capture, 16 production runs), labelled PROXY"},
     {"id": "OWNER-2026-10-26-WATCHLIST", "topic": "watchlist",
@@ -235,6 +235,12 @@ CHAIN = {
                              "Amplification needs orders, and production has none"),
 }
 
+
+
+# The rows a stored listing count is valid evidence for (review M-5, INDEPENDENT_SECREVIEW_
+# INTELREC.md): the full-catalogue baseline, the listing-by-listing audit, baseline-then-
+# change detection and high-priority change detection.
+COUNT_EVIDENCES = frozenset({"B2#207", "B2#208", "B2#212", "B2#313"})
 
 def _git_has(rev: str, rel: str) -> bool:
     if not rel:
@@ -381,8 +387,11 @@ def build() -> dict:
                u["jobs"], u["ledger"])
 
     # Evidence the public snapshots do give (step 8), and the chain (step 9).
+    # Review M-5: the listing-count reading evidences only the requirements whose acceptance
+    # text is the catalogue scan itself; every other row needs its own operator readback.
     for r in rows:
-        if r["topic"] in ("mjs", "catalogue") and "mjs.scan" in r["steps"]["scheduled_executing"]["evidence"]:
+        if r["id"] in COUNT_EVIDENCES and \
+                "mjs.scan" in r["steps"]["scheduled_executing"]["evidence"]:
             r["steps"]["valid_evidence"] = {
                 "ok": True, "evidence": (f"production /api/benchmark-selection "
                                          f"{sel['source'][-25:]}: {sel['benchmark']} observed "

@@ -2341,8 +2341,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -2540,8 +2540,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -2639,8 +2639,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -2946,8 +2946,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -3342,8 +3342,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -3432,8 +3432,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -4214,8 +4214,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -4312,8 +4312,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -4404,8 +4404,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -5856,8 +5856,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -5953,8 +5953,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -6231,8 +6231,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -6322,8 +6322,8 @@
      }
     },
     "valid_evidence": {
-     "ok": true,
-     "evidence": "production /api/benchmark-selection e mtime 2026-10-26T13:56Z: mjs_off_the_hook_designs observed 442 listings (catalogue read through the official API)"
+     "ok": null,
+     "evidence": "needs operator readback"
     },
     "feeds_decisions": {
      "ok": null,
@@ -8959,7 +8959,7 @@
    "topic": "seeds",
    "title": "SEEDS-05-LOVEANDSTITCH",
    "acceptance_text": "LoveandStitchDesigns\nhttps://www.etsy.com/ca/shop/LoveandStitchDesigns?ref=shop_profile&listing_id=1296978586\n\nEveryday Striped example\nhttps://www.etsy.com/ca/listing/754562757/crochet-pattern-video-everyday-striped",
-   "ledger_state": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel",
+   "ledger_state": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel",
    "implementation_path": [
     "radar/market.py"
    ],
@@ -8975,10 +8975,10 @@
    "last_production_execution": "none in the snapshot",
    "evidence_quality": "code only",
    "missing_work": [
-    "evidence: ledger not PROVEN -- OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or sc",
+    "evidence: ledger not PROVEN -- OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or sca",
     "external evidence: operator readback of what the runs produced"
    ],
-   "acceptance_blocker": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's compet",
+   "acceptance_blocker": "OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competi",
    "steps": {
     "specified": {
      "ok": true,
@@ -9110,7 +9110,7 @@
    "id": "SEEDS-05-SEARCH",
    "topic": "seeds",
    "title": "SEEDS-05-SEARCH",
-   "acceptance_text": "Current crochet-pattern search seed\nhttps://www.etsy.com/search?as_prefix=crochet&q=crochet%%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true",
+   "acceptance_text": "Current crochet-pattern search seed\nhttps://www.etsy.com/search?as_prefix=crochet&q=crochet%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true",
    "ledger_state": "partly covered: the rendered search page answers software with 403 (B-268/B-500); the sanctioned substitute is the API search index (intel.serp_capture, 16 production runs), labelled PROXY",
    "implementation_path": [
     "intel/serp.py"
@@ -9411,9 +9411,9 @@
     "unknown": 30
    },
    "valid_evidence": {
-    "yes": 17,
+    "yes": 4,
     "no": 0,
-    "unknown": 84
+    "unknown": 97
    },
    "feeds_decisions": {
     "yes": 0,

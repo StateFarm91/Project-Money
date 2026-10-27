@@ -149,17 +149,18 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
     * a declared next member exists -> `radar.score` for it (steering, evidence discount,
       lessons, the pre-engineering gate, then cir.draft) -- never a recolour: the funnel's
       novelty floor refuses one;
-    * none -> an original divergent tournament briefed on the family's arena (#216/#227);
-    * one open attempt per family; after AMPLIFY_MAX_ATTEMPTS settled attempts that added no
-      certified member the family is held (no endless repetition);
+    * none -> recorded `needs_original_design` and surfaced; no job. An original design is
+      paid creative work and this handler is CA$0 delegable work (review M-2, G14);
+    * one open attempt per family. An attempt is judged by what radar.score produced
+      (`watchlist.score_outcome`): promoted -> progressed; scored and not promoted -> a
+      failed attempt; refused/dead -> not an attempt (review L-5). After AMPLIFY_MAX_ATTEMPTS
+      failed attempts the family is held (no endless repetition);
     * follow-on orders are orders of members certified AFTER the decision -- measured, never
       inferred. Nothing here prices, publishes or spends.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
 
-    from ..autonomy import memory
-    from ..core.models import Job, JobStatus
-    from . import breakthrough
+    from ..intel.watchlist import score_outcome
 
     today = today or datetime.now(timezone.utc).date()
     decided = []
@@ -176,14 +177,13 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
             continue                                  # UNMEASURED: below the order floor
         job_id = st.get("job_id")
         if job_id:
-            with db.session() as s:
-                j = s.get(Job, job_id)
-                done = j is not None and j.status in (JobStatus.DONE, JobStatus.DEAD,
-                                                      JobStatus.CANCELLED)
-            if not done:
+            res = score_outcome(db, [job_id], now=datetime.now(timezone.utc),
+                                settle=timedelta(0))
+            if res["outcome"] == "wait":
                 _save_amp(db, f["family"], st)
                 continue
-            if not (st.get("follow_on") or {}).get("members"):
+            st["last_outcome"] = res["outcome"]
+            if res["outcome"] == "failed" and not (st.get("follow_on") or {}).get("members"):
                 st["failed_attempts"] = int(st.get("failed_attempts") or 0) + 1
             st["job_id"] = None
         if int(st.get("failed_attempts") or 0) >= AMPLIFY_MAX_ATTEMPTS:
@@ -202,13 +202,13 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
                           idempotency_key=f"amplify:{f['family']}:{nxt['seed']}:{attempt}")
             how = f"next declared member {nxt['seed']} through the ordinary funnel"
         else:
-            inputs = breakthrough.release_brief(db, arena=f["family"], pod=f["family"],
-                                                listing_ref="")
-            inputs.update({"amplify_family": f["family"], "attempt": attempt,
-                           "amplify_holds": _holds(st["investigation"])})
-            job = enqueue("creative_director", "creative.tournament", inputs,
-                          idempotency_key=f"amplify_design:{f['family']}:{attempt}")
-            how = "no declared member left: an original divergent follow-on tournament"
+            st.update(needs_original_design=today.isoformat(),
+                      how=("no declared member left: an original follow-on design is paid "
+                           "creative work outside this CA$0 handler (G14, proposed)"))
+            _save_amp(db, f["family"], st)
+            decided.append({"family": f["family"], "job_id": None,
+                            "decision": "needs_original_design"})
+            continue
         if job is None:
             _save_amp(db, f["family"], st)
             continue

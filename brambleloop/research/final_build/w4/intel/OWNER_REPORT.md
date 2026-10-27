@@ -3,9 +3,9 @@
 - **Date:** 2026-10-26 (UTC). Prepared on branch `claude/w4-INTELREC`.
 - **Branches and builds:**
   - INTELREC is cut from `claude/w4-INTEG7` at 67920948, the combined candidate.
-  - Production runs **b2e49455**, which is 051dbee2 plus SECPATCH.
+  - Production runs **b2e49455**, which is 051dbee2 plus SECPATCH. Source: the coordinator's deployment record. No file in `evidence/` carries this SHA (the captures name no build), so it **needs operator readback** (review L-7).
   - The FMBATCH1 and AGENTS work is in the combined candidate only.
-  - INTELREC batch 4a (876b4fee) and batch 4b (dd04c40f) are **unreviewed and not deployed**.
+  - INTELREC batch 4a (876b4fee) and batch 4b (dd04c40f) were reviewed at f8379deb (`research/final_build/w4/INDEPENDENT_SECREVIEW_INTELREC.md`, verdict CONDITIONAL). The review fixes are on this branch (§7). Nothing here is deployed.
 - **Companion files** (all in `research/final_build/w4/intel/`): `TRACEABILITY.md`/`.json`, `FOUR_SHOP_COMPARISON.md`, `REMEDIATION_LEDGER.md`, `ACCEPTANCE_PLAN.md`, `evidence/`, and `intel_reconciliation.py`, the generator.
 
 **How production evidence was gathered.** No token was used. The sources are:
@@ -29,14 +29,14 @@ Everything else is marked **needs operator readback**. `ACCEPTANCE_PLAN.md` list
 | 2 | MadelineMaeCo fully built | **PARTIAL (new today)** | Absent from every spec, registry, DECISION_LOG entry, code path and branch before INTELREC. It is now registered with the special role and the same scan and mission as Mrs J (876b4fee), but unreviewed and undeployed. |
 | 3 | Both monitored in production today | **Mrs J YES; MadelineMaeCo NO** | `mjs.scan` executed 266 times, the last at job 33702 (near head 33776, 17:24Z). The 13:56Z reading shows 442 listings observed through the official API. MadelineMaeCo is not in production. |
 | 4 | ZKBDESIGNER and TheEasyDesign fully integrated | **PARTIAL** | Registered, scanned, compared and routed to decisions on INTELREC, with offline tests only. Not deployed and not reviewed, so they have no production observation. |
-| 5 | Trend radar works | **PARTIAL** | The culture radar (`culture.sweep`, 37 runs), radar scan and score (211 and 544), seasonal engine and harvest (16 each) and SERP capture (16) all execute. The trend-provenance discount is live (#38 PROVEN). The "trending crochet patterns" search page itself is reachable only through the browser boundary, and Etsy refuses that with 403. Whether these runs produced useful signals needs readback. |
+| 5 | Trend radar works | **PARTIAL** | The culture radar (`culture.sweep`, 37 runs), radar scan and score (211 and 544), seasonal engine and harvest (16 each) and SERP capture (16) all execute. The trend-provenance discount is live (#38 PROVEN). The "trending crochet patterns" search page itself is reachable only through the browser boundary, and Etsy refuses that with 403 (source: the B-268 and B-500 boundary records, not a capture in `evidence/`; review L-7). Whether these runs produced useful signals needs readback. |
 | 6 | Product Family Engine works | **NO in production; PARTIAL in code** | `creative.family_engine` exists in the combined candidate only, with 0 production runs. It reads families, bundle readiness and recolour duplicates. INTELREC 4b makes it delegate follow-ons. Amplification stays UNMEASURED below 5 orders, and production has no orders. |
-| 7 | Winner Amplification works | **NO in production; PARTIAL in code** | There are no orders, so no winner can be detected. INTELREC 4b wires this, offline-tested only: winner → original follow-on (radar.score → pre-engineering gate → cir.draft, or a divergent tournament) → measured follow-on orders → hold after two empty attempts. Investigation of why the best seller sells now calls `commerce.replication.study` (bounded study and ranked testable causes; below its 30-order, 4-week floor it records the module's own refusal). The follow-on brief carries the causes to hold. **Still missing:** price and merchandising tests (owner-gated #295 / live listings). See §3. |
+| 7 | Winner Amplification works | **NO in production; PARTIAL in code** | There are no orders, so no winner can be detected. INTELREC 4b wires this, offline-tested only: winner → original follow-on (radar.score → pre-engineering gate → cir.draft) → measured follow-on orders → hold after two measured, unpromoted attempts. With no declared member it records `needs_original_design` and queues no paid job (review M-2; G14). Investigation of why the best seller sells now calls `commerce.replication.study` (bounded study and ranked testable causes; below its 30-order, 4-week floor it records the module's own refusal). The follow-on brief carries the causes to hold. **Still missing:** price and merchandising tests (owner-gated #295 / live listings). See §3. |
 | 8 | Laura uses the intelligence | **NO in production; built on INTELREC** | Production Laura (`laura.executive_tick`, 4,352 deterministic runs) has seven providers, none of them intelligence. INTELREC adds the `intelligence` provider and the delegated `intel.opportunity_review`. Laura's model-backed CEO paths are OFF (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF). The deterministic tick does not need the model. |
 | 9 | Agents create original products from it | **PARTIAL, stalled** | Competitor evidence drives original divergent tournaments (`creative.tournament`, 191 runs, last 33597). No tournament has reached engineering since `cir.draft` job 24731, and 0 `cir.draft` have run since. The reason sits in `creative.winner_intake` audit rows (needs readback). |
 | 10 | The company learns and improves | **PARTIAL** | Lessons are published, and `radar.score` acts on them (544 runs). Also running: `improve.mine` 117, `improve.measure` 32, `creative.outcome_learning` 16, `learn.scan` 364. No production record yet shows a lesson changing a product outcome: there is no measured outcome, because there are no live listings and no orders. `improve.weekly` dead-lettered once; the PRODFIX2 fix is pending deploy. |
 | 11 | Engineering-complete % | **71.3%** | 72 of 101 traced requirements are implemented, tested and integrated (TRACEABILITY). |
-| 12 | Production-verified % | **15.8% by record; 0% by acceptance readback** | 16 of 101 have a production execution record, a valid output reading and a PROVEN ledger row. All 16 are Mrs J catalogue rows. None has been verified end to end against its acceptance text by an operator readback in this reconciliation. |
+| 12 | Production-verified % | **4.0% by record; 0% by acceptance readback** | 4 of 101 (B2#207, #208, #212, #313) have a production execution record, a reading that addresses their acceptance text, and a PROVEN ledger row. The reading is the stored listing count (`/api/benchmark-selection`, 442 listings), which evidences the catalogue scan and nothing else. The earlier 15.8% reused that one reading for 16 rows whose acceptance text it does not address (review M-5); those rows now need operator readback. None has been verified end to end by an operator readback in this reconciliation. |
 | 13 | Exact remaining work | See §7 | Also `REMEDIATION_LEDGER.md`. |
 
 ---
@@ -226,7 +226,7 @@ The deterministic Laura tick runs. Her model paths are OFF. INTELREC adds the st
 
 1. **Detect a winner.** `commerce/attribution` and `family_engine` (combined only) need orders, and there are 0. **Missing: a production order source.**
 2. **Investigate why.** `commerce/replication.py` (#22) is deployed and PROVEN, but has never been triggered, for lack of a winner. **Built on INTELREC (offline-tested):** `family_engine.investigate` builds the SKU catalogue from certified rows, orders and the pool's declared traits, then calls `replication.study` for the family's best seller. A credible winner gets a bounded study with ranked, testable explanations, which the follow-on brief carries as `amplify_holds`. Below the winner floor, the refusal is recorded in the module's own words and no cause is guessed.
-3. **Delegate original related designs.** **Built on INTELREC 4b (dd04c40f, offline-tested).** `family_engine.amplify` sends the next declared member through `radar.score` and the pre-engineering gate, whose novelty floor refuses a recolour. With no declared member, it briefs an original divergent tournament. One attempt is open per family, and the family is held after two empty attempts.
+3. **Delegate original related designs.** **Built on INTELREC 4b (dd04c40f, offline-tested), corrected after review.** `family_engine.amplify` sends the next declared member through `radar.score` and the pre-engineering gate, whose novelty floor refuses a recolour. With no declared member it records `needs_original_design` and queues nothing: an original design is paid creative work, and this handler is CA$0 delegable work (review M-2; G14). Each attempt is judged by what `radar.score` produced: promoted is progress, scored and not promoted is a failed attempt, and a refusal or dead letter is not an attempt (review L-5). The family is held after two failed attempts.
 4. **Test pricing and merchandising.** Price experiments wait on live listings. Paid scaling (#295) is OWNER-GATED (`ad_authority`).
 5. **Measure the follow-ons.** **Built on INTELREC 4b.** Follow-on orders are counted only for members certified after the decision. Production has nothing to measure yet.
 
@@ -288,8 +288,8 @@ The deterministic Laura tick runs. Her model paths are OFF. INTELREC adds the st
 **Spend limits.**
 
 - Every paid call goes through `check_budget` with agent and monthly ceilings. Month spend is CA$81.35 of CA$100 (`/api/verify`, 17:24Z).
-- The watchlist jobs spend CA$0 (offline-tested: no cost rows).
-- Tournaments the review starts pass the creative ceilings, at most 3 per run.
+- Source for the month figure: `evidence/prod_verify_2026-10-26T1724Z.json`.
+- The watchlist jobs spend CA$0 **and, after the review fixes, queue no paid work**. The scan withholds the paid job types its per-shop mission asks for and reports them (`paid_work_withheld`, review M-3). The review queues only `radar.score` (review M-2/M-4). Offline-tested: `test_no_paid_job_types_are_queued_by_the_scan_or_the_review`. Before the fix this statement was an over-claim: the jobs could originate paid tournaments.
 
 **Research retention.** Covered by the retention guard (FMBATCH1). Observations keep their dates.
 
@@ -331,7 +331,7 @@ From TRACEABILITY: 101 requirements, and the counts reconcile to the rows. The s
 | reviewed (per row) | 0 | 0 | 101 |
 | deployed | 93 | 3 | 5 |
 | scheduled and executing | 65 | 6 | 30 |
-| valid evidence | 17 | 0 | 84 |
+| valid evidence | 4 | 0 | 97 |
 | feeds decisions | 0 | 27 | 74 |
 | verified (ledger) | 65 | 36 | 0 |
 
@@ -364,3 +364,29 @@ The full list is in `REMEDIATION_LEDGER.md`.
    - the benchmark purchases (#148/#317, spend);
    - publication and activation grants (go-live).
 7. **Production evidence** that only time and customers produce: orders, outcomes, and lessons changing outcomes.
+
+---
+
+## 7. Review fixes (INDEPENDENT_SECREVIEW_INTELREC, f8379deb)
+
+| finding | fix on `claude/w4-INTELREC` | test |
+|---|---|---|
+| **H-1** any settled job booked as a failed design attempt, lesson `observed` | `watchlist.score_outcome` classifies from the job's own output: promoted → progressed (gap to CONCEPTING); scored and not promoted → failed attempt; refused, dead, cancelled or missing → not an attempt (`route_refused`, parked, retried on a fresh key). The lesson is published only after two MEASURED failures | `test_design_outcomes_are_classified_from_what_the_job_produced`; chain test |
+| **M-1** unobserved watchlist reads OK | `summary` is UNKNOWN when any shop is never read, `not_configured` or `credential_refused`; the key-wide refusal is recorded per shop | `test_summary_is_unknown_when_unconfigured_or_refused` |
+| **M-2** Laura-delegable job queues paid tournaments under a CA$0 check | the review and amplification queue only `radar.score`; an arena or family with no pool concept is `needs_original_design`, no job (G14). SAFE_GENERATED reasons corrected | `test_no_paid_job_types_…`, `test_no_declared_member_records_needs_original_design_…` |
+| **M-3** per-shop missions fan out paid breakthrough tournaments | non-anchor missions withhold `PAID_JOB_TYPES` and report them; the worker comment and handler docstring corrected | `test_no_paid_job_types_…` |
+| **M-4** a tournament may run in a different arena | no tournament is queued by the review any more; radar.score is per pool concept | as M-2 |
+| **M-5** one reading reused for 17 rows | `COUNT_EVIDENCES` in the generator; 4 rows | regenerated TRACEABILITY |
+| **L-1** stale figures graded MEASURED | graded STALE when the shop's latest read is not ok | `test_stale_and_unmeasured_figures_are_not_measured` |
+| **L-2** zero reviews shown as 0 themes | stored as None → UNKNOWN | same |
+| **L-3** anchor state from row presence | labelled `rows_present` | same |
+| **L-4** deferred gaps re-decided daily | parked decisions (`deferred_by_lesson`, `needs_original_design`, `route_refused`) are not re-decided until the corroborating shops change or 7 days pass, and leave Laura's waiting list | `test_parked_gaps_are_not_redecided_daily` |
+| **L-5** amplify counts refusals as failures | same classification as H-1 | `test_a_refused_or_dead_follow_on_is_not_a_failed_attempt`, `test_a_promoted_follow_on_is_progress_not_failure` |
+| **L-6** no backoff; shop resolved 3× | backoff 6 h × 2^(n−1), capped at 7 days; one `findShops` per scan | `test_refused_shops_back_off_and_a_scan_resolves_each_shop_once` |
+| **L-7** three figures unevidenced | verify extract added to `evidence/`; the SHA and the 403 are labelled with their sources | n/a (documentation) |
+| **I-1** misplaced comment | fixed in `autonomy/departments.py` | n/a |
+| **I-2** test gaps | the tests above. The MJs 4×4 URL matrix was already verified by the reviewer's probe P2 | — |
+| **I-3** `benchmark_health` widening | not changed; disclosed. Three more shop pages may be fetched by the pre-existing, polite browser path when it is enabled | — |
+
+The fixes are offline-tested only and are **not reviewed and not deployed**.
+

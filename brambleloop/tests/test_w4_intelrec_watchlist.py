@@ -7,9 +7,9 @@ the real job system (JobQueue + Worker + the registered handlers), not that prod
 The chain driven end to end: seeded official-API observations of the three non-anchor shops
 (plus Mrs J's stored rows) -> intel.watchlist_scan -> intel.watchlist_compare (validation by
 cross-shop corroboration) -> Laura's executive tick (the new `intelligence` provider) ->
-intel.opportunity_review (a durable decision) -> a departmental job (creative.tournament) ->
-the attempt settles without an engineered product, twice -> a recorded lesson -> a later
-decision on the same arena changes because of it.
+intel.opportunity_review (a durable decision) -> non-spending radar.score jobs for the pool
+concepts that answer the arena -> the attempt is MEASURED (scored) and not promoted, twice ->
+a recorded lesson -> a later decision on the same arena changes because of it.
 
 Also: duplicate suppression, safe retries, source outage, persistence across restart, spend
 limits, no endless repetition of a failed strategy, and no competitor content in the record.
@@ -176,24 +176,21 @@ def test_offline_observation_to_lesson_through_the_real_job_system():
                job_types=["intel.opportunity_review"]).run_once()
         with db.session() as s:
             ev = dict(s.get(CoverageGap, gap_id).evidence)
-            design = s.get(Job, ev["design_job_id"])
-            assert design.job_type in ("creative.tournament", "radar.score"), design.job_type
-            design_id = design.id
+            design_ids = list(ev["design_job_ids"])
+            assert {s.get(Job, i).job_type for i in design_ids} == {"radar.score"}
 
-        # The departmental attempt settles without an engineered product -- twice.
+        # The scored attempt is measured and nothing is promoted -- twice.
         for attempt in (1, 2):
-            with db.session() as s:
-                j = s.get(Job, design_id)
-                j.status = JobStatus.DONE
-                j.finished_at = datetime.now(timezone.utc) - timedelta(days=2)
+            _measured(db, design_ids, promoted=False)
             watchlist.review(db, enqueue=_enqueuer(db))
             with db.session() as s:
                 g = s.get(CoverageGap, gap_id)
                 ev = dict(g.evidence)
                 state_now = g.state
             if attempt == 1:
-                assert ev.get("design_job_id") and ev["design_job_id"] != design_id
-                design_id = ev["design_job_id"]
+                assert ev.get("design_job_ids") and set(ev["design_job_ids"]).isdisjoint(
+                    design_ids)
+                design_ids = list(ev["design_job_ids"])
         assert state_now == coverage.NOT_PURSUING
         with db.session() as s:
             lesson = s.scalar(select(Lesson).where(
@@ -208,6 +205,18 @@ def test_offline_observation_to_lesson_through_the_real_job_system():
         assert mine and mine[0]["last"] == "deferred_by_lesson", later
     finally:
         watchlist.reader_factory = None
+
+
+def _measured(db, ids, *, promoted, status=JobStatus.DONE, scored=True):
+    with db.session() as s:
+        for i in ids:
+            j = s.get(Job, i)
+            j.status = status
+            j.finished_at = datetime.now(timezone.utc) - timedelta(days=2)
+            j.outputs = ({"slug": j.inputs.get("slug"), "score": 0.4 + 0.5 * promoted,
+                          "promoted": promoted} if scored else
+                         {"slug": j.inputs.get("slug"), "promoted": False,
+                          "reason": "not in the pool"})
 
 
 def _enqueuer(db):
@@ -238,10 +247,14 @@ def test_duplicates_retries_outage_and_restart():
             assert s.query(BenchmarkListing).count() == n1
         # Not due: the adaptive interval defers a healthy shop, no read is made.
         before = len(calls)
-        watchlist.scan_all(db)
+        third = watchlist.scan_all(db)
         assert [c for c in calls[before:] if c[1] == "MadelineMaeCo"] == []
+        # Review L-6: the failing shop is not re-read inside its backoff window either.
+        assert [c for c in calls[before:] if c[1] == "ZKBDESIGNER"] == []
+        zk = next(x for x in third["shops"] if x["key"] == "zkbdesigner")
+        assert zk["deferred"] and "backoff" in zk["why"], zk
         # The outage is visible to Laura after the second failure, never a dead letter.
-        assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 3  # 3 attempts
+        assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 2  # 2 reads
         assert "source outage" in watchlist.summary(db)["reason"]
         # Persistence across restart: a fresh process reads the same state from the database.
         db2 = Database(f"sqlite:///{path}")
@@ -328,6 +341,196 @@ def test_spend_limits_and_bounded_work():
 
     R(db).authorize("market_radar", "intel.watchlist_scan")
     R(db).authorize("market_radar", "intel.opportunity_review")
+
+
+
+def _gap(db, pod="hats", arena=None):
+    return coverage.upsert(db, benchmark_key=watchlist.WATCHLIST_KEY,
+                           arena=arena or f"watchlist:{pod}", pod=pod)
+
+
+def test_summary_is_unknown_when_unconfigured_or_refused():
+    """Review M-1: an unobserved watchlist never reads OK to Laura."""
+    db = _db()
+    assert watchlist.summary(db)["status"] == "UNKNOWN"          # never read
+    out = watchlist.scan_all(db, env={})                          # no credential
+    assert out["ran"] is False
+    sm = watchlist.summary(db)
+    assert sm["status"] == "UNKNOWN" and "not_configured" in sm["reason"], sm
+    # A key-wide credential refusal at the last etsy.probe, then the scan waits.
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor="etsy", action="etsy.probe",
+                       detail={"ok": False, "status": 403, "reason": "HTTP 403"}))
+    real = watchlist._reader
+    watchlist._reader = lambda env=None: Reader()
+    try:
+        out = watchlist.scan_all(db)
+    finally:
+        watchlist._reader = real
+    assert out["ran"] is False
+    sm = watchlist.summary(db)
+    assert sm["status"] == "UNKNOWN" and "credential_refused" in sm["reason"], sm
+    assert all(watchlist._state(db, k)["state"] == "credential_refused"
+               for k in ("madeline_mae_co", "zkbdesigner", "the_easy_design"))
+    # Observed and quiet: OK.
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    assert watchlist.summary(db)["status"] == "OK"
+
+
+def test_design_outcomes_are_classified_from_what_the_job_produced():
+    """Review H-1: a refused, parked or dead route is not an attempt and teaches nothing; a
+    promotion is progress; only a MEASURED non-promotion counts toward the lesson."""
+    from datetime import date
+
+    db = _db()
+    gid = _gap(db)
+    q = _enqueuer(db)
+    day = date(2026, 10, 27)
+    seen: set = set()
+    for status in (JobStatus.DEAD, JobStatus.DONE, JobStatus.CANCELLED):
+        watchlist.review(db, enqueue=q, today=day)
+        ids = watchlist._open_gaps(db)[0]["evidence"]["design_job_ids"]
+        assert ids and seen.isdisjoint(ids)             # each route on a fresh key
+        seen |= set(ids)
+        _measured(db, ids, promoted=False, status=status, scored=False)
+        out = watchlist.review(db, enqueue=q, today=day)
+        assert [d["last"] for d in out["decisions"]] == ["route_refused"], out
+        # parked: not re-routed the next day (L-4), only after REDECIDE_AFTER
+        assert watchlist.review(db, enqueue=q, today=day + timedelta(days=1))["decisions"] == []
+        day = day + watchlist.REDECIDE_AFTER
+    with db.session() as s:
+        g = s.get(CoverageGap, gid)
+        assert g.state == coverage.UNCOVERED and not g.evidence.get("failed_attempts")
+        assert s.scalar(select(Lesson).where(
+            Lesson.evidence_ref == f"watchlist_gap:{gid}")) is None
+    # A successful radar.score (promoted) is progress, not a failure.
+    watchlist.review(db, enqueue=q, today=day)
+    ids = watchlist._open_gaps(db)[0]["evidence"]["design_job_ids"]
+    _measured(db, ids[:1], promoted=True)
+    _measured(db, ids[1:], promoted=False)
+    out = watchlist.review(db, enqueue=q, today=day)
+    assert [d["last"] for d in out["decisions"]] == ["progressed"], out
+    with db.session() as s:
+        g = s.get(CoverageGap, gid)
+        assert g.state == coverage.CONCEPTING and not g.evidence.get("failed_attempts")
+
+
+def test_no_paid_job_types_are_queued_by_the_scan_or_the_review():
+    """Review M-2/M-3/M-4/I-2: Laura-delegable and scan work never originates paid jobs."""
+    from brambleloop.autonomy import charters
+    from brambleloop.intel import mission_runtime
+
+    db = _db()
+    queued = []
+
+    def enqueue(agent, job_type, inputs, **kw):
+        queued.append(job_type)
+        return None
+    real = mission_runtime.process
+
+    def mission(db_, *, enqueue, **kw):     # a mission step that asks for paid work
+        enqueue("creative_director", "creative.tournament", {}, idempotency_key="x")
+        enqueue("market_radar", "radar.score", {}, idempotency_key="y")
+        return {"pending": 0, "processed": 1}
+    mission_runtime.process = mission
+    _with_reader(Reader())
+    try:
+        out = watchlist.scan_all(db, enqueue=enqueue, force=True)
+    finally:
+        mission_runtime.process = real
+        watchlist.reader_factory = None
+    withheld = [s["mission"]["paid_work_withheld"] for s in out["shops"]]
+    assert all(w == ["creative.tournament"] for w in withheld), withheld
+    watchlist.record_comparison(db)
+    _gap(db, "hats", "watchlist:hats:x")
+    nope = _gap(db, "education")                          # no pool concept answers it
+    rev = watchlist.review(db, enqueue=enqueue)
+    assert set(queued) <= {"radar.score"}, queued
+    assert not set(queued) & watchlist.PAID_JOB_TYPES
+    assert any(d["gap"] == nope and d["last"] == "needs_original_design"
+               for d in rev["decisions"]), rev
+    # The constitution is told CA$0 for Laura's delegation; the reasons say why that holds.
+    assert "radar.score" in charters.SAFE_GENERATED["intel.opportunity_review"]
+    assert "intel.opportunity_review" in charters.SAFE_GENERATED
+
+
+def test_parked_gaps_are_not_redecided_daily():
+    """Review L-4: needs_original_design/deferred gaps leave the waiting list until the
+    corroborating shops change or REDECIDE_AFTER passes."""
+    from datetime import date
+
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    gid = _gap(db, "education")
+    d0 = date(2026, 10, 27)
+    first = watchlist.review(db, enqueue=_enqueuer(db), today=d0)
+    assert [d["last"] for d in first["decisions"] if d["gap"] == gid] == ["needs_original_design"]
+    assert gid not in watchlist.summary(db)["waiting"]
+    nxt = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + timedelta(days=1))
+    assert [d for d in nxt["decisions"] if d["gap"] == gid] == []
+    week = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + watchlist.REDECIDE_AFTER)
+    assert [d["gap"] for d in week["decisions"]].count(gid) == 1
+    # new corroboration re-opens it at once
+    watchlist._merge_gap_evidence(db, gid, {"corroborated_by": ["shop-x", "shop-y"]})
+    again = watchlist.review(db, enqueue=_enqueuer(db),
+                             today=d0 + watchlist.REDECIDE_AFTER + timedelta(days=1))
+    assert [d["gap"] for d in again["decisions"]].count(gid) == 1
+
+
+def test_stale_and_unmeasured_figures_are_not_measured():
+    """Review L-1/L-2/L-3."""
+    db = _db()
+
+    class NoReviews(Reader):
+        def reviews(self, shop_id, *, limit=100):
+            return []
+    _with_reader(NoReviews())
+    try:
+        watchlist.scan_all(db, force=True)
+        watchlist.reader_factory = lambda: NoReviews(down={"ZKBDESIGNER"})
+        watchlist.scan_all(db, force=True)
+        rep = watchlist.compare(db)
+    finally:
+        watchlist.reader_factory = None
+    by = {s["alias"]: s for s in rep["shops"]}
+    zkb = by[watchlist.benchmark_alias_safe("zkbdesigner")]
+    assert zkb["observation"]["state"] == "source_outage"
+    assert zkb["figures"]["public_sales"]["grade"] == "STALE"
+    mad = by[watchlist.benchmark_alias_safe("madeline_mae_co")]
+    assert mad["figures"]["public_sales"]["grade"] == "MEASURED"
+    assert mad["figures"]["recurring_complaint_themes"]["grade"] == "UNKNOWN"
+    assert rep["shops"][0]["observation"]["state"] in ("rows_present", "never")
+
+
+def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
+    """Review L-6."""
+    db = _db()
+    calls: list = []
+    now = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+    _with_reader(Reader(down={"ZKBDESIGNER"}, calls=calls))
+    try:
+        watchlist.scan_all(db, now=now)
+        resolves = [c for c in calls if c == ("resolve", "MadelineMaeCo")]
+        assert len(resolves) == 1, calls
+        for h in (1, 7, 13):                      # 1 failure: wait 6 h; 2 failures: 12 h
+            watchlist.scan_all(db, now=now + timedelta(hours=h))
+        zkb = [c for c in calls if c == ("resolve", "ZKBDESIGNER")]
+        assert len(zkb) == 2, zkb                  # at 0 h and 7 h; 1 h and 13 h back off
+        assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 2
+    finally:
+        watchlist.reader_factory = None
 
 
 if __name__ == "__main__":

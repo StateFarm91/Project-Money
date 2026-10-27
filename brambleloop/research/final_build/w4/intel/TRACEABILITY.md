@@ -32,7 +32,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | reviewed | 0 | 0 | 101 |
 | deployed | 93 | 3 | 5 |
 | scheduled_executing | 65 | 6 | 30 |
-| valid_evidence | 17 | 0 | 84 |
+| valid_evidence | 4 | 0 | 97 |
 | feeds_decisions | 0 | 27 | 74 |
 | verified | 65 | 36 | 0 |
 
@@ -44,7 +44,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **SEEDS-05:** OMISSION: the seed list and its ten research objectives have no ledger row; radar/market.COMPETITORS holds one dated profile per seed shop (observed 2026-09-17), which is a snapshot, not monitoring
 - **SEEDS-05-HANJAN:** OMISSION: no ledger row for the seed. Code: a dated static profile (radar/market.COMPETITORS, observed 2026-09-17) and a second-market candidate (intel/second_market.CANDIDATES, D-W4-GATESB-1) that intel.panel_discovery joins and scans weekly once getShop verifies its stated market. Production: panel_discovery ran 3 times (last job 27000) and the second_market_benchmark gate reads OPEN at 17:24Z, so some non-US benchmark has observed listings; whether it is HanJanCrochet needs operator readback
 - **SEEDS-05-IVYLOOP:** OMISSION: no ledger row. Code: radar/market.COMPETITORS profile reads 'Seeded by owner; profile to be filled on first live scan' / 'Not yet observed' -- never registered, never scanned
-- **SEEDS-05-LOVEANDSTITCH:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel
+- **SEEDS-05-LOVEANDSTITCH:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel
 - **SEEDS-05-FIREFLY:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: character amigurumi, low price point); never registered or scanned
 - **OWNER-2026-10-26-WATCHLIST:** NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo appears in no spec, registry, DECISION_LOG, code or branch in this repository (searched every ref), so its 'original special monitoring' has no recorded source -- recorded here, not invented
 
@@ -75,18 +75,18 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | B2#208 | Listing-by-Listing Deep Audit | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#209 | Vision-Level Gallery Analysis | `YYNY?YY??Y` | production b2e49455 | job id 33706 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#210 | MJs Specialist Intelligence Pods | `YYYY?YY??Y` | production b2e49455 | job id 32723 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#211 | Central Competitive Intelligence Director | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#211 | Central Competitive Intelligence Director | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#212 | Baseline Then Change Detection | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#213 | Adaptive Monitoring Cadence | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#214 | New-Listing Event Pipeline | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#213 | Adaptive Monitoring Cadence | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#214 | New-Listing Event Pipeline | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#215 | Same-Arena Response Lane | `YYYY?YY??Y` | production b2e49455 | job id 33597 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#216 | Breakthrough Response Lane | `YYYY?YY??Y` | production b2e49455 | job id 33597 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#217 | Benchmark Mechanism Decomposition | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#217 | Benchmark Mechanism Decomposition | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#218 | MJs Challenge Gate | `YYYY?YY??Y` | production b2e49455 | job id 32707 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#219 | Elite Panel Beyond One Seller | `YYYY?YY?NY` | production b2e49455 | job id 27000 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#220 | Benchmark Quality Bar Moves | `YYYY?Y??NY` | production b2e49455 | none in the snapshot | code + tests (offline) | operator readback of production output |
-| B2#224 | No Silent Downgrade | `YYNY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#225 | Competitor Evidence Cache | `YYNY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#224 | No Silent Downgrade | `YYNY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#225 | Competitor Evidence Cache | `YYNY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#226 | Specialist Pod Continuous Learning | `YYYY?YY??N` | production b2e49455 | job id 32723 (snapshot 2026-10-26T17:24Z) | production job record | DATA-GATED (DATA-GATED): parked on customers: needs real customers |
 | B2#227 | Competitive Learning Is Input, Not Creative Ceiling | `YYYY?YY??Y` | production b2e49455 | job id 33597 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#277 | NON-NEGOTIABLE: Proven-Trend Seasonal Capture | `YYYY?YY??Y` | production b2e49455 | job id 32700 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
@@ -94,9 +94,9 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | B2#286 | Rolling 365-Day Opportunity Calendar | `YYYY?YY??Y` | production b2e49455 | job id 32700 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#295 | Aggressive Winner Scaling | `YYYY?Y??NN` | production b2e49455 | none in the snapshot | code + tests (offline) | OWNER-GATED (OWNER-GATED): parked on owner gate ad_authority |
 | B2#299 | Seasonal Benchmark Coverage Matrix | `YYYY?YY??Y` | production b2e49455 | job id 32700 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#301 | OWNER MANDATE - MJsOffTheHookDesigns Is the Named Priority B | `YYNY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#302 | MJs Mission Has Dedicated Capacity | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#303 | MJs Catalogue Is a Living Market Map | `YYNY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#301 | OWNER MANDATE - MJsOffTheHookDesigns Is the Named Priority B | `YYNY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#302 | MJs Mission Has Dedicated Capacity | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#303 | MJs Catalogue Is a Living Market Map | `YYNY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#304 | MJs Listing Photos Must Be Visually Studied | `YYYY?YY??Y` | production b2e49455 | job id 33706 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#305 | Do Not Reproduce MJs Photo Assets | `YYNY?Y???Y` | production b2e49455 | none in the snapshot | code only | operator readback of production output |
 | B2#306 | Same Proven Product Arena Is Mandatory to Consider | `YYYY?YY??Y` | production b2e49455 | job id 33597 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
@@ -111,12 +111,12 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | B2#316 | MJs Mission Feeds Continuous Improvement | `YYYY?YY??Y` | production b2e49455 | job id 32723 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | B2#317 | Ten-Pattern Benchmark Laboratory | `YYYY?Y??NN` | production b2e49455 | none in the snapshot | code + tests (offline) | OWNER-GATED (OWNER-GATED): parked on owner gate benchmark_purchases |
 | B2#318 | MJs Mission Dashboard | `YYYY?Y???Y` | production b2e49455 | none in the snapshot | code + tests (offline) | operator readback of production output |
-| B2#319 | No Generic Substitution | `YYNY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| B2#320 | MJs Mission End-to-End Acceptance Test | `YYYY?YYY?N` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling |
+| B2#319 | No Generic Substitution | `YYNY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| B2#320 | MJs Mission End-to-End Acceptance Test | `YYYY?YY??N` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling |
 | F-061 | Benchmark Purchase Selector | `YYYY?Y??NN` | production b2e49455 | none in the snapshot | code + tests (offline) | OWNER-GATED at DEPLOYED |
 | F-069 | Benchmark Refresh Trigger | `YYYY?YY?NY` | production b2e49455 | job id 27001 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| F-191 | MJs Scan Consistency | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
-| F-192 | Scan Health Semantics | `YYYY?YYY?Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| F-191 | MJs Scan Consistency | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
+| F-192 | Scan Health Semantics | `YYYY?YY??Y` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | operator readback of production output |
 | F-224 | MJs Photographic Benchmark | `YYYY?YN??N` | production b2e49455 | none in the snapshot | code + tests (offline) | never executed in production |
 | F-351 | Priority Product Family | `YYYN?YN??N` | production b2e49455 | none in the snapshot | code + tests (offline) | never executed in production |
 | F-367 | Competitive Learning | `YYNN?YN?NN` | production b2e49455 | none in the snapshot | code only | never executed in production |
@@ -148,7 +148,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 | SEEDS-05-HANJAN | SEEDS-05-HANJAN | `YYNN?YY??N` | production b2e49455 | job id 27000 (snapshot 2026-10-26T17:24Z) | production job record | OMISSION: no ledger row for the seed. Code: a dated static profile (radar/market.COMPETITORS, observed 2026-09-17) and a |
 | SEEDS-05-IVYLOOP | SEEDS-05-IVYLOOP | `YYNN?Y???N` | production b2e49455 | none in the snapshot | code only | OMISSION: no ledger row. Code: radar/market.COMPETITORS profile reads 'Seeded by owner; profile to be filled on first li |
 | SEEDS-05-MJS | SEEDS-05-MJS | `YYNN?YY??N` | production b2e49455 | job id 33702 (snapshot 2026-10-26T17:24Z) | production job record | covered: became the #301 anchor (Build 2 #205-#320) |
-| SEEDS-05-LOVEANDSTITCH | SEEDS-05-LOVEANDSTITCH | `YYNN?Y???N` | production b2e49455 | none in the snapshot | code only | OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% d |
+| SEEDS-05-LOVEANDSTITCH | SEEDS-05-LOVEANDSTITCH | `YYNN?Y???N` | production b2e49455 | none in the snapshot | code only | OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% di |
 | SEEDS-05-FIREFLY | SEEDS-05-FIREFLY | `YYNN?Y???N` | production b2e49455 | none in the snapshot | code only | OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: character amigurumi, low price point);  |
 | SEEDS-05-SEARCH | SEEDS-05-SEARCH | `YYNN?YY??N` | production b2e49455 | job id 32721 (snapshot 2026-10-26T17:24Z) | production job record | partly covered: the rendered search page answers software with 403 (B-268/B-500); the sanctioned substitute is the API s |
 | OWNER-2026-10-26-WATCHLIST | OWNER-2026-10-26-WATCHLIST | `YYYN?NN?NN` | combined candidate only | none in the snapshot | code + tests (offline) | not deployed |
@@ -562,7 +562,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/pods.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### B2#212: Baseline Then Change Detection
 
@@ -596,7 +596,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/cadence.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### B2#214: New-Listing Event Pipeline
 
@@ -613,7 +613,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/mechanisms.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### B2#215: Same-Arena Response Lane
 
@@ -664,7 +664,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/pods.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### B2#218: MJs Challenge Gate
 
@@ -732,7 +732,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/etsy_public.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYNY?YYY?Y`
+- **Stages:** `YYNY?YY??Y`
 
 ### B2#225: Competitor Evidence Cache
 
@@ -749,7 +749,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module gateway/routing.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYNY?YYY?Y`
+- **Stages:** `YYNY?YY??Y`
 
 ### B2#226: Specialist Pod Continuous Learning
 
@@ -885,7 +885,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/mission.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYNY?YYY?Y`
+- **Stages:** `YYNY?YY??Y`
 
 ### B2#302: MJs Mission Has Dedicated Capacity
 
@@ -902,7 +902,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/capacity.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### B2#303: MJs Catalogue Is a Living Market Map
 
@@ -919,7 +919,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/market_map.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYNY?YYY?Y`
+- **Stages:** `YYNY?YY??Y`
 
 ### B2#304: MJs Listing Photos Must Be Visually Studied
 
@@ -1174,7 +1174,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN (COMPLETE+PROVEN): module intel/mission.py exists and is tested
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYNY?YYY?Y`
+- **Stages:** `YYNY?YY??Y`
 
 ### B2#320: MJs Mission End-to-End Acceptance Test
 
@@ -1191,7 +1191,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling
 - **Missing work:** evidence: ledger not PROVEN -- OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling; external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling
-- **Stages:** `YYYY?YYY?N`
+- **Stages:** `YYYY?YY??N`
 
 ### F-061: Benchmark Purchase Selector
 
@@ -1242,7 +1242,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN at DEPLOYED
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### F-192: Scan Health Semantics
 
@@ -1259,7 +1259,7 @@ Each is marked `Y` (evidence), `N` (evidence of absence), or `?` (no per-row rec
 - **Ledger:** PROVEN at DEPLOYED
 - **Missing work:** external evidence: operator readback of what the runs produced
 - **Exact acceptance blocker:** operator readback of production output
-- **Stages:** `YYYY?YYY?Y`
+- **Stages:** `YYYY?YY??Y`
 
 ### F-224: MJs Photographic Benchmark
 
@@ -1813,9 +1813,9 @@ https://www.etsy.com/ca/listing/754562757/crochet-pattern-video-everyday-striped
 - **Deployment:** production b2e49455
 - **Last production execution:** none in the snapshot
 - **Evidence quality:** code only
-- **Ledger:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel
-- **Missing work:** evidence: ledger not PROVEN -- OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or sc; external evidence: operator readback of what the runs produced
-- **Exact acceptance blocker:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55%% display discount); never registered or scanned; its name feeds seo.truth's compet
+- **Ledger:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competitor-name refusal and commerce.pricing_intel
+- **Missing work:** evidence: ledger not PROVEN -- OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or sca; external evidence: operator readback of what the runs produced
+- **Exact acceptance blocker:** OMISSION: no ledger row. Code: a dated static profile only (observed 2026-09-17: garments, recurring human model, 55% display discount); never registered or scanned; its name feeds seo.truth's competi
 - **Stages:** `YYNN?Y???N`
 
 ### SEEDS-05-FIREFLY: SEEDS-05-FIREFLY
@@ -1842,7 +1842,7 @@ https://www.etsy.com/ca/listing/735974986/christmas-crochet-moose-pattern-reinde
 ### SEEDS-05-SEARCH: SEEDS-05-SEARCH
 
 **Original acceptance wording (verbatim):** Current crochet-pattern search seed
-https://www.etsy.com/search?as_prefix=crochet&q=crochet%%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true
+https://www.etsy.com/search?as_prefix=crochet&q=crochet%20pattern&order=most_relevant&view_type=gallery&explicit=1&is_star_seller=true&is_merch_library=true
 
 - **Implementation path:** intel/serp.py
 - **Branch and SHA:** production b2e49455: ['intel/serp.py']; combined claude/w4-INTEG7 67920948: []; INTELREC claude/w4-INTELREC HEAD: []
