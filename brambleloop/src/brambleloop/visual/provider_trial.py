@@ -361,6 +361,9 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
         "by_provider": {p: _summarise([r for r in rows if r.get("provider") == p])
                         for p in (challenger, INCUMBENT)},
         "verdict": _recommend(rows, challenger=challenger),
+        # F-441: every provider in the trial is recorded against all six selection criteria.
+        "selection": {p: selection(p, [r for r in rows if r.get("provider") == p])
+                      for p in (challenger, INCUMBENT)},
         "switches_nothing": (
             "this trial records evidence and changes no production setting. The image "
             "stack is the owner's decision and the instruction was to bring the measured "
@@ -479,3 +482,65 @@ def _recommend(rows: list[dict], *, challenger: str) -> dict:
                     f"the same check on every production render across three method "
                     f"versions. The owner decides; this is the evidence for it"),
             "incumbent_renders_compared": len(theirs)}
+
+
+# ---- F-441: research-driven provider selection ---------------------------------------------
+#
+# "New dependencies/providers are chosen from measured fit, license, reliability, maintenance,
+# cost and reversibility -- not because they are fashionable or first in search results."
+# The trial measured fit and cost; licence, reversibility and maintenance are the provider's
+# rows in `ops.licenses.SERVICES` (F-441 partial, cdf4dea0); reliability is measured here from
+# the trial's own attempts. Every criterion carries its basis, and one that is not measured or
+# not verified says so: `decision_ready` is True only when all six are known.
+
+SELECTION_CRITERIA = ("fit", "licence", "reliability", "maintenance", "cost", "reversibility")
+MIN_ATTEMPTS_FOR_RELIABILITY = 2
+
+
+def selection(provider_key: str, rows: list[dict]) -> dict:
+    from ..gateway import images
+    from ..ops import licenses
+
+    summary = _summarise(rows)
+    provider = images.BY_KEY.get(provider_key)
+    account = getattr(provider, "account", "") or ""
+    terms = licenses.SERVICES.get(account) or {}
+    unverified = getattr(licenses, "UNVERIFIED", "UNVERIFIED")
+    made = [r for r in rows if r.get("made")]
+    out = {
+        "fit": ({"status": "MEASURED", "usable_rate": summary["usable_rate"],
+                 "texture_clear_rate": summary["texture_clear_rate"],
+                 "product_truth_match_rate": summary["product_truth_match_rate"],
+                 "basis": "this trial's production gates"}
+                if summary.get("measured") else
+                {"status": "UNMEASURED", "why": summary.get("why")}),
+        "licence": ({"status": "VERIFIED" if terms.get("verified") else "UNVERIFIED",
+                     "terms": terms.get("licence"),
+                     "commercial_use": terms.get("commercial_use"),
+                     "basis": terms.get("basis")}
+                    if terms else {"status": "UNKNOWN",
+                                   "why": f"no licence row for account {account!r}"}),
+        "reliability": ({"status": "MEASURED",
+                         "completion_rate": round(len(made) / len(rows), 3),
+                         "attempts": len(rows),
+                         "failures": sorted({str(r.get("why") or "")[:80]
+                                             for r in rows if not r.get("made")})}
+                        if len(rows) >= MIN_ATTEMPTS_FOR_RELIABILITY else
+                        {"status": "UNMEASURED",
+                         "why": f"{len(rows)} of {MIN_ATTEMPTS_FOR_RELIABILITY} attempts"}),
+        "maintenance": ({"status": "UNVERIFIED" if terms.get("maintenance") in
+                         (None, unverified) else "RECORDED",
+                         "value": terms.get("maintenance")}
+                        if terms else {"status": "UNKNOWN"}),
+        "cost": ({"status": "MEASURED", "cad_per_render": summary["cad_per_render"],
+                  "cad_per_usable": summary["cad_per_usable"]}
+                 if summary.get("measured") else {"status": "UNMEASURED"}),
+        "reversibility": ({"status": "RECORDED", "value": terms.get("reversibility")}
+                          if terms.get("reversibility") else {"status": "UNKNOWN"}),
+    }
+    open_ = [k for k in SELECTION_CRITERIA
+             if out[k]["status"] in ("UNMEASURED", "UNVERIFIED", "UNKNOWN")]
+    return {"provider": provider_key, "account": account, "criteria": out,
+            "decision_ready": not open_, "open_criteria": open_,
+            "rule": "a provider is chosen on all six criteria; an open one is said, not "
+                    "assumed"}
