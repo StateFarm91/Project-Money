@@ -110,14 +110,56 @@ W-LISTING (`manual_listings/*/LISTING_PACKAGE.md` §10, on `claude/w4-LISTING1` 
 
 Touched suites and their importers were each run separately at nice 19 (see the report for the list and results).
 
+## Follow-up (W-ADOPT-2): accepted baseline, and every live reader
+
+### 1. Hand edits no longer halt publication once the owner accepts them
+
+- **New owner actions:**
+  - `listing.baseline_preview`: a read, no step-up;
+  - `listing.accept_baseline`: step-up, with a reason required.
+
+  Both go through the same `POST /api/cc/actions/{action}` route, and there is a Preview / Accept form in the adoption card.
+- **Preview:**
+  - reads the adopted listing's live copy from Etsy (read-only);
+  - snapshots title, description, tags, price and taxonomy, and returns its sha256 digest;
+  - lists the differences from the certified copy;
+  - runs the acceptance checks below.
+- **Accept** must carry `expected_digest` equal to the digest of a fresh read, so the owner accepts exactly what they previewed. It records:
+  - `accepted_baseline` (snapshot, digest, who, when, reason, accepted differences) on the adoption's `DraftIntent.detail`, with earlier baselines kept in `baseline_history`;
+  - an audit row `listing.baseline_accepted`;
+  - resolution of `listing.adoption_review:<slug>@<version>` and `etsy.listing_drift:<id>`.
+- **Refused** (the review incident is kept open and restated, and `listing.baseline_refused` is audited) when the live copy:
+  - **breaks Product Truth.** The live title, description and tags are checked against the certified CIR: the title promise (multiplicity), the assembly promise and the motif promise;
+  - **drops a required disclosure.** That covers the buyer-trust set, run on the live copy, and the AI sentence `DISCLOSURES["ai_assisted_design"]` verbatim. Any other AI sentence the certified copy carried must also stay;
+  - **cannot be read** from Etsy, or is not the adopted listing.
+
+  Nothing is ever accepted automatically: adoption itself sets no baseline.
+- **Census:** for an adopted listing with an accepted baseline, `_field_drift` compares Etsy with the baseline (`manual_adoption.baseline_drift`) instead of the certified payload. Only a change made after acceptance raises the P1 `etsy.listing_drift:<id>`. Without a baseline, the comparison is with the certified payload, as before.
+
+### 2. Every "live on Etsy" reader counts `published_manually`
+
+- **One helper.** `core/listing_state.py` defines `LIVE_ON_ETSY = ("published", "published_manually")` and `is_live_on_etsy(state)`.
+- **Readers changed:**
+  - `app/verify_checks.py` (/api/verify):
+    - `nothing_published` already fails while an adopted listing carries an Etsy id; the evidence now names `listings_published_manually`;
+    - in live phases, a `published_manually` listing is proven by a VERIFIED owner adoption (the step-up adoption is its grant, and the Etsy read at adoption is its read-back). An UNVERIFIED adoption is reported as unproven.
+  - `app/main.py` `/api/catalogue`: `published` is computed and no longer hard-coded `False`. **This is W-READBACK's file.** The change is about eight lines in `api_catalogue` only.
+  - `store_foundation/preview.py`: `live` / `published` are computed (`None` if unreadable).
+  - `autonomy/kpis.py` (the shadow breach check), `runtime/growth_ops.py` (traffic destination and the ads gate), `growth/ads_readiness.py` (the `listing_live` gate), `finance/sustainability.LIVE_STATES`.
+  - `scale/confidence.py`, `scale/evidence.py`, `scale/runrate.py` (twice).
+  - `intel/etsy_scorecard.py` (live count), `intel/mission.py`, `intel/mission_runtime.py` (the launch rung and published_at).
+  - `swarm/orchestrate._CLOSED_LISTINGS`, `creative/standard.py`, `products/lifecycle.py` (the LIVE / GROWING stage), `seasonal/benchmark_matrix.py`, and `runtime/pipeline.py` (`live_since`).
+- **Deliberately unchanged:** readers of `store.published` audit rows, such as delivery evidence in `commerce/first_hundred`. A manual listing has no verified upload record, so counting it there would be a false claim.
+- **Tests:**
+  - a behavioural test that each of these readers counts an adopted listing;
+  - a static guard that fails on any `state == "published"`, `state != "published"`, `by.get("published"` or `"published" in states` left in `src/`.
+
 ## What this does not do (honest limits)
 
 - **It does not verify file bytes.** Etsy exposes no file hash. Sizes are compared only when `assets.built` recorded them for this release.
 - **It does not read listing properties or image alt text at adoption.** The daily census reads both for every listing of ours, adopted listings included.
-- **VERIFIED does not mean "matches".** Differences, and any incident the census raises for them, are separate:
-  - the census's existing `etsy.listing_drift:<id>` is P1 and halting for any listing of ours that differs from its certified payload, and an adopted listing is now one of ours;
-  - so a hand-edited description such as the package's [PACKAGE EDIT] text will raise that P1 on the next census until the stored copy and the live listing agree.
-  This is existing census behaviour, deliberately not weakened here.
-- **Readers that count `Listing.state == "published"` do not count `published_manually`.** That includes the KPIs, the run-rate, `growth_ops` and `verify_checks._published_rows_proven`, which is W-READBACK's file and was not touched. In a live phase `/api/verify` will list an adopted listing as not proven through the gated path, which is true.
+- **VERIFIED does not mean "matches".** Until the owner accepts a baseline (W-ADOPT-2 above), an adopted listing is compared with its certified payload, and a hand edit raises the P1 `etsy.listing_drift`. Once a baseline is accepted, only drift after it does.
 - **An UNVERIFIED adoption expects the remote state `active`.** If the owner left it as a draft, the next census with credentials will raise a policy-suspected incident. Repeating the adoption once Etsy is readable re-reads it and fixes the expected state.
+- **The baseline fixes copy only:** title, description, tags, price and taxonomy. Images and files are still judged by the census's asset audit, and listing state by the state check.
+- **Product Truth at acceptance is limited to the deterministic promises** (multiplicity, assembly, motif) and the disclosures. Size figures in free text are not re-measured against the twin.
 - **Production use needs a deploy.** The owner action exists only after this branch is integrated and deployed.
