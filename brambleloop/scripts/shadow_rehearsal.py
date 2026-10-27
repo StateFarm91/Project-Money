@@ -3,6 +3,9 @@
 
 What it does, in order, and what each step's outcome means:
 
+0. **Opportunity and design** (W4-C07): the product's radar seed in `radar.opportunity.POOL`
+   (and whether today's portfolio still selects it), then every `launch0.product_truth` design
+   gate on the candidate's CIR -- recorded before the pattern enters the chain.
 1. **Boot.** The production start command (`railway.json`: uvicorn `brambleloop.app.main:app`,
    whose startup hook starts the embedded worker and scheduler) is launched as a subprocess
    with a scrubbed environment in SHADOW phase on a fresh file-backed SQLite database. The
@@ -956,6 +959,42 @@ def run_commerce(rec: Recorder, db, state: dict, draft_id) -> None:
 # ---- driver --------------------------------------------------------------------------------
 
 
+def record_upstream(rec: Recorder, cand, cir) -> None:
+    """W4-C07 (F-848): the two stages before the pattern, through the real code paths.
+
+    * **opportunity** -- the radar seed this product was promoted on
+      (`launch0.radar_concept_for`, else its own slug) in `radar.opportunity.POOL`, and whether
+      today's `select_portfolio` still selects it. Found is PASS (selection is reported, not
+      required: Launch-0's scope is an owner decision already made); no seed is BLOCKED.
+    * **design** -- `launch0.product_truth` on the candidate: every design gate (title, assembly,
+      fabric and motif promises backed by the CIR, every variant compiling). Any gate false is
+      BLOCKED with the gates named; the CIR fingerprint is the design's identity.
+    """
+    from brambleloop.products import launch0
+    from brambleloop.radar.opportunity import POOL, select_portfolio
+
+    key = launch0.radar_concept_for(cir.slug) or cand.slug
+    seed = next((p for p in POOL if p.slug in (key, cand.slug, cir.slug)), None)
+    if seed is None:
+        rec.step("opportunity", BLOCKED, expected="the product's radar opportunity is on record",
+                 observed=f"no radar seed for {key!r}", proof={"key": key})
+    else:
+        try:
+            selected = seed.slug in {c.seed.slug for c in select_portfolio().selected}
+        except Exception as e:  # noqa: BLE001 - unreadable selection is UNKNOWN, recorded
+            selected = f"UNKNOWN ({type(e).__name__})"
+        rec.step("opportunity", PASS, expected="the product's radar opportunity is on record",
+                 observed=f"seed {seed.slug} ({seed.category}); selected today: {selected}",
+                 proof={"seed": seed.slug, "selected_today": selected})
+    truth = launch0.product_truth(cand)
+    failed = sorted(k for k, v in (truth.get("gates") or {}).items() if not v)
+    rec.step("design", PASS if truth.get("passes_gates") else BLOCKED,
+             expected="every design gate passes on the candidate's CIR",
+             observed=("all design gates pass" if truth.get("passes_gates") else
+                       f"failed gates: {failed}"),
+             proof={"cir_fingerprint": cir.fingerprint, "failed_gates": failed})
+
+
 def rehearse(product: str = LAUNCH0_DEFAULT, *, fast: bool = False,
              out: Path | None = None) -> dict:
     """Run the rehearsal in a scratch directory that is removed afterwards.
@@ -1000,6 +1039,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
     state: dict = {"slug": cir.slug, "version": cir.version}
     edges: dict = {"durable": {}, "consumers": {}}
     try:
+        record_upstream(rec, cand, cir)
         ctx = run_shadow_chain(rec, db, url, tmp, artifacts, cir, fast=fast)
         state = record_chain(rec, db, cir, ctx)
         edges = record_edges(db, cir.slug, cir.version)
@@ -1015,7 +1055,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
                  observed=f"{type(e).__name__}: {e}",
                  proof={"traceback": traceback.format_exc()[-3000:]})
     finished = _utc()
-    required = ["boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
+    required = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
                 "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
                 "store.publish[past-shadow]", "orders.ingest", "support.case", "ledger"]
     by = {s["step"]: s["outcome"] for s in rec.steps}

@@ -2482,6 +2482,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "chain.rebuild": ("certified", "restarted", "redrafted", "collections_restarted"),
     "cir.compile": ("compiled",),
     "cir.draft": ("drafted",),
+    "cir.reengineer": ("work_done",),     # W4-C07 F-114
     "collection.assemble": ("requeued", "assembled"),
     "commerce.order_readings": ("study_opened", "reinvestment_owner_action"),
     "commerce.orders_ingest": ("orders_created", "orders_reconciled", "customers_created",

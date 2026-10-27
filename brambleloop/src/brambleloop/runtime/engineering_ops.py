@@ -180,6 +180,13 @@ def handle_salvage_review(ctx: JobContext) -> dict:
     if not rep["count"]:
         return {"ran": False, "why": "no legacy certified product outside the launch scope"}
     store_reading(ctx.db, "creative.salvage_review", rep)
+    # W4-C07 F-114: worthy legacy products go to the Crochet Engineer, who re-engineers them
+    # through the yarn band, compiler, twin and reverse compiler before the release chain.
+    rescue = sorted(r["slug"] for r in rep["legacy"]
+                    if r["recommendation"] == "rescue_candidate")
+    if rescue:
+        ctx.enqueue("crochet_engineer", "cir.reengineer", {"slugs": rescue},
+                    idempotency_key=f"reengineer:{':'.join(rescue)}"[:200])
     ctx.audit("creative.salvage_review", detail={"legacy": rep["count"],
                                                  "retire_recommended": rep["retire_recommended"]})
     return {"legacy": rep["count"], "retire_recommended": len(rep["retire_recommended"]),
@@ -240,3 +247,29 @@ def handle_photo_principles(ctx: JobContext) -> dict:
 from ..core import contracts as _contracts  # noqa: E402
 
 _contracts.require("cir", 1)
+
+
+@handlers.register("cir.reengineer")
+def handle_cir_reengineer(ctx: JobContext) -> dict:
+    """F-114: each rescue candidate re-engineered (`products.reengineer.plan`) and, when READY,
+    handed to the ordinary release chain at `cir.compile` (which runs `gate.certify`).
+    Nothing here certifies; a plan that does not compile or reverse-compile stops here."""
+    from ..products import reengineer
+
+    out = []
+    for slug in ctx.job.inputs.get("slugs") or []:
+        p = reengineer.plan(ctx.db, slug)
+        row = {"slug": slug, "state": p["state"], "why": p.get("why")}
+        if p["state"] == reengineer.READY:
+            from ..cir.model import CIR
+
+            cir = CIR.from_dict(p["cir"])
+            ctx.enqueue("validator", "cir.compile",
+                        {"cir": p["cir"], "reengineered_from": p["from_version"]},
+                        idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+            row["version"] = p["version"]
+        ctx.audit("cir.reengineered", artifact=slug, detail={k: v for k, v in row.items()
+                                                             if k != "slug"})
+        out.append(row)
+    sent = sum(1 for r in out if r["state"] == reengineer.READY)
+    return {"plans": out, "sent_to_release_chain": sent, "work_done": len(out)}

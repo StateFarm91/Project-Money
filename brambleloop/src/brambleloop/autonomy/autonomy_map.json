@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T03:38:11.466711+00:00",
+ "generated_at": "2026-10-27T10:58:31.673792+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -11,9 +11,9 @@
  "counts": {
   "departments": 11,
   "cadences": 128,
-  "handlers": 159,
+  "handlers": 160,
   "agents": 32,
-  "follow_on_edges": 80
+  "follow_on_edges": 82
  },
  "departments": [
   {
@@ -710,6 +710,7 @@
      "chain.rebuild",
      "cir.compile",
      "cir.draft",
+     "creative.salvage_review",
      "creative/intake.py:intake",
      "creative/intake.py:regate_held",
      "creative/preengineering.py:record",
@@ -760,6 +761,7 @@
     ],
     "executable_job_types": [
      "cir.draft",
+     "cir.reengineer",
      "cir.revise",
      "collection.assemble",
      "creative.benchmark_memory",
@@ -798,6 +800,10 @@
    "follow_on": [
     {
      "from": "cir.draft",
+     "to": "cir.compile"
+    },
+    {
+     "from": "cir.reengineer",
      "to": "cir.compile"
     },
     {
@@ -907,6 +913,7 @@
     "follow_on_from": [
      "cir.compile",
      "cir.draft",
+     "cir.reengineer",
      "cir.revise",
      "gate.certify",
      "gate.quality",

@@ -169,7 +169,9 @@ DEFAULT_AGENTS: list[dict] = [
          # job it was raised for is the shape of guard this build keeps having to fix.
          authority=Authority.GREEN, daily_cost_ceiling_cad=28.0),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
-         allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,
+         allowed_job_types=["cir.draft", "cir.revise",
+                            # W4-C07 F-114: legacy rescue through the release chain.
+                            "cir.reengineer"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),
     dict(name="validator", description="Deterministic compile, twin, reverse compile",
          allowed_job_types=["cir.compile", "cir.twin", "cir.reverse"], authority=Authority.GREEN,
@@ -982,3 +984,11 @@ DECLARED_IO["research_agent"] = {
                 "research.architecture_flag / research.swept", "jobs research.investigate"],
     "function_metric": "useful_output_rate",
     "function_reads": "research jobs whose outputs report work done"}
+
+
+# W4-C07 (F-114): re-engineering a legacy pattern is authoring one. Every agent barred from
+# `cir.revise` is barred from `cir.reengineer` too.
+for _name, _types in list(FORBIDDEN_COMBINATIONS.items()):
+    if "cir.revise" in _types:
+        _types.add("cir.reengineer")
+del _name, _types
