@@ -75,8 +75,11 @@ def record(db, *, benchmark_key: str, kind: str, detail: dict,
                         acceptance.note)
 
 
-def check_report(report: dict) -> None:
-    """Refuse a mission report that is a status line wearing a report's name (#319)."""
+def check_report(report: dict, *, shop_name: str = benchmarks.MJS_SHOP) -> None:
+    """Refuse a mission report that is a status line wearing a report's name (#319).
+
+    W4-INTELREC: the same rule for every watchlist shop -- the report must name the shop it
+    was scanned for (`shop_name`, Mrs J by default), never a generic "competitor"."""
     missing = [f for f in REQUIRED_REPORT_FIELDS if f not in report]
     if missing:
         raise ReportRefused(
@@ -84,7 +87,7 @@ def check_report(report: dict) -> None:
             f"this check exists for: it reports what the job did, not what was found")
 
     named = str(report.get("benchmark") or "")
-    if benchmarks.MJS_SHOP.lower() not in named.lower():
+    if shop_name.lower() not in named.lower():
         raise ReportRefused(
             f"the report names {named!r}. The owner's mandate is one specific shop by name "
             f"and forbids generalising it into 'proven sellers' (#301)")

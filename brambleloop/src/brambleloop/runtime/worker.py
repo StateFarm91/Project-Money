@@ -933,6 +933,14 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS batch 4: a daily, read-only aggregate of the competitor listings already
     # observed (demand/merchandising only; no competitor text, image or URL stored). CA$0.
     ("competitor_snapshot", "market_radar", "radar.competitor_snapshot", 24 * 60 * 60),
+    # W4-INTELREC: the owner's permanent watchlist (MadelineMaeCo, ZKBDESIGNER, TheEasyDesign;
+    # Mrs J keeps mjs_scan). The scan fires 6-hourly and each shop's adaptive interval decides
+    # whether it reads anything; the comparison is daily. The reads are CA$0 (official API);
+    # the per-shop mission it runs withholds paid job types (watchlist.PAID_JOB_TYPES, review
+    # M-3), so the scan queues no paid job directly. Unpaid jobs it queues (radar.score) can
+    # lead to paid work downstream inside the creative ceilings (review N-4).
+    ("watchlist_scan", "market_radar", "intel.watchlist_scan", 6 * 60 * 60),
+    ("watchlist_compare", "market_radar", "intel.watchlist_compare", 24 * 60 * 60),
     # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
     # tasks become investigations (internal retrieval first, CA$0, no network).
     ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),

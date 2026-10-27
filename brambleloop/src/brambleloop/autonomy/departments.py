@@ -46,6 +46,7 @@ WORK_CLASS: dict[str, str] = {
     "creative.family_engine": GROW,       # new product families for demand (Product Design)
     "creative.photo_principles": IMPROVE, # F-224: photographic standards from judged galleries
     "research.sweep": IMPROVE,            # the Research Agent's self-trigger (F-401/F-404)
+    "intel.opportunity_review": GROW,     # W4-INTELREC: watchlist opportunities -> decisions
     "gate.quality": RUN,                  # re-verification of certified releases (quality_ops)
     "storefront.review": GROW,            # storefront content proposals (content.draft); no write
 }

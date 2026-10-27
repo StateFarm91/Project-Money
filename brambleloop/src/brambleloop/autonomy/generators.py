@@ -373,6 +373,8 @@ def provider_module(module: str):
         from ..runtime import quality_ops as mod
     elif module == "brambleloop.store_foundation.director":  # W4-AGENTS
         from ..store_foundation import director as mod
+    elif module == "brambleloop.intel.watchlist":  # W4-INTELREC
+        from ..intel import watchlist as mod
     elif module == "brambleloop.ops.slo":
         from ..ops import slo as mod
     elif module == "brambleloop.autonomy.status":

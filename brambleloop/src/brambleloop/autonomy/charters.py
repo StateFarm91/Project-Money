@@ -33,6 +33,12 @@ SAFE_GENERATED: dict[str, str] = {
     "autonomy.morning_handoff": "reads jobs/costs/incidents/owner actions, writes a brief",
     "scale.trajectory": "nightly scenario analysis over stored orders; no external call",
     "radar.score": "scores the coverage gap queue; listed non-spending in swarm BACKLOG_JOBS",
+    "intel.opportunity_review": "one decision per validated watchlist gap; writes memory and "
+                                "queues only radar.score, bounded per run; radar.score's "
+                                "pre-engineering gate may itself request a "
+                                "creative.grid_tournament inside the creative ceilings "
+                                "(review N-4); an arena no pool concept answers is "
+                                "needs_original_design with no job (review M-2/M-4)",
     "intel.benchmark_refresh": "benchmark refresh recommendations; cadence comment: 'free'",
     "intel.pod_learning": "pod capability readings from stored observations",
     "seasonal.sentinel": "docstring: 'publishes nothing, spends nothing, contacts nobody'",
@@ -82,7 +88,11 @@ SAFE_GENERATED: dict[str, str] = {
     # and owner observations; writes a review row and (only) queues content.draft, which
     # records proposals. No network, no Etsy write, CA$0 (runtime.storefront_ops).
     "creative.family_engine": "runtime.engineering_ops: reads certified releases, the radar "
-                              "pool and orders; one reading; creates no product; CA$0",
+                              "pool and orders; one reading; creates no product; its "
+                              "amplification queues only radar.score (whose gate may request "
+                              "a creative.grid_tournament inside the creative ceilings, N-4) "
+                              "and records needs_original_design otherwise (review M-2); "
+                              "CA$0 itself",
     "gate.quality": "runtime.quality_ops: re-runs the certificate's deterministic stages on "
                     "already-certified releases; never certifies or blocks; a disagreement is "
                     "a non-halting P2 incident; CA$0",
@@ -198,7 +208,9 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("radar.", "mjs.", "intel.", "culture.", "research."),
        job_types={"etsy.probe", "teardown.enforce"},
        generatable=("radar.score", "intel.benchmark_refresh", "intel.pod_learning",
-                    "autonomy.department_review", "research.sweep"),
+                    "autonomy.department_review", "research.sweep",
+                    # W4-INTELREC: Laura's delegated review of watchlist opportunities.
+                    "intel.opportunity_review"),
        forbidden=("copy competitor instructions, charts or photography",
                   "buy benchmarks or spend beyond its ceiling"),
        inputs=("benchmark_listings", "coverage_gaps", "culture_signals", "serp_snapshots"),

@@ -340,10 +340,22 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     # still open is counted; after NO_CHANGE_LIMIT in a row the task is stopped with the
     # justification and its next test, instead of being re-read every week for show.
     unchanged_runs = _unchanged_runs(db, task_id, evidence)
-    if plan["chosen"] is None:
+    # F-406: when internal evidence cannot settle a platform question, plan the current
+    # primary pages (allowlisted) for the fetch step, instead of leaning on what a model
+    # remembers. With the step on, the task waits open for the read; with it off, the stop
+    # names the pages and the switch as the smallest action.
+    external = plan_external(db, task_id, t) if "official_docs" in plan["adequate"] else []
+    fetched = any(x.get("retrieval") == "fetched" for x in t["sources"])
+    if external and not fetched and _fetch_on():
+        status = AWAITING_EXTERNAL
+        next_test = ("the allowlisted fetch step (learn.scan -> intel.research_fetch) reads "
+                     + ", ".join(external[:3]))
+    elif plan["chosen"] is None:
         status = BLOCKED_ON_METHOD
         next_test = (f"use {plan['blocked_on']} ({plan['blocked_why']}); internal evidence is "
-                     f"attached, but it is not adequate for {t['domain']}")
+                     f"attached, but it is not adequate for {t['domain']}"
+                     + (f"; switching the fetch step on would read {', '.join(external[:3])}"
+                        if external else ""))
     elif evidence:
         status = EVIDENCE_GATHERED
         next_test = ("weigh the attached evidence against the decision "
@@ -383,12 +395,57 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
                         "findings it writes alone are 'unresolved', never 'fact'"],
         "applicability": {"domain": t["domain"], "decision": t["decision_ref"]},
         "unresolved": [] if status == EVIDENCE_GATHERED else [next_test],
-        "next_test": next_test, "answered": answered,
+        "next_test": next_test, "answered": answered, "external_planned": external,
         "changed": bool(new_internal or added_sources) or unchanged_runs == 0,
         "unchanged_runs": unchanged_runs, "stopped": stopped,
         "work_done": 1,
     }
     return conclusion
+
+
+AWAITING_EXTERNAL = "AWAITING_EXTERNAL"
+MAX_EXTERNAL = 3
+
+
+def official_sources(domain: str, terms) -> list[str]:
+    """F-406: the primary pages this company already knows for a platform question, matched
+    on the task's terms, and only those the fetch step's allowlist would read."""
+    from ..gates import policy_knowledge
+    from . import research_fetch
+
+    terms = [str(x).strip().lower() for x in terms or () if str(x).strip()]
+    if not terms:
+        return []
+    out: list[str] = []
+    for key, reading in policy_knowledge.all_readings().items():
+        blob = " ".join([key.replace("_", " "), *(str(c) for c in reading.conclusions),
+                         *(e.text for e in reading.excerpts)]).lower()
+        if not any(t in blob for t in terms):
+            continue
+        for url in reading.urls:
+            try:
+                research_fetch.check_url(url)
+            except research_fetch.FetchRefused:
+                continue
+            if url not in out:
+                out.append(url)
+    return out[:MAX_EXTERNAL]
+
+
+def plan_external(db, task_id: int, t: dict) -> list[str]:
+    """Record the pages planned for this task (`detail.fetch_urls`) and return those still
+    unread. `research_fetch.plan_fetches` reads the record."""
+    urls = official_sources(t["domain"], t["terms"])
+    if not urls:
+        return []
+    cited = {x.get("citation") for x in t["sources"]}
+    with db.session() as s:
+        row = s.get(R.ResearchTask, task_id)
+        d = dict(row.detail or {})
+        known = list(d.get("fetch_urls") or [])
+        d["fetch_urls"] = known + [u for u in urls if u not in known]   # in priority order
+        row.detail = d
+    return [u for u in urls if u not in cited]
 
 
 def flag_architecture(db, task_id: int, *, assumption: str, evidence_refs, why: str) -> dict:

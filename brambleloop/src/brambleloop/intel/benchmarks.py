@@ -116,8 +116,28 @@ MJS = BenchmarkSpec(
 
 # #219: the anchor is not the only teacher. The panel is deliberately empty of invented
 # entries -- a registry pre-populated with shops nobody has looked at would report a breadth
-# of coverage that does not exist. Entries join it from evidence.
-REGISTRY: tuple[BenchmarkSpec, ...] = (MJS,)
+# of coverage that does not exist. Entries join it from evidence -- or, as below, by the
+# owner naming them.
+# W4-INTELREC: the owner's permanent watchlist (directive 2026-10-26), beside the anchor and
+# never in place of it. URLs are the owner's, verbatim. Market unstated: nobody has
+# established these shops' buyer markets, and an unstated market refuses attribution rather
+# than guessing (#268). No AI-operation is assumed for any of them.
+def _watch(key: str, shop: str, url: str, role: str) -> BenchmarkSpec:
+    return BenchmarkSpec(
+        key=key, shop_name=shop, canonical_url=url, owner_supplied_url=url, mandatory=True,
+        reason_for_inclusion=(
+            f"Owner directive 2026-10-26: permanent watchlist member ({role}). Added beside "
+            f"the anchor, never in place of it. No AI-operation is assumed without evidence."))
+
+
+MADELINE = _watch("madeline_mae_co", "MadelineMaeCo",
+                  "https://www.etsy.com/shop/MadelineMaeCo", "special monitoring")
+ZKB = _watch("zkbdesigner", "ZKBDESIGNER", "https://www.etsy.com/ca/shop/ZKBDESIGNER",
+             "permanent benchmark")
+EASY = _watch("the_easy_design", "TheEasyDesign", "https://www.etsy.com/ca/shop/TheEasyDesign",
+              "permanent benchmark")
+
+REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY)
 
 
 def mandatory() -> list[BenchmarkSpec]:

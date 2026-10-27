@@ -456,7 +456,28 @@ def seasonal_target(arena: str, today: date) -> dict | None:
 # Finding what to process
 
 
-def pending(db, *, benchmark_key: str = benchmarks.MJS_KEY, observations: int = 20) -> list:
+def event_withheld_types(steps: dict | None) -> frozenset:
+    """The paid job types an event's steps were refused (review 720b291 N-5 residual)."""
+    steps = steps or {}
+    out = set()
+    if (steps.get("breakthrough") or {}).get("withheld"):
+        out.add("creative.tournament")
+    return frozenset(out)
+
+
+def _still_settled(steps: dict | None, withholds) -> bool:
+    """Whether an event counts as processed for a run that withholds `withholds`.
+
+    N-5 residual: a listing whose paid step was withheld was marked processed for good, so if
+    the owner later authorised that spend nothing would ever revisit it. It stays settled
+    only while the current run would withhold the same job types; otherwise it is pending
+    again and the step runs."""
+    held = event_withheld_types(steps)
+    return not held or (withholds is not None and held <= frozenset(withholds))
+
+
+def pending(db, *, benchmark_key: str = benchmarks.MJS_KEY, observations: int = 20,
+            withholds=None) -> list:
     """New or changed listings in the recent scan observations not yet carried through.
 
     Baseline scans are not events: the first scan finds every listing at once, which is the
@@ -473,7 +494,8 @@ def pending(db, *, benchmark_key: str = benchmarks.MJS_KEY, observations: int = 
             BenchmarkObservation.kind == "official_api_read")
             .order_by(desc(BenchmarkObservation.id)).limit(observations)))
         done = {(e.listing_ref, e.fingerprint) for e in s.scalars(
-            select(MjsMissionEvent).where(MjsMissionEvent.benchmark_key == benchmark_key))}
+            select(MjsMissionEvent).where(MjsMissionEvent.benchmark_key == benchmark_key))
+            if _still_settled(e.steps, withholds)}
         rows = {r.listing_ref: r for r in s.scalars(select(BenchmarkListing).where(
             BenchmarkListing.benchmark_key == benchmark_key))}
         out, seen = [], set()
@@ -686,6 +708,16 @@ def raise_challengers(db, *, pod: str) -> list[dict]:
 # The eight steps
 
 
+WITHHELD_WHY = ("withheld (paid, non-anchor): paid work is not authorised for non-anchor "
+                "watchlist shops (INTELREC review M-3); revisit if the owner authorises it")
+
+
+def _withheld(enqueue: Callable, job_type: str) -> bool:
+    """Review 720b291 N-5: an enqueue that declares `withholds` refuses those job types; the
+    mission records that truthfully instead of reading the refusal as a duplicate."""
+    return job_type in (getattr(enqueue, "withholds", None) or ())
+
+
 def _enqueue_breakthrough(db, enqueue: Callable, *, event_id: int, arena: str, pod: str,
                           ref: str, benchmark_key: str, today: date,
                           seasonal: dict | None) -> dict:
@@ -700,6 +732,9 @@ def _enqueue_breakthrough(db, enqueue: Callable, *, event_id: int, arena: str, p
                    "seasonal_target": (seasonal or {}).get("event", "")})
     year, week, _ = today.isocalendar()
     key = f"mjs.breakthrough:{benchmark_key}:{arena}:{year}-W{week:02d}"
+    if _withheld(enqueue, "creative.tournament"):
+        return {"enqueued": False, "withheld": True, "job_id": None, "idempotency_key": key,
+                "why": WITHHELD_WHY, "diverged_from": inputs["diverged_from"]}
     job = enqueue("creative_director", "creative.tournament", inputs,
                   priority=priority_for("creative.tournament"), idempotency_key=key)
     if job is None:
@@ -759,10 +794,23 @@ def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callabl
                         "standing": standing}
 
     with db.session() as s:
-        event = MjsMissionEvent(benchmark_key=key, listing_ref=ref, fingerprint=fp,
-                                event_fingerprint=pods.fingerprint(payload),
-                                observation_id=obs_id, what=item["what"], pod=pod)
-        s.add(event)
+        # N-5 residual: a listing revisited because its paid step had been withheld already
+        # has its event (one per listing version, unique); the revisit re-runs the steps on
+        # that event, keeping what it recorded before under `revisited_from`.
+        event = s.scalar(select(MjsMissionEvent).where(
+            MjsMissionEvent.benchmark_key == key, MjsMissionEvent.listing_ref == ref,
+            MjsMissionEvent.fingerprint == fp))
+        if event is None:
+            event = MjsMissionEvent(benchmark_key=key, listing_ref=ref, fingerprint=fp,
+                                    event_fingerprint=pods.fingerprint(payload),
+                                    observation_id=obs_id, what=item["what"], pod=pod)
+            s.add(event)
+        else:
+            steps["revisited_from"] = {"withheld": sorted(event_withheld_types(event.steps)),
+                                       "at": event.at.isoformat() if event.at else None}
+            event.event_fingerprint = pods.fingerprint(payload)
+            event.observation_id = obs_id
+            event.pod = pod
         s.flush()
         event_id = event.id
 
@@ -775,8 +823,10 @@ def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callabl
             unknown.append(rule.key)
         elif got:
             present.append((rule, what, value))
-    tokens = [rights.ProtectedToken(benchmarks.MJS_SHOP, rights.LOGO,
-                                    source="the benchmark shop's name")]
+    # W4-INTELREC: the shop this listing came from (any watchlist member), not always Mrs J.
+    _spec = benchmarks.spec_for(key)
+    tokens = [rights.ProtectedToken(_spec.shop_name if _spec else benchmarks.MJS_SHOP,
+                                    rights.LOGO, source="the benchmark shop's name")]
     mechanisms = [mech.Mechanism(listing_ref=ref, klass=r.klass, what=what, effect=r.effect,
                                  evidence_ref=evidence_ref, pod=pod)
                   for r, what, _v in present]
@@ -1145,6 +1195,10 @@ def company_standing(db, *, enqueue: Callable | None = None,
                 # retired concept slug (market-basket-trio) produced a daily no-op job.
                 if for_slug(slug) is None:
                     continue
+                if _withheld(enqueue, "assets.owned_photography"):
+                    requested.append({"pod": pod, "slug": slug, "job_id": None,
+                                      "withheld": True, "why": WITHHELD_WHY})
+                    continue
                 job = enqueue("publishing", "assets.owned_photography",
                               {"slug": slug, "requested_by": "mjs.director",
                                "because": f"behind the benchmark on photography coverage "
@@ -1243,6 +1297,9 @@ def consume_concepting(db, *, enqueue: Callable, today: date | None = None,
                 "what_makes_theirs_work": "; ".join(
                     m.get("what", "") for m in
                     (info["steps"].get("decomposition") or {}).get("mechanisms") or [])[:600]})
+            if _withheld(enqueue, "creative.tournament"):
+                skipped.append({"gap": gap_id, "why": WITHHELD_WHY})
+                continue
             job = enqueue("creative_director", "creative.tournament", inputs,
                           priority=priority_for("creative.tournament"),
                           idempotency_key=f"same_arena:{key}:{gap_id}")
@@ -1259,7 +1316,8 @@ def consume_concepting(db, *, enqueue: Callable, today: date | None = None,
     return {"started": started, "skipped": skipped}
 
 
-def seeded_director(db, *, benchmark_key: str = benchmarks.MJS_KEY) -> pods.Director:
+def seeded_director(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+                    withholds=None) -> pods.Director:
     """A Director that already knows every listing version the mission has processed."""
     from sqlalchemy import select
 
@@ -1267,7 +1325,8 @@ def seeded_director(db, *, benchmark_key: str = benchmarks.MJS_KEY) -> pods.Dire
 
     with db.session() as s:
         seen = {e.event_fingerprint for e in s.scalars(select(MjsMissionEvent).where(
-            MjsMissionEvent.benchmark_key == benchmark_key)) if e.event_fingerprint}
+            MjsMissionEvent.benchmark_key == benchmark_key))
+            if e.event_fingerprint and _still_settled(e.steps, withholds)}
     return pods.Director(seen=set(seen))
 
 
@@ -1276,8 +1335,9 @@ def process(db, *, enqueue: Callable, today: date | None = None,
             objective: str | None = None) -> dict:
     """Run the eight steps for every pending listing, and report the whole-company view."""
     today = today or datetime.now(timezone.utc).date()
-    items = pending(db, benchmark_key=benchmark_key)
-    director = seeded_director(db, benchmark_key=benchmark_key)
+    withholds = frozenset(getattr(enqueue, "withholds", None) or ())
+    items = pending(db, benchmark_key=benchmark_key, withholds=withholds)
+    director = seeded_director(db, benchmark_key=benchmark_key, withholds=withholds)
     ours = our_mechanisms(db)
     done = []
     for item in items[:limit]:

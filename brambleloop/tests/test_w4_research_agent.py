@@ -341,6 +341,76 @@ def test_retention_protects_the_storefront_grant_chain_and_classifies_research_r
     assert RA.INVESTIGATED in retention.PROTECTED_ACTIONS     # metrics count every row
 
 
+# ---- W4-INTELREC C05: F-406 external research escalation --------------------------------
+
+def _fixture_get(pages):
+    def get(url, **_kw):
+        if url.endswith("/robots.txt"):
+            return 404, b""
+        return (200, pages[url].encode()) if url in pages else (404, b"")
+    return get
+
+
+def test_f406_a_platform_question_internal_evidence_cannot_settle_plans_its_primary_pages():
+    import os
+    from unittest.mock import patch
+
+    from brambleloop.intel import research_fetch
+
+    urls = RA.official_sources("marketplace_policy", ["refund"])
+    assert urls and all(u.startswith("https://help.etsy.com/") for u in urls), urls
+    assert RA.official_sources("marketplace_policy", ["zzqq-nothing"]) == []
+
+    # fetch step OFF: blocked and stopped, and the stop names the pages and the switch
+    db = _db()
+    off = _open(db, question="What does Etsy currently say about refunds for digital "
+                "downloads?", trigger="test:f406-off", decision_ref="listing policy",
+                domain="marketplace_policy", query_terms=["refund"])
+    with patch.dict(os.environ, {research_fetch.ENABLE_VAR: "0"}):
+        out = RA.investigate(db, off["task"])
+    assert out["status"] == RA.BLOCKED_ON_METHOD and out["external_planned"] == urls
+    assert "switching the fetch step on would read" in out["next_test"]
+
+    # fetch step ON: the task waits open for the read, the fetch step plans the page, and
+    # after the (fixture) read the task holds a fetched source
+    db = _db()
+    on = _open(db, question="What does Etsy currently say about refunds for digital "
+               "downloads?", trigger="test:f406-on", decision_ref="listing policy",
+               domain="marketplace_policy", query_terms=["refund"])
+    tid = on["task"]
+    with patch.dict(os.environ, {research_fetch.ENABLE_VAR: "1"}):
+        waiting = RA.investigate(db, tid)
+        assert waiting["status"] == RA.AWAITING_EXTERNAL and waiting["stopped"] is None
+        planned = research_fetch.plan_fetches(db)
+        assert (tid, urls[0]) in planned, planned
+        research_fetch.run(db, get=_fixture_get({urls[0]: "Digital listings are not able to "
+                                                            "be returned. " * 20}),
+                           sleep=lambda _s: None)
+        after = RA.investigate(db, tid)
+    t = next(x for x in R.tasks(db) if x["id"] == tid)
+    assert any(src["retrieval"] == "fetched" and src["citation"] == urls[0]
+               for src in t["sources"]), t["sources"]
+    assert after["status"] == RA.EVIDENCE_GATHERED, after["status"]
+
+
+def test_f406_a_page_the_fetch_step_failed_to_read_is_not_retried_every_run():
+    import os
+    from unittest.mock import patch
+
+    from brambleloop.intel import research_fetch
+
+    db = _db()
+    task = _open(db, question="What does Etsy currently say about refunds for digital "
+                 "downloads?", trigger="test:f406-fail", decision_ref="listing policy",
+                 domain="marketplace_policy", query_terms=["refund"])
+    with patch.dict(os.environ, {research_fetch.ENABLE_VAR: "1"}):
+        RA.investigate(db, task["task"])
+        first = [p for p in research_fetch.plan_fetches(db) if p[0] == task["task"]]
+        research_fetch.run(db, get=_fixture_get({}), sleep=lambda _s: None)   # all 404
+        second = [p for p in research_fetch.plan_fetches(db) if p[0] == task["task"]]
+    assert first and first[0] not in second
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

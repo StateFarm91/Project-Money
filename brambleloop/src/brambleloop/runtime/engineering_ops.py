@@ -150,14 +150,21 @@ def handle_family_engine(ctx: JobContext) -> dict:
     rep = family_report(ctx.db)
     if not rep["certified"]:
         return {"ran": False, "why": "no certified release to group into families"}
+    # W4-INTELREC G5: proven families are amplified through the ordinary funnel.
+    from ..creative.family_engine import amplify
+
+    amp = amplify(ctx.db, rep, enqueue=ctx.enqueue)
+    rep["amplification_decisions"] = amp["decisions"]
     store_reading(ctx.db, "creative.family_engine", rep)
     ctx.audit("creative.family_engine", detail={
+        "amplification_decisions": amp["decisions"][:10],
         "families": len(rep["families"]), "singles": len(rep["single_products"]),
         "bundle_ready": rep["portfolio_has_bundle_ready_family"],
         "recolour_duplicates": rep["recolour_duplicates"][:5]})
     return {"families": len(rep["families"]), "single_products": len(rep["single_products"]),
             "portfolio_has_bundle_ready_family": rep["portfolio_has_bundle_ready_family"],
             "recolour_duplicates": len(rep["recolour_duplicates"]),
+            "amplification_decisions": len(amp["decisions"]),
             "work_done": len(rep["families"]) + len(rep["single_products"])}
 
 
@@ -218,6 +225,10 @@ def handle_photo_principles(ctx: JobContext) -> dict:
 
     out = PP.run(ctx.db)
     store_reading(ctx.db, PP.READING, out)
+    # F-231 (W4-INTELREC C05): the same judged galleries quantified as gallery grammar.
+    from ..intel import gallery_grammar
+
+    store_reading(ctx.db, gallery_grammar.READING, gallery_grammar.grammar(ctx.db))
     measured = sum(1 for p in out["profile"]["pods"].values() if p["state"] == "MEASURED")
     ctx.audit(PP.READING, detail={"judged_listings": out["profile"]["judged_listings"],
                                   "pods_measured": measured, "gaps": out["gaps"]})
