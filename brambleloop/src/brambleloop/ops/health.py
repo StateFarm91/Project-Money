@@ -464,7 +464,7 @@ class _SessionDb:
 
 def _last_probe(signal: str, dbish) -> dict | None:
     if signal == "model_gateway":
-        from ..gateway.anthropic import last_probe
+        from ..gateway.providers import last_probe
     elif signal == "integrations":
         from ..intel.etsy_public import last_probe
     else:

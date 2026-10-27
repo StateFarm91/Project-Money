@@ -401,7 +401,7 @@ def diversification_trigger(db, *, now=None, provider: str = "anthropic") -> dic
                         "why": f"{changes} provider price/availability change(s) recorded in "
                                "30 days (gateway.provider_watch)"})
     try:
-        from ..gateway.anthropic import monthly_ceiling_cad, spent_this_month_cad
+        from ..gateway.providers import monthly_ceiling_cad, spent_this_month_cad
 
         ceiling, month = float(monthly_ceiling_cad()), float(spent_this_month_cad(db))
         if ceiling and month / ceiling >= TRIGGER_CEILING_SHARE:

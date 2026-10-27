@@ -254,7 +254,7 @@ def work_that_fits(db, *, agent: str, purpose: str, period_seconds: int,
     measured mean. A batch sized on the average overshoots on the expensive half of the batch,
     and this build has already been wrong about this number twice in the optimistic direction.
     """
-    from ..gateway.anthropic import agent_daily_ceiling, monthly_ceiling_cad
+    from ..gateway.providers import agent_daily_ceiling, monthly_ceiling_cad
     from . import spend_report
 
     now = now or datetime.now(timezone.utc)

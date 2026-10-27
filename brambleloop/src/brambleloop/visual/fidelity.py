@@ -995,7 +995,7 @@ class GatewayVisionJudge:
         import os
 
         from ..core import workspace
-        from ..gateway import anthropic as gw
+        from ..gateway import providers as gw
         from . import inspect as I
 
         provider = self.provider or gw.provider_for(I.TASK)

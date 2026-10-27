@@ -85,6 +85,7 @@ CELL_WORLD: dict[str, str] = {
     "finance": OPERATIONAL,
     "runtime": OPERATIONAL,
     "learn": OPERATIONAL,
+    "executive": OPERATIONAL,
 }
 
 # How long a capability may sit still before flatness is a finding rather than a short

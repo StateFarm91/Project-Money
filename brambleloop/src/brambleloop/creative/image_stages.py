@@ -778,7 +778,7 @@ def gallery_cost(*, lifestyle_count: int = 2, variant_count: int = 3,
 
     References are not charged on FLUX 3, so the six-reference set costs the same as one.
     `expected_attempts_per_accept` is UNKNOWN until measured and is reported at several rates."""
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway import images
 
     usd = images.BFL3_TIER_USD[tier]

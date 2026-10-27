@@ -440,6 +440,29 @@ def measure_learn(db, *, now: datetime | None = None):
                        {"covered": covered, "gaps": len(states)})
 
 
+def measure_executive(db, *, now: datetime | None = None):
+    """The stored executive plan's critical path: requirements parked behind closed gates.
+
+    Read from the plan `autonomy.executive_plan.refresh` stored (memory `executive:plan`),
+    never recomputed here: the cell measures what the executive is acting on. No plan stored
+    is NotMeasured. An empty critical path is a real 0 over the one plan read."""
+    from ..autonomy import executive_plan, memory
+
+    rec = memory.get(db, executive_plan.MEMORY_KEY)
+    plan = (rec or {}).get("body") or {}
+    if not rec or "critical_path" not in plan:
+        return NotMeasured("executive", "no executive plan stored yet (executive:plan is "
+                                        "written by autonomy.executive_plan.refresh)")
+    path = list(plan.get("critical_path") or [])
+    parked = sum(int(i.get("unblocks") or 0) for i in path)
+    return Measurement("executive", float(parked), max(1, len(path)),
+                       {"gates": len(path), "parked_requirements": parked,
+                        "plan_as_of": plan.get("as_of"),
+                        "by_kind": {k: sum(int(i.get("unblocks") or 0) for i in path
+                                           if i.get("kind") == k)
+                                    for k in sorted({i.get("kind") for i in path})}})
+
+
 # W4-LEARN: the cells whose source is customer, revenue or traffic evidence. They cannot be
 # measured before a sale and nothing internal stands in for them.
 DATA_GATED_CELLS: frozenset[str] = frozenset({"pricing", "customer_experience", "portfolio",
@@ -459,6 +482,7 @@ MEASURERS: dict[str, Callable] = {
     "finance": measure_finance,
     "runtime": measure_runtime,
     "learn": measure_learn,
+    "executive": measure_executive,
 }
 
 assert set(MEASURERS) == {c.key for c in CELLS}, "every cell has exactly one measurer"

@@ -221,7 +221,7 @@ def _model_usable(db, env) -> bool:
     work nobody can start -- the exact failure this module exists to prevent. So the
     condition is a recorded successful call, and it opens by itself when one happens.
     """
-    from ..gateway.anthropic import usable
+    from ..gateway.providers import usable
 
     return usable(db)
 
@@ -265,7 +265,7 @@ def _vision_usable(db, env) -> bool:
     provider cannot fetch, a format it refuses and a payload shape that is subtly wrong all
     fail here and nowhere else.
     """
-    from ..gateway.anthropic import vision_usable
+    from ..gateway.providers import vision_usable
 
     return vision_usable(db)
 

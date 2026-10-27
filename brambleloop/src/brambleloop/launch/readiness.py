@@ -350,7 +350,7 @@ PHYSICAL_SAMPLE_PARKED = {
 
 def _model_state(db) -> dict:
     """What the model provider's situation is, without importing it at module load."""
-    from ..gateway.anthropic import last_probe
+    from ..gateway.providers import last_probe
 
     probe = last_probe(db) or {}
     return {"usable": bool(probe.get("ok")),

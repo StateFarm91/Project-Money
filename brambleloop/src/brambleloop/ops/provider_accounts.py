@@ -125,7 +125,7 @@ def reconcile(db, *, now: datetime | None = None) -> dict:
     them was right about something different: the internal budget had CA$55 free, the owner
     had reported US$10 of new credit, and the provider was refusing every call.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway.routing import USD_PER_CAD
     from . import funding
 

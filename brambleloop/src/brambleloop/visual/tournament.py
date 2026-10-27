@@ -284,7 +284,7 @@ def _judge(db, image_refs: list[str], system: str, prompt: str, max_tokens: int)
     not a screen the candidate failed.
     """
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = gw.provider_for(JUDGE_TASK)
     estimate, held = 0.0, None
@@ -348,7 +348,7 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
     if not provider and generator is None:
         return {"ran": False, "reason": "no image provider holds a credential"}
 
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     made: list[dict] = []
     failures: list[dict] = []

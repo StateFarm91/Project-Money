@@ -310,7 +310,7 @@ def identify_at_grid(image_ref: str, *, families, db=None, provider=None,
     import os
 
     from ..commerce.thumbnail import GRID_PX
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     grid = int(grid_px or GRID_PX)
     fams = sorted({str(f) for f in (families or ()) if f})
@@ -336,7 +336,7 @@ def _identify_in(image_ref: str, small_path: str, *, grid: int, fams: list, db, 
                  billed: dict, out: dict) -> dict:
     from PIL import Image
 
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     def _call(system, prompt, max_tokens):
         # The same ceiling discipline as `inspect_image._call`: reserve against this run's
@@ -408,7 +408,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     reader as somebody saying what is in the frame -- and combining them invites the second
     answer to be coloured by the first.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
@@ -508,7 +508,7 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
     would buy a judgement nobody reads. The description is the half parity HERO and #61 need.
     Budgeted exactly as `inspect_image`'s calls are.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,

@@ -337,7 +337,7 @@ def observe(db, image_ref: str, *, provider=None) -> dict:
     import json
 
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     estimate, held = 0.0, None
@@ -436,7 +436,7 @@ def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=Non
     import json
 
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     if not reference_ref or not candidate_ref:
         return {"error": "a comparison needs two images"}
@@ -546,7 +546,7 @@ def compare_hair(db, reference_ref: str, candidate_ref: str, *, provider=None) -
     import json
 
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     provider = provider or gw.provider_for(TASK)
     estimate, held = 0.0, None

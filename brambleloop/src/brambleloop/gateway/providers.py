@@ -71,6 +71,10 @@ def for_task(task_key: str, *, env=None, **kw) -> TextProvider:
     return factory(task_key, **kw)
 
 
+# The name every pre-facade caller used; same factory, chosen by vendor.
+provider_for = for_task
+
+
 def check_budget(db, *, purpose: str, **kw) -> dict:
     """The pre-call reservation against every ceiling; vendor-neutral (it prices by model).
     `purpose` is required here: a reservation always names the question it pays for."""
@@ -90,7 +94,12 @@ def release_reservation(db, reservation_id, **kw):
 # import change; moving the ledger itself out of the vendor module is the follow-up.
 NEUTRAL = frozenset({"BudgetExceeded", "AgentCeilingExceeded", "IMAGE_TOKENS_ESTIMATE",
                      "MAX_IMAGES_PER_CALL", "VISION_TIMEOUT_SECONDS", "estimate_cad",
-                     "vision_usable", "monthly_ceiling_cad", "check_budget_cad"})
+                     "vision_usable", "monthly_ceiling_cad", "check_budget_cad",
+                     # The probe record (has a real call succeeded?), the month's spend, an
+                     # agent's daily ceiling and the assumed USD->CAD rate: ledger and probe
+                     # readings, not a model call (F-091 rest, FMBATCH2).
+                     "usable", "last_probe", "spent_this_month_cad", "agent_daily_ceiling",
+                     "USD_TO_CAD"})
 
 
 def __getattr__(name: str):

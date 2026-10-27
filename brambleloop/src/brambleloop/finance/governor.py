@@ -640,7 +640,7 @@ def _governor_history(session, *, days: int, now: datetime) -> list[dict]:
 def _pause_agent(db, agent: str, verdict: dict, *, now: datetime) -> dict:
     """Hold what this agent may still spend today, so its next call is refused at dispatch."""
     from ..finance import reservations
-    from ..gateway.anthropic import agent_daily_ceiling
+    from ..gateway.providers import agent_daily_ceiling
 
     permission = agent_daily_ceiling(db, agent, now=now)
     if permission is None:

@@ -34,11 +34,12 @@ def test_twelve_named_departments_report_present_and_missing_truthfully():
     out = D.coverage(boot())
     assert out["total"] == 12
     by = {r["key"]: r for r in out["departments"]}
-    assert set(out["incomplete"]) >= {"compliance_policy", "analytics_intelligence",
-                                       "executive"}
+    assert set(out["incomplete"]) >= {"compliance_policy", "analytics_intelligence"}
     assert by["compliance_policy"]["missing"] == ["backlog", "evidence", "improvement_loop",
                                                    "kpis", "mandate"]
-    assert by["executive"]["missing"] == ["improvement_loop"]
+    # FMBATCH2 F-601: the executive department's improvement loop is its own cell now.
+    assert by["executive"]["complete"] and "executive" not in out["incomplete"]
+    assert by["executive"]["elements"]["improvement_loop"]["value"] == ["executive"]
     fin = by["finance_accounting"]
     assert fin["complete"] and fin["elements"]["backlog"]["value"]["finance.reconcile"] == "RUN"
     for r in out["departments"]:

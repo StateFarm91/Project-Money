@@ -240,7 +240,7 @@ def test_every_cell_owns_a_metric_that_comes_from_rows():
     A rating a cell assigns itself is not a measurement, so every cell names both the number
     and where it comes from.
     """
-    assert len(cells.CELLS) == 13  # twelve + learn (F-799)
+    assert len(cells.CELLS) == 14  # twelve + learn (F-799) + executive (F-601)
     for cell in cells.CELLS:
         assert cell.metric and cell.measure
         assert cell.what_it_means

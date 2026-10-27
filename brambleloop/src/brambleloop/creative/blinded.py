@@ -598,7 +598,7 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
     whole month's model budget is a worse outcome than a measurement that reports
     `unmeasured` and says how many pairs it managed, so the partial run is kept and labelled.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
     from ..gateway import routing
 
     listings = benchmark_cards(db, benchmark_key=benchmark_key)
@@ -1051,7 +1051,7 @@ def grid_fingerprint(grid: dict, *, provider, judges=None) -> tuple[str | None, 
     then be carried back cell by cell."""
     import json as _json
 
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     judges = judges if judges is not None else GRID_JUDGES
     cells = [c for c in grid.get("cells") or [] if c.get("thumbnail")]
@@ -1203,7 +1203,7 @@ def judge_grid(db, grid: dict, *, provider, judges: tuple[tuple[str, str], ...] 
     from statistics import median
 
     from ..finance import spend_report
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw
 
     cells = [c for c in grid.get("cells") or [] if c.get("thumbnail")]
     if not cells:
