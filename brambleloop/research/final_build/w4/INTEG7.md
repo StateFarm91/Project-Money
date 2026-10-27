@@ -195,4 +195,13 @@ H1, M1 and L1 are closed. No test was weakened, and no new paid path or ceiling 
 
 ## 10. Full suite and gates
 
-(pending)
+- **Full suite on 2aeb177fe3303b87100c81e2845904e138637bfe:** run 20261027T104727Z-259, `REQUIRE_CLEAN=1 JOBS=3`. The tree was clean at the start.
+  - 9673 tests passed, 0 suites failed, 0 environment failures and 0 leaked temp files.
+  - The run finished at 2026-10-27T13:27:50Z after 9623 s, with status `passed` and `release_eligible` true.
+  - The run was not resumed: it is a single uninterrupted run, restarted from scratch after the container restart at about 10:46Z killed 20261027T055550Z-12808.
+- **Release record:** `release/RELEASE_2aeb177fe3303b87100c81e2845904e138637bfe.json`, with `source_tree_sha256` 3e4192bb59697377253df4dde18bb15700c36ea1c607631a422113218063a2a0, committed on top of the SHA together with the suite record and the full log.
+- **Deploy guard, dry run:** `DRY_RUN=1 sh ops/deploy.sh --deployed b2e49455ca0e93006752ced16cfe3af0cae86860` returned **ALLOW**. Production b2e49455 is an ancestor of the candidate, so the push is a fast-forward.
+- **Rollback rehearsal** to b2e49455: **ALLOW**. The rehearsal commit was built and not pushed.
+- **Switches:** every Laura model and unified-conversation switch defaults OFF in code, and production sets none of them (Railway variable names read on 2026-10-27, names only). These are `BRAMBLELOOP_LAURA_CEO_MODEL`, `_UNIFIED`, `_BUSINESS_TO_VENICE`, `_PRIVATE_REGISTER`, `_PHRASING` and `_MODEL`. This matches D-W4-OWNER-BRIEFING-A (a).
+- **Records commits after the SHA** (the release record, this section and the e584ff01 records) touch no deployable path (`src/`, `requirements.lock`), so the certified tree digest is unchanged.
+- **Deployment is not approved.** It needs the owner's separate approval of the exact SHA.
