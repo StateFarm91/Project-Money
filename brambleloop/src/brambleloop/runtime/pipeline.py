@@ -256,7 +256,18 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
 
+    # F-051: observed demand in a pod our catalogue does not cover becomes a coverage gap on
+    # the queue radar.score's gap handoff already works -- expansion by new queries, never
+    # by near-duplicate SKUs. A planner fault never costs the scan.
+    try:
+        from ..commerce import portfolio as portfolio_mod
+
+        expansion = portfolio_mod.expansion_plan(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        expansion = {"measurable": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
     return {
+        "expansion": {k: expansion.get(k) for k in ("measurable", "opportunities", "why")},
         "pool_size": len(portfolio.selected) + len(portfolio.rejected),
         "selected": [c.slug for c in portfolio.selected],
         "constraints_met": portfolio.constraints_met,

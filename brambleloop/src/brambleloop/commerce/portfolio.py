@@ -175,7 +175,11 @@ def diversification(db) -> dict:
                     f"{len(values)} distinct values across {len(stating)} listings"),
         }
 
-    # Cannibalisation: pairs whose stated facets are close to identical.
+    # Cannibalisation: pairs whose stated facets are close to identical. F-050: a pair with a
+    # recorded strategic reason (two sizes of one design, a deliberate seasonal twin) is
+    # reported as exempted, with the reason, rather than counted as competing.
+    exempt = strategic_overlaps(db)
+    exempted = []
     slugs = sorted(facets)
     competing = []
     for i, left in enumerate(slugs):
@@ -186,7 +190,12 @@ def diversification(db) -> dict:
                 continue
             overlap = len(a & b) / len(a | b)
             if overlap >= CANNIBAL_OVERLAP:
-                competing.append({"between": [left, right], "overlap": round(overlap, 3)})
+                pair = {"between": [left, right], "overlap": round(overlap, 3)}
+                why = exempt.get(frozenset((left, right)))
+                if why:
+                    exempted.append({**pair, "strategic_reason": why})
+                else:
+                    competing.append(pair)
 
     stuffed = {row["slug"]: stuffing(row["title"], row["tags"]) for row in listings}
     stuffing_now = [slug for slug, report in stuffed.items() if report["stuffed"]]
@@ -199,6 +208,7 @@ def diversification(db) -> dict:
         "facets": per_facet,
         "concentrated_on": concentrated,
         "competing_pairs": competing,
+        "exempted_pairs": exempted,
         "stuffing": stuffing_now,
         "required_facets_missing": sorted({
             facet for row in facets.values() for facet in row["required_missing"]}),
@@ -207,3 +217,92 @@ def diversification(db) -> dict:
                 "a catalogue fixing that by loading every term anybody might type gets "
                 "demoted for it. Both are counted here from the listings themselves (#240)"),
     }
+
+
+# ---------------------------------------------------------------------------
+# F-050: a strategic reason for two listings to target the same intent, on the record
+
+STRATEGIC_OVERLAP_ACTION = "portfolio.strategic_overlap"
+
+
+def record_strategic_overlap(db, *, between: tuple[str, str], reason: str,
+                             recorded_by: str) -> int:
+    """Record why two listings may target materially identical intent. Refuses a thin reason."""
+    from ..core.models import AuditLog
+
+    a, b = (str(x or "").strip() for x in between)
+    if not a or not b or a == b:
+        raise PortfolioRefused("a strategic overlap names two different listings")
+    if len((reason or "").strip()) < 20:
+        raise PortfolioRefused("a strategic reason is a sentence, not a label (F-050)")
+    with db.session() as s:
+        row = AuditLog(actor=recorded_by or "unknown", action=STRATEGIC_OVERLAP_ACTION,
+                       artifact=f"{min(a, b)}|{max(a, b)}",
+                       detail={"between": sorted((a, b)), "reason": reason.strip()[:500]})
+        s.add(row)
+        s.flush()
+        return int(row.id)
+
+
+def strategic_overlaps(db) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    out: dict = {}
+    with db.session() as s:
+        for r in s.scalars(select(AuditLog).where(
+                AuditLog.action == STRATEGIC_OVERLAP_ACTION).order_by(AuditLog.id)):
+            pair = (r.detail or {}).get("between") or []
+            if len(pair) == 2:
+                out[frozenset(pair)] = (r.detail or {}).get("reason")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# F-051: an expansion planner -- thin legitimate coverage becomes an opportunity
+
+EXPANSION_BENCHMARK_KEY = "portfolio_expansion"
+EXPANSION_MIN_OBSERVED = 3
+
+
+def expansion_plan(db, *, record: bool = True) -> dict:
+    """Pods buyers are shown (observed listings) that our catalogue does not cover.
+
+    Thin coverage becomes a coverage gap on the queue `radar.score` already works
+    (`intel.coverage`), so the planner adds products that answer a new query -- never a
+    near-duplicate SKU to stuff an existing one. A pod is an opportunity only with at least
+    `EXPANSION_MIN_OBSERVED` observed listings; fewer is one seller's habit.
+    """
+    from collections import Counter
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing, Listing
+    from ..intel import pods
+
+    with db.session() as s:
+        observed = Counter(r.pod for r in s.scalars(select(BenchmarkListing)) if r.pod)
+        ours = Counter(pods.route(r.title or r.product_slug or "", "")
+                       for r in s.scalars(select(Listing)))
+    if not observed:
+        return {"measurable": False, "why": "no observed listings: demand is UNMEASURED",
+                "opportunities": []}
+    opps = []
+    for pod, n in sorted(observed.items(), key=lambda kv: (-kv[1], kv[0])):
+        if n < EXPANSION_MIN_OBSERVED or ours.get(pod, 0) > 0:
+            continue
+        opps.append({"pod": pod, "observed_listings": n, "our_listings": 0})
+    gaps = []
+    if record and opps:
+        from ..intel import coverage
+
+        for o in opps:
+            gaps.append(coverage.upsert(db, benchmark_key=EXPANSION_BENCHMARK_KEY,
+                                        arena=f"expansion:{o['pod']}", pod=o["pod"],
+                                        evidence={"observed_listings": o["observed_listings"],
+                                                  "source": "commerce.portfolio.expansion_plan"}))
+    return {"measurable": True, "opportunities": opps, "gaps": gaps,
+            "rule": "a new pod with observed demand and no listing of ours; never a "
+                    "near-duplicate of an existing listing"}
+

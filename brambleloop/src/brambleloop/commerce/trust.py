@@ -67,6 +67,33 @@ RUNGS: tuple[Rung, ...] = (
 
 RUNG_BY_KEY: dict[str, Rung] = {r.key: r for r in RUNGS}
 
+# F-047: Star Seller is a trust and conversion signal shown to buyers, not a direct organic
+# ranking factor. It is modelled as a trust rung that a shop may hold (a conversion aid once
+# the standards are met) and is refused as an input to any search-ranking or search-score
+# computation (`refuse_star_seller_as_ranking`).
+STAR_SELLER = Rung(
+    "star_seller", "Etsy's Star Seller badge, when Etsy awards it",
+    "buyers read it as reliability, so it supports conversion; Etsy does not describe it as "
+    "an organic search-ranking input, so it is never treated as one")
+TRUST_SIGNALS: dict[str, Rung] = {STAR_SELLER.key: STAR_SELLER}
+RANKING_REFUSED_SIGNALS = frozenset({"star_seller"})
+
+
+def star_seller_reading(*, awarded: bool | None) -> dict:
+    """Star Seller as a conversion/trust signal; UNMEASURED when nobody has read it."""
+    return {"signal": STAR_SELLER.key, "kind": "trust_conversion",
+            "ranking_input": False,
+            "state": UNMEASURED if awarded is None else (PASSED if awarded else FAILED),
+            "why": STAR_SELLER.why}
+
+
+def refuse_star_seller_as_ranking(factors) -> None:
+    """Raise if a ranking/search-score computation is handed a trust-only signal."""
+    bad = sorted(set(factors or ()) & RANKING_REFUSED_SIGNALS)
+    if bad:
+        raise TrustRefused(f"{bad} is a trust/conversion signal, not an organic ranking "
+                           f"factor (F-047)")
+
 
 def proof_count(db) -> dict:
     """Legitimate proof, counted from rows rather than from a claim about proof."""
