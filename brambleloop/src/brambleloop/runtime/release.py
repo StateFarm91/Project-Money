@@ -4082,6 +4082,32 @@ def handle_improvement_retrospective(ctx: JobContext) -> dict:
             "regressed_promotions": len(realised["regressed"]),
             "hit_rate": realised["hit_rate"]}
 
+OWNER_QUEUE_LOCK = 734543617   # pg_advisory_xact_lock key; distinct from every other in src/
+
+
+def _serialise_owner_queue(s, db) -> None:
+    """Hold the owner-queue write lock for this transaction (Postgres: an advisory xact lock;
+    SQLite: BEGIN IMMEDIATE), so a concurrent pass waits and then reads this pass's rows."""
+    from sqlalchemy import text
+
+    from ..core.db import is_postgres
+
+    if is_postgres(db.engine):
+        s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": OWNER_QUEUE_LOCK})
+    else:
+        s.execute(text("BEGIN IMMEDIATE"))
+
+
+def _open_owner_actions(s) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    return {a.requirement_key: a for a in s.scalars(
+        select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
+        if a.requirement_key}
+
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.
@@ -4173,16 +4199,17 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     queued: list[str] = []
     restated: list[str] = []
     with ctx.db.session() as s:
+        # INTEG8: the check below and the insert after it are one serialised transaction. Two
+        # readiness passes can run at once (the cadence and an operator-enqueued pass on two
+        # worker threads); each read "no open row for this key" before either inserted, and
+        # the owner got the same request twice (test_deploy: 40 -> 41 under lock contention).
+        _serialise_owner_queue(s, ctx.db)
         # Keyed on the requirement, not on the action's wording. Comparing text worked only
         # while every action was a frozen string: as soon as one derived its figure from the
         # catalogue, a changed number read as a new request and the owner got two entries
         # for one decision. An owner queue that grows by seven a day is a queue nobody reads,
         # and one that lists the same decision twice with different numbers is worse.
-        open_actions = {
-            a.requirement_key: a for a in s.scalars(
-                select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
-            if a.requirement_key
-        }
+        open_actions = _open_owner_actions(s)
         # Actions queued before this column existed are adopted rather than duplicated. The
         # first version of this matched them on their full text, which protects every action
         # whose wording is unchanged and fails for the one that made this fix necessary: the
