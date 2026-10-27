@@ -686,6 +686,16 @@ def raise_challengers(db, *, pod: str) -> list[dict]:
 # The eight steps
 
 
+WITHHELD_WHY = ("withheld (paid, non-anchor): paid work is not authorised for non-anchor "
+                "watchlist shops (INTELREC review M-3); revisit if the owner authorises it")
+
+
+def _withheld(enqueue: Callable, job_type: str) -> bool:
+    """Review 720b291 N-5: an enqueue that declares `withholds` refuses those job types; the
+    mission records that truthfully instead of reading the refusal as a duplicate."""
+    return job_type in (getattr(enqueue, "withholds", None) or ())
+
+
 def _enqueue_breakthrough(db, enqueue: Callable, *, event_id: int, arena: str, pod: str,
                           ref: str, benchmark_key: str, today: date,
                           seasonal: dict | None) -> dict:
@@ -700,6 +710,9 @@ def _enqueue_breakthrough(db, enqueue: Callable, *, event_id: int, arena: str, p
                    "seasonal_target": (seasonal or {}).get("event", "")})
     year, week, _ = today.isocalendar()
     key = f"mjs.breakthrough:{benchmark_key}:{arena}:{year}-W{week:02d}"
+    if _withheld(enqueue, "creative.tournament"):
+        return {"enqueued": False, "withheld": True, "job_id": None, "idempotency_key": key,
+                "why": WITHHELD_WHY, "diverged_from": inputs["diverged_from"]}
     job = enqueue("creative_director", "creative.tournament", inputs,
                   priority=priority_for("creative.tournament"), idempotency_key=key)
     if job is None:
@@ -1147,6 +1160,10 @@ def company_standing(db, *, enqueue: Callable | None = None,
                 # retired concept slug (market-basket-trio) produced a daily no-op job.
                 if for_slug(slug) is None:
                     continue
+                if _withheld(enqueue, "assets.owned_photography"):
+                    requested.append({"pod": pod, "slug": slug, "job_id": None,
+                                      "withheld": True, "why": WITHHELD_WHY})
+                    continue
                 job = enqueue("publishing", "assets.owned_photography",
                               {"slug": slug, "requested_by": "mjs.director",
                                "because": f"behind the benchmark on photography coverage "
@@ -1245,6 +1262,9 @@ def consume_concepting(db, *, enqueue: Callable, today: date | None = None,
                 "what_makes_theirs_work": "; ".join(
                     m.get("what", "") for m in
                     (info["steps"].get("decomposition") or {}).get("mechanisms") or [])[:600]})
+            if _withheld(enqueue, "creative.tournament"):
+                skipped.append({"gap": gap_id, "why": WITHHELD_WHY})
+                continue
             job = enqueue("creative_director", "creative.tournament", inputs,
                           priority=priority_for("creative.tournament"),
                           idempotency_key=f"same_arena:{key}:{gap_id}")

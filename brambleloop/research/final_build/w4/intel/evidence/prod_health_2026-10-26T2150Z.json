@@ -1,0 +1,7 @@
+{
+ "source": "anonymous GET /health on production at 2026-10-26T21:50Z, read back by the W4 coordinator and relayed to the INTELREC lane on 2026-10-27",
+ "production_sha": "b2e49455",
+ "meaning": "b2e49455 = 051dbee2 + SECPATCH (f88f056, 4ff953d, 5abc967) + a record commit, per git history",
+ "held_here": "the coordinator's readback statement; the raw /health body was not captured by this lane (no network read was made from INTELREC)",
+ "captures_build_note": "the 17:24Z captures in this directory (jobs, gates, benchmark selection) were taken from 051dbee2, pre-SECPATCH, before b2e49455 was deployed"
+}

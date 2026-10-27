@@ -130,13 +130,15 @@ def test_two_attempts_without_a_new_member_hold_the_family():
     db = _db()
     _certify(db, "nordic-forest-mosaic-throw")
     _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
-    for _ in range(fe.AMPLIFY_MAX_ATTEMPTS):
+    for n in range(fe.AMPLIFY_MAX_ATTEMPTS):
         fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
         with db.session() as s:
             for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
                 # MEASURED and not promoted: a real failed attempt (review H-1/L-5)
                 j.status = JobStatus.DONE
-                j.outputs = {"slug": j.inputs.get("slug"), "score": 0.31, "promoted": False}
+                # two independent measurements (different scores, N-3)
+                j.outputs = {"slug": j.inputs.get("slug"), "score": 0.31 - 0.02 * n,
+                             "promoted": False}
     out = fe.amplify(db, fe.family_report(db), enqueue=_enq(db))
     st = fe._amp_state(db, "nordic-forest")
     assert out["decisions"] == [] and st["held"] and st["failed_attempts"] == 2
@@ -192,6 +194,56 @@ def test_no_declared_member_records_needs_original_design_and_queues_no_paid_job
     assert out["decisions"] == [{"family": "fixture-family", "job_id": None,
                                  "decision": "needs_original_design"}]
     assert fe._amp_state(db, "fixture-family")["needs_original_design"]
+
+
+
+def test_a_promoted_member_is_not_rescored_until_its_outcome_is_known():
+    """Review 720b291 N-2: three runs after a promotion queue nothing more; a promotion that
+    has not certified within AMPLIFY_PROMOTION_DAYS counts as a failed attempt."""
+    from datetime import date, timedelta
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
+    d0 = date(2026, 10, 27)
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db), today=d0)
+    with db.session() as s:
+        j = s.scalar(select(Job).where(Job.job_type == "radar.score"))
+        j.status = JobStatus.DONE
+        j.outputs = {"slug": j.inputs["slug"], "score": 0.9, "promoted": True}
+    for k in range(1, 4):
+        fe.amplify(db, fe.family_report(db), enqueue=_enq(db), today=d0 + timedelta(days=k))
+    with db.session() as s:
+        assert s.query(Job).filter(Job.job_type == "radar.score").count() == 1
+    st = fe._amp_state(db, "nordic-forest")
+    assert st["promoted"]["seed"] and st.get("failed_attempts", 0) == 0
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db),
+               today=d0 + timedelta(days=1 + fe.AMPLIFY_PROMOTION_DAYS))  # promoted on d0+1
+    st = fe._amp_state(db, "nordic-forest")
+    assert st["failed_attempts"] == 1 and not st.get("promoted"), st
+    # and the study window was kept from the first attempt (N-8)
+    assert st["study_starts"] == d0.isoformat()
+
+
+def test_an_identical_rescore_is_a_repeat_not_a_second_failure():
+    """Review 720b291 N-3 in amplification."""
+    from datetime import date, timedelta
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    _orders(db, "nordic-forest-mosaic-throw", fe.AMPLIFY_MIN_ORDERS)
+    d = date(2026, 10, 27)
+    for _ in range(2):
+        fe.amplify(db, fe.family_report(db), enqueue=_enq(db), today=d)
+        with db.session() as s:
+            for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
+                j.status = JobStatus.DONE
+                j.outputs = {"slug": j.inputs.get("slug"), "score": 0.31, "promoted": False,
+                             "evidence": {"discount": 1.0}}
+    fe.amplify(db, fe.family_report(db), enqueue=_enq(db), today=d)
+    st = fe._amp_state(db, "nordic-forest")
+    assert st["failed_attempts"] == 1 and st["last_outcome"] == "repeat_measurement", st
+    assert not st.get("held")
 
 
 if __name__ == "__main__":

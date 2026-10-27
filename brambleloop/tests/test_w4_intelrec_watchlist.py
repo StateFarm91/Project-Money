@@ -181,7 +181,8 @@ def test_offline_observation_to_lesson_through_the_real_job_system():
 
         # The scored attempt is measured and nothing is promoted -- twice.
         for attempt in (1, 2):
-            _measured(db, design_ids, promoted=False)
+            # two independent measurements (a later scoring window moved the score), N-3
+            _measured(db, design_ids, promoted=False, score=0.40 - 0.05 * attempt)
             watchlist.review(db, enqueue=_enqueuer(db))
             with db.session() as s:
                 g = s.get(CoverageGap, gap_id)
@@ -207,14 +208,17 @@ def test_offline_observation_to_lesson_through_the_real_job_system():
         watchlist.reader_factory = None
 
 
-def _measured(db, ids, *, promoted, status=JobStatus.DONE, scored=True):
+def _measured(db, ids, *, promoted, status=JobStatus.DONE, scored=True, score=None,
+              gate=None):
     with db.session() as s:
         for i in ids:
             j = s.get(Job, i)
             j.status = status
             j.finished_at = datetime.now(timezone.utc) - timedelta(days=2)
-            j.outputs = ({"slug": j.inputs.get("slug"), "score": 0.4 + 0.5 * promoted,
-                          "promoted": promoted} if scored else
+            j.outputs = ({"slug": j.inputs.get("slug"),
+                          "score": score if score is not None else 0.4 + 0.5 * promoted,
+                          "promoted": promoted, "gate": gate,
+                          "evidence": {"discount": 1.0}} if scored else
                          {"slug": j.inputs.get("slug"), "promoted": False,
                           "reason": "not in the pool"})
 
@@ -496,6 +500,21 @@ def test_stale_and_unmeasured_figures_are_not_measured():
     class NoReviews(Reader):
         def reviews(self, shop_id, *, limit=100):
             return []
+    from brambleloop.intel import observe
+
+    class Anchor(Reader):
+        def resolve_shop(self, name):
+            if name == benchmarks.MJS_SHOP:
+                return {"shop_id": 9, "shop_name": name, "listing_active_count": 3}
+            return super().resolve_shop(name)
+
+        def catalogue(self, shop_id, **kw):
+            if shop_id == 9:
+                return [_listing(9000 + i, f"Granny Square Blanket Crochet Pattern {i}")
+                        for i in range(3)]
+            return super().catalogue(shop_id, **kw)
+    observe.scan(db, Anchor(), benchmark_key=benchmarks.MJS_KEY,
+                 shop_name=benchmarks.MJS_SHOP, env={})
     _with_reader(NoReviews())
     try:
         watchlist.scan_all(db, force=True)
@@ -511,7 +530,9 @@ def test_stale_and_unmeasured_figures_are_not_measured():
     mad = by[watchlist.benchmark_alias_safe("madeline_mae_co")]
     assert mad["figures"]["public_sales"]["grade"] == "MEASURED"
     assert mad["figures"]["recurring_complaint_themes"]["grade"] == "UNKNOWN"
-    assert rep["shops"][0]["observation"]["state"] in ("rows_present", "never")
+    # N-9: the anchor, selected by role, with stored rows and no watchlist read state.
+    anchor = next(s for s in rep["shops"] if s["role"] == watchlist.ANCHOR)
+    assert anchor["observation"]["state"] == "rows_present", anchor["observation"]
 
 
 def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
@@ -531,6 +552,105 @@ def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
         assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 2
     finally:
         watchlist.reader_factory = None
+
+
+
+def test_backoff_never_overflows_and_one_shop_never_stops_the_scan():
+    """Review 720b291 N-1."""
+    db = _db()
+    now = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+    assert watchlist.backoff_for(40) == watchlist.BACKOFF_CAP
+    assert watchlist.backoff_for(10 ** 6) == watchlist.BACKOFF_CAP
+    st = watchlist._state(db, "zkbdesigner")
+    st.update(state="source_outage", consecutive_failures=40,
+              last_attempt_at=(now - timedelta(days=8)).isoformat())
+    watchlist._save_state(db, "zkbdesigner", st, now=now)
+    _with_reader(Reader(down={"ZKBDESIGNER"}))
+    try:
+        out = watchlist.scan_all(db, now=now)
+        assert {s["key"] for s in out["shops"]} == {"madeline_mae_co", "zkbdesigner",
+                                                    "the_easy_design"}
+        assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 41
+        # an unexpected fault in one shop becomes that shop's outage, not the job's failure
+        real = watchlist.scan_member
+
+        def boom(db_, m, *a, **kw):
+            if m.key == "madeline_mae_co":
+                raise OverflowError("fixture")
+            return real(db_, m, *a, **kw)
+        watchlist.scan_member = boom
+        try:
+            out = watchlist.scan_all(db, now=now, force=True)
+        finally:
+            watchlist.scan_member = real
+        assert out["observed"] == 1 and "madeline_mae_co" in out["outages"], out
+    finally:
+        watchlist.reader_factory = None
+
+
+def test_a_waiting_gate_and_a_repeated_measurement_are_not_attempts():
+    """Review 720b291 N-3."""
+    from datetime import date
+
+    db = _db()
+    gid = _gap(db)
+    q = _enqueuer(db)
+    day = date(2026, 10, 27)
+    watchlist.review(db, enqueue=q, today=day)
+    ids = watchlist._open_gaps(db)[0]["evidence"]["design_job_ids"]
+    _measured(db, ids, promoted=False, gate={"decision": "waiting",
+                                             "unmeasured": ["grid_tournament"],
+                                             "waiting_on": ["image_vision"]})
+    out = watchlist.review(db, enqueue=q, today=day)
+    assert [d["last"] for d in out["decisions"]] == ["route_refused"], out
+    day += watchlist.REDECIDE_AFTER
+    watchlist.review(db, enqueue=q, today=day)
+    ids = watchlist._open_gaps(db)[0]["evidence"]["design_job_ids"]
+    _measured(db, ids, promoted=False, score=0.3)                 # attempt 1: measured
+    watchlist.review(db, enqueue=q, today=day)
+    ids = watchlist._open_gaps(db)[0]["evidence"]["design_job_ids"]
+    _measured(db, ids, promoted=False, score=0.3)                 # same inputs, same score
+    out = watchlist.review(db, enqueue=q, today=day)
+    assert [d["last"] for d in out["decisions"]] == ["repeat_measurement"], out
+    with db.session() as s:
+        g = s.get(CoverageGap, gid)
+        assert g.state == coverage.UNCOVERED and len(g.evidence["failed_attempts"]) == 1
+        assert s.scalar(select(Lesson).where(
+            Lesson.evidence_ref == f"watchlist_gap:{gid}")) is None
+    assert gid not in watchlist.summary(db)["waiting"]            # parked, not re-asked
+
+
+def test_unknown_never_hides_a_known_degradation():
+    """Review 720b291 N-6."""
+    db = _db()
+    now = datetime.now(timezone.utc)
+    st = watchlist._state(db, "zkbdesigner")
+    st.update(state="source_outage", consecutive_failures=3, last_attempt_at=now.isoformat(),
+              last_ok_at=(now - timedelta(days=1)).isoformat())
+    watchlist._save_state(db, "zkbdesigner", st, now=now)
+    sm = watchlist.summary(db)                    # the other two shops were never read
+    assert sm["status"] == "DEGRADED" and sm["unobserved"] and sm["outages"], sm
+
+
+def test_paid_job_types_derive_from_the_worker_and_withheld_steps_say_so():
+    """Review 720b291 N-5 and N-7."""
+    from brambleloop.intel import mission_runtime
+    from brambleloop.runtime.worker import MODEL_JOB_TYPES
+
+    assert set(MODEL_JOB_TYPES) <= watchlist.PAID_JOB_TYPES
+    assert "seasonal.cycle_proof" in watchlist.PAID_JOB_TYPES
+    db = _db()
+    calls = []
+
+    def enq(agent, job_type, inputs, **kw):
+        calls.append(job_type)
+        return None
+    enq.withholds = watchlist.PAID_JOB_TYPES
+    bt = mission_runtime._enqueue_breakthrough(
+        db, enq, event_id=1, arena="hats", pod="hats", ref="", benchmark_key="zkbdesigner",
+        today=datetime(2026, 10, 27).date(), seasonal=None)
+    assert calls == [] and bt["withheld"] is True and "withheld" in bt["why"], bt
+    assert "already queued" not in bt["why"]
 
 
 if __name__ == "__main__":

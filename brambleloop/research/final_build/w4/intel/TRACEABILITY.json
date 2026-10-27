@@ -1,6 +1,9 @@
 {
  "generated_by": "research/final_build/w4/intel/intel_reconciliation.py",
  "production": "b2e49455",
+ "production_evidence": "verified via /health at 2026-10-26T21:50Z (coordinator readback; evidence/prod_health_2026-10-26T2150Z.json)",
+ "captures_build": "051dbee2 (pre-SECPATCH)",
+ "source_coverage": "the reconciliation searched every in-repo source; Master v5 (Brambleloop_Master_v5_Direct.pdf, owner-recovered) was not available to it. Its Addendum v3 requires permanent MadelineMaeCo monitoring, and later addenda specify the Plush Culture Radar, Trend-to-Crochet and the Product Family Engine; their requirement wording is to be imported when the owner supplies the document. Master v5 implementation is reserved for the next phase.",
  "combined_candidate": "claude/w4-INTEG7 67920948",
  "steps": [
   "specified",
@@ -43,7 +46,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33607 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33607 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -237,7 +240,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33607 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33607 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -341,7 +344,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32416 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32416 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -447,7 +450,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- DATA-GATED (DATA-GATED): machinery exists (intel/learning.py); parked on data gate learning_sources: a craft-technique source and buyers' complaints observed by",
@@ -548,7 +551,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -648,7 +651,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32682 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32682 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -744,7 +747,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -842,7 +845,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -941,7 +944,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1041,7 +1044,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- DATA-GATED (DATA-GATED): machinery exists (culture/feeds.py); parked on data gate lead_lag_series: both a culture series and a marketplace series for one signal",
@@ -1145,7 +1148,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1251,7 +1254,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32734 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- DATA-GATED (DATA-GATED): parked on customers: needs real customers",
@@ -1350,7 +1353,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32739 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32739 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1528,7 +1531,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 27001 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 27001 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- OWNER-GATED (OWNER-GATED): parked on owner gate benchmark_purchases",
@@ -1710,7 +1713,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32722 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32722 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1807,7 +1810,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32722 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32722 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1904,7 +1907,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -1997,7 +2000,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2092,7 +2095,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33706 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33706 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2183,7 +2186,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2280,7 +2283,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2379,7 +2382,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2478,7 +2481,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2578,7 +2581,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2677,7 +2680,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2779,7 +2782,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2883,7 +2886,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -2987,7 +2990,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32707 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32707 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3098,7 +3101,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 27000 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 27000 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3286,7 +3289,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3376,7 +3379,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3472,7 +3475,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- DATA-GATED (DATA-GATED): parked on customers: needs real customers",
@@ -3575,7 +3578,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3676,7 +3679,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3781,7 +3784,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -3886,7 +3889,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4068,7 +4071,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32700 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4158,7 +4161,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4252,7 +4255,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4347,7 +4350,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4443,7 +4446,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33706 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33706 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4625,7 +4628,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33597 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4726,7 +4729,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4828,7 +4831,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -4937,7 +4940,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5036,7 +5039,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32724 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5135,7 +5138,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5231,7 +5234,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5333,7 +5336,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32777 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32777 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5433,7 +5436,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32707 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32707 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- OWNER-GATED (OWNER-GATED): parked on owner gate benchmark_purchases",
@@ -5531,7 +5534,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32723 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5802,7 +5805,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -5893,7 +5896,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- OWNER-GATED (OWNER-GATED): parked on owner gate acceptance_ruling",
@@ -6075,7 +6078,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 27001 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 27001 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -6171,7 +6174,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -6266,7 +6269,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "external evidence: operator readback of what the runs produced"
@@ -6786,7 +6789,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32682 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32682 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- DATA-GATED at INTEGRATED",
@@ -7702,7 +7705,7 @@
    ],
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33101 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33101 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- OPEN-DEFECT at INTEGRATED",
@@ -8319,7 +8322,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "none",
    "deployment": "n/a (no module)",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "code: no producing module",
@@ -8487,7 +8490,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "none",
    "deployment": "n/a (no module)",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "code: no producing module",
@@ -8562,7 +8565,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "none",
    "deployment": "n/a (no module)",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "code: no producing module",
@@ -8724,7 +8727,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 27000 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 27000 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- OMISSION: no ledger row for the seed. Code: a dated static profile (radar/market.COMPETITORS, observed 2026-09-17) and a second-market candidate (intel/second_m",
@@ -8888,7 +8891,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33702 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- covered: became the #301 anchor (Build 2 #205-#320)",
@@ -9124,7 +9127,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 32721 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 32721 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- partly covered: the rendered search page answers software with 403 (B-268/B-500); the sanctioned substitute is the API search index (intel.serp_capture, 16 prod",
@@ -9195,7 +9198,7 @@
    "topic": "watchlist",
    "title": "OWNER-2026-10-26-WATCHLIST",
    "acceptance_text": "Watchlist (permanent, exact): MJsOffTheHookDesigns (Mrs J) https://www.etsy.com/shop/MJsOffTheHookDesigns; MadelineMaeCo https://www.etsy.com/shop/MadelineMaeCo; ZKBDESIGNER https://www.etsy.com/ca/shop/ZKBDESIGNER; TheEasyDesign https://www.etsy.com/ca/shop/TheEasyDesign. Keep the original special monitoring for Mrs J and MadelineMaeCo. The two new shops are permanent benchmarks, not replacements. Never assume a shop is AI-operated without evidence.",
-   "ledger_state": "NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo appears in no spec, registry, DECISION_LOG, code or branch in this repository (searched every ref), so its 'original special monitoring' has no recorded source -- recorded here, not invented",
+   "ledger_state": "NEW in this repository's ledger on 2026-10-26. MadelineMaeCo special monitoring is specified in Master v5 Addendum v3 (owner-recovered, not in repo); the requirement wording is to be imported when the owner supplies the document. Source-coverage limitation: the reconciliation searched every in-repo source; Master v5 was not available to it",
    "implementation_path": [
     "intel/watchlist.py",
     "runtime/intel_ops.py"
@@ -9216,7 +9219,7 @@
    "missing_work": [
     "activation: deploy runtime/intel_ops.py, intel/watchlist.py",
     "activation: no production execution of intel.watchlist_scan, intel.watchlist_compare, intel.opportunity_review",
-    "evidence: ledger not PROVEN -- NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo appears in no spec, registry, DECISION_LOG, code or branch in this repository (searche",
+    "evidence: ledger not PROVEN -- NEW in this repository's ledger on 2026-10-26. MadelineMaeCo special monitoring is specified in Master v5 Addendum v3 (owner-recovered, not in repo); the requir",
     "external evidence: operator readback of what the runs produced"
    ],
    "acceptance_blocker": "not deployed",
@@ -9304,7 +9307,7 @@
    "integration": "no runtime consumer recorded",
    "security_review": "branch-level release reviews of the deployed lineage; no per-requirement record",
    "deployment": "production b2e49455",
-   "last_production_execution": "job id 33776 (snapshot 2026-10-26T17:24Z)",
+   "last_production_execution": "job id 33776 (snapshot 2026-10-26T17:24Z, taken from 051dbee2 (pre-SECPATCH))",
    "evidence_quality": "production job record",
    "missing_work": [
     "evidence: ledger not PROVEN -- Laura's PROVIDERS (laura/executive/loop.py) carry no intelligence/competitor provider: competitor findings never reach her OBSERVE step",

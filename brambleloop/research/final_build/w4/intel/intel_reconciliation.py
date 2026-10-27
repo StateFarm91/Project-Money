@@ -28,6 +28,19 @@ W4 = ROOT / "research" / "final_build" / "w4"
 HERE = Path(__file__).resolve().parent
 EV = HERE / "evidence"
 PROD = "b2e49455"          # production: 051dbee2 + SECPATCH
+# Review 720b291 N-10: the SHA is verified via /health (coordinator readback, 21:50Z); the
+# 17:24Z captures predate it and name 051dbee2.
+PROD_EVIDENCE = ("verified via /health at 2026-10-26T21:50Z (coordinator readback; "
+                 "evidence/prod_health_2026-10-26T2150Z.json)")
+CAPTURES_BUILD = "051dbee2 (pre-SECPATCH)"
+# Coordinator note 2026-10-27: a source-coverage limitation, not a search error.
+SOURCE_COVERAGE = ("the reconciliation searched every in-repo source; Master v5 "
+                   "(Brambleloop_Master_v5_Direct.pdf, owner-recovered) was not available to it. "
+                   "Its Addendum v3 requires permanent MadelineMaeCo monitoring, and later "
+                   "addenda specify the Plush Culture Radar, Trend-to-Crochet and the Product "
+                   "Family Engine; their requirement wording is to be imported when the owner "
+                   "supplies the document. Master v5 implementation is reserved for the next "
+                   "phase.")
 COMBINED = "67920948"      # claude/w4-INTEG7, the combined candidate this branch is cut from
 INTELREC = "HEAD"          # this branch (unreviewed batch 4 code)
 
@@ -190,10 +203,11 @@ UNREGISTERED = [
      "jobs": ["intel.watchlist_scan", "intel.watchlist_compare", "intel.opportunity_review"],
      "modules": ["intel/watchlist.py", "runtime/intel_ops.py"],
      "tests": ["tests/test_w4_intelrec_watchlist.py"],
-     "ledger": "NEW: not in any spec, registry or ledger before 2026-10-26. MadelineMaeCo "
-               "appears in no spec, registry, DECISION_LOG, code or branch in this repository "
-               "(searched every ref), so its 'original special monitoring' has no recorded "
-               "source -- recorded here, not invented"},
+     "ledger": "NEW in this repository's ledger on 2026-10-26. MadelineMaeCo special "
+               "monitoring is specified in Master v5 Addendum v3 (owner-recovered, not in "
+               "repo); the requirement wording is to be imported when the owner supplies the "
+               "document. Source-coverage limitation: the reconciliation searched every "
+               "in-repo source; Master v5 was not available to it"},
     {"id": "SPEC13-LAURA", "topic": "laura",
      "source": "spec/13_Laura_CEO_Autonomy_and_Private_Laura_Venice_2026-10-20.md",
      "text": "Laura observes company state and delegates through the COO (D-FB-13).",
@@ -345,7 +359,8 @@ def build() -> dict:
             "deployment": ("production b2e49455" if deployed_mods else
                            "combined candidate only" if combined_only else
                            "INTELREC only" if intelrec_only else "n/a (no module)"),
-            "last_production_execution": (f"job id {last} (snapshot 2026-10-26T17:24Z)"
+            "last_production_execution": (f"job id {last} (snapshot 2026-10-26T17:24Z, "
+                                          f"taken from {CAPTURES_BUILD})"
                                           if last else "none in the snapshot"),
             "evidence_quality": ("production job record" if running else
                                  "code + tests (offline)" if tests else
@@ -402,7 +417,9 @@ def build() -> dict:
         if why:
             r["steps"]["feeds_decisions"] = {"ok": why[0], "evidence": why[1]}
     return {"generated_by": "research/final_build/w4/intel/intel_reconciliation.py",
-            "production": PROD, "combined_candidate": "claude/w4-INTEG7 67920948",
+            "production": PROD, "production_evidence": PROD_EVIDENCE,
+            "captures_build": CAPTURES_BUILD, "source_coverage": SOURCE_COVERAGE,
+            "combined_candidate": "claude/w4-INTEG7 67920948",
             "steps": list(STEPS), "rows": rows,
             "summary": summarise(rows)}
 
@@ -435,8 +452,11 @@ def render_md(data: dict) -> str:
            f"- **Rows:** {sm['requirements']}. They are Build 2 v1.4.3, Final Master v1.0/v1.1, "
            "the Master Plan v1.2 sections, the spec/05 seeds, spec/13 and the owner "
            "directive of 2026-10-26.",
-           f"- **Production:** {data['production']}.",
+           f"- **Production:** {data['production']}, {data['production_evidence']}. "
+           f"Deployment (step 6) is a code fact at that SHA (`git cat-file`). The 17:24Z "
+           f"captures behind steps 7 and 8 were taken from {data['captures_build']}.",
            f"- **Combined candidate:** {data['combined_candidate']}.",
+           f"- **Source coverage:** {data['source_coverage']}",
            "",
            "**Stage key.** The ten stages appear in this order:",
            "",

@@ -133,6 +133,11 @@ def family_report(db) -> dict:
 
 AMPLIFY_PREFIX = "creative:amplify:"
 AMPLIFY_MAX_ATTEMPTS = 2
+# Review 720b291 N-2: a promoted member is not re-scored while its engineering outcome is
+# pending; one that has not certified within this window counts as a failed attempt.
+AMPLIFY_PROMOTION_DAYS = 30
+# N-2/N-3: a repeat measurement or a needs-original-design decision is parked this long.
+AMPLIFY_PARK_DAYS = 7
 
 
 def _amp_state(db, family: str) -> dict:
@@ -154,11 +159,15 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
     * one open attempt per family. An attempt is judged by what radar.score produced
       (`watchlist.score_outcome`): promoted -> progressed; scored and not promoted -> a
       failed attempt; refused/dead -> not an attempt (review L-5). After AMPLIFY_MAX_ATTEMPTS
-      failed attempts the family is held (no endless repetition);
+      failed attempts the family is held (no endless repetition). A promoted member is not
+      re-scored while it waits for certification (N-2); an identical re-score is a repeat
+      measurement, not a second attempt (N-3);
+    * `amplify_holds` (the #22 study's candidate causes) is recorded for the follow-on and
+      NOT yet enforced: radar.score does not read it (review N-8);
     * follow-on orders are orders of members certified AFTER the decision -- measured, never
       inferred. Nothing here prices, publishes or spends.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta, timezone
 
     from ..intel.watchlist import score_outcome
 
@@ -183,9 +192,32 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
                 _save_amp(db, f["family"], st)
                 continue
             st["last_outcome"] = res["outcome"]
-            if res["outcome"] == "failed" and not (st.get("follow_on") or {}).get("members"):
-                st["failed_attempts"] = int(st.get("failed_attempts") or 0) + 1
+            sig = res.get("signature")
+            if res["outcome"] == "progressed":
+                st["promoted"] = {"seed": res["promoted"][0]["slug"], "on": today.isoformat()}
+            elif res["outcome"] == "failed" and not (st.get("follow_on") or {}).get("members"):
+                if sig is not None and sig == st.get("last_signature"):
+                    st["last_outcome"] = "repeat_measurement"
+                    st["parked_until"] = (today + timedelta(days=AMPLIFY_PARK_DAYS)).isoformat()
+                else:
+                    st["failed_attempts"] = int(st.get("failed_attempts") or 0) + 1
+                    st["last_signature"] = sig
             st["job_id"] = None
+        pr = st.get("promoted")
+        if pr:
+            if pr.get("seed") in members_now:
+                st["promoted"] = None                     # certified: measured as a follow-on
+            elif today - date.fromisoformat(pr["on"]) >= timedelta(days=AMPLIFY_PROMOTION_DAYS):
+                st["failed_attempts"] = int(st.get("failed_attempts") or 0) + 1
+                st["promoted"] = None
+                st["last_outcome"] = (f"promoted {pr.get('seed')} did not certify within "
+                                      f"{AMPLIFY_PROMOTION_DAYS} days")
+            else:
+                _save_amp(db, f["family"], st)            # engineering outcome pending
+                continue
+        if st.get("parked_until") and today < date.fromisoformat(st["parked_until"]):
+            _save_amp(db, f["family"], st)
+            continue
         if int(st.get("failed_attempts") or 0) >= AMPLIFY_MAX_ATTEMPTS:
             st["held"] = (f"{st['failed_attempts']} follow-on attempts added no certified "
                           f"member; held until new evidence")
@@ -193,7 +225,9 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
             continue
         attempt = int(st.get("attempts") or 0) + 1
         # #22: before more capacity goes to the family, ask WHY its best seller sells.
-        st["investigation"] = investigate(db, f, today=today)
+        # N-8: the study's window starts once per family and is kept, never reset per attempt.
+        st.setdefault("study_starts", today.isoformat())
+        st["investigation"] = investigate(db, f, today=date.fromisoformat(st["study_starts"]))
         nxt = (f.get("next_members") or [None])[0]
         if nxt is not None:
             job = enqueue("market_radar", "radar.score",
@@ -203,6 +237,7 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
             how = f"next declared member {nxt['seed']} through the ordinary funnel"
         else:
             st.update(needs_original_design=today.isoformat(),
+                      parked_until=(today + timedelta(days=AMPLIFY_PARK_DAYS)).isoformat(),
                       how=("no declared member left: an original follow-on design is paid "
                            "creative work outside this CA$0 handler (G14, proposed)"))
             _save_amp(db, f["family"], st)

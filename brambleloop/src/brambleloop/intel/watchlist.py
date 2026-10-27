@@ -57,13 +57,33 @@ MISSION_LIMIT = 5
 # paid work. These job types spend (model/render/vision); a non-anchor mission step that asks
 # for one is recorded as withheld. Paid design stays the creative director's own budgeted
 # cadence; widening it is an owner spend decision.
-PAID_JOB_TYPES = frozenset({"creative.tournament", "creative.grid_tournament",
-                            "creative.expedition", "assets.owned_photography",
-                            "assets.model_photography", "intel.gallery_analysis",
-                            "creative.blinded"})
+# Review 720b291 N-7: derived from the worker's own model-bearing list (never hand-copied),
+# plus the render jobs, which spend but are not model jobs. Read as `PAID_JOB_TYPES`.
+RENDER_JOB_TYPES = frozenset({"assets.owned_photography", "assets.model_photography"})
+
+
+def paid_job_types() -> frozenset:
+    from ..runtime.worker import MODEL_JOB_TYPES
+
+    return frozenset(MODEL_JOB_TYPES) | RENDER_JOB_TYPES
+
+
+def __getattr__(name):  # PEP 562: lazy, so importing this module never imports the worker
+    if name == "PAID_JOB_TYPES":
+        return paid_job_types()
+    raise AttributeError(name)
+
+
 # L-6: a shop whose reads fail is retried with exponential backoff, never every run.
 BACKOFF_BASE = timedelta(hours=6)
 BACKOFF_CAP = timedelta(days=7)
+# N-1: the exponent is capped BEFORE the multiplication (6 h x 2^5 > 7 days), so a shop that
+# has failed for months never overflows timedelta.
+BACKOFF_MAX_EXPONENT = 5
+
+
+def backoff_for(fails: int) -> timedelta:
+    return min(BACKOFF_CAP, BACKOFF_BASE * (2 ** min(max(fails - 1, 0), BACKOFF_MAX_EXPONENT)))
 
 ANCHOR, SPECIAL, PERMANENT = "anchor", "special", "permanent"
 
@@ -189,7 +209,7 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         fails = int(st.get("consecutive_failures") or 0)
         last = st.get("last_attempt_at")
         if fails and last and st.get("state") in ("source_outage", "credential_refused"):
-            wait = min(BACKOFF_CAP, BACKOFF_BASE * (2 ** (fails - 1)))
+            wait = backoff_for(fails)
             if now - datetime.fromisoformat(last) < wait:
                 return {"key": member.key, "ran": False, "deferred": True,
                         "state": st.get("state"),
@@ -239,12 +259,15 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     mission_out = None
     if enqueue is not None:
         withheld: list[str] = []
+        paid = paid_job_types()
 
         def unpaid(agent, job_type, inputs, **kw):
-            if job_type in PAID_JOB_TYPES:
+            if job_type in paid:
                 withheld.append(job_type)
                 return None
             return enqueue(agent, job_type, inputs, **kw)
+        # N-5: the mission reads this and records "withheld", never "already queued".
+        unpaid.withholds = paid
 
         m = mission_runtime.process(db, enqueue=unpaid, today=now.date(),
                                     benchmark_key=member.key, limit=MISSION_LIMIT)
@@ -282,8 +305,19 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
                                         "etsy.probe; the watchlist waits for a probe to "
                                         "succeed rather than knocking with a refused key",
                 "shops": [], "substituted": False}
-    shops = [scan_member(db, m, reader, now=now, enqueue=enqueue, force=force)
-             for m in members]
+    shops = []
+    for m in members:
+        # N-1: one shop's unexpected fault never stops the others or fails the job.
+        try:
+            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force))
+        except Exception as exc:  # noqa: BLE001
+            st = _state(db, m.key)
+            st.update(state="source_outage", last_attempt_at=now.isoformat(),
+                      last_error=f"{type(exc).__name__}: {exc}"[:300],
+                      consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
+            _save_state(db, m.key, st, now=now)
+            shops.append({"key": m.key, "ran": False, "state": "source_outage",
+                          "consecutive_failures": st["consecutive_failures"]})
     return {"ran": True, "shops": shops,
             "observed": sum(1 for s in shops if s.get("ran")),
             "outages": [s["key"] for s in shops if s.get("state") in
@@ -494,7 +528,10 @@ def summary(db) -> dict:
     if stale:
         reasons.append(f"observation older than {int(STALE_AFTER.total_seconds() // 3600)} h: "
                        f"{stale}")
-    status = "UNKNOWN" if unobserved else ("DEGRADED" if reasons else "OK")
+    # N-6: a known problem (outage, stale, waiting) is DEGRADED even when another shop is
+    # unobserved; UNKNOWN only when being unobserved is the whole story.
+    status = ("DEGRADED" if (outages or stale or waiting) else
+              "UNKNOWN" if unobserved else "OK")
     return {"status": status, "reason": "; ".join(reasons),
             "as_of": now.isoformat(), "waiting": [g["id"] for g in waiting],
             "outages": outages, "stale": stale, "unobserved": unobserved}
@@ -526,7 +563,8 @@ def _decision(db, gap_id: int) -> dict:
     return dict((rec or {}).get("body") or {})
 
 
-PARKED = ("deferred_by_lesson", "needs_original_design", "route_refused")
+PARKED = ("deferred_by_lesson", "needs_original_design", "route_refused",
+          "repeat_measurement")
 REDECIDE_AFTER = timedelta(days=7)
 
 
@@ -599,18 +637,27 @@ def score_outcome(db, job_ids, *, now: datetime, settle: timedelta = SETTLE) -> 
             return {"outcome": "wait", "why": f"job {jid} is {getattr(status, 'value', status)}"}
         if finished is not None and now - finished < settle:
             return {"outcome": "wait", "why": f"job {jid} has not settled"}
+        gate = out.get("gate") or {}
         if status != JobStatus.DONE or not isinstance(out.get("score"), (int, float)):
             refused.append({"job_id": jid, "status": getattr(status, "value", status),
                             "why": str(out.get("reason") or j.last_error or "no score")[:120]})
+        elif not out.get("promoted") and (str(gate.get("decision") or "").lower() == "waiting"
+                                          or gate.get("unmeasured")):
+            # N-3: the gate is waiting on a judgement nobody has made -- nothing was measured.
+            refused.append({"job_id": jid, "status": "gate_waiting",
+                            "why": f"gate waiting on {gate.get('waiting_on') or gate.get('unmeasured')}"[:120]})
         elif out.get("promoted"):
             promoted.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"]})
         else:
-            measured.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"]})
+            measured.append({"job_id": jid, "slug": out.get("slug"), "score": out["score"],
+                             "discount": (out.get("evidence") or {}).get("discount")})
     if promoted:
         return {"outcome": "progressed", "promoted": promoted, "measured": measured,
                 "refused": refused}
     if measured:
-        return {"outcome": "failed", "measured": measured, "refused": refused}
+        return {"outcome": "failed", "measured": measured, "refused": refused,
+                "signature": sorted([m["slug"] or "", m["score"], m["discount"]]
+                                    for m in measured)}
     return {"outcome": "not_attempted", "refused": refused}
 
 
@@ -661,9 +708,12 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
             with db.session() as s:
                 row = s.get(CoverageGap, g["id"])
                 upd = {"design_job_ids": None}
-                if res["outcome"] == "failed":
+                sig = {"fingerprint": _fingerprint(g), "scores": res.get("signature")}
+                repeat = bool(res["outcome"] == "failed" and attempts
+                              and attempts[-1].get("signature") == sig)
+                if res["outcome"] == "failed" and not repeat:
                     attempts.append({"job_ids": job_ids, "measured": res["measured"],
-                                     "on": today.isoformat()})
+                                     "signature": sig, "on": today.isoformat()})
                     upd["failed_attempts"] = attempts
                 elif res["outcome"] == "not_attempted":
                     upd["refused_routes"] = (list(ev.get("refused_routes") or [])[-9:]
@@ -678,6 +728,13 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                                  product_slug=slug)
                 decided.append(_record_decision(db, g["id"], "progressed", today=today,
                                                 promoted=res["promoted"]) | {"gap": g["id"]})
+                continue
+            if repeat:
+                # N-3: the same deterministic measurement on the same evidence is one
+                # measurement, not a second independent attempt. Parked (L-4).
+                decided.append(_record_decision(db, g["id"], "repeat_measurement",
+                                                today=today, fingerprint=_fingerprint(g))
+                               | {"gap": g["id"]})
                 continue
             if res["outcome"] == "not_attempted":
                 # Parked like a deferral (L-4): re-routed after REDECIDE_AFTER or new evidence.
