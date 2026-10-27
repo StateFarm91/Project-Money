@@ -260,6 +260,18 @@
       "sha": "5d248cff",
       "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -3244,6 +3256,18 @@
       "sha": "720b2915",
       "subject": "W4-INTELREC: take on the independent review (H-1, M-1..M-5, L-1..L-7, I-1, I-2)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "720b2915",
+      "subject": "W4-INTELREC: take on the independent review (H-1, M-1..M-5, L-1..L-7, I-1, I-2)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "720b2915",
+      "subject": "W4-INTELREC: take on the independent review (H-1, M-1..M-5, L-1..L-7, I-1, I-2)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -5225,11 +5249,17 @@
       "sha": "2b4ecf15",
       "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2b4ecf15",
+      "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-017",
@@ -5252,11 +5282,17 @@
       "sha": "2b4ecf15",
       "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2b4ecf15",
+      "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-018",
@@ -5279,11 +5315,17 @@
       "sha": "2b4ecf15",
       "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2b4ecf15",
+      "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 2b4ecf15, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-019",
@@ -5553,6 +5595,18 @@
       "sha": "5fc8115d",
       "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -5626,11 +5680,23 @@
       "sha": "09c3a982",
       "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "72eb62cb",
+      "subject": "INTEG8: merge claude/w4-C09 (77c345ac); search_visibility keeps both F-560/F-561 (HEAD) and F-038 (C09) sections",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "09c3a982",
+      "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-039",
@@ -5691,6 +5757,30 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "e93b2fc3",
       "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
       "merged_into_combined": false
@@ -5823,11 +5913,17 @@
       "sha": "e1644b70",
       "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e1644b70",
+      "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage FULL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-048",
@@ -5880,11 +5976,17 @@
       "sha": "e1644b70",
       "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e1644b70",
+      "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Competing pairs counted and tag slots diversified; no 'strategic reason' exemption record",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-051",
@@ -5907,11 +6009,17 @@
       "sha": "e1644b70",
       "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e1644b70",
+      "subject": "C09 F-047/F-050/F-051: Star Seller as a trust signal only, strategic-overlap exemption, expansion planner; C09 tests",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 e1644b70, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Concentration/stuffing counted; no expansion planner",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-052",
@@ -5949,11 +6057,17 @@
       "sha": "09c3a982",
       "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "09c3a982",
+      "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Recipient/use facet exists; gift tags ('handmade gift') are template-driven, not evidence-driven",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-054",
@@ -5976,11 +6090,17 @@
       "sha": "09c3a982",
       "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "09c3a982",
+      "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Only a 'recipient_or_use' facet; shopper problem not modelled or tested",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-055",
@@ -6003,11 +6123,17 @@
       "sha": "09c3a982",
       "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "09c3a982",
+      "subject": "C09 F-053/F-054/F-055/F-038: evidence-backed gift and aesthetic language, problem-solved facet and test arm, first-party",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C09 09c3a982, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Aesthetic facet exists in map_product but the live listing_language fallback facets omit aesthetic unless the intake brief mapped it",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-056",
@@ -6431,11 +6557,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: owner: testers / sample",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-084",
@@ -6669,6 +6801,18 @@
       "sha": "5aa78f39",
       "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -6751,6 +6895,18 @@
       "sha": "5aa78f39",
       "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -6809,6 +6965,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5aa78f39",
+      "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "5aa78f39",
       "subject": "W4-C03: F-095 gate tasks need a full contract PASS from any fallback; F-097 shadow failover drill",
       "merged_into_combined": false
@@ -7104,6 +7272,12 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -7133,6 +7307,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "0d7da718",
+      "subject": "W4-C07 F-114: re-engineering is owner-chosen and unscheduled",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
@@ -7351,6 +7537,18 @@
       "sha": "36a8c8d2",
       "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -7477,10 +7675,17 @@
     },
     "engineering_complete": false,
     "acceptance_complete": false,
-    "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: matrix coverage PARTIAL: On 019ebf0 the watchdog alarms only when a CLAIMED task makes no progress; READY-but-unclaimed work reports 'awaiting_build_session' with alarm False, which is ",
-    "cluster": "C02"
+    "branch_work": [
+     {
+      "branch": "claude/w4-D2",
+      "sha": "b5eeba77",
+      "subject": "W4-D2 F-134: never-idle proof -- a second, lower-severity idle alarm",
+      "merged_into_combined": false
+     }
+    ],
+    "b0_class": "MISSING_INTEGRATION",
+    "b0_reason": "built on claude/w4-D2 b5eeba77, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: On 019ebf0 the watchdog alarms only when a CLAIMED task makes no progress; READY-but-unclaimed work reports 'awaiting_build_session' with alarm False, which is ",
+    "in_integ8": false
    },
    {
     "id": "F-135",
@@ -7686,6 +7891,30 @@
       "sha": "30fdd210",
       "subject": "W4-CLOSE6: F-144 readback gate refuses done (board), persists evidence, covers the features production failed unseen (de",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "30fdd210",
+      "subject": "W4-CLOSE6: F-144 readback gate refuses done (board), persists evidence, covers the features production failed unseen (de",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "30fdd210",
+      "subject": "W4-CLOSE6: F-144 readback gate refuses done (board), persists evidence, covers the features production failed unseen (de",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
@@ -7718,6 +7947,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "01b1c8cf",
       "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
       "merged_into_combined": false
@@ -8053,10 +8294,17 @@
     "why": "owner: credential_rotation",
     "engineering_complete": false,
     "acceptance_complete": false,
-    "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "rotation-required register entries for chat-passed secrets (names only)",
-    "cluster": "C02"
+    "branch_work": [
+     {
+      "branch": "claude/w4-D2",
+      "sha": "39df91c3",
+      "subject": "W4-D2 F-160: register BRAMBLELOOP_OPS_TOKEN's exposure and raise its rotation card",
+      "merged_into_combined": false
+     }
+    ],
+    "b0_class": "MISSING_INTEGRATION",
+    "b0_reason": "built on claude/w4-D2 39df91c3, not in origin/claude/w4-INTEG7: owner: credential_rotation",
+    "in_integ8": false
    },
    {
     "id": "F-161",
@@ -9161,11 +9409,23 @@
       "sha": "7ef468b0",
       "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "8f454a56",
+      "subject": "W-C08: F-226 sameness becomes a readiness publication blocker (owner card still made), flat fills unmeasurable; campaign",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "7ef468b0",
+      "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 8f454a56, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: over-smoothed skin/glamour is detected (the frozen reference itself fails skin_looks_real/processing_is_restrained); copy-paste sameness across frames is not ch",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-227",
@@ -9253,6 +9513,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
@@ -9580,6 +9852,12 @@
       "sha": "2b4ecf15",
       "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2b4ecf15",
+      "subject": "C09 F-016/F-017/F-018: regional phrases, no typo SEO, translation quality",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -9802,6 +10080,18 @@
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -9837,6 +10127,18 @@
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -9869,6 +10171,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
@@ -9937,6 +10251,18 @@
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -9972,6 +10298,18 @@
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -10004,6 +10342,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
@@ -10081,6 +10431,30 @@
       "sha": "e93b2fc3",
       "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6faba33f",
+      "subject": "W4-CLOSE6: record coordinator acceptance of the F-273/F-538 re-gate (D-W4-CLOSE6-FMREGATE); board/matrix titles match th",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "6faba33f",
+      "subject": "W4-CLOSE6: record coordinator acceptance of the F-273/F-538 re-gate (D-W4-CLOSE6-FMREGATE); board/matrix titles match th",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -10113,6 +10487,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
@@ -10981,6 +11367,18 @@
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -11633,6 +12031,18 @@
       "sha": "f525e3f1",
       "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "f525e3f1",
+      "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "f525e3f1",
+      "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -11719,6 +12129,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "f525e3f1",
+      "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "f525e3f1",
+      "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "f525e3f1",
       "subject": "W4-INTELREC C06: launch-mix segment repair (F-366) and bounded category rebalancer (F-370); traceability mapped",
       "merged_into_combined": false
@@ -11929,6 +12351,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "31510b44",
+      "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "31510b44",
       "subject": "W4-CLOSE6b: merge claude/w4-CLOSE6 (ff788bd9) onto INTEG7 (4d3d1ee8), conflicts resolved",
       "merged_into_combined": false
@@ -12437,6 +12871,18 @@
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -12579,6 +13025,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "36a8c8d2",
       "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
       "merged_into_combined": false
@@ -13170,6 +13628,18 @@
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "OWNER_GATED",
@@ -13250,11 +13720,29 @@
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "f2b65bb2",
+      "subject": "W4-C07: F-441 six-criteria provider selection on trial records; F-464 handlers proven unable to wait on a render; C07 re",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-INTELREC 4e2baef4, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1 cdf4dea0: licence/reversibility/maintenance recorded per provider in ops/licenses; provider-trial records themselves are the visual lane",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-442",
@@ -13560,11 +14048,23 @@
       "sha": "871b84a3",
       "subject": "W4-FMBATCH1 F-601/F-454/F-656: department records with honest coverage, RUN->GROW->IMPROVE pull order, WATCHING spans",
       "merged_into_combined": true
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "04685f31",
+      "subject": "W4-F454: focused analytics and integration agents inside the existing charters",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "04685f31",
+      "subject": "W4-F454: focused analytics and integration agents inside the existing charters",
+      "merged_into_combined": false
      }
     ],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "engineering half to build: claude/w4-FMBATCH1 871b84a3: domains mapped; analytics and integration have no agent; build-side lanes not visible to the runtime",
-    "cluster": "C01"
+    "b0_class": "MISSING_INTEGRATION",
+    "b0_reason": "built on claude/w4-F454 04685f31, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1 871b84a3: domains mapped; analytics and integration have no agent; build-side lanes not visible to the runtime",
+    "in_integ8": true
    },
    {
     "id": "F-455",
@@ -13650,6 +14150,12 @@
      },
      {
       "branch": "claude/w4-C01",
+      "sha": "fad3afa1",
+      "subject": "W4-C01 F-865: bounded parallelism -- live work lane bound and integrated-work throughput",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "fad3afa1",
       "subject": "W4-C01 F-865: bounded parallelism -- live work lane bound and integrated-work throughput",
       "merged_into_combined": false
@@ -13852,11 +14358,29 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "f2b65bb2",
+      "subject": "W4-C07: F-441 six-criteria provider selection on trial records; F-464 handlers proven unable to wait on a render; C07 re",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "329d0566",
+      "subject": "W4-C07 F-464 (steps 1-3): deferred render submit/poll with the generate invariants; spend-path pin extended",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 f2b65bb2, not in origin/claude/w4-INTEG7: claude/w4-FMBATCH1 ba097848: runtime/awaiting defer/poll mechanism; the render handlers still block; handed to the product-engine lane after AGENTS2 merges (coordinator 2026-10-26)",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-465",
@@ -15067,6 +15591,18 @@
       "sha": "6efad5bb",
       "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -15105,6 +15641,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "6efad5bb",
       "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
       "merged_into_combined": false
@@ -15276,11 +15824,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: banner/icon briefs and brand bible checks exist; no detection of stale, missing, low-resolution or off-brand assets on the live Etsy shop",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-528",
@@ -15482,6 +16036,30 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6faba33f",
+      "subject": "W4-CLOSE6: record coordinator acceptance of the F-273/F-538 re-gate (D-W4-CLOSE6-FMREGATE); board/matrix titles match th",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "6faba33f",
+      "subject": "W4-CLOSE6: record coordinator acceptance of the F-273/F-538 re-gate (D-W4-CLOSE6-FMREGATE); board/matrix titles match th",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "e93b2fc3",
       "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
       "merged_into_combined": false
@@ -15750,6 +16328,18 @@
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -15788,6 +16378,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
@@ -15851,6 +16453,18 @@
       "sha": "5fc8115d",
       "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -15889,6 +16503,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5fc8115d",
+      "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "5fc8115d",
       "subject": "W4-C12: new-listing learning window, bulk operations guard, renewal economics (F-034, F-554, F-555)",
       "merged_into_combined": false
@@ -15993,6 +16619,24 @@
       "sha": "6efad5bb",
       "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "72eb62cb",
+      "subject": "INTEG8: merge claude/w4-C09 (77c345ac); search_visibility keeps both F-560/F-561 (HEAD) and F-038 (C09) sections",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -16034,6 +16678,24 @@
       "sha": "6efad5bb",
       "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "72eb62cb",
+      "subject": "INTEG8: merge claude/w4-C09 (77c345ac); search_visibility keeps both F-560/F-561 (HEAD) and F-038 (C09) sections",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "6efad5bb",
+      "subject": "W4-C12: Search Visibility findings, closure proof, three areas and aging (F-516, F-517, F-560, F-561)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -16072,6 +16734,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
@@ -16137,6 +16811,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
@@ -16323,6 +17009,18 @@
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -16355,6 +17053,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
@@ -16439,6 +17149,18 @@
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "OWNER_HELD",
@@ -16476,6 +17198,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
@@ -16569,6 +17303,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
@@ -16670,6 +17416,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d5a01e8f",
+      "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d5a01e8f",
       "subject": "W4-C12: dashboard task harvester, KPI snapshot, traffic sources; apps, Shared Access and partner registers (F-551, F-552",
       "merged_into_combined": false
@@ -17088,6 +17846,18 @@
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "OWNER_HELD",
@@ -17212,6 +17982,18 @@
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -17244,6 +18026,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
@@ -17793,6 +18587,18 @@
       "sha": "5d248cff",
       "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -17843,6 +18649,18 @@
       "sha": "c8fcf17c",
       "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c8fcf17c",
+      "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "c8fcf17c",
+      "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -17890,6 +18708,24 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "c8fcf17c",
+      "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c8fcf17c",
+      "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "3b00043d",
+      "subject": "INTEG8: retention decisions for Batch 4's new audit readers (statement archive, method versions, learning windows, resea",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "c8fcf17c",
       "subject": "W4-CLOSE6 batch 2: F-664 Ask intents (agents, spend, opportunities); F-666 overnight brief sections (dev-proven)",
       "merged_into_combined": false
@@ -18112,11 +18948,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Structural truth (silhouette, dimensions, construction, per-row stitch counts, shaping, colour placement, raised-stitch placement) is produced and independently",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-676",
@@ -18169,11 +19011,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Benchmark runs are one-off research scripts (research/bench1, bench2) with manifests, not a recurring runtime test; no scheduled pattern -> CIR -> 3D -> ad imag",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-679",
@@ -18196,11 +19044,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Conditioning experiments were run as research waves (E1-E5, Bench1/2, V2 R&D) but no systematic RGB/depth/normals/edges/segmentation/multi-view comparison matri",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-680",
@@ -18223,11 +19077,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pieces are separate JSON endpoints (/api/visual-pipeline milestones, /api/visual-inspection, /api/portrait-repair, /api/provider-trial, /api/model-identity); no",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-681",
@@ -18329,6 +19189,18 @@
       "sha": "01b1c8cf",
       "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -18361,6 +19233,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "01b1c8cf",
       "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
       "merged_into_combined": false
@@ -18411,6 +19295,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "01b1c8cf",
       "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
       "merged_into_combined": false
@@ -18625,6 +19521,18 @@
       "sha": "0b4a5db8",
       "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "0b4a5db8",
+      "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "0b4a5db8",
+      "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -18761,6 +19669,30 @@
       "sha": "36a8c8d2",
       "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "3f244157",
+      "subject": "W4-C03: Laura reads the learning loop's experiment step (F-705)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "3f244157",
+      "subject": "W4-C03: Laura reads the learning loop's experiment step (F-705)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "36a8c8d2",
+      "subject": "W4-C03: F-705 bounded experiment trial for every cell, F-412 research intake into improve.sandbox, F-126 superseded evid",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -18800,6 +19732,12 @@
     "branch_work": [
      {
       "branch": "claude/w4-C03",
+      "sha": "e5dc33ec",
+      "subject": "W4-C03: method versions recorded in operating_readings, not the pruned audit log (F-707)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-C03",
       "sha": "0b4a5db8",
       "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
       "merged_into_combined": false
@@ -18815,11 +19753,23 @@
       "sha": "0b4a5db8",
       "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "0b4a5db8",
+      "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "0b4a5db8",
+      "subject": "W4-C03: F-707 method versions under the improvement loop; F-699 challenger runs under an owner-approved reservation",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
-    "b0_reason": "built on claude/w4-C03 0b4a5db8, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned, tiered, reversible changes with fingerprinted evidence and post-promotion monitoring exist for cells, policies and registered incumbents; improvement",
-    "in_integ8": true
+    "b0_reason": "built on claude/w4-C03 e5dc33ec, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned, tiered, reversible changes with fingerprinted evidence and post-promotion monitoring exist for cells, policies and registered incumbents; improvement",
+    "in_integ8": false
    },
    {
     "id": "F-708",
@@ -18884,6 +19834,18 @@
       "sha": "41b383eb",
       "subject": "W4-C03: F-710 outcome-based model routing (switch-gated, OFF by default)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "41b383eb",
+      "subject": "W4-C03: F-710 outcome-based model routing (switch-gated, OFF by default)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "41b383eb",
+      "subject": "W4-C03: F-710 outcome-based model routing (switch-gated, OFF by default)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -18917,11 +19879,23 @@
       "sha": "ef40c78c",
       "subject": "W4-C01 F-711: single integration authority on the push path",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "fad3afa1",
+      "subject": "W4-C01 F-865: bounded parallelism -- live work lane bound and integrated-work throughput",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "ef40c78c",
+      "subject": "W4-C01 F-711: single integration authority on the push path",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 fad3afa1, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-712",
@@ -18996,11 +19970,17 @@
       "sha": "960e285e",
       "subject": "W4-C01 F-714/F-866: independent review before high-risk integration, never certifying",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "960e285e",
+      "subject": "W4-C01 F-714/F-866: independent review before high-risk integration, never certifying",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 960e285e, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Runtime enforces independent judgement (proposer cannot approve/promote; blind multi-judge panels; judges that never saw the prompt), but not review by a differ",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-715",
@@ -19023,11 +20003,17 @@
       "sha": "4b4d6837",
       "subject": "W4-C01 F-715: build disagreements resolved by evidence, never by model",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "4b4d6837",
+      "subject": "W4-C01 F-715: build disagreements resolved by evidence, never by model",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 4b4d6837, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Runtime promotion is decided by recorded runs with holdout (league.compare) and deterministic validation; development disagreements were adjudicated by evidence",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-716",
@@ -19050,11 +20036,17 @@
       "sha": "ea2fd902",
       "subject": "W4-C01 F-716: collaboration workspace for a build lane",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "ea2fd902",
+      "subject": "W4-C01 F-716: collaboration workspace for a build lane",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 ea2fd902, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-717",
@@ -19379,11 +20371,17 @@
       "sha": "7ef468b0",
       "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "7ef468b0",
+      "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-734",
@@ -19451,11 +20449,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Pack iterations (v1-v16), portrait repair and realism calibration ran before the freeze; after freeze there is no continuous improvement cell for the canonical ",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-738",
@@ -19484,11 +20488,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: replace_canonical requires an owner redesign approval, retires rather than deletes and increments version; no evidence comparator requiring equal-or-better iden",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-739",
@@ -19511,11 +20521,17 @@
       "sha": "7ef468b0",
       "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "7ef468b0",
+      "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: image_bench (identity dimension, reference-conditioned) and provider_trial (product truth, realism, cost) ran in production; routing is a hard-coded incumbent (",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-740",
@@ -19626,11 +20642,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Hourly model_reference_pack/model_tournament cadences and bounded trials ran autonomously under spend caps before the freeze; no post-freeze autonomous improvem",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-746",
@@ -19696,11 +20718,17 @@
       "sha": "a2a5838b",
       "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "a2a5838b",
+      "subject": "W-C08: F-737/F-745 canonical-model improvement cell in the Visual R&D cycle (CA$0, paid arms via controlled experiments)",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 a2a5838b, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: Endpoints expose canonical version/state, enforcement proof, pack, benchmark and provider-trial results and rejected drift examples; missing a consolidated view",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-749",
@@ -19858,11 +20886,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-759",
@@ -19885,11 +20919,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: visual/stitch_identity.py carries star-family positive truth plus negative controls (hdc, seed, knit, Bench1 waffle reference) and a self-test; the test asserts",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-760",
@@ -20010,6 +21050,18 @@
       "sha": "03960fef",
       "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "03960fef",
+      "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "03960fef",
+      "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20075,6 +21127,18 @@
       "sha": "03960fef",
       "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "03960fef",
+      "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "03960fef",
+      "subject": "W4-C14: F-766 project tips from failure modes, F-769 gallery as bounded validation evidence",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20125,6 +21189,18 @@
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20157,6 +21233,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
@@ -20232,6 +21320,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "2d739856",
+      "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "2d739856",
       "subject": "W4-C10: paid-media planning, guards, measurement and credits (F-264, F-265, F-266, F-269, F-270, F-271, F-274, F-614, F-",
       "merged_into_combined": false
@@ -20477,6 +21577,18 @@
       "sha": "4e2baef4",
       "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "4e2baef4",
+      "subject": "W4-INTELREC C05: research external escalation (F-406), gallery grammar (F-231), Insights opportunity score (F-565); trac",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "OWNER_GATED",
@@ -20702,6 +21814,18 @@
       "sha": "79329592",
       "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "79329592",
+      "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "79329592",
+      "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20764,6 +21888,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
@@ -20877,6 +22013,18 @@
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20912,6 +22060,18 @@
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -20944,6 +22104,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
@@ -20998,6 +22170,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
@@ -21081,6 +22265,18 @@
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -21120,6 +22316,18 @@
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -21156,6 +22364,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "be5a8141",
+      "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "be5a8141",
       "subject": "W4-C11: F-804 one spec many formats, F-809 gauge system, F-813 video contract, F-816 internal linking, F-817 education S",
       "merged_into_combined": false
@@ -21206,6 +22426,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "79329592",
+      "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "79329592",
+      "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "79329592",
       "subject": "W4-C14: F-802 support-to-lesson trigger, F-820 community signals into the learning ledger",
       "merged_into_combined": false
@@ -21278,6 +22510,18 @@
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -21336,6 +22580,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "d062fb95",
+      "subject": "W4-C14: F-825 content economics (UNKNOWN never 0; KEEP/REDESIGN/RETIRE per item and format); C14 record",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "d062fb95",
+      "subject": "W4-C14: F-825 content economics (UNKNOWN never 0; KEEP/REDESIGN/RETIRE per item and format); C14 record",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "d062fb95",
       "subject": "W4-C14: F-825 content economics (UNKNOWN never 0; KEEP/REDESIGN/RETIRE per item and format); C14 record",
       "merged_into_combined": false
@@ -21419,6 +22675,18 @@
       "sha": "92b75144",
       "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "92b75144",
+      "subject": "C04 F-575/F-576/F-330/F-828: Payment Account statement, monthly statement archive, post-launch cost reviews, cross-depar",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
@@ -21455,6 +22723,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "c32c7c48",
+      "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "c32c7c48",
       "subject": "W4-C11: F-823 beginner failure simulation, F-829 teaching loop, F-771/F-811 free-to-paid ladder, F-772 one-record distri",
       "merged_into_combined": false
@@ -21597,6 +22877,42 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "a9e5395a",
+      "subject": "W4-CLOSE6: F-834 rehearsal records producer->durable->consumer->decision->effect->result edges; emitter turns a bound ed",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "8e4efd39",
+      "subject": "W4-CLOSE6: F-834 rehearsal edge reads the job that wrote the durable row, not only the newest of its type",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "a9e5395a",
+      "subject": "W4-CLOSE6: F-834 rehearsal records producer->durable->consumer->decision->effect->result edges; emitter turns a bound ed",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "5d248cff",
+      "subject": "W4-CLOSE6: F-834 consumer receipts on a recorded run (TESTED override proposed); F-662 causal timeline via job lineage (",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "8e4efd39",
+      "subject": "W4-CLOSE6: F-834 rehearsal edge reads the job that wrote the durable row, not only the newest of its type",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "a9e5395a",
       "subject": "W4-CLOSE6: F-834 rehearsal records producer->durable->consumer->decision->effect->result edges; emitter turns a bound ed",
       "merged_into_combined": false
@@ -21819,11 +23135,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: owner: CAP-1 decision",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-849",
@@ -21891,6 +23213,12 @@
       "sha": "f2b65bb2",
       "subject": "W4-C07: F-441 six-criteria provider selection on trial records; F-464 handlers proven unable to wait on a render; C07 re",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "f2b65bb2",
+      "subject": "W4-C07: F-441 six-criteria provider selection on trial records; F-464 handlers proven unable to wait on a render; C07 re",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE",
@@ -21947,11 +23275,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-856",
@@ -21989,11 +23323,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL maturity MISSING",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-858",
@@ -22031,11 +23371,17 @@
       "sha": "7ef468b0",
       "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "7ef468b0",
+      "subject": "W-C08: F-226 copy-paste sameness gate (naturalism + campaign_consistency), F-733 single verified canonical registry reso",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C08 7ef468b0, not in origin/claude/w4-INTEG7: matrix coverage PARTIAL: per-call spend is reserved/recorded and experiments report yields in research manifests; no cost-per-certified-listing-set or rejection-reason aggregate",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-860",
@@ -22073,11 +23419,17 @@
       "sha": "e9e5b2dd",
       "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e9e5b2dd",
+      "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 e9e5b2dd, not in origin/claude/w4-INTEG7: coverage FULL, maturity IMPLEMENTED",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-862",
@@ -22100,11 +23452,17 @@
       "sha": "e9e5b2dd",
       "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e9e5b2dd",
+      "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 e9e5b2dd, not in origin/claude/w4-INTEG7: coverage FULL, maturity IMPLEMENTED",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-863",
@@ -22127,11 +23485,17 @@
       "sha": "e9e5b2dd",
       "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e9e5b2dd",
+      "subject": "W4-C01 F-861/F-862/F-863: durable lane handoffs in the repository",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 e9e5b2dd, not in origin/claude/w4-INTEG7: coverage FULL, maturity IMPLEMENTED",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-864",
@@ -22180,11 +23544,17 @@
       "sha": "fad3afa1",
       "subject": "W4-C01 F-865: bounded parallelism -- live work lane bound and integrated-work throughput",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "fad3afa1",
+      "subject": "W4-C01 F-865: bounded parallelism -- live work lane bound and integrated-work throughput",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 fad3afa1, not in origin/claude/w4-INTEG7: coverage FULL, maturity IMPLEMENTED",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-866",
@@ -22207,11 +23577,17 @@
       "sha": "960e285e",
       "subject": "W4-C01 F-714/F-866: independent review before high-risk integration, never certifying",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "960e285e",
+      "subject": "W4-C01 F-714/F-866: independent review before high-risk integration, never certifying",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C01 960e285e, not in origin/claude/w4-INTEG7: coverage FULL, maturity IMPLEMENTED",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-867",
@@ -22239,6 +23615,18 @@
      },
      {
       "branch": "claude/w4-C07",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "01b1c8cf",
+      "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
       "sha": "01b1c8cf",
       "subject": "W4-CLOSE6 batch 1: F-685 closed on b931d17; F-686/F-688 built (dev-proven); F-145..148 override PROPOSED (F-867)",
       "merged_into_combined": false
@@ -22358,6 +23746,18 @@
       "sha": "e93b2fc3",
       "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-F454",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "e93b2fc3",
+      "subject": "W4-CLOSE6: F-872 closed on production readback; F-273/F-538 corrected and re-gated to customers; F-040 About story evide",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "COMPLETE_ON_BRANCH",
@@ -22426,11 +23826,17 @@
       "sha": "11b2ecf2",
       "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
       "merged_into_combined": false
+     },
+     {
+      "branch": "claude/w4-D2",
+      "sha": "11b2ecf2",
+      "subject": "W4-C07: product development and certification (F-114, F-675, F-678, F-758, F-759, F-083, F-876, F-848, F-857, F-855); C0",
+      "merged_into_combined": false
      }
     ],
     "b0_class": "MISSING_INTEGRATION",
     "b0_reason": "built on claude/w4-C07 11b2ecf2, not in origin/claude/w4-INTEG7: owner: testers / sample",
-    "in_integ8": false
+    "in_integ8": true
    },
    {
     "id": "F-877",
@@ -23270,7 +24676,7 @@
   "production": "b2e49455 (verified via /health 2026-10-26T21:50Z)",
   "branch_heads": {
    "claude/w4-INTEG7": "e584ff01",
-   "claude/w4-C03": "d3b1b315",
+   "claude/w4-C03": "e5dc33ec",
    "claude/w4-C04": "b74df8b5",
    "claude/w4-C08": "a2cc7da8",
    "claude/w4-C09": "77c345ac",
@@ -23278,16 +24684,18 @@
    "claude/w4-C11": "c32c7c48",
    "claude/w4-C12": "58317cc3",
    "claude/w4-C12wire": "3c3ad7e6",
-   "claude/w4-C13": "8609c4a2",
+   "claude/w4-C13": "1c5a069c",
    "claude/w4-C14": "d062fb95",
    "claude/w4-INTELREC": "f525e3f1",
    "claude/w4-RETFIX": "c972bdc0",
    "claude/w4-AGENTS2": "6ebe7103",
    "claude/w4-CLOSE6b": "31510b44",
    "claude/w4-RESUME": "f1cde398",
-   "claude/w4-FMBATCH2": "943d64d3",
+   "claude/w4-FMBATCH2": "43ec2790",
    "claude/w4-C01": "aad5ebf9",
-   "claude/w4-C07": "0d7da718"
+   "claude/w4-C07": "0d7da718",
+   "claude/w4-F454": "04685f31",
+   "claude/w4-D2": "39df91c3"
   },
   "counts": {
    "final_master": {
@@ -23295,9 +24703,8 @@
     "BY_DESIGN": 3,
     "COMPLETE": 745,
     "COMPLETE_ON_BRANCH": 4,
-    "EXECUTABLE": 3,
     "GENUINELY_GATED": 5,
-    "MISSING_INTEGRATION": 119,
+    "MISSING_INTEGRATION": 122,
     "NOT_APPLICABLE": 7,
     "OWNER_GATED": 4,
     "OWNER_HELD": 3,
@@ -23315,26 +24722,45 @@
     "total": 917,
     "a_engineering_complete_integrated": 745,
     "b_built_on_branch_awaiting_integration": {
-     "count": 123,
+     "count": 126,
      "by_branch": {
-      "claude/w4-C01": [
-       "F-711",
-       "F-714",
-       "F-715",
-       "F-716",
-       "F-861",
-       "F-862",
-       "F-863",
-       "F-865",
-       "F-866"
+      "claude/w4-C13": [
+       "F-045",
+       "F-515@v0.15",
+       "F-546",
+       "F-567",
+       "F-597",
+       "F-598",
+       "F-599",
+       "F-600"
       ],
-      "claude/w4-C07": [
+      "claude/w4-CLOSE6b": [
+       "F-040",
+       "F-144",
+       "F-834",
+       "F-846",
+       "F-872"
+      ],
+      "claude/w4-D2": [
+       "F-016",
+       "F-017",
+       "F-018",
        "F-034",
+       "F-038",
+       "F-047",
+       "F-050",
+       "F-051",
+       "F-053",
+       "F-054",
+       "F-055",
        "F-083",
        "F-095",
        "F-097",
        "F-126",
+       "F-134",
        "F-145",
+       "F-160",
+       "F-226",
        "F-231",
        "F-264",
        "F-265",
@@ -23350,9 +24776,11 @@
        "F-406",
        "F-412",
        "F-441",
+       "F-454",
        "F-464",
        "F-516@v0.16",
        "F-517@v0.16",
+       "F-527",
        "F-538",
        "F-551",
        "F-552",
@@ -23374,6 +24802,8 @@
        "F-666",
        "F-675",
        "F-678",
+       "F-679",
+       "F-680",
        "F-685",
        "F-686",
        "F-688",
@@ -23381,6 +24811,16 @@
        "F-705",
        "F-707",
        "F-710",
+       "F-711",
+       "F-714",
+       "F-715",
+       "F-716",
+       "F-733",
+       "F-737",
+       "F-738",
+       "F-739",
+       "F-745",
+       "F-748",
        "F-758",
        "F-759",
        "F-766",
@@ -23405,49 +24845,13 @@
        "F-848",
        "F-855",
        "F-857",
+       "F-859",
+       "F-861",
+       "F-862",
+       "F-863",
+       "F-865",
+       "F-866",
        "F-876"
-      ],
-      "claude/w4-C08": [
-       "F-226",
-       "F-527",
-       "F-679",
-       "F-680",
-       "F-733",
-       "F-737",
-       "F-738",
-       "F-739",
-       "F-745",
-       "F-748",
-       "F-859"
-      ],
-      "claude/w4-C09": [
-       "F-016",
-       "F-017",
-       "F-018",
-       "F-038",
-       "F-047",
-       "F-050",
-       "F-051",
-       "F-053",
-       "F-054",
-       "F-055"
-      ],
-      "claude/w4-C13": [
-       "F-045",
-       "F-515@v0.15",
-       "F-546",
-       "F-567",
-       "F-597",
-       "F-598",
-       "F-599",
-       "F-600"
-      ],
-      "claude/w4-CLOSE6b": [
-       "F-040",
-       "F-144",
-       "F-834",
-       "F-846",
-       "F-872"
       ],
       "claude/w4-FMBATCH2": [
        "F-091",
@@ -23463,11 +24867,7 @@
      "F-579",
      "F-607"
     ],
-    "d_executable_not_built": [
-     "F-134",
-     "F-160",
-     "F-454"
-    ],
+    "d_executable_not_built": [],
     "e": {
      "AWAITING_EVIDENCE": [
       "F-005",
@@ -23526,27 +24926,14 @@
      ]
     },
     "integ8": {
-     "a": 817,
-     "b": 51,
+     "a": 858,
+     "b": 13,
      "b_rows_still_on_branches": [
-      "F-016",
-      "F-017",
-      "F-018",
-      "F-038",
       "F-045",
-      "F-047",
-      "F-050",
-      "F-051",
-      "F-053",
-      "F-054",
-      "F-055",
-      "F-083",
       "F-091",
-      "F-226",
-      "F-441",
-      "F-464",
+      "F-134",
+      "F-160",
       "F-515@v0.15",
-      "F-527",
       "F-546",
       "F-567",
       "F-597",
@@ -23554,41 +24941,28 @@
       "F-599",
       "F-600",
       "F-601",
-      "F-675",
-      "F-678",
-      "F-679",
-      "F-680",
-      "F-711",
-      "F-714",
-      "F-715",
-      "F-716",
-      "F-733",
-      "F-737",
-      "F-738",
-      "F-739",
-      "F-745",
-      "F-748",
-      "F-758",
-      "F-759",
-      "F-848",
-      "F-855",
-      "F-857",
-      "F-859",
-      "F-861",
-      "F-862",
-      "F-863",
-      "F-865",
-      "F-866",
-      "F-876"
+      "F-707"
      ],
      "moved_into_a": [
+      "F-016",
+      "F-017",
+      "F-018",
       "F-034",
+      "F-038",
       "F-040",
+      "F-047",
+      "F-050",
+      "F-051",
+      "F-053",
+      "F-054",
+      "F-055",
+      "F-083",
       "F-095",
       "F-097",
       "F-126",
       "F-144",
       "F-145",
+      "F-226",
       "F-231",
       "F-264",
       "F-265",
@@ -23604,8 +24978,12 @@
       "F-402",
       "F-406",
       "F-412",
+      "F-441",
+      "F-454",
+      "F-464",
       "F-516@v0.16",
       "F-517@v0.16",
+      "F-527",
       "F-538",
       "F-551",
       "F-552",
@@ -23625,13 +25003,28 @@
       "F-662",
       "F-664",
       "F-666",
+      "F-675",
+      "F-678",
+      "F-679",
+      "F-680",
       "F-685",
       "F-686",
       "F-688",
       "F-699",
       "F-705",
-      "F-707",
       "F-710",
+      "F-711",
+      "F-714",
+      "F-715",
+      "F-716",
+      "F-733",
+      "F-737",
+      "F-738",
+      "F-739",
+      "F-745",
+      "F-748",
+      "F-758",
+      "F-759",
       "F-766",
       "F-769",
       "F-771",
@@ -23653,7 +25046,17 @@
       "F-829",
       "F-834",
       "F-846",
-      "F-872"
+      "F-848",
+      "F-855",
+      "F-857",
+      "F-859",
+      "F-861",
+      "F-862",
+      "F-863",
+      "F-865",
+      "F-866",
+      "F-872",
+      "F-876"
      ]
     },
     "evidence_overrides": {
