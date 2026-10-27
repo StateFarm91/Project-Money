@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T03:38:11.466711+00:00",
+ "generated_at": "2026-10-27T11:33:23.287198+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -12,7 +12,7 @@
   "departments": 11,
   "cadences": 128,
   "handlers": 159,
-  "agents": 32,
+  "agents": 34,
   "follow_on_edges": 80
  },
  "departments": [
@@ -1232,6 +1232,7 @@
    "mission": "Turn certified releases into correct listings, keep the shop's read-back true, and prepare (never perform) publication for owner approval.",
    "agents": [
     "cfo",
+    "integration_steward",
     "listing",
     "orchestrator",
     "pricing",
@@ -1242,7 +1243,8 @@
     "listing",
     "store_operator",
     "pricing",
-    "storefront_director"
+    "storefront_director",
+    "integration_steward"
    ],
    "authority": {
     "generatable": [
@@ -1330,7 +1332,7 @@
      },
      {
       "name": "etsy_openapi_reverify",
-      "agent": "orchestrator",
+      "agent": "integration_steward",
       "job_type": "etsy.openapi_reverify",
       "period_seconds": 604800
      },
@@ -2009,6 +2011,7 @@
    "name": "Learn / Improvement",
    "mission": "Mine failures and outcomes into routed lessons, propose challengers, and promote only measured improvements with rollback.",
    "agents": [
+    "analyst",
     "cost_optimiser",
     "creative_critic",
     "evaluator",
@@ -2030,7 +2033,8 @@
     "cost_optimiser",
     "reliability_engineer",
     "creative_critic",
-    "lesson_router"
+    "lesson_router",
+    "analyst"
    ],
    "authority": {
     "generatable": [
@@ -2045,7 +2049,7 @@
     "generatable_agents": {
      "improve.mine": "orchestrator",
      "improve.retrospective": "orchestrator",
-     "improve.measure": "orchestrator",
+     "improve.measure": "analyst",
      "improve.sandbox": "orchestrator",
      "improve.monitor": "orchestrator",
      "learn.scan": "learn",
@@ -2088,7 +2092,7 @@
      },
      {
       "name": "capability_measure",
-      "agent": "orchestrator",
+      "agent": "analyst",
       "job_type": "improve.measure",
       "period_seconds": 86400
      },
@@ -2271,10 +2275,12 @@
    "name": "Platform / Reliability",
    "mission": "Keep the runtime alive and honest: health, continuity, retention, dependencies, thrash and dead-letter recovery.",
    "agents": [
+    "integration_steward",
     "orchestrator"
    ],
    "charter_agents": [
-    "orchestrator"
+    "orchestrator",
+    "integration_steward"
    ],
    "authority": {
     "generatable": [
@@ -2380,7 +2386,7 @@
      },
      {
       "name": "dependency_sweep",
-      "agent": "orchestrator",
+      "agent": "integration_steward",
       "job_type": "ops.dependencies",
       "period_seconds": 86400
      },

@@ -44,7 +44,8 @@ def test_twelve_named_departments_report_present_and_missing_truthfully():
     for r in out["departments"]:
         if r["charter"]:
             assert r["agents_unregistered"] == [], r["key"]
-    assert out["domains_missing"] == ["analytics", "integration"]
+    # W4-F454: analytics and integration now have focused agents (no new department).
+    assert out["domains_missing"] == []
 
 
 def test_pull_order_is_run_then_grow_then_improve():

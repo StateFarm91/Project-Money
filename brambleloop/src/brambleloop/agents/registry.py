@@ -982,3 +982,42 @@ DECLARED_IO["research_agent"] = {
                 "research.architecture_flag / research.swept", "jobs research.investigate"],
     "function_metric": "useful_output_rate",
     "function_reads": "research jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
+# W4-F454: focused agents for the two domains F-454 names that had none. No new department:
+# `analyst` sits in the Learn / Improvement charter, where measurement already lives
+# (`improve.measure`); `integration_steward` sits in Platform / Reliability (dependencies,
+# provider credentials) and Store / Commerce (the Etsy API surface). Both read and record
+# only: GREEN, CA$0 ceilings, and barred from authoring, certifying, publishing or spending.
+# The orchestrator keeps its permission for these job types, so nothing that ran before loses
+# a path; the cadences move to the focused agents.
+DEFAULT_AGENTS.extend([
+    dict(name="analyst",
+         description="Analytics: measures capability and outcomes from recorded rows; writes "
+                     "readings only. Cannot spend, publish or author a pattern.",
+         allowed_job_types=["improve.measure"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+    dict(name="integration_steward",
+         description="Integration: re-verifies the Etsy API surface, provider credentials "
+                     "and dependency health; read-only. Cannot publish or spend.",
+         allowed_job_types=["etsy.openapi_reverify", "ops.dependencies",
+                            "ops.provider_credentials", "etsy.credential_health"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+])
+for _name in ("analyst", "integration_steward"):
+    FORBIDDEN_COMBINATIONS.setdefault(_name, set()).update(
+        {"cir.draft", "cir.revise", "cir.reengineer", "gate.certify", "store.publish",
+         "store.update", "store.activate", "ads.campaign", "ads.adjust"})
+DECLARED_IO.update({
+    "analyst": {"inputs": ["capability_points", "listing_outcomes", "orders"],
+                "outputs": ["capability readings"], "function_metric": "useful_output_rate",
+                "function_reads": "improve.measure jobs whose outputs report work done"},
+    "integration_steward": {"inputs": ["etsy surface registry", "provider credentials",
+                                       "dependency locks"],
+                            "outputs": ["readings", "incidents"],
+                            "function_metric": "useful_output_rate",
+                            "function_reads": "integration checks whose outputs report work "
+                                              "done"},
+})
+del _name
