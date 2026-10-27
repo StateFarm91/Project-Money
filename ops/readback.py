@@ -74,7 +74,35 @@ MANIFEST = (
      "false", lambda v, _s: v is False),
     ("launch packet route deployed and operator-gated", ["F-878"], "/api/launch/packet",
      "@status", "401 (route exists, credential required)", lambda v, _s: v == 401),
+    # W4-CLOSE6: features whose production failures no readback caught. GET /api/departments
+    # answered 500 on b931d17 for hours (CLOSE5 F-487) while every row above read PASS.
+    ("department health served", ["F-487"], "/api/departments", "@status", "200",
+     lambda v, _s: v == 200),
+    ("swarm runtime served", ["F-487"], "/api/swarm/runtime", "@status", "200",
+     lambda v, _s: v == 200),
+    ("model-credit funding packet served", ["F-871"], "/api/funding/packets", "packets",
+     "a non-empty list", lambda v, _s: isinstance(v, list) and len(v) > 0),
+    ("off-site archive configured", ["F-152"], "/api/offsite", "configured", "true",
+     lambda v, _s: v is True),
+    ("continuity proof passing", ["F-628"], "/api/continuity", "last_proof_ok", "true",
+     lambda v, _s: v is True),
+    ("Etsy credential usable", ["F-437"], "/api/etsy", "usable", "true",
+     lambda v, _s: v is True),
 )
+
+# Where `ops/deploy.sh` writes each readback, and where the completion board reads it: a
+# Final Master row the manifest names is not verified_complete unless the readback of the
+# deployed commit passed for every feature that names it (F-144).
+EVIDENCE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "brambleloop",
+                            "research", "final_build", "w4", "evidence_BOARD")
+
+
+def evidence_path(sha: str, stamp: str) -> str:
+    return os.path.normpath(os.path.join(EVIDENCE_DIR, f"prod_readback_{sha[:12]}_{stamp}.json"))
+
+
+def rows_by_feature() -> dict[str, list[str]]:
+    return {feature: list(rows) for feature, rows, *_ in MANIFEST}
 
 
 def _fetch(url: str) -> tuple[int | None, object]:
@@ -123,7 +151,10 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
     verdicts = {i["verdict"] for i in items}
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
                UNKNOWN if UNKNOWN in verdicts else PASS)
+    import datetime as _dt
+
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
+            "read_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "features": items,
             "not_done": [i["feature"] for i in items if i["verdict"] != PASS]}
 

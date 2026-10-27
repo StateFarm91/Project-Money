@@ -835,6 +835,347 @@ FM_EDITS.update({
 BATCH7 = ("F-019", "F-046")
 
 
+# ==== W4-CLOSE6 (branch claude/w4-CLOSE6 from ee244a1) ==========================================
+TAG6 = "w4-CLOSE6 on deployed b931d17"
+EV6 = "research/final_build/w4/evidence_CLOSE6"
+DEPLOYED_TESTS6 = f"{EV6}/deployed_tree_tests_b931d17.json"
+DT6 = f"deployed-tree run {DEPLOYED_TESTS6}"
+AD6 = "tests/test_w4_close6_ads.py::"
+OA6 = f"{EV6}/prod_api_owner_actions_ads_20261020T1119Z.json"
+
+# ---- CLOSE6 batch 1: Etsy Ads eligibility, recheck and Ads-credit accounting -----------------
+FM_EDITS.update({
+    ("s8", "F-685"): {
+        "maturity": "DEPLOYED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/growth/ads_readiness.py::tick; "
+                    "growth/ads_readiness.py::locked_row (MarketplaceCapability row)",
+        "consumer": "growth/ads_readiness.py::_eligibility_gate (listing_readiness); "
+                    "launch/visibility.py etsy_ads; Command Center ads provider",
+        "durable_state": "marketplace_capabilities (key etsy_ads: status, eligible_from, "
+                         "last_verified_at, evidence_source, detail.date_is_estimate)",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "none -- deployed; the owner's reading is recorded through F-686's route",
+        "evidence+": [f"{TAG6}: the mapping's 'no persisted etsy_ads_status...' is stale: "
+                      "growth/ads_readiness.py persists all four fields in "
+                      "marketplace_capabilities; the reported 2026-09-25 countdown is seeded as "
+                      "WAITING_REPORTED with date_is_estimate true and never gates as eligible; "
+                      f"production b931d17 ran the hourly recheck ({OA6}: OwnerAction #32 "
+                      "raised for etsy_ads_eligibility_evidence when the countdown came due, "
+                      f"status RECHECK_REQUIRED, not ELIGIBLE); {DT6}", REACH],
+        "tests+": [AD6 + "test_f685_the_four_fields_are_persisted_and_the_reported_date_is_not_authoritative",
+                   "tests/test_v11_ads_readiness.py::test_countdown_never_grants_eligibility_and_dedupes_owner_action",
+                   "tests/test_v11_ads_readiness.py::test_eligibility_evidence_expires_and_is_not_authority"],
+    },
+    ("s8", "F-686"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/growth/ads_readiness.py::tick; "
+                    "src/brambleloop/app/main.py::api_ads_eligibility "
+                    "(growth/ads_readiness.py::record_evidence)",
+        "consumer": "OwnerAction etsy_ads_eligibility_evidence (closed SATISFIED by the "
+                    "recorded reading); growth/ads_readiness.py::_eligibility_gate",
+        "durable_state": "marketplace_capabilities.detail.evidence_history; owner_actions",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "no Etsy API exposes Ads eligibility; the reading is the owner's, "
+                           "requested automatically and now recordable"},
+        "next_action": "deploy W4-CLOSE6 (POST /api/ads/eligibility); then the owner records "
+                       "the reading OwnerAction #32 asks for",
+        "evidence+": [f"{TAG6}: the recheck half was deployed (hourly marketing.ads_readiness; "
+                      f"production raised OwnerAction #32 at the due countdown, {OA6}), but the "
+                      "re-verification could never complete: record_evidence had no caller, so "
+                      "the owner action was unsatisfiable. W4-CLOSE6 adds the authenticated "
+                      "POST /api/ads/eligibility; a stale, future or date-less WAITING reading "
+                      "is refused, the reading closes the recheck action, the next due countdown "
+                      "asks again, and ELIGIBLE comes only from a reading and authorises no "
+                      "spend. Dev-proven, awaiting deploy."],
+        "tests+": [AD6 + "test_f686_the_countdown_reaching_zero_raises_a_recheck_and_never_eligible",
+                   AD6 + "test_f686_the_owner_reading_completes_the_recheck_through_the_route"],
+    },
+    ("s8", "F-688"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/finance/credits.py::ads_credit; "
+                    "finance/credits.py::record_ads_credit_cycle; "
+                    "src/brambleloop/app/main.py::api_ads_credit",
+        "consumer": "finance/credits.py::wallet -> finance/spend_report.py::governance "
+                    "(dashboard spend governance)",
+        "durable_state": "ads_credit_cycles (cycle_start/end, entitlement_usd, displayed_cad, "
+                         "used_displayed_cad NULL=UNKNOWN, source, evidence_ref)",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "software only; the figures are the owner's reading of Shop Manager"},
+        "next_action": "deploy W4-CLOSE6; the owner records each cycle as Etsy shows it",
+        "evidence+": [f"{TAG6}: finance/credits.ads_credit records per cycle the official "
+                      "entitlement (USD), the CAD value Shop Manager displays (beside, never "
+                      "replaced by, this system's labelled conversion), the cycle dates, credit "
+                      "used (Etsy-reported; UNKNOWN when absent, never 0), expired credit, "
+                      "recorded ad spend and the incremental cash beyond the credit; "
+                      "ceilings_changed 0 and the ads SpendLimit is untouched. Dev-proven, "
+                      "awaiting deploy."],
+        "tests+": [AD6 + "test_f688_a_cycle_records_entitlement_displayed_value_use_expiry_and_cash",
+                   AD6 + "test_f688_the_route_records_a_cycle_and_the_spend_report_carries_it"],
+    },
+})
+C6_BATCH1_PROD = ("F-685",)
+C6_CLOSED: set[str] = set(C6_BATCH1_PROD)
+
+
+# ---- CLOSE6 batch 2: F-664 Ask Brambleloop, F-666 Overnight Brief (dev-proven) --------------
+AK6 = "tests/test_w4_close6_ask.py::"
+BR6 = "tests/test_w4_close6_brief.py::"
+FM_EDITS.update({
+    ("s8", "F-664"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/ask.py::ask (spend_q, agents_q, "
+                    "opportunities_q added; overnight, profit, launch_blocked, product_blocked, "
+                    "approval_reason, incidents_q existing)",
+        "consumer": "POST /api/cc/ask (app/command_center/api.py) -> the Command Center Ask "
+                    "view (static/js/views/ask.js)",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the mapping's 'no command/search bar' is stale: v1.1 F-928/F-929 "
+                      "built Ask Company (deterministic retrieval, every fact citing its row; "
+                      "UNKNOWN rather than invention) and its Command Center view. It answered "
+                      "what changed, profit/revenue and what blocks launch; W4-CLOSE6 adds the "
+                      "three named intents it lacked -- what agents are doing (swarm.metrics."
+                      "agents_view), spend (finance.spend_report.what_it_bought, cost_entries) "
+                      "and opportunities (entered mjs_mission_events + undecided improvements). "
+                      "Dev-proven, awaiting deploy."],
+        "tests+": [AK6 + "test_every_named_question_routes_to_a_reader",
+                   AK6 + "test_spend_agents_and_opportunities_are_answered_from_cited_rows",
+                   AK6 + "test_an_empty_company_answers_nothing_recorded_never_an_invention",
+                   AK6 + "test_the_surface_is_the_command_center_bar",
+                   "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing"],
+    },
+    ("s8", "F-666"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/app/command_center/brief.py::morning_sections; "
+                    "app/command_center/tabs.py::morning_brief",
+        "consumer": "GET /api/cc/brief/morning -> HOME 'Overnight handoff' card "
+                    "(static/js/views/home.js BRIEF_ORDER)",
+        "durable_state": None,
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the F-896 overnight handoff already carried what changed, "
+                      "completed tasks, money spent by kind (compute vs ads), incidents, "
+                      "discoveries, queue and decisions; W4-CLOSE6 adds autonomous hours, "
+                      "experiments, products advanced/rejected, image candidates, Etsy findings "
+                      "and sales/profit (UNMEASURED, never CA$0), each from its own rows, an "
+                      "unreadable source UNKNOWN. Dev-proven, awaiting deploy."],
+        "tests+": [BR6 + "test_every_named_item_is_a_section_read_from_its_rows",
+                   BR6 + "test_unmeasured_sales_are_never_zero_and_an_unreadable_source_is_unknown",
+                   BR6 + "test_the_overnight_handoff_on_home_carries_every_named_item"],
+    },
+})
+
+
+# ---- CLOSE6 batch 3: F-144 Production Readback Gate (dev-proven) ----------------------------
+RB6 = "tests/test_w4_close6_readback.py::"
+FM_EDITS.update({
+    ("s2", "F-144"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/ops/smoke.py::smoke_matrix (GET /api/verify/smoke); "
+                    "ops/readback.py::run (per-feature MANIFEST: endpoint, field, predicate, rows)",
+        "consumer": "ops/deploy.sh (exit 5 when a feature does not read back; writes the "
+                    "readback evidence); research/final_build/w4/completion_board_final.py::"
+                    "apply_readback (a row a feature names is not verified_complete unless the "
+                    "deployed commit's readback passed)",
+        "durable_state": "research/final_build/w4/evidence_BOARD/prod_readback_<sha12>_<ts>.json",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy the next release with ops/deploy.sh; the row is held until that "
+                       "commit's readback passes (b931d17 reads FAIL: dead letters, "
+                       "/api/departments 500 -- both fixed on the branch)",
+        "evidence+": [f"{TAG6}: W4-SMOKE built the gate (ops/readback.py, ops/deploy.sh exit 5, "
+                      "ops/smoke.py at /api/verify/smoke); W4-CLOSE6 added the features "
+                      "production failed without any readback noticing (GET /api/departments "
+                      "500 on b931d17; swarm runtime, funding packet, off-site archive, "
+                      "continuity proof, Etsy credential), persisted every deploy's readback as "
+                      "evidence, and made the completion board refuse 'done' to a row whose "
+                      "feature does not read back on the deployed commit (missing readback = "
+                      "UNKNOWN, held). Read-only readback of b931d17 on file: FAIL on 'no "
+                      "unexpected dead letters' and 'department health served'. Dev-proven."],
+        "tests+": [RB6 + "test_the_manifest_reads_back_the_features_that_failed_unseen",
+                   RB6 + "test_a_row_is_not_complete_unless_its_deployed_readback_passed",
+                   RB6 + "test_deploy_writes_the_readback_where_the_board_reads_it",
+                   RB6 + "test_the_committed_board_applies_the_deployed_readback",
+                   "tests/test_w4_smoke.py::test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do"],
+    },
+})
+
+
+# ---- CLOSE6 batch 4: F-834 consumer receipts, F-662 causal timeline (dev-proven) -------------
+PR6 = "tests/test_w4_close6_proof.py::"
+TL6 = "tests/test_w4_close6_timeline.py::"
+FM_EDITS.update({
+    ("s9", "F-834"): {
+        "maturity": "TESTED", "coverage": "FULL", "missing_part": None,
+        "producer": "scripts/shadow_rehearsal.py::record_edges -> "
+                    "scripts/emit_runtime_packets.py::consumer_chain; "
+                    "src/brambleloop/build2/final_proof.py::validate",
+        "consumer": "src/brambleloop/build2/final_proof.py::validate (refuses a row without "
+                    "bound durable_state/consumer/decision/effect/result receipts naming the "
+                    "row's own consumer) -> the integrator's release proof",
+        "durable_state": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json "
+                         "(chain_edges), runtime_packets_8e4efd3.json, final_proof_8e4efd3.json",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "the independent review on each packet is the reviewer's, never the "
+                           "emitter's (final_proof refuses self-review)"},
+        "next_action": "integrator: accept the structural TESTED target proposed in "
+                       "w4/OVERRIDES_PROPOSED_CLOSE6.json (producer is a script + the offline "
+                       "adjudicator final_proof.py, so INTEGRATED is unreachable by "
+                       "construction, as for F-846); per row, an independent reviewer and "
+                       "production-producer / failure-test receipts",
+        "evidence+": [f"{TAG6}: the consumer is now proven at runtime, not asserted: the shadow "
+                      "rehearsal records, from the rows the run wrote, the durable row each "
+                      "producer job wrote and that the store.publish job read it (its release "
+                      "gates name the same version; its key the same certified release), what "
+                      "it decided (refused in SHADOW), the effect row (store.publish_refused) "
+                      "and the result (no store.published; no Etsy id); the emitter turns that "
+                      "edge into chain receipts only for rows whose producer AND named consumer "
+                      "are the edge's handlers. final_proof on the recorded run: the chain "
+                      "errors are gone for those rows; they stay BLOCKED on independent review "
+                      "(and production-producer / failure-test receipts). Dev-proven."],
+        "tests+": [PR6 + "test_a_recorded_edge_gives_every_chain_stage_a_bound_receipt",
+                   PR6 + "test_an_unbound_read_claims_nothing_past_the_producer",
+                   PR6 + "test_the_recorded_rehearsal_binds_the_edge_on_this_head",
+                   "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
+                   "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof"],
+    },
+    ("s8", "F-662"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/runtime/lineage.py::record (JobContext.enqueue); "
+                    "src/brambleloop/app/command_center/causal.py::stories",
+        "consumer": "GET /api/cc/timeline (command_center/tabs.py::timeline 'stories') -> the "
+                    "Timeline view (static/js/views/timeline.js 'What the company did')",
+        "durable_state": "job_links (parent_id, child_id) + jobs",
+        "gate": {"kind": "none", "key": None, "detail": "software only"},
+        "next_action": "deploy W4-CLOSE6",
+        "evidence+": [f"{TAG6}: the timeline listed audit rows and company events with no cause "
+                      "and effect. Every follow-on job now records the job that caused it "
+                      "(best effort, never blocking the enqueue); the timeline tells each chain "
+                      "as one story across departments in words (who did what, the outcome, "
+                      "what caused the first step: scheduled / caused by / 'cause not recorded', "
+                      "never guessed) and counts routine checks that caused nothing instead of "
+                      "listing them. Dev-proven."],
+        "tests+": [TL6 + "test_a_pipeline_run_is_one_causal_story_across_departments",
+                   TL6 + "test_an_unrecorded_cause_is_shown_as_such_and_never_blocks_the_work",
+                   TL6 + "test_the_timeline_serves_the_stories"],
+    },
+})
+
+
+# ---- CLOSE6 batch 5: F-872 closed on production readback; F-273/F-538 corrected and re-gated
+# from the (now open) transactions_r owner gate to the customers data gate -----------------
+SC6 = "tests/test_w4_close6_scope.py::"
+MT = "tests/test_money_truth.py::"
+OI6 = f"{EV6}/prod_api_orders_ingested_20261020T1321Z.json"
+FM_EDITS.update({
+    ("s9", "F-872"): {
+        "coverage": "FULL", "missing_part": None,
+        "gate": {"kind": "none", "key": None,
+                 "detail": "the owner re-authorised transactions_r (production gate OPEN); the "
+                           "readback is on file"},
+        "next_action": "none -- re-authorised and read back in production",
+        "evidence+": [f"{TAG6}: {OI6} -- production b931d17's commerce.orders_ingested rows read "
+                      "UNMEASURED with zero network calls (gate closed) until 2026-10-13, and "
+                      "`measured` after an authenticated getShopReceipts read (2 calls, 0 "
+                      "receipts: no sale yet) on every run since 2026-10-13T03:28Z; the gate "
+                      "requires the stored grant's scope AND a demonstrated credential before "
+                      "any read, a scope refusal is never trusted, and the read that worked "
+                      f"closes the re-authorisation request; {DT6}"],
+        "tests+": [SC6 + "test_no_receipt_is_read_until_scope_and_a_working_credential_are_both_proven",
+                   SC6 + "test_a_scope_refusal_is_never_trusted_and_a_working_read_clears_the_request",
+                   SC6 + "test_production_switched_from_unproven_to_read_back_after_reauthorisation",
+                   MT + "test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident"],
+    },
+    ("s4", "F-273"): {
+        "maturity": "INTEGRATED", "coverage": "PARTIAL",
+        "missing_part": ("Offsite Ads fees are read from Etsy's payment-account ledger, deducted "
+                         "and set offsite_ad_attributed (finance/reconcile.py), but no sale has "
+                         "happened, so no real offsite_ads_fee entry has been read and the "
+                         "ledger type/unit mapping is unverified against a real settlement"),
+        "producer": "src/brambleloop/finance/reconcile.py::apply (offsite_ads_fee -> "
+                    "offsite_ad_attributed); commerce/paid_media.py::offsite_ads_forecast",
+        "consumer": "commerce/orders_ingest.py::_reconcile_fees (every receipt read); "
+                    "runtime/growth_ops.py::handle_ads_adjust",
+        "gate": {"kind": "data", "key": "customers",
+                 "detail": "an attributed offsite sale can only come from a real buyer; "
+                           "transactions_r is open and the ledger is read on every ingest"},
+        "next_action": "data: the first real offsite-attributed sale; the owner then records "
+                       "the ledger mapping verification (owner.etsy_ledger_mapping.verified)",
+        "evidence+": [f"{TAG6}: the mapping's 'offsite_ad_attributed is never set by order "
+                      "ingest' is stale -- finance/reconcile.apply sets it from the ledger's "
+                      "offsite_ads_fee entries on the ingest path; transactions_r is open in "
+                      f"production ({OI6}); nothing is left but a real attributed sale"],
+        "tests+": [MT + "test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+                   MT + "test_the_production_reader_reads_the_ledger_through_the_client_transport"],
+    },
+    ("s6", "F-538"): {
+        "maturity": "INTEGRATED", "coverage": "PARTIAL",
+        "missing_part": ("orders, transaction/processing/offsite/regulatory/conversion/listing "
+                         "fees and refunds are reconciled against Etsy's payment-account ledger "
+                         "(finance/reconcile.py) and payouts against bank statement lines "
+                         "(finance/accounting); taxes/remittances, credits and subscription "
+                         "ledger types are deliberately unclassified (reported, never counted) "
+                         "and the type/unit mapping is unverified until a real settlement"),
+        "producer": "src/brambleloop/finance/reconcile.py::apply; "
+                    "commerce/orders_ingest.py::_reconcile_fees",
+        "consumer": "commerce/orders_ingest.py::ingest (fees_basis on every order); "
+                    "finance/books.py::Books; runtime/pipeline.py::handle_finance_reconcile",
+        "gate": {"kind": "data", "key": "customers",
+                 "detail": "a real settlement is the only evidence that verifies the mapping; "
+                           "the criterion itself keeps unknown fee behaviour explicit until then"},
+        "next_action": "data: first real settlement; owner records the mapping verification; "
+                       "classify any tax/credit/subscription ledger types then seen",
+        "evidence+": [f"{TAG6}: the mapping's 'no reader for the payment-account ledger' is "
+                      "stale: commerce/orders_ingest reads getShopPaymentAccountLedgerEntries "
+                      "through the client transport and finance/reconcile applies it with an "
+                      "explicit allow-list (unknown types reported, never counted; fees "
+                      "'unverified' until an owner-recorded mapping verification); "
+                      f"transactions_r is open in production ({OI6})"],
+        "tests+": [MT + "test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+                   MT + "test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+                   MT + "test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+                   MT + "test_the_production_reader_reads_the_ledger_through_the_client_transport"],
+    },
+})
+C6_BATCH5_PROD = ("F-872",)
+C6_CLOSED |= set(C6_BATCH5_PROD)
+
+
+# ---- CLOSE6 batch 6: F-040 Shop Quality Gate (dev-proven: the About story was unevidenced) ---
+SH6 = "tests/test_w4_close6_shop.py::"
+LS6 = f"{EV6}/prod_api_launch_shop_20261020T1329Z.json"
+FM_EDITS.update({
+    ("s1", "F-040"): {
+        "maturity": "INTEGRATED", "coverage": "FULL", "missing_part": None,
+        "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot "
+                    "(intel/etsy_surfaces.py::assess_shop on a daily getShop); "
+                    "src/brambleloop/commerce/shop_observations.py::record (page 'about')",
+        "consumer": "src/brambleloop/launch/readiness.py::etsy_first_sale_surfaces "
+                    "(shop_checks_failing + about_story hold launch)",
+        "durable_state": "operating_readings etsy.shop_snapshot; audit etsy.shop_observation "
+                         "(etsy_page:about)",
+        "gate": {"kind": "none", "key": None,
+                 "detail": "the gate is enforced in code; completing the banner, policies and "
+                           "About in Shop Manager is the owner's (info_and_appearance_setup)"},
+        "next_action": "deploy W4-CLOSE6; the owner completes the shop and records the About "
+                       "reading (POST /api/etsy/shop-observation, page 'about')",
+        "evidence+": [f"{TAG6}: the mapping's 'checks draft text, not the actual shop' is stale: "
+                      "production b931d17 reads the live shop daily (etsy.shop_snapshot FRESH) "
+                      "and launch readiness is held on what is missing there today -- banner, "
+                      f"shipping/additional policy, a digital listing ({LS6}). The About story "
+                      "was the one element nothing could see (getShop has no About field): it "
+                      "is now evidenced by the owner's dated shop-page reading, and readiness "
+                      "holds when it is unobserved, stale, incomplete or not published. "
+                      "Dev-proven."],
+        "tests+": [SH6 + "test_a_complete_live_shop_with_its_about_observed_has_no_shop_failure",
+                   SH6 + "test_the_about_story_must_be_evidenced_published_and_fresh",
+                   SH6 + "test_a_missing_icon_or_no_shop_reading_holds_launch",
+                   SH6 + "test_production_holds_launch_on_the_live_shop_as_it_is",
+                   "tests/test_etsy_surfaces.py::test_a_correct_and_current_shop_is_the_only_thing_that_reads_green"],
+    },
+})
+
+
 # Rows whose code is in the deployed tree unchanged: closed on production readings of b931d17
 # plus the deployed-tree test run.
 PRODUCTION_CLOSED = {
@@ -871,6 +1212,10 @@ PRODUCTION_CLOSED = {
        for u in BATCH6C},
     **{u: [DEPLOYED_TESTS, f"{EV5}/module_reachability_b931d17.json"]
        for u in BATCH7},
+    **{u: [DEPLOYED_TESTS6, OA6, f"{EV5}/module_reachability_b931d17.json"]
+       for u in C6_BATCH1_PROD},
+    **{u: [DEPLOYED_TESTS6, OI6, f"{EV5}/module_reachability_b931d17.json"]
+       for u in C6_BATCH5_PROD},
 }
 READING = {
     "F-152": "offsite last_archive ok on b931d17 (encrypted, off-provider, read back, restored); "
@@ -903,6 +1248,8 @@ READING = {
     **{u: 'production serves the funding packet on b931d17; packet tests pass on the deployed tree' for u in BATCH6B},
     **{u: 'seller-identity tests pass on the deployed tree; module reached on b931d17 via launch.plan' for u in BATCH6C},
     **{u: 'deployed b931d17: commerce/search.py and commerce/ranking_readiness.py unchanged since the deploy; the deployed-tree run of test_w4_close5_rows6 passes' for u in BATCH7},
+    **{u: ('deployed b931d17: growth/ads_readiness.py unchanged since the deploy; production raised the recheck OwnerAction #32 (GET /api/owner-actions); the deployed-tree run of the F-685 test passes') for u in C6_BATCH1_PROD},
+    **{u: ('deployed b931d17: commerce/orders_ingest.py, runtime/orders.py and build2/executor.py unchanged since the deploy; production commerce.orders_ingested reads measured after the authenticated receipt read on every run since 2026-10-13 (GET /api/audit); the deployed-tree run of the F-872 code tests passes (the production-evidence test reads branch evidence and is run on the branch)') for u in C6_BATCH5_PROD},
 }
 
 
@@ -1130,7 +1477,7 @@ def main() -> int:
             "source": "final_master", "id": uid,
             "criterion": str(req.get("full_text") or req.get("title") or uid),
             "evidence_files": files, "health_file": HEALTH, "reading": READING[uid],
-            "tests": FM_EDITS[(sl, uid)]["tests+"], "worker": "W4-CLOSE5 2026-10-20",
+            "tests": FM_EDITS[(sl, uid)]["tests+"], "worker": ("W4-CLOSE6 2026-10-20" if uid in C6_CLOSED else "W4-CLOSE5 2026-10-20"),
             "deployed_commit": DEPLOYED})
     cl_path.write_text(json.dumps(cl, indent=1, ensure_ascii=False) + "\n")
     print(json.dumps({"fm": [u for _s, u in FM_EDITS], "production_closed": list(PRODUCTION_CLOSED),

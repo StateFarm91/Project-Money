@@ -2531,3 +2531,73 @@ Fixed. Each fix has a test that fails before it and passes after; the evidence i
 **Context:** L-1 from the review of b5226f7, carried into the review of a14c9ef. It is Low, and its fix sits in `laura/agency/delegation`.
 
 **Decision:** accepted as open and deferred. The owner's coordinator froze Laura code at 2c29b42, and W-AGENTS does not change `laura/`. The finding stays open in AGENTS.md §7 and passes to whichever lane owns the next Laura change. Nothing is re-classified as closed.
+## D-W4-CLOSE6-OVERRIDES — F-145..148 and F-834 at TESTED; Build 2 #11/#12 re-parked on `customers` (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session. Recorded on
+`claude/w4-CLOSE6`. Applied at INTEG5, not before.**
+
+**1. `research/final_build/w4/OVERRIDES_PROPOSED_CLOSE6.json`: `completion_target: TESTED` for F-145, F-146,
+F-147, F-148 and F-834.**
+- Same basis as F-123, F-170 and F-178: each producer is operator tooling or the offline adjudicator
+  (`run_tests.sh`, `tests/_tmp.py`, `scripts/shadow_rehearsal.py` -> `scripts/emit_runtime_packets.py`,
+  `build2/final_proof.py`). No runtime root can import them, so INTEGRATED is unreachable by construction.
+- Evidence:
+  - F-145..148: `tests/test_w3_tmp_hygiene.py` and `tests/test_w4_close6_hygiene.py`.
+  - F-834: `tests/test_w4_close6_proof.py`, plus `evidence_CLOSE6/final_proof_8e4efd3.json`. On it, the chain
+    errors are gone for F-048 and F-477, and every row stays BLOCKED on independent review.
+- Dry run: no problems.
+
+**2. `research/final_build/w4/B2_REGATE_PROPOSED_CLOSE6.json`: Build 2 #11 and #12 `parked_on` moves from
+`transactions_r` to `customers`.**
+- `transactions_r` is open in production b931d17.
+- `commerce.orders_ingest` and `commerce.order_readings` complete on cadence, and `commerce/cohorts.py` and
+  `commerce/ladder.py` are reached from them.
+- No receipt exists to ingest. What remains, a cohort of real buyers with repeat purchases and lifetime value,
+  can only come from real buyer orders. That is a data gate, as with the #242-245 re-park (W4-GATESB).
+- Evidence: `evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json`.
+
+**Neither is applied here.** `overrides.json` and `build2/requirements.json` are unchanged on this branch.
+
+## D-W4-CLOSE6-FMREGATE: F-273 and F-538 moved to the `customers` gate; Final Master re-gates now need coordinator acceptance (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session.**
+
+**Policy, effective now.** A Final Master row is moved to the `customers` data gate only as a
+PROPOSED entry that the coordinator accepts. This is the same route Build 2 re-gates already
+take. The owner requires that unfinished engineering is never labelled customer-dependent.
+
+**F-273 (Offsite Ads accounting) and F-538 (finance reconciliation) are accepted.**
+- Both move from `transactions_r`, which is now open, to `customers`.
+- The reconcile code is live and reached:
+  - `finance/reconcile.py` applies Etsy's payment ledger on every receipt read;
+  - it sets `offsite_ad_attributed` from `offsite_ads_fee` entries;
+  - it reports unknown ledger types and never counts them.
+- Production readback: the order ingest reads `measured` on every run since 2026-10-13, with 0
+  receipts (`evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json`).
+- What remains is a real settlement only. The record is
+  `research/final_build/w4/FM_REGATE_PROPOSED_CLOSE6.json`. It was applied in CLOSE6 batch 5 and
+  is recorded here retroactively under the new policy.
+
+## D-W4-CLOSE6-F846: F-846 (Audit-Repair Loop) accepted at TESTED (coordinator, 2026-10-20)
+
+**Status: integrator authority (F-867), accepted by the coordinator in the operator session. Applied
+to `overrides.json` at INTEG5, not before.**
+
+`research/final_build/w4/OVERRIDES_PROPOSED_FMGATE.json` (w4-FMGATE) proposes `completion_target:
+TESTED` for F-846. Its producer, `scripts/freeze_candidate.py`, is operator tooling, so INTEGRATED is
+unreachable; this is the same basis as F-843, F-845 and F-847. The loop ran end to end:
+1. Freeze 7421ef6.
+2. Independent re-audit.
+3. Repairs with regression tests.
+4. Full suite on 5dfd1ac: 7877 passing, 0 failing.
+5. Independent security re-review on 2c6d775.
+6. Deploy of 0417f35, then the next loop opened on it.
+
+The dry run reports no problems.
+
+**Accepted on two conditions, both now met on `claude/w4-CLOSE6`:**
+1. `research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md` (repository root) is in the tree as a
+   byte-identical copy of commit d33c43cc0d3ba5849e032839f51c72733e8b7124 from
+   origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d).
+2. The proposal now cites both audit reports at their real repository-root paths
+   (`research/final_build/w4/`, not `brambleloop/research/`).

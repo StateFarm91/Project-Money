@@ -88,6 +88,52 @@ def observed_jobs(rehearsal: dict) -> dict[str, dict]:
     return out
 
 
+# Consumer job types whose recorded read/decision/effect/result the rehearsal carries
+# (`scripts/shadow_rehearsal.record_edges`).
+CONSUMER_JOBS = ("store.publish",)
+
+
+def consumer_chain(row: dict, edges: dict, refs: dict, receipt: dict) -> dict:
+    """F-834 (W4-CLOSE6): receipts for durable_state -> consumer -> decision -> effect ->
+    result, when the rehearsal recorded that edge for THIS row: its producer names the handler
+    that wrote the durable row, its consumer names the handler that read it, and the recorded
+    read binds the same version and certified release. Anything less emits nothing more."""
+    producer, consumer = row.get("producer") or "", row.get("consumer") or ""
+    durable = edges.get("durable") or {}
+    for cjt in CONSUMER_JOBS:
+        c = (edges.get("consumers") or {}).get(cjt)
+        cref = refs.get(cjt)
+        if not c or not cref or cref not in consumer:
+            continue
+        reads = c.get("reads") or {}
+        if not (reads.get("same_version") and reads.get("same_release")):
+            continue
+        for pjt, d in durable.items():
+            pref = refs.get(pjt)
+            if not pref or pref not in producer or pjt == cjt:
+                continue
+            dec = c.get("decision") or {}
+            res = c.get("result") or {}
+            decision = (f"{cjt} job {c['job']}: "
+                        + ("refused (" + str(dec.get("reason")) + ")" if dec.get("refused")
+                           else "proceeded")
+                        + f"; release gates would block={dec.get('release_gates_would_block')}")
+            effect = f"{(c.get('effect') or {}).get('audit')} {(c.get('effect') or {}).get('action')}"
+            result = (f"store.published rows={res.get('store_published_rows')}; "
+                      f"listings:{res.get('listing')} etsy_listing_id="
+                      f"{res.get('etsy_listing_id')!r}")
+            return {
+                "durable_state": dict(receipt, identity=d["identity"], input=producer,
+                                      written_by_job=d.get("job"), audit=d.get("audit")),
+                "consumer": dict(receipt, identity=consumer, input=d["identity"],
+                                 job_type=cjt, handler=cref, job=c["job"], reads=reads),
+                "decision": dict(receipt, identity=decision, input=consumer),
+                "effect": dict(receipt, identity=effect, input=decision),
+                "result": dict(receipt, identity=result, input=effect),
+            }
+    return {}
+
+
 def emit(rows, rehearsal: dict, rehearsal_rel: str, rehearsal_sha: str, refs: dict,
          suite: dict | None = None, suite_rel: str | None = None,
          suite_sha: str | None = None) -> list[dict]:
@@ -121,6 +167,11 @@ def emit(rows, rehearsal: dict, rehearsal_rel: str, rehearsal_sha: str, refs: di
                              for s in STAGES[1:]},
             "missing_by_design": ["independent_review: the emitter is the implementer"],
         }
+        chain = consumer_chain(row, rehearsal.get("chain_edges") or {}, refs, receipt)
+        if chain:
+            packet["chain"].update(chain)
+            for stage in chain:
+                packet["not_observed"].pop(stage, None)
         if suite is not None:
             packet["artifacts"]["suite"] = {"path": suite_rel, "sha256": suite_sha}
             packet["suite"] = {"artifact": "suite", "head": suite.get("git_sha"),
@@ -154,7 +205,8 @@ def main(argv=None) -> int:
         sp = Path(args.suite_record).resolve()
         suite, suite_rel, suite_sha = (json.loads(sp.read_text(encoding="utf-8")),
                                        str(sp.relative_to(root)), _sha256(sp))
-    refs = handler_refs({jt for spec in STEP_JOBS.values() for jt in spec[0]})
+    refs = handler_refs({jt for spec in STEP_JOBS.values() for jt in spec[0]}
+                        | {"cir.compile", "gate.certify", "listing.seo", *CONSUMER_JOBS})
     packets = emit(rows, rehearsal, str(reh_path.relative_to(root)), _sha256(reh_path), refs,
                    suite, suite_rel, suite_sha)
     out = Path(args.out)

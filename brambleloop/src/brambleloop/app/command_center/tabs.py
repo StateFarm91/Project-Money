@@ -525,6 +525,8 @@ def morning_brief(db, hours: float = 12) -> dict:
         return envelope("OK", [{"job_type": t, "pending": int(c)} for t, c in types],
                         ["jobs"], provider="jobs", pending_total=int(n))
 
+    from . import brief as brief_mod
+
     box = approvals.inbox(db)
     autonomy = providers.call("autonomy", db)
     return _tab("MORNING_BRIEF", {
@@ -536,6 +538,10 @@ def morning_brief(db, hours: float = 12) -> dict:
         "discoveries": guard("discoveries", discoveries, sources=["lessons"]),
         "overnight_autonomy": autonomy,
         "queued_actions": guard("queued", queued, sources=["jobs"]),
+        # W4-CLOSE6 (F-666): the "while you were away" items the handoff did not carry --
+        # autonomous hours, experiments, products advanced/rejected, image candidates, Etsy
+        # findings and sales/profit (`command_center.brief`).
+        **brief_mod.morning_sections(db, since=since),
         "decisions_needed": envelope("OK" if not box["cards"] else "BLOCKED",
                                      [{"card_id": c["card_id"], "title": c["title"]}
                                       for c in box["cards"]],
@@ -987,7 +993,11 @@ def timeline(db, limit: int = 50) -> dict:
     for e in readers.audit_events(db, limit=limit):
         events.append({**e, "origin": "audit_log"})
     events.sort(key=lambda e: str(e.get("at") or ""), reverse=True)
-    return _tab("TIMELINE", {}, events=events[:limit], sources=sources,
+    # W4-CLOSE6 (F-662): the same activity as causal stories across departments.
+    from . import causal
+
+    stories = guard("causal_stories", lambda: causal.stories(db), sources=["jobs", "job_links"])
+    return _tab("TIMELINE", {}, events=events[:limit], sources=sources, stories=stories,
                 autonomy_timeline={"status": a_status,
                                    "reason": why if (a_events is None or
                                                      a_status != "OK") else None})

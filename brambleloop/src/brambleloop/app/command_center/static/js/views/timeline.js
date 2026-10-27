@@ -15,7 +15,22 @@ export async function render({ query }) {
   const env = s.events || (Array.isArray(data.events) ? { status: "OK", items: data.events, sources: data.sources || [] } : null);
   const events = env && Array.isArray(env.items) ? env.items : [];
   const at = data.autonomy_timeline;
-  return h("div", { class: "stack" }, ...pageMeta(result, data),
+  // W4-CLOSE6 (F-662): what happened, as cause -> effect stories across departments.
+  const st = data.stories && typeof data.stories === "object" ? data.stories : null;
+  const stories = st && Array.isArray(st.stories) ? st.stories : [];
+  const storyCard = st ? card({ title: "What the company did", subtitle: "Each story is one cause and everything it led to", actions: statusPill(st.status || "UNKNOWN") },
+    st.reason ? h("p", { class: "callout callout-warn" }, st.reason) : null,
+    stories.length ? h("ol", { class: "tl" }, stories.map((x) => h("li", null,
+      h("time", { datetime: x.last_at || "", title: utcStamp(x.last_at) }, x.last_at ? `${relTime(x.last_at)} · ${utcStamp(x.last_at)}` : "time unknown"),
+      h("p", { class: "row-title" }, x.headline || "Story"),
+      h("p", { class: "row-detail" }, [x.outcome, x.cause, (x.departments || []).join(", ")].filter(Boolean).join(" · ")),
+      h("details", null, h("summary", null, `${(x.steps || []).length} step(s)`),
+        h("ul", { class: "rows" }, (x.steps || []).map((s_) => h("li", { class: "row" },
+          h("p", { class: "row-title" }, `${s_.department} ${s_.what}`),
+          h("p", { class: "row-detail" }, s_.outcome, " · ", h("a", { href: `#/drill/${encodeURIComponent(s_.job)}` }, s_.job))))))))) : h("p", { class: "muted" }, "No story in the window."),
+    st.routine && st.routine.count ? h("p", { class: "muted small" }, `${st.routine.count} routine check(s) ran and caused nothing; counted, not told.`) : null)
+    : null;
+  return h("div", { class: "stack" }, ...pageMeta(result, data), storyCard,
     at && String(at.status || "").toUpperCase() !== "OK" ? h("p", { class: "callout callout-warn" },
       `Autonomous-work timeline: ${String(at.status || "UNKNOWN")}${at.reason ? `: ${at.reason}` : ""}. Audit-log events are still shown.`) : null,
     env ? card({ title: "Company timeline", subtitle: "Newest first", actions: statusPill(env.status || "UNKNOWN") },

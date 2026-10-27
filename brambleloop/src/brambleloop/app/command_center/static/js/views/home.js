@@ -12,6 +12,10 @@ const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
   ["money_spent", "Money spent"], ["incidents", "Incidents"], ["discoveries", "Discoveries"],
   ["overnight_autonomy", "Autonomous work"], ["queued_actions", "Queued actions"],
+  // W4-CLOSE6 (F-666): the rest of "while you were away".
+  ["autonomous_hours", "Autonomous hours"], ["experiments", "Experiments"],
+  ["products_moved", "Products advanced / rejected"], ["image_candidates", "Image candidates"],
+  ["etsy_findings", "Etsy findings"], ["sales_and_profit", "Sales and profit"],
 ];
 
 function greeting(now = new Date()) {

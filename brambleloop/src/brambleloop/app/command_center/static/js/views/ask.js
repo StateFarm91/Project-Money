@@ -5,7 +5,8 @@ import { card, statusPill, sourcesList, loading, toast, freshness } from "../com
 import { relTime, utcStamp } from "../format.js";
 
 const SUGGESTIONS = ["What did Brambleloop do overnight?", "What is blocking launch?", "Why did profit fall?",
-  "Why does this product need my approval?", "Are there open incidents?"];
+  "Why does this product need my approval?", "Are there open incidents?",
+  "What are the agents doing?", "What did we spend this month?", "What opportunities are open?"];
 
 const history = []; // this tab only; cleared on reload
 
