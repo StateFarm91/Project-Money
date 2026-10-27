@@ -1,3 +1,16 @@
+> **2026-10-27 — W4-LAUNCH1 (branch `claude/w4-LAUNCH1` from INTEG8-next d8f5e852; records only, NOT deployed; production ee35a493 SHADOW).**
+> The first-publication path, read from code: `research/final_build/w4/LAUNCH_PATH.md`, `ETSY_POLICY_READINGS_PACKET.md`
+> and `PUBLICATION_APPROVAL_PACKAGE_TEMPLATE.md`. Two engineering deadlocks sit ahead of every owner action:
+> - **D1:** `first_customer.check_etsy_remote_state` reads the static `listing_schema.gaps()` literal, so it is always
+>   UNVERIFIABLE. `store.publish` therefore blocks before the first draft can ever be created.
+> - **D2:** `launch.readiness` hard-codes `listing_fees` and `brand_clearance` as `ready=False`. `transition_verdict` can
+>   never be ready, so no phase transition can be recorded.
+>
+> Also found: a person's first policy page reading always registers as a material change, because it is compared
+> against the excerpt seed with no `compare_basis`. Etsy edited the image-rules article on 2026-10-22, and the repo's
+> policy seed (2026-09-26) is past 30 days. All 8 Launch-0 products pass Product Truth today. market-basket-small@1.2.0
+> is closest to physical verification: its tester kit hash equals today's content hash, and outreach awaits the owner.
+
 > **2026-10-21 — W4-LISTREADY (branch `claude/w4-LISTREADY`, NOT deployed; production b931d17 SHADOW).** Production has
 > certified nothing since 2026-10-11. A P0 `systemic-halt:publication`, built only from stale-artefact incidents, halts every
 > `gate.certify`. Fixed at the roots, no gate changed:
