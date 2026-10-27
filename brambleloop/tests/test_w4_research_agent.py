@@ -40,6 +40,14 @@ def _db() -> Database:
     return db
 
 
+def _open(db, **kw):
+    """INTEG7: FMBATCH1's `R.open_question` requires the F-419/F-444 fields up front."""
+    kw.setdefault("evidence_needed", "a held record or source that answers the question")
+    kw.setdefault("stop_condition", "a fact-grade finding, or recorded unresolved with why")
+    kw.setdefault("if_unresolved", RA.smallest_action(kw.get("domain", "")))
+    return R.open_question(db, **kw)
+
+
 def _run(db, agent, jt, inputs=None):
     job = JobQueue(db).enqueue(agent, jt, inputs or {})
     return handlers.get(jt)(JobContext(job=job, db=db, queue=JobQueue(db),
@@ -127,22 +135,27 @@ def test_an_agent_can_invoke_research_and_internal_evidence_comes_first():
 
 def test_no_evidence_is_recorded_unresolved_with_the_next_bounded_test():
     db = _db()
-    opened = R.open_question(db, question="What palettes are rising for nursery blankets "
+    opened = _open(db, question="What palettes are rising for nursery blankets "
                              "this season?", trigger="test:palettes", decision_ref="x.y",
                              domain="aesthetics", query_terms=["zzqq-no-such-term"])
     out, _ = _run(db, RA.AGENT, "research.investigate", {"task_id": opened["task"]})
-    assert out["status"] == RA.UNRESOLVED and out["answered"]["state"] == R.ANSWERED
+    # INTEG7: research that cannot resolve stops through FMBATCH1's R.stop with its F-444
+    # escalation (what was searched, what remains unknown, the smallest action).
+    assert out["status"] == RA.UNRESOLVED and out["answered"]["state"] == R.STOPPED
     assert "web_search" in out["next_test"] or "marketplace_observation" in out["next_test"]
+    esc = out["answered"]["escalation"]
+    assert esc["remains_unknown"] and esc["smallest_action"] and esc["why_stopped"]
+    assert esc["searched"]["query_terms"] == ["zzqq-no-such-term"]
     t = R.tasks(db)[0]
     assert [f["claim_class"] for f in t["findings"]] == ["unresolved"]
-    assert t["expires_on"]                       # re-opens on the domain's freshness
+    assert t["state"] == R.STOPPED
     again, _ = _run(db, RA.AGENT, "research.investigate", {"task_id": opened["task"]})
     assert again["ran"] is False and again["work_done"] == 0
 
 
 def test_platform_policy_is_blocked_on_official_docs_not_guessed():
     db = _db()
-    opened = R.open_question(db, question="What does Etsy currently require for digital "
+    opened = _open(db, question="What does Etsy currently require for digital "
                              "download licence wording?", trigger="test:policy",
                              decision_ref="listing policy", domain="marketplace_policy",
                              query_terms=["zzqq-nothing"])
@@ -152,7 +165,7 @@ def test_platform_policy_is_blocked_on_official_docs_not_guessed():
 
 def test_the_sweep_self_triggers_investigations_once_per_task():
     db = _db()
-    R.open_question(db, question="What is currently true about crochet search ranking?",
+    _open(db, question="What is currently true about crochet search ranking?",
                     trigger="test:sweep", decision_ref="seo", domain="search_behaviour",
                     query_terms=["ranking"])
     out, _ = _run(db, RA.AGENT, "research.sweep")
@@ -173,7 +186,7 @@ def test_an_architecture_flag_needs_graded_evidence_and_never_relaxes_a_floor():
     with db.session() as s:
         s.add(Lesson(origin_cell="test", subject="hero frames", statement="product-only hero frames outsold "
                      "modelled frames for blankets", confidence="medium"))
-    opened = R.open_question(db, question="Do product-only hero frames outsell modelled "
+    opened = _open(db, question="Do product-only hero frames outsell modelled "
                              "ones for blankets?", trigger="test:hero", decision_ref="visual",
                              domain="aesthetics", query_terms=["hero frames"])
     tid = opened["task"]
@@ -227,28 +240,18 @@ def test_f405_every_internal_store_is_searched_before_any_external_method():
         s.add(FailureRecord(fingerprint="f" * 64, cell="visual", method="bobble stitch "
                             "displacement render", source="test", reason="bobble stitch "
                             "shading flattened"))
-    opened = R.open_question(db, question="Why do bobble stitch rows pucker in the twin?",
+    opened = _open(db, question="Why do bobble stitch rows pucker in the twin?",
                              trigger="test:bobble-q", decision_ref="cir.twin",
                              domain="techniques", query_terms=["bobble stitch"])
     out = RA.investigate(db, opened["task"])
     kinds = {e.split(":")[0] for e in out["evidence"]}
-    assert {"incidents", "experiments", "failure_memory"} <= kinds, out["evidence"]
+    assert {"incidents", "registered_experiments", "failure_memory"} <= kinds, out["evidence"]  # INTEG7: the rules name pre-registered experiments by their table
     assert out["status"] == RA.EVIDENCE_GATHERED
 
 
-def test_f432_a_question_already_answered_and_fresh_is_not_researched_again():
-    db = _db()
-    q = "What palettes are rising for nursery blankets this season?"
-    a = R.open_question(db, question=q, trigger="test:dup-a", decision_ref="x",
-                        domain="aesthetics", query_terms=["zzqq-none"])
-    first = RA.investigate(db, a["task"])
-    assert first["status"] == RA.UNRESOLVED and first["answered"]
-    b = R.open_question(db, question=q.upper(), trigger="test:dup-b", decision_ref="x",
-                        domain="aesthetics", query_terms=["zzqq-none"])
-    second = RA.investigate(db, b["task"])
-    assert second["status"] == RA.STOPPED_DUPLICATE and second["reused"]["task"] == a["task"]
-    states = {t["id"]: t["state"] for t in R.tasks(db)}
-    assert states[b["task"]] == R.STOPPED and states[a["task"]] == R.ANSWERED
+# INTEG7: the agent's F-432 duplicate check (prior_answer, STOPPED_DUPLICATE) is dropped in favour
+# of FMBATCH1's open-time reuse (R.open_question question_key), which
+# test_w4_fmbatch1_research covers. See DEPARTMENTS.md, "Reconciliation with FMBATCH1".
 
 
 def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
@@ -266,8 +269,12 @@ def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
     assert RA.stale_domains_to_research(db)["opened"] == []          # still open: once
     tid = first["opened"][0]
     out = RA.investigate(db, tid)                                     # blocked: official docs
-    assert out["status"] == RA.BLOCKED_ON_METHOD and out["answered"]
-    assert RA.stale_domains_to_research(db)["opened"] == []          # answered, unexpired
+    assert out["status"] == RA.BLOCKED_ON_METHOD
+    # INTEG7: with FMBATCH1's wider internal search the task holds evidence (a repository
+    # test record), so it stays open for the no-change stop; with none it would stop
+    # escalated. Either way the same stale episode is not opened again.
+    assert (out["answered"] is None) == bool(out["evidence"])
+    assert RA.stale_domains_to_research(db)["opened"] == []          # once per episode
     assert isinstance(_date.today(), _date)
 
 
@@ -278,7 +285,7 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
     with db.session() as s:
         s.add(Lesson(origin_cell="test", subject="moss stitch", statement="moss stitch "
                      "edges curl less than single crochet on blankets", confidence="medium"))
-    opened = R.open_question(db, question="Do moss stitch edges curl less on blankets?",
+    opened = _open(db, question="Do moss stitch edges curl less on blankets?",
                              trigger="test:moss", decision_ref="cir.draft edge",
                              domain="techniques", query_terms=["moss stitch"])
     tid = opened["task"]
@@ -291,31 +298,35 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
     assert runs[2]["stopped"] and RA.STOPPED_NO_CHANGE in runs[2]["stopped"]
     assert "Next:" in runs[2]["stopped"]
     assert {t["id"]: t["state"] for t in R.tasks(db)}[tid] == R.STOPPED
+    # INTEG7: routed through R.stop, so the stop carries its F-444 escalation
+    esc = next(e for e in R.escalations(db) if e["task"] == tid)
+    assert RA.STOPPED_NO_CHANGE in esc["why_stopped"] and esc["smallest_action"]
 
 
 def test_f444_and_f449_the_sweep_stores_escalations_and_metrics():
     from brambleloop.core.models import OperatingReading
 
     db = _db()
-    pol = R.open_question(db, question="What does Etsy currently require for digital "
+    pol = _open(db, question="What does Etsy currently require for digital "
                           "download licence wording?", trigger="test:esc", decision_ref=
                           "listing policy gate", domain="marketplace_policy",
                           query_terms=["zzqq-nothing"])
     RA.investigate(db, pol["task"])
-    esc = RA.escalations(db)
+    esc = RA.escalations(db)                 # INTEG7: FMBATCH1's R.escalations
     item = next(e for e in esc if e["task"] == pol["task"])
-    assert item["why_it_matters"] == "listing policy gate"
-    assert item["smallest_action"]["method"] == "official_docs"
-    assert item["searched"]["terms"] == ["zzqq-nothing"] and item["still_unknown"]
+    assert item["why_it_matters"].startswith("it serves listing policy gate")
+    assert "official_docs" in item["smallest_action"]
+    assert item["searched"]["query_terms"] == ["zzqq-nothing"] and item["remains_unknown"]
     out, _ = _run(db, RA.AGENT, "research.sweep")
     with db.session() as s:
         kinds = {r.kind: r.payload for r in s.scalars(select(OperatingReading))}
     assert kinds[RA.ESCALATIONS]["count"] >= 1
-    m = kinds[RA.METRICS]
-    assert m["questions"] >= 1 and m["recorded_unresolved"] >= 1
-    # no source links research to a decision outcome yet: UNMEASURED, never 0
-    for k in ("experiments_prevented", "spend_avoided_cad", "decisions_materially_improved"):
-        assert m[k] == "UNMEASURED", (k, m[k])
+    m = kinds[RA.METRICS]                    # INTEG7: R.metrics plus the agent counters
+    assert m["tasks"] >= 1 and m["stopped_escalated"] >= 1
+    assert m["agent"]["investigations"] >= 0 and "stopped_no_change" in m["agent"]
+    # nothing answered with a conclusion yet: unmeasured is None, never 0
+    for k in ("experiments_prevented", "decisions_changed"):
+        assert m[k] is None, (k, m[k])
 
 
 def test_retention_protects_the_storefront_grant_chain_and_classifies_research_reads():

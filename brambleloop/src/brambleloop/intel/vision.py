@@ -342,7 +342,7 @@ def record(db, analysis: PendingAnalysis, observation: dict,
     return got.observation_id
 
 
-def _mark_failed(db, analysis: PendingAnalysis) -> None:
+def _mark_failed(db, analysis: PendingAnalysis, *, give_up: bool = False) -> None:
     """Count one failed attempt against this image, so it is not retried forever.
 
     A failing image is never marked judged, so before this it came back on every run --
@@ -364,7 +364,8 @@ def _mark_failed(db, analysis: PendingAnalysis) -> None:
             return
         detail = dict(row.detail or {})
         tried = dict(detail.get("gallery_ranks_failed") or {})
-        tried[str(analysis.rank)] = int(tried.get(str(analysis.rank), 0)) + 1
+        tried[str(analysis.rank)] = (max(FAILED_ATTEMPTS, int(tried.get(str(analysis.rank), 0)))
+                                     if give_up else int(tried.get(str(analysis.rank), 0)) + 1)
         detail["gallery_ranks_failed"] = tried
         row.detail = detail
         flag_modified(row, "detail")
@@ -462,7 +463,7 @@ def per_image_estimate_cad(model: str | None = None) -> float:
     been wrong about the image-token figure twice, both times optimistically -- see
     `gateway.anthropic.IMAGE_TOKENS_ESTIMATE`, which carries the story.
     """
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: vendor-neutral boundary
     from ..gateway import routing
 
     if model is None:
@@ -574,7 +575,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     to an empty backlog.
     """
     from ..core.resilience import PermanentError, TransientError
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: vendor-neutral boundary
 
     # The declared tier for this task, not a hardcoded cheap model. This called
     # `VISION_PROBE_MODEL` -- the probe's model, chosen because a probe should be the
@@ -582,7 +583,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     # spending priority through the cheapest tier while `routing.TASKS` declared `standard`.
     # A probe's model is not an analysis model, and the two sharing a constant is how the
     # substitution happened without anybody choosing it.
-    provider = provider or gw.provider_for(TASK)
+    provider = provider or gw.for_task(TASK)
     # F-318: the backlog before the run, counted the same way as after it, so a run that
     # paid and left the backlog where it was is visible as exactly that.
     pending_before = pending_count(db, benchmark_key)["unjudged"]
@@ -676,12 +677,24 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         tokens_out += response.output_tokens
         try:
             observation = parse_observation(response.text)
-            record(db, item, observation, env=env)
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
-            _mark_failed(db, item)
+            # W4-PRODFIX: this answer was paid for and does not parse into the closed
+            # vocabulary. Re-asking is the identical request (same prompt, image and schema),
+            # so each retry bought the same evidence again from a different job --
+            # production's spend-repeat-paid-request incidents fire at exactly
+            # FAILED_ATTEMPTS (3) jobs. The image is given up at once.
+            _mark_failed(db, item, give_up=True)
             systematic.record(db, TASK, method, {"closed_vocabulary_observation": "fail"},
                               agent=AGENT)
+            continue
+        try:
+            record(db, item, observation, env=env)
+        except AnalysisRefused as exc:
+            # Review F2: a refusal to *record* (e.g. the provider is not visible to this
+            # process) says nothing about the answer; the image keeps its counted retries.
+            failures.append({"key": item.key, "why": str(exc)[:200]})
+            _mark_failed(db, item)
             continue
         systematic.record(db, TASK, method, {"closed_vocabulary_observation": "pass"},
                           agent=AGENT)
@@ -819,7 +832,7 @@ def coverage(db, *, benchmark_key: str = "") -> dict:
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing, BenchmarkObservation
-    from ..gateway.anthropic import vision_usable
+    from ..gateway.providers import vision_usable  # F-091
     from . import benchmarks
 
     benchmark_key = benchmark_key or benchmarks.MJS_KEY

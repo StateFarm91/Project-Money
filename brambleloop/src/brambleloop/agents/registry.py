@@ -665,7 +665,13 @@ class SpendGuard:
     def __init__(self, db: Database):
         self.db = db
 
-    def set_limit(self, scope: str, daily_cap_cad: float, lifetime_cap_cad: float) -> None:
+    def set_limit(self, scope: str, daily_cap_cad: float, lifetime_cap_cad: float, *,
+                  decision_ref: int | None = None) -> None:
+        # F-582: a software subscription scope needs a recorded evaluation (capability gap,
+        # overlap checked, ROI above cost) before it can have any limit at all.
+        from ..finance import tool_decisions
+
+        tool_decisions.check_scope(self.db, scope, decision_ref)
         with self.db.session() as s:
             lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
             if lim is None:

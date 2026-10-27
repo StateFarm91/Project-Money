@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Lease lock for unattended sessions (see AUTOMATIONS.md).
-Usage: python3 ops/lock.py acquire <session_id>   -> exit 0 if acquired (writes ops/LOCK), 3 if another live lease exists
+Usage: python3 ops/lock.py acquire <session_id> [--scope LANE]   (F-462: a scoped lease)
+       python3 ops/lock.py leases
+       python3 ops/lock.py acquire <session_id>   -> exit 0 if acquired (writes ops/LOCK), 3 if another live lease exists
        python3 ops/lock.py refresh <session_id>   -> exit 0 if the lease was extended, 3 if this session does not hold it
        python3 ops/lock.py release <session_id>
        python3 ops/lock.py status
@@ -28,7 +30,21 @@ import os
 import pathlib
 import sys
 
-LOCK = pathlib.Path(__file__).resolve().parent / "LOCK"
+# F-462 (narrowest lease scope): `--scope NAME` takes a lease on one lane or surface only
+# (ops/LOCK.<NAME>), so a research, drafting or analysis session does not wait behind the
+# heartbeat's lease or another lane's. With no scope it is the one global heartbeat lease,
+# exactly as before. A scope name is letters, digits, '-' and '_'.
+_argv = list(sys.argv)
+SCOPE = ""
+if "--scope" in _argv:
+    _i = _argv.index("--scope")
+    SCOPE = _argv[_i + 1] if _i + 1 < len(_argv) else ""
+    del _argv[_i:_i + 2]
+    if not SCOPE or not all(c.isalnum() or c in "-_" for c in SCOPE):
+        print(f"refused: bad scope {SCOPE!r}")
+        sys.exit(2)
+_HERE = pathlib.Path(__file__).resolve().parent
+LOCK = _HERE / ("LOCK" if not SCOPE else f"LOCK.{SCOPE}")
 STALE_HOURS = 3
 now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -126,12 +142,24 @@ def _create_exclusively(payload):
     return True
 
 
-cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
-sid = sys.argv[2] if len(sys.argv) > 2 else "unknown"
+cmd = _argv[1] if len(_argv) > 1 else "status"
+sid = _argv[2] if len(_argv) > 2 else "unknown"
 cur = read()
 
 if cmd == "status":
     print(json.dumps(cur) if cur else "no lock")
+    sys.exit(0)
+
+if cmd == "leases":
+    # Every lease held: the global heartbeat one and each scoped one.
+    out = {}
+    for f in sorted(_HERE.glob("LOCK*")):
+        if f.name == "LOCK" or (f.name.startswith("LOCK.") and ".takeover." not in f.name):
+            try:
+                out[f.name[5:] or "global"] = json.loads(f.read_text())
+            except Exception:                                          # noqa: BLE001
+                out[f.name[5:] or "global"] = "unreadable"
+    print(json.dumps(out))
     sys.exit(0)
 
 if cmd == "acquire":

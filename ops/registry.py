@@ -347,6 +347,35 @@ def _literal_prefix(pattern: str) -> str:
     return pattern[:cut]
 
 
+class DuplicateWork(ValueError):
+    """F-476: another live lane already holds these rows or this question."""
+
+    def __init__(self, dups: list[dict]):
+        self.duplicates = dups
+        super().__init__("duplicate work with a live lane: " + "; ".join(
+            f"{d['lane']} ({d['why']})" for d in dups))
+
+
+def question_fingerprint(question: str) -> str:
+    import hashlib
+
+    words = re.findall(r"[a-z0-9]+", (question or "").lower())
+    return hashlib.sha256(" ".join(words).encode()).hexdigest()[:16] if words else ""
+
+
+def duplicate_work(data: dict, name: str, rows: list[str], qfp: str) -> list[dict]:
+    out = []
+    for other, rec in (data.get("jobs") or {}).items():
+        if other == name or rec.get("integrated") or rec.get("role", "work") != "work":
+            continue
+        shared = sorted(set(rows) & set(rec.get("rows") or []))
+        if shared:
+            out.append({"lane": other, "why": f"already holds rows {shared}"})
+        elif qfp and rec.get("question_fp") == qfp:
+            out.append({"lane": other, "why": "already answering the same question"})
+    return out
+
+
 def paths_overlap(a: str, b: str) -> bool:
     """Conservative: two manifests overlap when either one's literal prefix contains the
     other's, path-segment aware (`src/a` does not overlap `src/ab`)."""
@@ -413,7 +442,9 @@ class Registry:
     # -- writing ------------------------------------------------------------------------
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
               integration_ref: str = INTEGRATION_REF, role: str = "work",
-              watches: str | None = None, owns: tuple[str, ...] | list[str] = ()) -> dict:
+              watches: str | None = None, owns: tuple[str, ...] | list[str] = (),
+              rows: tuple[str, ...] | list[str] = (), question: str = "",
+              stop: dict | None = None) -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
@@ -433,6 +464,13 @@ class Registry:
             clash = ownership_conflicts(data, job.name, owns)
             if clash:
                 raise OwnershipConflict(clash)
+        rows = sorted({str(r).strip().upper() for r in rows or () if str(r).strip()})
+        stop = validate_stop(stop) if stop else None
+        qfp = question_fingerprint(question)
+        if role == "work" and (rows or qfp):
+            dup = duplicate_work(data, job.name, rows, qfp)
+            if dup:
+                raise DuplicateWork(dup)
         if role == "observer":
             target = data["jobs"].get(watches or "")
             if target is None:
@@ -461,6 +499,12 @@ class Registry:
             "integration_ref": integration_ref,
             "enrolled_utc": utc(),
             "owns": owns or prior.get("owns") or [],
+            # F-476: the requirement rows and the question this lane answers, so a second
+            # live lane on the same work is refused before it is dispatched.
+            "rows": rows or prior.get("rows") or [],
+            "question_fp": qfp or prior.get("question_fp") or "",
+            # F-492: the lane's own stop and escalation criteria, checked by `survey`.
+            "stop": stop or prior.get("stop"),
             # A re-enrolment is a new run of the lane; an old acknowledgement or merge would
             # otherwise be inherited by work it never saw.
             "acknowledged": None,
@@ -469,6 +513,29 @@ class Registry:
         data["jobs"][job.name] = rec
         self._save(data)
         return rec
+
+    def wait(self, name: str, on: list[str], *, why: str = "") -> dict:
+        """F-485: record that lane `name` waits on lanes `on`; returns the graph after it."""
+        data = self.load()
+        rec = data["jobs"].get(name)
+        if rec is None:
+            raise ValueError(f"{name!r} is not enrolled")
+        if not str(why).strip():
+            raise ValueError("a wait names what it waits for")
+        have = {w.get("lane") for w in rec.get("waits_on") or []}
+        rec["waits_on"] = list(rec.get("waits_on") or []) + [
+            {"lane": t, "why": str(why)[:200], "since": utc()} for t in on if t and t not in have]
+        self._save(data)
+        return wait_for_cycles(data)
+
+    def unwait(self, name: str, on: list[str] | None = None) -> dict:
+        data = self.load()
+        rec = data["jobs"].get(name)
+        if rec is not None:
+            rec["waits_on"] = [w for w in rec.get("waits_on") or []
+                               if on is not None and w.get("lane") not in on]
+            self._save(data)
+        return wait_for_cycles(data)
 
     def workloads(self) -> list[str]:
         """Names of jobs that ARE work. Records written before roles existed count as work."""
@@ -581,6 +648,10 @@ class Registry:
             "running": [r for r in rows if r["state"] == RUNNING],
             "refillable": [r["job"] for r in rows if r["state"] in _REFILLABLE],
             "integrated": [r["job"] for r in rows if r["state"] == INTEGRATED],
+            # F-485: lanes waiting on each other in a cycle can never finish.
+            "deadlocks": wait_for_cycles(data),
+            # F-492: live lanes past their own escalation or stop criteria.
+            "stop_criteria": stop_states(data, now=now),
             "registry": str(self.path),
             "host": here,
             "rule": ("completion comes from the job's own terminal evidence, never from a "
@@ -723,6 +794,96 @@ class Registry:
 
 
 # --- convenience ------------------------------------------------------------------------------
+# ---- F-485: deadlock detection across lanes ----------------------------------------------
+
+def _live(rec: dict) -> bool:
+    return not rec.get("integrated") and rec.get("role", "work") == "work"
+
+
+STOP_KEYS = ("escalate_after_hours", "stop_after_hours", "escalate_to", "stop_when")
+
+
+def validate_stop(stop: dict) -> dict:
+    """F-492: a lane's stop/escalation criteria. Hours are checkable; the prose names what
+    stopping means for this lane. A criterion with neither hour bound is refused."""
+    if not isinstance(stop, dict) or set(stop) - set(STOP_KEYS):
+        raise ValueError(f"stop criteria take only {STOP_KEYS}")
+    out = {}
+    for k in ("escalate_after_hours", "stop_after_hours"):
+        if stop.get(k) is not None:
+            v = float(stop[k])
+            if v <= 0:
+                raise ValueError(f"{k} must be positive")
+            out[k] = v
+    if not out:
+        raise ValueError("stop criteria need escalate_after_hours or stop_after_hours")
+    if out.get("escalate_after_hours", 0) > out.get("stop_after_hours", float("inf")):
+        raise ValueError("escalation comes before the stop")
+    if not str(stop.get("escalate_to") or "").strip() or not str(
+            stop.get("stop_when") or "").strip():
+        raise ValueError("stop criteria name who is escalated to and what stopping means")
+    out["escalate_to"] = str(stop["escalate_to"]).strip()
+    out["stop_when"] = str(stop["stop_when"]).strip()
+    return out
+
+
+def stop_states(data: dict, *, now: float | None = None) -> list[dict]:
+    """Live work lanes with criteria, past escalation or stop, from the enrolment time."""
+    now_dt = (datetime.fromtimestamp(now, timezone.utc) if now is not None
+              else datetime.now(timezone.utc))
+    out = []
+    for name, rec in sorted((data.get("jobs") or {}).items()):
+        st = rec.get("stop")
+        if not st or rec.get("integrated") or rec.get("role", "work") != "work":
+            continue
+        try:
+            started = datetime.fromisoformat(str(rec.get("enrolled_utc")).replace("Z", "+00:00"))
+        except ValueError:
+            out.append({"lane": name, "state": "UNKNOWN", "why": "no readable enrolment time"})
+            continue
+        hours = (now_dt - started).total_seconds() / 3600
+        state = ("stop" if hours >= st.get("stop_after_hours", float("inf")) else
+                 "escalate" if hours >= st.get("escalate_after_hours", float("inf")) else None)
+        if state:
+            out.append({"lane": name, "state": state, "hours": round(hours, 1),
+                        "escalate_to": st["escalate_to"], "stop_when": st["stop_when"]})
+    return out
+
+
+def wait_for_cycles(data: dict) -> dict:
+    """F-485: the wait-for graph across live lanes (lane A waits on lane B), its cycles, and
+    waits naming a lane that is not enrolled or no longer live (which can never clear).
+
+    A cycle is a deadlock: every lane in it is waiting for another lane in it, so none of
+    them can finish. Reported, never resolved here -- breaking a cycle is a decision about
+    which lane gives way, and this file decides nothing.
+    """
+    jobs = data.get("jobs") or {}
+    live = {n for n, r in jobs.items() if _live(r)}
+    edges = {n: sorted({w.get("lane") for w in (jobs[n].get("waits_on") or [])
+                        if w.get("lane")}) for n in live}
+    dangling = [{"lane": n, "waits_on": t,
+                 "why": ("not enrolled" if t not in jobs else "no longer live (integrated "
+                         "or an observer): the wait can never clear")}
+                for n, ts in sorted(edges.items()) for t in ts if t not in live]
+    cycles, seen = [], set()
+    for start in sorted(live):
+        stack = [(start, [start])]
+        while stack:
+            node, path = stack.pop()
+            for nxt in edges.get(node, []):
+                if nxt == start:
+                    cyc = path[:]
+                    key = frozenset(cyc)
+                    if key not in seen:
+                        seen.add(key)
+                        cycles.append(cyc)
+                elif nxt in live and nxt not in path and nxt > start:
+                    stack.append((nxt, path + [nxt]))
+    return {"edges": {k: v for k, v in edges.items() if v}, "cycles": cycles,
+            "dangling": dangling, "deadlocked": bool(cycles)}
+
+
 def survey(path: Path | str = REGISTRY, **kw) -> dict:
     return Registry(path).survey(**kw)
 
@@ -763,7 +924,7 @@ def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
     argv = list(argv)
     opts = {}
-    for flag in ("--role", "--watches", "--owns"):
+    for flag in ("--role", "--watches", "--owns", "--rows", "--question", "--stop"):
         if flag in argv:
             i = argv.index(flag)
             if i + 1 >= len(argv):
@@ -777,7 +938,22 @@ def _cli(argv: list[str]) -> int:
         out = reg.survey()
         out["reliability"] = reliability_lines()
         print(json.dumps(out, indent=2, sort_keys=True))
-        return 1 if out["needs_attention"] else 0
+        return 1 if (out["needs_attention"] or out["deadlocks"]["deadlocked"]
+                     or out["stop_criteria"]) else 0
+    if cmd == "wait" and len(argv) >= 4:
+        # ops/registry.py wait NAME ON1,ON2 WHY...
+        try:
+            out = reg.wait(argv[2], [x for x in argv[3].split(",") if x],
+                           why=" ".join(argv[4:]))
+        except ValueError as exc:
+            print(f"refused: {exc}")
+            return 2
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 1 if out["deadlocked"] else 0
+    if cmd == "unwait" and len(argv) >= 3:
+        on = [x for x in argv[3].split(",") if x] if len(argv) > 3 else None
+        print(json.dumps(reg.unwait(argv[2], on), indent=2, sort_keys=True))
+        return 0
     if cmd == "enrol" and len(argv) >= 4:
         name, log = argv[2], argv[3]
         lane = argv[4] if len(argv) > 4 else ""
@@ -787,7 +963,10 @@ def _cli(argv: list[str]) -> int:
             rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
                             branch=branch, role=opts.get("role", "work"),
                             watches=opts.get("watches"),
-                            owns=[p for p in (opts.get("owns") or "").split(",") if p])
+                            owns=[p for p in (opts.get("owns") or "").split(",") if p],
+                            rows=[r for r in (opts.get("rows") or "").split(",") if r],
+                            question=opts.get("question") or "",
+                            stop=json.loads(opts["stop"]) if opts.get("stop") else None)
         except ValueError as exc:
             print(f"refused: {exc}")
             return 2

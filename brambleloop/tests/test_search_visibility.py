@@ -8,6 +8,7 @@ for seven days after the phase leaves it.
 Run: cd brambleloop && PYTHONPATH=src $PY tests/test_search_visibility.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
@@ -134,7 +135,7 @@ def test_the_route_is_operator_guarded():
                         headers={"Authorization": f"Bearer {TOKEN}"})
         assert r.status_code == 200, r.json()
         assert r.json()["opened"]
-        state = client.get("/api/search-visibility").json()
+        state = _opread.get(client, "/api/search-visibility").json()
         assert len(state["open"]) == 1 and state["status"] == "READ"
     finally:
         os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)

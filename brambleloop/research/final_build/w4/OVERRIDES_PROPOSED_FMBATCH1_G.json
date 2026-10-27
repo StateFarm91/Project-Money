@@ -1,0 +1,102 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_G.json --dry-run",
+  "note": "Learn rows gated on launch, process rows, one stale row, one other-lane row and the F-652 imagery decision."
+ },
+ "overrides": {
+  "F-804": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-804: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-809": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-809: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-816": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-816: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-817": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-817: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-823": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-823: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-828": {
+   "gate": {
+    "kind": "external",
+    "key": "launch",
+    "detail": "the row's own next action is post-launch; the company is in SHADOW"
+   },
+   "reason": "F-828: blocked until launch (coordinator rule 2026-10-26: Learn rows wait for F-815 and launch; F-815 is built, launch is not)"
+  },
+  "F-818": {
+   "gate": {
+    "kind": "external",
+    "key": "other_lane:W-LISTREADY",
+    "detail": "registering LessonSpec artefacts goes through ops/artefacts staleness, which is the certification/staleness lane"
+   },
+   "reason": "F-818: owned by the staleness lane; not changed here"
+  },
+  "F-829": {
+   "producer": "src/brambleloop/improve/cells.py::CELLS (Cell('learn', 'Learn', 'lesson_gap_coverage'))",
+   "tests": [
+    "tests/test_w4_learn_loops.py"
+   ],
+   "missing_part": "none: a Learn improvement cell exists (F-799) with metric lesson_gap_coverage",
+   "reason": "F-829: stale -- the Learn cell the row asks for is registered"
+  },
+  "F-861": {
+   "missing_part": "none: process practice",
+   "reason": "F-861: the matrix's own next action is 'none -- keep practice'"
+  },
+  "F-862": {
+   "missing_part": "none: process practice",
+   "reason": "F-862: the matrix's own next action is 'none -- keep practice'"
+  },
+  "F-863": {
+   "missing_part": "none: process practice",
+   "reason": "F-863: the matrix's own next action is 'none -- keep practice'"
+  },
+  "F-865": {
+   "missing_part": "none: process practice",
+   "reason": "F-865: the matrix's own next action is 'none -- keep practice'"
+  },
+  "F-866": {
+   "missing_part": "none: process practice",
+   "reason": "F-866: the matrix's own next action is 'none -- keep practice'"
+  },
+  "F-652": {
+   "gate": {
+    "kind": "owner",
+    "key": "public_dashboard_imagery",
+    "detail": "coordinator decision 2026-10-26: no product imagery on the public '/' page before launch; summary cards and charts are built (F-670)"
+   },
+   "reason": "F-652: imagery held until launch by decision; the rest of the design pass is built"
+  }
+ }
+}

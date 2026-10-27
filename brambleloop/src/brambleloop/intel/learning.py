@@ -64,7 +64,7 @@ class LearningRefused(ValueError):
 
 def record(db, *, domain: str, source: str, citation: str, summary: str,
            observed_on: date, detail: dict | None = None, claim_class: str = "source_claim",
-           query_terms=(), decision_ref: str = "") -> int:
+           query_terms=(), decision_ref: str = "", retrieval: str = "") -> int:
     """Store one external observation, with where and when it was observed.
 
     A source and a date are required rather than encouraged. An observation that cannot say
@@ -101,8 +101,17 @@ def record(db, *, domain: str, source: str, citation: str, summary: str,
     if when > datetime.now(timezone.utc) + timedelta(days=1):
         raise LearningRefused("an observation cannot have been made in the future")
 
+    # F-407: the shared source hierarchy. Tier is derived from the citation (a URL or a
+    # repository/db ref); an unknown host is `unclassified`, never primary. Retrieval is
+    # validated when given and recorded as `unstated` otherwise.
+    from . import evidence
+
+    if retrieval and retrieval not in evidence.RETRIEVAL_CLASSES:
+        raise LearningRefused(f"retrieval must be one of {evidence.RETRIEVAL_CLASSES}")
     with db.session() as s:
         extra = {"claim_class": claim_class,
+                 "source_tier": evidence.tier_for(citation),
+                 "retrieval": retrieval or "unstated",
                  "query_terms": [str(t).strip() for t in query_terms or () if str(t).strip()],
                  "decision_ref": str(decision_ref or "").strip()}
         row = LearningObservation(domain=domain, source=source.strip(),

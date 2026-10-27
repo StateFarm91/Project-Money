@@ -1,0 +1,44 @@
+{
+ "dry_run": true,
+ "overrides": "research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_WINDOW.json",
+ "problems": [],
+ "launch_critical_open": 26,
+ "rows": {
+  "F-371": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "EXERCISED",
+   "completion_target": null
+  },
+  "F-396": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "EXERCISED",
+   "completion_target": null
+  },
+  "F-628": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "EXERCISED",
+   "completion_target": null
+  },
+  "F-654": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "EXERCISED",
+   "completion_target": null
+  },
+  "F-701": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "EXERCISED",
+   "completion_target": null
+  },
+  "F-849": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "INTEGRATED",
+   "completion_target": null
+  }
+ }
+}

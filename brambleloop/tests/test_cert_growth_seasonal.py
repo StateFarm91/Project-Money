@@ -30,6 +30,15 @@ _TMP = tempfile.mkdtemp(prefix="cert_w6_")
 os.environ.setdefault("BRAMBLELOOP_DATABASE_URL", f"sqlite:///{_TMP}/api.db")
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
 
+# INTEG5/LISTREL (2026-10-26): this file's scenarios are calendar facts (a Christmas launch
+# window, a trailing 30-day revenue window), so it runs at a stated date, not on the wall
+# clock. pinned_clock keeps the clock ticking from 2026-10-20T12:00Z, a date on which every
+# scenario here holds and the certified suites passed. Production code runs unmodified;
+# no assertion changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-10-20T12:00:00+00:00")
+from datetime import date, datetime  # noqa: E402,F811 - rebind to the pinned classes
+
 from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
@@ -290,7 +299,9 @@ def test_api_growth_solves_from_the_database():
     from brambleloop.app import main
 
     main.db.create_all()
-    out = TestClient(main.app).get("/api/growth").json()
+    import _opread
+
+    out = _opread.get(TestClient(main.app), "/api/growth").json()
     # Every term is passed and reported unmeasured, rather than solved as {} (zeros).
     assert out["constraint"]["identifiable"] is False
     assert "qualified_visits" in out["constraint"]["unmeasured"]

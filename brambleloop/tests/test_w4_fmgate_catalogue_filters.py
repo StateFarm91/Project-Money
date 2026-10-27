@@ -2,6 +2,7 @@
 the ones it loses -- read from the search profile listing.seo stored -- and says UNMEASURED
 (never an empty "nothing lost") when the node's schema has not been read."""
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 
@@ -56,7 +57,7 @@ def test_entered_and_lost_filters_per_listing_and_unmeasured_without_a_schema():
         s.add(ListingSearchProfile(product_slug="unknown-node", version="1.0.0",
                                    category_status="UNKNOWN",
                                    filters={"entered": [], "lost": [], "measurable": False}))
-    rows = {r["slug"]: r for r in client.get("/api/catalogue").json()["listings"]}
+    rows = {r["slug"]: r for r in _opread.get(client, "/api/catalogue").json()["listings"]}
     measured = rows["measured-coaster"]["filters"]
     assert measured["state"] == "MEASURED"
     assert {"Craft type", "Skill level"} <= set(measured["entered"]), measured

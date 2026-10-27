@@ -499,7 +499,7 @@ def score_thumbnails(db, snapshot_id: int, *, top_n: int = THUMBNAIL_TOP, provid
 
     from ..core.models import SerpSnapshot
     from ..core.resilience import PermanentError, TransientError
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # F-091: vendor-neutral boundary
     from . import vision
 
     if not gw.vision_usable(db):
@@ -517,7 +517,7 @@ def score_thumbnails(db, snapshot_id: int, *, top_n: int = THUMBNAIL_TOP, provid
 
     todo = [e for e in entries if e["rank"] <= top_n and e.get("thumbnail_url")
             and str(e.get("listing_id")) not in done]
-    provider = provider or gw.provider_for(vision.TASK)
+    provider = provider or gw.for_task(vision.TASK)
     judged, failures, spent, reserved = 0, [], 0.0, 0.0
     tokens_in = tokens_out = 0
     stopped_by = ""

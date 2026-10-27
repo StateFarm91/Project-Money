@@ -6,6 +6,7 @@ condition that still holds is restated on one row, and one that stopped is resol
 sentence and a time -- never with a bare checkbox.
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
@@ -154,7 +155,7 @@ def test_the_incidents_endpoint_serves_the_snapshot():
         L.open_or_restate(s, signature="health:disk", severity="P1", summary="disk")
         L.open_or_restate(s, signature="build.stalled", severity="P2", summary="s")
         L.reconcile(s, "build.stalled", lambda row: False, resolution="moving again")
-    body = TestClient(app_main.app).get("/api/incidents").json()
+    body = _opread.get(TestClient(app_main.app), "/api/incidents").json()
     assert "health" in body["by_kind"] and "build.stalled" in body["by_kind"]
     assert body["by_kind"]["build.stalled"]["resolved"][0]["resolution"] == "moving again"
     assert any(r["signature"] == "health:disk"

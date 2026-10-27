@@ -74,7 +74,10 @@ class Loop:
 
     @property
     def conversion(self) -> float | None:
-        return round(self.orders / self.visits, 4) if self.visits else None
+        from ..analytics import metrics          # F-618: the canonical definition, rounded
+
+        c = metrics.conversion(self.orders, self.visits)
+        return None if c is None else round(c, 4)
 
     @property
     def confidence(self) -> float:

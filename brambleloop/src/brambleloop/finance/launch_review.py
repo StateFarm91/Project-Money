@@ -244,7 +244,7 @@ def _today(session, batch_id: str, now: datetime) -> float:
 
 def min_call_estimate() -> float:
     """The cheapest review call this batch can make (a describe call), padded."""
-    from ..gateway import anthropic as gw
+    from ..gateway import providers as gw          # INTEG7 (F-091): neutral names, not the vendor
     from ..gateway import routing
     from ..visual import inspect as I
 

@@ -367,17 +367,23 @@ def test_health_does_not_disclose_the_database_address():
     main.db.session = lambda: _Broken()  # type: ignore[assignment]
     runner.STATE.last_error = ('OperationalError: connection to server at "10.1.2.3", '
                                "port 5432 failed")
+    os.environ[opsauth.TOKEN_VAR] = TOKEN
     try:
         r = c.get("/health")
+        op = c.get("/health", headers=AUTH)
     finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
         main.db.session = saved_session  # type: ignore[assignment]
         runner.STATE.last_error = saved_err
-    assert r.status_code == 503
+    assert r.status_code == 503 and op.status_code == 503
     body = r.json()
     assert body["db"] == "unreachable", body["db"]
     for secret in ("10.1.2.3", "5432", "SUPERSECRETPW"):
         assert secret not in r.text, secret
-    assert body["runner"]["last_error"].startswith("OperationalError"), body["runner"]
+        assert secret not in op.text, secret
+    # W4-SECPATCH: anonymously the runner is its liveness only; the operator reads the class.
+    assert set(body["runner"]) <= {"worker_alive"}, body["runner"]
+    assert op.json()["runner"]["last_error"].startswith("OperationalError"), op.json()["runner"]
 
 
 # ---- A3-13 -------------------------------------------------------------------

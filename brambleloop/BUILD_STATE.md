@@ -15,6 +15,38 @@
 > CA$1.00 in code) has been built and is NOT activated. It is activated by an owner step-up after deploy.
 > Report: `research/final_build/w4/LISTREADY.md`.
 
+> **2026-10-21 — W4-LAURAONE freeze 2: every remaining LOW/INFO review finding fixed (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Delta review c13e20d.** N-1..N-11 fixed (N-3: the approval re-authenticates within its own request).
+> - **Integration review bcce679.** S-1 (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF), S-3..S-6 fixed; S-2 has operator rollback steps.
+> - **First review.** I-5 fixed. I-3 is kept as an accepted risk, documented.
+> - **Tests.** `test_w4_laura_unified` 53/53; all focused suites green. Table: LAURAONE.md §10a/§10b.
+
+> **2026-10-20 (freeze) — W4-LAURAONE: security review fixes; feature set frozen (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Fixed from the independent review of a4a6841.** B-1 (fail toward privacy when code routes; current-turn screen; no owner text without her tap), H-1, M-1, M-2, L-1..L-6, I-2 and I-4.
+> - **INTEG5.** `laura.private_reply@3` is refused on any non-Venice transport (`REGISTER_NEEDS_VENICE`). The `pl_*` and `plact` suites now drive the stubbed Venice transport.
+> - **Tests.** `test_w4_laura_unified` 40/40; all focused suites green.
+> - **Still OPEN.** I-3, I-5 (deferred under the freeze) and ADD-LCONT-11. A delta review of a4a6841..freeze is pending.
+
+> **2026-10-20 (later) — W4-LAURAONE revision: restricted Venice feed and structured requests (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner review (D-W4-LAURA-UNIFIED-FEED): Unified Laura is the preferred candidate.
+> - **Feed.** `laura/agency/venice_context.py` sends Venice an allowlisted, validated, size-capped company-context pack, only with `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE=1`. Every send is audited by hash, names and counts, and the owner can preview it.
+> - **Structured requests.** Business tools now get code-rendered structured requests. Free text, including the owner's own words, crosses only on her explicit tap; step-up is required unless it is clean business wording.
+> - **Residual risks revisited.** The guard reads the whole store and matches short texts exactly. Marking an exchange private redacts the derived business records.
+> - **Tests.** `tests/test_w4_laura_unified.py` 26/26.
+> - **Not done.** ADD-LCONT-11 is OPEN; ADD-LCONT-12 and -13 were added. Owner decisions OA-LCONT-1..4 are in LAURAONE.md §10.
+
+> **2026-10-20 — W4-LAURAONE: one Laura, one thread (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner requirement "LAURA CONVERSATIONAL CONTINUITY" plus its clarification (D-W4-LAURA-UNIFIED; spec/13 ADD-LCONT-01..11).
+> - **What exists.** Behind `BRAMBLELOOP_LAURA_UNIFIED=venice`, the CC Laura view is one thread. Every turn, on any topic, is kept in the encrypted private store with a sealed label.
+> - **How it routes.** Laura (Venice, router `laura.unified_intent@1`, billed to `laura_private`) decides when a business tool is needed. Code decides what crosses. Business Laura (Claude, budget `laura`) receives only the owner's business words or a fixed canonical request, through a deterministic leak guard (substring, normalised, shingle and token overlap) applied to the brief and to the exact outbound request.
+> - **Crossings.** Mixed content and any Venice-drafted brief cross only after the owner approves the exact text with a step-up (`laura_boundary_crossings`, which stores the approved text only).
+> - **Owner controls.** Mark private, exclude, include again, and real deletion. Key rotation keeps all of it. There is no fallback that sends thread history to Claude or GPT.
+> - **Tests.** `tests/test_w4_laura_unified.py` 21/21.
+> - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings come only from the owner's commit fcb2bcd, merged unchanged.
+> - **Owner actions.** OA-LCONT-1..4 in `research/final_build/w4/LAURAONE.md` §8.
+
+> **2026-10-21 -- W4-FMBATCH1 (branch `claude/w4-FMBATCH1` from b997efd, NOT deployed).** Triage of the 40 blocked_engineering Build 2 + FM launch-critical board rows: (a) 2 built -- F-010 attribute drift monitor (`integrations/taxonomy_drift.py`: a changed Etsy schema opens a halting P1 per affected product and re-queues listing.seo; resolves on rebuild) and F-381 severity containment (`ops/rollback_decision.py`: a P0 post-deploy readback regression is rolled back to the predecessor through the guarded path, P1 fixes forward); (c) 10 already implemented (closure proposals for F-540 and F-100 on production evidence); (b) 23 blocked on deploy + 24h window, real buyers, Etsy's schema answer or an owner Etsy-write authorisation; 5 excluded (other lanes). Finding: `claude/w4-CLOSE6` (accepted proposals for 9 of these rows) is in neither b997efd nor INTEG5. Proposals: `OVERRIDES_PROPOSED_FMBATCH1.json`, `FM_REGATE_PROPOSED_FMBATCH1.json`. Report: `research/final_build/w4/FMBATCH1.md`.
+
 > **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3
 > (D-W4-CONTRACT3) letters every word Launch-0 uploads at 58 px / titles 66 px on 2000 (>= 11.2 px at display size);
 > the verifier re-letters the new lines exactly, nothing relaxed; re-chained, all 8 Launch-0 products' uploaded images
@@ -10113,3 +10145,20 @@ is a human policy snapshot). Both are listed, not fixed. 15 gated rows got proof
 unchanged). 17 parked rows' gates are not reported by production, so their state is UNKNOWN. Production
 etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Report:
 `research/final_build/w4/BUILD2_VERIFY_2026-10-10.md`.
+
+## 2026-10-20 — W4-LAURACEO: Business Laura model-backed conversation and executive loop (branch `claude/w4-LAURACEO`, not deployed)
+
+**Root cause.** Greetings in the live Command Center get Ask-Company UNKNOWN or the overnight template. `talk.classify` falls through to `ask.ask`, whose classifier returns `unknown`. "today" matches the overnight keyword. No conversation model call exists.
+
+**Built (offline-proven, stub transport):**
+- `laura/agency/ceo_chat.py`: the model writes the reply over the deterministic evidence tools, with cited records, session history and scoped business memory. Deterministic validation withholds unverified figures and human claims. When the model is unavailable it says so honestly.
+- `gateway/laura_converse.py`: governed calls on the `laura` budget, with tasks `laura.converse` (Haiku 4.5), `laura.executive` (Sonnet 5) and `laura.exec_rank`.
+- Executive tick:
+  - the model orders authorised priorities, at most twice a day;
+  - corrections carry feedback and stay bounded;
+  - an owner report with costs goes to the timeline and memory each 6 h window.
+- Per-unit cost attribution (`laura_cost_events`, `GET /api/cc/laura/costs`).
+- `POST /api/cc/laura/converse`; the CC Laura view uses it.
+- Tests: `tests/test_w4_laura_ceo.py` 13/13.
+
+**Not done.** ADD-LCEO-07 needs the production run in `research/final_build/w4/LAURACEO.md` §5, after deploy and owner approval. Until then it is open, not PASS.

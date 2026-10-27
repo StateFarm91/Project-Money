@@ -56,7 +56,7 @@ socket.create_connection = _no_network  # type: ignore[assignment]
 from fastapi.testclient import TestClient  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
-from brambleloop.app import main  # noqa: E402
+from brambleloop.app import main, security  # noqa: E402
 from brambleloop.core import opsauth  # noqa: E402
 from brambleloop.core.models import Customer, Order, SupportCase  # noqa: E402
 from sqlalchemy import select  # noqa: E402
@@ -238,12 +238,55 @@ def test_owner_card_routes_never_carry_the_recorded_buyer():
     try:
         for path in ("/", "/api/build", "/api/console", "/api/owner-actions", "/api/war-room"):
             r = c.get(path)
-            assert r.status_code == 200, (path, r.status_code)
+            # W4-SECPATCH: the owner views refuse; `/` and `/api/build` are public reads with
+            # no owner content at all.
+            assert r.status_code in (200, 401), (path, r.status_code)
             assert not _leaks(r.text), (path, _leaks(r.text))
+            assert f"support case {_STATE['recorded_case']}" not in r.text, path
+        # The operator, presenting the credential, still sees the card itself.
+        body = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"}).text
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
-    body = c.get("/api/owner-actions").text
     assert f"support case {_STATE['recorded_case']}" in body, "the card itself must still show"
+
+
+def test_the_customer_scrub_redacts_a_live_public_response_end_to_end():
+    """INTEG7 (review R-6): the middleware itself, not only `scrub_body`, redacts a buyer ref
+    from a response sent to a caller without the operator credential. No public route carries
+    such a body any more, so a throwaway ASGI app stands in for the next one that would."""
+    import asyncio
+    import json as _json
+
+    refs = [SENTINELS["recorded_ref"], SENTINELS["customer_ref"]]
+    body = _json.dumps({"card": f"Reply to {refs[0]} about {refs[1]}"}).encode()
+
+    async def app(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": body})
+
+    mw = security.CustomerRefScrubMiddleware(app, refs_provider=lambda: refs)
+
+    def call(headers):
+        out = []
+
+        async def send(m):
+            out.append(m)
+
+        asyncio.run(mw({"type": "http", "path": "/api/some-future-public-view",
+                        "headers": headers}, None, send))
+        return b"".join(m.get("body", b"") for m in out if m["type"] == "http.response.body")
+
+    os.environ[opsauth.TOKEN_VAR] = TOKEN
+    try:
+        public = call([]).decode("utf-8")
+        assert refs and not _leaks(public), _leaks(public)
+        assert "[customer]" in public
+        _json.loads(public)                      # still valid JSON after the scrub
+        operator = call([(b"authorization", f"Bearer {TOKEN}".encode())])
+        assert refs[0].encode() in operator      # the operator reads the row as stored
+    finally:
+        os.environ.pop(opsauth.TOKEN_VAR, None)
 
 
 def test_a_card_that_does_quote_a_buyer_is_redacted_on_render():
@@ -261,13 +304,20 @@ def test_a_card_that_does_quote_a_buyer_is_redacted_on_render():
         for path in ("/", "/api/owner-actions", "/api/console"):
             r = c.get(path)
             assert not _leaks(r.text), (path, _leaks(r.text))
-        r = c.get("/api/owner-actions")
-        assert "[customer]" in r.text and r.headers["content-type"].startswith(
-            "application/json")
-        r.json()  # still valid JSON after the scrub
+        # W4-SECPATCH: the owner views now refuse an anonymous caller outright; the scrub stays
+        # installed as defence in depth, and redacts this very body if it ever went public.
+        assert c.get("/api/owner-actions").status_code == 401
         # The operator, presenting the credential, sees the row as stored.
         r = c.get("/api/owner-actions", headers={"Authorization": f"Bearer {TOKEN}"})
         assert SENTINELS["recorded_ref"] in r.text
+        scrub = security.build_scrubber(main._known_customer_refs())
+        public = security.scrub_body(r.content, "application/json", scrub).decode("utf-8")
+        assert "[customer]" in public and not _leaks(public), _leaks(public)
+        import json as _json
+
+        _json.loads(public)  # still valid JSON after the scrub
+        assert any(getattr(m, "cls", None) is security.CustomerRefScrubMiddleware
+                   for m in main.app.user_middleware), "the scrub is no longer installed"
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
         with main.db.session() as s:

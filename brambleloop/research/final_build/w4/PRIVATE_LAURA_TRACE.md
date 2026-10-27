@@ -1,5 +1,7 @@
 # Private Laura: requirement, gate, inventory, gaps and completion plan (W4-PLTRACE)
 
+> **Historical (2026-10-20).** The Private Laura register described here (`laura.private_reply@1`, "never sexually explicit", D-W4-PL-2 unresolved) is superseded by D-W4-PL-VENICE-ADULT: the `@3` adult register on Venice, with hard limits. See `VENICE.md` (CURRENT STATUS) and spec/13 ADD-PLV-02. This file is kept as the record of its stage.
+
 > **Owner decisions 2026-10-13 (D-W4-PL-3; W4-PLACT, `PLACT.md`) supersede parts of this trace:** OA-PL-3 and
 > G-10 (human consent) are **removed** as prerequisites, because Private Laura is Brambleloop's established AI
 > persona, not an impersonation of a real person; truthful AI representation still binds. G-9/OA-PL-4: private

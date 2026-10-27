@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, RedirectResponse
@@ -59,6 +59,21 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION,
 app.add_exception_handler(security.OperatorRefused, security.operator_refused_handler)
 
 
+@app.middleware("http")
+async def _unblock_fan_out(request: Request, call_next):
+    """F-467: a successful write to a gate-opening route recomputes the build graph now."""
+    response = await call_next(request)
+    try:
+        from ..build2 import unblock
+
+        if 200 <= response.status_code < 300 and unblock.opens_gates(request.method,
+                                                                     request.url.path):
+            unblock.request_recompute(db, trigger=request.url.path)
+    except Exception:  # noqa: BLE001 - a recompute request never changes the response
+        pass
+    return response
+
+
 def _known_customer_refs() -> list[str]:
     """Every stored buyer identifier, for the response scrub (A3-04 defence in depth)."""
     from ..core.models import Customer, Order
@@ -70,10 +85,36 @@ def _known_customer_refs() -> list[str]:
     return [r for r in refs if r]
 
 
-# Order matters: the scrub runs inside the header middleware, so every response -- including
-# one the scrub rewrote -- leaves with the security headers.
+def _owner_only_texts() -> list[str]:
+    """Every text an owner-inbox card or an open incident can carry, for the unauthenticated
+    scrub (FMBATCH1 62fcf5ed, extended to incidents by W4-SECPATCH)."""
+    from ..core.models import OwnerAction
+    from ..launch import access
+
+    out: list[str] = []
+    with db.session() as s:
+        for a in s.scalars(select(OwnerAction)):
+            out += [a.action, a.reason, a.consequence_of_delay, a.blocks,
+                    getattr(a, "why_software_cannot", "")]
+        for i in s.scalars(select(Incident).where(Incident.resolved == False)):  # noqa: E712
+            out += [i.summary, i.signature]
+    for c in access.CAPABILITIES:
+        r = c.request
+        out += [r.action, r.purpose, r.consequence_of_declining, r.security_scope,
+                r.continues_without]
+    return [str(t) for t in out if t]
+
+
+# W4-SECPATCH: the projection is innermost, so the public readback endpoints are cut to their
+# allow-listed fields before anything else sees the body; then the two text scrubs.
+# Order matters: the scrubs run inside the header middleware, so every response -- including
+# one a scrub rewrote -- leaves with the security headers.
+app.add_middleware(security.PublicProjectionMiddleware)
 app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
+app.add_middleware(security.OwnerTextScrubMiddleware, refs_provider=_owner_only_texts)
 app.add_middleware(security.SecurityHeadersMiddleware)
+# W4-SECPATCH2 (review F2): outermost, so no layer ever chooses between two credentials.
+app.add_middleware(security.SingleAuthorizationMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
 from .storefront_authority_api import make_router as storefront_authority_router
@@ -771,6 +812,19 @@ def api_catalogue() -> dict:
     }
 
 
+def _verify_status(passed: bool, smoke: dict, unhealthy: list) -> str:
+    """Review cbd4ff1 N-6: `status` reads OK only when the checks pass AND the smoke matrix
+    is PASS; it never says OK beside a FAIL or UNKNOWN matrix. `ok`/HTTP status unchanged."""
+    v = (smoke or {}).get("verdict")
+    if not passed or v == "FAIL":
+        return "FAIL"
+    if v == "UNKNOWN" or v is None:
+        return "UNKNOWN"
+    if unhealthy or v == "DEGRADED":
+        return "DEGRADED"
+    return "OK" if v == "PASS" else "UNKNOWN"
+
+
 @app.get("/api/finance")
 def api_finance() -> dict:
     """The books, the CFO's view and where CA$100K stands. Each figure carries its basis (measured / modelled / unknown); nothing unobserved is presented as observed."""
@@ -793,7 +847,91 @@ def api_finance() -> dict:
             pl, limits=limits, infra_monthly_cad=INFRA_MONTHLY_CAD,
             infra_ceiling_cad=INFRA_CEILING_CAD)],
         "trajectory": trajectory(pl),
+        # F-620: the owner's finance view -- MTD and YTD separately, ad spend split into
+        # credit and cash, the cash/payout position, unreconciled items and the monthly
+        # close. Each from its own source; an unreadable one is UNKNOWN, never 0.
     }
+
+
+@app.get("/api/finance/owner")
+def api_finance_owner() -> dict:
+    """F-620 owner finance view: cash/payout position, unreconciled bank lines, MTD/YTD,
+    ad credit vs cash and the monthly close. Operator credential required (review N-1): it
+    carries the owner's bank balance, statement line ids, payouts, reserves and runway, so it
+    is never part of the public `/api/finance`."""
+    return _finance_owner_view()
+
+
+def _finance_owner_view() -> dict:
+    from datetime import datetime as _dt
+
+    now = _dt.now(timezone.utc)
+
+    def guard(fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - one source never blanks the others
+            return {"status": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+
+    def windows():
+        from ..finance.accounting import dashboard as acct
+
+        out = {}
+        for w in ("mtd", "ytd"):
+            got = acct.summary(db, window=w, now=now, refresh=False)
+            out[w] = {"status": got.get("status"),
+                      "items": {i.get("metric"): i.get("value_cad")
+                                for i in got.get("items") or []},
+                      "window": got.get("window")}
+        return out
+
+    def ads():
+        from ..finance import credits
+
+        with db.session() as s:
+            cash = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                                  .where(CostEntry.kind == "ads")) or 0.0)
+            any_ads = s.scalar(select(func.count()).select_from(CostEntry)
+                               .where(CostEntry.kind == "ads")) or 0
+        w = credits.wallet(db, now=now)
+        ad_credit = [c for p in w["providers"].values() for c in p["credits"]
+                     if c["kind"] == "ads_credit"]
+        drawn = round(sum(c.get("estimated_drawn_cad") or 0.0 for c in ad_credit), 6)
+        return {"recorded_ad_spend_cad": round(cash, 6) if any_ads else "UNMEASURED",
+                "free_ad_credit_granted_cad": (round(sum(c["amount_cad"] for c in ad_credit), 6)
+                                               if ad_credit else "UNMEASURED"),
+                "estimated_paid_by_credit_cad": drawn if ad_credit else "UNMEASURED",
+                "estimated_cash_ad_spend_cad": (round(max(cash - drawn, 0.0), 6)
+                                                if any_ads else "UNMEASURED"),
+                "basis": "credit draw is ESTIMATED (finance.credits.DRAW_ASSUMPTION)"}
+
+    def cash_position():
+        from ..finance.accounting import cash
+
+        return cash.position(db, now=now)
+
+    def unreconciled():
+        from ..finance.accounting import reconciliation
+
+        lines = reconciliation.statement_lines(db)
+        open_ = [ln for ln in lines if ln.get("state") == "unmatched"]
+        # F-681: the items themselves, not only their count, newest first.
+        return {"statement_lines": len(lines), "unreconciled": len(open_),
+                "unreconciled_cad": round(sum(ln["amount_cad"] for ln in open_), 4),
+                "items": [{k: ln[k] for k in ("id", "source", "external_id", "at", "kind",
+                                              "reference", "amount_cad")}
+                          for ln in sorted(open_, key=lambda x: x["at"], reverse=True)[:50]],
+                "basis": "imported statement lines still `unmatched` "
+                         "(finance.accounting.reconciliation)"}
+
+    def close():
+        from ..finance.accounting import close as close_mod
+
+        return close_mod.status(db, now=now)
+
+    return {"as_of": now.isoformat(), "windows": guard(windows), "ads": guard(ads),
+            "cash_and_payout": guard(cash_position), "unreconciled": guard(unreconciled),
+            "monthly_close": guard(close)}
 
 
 # F-696 / F-689: routes that return customer, order or support *content* -- anything a buyer
@@ -1262,6 +1400,31 @@ def api_mjs_reclassify(dry_run: bool = False,
     from ..intel import observe
 
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
+
+
+@app.post("/api/research/evidence")
+async def api_research_evidence(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """F-448: the owner hands over a source, a note or terminology as research evidence.
+
+    Stored as a learning observation (`claim_class` source_claim, `kind` owner_supplied, with
+    its source tier); supplied terms join the research search glossary. Operator credential.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    from ..intel import owner_evidence
+
+    try:
+        payload = await request.json()
+        return JSONResponse(owner_evidence.record(db, payload))
+    except owner_evidence.OwnerEvidenceRefused as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except ValueError:
+        return JSONResponse({"error": "a JSON body is required"}, status_code=422)
 
 
 @app.post("/api/owner/decision")
@@ -2005,6 +2168,32 @@ def api_spend_policy() -> dict:
     return spend_policy.state(db)
 
 
+def _learning_value_reading() -> dict:
+    try:
+        from ..finance import learning_value
+
+        return learning_value.report(db)
+    except Exception as exc:  # noqa: BLE001 - an unreadable reading is UNKNOWN, by name
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
+def _adoptions_reading() -> dict:
+    try:
+        from ..ops import adoptions
+
+        return adoptions.report(db)
+    except Exception as exc:  # noqa: BLE001 - an unreadable reading is UNKNOWN, by name
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
+@app.get("/api/spend-report/governance")
+def api_spend_governance() -> dict:
+    """F-723 learning value (research questions and their realised value) and F-417 adoption
+    costs. Operator credential required (review N-1 audit): research questions and per-provider
+    adoption detail are internal, so they are not on the public spend report."""
+    return {"learning_value": _learning_value_reading(), "adoptions": _adoptions_reading()}
+
+
 @app.get("/api/spend-report")
 def api_spend_report() -> dict:
     """What the money bought, by every dimension the owner asked to see it by.
@@ -2028,6 +2217,7 @@ def api_spend_report() -> dict:
             # actually said no. Both are how a guard is told apart from one that never fires.
             "drift": spend_report.estimate_drift(db),
             "refusals": spend_report.refusals(db),
+            # F-723: research spend's expected learning value beside what it realised.
             "this_week": {"period": "iso_week",
                           "spent_cad": round(sum(float(r.amount_cad or 0.0)
                                                  for r in spend_report.rows(db, period="week")),
@@ -2918,6 +3108,8 @@ def api_swarm_runtime() -> dict:
             db, worker_target=target if isinstance(target, int) else None)),
         "untouched_opportunities": _guard(lambda: swarm_metrics.untouched_opportunities(db)),
         "parallelism": _guard(lambda: swarm_metrics.parallelism(rs)),
+        # W4-FMBATCH1 (F-489): compression, parallel throughput and conflict rate from rows.
+        "parallel_window": _guard(lambda: swarm_metrics.parallel_window(db)),
     }
 
 
@@ -3205,6 +3397,34 @@ def api_arbitrage(pod: str = "") -> dict:
     from ..radar import arbitrage
 
     return arbitrage.state(db, pod=pod)
+
+
+@app.get("/api/evidence")
+def api_evidence(subject: str = "") -> dict:
+    """F-475: every internal corpus searched for a subject, with what was searched."""
+    from ..intel import evidence_index
+
+    return evidence_index.search(db, subject)
+
+
+@app.get("/api/marketing/constellation/{slug}")
+def api_constellation(slug: str):
+    """F-814: the product's content constellation with Learn members, each with a reason."""
+    from ..growth import constellation
+
+    try:
+        return constellation.constellation(db, slug)
+    except KeyError:
+        return JSONResponse({"error": f"no product {slug!r}"}, status_code=404)
+
+
+@app.get("/api/opportunities")
+def api_opportunities(limit: int = 20) -> dict:
+    """F-673: one card per concept -- radar score, department arbitrage, rights feasibility,
+    and the next pre-production experiment. Missing readings are UNMEASURED by name."""
+    from ..radar import cards
+
+    return cards.cards(db, limit=max(1, min(int(limit), 100)))
 
 
 @app.get("/api/serp")
@@ -4309,6 +4529,7 @@ def api_owned() -> dict:
     return {
         "counterparts": owned.counterparts(db),
         "owned_share": owned.owned_share(db),
+        "assisted_conversions": owned.assisted_conversions(db),
         "casl": {
             "bases": owned.BASES,
             "implied_lifetime_days": owned.IMPLIED_LIFETIME_DAYS,
@@ -4601,6 +4822,78 @@ def api_dependencies() -> dict:
     from ..ops import dependencies
 
     return dependencies.map_state(db)
+
+
+@app.get("/api/products/lifecycle")
+def api_products_lifecycle() -> dict:
+    """F-672: every product on the lifecycle board, its stage derived from rows."""
+    from ..products import lifecycle
+
+    return lifecycle.board(db)
+
+
+@app.get("/api/product/{slug}/dossier")
+def api_product_dossier(slug: str) -> dict:
+    """F-671: every table that knows this product, read where it lives (operator-only)."""
+    from ..products import dossier
+
+    return dossier.dossier(db, slug)
+
+
+@app.get("/api/etsy/scorecard")
+def api_etsy_scorecard() -> dict:
+    """F-549: one evidence-backed Etsy shop scorecard, each line from its owning source."""
+    from ..intel import etsy_scorecard
+
+    return etsy_scorecard.scorecard(db)
+
+
+@app.get("/api/orchestrator")
+def api_orchestrator() -> dict:
+    """F-451: the master orchestrator view (requirements, departments, dependencies, owner
+    gates, external blockers, spend, deployments, active work), each section guarded."""
+    from ..autonomy import master_view
+
+    return master_view.view(db, env=dict(os.environ))
+
+
+@app.get("/api/useful-work")
+def api_useful_work() -> dict:
+    """F-719: 24/7 useful-work readings (ready age by band, owner-blocked hours, WATCHING
+    time, autonomous completion rate), from rows; UNMEASURED is never zero."""
+    from ..ops import useful_work
+
+    return useful_work.readings(db)
+
+
+@app.get("/api/company/departments")
+def api_company_departments() -> dict:
+    """F-601 / F-454 / F-656: the named departments with mandate, backlog (by RUN/GROW/
+    IMPROVE class), KPIs, evidence and improvement loop, each PRESENT or MISSING."""
+    from ..autonomy import departments
+
+    return departments.coverage(db)
+
+
+@app.get("/api/company/departments/{key}")
+def api_company_department(key: str):
+    """F-667: one department's workspace -- agents and jobs, queue, spend, experiments,
+    incidents and blockers together."""
+    from ..autonomy import department_workspace
+
+    try:
+        return department_workspace.workspace(db, key)
+    except KeyError:
+        return JSONResponse({"error": f"no department {key!r}"}, status_code=404)
+
+
+@app.get("/api/physical-truth")
+def api_physical_truth() -> dict:
+    """F-089: every Class B/C product's tester, version, stage, due date, findings, deltas
+    and whether launch is blocked on its sample (quality.physical_truth)."""
+    from ..quality import physical_truth
+
+    return physical_truth.dashboard(db)
 
 
 @app.get("/api/seasonal/feasibility")
@@ -5222,7 +5515,15 @@ def api_verify() -> JSONResponse:
         smoke = smoke_matrix(db)
     except Exception as exc:  # noqa: BLE001
         smoke = {"verdict": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
-    return JSONResponse({"ok": passed, "checks": checks,
+    # F-171 (W4-FMBATCH1): a model provider that answers its probe with a failure (credit,
+    # auth, ...) is not a safety breach, so it does not flip `ok`; it makes the status
+    # DEGRADED and is named, with its reason class only (never the provider's error body).
+    provider_health = [c for c in (smoke.get("checks") or [])
+                       if str(c.get("check", "")).startswith("provider_health:")]
+    unhealthy = [c for c in provider_health if c.get("verdict") in ("FAIL", "DEGRADED")]
+    status = _verify_status(passed, smoke, unhealthy)
+    return JSONResponse({"ok": passed, "status": status, "checks": checks,
+                         "provider_health": provider_health,
                          "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
 
@@ -5544,8 +5845,16 @@ def api_etsy_exercise(mode: str = "full",
 # ---- dashboard ------------------------------------------------------------
 
 _CSS = """
+details.fold summary{cursor:pointer;font-size:13px;margin:4px 0 10px}
 :root{--ink:#1A2B3C;--pine:#244A3A;--cream:#FAF6EB;--gold:#C49545;--wine:#6E1F2A;
---muted:#6b7280;--line:#e5e0d3}
+--muted:#6b7280;--line:#e5e0d3;--surface:#fff;--surface-2:#f7f4ea;--warn-bg:#fffaf0;
+--ok-bg:#e6f2ec;--bad-bg:#fae8ea;--amber-bg:#fdf3e2;--grey-bg:#eef0f2;--alarm:#cf222e;
+color-scheme:light dark}
+/* F-670: dark tokens follow the reader's system setting; every colour below is a token */
+@media (prefers-color-scheme:dark){:root{--ink:#e8e4d8;--pine:#86c3a4;--cream:#13181e;
+--gold:#d9b06a;--wine:#e7909b;--muted:#9aa3ad;--line:#2c333b;--surface:#1b222a;
+--surface-2:#222a33;--warn-bg:#2a2518;--ok-bg:#1d3329;--bad-bg:#3a2026;--amber-bg:#352b17;
+--grey-bg:#262d35;--alarm:#ff7b72}}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);
 font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
 header{background:var(--pine);color:var(--cream);padding:18px 24px}
@@ -5554,27 +5863,60 @@ h1{margin:0;font-size:20px;letter-spacing:.02em}
 main{max-width:1100px;margin:0 auto;padding:24px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;
 margin-bottom:24px}
-.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
 .card b{display:block;font-size:22px;color:var(--pine)}
 .card span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
 margin:24px 0 8px}
-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
 border-radius:10px;overflow:hidden}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px}
-th{background:#f7f4ea;font-weight:600;text-transform:uppercase;font-size:11px;
+th{background:var(--surface-2);font-weight:600;text-transform:uppercase;font-size:11px;
 letter-spacing:.05em;color:var(--muted)}
 tr:last-child td{border-bottom:none}
 .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.done{background:#e6f2ec;color:var(--pine)}.dead{background:#fae8ea;color:var(--wine)}
-.running{background:#fdf3e2;color:var(--gold)}.pending{background:#eef0f2;color:var(--muted)}
-.failed{background:#fdf3e2;color:#9a6b1f}
+.done{background:var(--ok-bg);color:var(--pine)}.dead{background:var(--bad-bg);color:var(--wine)}
+.running{background:var(--amber-bg);color:var(--gold)}.pending{background:var(--grey-bg);color:var(--muted)}
+.failed{background:var(--amber-bg);color:var(--gold)}
 .empty{color:var(--muted);font-style:italic;padding:12px}
-.owner{border-left:4px solid var(--gold);background:#fffaf0}
+.owner{border-left:4px solid var(--gold);background:var(--warn-bg)}
 .card small{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
-.card.alarm{border-left:4px solid #cf222e}
+.card.alarm{border-left:4px solid var(--alarm)}
 .asof{color:var(--muted);font-size:11px;margin:-6px 0 6px}
+/* F-670: the chart component (inline SVG sparklines) and drill-down links */
+.spark{display:block;width:100%;height:44px;color:var(--pine)}
+.trend a{color:var(--pine);font-size:12px}
+/* F-653: wide tables scroll inside their own box; the page itself never scrolls sideways */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;margin-bottom:4px}
+td{overflow-wrap:anywhere}
+@media (max-width:600px){main{padding:12px}header{padding:14px 16px}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{padding:10px}
+.card b{font-size:18px}th,td{padding:6px 8px;font-size:12px}
+.m-act{display:block;padding:12px;margin:8px 0;border-radius:10px;background:var(--surface);
+border:1px solid var(--line);min-height:44px}}
+@media (min-width:601px) and (max-width:1024px){main{padding:16px}
+.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 """
+
+
+def _sparkline(values: list[float], *, label: str, width: int = 240, height: int = 44) -> str:
+    """F-670: the dashboard's chart component -- an inline SVG sparkline (no script; CSP-safe).
+    An empty or all-zero series is drawn flat and says so in its label."""
+    vals = [float(v or 0.0) for v in values] or [0.0]
+    top = max(vals) or 1.0
+    step = width / max(1, len(vals) - 1)
+    pts = " ".join(f"{i * step:.1f},{height - 2 - (v / top) * (height - 4):.1f}"
+                   for i, v in enumerate(vals))
+    return (f'<svg class="spark" viewBox="0 0 {width} {height}" role="img" '
+            f'aria-label="{esc(label)}" preserveAspectRatio="none"><polyline fill="none" '
+            f'stroke="currentColor" stroke-width="2" points="{pts}"/></svg>')
+
+
+def _wrap_tables(html: str) -> str:
+    """F-653: every dashboard table scrolls inside its own box, whichever block drew it."""
+    return re.sub(r"<table(\b[^>]*)>(.*?)</table>",
+                  lambda m: f'<div class="tw"><table{m.group(1)}>{m.group(2)}</table></div>',
+                  html, flags=re.S)
 
 
 def _counts() -> dict:
@@ -5612,8 +5954,101 @@ def _pill(status: str) -> Markup:
     return Markup(f'<span class="pill {cls}">{esc(status)}</span>')
 
 
+@app.get("/m", response_class=HTMLResponse)
+def dashboard_mobile() -> str:
+    """F-653: the owner's phone view -- health, what is waiting on the owner, today's numbers.
+
+    Read-only aggregates; owner decisions appear only as a count linking to the owner
+    session (review N-1 audit). Laid
+    out for a narrow touch screen: one column, 44 px touch targets, no table wider than the
+    viewport. Each block degrades to "unavailable" on its own; UNKNOWN is never zero.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+
+    now = _dt.now(timezone.utc)
+    blocks = []
+
+    def block(title, fn):
+        try:
+            body = fn()
+        except Exception as exc:  # noqa: BLE001 - one block never takes the page down
+            body = f'<div class="empty">unavailable: {esc(type(exc).__name__)}</div>'
+        blocks.append(f"<h2>{esc(title)}</h2>{body}")
+
+    def _health():
+        st = api_status()
+        q = st.get("queue") or {}
+        r = st.get("runner") or {}
+        worker = ("live" if r.get("worker_alive") else
+                  "off" if not r.get("enabled") else "stalled")
+        cards = [("worker", worker), ("pending", q.get(JobStatus.PENDING.value, "UNKNOWN")),
+                 ("dead letters", q.get(JobStatus.DEAD.value, "UNKNOWN"))]
+        return '<div class="grid">' + "".join(
+            f'<div class="card"><b>{esc(v)}</b><span>{esc(k)}</span></div>'
+            for k, v in cards) + "</div>"
+
+    def _owner():
+        from ..build2 import executor
+
+        cards = executor.approval_inbox(db, env=dict(os.environ))["cards"]
+        if not cards:
+            return '<div class="empty">Nothing is waiting on you.</div>'
+        # Review N-1 audit: /m is public, so it shows how many decisions wait and links to the
+        # owner session for what they are -- the card texts stay behind the owner login.
+        return (f'<a class="m-act" href="/cc/"><b>{len(cards)}</b> decision(s) waiting'
+                f'<br><small>open the Command Center to see them</small></a>')
+
+    def _today():
+        since = now - _td(hours=24)
+        day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        with db.session() as s:
+            done = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.DONE, Job.finished_at >= since)) or 0
+            dead = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.DEAD, Job.finished_at >= since)) or 0
+            spent = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                                   .where(CostEntry.at >= day)) or 0.0)
+        cards = [("jobs done 24h", done), ("dead letters 24h", dead),
+                 ("spend today", f"CA${spent:,.2f}")]
+        return '<div class="grid">' + "".join(
+            f'<div class="card"><b>{esc(v)}</b><span>{esc(k)}</span></div>'
+            for k, v in cards) + "</div>"
+
+    block("Health", _health)
+    block("Waiting on you", _owner)
+    block("Today", _today)
+    return f"""<!doctype html><html><head><meta charset="utf-8">
+<title>Brambleloop</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>{_CSS}</style></head><body><header><h1>Brambleloop</h1>
+<div class="sub">as of {esc(now.strftime('%Y-%m-%d %H:%M UTC'))} · <a style="color:inherit"
+href="/">full dashboard</a></div></header><main>{''.join(blocks)}</main></body></html>"""
+
+
+_PUBLIC_ROOT = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brambleloop Studio</title></head><body>
+<h1>Brambleloop Studio</h1>
+<p>This service has no public pages.</p>
+<p><a href="/cc/">Owner sign-in</a></p>
+</body></html>"""
+
+
 @app.get("/", response_class=HTMLResponse)
+def root(request: Request) -> str:
+    """W4-SECPATCH: the operations dashboard is owner-only. An unauthenticated caller gets a
+    page with no operational data at all (no inbox, incidents, spend, jobs, gates, products,
+    not even counts); the owner's surface is the authenticated Command Center at `/cc/`. The
+    full dashboard is served only to a request presenting the operator credential."""
+    if security.presents_operator_credential(request.headers.get("authorization")):
+        return dashboard()
+    return _PUBLIC_ROOT
+
+
 def dashboard() -> str:
+    # INTEG7: FMBATCH1 rendered owner-inbox text only for the operator view. Under W4-SECPATCH
+    # this page is served only to the operator credential (root above), so the view is the
+    # operator's.
+    operator_view = True
     st = api_status()
     q = JobQueue(db)
 
@@ -5657,6 +6092,14 @@ def dashboard() -> str:
     # Built because the owner said they should not have to infer progress from code logs.
     # Every block is guarded: a dashboard that fails to render because one subsystem is
     # unhappy tells the owner nothing about the twelve that are fine.
+    # F-200 (W4-FMBATCH1): the page reads in owner-decision order -- health/phase, owner
+    # actions, launch blockers (readiness, incidents), product/creative truth, spend, then
+    # operations detail and the audit trail. F-201: the large tables open as one summary line
+    # with the full table one tap away; nothing is dropped, only folded.
+    def _fold(summary: str, inner: str, *, open_: bool = False) -> str:
+        return (f'<details class="fold"{" open" if open_ else ""}><summary>{esc(summary)}'
+                f'</summary>{inner}</details>')
+
     def _block(title: str, build) -> str:
         # F-203: every block states when it was read. The blocks are computed on request, so
         # the as-of is the query time; a block reading an older snapshot says so itself.
@@ -5689,15 +6132,21 @@ def dashboard() -> str:
                 return rows([], [[]], "nothing is waiting on the owner")
             return rows([], [[]], "queue empty but UNPROVEN: "
                         + str(es.get("why") or "the empty-queue check did not run"))
-        return rows(
-            [(c["gate"] or c["requirement_key"], c["action"],
-              _owner_cost_text(c), f"{c['minutes']} min",
-              c.get("consequence_of_waiting", ""), c["unblocks_count"],
-              c.get("evidence", ""))
-             for c in cards],
-            [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
-              "Unblocks", "Evidence it is done"]],
-            "")
+        if operator_view:
+            return rows(
+                [(c["gate"] or c["requirement_key"], c["action"],
+                  _owner_cost_text(c), f"{c['minutes']} min",
+                  c.get("consequence_of_waiting", ""), c["unblocks_count"],
+                  c.get("evidence", ""))
+                 for c in cards],
+                [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
+                  "Unblocks", "Evidence it is done"]],
+                "")
+        # Coordinator decision 2026-10-26: `/` is public, so it shows how many decisions wait
+        # and links to the owner session; the card texts stay behind the owner login (as /m).
+        return Markup(f'<div class="card owner"><b>{len(cards)}</b><span>decision(s) waiting'
+                      f'</span><small><a href="/cc/">open the Command Center to see and '
+                      f'answer them</a></small></div>')
 
     def _external() -> str:
         """F-196: gates no owner action can open. Listed, never asked for."""
@@ -5719,6 +6168,32 @@ def dashboard() -> str:
               (o.get("summary", "") or "")[:110]) for o in seen],
             [["Observed", "Domain", "Source", "What changed"]],
             "nothing observed yet -- which is a state, not a quiet week")
+
+    def _studio_learn() -> str:
+        """F-827: Studio Learn from the database -- lessons by state, learner-need coverage and
+        what is waiting for review. Empty tables say so; a count nobody took is not zero."""
+        from ..learn.models import LearnGap, Lesson as LearnLesson
+
+        try:
+            with db.session() as s:
+                lessons = dict(s.execute(select(LearnLesson.state, func.count())
+                                         .group_by(LearnLesson.state)).all())
+                gaps = dict(s.execute(select(LearnGap.state, func.count())
+                                      .group_by(LearnGap.state)).all())
+        except Exception as exc:  # noqa: BLE001 - tables absent here: UNKNOWN, not zero
+            return f'<div class="empty">unavailable: {esc(type(exc).__name__)}</div>'
+        total_gaps = sum(gaps.values())
+        coverage = (f"{gaps.get('COVERED', 0)} / {total_gaps}" if total_gaps
+                    else "UNMEASURED (no learner need recorded)")
+        return rows([
+            ("lessons", ", ".join(f"{k}: {v}" for k, v in sorted(lessons.items()))
+             or "none written yet"),
+            ("awaiting review", str(sum(v for k, v in lessons.items()
+                                        if k == "DRAFT"))),
+            ("learner needs covered", coverage),
+            ("needs by state", ", ".join(f"{k}: {v}" for k, v in sorted(gaps.items()))
+             or "none recorded"),
+        ], [["Studio Learn", "Value"]], "")
 
     def _health() -> str:
         """Online means work is progressing, not that this page rendered (#185)."""
@@ -5911,15 +6386,20 @@ def dashboard() -> str:
         counts = room["counts"]
         head = rows([(k.replace("_", " "), str(v)) for k, v in counts.items()],
                     [["Window", "Products"]], "")
+        # F-194: the same windows split by cohort (legacy / launch candidate / programme).
+        by_cohort = room.get("counts_by_cohort") or {}
+        head += rows([(c.replace("_", " "), ", ".join(
+            f"{k.replace('_', ' ')}: {v}" for k, v in by_cohort[c].items()))
+            for c in sorted(by_cohort)], [["Cohort", "Windows"]], "")
         if not at_risk:
             return head + '<div class="empty">Nothing is inside its last actionable window.</div>'
         return head + rows(
-            [(r["slug"], r["event"], f"{r['days_to_latest']}d",
-              r["latest_effective_launch"]) for r in at_risk[:10]],
-            [["At risk", "Event", "Runway", "Last viable launch"]], "")
+            [(r["slug"], r.get("cohort", "unknown").replace("_", " "), r["event"],
+              f"{r['days_to_latest']}d", r["latest_effective_launch"]) for r in at_risk[:10]],
+            [["At risk", "Cohort", "Event", "Runway", "Last viable launch"]], "")
 
     def _scale() -> str:
-        from ..scale.confidence import probability
+        from ..scale.confidence import probability, progress_text
 
         p = probability(db)
         gate = p["evidence_gate"]
@@ -5930,6 +6410,8 @@ def dashboard() -> str:
             ("capped by", p["capped_by"]),
             ("evidence gate", "met" if gate["satisfied"] else
              f"unmet: {', '.join(sorted(gate['unmet']))}"),
+            # F-190: each evidence class with its observed share of the requirement.
+            *progress_text(gate),
         ], [["CA$5K model", "Value"]], "")
 
     def _creative() -> str:
@@ -6016,8 +6498,36 @@ def dashboard() -> str:
         headline_html = (f'<div class="empty">headline unavailable: {esc(type(e).__name__)}: '
                          f'{esc(e)}</div>')
 
+    def _trends() -> str:
+        """F-670: 14-day charts with drill-down to the route each one is read from."""
+        days = [(utcnow() - timedelta(days=13 - i)).date() for i in range(14)]
+        start = datetime.combine(days[0], datetime.min.time(), tzinfo=timezone.utc)
+        spend = {d: 0.0 for d in days}
+        done = {d: 0 for d in days}
+        with db.session() as s:
+            for at, amt in s.execute(select(CostEntry.at, CostEntry.amount_cad)
+                                     .where(CostEntry.at >= start)):
+                d = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).date()
+                if d in spend:
+                    spend[d] += float(amt or 0.0)
+            for (at,) in s.execute(select(Job.finished_at).where(
+                    Job.status == JobStatus.DONE, Job.finished_at >= start)):
+                d = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).date()
+                if d in done:
+                    done[d] += 1
+        cells = [("Model and tool spend, CA$/day", list(spend.values()),
+                  f"CA${sum(spend.values()):,.2f} over 14 days", "/api/spend-report"),
+                 ("Jobs completed per day", list(done.values()),
+                  f"{sum(done.values())} over 14 days", "/api/status")]
+        return '<div class="grid">' + "".join(
+            f'<div class="card trend"><span>{esc(t)}</span>'
+            f'{_sparkline(v, label=f"{t}: {tot}")}<small>{esc(tot)} &middot; '
+            f'<a href="{esc(href)}">drill down</a></small></div>'
+            for t, v, tot, href in cells) + "</div>"
+
     command_centre = (
-        _block("Build 2 coverage", _build2)
+        _block("Trends", _trends)
+        + _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
         + _block("Etsy surfaces", _etsy_surfaces)
@@ -6025,6 +6535,7 @@ def dashboard() -> str:
         + _block("CA$5,000/month model", _scale)
         + _block("Creative standard", _creative)
         + _block("Improvement", _improve)
+        + _block("Studio Learn", _studio_learn)
         + _block("Capabilities and spend", _models)
     )
 
@@ -6038,7 +6549,7 @@ def dashboard() -> str:
         last_ok_at = f"{last_ok.at:%Y-%m-%d %H:%M} UTC" if last_ok else "never recorded"
     started = st["runner"].get("worker_started_at") or "unknown"
 
-    return f"""<!doctype html><html><head><meta charset="utf-8">
+    return _wrap_tables(f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Brambleloop Studio OS</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>{_CSS}</style></head><body>
 <header><h1>BRAMBLELOOP STUDIO</h1>
@@ -6047,8 +6558,23 @@ def dashboard() -> str:
 &middot; last clean /api/verify: <b>{esc(last_ok_at)}</b></div>
 </header><main>
 {headline_html}
+{_block("Health", _health)}
 {_block("Waiting on the owner", _approvals)}
 {_block("External capability unavailable", _external)}
+{launch_html}
+<h2>Open incidents</h2>
+{_newest_row_line(i.at for i in incidents)}
+{_fold(f"{len(incidents)} open, {sum(1 for i in incidents if i.halts_publication)} halting publication",
+       rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
+              "HALTS" if i.halts_publication else "") for i in incidents],
+            [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents."),
+       open_=any(i.halts_publication for i in incidents))}
+{command_centre}
+<h2>Products</h2>
+{_newest_row_line(p.created_at for p in products)}
+{rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
+      [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
+{_spend_governance_html()}
 <h2>Volume and operations</h2>
 <div class="sub" style="color:var(--muted);font-size:12px">Output volume, not business readiness.</div>
 <div class="grid">
@@ -6070,34 +6596,24 @@ Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
 &middot; scheduler {esc(st['runner']['scheduler_last_tick'] or 'never')}
 {('&middot; last error: ' + esc(st['runner']['last_error'])) if st['runner']['last_error'] else ''}
 </div>
-{command_centre}
-{_block("Health", _health)}
-{_block("Learning changes", _learning)}
-{launch_html}
+{_block("Learning changes", lambda: _fold("learning changes (expand)", _learning()))}
 <h2>Recent jobs</h2>
 {_newest_row_line(t for j in jobs for t in (j.finished_at, j.started_at, j.created_at))}
-{rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
-        (j.last_error or "")[:70]) for j in jobs],
-      [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet.")}
-<h2>Products</h2>
-{_newest_row_line(p.created_at for p in products)}
-{rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
-      [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
-<h2>Open incidents</h2>
-{_newest_row_line(i.at for i in incidents)}
-{rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
-        "HALTS" if i.halts_publication else "") for i in incidents],
-      [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents.")}
-{_spend_governance_html()}
+{_fold(f"{len(jobs)} most recent jobs, {sum(1 for j in jobs if j.status.value == 'dead')} dead",
+       rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
+              (j.last_error or "")[:70]) for j in jobs],
+            [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet."))}
 <h2>Agents</h2>
-{rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
-        "on" if a.enabled else "off") for a in agents],
-      [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents.")}
+{_fold(f"{len(agents)} agents, {sum(1 for a in agents if a.enabled)} enabled",
+       rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
+              "on" if a.enabled else "off") for a in agents],
+            [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents."))}
 <h2>Audit trail</h2>
 {_newest_row_line(a.at for a in audits)}
-{rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
-      [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet.")}
-</main></body></html>"""
+{_fold(f"{len(audits)} most recent audit rows" + (f", newest {audits[0].action}" if audits else ""),
+       rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
+            [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet."))}
+</main></body></html>""")
 
 
 # ---------------------------------------------------------------------------

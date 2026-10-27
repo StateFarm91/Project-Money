@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 
 from .artefacts import ARTEFACT_CLASSES, UNPROVEN, check
 
@@ -218,9 +219,45 @@ def _bounded_key(prefix: str, stamp: str) -> str:
     return job_key(prefix[:-1] if prefix.endswith(":") else prefix, stamp)
 
 
+# How long after the last terminal attempt for a product the same change may be asked for
+# again. Long enough that a verify cycle (3 x 20 min) has finished; one retry per UTC day.
+RETRY_AFTER = timedelta(hours=12)
+
+
+def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
+    """Products with a chain.rebuild in flight, or one that ended inside RETRY_AFTER.
+
+    Review F6: one bounded query per sentinel run (in-flight rows plus rows touched inside the
+    window), never every chain.rebuild ever written once per product."""
+    from sqlalchemy import or_, select
+
+    from ..core.models import Job, JobStatus
+
+    since = now - RETRY_AFTER
+    rows = db.execute(select(Job.inputs).where(
+        Job.job_type == "chain.rebuild",
+        or_(Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)),
+            Job.finished_at >= since,
+            Job.finished_at.is_(None) & (Job.created_at >= since))))
+    return {str((inputs or {}).get("product_slug") or "") for (inputs,) in rows}
+
+
+def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
+               recent: set[str] | None = None) -> str | None:
+    """A fresh daily key when no chain.rebuild for `slug` is in flight and none ended inside
+    RETRY_AFTER; otherwise None (the existing attempt stands)."""
+    now = now or datetime.now(timezone.utc)
+    if recent is None:
+        recent = _recent_rebuild_slugs(db, now)
+    if slug in recent:
+        return None
+    return job_key(f"{key}:retry", now.date().isoformat())
+
+
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             expected: list[tuple[str, str, str]] | None = None,
-            per: str = "artefact", previous: dict[str, str] | None = None) -> dict:
+            per: str = "artefact", previous: dict[str, str] | None = None,
+            now: datetime | None = None, hold=None) -> dict:
     """Enqueue the rebuild set idempotently, keyed on what moved.
 
     The key carries the new fingerprint, so the same change enqueues once however many times
@@ -242,21 +279,49 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         by_product: dict[str, list[dict]] = {}
         for row in plan["rebuild"]:
             by_product.setdefault(row["product_slug"], []).append(row)
+        retried: list[str] = []
+        held: dict[str, str] = {}
+        recent: set[str] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
+            payload = {"product_slug": slug,
+                       "artefacts": [r["key"] for r in rows],
+                       "reason": reason, "changed": plan["changed"],
+                       "fingerprints": {
+                           ref: {"old": (previous or {}).get(ref), "new": fp}
+                           for ref, fp in sorted(changed.items())}}
             try:
-                queue.enqueue("listing", "chain.rebuild",
-                              {"product_slug": slug,
-                               "artefacts": [r["key"] for r in rows],
-                               "reason": reason, "changed": plan["changed"],
-                               "fingerprints": {
-                                   ref: {"old": (previous or {}).get(ref), "new": fp}
-                                   for ref, fp in sorted(changed.items())}},
-                              idempotency_key=key)
+                queue.enqueue("listing", "chain.rebuild", payload, idempotency_key=key)
                 enqueued.extend(r["key"] for r in rows)
             except DuplicateJob:
+                # W4-PRODFIX: the key names the change, so an attempt that ended without
+                # delivering it (refused downstream, rebuild-incomplete) held the key for
+                # good and the artefacts were never asked for again -- production 051dbee2
+                # had 299 stale artefacts and no rebuild for days. Once the last attempt
+                # for this product is terminal and old enough, ask again, once a day.
+                if recent is None:
+                    recent = _recent_rebuild_slugs(db, now or datetime.now(timezone.utc))
+                again = _retry_key(db, slug, key, now=now, recent=recent)
+                # INTEG7 (review S-2): no daily retry while an owner- or policy-gated reason
+                # refuses this product's rebuild; it resumes when the gate clears.
+                held_why = hold(slug) if (again and hold is not None) else None
+                if held_why:
+                    held[slug] = held_why
+                    already.extend(r["key"] for r in rows)
+                    continue
+                if again:
+                    try:
+                        queue.enqueue("listing", "chain.rebuild",
+                                      {**payload, "retry_of_key": key, "retry": again},
+                                      idempotency_key=again)
+                        enqueued.extend(r["key"] for r in rows)
+                        retried.append(slug)
+                        continue
+                    except DuplicateJob:
+                        pass
                 already.extend(r["key"] for r in rows)
-        return {"enqueued": enqueued, "already_queued": already,
+        return {"enqueued": enqueued, "already_queued": already, "retried": retried,
+                "retry_held": held,
                 "plan": plan, "reason": reason, "per": per,
                 "idempotency": ("keyed on the product and the new fingerprint, so the same "
                                 "change enqueues once and a different change enqueues again")}

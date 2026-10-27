@@ -11,6 +11,7 @@ Also here: the additive migration that carries the lineage columns onto a databa
 before them, and the `/api/provenance` surface that reports the estate by class and source.
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import os
 import sys
@@ -363,7 +364,7 @@ def test_the_api_reports_the_estate_by_class_source_and_unknown_fields():
     _seed(db)
     with db.session() as s:
         B.run(s)
-    body = TestClient(app_main.app).get("/api/provenance").json()
+    body = _opread.get(TestClient(app_main.app), "/api/provenance").json()
     assert body["by_source"] == {"backfilled": 10}
     assert body["by_class"]["certificate"] == {"fresh": 1, "stale": 0, "unproven": 0}
     assert body["by_class"]["listing_copy"] == {"fresh": 0, "stale": 1, "unproven": 1}

@@ -16,32 +16,57 @@ from brambleloop.gateway import anthropic as gw
 from brambleloop.gateway import laura_register
 from brambleloop.gateway.model_gateway import ModelResponse
 
+from brambleloop.gateway import venice as _venice
+
 REPLY = "PRIV-SENTINEL-REPLY-0001"
 DUMMY_KEY = "test-dummy-not-a-key"
+#: The model the private reply path uses in these suites (the pinned Venice default).
+MODEL = _venice.MODEL
+PROVIDER = _venice.NAME
+# INTEG5 finding (2026-10-20, W4-LAURAONE freeze): the adult register `laura.private_reply@3`
+# runs ONLY on Venice; any other private transport is refused (REGISTER_NEEDS_VENICE). These
+# suites therefore exercise the one reply path over a STUBBED VENICE transport (they used the
+# Anthropic transport before). `Stub.calls` keeps the request in the same shape the suites
+# assert on ({model, max_tokens, system, messages}), translated from Venice's wire format, and
+# the Anthropic transport now fails the test if anything reaches it.
+#: The real Venice transport, captured at import, so `enabled(None)` can refuse it.
+_REAL_VENICE_POST = _venice.VeniceProvider._post
 ENABLE = {laura_register.REGISTER_SWITCH_ENV: "1", laura_register.DAILY_AUTH_ENV: "0.40",
-          "ANTHROPIC_API_KEY": DUMMY_KEY}
+          "VENICE_API_KEY": DUMMY_KEY, "BRAMBLELOOP_PRIVATE_PROVIDER": "venice",
+          "ANTHROPIC_API_KEY": None, _venice.MODEL_ENV: None}
 
 
 class Stub:
     """Stands in for the HTTP request. `answers` is consumed in order (then `REPLY`)."""
 
-    def __init__(self, answers=None, *, model: str = "claude-sonnet-5", fail=None,
+    def __init__(self, answers=None, *, model: str = MODEL, fail=None,
                  tokens=(120, 30)):
         self.calls: list[dict] = []
+        self.wires: list[dict] = []          # the raw Venice request bodies
         self.answers = list(answers or [])
         self.model = model
         self.fail = fail
         self.tokens = tokens
 
-    def __call__(self, provider, payload: bytes, key: str) -> ModelResponse:
-        body = json.loads(payload.decode("utf-8"))
-        self.calls.append(body)
+    def __call__(self, provider, url, body: bytes, headers, timeout):
+        """Stands in for `VeniceProvider._post`: records the request (Anthropic-shaped view),
+        answers with Venice's documented chat-completion JSON."""
+        wire = json.loads(body.decode("utf-8"))
+        self.wires.append(wire)
+        msgs = wire["messages"]
+        self.calls.append({"model": wire["model"], "max_tokens": wire["max_completion_tokens"],
+                           "system": msgs[0]["content"],
+                           "messages": [{"role": "user", "content": msgs[1]["content"]}]})
+        self.headers = dict(headers)
         if self.fail is not None:
             raise self.fail
         text = self.answers.pop(0) if self.answers else json.dumps({"text": REPLY})
-        return ModelResponse(text=text, provider="anthropic", model=self.model,
-                             input_tokens=self.tokens[0], output_tokens=self.tokens[1],
-                             latency_ms=1.0)
+        return 200, json.dumps({
+            "id": "x", "object": "chat.completion", "model": self.model,
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": text}}],
+            "usage": {"prompt_tokens": self.tokens[0], "completion_tokens": self.tokens[1],
+                      "total_tokens": sum(self.tokens)}})
 
 
 @contextlib.contextmanager
@@ -55,17 +80,29 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
     env = {**ENABLE, **overrides}
     saved = {k: os.environ.get(k) for k in env}
     orig = gw.AnthropicProvider._send
+    orig_post = _venice.VeniceProvider._post
     orig_release = laura_register.release_proven
     if release_proven is not None:
         laura_register.release_proven = lambda env=None, boot=None: {
             "met": bool(release_proven), "detail": "test harness stand-in for the boot guard",
             "commit_short": "test"}
+    refused: list = []
+
+    def _refuse(self, *a, **kw):
+        # Integration review S-5: the reply path sanitises any exception into PROVIDER_ERROR,
+        # so the attempt is ALSO recorded and the context fails the test on exit.
+        refused.append(type(self).__name__)
+        raise AssertionError("a model request was made where none may be")
+    gw.AnthropicProvider._send = _refuse              # the private register never goes here
     if stub is not None:
-        gw.AnthropicProvider._send = lambda self, payload, key, **kw: stub(self, payload, key)
-    else:
-        def _refuse(self, payload, key, **kw):
-            raise AssertionError("a model request was made where none may be")
-        gw.AnthropicProvider._send = _refuse
+        _venice.VeniceProvider._post = lambda self, url, body, headers, timeout: stub(
+            self, url, body, headers, timeout)
+    elif _venice.VeniceProvider._post is _REAL_VENICE_POST:
+        # INTEG5/INTEG6-prep: with no stub and no caller mock, a Venice request is refused and
+        # recorded (so the context fails the test on exit), exactly as an Anthropic one is. The
+        # harness installs no socket guard, so the real transport must not stay live here. A
+        # caller's own Venice mock (test_w4_venice, test_w4_laura_unified) is left in place.
+        _venice.VeniceProvider._post = _refuse
     try:
         for k, v in env.items():
             if v is None:
@@ -75,12 +112,17 @@ def enabled(stub: Stub | None = None, *, release_proven: bool | None = True, **o
         yield stub
     finally:
         gw.AnthropicProvider._send = orig
+        _venice.VeniceProvider._post = orig_post
         laura_register.release_proven = orig_release
         for k, v in saved.items():
             if v is None:
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
+        # INTEG6-prep: raised only after everything is restored, so a failing test cannot leave
+        # the register switch, the dummy key or the release stand-in set for later tests.
+        if refused:
+            raise AssertionError(f"a refused model transport was called: {refused}")
 
 
 def blocks(user: str) -> list[str]:

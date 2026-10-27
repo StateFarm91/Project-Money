@@ -35,7 +35,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ..core.resilience import PermanentError, TransientError
 
@@ -810,7 +810,7 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
     for name, value in headers.items():
         request.add_header(name, value)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _no_redirect().open(request, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")[:500]
@@ -829,6 +829,14 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
         raise TransientError(f"{label} unreachable: {exc.reason}") from exc
 
 
+def _no_redirect():
+    """Delta review N-9: keyed BFL requests never follow a redirect (the x-key header would be
+    re-sent to the new location)."""
+    from .venice import no_redirect_opener
+
+    return no_redirect_opener()
+
+
 def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
     import urllib.error
     import urllib.request
@@ -837,7 +845,7 @@ def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
     for name, value in headers.items():
         request.add_header(name, value)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _no_redirect().open(request, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         # FLUX 3 docs: "A failed task can come back as HTTP 503 with a normal JSON body. Read
@@ -1442,6 +1450,33 @@ def last_probe(db) -> dict | None:
         rows = list(s.scalars(select(AuditLog).where(AuditLog.action == PROBE_ACTION)
                               .order_by(desc(AuditLog.id)).limit(1)))
     return dict(rows[0].detail or {}) if rows else None
+
+
+# W4-PRODFIX: a successful render proves the capability for a day. The 6-hourly
+# capability sweep re-rendered the identical probe prompt four times a day (production:
+# `spend-repeat-paid-request` "the same image.render request was paid for by 4 different
+# jobs"); the gate reads only the newest probe, never its age, so re-proving it hourly bought
+# the same evidence. A failed or missing probe is still retried on every sweep.
+PROBE_REUSE = timedelta(hours=24)
+
+
+def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
+                 **kw) -> dict:
+    """`probe`, unless a successful probe younger than PROBE_REUSE is on file (then reused,
+    nothing billed)."""
+    now = now or datetime.now(timezone.utc)
+    last = last_probe(db)
+    if last and last.get("ok"):
+        try:
+            at = datetime.fromisoformat(str(last.get("at")))
+            at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            at = None
+        if at is not None and now - at < PROBE_REUSE:
+            return {**last, "reused": True,
+                    "why": f"a successful probe at {last.get('at')} is under "
+                           f"{int(PROBE_REUSE.total_seconds() // 3600)} h old; not re-billed"}
+    return probe(db, job_id=job_id, now=now, **kw)
 
 
 def usable(db) -> bool:

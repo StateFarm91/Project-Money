@@ -204,11 +204,25 @@ def prioritise(candidates: list[dict]) -> dict:
         tier = c.get("tier")
         if tier is not None and tier not in tiers.TIER_BY_KEY:
             raise RoiRefused(f"{c.get('key', 'a candidate')}: unknown risk tier {tier!r}")
+        # F-394 (W4-FMBATCH1): confidence discounts the expected impact, and a measured risk
+        # reduction adds to it. Both are optional; an unstated confidence is not discounted
+        # but is flagged and ranks after a stated one of equal value -- never above it.
+        conf = c.get("confidence")
+        if conf is not None and not (isinstance(conf, (int, float)) and 0 <= conf <= 1):
+            raise RoiRefused(f"{c.get('key', 'a candidate')}: confidence is a probability "
+                             f"in [0, 1], not {conf!r}")
+        risk = c.get("risk_reduction")
+        if risk is not None and not (isinstance(risk, (int, float)) and risk >= 0):
+            raise RoiRefused(f"{c.get('key', 'a candidate')}: risk_reduction is a measured "
+                             f"non-negative value on the same scale as expected_impact")
+        value = float(expected) * (float(conf) if conf is not None else 1.0) \
+            + (float(risk) if risk is not None else 0.0)
         rows.append({**c, "cost_cad": cost,
                      "blocks_launch": blocker.strip() if blocker else None,
                      "reversibility_rank": (tiers.TIER_BY_KEY[tier].rank if tier else None),
-                     "impact_per_cad": (round(float(expected) / cost, 4) if cost > 0
-                                        else None)})
+                     "expected_value": round(value, 6),
+                     "confidence_unstated": conf is None,
+                     "impact_per_cad": (round(value / cost, 4) if cost > 0 else None)})
     # Launch blockers first (F-394): a change that unblocks a named readiness item outranks
     # any amount of expected impact elsewhere while the company cannot sell. Then, as before,
     # a free change with real expected impact outranks a paid one (None first) and, among
@@ -216,12 +230,15 @@ def prioritise(candidates: list[dict]) -> dict:
     # ties: the lower risk tier (scoring before gate) is the cheaper one to be wrong about.
     rows.sort(key=lambda r: (r["blocks_launch"] is None,
                              r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
-                             -float(r["expected_impact"]),
+                             -float(r["expected_value"]),
+                             r["confidence_unstated"],
                              r["reversibility_rank"] if r["reversibility_rank"] is not None
                              else len(tiers.TIERS)))
     return {"ranked": rows,
-            "note": ("Launch blockers first; then expected impact per dollar, with free "
-                     "changes first; reversibility (risk tier) breaks ties. Continuous "
+            "note": ("Launch blockers first; then expected value (impact x confidence + "
+                     "risk reduction) per dollar, with free changes first; a stated confidence "
+                     "outranks an unstated one at equal value; reversibility (risk tier) "
+                     "breaks remaining ties. Continuous "
                      "learning is not permission to burn unlimited tokens (#99).")}
 
 

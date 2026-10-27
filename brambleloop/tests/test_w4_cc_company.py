@@ -8,6 +8,7 @@ committed COMPLETION_BOARD.json validates against the schema the reader enforces
 Run: cd brambleloop && PYTHONPATH=src python3 tests/test_w4_cc_company.py
 """
 from __future__ import annotations
+import _opread  # W4-SECPATCH: owner-only GETs need the operator credential
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
@@ -417,10 +418,10 @@ def test_public_closure_reads_are_single_flight_and_reused():
     try:
         c = TestClient(main.app, base_url="https://testserver")
         for _ in range(3):
-            assert c.get("/api/closure").status_code == 200
+            assert _opread.get(c, "/api/closure").status_code == 200
         assert len(calls) == 1, calls
         state["open"] = True
-        assert c.get("/api/closure").json()["total"] == 1
+        assert _opread.get(c, "/api/closure").json()["total"] == 1
         assert len(calls) == 2, "an opened gate must force a fresh matrix"
     finally:
         closure.matrix, executor.gate_states = real_matrix, real_states
@@ -599,7 +600,7 @@ def test_learn_outcomes_presale_post_launch_and_ca5k_unmeasured():
     assert r.status_code == 200
     lo = r.json()["sections"]["learn_outcomes"]
     assert lo["status"] in providers.STATUSES and lo["items"], lo
-    html = TestClient(main.app, base_url="https://testserver").get("/").text
+    html = _opread.get(TestClient(main.app, base_url="https://testserver"), "/").text
     assert "pre-sale outcomes measured" in html and "post-launch-only cells" in html
 
 
@@ -637,7 +638,7 @@ def test_estimate_drift_on_verify_and_money_labelled_settlement_owner_gated():
     """F-103 (W4-SPEND wiring): estimate drift is a readback on /api/verify (it does not change
     the verify verdict) and a Money section; provider-billing settlement says OWNER-GATED."""
     c = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
-    r = c.get("/api/verify")
+    r = _opread.get(c, "/api/verify")
     assert r.status_code in (200, 503), r.status_code
     body = r.json()
     d = body["readbacks"]["estimate_drift"]

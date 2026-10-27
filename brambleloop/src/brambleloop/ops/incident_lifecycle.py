@@ -190,6 +190,27 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
+    "provider-change": ("ops.dependencies (gateway.provider_watch)", "routing economics "
+                        "re-run on the change; resolves on the next unchanged snapshot"),
+    # W4-FMBATCH1 ops/useful_work (F-720): ready work unclaimed with the worker idle.
+    "ready-work-age": ("ops.health sweep (useful_work.alarm)", "fix the named cause (agent "
+                       "permission, handler, suspension, block or lane); resolves when no "
+                       "ready work is over the age threshold"),
+    # W4-FMBATCH1 ops/provider_health (F-171): a probe that answered but failed.
+    "provider-health": ("owner (credit/auth) or the provider (rate limit/outage)",
+                        "top up or fix the account; resolves when the next model and vision "
+                        "probes answer ok"),
+    # W4-FMBATCH1 ops/signal_hygiene (F-139, F-140, F-149).
+    "dead-letters": ("ops.health sweep (signal_hygiene)", "resolves when no defect dead "
+                     "letter of the job type remains (fixed by a deploy that re-drives them)"),
+    "noisy-signal": ("ops.health sweep (signal_hygiene)", "fix the signal's detector; resolves "
+                     "when it stops flapping and is confirmed again"),
+    "disk-trend": ("ops.health sweep (signal_hygiene)", "find the growing writer; resolves "
+                   "when the trend no longer predicts exhaustion"),
+    # F-010: Etsy changed the schema a listing was certified on (integrations.taxonomy_drift).
+    "taxonomy-drift": ("listing.taxonomy_refresh + listing.seo",
+                       "listing.seo is re-queued on the new snapshot; resolves when the "
+                       "product's search profile is rebuilt on it"),
     "systemic-halt": ("ops.truth sweep", "resolves when the systemic evidence stops holding"),
     "incident-recurrence": ("ops.truth sweep", "the family's prevention is fixed and the "
                                                "regression check passes"),

@@ -14,8 +14,8 @@ decided route by route is a rule the next route forgets:
    `Referrer-Policy` and `X-Frame-Options`. A route that needs a stricter policy (the OAuth
    callback page) sets its own and it is left alone.
 
-3. **Default-deny operator gate.** Every non-GET route, and every GET listed in
-   `OPERATOR_GET_ROUTES`, requires the operator credential (`core.opsauth`: 503 when it is not
+3. **Default-deny operator gate.** Every non-GET route, and every GET not on the
+   `PUBLIC_GET_ROUTES` allow-list (W4-SECPATCH), requires the operator credential (`core.opsauth`: 503 when it is not
    configured, 401 -- 403 on the owner phase/publication/activation routers, preserving their
    contract -- when it is
    missing or wrong). The gate is installed as an application-wide dependency, so a new route
@@ -163,20 +163,83 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     # /api/mjs/findings. tests/test_w4_secfix_insights_private.py sweeps every public GET.
     "/api/market-intel",
     "/api/insights",
+    # W4-FMBATCH1 (F-089): the physical-truth dashboard names testers and carries their
+    # notes -> operator credential.
+    "/api/physical-truth",
+    # W4-FMBATCH1 (F-451): the master view carries the owner queue and spend -> operator.
+    "/api/orchestrator",
+    # F-549: revenue, margin and owner actions in one card -> operator.
+    "/api/etsy/scorecard",
+    "/api/opportunities",
+    "/api/evidence",
+    "/api/finance/owner",
+    # Review cbd4ff1 N-1 route audit: department spend/incidents/inbound tasks, the product
+    # lifecycle board (unpublished product slugs and titles) and the spend-governance detail
+    # (research questions, per-provider adoption cost) are operator reads.
+    "/api/company/departments/{key}",
+    "/api/products/lifecycle",
+    "/api/spend-report/governance",
+    "/api/marketing/constellation/{slug}",
+    # F-671: the dossier includes support cases and orders -> operator.
+    "/api/product/{slug}/dossier",
 })
 
-# GETs that are deliberately public, with the reason. Everything not listed here and not in
-# OPERATOR_GET_ROUTES is a read-only aggregate view (the dashboard's "absent owner opens a
-# URL" convenience), and `tests/test_customer_data_auth.py` sweeps those for customer data.
+# GETs that are deliberately public, with the reason. W4-SECPATCH (2026-10-26): this is now an
+# ALLOW-LIST. Every GET/HEAD route not named here requires the operator credential (or, under
+# `/api/cc/` and `OWNER_SESSION_PAGES`, the owner session). Until then every GET not in
+# OPERATOR_GET_ROUTES was public "for an absent owner opening a URL", and production served
+# the whole owner inbox, incident text, spend figures, job rows, gate internals and unpublished
+# product slugs to anyone (`/`, `/api/owner-actions`, `/api/build`, `/api/incidents`, ...).
+# The owner's surface is the authenticated Command Center (`/cc/`). The routes the deploy
+# readback reads stay public but answer an unauthenticated caller with `PUBLIC_PROJECTIONS`
+# only. `tests/test_w4_secpatch_public_surface.py` sweeps every public route.
 PUBLIC_GET_NOTES: dict[str, str] = {
-    "/health": "platform health check; generic body, no infrastructure detail (A3-12)",
+    "/": ("minimal public status page with no operational data; the full operations dashboard "
+          "is served only to the operator credential (app.main.root)"),
+    "/health": ("platform health check; unauthenticated callers get PUBLIC_PROJECTIONS only "
+                "(status, db, build identity, worker liveness) -- ops/verify_deploy.py"),
+    "/api/status": ("build identity and boot guard verdict only for unauthenticated callers "
+                    "(PUBLIC_PROJECTIONS) -- ops/deployed_sha.py and ops/readback.py"),
+    "/api/build": ("final_master.launch_ready only for unauthenticated callers "
+                   "(PUBLIC_PROJECTIONS) -- ops/readback.py"),
+    "/api/catalogue": ("`published` only for unauthenticated callers (PUBLIC_PROJECTIONS) -- "
+                       "ops/readback.py"),
     "/api/etsy/oauth/callback": ("Etsy redirects the owner's browser here without a bearer "
                                  "header; guarded by a single-use state this service minted"),
-    "/api/verify": ("standing verification read by the operator loop; read-only apart from "
-                    "stamping its own verdict"),
-    "/api/verify/smoke": ("F-171 smoke matrix: row counts and timestamps only, no customer or "
-                          "credential data; read by ops/readback.py after each deploy"),
+    "/api/verify": ("standing verification read by the operator loop; unauthenticated callers "
+                    "get each check's name and ok only (PUBLIC_PROJECTIONS) -- ops/readback.py"),
+    "/api/verify/smoke": ("F-171 smoke matrix verdict and as-of only for unauthenticated "
+                          "callers (PUBLIC_PROJECTIONS); read by ops/readback.py"),
+    "/api/learn/metrics": ("guarded by its own Learn editor credential (learn.api._editor), "
+                           "which is deliberately distinct from the operator token"),
+    "/learn/{slug}": "customer-facing Learn lesson; serves owner-APPROVED lessons only",
+    "/learn/{slug}/technique/{stitch}.svg": ("verified technique diagram of an APPROVED lesson "
+                                             "only"),
+    "/api/model-tournament/image/{sha256}": ("digest-addressed canonical reference images "
+                                             "only; refuses every other stored artifact"),
+    "/brand/fonts/{name}": "static brand font files",
     "/ops/teardown": "static page with no data; every request it makes carries the token",
+    "/ops/teardown.js": "the static script of /ops/teardown; no data",
+    "/ops/insights": "redirect to /ops/teardown#insights; no data",
+}
+PUBLIC_GET_ROUTES: frozenset[str] = frozenset(PUBLIC_GET_NOTES)
+
+# What an unauthenticated caller may see of the public JSON reads: an allow-list projection
+# (`project`) applied by `PublicProjectionMiddleware`, so a field added to one of these
+# endpoints later stays private until somebody adds it here. Each kept field is one the deploy
+# path reads (ops/verify_deploy.py, ops/deployed_sha.py, ops/readback.py) or a bare liveness
+# word. `True` keeps a value; a dict keeps only those keys; a one-item list maps each element.
+PUBLIC_PROJECTIONS: dict[str, object] = {
+    "/health": {"status": True, "version": True, "db": True,
+                "build": {"commit": True, "commit_short": True, "known": True},
+                "runner": {"worker_alive": True}},
+    "/api/status": {"version": True,
+                    "build": {"commit": True, "commit_short": True, "known": True},
+                    "boot_guard": {"enforced": True, "ok": True}},
+    "/api/verify": {"ok": True, "checks": [{"check": True, "ok": True}]},
+    "/api/verify/smoke": {"verdict": True, "as_of": True},
+    "/api/build": {"final_master": {"launch_ready": True}},
+    "/api/catalogue": {"published": True},
 }
 
 # Routers whose established contract is 403 for a refused credential (phase_api,
@@ -210,7 +273,9 @@ def operator_refused_handler(request: Request, exc: OperatorRefused) -> JSONResp
 def requires_operator(method: str, route_path: str) -> bool:
     method = method.upper()
     if method in SAFE_METHODS:
-        return method in {"GET", "HEAD"} and route_path in OPERATOR_GET_ROUTES
+        # W4-SECPATCH: default-deny for reads too; only PUBLIC_GET_ROUTES are open.
+        return method in {"GET", "HEAD"} and (route_path in OPERATOR_GET_ROUTES
+                                              or route_path not in PUBLIC_GET_ROUTES)
     return (method, route_path) not in PUBLIC_MUTATING_ROUTES
 
 
@@ -354,6 +419,52 @@ def scrub_body(body: bytes, content_type: str, scrub: Callable[[str], str]) -> b
     return scrub(body.decode("utf-8", errors="replace")).encode("utf-8")
 
 
+def route_path(scope) -> str:
+    """The path the router matches on (`scope["path"]` without `root_path`).
+
+    W4-SECPATCH2 (review F1): the projection and the owner-text scrub were keyed on the raw
+    `scope["path"]`. Served under a root path (`--root-path`, a prefix proxy, a mount),
+    `/x/api/status` routed to `api_status` but matched no projection, so an anonymous caller
+    got the full body. Keying on the router's own path makes the two agree by construction."""
+    from starlette.routing import get_route_path
+
+    try:
+        return get_route_path(scope) or ""
+    except Exception:  # noqa: BLE001 - a malformed scope never matches a public projection
+        return str(scope.get("path") or "")
+
+
+def scope_authorization(scope) -> str | None:
+    """The request's single Authorization header (latin-1), or None. Every layer reads it
+    through here; a request with more than one is refused outright by
+    `SingleAuthorizationMiddleware` before any layer sees it (review F2)."""
+    found = [v for k, v in (scope.get("headers") or []) if k.lower() == b"authorization"]
+    return found[0].decode("latin-1") if len(found) == 1 else None
+
+
+class SingleAuthorizationMiddleware:
+    """Refuse (400) any HTTP request carrying more than one Authorization header.
+
+    W4-SECPATCH2 (review F2): the gate read the first header and the projection/scrub
+    middlewares the last, so `[Bearer junk, Bearer valid]` passed the public gate and was
+    then served unprojected. One header or none; never a choice between two."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and sum(
+                1 for k, _v in (scope.get("headers") or [])
+                if k.lower() == b"authorization") > 1:
+            body = b'{"error": "more than one Authorization header", "code": "BAD_REQUEST"}'
+            await send({"type": "http.response.start", "status": 400,
+                        "headers": [(b"content-type", b"application/json"),
+                                    (b"content-length", str(len(body)).encode())]})
+            await send({"type": "http.response.body", "body": body})
+            return
+        return await self.app(scope, receive, send)
+
+
 class CustomerRefScrubMiddleware:
     """Redact known buyer identifiers from unauthenticated JSON and HTML responses."""
 
@@ -372,10 +483,7 @@ class CustomerRefScrubMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        auth = None
-        for k, v in scope.get("headers") or []:
-            if k.lower() == b"authorization":
-                auth = v.decode("latin-1")
+        auth = scope_authorization(scope)
         if presents_operator_credential(auth):
             return await self.app(scope, receive, send)
 
@@ -412,3 +520,120 @@ class CustomerRefScrubMiddleware:
             await send(message)
 
         await self.app(scope, receive, _send)
+
+
+# ---- 5. public projection (W4-SECPATCH) -------------------------------------
+
+
+def project(value, spec):
+    """Keep only what `spec` names (see PUBLIC_PROJECTIONS). A shape mismatch keeps nothing."""
+    if spec is True:
+        return value
+    if isinstance(spec, dict):
+        if not isinstance(value, dict):
+            return None
+        return {k: project(value[k], sub) for k, sub in spec.items() if k in value}
+    if isinstance(spec, list) and len(spec) == 1:
+        if not isinstance(value, list):
+            return None
+        return [project(v, spec[0]) for v in value]
+    return None
+
+
+class PublicProjectionMiddleware:
+    """Reduce the public JSON reads to `PUBLIC_PROJECTIONS` for a caller without the operator
+    credential. Allow-list, so a field nobody reviewed never reaches the public. A body that is
+    not JSON (an error page) is replaced, not passed through."""
+
+    def __init__(self, app, projections: dict | None = None):
+        self.app = app
+        self.projections = PUBLIC_PROJECTIONS if projections is None else projections
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        spec = self.projections.get(route_path(scope))
+        if spec is None:
+            return await self.app(scope, receive, send)
+        auth = scope_authorization(scope)
+        if presents_operator_credential(auth):
+            return await self.app(scope, receive, send)
+
+        state: dict = {"start": None, "chunks": []}
+
+        async def _send(message):
+            if message["type"] == "http.response.start":
+                state["start"] = message
+                return
+            if message["type"] == "http.response.body":
+                state["chunks"].append(message.get("body", b""))
+                if message.get("more_body"):
+                    return
+                start = state["start"]
+                try:
+                    data = _json.loads(b"".join(state["chunks"]) or b"null")
+                    out = project(data, spec)
+                except ValueError:
+                    out = None
+                if out is None:
+                    out = {"error": "not available without the operator credential"}
+                body = _json.dumps(out, separators=(",", ":")).encode("utf-8")
+                headers = [(k, v) for k, v in start.get("headers") or []
+                           if k.lower() not in (b"content-length", b"content-type")]
+                headers += [(b"content-type", b"application/json"),
+                            (b"content-length", str(len(body)).encode("latin-1"))]
+                await send({**start, "headers": headers})
+                await send({"type": "http.response.body",
+                            "body": b"" if scope.get("method") == "HEAD" else body,
+                            "more_body": False})
+                return
+            await send(message)
+
+        await self.app(scope, receive, _send)
+
+
+# ---- 6. owner-inbox text scrub (FMBATCH1 62fcf5ed, ported by W4-SECPATCH) -----------------
+#
+# Defence in depth behind the read gate above. No owner-inbox text (an OwnerAction's action,
+# reason, consequence, blocks or why-software-cannot; an access request's action, purpose,
+# scope or consequence) and no open incident's text appears on a response to a request that
+# did not present the operator credential. A full text and its first OWNER_PREFIX characters
+# are both redacted, so a display that truncates a text still leaks nothing.
+
+OWNER_REDACTED = "[owner-only: see /cc/]"
+OWNER_MIN_LENGTH = 16
+OWNER_PREFIX = 48
+
+
+def build_owner_scrubber(texts: Iterable[str]) -> Callable[[str], str] | None:
+    variants: set[str] = set()
+    for t in texts:
+        t = str(t or "").strip()
+        if len(t) < OWNER_MIN_LENGTH:
+            continue
+        for v in ({t, t[:OWNER_PREFIX]} if len(t) > OWNER_PREFIX else {t}):
+            variants.add(v)
+            variants.add(_html.escape(v, quote=True))
+    if not variants:
+        return None
+    pattern = re.compile("|".join(re.escape(v) for v in sorted(variants, key=len, reverse=True)))
+    return lambda text: pattern.sub(OWNER_REDACTED, text)
+
+
+class OwnerTextScrubMiddleware(CustomerRefScrubMiddleware):
+    """Redact owner-inbox and incident texts from unauthenticated JSON and HTML responses.
+
+    Not on the Command Center: `/api/cc/*` and OWNER_SESSION_PAGES are refused by the owner-
+    session gate to anyone without the owner's session, and the owner reading them must see
+    the decisions they are asked to make, not the redaction marker."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and owner_session_route(route_path(scope)):
+            return await self.app(scope, receive, send)
+        return await super().__call__(scope, receive, send)
+
+    def _scrubber(self):
+        try:
+            return build_owner_scrubber(self.refs_provider())
+        except Exception:  # noqa: BLE001 - no database yet means no owner texts to scrub
+            return None

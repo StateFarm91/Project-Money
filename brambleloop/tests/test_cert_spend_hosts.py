@@ -21,7 +21,7 @@ from brambleloop.visual import d_judge  # noqa: E402
 
 PAID_HOSTS = re.compile(
     r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.bfl\.ai"
-    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai")
+    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai|api\.venice\.ai")
 
 # Each file allowed to address a paid provider, and what holds its ceiling. A new file here is
 # a decision about spend, made in review, not a refactor.
@@ -37,8 +37,21 @@ DECLARED = {
     # "Free, budget-neutral, bounded: SAFE"): credential health only -- BFL GET /v1/credits and
     # Anthropic POST /v1/messages/count_tokens, both documented free, no generation, a 60 s
     # on-demand floor and the daily cadence; no billable call.
+    # Extended in W4-VENICE: Venice GET api_keys/rate_limits (and GET models), owner-enabled only
+    # (BRAMBLELOOP_PRIVATE_PROVIDER=venice); no inference. Its billing basis is recorded as
+    # UNKNOWN in credentials.VENICE_CHECK_COST_BASIS, never as free. (INTEG5/INTEG6-prep merged
+    # both entries.)
     "brambleloop/gateway/credentials.py": "credential health: free GET /v1/credits and "
-                                          "count_tokens only; never generates",
+                                          "count_tokens, Venice no-inference auth reads "
+                                          "(owner-enabled only); never generates",
+    # W4-VENICE (D-W4-PL-VENICE): Private Laura's transport. Only `laura_register._reply`
+    # calls it, after check_budget_cad reserved on `laura_private` (atomic, CA$0.50/day).
+    "brambleloop/gateway/venice.py": "Private Laura transport: laura_register reserves via "
+                                     "check_budget_cad first",
+    # INTEG7 (FMBATCH1 F-417): the adoption register names each called service's host as data
+    # (cost and footprint report). It imports no HTTP client and makes no request.
+    "brambleloop/ops/adoptions.py": "data only: provider host names in the F-417 adoption "
+                                    "register; no request",
 }
 
 
@@ -51,6 +64,42 @@ def test_every_file_addressing_a_paid_provider_is_declared():
                 if PAID_HOSTS.search(path.read_text(encoding="utf-8")):
                     found.add(str(path.relative_to(SRC)))
     assert found <= set(DECLARED), f"undeclared paid-provider callers: {sorted(found - set(DECLARED))}"
+
+
+# Integration review S-6 (carrying I16's open fix forward): the whole-file declarations of the
+# two free-check / transport modules are narrowed to an exact per-URL allowlist, so a new
+# billable endpoint added to either file fails here instead of passing under the declaration.
+URL_ALLOWLIST = {
+    "brambleloop/gateway/credentials.py": {
+        "https://api.bfl.ai/v1/credits",
+        "https://api.anthropic.com/v1/messages/count_tokens",
+        "https://api.venice.ai/api/v1/api_keys/rate_limits",
+        "https://api.venice.ai/api/v1/models?type=text",
+    },
+    "brambleloop/gateway/venice.py": {
+        "https://api.venice.ai/api/v1",
+        "https://api.venice.ai/api/v1/models",
+    },
+}
+_URL = re.compile(r"https?://(?:api\.venice\.ai|api\.anthropic\.com|api\.bfl\.ai)"
+                  r"[^\s\"'`;),]*")
+
+
+def test_free_check_and_transport_modules_address_only_their_allowlisted_urls():
+    assert len(URL_ALLOWLIST) == 2
+    for rel, allowed in URL_ALLOWLIST.items():
+        text = (SRC / rel).read_text(encoding="utf-8")
+        found = {u.rstrip(".") for u in _URL.findall(text)}
+        assert found, rel
+        assert found <= allowed, (rel, sorted(found - allowed))
+
+
+def test_the_data_only_declaration_holds_no_http_client():
+    """INTEG7: `ops/adoptions.py` is declared as data only, so it must not grow a request path."""
+    text = (SRC / "brambleloop/ops/adoptions.py").read_text(encoding="utf-8")
+    for client in ("urllib", "urlopen", "http.client", "requests", "httpx", "socket",
+                   "Request("):
+        assert client not in text, client
 
 
 def test_the_scan_would_see_a_new_one():

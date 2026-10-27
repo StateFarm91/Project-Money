@@ -204,11 +204,19 @@ def test_scheduler_does_not_duplicate_cadences_across_restarts():
         db = Database(url)
         db.create_all()
 
-        first = Scheduler(db).tick()
+        # INTEG7: both ticks read the same instant. On the wall clock, two ticks can straddle a
+        # window boundary: laura.executive_tick runs every 300 s, and the idle wake is keyed per
+        # five minutes. Under full-suite load that made the second tick open a genuinely new
+        # window, so the test failed for the wrong reason. "Same window" is the claim under
+        # test, so it is stated rather than hoped for.
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        first = Scheduler(db).tick(now=now)
         assert first, "first scheduler run should enqueue cadences"
 
         # Simulate the process dying and a new one starting immediately.
-        again = Scheduler(Database(url)).tick()
+        again = Scheduler(Database(url)).tick(now=now)
         assert again == [], "a restarted scheduler must not re-enqueue the same window"
 
         with db.session() as s:

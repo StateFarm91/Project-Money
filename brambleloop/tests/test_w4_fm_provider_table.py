@@ -36,9 +36,24 @@ def test_functions_named_in_the_live_provider_table_are_live():
     for rel, fn in TABLE_ONLY:
         v = R.function_reached(rel, fn)
         assert v["reached"], (rel, fn, v["why"])
-    # drill is called only through the table key "accounting_drill": its reason names the table
-    why = R.analysis().live[(DASH, "drill")]
-    assert "provider table" in why and "providers.py" in why, why
+    # INTEG7: drill was reached only through the table key "accounting_drill". Since FMBATCH1's
+    # operator route GET /api/finance/owner reaches dashboard.summary -> _summary -> drill, its
+    # first-found reason is that API path. The provider-table rule is therefore proven on its
+    # own: with drill's mark removed, the table's literal pair alone marks it live again.
+    a = R.analysis()
+    assert (DASH, "drill") in a.live
+    saved = a.live.pop((DASH, "drill"))
+    try:
+        # the real table: every literal 2-tuple in app/command_center/providers.py
+        src = (ROOT / "src/brambleloop/app/command_center/providers.py").read_text()
+        pairs = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Tuple)
+                 and len(n.elts) == 2 and all(isinstance(e, ast.Constant) for e in n.elts)]
+        assert any(e.elts[0].value == DASH and e.elts[1].value == "drill" for e in pairs)
+        a._provider_pairs(PROVIDERS, pairs, "table scan", "app/command_center/providers.py")
+        why = a.live.get((DASH, "drill"), "")
+        assert "provider table" in why, why
+    finally:
+        a.live[(DASH, "drill")] = saved
 
 
 def test_modules_behind_the_table_are_reached():

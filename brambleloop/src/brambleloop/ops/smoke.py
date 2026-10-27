@@ -14,7 +14,11 @@ verdict is FAIL if any check fails, UNKNOWN if none fails and any is unknown, el
 A probe that RAN and was refused by its provider (Etsy answering 403) is a PASS for "the probe
 ran" -- the refusal is an external fact reported in the evidence and owned by its gate -- while
 a probe that has not run within two periods is a FAIL: the smoke question is whether the
-machinery runs, not whether every outside party says yes.
+machinery runs, not whether every outside party says yes. The billable model providers are the
+exception (W4-FMBATCH1, production 2026-10-26: "credit balance is too low" read as PASS):
+`provider_health:<probe>` is FAIL (credit, auth, no key, other) or DEGRADED (rate limit,
+overload, network, our own budget) whenever the latest model/vision probe answered with a
+failure, with the reason class only -- never the provider's error text.
 
 Read-only. Served at GET /api/verify/smoke (200 PASS, 503 otherwise) and as a readback inside
 /api/verify, and read after each deploy by ops/readback.py (F-144).
@@ -23,7 +27,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
+PASS, FAIL, UNKNOWN, DEGRADED = "PASS", "FAIL", "UNKNOWN", "DEGRADED"
 GRACE_S = 30 * 60
 # probe audit action -> the cadence (runtime.worker.CADENCES name) that drives it
 PROBES = {"model.probe": "model_probe", "vision.probe": "capability_probes",
@@ -92,8 +96,8 @@ def probe_recency(s, now) -> list[dict]:
               "last_at": last.isoformat() if last else None,
               "age_s": None if age is None else round(age),
               "provider_answered_ok": detail.get("ok") if row is not None else None,
-              "provider_reason": (str(detail.get("reason") or detail.get("error") or "")[:160]
-                                  or None)}
+              # Redacted: provider prose can carry ids or a key (provider_health.redact).
+              "provider_reason": _redact(detail.get("reason") or detail.get("error"))}
         if age is not None and age <= allowed:
             out.append(_check(name, PASS, f"{action} ran {round(age)} s ago", ev))
         elif _young(first, now, allowed):
@@ -103,6 +107,20 @@ def probe_recency(s, now) -> list[dict]:
             out.append(_check(name, FAIL, (f"{action} has not run within {allowed} s"
                                            if last else f"{action} has never run"), ev))
     return out
+
+
+def _redact(reason):
+    from .provider_health import redact
+
+    return redact(reason)
+
+
+def provider_health(s, now) -> list[dict]:
+    """A billable model provider that answered its probe with a failure (credit, auth, ...)
+    is FAIL or DEGRADED here, never PASS -- `probe_ran` only says the machinery ran."""
+    from . import provider_health as ph
+
+    return [ph.check(action, row) for action, row in ph.latest_rows(s).items()]
 
 
 def continuity_proof(s, now) -> dict:
@@ -216,8 +234,8 @@ def smoke_matrix(db, *, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     checks: list[dict] = []
     with db.session() as s:
-        for fn in (probe_recency, continuity_proof, cadence_coverage, queue_round_trip,
-                   search_intelligence):
+        for fn in (probe_recency, provider_health, continuity_proof, cadence_coverage,
+                   queue_round_trip, search_intelligence):
             try:
                 got = fn(s, now)
             except Exception as exc:  # noqa: BLE001 - one unreadable check is UNKNOWN
@@ -225,11 +243,15 @@ def smoke_matrix(db, *, now: datetime | None = None) -> dict:
                              f"could not be read: {type(exc).__name__}: {str(exc)[:160]}", {})
             checks.extend(got if isinstance(got, list) else [got])
     verdicts = {c["verdict"] for c in checks}
-    verdict = FAIL if FAIL in verdicts else UNKNOWN if (UNKNOWN in verdicts or not checks) \
-        else PASS
+    # Review cbd4ff1 N-6: a check nobody could judge outranks a provider that answered
+    # degraded, so the headline never hides an UNKNOWN behind DEGRADED.
+    verdict = (FAIL if FAIL in verdicts else UNKNOWN if (UNKNOWN in verdicts or not checks)
+               else DEGRADED if DEGRADED in verdicts else PASS)
     return {"verdict": verdict, "as_of": now.isoformat(), "checks": checks,
             "failing": [c["check"] for c in checks if c["verdict"] == FAIL],
             "unknown": [c["check"] for c in checks if c["verdict"] == UNKNOWN],
+            "degraded": [c["check"] for c in checks if c["verdict"] == DEGRADED],
             "rule": ("FAIL if any check fails; UNKNOWN if none fails and any cannot be judged "
-                     "yet; PASS only when every check passes. Read from rows the runtime "
-                     "wrote, never from configuration")}
+                     "yet; DEGRADED if every check was judged and a provider answered with a "
+                     "transient or self-imposed failure; PASS only when every check passes. "
+                     "Read from rows the runtime wrote, never from configuration")}

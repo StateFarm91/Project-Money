@@ -1230,6 +1230,35 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
 
 # ---- #172 / #173: staleness --------------------------------------------------------------
 
+def _halting_other_than_staleness(db, slug: str, own: set[str]) -> list:
+    """Open halting incidents for `slug` other than its own stale-marketing rows and other
+    than a company-wide halt whose only evidence is widespread stale-artefact rows.
+
+    Review F3/F5: the waiver names exactly `SYSTEMIC_SIGNATURE` (not any `systemic-halt:`
+    row), and the evidence and the incident list are read in one session, so a tamper row
+    opened between two reads cannot ride a stale "staleness only" verdict. Unreadable
+    evidence never waives a halt."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+
+    with db.session() as s:
+        try:
+            ev = systemic_evidence(s)
+            staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
+                              and set(ev["widespread_families"]) == {"stale-artefact"})
+        except Exception:  # noqa: BLE001
+            staleness_only = False
+        rows = list(s.scalars(select(Incident).where(
+            Incident.resolved == False,  # noqa: E712
+            Incident.halts_publication.is_(True),
+            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+        return [r.signature for r in rows
+                if r.signature not in own
+                and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
+
+
 def staleness(db, *, slug: str) -> dict:
     """Open halting incidents (the sentinel's among them) and the rebuild graph's verdict."""
     from ..gates.incidents import IncidentTracker
@@ -1267,8 +1296,15 @@ def staleness(db, *, slug: str) -> dict:
     # are unchanged, and any other halting incident still refuses the rebuild too.
     own_marketing = {f"stale-artefact:{k}" for k in outstanding
                      if str(k).startswith("marketing_asset:")}
-    halting_other = [i for i in tracker.open_incidents(slug)
-                     if i.halts_publication and i.signature not in own_marketing]
+    # W4-PRODFIX: the company-wide halt is the same staleness escalated (#173 -> F-168) when
+    # its only evidence is widespread stale-artefact rows and no integrity failure. Counting
+    # it re-created R4's deadlock one level up: stale marketing in >= 3 products opens the
+    # systemic halt, the systemic halt refuses every marketing rebuild, so the staleness that
+    # holds the halt open can never be cured (production 051dbee2: 123 stale marketing rows,
+    # halt open since 2026-10-11). It is waived for this rebuild flag only; `halted`,
+    # `reasons` and `blocks` -- what publication reads -- still carry it, and a systemic halt
+    # with any other evidence (an integrity failure, another family) still refuses.
+    halting_other = _halting_other_than_staleness(db, slug, own_marketing)
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
     only_marketing = (bool(outstanding) and not halting_other and not policy
@@ -1277,6 +1313,52 @@ def staleness(db, *, slug: str) -> dict:
             "policy_changes_unreviewed": [c["source"] for c in policy],
             "blocks": bool(reasons), "reasons": reasons,
             "outstanding_only_marketing": only_marketing}
+
+
+def retry_hold_reason(db, *, slug: str) -> str | None:
+    """INTEG7 (review S-2, corrected by review H1 of dbb4ebf): why the daily rebuild retry for
+    `slug` should wait, or None.
+
+    A retry is held only while a gate the rebuild cannot cure refuses the product:
+    - an unreviewed material platform-policy change (#39), or
+    - an open halting incident for the product that is not staleness (integrity, tamper and
+      the like).
+    The sentinel's own `stale-artefact:*` rows, which are the staleness the retry exists to
+    cure, never hold it. Neither does a company-wide halt whose only evidence is widespread
+    stale-artefact rows. The hold lifts by itself when the gate clears. An unreadable gate does
+    not hold (the retry is CA$0 and bounded to once a day)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..gates.platform_policy import unreviewed_changes
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+    from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+
+    try:
+        policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
+        with db.session() as s:
+            try:
+                ev = systemic_evidence(s)
+                staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
+                                  and set(ev["widespread_families"]) == {"stale-artefact"})
+            except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
+                staleness_only = False
+            rows = list(s.scalars(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.halts_publication.is_(True),
+                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+            others = [r.signature for r in rows
+                      if not str(r.signature).startswith(f"{SENTINEL_SIGNATURE}:")
+                      and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
+    except Exception:  # noqa: BLE001
+        return None
+    if policy:
+        return ("held: platform policy change awaiting the owner's review (#39): "
+                + ", ".join(c["source"] for c in policy))
+    if others:
+        return ("held: open halting incident(s) the rebuild cannot cure: "
+                + ", ".join(map(str, others[:3])))
+    return None
 
 
 def _frame_bytes(db, slug: str, version: str, store_root=None) -> dict[str, bytes]:
@@ -1452,6 +1534,13 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     price_check = launch_price_check(slug, None if row is None else row.price_cad)
     if price_check["state"] == "DRIFT":
         reasons.append(f"LISTING_PRICE_NOT_PLAN: {price_check['why']}")
+    # Review cbd4ff1 N-2: an Etsy taxonomy drift held for the owner (re-queue OFF) does not
+    # halt gate.certify -- that would block the rebuild -- but it does stop publication.
+    from ..integrations.taxonomy_drift import held_drift
+
+    for h in held_drift(db, slug):
+        reasons.append(f"taxonomy drift held for the owner (incident {h['id']}): "
+                       f"{h['summary']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,

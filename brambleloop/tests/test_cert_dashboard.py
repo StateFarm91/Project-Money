@@ -118,8 +118,28 @@ def seeded() -> TestClient:
         s.add(LedgerEntry(category="sale", description="seed sale", gross_cad=12.5,
                           fees_cad=1.44, evidence_ref="seed-order-1"))
         s.commit()
-    _SEEDED["client"] = TestClient(main.app)
+    # W4-SECPATCH: every view this file certifies is the operator's (the dashboard and its
+    # JSON reads are owner-only), so the client presents the operator credential.
+    # `test_the_anonymous_caller_sees_none_of_it` checks the same seed is absent without it.
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = OPS_TOKEN
+    _SEEDED["client"] = TestClient(main.app,
+                                   headers={"Authorization": f"Bearer {OPS_TOKEN}"})
     return _SEEDED["client"]
+
+
+OPS_TOKEN = "cert-dashboard-operator-" + "q" * 24
+
+
+def test_the_anonymous_caller_sees_none_of_it():
+    seeded()
+    anon = TestClient(main.app)
+    page = anon.get("/").text
+    for word in ("Queue pending", "Waiting on the owner", "seed sale", "CA$", "Launch-cleared"):
+        assert word not in page, word
+    for path in ("/api/console", "/api/incidents", "/api/spend-report", "/api/build2",
+                 "/api/closure", "/api/headline", "/api/owner-actions"):
+        assert anon.get(path).status_code == 401, path
+    assert set(anon.get("/api/status").json()) <= {"version", "build", "boot_guard"}
 
 
 def sql(q: str, *args):
@@ -454,7 +474,21 @@ def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplica
     assert not [c for c in inbox["cards"] if c["gate"] == "image_vision"]
     vision = [g for g in inbox["suppressed_unblocks_nothing"] if g["gate"] == "image_vision"]
     assert len(vision) == 1 and sid in vision[0]["owner_action_ids"], vision
-    html = seeded().get("/").text
+    # Coordinator decision 2026-10-26: card texts render on `/` only for the operator; the
+    # public page shows a count (asserted in test_w4_fmbatch1_route_audit).
+    from brambleloop.core import opsauth
+
+    # INTEG7 (review R-1): restore the token the shared `seeded()` client uses, rather than pop
+    # it, so later tests in this process still read owner-only views (order-independent).
+    prev = os.environ.get(opsauth.TOKEN_VAR)
+    os.environ[opsauth.TOKEN_VAR] = "d" * 40
+    try:
+        html = seeded().get("/", headers={"Authorization": "Bearer " + "d" * 40}).text
+    finally:
+        if prev is None:
+            os.environ.pop(opsauth.TOKEN_VAR, None)
+        else:
+            os.environ[opsauth.TOKEN_VAR] = prev
     assert html.count("MERGE-SENTINEL") == 1
     with main.db.session() as s:
         s.get(OwnerAction, sid).done = True

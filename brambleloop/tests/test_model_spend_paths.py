@@ -196,6 +196,8 @@ def test_the_scan_finds_the_provider_calls_that_are_actually_there():
             ("brambleloop/visual/photoreal.py", "judge"),
             ("brambleloop/visual/bible.py", "judge"),
             ("brambleloop/visual/tournament.py", "_judge"),
+            # Independent review FMBATCH1 F-4: the compatibility pack's live drill.
+            ("brambleloop/gateway/compat_pack.py", "run"),
     ):
         assert site in sites, f"the scan no longer sees {site}; the instrument is broken"
         assert site in guarded, f"{site} lost its ceiling check"

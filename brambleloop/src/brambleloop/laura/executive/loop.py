@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -99,6 +100,9 @@ class Priority:
     inputs: dict = field(default_factory=dict)
     window: str = ""                 # delegation fingerprint window
     waiting: str = ""                # why no delegation (awaiting_owner / monitoring)
+    # W4-LAURACEO: a correction carries Laura's review to the department -- the criterion it
+    # missed, her verdict and the attempt number (bounded: MAX_CORRECTIONS).
+    feedback: dict = field(default_factory=dict)
 
     @property
     def key(self) -> str:
@@ -416,7 +420,8 @@ def _delegate(t: _Tick, queue, p: Priority, *, kind: str = "delegation",
         fingerprint=fingerprint or (f"laura:{p.rule}:{p.subject}:{p.window}"
                                     if p.rule != "idle_work" else p.window),
         evidence=list(p.evidence)[:10],
-        inputs={**p.inputs, "laura": {"priority": p.key, "kind": kind}})
+        inputs={**p.inputs, "laura": {"priority": p.key, "kind": kind,
+                                      **({"feedback": p.feedback} if p.feedback else {})}})
     if verdict["outcome"] == "owner_action" and charter is not None:
         cand.protected = True
         cand.approval = {"requirement_key": f"laura:{p.department}:{p.job_type}",
@@ -497,6 +502,7 @@ def _review(t: _Tick, queue) -> dict:
         refs = [f"company_memory:{mkey}", f"jobs:{body.get('job_id')}"]
         t.decide(f"review:{mkey}", "review", department=d.department,
                  subject=f"{jt} ({d.kind}) -> {st}", reason=verdict, refs=refs)
+        _cost_outcome(t, mkey, body.get("job_id"), st, d.kind, jt)
         out["reviewed"] += 1
         out[{"useful": "accepted", "noop": "weak", "failed": "failed"}[st]] += 1
         if st == "useful":
@@ -513,7 +519,8 @@ def _review(t: _Tick, queue) -> dict:
                              reason=f"{jt} completed with no useful output; measure "
                                     f"{d.department}'s KPIs and route what explains it",
                              score=55, evidence=refs, job_type="autonomy.department_review",
-                             inputs={"department": d.department})
+                             inputs={"department": d.department},
+                             feedback=_feedback(jt, st, body, refs))
                 r = _delegate(t, queue, p, kind="challenge", fingerprint=f"laura:challenge:"
                                                                          f"{_fp(mkey)}")
             else:
@@ -522,7 +529,9 @@ def _review(t: _Tick, queue) -> dict:
                              reason=f"failed once; one rework with the failure as evidence: "
                                     f"{str(body.get('error') or '')[:160]}",
                              score=65, evidence=refs, job_type=jt,
-                             inputs={k: v for k, v in (body.get("inputs") or {}).items()})
+                             inputs={k: v for k, v in (body.get("inputs") or {}).items()
+                                     if k != "laura"},
+                             feedback=_feedback(jt, st, body, refs))
                 if jt == "autonomy.department_review":
                     p.inputs = {"department": d.department}
                 r = _delegate(t, queue, p, kind="rework", fingerprint=f"laura:rework:"
@@ -532,6 +541,41 @@ def _review(t: _Tick, queue) -> dict:
             followons += _escalate(t, d, mkey, jt, st, refs)
     out["followons"] = followons
     return out
+
+
+REVIEW_CRITERIA = ("the job reached DONE (not failed/dead)",
+                   "it reported useful output (the useful-work judge: not did_no_work)")
+MAX_CORRECTIONS = 1     # one correction per delegation; a weak correction becomes a Lesson
+
+
+def _feedback(jt: str, st: str, body: dict, refs: list) -> dict:
+    """What Laura tells the department when she sends work back (W4-LAURACEO, step 6)."""
+    return {"from": "laura", "reviewed_job_type": jt, "verdict": st,
+            "criteria": list(REVIEW_CRITERIA),
+            "missed": (REVIEW_CRITERIA[0] if st == "failed" else REVIEW_CRITERIA[1]),
+            "error": str(body.get("error") or "")[:300], "evidence": list(refs)[:4],
+            "attempt": 1, "max_corrections": MAX_CORRECTIONS,
+            "instruction": ("fix the failure named in 'error' and re-run" if st == "failed"
+                            else "find why the work produced nothing and record the cause")}
+
+
+def _cost_outcome(t: "_Tick", mkey: str, job_id, st: str, kind: str, jt: str) -> None:
+    """Cost of one reviewed delegated mission (ledger spend with its job id)."""
+    try:
+        from ..agency import costs
+
+        ref = f"company_memory:{mkey}"[:200]
+        if costs.exists(t.db, "outcome", ref):
+            return
+        cad, rows = costs.job_cost(t.db, job_id)
+        basis = ("ledger: cost_entries with this job id" if cad is not None
+                 else "UNKNOWN: the job row is missing")
+        for k in ("delegation", "outcome"):
+            costs.record(t.db, k, ref, cost_cad=cad, basis=basis, outcome=st,
+                         detail={"job_id": job_id, "ledger_rows": rows, "kind": kind,
+                                 "job_type": jt}, at=t.now)
+    except Exception:  # noqa: BLE001 - cost attribution never stops a review
+        pass
 
 
 def _escalate(t: _Tick, d, mkey: str, jt: str, st: str, refs: list) -> int:
@@ -564,7 +608,125 @@ def _close_for_mission(t: _Tick, mkey: str, why: str) -> None:
 
 # ---- TICK ------------------------------------------------------------------------------
 
-def tick(db, queue=None, *, now: datetime | None = None) -> dict:
+EXEC_RANK_PER_DAY = 2      # bounded cadence for the model's ordering of priorities
+REPORT_ACTION = "laura.report"
+
+
+def _model_rank(db, prios: list, state: dict, *, now: datetime,
+                provider_factory=None) -> tuple[list, dict]:
+    """W4-LAURACEO (ADD-LCEO-04/05): let the standard tier ORDER the priorities code already
+    derived and authorised. It may not add work; every delegation is still re-checked by the
+    constitution and the COO's enqueue boundary. Bounded: at most EXEC_RANK_PER_DAY calls per
+    UTC day, inside Laura's CA$0.50/day and the exec_rank allocation. Unavailable -> the
+    deterministic order stands, with the reason."""
+    from sqlalchemy import func as _f
+
+    from ...gateway import laura_converse as lc
+    from ..agency import costs
+    from ..agency.models import LauraCostEvent, ensure_tables as ensure_agency
+
+    cands = [p for p in prios if p.job_type and not p.waiting]
+    if len(cands) < 2:
+        return prios, {"source": "deterministic", "reason": "fewer than two delegable "
+                                                            "candidates; nothing to order"}
+    ensure_agency(db)
+    day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    with db.session() as s:
+        used = s.scalar(select(_f.count(LauraCostEvent.id)).where(
+            LauraCostEvent.kind == "decision", LauraCostEvent.at >= day0)) or 0
+    if used >= EXEC_RANK_PER_DAY:
+        return prios, {"source": "deterministic",
+                       "reason": f"cadence: {used} model orderings already today "
+                                 f"(max {EXEC_RANK_PER_DAY})"}
+    ok, why = lc.available(db, "laura.exec_rank", provider_factory=provider_factory)
+    if not ok:
+        return prios, {"source": "deterministic", "reason": why}
+    top = cands[:12]
+    st = [f"company {state.get('company', {}).get('status')}",
+          f"owner decisions open {state.get('owner_actions', {}).get('open')}",
+          f"unresolved incidents {len(state.get('incidents', []))}",
+          f"company work open {state.get('queue', {}).get('company_work_open')}"]
+    lines = [f"C{i} | {p.department} | {p.job_type} | {p.score:g} | {lc.data(p.title)} | "
+             f"{lc.data(p.reason)[:200]}" for i, p in enumerate(top, 1)]
+    from ...gateway import paid_calls
+
+    out = lc.call(db, "laura.exec_rank", provider_factory=provider_factory,
+                  job_id=paid_calls.current_job_id(),
+                  values={"state": lc.block(st, "(none)"),
+                          "candidates": lc.block(lines, "(none)")})
+    billed = out.get("billed_total_cad", out.get("cost_cad")) or 0.0
+    if out["source"] == "model" or billed:
+        costs.record(db, "decision", f"laura.exec_rank:{now.isoformat()}", cost_cad=billed,
+                     basis="gateway bill (cost_entries)", model=out.get("model") or "",
+                     purpose=out.get("prompt") or "", outcome=out["source"],
+                     detail={"candidates": len(top)}, at=now)
+    if out["source"] != "model":
+        return prios, {"source": "deterministic", "reason": out["reason"],
+                       "cost_cad": billed}
+    order: list[int] = []
+    for x in (out["data"] or {}).get("order") or []:
+        m = re.fullmatch(r"C(\d+)", str(x).strip())
+        if m and 1 <= int(m.group(1)) <= len(top) and int(m.group(1)) not in order:
+            order.append(int(m.group(1)))
+    if not order:
+        return prios, {"source": "deterministic", "cost_cad": billed,
+                       "reason": "the model returned no valid candidate id; code order kept"}
+    ranked = [top[i - 1] for i in order]
+    rest = [p for p in prios if p not in ranked]
+    return ranked + rest, {"source": "model", "model": out.get("model"), "cost_cad": billed,
+                           "order": [top[i - 1].key for i in order],
+                           "why": str((out["data"] or {}).get("why") or "")[:300]}
+
+
+def _owner_report(db, t: "_Tick", report: dict, now: datetime) -> dict | None:
+    """W4-LAURACEO step 8: one owner-facing report per six-hour window in which she acted:
+    what she delegated, reviewed, corrected and escalated, and what it cost. On the company
+    timeline (in-app; no external message) and in her operational memory."""
+    from ...autonomy import memory as company
+    from .. import memory as lm
+    from ..agency import costs
+
+    if t.new <= 0:
+        return None
+    key = f"{REPORT_ACTION}:{_six_h(now)}"
+    c = costs.summary(db, days=1, now=now)
+    rv = report.get("review") or {}
+    k = t.counts
+
+    def money(v):
+        return "UNKNOWN" if v is None else f"CA${v:.4f}"
+
+    text = (f"Laura's report ({_six_h(now)}Z window): {report.get('delegated', 0)} delegated, "
+            f"{rv.get('reviewed', 0)} reviewed ({rv.get('accepted', 0)} useful, "
+            f"{rv.get('weak', 0)} weak, {rv.get('failed', 0)} failed), "
+            f"{k.get('rework', 0) + k.get('challenge', 0)} correction(s) requested, "
+            f"{k.get('owner_action', 0)} owner approval(s) raised, "
+            f"{k.get('escalation', 0)} escalation(s). Costs (24 h): conversations "
+            f"{money(c['conversation']['total_cad'])} over {c['conversation']['count']}, "
+            f"priority ordering {money(c['decision']['total_cad'])}, delegated work "
+            f"{money(c['delegation']['total_cad'])}, per successful outcome "
+            f"{money(c['outcome']['per_successful_outcome_cad'])}; Laura's month "
+            f"CA${c['laura_month']['spent_cad']:.2f} (projected "
+            f"CA${c['laura_month']['projected_month_cad']:.2f}).")
+    wrote = company.record_event(db, key, kind=REPORT_ACTION, department="executive",
+                                 actor="laura",
+                                 severity="decision" if k.get("owner_action") else "info",
+                                 summary=text, refs=["laura_cost_events", "laura_priorities"],
+                                 at=now)
+    if wrote:
+        try:
+            lm.write(db, "operational", f"report/{_six_h(now)}",
+                     {"summary": text, "costs": {kk: c[kk] for kk in (
+                         "conversation", "decision", "delegation", "outcome")},
+                      "decisions_by_kind": dict(k)},
+                     f"company_timeline:{key}", lm.Principal.laura(),
+                     subject=f"Laura's report {_six_h(now)}", now=now)
+        except Exception:  # noqa: BLE001 - memory refusal never stops the tick
+            pass
+    return {"key": key, "written": wrote, "summary": text}
+
+
+def tick(db, queue=None, *, now: datetime | None = None, provider_factory=None) -> dict:
     """One executive pass. Idempotent: re-running on unchanged state writes no decision."""
     from ...autonomy import memory, orchestrator
     from ...autonomy.models import ensure_tables as ensure_autonomy
@@ -595,6 +757,14 @@ def tick(db, queue=None, *, now: datetime | None = None) -> dict:
         prios += _idle_priorities(db, state, now=now,
                                   taken={p.department for p in prios if p.job_type})
     report["idle"] = idle
+    prios, report["ranking"] = _model_rank(db, prios, state, now=now,
+                                           provider_factory=provider_factory)
+    if report["ranking"].get("source") == "model":
+        t.cog = {"engine": "deterministic+model-ranked",
+                 "model": report["ranking"].get("model"),
+                 "note": "code derived and authorised every priority; the model only "
+                         "ordered them (laura.exec_rank@1)"}
+        report["cognition"] = t.cog
     delegated = idle_delegated = 0
     outcomes = []
     seen = set()
@@ -664,6 +834,10 @@ def tick(db, queue=None, *, now: datetime | None = None) -> dict:
                   outcomes=outcomes, delegated=delegated + idle_delegated,
                   idle_delegated=idle_delegated, new_decisions=t.new,
                   decisions_by_kind=t.counts)
+    try:
+        report["owner_report"] = _owner_report(db, t, report, now)
+    except Exception as exc:  # noqa: BLE001 - reporting never stops the tick
+        report["owner_report"] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     memory.remember(db, "laura:last_tick", kind="laura_tick", department="executive",
                     subject="Laura's last executive tick", state="ok",
                     body={k: report[k] for k in ("at", "identity_sha256", "identity_version",

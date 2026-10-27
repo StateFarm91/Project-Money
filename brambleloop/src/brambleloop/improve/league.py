@@ -821,6 +821,16 @@ def cycle(db, *, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     booted = bootstrap.ensure(db)
     challengers_registered = bootstrap.register_routing_challengers(db)
+    # F-389: which cheaper routes the evidence would carry, and what each would save.
+    try:
+        from . import cost_learning
+
+        cost_learning.run(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - a failed reading never stops the cycle,
+        from ..agents.registry import Registry  # but it is recorded, never swallowed
+
+        Registry(db).audit("cost_optimiser", "improve.cost_learning_failed",
+                           detail={"error": f"{type(exc).__name__}: {exc}"[:300]})
     runs = _runs(db)
     configs = _configs(db)
 

@@ -201,7 +201,7 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
     while not stop.is_set():
         try:
             # rc1-AUTH A1: re-resolve the effective phase per job, not once at boot.
-            worker = Worker(db, name, phase=phase, live_phase=True)
+            worker = Worker(db, name, phase=phase, live_phase=True, refill_on_idle=True)
             while not stop.is_set():
                 if index > 0 and target is not None and index >= target.get():
                     stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it
@@ -234,7 +234,8 @@ def _lane_loop(db: Database, name: str, phase: Phase, stop: threading.Event, lan
         return
     while not stop.is_set():
         try:
-            worker = Worker(db, name, phase=phase, job_types=job_types, live_phase=True)
+            worker = Worker(db, name, phase=phase, job_types=job_types, live_phase=True,
+                            refill_on_idle=True)
             while not stop.is_set():
                 t0 = time.monotonic()
                 did_work = worker.run_once()

@@ -29,6 +29,7 @@ Three readers, each from rows and each honest about an empty table:
 """
 from __future__ import annotations
 
+import json as _json
 from datetime import datetime, timedelta, timezone
 
 from . import velocity, weekly
@@ -227,8 +228,14 @@ def stop_list(db, *, now: datetime | None = None) -> dict:
 
         captures: dict[str, list] = {}
         for snap in s.scalars(select(SerpSnapshot).order_by(SerpSnapshot.id)):
+            # W4-PRODFIX2: a capture is compared by its canonical JSON. `rank_list` entries
+            # are dicts ({"listing_id", "rank", ...}), so the old `tuple(rank_list)` was a
+            # tuple of dicts and `set(recent)` raised `TypeError: unhashable type: 'dict'` the
+            # first week any query had QUERY_UNCHANGED_CAPTURES captures -- production
+            # 051dbee2 dead-lettered improve.weekly (job 26949, 2026-10-26T14:09Z).
             captures.setdefault(snap.query, []).append(
-                (tuple(snap.rank_list or []), snap.total_count))
+                (_json.dumps(snap.rank_list or [], sort_keys=True, default=str),
+                 snap.total_count))
         for query, seen in sorted(captures.items()):
             recent = seen[-QUERY_UNCHANGED_CAPTURES:]
             if len(recent) >= QUERY_UNCHANGED_CAPTURES and len(set(recent)) == 1:

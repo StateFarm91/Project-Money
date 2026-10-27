@@ -276,6 +276,12 @@ def _record_problems(rec: dict, read) -> list[str]:
     if isinstance(sc, dict) and sc.get("status") == "refused":
         reasons.append("tracked release record carries a refused supply-chain verdict: "
                        + "; ".join(map(str, sc.get("problems") or []))[:300])
+    sg = rec.get("signing")
+    if isinstance(sg, dict) and (sg.get("status") == "claimed_but_unsigned"
+                                 or (sg.get("required") and (sg.get("unsigned")
+                                                             or sg.get("status") != "verified"))):
+        reasons.append("tracked release record shows signing required or claimed but the "
+                       "commit is unsigned (F-153/F-157)")
     sha = str(rec.get("sha") or "")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         reasons.append("tracked release record does not name a full commit SHA")
@@ -512,6 +518,38 @@ def summary_log(data: bytes) -> bytes:
     return "".join(keep).encode("utf-8")
 
 
+def signing_evidence(repo: Path, sha: str, env=None) -> dict:
+    """F-153 / F-157: signature truth for the release commit, from ops/signing_audit.py.
+
+    `status` is verified / unavailable / partial / claimed_but_unsigned. A false claim
+    (signing configured, commit unsigned) is always refused; with
+    BRAMBLELOOP_SIGNING_REQUIRED=1 any unsigned commit is refused. Otherwise an unsigned
+    release is recorded with `unsigned` listing it and `intentional_unsigned: true`.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import signing_audit
+    a = signing_audit.audit(repo, None, sha, limit=1)
+    req = signing_audit.required(env)
+    out = {"status": a["status"], "unsigned": a["unsigned"], "claimed": a["claimed"],
+           "required": req, "allowed_signers": a["allowed_signers"],
+           "independently_verifiable": a["independently_verifiable"],
+           "intentional_unsigned": bool(a["unsigned"]) and not req
+                                   and a["status"] != "claimed_but_unsigned",
+           "why": a["why"]}
+    if a["status"] == "claimed_but_unsigned":
+        out["refused"] = f"signing is configured but {sha[:12]} is unsigned: {a['why']}"
+    elif req and a["unsigned"]:
+        out["refused"] = (f"{signing_audit.REQUIRED_VAR}=1 and {sha[:12]} is not signed "
+                          f"(%G?={a['unsigned'][0]['status']})")
+    elif req and a["status"] != "verified":
+        # Review F-7: with signing required, anything short of "verified" -- including a
+        # range git could not read (`empty_range`) -- is refused; unreadable is never "none
+        # unsigned".
+        out["refused"] = (f"{signing_audit.REQUIRED_VAR}=1 and the signature state of "
+                          f"{sha[:12]} reads {a['status']!r}, not 'verified'")
+    return out
+
+
 def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR,
                    log_base: Path | None = None, layout: dict = LAYOUT,
                    now: str = "") -> dict:
@@ -535,6 +573,9 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
     supply, sc_problems = supply_chain_evidence(repo, full, layout)
     if sc_problems:
         return {"ok": False, "reasons": sc_problems, "supply_chain": supply}
+    signing = signing_evidence(repo, full)
+    if signing.get("refused"):
+        return {"ok": False, "reasons": [signing["refused"]], "signing": signing}
     raw_log = rec.get("log") or ""
     base = log_base or (repo / layout["prefix"].rstrip("/"))
     log_path = Path(raw_log) if Path(raw_log).is_absolute() else base / raw_log
@@ -572,6 +613,9 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
         # F-158 / F-416: lock verification, SBOM digest and the change record against the
         # last deployed SHA, for the tree at `sha` (scripts/supply_chain.py as of `sha`).
         "supply_chain": supply,
+        # F-153 / F-157: the release commit's signature state; unsigned commits are listed
+        # explicitly, never implied signed.
+        "signing": signing,
         "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard "
                 "and the runtime boot guard read it from git / the image, never from artifacts/",
     }

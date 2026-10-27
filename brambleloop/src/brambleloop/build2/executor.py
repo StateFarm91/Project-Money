@@ -665,6 +665,12 @@ class Gate:
                           if key == self.key})
         out = {"key": self.key, "what": self.what, "how_it_is_checked": self.how,
                "requirement_ids": waiting}
+        if self.key == "owned_surfaces":
+            # F-198: which surfaces count and why each parked requirement needs one.
+            from . import gate_clearance
+
+            out["acceptable_surfaces"] = list(gate_clearance.ACCEPTABLE_SURFACES)
+            out["why_required"] = gate_clearance.why_required()
         if db is not None:
             out["open"] = self.open(db, env)
         return out
@@ -1253,7 +1259,42 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
         record(db, kind="unpark", summary=(
             f"{len(unparked)} requirements un-parked because their gate opened"),
             detail={"requirement_ids": unparked, "gates_open": open_gates})
+    # F-466: the same fan-out for Final Master rows. Recorded when the set of rows whose gate
+    # is open changes, so a gate opening is one event naming every row it released.
+    result["fm_fanout"] = _fm_fanout(db, env)
+    # F-488: the critical path's movement, recorded when it changes.
+    try:
+        from . import critical_path
+
+        result["critical_path"] = critical_path.record_movement(db)
+    except Exception as exc:  # noqa: BLE001 - a reading, never a reason the tick fails
+        result["critical_path"] = {"state": "UNKNOWN", "why": f"{type(exc).__name__}"}
     return result
+
+
+def _fm_fanout(db, env) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import BuildEvent
+
+    try:
+        from . import fm_graph
+
+        out = fm_graph.fanout(db, env=env)
+    except Exception as exc:  # noqa: BLE001 - an unreadable snapshot is UNKNOWN, never a crash
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    with db.session() as s:
+        last = s.scalar(select(BuildEvent).where(BuildEvent.kind == "fm_unblocked")
+                        .order_by(BuildEvent.id.desc()).limit(1))
+        before = sorted((last.detail or {}).get("rows") or []) if last else []
+    if out["unblocked_rows"] != before:
+        record(db, kind="fm_unblocked", summary=(
+            f"{len(out['unblocked_rows'])} Final Master rows wait on gates that are open"),
+            detail={"rows": out["unblocked_rows"], "by_gate": out["unblocked"],
+                    "previous": before})
+    return {k: out[k] for k in ("unblocked", "unblocked_rows")} | {
+        "still_gated": {k: len(v) for k, v in out["still_gated"].items()},
+        "unevaluable": sorted(out["unevaluable"])}
 
 
 def record(db, *, kind: str, summary: str, requirement_id: int | None = None,
@@ -1317,6 +1358,18 @@ def reconciliation(db) -> dict:
     }
 
 
+def _critical_path_reading(ready: list[dict]) -> dict:
+    try:
+        from . import critical_path
+
+        cp = critical_path.analyse()
+    except Exception as exc:  # noqa: BLE001 - an unreadable path is UNKNOWN, never a crash
+        return {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {str(exc)[:120]}"}
+    for r in ready:
+        r["unblocks_downstream"] = cp["downstream"].get(f"#{r['requirement_id']}", 0)
+    return {k: cp[k] for k in ("critical_path", "length", "gates_by_unblocked")}
+
+
 def queue(db, *, limit: int = 25) -> dict:
     """What is ready, what is parked, what is blocked — and why, for each.
 
@@ -1337,6 +1390,15 @@ def queue(db, *, limit: int = 25) -> dict:
                 for t in tasks]
 
     ready = sorted([r for r in rows if r["state"] == READY], key=lambda r: r["priority"])
+    # F-630: in SHADOW, READY work that serves a launch-critical Final Master row goes first.
+    try:
+        from ..core import phase as _phase
+        from . import launch_scope
+
+        current = _phase.effective(db, record_incident=False)
+        ready = launch_scope.order(ready, current)
+    except Exception:  # noqa: BLE001 - ordering advice never breaks the queue
+        current = "UNKNOWN"
     parked = [r for r in rows if r["state"] == PARKED]
     blocked = [r for r in rows if r["state"] == BLOCKED]
     in_progress = [r for r in rows if r["state"] == IN_PROGRESS]
@@ -1374,6 +1436,10 @@ def queue(db, *, limit: int = 25) -> dict:
         "in_progress": in_progress,
         "done_total": sum(1 for r in rows if r["state"] == DONE),
         "next": ready[0] if ready else None,
+        "pre_launch_scope": {"phase": current,
+                             "rule": "SHADOW: launch-serving work first (F-630)"},
+        # F-465: what each READY item unblocks downstream, and the path/gates that are longest.
+        "critical_path": _critical_path_reading(ready),
         "note": ("Ready, parked and blocked are reported together: a queue showing only "
                  "ready work looks identical whether twelve requirements are parked on a "
                  "credential or none are."),
