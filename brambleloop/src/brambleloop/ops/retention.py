@@ -294,11 +294,6 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                             "creative.standard.north_star_cohorts (C-64) also reads them by "
                             "month inside the horizon; older cohorts live on in the daily "
                             "creative.north_star operating_readings rows"),
-    "cir.drafted": ("windowed",
-                    "creative.standard.north_star_cohorts (CB2-O10) counts the month's drafted "
-                    "CIRs as the engineering event behind concept_to_engineering_survival, "
-                    "inside the horizon; older cohorts live on in the daily "
-                    "creative.north_star operating_readings rows"),
     "store.pdf_hash_verified": ("latest",
                                 "commerce.first_hundred reads the latest verification to "
                                 "say whether the delivery path is proven"),
@@ -397,9 +392,15 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                        "creative.intake reads the vision judgement recorded per design; a "
                        "pruned judgement silently returns a design to unjudged"),
     "radar.skill_gap": ("latest", "creative.ideation reads the latest measured wave gap"),
+    # W4-RETFIX: this key was defined twice (`windowed` above, `lifetime_total` here); the
+    # dict literal kept the later one. `lifetime_total` is the correct class: an "ever
+    # drafted" read and a 240-day seasonal milestone both look past any window.
     "cir.drafted": ("lifetime_total",
                     "intel.mission_runtime reads whether a response's CIR was ever drafted "
-                    "to walk #309's pipeline"),
+                    "to walk #309's pipeline; seasonal.calendar.milestone_evidence reads it "
+                    "as concept_freeze/engineering_start up to 240 days before an occasion; "
+                    "creative.standard.north_star_cohorts (CB2-O10) also counts the month's "
+                    "drafted CIRs (a windowed read the lifetime class covers)"),
     "seasonal.transformations": ("latest",
                                  "creative.tournament seeds the last run's derived seasonal "
                                  "transformations of the catalogue into its field (#279)"),
