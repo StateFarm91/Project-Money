@@ -167,6 +167,10 @@ def test_s2_a_staleness_only_refusal_is_not_held():
     platform_policy.unreviewed_changes = lambda db: []
     try:
         assert release_gates.retry_hold_reason(db, slug="a") is None
+        with db.session() as s:                    # review H1: the sentinel's own row never holds
+            s.add(Incident(severity="P1", product_slug="a", halts_publication=True,
+                           signature="stale-artefact:visual_truth:a@1.0.0#1", summary="stale"))
+        assert release_gates.retry_hold_reason(db, slug="a") is None
         with db.session() as s:                    # a non-staleness halting incident holds
             s.add(Incident(severity="P0", product_slug="a", halts_publication=True,
                            signature="authority_chain_tamper:a", summary="tamper"))
@@ -174,6 +178,43 @@ def test_s2_a_staleness_only_refusal_is_not_held():
         assert why and "authority_chain_tamper:a" in why, why
     finally:
         platform_policy.unreviewed_changes = real
+
+
+def test_h1_a_product_with_only_staleness_incidents_is_retried_not_held():
+    """Review H1 (dbb4ebf): the sentinel's own stale-artefact rows (any class, listed in the
+    graph's outstanding or not) and a staleness-only systemic halt are the staleness the retry
+    cures. They never hold it. End to end, the retry fires on the next day."""
+    from brambleloop.gates import platform_policy
+
+    db = _db()
+    q = JobQueue(db)
+    _stale_marketing_estate(db)                     # products a, b, c + a staleness-only halt
+    with db.session() as s:
+        for sig in ("stale-artefact:visual_truth:a@1.0.0#1",
+                    "stale-artefact:marketing_asset:a:pin:1",
+                    "stale-artefact:listing_asset:a@1.0.0#2"):
+            s.add(Incident(severity="P1", product_slug="a", halts_publication=True,
+                           signature=sig, summary="stale"))
+    real = rebuild_graph.rebuild_set, platform_policy.unreviewed_changes
+    rebuild_graph.rebuild_set = _plan
+    platform_policy.unreviewed_changes = lambda db: []
+    try:
+        assert release_gates.retry_hold_reason(db, slug="a") is None
+
+        def go(now):
+            with db.session() as s:
+                return rebuild_graph.enqueue(
+                    s, q, changed={"cir:a": "f" * 16}, reason="t", per="product", now=now,
+                    hold=lambda slug: release_gates.retry_hold_reason(db, slug=slug))
+
+        assert go(NOW)["enqueued"]
+        with db.session() as s:
+            j = s.scalar(select(Job).where(Job.job_type == "chain.rebuild"))
+            j.status, j.finished_at = JobStatus.DONE, NOW
+        out = go(NOW + timedelta(days=1, hours=1))
+        assert out["retried"] == ["a"] and not out["retry_held"], out
+    finally:
+        rebuild_graph.rebuild_set, platform_policy.unreviewed_changes = real
 
 
 # --- 2a: a paid, unusable gallery observation is not bought again ---------------------------

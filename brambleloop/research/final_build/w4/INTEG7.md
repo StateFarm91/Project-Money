@@ -154,6 +154,25 @@ LAURAFIX is excluded (it belongs to the activation batch).
   - **S-5:** the 400 from `SingleAuthorizationMiddleware` carries no security headers. Its body is a fixed JSON string, so there is no impact.
   - **S-6:** the policy-review card pre-fills the confirmation phrase. The real controls are step-up, the digest of the shown text, and the free-text `tested` field.
 
+### Review of dbb4ebf (INDEPENDENT_SECREVIEW_INTEG7_dbb4ebf.md): do not ship as it was; fixed
+
+- **H1 (High), fixed.**
+  - **The defect:** S-2's hold reused R4's marketing-only helper, so the sentinel's own `stale-artefact:*` rows counted as "a halting incident other than staleness". Every product whose retry exists to cure staleness would have been held forever.
+  - **The fix:** `release_gates.retry_hold_reason` now reads the product's halting incidents directly. It excludes every `stale-artefact:` signature (`ops.artefacts.SENTINEL_SIGNATURE`), and excludes `SYSTEMIC_SIGNATURE` when its evidence is staleness only. It holds only on an unreviewed policy change or a genuinely non-staleness incident.
+  - **Tests** (`test_w4_prodfix`):
+    - new end-to-end `test_h1_a_product_with_only_staleness_incidents_is_retried_not_held` (stale `visual_truth`, `marketing_asset` and `listing_asset` rows, plus a staleness-only systemic halt: not held, and the retry fires);
+    - `test_s2_a_staleness_only_refusal_is_not_held` now seeds the sentinel's own row. The strengthened test fails on dbb4ebf, which confirms it covers the defect.
+- **M1 (Medium, Product Truth), fixed.**
+  - **The reuse key is now the whole basis:**
+    - per position: sha256, the certified job, and the exact claim (identifying jobs include the product families);
+    - the describer's model and prompt digest.
+  - **Never reused:** a job with no claim.
+  - **`review_state`** now also requires the filed jobs to equal the certificate's.
+  - **Test:** `test_m1_a_relabelled_job_or_a_changed_claim_is_judged_again_never_reused`. The same bytes certified for an unclaimed job are judged again, they block, and they are not reused. A deploy that changes a claim re-judges without `fresh=True`.
+- **L1 (Low), fixed.**
+  - The hero's grid reading records `described`. A failed grid call (transient error or ceiling refusal) is asked again instead of being reused as a final `unjudged`.
+  - **Test:** `test_l1_a_failed_grid_reading_is_asked_again_not_reused`.
+
 ## 10. Full suite and gates
 
 (pending)

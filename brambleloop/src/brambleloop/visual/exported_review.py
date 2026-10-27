@@ -73,23 +73,28 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
     if served.get("problems") or not served.get("images"):
         return {"reviewed": False, "why": "the certified set cannot be served: "
                                           f"{(served.get('problems') or ['no images'])[:2]}"}
-    # INTEG7 (review S-1): a review already filed for exactly these frames (the same position
-    # -> sha256 set) and judged by the model is reused, never bought again. A daily rebuild
-    # retry re-drives listing.seo over unchanged frames, and each re-review spent a describe
-    # call per frame plus a grid call. Only a frame whose description failed ("unreviewed",
-    # no paid answer) is worth asking again, so its presence lets the review run.
-    current = {str(row["position"]): str(row["sha256"]) for row in served["order"]}
+    # INTEG7 (review S-1, corrected by M1 and L1 of dbb4ebf): a filed review is reused, and
+    # never bought again, only when its whole BASIS equals what would be judged now. The basis
+    # is, per position: the bytes (sha256), the certified job, and the exact claim that job is
+    # judged against (identifying jobs include the product families). It also includes the
+    # describer's model and prompt. A relabelled job, a changed or removed claim, or a new
+    # describer is judged again. A job with no claim is never reused (C-80: it blocks, and a
+    # later registration must be honoured). A frame the model never answered ("unreviewed"),
+    # or whose grid reading failed, is asked again.
+    families = inspection_mod.product_families(authoritative_cir(slug, version))
+    basis = _basis(served["order"], families)
     filed = None if fresh else _filed_review(db, slug, version)
-    if filed is not None:
-        f_shas = {str(k): str(v) for k, v in (filed.get("frame_shas") or {}).items()}
+    if filed is not None and filed.get("basis") == basis and all(
+            b.get("claim") is not None for b in basis["frames"].values()):
         f_frames = filed.get("frames") or {}
-        if f_shas == current and f_frames and all(
-                (f.get("verdict") or "") != "unreviewed" for f in f_frames.values()):
+        if f_frames and set(f_frames) == set(basis["frames"]) and all(
+                (f.get("verdict") or "") != "unreviewed"
+                and (f.get("grid") or {}).get("described", True) is not False
+                for f in f_frames.values()):
             bad = {p: f.get("verdict") for p, f in f_frames.items() if f.get("verdict") != "clear"}
             return {"reviewed": not bad, "not_clear": bad, "reused": True,
-                    "why": "the filed review covers exactly these frames; no new paid call",
+                    "why": "the filed review has exactly this basis; no new paid call",
                     **filed}
-    families = inspection_mod.product_families(authoritative_cir(slug, version))
     frames: dict[str, dict] = {}
     from ..core import workspace
 
@@ -127,6 +132,7 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
                 grid = inspection_mod.identify_at_grid(path, families=families, db=db,
                                                        provider=provider)
                 entry["grid"] = {k: grid.get(k) for k in ("verdict", "why", "grid_px")}
+                entry["grid"]["described"] = bool(grid.get("described"))  # review L1
                 if grid.get("verdict") != "clear":
                     entry["verdict"] = "blocked" if grid.get("verdict") == "blocked" \
                         else "unjudged"
@@ -134,12 +140,43 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
             frames[pos] = entry
     detail = {"slug": slug, "version": version, "frames": frames,
               "frame_shas": {p: f["sha256"] for p, f in frames.items()},
+              "frame_jobs": {p: f["job"] for p, f in frames.items()},
+              "basis": basis,
               "certificate_record_id": served.get("record_id")}
     with db.session() as s:
         s.add(AuditLog(actor="quality_director", action=ACTION,
                        artifact=f"{slug}@{version}", detail=detail))
     bad = {p: f["verdict"] for p, f in frames.items() if f["verdict"] != "clear"}
     return {"reviewed": not bad and bool(frames), "not_clear": bad, **detail}
+
+
+def _basis(order, families) -> dict:
+    """What a review judged: per position the bytes, the certified job and the exact claim, plus
+    the describer (review M1). Deterministic and free."""
+    import hashlib
+
+    from ..gateway import routing
+    from . import inspect as inspection_mod
+
+    frames = {}
+    for row in order:
+        job = str(row.get("job") or "")
+        claim = JOB_CLAIMS.get(job)
+        if claim is not None and job in IDENTIFYING_JOBS:
+            claim = {**claim, "identifies_as": families}
+        frames[str(row["position"])] = {"sha256": str(row["sha256"]), "job": job,
+                                        "claim": claim}
+    try:
+        model = routing.route(inspection_mod.TASK)[1].model
+    except Exception:  # noqa: BLE001 - an unknown describer never matches a filed one
+        model = None
+    prompt = hashlib.sha256(inspection_mod.describe_prompt().encode()).hexdigest()[:16]
+    import json
+
+    # Through JSON, so it compares equal to the copy filed in the audit row (tuples -> lists).
+    return json.loads(json.dumps({"frames": frames,
+                                  "describer": {"model": model, "prompt": prompt}},
+                                 sort_keys=True, default=str))
 
 
 def _filed_review(db, slug: str, version: str) -> dict | None:
@@ -169,6 +206,8 @@ def review_state(db, slug: str, version: str) -> dict:
     cert = certified_frames(db, slug, version)
     exported = {str(int(f.get("position") or 0)): str(f.get("sha256") or "")
                 for f in cert.get("frames") or []}
+    exported_jobs = {str(int(f.get("position") or 0)): str(f.get("job") or "")
+                     for f in cert.get("frames") or []}
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == ACTION,
                                               AuditLog.artifact == f"{slug}@{version}")
@@ -183,6 +222,12 @@ def review_state(db, slug: str, version: str) -> dict:
     if {str(k): v for k, v in (detail.get("frame_shas") or {}).items()} != exported:
         return {"applies": True, "reviewed": False,
                 "why": "the review on record is not of the frames the certificate exports now"}
+    # Review M1: the same bytes certified for another job were not judged against that job.
+    filed_jobs = {str(k): str((f or {}).get("job") or "") for k, f in frames.items()}
+    if filed_jobs != exported_jobs:
+        return {"applies": True, "reviewed": False,
+                "why": "the review on record judged these frames for other jobs than the "
+                       "certificate exports now"}
     bad = {p: f.get("verdict") for p, f in frames.items() if f.get("verdict") != "clear"}
     return {"applies": True, "reviewed": not bad, "not_clear": bad,
             "why": ("every exported frame was independently reviewed and communicates its "

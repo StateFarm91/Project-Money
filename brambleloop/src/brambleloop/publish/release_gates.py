@@ -1310,31 +1310,54 @@ def staleness(db, *, slug: str) -> dict:
     only_marketing = (bool(outstanding) and not halting_other and not policy
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
-            "halting_other_than_staleness": list(halting_other)[:5],
             "policy_changes_unreviewed": [c["source"] for c in policy],
             "blocks": bool(reasons), "reasons": reasons,
             "outstanding_only_marketing": only_marketing}
 
 
 def retry_hold_reason(db, *, slug: str) -> str | None:
-    """INTEG7 (review S-2): why the daily rebuild retry for `slug` should wait, or None.
+    """INTEG7 (review S-2, corrected by review H1 of dbb4ebf): why the daily rebuild retry for
+    `slug` should wait, or None.
 
-    A retry is held while what refuses the product's rebuild is a gate only the owner or the
-    platform can clear: an unreviewed material platform-policy change (#39), or an open halting
-    incident that is not the staleness the rebuild cures. Retrying daily then only re-ran about
-    nine jobs and dead-lettered one store.publish. The hold lifts by itself when the gate
-    clears: the next sentinel run finds no reason and the retry resumes. Unreadable gates do
-    not hold (the retry is CA$0 and still bounded to once a day)."""
+    A retry is held only while a gate the rebuild cannot cure refuses the product:
+    - an unreviewed material platform-policy change (#39), or
+    - an open halting incident for the product that is not staleness (integrity, tamper and
+      the like).
+    The sentinel's own `stale-artefact:*` rows, which are the staleness the retry exists to
+    cure, never hold it. Neither does a company-wide halt whose only evidence is widespread
+    stale-artefact rows. The hold lifts by itself when the gate clears. An unreadable gate does
+    not hold (the retry is CA$0 and bounded to once a day)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..gates.platform_policy import unreviewed_changes
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+    from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+
     try:
-        st = staleness(db, slug=slug)
+        policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
+        with db.session() as s:
+            try:
+                ev = systemic_evidence(s)
+                staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
+                                  and set(ev["widespread_families"]) == {"stale-artefact"})
+            except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
+                staleness_only = False
+            rows = list(s.scalars(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.halts_publication.is_(True),
+                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+            others = [r.signature for r in rows
+                      if not str(r.signature).startswith(f"{SENTINEL_SIGNATURE}:")
+                      and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
     except Exception:  # noqa: BLE001
         return None
-    if st.get("policy_changes_unreviewed"):
+    if policy:
         return ("held: platform policy change awaiting the owner's review (#39): "
-                + ", ".join(st["policy_changes_unreviewed"]))
-    if st.get("halting_other_than_staleness"):
+                + ", ".join(c["source"] for c in policy))
+    if others:
         return ("held: open halting incident(s) the rebuild cannot cure: "
-                + ", ".join(map(str, st["halting_other_than_staleness"][:3])))
+                + ", ".join(map(str, others[:3])))
     return None
 
 
