@@ -1059,6 +1059,13 @@ LAUNCH0_SLUGS: tuple[str, ...] = (
 if CATALOGUE_FLOOR_APPROVED:
     BUILDERS.update(PROPOSED_BUILDERS)
 
+# D-W4-OWNER-BASKET-IDENTITY (2026-10-27): reserve candidates the owner preserved "for
+# separately verified future releases". They are not launched (not in LAUNCH0_SLUGS), but their
+# CIRs stay in `launch_scope_slugs`, so every Launch-0 gate (first-customer, plan price,
+# children's statements) still applies to them; a CIR a launched candidate sells is that
+# candidate's, never the reserve's (`candidate_for_cir`).
+HELD_FOR_VERIFICATION: tuple[str, ...] = ("nursery-nesting-baskets",)
+
 
 def proposed_candidate(slug: str) -> Candidate:
     """A catalogue-floor proposal candidate, whether or not the owner has approved it."""
@@ -1082,9 +1089,14 @@ def launch_scope_slugs() -> frozenset[str]:
     global _LAUNCH_SCOPE
     if _LAUNCH_SCOPE is None:
         slugs = set(LAUNCH0_SLUGS)
-        for slug in LAUNCH0_SLUGS:
+        # D-W4-OWNER-BASKET-IDENTITY: a family held for separately verified future releases
+        # stays inside the quarantine. Leaving it would let a re-certified medium or large
+        # basket skip the first-customer gate (`publish.eligibility.legacy_status`), which is
+        # the opposite of "separately verified".
+        for slug in LAUNCH0_SLUGS + HELD_FOR_VERIFICATION:
             for v in candidate(slug).variants:
                 slugs.add(cir_for(v.build).slug)
+        slugs.update(HELD_FOR_VERIFICATION)
         _LAUNCH_SCOPE = frozenset(slugs)
     return _LAUNCH_SCOPE
 
