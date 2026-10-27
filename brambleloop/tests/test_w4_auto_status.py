@@ -188,8 +188,12 @@ def test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged():
 
     jt = "etsy.openapi_reverify"
     sched = [c for c in CADENCES if c[2] == jt]
-    assert len(sched) == 1 and sched[0][1] == "orchestrator", sched
+    # W4-F454 moved this cadence to the integration domain's focused agent; the orchestrator
+    # keeps the permission, so a manual run still has a path. Both are asserted.
+    assert len(sched) == 1 and sched[0][1] == "integration_steward", sched
     assert sched[0][3] == 7 * 24 * 60 * 60, sched
+    owner = next(a for a in DEFAULT_AGENTS if a["name"] == sched[0][1])
+    assert jt in owner["allowed_job_types"]
     orch = next(a for a in DEFAULT_AGENTS if a["name"] == "orchestrator")
     assert jt in orch["allowed_job_types"]
     assert handlers.get(jt) is not None, "no handler registered for the cadence"
