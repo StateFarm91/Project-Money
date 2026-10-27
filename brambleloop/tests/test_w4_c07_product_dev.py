@@ -78,15 +78,29 @@ def test_f114_worthy_legacy_goes_through_band_compiler_twin_reverse_and_release_
     from brambleloop.runtime import pipeline  # noqa: F401
     from brambleloop.runtime.worker import JobContext, handlers
 
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.runtime import engineering_ops as EO
+
+    # The owner chooses: salvage raises one card and enqueues nothing.
+    card_id = EO.reengineer_card(db, ["legacy-blanket"])
+    assert EO.reengineer_card(db, ["legacy-blanket"]) == card_id          # not duplicated
+
+    def run(inputs):
+        job = JobQueue(db).enqueue("crochet_engineer", "cir.reengineer", inputs)
+        Registry(db).authorize("crochet_engineer", "cir.reengineer")
+        return handlers.get("cir.reengineer")(JobContext(job=job, db=db, queue=JobQueue(db),
+                                                         registry=Registry(db),
+                                                         phase=Phase.SHADOW))
+
     saved = RE.plan
     RE.plan = lambda db_, slug: saved(db_, slug, salvage={"recommendation": "rescue_candidate"})
     try:
-        job = JobQueue(db).enqueue("crochet_engineer", "cir.reengineer",
-                                   {"slugs": ["legacy-blanket"]})
-        Registry(db).authorize("crochet_engineer", "cir.reengineer")
-        out = handlers.get("cir.reengineer")(JobContext(job=job, db=db, queue=JobQueue(db),
-                                                        registry=Registry(db),
-                                                        phase=Phase.SHADOW))
+        assert run({"slugs": ["legacy-blanket"]})["ran"] is False            # no choice
+        assert run({"slugs": ["legacy-blanket"],
+                    "owner_action_id": card_id})["ran"] is False             # undecided
+        with db.session() as s:
+            s.get(OwnerAction, card_id).done = True
+        out = run({"slugs": ["legacy-blanket"], "owner_action_id": card_id})
     finally:
         RE.plan = saved
     assert out["sent_to_release_chain"] == 1

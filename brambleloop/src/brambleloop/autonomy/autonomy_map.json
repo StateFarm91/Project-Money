@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T10:58:31.673792+00:00",
+ "generated_at": "2026-10-27T11:15:01.934476+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 128,
   "handlers": 160,
   "agents": 32,
-  "follow_on_edges": 82
+  "follow_on_edges": 81
  },
  "departments": [
   {
@@ -710,7 +710,6 @@
      "chain.rebuild",
      "cir.compile",
      "cir.draft",
-     "creative.salvage_review",
      "creative/intake.py:intake",
      "creative/intake.py:regate_held",
      "creative/preengineering.py:record",
@@ -829,7 +828,9 @@
     }
    ],
    "never_woken_job_types": [],
-   "owner_one_shots": {}
+   "owner_one_shots": {
+    "cir.reengineer": "owner-chosen legacy rescue (F-114 card from the salvage review)"
+   }
   },
   {
    "department": "product_truth",
