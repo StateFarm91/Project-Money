@@ -195,18 +195,29 @@ def _feature_key(source: str, name: str) -> str:
     return f"{source}:{name.strip().lower()}"[:200]
 
 
+# Stored in `operating_readings` (never pruned by `ops.retention`): a classification the
+# audit horizon forgot would let an unclassified feature be adopted.
+def _put(s, kind: str, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    s.add(OperatingReading(kind=kind, period_key=uuid.uuid4().hex[:20], payload=detail,
+                           at=datetime.now(timezone.utc)))
+
+
 def features(db) -> dict[str, dict]:
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import OperatingReading
 
     out: dict[str, dict] = {}
     with db.session() as s:
-        for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
-                (FEATURE_ACTION, CLASSIFY_ACTION))).order_by(AuditLog.id)):
-            d = dict(a.detail or {})
+        for a in s.scalars(select(OperatingReading).where(OperatingReading.kind.in_(
+                (FEATURE_ACTION, CLASSIFY_ACTION))).order_by(OperatingReading.id)):
+            d = dict(a.payload or {})
             k = d["key"]
-            if a.action == FEATURE_ACTION:
+            if a.kind == FEATURE_ACTION:
                 prev = out.get(k)
                 out[k] = {**(prev or {}), **d, "class": "unclassified"
                           if prev is None or d.get("changed") else prev.get("class"),
@@ -220,8 +231,6 @@ def features(db) -> dict[str, dict]:
 
 def discover(db, *, items: list[dict], observed_at: str) -> dict:
     """File newly seen or changed features; an unchanged one is not re-filed."""
-    from ..core.models import AuditLog
-
     if not observed_at:
         raise FeatureRefused("a discovery is dated")
     known = features(db)
@@ -236,17 +245,15 @@ def discover(db, *, items: list[dict], observed_at: str) -> dict:
             prev = known.get(k)
             if prev is not None and prev.get("description") == desc:
                 continue
-            s.add(AuditLog(actor="etsy_department", action=FEATURE_ACTION, artifact=k,
-                           detail={"key": k, "source": src, "name": name, "description": desc,
-                                   "observed_at": observed_at, "changed": prev is not None}))
+            _put(s, FEATURE_ACTION, {"key": k, "source": src, "name": name,
+                                     "description": desc, "observed_at": observed_at,
+                                     "changed": prev is not None})
             filed.append(k)
     return {"filed": filed, "unclassified": [k for k, v in features(db).items()
                                              if v["class"] == "unclassified"]}
 
 
 def classify(db, key: str, *, cls: str, reason: str, by: str) -> dict:
-    from ..core.models import AuditLog
-
     if cls not in FEATURE_CLASSES:
         raise FeatureRefused(f"{cls!r} is not one of {FEATURE_CLASSES}")
     if len((reason or "").split()) < 4:
@@ -254,9 +261,8 @@ def classify(db, key: str, *, cls: str, reason: str, by: str) -> dict:
     if key not in features(db):
         raise FeatureRefused(f"{key!r} was never discovered")
     with db.session() as s:
-        s.add(AuditLog(actor=by[:60] or "etsy_department", action=CLASSIFY_ACTION,
-                       artifact=key, detail={"key": key, "class": cls, "reason": reason[:400],
-                                             "by": by[:60]}))
+        _put(s, CLASSIFY_ACTION, {"key": key, "class": cls, "reason": reason[:400],
+                                  "by": by[:60]})
     return {"key": key, "class": cls}
 
 

@@ -49,21 +49,34 @@ def floors_pass(readiness) -> bool:
                 and r.blocked_by == BLOCKED_BUILD]
 
 
+# State lives in `operating_readings`, not the audit log: retention (`ops.retention`) prunes
+# audit rows past their horizon, and a freeze or an admission must not be forgotten.
+def _put(s, kind: str, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    s.add(OperatingReading(kind=kind, period_key=uuid.uuid4().hex[:20], payload=detail,
+                           at=datetime.now(timezone.utc)))
+
+
+def _rows(s, kind: str) -> list:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    return list(s.scalars(select(OperatingReading).where(OperatingReading.kind == kind)
+                          .order_by(OperatingReading.id)))
+
+
 def frozen(db) -> dict | None:
-    from sqlalchemy import desc, select
-
-    from ..core.models import AuditLog
-
     with db.session() as s:
-        row = s.scalar(select(AuditLog).where(AuditLog.action == FREEZE_ACTION)
-                       .order_by(desc(AuditLog.id)).limit(1))
-        return dict(row.detail or {}, at=row.at.isoformat()) if row else None
+        rows = _rows(s, FREEZE_ACTION)
+        return dict(rows[-1].payload or {}, at=rows[-1].at.isoformat()) if rows else None
 
 
 def freeze(db, readiness, *, by: str, now: datetime | None = None) -> dict:
     """Freeze the launch list once the floors pass. Idempotent while a freeze stands."""
-    from ..core.models import AuditLog
-
     existing = frozen(db)
     if existing is not None:
         return {**existing, "frozen": True, "new": False}
@@ -76,15 +89,12 @@ def freeze(db, readiness, *, by: str, now: datetime | None = None) -> dict:
               "fingerprint": hashlib.sha256(json.dumps(keys).encode()).hexdigest(),
               "frozen_at": (now or datetime.now(timezone.utc)).isoformat()}
     with db.session() as s:
-        s.add(AuditLog(actor=by[:60] or "launch", action=FREEZE_ACTION, artifact="launch",
-                       detail=detail))
+        _put(s, FREEZE_ACTION, detail)
     return {**detail, "frozen": True, "new": True}
 
 
 def admit(db, key: str, *, category: str, reason: str, by: str) -> dict:
     """Admit one requirement added after the freeze as a real blocker."""
-    from ..core.models import AuditLog
-
     if category not in CRITICAL_CATEGORIES:
         raise NonDelayRefused(f"{category!r} is not launch-critical {CRITICAL_CATEGORIES}: "
                               f"a non-blocking improvement waits for after launch (F-515)")
@@ -92,19 +102,13 @@ def admit(db, key: str, *, category: str, reason: str, by: str) -> dict:
         raise NonDelayRefused("an admitted blocker says why launch must wait for it")
     detail = {"key": key, "category": category, "reason": reason[:500], "by": by[:60]}
     with db.session() as s:
-        s.add(AuditLog(actor=by[:60] or "launch", action=ADMIT_ACTION, artifact=key[:200],
-                       detail=detail))
+        _put(s, ADMIT_ACTION, detail)
     return detail
 
 
 def _admitted(db) -> dict[str, dict]:
-    from sqlalchemy import select
-
-    from ..core.models import AuditLog
-
     with db.session() as s:
-        return {a.artifact: dict(a.detail or {}) for a in s.scalars(
-            select(AuditLog).where(AuditLog.action == ADMIT_ACTION).order_by(AuditLog.id))}
+        return {(r.payload or {})["key"]: dict(r.payload or {}) for r in _rows(s, ADMIT_ACTION)}
 
 
 def check(db, readiness) -> dict:

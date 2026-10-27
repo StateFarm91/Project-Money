@@ -161,17 +161,28 @@ class ChangeRefused(ValueError):
     """An experiment over the budget, or a change without what makes it attributable."""
 
 
+# Stored in `operating_readings` (never pruned by `ops.retention`): an open experiment that
+# retention forgot would free budget it still uses.
+def _put(s, kind: str, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    s.add(OperatingReading(kind=kind, period_key=uuid.uuid4().hex[:20], payload=detail,
+                           at=datetime.now(timezone.utc)))
+
+
 def _changes(db) -> tuple[dict[str, dict], set[str]]:
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import OperatingReading
 
     opened, closed = {}, set()
     with db.session() as s:
-        for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
-                (CHANGE_ACTION, CLOSE_ACTION))).order_by(AuditLog.id)):
-            d = dict(a.detail or {})
-            if a.action == CHANGE_ACTION:
+        for a in s.scalars(select(OperatingReading).where(OperatingReading.kind.in_(
+                (CHANGE_ACTION, CLOSE_ACTION))).order_by(OperatingReading.id)):
+            d = dict(a.payload or {})
+            if a.kind == CHANGE_ACTION:
                 opened[d["key"]] = {**d, "at": a.at.isoformat()}
             else:
                 closed.add(d["key"])
@@ -190,8 +201,6 @@ def change_budget(db) -> dict:
 def open_change(db, *, key: str, surface: str, kind: str, reason: str, by: str,
                 emergency_kind: str = "") -> dict:
     """Open one storefront change before it is applied; refuse an experiment over budget."""
-    from ..core.models import AuditLog
-
     if kind not in ("experiment", "emergency"):
         raise ChangeRefused("a storefront change is an experiment or an emergency fix")
     if not key.strip() or not surface.strip() or len((reason or "").split()) < 3:
@@ -219,19 +228,14 @@ def open_change(db, *, key: str, surface: str, kind: str, reason: str, by: str,
               "by": by[:60], "emergency_kind": emergency_kind or None,
               "confounds": confounds}
     with db.session() as s:
-        s.add(AuditLog(actor=by[:60] or "store", action=CHANGE_ACTION, artifact=surface[:200],
-                       detail=detail))
+        _put(s, CHANGE_ACTION, detail)
     return detail
 
 
 def close_change(db, key: str, *, outcome: str, by: str) -> dict:
-    from ..core.models import AuditLog
-
     opened, closed = _changes(db)
     if key not in opened or key in closed:
         raise ChangeRefused(f"no open change {key!r}")
     with db.session() as s:
-        s.add(AuditLog(actor=by[:60] or "store", action=CLOSE_ACTION,
-                       artifact=opened[key]["surface"][:200],
-                       detail={"key": key, "outcome": outcome[:300]}))
+        _put(s, CLOSE_ACTION, {"key": key, "outcome": outcome[:300], "by": by[:60]})
     return {"key": key, "closed": True}
