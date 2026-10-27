@@ -67,7 +67,9 @@ def test_the_live_register_is_sound_and_has_no_field_that_could_hold_a_value():
     fields = {f.name for f in dataclasses.fields(C.Exposure)}
     assert not fields & {"value", "secret", "token", "key_value"}, fields
     rep = C.report()
-    assert rep["rotation_required"] == ["ANTHROPIC_API_KEY"] and rep["problems"] == []
+    # W4-D2 (F-160): the operator token joined the register; still an exact list.
+    assert rep["rotation_required"] == ["ANTHROPIC_API_KEY", "BRAMBLELOOP_OPS_TOKEN"] \
+        and rep["problems"] == []
 
 
 if __name__ == "__main__":
