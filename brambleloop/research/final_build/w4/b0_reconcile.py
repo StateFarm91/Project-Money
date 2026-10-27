@@ -90,6 +90,12 @@ AWAITING = {
                    "usable shop credential on the deployed build",
     "F-594": "readiness reads the exercise evidence; the owner-authorised Etsy round trip "
              "remains",
+    "F-461": "re-audited in C01 planning: ops/deploy.sh is the sanctioned path and runs "
+             "ops/deploy_guard.py check (descendant of production + release-eligible run) "
+             "and a pre-push check before pushing; the matrix's 'advisory, nothing invokes "
+             "it' predates that. What remains is the host: a direct push to the production "
+             "branch still deploys, which only the owner's Railway trigger / branch "
+             "protection setting can close (deploy_trigger_config)",
     "B2#94": "the registry note says 'the instrument is complete' (scorecard, theme_fatigue, "
              "novelty, blinded); market CTR/conversion inputs need customers. No engineering "
              "defect found; reclassification is a proposal, not applied",
@@ -137,8 +143,6 @@ NOTES = {   # extra detail for EXECUTABLE rows whose 'gate' hides an engineering
     "F-330": "day 1/7/14/30 unit-economics review job over fixture orders",
     "F-367": "children's-shop study extractor (demand/merchandising only) on fixtures",
     "F-370": "category-share rebalancer bounded by owner constraints, on fixture outcomes",
-    "F-461": "deploy serialization lease in ops/deploy.sh (ops/lock.py); the Railway trigger "
-             "config is the owner's",
     "F-516@v0.16": "first-party finding capture model (timestamp, area, action, severity, "
                    "owner, status); no internal SEO score substitutes",
     "F-517@v0.16": "closure proof: a finding resolves only on a re-check showing it cleared",
@@ -177,7 +181,7 @@ NOTES = {   # extra detail for EXECUTABLE rows whose 'gate' hides an engineering
 CLUSTERS = [
     ("C01", "Agent orchestration and integration authority", "Workstream B (first cluster)",
      ["F-451", "F-454", "F-456", "F-463", "F-602", "F-711", "F-714", "F-715", "F-716",
-      "F-458", "F-461", "F-479", "F-481", "F-865", "F-866"],
+      "F-458", "F-479", "F-481", "F-865", "F-866"],
      ["src/brambleloop/swarm/", "src/brambleloop/build2/", "ops/deploy.sh", "ops/lock.py",
       "src/brambleloop/app/command_center/collaboration*"]),
     ("C02", "Durable memory, handoffs and test hygiene", "Workstream B (with B1)",

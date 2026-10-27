@@ -13096,9 +13096,8 @@
     "engineering_complete": false,
     "acceptance_complete": false,
     "branch_work": [],
-    "b0_class": "EXECUTABLE",
-    "b0_reason": "deploy serialization lease in ops/deploy.sh (ops/lock.py); the Railway trigger config is the owner's",
-    "cluster": "C01"
+    "b0_class": "AWAITING_EVIDENCE",
+    "b0_reason": "re-audited in C01 planning: ops/deploy.sh is the sanctioned path and runs ops/deploy_guard.py check (descendant of production + release-eligible run) and a pre-push check before pushing; the matrix's 'advisory, nothing invokes it' predates that. What remains is the host: a direct push to the production branch still deploys, which only the owner's Railway trigger / branch protection setting can close (deploy_trigger_config)"
    },
    {
     "id": "F-462",
@@ -21284,8 +21283,8 @@
   "branch_heads": {
    "claude/w4-INTEG7": "4d3d1ee8",
    "claude/w4-INTELREC": "1d1c012d",
-   "claude/w4-AGENTS2": "41db9aa6",
-   "claude/w4-FMBATCH2": "9a6af055",
+   "claude/w4-AGENTS2": "6ebe7103",
+   "claude/w4-FMBATCH2": "2f495592",
    "claude/w4-CLOSE6": "ff788bd9",
    "claude/w4-LAURAFIX": "9cff9cec",
    "claude/w4-PRODFIX": "86fe2b50",
@@ -21294,9 +21293,9 @@
   },
   "counts": {
    "final_master": {
-    "AWAITING_EVIDENCE": 16,
+    "AWAITING_EVIDENCE": 17,
     "COMPLETE": 726,
-    "EXECUTABLE": 151,
+    "EXECUTABLE": 150,
     "GENUINELY_GATED": 5,
     "MISSING_INTEGRATION": 12,
     "NOT_APPLICABLE": 7
