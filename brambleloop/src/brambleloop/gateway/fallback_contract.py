@@ -18,7 +18,8 @@ The verdict is PASS only when every check passes; FAIL when any fails; else UNKN
 contract verdict is PASS (UNKNOWN never counts as a pass). A stronger model of the SAME
 provider (`failover.APPROVED_FALLBACKS`, a reviewed list) is still routed on that approval,
 and its contract verdict is reported on the decision row so a gap is visible rather than
-silent -- the remaining half of F-095 (measured quality and latency for those models) is open.
+silent -- except on a GATE task (W4-C03), where any fallback needs a full PASS. The measured
+quality and latency come from recorded golden evaluations or from `failover_drill` (F-097).
 """
 from __future__ import annotations
 
@@ -155,11 +156,177 @@ def evaluate(db, *, provider: str, model: str, task_key: str) -> dict:
             "verdict": verdict}
 
 
+#: W4-C03 (F-095 remainder): tasks whose answer satisfies a gate -- a release, a truth check,
+#: or the choice every later render goes through. A fallback stands in for one of these only
+#: on a PASS of the whole contract, whichever provider it is from: a same-provider model whose
+#: quality or latency is UNKNOWN has not shown it can satisfy the gate, and a stronger model is
+#: not a measured one. Every other task keeps the reviewed same-provider approval below.
+GATE_TASKS: dict[str, str] = {
+    "asset_inspection": "the physical-realism and caption-truth judgement a release waits on "
+                        "(#61, #79)",
+    "benchmark_challenge": "the release-blocking blinded benchmark comparison (#315)",
+    "creative_evaluation": "the desirability gate a concept must pass to be built (#218)",
+    "image_benchmark_judging": "chooses the image provider every listing image renders "
+                               "through afterwards",
+}
+
+
+def is_gate_task(task_key: str) -> bool:
+    return task_key in GATE_TASKS
+
+
 def may_route(db, *, provider: str, primary_provider: str, model: str, task_key: str) -> dict:
-    """Whether failover may route this fallback. Cross-provider: only on PASS."""
+    """Whether failover may route this fallback. Cross-provider or gate task: only on PASS."""
     ev = evaluate(db, provider=provider, model=model, task_key=task_key)
     if provider != primary_provider:
         return {"allowed": ev["verdict"] == PASS, "basis": "contract", "contract": ev}
+    if is_gate_task(task_key):
+        unmet = sorted(k for k, v in ev["checks"].items() if v["verdict"] != PASS)
+        return {"allowed": ev["verdict"] == PASS,
+                "basis": (f"gate task ({GATE_TASKS[task_key]}): a fallback satisfies it only "
+                          f"on a full contract PASS" + (f"; not yet PASS: {unmet}" if unmet
+                                                        else "")),
+                "contract": ev}
     return {"allowed": ev["verdict"] != FAIL, "basis": "same-provider approved fallback "
             "(failover.APPROVED_FALLBACKS); contract reported, quality/latency may be UNKNOWN",
             "contract": ev}
+
+
+# ---- F-097 Shadow Failover Drill ------------------------------------------------------------
+#
+# F-097: "Once a fallback exists, periodically route safe sampled work through it and compare
+# quality/cost/latency." A drill is two paid calls per sampled item, so it is OFF unless
+# `BRAMBLELOOP_FAILOVER_DRILL=1`, and even then it runs only on a task that is safe to sample
+# (never a gate task, never Laura's owner-facing or private register), only with a fallback the
+# reviewed list or a configured provider supplies, and only for a fallback whose contract has
+# not FAILED. The caller hands the drill its `call(provider, model, item)`; the drill never
+# builds a model client of its own.
+#
+# What it measures is the fallback against the primary on the same items: agreement of the
+# structured answer (every key the primary returned, equal in the fallback's answer), cost per
+# call and p95 latency. The fallback's latency and its agreement become the contract's recorded
+# latency and evaluation rows -- the measured quality and latency F-095 said were missing --
+# labelled with their source. A cross-provider drill is also F-093's evidence row
+# (`scale.dependency.FALLBACK_DRILL_ACTION`); a same-provider drill never is, because a second
+# model of the same provider does not survive that provider's outage.
+
+DRILL_SWITCH = "BRAMBLELOOP_FAILOVER_DRILL"
+DRILL_ACTION = "gateway.failover_drill"
+DRILL_SAMPLE_RATE = 0.10
+DRILL_MAX_ITEMS = 10
+UNSAFE_PREFIXES = ("laura.",)
+
+
+def drill_enabled() -> bool:
+    import os
+
+    return os.environ.get(DRILL_SWITCH, "").strip() == "1"
+
+
+def drill_safe(task_key: str) -> tuple[bool, str]:
+    from . import routing
+
+    try:
+        routing.route(task_key)
+    except Exception as exc:  # noqa: BLE001 - an undeclared or compiler task is not sampled
+        return False, str(exc)[:200]
+    if is_gate_task(task_key):
+        return False, f"{task_key} satisfies a gate ({GATE_TASKS[task_key]}); never sampled"
+    if task_key.startswith(UNSAFE_PREFIXES):
+        return False, f"{task_key} is owner-facing; never sampled"
+    return True, "safe: extraction or judgement that no gate reads directly"
+
+
+def _sampled(items: list[dict], rate: float, limit: int) -> list[dict]:
+    """Deterministic sample: an item is in when its id hashes below the rate."""
+    import hashlib
+
+    out = []
+    for it in items:
+        h = int(hashlib.sha256(str(it.get("id")).encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+        if h < rate:
+            out.append(it)
+    return out[:limit]
+
+
+def _p95(values: list[float]) -> float:
+    v = sorted(values)
+    return v[max(0, min(len(v) - 1, int(round(0.95 * (len(v) - 1)))))]
+
+
+def failover_drill(db, *, task_key: str, items: list[dict], call, fallback_model: str = "",
+                   fallback_provider: str = "anthropic", primary_provider: str = "anthropic",
+                   rate: float = DRILL_SAMPLE_RATE, limit: int = DRILL_MAX_ITEMS,
+                   enabled: bool | None = None) -> dict:
+    """Route sampled safe work through the fallback beside the primary, and compare."""
+    from ..core.models import AuditLog
+    from . import failover, routing
+
+    on = drill_enabled() if enabled is None else bool(enabled)
+    if not on:
+        return {"ran": False, "task": task_key,
+                "why": f"{DRILL_SWITCH} is off: a drill is paid calls, so it runs only when "
+                       f"switched on"}
+    ok, why = drill_safe(task_key)
+    if not ok:
+        return {"ran": False, "task": task_key, "why": why}
+    _task, tier = routing.route(task_key)
+    fallback = fallback_model or next(iter(failover.APPROVED_FALLBACKS.get(tier.key, ())), "")
+    if not fallback:
+        return {"ran": False, "task": task_key,
+                "why": f"no fallback exists for the {tier.key} tier; there is nothing to drill"}
+    before = evaluate(db, provider=fallback_provider, model=fallback, task_key=task_key)
+    if before["verdict"] == FAIL:
+        return {"ran": False, "task": task_key, "fallback": fallback,
+                "why": "the fallback already FAILS its contract; it is not routed, not drilled"}
+    picked = _sampled(items, rate, limit)
+    if not picked:
+        return {"ran": False, "task": task_key, "fallback": fallback,
+                "why": f"none of {len(items)} item(s) fell in the {rate:.0%} sample"}
+    agree, rows = 0, []
+    cost = {"primary": 0.0, "fallback": 0.0}
+    lat: dict[str, list[float]] = {"primary": [], "fallback": []}
+    for it in picked:
+        p = call(primary_provider, tier.model, it)
+        f = call(fallback_provider, fallback, it)
+        po, fo = dict(p.get("output") or {}), dict(f.get("output") or {})
+        same = bool(po) and all(fo.get(k) == v for k, v in po.items())
+        agree += int(same)
+        for side, r in (("primary", p), ("fallback", f)):
+            cost[side] += float(r.get("cost_cad") or 0.0)
+            lat[side].append(float(r.get("latency_s") or 0.0))
+        rows.append({"item": it.get("id"), "agree": same,
+                     "differs_on": sorted(k for k, v in po.items() if fo.get(k) != v)[:10]})
+    n = len(picked)
+    contract = contract_for(task_key)
+    p95_f = round(_p95(lat["fallback"]), 4)
+    per_call_f = round(cost["fallback"] / n, 6)
+    comparison = {
+        "quality": {"agreement": round(agree / n, 4), "agreeing": agree, "items": n,
+                    "basis": "fallback answer equals the primary's on every key it returned"},
+        "cost_cad_per_call": {"primary": round(cost["primary"] / n, 6), "fallback": per_call_f},
+        "p95_latency_s": {"primary": round(_p95(lat["primary"]), 4), "fallback": p95_f}}
+    passed = (agree / n >= MIN_EVAL_PASS_RATE and p95_f <= contract["max_p95_latency_s"]
+              and per_call_f <= contract["max_cad_per_call"])
+    source = f"{DRILL_ACTION}:{task_key}:agreement-with-{tier.model}"
+    record_latency(db, provider=fallback_provider, model=fallback, tier=tier.key, p95_s=p95_f,
+                   samples=n)
+    record_eval(db, provider=fallback_provider, model=fallback, tier=tier.key, passed=agree,
+                total=n, source=source)
+    detail = {"task": task_key, "tier": tier.key, "primary": f"{primary_provider}:{tier.model}",
+              "fallback": f"{fallback_provider}:{fallback}", "sampled": n,
+              "of": len(items), "rate": rate, "comparison": comparison, "passed": passed,
+              "items": rows}
+    with db.session() as s:
+        s.add(AuditLog(actor="gateway", action=DRILL_ACTION, artifact=task_key[:200],
+                       detail=detail))
+        if fallback_provider != primary_provider:
+            from ..scale import dependency
+
+            s.add(AuditLog(actor="gateway", action=dependency.FALLBACK_DRILL_ACTION,
+                           detail={"passed": passed, "workload": "judgement_vision",
+                                   "task": task_key, "fallback": detail["fallback"]}))
+    after = evaluate(db, provider=fallback_provider, model=fallback, task_key=task_key)
+    return {"ran": True, **detail, "contract_before": before["verdict"],
+            "contract_after": after["verdict"],
+            "counts_for_provider_dependency": fallback_provider != primary_provider}
