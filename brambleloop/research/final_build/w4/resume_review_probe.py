@@ -9,6 +9,16 @@ suites, drives a run / kill / tamper / resume sequence, and prints one line per 
     HELD     <probe>: <what was observed>     -- the runner enforced the policy
     EXPOSED  <probe>: <what was observed>     -- the runner accepted something the policy forbids
 
+ADAPTED BY W4-RESUMEFIX (2026-10-27) to the fixed runner's on-disk layout, verdict logic
+otherwise unchanged: (1) a suite's result is the append-only attempt `tests_<suite>.s1.json`/`.out`
+(was `tests_<suite>.json`/`.out`); (2) the harness's counter/gate files and the run secrets live
+OUTSIDE the sandbox repository (F4 binds every git-ignored file in the tree, so harness state
+written there mid-run would refuse every resume); (3) P03c had no HELD branch (it printed EXPOSED
+unconditionally) -- it is HELD when the failed suite is not re-run, the run fails and the record
+agrees with itself; (4) P09 passes the same environment to both segments (F4 binds the whole
+environment; with different ones the resume is refused before finalize is ever reached) and
+pre-seeds the flaky counter so every suite passes. The original is commit 503a29cd.
+
 The process exits 0 when every probe ran to completion (whatever it found) and 1 if a probe
 could not run. Run from brambleloop/:  nice -n 19 python3 research/final_build/w4/resume_review_probe.py
 """
@@ -30,7 +40,8 @@ os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
 ROOT = Path(__file__).resolve().parents[3]           # brambleloop/
 PY = sys.executable
 KNOBS = ("SUITES", "REQUIRE_CLEAN", "THEN_FULL", "ALLOW_PARALLEL", "SUITE_RECORD_DIR", "JOBS",
-         "RESUME", "SHARD", "CHECKPOINT", "CHECKPOINT_TOOL", "TMP_LEAK_STRICT", "PYTHONPATH")
+         "RESUME", "SHARD", "CHECKPOINT", "CHECKPOINT_TOOL", "TMP_LEAK_STRICT", "PYTHONPATH",
+         "SUITE_RUNKEY_DIR")
 WORK = Path(tempfile.mkdtemp(prefix="resume-review-"))
 RESULTS: list[tuple[str, str, str]] = []
 
@@ -82,12 +93,17 @@ def git(repo: Path, *a: str) -> str:
                           check=True).stdout.strip()
 
 
+def st(repo: Path) -> Path:
+    """Harness state (counters, gate) outside the sandbox repository (W4-RESUMEFIX)."""
+    return repo.parent / f"{repo.name}-state"
+
+
 def sandbox(name: str, n_filler: int = 0) -> Path:
     repo = WORK / name
     (repo / "tests").mkdir(parents=True)
     (repo / "scripts").mkdir()
     (repo / "fixtures").mkdir()
-    (repo / "count").mkdir()
+    st(repo).mkdir()
     shutil.copy(ROOT / "run_tests.sh", repo / "run_tests.sh")
     shutil.copy(ROOT / "scripts" / "suite_checkpoint.py", repo / "scripts" / "suite_checkpoint.py")
     for f, body in SUITES.items():
@@ -108,7 +124,8 @@ def sandbox(name: str, n_filler: int = 0) -> Path:
 def env(repo: Path, **over) -> dict:
     e = {k: v for k, v in os.environ.items() if k not in KNOBS}
     return {**e, "PY": PY, "JOBS": "2", "SUITE_REGISTRY": "0",
-            "COUNT_DIR": str(repo / "count"), "GATE_FILE": str(repo / "gate"), **over}
+            "COUNT_DIR": str(st(repo)), "GATE_FILE": str(st(repo) / "gate"),
+            "SUITE_RUNKEY_DIR": str(repo.parent / f"{repo.name}-keys"), **over}
 
 
 def run(repo: Path, **over) -> subprocess.CompletedProcess:
@@ -130,14 +147,14 @@ def record(repo: Path, rid: str) -> dict:
 
 
 def suite_json(repo: Path, rid: str, suite: str) -> dict:
-    return json.loads((ckdir(repo, rid) / f"tests_{suite}.json").read_text())
+    return json.loads((ckdir(repo, rid) / f"tests_{suite}.s1.json").read_text())
 
 
 def killed_run(repo: Path, suites: str, sig=signal.SIGKILL, wait_done=(), **over) -> str:
     """Start a CHECKPOINT=1 run, wait until the gate suite is running and `wait_done` suites
     have a terminal checkpoint, then send `sig` to the whole process group (a container
     restart takes every process). Returns the run id."""
-    for p in (repo / "gate", repo / "gate.started"):
+    for p in (st(repo) / "gate", st(repo) / "gate.started"):
         p.unlink(missing_ok=True)
     seen = {d.name for d in runs(repo).iterdir()} if runs(repo).is_dir() else set()
     p = subprocess.Popen(["nice", "-n", "19", "bash", str(repo / "run_tests.sh")],
@@ -152,7 +169,7 @@ def killed_run(repo: Path, suites: str, sig=signal.SIGKILL, wait_done=(), **over
                     if d.is_dir() and d.name != "locks" and d.name not in seen]
             if dirs:
                 rid = dirs[0].name
-        ready = (repo / "gate.started").exists() and rid is not None
+        ready = (st(repo) / "gate.started").exists() and rid is not None
         if ready:
             for s in wait_done:
                 try:
@@ -171,11 +188,15 @@ def killed_run(repo: Path, suites: str, sig=signal.SIGKILL, wait_done=(), **over
     p.wait(timeout=60)
     if sig != signal.SIGKILL:
         time.sleep(0.5)
-    (repo / "gate").write_text("open")                 # so a resumed gate suite completes
+    (st(repo) / "gate").write_text("open")                 # so a resumed gate suite completes
     return rid
 
 
 def note(verdict: str, probe: str, detail: str) -> None:
+    if verdict == "HELD":
+        # W4-RESUMEFIX: most details are the reviewer's narrative of the EXPOSED case with the
+        # observed values interpolated; read the values, not the prose.
+        detail = "[observed values; prose describes the pre-fix EXPOSED case] " + detail
     RESULTS.append((verdict, probe, detail))
     print(f"{verdict:8} {probe}: {detail}", flush=True)
 
@@ -190,7 +211,8 @@ def p01_kill9_mid_suite():
     repo = sandbox("p01")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
     st_rec = record(repo, rid)["status"]
-    gate = suite_json(repo, rid, "test_gate.py")["status"]
+    gate = ("running" if (ckdir(repo, rid) / "tests_test_gate.py.s1.running").exists()
+            and not (ckdir(repo, rid) / "tests_test_gate.py.s1.json").exists() else "terminal")
     r = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     rec = record(repo, rid)
     by = {s["suite"]: s for s in rec["suite_results"]}
@@ -206,13 +228,13 @@ def p01_kill9_mid_suite():
 
 def p01b_sigterm_orphans_suite():
     repo = sandbox("p01b")
-    for p in (repo / "gate", repo / "gate.started"):
+    for p in (st(repo) / "gate", st(repo) / "gate.started"):
         p.unlink(missing_ok=True)
     pr = subprocess.Popen(["bash", str(repo / "run_tests.sh")], stdout=subprocess.DEVNULL,
                           stderr=subprocess.DEVNULL, env=env(repo, SUITES="test_gate",
                                                              CHECKPOINT="1"), cwd=repo)
     end = time.time() + 60
-    while not (repo / "gate.started").exists() and time.time() < end:
+    while not (st(repo) / "gate.started").exists() and time.time() < end:
         time.sleep(0.05)
     time.sleep(0.3)
     pr.send_signal(signal.SIGTERM)                     # the runner only, as `kill <pid>` does
@@ -220,7 +242,7 @@ def p01b_sigterm_orphans_suite():
     time.sleep(0.5)
     alive = subprocess.run(["pgrep", "-f", str(repo / "tests" / "test_gate.py")],
                            capture_output=True, text=True).stdout.split()
-    (repo / "gate").write_text("open")
+    (st(repo) / "gate").write_text("open")
     time.sleep(0.5)
     note("EXPOSED" if alive else "HELD", "P01b SIGTERM to the runner leaves the suite running",
          f"suite processes still alive after the runner exited on SIGTERM: {len(alive)}"
@@ -232,7 +254,7 @@ def p02_torn_checkpoint_writes():
     # (a) a json that a crash left empty (no fsync before rename)
     repo = sandbox("p02a")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
-    (ckdir(repo, rid) / "tests_test_multi.py.json").write_text("")
+    (ckdir(repo, rid) / "tests_test_multi.py.s1.json").write_text("")
     r = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     a_ok = "2 of 2 suites" in r.stdout and r.returncode == 0
     note("HELD" if a_ok else "EXPOSED", "P02a kill during checkpoint json write (empty json)",
@@ -241,7 +263,7 @@ def p02_torn_checkpoint_writes():
     # (b) json committed, .out torn (finish writes .out non-atomically and fsyncs nothing)
     repo = sandbox("p02b")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
-    o = ckdir(repo, rid) / "tests_test_multi.py.out"
+    o = ckdir(repo, rid) / "tests_test_multi.py.s1.out"
     o.write_text("".join(o.read_text().splitlines(True)[:2]))
     r = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     rec = record(repo, rid)
@@ -254,7 +276,7 @@ def p02_torn_checkpoint_writes():
     # (c) .out missing under a 'passed' json -> neither rerun nor reported: stuck
     repo = sandbox("p02c")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
-    (ckdir(repo, rid) / "tests_test_multi.py.out").unlink()
+    (ckdir(repo, rid) / "tests_test_multi.py.s1.out").unlink()
     r1 = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     r2 = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     stuck = ("1 of 2 suites" in r1.stdout and "NO OUTPUT: this suite never ran" in r1.stdout
@@ -271,7 +293,7 @@ def p03_corruption():
     # (a) truncated json
     repo = sandbox("p03a")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
-    j = ckdir(repo, rid) / "tests_test_multi.py.json"
+    j = ckdir(repo, rid) / "tests_test_multi.py.s1.json"
     j.write_bytes(j.read_bytes()[:40])
     r = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     note("HELD" if "2 of 2 suites" in r.stdout else "EXPOSED", "P03a truncated suite json",
@@ -282,7 +304,7 @@ def p03_corruption():
         SUITES["test_multi.py"] + 'print("SKIP test_m5 not on this platform")\n')
     git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qam", "skip")
     rid = killed_run(repo, "test_multi,test_gate", wait_done=("test_multi.py",))
-    o = ckdir(repo, rid) / "tests_test_multi.py.out"
+    o = ckdir(repo, rid) / "tests_test_multi.py.s1.out"
     o.write_text(o.read_text().replace("SKIP test_m5", "OK   test_m5"))
     r = run(repo, SUITES="test_multi,test_gate", RESUME=rid)
     rec = record(repo, rid)
@@ -293,29 +315,32 @@ def p03_corruption():
     # (c) status 'failed' -> 'passed' only
     repo = sandbox("p03c")
     rid = killed_run(repo, "test_flaky,test_gate", wait_done=("test_flaky.py",))
-    j = ckdir(repo, rid) / "tests_test_flaky.py.json"
+    j = ckdir(repo, rid) / "tests_test_flaky.py.s1.json"
     d = json.loads(j.read_text())
     before = d["status"]
     d["status"] = "passed"
     j.write_text(json.dumps(d, indent=2, sort_keys=True))
-    runs_before = len((repo / "count" / "flaky").read_text())
+    runs_before = len((st(repo) / "flaky").read_text())
     r = run(repo, SUITES="test_flaky,test_gate", RESUME=rid)
     rec = record(repo, rid)
     by = {s["suite"]: s for s in rec["suite_results"]}
-    note("EXPOSED", "P03c json status edited failed->passed",
+    held = (len((st(repo) / "flaky").read_text()) == runs_before and r.returncode != 0
+            and by["tests/test_flaky.py"]["status"] == "failed"
+            and "tests/test_flaky.py" in rec["failing_suites"])
+    note("HELD" if held else "EXPOSED", "P03c json status edited failed->passed",
          f"was {before!r}; the suite was NOT rerun (executions {runs_before}->"
-         f"{len((repo / 'count' / 'flaky').read_text())}); the report used the stale exit "
+         f"{len((st(repo) / 'flaky').read_text())}); the report used the stale exit "
          f"code and failed the run (exit {r.returncode}) but suite_results says "
          f"{by['tests/test_flaky.py']['status']!r} while failing_suites={rec['failing_suites']}"
          " -- the record contradicts itself")
     # (d) full forgery: status, exit_code, ok_count and .out
     repo = sandbox("p03d")
     rid = killed_run(repo, "test_flaky,test_gate", wait_done=("test_flaky.py",))
-    j = ckdir(repo, rid) / "tests_test_flaky.py.json"
+    j = ckdir(repo, rid) / "tests_test_flaky.py.s1.json"
     d = json.loads(j.read_text())
     d.update(status="passed", exit_code=0, ok_count=1)
     j.write_text(json.dumps(d, indent=2, sort_keys=True))
-    (ckdir(repo, rid) / "tests_test_flaky.py.out").write_text("OK   test_flaky\n")
+    (ckdir(repo, rid) / "tests_test_flaky.py.s1.out").write_text("OK   test_flaky\n")
     r = run(repo, SUITES="test_flaky,test_gate", RESUME=rid)
     rec = record(repo, rid)
     note("EXPOSED" if r.returncode == 0 and rec["status"] == "passed" else "HELD",
@@ -412,26 +437,26 @@ def p05_env_changes():
 def p06_copied_checkpoints():
     # (a) a result copied in from another run of the same SHA
     repo = sandbox("p06a")
-    (repo / "count" / "flaky").write_text("x")          # run A: the flaky suite passes
-    (repo / "gate").write_text("open")                  # run A's gate suite passes at once
+    (st(repo) / "flaky").write_text("x")          # run A: the flaky suite passes
+    (st(repo) / "gate").write_text("open")                  # run A's gate suite passes at once
     run(repo, SUITES="test_flaky,test_gate", CHECKPOINT="1")
     rid_a = sorted(d.name for d in runs(repo).iterdir() if d.is_dir() and d.name != "locks")[0]
-    (repo / "count" / "flaky").unlink()                 # run B's flaky suite will fail
+    (st(repo) / "flaky").unlink()                 # run B's flaky suite will fail
     rid_b = killed_run(repo, "test_flaky,test_gate", wait_done=("test_flaky.py",))
     b_status = suite_json(repo, rid_b, "test_flaky.py")["status"]
     for ext in (".json", ".out"):
-        shutil.copy(ckdir(repo, rid_a) / f"tests_test_flaky.py{ext}",
-                    ckdir(repo, rid_b) / f"tests_test_flaky.py{ext}")
-    execs_before = len((repo / "count" / "flaky").read_text())
+        shutil.copy(ckdir(repo, rid_a) / f"tests_test_flaky.py.s1{ext}",
+                    ckdir(repo, rid_b) / f"tests_test_flaky.py.s1{ext}")
+    execs_before = len((st(repo) / "flaky").read_text())
     r = run(repo, SUITES="test_flaky,test_gate", RESUME=rid_b)
     rec = record(repo, rid_b)
     by = {s["suite"]: s for s in rec["suite_results"]}
     note("EXPOSED" if r.returncode == 0 and rec["status"] == "passed"
-         and len((repo / "count" / "flaky").read_text()) == execs_before else "HELD",
+         and len((st(repo) / "flaky").read_text()) == execs_before else "HELD",
          "P06a suite result copied from another run_id",
          f"run B's own result was {b_status!r}; A's 'passed' copied over it was accepted "
          f"(exit {r.returncode}; flaky executions {execs_before}->"
-         f"{len((repo / 'count' / 'flaky').read_text())}, i.e. not rerun); run B's record "
+         f"{len((st(repo) / 'flaky').read_text())}, i.e. not rerun); run B's record "
          f"lists it as segment {by['tests/test_flaky.py']['segment']} of run {rid_b}: a "
          "result carries no run id, host or hash, so nothing distinguishes the copy")
     # (b) a whole checkpoint directory copied to a fresh id and resumed
@@ -453,7 +478,7 @@ def p07_flake_laundering():
     first = record(repo, rid)
     r2 = run(repo, SUITES="test_flaky,test_multi", RESUME=rid)
     rec = record(repo, rid)
-    out = (ckdir(repo, rid) / "tests_test_flaky.py.out").read_text()
+    out = (ckdir(repo, rid) / "tests_test_flaky.py.s1.out").read_text()
     note("EXPOSED" if r1.returncode == 1 and r2.returncode == 0 and rec["status"] == "passed"
          else "HELD", "P07 RESUME of a completed, failed run (retry-until-green)",
          f"run 1 completed {first['status']} (exit {r1.returncode}, no interruption); RESUME "
@@ -466,16 +491,16 @@ def p08_leak_strict_erased():
     repo = sandbox("p08")
     rid = killed_run(repo, "test_leaky,test_gate", wait_done=("test_leaky.py",),
                      TMP_LEAK_STRICT="1")
-    st = suite_json(repo, rid, "test_leaky.py")["status"]
+    leaky_status = suite_json(repo, rid, "test_leaky.py")["status"]
     r = run(repo, SUITES="test_leaky,test_gate", RESUME=rid, TMP_LEAK_STRICT="1")
     rec = record(repo, rid)
     repo2 = sandbox("p08ctl")
-    (repo2 / "gate").write_text("open")                 # gate already open: straight through
+    (st(repo2) / "gate").write_text("open")                 # gate already open: straight through
     c = run(repo2, SUITES="test_leaky,test_gate", TMP_LEAK_STRICT="1")
     note("EXPOSED" if c.returncode != 0 and r.returncode == 0 else "HELD",
          "P08 TMP_LEAK_STRICT failure erased by resume",
          f"a fresh strict run fails the leaky suite (exit {c.returncode}); the checkpoint wrote "
-         f"{st!r} before the leak census ran, restore writes '0 0' for the leak, and the "
+         f"{leaky_status!r} before the leak census ran, restore writes '0 0' for the leak, and the "
          f"resumed run passes (exit {r.returncode}, tmp_leak_entries="
          f"{rec['tmp_leak_entries']})")
 
@@ -489,20 +514,22 @@ def _p09(control: bool):
     repo = sandbox("p09ctl" if control else "p09", n_filler=100)   # >= 100: a full-scope run
     git(repo, "add", "tests/helper_untracked.py")      # a clean tree, as a release run needs
     git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "c")
-    act = repo / "count" / "act.py"
+    act = st(repo) / "act.py"
     act.write_text("import os, glob\n"
                    "for m in glob.glob(os.environ['CKROOT'] + '/*/manifest.json'):\n"
                    "    os.unlink(m)\n")
     # full scope cannot be driven through killed_run's SUITES filter; done inline
-    for p in (repo / "gate", repo / "gate.started"):
+    for p in (st(repo) / "gate", st(repo) / "gate.started"):
         p.unlink(missing_ok=True)
-    e = env(repo, CHECKPOINT="1", JOBS="4")
+    (st(repo) / "flaky").write_text("x")
+    same = dict(CKROOT=str(runs(repo)), GATE_ACTION=str(act) if not control else "")
+    e = env(repo, CHECKPOINT="1", JOBS="4", **same)
     e.pop("SUITES", None)
     p = subprocess.Popen(["nice", "-n", "19", "bash", str(repo / "run_tests.sh")],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=e, cwd=repo,
                          start_new_session=True)
     end = time.time() + 120
-    while not (repo / "gate.started").exists() and time.time() < end:
+    while not (st(repo) / "gate.started").exists() and time.time() < end:
         time.sleep(0.05)
     time.sleep(1.0)
     os.killpg(p.pid, signal.SIGKILL); p.wait()
@@ -510,9 +537,8 @@ def _p09(control: bool):
     # the resumed segment: the gate suite (which reruns) removes the manifest before finalize
     # reads it -- standing in for any finalize failure (ENOSPC, a crash, a SIGKILL after
     # write_record), all of which are ignored by run_tests.sh
-    (repo / "gate").write_text("open")
-    e = env(repo, RESUME=rid, JOBS="4", CKROOT=str(runs(repo)),
-            **({} if control else {"GATE_ACTION": str(act)}))
+    (st(repo) / "gate").write_text("open")
+    e = env(repo, RESUME=rid, JOBS="4", **same)
     r = subprocess.run(["nice", "-n", "19", "bash", str(repo / "run_tests.sh")],
                        capture_output=True, text=True, env=e, cwd=repo, timeout=300)
     rec = record(repo, rid)

@@ -593,6 +593,7 @@ def _p09(control: bool):
             assert r.returncode == 0 and rec["resumed"] is True, r.stdout[-3000:] + r.stderr
         else:
             assert r.returncode != 0 and rec["status"] == "failed", r.stdout[-3000:]
+            assert rec["resumed"] is True, "a resume-mode record must say so even when finalize fails"
             assert "CHECKPOINT FINALIZE FAILED" in r.stdout
     finally:
         b.close()

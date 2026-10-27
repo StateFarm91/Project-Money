@@ -378,7 +378,7 @@ if mode:
               finalized=bool(frag))
     rec["checkpoint_mode"] = mode
     rec["checkpoint"] = ck
-    rec["resumed"] = bool(frag.get("resumed")) if frag else mode == "resume"
+    rec["resumed"] = bool(frag.get("resumed")) or mode == "resume"
     if frag:
         rec["suite_results"] = frag.get("suite_results") or []
         rec["started_utc"] = frag.get("started_utc") or rec["started_utc"]
