@@ -784,13 +784,25 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                        ETSY_PAYOUT_CONFIRM_ONBOARDED if payout.get("onboarded") is True else
                        ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT)))
 
+    # W4-LAUNCHFIX D2: was `ready=False` with no evidence path, so no phase transition could
+    # ever be recorded. Ready only on the owner's sealed decision (ops.launch_decisions,
+    # recorded via the Command Center under step-up) covering today's catalogue at today's
+    # per-listing fee. Unreadable or absent is not ready.
+    try:
+        from ..ops.launch_decisions import listing_fees_state
+
+        fees = listing_fees_state(db, len(listings))
+    except Exception as exc:  # noqa: BLE001 - unreadable is unapproved
+        fees = {"ready": False, "why": f"unreadable: {type(exc).__name__}"}
+    fees_ready = bool(fees.get("ready"))
     out.append(Requirement(
         key="listing_fees",
         description="the owner has approved Etsy's listing and transaction fees",
-        ready=False, blocked_by=BLOCKED_OWNER,
+        ready=fees_ready, blocked_by=None if fees_ready else BLOCKED_OWNER,
         evidence={"listings": len(listings),
-                  "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2)},
-        owner_request=listing_fees_request(len(listings))))
+                  "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2),
+                  "owner_decision": fees},
+        owner_request=None if fees_ready else listing_fees_request(len(listings))))
 
     model_state = _model_state(db)
     out.append(Requirement(
@@ -832,12 +844,27 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         # hands; each unmet row carries the spend request the owner would approve.
         owner_request=None))
 
+    # W4-LAUNCHFIX D2: was `ready=False` with no evidence path. Ready only on a valid recorded
+    # knock-out search (brand.clearance, company work) AND the owner's sealed decision on
+    # filing bound to that exact search (ops.launch_decisions). Filing itself is not required
+    # (Master Plan v1.2 s.29); the owner's decision is. Without a search the work is ours.
+    try:
+        from ..ops.launch_decisions import brand_clearance_state
+
+        brand = brand_clearance_state(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is uncleared
+        brand = {"ready": False, "knockout": "UNKNOWN",
+                 "why": f"unreadable: {type(exc).__name__}"}
+    brand_ready = bool(brand.get("ready"))
     out.append(Requirement(
         key="brand_clearance",
-        description="the shop name has been through a trademark knock-out search",
-        ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"name": "Brambleloop Studio"},
-        owner_request=TRADEMARK_SCREEN))
+        description=("the shop name has been through a trademark knock-out search and the "
+                     "owner has decided whether to file"),
+        ready=brand_ready,
+        blocked_by=(None if brand_ready else
+                    BLOCKED_OWNER if brand.get("knockout") == "VALID" else BLOCKED_BUILD),
+        evidence={"name": "Brambleloop Studio", **brand},
+        owner_request=None if brand_ready else TRADEMARK_SCREEN))
 
     # #168: the pre-launch benchmark challenge. Deliberately a requirement rather than a
     # report, because a comparison nobody is obliged to act on is a comparison that loses to

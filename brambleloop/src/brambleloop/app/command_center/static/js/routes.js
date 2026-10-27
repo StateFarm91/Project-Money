@@ -9,6 +9,7 @@ export const TABS = [
   { id: "company", label: "Company", icon: "operations", hint: "Departments, agents, blockers and your actions" },
   { id: "images", label: "Images", icon: "store", hint: "Gallery production, owner image upload" },
   { id: "completion", label: "Completion effort", icon: "approvals", hint: "Launch packet and what must be true first" },
+  { id: "policy", label: "Policy readings", icon: "approvals", hint: "Record your reading of each Etsy policy page" },
   { id: "operations", label: "Operations", icon: "operations", hint: "Incidents, queue, SLOs and cadences" },
   { id: "learn", label: "Autonomy & Learn", icon: "learn", hint: "Agents, Rule #1, loops and lessons" },
   { id: "insights", label: "Insights", icon: "insights", hint: "Market, search, ads and experiments" },

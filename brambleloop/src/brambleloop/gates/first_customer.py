@@ -603,27 +603,85 @@ def check_imagery(cir, twin, frames, disclosed: dict | None = None) -> Check:
                  f"satisfied", "publish.listing_assets.check_frame_plan")
 
 
-def check_etsy_remote_state() -> Check:
-    """What Etsy says is there -- which today nothing has ever asked it.
+def check_etsy_remote_state(db=None) -> Check:
+    """What Etsy says is there, judged on recorded evidence that Etsy said it.
 
-    The three launch gaps in `publish.listing_schema` are open on missing *evidence*, not on
-    missing capability: the transport is built and exercised against a faithful local model of
-    Etsy, and Etsy itself has confirmed only that it is reachable, that the key header format
-    is right, that a bad key is 403, and that it refuses on the key before reading a body. One
-    authenticated round trip closes this area; nothing in software can.
+    The launch-blocking gaps in `publish.listing_schema` are open on missing *evidence*, not
+    on missing capability: the transport is built and exercised against a faithful local model
+    of Etsy, and only a run against Etsy itself can settle them. W4-LAUNCHFIX D1: this used
+    to read the static gap list alone, which no recorded run can ever shorten (it is code),
+    so the area stayed UNVERIFIABLE for ever and `store.publish` -- whose release gates run
+    this -- could never proceed. It now reads what a run recorded:
+
+    * the claims that block launch are every `listing_schema.gaps()` row with
+      `blocks_launch` (an internal, non-Etsy gap or a non-blocking one is reported, not
+      counted, as `gaps()` itself specifies; a blocking gap with no Etsy claim can never be
+      settled by Etsy and keeps this UNVERIFIABLE);
+    * each must be VERIFIED_AGAINST_ETSY, either in the code's own matrix (an observation
+      pasted into `ETSY_VERIFIED_FACTS`) or in the newest full `etsy_exercise` run that
+      finished ok against openapi.etsy.com (`integrations.etsy_exercise.remote_state_evidence`);
+      a run against the local model never promotes a claim;
+    * that run's drafts must all be verifiably removed (no stranded draft);
+    * a claim any run since marked CONTRADICTED is a FAIL, not a pass.
+
+    No evidence, or no database to read it from, stays UNVERIFIABLE -- which blocks. The
+    controlled exercise is CA$0, runs in SHADOW and creates only a draft it deletes, so this
+    evidence can exist before the first real draft; nothing here lets a draft through on
+    less (see research/final_build/w4/LAUNCHFIX.md).
     """
     from ..publish import listing_schema
 
-    open_gaps = [g for g in listing_schema.gaps()]
-    if open_gaps:
+    rows = listing_schema.gaps()
+    blocking = [g for g in rows if g.get("blocks_launch")]
+    unsettleable = [g["gap"] for g in blocking if not g.get("claim")]
+    static_verified = {g["claim"] for g in blocking if g.get("claim")
+                       and g.get("verification") == listing_schema.VERIFIED_AGAINST_ETSY}
+    needed = sorted({g["claim"] for g in blocking if g.get("claim")} - static_verified)
+    evidence: dict = {}
+    if db is not None:
+        try:
+            from ..integrations.etsy_exercise import remote_state_evidence
+
+            evidence = remote_state_evidence(db)
+        except Exception as exc:  # noqa: BLE001 - unreadable evidence is no evidence
+            evidence = {"error": type(exc).__name__}
+    source = "publish.listing_schema.gaps + integrations.etsy_exercise.remote_state_evidence"
+    contradicted = sorted(set(evidence.get("contradicted_claims") or []))
+    if contradicted:
+        return Check("etsy_remote_state", FAIL,
+                     f"a recorded run against Etsy CONTRADICTED {contradicted}: what Etsy "
+                     f"holds differs from what this system sends. Fix the named constant "
+                     f"(etsy_probe taxonomy) and re-run the controlled exercise", source)
+    if unsettleable:
         return Check("etsy_remote_state", UNVERIFIABLE,
-                     f"{len(open_gaps)} open: {open_gaps[0]}. Nothing has ever authenticated "
-                     f"against Etsy, so no remote state has ever been read back. One owner "
-                     f"browser authorisation and one controlled round trip settle this",
-                     "publish.listing_schema.gaps")
+                     f"a launch-blocking gap names no Etsy claim, so no run can settle it: "
+                     f"{unsettleable[0]}", source)
+    verified = set(evidence.get("verified_claims") or [])
+    missing = [c for c in needed if c not in verified]
+    if missing:
+        never = not evidence.get("live_run_id")
+        return Check("etsy_remote_state", UNVERIFIABLE,
+                     (f"{len(missing)} launch-blocking Etsy claim(s) not verified against Etsy: "
+                      f"{missing}. " + (
+                          "No authenticated round trip against Etsy is on record (no full "
+                          "controlled exercise finished ok against openapi.etsy.com), so no "
+                          "remote state has been read back. "
+                          "One owner word and one CA$0 round trip (POST /api/etsy/exercise) "
+                          "settle this" if never else
+                          f"The newest live run (audit {evidence.get('live_run_id')}) did not "
+                          f"verify them; re-run the controlled exercise")), source)
+    if needed and not evidence.get("round_trip_clean"):
+        return Check("etsy_remote_state", UNVERIFIABLE,
+                     f"the live run verified the claims but its round trip is not clean: "
+                     f"drafts created {evidence.get('drafts_created', 0)}, unmatched "
+                     f"{evidence.get('drafts_unmatched') or []}. Every test draft must be "
+                     f"verifiably removed first", source)
+    basis = (f"run audit {evidence.get('live_run_id')} at {evidence.get('live_run_at')}"
+             if needed else "listing_schema.ETSY_VERIFIED_FACTS")
     return Check("etsy_remote_state", PASS,
-                 "the remote listing has been read back from Etsy and matches what we sent",
-                 "publish.listing_schema.gaps, empty")
+                 f"every launch-blocking Etsy claim is verified against Etsy "
+                 f"({sorted(static_verified | set(needed))}; {basis}), and every test draft "
+                 f"was read back removed", source)
 
 
 def check_fulfilment_and_download(store=None, *, db=None, slug: str | None = None,
@@ -766,7 +824,7 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         checks.append(check_gauge_and_size_claims(cir, twin, physical))
         checks.append(check_listing_claims(cir, twin, listing, physically_evidenced=evidenced))
         checks.append(check_imagery(cir, twin, frames, disclosed))
-        checks.append(check_etsy_remote_state())
+        checks.append(check_etsy_remote_state(db))
         checks.append(check_fulfilment_and_download(store, db=db, slug=cir.slug,
                                                     version=version or cir.version))
         return ProductGate(cir.slug, tuple(checks))
@@ -778,7 +836,7 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         check_gauge_and_size_claims(cir, twin, physical),
         check_listing_claims(cir, twin, listing, physically_evidenced=evidenced),
         check_imagery(cir, twin, frames, disclosed),
-        check_etsy_remote_state(),
+        check_etsy_remote_state(db),
         check_fulfilment_and_download(store, db=db, slug=cir.slug,
                                       version=version or cir.version),
         check_licence_and_safety_statements(cir, docs, assignment),

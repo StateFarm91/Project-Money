@@ -764,8 +764,80 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
         _audit(db, RUN_FINISHED, {"mode": mode, "ok": redacted["ok"],
                                   "status": redacted["status"],
                                   "shop_is_clean": redacted["shop_is_clean"],
-                                  "rotations": redacted["after"]["oauth"]["rotations"]})
+                                  "rotations": redacted["after"]["oauth"]["rotations"],
+                                  # W4-LAUNCHFIX D1: which claim this run settled, per claim,
+                                  # so `gates.first_customer.check_etsy_remote_state` judges
+                                  # recorded evidence. Names and states only, after redaction.
+                                  "against_etsy": bool(redacted.get("against_etsy")),
+                                  "claims": _claim_states(redacted)})
         return redacted
+
+
+def _claim_states(report: dict) -> list[dict]:
+    """`[{claim, state_after}]` from a run's own `etsy_probe.claims()` output, or []."""
+    out = []
+    for row in (report.get("exercise") or {}).get("claims") or []:
+        if isinstance(row, dict) and row.get("claim"):
+            out.append({"claim": str(row["claim"]),
+                        "state_after": str(row.get("state_after") or "")})
+    return out
+
+
+LIVE_STATUS_PREFIX = "EXERCISED against openapi.etsy.com"
+
+
+def remote_state_evidence(db) -> dict:
+    """W4-LAUNCHFIX D1: what the recorded runs prove, claim by claim. Reads only.
+
+    A claim counts as verified against Etsy only from the NEWEST full run that finished ok,
+    whose own status says it ran against openapi.etsy.com (`_status`; a run against the local
+    model never says so) and whose record carries that claim as VERIFIED_AGAINST_ETSY
+    (`etsy_probe.claims`, which promotes nothing unless the requests went to Etsy). Any run
+    recorded after it that marks a claim CONTRADICTED is reported, and the gate fails on it.
+    `round_trip_clean` is the breadcrumb rule `launch.readiness._etsy_exercise_evidence` uses:
+    at least one draft created and every created draft matched by a verified removal.
+    """
+    from ..core.models import AuditLog
+
+    out = {"live_run_at": None, "live_run_id": None, "verified_claims": [],
+           "contradicted_claims": [], "round_trip_clean": False, "drafts_created": 0,
+           "drafts_unmatched": [], "runs": 0}
+    if db is None:
+        return out
+    created: set[str] = set()
+    removed: set[str] = set()
+    runs: list[tuple[int, Any, dict]] = []
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action.in_((
+                RUN_FINISHED, DRAFT_CREATED, DRAFT_REMOVED))).order_by(AuditLog.id)):
+            detail = dict(row.detail or {})
+            if row.action == RUN_FINISHED:
+                runs.append((row.id, row.at, detail))
+            elif detail.get("listing_id"):
+                (created if row.action == DRAFT_CREATED else removed).add(
+                    str(detail["listing_id"]))
+    out["runs"] = len(runs)
+    out["drafts_created"] = len(created)
+    out["drafts_unmatched"] = sorted(created - removed)[:10]
+    out["round_trip_clean"] = bool(created) and not (created - removed)
+    live = [(rid, at, d) for rid, at, d in runs
+            if d.get("mode") == "full" and d.get("ok") is True
+            and str(d.get("status") or "").startswith(LIVE_STATUS_PREFIX)]
+    if live:
+        rid, at, d = live[-1]
+        out["live_run_id"] = rid
+        out["live_run_at"] = at.isoformat() if at is not None else None
+        out["verified_claims"] = sorted({
+            str(c.get("claim")) for c in d.get("claims") or [] if isinstance(c, dict)
+            and c.get("state_after") == "VERIFIED_AGAINST_ETSY"})
+        since = rid
+    else:
+        since = -1
+    out["contradicted_claims"] = sorted({
+        str(c.get("claim")) for rid, _at, d in runs if rid >= since
+        for c in d.get("claims") or [] if isinstance(c, dict)
+        and c.get("state_after") == "CONTRADICTED"})
+    return out
 
 
 def _status(report: dict) -> str:

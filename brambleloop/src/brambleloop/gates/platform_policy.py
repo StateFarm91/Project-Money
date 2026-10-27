@@ -325,9 +325,17 @@ def record_page_reading(db, *, source: str, text: str, version: str = "", summar
         raise PolicyRefused(f"checked_on {checked!r} is not an ISO date") from e
     if age < 0:
         raise PolicyRefused("a reading cannot be dated in the future")
+    # W4-LAUNCHFIX E3: "material" compares a person's page reading only with an earlier page
+    # reading of the same source. Before this the comparison fell through to whatever row
+    # came last -- the repository's excerpt seed -- so the first ever reading of every page
+    # differed from an excerpt by construction, was recorded as a material Etsy change and
+    # opened a halting `policy_changed` review for a change Etsy never made. The first page
+    # reading is now the baseline; a later page reading whose text differs is still a
+    # material change and still blocks until reviewed (`unreviewed_changes`).
+    # `policy_reader.read_help_center` has passed its own basis the same way since W4-GATESI.
     res = record_snapshot(db, source, text=text, version=version or checked,
                           summary=summary, checked_on=checked, read_by=read_by.strip(),
-                          basis=PAGE_BASIS)
+                          basis=PAGE_BASIS, compare_basis=PAGE_BASIS)
     resolved: list[int] = []
     current = age <= MAX_AGE_DAYS
     if current:

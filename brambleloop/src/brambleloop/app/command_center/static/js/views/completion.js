@@ -200,6 +200,7 @@ export async function render({ rerender } = {}) {
     firstSaleCard(fs),
     launchReviewCard(lr, rerender),
     shopReadingsCard(rerender),
+    card({ title: "Etsy policy readings" }, h("p", null, h("a", { href: "#/policy" }, "Record your reading of each Etsy policy page"))),
     card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),
       sourcesList(env.sources)));
