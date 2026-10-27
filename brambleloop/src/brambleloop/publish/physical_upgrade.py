@@ -164,19 +164,28 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
             .order_by(ListingAsset.id.desc()).limit(1)) or "1.0.0"
         frames = list(s.scalars(select(ListingAsset).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version)))
-        replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
-                       for f in frames if f.asset_class != "PHYSICAL_PRODUCT_PHOTO"
-                       and f.role in PROOF_ROLES]
-        position = (max((f.position for f in frames), default=0) or 0) + 1
-        s.add(ListingAsset(
-            product_slug=slug, version=version, position=position,
+        leads = _leads_gallery(s, photo, slug, version)
+        new_frame = ListingAsset(
+            product_slug=slug, version=version, position=0,
             asset_class="PHYSICAL_PRODUCT_PHOTO", role=role, sha256=photo.sha256,
             claims={"physical_photo_id": photo.id, "source": photo.source,
                     "rights_basis": photo.rights_basis, "taken_by": photo.taken_by,
-                    "supplements": [r["position"] for r in replaceable],
-                    "provenance": "camera"},
+                    "provenance": "camera", "leads_gallery": leads},
             approved=False,
-            blocked_reasons=["awaiting asset-truth review and listing-set re-certification"]))
+            blocked_reasons=["awaiting asset-truth review and listing-set re-certification"])
+        # W-PHYSFIX (Etsy Help 44297885802647 / 115015663347, publish.sample_photo): the
+        # unedited photograph of a passed full make of this release goes FIRST; every other
+        # frame keeps its relative order behind it (renders, charts, PDF preview -- each still
+        # labelled by the certificate). Any other photograph is appended last, as before.
+        ordered = sorted(frames, key=lambda f: f.position)
+        ordered = [new_frame] + ordered if leads else ordered + [new_frame]
+        _renumber(s, ordered)
+        position = new_frame.position
+        replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
+                       for f in frames if f.asset_class != "PHYSICAL_PRODUCT_PHOTO"
+                       and f.role in PROOF_ROLES]
+        new_frame.claims = {**new_frame.claims,
+                            "supplements": [r["position"] for r in replaceable]}
         before = list(s.scalars(select(ListingOutcome).where(
             ListingOutcome.product_slug == slug,
             ListingOutcome.period_end <= today.isoformat())))
@@ -191,6 +200,51 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
         flag_modified(photo, "detail")
     return {"photo_id": photo_id, "upgraded": True, "slug": slug, "version": version,
             "frame_position": position, "replaceable": replaceable, "baseline": baseline}
+
+
+def _leads_gallery(s, photo, slug: str, version: str) -> bool:
+    """Whether this photograph is the one the gallery must lead with: attested unedited at
+    intake, and recorded against a passed, completed full make of this slug@version. Its
+    binding to the release content is re-checked by `publish.sample_photo` at publication."""
+    from ..core.models import PhysicalTest
+    from ..gates.risk_matrix import FULL_PHYSICAL_MAKE, physical_class_of
+
+    detail = photo.detail or {}
+    if detail.get("unedited") is not True or detail.get("edited") or detail.get("ai_processed"):
+        return False
+    test = s.get(PhysicalTest, photo.physical_test_id) if photo.physical_test_id else None
+    return bool(test is not None and test.passed is True and test.completed_at is not None
+                and test.product_slug == slug and test.version == version
+                and physical_class_of(test.measured)[0] == FULL_PHYSICAL_MAKE)
+
+
+def _renumber(s, ordered) -> None:
+    """Positions 1..n in this order. Two flushes, because (slug, version, position) is unique:
+    every frame first moves clear of the range, then takes its place. Moving a frame changes
+    the frame set, which supersedes the listing-set certificate by fingerprint (#70)."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import PhysicalPhoto
+
+    old = {id(f): f.position for f in ordered}
+    offset = 100000
+    for i, f in enumerate(ordered, start=1):
+        f.position = offset + i
+        if f not in s:
+            s.add(f)
+    s.flush()
+    for i, f in enumerate(ordered, start=1):
+        f.position = i
+    s.flush()
+    # A photograph whose frame moved keeps its recorded frame position true.
+    for f in ordered:
+        pid = (f.claims or {}).get("physical_photo_id")
+        if pid is None or old[id(f)] == f.position or old[id(f)] == 0:
+            continue
+        p = s.get(PhysicalPhoto, pid)
+        if p is not None and (p.detail or {}).get("frame_position") is not None:
+            p.detail = {**p.detail, "frame_position": f.position}
+            flag_modified(p, "detail")
 
 
 def measure_impact(db, *, today: date | None = None) -> dict:
