@@ -41,7 +41,7 @@ How each state is set:
 | Integrated | Every recorded code commit for the row (`branch_work`, and SHAs named in why or b0_reason) is an ancestor of `--integrated` (default INTEG8-next). |
 | Reviewed | Not recorded per row anywhere: the ledger definitions say so, and the Batch 4 review is pending. |
 | Deployed | Every recorded commit is an ancestor of `--production`. These include the deployed tree the ledger named for F/G rows (b931d17/b997efd) and every later code commit that names the row. A row with no row-level commit can rely only on B0's "in the combined candidate" (2aeb177f). If nothing is recorded, the value is `not_recorded`; it is never inferred. |
-| Production verified | Only when the ledger's own acceptance evidence holds (status G: production readback or acceptance records on a deployed tree) and no code commit for the row is newer than that tree. A row that is deployed but has no such evidence is `pending`, which means deployed, not yet production-verified. |
+| Production verified | **Revised in §4.** It needs all of: the ledger's acceptance (status G); a committed production record of the row (a passing board readback, a production reading in `closed_on_production_evidence`, or a board audit with a `production_reading`); and no code commit for the row newer than the deployed tree. A G row whose evidence is only tests run on the deployed tree is `pending`, which means deployed, not yet production-verified. The first version of this file counted every deployed G row (357 FM, 97 B2); that was too generous. |
 | Gate | Set only when acceptance is open. For built rows it comes from the B0 class (OWNER_HELD/OWNER_GATED → owner; GENUINELY_GATED → external) or from `board_root` (owner, data/customer and external sets in the script). Unbuilt rows are gated only by a B0 class with a recorded reason (quoted text, owner decision, by design), never by a board root. Unfinished executable work is never gated. |
 | Not applicable | b0_class NOT_APPLICABLE. |
 
@@ -57,7 +57,7 @@ To regenerate after a deploy, run this from `brambleloop/`:
 | Integrated (INTEG8-next) | yes 896, partial 4, no 10, n/a 7 | yes 317, n/a 3 |
 | Reviewed | not recorded 910, n/a 7 | not recorded 317, n/a 3 |
 | Deployed | yes 760, partial 1, no 146, not recorded 3, n/a 7 | yes 315, no 2, n/a 3 |
-| Production verified | yes 357, pending 404, no 149, n/a 7 | yes 97, pending 218, no 2, n/a 3 |
+| Production verified (revised, §4) | yes 11, pending 750, no 149, n/a 7 | yes 1, pending 314, no 2, n/a 3 |
 | Owner-gated | 139 | 36 |
 | Data/customer-gated | 54 | 41 |
 | External-gated | 39 | 8 |
@@ -65,7 +65,8 @@ To regenerate after a deploy, run this from `brambleloop/`:
 | Not gated (accepted, or open work that is not gated) | 675 | 232 |
 | Not applicable | 7 | 3 |
 
-Furthest state reached (exclusive; sums to the total):
+Furthest state reached (exclusive; sums to the total; from the first version, with
+Production verified still counted as every deployed G row):
 
 | scope | prod. verified | deployed | integrated | tested | built partial | not built | n/a |
 |---|---|---|---|---|---|---|---|
@@ -77,9 +78,9 @@ Furthest state reached (exclusive; sums to the total):
 | | b2e49455 | ee35a493 |
 |---|---|---|
 | FM Deployed | yes 447, no 268, not recorded 195 | yes 760, partial 1, no 146, not recorded 3 |
-| FM Production verified | yes 357, pending 90, no 463 | yes 357, pending 404, no 149 |
+| FM Production verified (revised) | yes 11, pending 436, no 463 | yes 11, pending 750, no 149 |
 | B2 Deployed | yes 229, no 5, not recorded 83 | yes 315, no 2 |
-| B2 Production verified | yes 97, pending 132, no 88 | yes 97, pending 218, no 2 |
+| B2 Production verified (revised) | yes 1, pending 228, no 88 | yes 1, pending 314, no 2 |
 
 Notes on the ee35a493 figures:
 
@@ -135,3 +136,107 @@ Checked and supported:
 - **No Build 2 row is flagged.**
 
 The full per-row list is under `scopes.*.class_unsupported` in `LEDGER9_STATES.json`.
+
+## 4. Six requirement states, and the launch defects (follow-up)
+
+`ledger9_states.py` now reports six states per row next to the code facts above. States 1-4
+are a cascade: each is "yes" only if the one before it is. States 5 and 6 rest on their own
+records, and a defect blocks them.
+
+1. **Implementation complete.** Built and tested. It is `defective` when a launch defect
+   stops the row's own workflow, whatever the ledger class says.
+2. **Integration complete.** (1) holds and the code is in INTEG8-next.
+3. **Production deployed.** (2) holds and the code is in the given production SHA
+   (`--production`, default ee35a493).
+4. **Production verified.** (3) holds and there is a production record, as revised in §2. A row
+   that is deployed but not verified is `pending`.
+5. **End-to-end acceptance.** A committed workflow-level record passed: a production
+   acceptance run, a launch rehearsal or equivalent. Unit tests and deployed-tree test runs
+   never count. The records are listed in `E2E_RECORDS`.
+6. **Business outcome.** Real customer or revenue evidence. There is none: production
+   `store.published` = 0 and there are no orders.
+
+The gating classes are unchanged.
+
+### Launch defects linked to rows
+
+Source: `research/final_build/w4/LAUNCH_PATH.md` on `origin/claude/w4-LAUNCH1` ae0c4aa8.
+
+- The IDs were found from requirement text in the registries, and from the IDs the defective
+  code cites:
+  - `launch/readiness.py`: F-300, F-594, #54;
+  - `core/phase.py`: F-299, F-300;
+  - `gates/platform_policy.py`: #39;
+  - `integrations/etsy_taxonomy.py`: F-005, F-006, F-007, F-009;
+  - `publish/release_gates.py`: F-004, F-005, F-294.
+- The Final Master has no row titled "first-customer gate", "listing fees" or "brand
+  clearance".
+  - The first-customer remote-state area is F-594's "remote Etsy write/read/delete proof before
+    first publication".
+  - Brand/name clearance is named in Build 2 #54.
+
+Role "contains" means the row's own requirement is what the defective code implements. Role
+"workflow" means the row's workflow has to pass through that code.
+
+| defect | contains | workflow | rows |
+|---|---|---|---|
+| D1 `first_customer.check_etsy_remote_state` reads static `listing_schema.gaps()` | F-594 | F-542, F-543 | 3 |
+| D2 `listing_fees` and `brand_clearance` hard-coded `ready=False` | F-300, B2#54 | F-299, F-543 | 4 |
+| E3 the first policy reading counts as a change | F-536, B2#39 | — | 2 |
+| E4 no Etsy taxonomy node is chosen | F-005 | F-004, F-006, F-007, F-009, F-243, F-247, F-294, F-543 | 9 |
+
+**Distinct defective rows:** 14 FM and 2 B2. F-543 is linked to D1, D2 and E4.
+
+These are the rows the ledger counted as complete before:
+
+- **(a) COMPLETE:**
+  - F-004 (status F)
+  - F-006 (F)
+  - F-294 (G)
+  - F-299 (G, with a production reading of "phase is shadow")
+  - F-300 (G)
+  - F-536 (H)
+  - F-542 (F)
+  - F-543 (H)
+  - B2#39 (H)
+  - B2#54 (H)
+- The rest were already AWAITING_EVIDENCE.
+
+### Counts at production ee35a493, integrated against INTEG8-next d8f5e852
+
+| state | Final Master (917 original + 0 additions) | Build 2 (320) |
+|---|---|---|
+| 1 Implementation complete | **859 (93.7%)**; defective 14, unverified 25, partial 4, no 8, n/a 7 | **315 (98.4%)**; defective 2, n/a 3 |
+| 2 Integration complete | **857 (93.5%)**; defective 14, no 39, n/a 7 | **315 (98.4%)**; defective 2, n/a 3 |
+| 3 Production deployed | **728 (79.4%)**; defective 14, no 167, not recorded 1, n/a 7 | **313 (97.8%)**; defective 2, no 2, n/a 3 |
+| 4 Production verified | **10 (1.1%)**; pending 718, defective 14, no 168, n/a 7 | **1 (0.3%)**; pending 312, defective 2, no 2, n/a 3 |
+| 5 End-to-end acceptance passed | **2 (0.2%)**: F-152, F-878; not passed 894, defective 14, n/a 7 | **2 (0.6%)**: B2#181, B2#195; not passed 313, defective 2, n/a 3 |
+| 6 Real business outcome proven | **0 (0.0%)**; no 910, n/a 7 | **0 (0.0%)**; no 317, n/a 3 |
+
+**Production verified rows:**
+
+- FM: F-152, F-158, F-169, F-267, F-799, F-840, F-871, F-878, F-890, F-896.
+- B2: B2#199.
+- F-299 has a production reading but is defective (D2).
+
+**States 3 and 4 before and after the deploy:**
+
+| | b2e49455 | ee35a493 |
+|---|---|---|
+| FM production deployed | 441 | 728 |
+| FM production verified | 10 | 10 |
+| B2 production deployed | 229 | 313 |
+| B2 production verified | 1 | 1 |
+
+**The 25 FM "unverified" rows in state 1** are built, but no test is recorded for them. They
+are the §3 flagged rows less the ones now defective.
+
+**What the e2e records are:**
+
+- B2#195 and B2#181: the 24 h off-device proof in production.
+- F-152: an off-site archive that was read back and restored in production.
+- F-878: a launch packet generated by the deployed tree, with every section PASS.
+- The 13 FM rows that cite the off-device proof are not counted. Their own records say "this
+  row's own criterion still has to be read against it".
+- The local chain records (`evidence_PRODUCT/e2e_launch0_chain.json`, `evidence_PRODREADY`)
+  show the search certificate failing. They pass no row.
