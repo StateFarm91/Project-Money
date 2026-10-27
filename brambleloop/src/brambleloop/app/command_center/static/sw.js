@@ -9,7 +9,8 @@
 // INTEG6: listings (v24) and LAURAONE (v20) shells merged, so a new version.
 // CLOSE6b: CLOSE6's shell changes (timeline, Ask, overnight brief) merged on top, so v26.
 // INTEG8: CLOSE6b (v26) and WIRE1 (v26, Visual Studio panel) shells merged, so v27.
-const VERSION = "cc-shell-v27";
+// W5-INVENTORY: the Production view joins the shell, so v28.
+const VERSION = "cc-shell-v28";
 const SHELL = [
   "./",
   "index.html",
@@ -36,6 +37,7 @@ const SHELL = [
   "js/views/approvals.js",
   "js/views/company.js",
   "js/views/completion.js",
+  "js/views/production.js",
   "js/views/ask.js",
   "js/views/drill.js",
   "js/views/emergency.js",

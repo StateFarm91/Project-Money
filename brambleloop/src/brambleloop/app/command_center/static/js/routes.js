@@ -8,6 +8,7 @@ export const TABS = [
   { id: "store", label: "Store", icon: "store", primary: true },
   { id: "company", label: "Company", icon: "operations", hint: "Departments, agents, blockers and your actions" },
   { id: "images", label: "Images", icon: "store", hint: "Gallery production, owner image upload" },
+  { id: "production", label: "Production", icon: "operations", hint: "Product inventory by state, stalls, loops and agent activity" },
   { id: "completion", label: "Completion effort", icon: "approvals", hint: "Launch packet and what must be true first" },
   { id: "operations", label: "Operations", icon: "operations", hint: "Incidents, queue, SLOs and cadences" },
   { id: "learn", label: "Autonomy & Learn", icon: "learn", hint: "Agents, Rule #1, loops and lessons" },
