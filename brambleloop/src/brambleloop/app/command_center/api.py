@@ -643,6 +643,21 @@ def make_router(db) -> APIRouter:
                     detail={"action": "experiments.run", **out})
         return ok(out)
 
+    # ---- Visual Studio (WIRE1: F-748, F-680) ------------------------------------------------
+    # Owner session (read-only). The same read models the operator routes serve.
+
+    @router.get("/visual/studio")
+    def visual_studio(request: Request):
+        from ...visual import studio_view
+
+        return ok(studio_view.canonical_model(db))
+
+    @router.get("/visual/evidence/{slug}")
+    def visual_evidence(slug: str, request: Request):
+        from ...visual import studio_view
+
+        return ok(studio_view.evidence_panel(db, str(slug)[:80]))
+
     # ---- the owner's dated Shop Manager readings (W4-LISTREADY, review F7) -----------------
     # Owner session + step-up. The owner-attested pages (messages, legal_and_tax) are accepted
     # only here; `recorded_by` is the authenticated owner, not a claim in the body.

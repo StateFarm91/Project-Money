@@ -182,6 +182,11 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/marketing/constellation/{slug}",
     # F-671: the dossier includes support cases and orders -> operator.
     "/api/product/{slug}/dossier",
+    # WIRE1 (F-748, F-680): the Visual Studio view and a product's visual evidence panel
+    # carry unpublished candidate hashes, rejection reasons, spend-driven provider choice and
+    # controlled-experiment runs -> operator. The owner reads them under /api/cc/visual/.
+    "/api/visual/studio",
+    "/api/visual/evidence/{slug}",
 })
 
 # GETs that are deliberately public, with the reason. W4-SECPATCH (2026-10-26): this is now an

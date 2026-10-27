@@ -2840,6 +2840,28 @@ def api_model_identity() -> dict:
     return out
 
 
+@app.get("/api/visual/studio")
+def api_visual_studio() -> dict:
+    """F-748 (WIRE1): canonical model version, best provider/mode, recent identity/realism
+    yield, rejected drift examples, active improvement experiments and, per listing image,
+    whether it passed both Model Identity and Product Truth (`visual.studio_view`).
+    Operator credential (`security.OPERATOR_GET_ROUTES`); the owner reads it at
+    /api/cc/visual/studio."""
+    from ..visual import studio_view
+
+    return studio_view.canonical_model(db)
+
+
+@app.get("/api/visual/evidence/{slug}")
+def api_visual_evidence(slug: str) -> dict:
+    """F-680 (WIRE1): one product's visual evidence together -- real benchmark reference,
+    Brambleloop 3D, conditioning passes, candidates, rejections with reasons and the final
+    approved asset (`visual.studio_view.evidence_panel`). Operator credential."""
+    from ..visual import studio_view
+
+    return studio_view.evidence_panel(db, str(slug)[:80])
+
+
 @app.get("/api/image-benchmark")
 def api_image_benchmark() -> dict:
     """How the generator gets chosen, and why nothing is chosen yet.

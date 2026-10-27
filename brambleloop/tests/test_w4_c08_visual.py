@@ -451,7 +451,7 @@ def test_f527_off_palette_and_off_brand_typography_are_detected_and_routed():
     assert ("MARK_OFF_PALETTE", victim.name) in codes and ("MARK_LIVE_TEXT", victim.name) in codes
     assert ("OFF_BRAND_TYPEFACE", "storefront.css") in codes
     assert ("PAGE_OFF_PALETTE", "storefront.css") in codes
-    assert out["routes"] == ["brand"]
+    assert out["routes"] == ["storefront_director"]
     small = io.BytesIO()
     Image.new("RGB", (1200, 900)).save(small, format="PNG")
     (f,) = AC.check_raster("hero.png", small.getvalue(), "listing_image")

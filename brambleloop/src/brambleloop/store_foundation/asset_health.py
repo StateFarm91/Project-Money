@@ -11,7 +11,9 @@ our listing asset rows -- and returns findings, each with the agent its fix rout
 * listing images: a certified product with no approved hero, assets made for an older version
   than the certified one (stale), assets blocked by a gate (off-brand / untrue), or a recorded
   size under Etsy's 2000 px recommendation (low resolution) -> `publishing`;
-* colour and typography of live images cannot be read from any API: reported UNMEASURED.
+* colour and typography of live images cannot be read from any API: reported UNMEASURED;
+  the brand assets we hold (marks) are checked for palette and outlined type by
+  `brand.asset_consistency.sweep` and their findings join the list (WIRE1).
 Read-only, deterministic, CA$0. Routing is a recorded finding, never a paid render.
 """
 from __future__ import annotations
@@ -75,7 +77,18 @@ def check(db) -> dict:
             if isinstance(w, int) and isinstance(h, int) and min(w, h) < MIN_PX:
                 out.append(_f("ASSET_LOW_RESOLUTION", slug, "publishing",
                               f"{a.role}: {w}x{h} px is under Etsy's {MIN_PX} px recommendation"))
+    # F-527 (WIRE1): the colour and typography half, on every brand asset we hold before it
+    # reaches Etsy (marks: palette and outlined type). Live Etsy colour/type stays UNMEASURED.
+    try:
+        from ..brand import asset_consistency
+
+        held = asset_consistency.sweep()
+        out.extend(held["findings"])
+        held_summary = {"marks_checked": held["marks_checked"], "fixes": held["fix_count"]}
+    except Exception as exc:  # noqa: BLE001 - an unreadable sweep is UNKNOWN, never clean
+        held_summary = {"state": UNKNOWN, "why": f"{type(exc).__name__}"}
     return {"findings": out, "icon_state": icon.get("state", UNKNOWN),
             "banner": banner_state, "live_colour_typography": UNMEASURED,
+            "held_brand_assets": held_summary,
             "routes": sorted({f["route_to"] for f in out}),
             "fix_count": sum(1 for f in out if f["severity"] == "fix"), "writes": 0}

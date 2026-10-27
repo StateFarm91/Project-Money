@@ -5,6 +5,7 @@
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, toast } from "../components.js";
+import { visualStudioCard } from "./_visual_studio.js";
 
 const ROLES = ["lifestyle", "detail", "size", "angle", "colour_context", "hero", "proof", "fit"];
 const STATE_PILL = { ready_for_owner_review: "OK", approved_for_publication: "OK", blocked: "BAD" };
@@ -305,7 +306,9 @@ export async function render({ rerender } = {}) {
   const gallery = h("div", { aria: { live: "polite" } });
   const learn = board.learning || {};
   const listings = products.map((p) => p.listing);
+  const studio = await visualStudioCard(products.map((p) => p.slug || p.listing));
   return h("div", { class: "stack" },
+    studio,
     card({ title: "Gallery production", subtitle: "Autonomous image production per product. You are notified only when a gallery is ready for review or blocked after its permitted attempts." },
       h("ul", { class: "rows" }, products.map((p) => runRow(p, rerender || (() => {}), gallery)))),
     gallery,
