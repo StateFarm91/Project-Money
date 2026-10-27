@@ -1,0 +1,155 @@
+{
+ "slug": "hexagon-coaster-set",
+ "version": "1.2.0",
+ "title": "Hexagon Coaster Set (4)",
+ "risk_class": "A (no section-8 feature; automated threshold)",
+ "required": "partial_physical (first-customer floor, gates.risk_matrix.first_customer_requirement); the whole set of four is the smallest sample physical.record accepts, so the scope is full_make",
+ "scope": "full_make",
+ "make_hours_estimate": 3.46,
+ "max_cost_cad": 92.03,
+ "cost_basis": "gates.risk_matrix.owner_action_spec: ESTIMATED ceiling: 4.5 tester hours at CA$20/h + 35 m yarn at CA$0.06/m; no measured tester rate exists. ESTIMATED ceiling; no tester has been paid yet",
+ "content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+ "finished_size_cm": {
+  "across_points": 9.7,
+  "across_flats": 8.4,
+  "per": "one coaster (Component.make = 4)"
+ },
+ "yarn_metres_by_colour": {
+  "cream": 22.6,
+  "wine": 6.2
+ },
+ "yardage_tolerance": 0.2,
+ "materials": [
+  {
+   "item": "DK-weight 100% cotton yarn, colour A (cream)",
+   "quantity": "1 ball (twin: 22.6 m needed for all four; any ball of >= 30 m)",
+   "est_cad": 5.0
+  },
+  {
+   "item": "DK-weight 100% cotton yarn, colour B (wine)",
+   "quantity": "1 ball (twin: 6.2 m needed for all four)",
+   "est_cad": 5.0
+  },
+  {
+   "item": "5.0 mm crochet hook",
+   "quantity": "1",
+   "est_cad": 6.0
+  },
+  {
+   "item": "tapestry needle, 1 stitch marker, scissors",
+   "quantity": "1 set",
+   "est_cad": 4.0
+  },
+  {
+   "item": "kitchen scale reading to 1 g",
+   "quantity": "tester's own",
+   "est_cad": 0.0
+  },
+  {
+   "item": "tape measure / ruler (cm)",
+   "quantity": "tester's own",
+   "est_cad": 0.0
+  }
+ ],
+ "materials_total_cad_estimated": 20.0,
+ "person_needed": {
+  "who": "one independent adult crocheter (not the owner, F-071) who agreed through the tester programme (quality.tester_programme)",
+  "skill": "confident with single crochet in joined rounds from a magic ring, and with increasing at six stacked corners to make a flat hexagon; can read a written pattern in US terms; owns or can borrow a 1 g kitchen scale",
+  "time": "about 3.5-4.5 hours of making (all four coasters) plus 20 minutes of measuring"
+ },
+ "protocol": [
+  "Weigh each full ball; record the ball band (grams and metres)",
+  "Work a 10 x 10 cm sc swatch; record sts and rounds per 10 cm and hook; then RE-WEIGH each ball",
+  "Make all FOUR coasters exactly as written; note every guess, re-read or rip-back by round",
+  "Weigh what is left; grams used = re-weighed start minus end, per colour, for all four",
+  "Measure each coaster across the points and the flats, flat on a table, unstretched (cm)",
+  "Lay each coaster on a flat table: lies flat, cups (edges lift) or ruffles (wavy edge)?",
+  "Record total hours (all four, not the swatch) and whether you followed it exactly",
+  "Photograph in daylight on a plain surface: all four top-down, and one side-on at table level",
+  "Return sheet and photos; the operator enters them (POST /api/physical-test, /api/physical-photo)"
+ ],
+ "record_fields": [
+  {
+   "field": "tester_ref",
+   "label": "your tester reference",
+   "api": "tester_ref"
+  },
+  {
+   "field": "grams_cream",
+   "label": "grams used, colour A (cream)",
+   "api": "grams_by_color.cream"
+  },
+  {
+   "field": "grams_wine",
+   "label": "grams used, colour B (wine)",
+   "api": "grams_by_color.wine"
+  },
+  {
+   "field": "ball_band_grams",
+   "label": "ball band: grams per ball",
+   "api": "ball_band_grams"
+  },
+  {
+   "field": "ball_band_metres",
+   "label": "ball band: metres per ball",
+   "api": "ball_band_metres"
+  },
+  {
+   "field": "hook_mm",
+   "label": "hook used (mm)",
+   "api": "hook_mm"
+  },
+  {
+   "field": "swatch",
+   "label": "swatch: sts and rounds per 10 cm",
+   "api": "notes"
+  },
+  {
+   "field": "width_cm",
+   "label": "across points, furthest coaster (cm)",
+   "api": "measured_width_cm"
+  },
+  {
+   "field": "height_cm",
+   "label": "across flats, same coaster (cm)",
+   "api": "measured_height_cm"
+  },
+  {
+   "field": "all_sizes",
+   "label": "all four: points x flats (cm)",
+   "api": "notes"
+  },
+  {
+   "field": "flat",
+   "label": "lies flat? per coaster (flat/cups/ruffles)",
+   "api": "notes"
+  },
+  {
+   "field": "hours",
+   "label": "total hours (all four)",
+   "api": "hours"
+  },
+  {
+   "field": "followed",
+   "label": "followed exactly? yes/no",
+   "api": "instructions_followed"
+  },
+  {
+   "field": "problems",
+   "label": "anything unclear or wrong (round numbers)",
+   "api": "notes"
+  }
+ ],
+ "intake": {
+  "test": "POST /api/physical-test (queued job physical.record)",
+  "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
+  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+ },
+ "files": {
+  "hexagon-coaster-set-1.2.0-TEST.pdf": "7d10fc229525b650a3a2d77171c36842a9c46abab4213157a04cedafb4739909",
+  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "892484a895fd55e33dbcd95d5b50c52bdb4efe6fc72d07e22ae88f931c77107e"
+ },
+ "pattern_pages": 7,
+ "yarn_metres_scope": "all four coasters (cir.twin._yardage multiplies by make)",
+ "built_by": "research/final_build/w4/tester_kit_coaster.py via quality.tester_kit.build"
+}

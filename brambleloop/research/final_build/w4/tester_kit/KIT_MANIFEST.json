@@ -140,7 +140,7 @@
   "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
  },
  "files": {
-  "market-basket-small-1.2.0-TEST.pdf": "5d4578d24d3116efd9d3e2cd15a2f722b9cfb3cd1ca3dfe331b4c81c11abcc2d",
+  "market-basket-small-1.2.0-TEST.pdf": "a724cbae5d58ff469a991668d257f54dce57c7e0d0437bcb323ecca2bfb72b0c",
   "market-basket-small-1.2.0-RECORD-SHEET.pdf": "335fd7aa9c65a0b1ab52119db02fd644e327206b76a4dc80a3769f29c7bfcf76"
  },
  "pattern_pages": 9
