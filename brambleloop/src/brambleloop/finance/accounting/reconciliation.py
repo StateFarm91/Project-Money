@@ -243,16 +243,26 @@ def statement_lines(db, *, state: str | None = None) -> list[dict]:
                 for l in s.scalars(q)]
 
 
+UNEXPLAINED_PREFIX = "finance.unexplained:"
+UNEXPLAINED_SIGNATURE = "finance.payment_account.unexplained_movement"
+
+
 def import_etsy_ledger(db, entries, *, now: datetime | None = None) -> dict:
-    """Etsy payment-account ledger entries (Etsy's shape) -> statement lines.
+    """Etsy payment-account ledger entries (Etsy's shape) -> statement lines (F-575).
 
     Uses `finance.reconcile.normalise` / `classify` so the type mapping is the one the order
-    fees use; unclassified entries are skipped and counted, never guessed.
+    fees use. An entry this mapping cannot explain is never guessed into a fee, refund or
+    payout: it is an **unexplained balance movement** -- one accounting exception per entry
+    (`finance.unexplained:<entry_id>`) and one finance incident while any are open. So is a
+    break in the account's own running balance (`balance_continuity`): money moved that no
+    entry we read accounts for.
     """
     from .. import reconcile
 
+    db = ensure(db)
+    now = now or datetime.now(timezone.utc)
     norm = reconcile.normalise(entries)
-    lines, skipped = [], 0
+    lines, skipped, unexplained = [], 0, []
     for e in norm:
         kind = ("fee" if e["kind"] in reconcile.FEE_KINDS else
                 "refund" if e["kind"] == "refund" else
@@ -260,6 +270,10 @@ def import_etsy_ledger(db, entries, *, now: datetime | None = None) -> dict:
                                                                   "deposit") else None)
         if kind is None:
             skipped += 1
+            unexplained.append({"entry_id": e["entry_id"], "ledger_type": e["ledger_type"],
+                                "reference_id": e["reference_id"], "charge": e["charge"],
+                                "currency": e["currency"], "at": e.get("at"),
+                                "why": "ledger_type not on the reconciliation allow-list"})
             continue
         lines.append({"external_id": str(e["entry_id"]), "at": e.get("at") or now
                       or datetime.now(timezone.utc), "kind": kind,
@@ -270,7 +284,73 @@ def import_etsy_ledger(db, entries, *, now: datetime | None = None) -> dict:
                       "description": e.get("ledger_type", "")})
     out = import_statement(db, "etsy_ledger", lines, now=now)
     out["unclassified_skipped"] = skipped
+    out["balance_continuity"] = balance_continuity(entries)
+    unexplained += out["balance_continuity"]["breaks"]
+    out["unexplained"] = _raise_unexplained(db, unexplained, now=now)
     return out
+
+
+def balance_continuity(entries) -> dict:
+    """Each entry's `balance` must equal the previous entry's balance plus its `amount`.
+
+    Etsy's ledger carries a running balance per entry. A step that does not add up is money
+    that moved without an entry we read -- unexplained until someone finds it. Entries whose
+    amount or balance is not an integer of minor units are not judged (UNKNOWN), never passed.
+    """
+    rows = [e for e in (entries or []) if e.get("entry_id") is not None]
+    rows.sort(key=lambda e: (int(e.get("created_timestamp") or e.get("create_date") or 0),
+                             str(e.get("entry_id"))))
+    judged, unknown, breaks = 0, 0, []
+    prev = None
+    for e in rows:
+        amt, bal = e.get("amount"), e.get("balance")
+        if not (isinstance(amt, int) and isinstance(bal, int)):
+            unknown += 1
+            prev = None
+            continue
+        if prev is not None:
+            judged += 1
+            expected = prev["balance"] + amt
+            if expected != bal:
+                breaks.append({"entry_id": str(e["entry_id"]),
+                               "ledger_type": str(e.get("ledger_type") or ""),
+                               "reference_id": str(e.get("reference_id") or ""),
+                               "after_entry": str(prev["entry_id"]),
+                               "expected_balance_minor": expected, "balance_minor": bal,
+                               "gap_minor": bal - expected,
+                               "why": "running balance does not follow from the previous "
+                                      "entry plus this amount"})
+        prev = e
+    return {"judged": judged, "unknown": unknown, "breaks": breaks,
+            "state": "UNKNOWN" if not judged else ("BROKEN" if breaks else "CONTINUOUS")}
+
+
+def _raise_unexplained(db, items: list[dict], *, now: datetime) -> dict:
+    from ...ops import incident_lifecycle as lifecycle
+
+    opened = []
+    with db.session() as s:
+        for it in items:
+            key = f"{UNEXPLAINED_PREFIX}{it['entry_id']}"
+            if "gap_minor" in it:
+                key += ":balance"
+            _row, created = X.open_in(
+                s, key=key, kind="unexplained_balance_movement", severity="high",
+                period=period_of(datetime.fromisoformat(it["at"]) if it.get("at") else now),
+                summary=(f"Etsy payment-account entry {it['entry_id']} "
+                         f"({it.get('ledger_type') or 'no type'}): {it['why']}"),
+                evidence=it, now=now)
+            if created:
+                opened.append(key)
+        state = None
+        if items:
+            _inc, new = lifecycle.open_or_restate(
+                s, signature=UNEXPLAINED_SIGNATURE, severity="P2",
+                summary=(f"{len(items)} unexplained Etsy payment-account movement(s): "
+                         f"not booked until explained"),
+                detail={"entries": [i["entry_id"] for i in items][:200]}, now=now)
+            state = "opened" if new else "restated"
+    return {"count": len(items), "exceptions_opened": opened, "incident": state}
 
 
 def compare_with_books(db, *, since: datetime | None = None,

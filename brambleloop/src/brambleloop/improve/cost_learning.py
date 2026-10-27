@@ -100,4 +100,13 @@ def run(db, *, now: datetime | None = None) -> dict:
     Registry(db).audit("cost_optimiser", ACTION, artifact="routing",
                        detail={"proposable": out["proposable"],
                                "routes": out["routes"][:40], "context": out["context"][:40]})
+    # F-330: after the first live listing, the day 1/7/14/30 (then monthly) unit-economics
+    # review rides the same nightly pass. A failure here never costs the routing reading.
+    try:
+        from ..finance import launch_cost_review
+
+        out["launch_cost_review"] = launch_cost_review.review(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        out["launch_cost_review"] = {"state": "UNKNOWN",
+                                     "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
     return out
