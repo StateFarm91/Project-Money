@@ -13,3 +13,4 @@ Scripts that keep the state files honest. All read committed files only.
 | `board.py` | Job state from the job's own terminal evidence, never from a watcher's belief. |
 | `registry.py` | The durable half of the board: persists where each lane's evidence lives (never its verdict) so a restarted process can still answer about the lanes it never saw. `python3 ops/registry.py` prints the survey. |
 | `caps.py` (+ `test_caps.py`) | Money caps per track; every budget change must call `assert_within_cap`. |
+| `integration_authority.py` | F-711: an integration branch (`claude/w4-INTEG*`) is updated only by the integrator (`BRAMBLELOOP_ROLE=integrator`), only by fast-forward, never deleted. Applied to every pushed ref by the pre-push hook through `deploy_guard.pre_push`; refuses if it cannot be loaded. |
