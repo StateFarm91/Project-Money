@@ -155,6 +155,11 @@ SCRATCH = {
         "durable", "runtime/release.py::_owned_photography_rung", ("audit",)),
     "runtime/release.py::handle_model_reference_pack": (
         "durable", "runtime/release.py::handle_model_reference_pack", ("ctx.audit(",)),
+    # C07 F-678: the deterministic reference is rebuilt into scratch only to hash it against
+    # the frozen sha256 in research/bench2/out/bench2_manifest.json (the durable evidence, in
+    # the repository). The verdict is recomputed on every run and returned, never stored; no
+    # runtime path calls run() (test_w3_hq_independence ALLOWED records why).
+    "quality/benchmark_e2e.py::run": ("reading", "quality/benchmark_e2e.py::run", ("_sha(",)),
     "teardown/proof_run.py::_run": ("reading", "teardown/readiness.py::check", ()),
     "teardown/reader.py::self_test": ("reading", "teardown/readiness.py::check", ()),
     "visual/exported_review.py::review": ("durable", "visual/exported_review.py::review",
