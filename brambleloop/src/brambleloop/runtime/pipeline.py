@@ -2477,6 +2477,10 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
+    # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
+    "listing.search_visibility_aging": ("work_done",),
+    "listing.window_captures": ("work_done",),
+    "etsy.dashboard_harvest": ("work_done",),
     "radar.competitor_snapshot": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
@@ -3102,6 +3106,7 @@ from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
+from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

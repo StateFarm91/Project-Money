@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T03:38:11.466711+00:00",
+ "generated_at": "2026-10-27T12:52:49.671373+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 128,
-  "handlers": 159,
+  "cadences": 131,
+  "handlers": 162,
   "agents": 32,
   "follow_on_edges": 80
  },
@@ -1329,6 +1329,24 @@
       "period_seconds": 86400
      },
      {
+      "name": "search_visibility_aging",
+      "agent": "listing",
+      "job_type": "listing.search_visibility_aging",
+      "period_seconds": 86400
+     },
+     {
+      "name": "window_captures",
+      "agent": "listing",
+      "job_type": "listing.window_captures",
+      "period_seconds": 86400
+     },
+     {
+      "name": "dashboard_harvest",
+      "agent": "orchestrator",
+      "job_type": "etsy.dashboard_harvest",
+      "period_seconds": 86400
+     },
+     {
       "name": "etsy_openapi_reverify",
       "agent": "orchestrator",
       "job_type": "etsy.openapi_reverify",
@@ -1406,6 +1424,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:store_commerce:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.c12_ops",
      "brambleloop.runtime.engineering_ops",
      "brambleloop.runtime.etsy_ops",
      "brambleloop.runtime.listing_outcomes",
@@ -1418,15 +1437,18 @@
     "executable_job_types": [
      "chain.rebuild",
      "etsy.credential_health",
+     "etsy.dashboard_harvest",
      "etsy.listing_census",
      "etsy.openapi_reverify",
      "etsy.shop_snapshot",
      "listing.cross_sell_graph",
      "listing.draft",
      "listing.outcomes",
+     "listing.search_visibility_aging",
      "listing.search_visibility_watch",
      "listing.seo",
      "listing.taxonomy_refresh",
+     "listing.window_captures",
      "pricing.position",
      "seasonal.remerchandising",
      "seo.cycle",

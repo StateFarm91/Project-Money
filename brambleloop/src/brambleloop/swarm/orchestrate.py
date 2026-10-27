@@ -864,6 +864,9 @@ JOB_BANDS: dict[str, str] = {
     # housekeeping default. They are all CA$0, read-only or record-only.
     "creative.family_engine": "new_opportunity",      # next family members, amplification
     "listing.cross_sell_graph": "new_opportunity",    # F-775 cross-sell over the catalogue
+    "listing.search_visibility_aging": "housekeeping",  # W4-C12: open findings, overdue fixes
+    "listing.window_captures": "housekeeping",          # W4-C12: boost-window captures due
+    "etsy.dashboard_harvest": "housekeeping",           # W4-C12: owner tasks from stored rows
     "intel.children_portfolio": "new_opportunity",    # F-351.. priority children's family
     "storefront.review": "new_opportunity",           # storefront content proposals, no write
     "creative.capability_scorecard": "exploration",   # Build 2 #94 measurement
