@@ -5050,6 +5050,22 @@ def handle_build_tick(ctx: JobContext) -> dict:
             }.get(verdict, f"watchdog verdict is {verdict!r}, which is not a stall")
             lifecycle = incident_lifecycle.reconcile(
                 s, "build.stalled", lambda _row: False, resolution=reason)
+        # F-134: the second, lower-severity alarm -- ready work left unclaimed with no
+        # completion for N windows. Opened (or restated) while true; closed otherwise.
+        if health.get("idle_alarm"):
+            incident_lifecycle.open_or_restate(
+                s, signature="build.idle", severity=executor.IDLE_STALL_SEVERITY,
+                summary=(f"{health.get('ready_total')} requirements are ready and none has "
+                         f"been claimed or completed for {health.get('idle_hours')} hours "
+                         f"(alarm at {health.get('idle_stall_hours')}). Top ready: "
+                         f"#{(health.get('next') or {}).get('requirement_id')}."),
+                detail={"watchdog": health, "next": health.get("next")})
+        else:
+            idle_closed = incident_lifecycle.reconcile(
+                s, "build.idle", lambda _row: False,
+                resolution=(f"no longer idle: watchdog verdict {health.get('verdict')!r}"))
+            lifecycle = {**lifecycle, "resolved": list(lifecycle.get("resolved") or [])
+                         + list(idle_closed.get("resolved") or [])}
 
     ctx.audit("build.ticked", detail={
         "ready": snapshot["ready_total"], "parked": snapshot["parked_total"],

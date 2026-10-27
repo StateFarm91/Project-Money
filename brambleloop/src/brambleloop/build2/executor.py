@@ -88,6 +88,13 @@ CLAIM_LEASE_MINUTES = 90
 # No completion in this long, with ready work available, is the watchdog's alarm.
 IDLE_ALARM_HOURS = 6
 
+# F-134 (Never-Idle Proof): ready work nobody has claimed is `awaiting_build_session` and,
+# on its own, no alarm -- a session not opened in six hours is the calendar. Left that way
+# for N windows, it is the company standing still with work it could do, and that is worth
+# a lower-severity alarm (P3, `build.idle`) than a claimed-and-stalled task (P2).
+IDLE_STALL_MULTIPLIER = 4
+IDLE_STALL_SEVERITY = "P3"
+
 
 class ExecutorRefused(ValueError):
     """A park with no checkable condition, a cycle, or a completion with no evidence."""
@@ -1628,6 +1635,13 @@ def watchdog(db, *, now: datetime | None = None,
             BuildEvent.kind == "claim", BuildEvent.at >= cutoff)) or 0)
         held = [(t.requirement_id, t.claimed_by) for t in s.scalars(
             select(BuildTask).where(BuildTask.state == IN_PROGRESS))]
+        # F-134: the idle clock starts at the last sign of build life -- a completion, a
+        # claim, a release or an un-park (fresh ready work) -- else the first event recorded.
+        # No event at all leaves it unknown, and unknown is reported, never read as fine.
+        idle_since = _aware(s.scalar(select(func.max(BuildEvent.at)).where(
+            BuildEvent.kind.in_(("complete", "claim", "release", "unpark")))))
+        if idle_since is None:
+            idle_since = _aware(s.scalar(select(func.min(BuildEvent.at))))
 
     snapshot = queue(db)
 
@@ -1659,7 +1673,24 @@ def watchdog(db, *, now: datetime | None = None,
     # new one released), which is not a worker that took the task and stopped (C-16).
     if not held:
         top = snapshot["next"] or {}
+        stall_hours = idle_alarm_hours * IDLE_STALL_MULTIPLIER
+        idle_hours = (round((now - idle_since).total_seconds() / 3600, 2)
+                      if idle_since is not None else None)
+        idle_alarm = idle_hours is not None and idle_hours >= stall_hours
+        idle = {"idle_since": idle_since.isoformat() if idle_since else None,
+                "idle_hours": idle_hours, "idle_stall_hours": stall_hours,
+                "idle_alarm": idle_alarm,
+                "idle_severity": IDLE_STALL_SEVERITY if idle_alarm else None,
+                "idle_note": (
+                    "UNKNOWN: no build event recorded, so how long the ready work has waited "
+                    "cannot be computed" if idle_hours is None else
+                    f"ready work unclaimed with no completion for {idle_hours} hours, past "
+                    f"{IDLE_STALL_MULTIPLIER} x {idle_alarm_hours} = {stall_hours} hours: "
+                    f"the build is standing still with work it could do" if idle_alarm else
+                    f"ready work unclaimed for {idle_hours} hours; the lower-severity alarm "
+                    f"fires at {stall_hours}")}
         return {
+            **idle,
             "moving": False,
             "completions_in_window": 0,
             "claims_in_window": claims,
