@@ -2601,3 +2601,6 @@ The dry run reports no problems.
    origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d).
 2. The proposal now cites both audit reports at their real repository-root paths
    (`research/final_build/w4/`, not `brambleloop/research/`).
+
+
+**D-W4-OWNER-BRIEFING-A: the owner ships the combined release with every Laura model and unified-conversation switch OFF (owner, 2026-10-26).** The owner's words, as relayed by the coordinator: "I choose option (a): ship with all Laura model and unified-conversation switches OFF. I understand that Command Center briefings will temporarily become deterministic rather than model-generated. This is a deployment decision only, not a permanent change to Laura's intended CEO capabilities… Do not permanently replace the intelligent CEO briefing system with deterministic templates." Consequence for the integrator: the release (`claude/final-candidate-2aeb177`, 2aeb177f) keeps the model briefing path in code, gated by `BRAMBLELOOP_LAURA_CEO_MODEL` and every other Laura activation switch, all OFF by default. Nothing is removed. Turning them on later is a separate owner decision. This is recorded as a paragraph, not a heading, so `core/decision_index.json` and the deployable tree digest do not change.

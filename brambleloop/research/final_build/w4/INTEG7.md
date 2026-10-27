@@ -173,6 +173,26 @@ LAURAFIX is excluded (it belongs to the activation batch).
   - The hero's grid reading records `described`. A failed grid call (transient error or ceiling refusal) is asked again instead of being reused as a final `unjudged`.
   - **Test:** `test_l1_a_failed_grid_reading_is_asked_again_not_reused`.
 
+- **Date fix, 2aeb177f (tests only).** `test_cert_intel_wave2`, `test_policy_knowledge` and `test_w4_owner_incidents` failed in run 20261027T013023Z-295 because the real date had moved past a 30-day policy-freshness window. They now run on `tests/pinned_clock.py` at 2026-10-20T12:00Z: 15/15, 20/20 and 6/6 pass, and vacuity passes. The 30-day rule, the assertions and production code are unchanged.
+
+### Review of 4d3d1ee (INDEPENDENT_SECREVIEW_INTEG7_4d3d1ee.md): SHIP
+
+H1, M1 and L1 are closed. No test was weakened, and no new paid path or ceiling bypass was added. 2aeb177f is the test-only clock commit above. The follow-ups below go to the next batch, and the candidate does not change for them:
+
+- **L2 (Low, Product Truth, fail-open after a deploy).** `_basis` hashes `describe_prompt()` only. A deploy that changes `inspect.DESCRIBE_SYSTEM`, `thumbnail.GRID_PX` or the deterministic `compare` / `identification` / `parse_description` rules would reuse the old verdict. **Fix:** add a hash of `DESCRIBE_SYSTEM`, `GRID_PX` and a `JUDGE_VERSION` to the basis's describer, and add a test for each.
+- **L3 (Low, pre-existing, publish side).** `review_state` checks shas and jobs, but not the claim or describer basis, so after a deploy that changes `JOB_CLAIMS` the publish read passes until `review()` re-runs. **Fix:** recompute `_basis` in `review_state`, require it to equal the filed basis, and treat a row with no basis as unreviewed.
+- **L4 (Low, test coverage).** Four parts of M1 survive mutation:
+  - the job in the basis;
+  - the families in the basis;
+  - the describer in the basis;
+  - `review_state`'s job comparison.
+
+  **Fix:** extend `test_m1` with a claimed-job relabel that keeps an identical claim, a changed `product_families`, a changed routed model and a changed `describe_prompt`.
+- **L5 (Low, cost, bounded).** A release with an unclaimed job buys every frame's description again on every run, and a failed grid reading (L1) buys all six again, not only the grid. It is bounded by the daily retry and `check_budget`. **Fix:** block an unclaimed job without calling the describer, and re-ask only the failed grid reading.
+- **Information only:** I1 (`model None == None` in the basis), I2 (spread `**filed` first in the reuse result) and I3 (S-2 timing edges, all fail-closed or pre-existing). They are carried with L2 to L5.
+
+**Owner note, D-W4-OWNER-BRIEFING-A (DECISION_LOG, 2026-10-26).** The owner chose option (a): "I choose option (a): ship with all Laura model and unified-conversation switches OFF. I understand that Command Center briefings will temporarily become deterministic rather than model-generated. This is a deployment decision only, not a permanent change to Laura's intended CEO capabilities… Do not permanently replace the intelligent CEO briefing system with deterministic templates." This release ships with those switches OFF. The model briefing path stays in code, gated by `BRAMBLELOOP_LAURA_CEO_MODEL`, and is not removed.
+
 ## 10. Full suite and gates
 
 (pending)
