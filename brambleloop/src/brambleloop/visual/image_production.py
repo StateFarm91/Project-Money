@@ -829,6 +829,11 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             # from a constant the stage remembers.
             reg = canonical_registry.resolve(db)
             if not reg.get("ok"):
+                views = [p for p in reg.get("problems") or [] if p.startswith("view ")]
+                if views:
+                    # a canonical view that cannot be sent is reduced identity conditioning,
+                    # refused here before any Laura frame is generated
+                    return block(f"reduced identity conditioning: {reg.get('problems')}")
                 return block(f"Laura's canonical references failed verification: "
                              f"{reg.get('problems')}")
             _update(db, key, stage=stage, status=st, record={"outputs": {
