@@ -311,8 +311,16 @@ def refresh(db, *, today: date | None = None) -> dict:
         engineering.append(_publish(db, "construction_preference", f"opportunity:{q}", stmt,
                                     _digest(r["opportunity"]["value"])))
         experiments.append(_register_experiment(db, r, today))
+    # F-565 (W4-INTELREC C05): the owner-recorded Insights terms scored, raw kept apart.
+    try:
+        from . import insights_score
+
+        scored = insights_score.scores(db)
+    except Exception as exc:  # noqa: BLE001 - a scoring fault never stops the reading
+        scored = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     payload = {**sig, "lessons": sorted(set(published)), "engineering_lessons": engineering,
-               "experiments": experiments, "generated_at": datetime.now(timezone.utc).isoformat()}
+               "experiments": experiments, "insights_opportunities": scored,
+               "generated_at": datetime.now(timezone.utc).isoformat()}
     with db.session() as s:
         row = s.scalar(select(OperatingReading).where(
             OperatingReading.kind == KIND, OperatingReading.period_key == today.isoformat()))

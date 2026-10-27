@@ -225,6 +225,10 @@ def handle_photo_principles(ctx: JobContext) -> dict:
 
     out = PP.run(ctx.db)
     store_reading(ctx.db, PP.READING, out)
+    # F-231 (W4-INTELREC C05): the same judged galleries quantified as gallery grammar.
+    from ..intel import gallery_grammar
+
+    store_reading(ctx.db, gallery_grammar.READING, gallery_grammar.grammar(ctx.db))
     measured = sum(1 for p in out["profile"]["pods"].values() if p["state"] == "MEASURED")
     ctx.audit(PP.READING, detail={"judged_listings": out["profile"]["judged_listings"],
                                   "pods_measured": measured, "gaps": out["gaps"]})

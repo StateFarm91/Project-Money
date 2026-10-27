@@ -222,6 +222,34 @@ def plan_fetches(db) -> list[tuple[int, str]]:
         except FetchRefused:
             continue
         out.append((t["id"], src.url))
+    # F-406 (W4-INTELREC C05): pages the Research Agent planned for an open task whose
+    # internal evidence could not settle a platform question (`detail.fetch_urls`).
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    research._ensure(db)
+    planned = {tid for tid, _u in out}
+    with db.session() as s:
+        # a page this step already failed to read for that task is not retried every run
+        failed = {((a.detail or {}).get("task"), (a.detail or {}).get("url"))
+                  for a in s.scalars(select(AuditLog).where(AuditLog.action == FETCH_ACTION))
+                  if (a.detail or {}).get("fetched") is False}
+        rows = list(s.scalars(select(research.ResearchTask).where(
+            research.ResearchTask.state == research.OPEN)))
+        for r in rows:
+            cited = {x.get("citation") for x in r.sources or []}
+            for url in (r.detail or {}).get("fetch_urls") or []:
+                if url in cited or (r.id, url) in out or r.id in planned \
+                        or (r.id, url) in failed:
+                    continue
+                try:
+                    check_url(url)
+                except FetchRefused:
+                    continue
+                out.append((r.id, url))
+                planned.add(r.id)
+                break
     return out
 
 
