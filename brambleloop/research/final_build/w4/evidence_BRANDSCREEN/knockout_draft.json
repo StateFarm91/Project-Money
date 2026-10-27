@@ -1,0 +1,84 @@
+{
+  "_status": "DRAFT -- INCOMPLETE. Not a recorded knock-out search. The register and marketplace screens need a person (see BRAND_SCREENING.md). Do not copy into brand.clearance.KNOCKOUT_SEARCHES until every screen below is completed from its own source.",
+  "_not_legal_advice": "A free trademark knock-out SCREENING by the company. It is not legal advice and not a clearance opinion.",
+  "name": "Brambleloop Studio",
+  "searched_on": "2026-10-27",
+  "searched_by": "company (W-BRANDSCREEN agent); register and marketplace screens pending a person",
+  "screens": {
+    "trademark_register_ca": {
+      "source": "PENDING_PERSON: https://ised-isde.canada.ca/cipo/trademark-search/srch",
+      "queries": [],
+      "hits": null,
+      "supplementary_search_engine_observations": [
+        {"query": "BRAMBLE site:ised-isde.canada.ca/cipo/trademark-search (web search, 2026-10-27)",
+         "hit": "BRAMBLE BERRY, application 1614556, TMA928596, registered 2016-02-10, Bramble Berry, Inc. (Bellingham WA), Nice 35/40/41: retail and online retail of soap-making supplies; education services, namely on-line tutorials in the field of soap making",
+         "record_url": "https://ised-isde.canada.ca/cipo/trademark-search/1614556",
+         "read": "record page fetched once 2026-10-27 (robots.txt does not disallow /cipo/)",
+         "relevance": "not_a_conflict",
+         "why": "different dominant word (BRAMBLE BERRY vs BRAMBLELOOP), different field (soap making vs crochet patterns); shared element BRAMBLE is a common descriptive/botanical word. Class 41 craft tutorials overlap in kind, so it is listed as residual risk"},
+        {"query": "same", "hit": "OTION, application 1206546, owner Bramble Berry, Inc.", "relevance": "not_a_conflict", "why": "expunged; different mark"}
+      ]
+    },
+    "trademark_register_us": {
+      "source": "PENDING_PERSON: https://tmsearch.uspto.gov/search/search-information",
+      "queries": [],
+      "hits": null,
+      "supplementary_search_engine_observations": [
+        {"query": "\"Bramble Loop\" OR \"Brambleloop\" trademark (web search, 2026-10-27)",
+         "hit": "no BRAMBLELOOP / BRAMBLE LOOP record surfaced; nearest: BRAMBLE & MOPS (US serial 50009390, filed 2026-07-23, Bramble & Co. LLC, plush toys, live application) and BRAMBLE BERRY marks (soap making)",
+         "relevance": "not_a_conflict",
+         "why": "different marks and goods; search-engine coverage of USPTO is not a register search"}
+      ]
+    },
+    "trademark_register_wipo": {
+      "source": "PENDING_PERSON: https://branddb.wipo.int/en/quicksearch",
+      "queries": [],
+      "hits": null
+    },
+    "marketplace": {
+      "source": "PENDING_PERSON: https://www.etsy.com/search/shops?search_query=brambleloop",
+      "queries": [],
+      "hits": null,
+      "supplementary_search_engine_observations": [
+        {"query": "\"Brambleloop\" OR \"Bramble Loop\" Etsy shop OR instagram OR ravelry (web search, 2026-10-27)",
+         "hit": "no shop or account named Brambleloop / Bramble Loop surfaced",
+         "relevance": "not_a_conflict", "why": "no identical name found by search engine"},
+        {"query": "\"Bramble\" Etsy shop crochet patterns (web search, 2026-10-27)",
+         "hit": "Etsy shop BramblesAndHart (crochet hats, scarves, jumpers; https://www.etsy.com/shop/BramblesAndHart)",
+         "relevance": "not_a_conflict",
+         "why": "different composite (BRAMBLES AND HART); same craft field, so listed as residual risk; not read on Etsy (bot protection)"},
+        {"query": "\"Bramble\" yarn (web search, 2026-10-27)",
+         "hit": "Bramble & Fleece (UK yarn brand); many patterns titled 'Bramble'; 'bramble stitch' is a standard knit/crochet stitch name",
+         "relevance": "not_a_conflict",
+         "why": "BRAMBLE alone is descriptive in this field (stitch name), which weakens it as a source identifier for anyone, including us"}
+      ]
+    },
+    "domain": {
+      "source": "https://rdap.verisign.com/com/v1/domain/",
+      "queries": ["brambleloop.com", "brambleloopstudio.com", "bramble-loop.com",
+                  "brambleloop.ca (https://rdap.org/domain/ -> CIRA)", "brambleloopstudio.ca"],
+      "read_on": "2026-10-27T17:31Z",
+      "control": "etsy.com answered 200 from the same endpoint",
+      "hits": [],
+      "note": "all five answered 404 Domain not found (unregistered). Search engine also returned 'brambleloophq.space' as a small games studio ('Crazy Monkey', social casino); that host did not resolve on 2026-10-27, so it is recorded as an observation, not a live site",
+      "observations": [
+        {"hit": "brambleloophq.space (Brambleloop HQ, games, search-engine snippet only; DNS did not resolve 2026-10-27)",
+         "relevance": "not_a_conflict",
+         "why": "games/entertainment (Nice 9/41 at most), not craft patterns; apparently inactive"}
+      ]
+    },
+    "social_handles": {
+      "source": "PENDING_PERSON: instagram.com/brambleloop, pinterest.com/brambleloop, youtube.com/@brambleloop, ravelry.com/designers (search Brambleloop)",
+      "queries": [],
+      "hits": null,
+      "supplementary_search_engine_observations": [
+        {"query": "\"Brambleloop\" (web search, 2026-10-27)",
+         "hit": "a CoolMiniOrNot miniature named 'Brambleloop' (a sculptor's fantasy figure); a dictionary-style page for 'bramble-loop'",
+         "relevance": "not_a_conflict",
+         "why": "a character name in a hobby post, not a trading name"}
+      ]
+    }
+  },
+  "conflicts": [],
+  "conclusion": "INCOMPLETE. Automated screening found no identical or near-identical BRAMBLELOOP mark or trading name; the five domains are unregistered. The decisive register searches (CIPO, USPTO, WIPO) and the Etsy/social handle checks require a person and are not done."
+}

@@ -1,0 +1,34 @@
+{
+  "description" : [ "Domain not found" ],
+  "errorCode" : 404,
+  "notices" : [ {
+    "description" : [ "Service subject to Terms of Use." ],
+    "links" : [ {
+      "href" : "https://www.cira.ca/en/resources/documents/about/website-terms-use",
+      "rel" : "terms-of-service",
+      "type" : "text/html",
+      "value" : "https://rdap.ca.fury.ca/rdap/domain/brambleloopstudio.ca"
+    } ],
+    "title" : "Terms of Service"
+  }, {
+    "description" : [ "URL of the ICANN RDDS Inaccuracy Complaint Form: https://icann.org/wicf" ],
+    "links" : [ {
+      "href" : "https://icann.org/wicf",
+      "rel" : "help",
+      "type" : "text/html",
+      "value" : "https://rdap.ca.fury.ca/rdap/domain/brambleloopstudio.ca"
+    } ],
+    "title" : "RDDS Inaccuracy Complaint Form"
+  }, {
+    "description" : [ "\nUse of CIRA's WHOIS service is governed by the Terms of Use in its Legal\nNotice, available at https://www.cira.ca/en/resources/documents/about/website-terms-use\n\n(c) 2026 Canadian Internet Registration Authority, (http://www.cira.ca/)" ],
+    "links" : [ {
+      "href" : "https://www.cira.ca/en/resources/documents/about/website-terms-use",
+      "rel" : "help",
+      "type" : "text/html",
+      "value" : "https://rdap.ca.fury.ca/rdap/domain/brambleloopstudio.ca"
+    } ],
+    "title" : "Legal Notice"
+  } ],
+  "rdapConformance" : [ "icann_rdap_response_profile_1", "icann_rdap_technical_implementation_guide_1", "rdap_level_0" ],
+  "title" : "Domain not found"
+}
