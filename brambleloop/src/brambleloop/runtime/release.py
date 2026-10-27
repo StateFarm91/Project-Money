@@ -1044,6 +1044,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     import dataclasses
 
     read_at = date.today().isoformat()
+    # F-053: a gift phrase is spent only where observed buyer language backs it; template
+    # gift phrases with no observation behind them leave the query set.
+    _observed = intent_mod.observed_phrases(ctx.db)
+    queries = [q for q in queries
+               if q.intent != "gift" or intent_mod.gift_supported(q.phrase, _observed)]
     queries = queries + [dataclasses.replace(q, provenance="observed:benchmark_titles+serp",
                                              read_at=read_at, family="buyer_language")
                          for q in buyer["queries"]
@@ -1220,6 +1225,24 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     architecture = seo_mod.description_architecture(copy.description, expect=expect)
     copy_gate["blocking"] = list(copy_gate["blocking"]) + architecture
     copy_gate["ok"] = not copy_gate["blocking"]
+    # F-038: Etsy's own Search Visibility recommendations for this listing (or the shop) are
+    # worked before our heuristics in the same area; superseded internal findings are recorded.
+    from ..commerce import search_visibility as _sv
+
+    from sqlalchemy import select as _select
+
+    with ctx.db.session() as _s:
+        from ..core.models import Listing as _Listing
+
+        _row = _s.scalar(_select(_Listing).where(_Listing.product_slug == slug,
+                                                _Listing.etsy_listing_id != "")
+                         .order_by(_Listing.id.desc()).limit(1))
+        _etsy_id = _row.etsy_listing_id if _row is not None else ""
+    first_party = _sv.precedence(ctx.db, listing_id=_etsy_id,
+                                 internal=list(copy_gate["blocking"]) + list(copy_gate["soft"]))
+    if first_party["first_party"]:
+        ctx.audit("listing.first_party_precedence", artifact=f"{slug}@{version}",
+                  detail={k: first_party[k] for k in ("first_party", "superseded")})
     # F-013: semantically duplicate tags block like lexical ones; intent coverage is read.
     tag_problems = (search_mod.tags_truth(copy.tags, difficulty=difficulty, shape=shape)
                     + search_mod.tag_diversity_problems(copy.tags))

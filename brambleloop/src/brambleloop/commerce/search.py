@@ -716,6 +716,14 @@ def _acceptable_tag(phrase: str, chosen: list[str], budget: dict[str, int],
         ek = intent_key(existing)
         if key and ek and (key <= ek or ek <= key):
             return False   # F-013: the same search once plurals/order/synonyms are folded
+    # F-016: a re-spelling (colour/color) of a chosen tag is redundant, and at most one slot
+    # goes to a regional word Etsy cannot fold (jumper/sweater, toque/beanie).
+    from . import search_discipline as sd
+
+    if sd.redundant_tag(phrase, chosen):
+        return False
+    if sd.regional_terms(phrase) and sd.regional_slots_used(chosen) >= sd.MAX_REGIONAL_SLOTS:
+        return False
     return all(budget.get(w, 0) < max_per_word for w in words)
 
 

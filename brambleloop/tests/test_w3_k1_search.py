@@ -310,7 +310,9 @@ def test_ascii_foreign_words_are_caught_and_bait_translations_refused():
                                  translation_record="added Spanish for more impressions")
     assert any("impression bait" in p for p in bait["blocking"]), bait["blocking"]
     ok = seo.check_search_copy(_copy(tags=tags), translation_record={
-        "language": "es", "reason": "Spanish-language edition of the PDF ships with it"})
+        "language": "es", "reason": "Spanish-language edition of the PDF ships with it",
+        "translated_by": "t",   # W4-C09 (F-018): a sufficient review by someone else
+        "quality": {"verdict": "sufficient", "reviewed_by": "native-reader"}})
     assert not any(p.startswith("LISTING_LANGUAGE") for p in ok["blocking"])
     assert seo.language_findings(["crochet motif pattern", "patron schema"]) == []
 

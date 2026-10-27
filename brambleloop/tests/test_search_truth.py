@@ -336,8 +336,12 @@ def test_a_non_english_tag_is_refused_without_a_translation_record():
     tags = [f"tag{i} word{i}" for i in range(12)] + ["häkelanleitung decke"]
     gate = seo.check_search_copy(_copy(tags=tags))
     assert any(p.startswith("LISTING_LANGUAGE") for p in gate["blocking"])
-    assert seo.check_search_copy(_copy(tags=tags),
-                                 translation_record="DE market test 2026-10")["ok"]
+    # W4-C09 (F-018): a deliberate translation also needs a sufficient quality review.
+    assert not seo.check_search_copy(_copy(tags=tags),
+                                     translation_record="DE market test 2026-10")["ok"]
+    assert seo.check_search_copy(_copy(tags=tags), translation_record={
+        "language": "de", "reason": "DE market test 2026-10", "translated_by": "t",
+        "quality": {"verdict": "sufficient", "reviewed_by": "native-reader"}})["ok"]
 
 
 def test_a_recency_only_renewal_is_refused():
