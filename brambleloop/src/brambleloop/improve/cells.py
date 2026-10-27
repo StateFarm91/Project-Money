@@ -921,6 +921,8 @@ def retrospective(db, *, days: int = 7) -> dict:
         "learned": lessons_learned,
         "experiments_completed": ran["completed"],
         "experiments_killed": ran["killed"],
+        # F-126: invalid/confounded experiments, retained with their reason, never verdicts.
+        "experiments_superseded": ran.get("superseded", []),
         "stop_doing": director.stop_doing(db),
         "top_next_upgrades": director.next_upgrades(db),
         "department_health": {c.key: (moved.get(c.key, {}).get("direction")
