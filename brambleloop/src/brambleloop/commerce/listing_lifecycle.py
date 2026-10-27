@@ -182,7 +182,7 @@ def learning_window(db, listing_id: str, *, now=None) -> dict:
 
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import OperatingReading
 
     now = now or datetime.now(timezone.utc)
     start = _activated_at(db, listing_id)
@@ -191,10 +191,10 @@ def learning_window(db, listing_id: str, *, now=None) -> dict:
                 "why": "no verified activation in the lifecycle trail: no boost to capture",
                 "schedule": []}
     with db.session() as s:
-        done = {int((a.detail or {}).get("day")): dict(a.detail or {})
-                for a in s.scalars(select(AuditLog).where(
-                    AuditLog.action == WINDOW_ACTION,
-                    AuditLog.artifact == f"etsy:{listing_id}"))}
+        done = {int((a.payload or {}).get("day")): dict(a.payload or {})
+                for a in s.scalars(select(OperatingReading).where(
+                    OperatingReading.kind == WINDOW_ACTION))
+                if (a.payload or {}).get("listing_id") == str(listing_id)}
     schedule = []
     for d in WINDOW_DAYS:
         due = start + timedelta(days=d)
@@ -223,7 +223,7 @@ def record_capture(db, listing_id: str, *, day: int, source: str, evidence: str,
     """File one window capture: what was read, from where, when. Refuses a capture early."""
     from datetime import datetime, timedelta, timezone
 
-    from ..core.models import AuditLog
+    from ..core.models import OperatingReading
 
     if day not in WINDOW_DAYS:
         raise LifecycleRefused(f"day {day} is not a window capture day {WINDOW_DAYS}")
@@ -238,12 +238,21 @@ def record_capture(db, listing_id: str, *, day: int, source: str, evidence: str,
     if at < start + timedelta(days=day) or at > datetime.now(timezone.utc):
         raise LifecycleRefused("a capture is observed on or after its due day, never before "
                                "it and never in the future")
-    detail = {"day": day, "source": source, "evidence": evidence[:300],
-              "observed_at": at.isoformat(), "values": dict(values or {})}
+    detail = {"listing_id": str(listing_id), "day": day, "source": source,
+              "evidence": evidence[:300], "observed_at": at.isoformat(),
+              "values": dict(values or {}), "by": actor[:64]}
+    # Stored in `operating_readings`, which `ops.retention` never prunes: a capture of the
+    # boost window cannot be retaken, so it must not age out with the audit log.
+    from sqlalchemy import select
+
+    key = f"{str(listing_id)[:12]}:d{day:02d}"[:20]
     with db.session() as s:
-        s.add(AuditLog(actor=actor[:64], action=WINDOW_ACTION, artifact=f"etsy:{listing_id}",
-                       detail=detail))
-    return {"listing_id": str(listing_id), **detail}
+        if s.scalar(select(OperatingReading).where(OperatingReading.kind == WINDOW_ACTION,
+                                                   OperatingReading.period_key == key)):
+            raise LifecycleRefused(f"day {day} of listing {listing_id} is already captured")
+        s.add(OperatingReading(kind=WINDOW_ACTION, payload=detail,
+                               period_key=key))
+    return detail
 
 
 # ---- W4-C12 F-554: the bulk listing operations guard ---------------------------------------
