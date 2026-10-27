@@ -25,6 +25,14 @@ sys.path.insert(0, str(ROOT / "tests"))
 os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
 os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR", tempfile.mkdtemp(prefix="cert_intel_art_"))
 
+# INTEG7 (2026-10-27): the seeded platform-policy readings are dated 2026-09-26, so the
+# 30-day freshness rule makes this file's scenarios calendar facts. It runs at a stated
+# date with the same pinned, ticking clock as the LISTREADY suites. No assertion and no
+# rule changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-10-20T12:00:00+00:00")
+from datetime import date, datetime  # noqa: E402,F811 - rebind to the pinned classes
+
 from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402

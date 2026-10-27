@@ -7,6 +7,14 @@ A reading with its basis declared is a reading; one with its basis hidden would 
 import os, sys, tempfile
 from datetime import date
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+# INTEG7 (2026-10-27): the seeded platform-policy readings are dated 2026-09-26, so the
+# 30-day freshness rule makes this file's scenarios calendar facts. It runs at a stated
+# date with the same pinned, ticking clock as the LISTREADY suites. No assertion and no
+# rule changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-10-20T12:00:00+00:00")
+from datetime import date  # noqa: E402,F811 - rebind to the pinned classes
+
 from brambleloop.core.db import Database
 from brambleloop.gates import platform_policy as PP, policy_knowledge as PK
 
