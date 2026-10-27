@@ -138,3 +138,104 @@ def edit_hold(db, slug: str, *, live: bool, emergency: bool = False) -> dict:
                         f"{COHORT_SIZE} inspected): non-emergency edits to live listings "
                         f"are held so each sale is read against a stable listing (F-595)")}
     return {"held": False, "why": "the first-ten cohort is complete"}
+
+
+# ---- W4-C13 F-597: the storefront change budget --------------------------------------------
+#
+# F-597: "Limit simultaneous storefront/listing experiments so causal attribution remains
+# possible. Emergency policy/safety fixes bypass the experiment budget but are separately
+# tagged." An experiment is opened before it is applied and closed when it is concluded or
+# reverted; the budget counts the open ones. At most `EXPERIMENT_BUDGET` run at once, and never
+# two on the same surface (a listing, the shop banner, a section). An emergency -- a policy,
+# safety, truth or incident fix -- is always allowed, is tagged `emergency`, and does not use
+# the budget; experiments overlapping it are marked confounded so their reading is not
+# attributed to them.
+
+CHANGE_ACTION = "storefront.change_opened"
+CLOSE_ACTION = "storefront.change_closed"
+EXPERIMENT_BUDGET = 2
+EMERGENCY_KINDS = ("policy", "safety", "truth", "incident")
+
+
+class ChangeRefused(ValueError):
+    """An experiment over the budget, or a change without what makes it attributable."""
+
+
+# Stored in `operating_readings` (never pruned by `ops.retention`): an open experiment that
+# retention forgot would free budget it still uses.
+def _put(s, kind: str, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    s.add(OperatingReading(kind=kind, period_key=uuid.uuid4().hex[:20], payload=detail,
+                           at=datetime.now(timezone.utc)))
+
+
+def _changes(db) -> tuple[dict[str, dict], set[str]]:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    opened, closed = {}, set()
+    with db.session() as s:
+        for a in s.scalars(select(OperatingReading).where(OperatingReading.kind.in_(
+                (CHANGE_ACTION, CLOSE_ACTION))).order_by(OperatingReading.id)):
+            d = dict(a.payload or {})
+            if a.kind == CHANGE_ACTION:
+                opened[d["key"]] = {**d, "at": a.at.isoformat()}
+            else:
+                closed.add(d["key"])
+    return opened, closed
+
+
+def change_budget(db) -> dict:
+    opened, closed = _changes(db)
+    live = [c for k, c in opened.items() if k not in closed]
+    exps = [c for c in live if c["kind"] == "experiment"]
+    return {"budget": EXPERIMENT_BUDGET, "experiments_open": len(exps),
+            "available": max(0, EXPERIMENT_BUDGET - len(exps)),
+            "experiments": exps, "emergencies": [c for c in live if c["kind"] == "emergency"]}
+
+
+def open_change(db, *, key: str, surface: str, kind: str, reason: str, by: str,
+                emergency_kind: str = "") -> dict:
+    """Open one storefront change before it is applied; refuse an experiment over budget."""
+    if kind not in ("experiment", "emergency"):
+        raise ChangeRefused("a storefront change is an experiment or an emergency fix")
+    if not key.strip() or not surface.strip() or len((reason or "").split()) < 3:
+        raise ChangeRefused("a change names itself, the surface it touches and why")
+    if kind == "emergency" and emergency_kind not in EMERGENCY_KINDS:
+        raise ChangeRefused(f"an emergency is one of {EMERGENCY_KINDS}; anything else is an "
+                            f"experiment and uses the budget")
+    opened, closed = _changes(db)
+    if key in opened:
+        raise ChangeRefused(f"change {key!r} is already recorded")
+    b = change_budget(db)
+    confounds: list[str] = []
+    if kind == "experiment":
+        same = [c["key"] for c in b["experiments"] if c["surface"] == surface]
+        if same:
+            raise ChangeRefused(f"{surface} already carries experiment {same[0]}: two at once "
+                                f"cannot be told apart")
+        if b["available"] <= 0:
+            raise ChangeRefused(f"{b['experiments_open']} experiments are open (budget "
+                                f"{EXPERIMENT_BUDGET}); conclude one first so each result "
+                                f"stays attributable (F-597)")
+    else:
+        confounds = [c["key"] for c in b["experiments"] if c["surface"] == surface]
+    detail = {"key": key, "surface": surface, "kind": kind, "reason": reason[:300],
+              "by": by[:60], "emergency_kind": emergency_kind or None,
+              "confounds": confounds}
+    with db.session() as s:
+        _put(s, CHANGE_ACTION, detail)
+    return detail
+
+
+def close_change(db, key: str, *, outcome: str, by: str) -> dict:
+    opened, closed = _changes(db)
+    if key not in opened or key in closed:
+        raise ChangeRefused(f"no open change {key!r}")
+    with db.session() as s:
+        _put(s, CLOSE_ACTION, {"key": key, "outcome": outcome[:300], "by": by[:60]})
+    return {"key": key, "closed": True}

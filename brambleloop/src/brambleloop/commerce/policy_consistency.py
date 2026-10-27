@@ -116,3 +116,134 @@ def check(shop: dict | None) -> dict:
 from ..core import contracts as _contracts  # noqa: E402
 
 _contracts.require("shop_policy_sections", 1)
+
+
+# ---- W4-C13 F-598: the weekly cross-surface consistency audit -------------------------------
+#
+# F-598: "Weekly compare Dashboard, Listings, Search Visibility, Stats, Marketing, Finances,
+# Apps and Settings for contradictions: active counts, fees, traffic, state, policies,
+# credentials and warnings." Each comparison reads two stored readings of the same fact from
+# two surfaces and reports a contradiction when they disagree. A comparison missing either
+# reading is UNOBSERVED by name -- never consistent. Read-only; one stored reading per ISO week
+# and one open incident while contradictions stand.
+
+AUDIT_KIND = "etsy.cross_surface_audit"
+AUDIT_SIGNATURE = "etsy-cross-surface-contradiction"
+
+
+def _reading(db, kind: str):
+    from ..runtime.etsy_ops import latest_reading
+
+    try:
+        return latest_reading(db, kind)
+    except Exception:  # noqa: BLE001 - an unreadable reading is unobserved
+        return None
+
+
+def cross_surface(db, *, now=None) -> dict:
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Incident, Listing, OperatingReading
+    from ..runtime.etsy_ops import CENSUS_READING, CREDENTIAL_READING, SHOP_READING
+
+    now = now or datetime.now(timezone.utc)
+    shop = _reading(db, SHOP_READING)
+    census = _reading(db, CENSUS_READING)
+    cred = _reading(db, CREDENTIAL_READING)
+    comps: list[dict] = []
+
+    def put(name, surfaces, state, detail):
+        comps.append({"check": name, "surfaces": surfaces, "state": state, "detail": detail})
+
+    estate = (census or {}).get("estate") or []
+    # active counts: Settings/Dashboard (getShop) vs Listings (census)
+    if shop and census and "listing_active_count" in (shop.get("shop") or {}):
+        a = int(shop["shop"]["listing_active_count"])
+        b = sum(1 for r in estate if r.get("state") == "active")
+        put("active_counts", ["shop (getShop)", "listings (census)"],
+            "CONSISTENT" if a == b else "CONTRADICTION",
+            f"shop says {a} active, the census holds {b}")
+    else:
+        put("active_counts", ["shop (getShop)", "listings (census)"], "UNOBSERVED",
+            "needs both a shop snapshot with listing_active_count and a census")
+    # state: what this company recorded as listed vs what Etsy holds
+    with db.session() as s:
+        ours = {i for i in s.scalars(select(Listing.etsy_listing_id)) if i}
+    if census is not None:
+        held = {str(r.get("listing_id")) for r in estate}
+        missing = sorted(ours - held)
+        put("listing_state", ["local listings", "listings (census)"],
+            "CONTRADICTION" if missing else "CONSISTENT",
+            (f"recorded as listed but not held by Etsy: {missing[:10]}" if missing
+             else f"{len(ours)} recorded listing(s) all held"))
+    else:
+        put("listing_state", ["local listings", "listings (census)"], "UNOBSERVED",
+            "no census reading")
+    # policies: the shop's policy text vs the canonical sources
+    pc = (shop or {}).get("policy_consistency")
+    if pc is None and shop is not None:
+        pc = check(shop.get("shop"))
+    if pc is None or pc.get("consistent") is None:
+        put("policies", ["settings (policies)", "canonical terms"], "UNOBSERVED",
+            "no shop snapshot")
+    else:
+        put("policies", ["settings (policies)", "canonical terms"],
+            "CONSISTENT" if pc["consistent"] else "CONTRADICTION",
+            {"differs": pc.get("differs"), "contradictions": len(pc.get("contradictions") or [])})
+    # credentials: the credential reading vs a shop read that needed it
+    if cred and shop:
+        healthy = str(cred.get("status") or "").upper() in ("HEALTHY", "OK")
+        put("credentials", ["apps/API (credential)", "shop (getShop)"],
+            "CONSISTENT" if healthy else "CONTRADICTION",
+            f"credential reads {cred.get('status')} while a shop snapshot was taken")
+    else:
+        put("credentials", ["apps/API (credential)", "shop (getShop)"], "UNOBSERVED",
+            "needs both a credential reading and a shop snapshot")
+    # warnings: open Search Visibility items on listings Etsy no longer holds
+    try:
+        from . import search_visibility as sv
+
+        listed = [i for i in sv.items(db) if i["state"] != sv.CLEARED and i["listing_id"]]
+    except Exception:  # noqa: BLE001
+        listed = None
+    if listed is None or census is None:
+        put("warnings", ["search visibility", "listings (census)"], "UNOBSERVED",
+            "needs Search Visibility readings and a census")
+    else:
+        held = {str(r.get("listing_id")) for r in estate}
+        gone = sorted({i["listing_id"] for i in listed} - held)
+        put("warnings", ["search visibility", "listings (census)"],
+            "CONTRADICTION" if gone else "CONSISTENT",
+            f"open warnings on listings Etsy does not hold: {gone}" if gone
+            else f"{len(listed)} open warning(s), all on held listings")
+    # Fees, traffic and finances: no stored reading pairs exist yet for this comparison.
+    for name, surfaces in (("fees", ["finances (ledger)", "orders"]),
+                           ("traffic", ["dashboard", "stats"])):
+        put(name, surfaces, "UNOBSERVED", "no second stored reading of this fact exists yet")
+    contradictions = [c for c in comps if c["state"] == "CONTRADICTION"]
+    week = f"{now.isocalendar()[0]}-W{now.isocalendar()[1]:02d}"
+    payload = {"at": now.isoformat(), "week": week, "comparisons": comps,
+               "contradictions": len(contradictions),
+               "unobserved": [c["check"] for c in comps if c["state"] == "UNOBSERVED"]}
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == AUDIT_KIND,
+                                                      OperatingReading.period_key == week))
+        if row is None:
+            s.add(OperatingReading(kind=AUDIT_KIND, period_key=week, payload=payload, at=now))
+        else:
+            row.payload, row.at = payload, now
+        inc = s.scalar(select(Incident).where(Incident.signature == AUDIT_SIGNATURE,
+                                              Incident.resolved.is_(False)))
+        if contradictions and inc is None:
+            s.add(Incident(severity="P2", signature=AUDIT_SIGNATURE, halts_publication=False,
+                           summary=(f"{len(contradictions)} cross-surface contradiction(s): "
+                                    f"{[c['check'] for c in contradictions]}"),
+                           detail={"owner": "store_commerce", "week": week}))
+        elif inc is not None:
+            if contradictions:
+                inc.detail = {**(inc.detail or {}), "week": week}
+            else:
+                inc.resolved = True
+    return payload

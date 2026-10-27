@@ -169,3 +169,260 @@ def summary(db) -> dict:
                         "operating_readings:etsy.shop_snapshot",
                         "operating_readings:etsy.listing_census",
                         "audit_log:etsy.shop_observation"]}
+
+
+# ---- W4-C13 F-546: Etsy feature discovery, classified before adoption -----------------------
+#
+# F-546: "Continuously audit new/changed Shop Manager capabilities, API fields, Seller Handbook
+# guidance and Etsy Plus features. Classify each as useful, irrelevant, owner-only, unsupported
+# or research-needed before adoption." The weekly OpenAPI re-verification already notices a
+# changed document; what was missing is the register a discovery lands in and the rule that
+# nothing is adopted before it is classified. `discover()` files new or changed features from
+# any of the four sources as `unclassified`; `classify()` records one of the five verdicts with
+# its reason; `may_adopt()` is true only for `useful`.
+
+FEATURE_ACTION = "etsy.feature_discovered"
+CLASSIFY_ACTION = "etsy.feature_classified"
+FEATURE_SOURCES = ("openapi", "shop_manager", "seller_handbook", "etsy_plus")
+FEATURE_CLASSES = ("useful", "irrelevant", "owner_only", "unsupported", "research_needed")
+
+
+class FeatureRefused(ValueError):
+    """A discovery or classification that would not be evidence."""
+
+
+def _feature_key(source: str, name: str) -> str:
+    return f"{source}:{name.strip().lower()}"[:200]
+
+
+# Stored in `operating_readings` (never pruned by `ops.retention`): a classification the
+# audit horizon forgot would let an unclassified feature be adopted.
+def _put(s, kind: str, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    s.add(OperatingReading(kind=kind, period_key=uuid.uuid4().hex[:20], payload=detail,
+                           at=datetime.now(timezone.utc)))
+
+
+def features(db) -> dict[str, dict]:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for a in s.scalars(select(OperatingReading).where(OperatingReading.kind.in_(
+                (FEATURE_ACTION, CLASSIFY_ACTION))).order_by(OperatingReading.id)):
+            d = dict(a.payload or {})
+            k = d["key"]
+            if a.kind == FEATURE_ACTION:
+                prev = out.get(k)
+                out[k] = {**(prev or {}), **d, "class": "unclassified"
+                          if prev is None or d.get("changed") else prev.get("class"),
+                          "discovered_at": (prev or {}).get("discovered_at")
+                          or a.at.isoformat()}
+            elif k in out:
+                out[k].update({"class": d["class"], "reason": d["reason"],
+                               "classified_by": d["by"], "classified_at": a.at.isoformat()})
+    return out
+
+
+def discover(db, *, items: list[dict], observed_at: str) -> dict:
+    """File newly seen or changed features; an unchanged one is not re-filed."""
+    if not observed_at:
+        raise FeatureRefused("a discovery is dated")
+    known = features(db)
+    filed = []
+    with db.session() as s:
+        for it in items:
+            src, name = it.get("source"), str(it.get("name") or "").strip()
+            if src not in FEATURE_SOURCES or not name:
+                raise FeatureRefused(f"a feature names its source {FEATURE_SOURCES} and itself")
+            k = _feature_key(src, name)
+            desc = str(it.get("description") or "")[:300]
+            prev = known.get(k)
+            if prev is not None and prev.get("description") == desc:
+                continue
+            _put(s, FEATURE_ACTION, {"key": k, "source": src, "name": name,
+                                     "description": desc, "observed_at": observed_at,
+                                     "changed": prev is not None})
+            filed.append(k)
+    return {"filed": filed, "unclassified": [k for k, v in features(db).items()
+                                             if v["class"] == "unclassified"]}
+
+
+def classify(db, key: str, *, cls: str, reason: str, by: str) -> dict:
+    if cls not in FEATURE_CLASSES:
+        raise FeatureRefused(f"{cls!r} is not one of {FEATURE_CLASSES}")
+    if len((reason or "").split()) < 4:
+        raise FeatureRefused("a classification says why")
+    if key not in features(db):
+        raise FeatureRefused(f"{key!r} was never discovered")
+    with db.session() as s:
+        _put(s, CLASSIFY_ACTION, {"key": key, "class": cls, "reason": reason[:400],
+                                  "by": by[:60]})
+    return {"key": key, "class": cls}
+
+
+def may_adopt(db, key: str) -> dict:
+    f = features(db).get(key)
+    if f is None:
+        return {"may_adopt": False, "why": "never discovered or classified"}
+    ok = f["class"] == "useful"
+    return {"may_adopt": ok, "class": f["class"],
+            "why": "classified useful" if ok else f"classified {f['class']}: not adopted"}
+
+
+# ---- W4-C13 F-599: Shop Manager UI drift --------------------------------------------------
+#
+# F-599: "Quarterly and after material Etsy announcements, compare the observed Shop Manager
+# navigation/surfaces with the maintained surface inventory. New, renamed or removed tabs create
+# review tasks." The API half (the OpenAPI review card) exists. This is the navigation half: the
+# owner's (or a later collector's) dated reading of the Shop Manager navigation is compared with
+# the inventory's `where` paths. Differences become ONE batched, non-interrupting review card
+# (`store:etsy.ui_drift_review`, the same batching as `store:etsy.openapi_review`), restated by
+# a later reading. A reading is due every `UI_DRIFT_DAYS` or after an announcement.
+
+UI_READING = "etsy.shop_manager_nav"
+UI_REVIEW_KEY = "store:etsy.ui_drift_review"
+UI_DRIFT_DAYS = 91
+UI_TRIGGERS = ("quarterly", "announcement")
+
+
+def _nav_paths() -> dict[str, str]:
+    from ..intel import etsy_surfaces as es
+
+    out = {}
+    for s in es.surfaces():
+        where = (s.where or "").strip()
+        if where.lower().startswith("shop manager"):
+            out[where.lower()] = s.key
+    return out
+
+
+def ui_drift(db, *, observed: list[str], observed_at, trigger: str) -> dict:
+    """Compare the observed navigation with the inventory; card the differences."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading, OwnerAction
+
+    if trigger not in UI_TRIGGERS:
+        raise FeatureRefused(f"a UI drift reading is {UI_TRIGGERS}")
+    at = observed_at if isinstance(observed_at, datetime) else datetime.fromisoformat(
+        str(observed_at))
+    at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+    seen = {p.strip().lower() for p in observed if p.strip()}
+    if not seen:
+        raise FeatureRefused("an empty navigation reading is not a reading")
+    inv = _nav_paths()
+    new = sorted(seen - set(inv))
+    removed = sorted(inv[p] for p in set(inv) - seen)
+    # renamed: the same last segment under a different parent, or the same parent with one
+    # new and one missing leaf -- reported as a pair for a person to confirm.
+    renamed = []
+    for p in list(new):
+        parent = p.rsplit(">", 1)[0].strip()
+        gone = [q for q in set(inv) - seen if q.rsplit(">", 1)[0].strip() == parent]
+        if len(gone) == 1:
+            renamed.append({"was": gone[0], "now": p, "surface": inv[gone[0]]})
+    payload = {"observed_at": at.isoformat(), "trigger": trigger, "observed": sorted(seen),
+               "new": new, "removed": removed, "renamed": renamed}
+    with db.session() as s:
+        key = at.strftime("%Y-%m-%dT%H%M%S")
+        prior = s.scalar(select(OperatingReading).where(OperatingReading.kind == UI_READING,
+                                                        OperatingReading.period_key == key))
+        if prior is None:
+            s.add(OperatingReading(kind=UI_READING, period_key=key, payload=payload, at=at))
+        else:
+            prior.payload = payload          # the same reading entered again replaces itself
+        drift = bool(new or removed)
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == UI_REVIEW_KEY,
+                                                 OwnerAction.done.is_(False)))
+        if drift:
+            reason = (f"Shop Manager navigation read {at.date()} ({trigger}) differs from the "
+                      f"surface inventory: new {new[:8]}, removed {removed[:8]}, possibly "
+                      f"renamed {[r['now'] for r in renamed][:5]}")
+            if row is None:
+                s.add(OwnerAction(
+                    requirement_key=UI_REVIEW_KEY, max_cost_cad=0.0, minutes=15,
+                    action=("Review the Shop Manager navigation changes against the surface "
+                            "inventory (intel.etsy_surfaces) and confirm each new, renamed or "
+                            "removed tab"),
+                    reason=reason,
+                    consequence_of_delay=("the inventory may describe tabs that moved; a new "
+                                          "capability goes unclassified"),
+                    blocks="Etsy surface registry review (not a first-sale blocker)"))
+            else:
+                row.reason = reason
+    return {**payload, "review_card": UI_REVIEW_KEY if drift else None}
+
+
+def ui_drift_due(db, *, now: datetime | None = None, announcement: bool = False) -> dict:
+    from sqlalchemy import desc, select
+
+    from ..core.models import OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == UI_READING)
+                       .order_by(desc(OperatingReading.at)).limit(1))
+        last = row.at if row else None
+    last = (last if last is None or last.tzinfo else last.replace(tzinfo=timezone.utc))
+    if announcement:
+        return {"due": True, "why": "a material Etsy announcement"}
+    if last is None:
+        return {"due": True, "why": "the navigation has never been read"}
+    age = (now - last).days
+    return {"due": age >= UI_DRIFT_DAYS, "last": last.isoformat(), "age_days": age,
+            "why": f"last read {age} days ago (every {UI_DRIFT_DAYS})"}
+
+
+# ---- W4-C13 F-600: the Etsy autopilot contract, per surface ---------------------------------
+#
+# F-600: the Etsy department is never "done": it observes, diagnoses, prioritises, researches,
+# tests, proves, deploys, verifies remotely, monitors and learns across every supported shop
+# surface. `contract()` reads, per surface, which stage is backed by running code and which is
+# not, so the gap is a list rather than a claim. A surface the company does not act on
+# (not_applicable, unsupported) is out of scope by its verdict, stated.
+
+AUTOPILOT_STAGES = ("observe", "diagnose", "prioritise", "research", "test", "prove",
+                    "deploy", "verify_remotely", "monitor", "learn")
+
+
+def contract(db) -> dict:
+    from ..intel import etsy_surfaces as es
+
+    inv = reverify(db)
+    rows, gaps = [], 0
+    for it in inv["items"]:
+        ch = it["channel"]
+        if ch in ("not_applicable", "unsupported"):
+            rows.append({"surface": it["key"], "in_scope": False,
+                         "why": f"verdict {it['verdict']}: not a surface the shop acts on"})
+            continue
+        observed = it.get("evidence_state") not in (None, es.NO_COLLECTOR)
+        acts = ch == "api" and it["verdict"] == es.ACT
+        stages = {
+            "observe": "collector or owner reading" if observed else None,
+            "diagnose": "surface_inventory.reverify" if observed else None,
+            "prioritise": "Laura executive tick (provider: storefront)" if observed else None,
+            "research": "intel.research (research tasks)",
+            "test": "improve sandbox / storefront change budget" if acts else None,
+            "prove": "release gates and read-back" if acts else None,
+            "deploy": "publish pipeline behind the storefront grant" if acts else None,
+            "verify_remotely": "census / shop snapshot read-back" if observed else None,
+            "monitor": "daily collectors and incidents" if observed else None,
+            "learn": "improve.mine lessons" if observed else None,
+        }
+        missing = [s for s in AUTOPILOT_STAGES if not stages[s]]
+        gaps += len(missing)
+        rows.append({"surface": it["key"], "in_scope": True, "channel": ch,
+                     "stages": stages, "missing": missing})
+    in_scope = [r for r in rows if r["in_scope"]]
+    return {"stages": list(AUTOPILOT_STAGES), "surfaces": rows,
+            "in_scope": len(in_scope), "fully_covered": sum(1 for r in in_scope
+                                                            if not r["missing"]),
+            "gaps": gaps, "done": False,
+            "rule": "the Etsy department is never done; gaps are listed, never assumed closed"}
