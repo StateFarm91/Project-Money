@@ -130,17 +130,29 @@ def propose_change(db, key: str, *, to_version: str, hypothesis: str, expected_e
 
 
 def _recorded(db) -> dict[str, dict]:
+    """The last recorded version of each method. Kept in `operating_readings`, which
+    `ops.retention` never prunes: a baseline the audit horizon forgot would be re-taken from
+    whatever runs then, and a hand bump made in the meantime would become the baseline."""
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import OperatingReading
 
     out: dict[str, dict] = {}
     with db.session() as s:
-        for a in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
-                           .order_by(AuditLog.id)):
-            d = dict(a.detail or {})
+        for a in s.scalars(select(OperatingReading).where(OperatingReading.kind == ACTION)
+                           .order_by(OperatingReading.id)):
+            d = dict(a.payload or {})
             out[d.get("method")] = d
     return out
+
+
+def _record(db, detail: dict) -> None:
+    import uuid
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        s.add(OperatingReading(kind=ACTION, period_key=uuid.uuid4().hex[:20], payload=detail))
 
 
 def _backing(db, key: str, version: str) -> int | None:
@@ -161,12 +173,10 @@ def audit(db, *, now: datetime | None = None) -> dict:
     """Compare every method's running version with the versioned path (F-707)."""
     from sqlalchemy import select
 
-    from ..agents.registry import Registry
     from ..core.models import Incident
 
     now = now or datetime.now(timezone.utc)
     recorded = _recorded(db)
-    reg = Registry(db)
     items, unversioned, resolved = [], [], []
     for key, m in METHODS.items():
         value = running(m)
@@ -177,16 +187,16 @@ def audit(db, *, now: datetime | None = None) -> dict:
         if value is None:
             entry["state"] = "unreadable"
         elif last is None:
-            reg.audit("improvement_department", ACTION, artifact=key[:200], detail={
-                "method": key, "version": value, "basis": "baseline at registration"})
+            _record(db, {"method": key, "version": value,
+                         "basis": "baseline at registration"})
             entry["state"] = "baseline"
         elif last.get("version") == value:
             entry["state"] = "backed" if (backed or last.get("basis") != "unbacked") else \
                 "unversioned"
         else:
             basis = f"improvement:{backed}" if backed else "unbacked"
-            reg.audit("improvement_department", ACTION, artifact=key[:200], detail={
-                "method": key, "version": value, "from": last.get("version"), "basis": basis})
+            _record(db, {"method": key, "version": value, "from": last.get("version"),
+                         "basis": basis})
             entry["state"] = "backed" if backed else "unversioned"
             entry["from"] = last.get("version")
         with db.session() as s:
