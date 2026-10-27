@@ -381,8 +381,9 @@ def test_deploy_readback_still_reads_every_field():
     def fetch_json(url):
         return c.get(url.replace(deployed_sha.PRODUCTION_URL, "")).json()
 
-    def fetch(url):
-        r = c.get(url.replace(readback.PRODUCTION_URL, ""))
+    def fetch(url, token=None):
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        r = c.get(url.replace(readback.PRODUCTION_URL, ""), headers=headers)
         try:
             return r.status_code, r.json()
         except ValueError:
@@ -391,11 +392,35 @@ def test_deploy_readback_still_reads_every_field():
     def run():
         sha, source = deployed_sha.deployed_commit(env={}, fetch=fetch_json)
         assert sha == SHA, (sha, source)
+        # INTEG8: the manifest's operator-only rows are exactly the routes SECPATCH gates, and
+        # every other row reads a route an anonymous caller is allowed.
+        # (A row reading only the gate's status, like the launch packet's 401, is anonymous.)
+        for _f, _r, endpoint, field, *_ in readback.MANIFEST:
+            gated = security.requires_operator("GET", endpoint)
+            if endpoint in readback.OPERATOR_ENDPOINTS:
+                assert gated, endpoint
+            else:
+                assert not gated or field == "@status", endpoint
         out = readback.run(SHA, fetch=fetch)
         unknown = [i for i in out["features"] if i["verdict"] == readback.UNKNOWN]
         # Every field readback reads is present for an anonymous caller (a FAIL here would be
         # the sandbox's own state, e.g. no worker running; UNKNOWN would be a missing field).
         assert not unknown, unknown
+        held = {i["endpoint"] for i in out["features"]
+                if i["verdict"] == readback.NEEDS_OPERATOR}
+        assert held == set(readback.OPERATOR_ENDPOINTS), held
+        assert out["verdict"] != readback.PASS
+        # With the operator credential the gated rows read real fields: none UNKNOWN or held.
+        # The continuity row reads the newest proof; a fresh sandbox has run none (UNKNOWN is
+        # then the honest answer), so one is recorded here, as the daily cadence would.
+        from brambleloop.core.models import AuditLog as _AL
+
+        with main.db.session() as s:
+            s.add(_AL(actor="orchestrator", action="continuity.verified", detail={}))
+        op = readback.run(SHA, fetch=fetch, token=TOKEN)
+        bad = [i for i in op["features"]
+               if i["verdict"] in (readback.UNKNOWN, readback.NEEDS_OPERATOR)]
+        assert not bad, bad
         by = {i["feature"]: i for i in out["features"]}
         assert by["release identity"]["verdict"] == readback.PASS, by["release identity"]
         assert by["launch packet route deployed and operator-gated"]["verdict"] == readback.PASS

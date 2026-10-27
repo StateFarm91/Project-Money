@@ -58,7 +58,8 @@ def test_the_manifest_reads_back_the_features_that_failed_unseen():
 
     out = readback.run(SHA, url="https://prod.invalid",
                        fetch=smoke_t._fetcher(smoke_t._prod_bodies(
-                           sha=SHA, **{"/api/departments": (500, None)})))
+                           sha=SHA, **{"/api/departments": (500, None)})),
+                       token=smoke_t.OPS_TOKEN)
     assert out["verdict"] == "FAIL" and out["not_done"] == ["department health served"], out
     assert out["read_at"].endswith("Z")
 

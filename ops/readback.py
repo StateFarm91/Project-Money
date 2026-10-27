@@ -13,6 +13,13 @@ Exit codes: 0 every feature PASS; 5 any FAIL or UNKNOWN (UNKNOWN is never a pass
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
 A status-code readback (e.g. a gated route answers 401) proves the route exists and is gated
 without needing the credential; an unknown path under the same prefix answers 404.
+
+Operator-only reads (INTEG8, after SECPATCH made every unlisted GET operator-only): the rows on
+`OPERATOR_ENDPOINTS` read a route an anonymous caller cannot. With the operator credential in
+BRAMBLELOOP_OPS_TOKEN (sent as a bearer header to those routes only, never printed or written)
+they are read like any other row. Without it they are NEEDS_OPERATOR -- not fetched, never a
+pass -- so the report says which features still need an operator readback instead of reading
+the anonymous 401 as a missing field (UNKNOWN) or a broken feature (FAIL).
 """
 from __future__ import annotations
 
@@ -28,6 +35,7 @@ PRODUCTION_URL = os.environ.get("BRAMBLELOOP_PRODUCTION_URL",
                                 "https://brambleloop-os-production.up.railway.app")
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
+NEEDS_OPERATOR = "NEEDS_OPERATOR"
 
 
 def _dig(body, path: str):
@@ -90,6 +98,12 @@ MANIFEST = (
      lambda v, _s: v is True),
 )
 
+# SECPATCH made these GETs operator-only; their rows need the operator credential (above).
+# test_w4_secpatch_public_surface asserts this set is exactly the manifest's operator-only
+# endpoints, so a route moving either way fails a test rather than a deploy.
+OPERATOR_ENDPOINTS = frozenset({"/api/departments", "/api/swarm/runtime", "/api/funding/packets",
+                                "/api/offsite", "/api/continuity", "/api/etsy"})
+
 # Where `ops/deploy.sh` writes each readback, and where the completion board reads it: a
 # Final Master row the manifest names is not verified_complete unless the readback of the
 # deployed commit passed for every feature that names it (F-144).
@@ -105,8 +119,11 @@ def rows_by_feature() -> dict[str, list[str]]:
     return {feature: list(rows) for feature, rows, *_ in MANIFEST}
 
 
-def _fetch(url: str) -> tuple[int | None, object]:
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+def _fetch(url: str, token: str | None = None) -> tuple[int | None, object]:
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL
             code, raw = r.status, r.read()
@@ -118,15 +135,25 @@ def _fetch(url: str) -> tuple[int | None, object]:
         return code, None
 
 
-def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
+def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = None) -> dict:
+    """`token` is the operator credential for OPERATOR_ENDPOINTS only; without it those rows are
+    NEEDS_OPERATOR. `fetch(url)` reads a public route, `fetch(url, token)` an operator one."""
     fetch = fetch or _fetch
     cache: dict[str, tuple] = {}
     items = []
     reachable = False
     for feature, rows, endpoint, field, expected, pred in MANIFEST:
+        operator = endpoint in OPERATOR_ENDPOINTS
+        if operator and not token:
+            items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
+                          "field": field, "expected": expected, "http": None, "value": None,
+                          "verdict": NEEDS_OPERATOR,
+                          "why": "operator-only route; no operator credential was supplied"})
+            continue
         if endpoint not in cache:
             try:
-                cache[endpoint] = fetch(url.rstrip("/") + endpoint)
+                cache[endpoint] = (fetch(url.rstrip("/") + endpoint, token) if operator
+                                   else fetch(url.rstrip("/") + endpoint))
             except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never a pass
                 cache[endpoint] = (None, None, f"{type(exc).__name__}: {str(exc)[:120]}")
         got = cache[endpoint]
@@ -150,7 +177,8 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None) -> dict:
                       else json.dumps(value)[:200], "verdict": verdict})
     verdicts = {i["verdict"] for i in items}
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
-               UNKNOWN if UNKNOWN in verdicts else PASS)
+               UNKNOWN if UNKNOWN in verdicts else
+               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else PASS)
     import datetime as _dt
 
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
@@ -168,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     if not _SHA.match(a.sha):
         print(f"readback: need a full 40-hex sha, got {a.sha!r}", file=sys.stderr)
         return 2
-    out = run(a.sha, url=a.url)
+    out = run(a.sha, url=a.url, token=os.environ.get("BRAMBLELOOP_OPS_TOKEN") or None)
     if a.json:
         with open(a.json, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=1)

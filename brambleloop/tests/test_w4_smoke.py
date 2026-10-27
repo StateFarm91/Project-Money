@@ -134,35 +134,60 @@ def _prod_bodies(sha=SHA, **over):
     return bodies
 
 
+# INTEG8: SECPATCH made these GETs operator-only. Production answers them 401 without the
+# operator credential, and so does this stand-in.
+OPS_TOKEN = "test-operator-token"
+_REFUSED = (401, {"error": "operator credential required"})
+
+
 def _fetcher(bodies):
-    def fetch(url):
+    def fetch(url, token=None):
         path = "/" + url.split("/", 3)[3] if url.count("/") >= 3 else "/"
         if path not in bodies:
             raise OSError("unreachable")
+        if path in readback.OPERATOR_ENDPOINTS and token != OPS_TOKEN:
+            return _REFUSED
         return bodies[path]
     return fetch
 
 
 def test_every_feature_reads_back_on_a_healthy_deploy():
-    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()))
+    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()),
+                       token=OPS_TOKEN)
     assert out["verdict"] == "PASS" and not out["not_done"], out
     rows = {r for f in out["features"] for r in f["rows"]}
     assert {"F-144", "F-171", "F-172", "F-169"} <= rows
 
 
+def test_operator_rows_without_the_credential_need_an_operator_and_never_pass():
+    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()))
+    assert out["verdict"] == readback.NEEDS_OPERATOR, out
+    held = {i["endpoint"] for i in out["features"] if i["verdict"] == readback.NEEDS_OPERATOR}
+    assert held == set(readback.OPERATOR_ENDPOINTS), held
+    assert all(i["verdict"] == readback.PASS for i in out["features"]
+               if i["endpoint"] not in readback.OPERATOR_ENDPOINTS), out
+    # a wrong credential is refused by the server: never read as a pass
+    wrong = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()),
+                         token="not-the-token")
+    assert all(i["verdict"] in (readback.UNKNOWN, readback.FAIL) for i in wrong["features"]
+               if i["endpoint"] in readback.OPERATOR_ENDPOINTS), wrong
+    assert wrong["verdict"] != readback.PASS
+
+
 def test_a_feature_that_does_not_read_back_is_not_done():
     bad = _prod_bodies(**{"/api/verify/smoke": (503, {"verdict": "FAIL"})})
-    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(bad))
+    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(bad), token=OPS_TOKEN)
     assert out["verdict"] == "FAIL" and any("smoke" in f for f in out["not_done"])
-    other = readback.run("b" * 40, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()))
+    other = readback.run("b" * 40, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()),
+                         token=OPS_TOKEN)
     assert "release identity" in other["not_done"]
 
 
 def test_unknown_is_never_a_pass_and_unreachable_is_reported():
     missing = _prod_bodies(**{"/api/status": (200, {})})
-    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(missing))
+    out = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(missing), token=OPS_TOKEN)
     assert out["verdict"] == "UNKNOWN" and out["reachable"]
-    dark = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher({}))
+    dark = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher({}), token=OPS_TOKEN)
     assert dark["verdict"] == "UNKNOWN" and dark["reachable"] is False
 
 
@@ -170,6 +195,9 @@ def _serve(bodies):
     class H(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
             code, body = bodies.get(self.path, (404, {"error": "not found"}))
+            if self.path in readback.OPERATOR_ENDPOINTS and \
+                    self.headers.get("Authorization") != f"Bearer {OPS_TOKEN}":
+                code, body = _REFUSED
             raw = json.dumps(body).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json")
@@ -208,6 +236,7 @@ def _deploy_with_readback(make_bodies):
     srv = _serve(make_bodies(head))
     try:
         env = dict(os.environ, BRAMBLELOOP_PRODUCTION_URL=f"http://127.0.0.1:{srv.server_port}",
+                   BRAMBLELOOP_OPS_TOKEN=OPS_TOKEN,
                    DEPLOY_VERIFY_TIMEOUT="2", DEPLOY_VERIFY_INTERVAL="0.2")
         return head, subprocess.run(["sh", "ops/deploy.sh"], cwd=repo, env=env,
                                     capture_output=True, text=True, timeout=120)
