@@ -190,7 +190,7 @@ def test_physical_status_is_stated_as_unverified_without_evidence():
         twin = build_twin(cir, compile_cir(cir))
         assert not twin.calibrated
         flat = _flat(doc)
-        assert "Physical testing: unverified in this edition" in flat
+        assert "physical testing: unverified in this edition" in flat.lower()
         assert "computed, not yet measured on a worked sample" in flat
         # Never a fixed claim about the world outside the edition.
         assert "no sample has been photographed" not in flat

@@ -1307,10 +1307,13 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
     if len(cir.components) == 1 and rows:
         used = sorted(twin.stitch_types_used)
         base_codes = [c for c in used if c not in ("inc", "dec")]
-        names = ", ".join(abbreviations.meaning(c, terminology) for c in base_codes)
-        how = (f"{'Each' if make > 1 else 'It'} is worked in {len(rows)} "
-               f"{comp.construction.replace('_', ' ').replace('rounds', '').strip()} "
-               f"{unit}s of {names}")
+        named = [abbreviations.meaning(c, terminology) for c in base_codes]
+        names = (", ".join(named[:-1]) + " and " + named[-1]) if len(named) > 1 else \
+            "".join(named)
+        worked = {"joined_rounds": "joined rounds", "spiral_rounds": "spiral rounds",
+                  "flat_rows": "rows"}.get(comp.construction,
+                                           comp.construction.replace("_", " "))
+        how = f"{'Each' if make > 1 else 'It'} is worked in {len(rows)} {worked} of {names}"
         if "magic ring" in text:
             how += ", starting from a magic ring"
         base, wall = _rings(twin)
@@ -2160,7 +2163,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             img, sha = scale_view
             doc.prose.append("Schematic")
             doc.label("Schematic with finished measurements")
-            box = max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm))
+            base_view = views.get("detail") if _rings(twin)[1] else None
+            box = (95 * mm if base_view is not None
+                   else max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm)))
             doc.need(box + 12 * mm)
             top = doc.y
             _rounded_image(doc, img, MARGIN, top, box, box,
@@ -2207,6 +2212,41 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
                    "photograph. The scale bar is in centimetres.")
             doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC)
+            if base_view is not None:
+                # A vessel's schematic needs its base as well as its wall: the elevation shows
+                # the height, the plan the base the wall stands on.
+                base, wall = _rings(twin)
+                rows_ix = _rows_by_index(twin)
+                bimg, bsha = base_view
+                side = min(70 * mm, doc.y - MARGIN - 8 * mm)
+                doc.need(side + 4 * mm)
+                top = doc.y - 2 * mm
+                _rounded_image(doc, bimg, MARGIN, top, side, side,
+                               figure={"kind": "disclosed_render", "view": "detail",
+                                       "source": "visual.disclosed_render.render",
+                                       "png_sha256": bsha,
+                                       "label": "Schematic, base: " + K.DISCLOSURE})
+                bx = MARGIN + side + 7 * mm
+                doc.prose.append("The base, from above")
+                doc.text(bx, top - 4 * mm, "THE BASE, FROM ABOVE", FONT_UI_BOLD, 9.5, ACCENT,
+                         track=1.0)
+                lab = "Rnd" if "round" in comp.construction else "Row"
+                lines_ = [f"{lab}s {base[0].index} to {base[-1].index}: a flat base of "
+                          f"{len(rows_ix[base[-1].index])} stitches"
+                          if len(base) > 1 else f"{lab} {base[0].index}",
+                          f"{twin.across_points_cm:.1f} cm across the points and "
+                          f"{twin.across_flats_cm:.1f} cm across the flats"
+                          if twin.across_points_cm else "",
+                          f"The wall ({lab}s {wall[0].index} to {wall[-1].index}) rises from "
+                          f"its edge."]
+                yy = top - 11 * mm
+                for ln in [x for x in lines_ if x]:
+                    doc.prose.append(ln)
+                    for w in _wrap(c, ln, FONT_BODY, 10, usable - side - 7 * mm):
+                        doc.text(bx, yy, w, FONT_BODY, 10, INK)
+                        yy -= 5 * mm
+                    yy -= 1.5 * mm
+                doc.y = top - side - 4 * mm
 
     # ---------------------------------------------------------------- 7. instructions ------
     doc.new_page(head)
@@ -2387,10 +2427,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.kv(name, cir.colors.get(name, ""), upper=False)
 
     # ---------------------------------------------------------------- 10. gallery ----------
-    # The detail view of a flat piece is the schematic without its dimension lines, so it is
-    # shown once (as the schematic); a vessel's detail is its base, which nothing else shows.
-    gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views
-               and (v != "detail" or _rings(twin)[1])]
+    gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views]
     if gallery or sample_photo_placeholders:
         doc.new_page(head)
         doc.heading("Gallery", kicker="The finished design")
@@ -2406,6 +2443,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         if comp.make > 1:
             captions["hero"] = f"The set of {comp.make}, as the pattern makes them"
         big, rest = (gallery[0], gallery[1:]) if gallery else (None, [])
+        pair = len(gallery) == 2 and not sample_photo_placeholders
+        if pair:
+            # Two pictures read better side by side, at equal size, than one small under one
+            # large.
+            big, rest = None, gallery
         if big:
             v, (img, sha) = big
             rest_w = min((usable - 5 * mm) / 2, GALLERY_CELL)
@@ -2425,12 +2467,13 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             if sample_photo_placeholders:
                 cells += [("placeholder", "sample", None)] * max(1, 2 - len(cells))
             per = 2
-            cw = min((usable - 5 * mm) / per, GALLERY_CELL)
-            x0 = MARGIN + (usable - (per * cw + (per - 1) * 5 * mm)) / 2
+            cw = (usable - 5 * mm) / per if pair else min((usable - 5 * mm) / per, GALLERY_CELL)
             for i in range(0, len(cells), per):
                 doc.need(cw + 14 * mm)
                 top = doc.y
-                for j, (kind, v, data) in enumerate(cells[i:i + per]):
+                row = cells[i:i + per]
+                x0 = MARGIN + (usable - (len(row) * cw + (len(row) - 1) * 5 * mm)) / 2
+                for j, (kind, v, data) in enumerate(row):
                     x = x0 + j * (cw + 5 * mm)
                     if kind == "view":
                         img, sha = data

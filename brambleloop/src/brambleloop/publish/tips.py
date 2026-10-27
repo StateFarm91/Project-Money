@@ -25,6 +25,10 @@ class Tip:
     trigger: str          # what in the pattern switched this tip on (kept for the audit)
 
 
+def _times(n: int) -> str:
+    return {1: "once", 2: "twice"}.get(n, f"{n} times")
+
+
 def _rows(twin) -> dict[int, list]:
     rows: dict[int, list] = {}
     for c in twin.cells:
@@ -104,7 +108,7 @@ def tips(cir, result, twin, text: str, terminology: str = "US") -> list[Tip]:
     if changes and JOINED_LINE in text:
         out.append(Tip(
             "Neat colour changes",
-            f"This {piece} changes colour {changes} time{'s' if changes != 1 else ''}, always "
+            f"This {piece} changes colour {_times(changes)}, always "
             f"at the join. Work the joining sl st with the new "
             f"colour, and carry the colour you are resting loosely up the inside: a tight "
             f"carry puckers the fabric at the join, a loose one disappears.",
