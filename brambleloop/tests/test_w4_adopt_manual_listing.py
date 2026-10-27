@@ -86,8 +86,9 @@ TITLE = ("Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and C
 TAGS = ["crochet pattern", "coaster pattern", "hexagon coaster"]
 DESCRIPTION = ("DIGITAL CROCHET PATTERN, NOT A FINISHED ITEM. Instant digital download in US "
                "terms and UK terms. Skill level: beginner. You will need yarn and a 4 mm hook. "
-               "Questions? Message us with the row number. How this pattern was made: this "
-               "design was created with AI assistance.")
+               "Questions? Message us with the row number. How this pattern was made: This "
+               "design was created with AI assistance, and every row's stitch count is "
+               "checked before release.")
 
 
 class FakeEtsyTransport:
@@ -144,6 +145,9 @@ def remote_listing(lid: str, **over) -> dict:
 
 
 ALL_TRANSPORTS: list[FakeEtsyTransport] = []
+from brambleloop.products import launch0 as _launch0  # noqa: E402
+
+CIR_JSON = _launch0.cir_for("hexagon_coasters").to_dict()
 
 
 def transport(*a, **k) -> FakeEtsyTransport:
@@ -170,7 +174,7 @@ def seed(db, slug="hexagon-coaster-set", version="1.2.0", release=None) -> str:
         s.execute(draft_intent.DraftIntent.__table__.delete().where(
             draft_intent.DraftIntent.slug == slug, draft_intent.DraftIntent.version == version))
         s.flush()
-        s.add(PatternVersion(product_id=product.id, version=version, cir_json={},
+        s.add(PatternVersion(product_id=product.id, version=version, cir_json=CIR_JSON,
                              release_hash=release, certified=True))
         s.add(Listing(product_slug=slug, version=version, title=TITLE, description=DESCRIPTION,
                       tags=list(TAGS), price_cad=4.0, state="draft", release_hash=release,
@@ -484,6 +488,199 @@ def test_adoption_blocks_store_publish_from_creating_a_duplicate():
             raise AssertionError("a second creation intent was claimed")
         assert listing_row(db) == {"etsy_listing_id": "1010", "state": "published_manually"}
         db.engine.dispose()
+
+
+# ---- W-ADOPT-2: the owner-accepted baseline ---------------------------------------------
+
+EDITED = DESCRIPTION + " Edited by hand in Shop Manager: gauge note added."
+
+
+def run_census(t):
+    real_build = etsy_ops.build_client
+    ctx = SimpleNamespace(db=DB, phase=Phase.SHADOW, audit=lambda *a, **k: None,
+                          job=SimpleNamespace(inputs={}), enqueue=lambda *a, **k: None)
+    with patch.dict(os.environ, ETSY_ENV), patch.object(
+            etsy_ops, "build_client", lambda db, phase, **k: real_build(db, phase, transport=t)):
+        return etsy_ops.handle_listing_census(ctx)
+
+
+def open_incident(sig):
+    with DB.session() as s:
+        return s.scalar(select(Incident).where(Incident.signature == sig,
+                                               Incident.resolved.is_(False)))
+
+
+def baseline_of(lid):
+    return MA.accepted_baselines(DB).get(lid)
+
+
+def cc_baseline(c, csrf, action, body):
+    return c.post(f"/api/cc/actions/{action}", json=body, headers=fresh(csrf))
+
+
+def test_hand_edits_accepted_as_baseline_stop_the_halting_drift_and_new_drift_still_raises():
+    release = seed(DB)
+    live = {"2001": remote_listing("2001", description=EDITED)}
+    t = transport(live)
+    adopt(DB, t, "2001", release)
+    # Not automatic: adopting (even with differences) accepts nothing.
+    assert baseline_of("2001") is None
+    first = run_census(t)
+    assert "2001" in first["field_drift"], first
+    drift = open_incident("etsy.listing_drift:2001")
+    assert drift is not None and drift.halts_publication and drift.severity == "P1"
+
+    body = {"etsy_listing_id": "2001", "slug": "hexagon-coaster-set", "version": "1.2.0"}
+    with patch.dict(os.environ, ETSY_ENV), patch.object(MA, "_transport", lambda: t):
+        c, csrf = session()
+        r = cc_baseline(c, csrf, "listing.baseline_preview", body)     # a read: no step-up
+        assert r.status_code == 200, r.text
+        shown = r.json()["result"]
+        assert shown["acceptable"] and shown["refusals"] == []
+        assert {d["field"] for d in shown["differences_from_certified"]} == {"description"}
+        accept = {**body, "expected_digest": shown["digest"], "reason": "my Shop Manager edit"}
+        expire_stepup(c)
+        r = cc_baseline(c, csrf, "listing.accept_baseline", accept)
+        assert r.status_code == 403 and r.json()["code"] == "STEP_UP_REQUIRED", r.text
+        c, csrf = session()
+        r = cc_baseline(c, csrf, "listing.accept_baseline", {**accept, "expected_digest": "0" * 64})
+        assert r.status_code == 409 and "preview changed" in r.json().get("error", r.text), r.text
+        r = cc_baseline(c, csrf, "listing.accept_baseline", {**accept, "reason": ""})
+        assert r.status_code == 409, r.text
+        assert baseline_of("2001") is None, "nothing accepted by a refused request"
+        r = cc_baseline(c, csrf, "listing.accept_baseline", accept)
+    assert r.status_code == 200, r.text
+    res = r.json()["result"]
+    assert res["accepted"] and "etsy.listing_drift:2001" in res["incidents_resolved"]
+    assert baseline_of("2001")["digest"] == shown["digest"]
+    assert open_incident("etsy.listing_drift:2001") is None
+    with DB.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == MA.BASELINE_ACCEPTED)
+                       .order_by(AuditLog.id.desc()))
+        assert row.detail["etsy_listing_id"] == "2001" and row.detail["reason"]
+        assert row.detail["accepted_differences"][0]["field"] == "description"
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "cc.owner_action.listing.accept_baseline")) is not None
+
+    # The census now compares with the baseline: the accepted edit is not drift.
+    second = run_census(t)
+    assert "2001" not in second["field_drift"], second
+    assert open_incident("etsy.listing_drift:2001") is None
+    # Genuinely new drift after acceptance still raises the halting incident.
+    live["2001"] = remote_listing("2001", description=EDITED, title="Hexagon Coasters PDF")
+    third = run_census(t)
+    assert "2001" in third["field_drift"], third
+    inc = open_incident("etsy.listing_drift:2001")
+    assert inc is not None and inc.halts_publication
+    assert any("title: accepted baseline" in d for d in inc.detail["drift"]), inc.detail
+    assert t.writes() == []
+
+
+def test_acceptance_is_refused_when_the_live_copy_breaks_truth_or_disclosures():
+    release = seed(DB)
+    no_ai = DESCRIPTION.replace("This design was created with AI assistance, and every row's "
+                                "stitch count is checked before release.", "")
+    live = {"2002": remote_listing("2002", description=no_ai)}
+    t = transport(live)
+    adopt(DB, t, "2002", release)
+    for broken, why in (
+            ({"description": no_ai}, "ai_assisted_design"),
+            ({"title": "Hexagon Coaster Set of 12 | Crochet Pattern PDF | US and UK Terms"},
+             "Product Truth (title promise)"),
+            ({"description": "Hexagon coasters. Message us with questions."}, "disclosures")):
+        live["2002"] = remote_listing("2002", **broken)
+        with patch.dict(os.environ, ETSY_ENV), patch.object(MA, "_transport", lambda: t):
+            shown = MA.baseline_preview(DB, slug="hexagon-coaster-set", version="1.2.0",
+                                        etsy_listing_id="2002")
+            assert not shown["acceptable"] and any(why in p for p in shown["refusals"]), \
+                (why, shown["refusals"])
+            try:
+                MA.accept_baseline(DB, slug="hexagon-coaster-set", version="1.2.0",
+                                   etsy_listing_id="2002", expected_digest=shown["digest"],
+                                   actor="owner:test", reason="accept it")
+            except MA.AdoptionRefused as e:
+                assert "Product Truth or a required disclosure" in str(e)
+            else:
+                raise AssertionError(f"accepted a live copy that breaks {why}")
+        assert baseline_of("2002") is None
+        inc = open_incident("listing.adoption_review:hexagon-coaster-set@1.2.0")
+        assert inc is not None and "NOT accepted" in inc.summary, "the incident is kept"
+    with DB.session() as s:
+        assert s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == MA.BASELINE_REFUSED)) >= 3
+    # A listing that is not the adopted one cannot be given a baseline at all.
+    try:
+        MA.baseline_preview(DB, slug="hexagon-coaster-set", version="1.2.0",
+                            etsy_listing_id="2999")
+    except MA.AdoptionRefused:
+        pass
+    else:
+        raise AssertionError("baseline preview for a listing that was not adopted")
+    assert t.writes() == []
+
+
+# ---- W-ADOPT-2: every "live on Etsy" reader counts a manual listing ----------------------
+
+
+def test_every_live_reader_counts_a_manually_published_listing():
+    from brambleloop.app import verify_checks
+    from brambleloop.core.listing_state import LIVE_ON_ETSY, is_live_on_etsy
+    from brambleloop.finance import sustainability
+    from brambleloop.growth import ads_readiness
+    from brambleloop.products import lifecycle
+    from brambleloop.scale import confidence, runrate
+    from brambleloop.store_foundation import preview
+
+    assert is_live_on_etsy("published_manually") and is_live_on_etsy("published")
+    assert not is_live_on_etsy("draft") and "published_manually" in LIVE_ON_ETSY
+    assert "published_manually" in sustainability.LIVE_STATES
+    with tempfile.TemporaryDirectory() as td:
+        db = Database("sqlite:///" + str(Path(td) / "live.db"), scratch=True)
+        db.create_all()
+        release = seed(db)
+        # Before: nothing live anywhere.
+        assert verify_checks.publication_checks(db)["published"]["ok"] is True
+        assert runrate.orders_source_live(db)["published_listings"] == 0
+        adopt(db, transport({"3001": remote_listing("3001")}), "3001", release)
+        assert listing_row(db)["state"] == "published_manually"
+
+        # /api/verify (shadow): nothing_published must NOT pass while a manual listing is live.
+        checks = verify_checks.publication_checks(db)
+        assert checks["published"]["check"] == "nothing_published"
+        assert checks["published"]["ok"] is False
+        assert checks["published"]["evidence"]["listings_published_manually"] == 1
+        # /api/verify (live phases): a VERIFIED owner adoption is its grant and read-back.
+        proven = verify_checks._published_rows_proven(db)
+        assert proven["listings_on_etsy"] == 1 and proven["unproven"] == [], proven
+        # Readiness, dashboards, ledger evidence, lifecycle and launch gates.
+        assert runrate.orders_source_live(db)["published_listings"] == 1
+        assert runrate.orders_source_live(db)["live"] is True
+        assert confidence._counts(db)["published_listings"] == 1
+        assert lifecycle.derive(db, "hexagon-coaster-set")["stage"] == "LIVE"
+        assert preview._live_on_etsy(db) == {"live": True, "published": True}
+        gates = ads_readiness.listing_readiness(db, "hexagon-coaster-set")
+        gate = next(g for g in gates["gates"] if g["gate"] == "listing_live")
+        assert gate["status"] == "PASS", gate
+        db.engine.dispose()
+    # The catalogue on the shared database: published is computed, never hard-coded.
+    with DB.session() as s:
+        live_any = any(is_live_on_etsy(r.state) for r in s.scalars(select(Listing)))
+    assert live_any and main.api_catalogue()["published"] is True
+
+
+def test_no_reader_compares_listing_state_to_published_literally():
+    """Static guard: a new "live" reader must use core.listing_state, not == "published"."""
+    src = ROOT / "src" / "brambleloop"
+    patterns = (re.compile(r"""state\s*[!=]=\s*["']published["']"""),
+                re.compile(r"""by\.get\(\s*["']published["']"""),
+                re.compile(r"""["']published["']\s+(not\s+)?in\s+states"""))
+    allowed = ("ContentPiece.state",)  # content pieces, not listings
+    offenders = []
+    for path in src.rglob("*.py"):
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if any(p.search(line) for p in patterns) and not any(a in line for a in allowed):
+                offenders.append(f"{path.relative_to(src)}:{n}: {line.strip()}")
+    assert offenders == [], offenders
 
 
 # ---- read-only against Etsy -------------------------------------------------------------

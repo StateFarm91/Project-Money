@@ -1142,6 +1142,7 @@ def _expected_listings(db) -> dict[str, dict]:
     # W-ADOPT: a listing the owner made by hand and adopted (`listing.adopt_manual`) is one
     # of ours; its expected state is the one read from Etsy when it was adopted.
     adopted = manual_adoption.adopted_states(db)
+    baselines = manual_adoption.accepted_baselines(db)
     out: dict[str, dict] = {}
     with db.session() as s:
         for row in s.scalars(select(Listing).where(Listing.etsy_listing_id != "")):
@@ -1152,6 +1153,8 @@ def _expected_listings(db) -> dict[str, dict]:
                           if row.state == manual_adoption.LISTING_STATE
                           else EXPECTED_REMOTE_STATE.get(row.state, "draft")),
                 "local_state": row.state}
+            if row.state == manual_adoption.LISTING_STATE and lid in baselines:
+                out[lid]["accepted_baseline"] = baselines[lid]
     for draft in etsy_exercise.outstanding_drafts(db):
         out.setdefault(str(draft["listing_id"]), {"slug": None, "version": None,
                                                   "state": "draft",
@@ -1165,6 +1168,12 @@ def _field_drift(db, known: dict, remote: dict) -> list[str]:
 
     if not known.get("slug"):
         return []
+    if known.get("accepted_baseline"):
+        # W-ADOPT-2: an adopted listing whose live copy the owner accepted (step-up, audited)
+        # is compared with that baseline, so only drift since the acceptance is reported.
+        from ..publish.manual_adoption import baseline_drift
+
+        return baseline_drift(known["accepted_baseline"], remote)
     try:
         payload = certified_payload(db, known["slug"], known["version"])
     except Exception as e:  # noqa: BLE001 - no certified payload is itself a finding

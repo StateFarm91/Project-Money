@@ -61,6 +61,13 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # automated create. Step-up: it binds a live listing to a release's records.
     "listing.adopt_manual": (True, "adopt a hand-made Etsy listing as a certified release's "
                                    "listing (reads Etsy; never writes)"),
+    # W-ADOPT-2: the owner accepts an adopted listing's live copy as its census baseline, so
+    # hand edits stop raising the halting drift incident. Preview reads Etsy and shows the
+    # Product Truth / disclosure checks and the digest; accept binds that digest (step-up).
+    "listing.baseline_preview": (False, "read an adopted listing's live copy and the checks "
+                                        "an accepted baseline must pass"),
+    "listing.accept_baseline": (True, "accept an adopted listing's live copy as its census "
+                                      "baseline (refused if it contradicts Product Truth)"),
 }
 
 #: The words the owner confirms, verbatim. Anything else is refused.
@@ -652,6 +659,11 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             result = _archive_statement(db, body, actor=actor)
         elif action == "listing.adopt_manual":
             result = _adopt_manual(db, body, reason, actor=actor)
+        elif action == "listing.baseline_preview":
+            return {"result": _baseline(db, body, reason, actor=actor, preview=True),
+                    "audit_id": None}  # a read of Etsy: nothing recorded here
+        elif action == "listing.accept_baseline":
+            result = _baseline(db, body, reason, actor=actor, preview=False)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
@@ -682,7 +694,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "reviewed", "review_audit_id", "confirmed",
                                            "period", "sha256", "version", "archived",
                                            "etsy_listing_id", "verification", "repeat",
-                                           "audit_id", "review_incident_id")}})
+                                           "audit_id", "review_incident_id",
+                                           "accepted", "incidents_resolved")}})
     return {"result": result, "audit_id": audit_id}
 
 
@@ -714,6 +727,24 @@ def _adopt_manual(db, body: dict, reason: str, *, actor: str) -> dict:
         return manual_adoption.adopt(
             db, etsy_listing_id=body.get("etsy_listing_id"), slug=str(body.get("slug") or ""),
             version=str(body.get("version") or ""), release=str(body.get("release") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+
+
+def _baseline(db, body: dict, reason: str, *, actor: str, preview: bool) -> dict:
+    """W-ADOPT-2: preview, or accept (step-up, digest-bound), an adopted listing's baseline."""
+    from ...publish import manual_adoption
+
+    kw = dict(slug=str(body.get("slug") or ""), version=str(body.get("version") or ""),
+              etsy_listing_id=body.get("etsy_listing_id"))
+    try:
+        if preview:
+            return manual_adoption.baseline_preview(db, **kw)
+        if not reason:
+            raise ActionRefused("owner decision reason required")
+        return manual_adoption.accept_baseline(
+            db, **kw, expected_digest=str(body.get("expected_digest") or ""),
             actor=f"owner:{actor}"[:64], reason=reason)
     except manual_adoption.AdoptionRefused as exc:
         raise ActionRefused(str(exc)[:500]) from None

@@ -563,3 +563,228 @@ def adopt(db, *, etsy_listing_id: Any, slug: str, version: str, release: str,
             "state_on_etsy": state or None, "differences": result["differences"],
             "not_verifiable": result["not_verifiable"], "review_incident_id": review_id,
             "audit_id": audit_id}
+
+
+# ---- W-ADOPT-2: the owner-accepted baseline -------------------------------------------
+#
+# The owner hand-edits listings in Shop Manager. Until a baseline is accepted, the census
+# compares an adopted listing with its certified payload, and any difference is the P1,
+# publication-halting `etsy.listing_drift:<id>`. `accept_baseline` lets the owner -- explicitly,
+# with step-up, against a digest of exactly what they previewed -- accept the live copy as the
+# expected baseline for that listing. From then on the census compares the live listing with
+# the accepted baseline, so only genuinely new drift raises `etsy.listing_drift`.
+#
+# Acceptance is refused (and the review incident kept open) when the live copy contradicts
+# Product Truth (the multiplicity, assembly and motif promises the CIR must back) or drops a
+# required disclosure (the buyer-trust set, and the AI-assistance sentence verbatim). Nothing
+# is ever accepted automatically.
+
+BASELINE_ACCEPTED = "listing.baseline_accepted"
+BASELINE_REFUSED = "listing.baseline_refused"
+#: The listing fields a baseline fixes. State is not copy: the census checks it separately.
+BASELINE_FIELDS = ("title", "description", "tags", "price", "taxonomy_id")
+
+
+def snapshot(remote: dict) -> dict:
+    """The copy fields of a listing as Etsy holds it, normalised for comparison."""
+    price = _price(remote)
+    return {"title": remote.get("title"),
+            "description": remote.get("description"),
+            "tags": sorted(str(t).strip().lower() for t in (remote.get("tags") or [])),
+            "price": {"amount": price["amount"], "currency": price["currency"]},
+            "taxonomy_id": (int(remote["taxonomy_id"]) if str(remote.get("taxonomy_id") or "")
+                            .isdigit() else remote.get("taxonomy_id"))}
+
+
+def digest_of(snap: dict) -> str:
+    return hashlib.sha256(json.dumps(snap, sort_keys=True, separators=(",", ":"),
+                                     default=str).encode()).hexdigest()
+
+
+def baseline_drift(baseline: dict, remote: dict) -> list[str]:
+    """What changed on Etsy since the owner accepted the baseline (census, F-544)."""
+    want = (baseline or {}).get("snapshot") or {}
+    got = snapshot(remote or {})
+    out = []
+    for field in BASELINE_FIELDS:
+        if field not in want:
+            continue
+        if field == "description" and not isinstance(got.get(field), str):
+            out.append("description: not returned")
+            continue
+        if got.get(field) != want.get(field):
+            shown = (lambda v: f"{len(v)} chars" if isinstance(v, str) and len(v) > 80
+                     else repr(v))
+            out.append(f"{field}: accepted baseline {shown(want.get(field))}, Etsy holds "
+                       f"{shown(got.get(field))}")
+    return out
+
+
+def accepted_baselines(db) -> dict[str, dict]:
+    """Etsy listing id -> the accepted baseline, for adopted listings that have one."""
+    from sqlalchemy import select
+
+    from .draft_intent import DraftIntent
+
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for i in s.scalars(select(DraftIntent).where(DraftIntent.state == INTENT_STATE)):
+            base = (i.detail or {}).get("accepted_baseline")
+            if i.remote_id and base:
+                out[str(i.remote_id)] = dict(base)
+    return out
+
+
+def truth_problems(db, *, slug: str, version: str, snap: dict) -> list[str]:
+    """Why this live copy may NOT be accepted: Product Truth or a required disclosure."""
+    import dataclasses
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+
+    problems: list[str] = []
+    title, description = snap.get("title"), snap.get("description")
+    if not isinstance(title, str) or not isinstance(description, str):
+        return ["Etsy returned no title/description, so the copy cannot be checked"]
+    # Disclosures: the buyer-trust set, run on the copy Etsy holds.
+    from ..runtime.etsy_ops import disclosure_on_remote
+
+    found = disclosure_on_remote({"title": title, "description": description})
+    if not found.get("checked") or not found.get("complete"):
+        problems.append(f"required disclosures missing or misplaced in the live copy: "
+                        f"missing {[m.get('disclosure') for m in found.get('missing') or []]}, "
+                        f"misplaced {found.get('misplaced') or []}")
+    # The AI disclosures, verbatim: ai_assisted_design always (every pattern here is
+    # AI-assisted), and any other AI sentence the certified copy carried.
+    from ..gates.platform_policy import DISCLOSURES
+    from ..gates.policy import AI_DISCLOSURE_KEYS
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+        certified_copy = listing.description if listing is not None else ""
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                                    PatternVersion.version == version))
+              if product is not None else None)
+        cir_json = dict(pv.cir_json or {}) if pv is not None else {}
+    for key in AI_DISCLOSURE_KEYS:
+        sentence = DISCLOSURES[key]
+        owed = key == "ai_assisted_design" or sentence in (certified_copy or "")
+        if owed and sentence not in description:
+            problems.append(f"the AI disclosure {key!r} is not in the live description "
+                            f"verbatim: {sentence!r}")
+    # Product Truth: every promise the live title, description and tags make is backed.
+    try:
+        from ..cir.model import CIR
+        from ..products import launch0
+
+        cir = CIR.from_dict(cir_json)
+        titled = dataclasses.replace(cir, title=title)
+        for name, verdict in (("title promise", launch0.title_promise(titled)),
+                              ("assembly promise", launch0.assembly_promise(titled)),
+                              ("motif promise", launch0.motif_promise(
+                                  cir, {"etsy.title": title, "etsy.description": description},
+                                  tags={"etsy.tags": list(snap.get("tags") or [])}))):
+            if not verdict.get("backed"):
+                problems.append(f"Product Truth ({name}): "
+                                f"{verdict.get('why') or verdict.get('problems')}")
+    except Exception as e:  # noqa: BLE001 - an unchecked promise is not an accepted one
+        problems.append(f"Product Truth cannot be checked against the certified CIR: "
+                        f"{type(e).__name__}: {str(e)[:160]}")
+    return problems
+
+
+def baseline_preview(db, *, slug: str, version: str, etsy_listing_id: Any,
+                     transport=None) -> dict:
+    """What accepting would fix as the baseline, with its digest and the checks. Read-only."""
+    lid = _clean_id(etsy_listing_id)
+    adopted = adoption_for(db, slug, version)
+    if adopted is None or str(adopted.get("etsy_listing_id")) != lid:
+        raise AdoptionRefused(f"Etsy listing {lid} is not the adopted listing for "
+                              f"{slug}@{version}")
+    read = read_listing(db, lid, transport=transport)
+    if not read["read"] or not read["exists"] or read["own_shop"] is not True:
+        raise AdoptionRefused("the live listing could not be read from Etsy (or is not this "
+                              "shop's); a baseline is only ever the copy actually read")
+    snap = snapshot(read["remote"])
+    certified = _certified(db, slug, version, adopted.get("release") or "")
+    differences = compare(db, slug=slug, version=version, release=adopted.get("release") or "",
+                          certified=certified, read=read)["differences"]
+    problems = truth_problems(db, slug=slug, version=version, snap=snap)
+    return {"slug": slug, "version": version, "etsy_listing_id": lid, "snapshot": snap,
+            "digest": digest_of(snap), "differences_from_certified": differences,
+            "acceptable": not problems, "refusals": problems, "etsy_calls": read["calls"]}
+
+
+def accept_baseline(db, *, slug: str, version: str, etsy_listing_id: Any,
+                    expected_digest: str, actor: str, reason: str, transport=None) -> dict:
+    """The owner accepts the live copy as this adopted listing's baseline. Never automatic."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops import incident_lifecycle as lifecycle
+    from .draft_intent import DraftIntent, key_for
+
+    artifact = f"{slug}@{version}"
+    if not str(reason or "").strip():
+        raise AdoptionRefused("owner decision reason required")
+    try:
+        shown = baseline_preview(db, slug=slug, version=version,
+                                 etsy_listing_id=etsy_listing_id, transport=transport)
+    except AdoptionRefused as e:
+        _audit(db, actor, BASELINE_REFUSED, artifact, {"reason": str(e)})
+        raise
+    lid = shown["etsy_listing_id"]
+    if expected_digest != shown["digest"]:
+        _audit(db, actor, BASELINE_REFUSED, artifact, {
+            "reason": "preview changed", "etsy_listing_id": lid, "digest": shown["digest"]})
+        raise AdoptionRefused("approval preview changed; review the current content")
+    signature = f"{REVIEW_PREFIX}{artifact}"
+    if shown["refusals"]:
+        _audit(db, actor, BASELINE_REFUSED, artifact, {
+            "reason": "the live copy contradicts Product Truth or a required disclosure",
+            "etsy_listing_id": lid, "refusals": shown["refusals"], "digest": shown["digest"]})
+        with db.session() as s:
+            row, new = lifecycle.open_or_restate(
+                s, signature=signature, severity="P2", product_slug=slug,
+                halts_publication=False,
+                summary=(f"Live copy of Etsy listing {lid} ({artifact}) was NOT accepted as "
+                         f"its baseline: {'; '.join(shown['refusals'][:3])}. Fix the listing "
+                         f"in Shop Manager, then preview and accept again."),
+                detail={"listing_id": lid, "baseline_refusals": shown["refusals"][:10]})
+            if not new:
+                row.summary = (f"Live copy of Etsy listing {lid} ({artifact}) was NOT accepted "
+                               f"as its baseline: {'; '.join(shown['refusals'][:3])}")[:2000]
+        raise AdoptionRefused("refused: the live copy contradicts Product Truth or a required "
+                              "disclosure: " + "; ".join(shown["refusals"][:3]))
+    baseline = {"snapshot": shown["snapshot"], "digest": shown["digest"],
+                "accepted_at": _now().isoformat(), "accepted_by": actor,
+                "reason": str(reason)[:300],
+                "accepted_differences": shown["differences_from_certified"][:20]}
+    with db.session() as s:
+        intent = s.get(DraftIntent, key_for(slug, version))
+        detail = dict(intent.detail or {})
+        history = list(detail.get("baseline_history") or [])
+        if detail.get("accepted_baseline"):
+            history.append({k: detail["accepted_baseline"].get(k)
+                            for k in ("digest", "accepted_at", "accepted_by")})
+        intent.detail = {**detail, "accepted_baseline": baseline,
+                         "baseline_history": history[-20:]}
+        resolved = []
+        for sig in (signature, f"etsy.listing_drift:{lid}"):
+            row = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                  Incident.resolved.is_(False)))
+            if row is not None:
+                row.resolved = True
+                row.detail = {**(row.detail or {}),
+                              "resolution": f"owner accepted the live copy as the baseline "
+                                            f"(digest {shown['digest'][:12]}) at "
+                                            f"{baseline['accepted_at']}"}
+                resolved.append(sig)
+    audit_id = _audit(db, actor, BASELINE_ACCEPTED, artifact, {
+        "etsy_listing_id": lid, **baseline, "incidents_resolved": resolved})
+    return {"accepted": True, "etsy_listing_id": lid, "digest": shown["digest"],
+            "accepted_differences": baseline["accepted_differences"],
+            "incidents_resolved": resolved, "audit_id": audit_id}

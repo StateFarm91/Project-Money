@@ -111,6 +111,22 @@ def _evaluate(db, today=None) -> tuple[dict, list[dict], dict]:
     return surfaces, rows, R.rollup(rows)
 
 
+def _live_on_etsy(db) -> dict:
+    """W-ADOPT: whether any listing is live on Etsy (published, or published by hand and
+    adopted), from the listings table. Never a hard-coded False; unreadable is None."""
+    try:
+        from sqlalchemy import select
+
+        from ..core.listing_state import LIVE_ON_ETSY
+        from ..core.models import Listing
+
+        with db.session() as s:
+            n = len(list(s.scalars(select(Listing.id).where(Listing.state.in_(LIVE_ON_ETSY)))))
+    except Exception:  # noqa: BLE001 - unknown is not "not live"
+        return {"live": None, "published": None}
+    return {"live": n > 0, "published": n > 0}
+
+
 def summary(db, *, verify_images: bool = False, now: datetime | None = None) -> dict:
     """Store-surface readiness for the Owner Command Center (lane contract, provider F).
 
@@ -187,7 +203,7 @@ def summary(db, *, verify_images: bool = False, now: datetime | None = None) -> 
         "preview_path": PREVIEW_PATH, "preview_viewports": sorted(VIEWPORTS),
         "image_review_path": "/cc/image-review",
         "preview_variants": sorted(VARIANTS),
-        "live": False, "published": False,
+        **_live_on_etsy(db),
         "note": ("Readiness of prepared drafts, measured by deterministic checks. Nothing is "
                  "entered on Etsy by this system; the live shop's state is UNKNOWN here."),
     }

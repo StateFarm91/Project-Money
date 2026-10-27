@@ -2859,7 +2859,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
                 x["orders"] += 1
                 x["revenue"] += float(o.revenue_cad or 0.0)
         live_since: dict[str, datetime] = {}
-        for r in s.scalars(select(Listing).where(Listing.state == "published")):
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        for r in s.scalars(select(Listing).where(Listing.state.in_(LIVE_ON_ETSY))):
             at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
                 tzinfo=timezone.utc)
             if r.product_slug not in live_since or at < live_since[r.product_slug]:

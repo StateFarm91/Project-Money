@@ -230,7 +230,49 @@ function adoptListingCard() {
       diffs.length ? h("ul", null, diffs.map((d) => h("li", null, `${d.field}${d.note ? `: ${d.note}` : ""}`))) : null));
   });
   return card({ title: "Adopt a hand-made Etsy listing", labelId: "approvals-adopt",
-    subtitle: "For a listing you published yourself in Shop Manager" }, form, out);
+    subtitle: "For a listing you published yourself in Shop Manager" }, form, out, baselineForm(lid, slug, version));
+}
+
+// W-ADOPT-2: accept an adopted listing's live copy (your Shop Manager edits) as the baseline
+// the daily census compares against. Preview first: it reads Etsy, runs the Product Truth and
+// disclosure checks and shows a digest; Accept binds that digest and needs step-up.
+function baselineForm(lid, slug, version) {
+  const out = h("div", { class: "preview-out" });
+  let shown = null;
+  const params = () => ({ etsy_listing_id: lid.value.trim(), slug: slug.value.trim(), version: version.value.trim() });
+  const accept = h("button", { type: "button", class: "btn btn-primary", disabled: true }, "Accept live copy as baseline");
+  const preview = h("button", { type: "button", class: "btn" }, "Preview live copy");
+  preview.addEventListener("click", async () => {
+    preview.disabled = true; accept.disabled = true; shown = null;
+    try {
+      const r = await api.action("listing.baseline_preview", params());
+      shown = (r && r.result) || null;
+      const refusals = (shown && shown.refusals) || [];
+      const diffs = (shown && shown.differences_from_certified) || [];
+      clear(out).append(h("div", { class: refusals.length ? "callout callout-bad" : "callout callout-info" },
+        h("p", { class: "answer" }, refusals.length ? "Cannot be accepted:" : `Acceptable. Differs from the certified copy in ${diffs.length} field(s).`),
+        refusals.length ? h("ul", null, refusals.map((x) => h("li", null, x))) : null,
+        diffs.length ? h("ul", null, diffs.map((d) => h("li", null, `${d.field}${d.note ? `: ${d.note}` : ""}`))) : null,
+        h("p", { class: "mono" }, `Digest: ${(shown && shown.digest) || ""}`)));
+      accept.disabled = !(shown && shown.acceptable);
+    } catch (e) { toast(e.message, "bad"); }
+    finally { preview.disabled = false; }
+  });
+  accept.addEventListener("click", async () => {
+    if (!shown) return;
+    const body = await guardedAction({
+      title: `Accept the live copy of Etsy listing ${shown.etsy_listing_id} as its baseline?`,
+      lines: ["The daily census will compare this listing with exactly the copy you previewed.",
+        "Only changes made after now will raise a drift incident."],
+      confirmLabel: "Accept", requiresStepUp: true, reasonLabel: "Why are you deciding this?",
+      reasonRequired: true,
+      run: (reason) => api.action("listing.accept_baseline", { ...params(), expected_digest: shown.digest, reason }),
+      success: "Baseline accepted.",
+    });
+    if (body) { accept.disabled = true; shown = null; }
+  });
+  return h("div", { class: "stack" }, h("h3", null, "Accept your Shop Manager edits as the baseline"),
+    h("div", { class: "btn-row" }, preview, accept), out);
 }
 
 export async function render({ params, rerender }) {

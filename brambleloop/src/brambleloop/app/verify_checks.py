@@ -63,6 +63,12 @@ def etsy_writes(db) -> dict:
         out["listings_with_etsy_id"] = int(s.scalar(
             select(func.count()).select_from(Listing).where(
                 Listing.etsy_listing_id.is_not(None), Listing.etsy_listing_id != "")) or 0)
+        # W-ADOPT: listings the owner published by hand and adopted. They carry an Etsy id,
+        # so `nothing_published` already fails on them; counted by name so the evidence says
+        # why rather than leaving a manual listing to be inferred.
+        out["listings_published_manually"] = int(s.scalar(
+            select(func.count()).select_from(Listing).where(
+                Listing.state == "published_manually")) or 0)
     try:
         from ..publish.draft_intent import DraftIntent
 
@@ -102,10 +108,22 @@ def _published_rows_proven(db) -> dict:
             reasons = []
             if pv is None or not pv.certified:
                 reasons.append("not certified")
-            if art not in granted:
-                reasons.append("no owner publication grant recorded")
-            if art not in read_back:
-                reasons.append("not read back verified")
+            if li.state == "published_manually":
+                # W-ADOPT: the owner's step-up adoption is the authority record for a listing
+                # made by hand; its Etsy read at adoption is the read-back, and only VERIFIED
+                # counts. No `store.published` row exists for it, by construction.
+                from ..publish.manual_adoption import VERIFIED, adoption_for
+
+                adopted = adoption_for(db, li.product_slug, li.version) or {}
+                if str(adopted.get("etsy_listing_id") or "") != str(li.etsy_listing_id):
+                    reasons.append("published manually with no adoption record")
+                elif adopted.get("verification") != VERIFIED:
+                    reasons.append("manual adoption UNVERIFIED (not read back)")
+            else:
+                if art not in granted:
+                    reasons.append("no owner publication grant recorded")
+                if art not in read_back:
+                    reasons.append("not read back verified")
             if li.state == "incomplete_on_etsy":
                 reasons.append("incomplete on Etsy")
             if reasons and li.state != "withdrawn":
