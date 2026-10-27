@@ -130,6 +130,15 @@ def next_lane(*, target: str, repo: Path, python: str = sys.executable,
             outside = task_contract.boundary(repo, base, branch_sha, contract["owned_paths"])
             checks.append({"check": "owned_paths boundary", "ok": not outside,
                            "outside": outside[:20]})
+        # F-714: a lane touching a high-risk class integrates only with an independent
+        # review of exactly this head (ops/review.py); low-risk lanes pass untouched.
+        sys.path.insert(0, str(HERE))
+        import review
+        import task_contract as _tc
+
+        rv = review.gate(entry["lane"], branch_sha, _tc.changed_files(repo, base, branch_sha))
+        if rv["required"]:
+            checks.append(rv)
         result["checks"] = checks
         if not all(c["ok"] for c in checks):
             return {**result, "merged": False,

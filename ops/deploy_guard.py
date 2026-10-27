@@ -706,6 +706,21 @@ def pre_push(lines, *, deployed: str | None = None, env: dict | None = None,
             continue
         local_ref, local_sha, remote_ref, _remote_sha = parts
         if remote_ref != PRODUCTION_REF:
+            if remote_ref.startswith("refs/heads/claude/w4-INTEG"):
+                # F-711: an integration branch is the integrator's alone (no worker push, no
+                # deletion, no history rewrite). The rule lives in ops/integration_authority;
+                # if that module cannot be loaded the push is refused, never assumed.
+                try:
+                    sys.path.insert(0, str(Path(__file__).resolve().parent))
+                    import integration_authority as _ia
+
+                    d = _ia.decide_ref(local_ref, local_sha, remote_ref, _remote_sha,
+                                       env=env, repo=repo)
+                except ImportError as exc:
+                    d = {"remote_ref": remote_ref, "verdict": "REFUSE",
+                         "reasons": [f"integration authority check unavailable: {exc}"]}
+                decisions.append(d)
+                continue
             decisions.append({"remote_ref": remote_ref, "verdict": "NOT_A_DEPLOY"})
             continue
         if local_sha == ZERO:
@@ -788,8 +803,8 @@ def main(argv: list[str] | None = None) -> int:
                        repo=Path(a.repo), record_dir=Path(a.records))
         print(json.dumps(out, indent=2, sort_keys=True), file=sys.stderr)
         if out["verdict"] != "ALLOW":
-            print("deploy_guard: REFUSED push to the production branch (F-461); see reasons "
-                  "above. Push to a work branch instead.", file=sys.stderr)
+            print("deploy_guard: REFUSED push (production F-461 / integration authority "
+                  "F-711); see reasons above. Push to a work branch instead.", file=sys.stderr)
         return 0 if out["verdict"] == "ALLOW" else 1
     sha = resolve(REPO, a.sha) if a.sha else None
     rec = latest_suite(Path(a.records), sha=sha or (a.sha or None), eligible_only=a.eligible)
