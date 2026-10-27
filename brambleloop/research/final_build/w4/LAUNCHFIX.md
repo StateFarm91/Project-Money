@@ -8,11 +8,21 @@ separate brand facts; draft vs public listing).
 **These are gate changes. Each needs independent review before release.** For each, the rule
 is unchanged or stricter; what changed is that the evidence the rule asks for can now exist.
 
-> **TEST STATUS: NOT RUN.** Free disk on the shared host was 5.6 GB at the start and 4.9 GB
-> when the tests were ready, below the 6 GB floor in the worker instructions, so no test was
-> executed. Every Python file was syntax-checked (`ast.parse`) and every touched JS file with
-> `node --check`. The suites to run, one at a time at nice 19, once disk allows, are listed in
-> §8. Until they pass, treat every claim below as written, not verified.
+> **TEST STATUS: all touched suites and their importers pass.** Each ran one at a time at nice 19. The last batches went through `/home/user/bl-runs/testslot.sh`, and disk was checked above 6 GB before every run. Results:
+> - `test_w4_launchfix` 22/22 and `test_etsy_exercise` 32/32;
+> - `test_first_customer_gate` 12/12 and `test_launch` (all);
+> - `test_vacuity`, `test_moat`, `test_rc1_own_closer`, `test_w4_owner_actions` 6/6, `test_w4_firstsale_view` 5/5, `test_w4_pipe_board`;
+> - `test_w4_b2close` 18/18, `test_w4_b2gate2` 11/11, `test_cert_commerce` 14/14, `test_policy_intake` 9/9;
+> - `test_w4_prodfix_policy_review`, `test_w4_b2gates` 12/12, `test_w4_agents_secfix`, `test_w4_c04_finance`, `test_w4_ccrel` 8/8;
+> - `test_v11_pwa_static` 83/83, `test_w4_launch_review_card`, `test_route_auth_default_deny` 8/8, `test_w4_firstsale_taxonomy` 7/7;
+> - `test_cert_publish_gates`, `test_search_truth` 32/32, `test_w4_cap1_gates_intact`, `test_w4_cap1_placemat_price`, `test_w4_fmbatch1_drift` 10/10, `test_w4_listready`, `test_originality_runtime`;
+> - `test_disclosed_render` 27/27, `test_disclosed_render_runtime` 3/3, `test_disclosed_certified_upload` 7/7, `test_search_hero_publish` 4/4, `test_cert_listing_frames`;
+> - `test_v11_autonomy_timeline`, `test_cost_governance_wave2`, `test_cert_intel_wave2` 15/15, `test_fb2_i_repairs`, `test_w4_ownerimg` 35/35, `test_upgrades`.
+>
+> Three suites failed on the first run, and each failure was a real finding, fixed and then rerun solo:
+> - `test_launch`: brand_clearance attribution (§2);
+> - `test_cost_governance_wave2`: the new audit actions needed retention decisions, now in `ops/retention.py` as `lifetime_total` (sealed chain, attestation history);
+> - `test_search_hero_publish`: the new photo gate refused its fixture (§6).
 
 ---
 
@@ -357,6 +367,8 @@ Renders, charts and the PDF page preview may follow.
 - `src/brambleloop/publish/sample_photo.py` (new), `publish/release_gates.py`, `publish/physical_upgrade.py` (the `unedited` attestation), `runtime/release.py` (`_intake_photo` passes `unedited`; the listing writer passes the photographed fact), and `gates/platform_policy.py` (`classify` disclosure from facts): the IMG section.
 - `static/js/views/policy.js` (new), `routes.js`, `api.js`, `sw.js`, `views/approvals.js`, `views/completion.js`: the form view.
 - `tests/test_w4_launchfix.py` (new) and `tests/test_etsy_exercise.py` (one test added).
+
+`tests/test_search_hero_publish.py`: its end-to-end publish fixture has no physical sample, and the real `store.publish` path refused it with `SAMPLE_PHOTO_REQUIRED`. That refusal is the end-to-end proof that the new gate is on the publish path. The fixture now holds `sample_photo.requirement` the same way it already holds parity, the search grid and the Launch-0 scope gate, with a stated reason. The gate's refuse and pass behaviour is tested in `test_w4_launchfix`. This test's own assertions are unchanged.
 
 One existing test was edited, and it was made stricter, not looser. In `tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people`, `brand_clearance` is now expected among the company-side (`BLOCKED_BUILD`) items while no knock-out screening is recorded, and the test asserts that it is unready. The test pinned the old attribution (owner) for work that OWNER_ACTIONS assigns to the company. `test_nothing_blocked_on_build_is_ever_sent_to_the_owner` is unchanged. To keep it true, the trademark request is put to the owner only once a valid screening exists. No other test was weakened or edited except by addition. `test_first_customer_gate`'s
 `check_etsy_remote_state()` assertion still holds: with no db it is UNVERIFIABLE and says
