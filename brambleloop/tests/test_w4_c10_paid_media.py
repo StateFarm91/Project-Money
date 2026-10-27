@@ -287,8 +287,9 @@ def test_c10_modules_cannot_spend_or_reach_the_network():
     bad_names = ("activate", "launch", "execute", "spend_now", "start_campaign",
                  "create_campaign")
     for mod in (ads_plan, ads_decisions, ads_ledger, plus_credit, attach):
-        tree = ast.parse(inspect.getsource(mod))
-        for n in ast.walk(tree):
+        nodes = list(ast.walk(ast.parse(inspect.getsource(mod))))
+        assert len(nodes) > 50, mod.__name__          # the source was really parsed
+        for n in nodes:
             if isinstance(n, ast.ImportFrom):
                 name = (n.module or "")
                 assert not any(name.lstrip(".").startswith(b) for b in bad_imports), \
