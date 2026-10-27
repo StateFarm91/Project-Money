@@ -85,3 +85,38 @@ is set to `5f4aeb5f8c84b1e7`.
 - the F-527 hook end to end through `asset_health.check`;
 - the F-733 stage source;
 - that the route pin is declared.
+
+### Evidence
+
+All runs went through testslot at nice 19, one suite at a time, starting only when load was below 5 and more than
+5.5 GB of disk was free.
+
+| Suite | Result |
+|---|---|
+| test_w4_wire1_routes | 6/6 |
+| test_w4_fmbatch1_contracts | 5/5, pin 5f4aeb5f8c84b1e7 |
+| test_route_auth_default_deny | 8 OK |
+| test_customer_data_auth | 10 OK |
+| test_w4_secpatch_public_surface | 10 OK |
+| test_w4_fmbatch1_route_audit | 6 OK |
+| test_w4_c08_visual | 11/11 |
+| test_w4_c3 | 4 OK |
+| test_v11_pwa_static | 82 OK |
+| test_k8_shop_cx | 17/17 |
+| test_w4_owner_observations | 3 OK |
+| test_w4_ownerimg | 35/35 |
+| test_w4_visnext2 | 11/11 |
+
+The first ownerimg run failed one test, `test_reduced_identity_conditioning_is_refused`. The registry now refuses
+a missing canonical view earlier than before, at the reference stage, so the stage keeps the "reduced identity
+conditioning" refusal for that case. This was fixed in 398f2c7d.
+
+### Commits
+
+| SHA | Change |
+|---|---|
+| 25b570c0 | merge C08 |
+| 0c2a994b | merge C12 |
+| 99dc08f2 | merge C03 |
+| e2e3bf09 | wiring |
+| 398f2c7d | F-733 refusal wording |
