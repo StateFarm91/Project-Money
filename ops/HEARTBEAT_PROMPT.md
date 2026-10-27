@@ -29,6 +29,11 @@ Do this, in order:
    When you start a long background job, enrol it first —
    `python3 ops/registry.py enrol <name> <log path> <lane> [branch] [process marker]` — so
    that a container replacement cannot take the job list with it.
+   **Resume from the handoff, not from memory (F-861/F-862/F-863).** For the lane you are
+   continuing, `python3 ops/handoff.py resume --lane <lane>` rereads its objective, decisions,
+   defects, tests, unfinished work and next actions and re-checks the recorded head against
+   the remote. Persist each conclusion as you reach it (`python3 ops/handoff.py conclude`), and
+   before stopping write the handoff (`python3 ops/handoff.py write ...`); it must say DURABLE.
 4. Execute the **next highest-value unblocked action** listed at the bottom of BUILD_STATE.
    Follow the Execution Directive order: platform layer → release gates → Market Radar →
    product pipeline → publishing/pricing → growth/support → Shadow Mode → acceptance tests →
