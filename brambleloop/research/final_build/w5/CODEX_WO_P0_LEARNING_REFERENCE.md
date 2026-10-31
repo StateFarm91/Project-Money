@@ -41,7 +41,15 @@
    - `teardown/enforce.requirements` binds only `reviewed` findings. `proposed` findings stay provisional.
    - Add an owner-session Command Center action `teardown.review_finding` on the existing step-up path in `app/command_center/approvals.py`: a reason is required, the action is audited, and it never writes outside the teardown tables.
 5. Retention: every new audit action you read gets an entry in `ops/retention.py` `KNOWN_READ_ACTIONS`. `test_w4_fmbatch1_retention_guard` fails otherwise.
-6. Hardening:
+6. **Any recorded source, not only the MJ's Etsy catalogue.** Today `teardown/intake.receive` refuses any `listing_ref` that is not in the observed MJ's catalogue (`_catalogue_row`). The approved purchases include Ravelry stores, a designer's own shop, and designers outside MJ's.
+   - Accept a purchase record with these fields: `platform` (etsy, ravelry, designer_site or other), `source_url`, `seller`, `pattern_title`, `paid_amount`, `paid_currency`, `paid_cad`, the rate and date, `purchased_on`, and the licence terms as stated.
+   - Keep the MJ's catalogue path unchanged.
+   - `paid_cad` must come from the owner's record. Never infer it from a listing price.
+   - Tests:
+     - a Ravelry purchase is accepted with full provenance;
+     - a record missing its price or licence is refused;
+     - the existing MJ's path is byte-identical in behaviour.
+7. Hardening:
    - Add a `brambleloop/.dockerignore` that excludes `benchmark_library/`.
    - Make `teardown/library.library_root()` refuse any root that resolves inside the repository or the image's source tree.
 
