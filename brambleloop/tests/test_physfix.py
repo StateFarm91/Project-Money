@@ -77,11 +77,24 @@ def _grams(cir, fraction: float = 1.0) -> dict:
 
 
 def _inputs(cir, fraction: float = 1.0, **extra) -> dict:
-    twin = build_twin(cir, compile_cir(cir))
+    """A sample that agrees with the twin. It answers "followed exactly?" (SECREVIEW F2/F4:
+    the intake refuses an unanswered record) and measures every piece of a component made more
+    than once in its own checked field (F6)."""
+    result = compile_cir(cir)
+    twin = build_twin(cir, result)
     out = {"slug": cir.slug, "version": cir.version, "tester_ref": "tester-1",
            "grams_by_color": _grams(cir, fraction), "ball_band_grams": BAND_GRAMS,
            "ball_band_metres": BAND_METRES, "measured_width_cm": twin.width_cm,
-           "measured_height_cm": twin.height_cm}
+           "measured_height_cm": twin.height_cm, "instructions_followed": True}
+    made = extra.get("made") or {c.name: int(c.make or 1) for c in cir.components}
+    pieces = []
+    for comp, count in made.items():
+        if count > 1:
+            t = build_twin(cir, result, component=comp)
+            pieces += [{"component": comp, "width_cm": t.width_cm, "height_cm": t.height_cm}
+                       for _ in range(int(count))]
+    if pieces:
+        out["piece_measurements"] = pieces
     return {**out, **extra}
 
 
@@ -147,7 +160,7 @@ def test_one_coaster_is_accepted_against_one_coasters_estimate():
         product_slug=cir.slug, version=cir.version, tester_ref="t",
         grams_by_color=_grams(cir, 0.25), ball_band=physical.BallBand(BAND_GRAMS, BAND_METRES),
         scope="component", made={"coaster": 1}, measured_width_cm=twin.width_cm,
-        lies_flat=True)
+        lies_flat=True, instructions_followed=True)
     a = physical.assess(report, twin, cir, result)
     assert a.outcome == physical.PASS and abs(a.factor - 1.0) < 0.02, a.to_dict()
 
@@ -158,6 +171,7 @@ def test_a_swatch_is_gauge_evidence_only_and_never_yardage():
     _certify(db, cir)
     job = _run(db, "physical.record", {
         "slug": cir.slug, "version": cir.version, "tester_ref": "tester-1", "scope": "swatch",
+        "instructions_followed": True,
         "grams_by_color": {"cream": 6.0}, "ball_band_grams": BAND_GRAMS,
         "ball_band_metres": BAND_METRES, "hook_mm": 5.0,
         "swatch_stitches_per_10cm": cir.gauge.stitches_per_10cm,
@@ -176,6 +190,7 @@ def test_a_swatch_off_gauge_fails_and_a_swatch_with_finished_sizes_is_refused():
     cir = _basket()
     _certify(db, cir)
     base = {"slug": cir.slug, "version": cir.version, "tester_ref": "t", "scope": "swatch",
+            "instructions_followed": True,
             "grams_by_color": {"cream": 6.0}, "ball_band_grams": BAND_GRAMS,
             "ball_band_metres": BAND_METRES}
     _run(db, "physical.record", {**base, "swatch_stitches_per_10cm": 16.0,
@@ -298,7 +313,13 @@ def _basket_medium():
     return cir
 
 
-def test_a_size_mismatch_halts_that_release_and_only_a_corrected_content_lifts_it():
+def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it():
+    """SECREVIEW F1: the halt is bound to the design, not the version string.
+
+    - the same design stays halted, under its own version and under a relabel;
+    - a different design may certify, but certifying lifts nothing;
+    - only a passed full make of the different design, measuring the stated size, resolves it.
+    """
     from brambleloop.gates.incidents import IncidentTracker
 
     db = _db()
@@ -309,23 +330,149 @@ def test_a_size_mismatch_halts_that_release_and_only_a_corrected_content_lifts_i
     assert (job.outputs or {})["publication_halted"], job.outputs
     tracker = IncidentTracker(db)
     assert tracker.publication_halted(cir.slug)
-    # The same content stays halted at certification.
-    again = _certify(db, cir)
-    assert again.get("halted_by_incident") is True, again
-    # A corrected content (a new release) may be certified; it supersedes the halted one.
+    assert _certify(db, cir).get("halted_by_incident") is True
+    relabel = _basket_medium()
+    relabel.version = "1.3.0"                      # the same design under another version
+    assert _certify(db, relabel).get("halted_by_incident") is True, "a relabel certified"
+    assert tracker.publication_halted(cir.slug), "a relabel lifted the halt"
+
     fixed = _basket_medium()
-    fixed.version = "1.3.0"
-    fixed.title = fixed.title + " (revised)"
+    fixed.version = "1.3.1"
+    fixed.title = fixed.title + " (revised)"        # a different design
     result = _certify(db, fixed)
     assert not result.get("halted_by_incident") and result.get("granted"), result
-    assert not tracker.publication_halted(fixed.slug), "superseded halt left open"
-    with db.session() as s:
-        inc = s.scalar(select(Incident).where(Incident.signature.like("physical-size:%")))
-        assert inc.resolved and inc.detail.get("fixed_in_version") == "1.3.0", inc.detail
-    # The corrected content carries none of the old sample: it needs its own.
+    assert tracker.publication_halted(fixed.slug), "certification alone lifted the halt"
     from brambleloop.gates.first_customer import physical_binding
 
-    assert physical_binding(db, fixed)["passed"] is False
+    assert physical_binding(db, fixed)["passed"] is False, "the old sample bound to the fix"
+    # A swatch of the fix proves no size and lifts nothing.
+    _run(db, "physical.record", {
+        "slug": fixed.slug, "version": fixed.version, "tester_ref": "t2", "scope": "swatch",
+        "instructions_followed": True, "grams_by_color": {"cream": 6.0},
+        "ball_band_grams": BAND_GRAMS, "ball_band_metres": BAND_METRES,
+        "swatch_stitches_per_10cm": fixed.gauge.stitches_per_10cm,
+        "swatch_rows_per_10cm": fixed.gauge.rows_per_10cm})
+    assert tracker.publication_halted(fixed.slug)
+    # Its own passed full make at the stated size does.
+    job = _run(db, "physical.record", _inputs(fixed, scope="full_make", holds_shape=True))
+    assert (job.outputs or {}).get("size_halts_lifted"), job.outputs
+    assert not tracker.publication_halted(fixed.slug)
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature.like("physical-size:%")))
+        assert inc.resolved and inc.detail.get("fixed_in_version") == "1.3.1", inc.detail
+
+
+def test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt():
+    from brambleloop.gates.incidents import IncidentTracker
+
+    db = _db()
+    cir = _basket_medium()
+    _certify(db, cir)
+    _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
+                                        measured_width_cm=40.0))
+    job = _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-2"))
+    assert (job.outputs or {}).get("size_halts_lifted") == [], job.outputs
+    assert IncidentTracker(db).publication_halted(cir.slug)
+
+
+def test_followed_exactly_must_be_a_real_yes_or_no():
+    """SECREVIEW F2/F4: "no" is no; blank, missing and unparseable answers are refused."""
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
+                                        instructions_followed="no"))
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].passed is False
+    assert "SAMPLE_DEVIATED" in [f["code"] for f in rows[0].measured["findings"]]
+    for bad in ("", None, "0", "nope", 1, "false-ish"):
+        inputs = _inputs(cir, scope="full_make", holds_shape=True)
+        if bad is None:
+            inputs.pop("instructions_followed")
+        else:
+            inputs["instructions_followed"] = bad
+        _run(db, "physical.record", inputs)
+    assert len(_rows(db)) == 1, [r.measured.get("findings") for r in _rows(db)]
+    from brambleloop.quality import tester_kit
+
+    _, chash = tester_kit.content_hash("basket_small")
+    for answer in ("", None):
+        sheet = {"tester_ref": "t", "made_basket": "1", "followed": answer}
+        assert "instructions_followed" not in tester_kit.intake_payload(
+            sheet, content_hash=chash, key="basket_small")
+    try:
+        tester_kit.intake_payload({"tester_ref": "t", "followed": "nah"}, content_hash=chash)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unparseable sheet answer was guessed")
+
+
+def test_a_swatch_never_proves_a_size_or_meets_the_first_customer_floor():
+    """SECREVIEW F3: a swatch is gauge evidence only."""
+    from brambleloop.gates.first_customer import (
+        UNRESOLVED, check_gauge_and_size_claims, physical_binding,
+    )
+
+    for cir in (_coasters(), _basket()):
+        db = _db()
+        _certify(db, cir)
+        job = _run(db, "physical.record", {
+            "slug": cir.slug, "version": cir.version, "tester_ref": "t", "scope": "swatch",
+            "instructions_followed": True, "grams_by_color": {"cream": 3.0},
+            "ball_band_grams": BAND_GRAMS, "ball_band_metres": BAND_METRES,
+            "swatch_stitches_per_10cm": cir.gauge.stitches_per_10cm,
+            "swatch_rows_per_10cm": cir.gauge.rows_per_10cm})
+        rows = _rows(db)
+        assert rows and rows[0].passed is True, job.last_error
+        assert rows[0].measured["size_proof"] is False
+        binding = physical_binding(db, cir)
+        assert binding["passed"] is True and binding["first_customer"]["met"] is False
+        assert binding["size_coverage"]["proven"] == [], binding["size_coverage"]
+        check = check_gauge_and_size_claims(cir, build_twin(cir, compile_cir(cir)), binding)
+        assert check.state == UNRESOLVED and "gauge evidence" in check.detail, check.detail
+
+
+def test_a_problem_written_in_notes_goes_to_the_owner():
+    """SECREVIEW F5: any free-text note routes the sample to owner review."""
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    job = _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
+                                              notes="round 9 is wrong, ripped back twice"))
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].passed is False, job.last_error
+    assert rows[0].measured["outcome"] == physical.PARTIAL
+    assert (job.outputs or {}).get("owner_review")
+
+
+def test_every_coaster_is_measured_in_a_checked_field():
+    """SECREVIEW F6: four coasters, four compared sizes; one wrong coaster fails the set."""
+    db = _db()
+    cir = _coasters()
+    _certify(db, cir)
+    good = _inputs(cir, scope="full_make", made={"coaster": 4}, lies_flat=True)
+    three = dict(good, piece_measurements=good["piece_measurements"][:3])
+    _run(db, "physical.record", three)
+    assert _rows(db) == [], "a set of four was accepted with three measured"
+    wrong = [dict(p) for p in good["piece_measurements"]]
+    wrong[2]["width_cm"] = wrong[2]["width_cm"] * 1.3
+    _run(db, "physical.record", dict(good, piece_measurements=wrong))
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].passed is False and rows[0].measured["size_agrees"] is False
+    assert any("coaster 3" in f["message"] for f in rows[0].measured["findings"])
+    _run(db, "physical.record", good)
+    assert _rows(db)[-1].passed is True and _rows(db)[-1].measured["size_proof"] is True
+
+
+def test_parts_made_says_whole_but_a_component_stays_partial():
+    """SECREVIEW F7: the docstring and the behaviour agree."""
+    cir = _coasters()
+    scope, made, whole = physical.parts_made(cir, "component", {"coaster": 4})
+    assert (scope, made, whole) == ("component", {"coaster": 4}, True)
+    assert rm.scope_to_class("component", measured_finished_size=True) == rm.PARTIAL_PHYSICAL
+    assert "always `partial_physical`" in physical.parts_made.__doc__
 
 
 # ---- 5. the kits ---------------------------------------------------------------------------
@@ -390,11 +537,14 @@ def test_a_filled_coaster_sheet_reaches_the_intake_and_routes_not_flat_to_the_ow
     sheet = {"tester_ref": "t1", "made_coaster": "4", "grams_cream": g["cream"],
              "grams_wine": g["wine"], "ball_band_grams": BAND_GRAMS,
              "ball_band_metres": BAND_METRES, "hook_mm": "5", "swatch_sts": "14.5",
-             "swatch_rows": "16", "width_cm": twin.width_cm, "height_cm": twin.height_cm,
-             "lies_flat": "no", "followed": "yes", "problems": "coaster 2 ruffles"}
+             "swatch_rows": "16", "lies_flat": "no", "followed": "yes",
+             "problems": "coaster 2 ruffles",
+             **{f"c{n}_{k}": v for n in range(1, 5)
+                for k, v in (("points", twin.width_cm), ("flats", twin.height_cm))}}
     payload = tester_kit.intake_payload(sheet, content_hash=chash, key="hexagon_coasters")
     assert payload["made"] == {"coaster": 4} and payload["lies_flat"] is False
     assert payload["size"] == "set_of_four" and payload["problem_notes"]
+    assert len(payload["piece_measurements"]) == 4 and payload["instructions_followed"] is True
     job = _run(db, "physical.record", payload)
     rows = _rows(db)
     assert len(rows) == 1 and rows[0].measured["outcome"] == physical.PARTIAL, job.last_error

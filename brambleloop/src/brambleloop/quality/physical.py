@@ -71,7 +71,9 @@ class SampleReport:
     measured_around_cm: float | None = None
     hours: float | None = None
     notes: str = ""
-    instructions_followed: bool = True
+    # SECREVIEW F2/F4: whether the tester followed the text exactly is a recorded answer, never
+    # a default. None (unanswered) is an incomplete record and is refused.
+    instructions_followed: bool | None = None
     # PHYSFIX: what was actually made. `scope` is one of SCOPES; `made` maps a component name
     # to how many of it were made (`{"coaster": 2}`). None means the legacy reading: the whole
     # pattern, which `parts_made` only accepts where the pattern is a single piece.
@@ -89,6 +91,12 @@ class SampleReport:
     problem_notes: str = ""
     # The one size the tester worked, as the tester's sheet names it (optional; checked).
     size: str | None = None
+    # SECREVIEW F6: every made piece's own finished measurements, each compared with its
+    # component's twin: [{"component": "coaster", "width_cm": 9.6, "height_cm": 8.3}, ...].
+    # Required, one per piece, wherever a component is made more than once.
+    piece_measurements: list | None = None
+    # The across-the-flats span of a polygonal piece, compared with `twin.across_flats_cm`.
+    measured_flats_cm: float | None = None
 
     def metres_by_color(self) -> dict[str, float]:
         return {colour: round(self.ball_band.metres_for(grams), 1)
@@ -159,6 +167,15 @@ class SampleAssessment:
             f.severity in ("ERROR", REVIEW) for f in self.findings)
 
     @property
+    def size_proof(self) -> bool:
+        """SECREVIEW F3: whether this sample physically proves the finished size of its one size.
+
+        Only a PASS of made pieces whose measured size agreed. A swatch is gauge evidence
+        only and never proves a size, however well its gauge agrees."""
+        return (self.outcome == PASS and self.scope != "swatch" and bool(self.made)
+                and self.size_agrees is True)
+
+    @property
     def outcome(self) -> str:
         if any(f.severity == "ERROR" for f in self.findings) or self.size_agrees is False:
             return FAIL
@@ -192,6 +209,9 @@ class SampleAssessment:
             "problem_notes": self.report.problem_notes,
             "covers_size": dict(self.covers_size),
             "outcome": self.outcome,
+            "size_proof": self.size_proof,
+            "piece_measurements": list(self.report.piece_measurements or []),
+            "measured_flats_cm": self.report.measured_flats_cm,
             "findings": [{"code": f.code, "message": f.message, "severity": f.severity}
                          for f in self.findings],
             "assessed_at": self.assessed_at.isoformat(),
@@ -208,8 +228,10 @@ def parts_made(cir, scope: str | None, made: dict | None) -> tuple[str, dict[str
     - `full_make`: every component, `Component.make` times each. A pattern of more than one
       piece must say so (`made`), and a `made` short of the whole is refused, never read as
       a whole: two coasters of four are not a coaster set.
-    - `component`: the named pieces, each between 1 and its `make`. Partial evidence, even
-      when the pieces named add up to the whole.
+    - `component`: the named pieces, each between 1 and its `make`. Its evidence class is
+      always `partial_physical`, even when the pieces named add up to the whole (the third
+      value returned, "whole pattern?", is then True: it says what was made, not what class
+      the sample is recorded as).
 
     With no scope (the legacy intake) a sample is a full make, under the same rules.
     """
@@ -349,9 +371,15 @@ def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessmen
             size_twin = _measured_piece_twin(out, report, cir, result, twin)
         _assess_size(out, report, size_twin)
         if cir is not None:
+            _assess_pieces(out, report, cir, result)
             _assess_shape(out, report, cir, result)
 
-    if not report.instructions_followed:
+    if report.instructions_followed is None:
+        out.findings.append(Finding(
+            "SAMPLE_FOLLOWED_UNRECORDED",
+            "the record does not say whether the tester followed the written instructions "
+            "exactly; unknown is not yes", "ERROR"))
+    elif report.instructions_followed is not True:
         out.findings.append(Finding(
             "SAMPLE_DEVIATED",
             "the tester reports not following the written instructions, so neither the "
@@ -364,10 +392,13 @@ def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessmen
             f"pass by itself: {report.problem_notes.strip()[:300]}", REVIEW))
 
     if report.notes.strip():
+        # SECREVIEW F5: free text is read by a person, not parsed for "no problem". A tester
+        # who writes a problem under notes instead of the problems box is still heard, so any
+        # note routes the sample to the owner exactly as a recorded problem does.
         out.findings.append(Finding(
             "SAMPLE_TESTER_NOTES",
-            f"tester notes to read before the next release: {report.notes.strip()[:300]}",
-            "WARNING"))
+            f"the tester wrote notes, which go to the owner before this sample can count: "
+            f"{report.notes.strip()[:300]}", REVIEW))
 
     return out
 
@@ -421,7 +452,8 @@ def _measured_piece_twin(out, report, cir, result, whole_twin):
     if len(out.made) == 1:
         return build_twin(cir, result, component=next(iter(out.made)))
     if any(getattr(report, k) is not None for k in
-           ("measured_width_cm", "measured_height_cm", "measured_around_cm")):
+           ("measured_width_cm", "measured_height_cm", "measured_around_cm",
+            "measured_flats_cm")):
         out.findings.append(Finding(
             "SAMPLE_MEASURED_PIECE_UNKNOWN",
             f"finished measurements were given for a sample of {sorted(out.made)} without "
@@ -435,10 +467,15 @@ def _assess_size(out: SampleAssessment, report: SampleReport, twin) -> None:
         return
     claims = [("width", report.measured_width_cm, twin.width_cm),
               ("height", report.measured_height_cm, twin.height_cm),
-              ("circumference", report.measured_around_cm, twin.circumference_cm)]
-    checked = [(label, m, p) for label, m, p in claims if m is not None and p]
+              ("circumference", report.measured_around_cm, twin.circumference_cm),
+              ("across the flats", report.measured_flats_cm,
+               getattr(twin, "across_flats_cm", None))]
+    _compare_sizes(out, [(label, m, p) for label, m, p in claims if m is not None and p])
+
+
+def _compare_sizes(out: SampleAssessment, checked: list) -> None:
     if checked:
-        out.size_agrees = True
+        out.size_agrees = out.size_agrees is not False
         for label, measured_cm, predicted_cm in checked:
             drift = abs(measured_cm - predicted_cm) / predicted_cm
             if drift > SIZE_DISAGREEMENT:
@@ -450,6 +487,43 @@ def _assess_size(out: SampleAssessment, report: SampleReport, twin) -> None:
                     f"size claim, so it is a defect in the model or the pattern, not a "
                     f"calibration input",
                     "ERROR"))
+
+
+def _assess_pieces(out: SampleAssessment, report: SampleReport, cir, result) -> None:
+    """SECREVIEW F6: each made piece measured in a checked field, against its own twin.
+
+    A component made more than once must have one measurement per piece made, so a set of
+    four is four checked sizes rather than one checked size and three lines of free text."""
+    from ..cir.twin import build_twin
+
+    pieces = list(report.piece_measurements or [])
+    by_comp: dict[str, list] = {}
+    for i, entry in enumerate(pieces, start=1):
+        comp = (entry or {}).get("component") if isinstance(entry, dict) else None
+        width = (entry or {}).get("width_cm") if isinstance(entry, dict) else None
+        if comp not in out.made or not isinstance(width, (int, float)) or width <= 0:
+            out.findings.append(Finding(
+                "SAMPLE_PIECES_UNMEASURED",
+                f"piece measurement {i} ({entry!r}) must name a made component and give its "
+                f"width in cm", "ERROR"))
+            return
+        by_comp.setdefault(comp, []).append(entry)
+    for comp, count in out.made.items():
+        have = len(by_comp.get(comp, []))
+        if (count > 1 or have) and have != count:
+            out.findings.append(Finding(
+                "SAMPLE_PIECES_UNMEASURED",
+                f"{count} x {comp} were made and {have} were measured; every piece is "
+                f"measured in its own checked field", "ERROR"))
+            return
+    for comp, entries in by_comp.items():
+        twin = build_twin(cir, result, component=comp)
+        for n, entry in enumerate(entries, start=1):
+            checked = [(f"{comp} {n} width", float(entry["width_cm"]), twin.width_cm)]
+            if isinstance(entry.get("height_cm"), (int, float)):
+                checked.append((f"{comp} {n} height", float(entry["height_cm"]),
+                                twin.height_cm))
+            _compare_sizes(out, [(lbl, m, p) for lbl, m, p in checked if p])
 
 
 def _assess_shape(out: SampleAssessment, report: SampleReport, cir, result) -> None:
@@ -498,7 +572,8 @@ def _assess_shape(out: SampleAssessment, report: SampleReport, cir, result) -> N
 def _assess_swatch(out: SampleAssessment, report: SampleReport, cir) -> None:
     """A swatch is gauge evidence only: no factor, no finished size, no yardage claim."""
     if any(getattr(report, k) is not None for k in
-           ("measured_width_cm", "measured_height_cm", "measured_around_cm")):
+           ("measured_width_cm", "measured_height_cm", "measured_around_cm",
+            "measured_flats_cm")) or report.piece_measurements:
         out.findings.append(Finding(
             "SAMPLE_SCOPE_INVALID",
             "a swatch has no finished size; finished measurements belong to a made piece",
@@ -677,7 +752,11 @@ def size_coverage(db, cir) -> dict:
             bound = bind_physical_evidence(physical_evidence_rows(db, member.slug),
                                            slug=member.slug, version=member.version,
                                            content_hash=content)
-            entry.update(proven=bool(bound["passed"]), samples=list(bound["bound"]),
+            # SECREVIEW F3: proven means a bound sample that proved the size -- made pieces
+            # whose measurements agreed -- never a swatch or any other gauge-only sample.
+            proof = list(bound.get("size_proven") or [])
+            entry.update(proven=bool(proof), samples=proof,
+                         gauge_only=[r for r in bound["bound"] if r not in proof],
                          content_hash=content[:12])
         sizes.append(entry)
     proven = [e["size"] for e in sizes if e["proven"]]
@@ -685,3 +764,31 @@ def size_coverage(db, cir) -> dict:
             "sizes": sizes, "proven": proven,
             "unproven": [e["size"] for e in sizes if not e["proven"]],
             "rule": "a physical sample covers exactly the one size it was worked in"}
+
+
+def design_digest(cir, result=None) -> str | None:
+    """SECREVIEW F1: what a release IS, independent of the version string it carries.
+
+    `gates.certificate._release_hash` covers `cir.to_dict()`, version included, so a
+    version-only relabel of byte-identical geometry and text is "different content". A size
+    halt is a statement about the design, so it is keyed on this: the CIR without its version,
+    and the written pattern with the version string removed."""
+    import hashlib
+    import json
+
+    try:
+        from ..cir.compiler import compile_cir
+        from ..cir.writer import write_pattern
+
+        result = result if result is not None else compile_cir(cir)
+        if not result.ok:
+            return None
+        body = dict(cir.to_dict())
+        version = str(body.pop("version", "") or "")
+        text = write_pattern(cir, result, "US")
+        if version:
+            text = text.replace(version, "<version>")
+        payload = json.dumps({"cir": body, "text": text}, sort_keys=True, default=str)
+        return hashlib.sha256(payload.encode()).hexdigest()
+    except Exception:  # noqa: BLE001 - unreadable design: callers fail closed
+        return None

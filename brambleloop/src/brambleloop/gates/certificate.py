@@ -455,6 +455,9 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
     unbound: list[dict] = []
     classes: dict = {}
     legacy: list = []
+    # SECREVIEW F3: the bound rows that physically proved the finished size (made pieces whose
+    # measurements agreed). A swatch binds as gauge evidence and is never in this list.
+    size_proven: list = []
     for ev in evidence:
         ref = ev.get("id")
         # F-072: the evidence class travels with the row; an unstamped row is the old
@@ -481,6 +484,8 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
             else:
                 bound.append(ref)
                 classes[ref] = cls
+                if ev.get("size_proof") is True:
+                    size_proven.append(ref)
             continue
         declared = [v for v in (ev.get("compatible_variants") or [])
                     if isinstance(v, dict) and v.get("slug") == slug
@@ -490,12 +495,14 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
         if any(v.get("content_hash") == content_hash for v in declared):
             bound.append(ref)
             classes[ref] = cls
+            if ev.get("size_proof") is True:
+                size_proven.append(ref)
         else:
             unbound.append({"id": ref, "why": (
                 "declared this release a compatible variant, but not at its current content "
                 f"{content_hash[:12]}")})
     return {"content_hash": content_hash, "passed": bool(bound), "bound": bound,
-            "unbound": unbound, "bound_classes": classes,
+            "unbound": unbound, "bound_classes": classes, "size_proven": size_proven,
             "legacy_unstamped": [r for r in bound if r in legacy]}
 
 

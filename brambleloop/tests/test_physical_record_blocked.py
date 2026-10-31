@@ -89,7 +89,7 @@ def _sample_inputs(cir, **extra) -> dict:
     # sphere's twin refuses a flat width, so the size is recorded without a comparison) and
     # says whether the 3-D piece held its shape.
     out.setdefault("measured_width_cm", 9.5)
-    out.update(scope="full_make", holds_shape=True)
+    out.update(scope="full_make", holds_shape=True, instructions_followed=True)
     return {**out, **extra}
 
 
