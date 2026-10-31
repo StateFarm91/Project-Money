@@ -40,6 +40,14 @@ PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
 # "the ch 1 does not count as a stitch" (F3); stitches, counts and geometry unchanged. The
 # design itself is untouched (the base-to-wall change N4 is on hold for a construction review).
 RELEASE_VERSION = "1.2.1"
+# 1.3.0 (2026-10-31), SMALL basket only (owner decision D-W4-OWNER-BASKET-1.3.0): the first
+# wall round is worked in the back loop only, so the base turns into the wall at a defined
+# edge -- the fold the twin and the renders already draw -- instead of the soft curve a
+# both-loops round makes (CONSTRUCTION_REVIEW_basket_small_1.2.0 §4). Counts, geometry and
+# yarn are unchanged. The medium and large baskets are a held family outside that approval
+# and stay at RELEASE_VERSION with both-loops walls.
+SMALL_BASKET_VERSION = "1.3.0"
+DEFINED_EDGE_SIZES = ("small",)
 
 
 def hexagon_spans_cm(stitches: int, gauge: Gauge) -> tuple[float, float]:
@@ -120,8 +128,10 @@ def _disc_rounds(base_count: int, color: str, wedges: int = 6,
     return rows
 
 
-def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
+def build_basket(size: str = "medium", version: str | None = None) -> CIR:
     """A basket: a flat disc base, then straight walls at the base's stitch count."""
+    if version is None:
+        version = SMALL_BASKET_VERSION if size in DEFINED_EDGE_SIZES else RELEASE_VERSION
     spec = next((s for s in BASKET_SIZES if s.key == size), None)
     if spec is None:
         raise KeyError(f"unknown basket size {size!r}; have "
@@ -142,8 +152,14 @@ def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
         # No per-round turning chain: the component's construction line already tells the
         # maker to ch 1 after joining, and saying it twice in two places is how the two end
         # up disagreeing.
-        rows.append(Row(index=index, ops=[Op("sc", base_count)], declared_count=base_count,
-                        color="wine" if w in band_rounds else "cream"))
+        # The first wall round of a defined-edge size goes into the back loop only: the
+        # unworked front loops make the crease the base folds along.
+        loop = "back" if (w == 1 and spec.key in DEFINED_EDGE_SIZES) else "both"
+        op = Op("sc", base_count, loop="back") if loop == "back" else Op("sc", base_count)
+        rows.append(Row(index=index, ops=[op], declared_count=base_count,
+                        color="wine" if w in band_rounds else "cream",
+                        note=("back loop only: the unworked front loops make the edge the "
+                              "base folds up along" if loop == "back" else None)))
 
     return CIR(
         slug=f"market-basket-{spec.key}",

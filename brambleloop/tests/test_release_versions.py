@@ -170,7 +170,10 @@ def test_the_pt_redesigns_carry_a_new_version():
     # as a stitch" changed the round-worked vessels' text, so they moved a patch (1.2.1).
     assert built["hexagon-coaster-set"].version == "1.2.1"
     for slug, cir in built.items():
-        if slug.startswith("market-basket-"):
+        # D-W4-OWNER-BASKET-1.3.0: only the small basket's Rnd 11 moved to the back loop.
+        if slug == "market-basket-small":
+            assert cir.version == "1.3.0", slug
+        elif slug.startswith("market-basket-"):
             assert cir.version == "1.2.1", slug
         # W4-K9 (F-762/F-763): the size matrix and stated fit are new customer-visible
         # content in every graded size, so each graded design moved one minor further.

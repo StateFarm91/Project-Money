@@ -36,7 +36,7 @@ BUILD_KEY = "basket_small"
 # Filled from the CIR at build time; the static copy is what the owner card quotes.
 KIT: dict = {
     "slug": "market-basket-small",
-    "version": "1.2.1",
+    "version": "1.3.0",
     "title": "Crochet Hexagonal Bread Basket",
     "risk_class": "B (dimensional_form)",
     "positioning": "kitchen and home (bread basket); small size only",

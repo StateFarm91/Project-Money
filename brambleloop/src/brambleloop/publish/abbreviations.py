@@ -308,6 +308,10 @@ TECHNIQUES: tuple[tuple[str, re.Pattern[str], str], ...] = (
      "Work the joining {slst} with the new colour: insert the hook into the first stitch, "
      "drop the old colour and draw the new colour through. Leave the old colour resting on "
      "the wrong side until it is needed again."),
+    ("back loop only", re.compile(r"\bin back loop of\b"),
+     "Each stitch has two loops along its top: the front loop, nearer you, and the back loop, "
+     "farther away. Insert the hook under the back loop only and work the stitch as usual. "
+     "The front loop is left unworked and stays on the outside as a ridge."),
     ("increase", re.compile(r"\binc\b"),
      "Work 2 {sc}s into the same stitch: one stitch in, two stitches out."),
     ("decrease", re.compile(r"\bdec\b"),

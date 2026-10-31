@@ -93,7 +93,19 @@ def tips(cir, result, twin, text: str, terminology: str = "US") -> list[Tip]:
             f"cir.geometry.corners reports {sides} stacked corners"))
 
     # 4. a wall rising from a base.
-    if base and wall:
+    first_wall_loops = ({getattr(c, "loop", "both") for c in twin.cells
+                         if c.row == wall[0].index} if base and wall else set())
+    if base and wall and first_wall_loops == {"back"}:
+        # 1.3.0: a back-loop first wall round makes a defined edge, not a gradual turn.
+        out.append(Tip(
+            "Turning the base into the wall",
+            f"{label} {wall[0].index} is worked in the back loop only. The front loops you "
+            f"leave unworked make a ridge around the outside of the base, and the base folds "
+            f"up along that ridge into the wall, so the edge is defined rather than rounded. "
+            f"Every wall {round_word} keeps the base's stitch count, so the count does not "
+            f"make the wall flare; if it leans outward, check your tension against the gauge.",
+            f"{label} {wall[0].index} is worked in the back loop (twin.cells loop)"))
+    elif base and wall:
         out.append(Tip(
             "Turning the base into the wall",
             f"{label} {wall[0].index} is the first {round_word} with no increases, so the edge "

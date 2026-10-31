@@ -1300,13 +1300,39 @@ def _idealised(cir: CIR, twin: TwinModel) -> str | None:
     straight up it. Worked through both loops, the base turns up in a curve and the corners
     soften toward the rim. The geometry is not corrected in this edition (the renderer and
     its independent verifier are shared with the listing images), so each picture says so."""
+    gap = _render_gap(cir, twin)
+    return gap["long"] if gap else None
+
+
+def _render_gap(cir: CIR, twin: TwinModel) -> dict | None:
+    """The long and the short (cover) statement of what the renders idealise, or None.
+
+    Soft fold (both-loops first wall round): the sharp base edge *and* the straight corners
+    are idealised. Defined fold (back-loop first wall round, basket 1.3.0): the base edge is
+    what the pattern makes, but no wall round has a stitch at the corner columns, so the
+    corners running straight up the wall are still idealised -- the construction review
+    (§1.3) expects the rim to relax toward a rounded hexagon. A flat piece, or a round vessel
+    with no corners, has no gap."""
     fold = _fold(cir, twin)
-    if not fold:
-        return None
-    return (f"These pictures are idealised: they draw a sharp edge where the base meets the "
-            f"wall and corners running straight up it. Worked as written, the base turns up "
-            f"in a gentle curve over Rnds {fold['first_wall']} to {fold['settled']} and the "
-            f"corners soften toward the rim.")
+    if fold:
+        return {
+            "long": (f"These pictures are idealised: they draw a sharp edge where the base "
+                     f"meets the wall and corners running straight up it. Worked as written, "
+                     f"the base turns up in a gentle curve over Rnds {fold['first_wall']} to "
+                     f"{fold['settled']} and the corners soften toward the rim."),
+            "short": (f"Worked as written, the base edge curves up over Rnds "
+                      f"{fold['first_wall']} to {fold['settled']} and the corners are softer "
+                      f"than drawn.")}
+    base, wall = _rings(twin)
+    if base and wall and (twin.sides or 0) >= 3:
+        return {
+            "long": ("These pictures are idealised in one respect: they draw the corners "
+                     "running straight up the wall. Worked as written, the base turns into "
+                     "the wall at a defined edge, as drawn, but no wall round has a stitch "
+                     "that keeps the corners, so they soften toward the rim."),
+            "short": ("Worked as written, the base edge is defined as drawn; the wall's "
+                      "corners soften toward the rim.")}
+    return None
 
 
 def _sides(cir: CIR, result) -> int | None:
@@ -1824,14 +1850,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                                "label": K.DISCLOSURE})
         cap = ("Digital rendering of the finished design, drawn stitch by stitch from this "
                "pattern — not a photograph.")
-        if _idealised(cir, twin):
+        if _render_gap(cir, twin):
             # F3: two lines, the second saying what the picture idealises.
-            fold = _fold(cir, twin)
             cap = ("Idealised digital rendering, drawn stitch by stitch from this pattern — "
                    "not a photograph.")
-            cap2 = (f"Worked as written, the base edge curves up over Rnds "
-                    f"{fold['first_wall']} to {fold['settled']} and the corners are softer "
-                    f"than drawn.")
+            cap2 = _render_gap(cir, twin)["short"]
             doc.prose.append(cap)
             doc.prose.append(cap2)
             doc.text(PAGE_W / 2, caption_y + 2.2 * mm, cap, FONT_BODY_ITALIC, 9.5, MUTED,
@@ -2083,6 +2106,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                         f"takes some of it, so expect "
                         f"{value_stack.height_words(fold['low_cm'], fold['high_cm'])}. "
                         + _idealised(cir, twin))
+            elif _idealised(cir, twin):
+                cap += " " + _idealised(cir, twin)
             doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC, keep=True)
             if base_view is not None:
                 # A vessel's schematic needs its base as well as its wall: the elevation shows

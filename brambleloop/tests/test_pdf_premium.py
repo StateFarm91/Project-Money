@@ -45,10 +45,10 @@ def _flat(doc) -> str:
 def test_the_releases_are_the_certified_ones():
     from brambleloop.gates.certificate import certify
 
-    for key, slug in (("hexagon_coasters", "hexagon-coaster-set"),
-                      ("basket_small", "market-basket-small")):
+    for key, slug, version in (("hexagon_coasters", "hexagon-coaster-set", "1.2.1"),
+                               ("basket_small", "market-basket-small", "1.3.0")):
         cir = launch0.cir_for(key)
-        assert (cir.slug, cir.version) == (slug, "1.2.1"), (cir.slug, cir.version)
+        assert (cir.slug, cir.version) == (slug, version), (cir.slug, cir.version)
         assert certify(cir).granted, slug
 
 
@@ -327,34 +327,40 @@ def test_text_and_graphics_clear_their_contrast_floors():
 
 
 def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
-    """W4-CONSTRUCTREVIEW-basket F2/F3/F4: a both-loops first wall round makes a soft fold.
+    """W4-CONSTRUCTREVIEW-basket F2/F3/F4, then D-W4-OWNER-BASKET-1.3.0.
 
-    No "rise straight up", no Rnd 11 height blamed on gauge, the height as a range that does
-    not overstate the twin's upper bound, and every render captioned as idealised. The coaster
-    (no wall) and a crisp back-loop fold keep the plain wording."""
+    A both-loops first wall round makes a soft fold: the PDF may not say "rise straight up",
+    must give the height as a range and caption every render as idealised. The small basket
+    1.3.0 works Rnd 11 in the back loop only, which makes the defined edge the twin models,
+    so its document states the twin's height and the straight rise -- and still says that the
+    corners the renders draw running up the wall soften toward the rim, because no wall round
+    keeps them. The soft-fold path is held on the medium basket, which is still both loops."""
     from brambleloop.publish import value_stack
 
     basket = _flat(_doc("basket_small")[1])
-    assert "rise straight up" not in basket
-    assert "turning upward over the first few rounds and then rising straight" in basket
-    assert "the edge of the base beginning to turn up" in basket
-    assert "judge the height from round 14 on" in basket
-    assert "8.7 cm tall" not in basket and "about 8 to 9 cm tall" in basket
-    assert "Idealised digital rendering" in basket
-    assert basket.count("These pictures are idealised") >= 3       # about box, schematic, gallery
+    assert "sc in back loop of next 60 sts" in basket and "back loop only" in basket.lower()
+    assert "BACK LOOP ONLY" in basket.upper() and "Insert the hook under the back loop only" in basket
+    assert "rise straight up" in basket and "turning upward over the first few" not in basket
+    assert "8.7 cm tall" in basket and "about 8 to 9 cm" not in basket
+    assert "beginning to turn up" not in basket and "judge the height" not in basket
+    assert "is worked in the back loop only" in basket                         # the tip
+    assert "idealised in one respect" in basket and "gentle curve" not in basket
     coaster = _flat(_doc("hexagon_coasters")[1])
     assert "idealised" not in coaster.lower()
 
     cir = launch0.cir_for("basket_small")
     twin = build_twin(cir, compile_cir(cir))
-    fold = value_stack.soft_fold(cir, twin)
-    assert fold and fold["first_wall"] == 11 and fold["settled"] == 14
-    assert fold["high_cm"] == twin.height_cm and fold["low_cm"] < fold["high_cm"]
-    # Injected crisp fold: Rnd 11 through the back loop is the fold the twin models.
-    for c in twin.cells:
-        if c.row == 11:
-            c.loop = "back"
     assert value_stack.soft_fold(cir, twin) is None
+    assert {c.loop for c in twin.cells if c.row == 11} == {"back"}
+
+    medium = launch0.cir_for("basket_medium")
+    mtwin = build_twin(medium, compile_cir(medium))
+    fold = value_stack.soft_fold(medium, mtwin)
+    assert fold and fold["high_cm"] == mtwin.height_cm and fold["low_cm"] < fold["high_cm"]
+    assert "gentle curve" in pdf._render_gap(medium, mtwin)["long"]
+    assert pdf._tall(medium, mtwin).startswith("about ")
+    marks = value_stack.milestones(medium, mtwin)["milestones"]
+    assert any("beginning to turn up" in m["measured"] for m in marks)
     assert value_stack.height_words(7.975, 8.7) == "about 8 to 9 cm"
     assert value_stack.height_words(3.625, 4.35) == "about 4 cm"
 
@@ -436,7 +442,7 @@ def test_the_soft_fold_disclosure_fails_closed():
             raise RuntimeError("injected")
         value_stack.soft_fold = broken
         try:
-            cir = launch0.cir_for("basket_small")
+            cir = launch0.cir_for("basket_medium")
             pdf._fold(cir, build_twin(cir, compile_cir(cir)))
         except pdf.FoldDisclosureRefused:
             pass
