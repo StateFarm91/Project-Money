@@ -205,7 +205,7 @@ def test_stage_diagrams_match_the_written_counts():
         text = write_pattern(cir, result, terminology="US", width_cm=twin.width_cm,
                              height_cm=twin.height_cm)
         written = {int(n): int(c) for n, c in
-                   re.findall(r"^Rnd (\d+) \([^)]*\):.*\((\d+) sts\)$", text, re.M)}
+                   re.findall(r"^Rnd (\d+) \([^)]*\):.*?\((\d+) sts\)(?:  -- .*)?$", text, re.M)}
         stages = construction_diagrams.stages(cir)
         assert stages and stages[-1].round == max(written), key
         covered = []
@@ -225,8 +225,15 @@ def test_tips_are_triggered_by_the_pattern_and_quote_its_numbers():
     text = write_pattern(cir, result, terminology="US")
     got = {t.title: t for t in tips.tips(cir, result, twin, text, "US")}
     assert "Turning the base into the wall" in got
-    assert "Rnd 11 is the first round with no increases" in got[
+    # 1.3.0: Rnd 11 is worked in the back loop only, a defined fold.
+    assert "Rnd 11 is worked in the back loop only" in got[
         "Turning the base into the wall"].text
+    assert "starts to turn upward" not in got["Turning the base into the wall"].text
+    medium = launch0.cir_for("basket_medium")       # both loops: the soft-fold tip
+    rm = compile_cir(medium)
+    tm = build_twin(medium, rm)
+    soft = {t.title: t for t in tips.tips(medium, rm, tm, write_pattern(medium, rm, "US"), "US")}
+    assert "is the first round with no increases" in soft["Turning the base into the wall"].text
     assert "Making a matching set" not in got          # one basket
     assert "from 6 sts at Rnd 1 to 60 sts at Rnd 22" in got["Count every round"].text
     coaster = launch0.cir_for("hexagon_coasters")
@@ -359,8 +366,7 @@ def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
     assert fold and fold["high_cm"] == mtwin.height_cm and fold["low_cm"] < fold["high_cm"]
     assert "gentle curve" in pdf._render_gap(medium, mtwin)["long"]
     assert pdf._tall(medium, mtwin).startswith("about ")
-    marks = value_stack.milestones(medium, mtwin)["milestones"]
-    assert any("beginning to turn up" in m["measured"] for m in marks)
+    assert fold["settled"] == fold["first_wall"] + 3
     assert value_stack.height_words(7.975, 8.7) == "about 8 to 9 cm"
     assert value_stack.height_words(3.625, 4.35) == "about 4 cm"
 
