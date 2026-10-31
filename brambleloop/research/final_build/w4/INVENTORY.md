@@ -77,13 +77,14 @@ All of these must hold:
    - `recorded` mode (the default; read-only; used by the CC view): the newest
      `store.release_gates` verdict, which is the stored output of
      `release_gates.for_publish` from `store.publish`, and the newest `listing.parity`
-     verdict (`_listing_parity`). Both must be newer than the product's last completed chain
-     job. If either is missing or older, the result is UNKNOWN.
+     verdict (`_listing_parity`). Both must come from the same `store.publish` job for this
+     version, with no historical `as_of`. They must be younger than 24 h and newer than the
+     product's last completed chain job. Otherwise the result is UNKNOWN.
    - `live` mode: `for_publish(read_only=True)`, which is exactly `store.publish`'s
      `_release_gates`, plus `publication_authority._parity` (the same assessment without
      escalations) and `refuse_if_experiment`. This mode can write certificate rows (as
      `store.publish` does), so the CC view never uses it.
-2. No `DraftIntent` in `CREATING` or `RECONCILE_REQUIRED`.
+2. No `DraftIntent` row of any state, and no `incomplete_on_etsy` listing (review H1).
 3. Physical sample `passed` or `not_required`.
 4. The effective phase allows publication (`core.phase.effective`, record_incident off).
 5. A valid sealed owner grant for this exact release (`ops.publication_authority.resolve`,
@@ -193,9 +194,47 @@ Every audit action the inventory reads has a decision in `ops.retention.KNOWN_RE
    enqueues nothing unless the decision is `PIVOT_EVERGREEN`. It is shown as a policy hold.
    Nothing re-plans it when the window reopens, apart from the next rebuild.
 
+## Independent review d0e523b: fixes
+
+The review asked for these to be fixed before shipping. Each fix has a regression test.
+
+- **H1: any draft intent blocks.** Previously only `CREATING` and `RECONCILE_REQUIRED` intents
+  closed the gate. Now every `DraftIntent` row for the version closes it, as
+  `draft_intent.refuse_if_existing` does in `store.publish`. A listing in
+  `incomplete_on_etsy` adds its own reason. Test: `x-created` (a `CREATED` intent).
+- **M1: crashing safety readers fail closed.** If the draft-intent table, `active_veto` or
+  `withholding.reasons` cannot be read, the row gets a closed-gate reason. Internal stages
+  still derive, but the row can never reach Ready or Owner approval pending.
+- **M2: recorded verdicts are bounded.** A verdict older than `VERDICT_TTL` (24 h) is
+  UNKNOWN, and so is one from a `store.publish` job that carried a historical `as_of`.
+  Control test: an old chain with a fresh verdict is still Ready.
+  *Consequence:* in shadow, nothing re-runs `store.publish`. After 24 h a product reads
+  "Listing package completed" with "re-evaluation required" instead of "Owner approval
+  pending". That is the fail-closed reading; `live` mode computes a current verdict.
+- **M3: the latest sample decides.** The latest completed physical test, ordered by
+  `completed_at` then id, decides pass or fail. A result with no `completed_at` is not a
+  completed test. A pass followed by a failure reads failed (Revision required); a failure
+  followed by a pass reads passed.
+- **M4: verdict rows come from one job.** The `store.release_gates` and `listing.parity` rows
+  must come from the same `store.publish` job for this version. An unbound gates row reads
+  "not yet evaluated".
+- **Surviving mutants, now killed.**
+  - M7: a parity row with no `blocks_release` key closes the gate (`g-nokey`).
+  - M9: `live` mode is tested both ways, with blocking and passing `for_publish` and parity.
+    The mode is kept for operator use; the CC view never uses it.
+  - M12: a crashed row is Revision required, and nothing is Ready in any tier.
+  I re-applied all three mutants: each now fails the suite.
+- **Read-only check.** It is now a SQLAlchemy statement spy as well as row counts. A GET may
+  only write the owner session's `last_seen_at`. `derive`, `production_summary` and `build`
+  write nothing.
+- **Channel eligibility.** The owner cancelled `channel_policy`, so no placeholder was kept.
+- **Not changed (review LOW/INFO).** A pruned failing `quality.reverified` row lets a product
+  advance, because that action is windowed and `for_publish` does not read it. The fix belongs
+  in `quality_ops` (record a withholding on failure), not in this reader.
+
 ## Tests
 
-`tests/test_w5_inventory.py` has 10 tests:
+`tests/test_w5_inventory.py` has 11 tests:
 
 - every state derived from seeded records;
 - `published_manually` counted as Published;
@@ -211,4 +250,6 @@ Every audit action the inventory reads has a decision in `ops.retention.KNOWN_RE
 - the useful versus no-op split by the handlers' own outcome labels;
 - CC auth and read-only behaviour;
 - the PWA wiring;
-- the projection carrying no private data.
+- the projection carrying no private data;
+- the review fixes on a fresh database: the TTL control, the latest sample deciding, the
+  crashing safety readers, the crashed row, and live mode.

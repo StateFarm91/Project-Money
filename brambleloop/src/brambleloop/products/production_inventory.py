@@ -100,8 +100,14 @@ RANK = {k: i for i, k in enumerate(STATE_KEYS)}
 # Listing states that mean a customer can buy it. `published_manually` is the W-ADOPT state
 # (an owner-made Etsy listing linked to its certified release, `publish.manual_adoption`).
 PUBLISHED_LISTING_STATES = ("published", "active", "published_manually")
-# Remote draft-creation intents that are not settled (`publish.draft_intent`).
-UNSETTLED_INTENTS = ("CREATING", "RECONCILE_REQUIRED")
+# Review H1: `store.publish` refuses on ANY existing remote draft-creation intent for a
+# version (`publish.draft_intent.refuse_if_existing`), settled (`CREATED`) or not, so the
+# inventory treats every intent row as a closed gate; there is no "settled" exemption.
+
+# Review M2: a recorded verdict is current evidence only for this long. `for_publish` depends
+# on today's date (seasonal windows) and on owner/veto/withholding state that changes with no
+# job, so an older PASS is UNKNOWN, never a pass. `live` mode computes a current one.
+VERDICT_TTL = timedelta(hours=24)
 
 # HELD reasons (flow health and the CC view read these).
 HOLD_OWNER, HOLD_PHYSICAL, HOLD_PAID, HOLD_POLICY = "owner", "physical", "paid_approval", "policy"
@@ -276,7 +282,7 @@ def load_records(db) -> dict:
         for t in s.scalars(select(PhysicalTest).order_by(PhysicalTest.id)):
             tests.setdefault((t.product_slug, t.version), []).append({
                 "id": t.id, "passed": t.passed, "requested_at": _iso(t.requested_at),
-                "completed_at": _iso(t.completed_at)})
+                "completed_at": _iso(t.completed_at), "_completed": _aware(t.completed_at)})
         conds = [Job.job_type.like(p + "%") for p in JOB_PREFIXES]
         jobs = [_Job(j) for j in s.scalars(select(Job).where(or_(*conds)).order_by(Job.id))]
         audits = [_Audit(a) for a in s.scalars(
@@ -288,7 +294,7 @@ def load_records(db) -> dict:
                        "max_cost": a.max_cost_known, "action": (a.action or "")[:160]}
                       for a in s.scalars(select(OwnerAction).where(
                           OwnerAction.done == False))]  # noqa: E712
-    intents = {}
+    intents, intents_unreadable = {}, None
     try:
         from ..publish.draft_intent import DraftIntent
 
@@ -296,11 +302,12 @@ def load_records(db) -> dict:
             intents = {(d.slug, d.version): {"state": d.state, "release": d.release,
                                              "at": _iso(d.at)}
                        for d in s.scalars(select(DraftIntent))}
-    except Exception:  # noqa: BLE001 - a table not yet created holds no intent
-        intents = {}
+    except Exception as exc:  # noqa: BLE001 - review M1: an unreadable intent table is a
+        # closed gate for every product (store.publish would refuse or crash), never "none".
+        intents_unreadable = f"draft intents could not be read: {type(exc).__name__}"
     return {"products": products, "versions": versions, "listings": listings, "tests": tests,
             "jobs": jobs, "audits": audits, "costs": costs, "owner_open": owner_open,
-            "intents": intents}
+            "intents": intents, "intents_unreadable": intents_unreadable}
 
 
 def _version_key(v: str | None):
@@ -358,37 +365,68 @@ def _audits_for(rec: dict, slug: str, version: str | None, actions) -> list:
 
 # ---- gate readers (the only places publication's gates are consulted) -------------------------
 
-def _recorded_product_gates(rec: dict, slug: str, version: str, changed_at) -> dict:
+def _recorded_product_gates(rec: dict, slug: str, version: str, changed_at,
+                            now: datetime | None = None) -> dict:
     """The verdict store.publish itself recorded: `store.release_gates` (the output of
-    `release_gates.for_publish`) and `listing.parity` (`_listing_parity`), both newer than the
-    product's last change. Anything missing or older is UNKNOWN."""
-    gates = [a for a in rec["audits"] if a.action == "store.release_gates"
-             and a.artifact == slug and a.detail.get("version") == version]
-    # CHAIN FINDING: `listing.parity` is audited under the slug alone with no version in its
-    # detail, so it is bound to a version here through the store.publish job that wrote it.
-    # A parity row with no job, or a job for another version, is not this version's verdict.
-    publish_versions = {j.id: j.version for j in rec["jobs"] if j.job_type == "store.publish"}
-    parity = [a for a in rec["audits"] if a.action == "listing.parity" and a.artifact == slug
-              and a.job_id is not None and publish_versions.get(a.job_id) == version]
-    g = max(gates, key=lambda a: a.id) if gates else None
-    p = max(parity, key=lambda a: a.id) if parity else None
-    out = {"mode": "recorded", "release_gates_audit": g.id if g else None,
-           "parity_audit": p.id if p else None, "checked_at": _iso(g.at) if g else None}
-    if g is None or p is None:
-        missing = [n for n, a in (("release gates", g), ("creative parity", p)) if a is None]
+    `release_gates.for_publish`) and `listing.parity` (`_listing_parity`).
+
+    Both rows must come from the SAME `store.publish` job for this version (review M4; the
+    parity row carries no version, so the job is what binds it -- the chain finding). That
+    job must not carry a historical `as_of` (review M2: `_revalidate_publish_effect` refuses
+    replay dates as execution evidence, so they are not current evidence here either), the
+    verdict must be younger than `VERDICT_TTL`, and newer than the product's last change.
+    Anything else is UNKNOWN; UNKNOWN is never a pass."""
+    now = _aware(now) or datetime.now(timezone.utc)
+    publish = {j.id: j for j in rec["jobs"] if j.job_type == "store.publish"
+               and j.slug == slug and j.version == version}
+    gates = {}
+    parity = {}
+    for a in rec["audits"]:
+        if a.artifact != slug or a.job_id not in publish:
+            continue
+        if a.action == "store.release_gates" and a.detail.get("version") == version:
+            if a.job_id not in gates or a.id > gates[a.job_id].id:
+                gates[a.job_id] = a
+        elif a.action == "listing.parity":
+            if a.job_id not in parity or a.id > parity[a.job_id].id:
+                parity[a.job_id] = a
+    paired = sorted(set(gates) & set(parity))
+    out = {"mode": "recorded", "release_gates_audit": None, "parity_audit": None,
+           "publish_job": None, "checked_at": None}
+    if not paired:
+        missing = [n for n, d in (("release gates", gates), ("creative parity", parity))
+                   if not d]
+        why = (f"no recorded {' or '.join(missing)} verdict bound to a store.publish job for "
+               f"this version" if missing else
+               "the recorded release-gates and parity verdicts come from different "
+               "store.publish jobs; no single evaluation covers both")
+        return {**out, "state": UNKNOWN, "reasons": [f"not yet evaluated: {why}"]}
+    jid = paired[-1]
+    g, p = gates[jid], parity[jid]
+    out.update(release_gates_audit=g.id, parity_audit=p.id, publish_job=jid,
+               checked_at=_iso(g.at))
+    as_of = (publish[jid].inputs or {}).get("as_of")
+    if as_of:
         return {**out, "state": UNKNOWN, "reasons": [
-            f"not yet evaluated by store.publish: no recorded {' or '.join(missing)} verdict"]}
+            f"the recorded verdict was computed for a historical date (as_of {as_of}); a "
+            f"replay date is not current evidence"]}
+    oldest = min((a.at for a in (g, p) if a.at is not None), default=None)
+    if oldest is None or now - oldest > VERDICT_TTL:
+        return {**out, "state": UNKNOWN, "reasons": [
+            f"the recorded verdict is older than {int(VERDICT_TTL.total_seconds() // 3600)} h "
+            f"(or undated); re-evaluation required"]}
     stale = [n for n, a in (("release gates", g), ("creative parity", p))
-             if changed_at is not None and a.at is not None and a.at < changed_at]
+             if changed_at is not None and a.at < changed_at]
     if stale:
         return {**out, "state": UNKNOWN, "reasons": [
             f"the recorded {' and '.join(stale)} verdict predates this product's last change "
             f"({_iso(changed_at)}); re-evaluation required"]}
     reasons = [str(r)[:300] for r in (g.detail.get("reasons") or [])]
+    # A missing `blocks_release` key is not a pass (review M7): only an explicit False opens.
     if g.detail.get("blocks_release") is not False:
-        reasons = reasons or ["release gates blocked with no reason recorded"]
+        reasons = reasons or ["release gates blocked, or recorded no blocks_release verdict"]
     if p.detail.get("blocks_release") is not False:
-        reasons.append(f"creative parity (#75): {str(p.detail.get('why') or p.detail.get('verdict') or 'blocks')[:300]}")
+        reasons.append(f"creative parity (#75): {str(p.detail.get('why') or p.detail.get('verdict') or 'no blocks_release verdict recorded')[:300]}")
     return {**out, "state": FAIL if reasons else PASS, "reasons": reasons}
 
 
@@ -482,21 +520,27 @@ def physical_status(pv: dict | None, tests: list) -> dict:
 
     `unknown` before certification (the certificate is what says whether a sample is
     required). It is recorded beside the state; only the public tier waits on it."""
-    passed = [t for t in tests if t["passed"] is True]
-    completed = [t for t in tests if t["passed"] is not None]
+    # Review M3: the LATEST completed test decides (a newer failure overrides an older pass),
+    # and a result with no completion time is not a completed test.
+    completed = sorted((t for t in tests if t["passed"] is not None
+                        and t.get("_completed") is not None),
+                       key=lambda t: (t["_completed"], t["id"]))
     required = bool(pv and (pv.get("certificate") or {}).get("physical_test_required"))
     base = {"required": required if pv and pv.get("certified") else None,
-            "tests": len(tests)}
-    if passed:
-        return {**base, "status": "passed", "test_id": passed[-1]["id"]}
-    if completed and completed[-1]["passed"] is False:
-        return {**base, "status": "failed", "test_id": completed[-1]["id"]}
+            "tests": len(tests),
+            "undated_results": sum(1 for t in tests if t["passed"] is not None
+                                   and t.get("_completed") is None)}
+    if completed:
+        latest = completed[-1]
+        return {**base, "status": "passed" if latest["passed"] is True else "failed",
+                "test_id": latest["id"], "completed_at": latest["completed_at"]}
     if not (pv and pv.get("certified")):
         return {**base, "status": "unknown"}
     return {**base, "status": "pending" if required else "not_required"}
 
 
-def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded") -> dict:
+def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
+               now: datetime | None = None) -> dict:
     """One product/version's single state, with its evidence. Read-only in `recorded` mode."""
     slug, version, head = row["slug"], row["version"], row["head"]
     jobs = _jobs_for(rec, slug, version, head)
@@ -510,6 +554,11 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded") -> dict
     holds: list[dict] = []
     scores: dict[str, Any] = {}
     physical = physical_status(pv, tests)
+    # Safety readers that could not be read (review M1): each one closes the publication gates
+    # for this row. Internal stages still derive; Ready / Owner approval pending cannot.
+    closed: list[str] = []
+    if rec.get("intents_unreadable"):
+        closed.append(rec["intents_unreadable"])
     tiers: dict[str, dict] = {
         "internal": {"complete": False},
         "private_draft": {"ready": False, "reasons": ["internal package not complete"]},
@@ -539,8 +588,9 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded") -> dict
         from ..intel.mission_runtime import active_veto
 
         veto = active_veto(db, slug)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - review M1: unreadable veto closes the gates
         veto = {"vetoed": False}
+        closed.append(f"owner veto could not be read ({type(exc).__name__}): a veto may exist")
     if veto.get("vetoed"):
         reach("owner_veto", ruling_id=veto.get("ruling_id"))
         return result(REJECTED, veto.get("why") or "owner veto")
@@ -622,8 +672,9 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded") -> dict
 
     try:
         held = withholding.reasons(db, slug, version)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - review M1: unreadable withholding closes gates
         held = {"blocks_build": False, "reasons": {}}
+        closed.append(f"withholding record could not be read ({type(exc).__name__})")
     if held.get("blocks_build"):
         return result(REVISION_REQUIRED, "release withheld: " + "; ".join(
             str(v.get("reason"))[:160] for v in held["reasons"].values()),
@@ -703,10 +754,17 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded") -> dict
                and not j.job_type.startswith(("store.", "marketing."))]
     changed_at = max(changed) if changed else None
     gates = (_live_product_gates(db, slug, version) if gate_mode == "live"
-             else _recorded_product_gates(rec, slug, version, changed_at))
-    if intent is not None and intent.get("state") in UNSETTLED_INTENTS:
-        gates = {**gates, "state": FAIL, "reasons": list(gates.get("reasons") or []) + [
-            f"remote draft intent {intent['state']}: reconcile before any publication"]}
+             else _recorded_product_gates(rec, slug, version, changed_at, now=now))
+    extra: list[str] = list(closed)
+    if intent is not None:
+        # Review H1: store.publish refuses on any existing intent (refuse_if_existing).
+        extra.append(f"remote draft intent {intent.get('state')!r} exists for this version: "
+                     f"store.publish refuses any existing intent; reconcile first")
+    if listing is not None and listing["state"] == "incomplete_on_etsy":
+        extra.append("an Etsy draft exists but is incomplete (incomplete_on_etsy): complete or "
+                     "reconcile it; a new publication is refused")
+    if extra:
+        gates = {**gates, "state": FAIL, "reasons": list(gates.get("reasons") or []) + extra}
     owner = (owner_gates(db, slug, version, release) if gates["state"] == PASS
              else {"state": UNKNOWN, "reasons": ["not read: product gates are not passing"]})
     tiers["private_draft"] = {
@@ -744,7 +802,8 @@ def _paid_holds(rec: dict, item: dict) -> None:
                                        max_cost_cad=a["max_cost"]))
 
 
-def derive(db, *, gate_mode: str = "recorded", records: dict | None = None) -> dict:
+def derive(db, *, gate_mode: str = "recorded", records: dict | None = None,
+           now: datetime | None = None) -> dict:
     """The whole inventory: every product/version, exactly one state each, counted."""
     if gate_mode not in GATE_MODES:
         raise ValueError(f"gate_mode must be one of {GATE_MODES}")
@@ -752,12 +811,13 @@ def derive(db, *, gate_mode: str = "recorded", records: dict | None = None) -> d
     items = []
     for row in rows_from(rec):
         try:
-            item = derive_row(db, rec, row, gate_mode=gate_mode)
+            item = derive_row(db, rec, row, gate_mode=gate_mode, now=now)
         except Exception as exc:  # noqa: BLE001 - one unreadable product never hides the rest
             item = {"slug": row["slug"], "version": row["version"], "head": row["head"],
                     "title": row.get("title"), "state": REVISION_REQUIRED,
                     "label": LABEL[REVISION_REQUIRED],
                     "why": f"state could not be derived: {type(exc).__name__}: {str(exc)[:200]}",
+                    # Review M12: a row that cannot be derived is never Ready in any tier.
                     "holds": [], "physical_sample": {"status": "unknown"},
                     "tiers": {"internal": {"complete": False},
                               "private_draft": {"ready": False, "reasons": ["underivable"]},
@@ -794,7 +854,7 @@ def production_summary(db, *, now: datetime | None = None) -> dict:
 
     now = _aware(now) or datetime.now(timezone.utc)
     rec = load_records(db)
-    inv = derive(db, records=rec)
+    inv = derive(db, records=rec, now=now)
     flow = flow_health.flow(db, inventory=inv, records=rec, now=now)
     activity = flow_health.useful_split(db, now=now)
     held: dict[str, int] = {k: 0 for k in HOLD_KINDS}

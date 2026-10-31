@@ -53,6 +53,7 @@ from brambleloop.core.models import (AuditLog, CostEntry, Job, JobStatus, Listin
                                      Product)
 from brambleloop.ops import flow_health  # noqa: E402
 from brambleloop.products import production_inventory as pi  # noqa: E402
+from brambleloop.publish.draft_intent import DraftIntent  # noqa: E402
 
 OPS = "i" * 40
 PASS = "owner passphrase for the W5-INVENTORY harness"
@@ -69,7 +70,7 @@ PDF = {"US": {"sha256": "a" * 64}, "UK": {"sha256": "b" * 64}}
 
 # ---- seeding ------------------------------------------------------------------------------------
 
-def job(db, job_type, status="done", inputs=None, outputs=None, agent="listing", at=T_JOB,
+def _job(db, job_type, status="done", inputs=None, outputs=None, agent="listing", at=T_JOB,
         run_after=None, started=None, last_error=None):
     with db.session() as s:
         j = Job(agent=agent, job_type=job_type, inputs=inputs or {}, outputs=outputs,
@@ -81,10 +82,13 @@ def job(db, job_type, status="done", inputs=None, outputs=None, agent="listing",
         return j.id
 
 
-def audit(db, action, artifact, detail, job_id=None, at=T_AUDIT):
+def _audit(db, action, artifact, detail, job_id=None, at=T_AUDIT):
     with db.session() as s:
         s.add(AuditLog(actor="test", action=action, artifact=artifact, detail=detail,
                        job_id=job_id, at=at))
+
+
+job, audit = _job, _audit
 
 
 def release(db, slug, version="1.0.0", *, certified=True, physical=False):
@@ -101,9 +105,24 @@ def release(db, slug, version="1.0.0", *, certified=True, physical=False):
 
 
 def up_to(db, slug, stage, *, physical=False, gates=True, gates_stale=False, parity=True,
-          blocks=False, parity_blocks=False):
-    """Seed one product through the chain up to `stage`."""
+          blocks=False, parity_blocks=False, job_at=None, audit_at=None, publish_inputs=None,
+          parity_detail=None):
+    """Seed one product through the chain up to `stage`.
+
+    `gates`/`parity` may be "unbound" (the verdict row has no store.publish job); `job_at` /
+    `audit_at` move the chain and its recorded verdicts in time; `publish_inputs` adds inputs
+    (e.g. a historical `as_of`) to the store.publish job; `parity_detail` replaces the parity
+    row's detail."""
     v = "1.0.0"
+    t0 = job_at or T_JOB
+
+    def job(db_, *a, **k):
+        k.setdefault("at", t0)
+        return _job(db_, *a, **k)
+
+    def audit(db_, *a, **k):
+        k.setdefault("at", (audit_at or T_AUDIT) if job_at else T_AUDIT)
+        return _audit(db_, *a, **k)
     job(db, "radar.score", inputs={"slug": slug}, outputs={"slug": slug, "promoted": True,
                                                           "score": 0.8}, agent="market_radar")
     job(db, "cir.draft", inputs={"slug": slug}, outputs={"artifact": f"{slug}@{v}",
@@ -140,20 +159,23 @@ def up_to(db, slug, stage, *, physical=False, gates=True, gates_stale=False, par
     job(db, "launch.plan", inputs={"slug": slug, "version": v, "release": rh},
         outputs={"launch_on": "2026-11-01"}, agent="growth")
     # as in shadow: launch.plan queued store.publish, which refused (a closed gate)
-    pub = job(db, "store.publish", "dead", inputs={"slug": slug, "version": v},
+    pub = job(db, "store.publish", "dead", inputs={"slug": slug, "version": v,
+                                                   **(publish_inputs or {})},
         agent="store_operator", last_error="capability not enabled: shadow mode")
     if stage == "listing":
         return rh
-    at = T_JOB - timedelta(hours=1) if gates_stale else T_AUDIT
+    at = t0 - timedelta(hours=1) if gates_stale else (audit_at or T_AUDIT)
     if gates:
         audit(db, "store.release_gates", slug, {"slug": slug, "version": v,
                                                 "blocks_release": blocks,
                                                 "reasons": ["search certificate"] if blocks
-                                                else []}, at=at)
+                                                else []},
+              job_id=None if gates == "unbound" else pub, at=at)
     if parity:
-        audit(db, "listing.parity", slug, {"verdict": "PASS" if not parity_blocks else "FAIL",
-                                           "blocks_release": parity_blocks,
-                                           "why": "frame 2 fails"},
+        audit(db, "listing.parity", slug,
+              parity_detail if parity_detail is not None else
+              {"verdict": "PASS" if not parity_blocks else "FAIL",
+               "blocks_release": parity_blocks, "why": "frame 2 fails"},
               job_id=None if parity == "unbound" else pub, at=at)
     return rh
 
@@ -224,6 +246,18 @@ up_to(DB, "g-noparity", "gates", parity=False)
 up_to(DB, "g-norun", "listing")
 up_to(DB, "g-intent", "gates")
 up_to(DB, "g-unbound", "gates", parity="unbound")  # a parity row with no publish job
+# independent review d0e523b: M4 unbound release-gates row, M2 expired and replayed
+# verdicts, M7 a parity row with no blocks_release key, H1 a CREATED (settled) intent
+up_to(DB, "g-gunbound", "gates", gates="unbound")
+up_to(DB, "g-old", "gates", job_at=NOW - timedelta(hours=50),
+      audit_at=NOW - timedelta(hours=30))
+up_to(DB, "g-asof", "gates", publish_inputs={"as_of": "2025-01-01"})
+up_to(DB, "g-nokey", "gates", parity_detail={"verdict": "PASS", "why": "no key"})
+up_to(DB, "x-created", "gates")
+with DB.session() as _s:
+    _s.add(DraftIntent(key="c" * 64, slug="x-created", version="1.0.0", release="r",
+                       content_digest="d" * 64, token="t" * 32, state="CREATED"))
+    _s.query(Listing).filter_by(product_slug="x-created").one().state = "incomplete_on_etsy"
 try:
     from brambleloop.publish.draft_intent import DraftIntent
 
@@ -296,7 +330,7 @@ def test_ready_is_refused_whenever_any_gate_is_open():
         inv = pi.derive(DB)
         assert item(inv, "s-ready")["state"] == pi.READY
         for slug in ("g-blocks", "g-parity", "g-stale", "g-noparity", "g-norun", "g-intent",
-                     "g-unbound"):
+                     "g-unbound", "g-gunbound", "g-old", "g-asof", "g-nokey", "x-created"):
             it = item(inv, slug)
             assert it["state"] != pi.READY, (slug, it["why"])
             assert it["state"] == pi.LISTING_COMPLETED, (slug, it["state"])
@@ -304,6 +338,14 @@ def test_ready_is_refused_whenever_any_gate_is_open():
             assert it["tiers"]["private_draft"]["ready"] is False
             assert it["tiers"]["public"]["ready"] is False
         assert "UNKNOWN" == item(inv, "g-stale")["evidence"]["product_gates"]["state"]
+        for slug, words in (("g-old", "older than 24 h"), ("g-asof", "historical date"),
+                            ("g-gunbound", "not yet evaluated")):
+            pg = item(inv, slug)["evidence"]["product_gates"]
+            assert pg["state"] == "UNKNOWN" and words in pg["reasons"][0], (slug, pg)
+        assert item(inv, "g-nokey")["evidence"]["product_gates"]["state"] == "FAIL"
+        created = item(inv, "x-created")
+        reasons = " ".join(created["evidence"]["product_gates"]["reasons"])
+        assert "'CREATED' exists" in reasons and "incomplete_on_etsy" in reasons, reasons
     # each owner gate, alone, refuses Ready
     for which in ("_phase_refusal", "_grant_refusal"):
         with _Patch():
@@ -438,6 +480,118 @@ def test_useful_vs_noop_split_uses_the_handlers_outcome_labels():
     assert depts, act
 
 
+def test_review_fixes_fail_closed_on_a_fresh_database():
+    """Independent review d0e523b: M2 TTL control, M3 latest sample wins, M1 crashing safety
+    readers close the gates, M12 a crashed row is never Ready, M9 the live gate mode."""
+    from brambleloop.intel import mission_runtime
+    from brambleloop.ops import publication_authority
+    from brambleloop.publish import release_gates, withholding
+
+    db = _fresh_db("review")
+    # M2 control: an old chain with a FRESH verdict is Ready -- the TTL is about the verdict
+    up_to(db, "r-ok", "gates", job_at=NOW - timedelta(hours=50),
+          audit_at=NOW - timedelta(hours=2))
+    up_to(db, "r-veto", "gates")
+    with db.session() as s:
+        s.add(OwnerVeto(subject_ref="r-veto", scope="product", reason="off-brand"))
+    # M3: an older pass then a newer failure reads failed; the reverse reads passed; a
+    # "passed" with no completion time is not a completed test
+    for slug, order in (("r-passfail", (True, False)), ("r-failpass", (False, True))):
+        up_to(db, slug, "gates", physical=True)
+        with db.session() as s:
+            s.add(PhysicalTest(product_slug=slug, version="1.0.0", tester_ref="a",
+                               passed=order[0], completed_at=NOW - timedelta(days=2)))
+            s.add(PhysicalTest(product_slug=slug, version="1.0.0", tester_ref="b",
+                               passed=order[1], completed_at=NOW))
+    up_to(db, "r-undated", "gates", physical=True)
+    with db.session() as s:
+        s.add(PhysicalTest(product_slug="r-undated", version="1.0.0", tester_ref="c",
+                           passed=True, completed_at=None))
+    with _Patch():
+        inv = pi.derive(db)
+        assert item(inv, "r-ok")["state"] == pi.READY, item(inv, "r-ok")["why"]
+        assert item(inv, "r-veto")["state"] == pi.REJECTED
+        pf = item(inv, "r-passfail")
+        assert pf["physical_sample"]["status"] == "failed" and pf["state"] == pi.REVISION_REQUIRED
+        fp = item(inv, "r-failpass")
+        assert fp["physical_sample"]["status"] == "passed" and fp["state"] == pi.READY
+        und = item(inv, "r-undated")
+        assert und["physical_sample"]["status"] == "pending", und["physical_sample"]
+        assert und["state"] == pi.LISTING_COMPLETED and not und["tiers"]["public"]["ready"]
+
+        # M1: each crashing safety reader closes the gates (never Ready, never owner-pending)
+        def boom(*a, **k):
+            raise RuntimeError("reader down")
+        for mod, name, slug in ((mission_runtime, "active_veto", "r-veto"),
+                                (withholding, "reasons", "r-ok")):
+            saved = getattr(mod, name)
+            setattr(mod, name, boom)
+            try:
+                it = item(pi.derive(db), slug)
+            finally:
+                setattr(mod, name, saved)
+            assert it["state"] == pi.LISTING_COMPLETED, (name, it["state"], it["why"])
+            assert not it["tiers"]["private_draft"]["ready"] and not it["tiers"]["public"]["ready"]
+            assert "could not be read" in " ".join(it["evidence"]["product_gates"]["reasons"])
+        rec = pi.load_records(db)
+        rec["intents_unreadable"] = "draft intents could not be read: RuntimeError"
+        it = item(pi.derive(db, records=rec), "r-ok")
+        assert it["state"] == pi.LISTING_COMPLETED and not it["tiers"]["public"]["ready"]
+
+        # M12: a row whose derivation crashes is Revision required and never Ready anywhere
+        saved = pi.derive_row
+        pi.derive_row = boom
+        try:
+            crashed = pi.derive(db)
+        finally:
+            pi.derive_row = saved
+        assert crashed["counts"][pi.READY] == 0 and crashed["public_ready"] == 0
+        assert crashed["private_draft_ready"] == 0
+        assert all(i["state"] == pi.REVISION_REQUIRED and i["evidence"]["derivation_error"]
+                   for i in crashed["items"])
+
+        # M9: the live gate mode -- a blocking for_publish closes it; a passing one opens it
+        saved = (release_gates.for_publish, publication_authority._parity)
+        try:
+            release_gates.for_publish = lambda *a, **k: {"blocks_release": True,
+                                                         "reasons": ["window missed"]}
+            publication_authority._parity = lambda *a, **k: {"state": "PASS", "why": "ok"}
+            live = item(pi.derive(db, gate_mode="live"), "r-ok")
+            assert live["state"] == pi.LISTING_COMPLETED, live["state"]
+            assert live["evidence"]["product_gates"]["mode"] == "live"
+            assert "window missed" in live["evidence"]["product_gates"]["reasons"]
+            release_gates.for_publish = lambda *a, **k: {"blocks_release": False, "reasons": []}
+            assert item(pi.derive(db, gate_mode="live"), "r-ok")["state"] == pi.READY
+            publication_authority._parity = lambda *a, **k: {"state": "FAIL", "why": "frame 1"}
+            assert item(pi.derive(db, gate_mode="live"), "r-ok")["state"] != pi.READY
+        finally:
+            release_gates.for_publish, publication_authority._parity = saved
+
+
+class _write_spy:
+    """Record every INSERT/UPDATE/DELETE/DDL statement issued on `db` inside the block."""
+
+    def __init__(self, db):
+        self.db, self.seen = db, []
+
+    def _hook(self, conn, cursor, statement, params, context, executemany):
+        import re
+
+        if re.match(r"\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)", statement, re.I):
+            self.seen.append(statement[:120])
+
+    def __enter__(self):
+        from sqlalchemy import event
+
+        event.listen(self.db.engine, "before_cursor_execute", self._hook)
+        return self.seen
+
+    def __exit__(self, *a):
+        from sqlalchemy import event
+
+        event.remove(self.db.engine, "before_cursor_execute", self._hook)
+
+
 def _rows() -> dict:
     skip = {"cc_owner_sessions", "cc_security_events", "cc_nonces"}
     names = [n for n in inspect(DB.engine).get_table_names() if n not in skip]
@@ -454,10 +608,20 @@ def test_cc_production_requires_owner_session_and_is_read_only():
     r = c.post("/api/cc/auth/login", json={"passphrase": PASS})
     assert r.status_code == 200, r.text
     before = _rows()
-    r = c.get("/api/cc/production")
+    with _write_spy(DB) as writes:
+        r = c.get("/api/cc/production")
     assert r.status_code == 200, r.text[:400]
     assert r.headers.get("cache-control") == "no-store"
     assert _rows() == before, "reading the production view wrote a row"
+    # review Q1: row counts cannot see an UPDATE; the statement spy can. The only write a GET
+    # may make is the auth layer touching the owner's session.
+    others = [w for w in writes if "cc_owner_sessions" not in w]
+    assert not others, others
+    with _write_spy(DB) as writes:
+        pi.derive(DB)
+        pi.production_summary(DB)
+        production.build(DB)
+    assert not writes, writes
     data = r.json()
     assert data["tab"] == "PRODUCTION" and data["read_only"] is True
     for name in ("inventory", "tiers", "products", "agents_working", "recent_outputs",
