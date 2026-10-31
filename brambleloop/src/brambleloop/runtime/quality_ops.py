@@ -11,6 +11,11 @@ checks), and a disagreement becomes one deduplicated P2 incident (non-halting) f
 the code that drifted. That is regression detection: a compiler, writer or policy change that
 silently breaks a release already on sale is caught the next day, not by a buyer.
 
+P0-REVERIFY-WITHHOLD (OPUS2-P0, integrator-assigned): the certificate is still never changed,
+but a failed check now also withholds PUBLICATION of that release (`publish.withholding`
+kind `quality_reverify`, kept on the stored release so pruning the audit row cannot reopen it)
+until the same check passes again. Drafting and rebuilding are not blocked.
+
 * `gate.quality` (quality_director, daily cadence): enumerate the newest certified release per
   product and queue one re-verification of each kind under its owning agent.
 * `cir.twin` / `cir.reverse` (validator), `gate.asset_truth` (asset_truth), `gate.policy`
@@ -199,11 +204,20 @@ def _run_check(ctx: JobContext) -> dict:
         return {"ran": False, **r}
     resolved = _resolve(ctx.db, slug, version, check) if r["ok"] else 0
     inc = None if r["ok"] else _incident(ctx.db, slug, version, check, r["problems"])
+    # P0-REVERIFY-WITHHOLD (OPUS2-P0): the verdict is also kept on the stored release, which
+    # retention never prunes, and publication refuses on it until this check passes again.
+    from ..publish import withholding
+
+    held = withholding.record_reverification(
+        ctx.db, slug, version, check=check,
+        problem=None if r["ok"] else ((r["problems"] or ["failed"])[0]))
     ctx.audit(READING, artifact=f"{slug}@{version}",
               detail={**r, "incident": inc, "resolved": resolved,
+                      "withheld_checks": held.get("failed_checks", []),
                       "release_hash": i.get("release_hash", "")})
     return {**r, "slug": slug, "version": version, "incident": inc, "resolved": resolved,
-            "certificate_changed": False, "work_done": 1}
+            "certificate_changed": False, "withheld_checks": held.get("failed_checks", []),
+            "work_done": 1}
 
 
 for _jt in CHECKS:

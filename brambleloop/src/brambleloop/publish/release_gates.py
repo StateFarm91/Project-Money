@@ -1622,6 +1622,9 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for kind, entry in sorted(held["reasons"].items()):
         if kind == withholding.TEARDOWN_QA:
             reasons.append(f"release withheld (#163): {entry['reason']}")
+        elif kind == withholding.QUALITY_REVERIFY:
+            # P0-REVERIFY-WITHHOLD (OPUS2-P0): durable, so it survives audit-log pruning.
+            reasons.append(f"release withheld (re-verification): {entry['reason']}")
     # F-111 / F-118 / F-120 (cluster C): the product-level scope -- legacy quarantine, and
     # for a Launch-0 slug the first customer's nine-area gate -- decided in one place.
     from . import eligibility

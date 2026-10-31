@@ -145,7 +145,7 @@
         "src/brambleloop/runtime/etsy_ops.py (certified_images keeps the photo's alt text)"
       ],
       "claimed_at": "2026-10-31T03:40Z",
-      "state": "built_regression_pending",
+      "state": "ready_for_review",
       "depends_on": [
         "claude/w4-PHYSFIX (risk_matrix.physical_class_of, intake unedited attestation)",
         "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
@@ -162,7 +162,8 @@
         "tests/test_opus2_reverify_withhold.py"
       ],
       "claimed_at": "2026-10-31T07:20Z",
-      "state": "in_progress"
+      "state": "ready_for_review",
+      "evidence": "tests/test_opus2_reverify_withhold.py 4/4; 23-suite withholding/quality/for_publish/guard regression all exit 0 (2026-10-31)"
     }
   ],
   "unowned": [

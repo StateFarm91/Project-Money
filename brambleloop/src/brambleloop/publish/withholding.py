@@ -31,8 +31,16 @@ TEARDOWN_QA = "teardown_qa"
 OWNER_VETO = "owner_veto"
 COMPETITIVE_STANDARD = "competitive_standard"
 TEARDOWN_REQUIREMENTS = "teardown_requirements"
+# P0-REVERIFY-WITHHOLD (OPUS2-P0): a certified release that no longer passes the daily
+# re-verification (runtime.quality_ops) is withheld from publication until the same check
+# passes again. Kept here, on the stored release, so pruning the `quality.reverified` audit
+# row can never reopen publication. Publish-only: drafting and rebuilding continue, which is
+# how the fix reaches a new version.
+QUALITY_REVERIFY = "quality_reverify"
+REVERIFY_FAILED = "reverify_failed"      # certificate field: {check: first problem}
 
-KINDS: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO, COMPETITIVE_STANDARD, TEARDOWN_REQUIREMENTS)
+KINDS: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO, COMPETITIVE_STANDARD, TEARDOWN_REQUIREMENTS,
+                          QUALITY_REVERIFY)
 # Reasons that mean no content is built for the release at all (#163, #228). The standards
 # withhold *publication*: a listing may be drafted and rebuilt while the bar is not yet met.
 BUILD_BLOCKING: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO)
@@ -122,6 +130,36 @@ def record(db, slug: str, version: str, *, kind: str, reason: str | None) -> dic
                 cert.pop(SUMMARY, None)
             pv.certificate = cert
         return {**_view(slug, version, reasons), "recorded": True, "changed": changed}
+
+
+def record_reverification(db, slug: str, version: str, *, check: str,
+                          problem: str | None) -> dict:
+    """Set (`problem`) or clear (None) one re-verification check's failure, durably.
+
+    Each check is held on its own, so a pass of one check never clears another's failure; the
+    `QUALITY_REVERIFY` kind is set while any check fails and cleared when none does.
+    """
+    with db.session() as s:
+        pv = _release(s, slug, version)
+        if pv is None:
+            return {"slug": slug, "version": version, "recorded": False,
+                    "why": "no stored release to withhold"}
+        cert = dict(pv.certificate or {})
+        failed = dict(cert.get(REVERIFY_FAILED) or {})
+        if problem:
+            failed[check] = str(problem)[:300]
+        else:
+            failed.pop(check, None)
+        if failed:
+            cert[REVERIFY_FAILED] = failed
+        else:
+            cert.pop(REVERIFY_FAILED, None)
+        pv.certificate = cert
+    reason = (("quality re-verification failed: "
+               + "; ".join(f"{c}: {p}" for c, p in sorted(failed.items())))[:400]
+              if failed else None)
+    out = record(db, slug, version, kind=QUALITY_REVERIFY, reason=reason)
+    return {**out, "failed_checks": sorted(failed)}
 
 
 def reasons(db, slug: str, version: str) -> dict:

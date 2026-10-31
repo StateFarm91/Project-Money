@@ -349,3 +349,15 @@ Each W-INVENTORY dead end now has a deterministic successor (`runtime/chain_succ
 
 Base merged: 0cf0c59d. A failed re-verification will record a durable withholding that
 `for_publish` already refuses on, so pruning the audit row cannot reopen the gate.
+
+**Delivered (2026-10-31).** `publish/withholding.py` gains kind `quality_reverify`
+(publish-only, never build-blocking) and `record_reverification(db, slug, version, check=,
+problem=)`, which holds each failing check under `certificate["reverify_failed"]` and clears
+the kind only when no check is failing. `runtime/quality_ops._run_check` records every
+definite reading (ok True/False; an unknown reading changes nothing) and returns
+`withheld_checks`. `release_gates.for_publish` names it: "release withheld
+(re-verification): ...". `withholding.reconcile` never clears it (not a publish-standard
+kind). Tests: `tests/test_opus2_reverify_withhold.py` 4/4. The regression covers
+23 suites: every suite reading withholding, quality_ops, gate.quality or for_publish,
+plus the vacuity, retention, cost, roles, autonomy-timeline, maturity and launchfix guards.
+All exit 0.
