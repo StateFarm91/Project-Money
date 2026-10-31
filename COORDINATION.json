@@ -9,36 +9,140 @@
     "wake": "The integrator is woken by GitHub PR activity on subscribed PRs, and by a bounded recurring check-in. Neither is a guarantee of immediate response; usage limits apply."
   },
   "operators": {
-    "main-opus": {"role": "lead operator, integrator, certification, deployment coordination"},
-    "opus2": {"role": "isolated P0 engineering", "branch": "opus2/p0-revenue-workforce", "pr": 3}
+    "main-opus": {
+      "role": "lead operator, integrator, certification, deployment coordination"
+    },
+    "opus2": {
+      "role": "isolated P0 engineering",
+      "branch": "opus2/p0-revenue-workforce",
+      "pr": 3
+    }
   },
   "claims": [
-    {"id": "W-INVENTORY", "operator": "main-opus", "branch": "claude/w5-INVENTORY", "scope": "15-state inventory, flow health, CC Production view"},
-    {"id": "W-CONCEPT", "operator": "main-opus", "branch": "claude/w5-CONCEPT", "scope": "research-to-concept intake, seed-shop watchlist"},
-    {"id": "W-PDF", "operator": "main-opus", "branch": "claude/w4-PDF1", "scope": "premium customer PDFs, publish/pdf.py"},
-    {"id": "W-LISTING", "operator": "main-opus", "branch": "claude/w4-LISTING1", "scope": "basket identity source fix, manual listing packages"},
-    {"id": "W-LAUNCHFIX", "operator": "main-opus", "branch": "claude/w4-LAUNCHFIX", "scope": "launch gates, CC #/policy form, sample-photo gate"},
-    {"id": "W-PHYSFIX", "operator": "main-opus", "branch": "claude/w4-PHYSFIX", "scope": "physical intake, tester kits, photo-first ordering"},
-    {"id": "W-ADOPT", "operator": "main-opus", "branch": "claude/w4-ADOPT", "scope": "manual listing adoption"},
-    {"id": "W-RESUMEFIX", "operator": "main-opus", "branch": "claude/w4-RESUMEFIX", "scope": "restartable runner security"},
-    {"id": "W-READBACK", "operator": "main-opus", "branch": "claude/w4-READBACK", "scope": "production evidence endpoint"},
-    {"id": "INTEG-PDF-CHAIN", "operator": "main-opus", "branch": "(integrator)", "scope": "automatic premium PDF in assets.build"},
-    {"id": "INTEG-LISTING-JOB", "operator": "main-opus", "branch": "(integrator)", "scope": "automatic listing-package assembly job"},
-    {"id": "OPUS2-SIZECLAIMS", "operator": "opus2", "branch": "opus2/p0-revenue-workforce", "scope": "gates/size_claims.py"},
-    {"id": "OPUS2-LAURAHOME", "operator": "opus2", "branch": "opus2/p0-revenue-workforce", "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"}
+    {
+      "id": "W-INVENTORY",
+      "operator": "main-opus",
+      "branch": "claude/w5-INVENTORY",
+      "scope": "15-state inventory, flow health, CC Production view"
+    },
+    {
+      "id": "W-CONCEPT",
+      "operator": "main-opus",
+      "branch": "claude/w5-CONCEPT",
+      "scope": "research-to-concept intake, seed-shop watchlist"
+    },
+    {
+      "id": "W-PDF",
+      "operator": "main-opus",
+      "branch": "claude/w4-PDF1",
+      "scope": "premium customer PDFs, publish/pdf.py"
+    },
+    {
+      "id": "W-LISTING",
+      "operator": "main-opus",
+      "branch": "claude/w4-LISTING1",
+      "scope": "basket identity source fix, manual listing packages"
+    },
+    {
+      "id": "W-LAUNCHFIX",
+      "operator": "main-opus",
+      "branch": "claude/w4-LAUNCHFIX",
+      "scope": "launch gates, CC #/policy form, sample-photo gate"
+    },
+    {
+      "id": "W-PHYSFIX",
+      "operator": "main-opus",
+      "branch": "claude/w4-PHYSFIX",
+      "scope": "physical intake, tester kits, photo-first ordering"
+    },
+    {
+      "id": "W-ADOPT",
+      "operator": "main-opus",
+      "branch": "claude/w4-ADOPT",
+      "scope": "manual listing adoption"
+    },
+    {
+      "id": "W-RESUMEFIX",
+      "operator": "main-opus",
+      "branch": "claude/w4-RESUMEFIX",
+      "scope": "restartable runner security"
+    },
+    {
+      "id": "W-READBACK",
+      "operator": "main-opus",
+      "branch": "claude/w4-READBACK",
+      "scope": "production evidence endpoint"
+    },
+    {
+      "id": "INTEG-PDF-CHAIN",
+      "operator": "main-opus",
+      "branch": "(integrator)",
+      "scope": "automatic premium PDF in assets.build"
+    },
+    {
+      "id": "INTEG-LISTING-JOB",
+      "operator": "main-opus",
+      "branch": "(integrator)",
+      "scope": "automatic listing-package assembly job"
+    },
+    {
+      "id": "OPUS2-SIZECLAIMS",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "scope": "gates/size_claims.py"
+    },
+    {
+      "id": "OPUS2-LAURAHOME",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
+    }
   ],
   "unowned": [
-    {"id": "P0-NEXT-PRODUCT", "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"},
-    {"id": "P0-COMPETITOR-EVIDENCE", "scope": "production evidence of competitor scans (timestamps, downstream research, honest not-accessible records)"},
-    {"id": "P0-GALLERY-ASSEMBLY", "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant)"},
-    {"id": "P0-PERF-LEARNING", "scope": "live-listing performance into Winner Amplification and product priorities (no fabricated data)"}
+    {
+      "id": "P0-NEXT-PRODUCT",
+      "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
+    },
+    {
+      "id": "P0-COMPETITOR-EVIDENCE",
+      "scope": "production evidence of competitor scans (timestamps, downstream research, honest not-accessible records)"
+    },
+    {
+      "id": "P0-GALLERY-ASSEMBLY",
+      "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant); INCLUDES: a photo-led / mixed variant of the disclosed listing-set certificate (listing_set.certify_disclosed refuses a mixed set today, so Launch-0 galleries cannot lead with the owner's unedited sample photo even after PHYSFIX-PHOTO ordering)"
+    },
+    {
+      "id": "P0-PERF-LEARNING",
+      "scope": "live-listing performance into Winner Amplification and product priorities (no fabricated data)"
+    }
   ],
   "reviews": [
-    {"pr": 3, "sha": "a606d328", "verdict": "CHANGES_REQUIRED", "at": "2026-10-31T01:55Z",
-     "items": ["split f3b763fb into laura_home+flux3 / rim negative / acceptance instrumentation",
-               "add owner variation requirement to laura_home (angles, lighting, clutter, activity) with tests"],
-     "accepted_pending_review": ["0343b6b0 size-claim gate (after LAUNCHFIX delta review + LISTING1)", "rim negative", "laura_home", "scripts/p0_acceptance.py as instrumentation"]},
-    {"pr": 4, "sha": "f4f3f7bf", "verdict": "REJECTED", "reason": "duplicates W5-INVENTORY; reference only"}
+    {
+      "pr": 3,
+      "sha": "a606d328",
+      "verdict": "CHANGES_REQUIRED",
+      "at": "2026-10-31T01:55Z",
+      "items": [
+        "split f3b763fb into laura_home+flux3 / rim negative / acceptance instrumentation",
+        "add owner variation requirement to laura_home (angles, lighting, clutter, activity) with tests"
+      ],
+      "accepted_pending_review": [
+        "0343b6b0 size-claim gate (after LAUNCHFIX delta review + LISTING1)",
+        "rim negative",
+        "laura_home",
+        "scripts/p0_acceptance.py as instrumentation"
+      ]
+    },
+    {
+      "pr": 4,
+      "sha": "f4f3f7bf",
+      "verdict": "REJECTED",
+      "reason": "duplicates W5-INVENTORY; reference only"
+    }
   ],
-  "integration": {"base": "claude/w4-INTEG8-next", "production": "ee35a493", "batch4_status": "awaiting LAUNCHFIX delta review, RESUMEFIX re-review, PHYSFIX, ADOPT"}
+  "integration": {
+    "base": "claude/w4-INTEG8-next",
+    "production": "ee35a493",
+    "batch4_status": "reviews pending: LAUNCHFIX delta (8c14dbf2), RESUMEFIX re-review (e634e6fc), PHYSFIX (adabd597 + PHOTO 23efd5dc); READBACK SHIP; ADOPT follow-up in progress"
+  }
 }
