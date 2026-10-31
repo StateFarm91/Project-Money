@@ -383,3 +383,26 @@ required.
 - New coaster record sheet: `7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df`.
 - New manifests: basket `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb`,
   coaster `d56e25f949f48faa9b48095034762ce0c15d5d0e40da03d74cc0d75fcadecb83`.
+
+**Runs after the review fixes** (each via `testslot.sh`, one at a time, on `claude/w4-PHYSFIX`):
+
+| Suite | Result |
+|---|---|
+| `test_physfix` | 23/23 |
+| `test_secreview_physfix_adversarial` | 12/12 |
+| `test_physical` | 18/18 |
+| `test_physical_record_blocked` | 5/5 |
+| `test_risk_matrix` | 17/17 |
+| `test_w4_gatesb` | 10/10 |
+| `test_first_customer_gate` | 12/12 |
+| `test_launch0_listing_truth` | 14/14 |
+| `test_gates` | 44/44 |
+| `test_artefacts` | 23/23 |
+| `test_w4_listready` | 31/31 |
+| `test_eligibility` | 34/34 |
+| `test_acceptance_gates` | 23/23 |
+
+`test_launch0_listing_truth` had one failure on the first run. Its fixture row carried no size
+comparison and was expected to clear the size gate, which is exactly the F3 gap. The fixture now
+records `size_agrees: True`. A new step in that test asserts that a bound row with no size
+comparison stays UNRESOLVED.
