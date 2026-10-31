@@ -131,13 +131,31 @@ def rows_by_feature() -> dict[str, list[str]]:
     return {feature: list(rows) for feature, rows, *_ in MANIFEST}
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """L4 (READBACK review): a bearer token is never carried to a redirect target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect refused: {code}", headers, fp)
+
+
+def _token_url_ok(url: str) -> bool:
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    return parts.scheme == "https" or (parts.scheme == "http"
+                                       and parts.hostname in ("localhost", "127.0.0.1"))
+
+
 def _fetch(url: str, token: str | None = None) -> tuple[int | None, object]:
     headers = {"Accept": "application/json"}
+    opener = urllib.request.build_opener()
     if token:
+        if not _token_url_ok(url):
+            raise SystemExit(f"refusing to send a token over a non-https URL: {url!r}")
         headers["Authorization"] = f"Bearer {token}"
+        opener = urllib.request.build_opener(_NoRedirect)
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:  # noqa: S310 - fixed https URL
+        with opener.open(req, timeout=60) as r:  # noqa: S310 - https enforced when a token rides
             code, raw = r.status, r.read()
     except urllib.error.HTTPError as e:
         code, raw = e.code, e.read()

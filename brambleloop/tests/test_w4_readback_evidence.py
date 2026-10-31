@@ -313,6 +313,7 @@ def test_dead_letters_are_grouped_by_type_and_error_class_without_text():
     assert got == {("improve.weekly", "TypeError"): 2, ("mjs.scan", "BudgetExceeded"): 1,
                    ("radar.scan", "unclassified"): 1}, got
     assert PRIVATE["error_text"] not in json.dumps(ev), ev
+    from brambleloop.gateway import paid_calls  # noqa: F401 - loads PaidCallUnresolved
     assert pe.error_class("brambleloop.x.PaidCallUnresolved: y") == "PaidCallUnresolved"
     assert pe.error_class("lower.case: y") == "unclassified"
     assert pe.error_class(None) == "unclassified"
@@ -770,6 +771,57 @@ def test_the_taxonomy_refresh_is_projected_ids_and_names_only():
         body = c.get("/api/readback/evidence", headers=bearer(READBACK_TOKEN)).json()
     assert body["etsy_taxonomy"] == {"readable": True, "refreshed": False,
                                      "refreshed_at": None}, body["etsy_taxonomy"]
+
+
+def test_l1_error_class_never_carries_a_word_of_error_text():
+    """READBACK review L1: only a loaded exception class name is emitted."""
+    for text in ("JaneDoe: refund requested", "Laura: owner said x", "Customer.JohnSmith: x"):
+        assert pe.error_class(text) == "unclassified", text
+    assert pe.error_class("ValueError: JaneDoe") == "ValueError"
+
+
+def test_l2_systemic_reading_without_a_bool_is_not_judged_clear():
+    """READBACK review L2: a missing or non-bool `systemic` key never reads as "not systemic"."""
+    base = {"readable": True, "truth_sweep_age_hours": 0.5,
+            "truth_sweep_systemic_evaluated": True, "systemic_halt_open": 0}
+    assert pe.judge_publishing_halt({**base, "truth_sweep_systemic": False}) is True
+    for bad in (None, {}, 0, "false"):
+        assert pe.judge_publishing_halt({**base, "truth_sweep_systemic": bad}) is False, bad
+    src = Path(pe.__file__).read_text()
+    assert 'bool(systemic_reading.get("systemic"))' not in src
+
+
+def test_l3_future_dated_evidence_is_never_fresh():
+    """READBACK review L3: a timestamp from the future fails both freshness judges."""
+    halt = {"readable": True, "truth_sweep_systemic_evaluated": True,
+            "truth_sweep_systemic": False, "systemic_halt_open": 0}
+    assert pe.judge_publishing_halt({**halt, "truth_sweep_age_hours": -24 * 365}) is False
+    assert pe.judge_publishing_halt({**halt, "truth_sweep_age_hours": -0.05}) is True  # skew
+    stale = {"readable": True, "sentinel_stale_artefacts": 0, "open_stale_artefact_incidents": 0}
+    assert pe.judge_stale_rebuilds({**stale, "sentinel_age_hours": -24 * 365}) is False
+    assert pe.judge_stale_rebuilds({**stale, "sentinel_age_hours": 1.0}) is True
+
+
+def test_l4_cli_token_never_follows_a_redirect_or_rides_plain_http():
+    """READBACK review L4: no bearer over http (except localhost), and no redirect with a token."""
+    import urllib.error
+    import urllib.request
+
+    import readback
+    try:
+        readback._fetch("http://example.invalid/api/verify", token="t0k")
+        raise AssertionError("a token was allowed over plain http")
+    except SystemExit:
+        pass
+    assert readback._token_url_ok("http://127.0.0.1:8000/x") is True
+    assert readback._token_url_ok("https://x.invalid/y") is True
+    req = urllib.request.Request("https://a.invalid/x", headers={"Authorization": "Bearer t0k"})
+    try:
+        readback._NoRedirect().redirect_request(req, io.BytesIO(b""), 302, "Found", {},
+                                                "https://evil.invalid/")
+        raise AssertionError("a redirect was followed with the token attached")
+    except urllib.error.HTTPError as e:
+        assert e.code == 302
 
 
 if __name__ == "__main__":

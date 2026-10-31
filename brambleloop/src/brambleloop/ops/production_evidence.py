@@ -90,6 +90,26 @@ _CLASS = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\
 _CLASS_NAME = re.compile(r"^[A-Z][A-Za-z0-9_]{1,63}$")
 
 
+def _known_exception_names() -> frozenset[str]:
+    """L1 (READBACK review): the names of every exception class loaded in this process. A name
+    is emitted only when it is one of these, so one word of error text ("JaneDoe: refund
+    requested") can never travel as an error_class."""
+    seen, stack = set(), [BaseException]
+    while stack:
+        cls = stack.pop()
+        if cls.__name__ in seen:
+            continue
+        seen.add(cls.__name__)
+        try:
+            stack.extend(cls.__subclasses__())
+        except TypeError:  # type.__subclasses__ needs an instance on some metaclasses
+            continue
+    return frozenset(seen)
+
+# a few minutes of clock skew between writer and reader is tolerated; a future-dated row is not
+_SKEW_H = 0.1
+
+
 def error_class(last_error: str | None) -> str:
     """The exception class of a recorded error, never its text."""
     head = ((last_error or "").strip().splitlines() or [""])[0]
@@ -100,7 +120,7 @@ def error_class(last_error: str | None) -> str:
     m = _CLASS.match(head)
     if m:
         name = m.group(1).rsplit(".", 1)[-1]
-        if _CLASS_NAME.match(name):
+        if _CLASS_NAME.match(name) and name in _known_exception_names():
             return name
     return "unclassified"
 
@@ -206,7 +226,9 @@ def publishing_halt(db, *, now: datetime) -> dict:
         "truth_sweep_last_at": _iso(sweep_at),
         "truth_sweep_age_hours": _age_h(sweep_at, now),
         "truth_sweep_systemic_evaluated": reading_ok,
-        "truth_sweep_systemic": bool(systemic_reading.get("systemic")) if reading_ok else None,
+        "truth_sweep_systemic": (systemic_reading.get("systemic")
+                                 if reading_ok and isinstance(systemic_reading.get("systemic"), bool)
+                                 else None),
         "systemic_halt_open": len(open_systemic_view),
         "systemic_halt_open_rows": open_systemic_view,
         "systemic_halt_last_resolved": last_resolved_view,
@@ -572,7 +594,7 @@ def _section(name: str, db, now) -> dict:
 
 def judge_publishing_halt(ev: dict) -> bool:
     age = ev.get("truth_sweep_age_hours")
-    return bool(ev.get("readable") and age is not None
+    return bool(ev.get("readable") and age is not None and age >= -_SKEW_H
                 and age <= TRUTH_SWEEP_FRESH.total_seconds() / 3600
                 and ev.get("truth_sweep_systemic_evaluated") is True
                 and ev.get("truth_sweep_systemic") is False
@@ -581,7 +603,7 @@ def judge_publishing_halt(ev: dict) -> bool:
 
 def judge_stale_rebuilds(ev: dict) -> bool:
     age = ev.get("sentinel_age_hours")
-    if not (ev.get("readable") and age is not None
+    if not (ev.get("readable") and age is not None and age >= -_SKEW_H
             and age <= SENTINEL_FRESH.total_seconds() / 3600
             and isinstance(ev.get("sentinel_stale_artefacts"), int)):
         return False
