@@ -7,7 +7,9 @@ Ported verbatim from the review's Appendix A into the branch suite (W-ADOPT, fix
 only this docstring, the temp sandbox line and the non-zero exit on failure were added, and
 one fixture value changed: `test_after_acceptance_policy_fields_still_drift` built its listing
 with `materials=[]`, which the fix now (correctly) reports as drift against the CIR's
-materials before any change is made; it uses the certified `["dk cotton"]` instead.
+materials before any change is made; it uses the certified `["dk cotton"]` instead. After the
+delta review (N-1) its precondition is "no policy-field drift" rather than "no drift at all",
+because uncompared properties now correctly keep the halting incident open.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_w4_secreview_adopt_adversarial.py
 """
@@ -52,11 +54,20 @@ def test_after_acceptance_policy_fields_still_drift():
     live = {lid: dict(base)}
     t = T.transport(live)
     _adopt_and_accept(lid, live, t)
-    assert lid not in T.run_census(t)["field_drift"]
+    policy = ("who_made:", "when_made:", "is_supply:", "type:", "quantity:", "materials:")
+
+    def drift_lines():
+        T.run_census(t)
+        inc = T.open_incident(f"etsy.listing_drift:{lid}")
+        return list((inc.detail or {}).get("drift") or []) if inc is not None else []
+
+    # Delta-review N-1: with no certified payload the census now keeps one "properties ...
+    # UNVERIFIED" line open, so the precondition is "no policy-field drift", not "no drift".
+    assert not any(d.startswith(policy) for d in drift_lines())
     # The owner (or anyone with Shop Manager access) changes who-made and the listing type.
     live[lid] = {**base, "who_made": "someone_else", "type": "physical", "quantity": 1,
                  "is_supply": False}
-    found = lid in T.run_census(t)["field_drift"]
+    found = any(d.startswith(policy) for d in drift_lines())
     assert found, ("who_made/type/quantity/is_supply changed after the baseline was accepted "
                    "and the census reported no drift")
 
@@ -177,6 +188,93 @@ def test_accept_baseline_refuses_bearer_and_replayed_nonce():
         assert r2.status_code in (401, 403, 409), ("replayed nonce accepted", r2.text)
     assert T.baseline_of(lid) is None
 
+
+
+# ---- Delta review of 752950e4 (INDEPENDENT_SECREVIEW_ADOPT_752950e.md), Appendix A ---------
+# A.1 and A.2 below are the reviewer's reproduction scripts, turned into assertions of the
+# SAFE behaviour (the scripts printed; these assert).
+
+
+def test_a1_baseline_never_turns_no_payload_drift_into_silence():
+    """N-1: accepted baseline, no certified payload, properties change on Etsy afterwards:
+    the halting drift incident stays open and the census does not resolve it."""
+    lid = "7902"
+    live = {lid: T.remote_listing(lid, description=T.EDITED)}
+    t = T.transport(live)
+    rel = T.seed(DB)
+    T.adopt(DB, t, lid, rel)
+    T.run_census(t)
+    inc = T.open_incident(f"etsy.listing_drift:{lid}")
+    assert inc is not None and inc.halts_publication
+    with patch.dict(os.environ, T.ETSY_ENV), patch.object(MA, "_transport", lambda: t):
+        shown = MA.baseline_preview(DB, etsy_listing_id=lid, **BODY)
+        r = MA.accept_baseline(DB, etsy_listing_id=lid, expected_digest=shown["digest"],
+                               actor="owner:x", reason="e", **BODY)
+    assert f"etsy.listing_drift:{lid}" in r["incidents_kept_open"], r
+    live[lid]["properties"] = [{"property_id": 1, "value_ids": [9]}]
+    c = T.run_census(t)
+    assert lid in c["field_drift"], c
+    after = T.open_incident(f"etsy.listing_drift:{lid}")
+    assert after is not None and after.halts_publication, "a census resolved uncompared drift"
+    assert any(d.startswith("properties:") for d in after.detail["drift"]), after.detail
+    assert MA.proof_problems(DB, etsy_listing_id=lid, **BODY), "proven while uncompared"
+    assert t.writes() == []
+
+
+def test_a2_baseline_never_drops_what_was_not_compared():
+    """N-2 (+N-3): files never read; a baseline is accepted; the listing must stay unproven
+    in live phases."""
+    from brambleloop.integrations.etsy import ListingPayload
+    from brambleloop.runtime import etsy_ops
+
+    lid = "7901"
+    payload = ListingPayload(title=T.TITLE, description=T.EDITED, price=4.0,
+                             tags=list(T.TAGS), materials=["dk cotton"], taxonomy_id=2856)
+    known = {"known": True, "taxonomy_id": 2856, "properties": []}
+    live = {lid: T.remote_listing(lid, description=T.EDITED, properties=[])}
+    t = T.transport(live)
+    real = MA.read_listing
+
+    def no_files(*a, **k):
+        out = real(*a, **k)
+        out.pop("files", None)
+        out["files_error"] = "HTTP 503"
+        return out
+
+    with patch.object(etsy_ops, "certified_payload", lambda db, s, v: payload), \
+            patch.object(MA, "_certified_taxonomy", lambda *a, **k: dict(known)), \
+            patch.object(MA, "read_listing", no_files):
+        rel = T.seed(DB)
+        res = T.adopt(DB, t, lid, rel)
+        assert res["verification"] == MA.VERIFIED
+        assert any("getAllListingFiles" in n for n in res["not_verifiable"]), res
+        with patch.dict(os.environ, T.ETSY_ENV), patch.object(MA, "_transport", lambda: t):
+            shown = MA.baseline_preview(DB, etsy_listing_id=lid, **BODY)
+            assert any("getAllListingFiles" in n for n in shown["not_covered_by_baseline"]), \
+                shown["not_covered_by_baseline"]
+            r = MA.accept_baseline(DB, etsy_listing_id=lid, expected_digest=shown["digest"],
+                                   actor="owner:x", reason="edit", **BODY)
+        assert "listing.adoption_review:hexagon-coaster-set@1.2.0" in r["incidents_kept_open"]
+        T.run_census(t)
+        p = MA.proof_problems(DB, etsy_listing_id=lid, **BODY)
+        assert any("getAllListingFiles" in x for x in p), p
+        unproven = [u for u in verify_checks._published_rows_proven(DB)["unproven"]
+                    if u["etsy_listing_id"] == lid]
+        assert unproven, "a listing whose files were never read is proven"
+    assert t.writes() == []
+
+
+def test_materials_left_empty_on_etsy_is_reported_after_acceptance():
+    """The case the F-1 fix newly catches (review suggestion): materials=[] on Etsy against
+    the CIR's ["dk cotton"] is drift, baseline or not."""
+    lid = "7103"
+    t = T.transport({lid: T.remote_listing(lid, description=T.EDITED, materials=[])})
+    _adopt_and_accept(lid, None, t)
+    T.run_census(t)
+    inc = T.open_incident(f"etsy.listing_drift:{lid}")
+    assert inc is not None and any(d.startswith("materials:") for d in inc.detail["drift"]), \
+        inc and inc.detail
+    assert t.writes() == []
 
 if __name__ == "__main__":
     failed = 0

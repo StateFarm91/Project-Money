@@ -113,6 +113,10 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W-ADOPT: commerce.orders_ingest matches orders against every adoption ever recorded.
+    "listing.adopted_manual": ("lifetime_total",
+                               "commerce.orders_ingest matches every adopted listing; "
+                               "manual_adoption links a hand-made listing to its release"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.

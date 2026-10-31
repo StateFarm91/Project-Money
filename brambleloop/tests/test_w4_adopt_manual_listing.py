@@ -577,9 +577,15 @@ def test_hand_edits_accepted_as_baseline_stop_the_halting_drift_and_new_drift_st
 
     # The census now compares with the baseline: the accepted edit is not drift.
     second = run_census(t)
-    assert "2001" not in second["field_drift"], second
-    assert open_incident("etsy.listing_drift:2001") is None, \
-        "the census observed no copy or policy-field drift and resolved it"
+    # The accepted copy edit is no longer drift. SECREVIEW N-1: but with no certified payload
+    # the listing's properties are uncompared, so the halting incident stays open and the
+    # census cannot resolve it -- a baseline never relaxes a halting gate.
+    drift_now = open_incident("etsy.listing_drift:2001")
+    assert drift_now is not None and drift_now.halts_publication, second
+    assert not any(d.startswith(("description:", "title:", "tags:"))
+                   for d in drift_now.detail["drift"]), drift_now.detail
+    assert any(d.startswith("properties:") and "UNVERIFIED" in d
+               for d in drift_now.detail["drift"]), drift_now.detail
     # Genuinely new drift after acceptance still raises the halting incident.
     live["2001"] = remote_listing("2001", description=EDITED, title="Hexagon Coasters PDF")
     third = run_census(t)
@@ -818,6 +824,118 @@ def test_concurrent_adoptions_cannot_bind_one_etsy_id_to_two_releases():
         else:
             raise AssertionError("manual_listing_claims accepted a duplicate Etsy id")
         db.engine.dispose()
+    assert t.writes() == []
+
+# ---- SECREVIEW 752950e N-4: each F-2 proof clause, pinned on its own ---------------------
+
+
+def test_each_proof_clause_alone_makes_a_manual_listing_unproven():
+    """Start from a proven listing; break exactly one condition at a time; that one clause
+    must be what makes it unproven (no other clause covers for it)."""
+    from brambleloop.app import verify_checks
+
+    with tempfile.TemporaryDirectory() as td:
+        db = Database("sqlite:///" + str(Path(td) / "clauses.db"), scratch=True)
+        db.create_all()
+        release = seed(db)
+        known = {"known": True, "taxonomy_id": 2856, "properties": []}
+        with patch.object(MA, "_certified_taxonomy", lambda *a, **k: dict(known)):
+            adopt(db, transport({"3301": remote_listing("3301")}), "3301", release)
+        key = draft_intent.key_for("hexagon-coaster-set", "1.2.0")
+        args = dict(slug="hexagon-coaster-set", version="1.2.0", etsy_listing_id="3301")
+        assert MA.proof_problems(db, **args) == [], "the starting point is proven"
+        with db.session() as s:
+            original = dict(s.get(draft_intent.DraftIntent, key).detail)
+
+        def with_detail(**over):
+            with db.session() as s:
+                s.get(draft_intent.DraftIntent, key).detail = {**original, **over}
+            try:
+                return MA.proof_problems(db, **args)
+            finally:
+                with db.session() as s:
+                    s.get(draft_intent.DraftIntent, key).detail = dict(original)
+
+        def with_incident(sig):
+            with db.session() as s:
+                s.add(Incident(severity="P2", signature=sig, summary="t",
+                               halts_publication=False, detail={}))
+            try:
+                return MA.proof_problems(db, **args)
+            finally:
+                with db.session() as s:
+                    for row in s.scalars(select(Incident).where(Incident.signature == sig)):
+                        s.delete(row)
+
+        cases = {
+            "UNVERIFIED": with_detail(verification="UNVERIFIED"),
+            "differences": with_detail(differences=[{"field": "title", "certified": "a",
+                                                     "etsy": "b", "note": ""}]),
+            "not_verifiable": with_detail(not_verifiable=[
+                "digital files: getAllListingFiles was not read"]),
+            "baseline.not_covered": with_detail(accepted_baseline={
+                "not_covered": ["who_made: certified 'i_did', Etsy holds 'someone_else'"],
+                "not_verifiable": []}),
+            # N-2: a baseline with nothing uncovered but an uncompared item is NOT proven.
+            "baseline.not_verifiable": with_detail(accepted_baseline={
+                "not_covered": [],
+                "not_verifiable": ["digital files: getAllListingFiles was not read"]}),
+            # N-2: an older baseline that recorded no notes falls back to the adoption's.
+            "baseline without notes keeps adoption notes": with_detail(
+                accepted_baseline={"not_covered": []},
+                not_verifiable=["price plan band: unknown"]),
+            "open review incident": with_incident(
+                "listing.adoption_review:hexagon-coaster-set@1.2.0"),
+            "open drift incident": with_incident("etsy.listing_drift:3301"),
+        }
+        for name, problems in cases.items():
+            assert len(problems) == 1, (name, problems)
+        assert "UNVERIFIED" in cases["UNVERIFIED"][0]
+        assert "title" in cases["differences"][0]
+        assert "getAllListingFiles" in cases["not_verifiable"][0]
+        assert "who_made" in cases["baseline.not_covered"][0]
+        assert "getAllListingFiles" in cases["baseline.not_verifiable"][0]
+        assert "price plan band" in cases["baseline without notes keeps adoption notes"][0]
+        assert "open incident listing.adoption_review" in cases["open review incident"][0]
+        assert "open incident etsy.listing_drift:3301" in cases["open drift incident"][0]
+        # No adoption record for the id at all.
+        assert MA.proof_problems(db, slug="hexagon-coaster-set", version="1.2.0",
+                                 etsy_listing_id="3399") == [
+            "published manually with no adoption record"]
+        # And the proof is what /api/verify (live phases) reports.
+        assert verify_checks._published_rows_proven(db)["unproven"] == []
+        db.engine.dispose()
+
+
+def test_preview_compares_properties_from_a_read_that_includes_them():
+    """SECREVIEW N-3: with a certified payload, the preview's property comparison uses the
+    properties read from Etsy (not 'not returned'); unread properties are said to be unread."""
+    from brambleloop.integrations.etsy import ListingPayload
+
+    release = seed(DB)
+    payload = ListingPayload(title=TITLE, description=EDITED, price=4.0, tags=list(TAGS),
+                             materials=["dk cotton"], taxonomy_id=2856)
+    known = {"known": True, "taxonomy_id": 2856, "properties": []}
+    t = transport({"3401": remote_listing("3401", description=EDITED)})
+    with patch.object(etsy_ops, "certified_payload", lambda db, s, v: payload), \
+            patch.object(MA, "_certified_taxonomy", lambda *a, **k: dict(known)):
+        adopt(DB, t, "3401", release)
+        with patch.dict(os.environ, ETSY_ENV), patch.object(MA, "_transport", lambda: t):
+            shown = MA.baseline_preview(DB, slug="hexagon-coaster-set", version="1.2.0",
+                                        etsy_listing_id="3401")
+            assert shown["not_covered_by_baseline"] == [], shown["not_covered_by_baseline"]
+            real = MA.read_listing
+
+            def no_props(*a, **k):
+                out = real(*a, **k)
+                out.pop("properties", None)
+                return out
+
+            with patch.object(MA, "read_listing", no_props):
+                unread = MA.baseline_preview(DB, slug="hexagon-coaster-set", version="1.2.0",
+                                             etsy_listing_id="3401")
+            assert "properties: getListingProperties was not read" in \
+                unread["not_covered_by_baseline"], unread
     assert t.writes() == []
 
 # ---- read-only against Etsy -------------------------------------------------------------
