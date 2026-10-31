@@ -20,7 +20,14 @@ Dependencies were installed into a scratch venv from `requirements.lock` + `requ
 | test_w4_fmbatch1_retention_guard | all OK (30 s) |
 | test_w4_retfix_retention_keys | all OK (1 s) |
 | test_w4_owner_queue_race, run 1 / 2 / 3 | all OK (47 s / 44 s / 47 s) |
-RESULTS_PENDING
+| test_w4_resume_runner | all OK (102 s) |
+| test_w3_decision_index | all OK, including `test_the_index_matches_the_log` (1 s) |
+| test_w4_adopt_manual_listing | all OK (8 s) |
+| test_w4_launchfix | 32 passed, 0 failed (27 s) |
+| test_etsy_surfaces | all OK (1 s) |
+| test_w3_k7_owner_queue | 10 passed, 0 failed (3 s) |
+
+All ten suites exit 0, and no log contains a FAIL line.
 
 **Discrimination checks** (separate worktree, fix removed):
 - f4c3899b with the `_serialise_owner_queue(s, db)` line removed: the new forced-interleaving test
@@ -109,8 +116,8 @@ those two.
 **Exposure:** `Job.finished_at` is written by the runner's own clock, so only clock skew or a
 manual DB write can trigger this. Anonymous callers cannot write it.
 
-**Repro:** seed a DONE `improve.weekly` job with `finished_at = now + 365 d`. Call
-`judge_weekly(weekly_jobs(db, now=now))`: it returns True.
+**Repro:** seed a DONE `improve.weekly` job with `finished_at = now + 365 d`. Then `weekly_jobs_completing` returns **True**.
+Verified with the suite's own `_fresh_db`/`_weekly` helpers: a job dated `NOW+365 d` gives True; one dated `NOW-30 d` gives False.
 
 **Fix:** use `timedelta(hours=-_SKEW_H) <= now - done_at <= WEEKLY_GRACE`.
 
