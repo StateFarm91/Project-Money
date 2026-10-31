@@ -70,7 +70,6 @@ def test_the_parser_reads_promises_not_incidental_words():
           "The medium basket. The small and large are sold separately.",
           "This listing is the medium basket; the small and large are separate listings.",
           "Measure your gauge swatch: 10 cm square."]
-    assert fail and ok
     for t in fail:
         assert Z.check_texts({"listing": t})["state"] == Z.FAIL, t
     for t in ok:

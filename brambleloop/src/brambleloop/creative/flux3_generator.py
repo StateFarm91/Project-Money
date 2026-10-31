@@ -227,14 +227,7 @@ class Flux3Generator:
                     spec["image"] = img
                 ident = self._prior(references, "identity_anchor")
                 base = self._prior(references, "edit_base")
-                # OPUS2-P0 (owner §14 "Laura's Home"): every lifestyle frame is in Laura's
-                # own house, the listing's one room (`visual.laura_home`), so rooms no longer
-                # drift between generations. The outfit's free-text setting no longer decides
-                # where she is.
-                from ..visual import laura_home
-
-                home = laura_home.scene_for(slug)
-                scene = {"environment": home["environment"], "pose": brief or "",
+                scene = {"environment": o.get("setting") or "", "pose": brief or "",
                          "framing": ""}
                 if base is not None:
                     # Stage D (W-VISNEXT2): edit the listing's accepted lifestyle frame, so the
@@ -253,14 +246,8 @@ class Flux3Generator:
                         fidelity=anchor["verdict"], role=role, size=self.size,
                         scene=scene, identity_anchor=ident, **kw)
             else:
-                # A product-only styled scene is in the same house: a short room cue leads the
-                # edit instruction, inside the stage's character cap.
-                from ..visual import laura_home
-
-                room_cue = laura_home.scene_for(slug)["cue"]
-                edit = f"{room_cue}. {brief or ''}".strip()[:S.MAX_EDIT_CHARS]
-                cand = S.variant(rel, anchor["candidate"], "styled_scene", edit,
-                                 size=self.size, **kw)
+                cand = S.variant(rel, anchor["candidate"], "styled_scene",
+                                 (brief or "")[:S.MAX_EDIT_CHARS], size=self.size, **kw)
         r = cand.receipt
         return {"data": Path(cand.path).read_bytes(), "provider": r.get("provider"),
                 "model": r.get("model"), "prompt": r.get("prompt_ref"),
