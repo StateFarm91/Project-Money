@@ -1235,10 +1235,14 @@ def _field_drift(db, known: dict, remote: dict) -> list[str]:
         copy = baseline_drift(known["accepted_baseline"], remote)
         try:
             certified_payload(db, known["slug"], known["version"])
-        except Exception:  # noqa: BLE001 - no full payload: the policy fields still count
-            # Taxonomy is a baseline field; listing properties need the certified category
-            # and stay UNVERIFIED, which the adoption's (non-halting) review item records.
-            return copy + _policy_field_drift(db, known, remote)
+        except Exception as e:  # noqa: BLE001 - no full payload: the policy fields still count
+            # SECREVIEW N-1: listing properties need the certified payload. Without one they
+            # are UNCOMPARED, and that is drift: the halting incident stays open (a census
+            # cannot resolve it by observation) until a certified payload exists and the
+            # listing compares clean against it. A baseline never relaxes this.
+            return (copy + _policy_field_drift(db, known, remote)
+                    + [f"properties: no certified payload to compare against "
+                       f"({str(e)[:120]}); UNVERIFIED"])
         return copy + _certified_field_drift(db, known, remote, skip=BASELINE_FIELDS)
     return _certified_field_drift(db, known, remote)
 

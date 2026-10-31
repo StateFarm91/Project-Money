@@ -576,6 +576,8 @@ def adopt(db, *, etsy_listing_id: Any, slug: str, version: str, release: str,
                 raise AdoptionRefused(f"Etsy listing {lid} is already linked to "
                                       f"{claim.slug}@{claim.version}")
             if repeat:
+                if claim is None:   # N-5: backfill an adoption recorded before claims existed
+                    s.add(ManualListingClaim(etsy_listing_id=lid, slug=slug, version=version))
                 intent = s.get(DraftIntent, key)
                 adopted_at = (intent.detail or {}).get("adopted_at") or record["verified_at"]
                 intent.detail = {**record, "adopted_at": adopted_at,
@@ -766,14 +768,32 @@ def baseline_preview(db, *, slug: str, version: str, etsy_listing_id: Any,
                               "shop's); a baseline is only ever the copy actually read")
     snap = snapshot(read["remote"])
     certified = _certified(db, slug, version, adopted.get("release") or "")
-    differences = compare(db, slug=slug, version=version, release=adopted.get("release") or "",
-                          certified=certified, read=read)["differences"]
+    fresh = compare(db, slug=slug, version=version, release=adopted.get("release") or "",
+                    certified=certified, read=read)
+    differences = fresh["differences"]
+    # SECREVIEW N-2: what this fresh, complete comparison could NOT compare. Never dropped:
+    # it is carried into what the baseline does not cover, and into the proof.
+    unverified = [n for n in fresh["not_verifiable"]
+                  if not str(n).startswith(_STRUCTURAL_NOTES)]
     problems = truth_problems(db, slug=slug, version=version, snap=snap)
+    # SECREVIEW N-3: properties are compared against a listing read that includes them, as
+    # the census and read_back do; unread properties are said to be unread.
+    remote = dict(read["remote"])
+    if isinstance(read.get("properties"), list):
+        from ..runtime.etsy_ops import canonical_properties
+
+        try:
+            remote["properties"] = canonical_properties(read["properties"])
+        except ValueError as e:
+            unverified.append(f"properties: Etsy returned unreadable properties ({e})")
+    else:
+        unverified.append("properties: getListingProperties was not read")
     not_covered = not_covered_by_baseline(db, slug=slug, version=version,
-                                          remote=read["remote"], differences=differences)
+                                          remote=remote, differences=differences)
+    not_covered += [n for n in unverified if n not in not_covered]
     return {"slug": slug, "version": version, "etsy_listing_id": lid, "snapshot": snap,
             "digest": digest_of(snap), "covers_fields": list(BASELINE_FIELDS),
-            "differences_from_certified": differences,
+            "differences_from_certified": differences, "not_verifiable": unverified,
             # F-1: shown to the owner, never accepted: these stay open and visible.
             "not_covered_by_baseline": not_covered,
             "acceptable": not problems, "refusals": problems, "etsy_calls": read["calls"]}
@@ -854,7 +874,9 @@ def accept_baseline(db, *, slug: str, version: str, etsy_listing_id: Any,
                 "accepted_differences": [d for d in shown["differences_from_certified"]
                                          if d.get("field") in BASELINE_FIELDS
                                          or d.get("field") == "disclosures"][:20],
-                "not_covered": shown["not_covered_by_baseline"][:20]}
+                "not_covered": shown["not_covered_by_baseline"][:20],
+                # N-2: the fresh comparison's uncompared items, kept for the proof.
+                "not_verifiable": shown["not_verifiable"][:20]}
     with db.session() as s:
         intent = s.get(DraftIntent, key_for(slug, version))
         detail = dict(intent.detail or {})
@@ -936,10 +958,16 @@ def proof_problems(db, *, slug: str, version: str, etsy_listing_id: str) -> list
     base = adopted.get("accepted_baseline") or {}
     if base:
         uncovered = list(base.get("not_covered") or [])
+        # SECREVIEW N-2: a baseline never drops an uncompared item. Its own fresh, complete
+        # comparison at acceptance supersedes the adoption's notes; a baseline that recorded
+        # none (older shape) falls back to the adoption's notes rather than to nothing.
+        notes = (base["not_verifiable"] if "not_verifiable" in base
+                 else adopted.get("not_verifiable") or [])
     else:
         uncovered = [f"{d.get('field')}" for d in adopted.get("differences") or []]
-        uncovered += [n for n in adopted.get("not_verifiable") or []
-                      if not str(n).startswith(_STRUCTURAL_NOTES)]
+        notes = adopted.get("not_verifiable") or []
+    uncovered += [n for n in notes
+                  if not str(n).startswith(_STRUCTURAL_NOTES) and n not in uncovered]
     if uncovered:
         out.append("the live listing does not match its certificate and no accepted "
                    "baseline covers: " + "; ".join(str(u)[:120] for u in uncovered[:5]))
