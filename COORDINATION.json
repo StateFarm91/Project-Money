@@ -33,7 +33,8 @@
       "operator": "main-opus",
       "branch": "claude/w5-CONCEPT",
       "scope": "research-to-concept intake, seed-shop watchlist",
-      "state": "fixing_review"
+      "state": "accepted_batch5",
+      "head": "40b2d9d9"
     },
     {
       "id": "W-PDF",
@@ -365,12 +366,44 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2C-9c1a003",
       "notes": "review-A delta (size gate, laura_home), photo-led certificate, DRAFT-CONSTRUCTIONS, ba3be4e3",
       "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "PHYSFIX delta 3",
+      "sha": "6deeaf25+3e542a17",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-3e542a1",
+      "notes": "R11 Med hold rename moves digest; R12 Med physical.record not bound to independent tester; R13-R15 Low",
+      "recorded": "2026-10-31T14:00Z"
+    },
+    {
+      "subject": "CONCEPT delta 2",
+      "sha": "40b2d9d9",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w5-SECREVIEW-CONCEPT-40b2d9d",
+      "notes": "SHIP; Batch 5",
+      "recorded": "2026-10-31T14:00Z"
+    },
+    {
+      "subject": "OPUS2 B2",
+      "sha": "9c1a0037",
+      "verdict": "ACCEPT except scan evidence CHANGES_REQUIRED (F3.1 Med)",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2B2-9c1a003",
+      "notes": "opus2 1cc31974 claims all B2 findings fixed",
+      "recorded": "2026-10-31T14:00Z"
+    },
+    {
+      "subject": "OPUS2 C",
+      "sha": "9c1a0037",
+      "verdict": "ACCEPT except photo-led certificate CHANGES_REQUIRED (F2-1 High)",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2C-9c1a003",
+      "notes": "",
+      "recorded": "2026-10-31T14:00Z"
     }
   ],
   "integration": {
     "base": "claude/w4-INTEG8-next",
     "production": "ee35a493",
-    "batch4_status": "INTEG8-next: merged READBACK(+L1-L4), LAUNCHFIX, RESUMEFIX, LISTING1, ADOPT(194c6029) + retention/segment fixes. Waiting only on PHYSFIX(-PHOTO) R1 + combined-tree fixes, then touched suites, then ONE uninterrupted full suite.",
+    "batch4_status": "INTEG8-next f4c3899b: all Batch 4 merged except PHYSFIX(-PHOTO) (delta 3: R11-R15). Integration-only fixes (retention, READBACK L1-L4, segment declarations, cross-branch tests, owner-queue race) need one independent review before the full suite.",
     "basket_commissioning": {
       "construction_review": "running -> claude/w4-CONSTRUCTREVIEW-basket",
       "design_change_N4": "ON HOLD pending construction review (PDF worker told: text-only 1.2.1)",

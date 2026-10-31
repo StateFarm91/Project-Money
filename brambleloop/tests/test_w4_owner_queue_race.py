@@ -107,6 +107,54 @@ def test_the_check_and_the_insert_share_one_serialised_transaction():
     assert "pg_advisory_xact_lock" in body and "BEGIN IMMEDIATE" in body
 
 
+def test_two_concurrent_surface_seedings_queue_each_etsy_surface_request_once():
+    """Batch 4: `etsy_ops.seed_owner_queue` read the existing `etsy_surface:*` rows and inserted
+    the missing ones in its own unlocked session, after `launch.readiness` released the
+    owner-queue lock. Two passes could each read "absent" and both insert. The interleaving is
+    forced: each seeding waits at a barrier after its read, before it inserts."""
+    from brambleloop.intel import etsy_surfaces
+    from brambleloop.runtime import etsy_ops
+
+    db = _db()
+    barrier = threading.Barrier(2, timeout=3)
+    real = etsy_surfaces.owner_queue
+    calls = []
+
+    def queue_then_wait():
+        calls.append(1)
+        try:
+            barrier.wait()      # both seedings hold their read here when nothing serialises them
+        except threading.BrokenBarrierError:
+            pass                # serialised: the other seeding is waiting on the lock
+        return real()
+
+    errors: list[BaseException] = []
+
+    def run():
+        try:
+            etsy_ops.seed_owner_queue(db)
+        except BaseException as exc:  # noqa: BLE001 - reported by the test
+            errors.append(exc)
+
+    etsy_surfaces.owner_queue = queue_then_wait
+    try:
+        threads = [threading.Thread(target=run) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=120)
+    finally:
+        etsy_surfaces.owner_queue = real
+    assert not errors, errors
+    assert len(calls) >= 2, calls
+    with db.session() as s:
+        keys = [a.requirement_key for a in s.scalars(select(OwnerAction))
+                if a.requirement_key.startswith(etsy_ops.SURFACE_PREFIX)]
+    assert keys, "the seeding queued nothing: the test proves nothing"
+    dup = {k: n for k, n in Counter(keys).items() if n > 1}
+    assert not dup, f"etsy_surface requests queued twice by concurrent seedings: {dup}"
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]
