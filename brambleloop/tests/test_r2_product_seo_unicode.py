@@ -17,7 +17,7 @@ from brambleloop.seo import facts as F, truth as T
 FACTS = F.launch0_facts()[0]
 # D-W4-OWNER-BASKET-IDENTITY: the first Launch-0 product is the small Hexagonal Bread Basket, a
 # kitchen and home product, so "nursery decor" is no longer a true baseline tag for it.
-BASE = ["crochet basket", "storage basket", "bread basket", "hexagon pattern", "pdf pattern",
+BASE = ["crochet basket", "storage basket", "bread crochet", "hexagon pattern", "pdf pattern",
         "crochet pdf", "beginner basket", "basket pdf", "hexagonal", "written chart",
         "us uk terms"]
 TITLE = "Hexagonal Storage Basket | Crochet Pattern PDF"

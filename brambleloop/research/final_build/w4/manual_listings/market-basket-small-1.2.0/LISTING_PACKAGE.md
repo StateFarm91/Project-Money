@@ -14,7 +14,7 @@ Etsy Shop Manager. Nothing was published, and no request was made to Etsy or Rai
 
 **The fix is at the source, not in this package.**
 - `products.launch0` now sells this CIR as the Launch-0 product `hexagonal-bread-basket`: one size, with no children's sub-category.
-- The three-size `nursery-nesting-baskets` family is kept unchanged as a reserve candidate.
+- The three-size `nursery-nesting-baskets` family is kept unchanged and held for separately verified future releases (`launch0.HELD_FOR_VERIFICATION`). It is not launched. Its medium and large CIRs stay under every Launch-0 gate.
 - The release chain was re-run, so the title, tags, description and customer PDF below are the system's regenerated output.
 - The superseded nursery version of this package is in git history (commit `5bf9aaf3`).
 
@@ -162,7 +162,7 @@ The owner chose the kitchen and home framing, sold in one size. The fix is in so
   - its title, tags, description and PDF contain no child-audience word;
   - it no longer carries children's statements.
 - It **still applies to the shop**, through `cloudline-baby-blanket` and `nordic-forest-mosaic-throw-baby`, which are still Launch-0.
-- It still applies to the reserve nursery family (medium and large) if those are released later.
+- It still applies to the held nursery family (medium and large), which keeps its children's assignment and statements.
 
 ## 3. Category and attributes
 
