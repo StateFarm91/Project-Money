@@ -20,27 +20,15 @@ it, run `cd brambleloop && nice -n 19 python3 research/final_build/w4/tester_kit
 
 ---
 
-## ⚠ Before you approve: the test PDF still carries children's (nursery) safety notes
+## The test PDF is now built on the corrected source
 
-The kit's test PDF is the customer PDF of this release, rendered by `publish.pdf`. Pages 7–8
-print a block titled "Safety notes for a children's item". It says, among other things, "intended
-for children under 3 years" and "Keep this out of the cot … in a nursery".
-
-**Where it comes from:** the catalogue (`products.launch0.childrens_assignment`), which still
-files the small basket under the `nursery-nesting-baskets` listing.
-
-**Why the PDF is not edited by hand:** the PDF is never patched, because patterns are software
-releases.
-
-**What fixes it:** the LISTING1 source correction (kitchen and home positioning) will remove the
-block. The kit will then be rebuilt by the same builder.
-- **The kit's own text has no nursery or baby wording:** the record sheet, the manifest and these
-  instructions. A test checks this.
-- **The content hash may not change.** It covers the pattern CIR and the written pattern text,
-  not the PDF's safety block. If it does change, the kit is rebound to the new hash and the
-  digests below are replaced.
-
-**Do not send the kit to a tester until the rebuilt test PDF no longer contains this block.**
+This kit was rebuilt on `claude/w4-PHYSFIX` after merging `claude/w4-INTEG8-next`, which carries
+LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
+- The small basket is its own one-size listing, `hexagonal-bread-basket`.
+- The test PDF has **no children's or nursery safety block**. It is 7 pages, down from 9, and a
+  test checks the kit's sheet, manifest and call for that wording.
+- The content hash is **unchanged** (`1ddde587…3991`), so the kit stays bound to the same
+  release text. Only the PDF bytes changed.
 
 ---
 
@@ -50,9 +38,10 @@ block. The kit will then be rebuilt by the same builder.
 |---|---|
 | Release | `market-basket-small@1.2.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
-| Test PDF `market-basket-small-1.2.0-TEST.pdf` (9 pages) | `a724cbae5d58ff469a991668d257f54dce57c7e0d0437bcb323ecca2bfb72b0c` |
-| Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` (2 pages) | `ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42` |
-| Manifest `KIT_MANIFEST.json` | `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb` |
+| Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `@TEST@` |
+| Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` | `@SHEET@` |
+| Tester call `OUTREACH.md` (NOT SENT) | `@OUTREACH@` |
+| Manifest `KIT_MANIFEST.json` | `@MANIFEST@` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
@@ -92,18 +81,30 @@ fee + whole balls (tester owns tools)     CA$65.90   (CA$6.25 over the CA$59.65 
 fee + every listed material (CA$20.00)    CA$75.90   (tester owns no tools)
 ```
 
-**Recommendation:** approve a ceiling of **CA$66.00**, which covers the fee plus two whole balls,
-with the tester using their own tools.
+**Recommendation:** approve an **all-inclusive ceiling of CA$66.00** for **exactly one tester**.
+"All-inclusive" means what the tester receives plus any payment-processing fee:
 
-**The alternative:** keep CA$59.65 and reimburse yarn per metre. The call to testers must then
-say so.
+```
+paid to the tester   fee CA$55.90 + 2 balls CA$10.00         = CA$65.90
+processing fee       must be <= CA$0.10                        (fee-free transfer)
+ceiling              all-inclusive                           = CA$66.00
+```
+
+- The tester call promises CA$65.90 paid in full, with any processing fee borne by Brambleloop
+  and never deducted.
+- That fits under CA$66.00 only with a fee-free method, for example an Interac e-Transfer from an
+  account that charges nothing for it. This is ESTIMATED: no method has been chosen.
+- If the payment method charges a fee, approve a higher ceiling before the call is posted. A card
+  processor at about 2.9% + CA$0.30 (ESTIMATED) adds about CA$2.21, for a ceiling of about
+  CA$68.11.
+- The CA$66.00 covers one make only. It does not cover a second tester.
 
 ## 4. Measurements and tolerances (twin COMPUTED; tolerance `quality.physical.SIZE_DISAGREEMENT` = 12%)
 
 | Measurement | Twin | Pass band | Checked by code |
 |---|---|---|---|
 | Base across the points | 16.0 cm | 14.08–17.92 cm | yes (`measured_width_cm`) |
-| Wall height | 8.7 cm | 7.66–9.74 cm | yes (`measured_height_cm`) |
+| Wall height: **outside, from the flat table to the top of the rim, at the middle of a flat side** | 8.7 cm | 7.66–9.74 cm | yes (`measured_height_cm`) |
 | Base across the flats | 13.9 cm | 12.23–15.57 cm | yes (`measured_flats_cm`) |
 | Circumference (optional) | 48.0 cm | 42.24–53.76 cm | yes, if given |
 | Yarn used ÷ 52.1 m | 1.0 | plausible 0.4–2.5; stated claim ±20% (41.7–62.5 m) | factor bounds |
@@ -111,6 +112,18 @@ say so.
 Two observations are required, and each is answered yes or no:
 - **Does the base sit flat?** It must not rock.
 - **Does the basket hold its shape?** The walls stand upright, with no collapse, lean or flare.
+
+These construction observations are recorded in typed fields, from
+`CONSTRUCTION_REVIEW_basket_small_1.2.0.md` §5. A malformed entry is refused at intake.
+- **Base edge:** `crisp` fold or `rounded` curve. If rounded, the round from which the wall
+  stands upright is required.
+- **Six corners visible at the rim:** yes or no.
+- **Rim across the points:** in cm.
+- **Inside depth:** in cm (optional).
+- **Height just after round 11:** in cm (optional). This tests the PDF's progress checkpoint.
+
+The twin models the fold as a sharp 90° turn, so 8.7 cm is an upper bound. The construction
+review expects about 8.0–8.5 cm, which is inside the band.
 
 ## 5. Photographic evidence
 
@@ -146,18 +159,23 @@ These are printed on the record sheet. No step is cut off.
    **re-weigh each ball and use that as its start weight**, so the swatch's yarn is not counted as
    project yarn.
 3. Make the basket exactly as written in the test PDF. Note every place you had to guess, re-read
-   or rip back, with the round number.
+   or rip back, with the round number. Optionally, just after round 11, note how tall the work
+   stands.
 4. Weigh what is left of each ball. Grams used = re-weighed start minus end, per colour.
-5. Measure the finished base across the points and across the flats, and the wall height, in cm,
-   without stretching.
+5. Measure the finished base across the points and across the flats, in cm, without stretching.
+   Measure the wall height outside, from the flat table to the top of the rim, at the middle of a
+   flat side. Optionally, measure the inside depth too.
 6. Set the empty basket on a flat table. Does the base sit flat without rocking? Does it hold its
    shape (walls upright, with no collapse, lean or flare)? Answer yes or no to each, and write any
    problem in the problems box.
-7. Record the total hours (not counting the swatch), and whether you followed the instructions
+7. Look at where the base turns into the wall: is it a crisp fold or a rounded curve? If rounded,
+   from which round is the wall upright? Are the six corners still visible at the rim? Measure
+   the rim across the points.
+8. Record the total hours (not counting the swatch), and whether you followed the instructions
    exactly.
-8. Photograph in daylight on a real surface, keeping every camera file unedited (see §5).
-9. Take shots 1–6 from §5.
-10. Return the record sheet and the original photo files.
+9. Photograph in daylight on a real surface, keeping every camera file unedited (see §5).
+10. Take shots 1–6 from §5.
+11. Return the record sheet and the original photo files.
 
 **The record sheet asks for:**
 - your tester reference;
@@ -166,8 +184,12 @@ These are printed on the record sheet. No step is cut off.
 - the ball band (grams and metres);
 - the hook;
 - swatch stitches and swatch rounds per 10 cm;
-- the base across the points and across the flats, and the wall height;
+- the base across the points and across the flats;
+- the wall height (outside, table to rim, at mid-flat), and the inside depth (optional);
 - base sits flat (yes/no) and holds its shape (yes/no);
+- base edge (crisp or rounded), and if rounded, the round the wall is upright from;
+- six corners at the rim (yes/no), and the rim across the points;
+- the height just after round 11 (optional);
 - total hours;
 - whether you followed the pattern exactly;
 - anything unclear or wrong, by round number.
@@ -175,9 +197,19 @@ These are printed on the record sheet. No step is cut off.
 The sheet states that it covers exactly one size, small. It also says that no review, rating or
 favourite is requested, and that the fee does not depend on the tester's opinion.
 
-**The person:** one independent adult crocheter, who is not the owner (F-071). They should be
-confident with sc in joined rounds, six-point increases and turning a base into walls. They
-should read US terms and have a 1 g scale. Time: 2–3 hours, plus about 15 minutes.
+**The person: exactly one tester**, an independent adult crocheter.
+- **Not related to Brambleloop:** not the owner (F-071), not a member of the owner's household or
+  family, and with no financial interest in Brambleloop.
+- **Declares any relationship** on the intake form (the `relationship` field).
+  `tester_programme.record_agreement` refuses a declared owner, household, family or financial
+  tie.
+- **Shows qualification:** a photo of, or link to, a finished piece crocheted in joined rounds
+  (the `qualification` field). An agreement without it is refused.
+- **Skills:** confident with sc in joined rounds, six-point increases and turning a base into
+  walls; reads US terms; has a 1 g scale.
+- **Time:** 2–3 hours, plus about 15 minutes.
+- **The call:** `OUTREACH.md`, generated by the kit builder and NOT SENT, says all of this,
+  including the CA$65.90 paid in full.
 
 **Operator entry:** `tester_kit.intake_payload(sheet, content_hash=…, key="basket_small")`
 produces the exact `POST /api/physical-test` payload. That payload carries `scope: full_make`,
@@ -236,4 +268,4 @@ The code reaches each outcome; nobody assigns it by hand.
 
 | Action | Why | Max cost | Minutes | Consequence of waiting |
 |---|---|---|---|---|
-| Approve commissioning one independent tester to make `market-basket-small@1.2.0` from this kit. The ceiling is CA$66.00 (fee plus whole balls), or CA$59.65 with yarn reimbursed per metre. Approve only after the rebuilt test PDF no longer carries the children's notes. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs `partial_physical` evidence of this exact content | CA$66.00 (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
+| Approve commissioning **exactly one** independent tester to make `market-basket-small@1.2.0` from this kit, and approve posting `OUTREACH.md`. The ceiling is CA$66.00 all-inclusive: CA$65.90 to the tester by a fee-free transfer, plus processing fees of CA$0.10 or less. If the payment method charges more, approve the higher figure in §3 instead. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs a size-proving sample of this exact content | CA$66.00 all-inclusive (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |

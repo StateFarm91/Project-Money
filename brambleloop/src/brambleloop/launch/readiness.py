@@ -402,14 +402,20 @@ BENCHMARK_PURCHASES = OwnerRequest(
 
 TRADEMARK_SCREEN = OwnerRequest(
     key="brand_clearance",
-    # W4-OWNER: the free knock-out search on the Canadian register is a public read-only
-    # search -- company work, not an owner decision. The owner's decision is the filing.
-    action=("Decide whether to file a Canadian trademark for \"Brambleloop Studio\" "
-            "(CA$458.05 for the first class). The free knock-out search on the Canadian "
-            "register is company work and is not asked of you."),
+    # W4-OWNER: the free knock-out search is company work, not an owner decision.
+    # W4-LAUNCHFIX review F-8: the REQUIRED owner decision is accepting the residual risk the
+    # recorded screening shows (sealed `brand_risk_acceptance`); filing is optional and
+    # recorded separately (`trademark_registration`), never required for launch.
+    action=("Read the recorded knock-out screening for \"Brambleloop Studio\" and, if you "
+            "accept the residual risk it shows, record that acceptance (Approvals: "
+            "brand_risk_acceptance, step-up). Separately and optionally, record whether to "
+            "file a Canadian trademark (CA$458.05 for the first class); filing is not "
+            "required for launch. The screening itself is company work and is not asked of "
+            "you."),
     reason=("The shop name goes on every listing, PDF and image. Discovering a conflict "
             "after the name is on a hundred customer documents is expensive in a way that "
-            "checking first is not. Filing is a spend decision, so it is the owner's."),
+            "checking first is not. Accepting the remaining risk is a legal judgement and "
+            "filing is a spend, so both are the owner's; only the acceptance gates launch."),
     max_cost_cad=460.0,
     minutes=20,
     consequence_of_delay=("Brand equity accumulates on a name that has not been cleared. "
@@ -846,9 +852,10 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         owner_request=None))
 
     # W4-LAUNCHFIX D2: was `ready=False` with no evidence path. Ready only on a valid recorded
-    # knock-out search (brand.clearance, company work) AND the owner's sealed decision on
-    # filing bound to that exact search (ops.launch_decisions). Filing itself is not required
-    # (Master Plan v1.2 s.29); the owner's decision is. Without a search the work is ours.
+    # knock-out screening (brand.clearance, company work) AND the owner's sealed acceptance of
+    # its residual risk, bound to that exact screening (ops.launch_decisions BRAND_RISK).
+    # Registration is recorded separately and is not required (Master Plan v1.2 s.29).
+    # Without a screening the work is ours.
     try:
         from ..ops.launch_decisions import brand_clearance_state
 
@@ -859,8 +866,8 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     brand_ready = bool(brand.get("ready"))
     out.append(Requirement(
         key="brand_clearance",
-        description=("the shop name has been through a trademark knock-out search and the "
-                     "owner has decided whether to file"),
+        description=("the shop name has been through a trademark knock-out screening and "
+                     "the owner has accepted its residual risk (filing is optional)"),
         ready=brand_ready,
         blocked_by=(None if brand_ready else
                     BLOCKED_OWNER if brand.get("knockout") == "VALID" else BLOCKED_BUILD),

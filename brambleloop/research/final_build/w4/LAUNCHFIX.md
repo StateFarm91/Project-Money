@@ -353,6 +353,54 @@ Renders, charts and the PDF page preview may follow.
 
 **Why this is a tightening only.** It adds one refusal to `for_publish`. It changes no other policy outcome. `classify`'s problems are unchanged, and only the disclosure sentence varies, from a fact.
 
+### 5c. IMG stage split (owner clarification 2026-10-27, follow-up commit)
+
+The photo requirement now blocks only the stage that genuinely needs it:
+
+| Stage | Is it blocked by the missing photo? |
+|---|---|
+| Internal development and package preparation (chain, certification, assets, listing copy, inventory, readiness views) | **Never.** Those paths do not call the gate in its refusing form. `products.inventory` uses `for_publish`'s default draft stage, and the listing writer only chooses the truthful disclosure sentence. |
+| Private Etsy draft (`store.publish` → `createDraftListing`) | **No.** Etsy's rule (Help 44297885802647 / 115015663347) governs the listing images buyers see. Nothing in the repo's verified evidence says a private draft needs a photo; the IMAGEPOLICY reading quotes no draft rule, and none was found. Every other gate still applies, as do the owner's sealed draft (publication) grant and the copy-truth check. A draft whose copy claims a sample photo it does not have, or still says "no sample has been photographed" beside one, is refused. Renders stay labelled by the existing disclosed-render export checks. |
+| Public publication (`store.activate`) | **Yes.** It needs the bound, unedited, first-frame sample photo, plus every other gate. |
+
+**Mechanism:**
+- `release_gates.for_publish(..., stage="draft" | "activation")`. The default is `draft`. An unknown stage raises, and `_release_gates` turns that into a closed gate.
+- `pipeline._release_gates(ctx, stage=...)`. All three gate reads inside `handle_store_activate` pass `stage="activation"`. `store.publish` and `_revalidate_publish_effect` use the draft stage.
+- The verdict always carries `sample_photo` (reported) and `stage`.
+
+**Tests:**
+- `test_img_stage_a_private_draft_is_not_blocked_by_the_photo_but_activation_is`;
+- `test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_internal_does`;
+- `tests/test_search_hero_publish.py` is restored byte-for-byte to its original (`b0133916`). The hold added in §6 is removed, and the test again proves end to end that a private draft is created, given its sealed grant, with no sample photo on file.
+
+**Harness updates (signature only, no assertion changed).** Two tests replace `pipeline._release_gates` with a one-argument lambda; they now also accept the `stage` keyword:
+- `tests/test_etsy_readback_observe.py` (two lambdas);
+- `tests/test_cert_commerce.py` (one `Spy` replacement).
+
+## 5d. Response to the independent review of 0f0306dd (`INDEPENDENT_SECREVIEW_LAUNCHFIX_0f0306d.md`)
+
+Each finding has a regression test in `tests/test_w4_launchfix.py` (`test_review_f*`). Each test was run against the 0f0306dd source (the new test file with the old `src/`). Every one of them fails there except F-9, which corrects a test and not the code.
+
+| Finding | Fix | Regression test | On 0f0306dd |
+|---|---|---|---|
+| **F-1 (High)** ops-token page reading became an unreviewed baseline | `record_page_reading(..., owner_attested=False)`. Only the CC `#/policy` path (`policy_readings.record`: owner session, step-up, verbatim attestation) passes `owner_attested=True` and compares against page readings alone. `POST /api/policy/snapshot` (ops token) keeps the original comparison: its first reading is a material change and opens the owner's `policy:<source>` card. `app/main.py` is untouched. | `test_review_f1_an_ops_token_first_reading_still_opens_the_owner_review` | FAILS (`material_change` False) |
+| **F-2** unsealed D1 evidence | New sealed, chained family `etsy.exercise_evidence` (`GrantLedger`, HMAC under the operator credential, principal `system:etsy_exercise`), written by `run()` through `_seal_evidence`. `remote_state_evidence` reads only those rows, checks the actor and verifies the chain and seal. A removal counts only with `confirmed_by`. | `test_review_f2_hand_inserted_unsealed_evidence_never_passes` | FAILS (forged rows gave PASS) |
+| **F-3** no age bound | `EVIDENCE_MAX_AGE_DAYS = 90` on the sealed `recorded_at`. Older evidence is UNVERIFIABLE ("older than the evidence window"). | `test_review_f3_old_evidence_is_stale` | FAILS |
+| **F-4** round trip not scoped to the live run | The sealed row lists this run's own drafts: breadcrumbs after the run's start id, with removals only where `confirmed_by` is set. A clean round trip needs at least one such draft, all of them confirmed gone, and no outstanding exercise draft anywhere. A fresh, sealed live run is now required even if every claim were static-verified. | `test_review_f4_the_round_trip_must_be_the_live_runs_own` | FAILS |
+| **F-5** `against_etsy` was a URL prefix | `against_etsy` compares the exact https host. The sealed row records the transport class, and only `type(transport) is UrllibTransport` counts. | `test_review_f5_only_the_etsy_host_and_the_production_transport_count` | FAILS |
+| **F-6** fee terms not bound | `listing_fees_state` compares every `_fee_terms()` field (USD and CAD fee, period, transaction rate, fee reading) with the sealed content. Any difference is unready and named in `changed_terms`. | `test_review_f6_every_sealed_fee_term_is_bound` | FAILS |
+| **F-7** a recorded render could pass as the photo | Three changes. (1) `sample_photo._synthetic_shas` refuses a SHA that `ArtefactProvenance` records with a provider or model, that a non-photo `ListingAsset` holds, or that is a disclosed render. (2) The certified first frame must have `medium == PHYSICAL_PRODUCT_PHOTO`. (3) The unedited attestation must be the owner's, given through the CC action `physical_photo.attest_unedited` (step-up, verbatim confirmation, actor `owner:cc:*`). The ops-token body flag alone no longer qualifies. | `test_review_f7_a_recorded_render_or_unattested_or_non_photo_frame_never_qualifies` | FAILS |
+| **F-8** owner card text | `TRADEMARK_SCREEN`, the requirement description, the comment and the `owner_queue` decision now name the required residual-risk acceptance, with filing optional and not required. | `test_review_f8_the_owner_card_names_the_risk_acceptance_and_filing_as_optional` | FAILS |
+| **F-9** ambiguous replay test | Sends a different body under the replayed nonce and asserts `code == "REPLAY"`. | `test_cc_policy_form_needs_a_session_csrf_and_step_up` | passes on 0f0306dd too: the gate was already correct, the test was imprecise |
+| F-10, F-11 (Info) | Not changed. F-10 is the existing `GrantLedger` model. F-11 is the existing exercise lane; the owner should know that D1 now depends on it. | none | none |
+
+**Owner clarification, unchanged and still in force (§5c).** The photo gate refuses at activation and public publication only. A private draft keeps every other gate, its sealed grant and the copy-truth check. Internal work is never blocked.
+
+**Consequences to note:**
+- The D1 evidence is sealed under the operator credential, so **rotating that credential invalidates earlier evidence**, as it does every owner grant. Re-run the CA$0 exercise after rotation.
+- Production has no exercise run on record, so nothing existing is lost.
+- `ops/retention.py` records the three new evidence actions as `lifetime_total` (sealed chain).
+
 ## 6. Files changed
 
 - `src/brambleloop/gates/first_customer.py`: D1, the check and its wiring.
@@ -368,7 +416,7 @@ Renders, charts and the PDF page preview may follow.
 - `static/js/views/policy.js` (new), `routes.js`, `api.js`, `sw.js`, `views/approvals.js`, `views/completion.js`: the form view.
 - `tests/test_w4_launchfix.py` (new) and `tests/test_etsy_exercise.py` (one test added).
 
-`tests/test_search_hero_publish.py`: its end-to-end publish fixture has no physical sample, and the real `store.publish` path refused it with `SAMPLE_PHOTO_REQUIRED`. That refusal is the end-to-end proof that the new gate is on the publish path. The fixture now holds `sample_photo.requirement` the same way it already holds parity, the search grid and the Launch-0 scope gate, with a stated reason. The gate's refuse and pass behaviour is tested in `test_w4_launchfix`. This test's own assertions are unchanged.
+`tests/test_search_hero_publish.py`: on 0f0306dd it held the photo gate. Since the stage split (§5c) the file is restored to its original, and it passes unmodified.
 
 One existing test was edited, and it was made stricter, not looser. In `tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people`, `brand_clearance` is now expected among the company-side (`BLOCKED_BUILD`) items while no knock-out screening is recorded, and the test asserts that it is unready. The test pinned the old attribution (owner) for work that OWNER_ACTIONS assigns to the company. `test_nothing_blocked_on_build_is_ever_sent_to_the_owner` is unchanged. To keep it true, the trademark request is put to the owner only once a valid screening exists. No other test was weakened or edited except by addition. `test_first_customer_gate`'s
 `check_etsy_remote_state()` assertion still holds: with no db it is UNVERIFIABLE and says

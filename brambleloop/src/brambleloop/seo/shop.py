@@ -59,9 +59,10 @@ RECOMMENDATION = {
     "sections": {
         "goal": "show only populated sections at launch; names are buyer words",
         "launch0": [
-            {"name": "Baby & Nursery", "products": ["cloudline-baby-blanket",
-                                                    "nursery-nesting-baskets"]},
-            {"name": "Home & Table", "products": ["hexagon-coaster-set"]},
+            {"name": "Baby & Nursery", "products": ["cloudline-baby-blanket"]},
+            # D-W4-OWNER-BASKET-IDENTITY: the bread basket is a kitchen and home product.
+            {"name": "Home & Table", "products": ["hexagon-coaster-set",
+                                                  "hexagonal-bread-basket"]},
         ],
         "alternative": "with only three listings, no sections at all is also acceptable; "
                        "add sections when a second product per section exists",
@@ -69,9 +70,9 @@ RECOMMENDATION = {
                   f"({C.get('section_name_max_chars').status})",
                   f"<= {C.get('sections_max_count').value} sections "
                   f"({C.get('sections_max_count').status})"],
-        "note": ("the existing brand.storefront.SECTIONS map baskets to Home; the "
-                 "nursery qualifier on the basket product makes Baby & Nursery the truer "
-                 "shelf -- C/B decide"),
+        "note": ("the existing brand.storefront.SECTIONS map baskets to Home, and since "
+                 "D-W4-OWNER-BASKET-IDENTITY (2026-10-27) the launched basket is a kitchen "
+                 "and home product, so Home & Table is its shelf"),
     },
     "listing_titles": "see seo.strategy.TITLES (buyer-first, object + 'crochet pattern' "
                       "first)",

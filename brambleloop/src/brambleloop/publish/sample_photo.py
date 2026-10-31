@@ -103,9 +103,15 @@ def qualifying_photos(db, slug: str, version: str) -> dict:
                    p.physical_test_id, dict(p.detail or {}))
                   for p in s.scalars(select(PhysicalPhoto).where(
                       PhysicalPhoto.product_slug == slug).order_by(PhysicalPhoto.id))]
+    synthetic = _synthetic_shas(db, [p[3] for p in photos])
     qualifying, rejected = [], []
     for pid, pslug, pver, sha, rights, state, test_id, detail in photos:
         why = []
+        if sha in synthetic:
+            why.append(f"this file is recorded by the system itself as {synthetic[sha]}")
+        att = detail.get("owner_attestation") or {}
+        if not (str(att.get("by") or "").startswith("owner:cc:") and att.get("sha256") == sha):
+            why.append("the owner has not attested it unedited through the Command Center")
         if pver != version:
             why.append(f"a photo of {pslug}@{pver or '?'}, not of this release")
         if not rights:
@@ -123,6 +129,32 @@ def qualifying_photos(db, slug: str, version: str) -> dict:
             {"photo_id": pid, "sha256": sha, "physical_test_id": test_id,
              **({"why": "; ".join(why)} if why else {})})
     return {"release": release, "qualifying": qualifying, "rejected": rejected}
+
+
+def _synthetic_shas(db, shas: list[str]) -> dict[str, str]:
+    """Review F-7: which of these digests the system itself recorded as made, not taken --
+    a generation or render with a provider/model in `ArtefactProvenance`, a listing frame of a
+    non-photo class, or a disclosed render. Any hit disqualifies the file as a photograph."""
+    from sqlalchemy import select
+
+    from ..core.models import ArtefactProvenance, ListingAsset
+    from .disclosed_listing import disclosed_shas
+
+    wanted = {s for s in shas if s}
+    out: dict[str, str] = {}
+    if not wanted:
+        return out
+    with db.session() as s:
+        for r in s.scalars(select(ArtefactProvenance).where(
+                ArtefactProvenance.sha256.in_(list(wanted)))):
+            if (r.provider or "").strip() or (r.model or "").strip():
+                out[r.sha256] = f"a generated artefact ({r.provider or '?'} {r.model or ''})".strip()
+        for r in s.scalars(select(ListingAsset).where(ListingAsset.sha256.in_(list(wanted)))):
+            if r.asset_class != PHOTO_CLASS:
+                out.setdefault(r.sha256 or "", f"a {r.asset_class} listing frame")
+    for sha in wanted & disclosed_shas(db):
+        out.setdefault(sha, "a disclosed render")
+    return out
 
 
 def requirement(db, slug: str, version: str, *, release: str = "") -> dict:
@@ -165,7 +197,7 @@ def requirement(db, slug: str, version: str, *, release: str = "") -> dict:
                           f"certificate for this release yet (re-certification after "
                           f"physical_upgrade); {'; '.join(cert.get('problems') or [])[:200]}"]
         return out
-    if str(first.get("sha256") or "") not in shas:
+    if str(first.get("sha256") or "") not in shas or first.get("medium") != PHOTO_CLASS:
         out["reasons"] = [f"{CODE}: the first image of the certified gallery is not the "
                           f"unedited sample photograph (Etsy Help 115015663347: the first "
                           f"photo should be 'the clearest, most realistic representation of "

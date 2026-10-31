@@ -1471,13 +1471,28 @@ def superseded_release(db, *, slug: str, version: str) -> dict:
                     f"certified release ({slug}@{newest}); only the newest may publish")}
 
 
+#: The two Etsy-facing stages `for_publish` judges. A private draft (createDraftListing) is
+#: not shown to buyers; activation is public publication.
+STAGE_DRAFT = "draft"
+STAGE_ACTIVATION = "activation"
+STAGES = (STAGE_DRAFT, STAGE_ACTIVATION)
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None,
-                read_only: bool = False) -> dict:
+                read_only: bool = False, stage: str = STAGE_DRAFT) -> dict:
     """Everything store.publish must refuse on, computed once and returned as one verdict.
 
     `read_only=True` (store.publish) writes no artifact: supplement frames are judged only if
-    already stored, so the Shadow Mode refusal comes before any storage write."""
+    already stored, so the Shadow Mode refusal comes before any storage write.
+
+    `stage` (W4-LAUNCHFIX, owner clarification 2026-10-27): every gate applies at both
+    stages except Etsy's sample-photo requirement, which governs listings shown to buyers and
+    so refuses only at `activation`. At `draft` it is reported, and the copy-truth check
+    still refuses a draft that claims a sample photograph it does not have. An unknown stage
+    is refused (raised; `pipeline._release_gates` turns that into a closed gate)."""
+    if stage not in STAGES:
+        raise ValueError(f"stage must be one of {STAGES}, not {stage!r}")
     stale = staleness(db, slug=slug)
     window = window_decision(db, slug=slug, version=version, today=today,
                              positioning=positioning)
@@ -1541,13 +1556,16 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for h in held_drift(db, slug):
         reasons.append(f"taxonomy drift held for the owner (incident {h['id']}): "
                        f"{h['summary']}")
-    # W4-LAUNCHFIX (Etsy Help 44297885802647 / 115015663347): a pattern listing needs an
-    # unedited photograph of a sample made from THIS release, first in the certified gallery,
-    # and copy that says so truthfully. Adds a refusal only; satisfies nothing else.
+    # W4-LAUNCHFIX (Etsy Help 44297885802647 / 115015663347): a pattern listing shown to
+    # buyers needs an unedited photograph of a sample made from THIS release, first in the
+    # certified gallery. That refuses at activation (public publication) only; a private
+    # draft is not shown to buyers, and no verified Etsy evidence says a draft needs one.
+    # At both stages the copy must be truthful about whether such a photo exists.
     from . import sample_photo
 
     photo = sample_photo.requirement(db, slug, version)
-    reasons.extend(photo["reasons"])
+    if stage == STAGE_ACTIVATION:
+        reasons.extend(photo["reasons"])
     if row is not None:
         reasons.extend(sample_photo.copy_problems(
             row.description, photographed_sample=photo["satisfied"]))
@@ -1555,7 +1573,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
             "withholding": held, "publication_scope": scope, "originality": originality,
-            "sample_photo": photo}
+            "sample_photo": photo, "stage": stage}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:

@@ -62,6 +62,9 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "launch_decision.preview": (False, "read the exact content a launch decision would bind"),
     "launch_decision.record": (True, "record a sealed owner launch decision (fees / trademark)"),
     "launch_decision.revoke": (False, "revoke a launch decision (tightens)"),
+    # W4-LAUNCHFIX review F-7: the owner attests a sample photograph unedited here, never
+    # through the operator-token photo intake.
+    "physical_photo.attest_unedited": (True, "attest a sample photograph is unedited"),
 }
 
 #: The readiness rows each launch decision answers (their OwnerAction requirement keys).
@@ -672,6 +675,14 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             result = _review_policy_change(db, body, actor=actor)
         elif action == "finance.statement_archive":
             result = _archive_statement(db, body, actor=actor)
+        elif action == "physical_photo.attest_unedited":
+            from ...publish import physical_upgrade as _pu
+
+            try:
+                result = _pu.attest_unedited(db, _int(body, "photo_id"), actor=actor,
+                                             confirm=str(body.get("confirm") or ""))
+            except _pu.UpgradeRefused as exc:
+                raise ActionRefused(str(exc)[:300]) from None
         elif action.startswith("launch_decision."):
             from ...ops import launch_decisions as ld
 
@@ -722,7 +733,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "deferred", "source", "snapshot_id",
                                            "reviewed", "review_audit_id", "confirmed",
                                            "period", "sha256", "version", "archived",
-                                           "decision", "choice")}})
+                                           "decision", "choice", "photo_id",
+                                           "attested")}})
     return {"result": result, "audit_id": audit_id}
 
 

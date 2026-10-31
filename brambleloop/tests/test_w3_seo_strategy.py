@@ -33,15 +33,18 @@ def products():
 
 def test_five_products_and_baskets_are_one_listing_with_sizes():
     by = {p["slug"]: p for p in products()}
-    assert set(by) == {"nursery-nesting-baskets", "hexagon-coaster-set",
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the launched basket is the small Hexagonal
+    # Bread Basket alone, a kitchen and home product; the three-size nursery family is held.
+    assert set(by) == {"hexagonal-bread-basket", "hexagon-coaster-set",
                        "cloudline-baby-blanket", "nordic-star-ornaments",
                        "winter-village-graphghan", "nordic-forest-mosaic-throw-baby",
                        "mosaic-placemat-pair", "housewarming-key-basket"}
-    b = by["nursery-nesting-baskets"]
-    assert b["listing_unit"] == "product" and len(b["variants"]) == 3
-    assert "3 Sizes" in b["title"]
-    for size in ("small", "medium", "large"):
-        assert size in b["description"]["text"]
+    b = by["hexagonal-bread-basket"]
+    assert b["listing_unit"] == "product" and len(b["variants"]) == 1
+    text = (b["title"] + " " + " ".join(b["tags"]) + " " + b["description"]["text"]).lower()
+    for word in ("nursery", "baby", "nesting", "3 sizes", "three sizes"):
+        assert word not in text, word
+    assert "bread basket" in b["title"].lower() and "kitchen" in text
 
 
 def test_every_product_passes_every_check():

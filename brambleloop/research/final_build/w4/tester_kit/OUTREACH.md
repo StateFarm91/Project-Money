@@ -4,11 +4,13 @@ Channel: Ravelry group 'The Testing Pool' -- a public tester-call post from the 
 
 **[Tester call] Crochet Hexagonal Bread Basket -- worsted cotton, ~3 hrs, paid**
 
-Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for 1-3 testers for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.
+Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for ONE tester for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.
 
-What we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the one-page record sheet -- grams used per colour, the ball band (grams and metres), your hook, finished measurements, hours, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.
+Who can apply: an adult who is not the shop's owner, not a member of the owner's household or family, and has no financial interest in Brambleloop. Please tell us about any relationship you have with Brambleloop or its owner, and include a photo of, or a link to, a finished piece you crocheted in joined rounds.
 
-What you get: the final pattern free, another Brambleloop pattern of your choice, a test fee for the make with yarn reimbursed (amount confirmed before you start), and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.
+What we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the record sheet -- grams used per colour, the ball band (grams and metres), your hook, the finished measurements, whether it sits flat and holds its shape, hours, whether you followed it exactly, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.
+
+What you get: CA$65.90 in total, paid to you in full -- a CA$55.90 test fee plus CA$10.00 towards two balls of yarn -- by a fee-free transfer (any payment-processing fee is ours and is never deducted from you); the final pattern free, another Brambleloop pattern of your choice, and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.
 
 To apply, reply in this thread or message the Brambleloop Ravelry account; we will send the intake form (it records your consent to be emailed about this test, which you can withdraw any time). Brambleloop Studio, Canada.
 

@@ -149,12 +149,13 @@ def test_opening_grid_counts_products_not_sizes():
     # W4-PIPE 2026-10-07: the snowflake ornaments and the snowfall throw joined Launch-0.
     # W4-LAUNCHREADY 2026-10-11, owner-approved CAP-1: three more joined, reaching the floor of 8.
     assert [p["candidate"] for p in products] == [
-        "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+        "hexagonal-bread-basket", "cloudline-baby-blanket", "hexagon-coaster-set",
         "nordic-star-ornaments", "winter-village-graphghan",
         "nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair", "housewarming-key-basket"]
     assert [p["price_cad"] for p in products] == [6.50, 7.50, 4.00, 4.50, 7.50, 7.50, 5.00,
                                                   5.50]
-    assert products[0]["variant_count"] == 3
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the launched basket is the small one alone.
+    assert products[0]["variant_count"] == 1
     assert lr.MIN_LISTINGS_TO_OPEN == 8           # not lowered by this lane
     # Eight products (sizes not counted) meet the floor, so the depth finding is gone; it
     # still fires below it (the check is unchanged).
@@ -173,9 +174,14 @@ def _short_grid():
 
 
 def test_basket_naming_is_an_owner_decision():
+    # The owner decided it (D-W4-OWNER-BASKET-IDENTITY, 2026-10-27): the small basket is the
+    # Hexagonal Bread Basket, kitchen and home. Its plan title and CIR title now agree, and no
+    # nursery positioning is left to conflict with "bread", so neither owner finding remains.
     rows, _ = _rows()
-    codes = [(f["code"], f["severity"]) for f in rows["opening_grid"]["findings"]]
-    assert ("TITLE_PLAN_MISMATCH", "owner") in codes, codes
+    found = [f for f in rows["opening_grid"]["findings"]
+             if f["code"] in ("TITLE_PLAN_MISMATCH", "TITLE_POSITIONING_CONFLICT")
+             and "basket" in f["detail"].lower()]
+    assert not found, found
 
 
 def test_long_listing_title_fails():

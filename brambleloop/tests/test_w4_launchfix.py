@@ -97,17 +97,28 @@ def _blocking_claims() -> list[str]:
 
 
 def _run(db, claims: dict[str, str], *, ok_=True, mode="full", status=LIVE, drafts=("901",),
-         removed=True):
-    """The rows `etsy_exercise.run` writes, in its order: draft created, removed (only when a
-    read of Etsy confirmed it gone), finished with the per-claim states."""
+         removed=True, transport=None):
+    """The rows `etsy_exercise.run` writes, through its own writers: this run's drafts (the
+    removal only when a read of Etsy confirmed it gone), the finished row, and the SEALED
+    evidence row (`_seal_evidence`, review F-2) bound to this run's drafts and transport."""
+    from brambleloop.integrations.http import UrllibTransport
+
+    start = EX._last_audit_id(db)
+    EX._audit(db, EX.RUN_STARTED, {"mode": mode})
     for lid in drafts:
         EX._audit(db, EX.DRAFT_CREATED, {"listing_id": lid, "title": "DO NOT BUY"})
         if removed:
-            EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": lid, "verified": True})
+            EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": lid,
+                                             "confirmed_by": "read of Etsy returned 404"})
+    claim_rows = [{"claim": c, "state_after": st} for c, st in claims.items()]
     EX._audit(db, EX.RUN_FINISHED, {
         "mode": mode, "ok": ok_, "status": status, "shop_is_clean": removed, "rotations": 3,
-        "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX),
-        "claims": [{"claim": c, "state_after": st} for c, st in claims.items()]})
+        "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX), "claims": claim_rows})
+    report = {"ok": ok_, "status": status,
+              "against_etsy": status.startswith(EX.LIVE_STATUS_PREFIX),
+              "exercise": {"claims": claim_rows}}
+    return EX._seal_evidence(db, mode=mode, report=report, start_id=start,
+                             transport=transport if transport is not None else UrllibTransport())
 
 
 def _all_verified() -> dict[str, str]:
@@ -461,7 +472,8 @@ def _seed(db, source="seller_policy"):
 def test_e3_deadlock_the_first_page_reading_was_a_material_change():
     db = _db()
     _seed(db)
-    res = PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner")
+    res = PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner",
+                                 owner_attested=True)
     # Pre-fix: True -- the first reading differed from the excerpt seed and opened a P1.
     assert res["material_change"] is False and res["first_reading"] is True, res
     assert PP.unreviewed_changes(db) == []
@@ -471,10 +483,13 @@ def test_e3_deadlock_the_first_page_reading_was_a_material_change():
 def test_e3_a_later_different_reading_still_opens_the_review_and_blocks():
     db = _db()
     _seed(db)
-    PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner")
-    same = PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner")
+    PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner",
+                           owner_attested=True)
+    same = PP.record_page_reading(db, source="seller_policy", text=TEXT_A, read_by="owner",
+                                  owner_attested=True)
     assert same["material_change"] is False
-    changed = PP.record_page_reading(db, source="seller_policy", text=TEXT_B, read_by="owner")
+    changed = PP.record_page_reading(db, source="seller_policy", text=TEXT_B, read_by="owner",
+                                     owner_attested=True)
     assert changed["material_change"] is True, changed
     pending = PP.unreviewed_changes(db)
     assert [c["source"] for c in pending] == ["seller_policy"]
@@ -548,7 +563,7 @@ def test_e4_on_the_real_names_crochet_is_never_a_node_and_needs_etsys_own_proper
 # IMG -- an unedited photo of a sample made from THIS release, first in the certified gallery
 
 def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first=True,
-                   other_test_release=False):
+                   other_test_release=False, attest=True, medium="PHYSICAL_PRODUCT_PHOTO"):
     """A certified release, a passed full make bound to its content, a photo recorded through
     the one intake, and a valid listing-set certificate. Returns (slug, version, photo sha)."""
     from datetime import datetime, timezone
@@ -583,15 +598,24 @@ def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first
         s.add(test)
         s.flush()
         test_id = test.id
-        frames = [{"position": 1, "sha256": sha}, {"position": 2, "sha256": render_sha}]
+        photo_frame = {"sha256": sha, "medium": medium}
+        render_frame = {"sha256": render_sha, "medium": "DIGITAL_TWIN_RENDER"}
+        frames = [{"position": 1, **photo_frame}, {"position": 2, **render_frame}]
         if not first:
-            frames = [{"position": 1, "sha256": render_sha}, {"position": 2, "sha256": sha}]
+            frames = [{"position": 1, **render_frame}, {"position": 2, **photo_frame}]
         s.add(ListingSetCertificateRecord(product_slug=cir.slug, version=cir.version,
                                           release_hash=content, state="valid",
                                           certificate={"frames": frames}))
     PU.intake(db, slug=cir.slug, version=version_of_photo or cir.version, source="tester",
               sha256=sha, rights_basis="tester_agreement", taken_by="tester-1",
               physical_test_id=test_id, unedited=unedited)
+    if attest:
+        from brambleloop.core.models import PhysicalPhoto
+
+        with db.session() as s:
+            pid = s.scalar(select(PhysicalPhoto.id).where(PhysicalPhoto.sha256 == sha))
+        PU.attest_unedited(db, pid, actor="owner:cc:test-session",
+                           confirm=PU.UNEDITED_CONFIRMATION)
     return cir.slug, cir.version, sha
 
 
@@ -675,6 +699,236 @@ def test_img_a_bound_unedited_first_sample_photo_passes_this_gate_only():
     ok("IMG passes: a bound, unedited, first sample photo satisfies this gate; copy follows facts")
 
 
+def test_img_stage_a_private_draft_is_not_blocked_by_the_photo_but_activation_is():
+    """Owner clarification 2026-10-27: Etsy's photo rule governs listings shown to buyers.
+    The same unsatisfied photo requirement refuses at activation and not at draft."""
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.publish import sample_photo as SP
+
+    db = _db()
+    saved = SP.requirement
+    SP.requirement = lambda *a, **k: {"satisfied": False, "first_frame": None,
+                                      "qualifying": [], "rejected": [],
+                                      "reasons": [f"{SP.CODE}: no photo (test)"]}
+    try:
+        draft = RG.for_publish(db, slug="no-such-product", version="1.0.0", read_only=True)
+        act = RG.for_publish(db, slug="no-such-product", version="1.0.0", read_only=True,
+                             stage=RG.STAGE_ACTIVATION)
+    finally:
+        SP.requirement = saved
+    assert not any(r.startswith(SP.CODE) for r in draft["reasons"]), draft["reasons"]
+    assert draft["stage"] == "draft" and draft["sample_photo"]["satisfied"] is False
+    assert any(r.startswith(SP.CODE) for r in act["reasons"]), act["reasons"]
+    try:
+        RG.for_publish(db, slug="x", version="1", read_only=True, stage="public")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown stage was judged")
+    ok("IMG stage: no photo does not block the private draft; it blocks activation")
+
+
+def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_internal_does():
+    import ast
+
+    src = (ROOT / "src/brambleloop/runtime/pipeline.py").read_text()
+    fns = {n.name: ast.get_source_segment(src, n) for n in ast.parse(src).body
+           if isinstance(n, ast.FunctionDef)}
+    act = fns["handle_store_activate"]
+    assert act.count('_release_gates(ctx, stage="activation")') == 3, act.count("_release_gates(")
+    assert "_release_gates(ctx)" not in act
+    for name in ("handle_store_publish", "_revalidate_publish_effect"):
+        assert 'stage="activation"' not in fns[name], name
+    # The photo gate refuses only inside for_publish at activation; the other src users of
+    # sample_photo only choose the truthful disclosure sentence. Internal callers of
+    # for_publish (e.g. products.inventory) use the default draft stage.
+    users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
+                   if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
+    assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/release_gates.py",
+                     "brambleloop/runtime/release.py"], users
+    rel = (ROOT / "src/brambleloop/runtime/release.py").read_text()
+    assert "_sample_photo.requirement(" in rel and "photographed_sample=_photographed" in rel
+    inv = (ROOT / "src/brambleloop/products/inventory.py").read_text()
+    assert "STAGE_ACTIVATION" not in inv and 'stage="activation"' not in inv
+    ok("IMG stage: only store.activate judges at activation; internal paths never do")
+
+
+# =============================================================================================
+# REVIEW 0f0306dd -- one regression per finding; each fails on 0f0306dd
+
+def test_review_f1_an_ops_token_first_reading_still_opens_the_owner_review():
+    """F-1 (High): POST /api/policy/snapshot (operator token, read_by from the body) must not
+    set an unreviewed baseline. On 0f0306dd this first reading was material_change False."""
+    db = main.db
+    _seed(db, "shilling_and_reviews")
+    c = TestClient(main.app, raise_server_exceptions=False)
+    r = c.post("/api/policy/snapshot", headers={"Authorization": f"Bearer {OPS}"},
+               json={"source": "shilling_and_reviews", "text": "anything at all " * 20,
+                     "read_by": "Owner Name"})
+    assert r.status_code == 200, r.text
+    assert r.json()["material_change"] is True, r.json()
+    assert "shilling_and_reviews" in {x["source"] for x in PP.unreviewed_changes(db)}
+    cards = [x["card_id"] for x in approvals.inbox(db)["cards"]]
+    assert "policy:shilling_and_reviews" in cards
+    # Only the owner-attested CC path may set a baseline.
+    src = (ROOT / "src/brambleloop/app/command_center/policy_readings.py").read_text()
+    assert "owner_attested=True" in src
+    assert "owner_attested" not in (ROOT / "src/brambleloop/app/main.py").read_text()
+    ok("F-1: an ops-token first reading is a material change with an owner review card")
+
+
+def test_review_f2_hand_inserted_unsealed_evidence_never_passes():
+    db = _db()
+    for action, detail in ((EX.DRAFT_CREATED, {"listing_id": "5"}),
+                           (EX.DRAFT_REMOVED, {"listing_id": "5", "confirmed_by": "x"}),
+                           (EX.RUN_FINISHED, {"mode": "full", "ok": True, "status": LIVE,
+                                              "against_etsy": True,
+                                              "claims": [{"claim": c, "state_after": st}
+                                                         for c, st in _all_verified().items()]})):
+        with db.session() as s:
+            s.add(AuditLog(actor="anyone", action=action, detail=detail))
+    assert FC.check_etsy_remote_state(db).state == FC.UNVERIFIABLE
+    # A forged "sealed" row: right action and principal, wrong seal.
+    with db.session() as s:
+        s.add(AuditLog(actor=EX.EVIDENCE_PRINCIPAL, action=EX.EVIDENCE_ACTION, detail={
+            "mode": "full", "ok": True, "status": LIVE, "against_etsy": True,
+            "transport_is_urllib": True, "drafts_created": ["5"],
+            "drafts_removed_confirmed": ["5"], "recorded_at": "2026-10-27T00:00:00+00:00",
+            "claims": [{"claim": c, "state_after": st} for c, st in _all_verified().items()],
+            "seq": 1, "prev_id": None, "prev_seal": "", "seal": "0" * 64}))
+    ev = EX.remote_state_evidence(db)
+    assert ev["live_run_id"] is None and ev["rejected"], ev
+    assert FC.check_etsy_remote_state(db).state == FC.UNVERIFIABLE
+    # A removal breadcrumb with no confirmation does not settle a draft.
+    db = _db()
+    _run(db, _all_verified(), removed=False)
+    EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": "901"})
+    assert FC.check_etsy_remote_state(db).state == FC.UNVERIFIABLE
+    ok("F-2: unsealed or forged evidence rows and unconfirmed removals never pass")
+
+
+def test_review_f3_old_evidence_is_stale():
+    from datetime import datetime, timezone
+
+    db = _db()
+    _run(db, _all_verified())
+    later = datetime.now(timezone.utc) + timedelta(days=EX.EVIDENCE_MAX_AGE_DAYS + 1)
+    ev = EX.remote_state_evidence(db, now=later)
+    assert ev["stale"] is True and ev["verified_claims"] == [], ev
+    # And through the gate: a correctly sealed row dated 2020 is UNVERIFIABLE.
+    db = _db()
+    start = EX._last_audit_id(db)
+    EX._audit(db, EX.DRAFT_CREATED, {"listing_id": "77"})
+    EX._audit(db, EX.DRAFT_REMOVED, {"listing_id": "77", "confirmed_by": "404"})
+    EX.EVIDENCE.append(db, action=EX.EVIDENCE_ACTION, artifact="exercise:full", detail={
+        "principal": EX.EVIDENCE_PRINCIPAL, "mode": "full", "ok": True, "status": LIVE,
+        "against_etsy": True, "transport": "UrllibTransport", "transport_is_urllib": True,
+        "claims": [{"claim": c, "state_after": st} for c, st in _all_verified().items()],
+        "drafts_created": ["77"], "drafts_removed_confirmed": ["77"],
+        "recorded_at": "2020-01-01T00:00:00+00:00"})
+    assert start >= 0
+    c = FC.check_etsy_remote_state(db)
+    assert c.state == FC.UNVERIFIABLE and "older than" in c.detail, c
+    ok("F-3: a sealed live run older than the evidence window does not pass")
+
+
+def test_review_f4_the_round_trip_must_be_the_live_runs_own():
+    db = _db()
+    _run(db, _all_verified(), status=LOCAL, drafts=("5",))           # an earlier clean pair
+    _run(db, _all_verified(), drafts=())                            # live run, no draft
+    ev = EX.remote_state_evidence(db)
+    assert ev["live_run_id"] and ev["round_trip_clean"] is False, ev
+    assert FC.check_etsy_remote_state(db).state == FC.UNVERIFIABLE
+    ok("F-4: a live run that created no draft cannot borrow another run's round trip")
+
+
+def test_review_f5_only_the_etsy_host_and_the_production_transport_count():
+    from brambleloop.integrations import etsy_probe as EP
+
+    class C:
+        BASE = "https://openapi.etsy.com.attacker.test/v3"
+
+    assert EP.against_etsy(C()) is False
+    C.BASE = "https://openapi.etsy.com/v3/application"
+    assert EP.against_etsy(C()) is True
+    C.BASE = "http://openapi.etsy.com/v3"
+    assert EP.against_etsy(C()) is False
+
+    class Injected:
+        pass
+
+    db = _db()
+    _run(db, _all_verified(), transport=Injected())
+    assert FC.check_etsy_remote_state(db).state == FC.UNVERIFIABLE
+    ok("F-5: exact Etsy host; an injected transport's run is not evidence")
+
+
+def test_review_f6_every_sealed_fee_term_is_bound():
+    db = _db()
+    _listings(db, 2)
+    _record(db, LD.LISTING_FEES)
+    assert LD.listing_fees_state(db, 2)["ready"] is True
+    real = LD._fee_terms
+    for key, value in (("transaction_rate", 0.25), ("listing_period_months", 1),
+                       ("fee_reading", "2099-01-01"), ("fee_per_listing_cad", 9.99)):
+        LD._fee_terms = (lambda k=key, v=value: {**real(), k: v})
+        try:
+            st = LD.listing_fees_state(db, 2)
+            assert st["ready"] is False and key in st.get("changed_terms", []), (key, st)
+        finally:
+            LD._fee_terms = real
+    ok("F-6: a change to any sealed fee term (rate, period, reading, CAD fee) is re-asked")
+
+
+def test_review_f7_a_recorded_render_or_unattested_or_non_photo_frame_never_qualifies():
+    from brambleloop.core.models import ArtefactProvenance, ListingAsset
+    from brambleloop.publish import physical_upgrade as PU
+    from brambleloop.publish import sample_photo as SP
+
+    # The system's own render / generation records disqualify the file.
+    for marker in ("provenance", "asset"):
+        db = _db()
+        slug, version, sha = _photo_fixture(db)
+        with db.session() as s:
+            if marker == "provenance":
+                s.add(ArtefactProvenance(artefact_class="listing_image", artefact_key="k",
+                                         provider="replicate", model="flux-pro", sha256=sha))
+            else:
+                s.add(ListingAsset(product_slug=slug, version=version, position=9,
+                                   asset_class="DISCLOSED_RENDER", role="hero", sha256=sha))
+        r = SP.requirement(db, slug, version)
+        assert r["satisfied"] is False and "recorded by the system" in str(r["rejected"]), r
+    # The first certified frame must be a photograph by class, not just by hash.
+    db = _db()
+    slug, version, _ = _photo_fixture(db, medium="DIGITAL_TWIN_RENDER")
+    assert SP.requirement(db, slug, version)["satisfied"] is False
+    # The ops-token body flag alone is not an attestation: the owner's CC attestation is.
+    db = _db()
+    slug, version, _ = _photo_fixture(db, attest=False)
+    r = SP.requirement(db, slug, version)
+    assert r["satisfied"] is False and "Command Center" in str(r["rejected"]), r
+    try:
+        PU.attest_unedited(db, 1, actor="orchestrator", confirm=PU.UNEDITED_CONFIRMATION)
+    except PU.UpgradeRefused:
+        pass
+    else:
+        raise AssertionError("a non-owner actor attested a photograph")
+    assert approvals.ACTIONS["physical_photo.attest_unedited"][0] is True
+    ok("F-7: recorded renders/generations, a non-photo first frame and an unattested photo fail")
+
+
+def test_review_f8_the_owner_card_names_the_risk_acceptance_and_filing_as_optional():
+    from brambleloop.launch import readiness as R
+    from brambleloop.ops import owner_queue as Q
+
+    text = R.TRADEMARK_SCREEN.action
+    assert "brand_risk_acceptance" in text and "not required" in text, text
+    dec = Q.DECISION_BY_KEY["brand_clearance"]["decision"]
+    assert "residual risk" in dec and "not required" in dec, dec
+    ok("F-8: the brand_clearance request asks for the risk acceptance; filing is optional")
+
+
 # =============================================================================================
 # CC -- the policy-readings form (#/policy)
 
@@ -721,8 +975,11 @@ def test_cc_policy_form_needs_a_session_csrf_and_step_up():
     h = _fresh(csrf2)
     first = c2.post("/api/cc/policy/readings", json=_body(source="advertising_rules"), headers=h)
     assert first.status_code == 200, first.text
-    again = c2.post("/api/cc/policy/readings", json=_body(source="advertising_rules"), headers=h)
-    assert again.status_code in (401, 403, 409), again.text
+    # Review F-9: a DIFFERENT body under the replayed nonce, so a duplicate-reading refusal
+    # cannot stand in for the replay check.
+    again = c2.post("/api/cc/policy/readings", headers=h,
+                    json=_body(source="advertising_rules", text=TEXT_B))
+    assert again.status_code == 409 and again.json()["code"] == "REPLAY", again.text
     ok("CC: session, CSRF, step-up and a fresh nonce are all required; the ops token is not")
 
 

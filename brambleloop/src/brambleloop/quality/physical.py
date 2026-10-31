@@ -97,6 +97,15 @@ class SampleReport:
     piece_measurements: list | None = None
     # The across-the-flats span of a polygonal piece, compared with `twin.across_flats_cm`.
     measured_flats_cm: float | None = None
+    # Construction-review observations of a vessel (CONSTRUCTION_REVIEW_basket_small_1.2.0 §5),
+    # recorded in structured form: how the base turns into the wall, whether the polygon
+    # survives to the rim, and an in-progress height. Validated, stored, never guessed.
+    base_edge: str | None = None               # "crisp" or "rounded"
+    wall_vertical_from_rnd: int | None = None  # required when base_edge is "rounded"
+    corners_at_rim: bool | None = None
+    rim_across_points_cm: float | None = None
+    inside_depth_cm: float | None = None
+    rnd11_height_cm: float | None = None
 
     def metres_by_color(self) -> dict[str, float]:
         return {colour: round(self.ball_band.metres_for(grams), 1)
@@ -111,6 +120,11 @@ PASS, PARTIAL, FAIL = "PASS", "PARTIAL", "FAIL"
 REVIEW = "REVIEW"
 
 SCOPES = ("full_make", "component", "swatch")
+# How a vessel's wall height is measured (construction review §5): one method, printed on the
+# sheet and stored with every reading, so the number the twin is compared with is unambiguous.
+WALL_HEIGHT_METHOD = ("outside, from the flat table to the top of the rim, at the middle of a "
+                      "flat side")
+BASE_EDGES = ("crisp", "rounded")
 # A swatch's gauge may sit this far from the pattern's before it disagrees: the same 12% the
 # finished size may, because gauge maps one-to-one onto every finished dimension.
 GAUGE_DISAGREEMENT = SIZE_DISAGREEMENT
@@ -212,6 +226,14 @@ class SampleAssessment:
             "size_proof": self.size_proof,
             "piece_measurements": list(self.report.piece_measurements or []),
             "measured_flats_cm": self.report.measured_flats_cm,
+            "observations": {
+                "wall_height_method": WALL_HEIGHT_METHOD,
+                "base_edge": self.report.base_edge,
+                "wall_vertical_from_rnd": self.report.wall_vertical_from_rnd,
+                "corners_at_rim": self.report.corners_at_rim,
+                "rim_across_points_cm": self.report.rim_across_points_cm,
+                "inside_depth_cm": self.report.inside_depth_cm,
+                "rnd11_height_cm": self.report.rnd11_height_cm},
             "findings": [{"code": f.code, "message": f.message, "severity": f.severity}
                          for f in self.findings],
             "assessed_at": self.assessed_at.isoformat(),
@@ -370,6 +392,7 @@ def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessmen
         if cir is not None:
             size_twin = _measured_piece_twin(out, report, cir, result, twin)
         _assess_size(out, report, size_twin)
+        _assess_observations(out, report)
         if cir is not None:
             _assess_pieces(out, report, cir, result)
             _assess_shape(out, report, cir, result)
@@ -489,6 +512,27 @@ def _compare_sizes(out: SampleAssessment, checked: list) -> None:
                     "ERROR"))
 
 
+def _assess_observations(out: SampleAssessment, report: SampleReport) -> None:
+    """The construction-review observations are typed: malformed is refused, never stored."""
+    problems = []
+    if report.base_edge is not None and report.base_edge not in BASE_EDGES:
+        problems.append(f"base_edge {report.base_edge!r} is not one of {BASE_EDGES}")
+    rnd = report.wall_vertical_from_rnd
+    if report.base_edge == "rounded" and rnd is None:
+        problems.append("a rounded base edge must say from which round the wall is upright")
+    if rnd is not None and (isinstance(rnd, bool) or not isinstance(rnd, int) or rnd < 1):
+        problems.append(f"wall_vertical_from_rnd {rnd!r} is not a round number")
+    if report.corners_at_rim is not None and not isinstance(report.corners_at_rim, bool):
+        problems.append(f"corners_at_rim {report.corners_at_rim!r} is not yes or no")
+    for key in ("rim_across_points_cm", "inside_depth_cm", "rnd11_height_cm"):
+        v = getattr(report, key)
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0):
+            problems.append(f"{key} {v!r} is not a measurement in cm")
+    if problems:
+        out.findings.append(Finding("SAMPLE_OBSERVATION_INVALID", "; ".join(problems),
+                                    "ERROR"))
+
+
 def _assess_pieces(out: SampleAssessment, report: SampleReport, cir, result) -> None:
     """SECREVIEW F6: each made piece measured in a checked field, against its own twin.
 
@@ -501,11 +545,18 @@ def _assess_pieces(out: SampleAssessment, report: SampleReport, cir, result) -> 
     for i, entry in enumerate(pieces, start=1):
         comp = (entry or {}).get("component") if isinstance(entry, dict) else None
         width = (entry or {}).get("width_cm") if isinstance(entry, dict) else None
-        if comp not in out.made or not isinstance(width, (int, float)) or width <= 0:
+        height = (entry or {}).get("height_cm") if isinstance(entry, dict) else None
+
+        def _cm(v) -> bool:
+            return isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+
+        # SECREVIEW R3: a height that is given must be a number, as the width must; a string
+        # or a negative is refused, never skipped.
+        if comp not in out.made or not _cm(width) or (height is not None and not _cm(height)):
             out.findings.append(Finding(
                 "SAMPLE_PIECES_UNMEASURED",
                 f"piece measurement {i} ({entry!r}) must name a made component and give its "
-                f"width in cm", "ERROR"))
+                f"width (and any height) in cm as numbers", "ERROR"))
             return
         by_comp.setdefault(comp, []).append(entry)
     for comp, count in out.made.items():
@@ -520,7 +571,7 @@ def _assess_pieces(out: SampleAssessment, report: SampleReport, cir, result) -> 
         twin = build_twin(cir, result, component=comp)
         for n, entry in enumerate(entries, start=1):
             checked = [(f"{comp} {n} width", float(entry["width_cm"]), twin.width_cm)]
-            if isinstance(entry.get("height_cm"), (int, float)):
+            if entry.get("height_cm") is not None:
                 checked.append((f"{comp} {n} height", float(entry["height_cm"]),
                                 twin.height_cm))
             _compare_sizes(out, [(lbl, m, p) for lbl, m, p in checked if p])
@@ -766,29 +817,90 @@ def size_coverage(db, cir) -> dict:
             "rule": "a physical sample covers exactly the one size it was worked in"}
 
 
-def design_digest(cir, result=None) -> str | None:
-    """SECREVIEW F1: what a release IS, independent of the version string it carries.
+# SECREVIEW R1 (42eac69): what a design digest covers -- only what decides the made object's
+# finished size and shape. Everything else (title, notes, colour names and hexes, provenance,
+# list order where order means nothing) is canonicalised away, so a cosmetic edit is the
+# same design and never certifies past, or resolves, a size halt.
+_PIECE_KEYS = ("construction", "foundation", "foundation_kind", "make", "holds", "resumes",
+               "grain")
+_ROW_KEYS = ("index", "declared_count", "turning_chain", "turning_chain_counts", "into",
+             "allow_remainder", "skips")
+_GAUGE_KEYS = ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm", "yarn_weight",
+               "chains_per_10cm")
+# Free text and labels: never geometry, at any depth.
+_COSMETIC = frozenset({"note", "notes", "name", "title", "color", "colour", "colorway",
+                       "color_id", "label", "description", "designer_notes"})
 
-    `gates.certificate._release_hash` covers `cir.to_dict()`, version included, so a
-    version-only relabel of byte-identical geometry and text is "different content". A size
-    halt is a statement about the design, so it is keyed on this: the CIR without its version,
-    and the written pattern with the version string removed."""
+
+def _canon(value):
+    """Drop cosmetic keys at any depth; sort dict keys (json does) and keep list order."""
+    if isinstance(value, dict):
+        return {k: _canon(v) for k, v in value.items() if k not in _COSMETIC}
+    if isinstance(value, (list, tuple)):
+        return [_canon(v) for v in value]
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def design_geometry(cir) -> dict:
+    """The canonical geometry of a design: the input to `design_digest`.
+
+    - every piece: construction, foundation, quantity (`make`), holds/resumes, grain, and each
+      row/round's stitch ops and counts (`into`, skips, turning chains), in working order;
+    - the gauge (stitches and rows per 10 cm, stitch, hook, yarn weight, chain gauge);
+    - the yarn weights and fibres, as a sorted set (names, colourways and order dropped);
+    - assembly, the size set (graded size and its matrix) and the represented configuration.
+
+    Pieces are sorted by their canonical content, so naming or listing them in another order is
+    the same design; rows keep their order, because working order is geometry."""
+    body = cir.to_dict()
+    pieces = []
+    for comp in body.get("components") or []:
+        piece = {k: _canon(comp.get(k)) for k in _PIECE_KEYS}
+        piece["rows"] = [{**{k: _canon(r.get(k)) for k in _ROW_KEYS},
+                          "ops": _canon(r.get("ops"))} for r in comp.get("rows") or []]
+        pieces.append(piece)
+    import json
+
+    pieces.sort(key=lambda p: json.dumps(p, sort_keys=True, default=str))
+    gauge = body.get("gauge") or {}
+    materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
+                                    "fibre": sorted(str(f).strip().lower()
+                                                    for f in (m.get("fibre_content") or ()))},
+                                   sort_keys=True)
+                        for m in body.get("materials") or []})
+    graded = body.get("graded") or {}
+    return {
+        "construction": _canon(body.get("construction")),
+        "pieces": pieces,
+        "gauge": {k: gauge.get(k) for k in _GAUGE_KEYS},
+        "materials": materials,
+        "assembly": _canon(body.get("assembly") or []),
+        "sizes": {"size": graded.get("size"), "ease_cm": _canon(graded.get("ease_cm")),
+                  "matrix": _canon(graded.get("sizes"))} if graded else None,
+        "variant": dict(getattr(cir, "represented_variant", {}) or {}),
+    }
+
+
+def design_digest(cir, result=None) -> str | None:
+    """SECREVIEW F1/R1: what a release IS for its size claim, independent of its labels.
+
+    `gates.certificate._release_hash` covers the whole CIR, version and title included, so a
+    relabel or a retitle of identical geometry is "different content". A size halt is a
+    statement about the made object, so it is keyed on `design_geometry` alone: a version,
+    title, whitespace, notes, colour-name or list-order change is the same design.
+    Unreadable or uncompilable is None, and callers fail closed."""
     import hashlib
     import json
 
     try:
         from ..cir.compiler import compile_cir
-        from ..cir.writer import write_pattern
 
         result = result if result is not None else compile_cir(cir)
         if not result.ok:
             return None
-        body = dict(cir.to_dict())
-        version = str(body.pop("version", "") or "")
-        text = write_pattern(cir, result, "US")
-        if version:
-            text = text.replace(version, "<version>")
-        payload = json.dumps({"cir": body, "text": text}, sort_keys=True, default=str)
+        payload = json.dumps(design_geometry(cir), sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
     except Exception:  # noqa: BLE001 - unreadable design: callers fail closed
         return None

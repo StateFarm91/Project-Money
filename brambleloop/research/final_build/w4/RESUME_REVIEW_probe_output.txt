@@ -1,0 +1,28 @@
+HELD     P01 kill -9 mid-suite, resume: record after SIGKILL='running'; interrupted suite checkpoint='running'; resume reran 1 of 2; gate segment=2; tests_passing=6 (expect 6); resumed=True release_eligible=False
+HELD     P01b SIGTERM to the runner leaves the suite running: suite processes still alive after the runner exited on SIGTERM: 0; the interrupted suite died with the runner
+HELD     P02a kill during checkpoint json write (empty json): resume reran 2 of 2; exit 0
+EXPOSED  P02b torn .out under an intact 'passed' json: resume exit 0, status passed, tests_passing=3 (true value 6); json ok_count=5 disagrees with the .out and nothing compares them
+EXPOSED  P02c .out lost under a 'passed' json: resume 1: reran 1 of 2, the suite reported 'never ran', exit 1; resume 2: reran 0 of 2, exit 1: the run can never be completed by resuming, and suite_results still says 'passed'
+HELD     P03a truncated suite json: invalid JSON read as 'no result' -> reran 2 of 2
+EXPOSED  P03b edited .out (a SKIP rewritten as OK): accepted silently: tests_passing=7 (true 6), tests_skipped_reported=0 (true 1)
+EXPOSED  P03c json status edited failed->passed: was 'failed'; the suite was NOT rerun (executions 1->1); the report used the stale exit code and failed the run (exit 1) but suite_results says 'passed' while failing_suites=['tests/test_flaky.py'] -- the record contradicts itself
+EXPOSED  P03d forged pass (json + .out rewritten): resume exit 0, record passed, suites_failing 0; the suite failed the only time it ran and was counted passed; no HMAC, hash or chain is checked
+HELD     P04a tracked source edited between kill and resume: exit 4; REFUSED: RESUME key mismatch on dirty_content_sha256; nothing was run. A resumed run must match the original e
+EXPOSED  P04b untracked file edited between kill and resume: resume exit 0 (accepted); the same suite run fresh now exits 1: FAIL test_inputs helper=2 fixture=1 depmod=1
+EXPOSED  P04c git-ignored fixture edited between kill and resume: resume exit 0 (accepted); fresh run exits 1: FAIL test_inputs helper=1 fixture=2 depmod=1
+HELD     P04d new commit between kill and resume: exit 4; refused on git_sha
+HELD     P05a lockfile edited: exit 4; refused on locks.requirements.lock
+EXPOSED  P05b installed package changed in the same venv (lock untouched): resume exit 0 (accepted: the key holds the interpreter path, version and prefix, not the installed set); fresh run exits 1: FAIL test_inputs helper=1 fixture=1 depmod=2
+EXPOSED  P05c PYTHONPATH changed between kill and resume: resume exit 0 (accepted); fresh run under the new environment exits 1
+HELD     P05d BRAMBLELOOP_* flag added: exit 4; refused on env
+EXPOSED  P06a suite result copied from another run_id: run B's own result was 'failed'; A's 'passed' copied over it was accepted (exit 0; flaky executions 1->1, i.e. not rerun); run B's record lists it as segment 1 of run 20261027T161454Z-28293: a result carries no run id, host or hash, so nothing distinguishes the copy
+EXPOSED  P06b checkpoint dir copied to another run id: RESUME=20990101T000000Z-1 accepted (exit 0); its manifest still says run_id '20261027T161455Z-28488' and nothing compares it
+EXPOSED  P07 RESUME of a completed, failed run (retry-until-green): run 1 completed failed (exit 1, no interruption); RESUME reran only the failure, which passed: record now passed, failing_suites=[]; the checkpointed output of the failed attempt was overwritten (now: 'OK   test_flaky'); only segments[0].finished_utc hints it ran
+EXPOSED  P08 TMP_LEAK_STRICT failure erased by resume: a fresh strict run fails the leaky suite (exit 1); the checkpoint wrote 'passed' before the leak census ran, restore writes '0 0' for the leak, and the resumed run passes (exit 0, tmp_leak_entries=0)
+HELD     P09-control resumed full run, finalize intact: exit 0; release_eligible=False, resumed=True; deploy_guard eligible pick: nothing
+EXPOSED  P09 the resumed-run downgrade fails open: resumed full run exit 0; record release_eligible=True, resumed=None, checkpoint key present=False; deploy_guard.latest_suite(eligible_only=True) returned this resumed run; _log_confirms -> None
+EXPOSED  P09b deploy_guard reads no resume provenance: ops/deploy_guard.py contains neither 'resumed' nor 'checkpoint'; release_eligible is the only bit between a resumed run and `record`
+HELD     P10 union of fresh and resumed results: tests_passing=7 (expect 7), suites listed once each=True, one TOTAL line=True
+EXPOSED  P10b leak census of resumed suites: tmp_leak_entries=0 although test_leaky leaked 1 entry in segment 1: restore writes '0 0' for every reused suite
+
+PROBES: 10 held, 16 exposed, 0 could not run

@@ -1324,7 +1324,12 @@ def against_etsy(client: EtsyClient) -> bool:
     claim no matter how green it is, and the check is a property of where the bytes went
     rather than of who is asking.
     """
-    return str(client.BASE).startswith(ETSY_HOST)
+    # W4-LAUNCHFIX review F-5: the parsed scheme and host, compared exactly. A prefix test
+    # also matched "https://openapi.etsy.com.attacker.test".
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(str(client.BASE))
+    return parts.scheme == "https" and (parts.hostname or "") == urlsplit(ETSY_HOST).hostname
 
 
 def claims(findings: list[dict[str, Any]], *,

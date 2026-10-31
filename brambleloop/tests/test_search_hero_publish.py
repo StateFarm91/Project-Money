@@ -162,7 +162,7 @@ def _owner_and_fake(fake):
     """
     from brambleloop.creative import preengineering
     from brambleloop.integrations import etsy
-    from brambleloop.publish import eligibility, sample_photo
+    from brambleloop.publish import eligibility
 
     creds = etsy.Credentials(api_key=fake.keystring, shared_secret=fake.shared_secret,
                              access_token="111.live-token", shop_id=fake.shop_id)
@@ -174,8 +174,7 @@ def _owner_and_fake(fake):
                              owner_authorised=owner_authorised, base=fake.base)
 
     saved = (etsy.EtsyClient, etsy.Credentials.from_env, pipeline._listing_parity,
-             preengineering.release_grid_verdict, eligibility.product_publication,
-             sample_photo.requirement)
+             preengineering.release_grid_verdict, eligibility.product_publication)
     env = {k: os.environ.get(k) for k in ("BRAMBLELOOP_PUBLISH_AUTHORISED",
                                           "BRAMBLELOOP_OPS_TOKEN")}
     etsy.EtsyClient = _Loopback
@@ -187,19 +186,13 @@ def _owner_and_fake(fake):
                                                             "why": "held: #126"}
     eligibility.product_publication = lambda *a, **k: {"reasons": [],
                                                        "held": "Launch-0 scope gate"}
-    # W4-LAUNCHFIX: held like the scope gate above. The Etsy sample-photo precondition
-    # (publish.sample_photo) has its own refuse/pass tests in test_w4_launchfix; this fixture
-    # has no physical sample, and this module is about the search hero on the publish path.
-    sample_photo.requirement = lambda *a, **k: {"satisfied": False, "reasons": [],
-                                                "held": "W4-LAUNCHFIX sample-photo gate"}
     os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = "1"
     os.environ["BRAMBLELOOP_OPS_TOKEN"] = OWNER_TOKEN
     try:
         yield
     finally:
         (etsy.EtsyClient, etsy.Credentials.from_env, pipeline._listing_parity,
-         preengineering.release_grid_verdict, eligibility.product_publication,
-         sample_photo.requirement) = saved
+         preengineering.release_grid_verdict, eligibility.product_publication) = saved
         for k, v in env.items():
             if v is None:
                 os.environ.pop(k, None)
