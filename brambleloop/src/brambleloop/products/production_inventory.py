@@ -364,7 +364,12 @@ def _recorded_product_gates(rec: dict, slug: str, version: str, changed_at) -> d
     product's last change. Anything missing or older is UNKNOWN."""
     gates = [a for a in rec["audits"] if a.action == "store.release_gates"
              and a.artifact == slug and a.detail.get("version") == version]
-    parity = [a for a in rec["audits"] if a.action == "listing.parity" and a.artifact == slug]
+    # CHAIN FINDING: `listing.parity` is audited under the slug alone with no version in its
+    # detail, so it is bound to a version here through the store.publish job that wrote it.
+    # A parity row with no job, or a job for another version, is not this version's verdict.
+    publish_versions = {j.id: j.version for j in rec["jobs"] if j.job_type == "store.publish"}
+    parity = [a for a in rec["audits"] if a.action == "listing.parity" and a.artifact == slug
+              and a.job_id is not None and publish_versions.get(a.job_id) == version]
     g = max(gates, key=lambda a: a.id) if gates else None
     p = max(parity, key=lambda a: a.id) if parity else None
     out = {"mode": "recorded", "release_gates_audit": g.id if g else None,

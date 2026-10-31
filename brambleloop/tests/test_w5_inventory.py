@@ -140,7 +140,7 @@ def up_to(db, slug, stage, *, physical=False, gates=True, gates_stale=False, par
     job(db, "launch.plan", inputs={"slug": slug, "version": v, "release": rh},
         outputs={"launch_on": "2026-11-01"}, agent="growth")
     # as in shadow: launch.plan queued store.publish, which refused (a closed gate)
-    job(db, "store.publish", "dead", inputs={"slug": slug, "version": v},
+    pub = job(db, "store.publish", "dead", inputs={"slug": slug, "version": v},
         agent="store_operator", last_error="capability not enabled: shadow mode")
     if stage == "listing":
         return rh
@@ -153,7 +153,8 @@ def up_to(db, slug, stage, *, physical=False, gates=True, gates_stale=False, par
     if parity:
         audit(db, "listing.parity", slug, {"verdict": "PASS" if not parity_blocks else "FAIL",
                                            "blocks_release": parity_blocks,
-                                           "why": "frame 2 fails"}, at=at)
+                                           "why": "frame 2 fails"},
+              job_id=None if parity == "unbound" else pub, at=at)
     return rh
 
 
@@ -222,6 +223,7 @@ up_to(DB, "g-stale", "gates", gates_stale=True)
 up_to(DB, "g-noparity", "gates", parity=False)
 up_to(DB, "g-norun", "listing")
 up_to(DB, "g-intent", "gates")
+up_to(DB, "g-unbound", "gates", parity="unbound")  # a parity row with no publish job
 try:
     from brambleloop.publish.draft_intent import DraftIntent
 
@@ -293,7 +295,8 @@ def test_ready_is_refused_whenever_any_gate_is_open():
     with _Patch():
         inv = pi.derive(DB)
         assert item(inv, "s-ready")["state"] == pi.READY
-        for slug in ("g-blocks", "g-parity", "g-stale", "g-noparity", "g-norun", "g-intent"):
+        for slug in ("g-blocks", "g-parity", "g-stale", "g-noparity", "g-norun", "g-intent",
+                     "g-unbound"):
             it = item(inv, slug)
             assert it["state"] != pi.READY, (slug, it["why"])
             assert it["state"] == pi.LISTING_COMPLETED, (slug, it["state"])
