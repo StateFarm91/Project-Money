@@ -322,9 +322,9 @@ def _tester_recruited(db, env) -> bool:
     def counts(p) -> bool:
         # SECREVIEW R12: a tester agreement counts only if it passed the independence
         # allow-list with qualification evidence; other recorded permissions as before.
-        if (p or {}).get("kind") != "tester_agreement":
+        if not isinstance(p, dict) or p.get("kind") != "tester_agreement":
             return bool(p)
-        ind = (p or {}).get("independence") or {}
+        ind = p.get("independence") or {}
         return (ind.get("relationship") in ALLOWED_RELATIONSHIPS.values()
                 and not qualification_problems(ind.get("qualification")))
 

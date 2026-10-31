@@ -609,3 +609,57 @@ infinite flats span, a NaN observation, NaN hours, NaN grams, and a NaN swatch g
 `test_w4_owner_queue_race` failed once (1/2) under machine contention. The failing check was
 `etsy_surface:*` requests queued twice by concurrent passes, which none of this work touches. A
 solo rerun passed 2/2.
+
+## 13. Delta review 3 (`INDEPENDENT_SECREVIEW_PHYSFIX_3e542a1.md`)
+
+- **R11: hold names no longer affect the digest.**
+  - A hold's geometry stays in its piece's content: the row, the count and the stitch offset.
+    Its name is dropped.
+  - Every hold name becomes a position (`piece#i/hold#j`), and a `resumes` that names a hold is
+    written as that position. Assembly references are mapped the same way.
+- **R14: `Row.into` is back in the digest,** as `into_offset` (row index minus target; 1 is the
+  default previous row). Renumbering rows does not change it.
+  - Test for R11 and R14: `test_a_hold_rename_is_the_same_design_and_into_is_geometry`.
+    - The reviewer's two-piece repro gives the same digest after a hold rename.
+    - A real hold change still moves it (and still compiles).
+    - Working round 15 into round 13 of the medium basket moves it.
+- **R12: every sample is bound to an independent agreed tester.**
+  - `quality.physical.record` (the only writer of `PhysicalTest`) refuses a sample unless
+    `tester_programme.independent_agreement(tester_ref)` finds a `tester_agreement` permission
+    that passed the allow-list, with qualification evidence. The agreement is stamped on the row.
+  - There is no default tester: `handle_physical_record` no longer uses `"owner"`.
+  - An explicit `owner_made: true` is stored as non-evidence: never passed, `size_proof` false,
+    binds nothing, calibrates nothing, never lifts a halt. A size mismatch on it still halts,
+    which fails closed.
+  - `executor._physical_proof_available` ignores owner-made rows.
+  - `_tester_recruited` counts a `tester_agreement` permission only if it passed the allow-list.
+    Agreements recorded before the allow-list no longer count. Other permission kinds count as
+    before.
+  - Test: `test_a_sample_is_evidence_only_from_an_independent_agreed_tester`. It covers no ref,
+    an empty ref, "owner", an unknown ref, a pre-allow-list agreement, the owner-made path, and
+    the gate readings.
+  - Test fixtures now agree their testers through `record_agreement`.
+- **R13 and R17: the stale figures are gone from the committed packets.**
+  - `gate_clearance_business.py` was re-run. Its diff touches only the tester lane: the figure,
+    the protocol, the records, the call and the kit digests.
+  - The new `owner/patch_tester_outreach.py` rewrites only the `tester_outreach` decision and its
+    `physical_proof` detail, in `OWNER_ACTIONS.{json,md}` and the Command Center snapshot, from
+    `owner_queue` and the regenerated clearance. The go-live batch total goes from CA$651.00 to
+    CA$532.00.
+  - `build_owner_docs.py` was not re-run, because it would rewrite other lanes' items from
+    vendored readings.
+  - `launch/readiness.PHYSICAL_SAMPLE` now reads `tester_kit.KIT["max_cost_cad"]` and names the
+    small-basket kit. The 8-hour CA$185 formula is gone.
+  - The `tester_kit` docstring no longer calls CA$59.65 a ceiling.
+- **R15: the ceiling is checked from above.** `tester_kit.APPROVED_CEILING_CAD` holds the
+  approved figures (66.00 and 100.00). A `max_cost_cad` above its approved figure refuses the
+  build.
+- **R16: the qualification must be a link or a stored photo.** It must be an http(s) link with a
+  real host, or a stored photo reference (`photo:<sha256>` or a bare SHA-256). "." and
+  "https://x" are refused.
+  - Test: `test_qualification_evidence_must_be_a_link_or_a_stored_photo`.
+- Test for R13, R15 and R17: `test_the_kit_ceiling_is_checked_from_above_and_no_stale_figure_remains`
+  (a 10x ceiling refuses each kit, and none of the five committed files contains CA$185 or
+  59.65).
+- **Combined-tree fix.** `test_executor.test_tester_roster_counts_agreement_not_prospects` stores
+  a permission as a plain string. `_tester_recruited` now handles non-dict permissions as before.
