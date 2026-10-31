@@ -156,6 +156,24 @@ Observed: `A1 e0263c7f9807 3c8f80e4f85a`, `A2 e0263c7f9807 23e1b9c0c5af`, `A3 e0
 
 Each file was run alone with `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py` at `7282c470`, after installing `requirements.lock` and `requirements-test.lock`.
 
-_Partial report: the test run is in progress. Results so far: test_physfix 38/38, test_secreview_physfix_adversarial 12/12, both probe files 8/8 each, test_executor, test_creators and test_cert_growth_ops all pass._
+| File | Result |
+|---|---|
+| test_physfix | 38/38 passed |
+| test_secreview_physfix_adversarial | 12/12 passed |
+| test_secreview_physfix_42eac69_probes | 8/8 passed |
+| test_secreview_physfix_89eef1e_probes | 8/8 passed |
+| test_executor | OK (exit 0) |
+| test_creators | OK (exit 0) |
+| test_cert_growth_ops | PASS, 0 failing (re-run once on clean source) |
+| test_risk_matrix | OK (exit 0) |
+| test_physical | OK (exit 0) |
+| test_physfix_photo_first | 8/8 passed |
+| test_w4_launchfix | 32 passed, 0 failed |
+| test_vacuity | OK (exit 0) |
+| test_first_customer_gate | 12 passing, 0 failing |
+
+All 13 pass (exit 0).
+
+I also checked the proposed R27 fix locally; it was not committed and the source was restored before the re-run. With the fix, A1, A2 and A3 all give no digest, and all 11 Launch-0 digests are unchanged. Only the seamed benchmark cardigan changes, to no digest, which fails closed. Before landing the fix, the author should re-run `test_physfix`, because a test may expect the cardigan to have a digest.
 
 The tests do not catch R27. The probe in §4 does.
