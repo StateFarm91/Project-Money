@@ -2635,7 +2635,8 @@ The dry run reports no problems.
 
 **What did not change.**
 - The CIR builder, the version and the instructions are unchanged. The content/release hash stays `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991`, so certification evidence and the tester kit's hash binding still hold.
-- The medium and large releases and their records are unchanged. Both are preserved for separately verified future releases and leave Launch-0 scope.
+- The medium and large releases and their records are unchanged, preserved for separately verified future releases. `nursery-nesting-baskets` is listed in `launch0.HELD_FOR_VERIFICATION`. It is not launched, but its CIRs stay inside `launch_scope_slugs`, so every Launch-0 gate still applies to medium and large: first-customer, plan price, children's statements and their per-size frames (`visual.launch_imagery._primary_for`). Taking them out of scope would have let a re-certified medium or large skip the first-customer gate (`publish.eligibility.legacy_status`).
+- Launch-0 drops from 10 releases to 8. Medium and large are no longer seeded as launch work, and are outside the approved vision batch's frame scope (`finance.launch_review`).
 
 **Consequences.**
 - **Customer PDF.** It loses the children's safety block (9 pages to 7), so its bytes and `assets.built` hashes change and the PDFs must be re-rendered.
