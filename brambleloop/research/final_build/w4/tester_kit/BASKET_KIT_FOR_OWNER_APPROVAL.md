@@ -38,10 +38,10 @@ LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
 |---|---|
 | Release | `market-basket-small@1.2.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
-| Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `@TEST@` |
-| Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` | `@SHEET@` |
-| Tester call `OUTREACH.md` (NOT SENT) | `@OUTREACH@` |
-| Manifest `KIT_MANIFEST.json` | `@MANIFEST@` |
+| Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57` |
+| Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` | `59ea3c2703d827f2d1ddf05e43dd26aec84a9be37690a16fe43f40f166da0cf9` |
+| Tester call `OUTREACH.md` (NOT SENT) | `bed9dbe29c837bdb499e6eba90747744bd08b08d5b3ddeeabf7c4f1488e47b3f` |
+| Manifest `KIT_MANIFEST.json` | `ddbd4ed443356a25ac41931de17411d21192cac3b3c12e7021439cdc116b1e60` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.

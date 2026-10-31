@@ -154,6 +154,7 @@ def test_one_coaster_is_accepted_against_one_coasters_estimate():
     twin = build_twin(cir, result)
     est = physical.estimate_for_parts(cir, result, {"coaster": 1})
     whole = twin.yarn_metres_by_color
+    assert whole, "the twin estimates no yarn: the per-colour check below would prove nothing"
     for colour in whole:
         assert abs(est[colour] * 4 - whole[colour]) <= 0.4, (est, whole)
     report = physical.SampleReport(
