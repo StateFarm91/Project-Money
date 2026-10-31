@@ -318,3 +318,29 @@ Each W-INVENTORY dead end now has a deterministic successor (`runtime/chain_succ
 - **Integration.** Small hunks in `release_gates.py` (a new function before
   `disclosed_listing_set`, plus the certificate choice) and `etsy_ops.py` (W-ADOPT also edits
   this file).
+
+## 17. Review OPUS2A fixes and the merged-head regression (2026-10-31)
+
+- **Review OPUS2A (54766c9e) fixed in c94dbb5e.**
+  - Size gate: F1.1 HIGH, F1.2, F1.3 and F1.4. Every probe row is pinned in tests, and an
+    unread PDF now refuses.
+  - `laura_home`: F2.1 decoys (`DECOY_FOR_CATEGORY`, plus a "no other crocheted or knitted item"
+    line), F2.2 (brief checked; refused rather than cut) and F2.3 (no person named in the
+    product-only cue).
+  - Acceptance script: F4.1 and F4.2.
+  - Rim INFO (the vessel wording on flat round pieces) is left as it is: harmless, as the
+    review says.
+- **Merged-head regression (124 suites, frozen 0b4607df = base 421743e8 + this branch).**
+  119 passed and 5 failed. Each failure was diagnosed against the clean base 421743e8:
+
+  | Suite | On base 421743e8 | Cause | Action |
+  |---|---|---|---|
+  | test_maturity | pass | the decorators moved to wrappers, so the derived job map read the wrappers' modules | **fixed**: originals keep `@handlers.register`; wrappers registered by explicit calls at the end of `release.py` (applied last) |
+  | test_w4_launchfix | pass | the photo kind `physical_sample_photo` contains the substring `sample_photo` in two more modules | **fixed**: kind renamed `physical_photo_lead` (`listing_set.PHOTO_LEAD`) |
+  | test_w4_resume_runner (F7) | **fail** | the final-segment list misses clock-sensitive suites | added this branch's two (`test_opus2_chain_deadends`, `test_opus2_photo_led_gallery`); the remaining three (`test_w4_launchfix`, `test_w4_owner_queue_race`, `test_w4_readback_evidence`) are Batch 4 suites for the harness owner |
+  | test_cost_governance_wave2 | **fail** | retention has no decision for `chain.rebuild_completed`, `chain.rebuild_unbound`, `etsy.taxonomy_refreshed`, `ops.rebuild_propagated`, `ops.truth.sweep`, `paid_call.replayed` (Batch 4 readers) | base defect, not this branch; integrator |
+  | test_w4_fmbatch1_retention_guard | **fail** | same six actions | base defect; integrator |
+
+  After the fixes, test_maturity, test_w4_launchfix and every opus2 suite pass, as do
+  test_v11_autonomy_timeline, test_ranking_readiness, test_w4_ownerimg and
+  test_w4_firstsale_deliverables.

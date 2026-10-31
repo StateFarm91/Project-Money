@@ -720,7 +720,7 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
                                 f"export: {verdict['problems']}"[:400])
                 continue
             alt = frame["alt_text"]
-        if frame.get("kind") == "physical_sample_photo":
+        if frame.get("kind") == "physical_photo_lead":
             # P0-GALLERY-ASSEMBLY (OPUS2-P0): the leading sample photograph keeps the alt text
             # it was certified with (a photograph of the made sample; never render wording).
             alt = str(frame.get("alt_text") or "")
@@ -731,7 +731,7 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
                       "honesty_label": frame.get("honesty_label", "")}
                      | ({"kind": frame.get("kind"), "alt_text": alt}
                         if frame.get("kind") in ("disclosed_render", "disclosed_gallery_frame",
-                                                 "physical_sample_photo")
+                                                 "physical_photo_lead")
                         else {}))
     return {"images": images if not problems else [], "order": order,
             "record_id": cert["record_id"], "problems": problems}

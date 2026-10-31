@@ -54,7 +54,7 @@ PREVIEW_MEDIUM = "PATTERN_PREVIEW"   # gates.asset_truth.AssetClass.PATTERN_PREV
 SINGLE_VARIANT = "single"
 # P0-GALLERY-ASSEMBLY (OPUS2-P0): the owner's unedited photograph of a passed full make of this
 # release, leading an otherwise disclosed set (Etsy Help 44297885802647 / 115015663347).
-PHYSICAL_SAMPLE_PHOTO = "physical_sample_photo"
+PHOTO_LEAD = "physical_photo_lead"
 
 
 def fingerprint(payload: dict) -> str:
@@ -453,7 +453,7 @@ def photo_lead_frame(*, slug: str, version: str, photo: dict,
         position=1, asset_id=str(photo.get("asset_id") or f"{slug}-sample-photo"),
         sha256=str(photo.get("sha256") or ""), job=eligibility.PROOF,
         purpose=eligibility.PHYSICAL_PROOF, medium=AssetClass.PHYSICAL_PRODUCT_PHOTO.value,
-        honesty_label=eligibility.PHOTO_LABEL, kind=PHYSICAL_SAMPLE_PHOTO, alt_text=alt,
+        honesty_label=eligibility.PHOTO_LABEL, kind=PHOTO_LEAD, alt_text=alt,
         represented_variant=shown)
 
 

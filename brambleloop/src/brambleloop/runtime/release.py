@@ -291,6 +291,7 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
     return None
 
 
+@handlers.register("assets.build")
 def handle_assets_build(ctx: JobContext) -> dict:
     """Render the customer PDF and charts from the certified CIR, and record their hashes.
 
@@ -692,6 +693,7 @@ def _pricing_net_inputs(db, slug: str) -> dict:
     return {"foreign_share": foreign, "rate": rate, "price_points": points}
 
 
+@handlers.register("pricing.position")
 def handle_pricing_position(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
@@ -2103,6 +2105,7 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
                 lineage=lineage.under(certificate_ref))
 
 
+@handlers.register("launch.plan")
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
@@ -9216,9 +9219,12 @@ def handle_provider_credentials(ctx: JobContext) -> dict:
 
 
 # ---- P0-CHAIN-DEADENDS: each stage that can stop with no successor gets one -------------
-# (OPUS2-P0, `runtime.chain_successors`). The stage bodies above are unchanged; these
-# registered wrappers run them and, when the stage stops, record who acts next and when it
-# is asked again. A successor failure never changes the stage's own result.
+# (OPUS2-P0, `runtime.chain_successors`). The stage bodies above are unchanged and keep their
+# own `@handlers.register` decorators, so the derived job map (`build2.maturity`) still reads
+# each stage's real modules. The wrappers below run them and, when the stage stops, record who
+# acts next and when it is asked again; they are registered by explicit calls at the end of
+# this block, which the registry applies last. A successor failure never changes the stage's
+# own result.
 
 
 def _successor(fn, ctx: JobContext, out: dict) -> dict:
@@ -9231,7 +9237,6 @@ def _successor(fn, ctx: JobContext, out: dict) -> dict:
     return out
 
 
-@handlers.register("assets.build")
 def handle_assets_build_with_successor(ctx: JobContext) -> dict:
     out = handle_assets_build(ctx)
     if isinstance(out, dict) and out.get("ok") is False and out.get("blocking_image_problems"):
@@ -9242,7 +9247,6 @@ def handle_assets_build_with_successor(ctx: JobContext) -> dict:
     return out
 
 
-@handlers.register("pricing.position")
 def handle_pricing_position_with_successor(ctx: JobContext) -> dict:
     out = handle_pricing_position(ctx)
     if isinstance(out, dict) and out.get("stopped"):
@@ -9254,7 +9258,6 @@ def handle_pricing_position_with_successor(ctx: JobContext) -> dict:
     return out
 
 
-@handlers.register("launch.plan")
 def handle_launch_plan_with_successor(ctx: JobContext) -> dict:
     out = handle_launch_plan(ctx)
     if isinstance(out, dict) and out.get("held"):
@@ -9277,3 +9280,9 @@ def handle_chain_successors(ctx: JobContext) -> dict:
         "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
     return out
 
+
+# The runtime handlers for these three job types are the wrappers (the registry keeps the last
+# registration). Explicit calls rather than decorators: see the block comment above.
+handlers.register("assets.build")(handle_assets_build_with_successor)
+handlers.register("pricing.position")(handle_pricing_position_with_successor)
+handlers.register("launch.plan")(handle_launch_plan_with_successor)

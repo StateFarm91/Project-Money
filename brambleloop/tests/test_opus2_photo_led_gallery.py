@@ -184,7 +184,7 @@ def test_photo_lead_frame_refuses_each_missing_proof_and_wrong_release_or_wordin
             raise AssertionError(k)
     f = LS.photo_lead_frame(slug="s", version="1", photo=base, listing_variant="single")
     assert (f.position, f.job, f.purpose, f.kind, f.honesty_label) == (
-        1, el.PROOF, el.PHYSICAL_PROOF, LS.PHYSICAL_SAMPLE_PHOTO, el.PHOTO_LABEL)
+        1, el.PROOF, el.PHYSICAL_PROOF, LS.PHOTO_LEAD, el.PHOTO_LABEL)
     for photo, variant, word in (
             ({**base, "attestation": {**base["attestation"], "version": "2"}}, "single",
              "another release"),
@@ -204,7 +204,7 @@ def test_without_a_lead_photo_the_disclosed_certificate_is_unchanged():
     assert v["certificate"]["valid"] is True, v["reasons"]
     cert = _latest_cert(db, cir)
     kinds = {f.get("kind") for f in cert["frames"]}
-    assert LS.PHYSICAL_SAMPLE_PHOTO not in kinds and LS.DISCLOSED_RENDER in kinds, kinds
+    assert LS.PHOTO_LEAD not in kinds and LS.DISCLOSED_RENDER in kinds, kinds
     _STATE["plain_frames"] = len(cert["frames"])
 
 
@@ -216,7 +216,7 @@ def test_an_attested_approved_sample_photo_leads_and_every_render_keeps_its_disc
     assert v["certificate"]["valid"] is True, v["reasons"]
     cert = _latest_cert(db, cir)
     frames = sorted(cert["frames"], key=lambda f: f["position"])
-    assert frames[0]["kind"] == LS.PHYSICAL_SAMPLE_PHOTO and frames[0]["sha256"] == sha
+    assert frames[0]["kind"] == LS.PHOTO_LEAD and frames[0]["sha256"] == sha
     assert frames[0]["honesty_label"] == "" and frames[0]["job"] == el.PROOF
     assert [f["position"] for f in frames] == list(range(1, len(frames) + 1))
     renders = [f for f in frames[1:] if f.get("kind") in (LS.DISCLOSED_RENDER,
@@ -269,7 +269,7 @@ def test_the_upload_serves_the_photo_first_with_its_certified_alt_text():
     got = etsy_ops.certified_images(db, cir.slug, cir.version, release=rh)
     assert got["problems"] == [], got["problems"]
     first = got["order"][0]
-    assert first["sha256"] == sha and first["kind"] == LS.PHYSICAL_SAMPLE_PHOTO
+    assert first["sha256"] == sha and first["kind"] == LS.PHOTO_LEAD
     assert first["alt_text"].startswith("Photograph of a") and got["images"][0].alt_text \
         == first["alt_text"]
 
