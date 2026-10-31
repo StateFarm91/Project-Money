@@ -41,7 +41,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket 1.3.0 (owner-approved BLO Rnd 11) in progress; 1.2.1 code accepted",
+      "state": "basket 1.3.0 built+certified (c4aa14a0, head 4fb6252d); design review running; truthful wall-corner renders in progress",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -150,6 +150,11 @@
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
+    },
+    {
+      "id": "P1-OWNER-QUEUE-RACES",
+      "priority": "P1",
+      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
     }
   ],
   "reviews": [
@@ -398,6 +403,30 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2C-9c1a003",
       "notes": "",
       "recorded": "2026-10-31T14:00Z"
+    },
+    {
+      "subject": "Integrator-only fixes (bcbe391b, f259afe4, 282e47ce, 210aa9f8, merge resolutions, f4c3899b)",
+      "sha": "6f68213b",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-INTEGFIX-6f68213",
+      "notes": "SHIP; LOW-1..3 + INFO-1..2 follow-ups. LOW-3: other owner-queue writers keep the read-then-insert race (pre-existing)",
+      "recorded": "2026-10-31T17:25Z"
+    },
+    {
+      "subject": "PHYSFIX delta 4",
+      "sha": "216785e2+e3fd0b0e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-e3fd0b0",
+      "notes": "R18 Med latent: holds order / identical-piece order leak into digest; R19-R21 Low",
+      "recorded": "2026-10-31T17:25Z"
+    },
+    {
+      "subject": "Basket 1.3.0 design",
+      "sha": "4fb6252d (release c4aa14a0)",
+      "verdict": "PENDING",
+      "report_branch": "claude/w4-DESIGNREVIEW-basket-1.3.0",
+      "notes": "",
+      "recorded": "2026-10-31T17:25Z"
     }
   ],
   "integration": {
