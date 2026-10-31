@@ -175,3 +175,47 @@ The P0 workforce is **not** operational in production on the strength of this wo
   `radar.score`. Not claimed: the gallery cluster (found already built: `image_production` →
   `approve` → `ListingAsset`), next-product selection (overlaps W-INVENTORY's stall detection
   until it merges), competitor-scan evidence (inside W-CONCEPT's watchlist files).
+
+## 10. Cluster 3 delivered: measured listing performance into product decisions
+
+- **Gap (verified).** `listing.outcomes` records visits, favourites and orders; the outcome
+  learner and kill table read them; none published a lesson. Market Radar reads only lessons
+  (`improve.consume.matching` inside `radar.score`), so measured demand never changed which
+  concept is engineered next.
+- **Built.** `improve/commercial_lessons.py` + job `improve.commercial_lessons` (analyst,
+  daily cadence, OBSERVE, CA$0; `runtime/commercial_ops.py`). Per radar category, from
+  export-intake `ListingOutcome` rows carrying orders (F-297: fixtures and hand-inserted rows
+  never count): MEASURED at >= 200 visits, compared only when two categories are measured.
+  >= 1.5x the shop rate on >= 3 orders publishes `commercial_demand`; <= 0.5x on >= 400 visits
+  publishes `commercial_underperformance`. Each lesson names the uncertified pool concepts in
+  that category or family (the follow-ons), so `radar.score`'s existing bounded nudge (cap
+  0.06) moves exactly those. Idempotent by evidence; changed evidence withdraws the old lesson
+  (`bus.withdraw`). Nothing measured publishes nothing (UNMEASURED, never "no demand").
+- **Registrations.** Two subjects in `improve.bus.SUBJECT_ROUTING` (market_radar,
+  product_creativity, growth); `commercial_demand` in `consume.FAVOURS`,
+  `commercial_underperformance` in `DISFAVOURS`; analyst permission; authority class O;
+  `WORK_KEYS`; cadence; `autonomy_map.json` regenerated. No edit to `radar.score`.
+- **Limits.** Matching is the bus's word overlap, so a family relative of a named follow-on
+  (for example another `nordic-forest` concept) can also receive the bounded nudge. Concepts
+  W-CONCEPT adds outside the POOL are matched by category and family words only.
+- **Tests.** `test_opus2_commercial_lessons` 8/8 (includes the real `radar.score` handler). 37 related suites green: lesson bus, radar, registry, roles, autonomy map, wiring certification, close5 rows 1-6 (the Etsy-write scan forced the writer's name `record_lessons`), finhealth, cost governance, retention, vacuity, secret scan, tmp hygiene.
+
+## 11. Backlog findings (no code: already built, owned, or owner-held)
+
+- **Next-product selection.** Already covered after certification: `chain.rebuild` (hourly)
+  re-drives certified releases with no current-chain listing, `ops.rebuild_graph` re-drives
+  stale artefacts, `ops.queue_check` re-drives dead letters once per deploy, and the
+  orchestrator wakes idle departments. Before certification the bottleneck is the vision judge
+  for #83/#88 (owner spend), which code cannot replace without weakening the gate. Stall
+  detection is W-INVENTORY's; an automatic re-drive of a stall W-INVENTORY reports is a
+  follow-on once that branch merges (it would consume `flow_health.flow`, not re-derive it).
+- **Gallery assembly.** Built: `visual.image_production` → `approve` → fresh verification →
+  `ListingAsset`; item counts (`UNVERIFIABLE_COUNT`) and invented edgings are already gated.
+- **Competitor-scan evidence.** Inside W-CONCEPT's `intel/watchlist.py` (not-accessible
+  records, seed shops). Not taken.
+
+## 12. Coordination mechanism
+
+This session is subscribed to PR #3 events (reviews and comments from Main Opus wake it). A
+Claude session does not run indefinitely; it resumes on those events, on a scheduled
+check-in, or on an owner message. The durable record is this file and PR #3.

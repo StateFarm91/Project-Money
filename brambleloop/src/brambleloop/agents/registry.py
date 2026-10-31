@@ -1009,7 +1009,9 @@ DEFAULT_AGENTS.extend([
     dict(name="analyst",
          description="Analytics: measures capability and outcomes from recorded rows; writes "
                      "readings only. Cannot spend, publish or author a pattern.",
-         allowed_job_types=["improve.measure"],
+         allowed_job_types=["improve.measure",
+                            # OPUS2-P0: measured listing performance into routed lessons.
+                            "improve.commercial_lessons"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="integration_steward",
          description="Integration: re-verifies the Etsy API surface, provider credentials "
