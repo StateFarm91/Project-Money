@@ -1493,6 +1493,17 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
+    # OPUS2-P0 (owner report 2026-10-27, "Nesting Baskets, three sizes" delivered a medium-only
+    # PDF): one certified release delivers one size of instructions, so neither its listing
+    # nor its customer PDF may promise more. An unreadable verdict refuses, never passes.
+    from ..gates import size_claims
+
+    try:
+        sizes = size_claims.for_release(db, slug=slug, version=version)
+    except Exception as exc:  # noqa: BLE001
+        sizes = {"state": size_claims.UNKNOWN,
+                 "reasons": [f"size-claim truth could not be read ({type(exc).__name__})"]}
+    reasons.extend(sizes["reasons"])
     # F-004 / F-294: search certification -- category, attributes, copy, tags, description
     # and hero, bound to the listing as it stands.
     search = search_gate(db, slug=slug, version=version, set_verdict=set_verdict)
