@@ -216,7 +216,12 @@ def negatives(facts: dict) -> list[str]:
         out.append("ribbing anywhere (the pattern has none)")
     if not facts["edging_declared"]:
         out.append("an edging, border, rib, fringe or trim along any edge; "
-                   + ("the outer edge is the last round exactly as charted"
+                   + ("the outer edge is the last round exactly as charted, and a "
+                      "vessel's top rim is that plain final round: no braided, rolled, "
+                      "twisted, scalloped, picot or crab-stitch (reverse single crochet) rim"
+                      # OPUS2-P0: owner-generated basket images showed a braided rim that no
+                      # basket CIR contains; the rim is named so a model cannot read "edge"
+                      # as excluding a basket's top.
                       if facts["unit"] == "round" else
                       "the edges are the plain ends of the rows"))
     for b in facts["end_bands"]:

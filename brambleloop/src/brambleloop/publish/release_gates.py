@@ -714,6 +714,77 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
     }
 
 
+def sample_photo_lead(db, *, slug: str, version: str, frames, cir) -> dict | None:
+    """The leading unedited sample photograph, with its attestation and QA, or None.
+
+    P0-GALLERY-ASSEMBLY (OPUS2-P0). W-PHYSFIX-PHOTO places the photograph of a passed full make
+    of this release at position 1 and marks it `leads_gallery`; this re-reads every fact that
+    made it eligible from its own records rather than trusting the mark, and measures the
+    readings the photo-led certificate needs. Nothing here approves the frame: an unapproved
+    or blocked frame reads `asset_truth: not ok`, and the certificate refuses.
+    """
+    import hashlib
+
+    from ..core.artifacts import ArtifactStore
+    from ..core.models import PhysicalPhoto, PhysicalTest
+    from ..gates import risk_matrix
+
+    lead = next((f for f in frames if getattr(f, "asset_class", "") == "PHYSICAL_PRODUCT_PHOTO"
+                 and (getattr(f, "claims", None) or {}).get("leads_gallery") is True), None)
+    if lead is None:
+        return None
+    claims = dict(lead.claims or {})
+    with db.session() as s:
+        photo = s.get(PhysicalPhoto, claims.get("physical_photo_id")) \
+            if claims.get("physical_photo_id") else None
+        test = (s.get(PhysicalTest, photo.physical_test_id)
+                if photo is not None and photo.physical_test_id else None)
+        pdetail = dict(photo.detail or {}) if photo is not None else {}
+        measured = dict(test.measured or {}) if test is not None else {}
+        facts = {"photo_sha": photo.sha256 if photo is not None else None,
+                 "rights": photo.rights_basis if photo is not None else "",
+                 "t_slug": test.product_slug if test is not None else None,
+                 "t_version": test.version if test is not None else None,
+                 "passed": test.passed if test is not None else None,
+                 "completed": test.completed_at is not None if test is not None else False}
+    classify = getattr(risk_matrix, "physical_class_of", None)
+    full_make = bool(classify is not None and test is not None
+                     and classify(measured)[0] == risk_matrix.FULL_PHYSICAL_MAKE)
+    attestation = {
+        "unedited": pdetail.get("unedited") is True and not pdetail.get("edited"),
+        "not_ai_processed": not pdetail.get("ai_processed"),
+        "test_passed": facts["passed"] is True, "test_completed": facts["completed"],
+        "full_make": full_make,
+        "same_release": (facts["t_slug"], facts["t_version"]) == (slug, version)
+                        and facts["photo_sha"] == lead.sha256,
+        "camera_provenance": claims.get("provenance") == "camera",
+        "rights_basis": bool(facts["rights"]),
+        "slug": facts["t_slug"], "version": facts["t_version"],
+        "full_make_classifier": "risk_matrix.physical_class_of" if classify else
+                                "absent on this build (arrives with W-PHYSFIX): not attested"}
+    qa: dict = {"asset_truth": {"ok": bool(lead.approved) and not (lead.blocked_reasons or [])}}
+    try:
+        data = ArtifactStore().get(lead.sha256, db=db)
+        qa["bytes"] = {"ok": hashlib.sha256(data).hexdigest() == lead.sha256}
+        from PIL import Image
+
+        from ..commerce import thumbnail as thumb
+
+        verdict = thumb.evaluate_thumbnail(Image.open(io.BytesIO(data)).convert("RGB"))
+        qa["hero_thumbnail"] = {"ok": bool(verdict.ok), **verdict.to_dict()}
+    except Exception as exc:  # noqa: BLE001 - unread bytes are a failed reading, never a pass
+        qa["bytes"] = {"ok": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    title = getattr(cir, "title", "") or slug
+    return {"photo": {"asset_id": f"{slug}-sample-photo-{claims.get('physical_photo_id')}",
+                      "sha256": lead.sha256,
+                      "alt_text": (f"Photograph of a {title} sample crocheted from this "
+                                   f"pattern, unedited")[:250],
+                      "represented_variant": claims.get("represented_variant")
+                                             or getattr(cir, "variant_key", None),
+                      "attestation": attestation},
+            "qa": qa, "position": lead.position}
+
+
 def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
                           frames, release_hash: str | None, issue: bool,
                           store_root=None, persist_supplements: bool = True) -> dict:
@@ -770,15 +841,20 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
     rechecked = recheck(db, slug=slug, version=version, geometry=geometry, claims=claims,
                         policy_version=POLICY_VERSION)
     cert: dict
+    # P0-GALLERY-ASSEMBLY (OPUS2-P0): an attested, approved sample photograph leads the set.
+    lead = sample_photo_lead(db, slug=slug, version=version, frames=frames, cir=cir)
     try:
-        certificate = ls.certify_disclosed(
+        common = dict(
             slug=slug, version=version, rec=rec, images=images, geometry=geometry,
             claims=claims, policy_version=POLICY_VERSION, platform_policy=policy_stamp(db),
             dimensions_ok=dim["ok"],
             # F-757 / PT-13: the configuration the certified release encodes is what the
             # listing sells; the set must have been rendered for it.
             listing_variant=cir.variant_key, supplements=supplements,
-            supplement_qa=supplement_qa) if not reasons else None
+            supplement_qa=supplement_qa)
+        certificate = None if reasons else (
+            ls.certify_photo_led(photo=lead["photo"], photo_qa=lead["qa"], **common)
+            if lead is not None else ls.certify_disclosed(**common))
     except ls.ListingSetRefused as e:
         certificate = None
         reasons.append(f"listing-set certificate (#70): {str(e)[:400]}")
@@ -1508,6 +1584,17 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
+    # OPUS2-P0 (owner report 2026-10-27, "Nesting Baskets, three sizes" delivered a medium-only
+    # PDF): one certified release delivers one size of instructions, so neither its listing
+    # nor its customer PDF may promise more. An unreadable verdict refuses, never passes.
+    from ..gates import size_claims
+
+    try:
+        sizes = size_claims.for_release(db, slug=slug, version=version)
+    except Exception as exc:  # noqa: BLE001
+        sizes = {"state": size_claims.UNKNOWN,
+                 "reasons": [f"size-claim truth could not be read ({type(exc).__name__})"]}
+    reasons.extend(sizes["reasons"])
     # F-004 / F-294: search certification -- category, attributes, copy, tags, description
     # and hero, bound to the listing as it stands.
     search = search_gate(db, slug=slug, version=version, set_verdict=set_verdict)
@@ -1535,6 +1622,9 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for kind, entry in sorted(held["reasons"].items()):
         if kind == withholding.TEARDOWN_QA:
             reasons.append(f"release withheld (#163): {entry['reason']}")
+        elif kind == withholding.QUALITY_REVERIFY:
+            # P0-REVERIFY-WITHHOLD (OPUS2-P0): durable, so it survives audit-log pruning.
+            reasons.append(f"release withheld (re-verification): {entry['reason']}")
     # F-111 / F-118 / F-120 (cluster C): the product-level scope -- legacy quarantine, and
     # for a Launch-0 slug the first customer's nine-area gate -- decided in one place.
     from . import eligibility

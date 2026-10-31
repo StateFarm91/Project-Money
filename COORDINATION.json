@@ -125,7 +125,8 @@
       "review_branches": [
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
-      ]
+      ],
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
     },
     {
       "id": "P0-LEARNING-REFERENCE",
@@ -142,7 +143,60 @@
       "branch": "opus2/p0-revenue-workforce",
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
-      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part.",
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
+    },
+    {
+      "id": "OPUS2-GALLERY-PHOTO-LED",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-GALLERY-ASSEMBLY (photo-led / mixed disclosed certificate)",
+      "files": [
+        "src/brambleloop/publish/listing_set.py (certify_photo_led, photo_lead_frame, _with_supplements)",
+        "src/brambleloop/publish/release_gates.py (sample_photo_lead; disclosed_listing_set chooses the certificate)",
+        "src/brambleloop/runtime/etsy_ops.py (certified_images keeps the photo's alt text)"
+      ],
+      "claimed_at": "2026-10-31T03:40Z",
+      "state": "ready_for_review",
+      "depends_on": [
+        "claude/w4-PHYSFIX (risk_matrix.physical_class_of, intake unedited attestation)",
+        "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
+        "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
+      ]
+    },
+    {
+      "id": "OPUS2-REVERIFY-WITHHOLD",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-REVERIFY-WITHHOLD",
+      "files": [
+        "src/brambleloop/runtime/quality_ops.py",
+        "tests/test_opus2_reverify_withhold.py"
+      ],
+      "claimed_at": "2026-10-31T07:20Z",
+      "state": "ready_for_review",
+      "evidence": "tests/test_opus2_reverify_withhold.py 4/4; 23-suite withholding/quality/for_publish/guard regression all exit 0 (2026-10-31)",
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
+    },
+    {
+      "id": "OPUS2-DRAFT-CONSTRUCTIONS",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "pr": 3,
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722; triangle shawl added (stitch-pattern titles refused), handoff \u00a723; tote blocked on a stated chain gauge",
+      "state": "ready_for_review",
+      "evidence": "tests/test_opus2_draft_constructions.py 6/6 (vessel, panel_pair cushion, triangle shawl); 39-suite regression exit 0 (2026-10-31)",
+      "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
+      "note": "does not touch radar/intake.py or the W-CONCEPT concept path"
+    },
+    {
+      "id": "OPUS2-NEXT-PRODUCT-FINDING",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "pr": 3,
+      "state": "no_build_needed",
+      "from_unowned": "P0-NEXT-PRODUCT",
+      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md \u00a721."
     }
   ],
   "unowned": [

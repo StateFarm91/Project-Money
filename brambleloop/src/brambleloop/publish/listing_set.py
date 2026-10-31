@@ -52,6 +52,9 @@ DISCLOSED_SUPPLEMENT = "disclosed_gallery_frame"
 PREVIEW_MEDIUM = "PATTERN_PREVIEW"   # gates.asset_truth.AssetClass.PATTERN_PREVIEW.value
 # Mirrors `cir.model.SINGLE_VARIANT`: a product with no optional features has one variant.
 SINGLE_VARIANT = "single"
+# P0-GALLERY-ASSEMBLY (OPUS2-P0): the owner's unedited photograph of a passed full make of this
+# release, leading an otherwise disclosed set (Etsy Help 44297885802647 / 115015663347).
+PHOTO_LEAD = "physical_photo_lead"
 
 
 def fingerprint(payload: dict) -> str:
@@ -360,30 +363,8 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
             f"{slug}@{version}: the listing declares configuration {listing_variant!r} and the "
             f"disclosed set was rendered for {filed!r}; a listing may only show the "
             f"configuration it sells (F-757)")
-    frames = disclosed_frames(rec, images, slug=slug)
-    # F-030 / F-254: verified supplement frames follow the disclosed set, in order, each a
-    # different job, each certified as a disclosed gallery frame with its readings recorded.
-    supplements = list(supplements or ())
-    if supplements:
-        if supplement_qa is None or len(supplement_qa.get("verified") or []) != len(supplements):
-            raise ListingSetRefused(f"{slug}: supplement frames offered without a verification "
-                                    f"reading for each")
-        expected = list(range(len(frames) + 1, len(frames) + 1 + len(supplements)))
-        if sorted(f.position for f in supplements) != expected:
-            raise ListingSetRefused(f"{slug}: supplement frames must follow the disclosed set "
-                                    f"at positions {expected}")
-        taken = {f.job for f in frames}
-        for f in supplements:
-            preview = f.medium == PREVIEW_MEDIUM and f.job == eligibility.CONTENTS
-            if f.kind != DISCLOSED_SUPPLEMENT or (f.medium != frames[0].medium
-                                                  and not preview):
-                raise ListingSetRefused(f"{f.asset_id}: only a disclosed gallery frame may "
-                                        f"supplement a disclosed set")
-            if f.job in taken:
-                raise ListingSetRefused(f"{f.asset_id}: {f.job} is already done by another "
-                                        f"frame; a second frame doing one job is the defect")
-            taken.add(f.job)
-        frames = frames + supplements
+    frames = _with_supplements(slug, disclosed_frames(rec, images, slug=slug),
+                               supplements, supplement_qa)
     shown = {f.represented_variant for f in frames}
     if listing_variant is not None and shown - {listing_variant}:
         raise ListingSetRefused(
@@ -396,6 +377,142 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                                                        dimensions_ok=dimensions_ok,
                                                        supplement_qa=supplement_qa
                                                        if supplements else None),
+                   geometry=geometry, claims=claims, policy_version=policy_version,
+                   platform_policy=platform_policy,
+                   disclosures=(DISCLOSURE,) + ((eligibility.PREVIEW_LABEL,) if any(
+                       f.medium == PREVIEW_MEDIUM for f in frames) else ()),
+                   variant=listing_variant if listing_variant is not None else filed)
+
+
+def _with_supplements(slug: str, frames: list[CertifiedFrame], supplements,
+                      supplement_qa: dict | None) -> list[CertifiedFrame]:
+    """F-030 / F-254: verified supplement frames follow the disclosed set, in order, each a
+    different job, each certified as a disclosed gallery frame with its readings recorded.
+    `frames` are the disclosed frames in their final positions (a leading photograph, when
+    there is one, is not among them; it is checked against the jobs separately)."""
+    supplements = list(supplements or ())
+    if not supplements:
+        return list(frames)
+    if supplement_qa is None or len(supplement_qa.get("verified") or []) != len(supplements):
+        raise ListingSetRefused(f"{slug}: supplement frames offered without a verification "
+                                f"reading for each")
+    last = max(f.position for f in frames)
+    expected = list(range(last + 1, last + 1 + len(supplements)))
+    if sorted(f.position for f in supplements) != expected:
+        raise ListingSetRefused(f"{slug}: supplement frames must follow the disclosed set "
+                                f"at positions {expected}")
+    taken = {f.job for f in frames}
+    for f in supplements:
+        preview = f.medium == PREVIEW_MEDIUM and f.job == eligibility.CONTENTS
+        if f.kind != DISCLOSED_SUPPLEMENT or (f.medium != frames[0].medium and not preview):
+            raise ListingSetRefused(f"{f.asset_id}: only a disclosed gallery frame may "
+                                    f"supplement a disclosed set")
+        if f.job in taken:
+            raise ListingSetRefused(f"{f.asset_id}: {f.job} is already done by another "
+                                    f"frame; a second frame doing one job is the defect")
+        taken.add(f.job)
+    return list(frames) + supplements
+
+
+# What a leading sample photograph must be attested as, each by the record that proves it.
+PHOTO_ATTESTATION = ("unedited", "not_ai_processed", "test_passed", "test_completed",
+                     "full_make", "same_release", "camera_provenance", "rights_basis")
+
+
+def photo_lead_frame(*, slug: str, version: str, photo: dict,
+                     listing_variant: str | None) -> CertifiedFrame:
+    """The leading frame for an unedited sample photograph, or a refusal saying which proof
+    is missing. `photo` = {asset_id, sha256, alt_text, represented_variant, attestation}.
+
+    A photograph needs no disclaimer (`eligibility.PHOTO_LABEL`), so what makes it truthful
+    is entirely what it is a photograph OF: a passed, completed full make of exactly this
+    slug@version in exactly the configuration the listing sells, attested unedited at intake.
+    """
+    att = dict(photo.get("attestation") or {})
+    missing = [k for k in PHOTO_ATTESTATION if att.get(k) is not True]
+    if missing:
+        raise ListingSetRefused(f"{slug}@{version}: the sample photograph cannot lead the "
+                                f"gallery; not attested: {', '.join(missing)}")
+    if att.get("slug") != slug or att.get("version") != version:
+        raise ListingSetRefused(f"{slug}@{version}: the photograph's make is "
+                                f"{att.get('slug')}@{att.get('version')}, another release")
+    shown = photo.get("represented_variant") or SINGLE_VARIANT
+    if listing_variant is not None and shown != listing_variant:
+        raise ListingSetRefused(f"{slug}@{version}: the photographed sample is configuration "
+                                f"{shown!r}, the listing sells {listing_variant!r} (F-757; "
+                                f"one sample is one size)")
+    from .disclosed_listing import _phrase_in
+
+    alt = str(photo.get("alt_text") or "")
+    if _phrase_in(alt) or "render" in alt.lower() or "ai" in alt.lower().split():
+        raise ListingSetRefused(f"{slug}: a photograph's alt text must not call it a render "
+                                f"or AI imagery; it is a photograph of the made sample")
+    from ..gates.asset_truth import AssetClass
+
+    return CertifiedFrame(
+        position=1, asset_id=str(photo.get("asset_id") or f"{slug}-sample-photo"),
+        sha256=str(photo.get("sha256") or ""), job=eligibility.PROOF,
+        purpose=eligibility.PHYSICAL_PROOF, medium=AssetClass.PHYSICAL_PRODUCT_PHOTO.value,
+        honesty_label=eligibility.PHOTO_LABEL, kind=PHOTO_LEAD, alt_text=alt,
+        represented_variant=shown)
+
+
+def certify_photo_led(*, slug: str, version: str, rec: dict,
+                      images: list[tuple[str, bytes, str]], photo: dict, photo_qa: dict,
+                      geometry: dict, claims: dict, policy_version: str,
+                      platform_policy: dict | None = None, dimensions_ok: bool | None,
+                      listing_variant: str | None = None,
+                      supplements: list[CertifiedFrame] | tuple = (),
+                      supplement_qa: dict | None = None) -> ListingCertificate:
+    """A disclosed set led by the unedited sample photograph (P0-GALLERY-ASSEMBLY).
+
+    Everything `certify_disclosed` requires still holds for the disclosed frames, which move
+    to positions 2..n+1 in their order, supplements after them. The photograph adds its own
+    readings, each of which must have run and passed (`photo_qa`):
+      asset_truth      the frame was reviewed and approved as this release's sample
+      hero_thumbnail   the photograph, now the hero, reads at search-thumbnail size
+      bytes            the bytes on record hash to the frame's sha256
+    The photograph carries no render disclosure; every disclosed frame still does.
+    """
+    if rec.get("kind") != DISCLOSED_RENDER or rec.get("version") != version \
+            or rec.get("slug") != slug:
+        raise ListingSetRefused(f"{slug}@{version}: the record is not this release's disclosed set")
+    if not rec.get("usable_as_listing_asset"):
+        raise ListingSetRefused(f"{slug}: the disclosed set is launch-blocked: "
+                                f"{(rec.get('launch_blocked') or [])[:3]}")
+    filed = rec.get("represented_variant") or SINGLE_VARIANT
+    if listing_variant is not None and listing_variant != filed:
+        raise ListingSetRefused(f"{slug}@{version}: the listing declares configuration "
+                                f"{listing_variant!r} and the disclosed set was rendered for "
+                                f"{filed!r} (F-757)")
+    lead = photo_lead_frame(slug=slug, version=version, photo=photo,
+                            listing_variant=listing_variant)
+    from dataclasses import replace
+
+    # The disclosed frames and their supplements were numbered for a set without the
+    # photograph; each moves down one place, keeping its order, behind it.
+    disclosed = [replace(f, position=f.position + 1)
+                 for f in disclosed_frames(rec, images, slug=slug)]
+    moved = [replace(f, position=f.position + 1) for f in (supplements or ())]
+    if lead.job in {f.job for f in disclosed + moved}:
+        raise ListingSetRefused(f"{slug}: {lead.job} is already done by a disclosed frame")
+    frames = [lead] + _with_supplements(slug, disclosed, moved, supplement_qa)
+    results = disclosed_gate_results(rec, exported=True, dimensions_ok=dimensions_ok,
+                                     supplement_qa=supplement_qa if supplements else None)
+    pq = photo_qa or {}
+
+    def reading(outcome: str) -> bool | None:
+        # A disclosed gate's own outcome carried into the combined one: failed stays failed.
+        return {eligibility.PASSED: True, eligibility.FAILED: False}.get(outcome)
+
+    results[eligibility.DATA_TRUTH] = _outcome(
+        reading(results[eligibility.DATA_TRUTH]), _ok(pq.get("asset_truth")),
+        _ok(pq.get("bytes")))
+    results[eligibility.COMMERCIAL_QA] = _outcome(
+        reading(results[eligibility.COMMERCIAL_QA]), _ok(pq.get("hero_thumbnail")))
+    from .disclosed_listing import DISCLOSURE
+
+    return certify(slug=slug, version=version, frames=frames, gate_results=results,
                    geometry=geometry, claims=claims, policy_version=policy_version,
                    platform_policy=platform_policy,
                    disclosures=(DISCLOSURE,) + ((eligibility.PREVIEW_LABEL,) if any(

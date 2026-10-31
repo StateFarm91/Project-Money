@@ -627,6 +627,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # a flat history for the plateau detector to read as a defect.
     # W4-F454: the analytics domain's focused agent owns measurement.
     ("capability_measure", "analyst", "improve.measure", 24 * 60 * 60),
+    # OPUS2-P0: measured listing performance becomes lessons Market Radar reads. CA$0.
+    ("commercial_lessons", "analyst", "improve.commercial_lessons", 24 * 60 * 60),
+    # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps into capped owner-approval reference
+    # recommendations. Weekly, CA$0, never buys.
+    ("knowledge_gaps", "analyst", "learning.knowledge_gaps", 7 * 24 * 60 * 60),
     # Requirement 97. Six-hourly: failures mined into routed lessons, idempotent on evidence,
     # so a defect open for a month is one lesson a month old. Nightly is the minimum sweep.
     ("failure_mine", "orchestrator", "improve.mine", 6 * 60 * 60),
@@ -711,6 +716,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
+    # OPUS2-P0 (P0-CHAIN-DEADENDS): each recorded dead end is re-driven once per deployed
+    # commit and closed once its stage succeeds. CA$0; never re-drives under an unknown commit.
+    ("chain_successors", "listing", "chain.successors", 60 * 60),
     # Daily, because what blocks a launch changes as the company builds: a requirement that
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
@@ -966,6 +974,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS C1: the priority children's family -- research coverage (F-353), style
     # segments (F-358), launch mix (F-366), Baby & Kids architecture (F-365). CA$0.
     ("children_portfolio", "market_radar", "intel.children_portfolio", 24 * 60 * 60),
+    # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): which named shops were actually scanned, when, and
+    # what the scans produced; honest not-registered / not-accessible records. CA$0.
+    ("scan_evidence", "market_radar", "intel.scan_evidence", 24 * 60 * 60),
     # W4-AGENTS C2 (F-744): every model experiment kept as a durable normalised record. CA$0.
     ("model_ledger", "publishing", "visual.model_ledger", 24 * 60 * 60),
     # W4-AGENTS C3: F-113 legacy salvage re-gate (weekly; recommends only) and the F-775

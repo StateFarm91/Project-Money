@@ -286,7 +286,7 @@ CHARTERS: tuple[Charter, ...] = (
                "integration_steward"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
                  "etsy.listing", "seo.", "storefront."),
-       job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
+       job_types={"chain.rebuild", "chain.successors", "seasonal.remerchandising", "etsy.credential_health",
                   "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify",
                   "etsy.dashboard_harvest"},
        generatable=("seasonal.remerchandising", "seo.cycle", "storefront.review",
@@ -370,7 +370,8 @@ CHARTERS: tuple[Charter, ...] = (
                # W4-F454: analytics -- measurement already lives in this department.
                "analyst"),
        prefixes=("improve.", "learn."),
-       job_types=set(),
+       # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps and reference recommendations.
+       job_types={"learning.knowledge_gaps"},
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
                     "improve.sandbox", "improve.monitor", "learn.scan",
                     "autonomy.department_review"),

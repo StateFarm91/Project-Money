@@ -9216,3 +9216,73 @@ def handle_provider_credentials(ctx: JobContext) -> dict:
             "statuses": {r["provider"]: r["status"] for r in records},
             "consecutive_failures": {r["provider"]: r["consecutive_failures"]
                                      for r in records}}
+
+
+# ---- P0-CHAIN-DEADENDS: each stage that can stop with no successor gets one -------------
+# (OPUS2-P0, `runtime.chain_successors`). The stage bodies above are unchanged and keep their
+# own `@handlers.register` decorators, so the derived job map (`build2.maturity`) still reads
+# each stage's real modules. The wrappers below run them and, when the stage stops, record who
+# acts next and when it is asked again; they are registered by explicit calls at the end of
+# this block, which the registry applies last. A successor failure never changes the stage's
+# own result.
+
+
+def _successor(fn, ctx: JobContext, out: dict) -> dict:
+    try:
+        follow = fn()
+    except Exception as exc:  # noqa: BLE001 - the stage's verdict stands either way
+        follow = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    if follow is not None:
+        out = {**out, "successor": follow}
+    return out
+
+
+def handle_assets_build_with_successor(ctx: JobContext) -> dict:
+    out = handle_assets_build(ctx)
+    if isinstance(out, dict) and out.get("ok") is False and out.get("blocking_image_problems"):
+        from . import chain_successors
+
+        out = _successor(lambda: chain_successors.images_blocked(
+            ctx, dict(ctx.job.inputs), out["blocking_image_problems"]), ctx, out)
+    return out
+
+
+def handle_pricing_position_with_successor(ctx: JobContext) -> dict:
+    out = handle_pricing_position(ctx)
+    if isinstance(out, dict) and out.get("stopped"):
+        from . import chain_successors
+
+        code = out.get("code") if out.get("code") == UNKNOWN_PRODUCT else ""
+        out = _successor(lambda: chain_successors.pricing_refused(
+            ctx, dict(ctx.job.inputs), out, code=code), ctx, out)
+    return out
+
+
+def handle_launch_plan_with_successor(ctx: JobContext) -> dict:
+    out = handle_launch_plan(ctx)
+    if isinstance(out, dict) and out.get("held"):
+        from . import chain_successors
+
+        i = dict(ctx.job.inputs)
+        today = date.fromisoformat(i["as_of"]) if i.get("as_of") else date.today()
+        out = _successor(lambda: chain_successors.launch_held(
+            ctx, i, out.get("window_decision") or {}, today=today), ctx, out)
+    return out
+
+
+@handlers.register("chain.successors")
+def handle_chain_successors(ctx: JobContext) -> dict:
+    """Hourly: re-drive each recorded dead end once per deployed commit; close cleared ones."""
+    from . import chain_successors
+
+    out = chain_successors.sweep(ctx.db, ctx.queue)
+    ctx.audit("chain.successors_swept", detail={k: out[k] for k in (
+        "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
+    return out
+
+
+# The runtime handlers for these three job types are the wrappers (the registry keeps the last
+# registration). Explicit calls rather than decorators: see the block comment above.
+handlers.register("assets.build")(handle_assets_build_with_successor)
+handlers.register("pricing.position")(handle_pricing_position_with_successor)
+handlers.register("launch.plan")(handle_launch_plan_with_successor)

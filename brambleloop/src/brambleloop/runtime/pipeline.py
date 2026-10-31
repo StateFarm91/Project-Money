@@ -720,22 +720,73 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
     lineage = _fallback_lineage(seed, dict(i), concept)
-    from ..creative.prototype import PrototypeRefused
+    from ..creative import fallback_constructions as FC
+    from ..creative.prototype import PrototypeRefused, source_provenance
 
+    # OPUS2-P0 (P0-DRAFT-CONSTRUCTIONS): the shape the concept's stitches are worked into is
+    # decided before any CIR exists. A shaped form no fallback rule makes is refused by name
+    # rather than drafted as a flat panel under that name.
+    route = FC.plan(category=concept.category, title=concept.title,
+                    is_bundle=bool(seed.is_bundle) if seed is not None else False)
+    if route["family"] == FC.REFUSED:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": route["why"][:400], "gate": "construction",
+                          "category": concept.category, "needs": route["needs"][:200]})
+        return {"artifact": slug, "drafted": False, "gate": "construction",
+                "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
     try:
-        if lineage["known"]:
+        if route["family"] == FC.VESSEL:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.VESSEL_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.vessel(concept, provenance=provenance)
+        elif route["family"] == FC.TRIANGLE:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TRIANGLE_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.triangle(concept, provenance=provenance)
+        elif lineage["known"]:
             concept.source_provenance = lineage["source"]
             concept.source_brief = lineage["brief"]
-            cir = concept_to_cir(concept, primitives=lineage["primitives"])
+            extra = FC.PANEL_PAIR_PRIMITIVES if route["family"] == FC.PANEL_PAIR else ()
+            cir = concept_to_cir(concept, primitives=tuple(lineage["primitives"]) + extra)
         else:
             cir = concept_to_cir(concept)
+        if route["family"] == FC.PANEL_PAIR:
+            cir = FC.panel_pair(cir)
     except PrototypeRefused as exc:
         # Malformed benchmark identities are unknown lineage, never stringified into a record.
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "provenance"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
+    # this fallback now makes. Recorded, never a refusal here: publication refuses it
+    # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.
+    name_problems: list[str] = []
+    if route["family"] != FC.FLAT_PANEL:
+        try:
+            from ..publish.eligibility import name_truth
+
+            name_problems = [str(p)[:200] for p in name_truth(cir, None)]
+        except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
+            name_problems = [f"UNKNOWN: {type(exc).__name__}"]
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
-              detail={"source": "concept_to_cir fallback",
+              detail={"source": "concept_to_cir fallback", "construction": route["family"],
+                      "name_truth": name_problems,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
@@ -743,7 +794,7 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "rows": len(cir.components[0].rows)}
+            "construction": route["family"], "rows": len(cir.components[0].rows)}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -1437,10 +1488,20 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             # writer no longer produces, while the PDF regenerates from the new one. The
             # record is replaced and the change is audited rather than left to be discovered.
             previous = existing.release_hash
+            # Review OPUS2B2 F2.1: a failed re-verification survives the replacement (fail
+            # closed) and the checks are queued now, so the new content clears it promptly.
+            from ..publish import withholding as _withholding
+
+            certificate, carried = _withholding.carry_reverification(
+                existing.certificate, certificate)
             existing.cir_json = cir.to_dict()
             existing.release_hash = release_hash
             existing.certificate = certificate
             existing.certified = True
+            if carried:
+                ctx.enqueue("quality_director", "gate.quality", {},
+                            idempotency_key=f"reverify-after-recert:{cir.slug}@{cir.version}:"
+                                            f"{release_hash[:16]}")
             ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
                       detail={"previous_release_hash": previous,
                               "release_hash": release_hash,
@@ -1629,7 +1690,12 @@ def handle_store_publish(ctx: JobContext) -> dict:
     refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),
                          action="store.publish")
     parity_verdict = _listing_parity(ctx)
-    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
+    # P0-CHAIN-DEADENDS (3): the row names the release it judged, so a verdict for one
+    # version is never read as another's (W-INVENTORY found it bound to the slug alone).
+    # Review OPUS2B2 F1.2: the version defaults as the verdict's does.
+    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"),
+              detail={**parity_verdict, "version": ctx.job.inputs.get("version", "1.0.0"),
+                      "release": ctx.job.inputs.get("release", "")})
 
     # The release-chain publish gates (#58, #60, #65, #66, #70, #80, #172, #173, #297), on
     # the same split as parity: computed on every attempt from evidence on file, so Shadow
@@ -2483,6 +2549,14 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.salvage_review": ("work_done",),
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),
+    # OPUS2-P0 (P0-CHAIN-DEADENDS): dead ends re-driven or resolved.
+    "chain.successors": ("work_done",),
+    # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
+    "intel.scan_evidence": ("work_done",),
+    # OPUS2-P0: lessons published or withdrawn from measured listing performance.
+    "improve.commercial_lessons": ("work_done",),
+    # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
+    "learning.knowledge_gaps": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
     # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
     "listing.search_visibility_aging": ("work_done",),
@@ -3117,6 +3191,9 @@ from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance r
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
+from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
+from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 
 
 def _listing_parity(ctx: JobContext) -> dict:
