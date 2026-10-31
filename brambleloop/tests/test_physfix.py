@@ -545,7 +545,12 @@ def test_the_design_digest_is_geometry_only():
         assert physical.design_digest(c) == base
     assert physical.design_digest(_geometry_changed_medium("1.2.0")) != base
     gauge = _basket_medium()
-    gauge.gauge.stitches_per_10cm += 1.0
+    # The builder shares one Gauge between calls: change a copy, never the shared object
+    # (mutating it in place leaked a different gauge into every later basket in this file).
+    import dataclasses
+
+    gauge.gauge = dataclasses.replace(gauge.gauge,
+                                      stitches_per_10cm=gauge.gauge.stitches_per_10cm + 1.0)
     assert physical.design_digest(gauge) != base
 
 

@@ -906,3 +906,12 @@ real corrected re-release. The request is:
 corrected version on gates unrelated to this change: listing set, search, photography and the
 first-customer scope. What the test asserts is that the physical-size withholding does not
 refuse the corrected version, and does refuse the failed one.
+
+**Test isolation fix.** `vessels.build_basket` returns one shared `Gauge` object on every call.
+The older test `test_the_design_digest_is_geometry_only` changed it in place
+(`stitches_per_10cm += 1.0`). In a full-file run, every basket built after that test therefore
+had a different gauge, and the corrected release failed certification on
+`TWIN_DIMENSION_IMPLAUSIBLE` in the new withholding test. The test now changes a copy
+(`dataclasses.replace`). The shared object inside the product builder is unchanged. The
+reviewer probe file `test_secreview_physfix_89eef1e_probes.py` also changes `c.gauge` in
+place, but it runs in its own process, so it is left as it is.
