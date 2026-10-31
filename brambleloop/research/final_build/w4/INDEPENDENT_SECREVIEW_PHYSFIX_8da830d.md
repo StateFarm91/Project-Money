@@ -211,6 +211,11 @@ Each suite was run one at a time, as `cd brambleloop && PYTHONPATH=src:tests nic
 - `test_secreview_physfix_adversarial rc=0 10s :: 12/12 passed`
 - `test_secreview_physfix_42eac69_probes rc=0 9s :: 8/8 passed`
 - `test_secreview_physfix_89eef1e_probes rc=0 6s :: 8/8 passed`
-- **Pending:** risk_matrix, physfix_photo_first, w4_launchfix, vacuity, first_customer_gate and executor were still running when this partial report was pushed.
+- `test_risk_matrix rc=0 105s :: OK   test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet`
+- `test_physfix_photo_first rc=0 7s :: 8/8 passed`
+- `test_w4_launchfix rc=0 26s :: 32 passed, 0 failed`
+- `test_vacuity rc=0 8s :: OK   test_the_scan_sees_the_suite`
+- `test_first_customer_gate rc=0 18s ::   12 passing, 0 failing`
+- `test_executor rc=0 27s :: OK   test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row`
 
-All of these pass because none of them covers R28. The reproduction in §3 is the missing test.
+All 10 suites exit 0. They pass because none of them covers R28. The reproduction in §3 is the missing test.
