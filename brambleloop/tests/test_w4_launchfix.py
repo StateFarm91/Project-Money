@@ -755,6 +755,11 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))
     assert calls == {"qualifying_photos"}, calls
+    # SECREVIEW R10: no aliased import can reach another sample_photo function unseen.
+    assert not _re.search(r"from\s+[.\w]*sample_photo\s+import", pu_src), \
+        "physical_upgrade imports names out of sample_photo"
+    assert not _re.search(r"import\s+[.\w]*sample_photo\s+as\s", pu_src)
+    assert "requirement" not in _re.findall(r"sample_photo\W+(\w+)", pu_src)
     assert "stage=" not in pu_src
     rel = (ROOT / "src/brambleloop/runtime/release.py").read_text()
     assert "_sample_photo.requirement(" in rel and "photographed_sample=_photographed" in rel
