@@ -151,7 +151,11 @@ refuses ints and other strings, and blank means unanswered, which is refused.
 
 ## Suites (PHOTO 42eac691, one at a time, `PYTHONPATH=src:tests nice -n 19 python tests/<f>`)
 
-SUITE_RESULTS
+All exit 0, with no failures: `test_physfix` 23/23, `test_secreview_physfix_adversarial` 12/12,
+`test_physical` 18/18, `test_risk_matrix` 17/17, `test_first_customer_gate` 12/12,
+`test_launch0_listing_truth` 14/14, `test_physfix_photo_first` 5/5, `test_w4_launchfix` 22/22.
+The suites are green, but R1 is not caught by any of them: the shipped test asserts the cosmetic
+change as the intended behaviour. This review's probes: 4/8 pass (the 4 R1 probes fail).
 
 ## Answers to the brief
 
