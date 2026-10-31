@@ -124,7 +124,9 @@ def test_no_listing_is_unknown_without_a_reason_and_an_unread_pdf_is_reported():
     db = _db()
     _release(db, small, title="Hexagonal Bread Basket", pdf=False)
     v = Z.for_release(db, slug=small.slug, version=small.version)
-    assert v["state"] == Z.PASS and v["pdf"].startswith("no completed assets.build")
+    # Review OPUS2A F1.4: an unread customer PDF refuses; it is never passed on the listing.
+    assert v["state"] == Z.FAIL and v["pdf"].startswith("no completed assets.build")
+    assert any("was not read" in r for r in v["reasons"])
 
 
 def test_a_graded_release_size_chart_is_reference_but_its_listing_may_not_promise_sizes():
@@ -173,6 +175,41 @@ def test_launched_candidates_never_promise_more_sizes_than_one_release_delivers(
         assert found[0]["variants"] == 3 and found[0]["claimed"] == 3
     else:
         assert found == [], found
+
+
+# Independent review OPUS2A (54766c9e), F1.1-F1.3: every probe row, pinned.
+REVIEW_MUST_FAIL = (
+    "Three sizes, yarn not included.", "Three sizes\u2014yarn not included",
+    "3 sizes included (pattern sold separately for hats)",
+    "three sizes, each size is its own pattern", "three-size set", "set of 3 baskets",
+    "a set of three baskets", "trio of baskets", "3 basket sizes",
+    "three different basket sizes", "small, medium, large", "small/medium/large",
+    "small \u00b7 medium \u00b7 large", "S, M, L", "sizes: S M L", "sizes S to XL", "XS-3XL",
+    "Diameters 20 cm, 25 cm and 30 cm",
+    "Nesting baskets in three sizes, yarn not included.",
+)
+REVIEW_MUST_PASS = (
+    "If your gauge is tight, try a hook one or two sizes larger.",
+    "Works in all sizes of yarn", "Fits a 1 m/s fan", "a set of four coasters",
+    "A pair of placemats", "Other sizes sold separately.",
+    "16.0 cm across the points, 13.9 cm across the flats and about 9 cm tall",
+    "Finished size: 20 cm wide and 15 cm tall", "Worsted weight yarn, 5.0 mm hook (US H-8)",
+)
+
+
+def test_review_opus2a_probe_rows_are_each_judged_as_the_review_expects():
+    assert REVIEW_MUST_FAIL and REVIEW_MUST_PASS
+    for t in REVIEW_MUST_FAIL:
+        assert Z.check_texts({"listing description": t})["state"] == Z.FAIL, t
+    for t in REVIEW_MUST_PASS:
+        assert Z.check_texts({"listing description": t})["state"] == Z.PASS, t
+
+
+def test_a_generic_disclaimer_never_hides_a_size_claim_in_the_same_sentence():
+    for tail in ("yarn not included", "hook sold separately", "pattern available separately"):
+        t = f"Nesting baskets in three sizes, {tail}."
+        v = Z.check_texts({"listing description": t})
+        assert v["state"] == Z.FAIL and v["claimed"] == 3, t
 
 
 if __name__ == "__main__":

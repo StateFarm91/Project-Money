@@ -142,11 +142,18 @@ def test_a_product_only_styled_scene_carries_the_room_cue_within_the_cap():
     anchor = {"data": out["data"], "sha256": hashlib.sha256(out["data"]).hexdigest(),
               "status": "PASS", "checker": "stub judge"}
     g.anchor_lookup = lambda s, v, r: anchor
-    g.generate(stage="role_generation", role="detail", brief="x" * 600, references=refs,
-               outfit=None, attempt=1)
+    g.generate(stage="role_generation", role="detail", brief="the lattice up close",
+               references=refs, outfit=None, attempt=1)
     call = stub.calls[-1]
     cue = H.scene_for(CIR.slug)["cue"]
     assert cue in call["prompt"], call["prompt"][:400]
+    assert "Laura" not in cue                         # review OPUS2A F2.3
+    # Review OPUS2A F2.2: an over-long brief is refused, never silently cut; a showroom brief
+    # is refused too.
+    for bad in ("x" * 600, "the throw in a luxury showroom"):
+        assert _refused(lambda: g.generate(stage="role_generation", role="detail", brief=bad,
+                                           references=refs, outfit=None, attempt=2),
+                        Exception)
 
 
 def test_owner_variation_angle_light_clutter_and_moment_vary_inside_a_fixed_architecture():
@@ -185,8 +192,32 @@ def test_the_longest_possible_frame_fits_without_truncation():
                    + f". In the frame: {max(room.moments, key=len)}. "
                    f"Light: {max(room.all_lights, key=len)}. Camera: {max(H.ANGLES, key=len)}. "
                    f"A believable, modest family home with ordinary belongings, natural "
-                   f"photographic composition.")
+                   f"photographic composition. {H.NO_OTHER_TEXTILES}")
         assert len(longest) <= H.MAX_ENVIRONMENT_CHARS, (room.key, len(longest))
+
+
+def test_review_opus2a_no_decoy_of_the_products_own_kind_in_any_room_frame():
+    """F2.1: a lived-in detail or moment naming the product's own kind is never chosen."""
+    import re
+
+    roles = ("lifestyle", "lifestyle_2", "in_use", "context", "scale", "detail_in_room")
+    assert H.ROOM_FOR_CATEGORY and roles
+    for category, room_key in H.ROOM_FOR_CATEGORY.items():
+        room = H.ROOMS[room_key]
+        rx = H.DECOY_FOR_CATEGORY.get(category)
+        for i in range(40):
+            for r in roles:
+                v = H.variation(room, listing=f"listing-{i}", role=r, category=category)
+                text = " ".join(v["clutter"] + [v["moment"]])
+                if rx:
+                    assert not re.search(rf"\b(?:{rx})", text, re.I), (category, text)
+                env = H.environment(room, listing=f"listing-{i}", role=r, category=category)
+                assert H.NO_OTHER_TEXTILES in env and len(env) <= H.MAX_ENVIRONMENT_CHARS
+    # The reported cases specifically.
+    nursery = H.ROOMS["nursery"]
+    for i in range(60):
+        v = H.variation(nursery, listing=f"m{i}", role="lifestyle", category="mobile")
+        assert "mobile" not in v["moment"]
 
 
 if __name__ == "__main__":

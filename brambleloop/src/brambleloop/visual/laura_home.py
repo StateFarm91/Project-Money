@@ -107,7 +107,9 @@ ROOMS: dict[str, Room] = {
         light="soft late-morning daylight through half-open curtains",
         anchors="a white wooden crib and a cushioned glider chair in the corner",
         lived_in=("a folded muslin cloth on the dresser", "a small stack of board books",
-                  "a soft toy on the glider seat", "a basket of folded baby clothes"),
+                  "a soft toy on the glider seat", "a basket of folded baby clothes",
+                  "a night light on the dresser", "a framed fox print on the wall",
+                  "a diaper caddy with wipes on the shelf", "a white-noise machine by the crib"),
         lights=("gentle early-afternoon nap-time light, curtains mostly drawn",
                 "morning light from the open curtains, a small lamp on the dresser"),
         moments=("the crib sheet freshly changed",
@@ -190,7 +192,25 @@ ANGLES: tuple[str, ...] = (
     "a slightly high view looking down at the product in use",
 )
 
-MAX_ENVIRONMENT_CHARS = 900
+# Review OPUS2A F2.1: a scene detail naming an object of the product's own kind is a decoy
+# beside the certified product (a second mobile, a pair of mittens, a throw on the sofa), which
+# a buyer may read as part of the product and the Product Truth judge must tell apart. Such
+# details are never chosen for that category.
+DECOY_FOR_CATEGORY: dict[str, str] = {
+    "dishcloth": r"towel|cloth", "kitchen_bath": r"towel|cloth",
+    "amigurumi": r"toy", "baby": r"baby clothes|muslin|clothes|toy",
+    "nursery": r"mobile|toy|muslin", "mobile": r"mobile",
+    "mittens": r"mittens", "hat": r"mittens|hat", "scarf": r"mittens|scarf",
+    "garment": r"cardigan|clothes", "shawl": r"cardigan|clothes",
+    "throw": r"throw|blanket|duvet", "blanket": r"throw|blanket|duvet",
+    "mosaic_blanket": r"throw|blanket|duvet", "graphghan": r"throw|blanket|duvet",
+    "pillow": r"pillow|cushion|throw", "bag": r"tote|bag", "basket": r"basket",
+    "placemat": r"napkin", "runner": r"napkin", "coaster": r"coaster",
+    "wedding": r"cardigan|clothes",
+}
+NO_OTHER_TEXTILES = ("No other crocheted or knitted item is in the scene besides the product.")
+
+MAX_ENVIRONMENT_CHARS = 1000
 MAX_CUE_CHARS = 150
 
 
@@ -211,7 +231,16 @@ def _index(salt: str, n: int) -> int:
     return int(hashlib.sha256(salt.encode()).hexdigest(), 16) % n
 
 
-def variation(room: Room, *, listing: str, role: str = "lifestyle") -> dict:
+def _undecoyed(items: tuple[str, ...], category: str | None) -> tuple[str, ...]:
+    rx = DECOY_FOR_CATEGORY.get(str(category or "").lower())
+    if not rx:
+        return items
+    kept = tuple(x for x in items if not re.search(rf"\b(?:{rx})", x, re.I))
+    return kept
+
+
+def variation(room: Room, *, listing: str, role: str = "lifestyle",
+              category: str | None = None) -> dict:
     """What may differ between frames (D-W4-OWNER-LAURA-HOME): angle, light, clutter, moment.
 
     Keyed by listing and role, so one gallery's frames are not identical, the same frame is
@@ -219,28 +248,33 @@ def variation(room: Room, *, listing: str, role: str = "lifestyle") -> dict:
     """
     salt = f"{HOME_ID}:{room.key}:{listing}:{role}"
     lights = room.all_lights
-    first = _index(salt + ":clutter", len(room.lived_in))
-    second = (first + 1 + _index(salt + ":clutter2", len(room.lived_in) - 1)) % len(room.lived_in)
+    lived = _undecoyed(room.lived_in, category)
+    moments = _undecoyed(room.moments, category)
+    if len(lived) < 2:
+        raise HomeRefused(f"{room.key}: fewer than two lived-in details remain for category "
+                          f"{category!r} once decoys are removed")
+    first = _index(salt + ":clutter", len(lived))
+    second = (first + 1 + _index(salt + ":clutter2", len(lived) - 1)) % len(lived)
     out = {"angle": ANGLES[_index(salt + ":angle", len(ANGLES))],
            "light": lights[_index(salt + ":light", len(lights))],
-           "clutter": [room.lived_in[first], room.lived_in[second]]}
-    out["moment"] = (room.moments[_index(salt + ":moment", len(room.moments))]
-                     if room.moments else "")
+           "clutter": [lived[first], lived[second]]}
+    out["moment"] = moments[_index(salt + ":moment", len(moments))] if moments else ""
     return out
 
 
-def environment(room: Room, *, listing: str, role: str = "lifestyle") -> str:
+def environment(room: Room, *, listing: str, role: str = "lifestyle",
+                category: str | None = None) -> str:
     """The scene environment for one lifestyle frame of `listing` in `room`. Deterministic.
 
     The architecture (house, room structure, anchor furniture) is identical in every frame;
     the angle, light, everyday clutter and household moment vary by frame.
     """
-    v = variation(room, listing=listing, role=role)
+    v = variation(room, listing=listing, role=role, category=category)
     moment = f" In the frame: {v['moment']}." if v["moment"] else ""
     text = (f"Laura's own home ({HOME_ID}), {room.name}: {HOUSE}. {room.structure}. "
             f"{room.anchors}. Lived in: {v['clutter'][0]}; {v['clutter'][1]}.{moment} "
             f"Light: {v['light']}. Camera: {v['angle']}. A believable, modest family home "
-            f"with ordinary belongings, natural photographic composition.")
+            f"with ordinary belongings, natural photographic composition. {NO_OTHER_TEXTILES}")
     check(text)
     if len(text) > MAX_ENVIRONMENT_CHARS:
         # Refused, never truncated: a description cut mid-sentence drops the details that
@@ -252,7 +286,9 @@ def environment(room: Room, *, listing: str, role: str = "lifestyle") -> str:
 
 def cue(room: Room) -> str:
     """A short room cue for a product-only styled scene (the edit instruction is capped)."""
-    text = f"in {room.name} of Laura's family home, {room.light}"
+    # Review OPUS2A F2.3: a product-only frame names no person; identity checks run only on
+    # frames that feature Laura.
+    text = f"in {room.name} of a modest family home, {room.light}"
     check(text)
     if len(text) > MAX_CUE_CHARS:
         raise HomeRefused(f"{room.key} cue is {len(text)} characters; at most {MAX_CUE_CHARS}")
@@ -295,8 +331,8 @@ def scene_for(slug: str, *, listing: str | None = None, role: str = "lifestyle")
     listing = listing or slug
     return {"home": HOME_ID, "room": room.key, "room_name": room.name, "category": category,
             "why": why, "role": role,
-            "variation": variation(room, listing=listing, role=role),
-            "environment": environment(room, listing=listing, role=role),
+            "variation": variation(room, listing=listing, role=role, category=category),
+            "environment": environment(room, listing=listing, role=role, category=category),
             "cue": cue(room)}
 
 

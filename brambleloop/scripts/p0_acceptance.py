@@ -866,13 +866,16 @@ def run(out_dir: str | os.PathLike, *, as_of: str = "2026-10-20") -> dict:
     out = Path(out_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = str(out / "art")
-    os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
+    os.environ["BRAMBLELOOP_PHASE"] = "shadow"   # OPUS2A F4.1: never inherit another phase
     for k in list(os.environ):
         if k.startswith(("ETSY", "ANTHROPIC_API", "OPENAI", "REPLICATE", "FAL_", "GEMINI",
                          "BFL_", "VENICE")):
             os.environ.pop(k)
     socket.socket.connect = _closed            # type: ignore[assignment]
+    socket.socket.connect_ex = _closed         # type: ignore[assignment]  (OPUS2A F4.2)
+    socket.socket.sendto = _closed             # type: ignore[assignment]
     socket.create_connection = _closed         # type: ignore[assignment]
+    socket.getaddrinfo = _closed               # type: ignore[assignment]
     return Run(out, as_of).run()
 
 

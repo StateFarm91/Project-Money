@@ -48,39 +48,87 @@ DELIVERED_PER_RELEASE = 1
 _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
                  "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
 _NUM = r"(\d{1,2}|" + "|".join(_NUMBER_WORDS) + r")"
-_SIZE_TOKEN = r"(?:xxs|xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl)"
+_FULL = r"(?:small|medium|large|extra[- ]large)"
+# Size letters are matched case-sensitively: "S, M, L" is a size list, "m/s" is not.
+_TOK = r"(?:XXS|XS|S|M|L|XL|XXL|[2-5]XL)"
+# Objects sold in graded sets. A set of coasters, ornaments or placemats is a count of pieces
+# in one size, never a claim of several sizes, so those nouns are deliberately absent.
+_VESSEL = (r"(?:baskets?|bowls?|bins?|box(?:es)?|trays?|pots?|planters?|bags?|totes?|"
+           r"cos(?:y|ies)|coz(?:y|ies)|cases?|pouch(?:es)?)")
+_DIM = r"\d+(?:\.\d+)?\s*(?:cm|mm|in(?:ches)?\b|\")"
+_GROUPED = {"trio": 3, "pair": 2}
+
+
+def _count_word(m) -> int | None:
+    return _to_int(m.group(1))
+
+
+def _distinct_full(m) -> int:
+    return len({w.lower().replace(" ", "-") for w in re.findall(
+        r"small|medium|extra[- ]large|large", m.group(0), re.I)})
+
+
+def _tokens(m) -> int:
+    return len(set(re.findall(_TOK, m.group(0))))
+
 
 # Each pattern: (name, compiled regex, function(match) -> claimed count or None for "2+").
 _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
-    ("count", re.compile(rf"\b{_NUM}\s+(?:different\s+|finished\s+|nesting\s+|graded\s+)?"
-                         rf"sizes\b", re.I),
-     lambda m: _to_int(m.group(1))),
-    ("small_medium_large", re.compile(r"\bsmall\s*,\s*medium\s*,?\s*(?:and|&)\s*large\b",
-                                      re.I), lambda m: 3),
-    ("pair_of_named_sizes", re.compile(r"\b(?:small\s*(?:and|&)\s*(?:medium|large)|"
-                                       r"medium\s*(?:and|&)\s*large)\s+(?:sizes?|baskets?|"
-                                       r"versions?|patterns?)\b", re.I), lambda m: 2),
-    ("slash_sizes", re.compile(rf"(?<![\w/]){_SIZE_TOKEN}(?:\s*/\s*{_SIZE_TOKEN})+(?![\w/])",
-                               re.I),
-     lambda m: len(re.split(r"\s*/\s*", m.group(0)))),
+    # "three sizes", "3 basket sizes", "two different basket sizes", "three-size set"
+    ("count", re.compile(rf"\b{_NUM}(?:\s+|-)(?:[a-z]+[\s-]+){{0,2}}?sizes?\b", re.I),
+     _count_word),
+    # "small, medium and large", "small/medium/large", "small · medium · large"
+    ("named_sizes", re.compile(rf"\b{_FULL}(?:\s*(?:,|/|·|&|\+|\band\b)\s*(?:and\s+)?{_FULL})"
+                               rf"{{2,}}\b", re.I), _distinct_full),
+    # "small and large baskets", "medium & large sizes": two names need a size or vessel noun
+    ("named_pair", re.compile(rf"\b{_FULL}\s*(?:,|/|&|\band\b)\s*{_FULL}\s+"
+                              rf"(?:sizes?|versions?|patterns?|{_VESSEL})\b", re.I),
+     _distinct_full),
+    # "S/M/L", "S, M, L", "XS/S"
+    ("size_letters", re.compile(rf"(?<![\w/]){_TOK}(?:\s*[/,]\s*{_TOK})+(?![\w/])"), _tokens),
+    # "sizes: S M L", "Sizes S M L XL"
+    ("size_letter_run", re.compile(rf"\b[Ss]izes?\s*:?\s*{_TOK}(?:\s+{_TOK})+\b"), _tokens),
+    # "sizes S to XL", "XS-3XL"
+    ("size_range", re.compile(rf"\b[Ss]izes?\s+{_TOK}\s*(?:to|-|–)\s*{_TOK}\b|"
+                              rf"(?<![\w/]){_TOK}\s*[-–]\s*{_TOK}(?![\w/])"), lambda m: None),
+    # "Diameters 20 cm, 25 cm and 30 cm"
+    ("dimension_list", re.compile(rf"\b(?:diameters|widths|heights|lengths|sizes)\s*:?\s*"
+                                  rf"{_DIM}(?:\s*(?:,|/|&|\band\b)\s*{_DIM})+", re.I),
+     lambda m: len(re.findall(_DIM, m.group(0)))),
+    # "set of 3 baskets", "a trio of baskets", "pair of storage bins"
+    ("vessel_set", re.compile(rf"\b(?:set\s+of\s+{_NUM}|(trio|pair))\s+(?:of\s+)?"
+                              rf"(?:[a-z]+\s+){{0,2}}?{_VESSEL}\b", re.I),
+     lambda m: _to_int(m.group(1)) if m.group(1) else _GROUPED[m.group(2).lower()]),
     ("nesting", re.compile(r"\bnesting\b", re.I), lambda m: None),
-    ("several_sizes", re.compile(r"\b(?:multiple|several|various|all)\s+sizes\b|"
+    ("several_sizes", re.compile(r"\b(?:multiple|several|various)\s+sizes\b|"
+                                 r"\ball\s+sizes\b(?!\s+of\s+(?:yarn|hooks?|needles?))|"
                                  r"\bsizes\s+included\b", re.I), lambda m: None),
 )
+# "a set of three" with no noun is a size claim only beside a vessel noun in the sentence.
+_BARE_SET = re.compile(rf"\bset\s+of\s+{_NUM}\b", re.I)
+_VESSEL_RX = re.compile(rf"\b{_VESSEL}\b", re.I)
 
-# A sentence carrying one of these is about sizes this release does NOT deliver.
-_DISCLAIMS = re.compile(r"sold\s+separately|separate\s+listings?|not\s+included|"
-                        r"each\s+size\s+is\s+(?:its\s+own|a\s+separate)|"
-                        r"available\s+separately|one\s+size\s+only|this\s+listing\s+is\s+"
-                        r"(?:the\s+)?(?:small|medium|large|one)", re.I)
+# A size word followed by these is advice about a hook or gauge, never a promise of sizes.
+_NOT_A_CLAIM_AFTER = re.compile(r"^\s*(?:larger|smaller|bigger|up|down)\b", re.I)
+_HOOK_BEFORE = re.compile(r"\b(?:hook|needle)s?\s*(?:\w+\s+){0,1}$", re.I)
+
+# A disclaimer counts only when it is ABOUT SIZES ("the small and large are sold separately",
+# "other sizes sold separately", "this listing is the medium basket"). Only the disclaimer's
+# own words are removed; the rest of the sentence is still read, so "three sizes, yarn not
+# included" is still a claim (independent review OPUS2A F1.1).
+_SIZE_DISCLAIM = re.compile(
+    rf"(?:\b(?:other|remaining|larger|smaller|{_FULL})\s+(?:\w+\s+){{0,3}}?"
+    rf"(?:are|is)?\s*(?:sold\s+separately|separate\s+listings?|available\s+separately|"
+    rf"not\s+included)\b|\bone\s+size\s+only\b|"
+    rf"\bthis\s+listing\s+is\s+(?:for\s+)?(?:the\s+)?(?:{_FULL}|one)\b)", re.I)
 # The graded size chart's reference wording, printed by publish.pdf (never a claim).
 _GRADED_REFERENCE = re.compile(r"\bsize\s+\S+\s+of\s+\d+\b|\bsizes\s+in\s+the\s+size\s+chart\b|"
                                r"\bsize\s+chart\b|\bgraded\s+from\b", re.I)
 _SENTENCE = re.compile(r"(?<=[.!?\n])\s+")
 
 
-def _to_int(token: str) -> int | None:
-    t = token.lower()
+def _to_int(token: str | None) -> int | None:
+    t = (token or "").lower()
     if t.isdigit():
         return int(t)
     return _NUMBER_WORDS.get(t)
@@ -94,17 +142,26 @@ def claims_in(text: str, *, graded_reference_ok: bool = False) -> list[dict]:
     """
     out: list[dict] = []
     for sentence in _SENTENCE.split(text or ""):
-        if not sentence.strip() or _DISCLAIMS.search(sentence):
+        if not sentence.strip():
             continue
         if graded_reference_ok and _GRADED_REFERENCE.search(sentence):
             continue
+        read = _SIZE_DISCLAIM.sub(" ", sentence)
+        found = []
         for name, rx, count_of in _PATTERNS:
-            for m in rx.finditer(sentence):
-                n = count_of(m)
-                if n is not None and n <= 1:
+            for m in rx.finditer(read):
+                if name == "count" and (_NOT_A_CLAIM_AFTER.match(read[m.end():])
+                                        or _HOOK_BEFORE.search(read[:m.start()])):
                     continue
-                out.append({"what": name, "phrase": m.group(0).strip()[:80],
-                            "count": n, "sentence": sentence.strip()[:200]})
+                found.append((name, m, count_of(m)))
+        if _VESSEL_RX.search(read):
+            for m in _BARE_SET.finditer(read):
+                found.append(("vessel_set", m, _to_int(m.group(1))))
+        for name, m, n in found:
+            if n is not None and n <= 1:
+                continue
+            out.append({"what": name, "phrase": m.group(0).strip()[:80],
+                        "count": n, "sentence": sentence.strip()[:200]})
     return out
 
 
@@ -141,29 +198,33 @@ def check_texts(texts: dict[str, str], *, delivered: int = DELIVERED_PER_RELEASE
 
 
 def _pdf_text(db, slug: str, version: str) -> tuple[str | None, str]:
-    """The release's stored US customer PDF text, from the newest completed assets.build."""
+    """The release's stored US customer PDF text, from its newest completed assets.build.
+
+    Selected by the job's own slug and version (review OPUS2A F1.4: a newest-200 window could
+    miss the release on a busy queue), newest first.
+    """
     from sqlalchemy import desc, select
 
     from ..core.artifacts import ArtifactStore
     from ..core.models import Job, JobStatus
     from ..publish.pdf import extracted_text
 
+    sha = None
     with db.session() as s:
-        jobs = list(s.scalars(select(Job).where(Job.job_type == "assets.build",
-                                                Job.status == JobStatus.DONE)
-                              .order_by(desc(Job.id)).limit(200)))
-        sha = None
-        for j in jobs:
-            i, o = j.inputs or {}, j.outputs or {}
-            if i.get("slug") == slug and i.get("version") == version:
-                sha = (o.get("pdf_sha256_by_terminology") or {}).get("US") or o.get("pdf_sha256")
-                if sha:
-                    break
+        rows = s.execute(select(Job.inputs, Job.outputs).where(
+            Job.job_type == "assets.build", Job.status == JobStatus.DONE,
+            Job.inputs["slug"].as_string() == slug,
+            Job.inputs["version"].as_string() == version).order_by(desc(Job.id)))
+        for _i, o in rows:
+            o = o or {}
+            sha = (o.get("pdf_sha256_by_terminology") or {}).get("US") or o.get("pdf_sha256")
+            if sha:
+                break
     if not sha:
         return None, "no completed assets.build names a customer PDF for this release"
     try:
         data = ArtifactStore().get(sha, db=db)
-    except Exception as exc:  # noqa: BLE001 - unread is reported, never read as clean
+    except Exception as exc:  # noqa: BLE001 - unread is a refusal, never read as clean
         return None, f"customer PDF {sha[:12]} could not be read ({type(exc).__name__})"
     try:
         return extracted_text(data), f"customer PDF {sha[:12]}"
@@ -177,7 +238,7 @@ def for_release(db, *, slug: str, version: str) -> dict:
     `state` is FAIL when the stored listing (title, description, tags) or the delivered PDF
     claims more sizes than the release delivers. With no stored listing the verdict is
     UNKNOWN with no reason: the listing gates refuse a release without a listing on their own.
-    An unreadable PDF is reported in `pdf` and judged on the listing alone.
+    A customer PDF that cannot be found or read is a FAIL with that reason (OPUS2A F1.4).
     """
     from sqlalchemy import select
 
@@ -212,6 +273,13 @@ def for_release(db, *, slug: str, version: str) -> dict:
     if pdf_text is not None:
         texts["customer PDF"] = pdf_text
     verdict = check_texts(texts, graded_sources=("customer PDF",) if graded else ())
+    if pdf_text is None:
+        # Review OPUS2A F1.4: the PDF the buyer receives is half of what this gate judges; a
+        # release whose PDF cannot be read is refused here, never passed on the listing alone.
+        verdict["reasons"] = list(verdict["reasons"]) + [
+            f"size-claim truth: the customer PDF was not read ({pdf_note}), so what it promises "
+            f"is unknown; unknown is never a pass"]
+        verdict["state"] = FAIL
     verdict.update({"graded": graded, "pdf": pdf_note})
     return verdict
 

@@ -234,6 +234,7 @@ class Flux3Generator:
                 from ..visual import laura_home
 
                 home = laura_home.scene_for(slug, role=role)
+                laura_home.check(brief or "")   # review OPUS2A F2.2: the brief too
                 scene = {"environment": home["environment"], "pose": brief or "",
                          "framing": ""}
                 if base is not None:
@@ -258,7 +259,13 @@ class Flux3Generator:
                 from ..visual import laura_home
 
                 room_cue = laura_home.scene_for(slug)["cue"]
-                edit = f"{room_cue}. {brief or ''}".strip()[:S.MAX_EDIT_CHARS]
+                laura_home.check(brief or "")
+                edit = f"{room_cue}. {brief or ''}".strip()
+                if len(edit) > S.MAX_EDIT_CHARS:
+                    # Review OPUS2A F2.2: refused, never silently cut.
+                    raise laura_home.HomeRefused(
+                        f"room cue + brief is {len(edit)} characters; the edit instruction "
+                        f"allows {S.MAX_EDIT_CHARS}")
                 cand = S.variant(rel, anchor["candidate"], "styled_scene", edit,
                                  size=self.size, **kw)
         r = cand.receipt
