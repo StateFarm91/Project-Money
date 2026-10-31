@@ -449,10 +449,34 @@ def stitch_key(text: str, terminology: str = "US") -> list[KeyEntry]:
     return out
 
 
+_TIMES_WORDS = {2: "twice", 3: "three times", 4: "four times", 5: "five times",
+                6: "six times", 7: "seven times", 8: "eight times", 9: "nine times",
+                10: "ten times", 12: "twelve times"}
+
+
 def notation_key(text: str) -> list[KeyEntry]:
-    """The notation conventions this document uses, and only those."""
-    return [KeyEntry(token=label, means=means)
-            for label, means, shape in NOTATION if shape.search(text)]
+    """The notation conventions this document uses, and only those.
+
+    F8 (2026-10-31): the bracket-repeat and stitch-count examples are this pattern's own --
+    the repeat count it most often uses and the largest count it states -- rather than a
+    generic "x 4" and "(120 sts)" a maker will never meet in it.
+    """
+    out = []
+    for label, means, shape in NOTATION:
+        if not shape.search(text):
+            continue
+        if label.startswith("[ ... ] x"):
+            counts = [int(n) for n in re.findall(r"\]\s*x\s*(\d+)", text)]
+            n = max(set(counts), key=lambda k: (counts.count(k), -k)) if counts else 4
+            label = f"[ ... ] x {n}"
+            means = (f"work everything inside the brackets, in order, "
+                     f"{_TIMES_WORDS.get(n, f'{n} times')} in a row")
+        elif label.startswith("(") and label.endswith("sts)"):
+            counts = [int(n) for n in re.findall(r"\((\d+)\s*sts\)", text)]
+            if counts:
+                label = f"({max(counts)} sts)"
+        out.append(KeyEntry(token=label, means=means))
+    return out
 
 
 def codes_in(text: str, terminology: str = "US") -> set[str]:

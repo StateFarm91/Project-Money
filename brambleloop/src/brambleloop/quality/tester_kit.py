@@ -36,7 +36,7 @@ BUILD_KEY = "basket_small"
 # Filled from the CIR at build time; the static copy is what the owner card quotes.
 KIT: dict = {
     "slug": "market-basket-small",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "title": "Crochet Hexagonal Bread Basket",
     "risk_class": "B (dimensional_form)",
     "positioning": "kitchen and home (bread basket); small size only",
@@ -130,7 +130,7 @@ RECORD_FIELDS: tuple[tuple[str, str, str], ...] = (
 
 COASTER_KIT: dict = {
     "slug": "hexagon-coaster-set",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "title": "Hexagon Coaster Set (4)",
     "risk_class": "A (no section-8 feature; automated threshold)",
     "required": ("partial_physical (first-customer floor, gates.risk_matrix."

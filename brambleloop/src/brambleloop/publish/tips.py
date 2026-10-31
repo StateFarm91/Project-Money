@@ -110,8 +110,9 @@ def tips(cir, result, twin, text: str, terminology: str = "US") -> list[Tip]:
             "Neat colour changes",
             f"This {piece} changes colour {_times(changes)}, always "
             f"at the join. Work the joining sl st with the new "
-            f"colour, and carry the colour you are resting loosely up the inside: a tight "
-            f"carry puckers the fabric at the join, a loose one disappears.",
+            f"colour, and carry the colour you are resting loosely "
+            f"{'up the inside of the join' if wall else 'on the wrong side at the join'}: a "
+            f"tight carry puckers the fabric at the join, a loose one disappears.",
             f"{changes} colour changes between consecutive {round_word}s"))
 
     # 6. joined rounds leave a line of joins.
@@ -119,9 +120,9 @@ def tips(cir, result, twin, text: str, terminology: str = "US") -> list[Tip]:
         out.append(Tip(
             "The line of joins",
             f"Joined {round_word}s leave a faint line where each {round_word} starts and "
-            f"ends. That is expected. Keep the joining sl st snug "
-            f"but not tight, and if you want it hidden, keep the line on the side that will "
-            f"face down or inward.",
+            f"ends. That is expected. Keep the joining sl st snug but not tight, and "
+            + (f"turn the {piece} so the line sits at the back." if wall else
+               "it shows least on the wrong side, so let that side face down."),
             "the pattern joins every round (cir.writer.JOINED_LINE)"))
 
     # 7. gauge, read against this pattern's own figures.

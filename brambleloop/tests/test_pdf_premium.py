@@ -48,7 +48,7 @@ def test_the_releases_are_the_certified_ones():
     for key, slug in (("hexagon_coasters", "hexagon-coaster-set"),
                       ("basket_small", "market-basket-small")):
         cir = launch0.cir_for(key)
-        assert (cir.slug, cir.version) == (slug, "1.2.0"), (cir.slug, cir.version)
+        assert (cir.slug, cir.version) == (slug, "1.2.1"), (cir.slug, cir.version)
         assert certify(cir).granted, slug
 
 
@@ -254,8 +254,10 @@ def test_the_chart_legend_speaks_the_documents_terminology():
     """A UK edition's legend keys `dc inc`, as its instructions do, not `inc (UK ...)`."""
     cir = launch0.cir_for("hexagon_coasters")
     twin = build_twin(cir, compile_cir(cir))
-    uk = charts.render_legend(cir, twin, terminology="UK")
-    us = charts.render_legend(cir, twin, terminology="US")
+    art = pdf._chart_art(cir, twin)
+    kw = dict(marks=art["marks"], colours=art["charted_colours"], lettered=bool(art["cues"]))
+    uk = charts.render_legend(cir, twin, terminology="UK", **kw)
+    us = charts.render_legend(cir, twin, terminology="US", **kw)
     bilingual = charts.render_legend(cir, twin)
     assert uk.tobytes() != us.tobytes() != bilingual.tobytes()
     _cir, doc = _doc("hexagon_coasters", "UK")
@@ -264,6 +266,53 @@ def test_the_chart_legend_speaks_the_documents_terminology():
     images = reader.pages[legend_page - 1].images
     assert any(im.image.convert("RGB").tobytes() == uk.convert("RGB").tobytes()
                for im in images), "the UK document does not carry the UK legend"
+
+
+def test_the_1_2_1_text_fixes_reach_the_documents():
+    """F1, F2, F3, N3 and the colour-change wording, read off the rendered bytes."""
+    coaster = _flat(_doc("hexagon_coasters")[1])
+    basket = _flat(_doc("basket_small")[1])
+    for flat in (coaster, basket):
+        assert "The ch 1 does not count as a stitch." in flat                     # F3
+        assert "an end to secure at every join" not in flat                      # F2
+        assert "all 2 changes" not in flat and "all 4 changes" not in flat
+    assert "Cut wine after Rnd 6 and fasten it off" in coaster
+    assert "Ends to weave in: about 4 on each coaster." in coaster
+    assert "up the inside" not in coaster          # a flat coaster has no inside
+    assert "Cut wine after Rnd 19 and fasten it off" in basket
+    assert "up the inside of the join" in basket
+    assert "plus 15%" not in coaster               # F1: no substitution metres printed
+    assert "1 x 100g ball)" in basket and "1-1 x" not in basket                 # N3
+    assert basket.index("if you use light".upper()) < basket.index("plus 15%")
+    assert "turn the basket so the line sits at the back" in basket            # N6
+    assert "[ ... ] x 6" in coaster and "(42 sts)" in coaster                   # F8
+    assert "(120 sts)" not in coaster and "(60 sts) the stitch count" in basket
+
+
+def test_every_proof_page_says_not_for_sale_and_the_cover_has_no_tagline_lockup():
+    _cir, proof = _doc("basket_small", "US", True)
+    for n, page in enumerate(PdfReader(io.BytesIO(proof.pdf_bytes)).pages, 1):
+        assert "NOT FOR SALE" in (page.extract_text() or ""), n                 # F9
+    for key in KEYS:
+        _cir, doc = _doc(key)
+        cover = doc.figures[0]
+        assert cover["kind"] == "brand_artwork" and "lockup_horizontal" in cover["source"]
+
+
+def test_the_basket_key_lists_only_what_its_chart_draws():
+    """N2/F4: rounds 1-10 are all cream and carry no letters, so the key has no wine and no
+    letter note; the round chart draws V only, so no 'x' for sc."""
+    cir, doc = _doc("basket_small")
+    twin = build_twin(cir, compile_cir(cir))
+    art = pdf._chart_art(cir, twin)
+    assert art["charted_colours"] == ["cream"] and art["marks"] == ["inc"]
+    assert not art["cues"]
+    expected = charts.render_legend(cir, twin, terminology="US", marks=art["marks"],
+                                    colours=art["charted_colours"], lettered=False)
+    page = next(f["page"] for f in doc.figures if f["kind"] == "chart_legend")
+    images = PdfReader(io.BytesIO(doc.pdf_bytes)).pages[page - 1].images
+    assert any(im.image.convert("RGB").tobytes() == expected.convert("RGB").tobytes()
+               for im in images)
 
 
 def test_text_and_graphics_clear_their_contrast_floors():

@@ -176,7 +176,8 @@ class _Doc:
     """
 
     def __init__(self, title: str, *, total_pages: int = 0, author: str = "",
-                 subject: str = "", footer_left: str = "", header_right: str = ""):
+                 subject: str = "", footer_left: str = "", header_right: str = "",
+                 proof_banner: str = ""):
         pdf_fonts.register()
         self.buf = io.BytesIO()
         # `initialFontName` so the page streams never reference an unembedded base-14 face.
@@ -208,6 +209,9 @@ class _Doc:
         self.glyph_problems: list[str] = []
         self.figures: list[dict] = []
         self.running_head: str | None = None
+        # F9: a proof is marked on every page, so a page printed or extracted on its own
+        # still says it is not the product.
+        self.proof_banner = proof_banner
 
     def _bookmark(self, title: str) -> None:
         key = f"section-{len(self.bookmarks) + 1}-{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
@@ -253,6 +257,9 @@ class _Doc:
         self.c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
         self.y = CONTENT_TOP
         self.running_head = running_head
+        if self.proof_banner:
+            self.text(PAGE_W / 2, PAGE_H - 4.6 * mm, self.proof_banner, FONT_UI_BOLD,
+                      MIN_BODY_PT, ACCENT, align="centre", track=0.8)
         if running_head:
             self.text(MARGIN, HEADER_Y, running_head.upper(), FONT_UI_MEDIUM, MIN_BODY_PT,
                       TAUPE, track=0.9)
@@ -329,7 +336,8 @@ class _Doc:
 
     def para(self, text: str, size: float = 10, color=INK, leading: float | None = None,
              running_head: str | None = None, *, font: str = FONT_BODY,
-             x: float | None = None, width: float | None = None) -> None:
+             x: float | None = None, width: float | None = None,
+             keep: bool = False) -> None:
         self.prose.append(text)
         leading = leading or size * 1.42
         x = MARGIN if x is None else x
@@ -337,12 +345,13 @@ class _Doc:
         lines = _wrap(self.c, text, font, size, usable)
         # No widows or orphans: a short paragraph moves whole, a long one keeps at least two
         # lines at the foot of a page and carries at least two to the next.
-        if len(lines) <= 4:
+        # `keep`: a caption is never split across a page (N5).
+        if len(lines) <= 4 or keep:
             self.need(len(lines) * leading, running_head)
         else:
             self.need(2 * leading, running_head)
         for n, line in enumerate(lines):
-            if len(lines) > 4 and n == len(lines) - 2:
+            if len(lines) > 4 and not keep and n == len(lines) - 2:
                 self.need(2 * leading, running_head)
             self.need(leading, running_head)
             if line:
@@ -405,7 +414,10 @@ class _Doc:
         return dw, dh
 
     def image(self, img, running_head: str | None = None, *, max_height=None,
-              figure: dict | None = None) -> None:
+              figure: dict | None = None, embed=None) -> None:
+        """Place `img` fitted to the column. `embed`, if given, is the same drawing at a
+        higher pixel count: it is what is embedded, at exactly the size `img` was laid out
+        and measured at."""
         from reportlab.lib.utils import ImageReader
 
         usable_w = PAGE_W - 2 * MARGIN
@@ -416,7 +428,8 @@ class _Doc:
             scale *= height_limit / h
             w, h = img.width * scale, img.height * scale
         self.need(h + 4 * mm, running_head)
-        self.c.drawImage(ImageReader(img), MARGIN + (usable_w - w) / 2, self.y - h,
+        self.c.drawImage(ImageReader(embed if embed is not None else img),
+                         MARGIN + (usable_w - w) / 2, self.y - h,
                          width=w, height=h, preserveAspectRatio=True, mask="auto")
         if figure is not None:
             self.figures.append(dict(figure, page=self.pages))
@@ -982,7 +995,9 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # two-thousand-pixel chart twice.
     art = _chart_art(cir, twin)
     # The legend keyed in this document's own terminology (the chart art is shared by both).
-    art = dict(art, legend=render_legend(cir, twin, terminology=terminology))
+    art = dict(art, legend=render_legend(
+        cir, twin, terminology=terminology, marks=art.get("marks"),
+        colours=art.get("charted_colours"), lettered=bool(art.get("cues"))))
 
     # Laid out until the count it prints is the count it has. Printing "of 7" on a document
     # that turned out to be 8 pages long is worse than printing nothing, because a customer
@@ -1505,6 +1520,23 @@ def _png_sha(img) -> str:
 
 GALLERY_CELL = 70 * mm
 LOGO_EMBED_PX = 1016    # 86 mm at 300 dpi
+LOCKUP_EMBED_PX = 1323  # 112 mm at 300 dpi
+
+
+@lru_cache(maxsize=1)
+def _cover_lockup():
+    """The tagline-free horizontal lockup, rasterised from its vector at 300 dpi."""
+    from PIL import Image
+
+    from ..brand.vector import rasterize, to_png_bytes
+
+    d = identity_system.direction()
+    mark = identity_system._mark(identity_system.DIRECTION_ID, "lockup_horizontal")
+    png = to_png_bytes(rasterize(mark, d.colours("colour"), LOCKUP_EMBED_PX,
+                                 ground=d.ground("colour")))
+    img = Image.open(io.BytesIO(png))
+    img.load()
+    return img
 
 
 @lru_cache(maxsize=1)
@@ -1654,6 +1686,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     stages = stages or []
     year = released_on.year
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
+               proof_banner=("PROOF COPY WITH PHOTO PLACEHOLDERS · NOT FOR SALE"
+                             if sample_photo_placeholders else ""),
                subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}",
                footer_left=f"© {year} {COPYRIGHT_HOLDER} · all rights reserved · "
                            f"{cir.slug}@{cir.version}",
@@ -1679,20 +1713,20 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     c.rect(0, 0, PAGE_W, band_h, fill=1, stroke=0)
     from PIL import Image as _PIL
 
-    logo = _cover_logo()
-    logo_w = 86 * mm
+    # N1 (2026-10-31, integrator decision): a product PDF carries the tagline-free lockup --
+    # micro-mark, wordmark and "CROCHET PATTERNS" -- from the brand's supporting vector system
+    # (`brand.identity_system.lockup_horizontal`). The owner's hero raster carries the shop's
+    # category line ("HOME · BABY · GIFTS · SEASONAL"), which on a kitchen product's cover
+    # reads as a product claim. The owner artwork itself is untouched (D-FB-17); it is simply
+    # not the asset this use takes.
+    logo = _cover_lockup()
+    logo_w = 112 * mm
     logo_h = logo_w * logo.height / logo.width
-    doc.c.setStrokeColor(LINE)
-    doc.c.setLineWidth(0.6)
-    doc.c.roundRect((PAGE_W - logo_w) / 2 - 1.5 * mm, PAGE_H - 8 * mm - logo_h - 1.5 * mm,
-                    logo_w + 3 * mm, logo_h + 3 * mm, 2 * mm, fill=0, stroke=1)
-    doc.place(logo, (PAGE_W - logo_w) / 2, PAGE_H - 8 * mm, logo_w, logo_h,
-              figure={"kind": "brand_artwork", "source": "brand.canonical_assets hero_logo "
-                      "(owner artwork, exact, resampled to fit)", "label": "Brambleloop"})
-    if sample_photo_placeholders:
-        doc.text(PAGE_W / 2, PAGE_H - 4.6 * mm, "PROOF COPY WITH PHOTO PLACEHOLDERS - NOT FOR SALE",
-                 FONT_UI_BOLD, MIN_BODY_PT, ACCENT, align="centre", track=0.8)
-    title_y = PAGE_H - 8 * mm - logo_h - 12 * mm
+    doc.place(logo, (PAGE_W - logo_w) / 2, PAGE_H - 14 * mm, logo_w, logo_h,
+              figure={"kind": "brand_artwork", "source": "brand.identity_system "
+                      "lockup_horizontal (supporting vector lockup, tagline-free; N1)",
+                      "label": "Brambleloop crochet patterns"})
+    title_y = PAGE_H - 14 * mm - logo_h - 20 * mm
     title_size = 34
     while doc.width(cir.title, FONT_DISPLAY_BOLD, title_size) > usable and title_size > 20:
         title_size -= 1
@@ -1958,7 +1992,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.y = top - box - 4 * mm
             cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
                    "photograph. The scale bar is in centimetres.")
-            doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC)
+            doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC, keep=True)
             if base_view is not None:
                 # A vessel's schematic needs its base as well as its wall: the elevation shows
                 # the height, the plan the base the wall stands on.
@@ -2108,13 +2142,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"Gauge decides this, not the name on the band. Any of these can be worked to "
             f"this fabric: {names}. Swatch and change hook until your gauge matches — the "
             f"gauge is what makes the finished size come out.", size=10)
+        printed_rows = 0
         for row in guide["how_much"]:
             if not row.get("measurable"):
                 continue
+            lo_b, hi_b = row["balls_100g"]
+            # N3: a range that collapses is one number ("1 x 100g ball", not "1-1 ... balls").
+            balls = (f"{lo_b} x 100g ball{'s' if lo_b != 1 else ''}" if lo_b == hi_b
+                     else f"{lo_b}-{hi_b} x 100g balls")
             doc.kv(f"if you use {row['to'].replace('_', ' ')}",
-                   f"about {row['buy_metres']:.0f} m in total "
-                   f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
+                   f"about {row['buy_metres']:.0f} m in total ({balls}); "
                    f"{row['fabric_changes']}")
+            printed_rows += 1
         if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
             # F-112: a statement of fact about a released pattern, not a compensation.
             doc.para(
@@ -2122,10 +2161,13 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
                 f"tested gauge rather than the band's; match it with your own swatch.",
                 size=9.5, color=MUTED)
+        # F1: the margin sentence describes the substitution metres, so it appears only
+        # under one; with none printed it would read as a margin on the Materials figures.
+        margin = (f"Those metres are this pattern's own estimate plus "
+                  f"{substitution.BUY_MARGIN:.0%}. Buying exactly enough is how a project ends "
+                  f"one row short in a dye lot that has gone. " if printed_rows else "")
         doc.para(
-            f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
-            f"Buying exactly enough is how a project ends one row short in a dye lot that has "
-            f"gone. Changing fibre as well — cotton for acrylic, say — changes how much "
+            f"{margin}Changing fibre as well — cotton for acrylic, say — changes how much "
             f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
             f"read off a table.", size=9.5, color=MUTED)
 
@@ -2395,7 +2437,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         doc.y - MARGIN >= art["chart"].height * full_scale + 4 * mm
         + doc.para_height(art["caption"], 9.5) + 2 * mm)
     if caption_first:
-        doc.para(art["caption"], size=9.5, color=MUTED)
+        doc.para(art["caption"], size=9.5, color=MUTED, keep=True)
         doc.space(1 * mm)
     chart_fig = {"kind": "chart", "source": "publish.charts (twin cell grid)", "label": "Chart"}
     if art.get("tiles"):
@@ -2417,9 +2459,10 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         doc.heading("Chart key")
     else:
         doc.image(art["chart"], running_head=head, figure=chart_fig,
-                  max_height=_chart_height_with_legend(doc, art, round_=is_round(cir, twin)))
+                  max_height=_chart_height_with_legend(doc, art, round_=is_round(cir, twin)),
+                  embed=art.get("chart_hi"))
     if not caption_first:
-        doc.para(art["caption"], size=9.5, color=MUTED)
+        doc.para(art["caption"], size=9.5, color=MUTED, keep=True)
         doc.space(1 * mm)
     doc.image(art["legend"], running_head=head, max_height=70 * mm,
               figure={"kind": "chart_legend", "source": "publish.charts.render_legend",
@@ -2818,9 +2861,12 @@ def _round_gauge_note(cir: CIR, twin: TwinModel, terminology: str) -> str:
     stitch = _gauge_stitch(cir, terminology)
     flat = len(rings) - len(risers)
     if not risers:
+        # F7: the swatch does have a row gauge, and the swatch steps above use it. What the
+        # piece lacks is a dimension that row gauge governs.
         return (f"This piece is worked in the round and every round grows it outward rather "
-                f"than upward, so there is no row gauge to check it against: the "
-                f"{cir.gauge.stitches_per_10cm} stitches to 10 cm in {stitch} is what sets "
+                f"than upward, so the {cir.gauge.rows_per_10cm:g} rows to 10 cm is only a "
+                f"check on your swatch: no measurement of the piece depends on it. The "
+                f"{cir.gauge.stitches_per_10cm:g} stitches to 10 cm in {stitch} is what sets "
                 f"how wide it comes out. Check the measurement across against 'Checking "
                 f"your progress' below.")
     return (f"This piece is worked in the round, and its two gauges do different jobs. "
@@ -3030,6 +3076,7 @@ def _round_chart_art(cir: CIR, twin: TwinModel) -> dict:
     cues = {name: letter for name, letter in letters.items()
             if letter in set(labelled.values())}
 
+    shown = [c for c in twin.cells if rounds is None or rounds[0] <= c.row <= rounds[1]]
     return {
         "chart": chart,
         "legend": render_legend(cir, twin),
@@ -3037,7 +3084,24 @@ def _round_chart_art(cir: CIR, twin: TwinModel) -> dict:
         "cell_mm": measured,
         "cues": cues,
         "problems": problems,
+        # What the printed chart draws, for the key printed under it (F4 / N2).
+        "marks": sorted({c.stitch for c in shown if c.stitch in chart_mod.ROUND_MARKED_CODES}),
+        "charted_colours": sorted({c.color for c in shown if c.color}),
+        # The same rung at three times the pixels, embedded at the measured rung's size
+        # (F5 / F6): every legibility number above is measured on `chart`, and the page shows
+        # the identical drawing at print resolution.
+        "chart_hi": _hi_res_round(cir, twin, rounds, w),
     }
+
+
+HI_RES = 3
+
+
+def _hi_res_round(cir: CIR, twin: TwinModel, rounds, wedges):
+    """The round chart drawn at HI_RES times the pixels of the measured 22-px rung."""
+    spec = ChartSpec(cell_px=22 * HI_RES, margin_px=ChartSpec().margin_px * HI_RES,
+                     max_width_px=ChartSpec().max_width_px * HI_RES)
+    return render_round_chart(cir, twin, spec, rounds=rounds, wedges=wedges)
 
 
 def _chart_art(cir: CIR, twin: TwinModel) -> dict:
@@ -3137,6 +3201,8 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
         "legend": render_legend(cir, twin),
         "caption": caption,
         "cell_mm": cell_mm,
+        "marks": sorted(twin.stitch_types_used),
+        "charted_colours": sorted({c for row in charted_colors for c in row if c}),
         # What the picture actually says about colour, asked of the function that drew it. A
         # chart cropped to one repeat can be single-colour in a two-colour design, and a key
         # for letters the picture does not carry is a key to nothing.

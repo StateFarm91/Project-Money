@@ -36,7 +36,10 @@ PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
 # conventions -- the stacked increases make a hexagon, so the name says so and the size is
 # quoted across the points AND across the flats of that hexagon, computed from the perimeter
 # the stitch count makes rather than from the circle formula (which is neither).
-RELEASE_VERSION = "1.2.0"
+# 1.2.1 (2026-10-31): text only -- the written pattern's colour-change and ends wording (F2),
+# "the ch 1 does not count as a stitch" (F3); stitches, counts and geometry unchanged. The
+# design itself is untouched (the base-to-wall change N4 is on hold for a construction review).
+RELEASE_VERSION = "1.2.1"
 
 
 def hexagon_spans_cm(stitches: int, gauge: Gauge) -> tuple[float, float]:

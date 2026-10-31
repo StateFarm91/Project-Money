@@ -345,7 +345,13 @@ def test_the_key_covers_the_stitches_that_never_appear_in_the_chart():
 
     # And the notation a row is written in, which no stitch registry can supply.
     labels = {e.token for e in ab.notation_key(text)}
-    assert "(120 sts)" in labels and "[ ... ] x 4" in labels, labels
+    # F8 (2026-10-31): the examples are this pattern's own -- its largest stated count and
+    # its commonest bracket repeat -- not a generic "(120 sts)" and "x 4".
+    import re as _re
+    biggest = max(int(n) for n in _re.findall(r"\((\d+)\s*sts\)", text))
+    reps = [int(n) for n in _re.findall(r"\]\s*x\s*(\d+)", text)]
+    common = max(set(reps), key=lambda k: (reps.count(k), -k))
+    assert f"({biggest} sts)" in labels and f"[ ... ] x {common}" in labels, labels
     # A convention the document does not use is not explained: a key padded with irrelevant
     # entries is a key nobody finishes reading.
     assert "magic ring" not in labels, labels
