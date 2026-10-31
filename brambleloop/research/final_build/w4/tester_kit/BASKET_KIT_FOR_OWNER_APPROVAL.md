@@ -1,5 +1,8 @@
 # Small bread basket: physical tester kit for owner approval
 
+> **PROVISIONAL (2026-10-31).** These 1.2.1 kits do not yet carry the record-sheet fields that W-PHYSFIX added on `claude/w4-PHYSFIX` 29378b85: wall-height method, `base_edge`, `corners_at_rim` and `rim_across_points_cm`. They also lack its one-tester terms. Once PHYSFIX lands in `claude/w4-INTEG8-next` (Batch 4), merge it and rebuild the kits with `tester_kit_coaster.py`. Do not commission a tester from these files.
+
+
 **Product:** `market-basket-small@1.2.1`, the Crochet Hexagonal Bread Basket.
 - Positioning: a kitchen and home product.
 - Size: small only. This kit covers that one size and no other.

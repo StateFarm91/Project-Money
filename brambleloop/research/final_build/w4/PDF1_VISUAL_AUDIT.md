@@ -26,6 +26,8 @@ This section supersedes the 1.2.0 editions below. They are retired from
 | `…/market-basket-small-1.2.1-uk.pdf` (UK) | 13 | `a152c6e8d54c2986dede372edf8ebede661ea011682d315bbacf16bb25151e2c` |
 | `…/NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf` | 14 | `30debaae4556bbd8eee954891a489c595065d97ca8a7fb8484a3172d422b2eb5` |
 
+> **PROVISIONAL (2026-10-31).** These 1.2.1 kits do not yet carry the record-sheet fields that W-PHYSFIX added on `claude/w4-PHYSFIX` 29378b85: wall-height method, `base_edge`, `corners_at_rim` and `rim_across_points_cm`. They also lack its one-tester terms. Once PHYSFIX lands in `claude/w4-INTEG8-next` (Batch 4), merge it and rebuild the kits with `tester_kit_coaster.py`. Do not commission a tester from these files.
+
 **The tester kits,** rebuilt by `research/final_build/w4/tester_kit_coaster.py`, bind to the new
 content hashes:
 
