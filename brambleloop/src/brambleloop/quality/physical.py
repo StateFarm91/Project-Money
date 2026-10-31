@@ -1032,8 +1032,9 @@ _HOLD_DIGEST_INTERIM = True
 
 
 def _has_holds(cir) -> bool:
-    return any(getattr(c, "holds", None) or getattr(c, "resumes", None)
-               for c in cir.components)
+    """Whether the design is not yet canonicalisable: holds, resumes or assembly (R27)."""
+    return bool(getattr(cir, "assembly", None)) or any(
+        getattr(c, "holds", None) or getattr(c, "resumes", None) for c in cir.components)
 
 
 def design_digest(cir, result=None) -> str | None:
@@ -1061,9 +1062,14 @@ def design_digest(cir, result=None) -> str | None:
             # digest is None, so a size halt on it is PRODUCT-WIDE, never scoped to a design,
             # and never lifted by a make (incidents.release_scope / resolve_halts_disproved_by
             # read None as "no scope"). No Launch-0 CIR has holds.
-            # TODO(physfix-holds): canonical tree (AHU) encoding of the resume forest --
-            # each piece = its pre-resume content + sorted (hold geometry, resumer's form);
-            # refuse resume cycles first (R25) -- then lift this interim.
+            # SECREVIEW 7282c47 R27: the same holds for assembly -- seam-list order, seam
+            # orientation and which of two identical pieces a seam names all moved the
+            # digest -- so a design with any seam has no digest either.
+            # TODO(physfix-holds): canonical tree (AHU) encoding of the piece forest, with
+            # holds/resumes AND seams as its edges -- each piece = its pre-resume content +
+            # sorted (hold geometry, resumer's form) + sorted canonically-oriented seams;
+            # seam list sorted by canonical content; refuse resume cycles first (R25) --
+            # then lift this interim.
             return None
         payload = json.dumps(design_geometry(cir, result), sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
