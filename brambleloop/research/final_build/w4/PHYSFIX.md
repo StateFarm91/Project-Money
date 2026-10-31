@@ -723,3 +723,22 @@ solo rerun passed 2/2.
     meantime.
   - R26 (Info: the vendored `owner/gate_clearance_business.json` input still says 59.65; it is
     overwritten on patch, and not owner-facing).
+
+## 16. Delta review 6 (SECREVIEW 7282c47) -- R27, assembly joins the interim
+
+**R27.** The design digest of a seamed design changed with the seam-list order, with the seam
+orientation (`piece_a`/`piece_b` and their edges swapped), and with which of two identical
+pieces a seam named, so a reordered or re-oriented release could escape a size halt scoped
+to its predecessor. Fix, as the reviewer gave it: `_has_holds` now also returns true when
+`cir.assembly` is non-empty, so `design_digest` returns None for any design with a seam while
+`_HOLD_DIGEST_INTERIM` is set, and a size halt on it applies to the whole product. The TODO
+(physfix-holds) now covers holds and assembly together: build one canonical piece forest with
+holds, resumes and seams as its edges, sort seams by their canonical content and orient
+symmetric seams, refuse resume cycles (R25), and only then lift the interim.
+
+Test: `test_designs_with_assembly_are_halted_product_wide_until_seams_are_canonical` uses the
+reviewer's probe: base, identical pieces reordered (A1), seam list reversed (A2) and one seam
+re-oriented (A3). Every variant compiles and has no digest, and a size halt filed on the base
+still halts every variant. The basket (medium, sport), the small basket and the coasters have
+no holds and no seams. Their digests are pinned to the values computed at 7282c47 and still
+equal sha256 of `design_geometry`, unchanged byte-for-byte. Nothing else was changed.

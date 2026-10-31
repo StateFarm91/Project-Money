@@ -18,6 +18,7 @@ Each test here fails on the code before this fix and passes after it:
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+import hashlib
 import io
 import json
 import sys
@@ -917,6 +918,76 @@ def test_designs_with_holds_are_halted_product_wide_until_holds_are_canonical():
     assert tracker.publication_halted("flat", content_hash=physical.design_digest(flat))
     other = _geometry_changed_medium("1.3.1")
     assert not tracker.publication_halted("flat", content_hash=physical.design_digest(other))
+
+
+def test_designs_with_assembly_are_halted_product_wide_until_seams_are_canonical():
+    """SECREVIEW 7282c47 R27, the interim extended: a design with any seam has no design
+    digest (TODO(physfix-holds)), so a seam-list reorder or a swapped seam orientation can
+    never scope or escape a size halt -- the halt is product-wide. Hold-free, seam-free
+    designs keep their digests byte-for-byte."""
+    from brambleloop.cir.benchmarks import cardigan
+    from brambleloop.cir.compiler import compile_cir as _compile
+    from brambleloop.cir.model import CIR, Component, Op, Row, Seam
+    from brambleloop.gates.incidents import IncidentTracker, release_scope
+    from brambleloop.ops.incident_lifecycle import open_or_restate
+
+    def sq(name, n=10, rows=4):
+        return Component(name=name, construction="flat", foundation=n, foundation_kind="chain",
+                         rows=[Row(index=i, ops=[Op("sc", n)], declared_count=n)
+                               for i in range(1, rows + 1)])
+
+    def design(comps, seams):
+        c = CIR.from_dict(cardigan("XS").to_dict())
+        c.components, c.assembly = comps, seams
+        r = _compile(c)
+        assert r.ok, [f.code for f in r.findings if f.is_error]
+        return physical.design_digest(c, r)
+
+    S = lambda a, b: Seam(method="whipstitch", piece_a=a, piece_b=b,  # noqa: E731
+                          edge_a="top", edge_b="bottom")
+    P = lambda first, second: [sq(first), sq(second), sq("C", 10, 2), sq("D", 10, 6)]  # noqa
+    seamed = {
+        "base": (P("A", "B"), [S("A", "C"), S("B", "D")]),
+        "A1 identical pieces reordered": (P("B", "A"), [S("A", "C"), S("B", "D")]),
+        "A2 seam list reordered": (P("A", "B"), [S("B", "D"), S("A", "C")]),
+        "A3 seam orientation swapped": (P("A", "B"), [
+            Seam(method="whipstitch", piece_a="C", piece_b="A", edge_a="bottom",
+                 edge_b="top"), S("B", "D")]),
+    }
+    for label, (comps, seams) in seamed.items():
+        assert design(comps, seams) is None, label
+
+    # A size halt on a seamed design carries no digest, so it halts every certification of
+    # the product -- the reordered and the re-oriented release included.
+    db = _db()
+    slug = "seamed-design"
+    with db.session() as s:
+        open_or_restate(s, signature=f"physical-size:{slug}:x", severity="P1",
+                        product_slug=slug, halts_publication=True, summary="size",
+                        detail={"release_scope": {"slug": slug, "version": "1.0.0",
+                                                  "content_hash": "c" * 64,
+                                                  "design_digest": design(*seamed["base"])}})
+    tracker = IncidentTracker(db)
+    assert release_scope(tracker.open_incidents(slug)[0]) == {}
+    for label, (comps, seams) in seamed.items():
+        assert tracker.publication_halted(slug, content_hash=design(comps, seams)), label
+
+    # Hold-free, seam-free designs: digests unchanged byte-for-byte (pinned on two fixtures,
+    # computed before this interim was extended).
+    pinned = {  # design_digest at 7282c47, before R27
+        "basket_medium_sport": (_basket_medium(),
+                                "0552640f6964c73e402bd58c2e46b004ae20bc843213a7c1632a2c7ef47ea8aa"),
+        "basket_small": (_basket("basket_small"),
+                         "b65d57e9a6e07a0a05ae2b5627dfd75a06e9f89d058525d324a8b2ed549b6f81"),
+        "hexagon_coasters": (_coasters(),
+                             "7c4d39e44569d0c7d2a15b6a3c55ed3d25afd3fe96bf5d44ca6ce00662a41b08"),
+    }
+    for label, (c, want) in pinned.items():
+        assert not c.assembly and not physical._has_holds(c), label
+        r = _compile(c)
+        payload = json.dumps(physical.design_geometry(c, r), sort_keys=True, default=str)
+        assert physical.design_digest(c, r) == want == \
+            hashlib.sha256(payload.encode()).hexdigest(), label
 
 
 def test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan():
