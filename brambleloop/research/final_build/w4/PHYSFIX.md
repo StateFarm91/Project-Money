@@ -518,3 +518,94 @@ comparison stays UNRESOLVED.
 | `test_cert_intel_wave2` | not run | 15/15 |
 | `test_w4_ownerimg` | not run | 35/35 |
 | `test_search_hero_publish` | not run | 4/4 |
+
+## 12. Delta review 2 (`INDEPENDENT_SECREVIEW_PHYSFIX_89eef1e.md`)
+
+- **R5 (MED-HIGH): the digest now comes from the compiled stitches and the twin.**
+  - `design_geometry` reads the compiler's resolved rows, with every stitch expanded singly
+    (stitch, loop, span), the worked-into, consumed, produced and remainder counts, and turning
+    chains. It also reads each piece's twin shape and dimensions, rounded to 0.1 cm.
+  - Repeat notation is therefore invisible: `[inc] x6` gives the same digest as six `inc`.
+  - Vocabulary is lower-cased, and numbers are floats (5 and 5.0 give the same digest).
+  - Component names inside holds/resumes/assembly become canonical piece positions.
+  - Tests:
+    - `test_the_design_digest_reads_compiled_stitches_not_notation` covers expansion, case,
+      int vs float, and the reverse: a loop change, a stitch change and a quantity change each
+      move the digest, and an uncompilable mutation reads as None, which fails closed.
+    - The reviewer's 8 probes are adopted as `tests/test_secreview_physfix_89eef1e_probes.py`.
+      The only change is the path line.
+- **R6 (MED): tester independence is mandatory.**
+  - `record_agreement` requires `relationship` and `qualification` on every new agreement.
+  - `relationship` is an allow-list: "none" or "acquaintance (declared)", normalised for case and
+    punctuation. Every other declaration is refused.
+  - The declaration is stored on the permission.
+  - `/api/tester/agreement` (`app/main.py`) passes both fields. A missing or disallowed one
+    returns 400.
+  - Tests:
+    - `test_tester_terms_…` refuses husband, wife, mom, brother, boyfriend, daughter, cousin,
+      close friend, coworker, "I live with Jacob", contractor, employee, shares, partner,
+      household member, blank and None.
+    - `test_every_production_tester_intake_passes_the_tester_terms` is an AST scan of every src
+      caller.
+    - `test_w4_b2gates` posts to the route without each field and with "my husband", "my mom"
+      and "coworker", and gets 400 each time.
+    - `test_w4_gatesb` fixtures now pass the terms.
+  - Agreements recorded before this change carry no `independence` block.
+- **R7 (LOW): one cost figure per kit.**
+  - `tester_kit.KIT["max_cost_cad"]` is now the single all-inclusive figure: CA$66.00 for the
+    basket, CA$100.00 for the coasters. The duplicate field is removed.
+  - `build` checks two things and refuses on either:
+    - that the tester call states the promised amount (fee at the risk-matrix rate plus 2 whole
+      balls: CA$65.90 / CA$99.96);
+    - that the one figure covers both that promise and the risk matrix's per-metre ceiling.
+  - The `ops.owner_queue` `tester_outreach` card now states and carries the same figure. The
+    separate 8-hour estimate is removed.
+  - Test: `test_one_cost_figure_per_kit_everywhere_it_is_stated` covers the owner card, the
+    gate-clearance card, the approval doc's OWNER ACTION row, the call and both manifests.
+- **R8: the size set is read from `grading`,** the key `CIR.to_dict` writes.
+- **R9: non-finite measurements are refused.**
+  - Every measured number must be finite, otherwise the intake raises `SAMPLE_MEASUREMENT_INVALID`
+    and the record is refused.
+  - This covers more than the observation fields: a NaN width, gauge or grams would have
+    compared as "agreeing".
+- **R10:** the PHOTO branch's `test_w4_launchfix` also refuses aliased imports out of
+  `sample_photo`.
+
+**R9 test:** `test_a_non_finite_measurement_is_refused` refuses each of these: a NaN width, an
+infinite flats span, a NaN observation, NaN hours, NaN grams, and a NaN swatch gauge.
+
+**Runs** (via `testslot.sh`, one at a time; PHYSFIX at `32e3533d` + this test, which includes
+`origin/claude/w4-INTEG8-next` `d55a3020`):
+
+| Suite | PHYSFIX | PHOTO |
+|---|---|---|
+| `test_vacuity` | 8/8 | 8/8 |
+| `test_physfix` | 31/31 | 30/30 (before the NaN test; rerun after the merge) |
+| `test_secreview_physfix_adversarial` | 12/12 | 12/12 |
+| `test_secreview_physfix_42eac69_probes` | 8/8 | 8/8 |
+| `test_secreview_physfix_89eef1e_probes` | 8/8 | 8/8 |
+| `test_risk_matrix` | 17/17 | 17/17 |
+| `test_w4_b2gates` | 12/12 | 12/12 |
+| `test_w4_launchfix` | 32/32 | 32/32 |
+| `test_physical` | 18/18 | not run |
+| `test_physical_record_blocked` | 5/5 | not run |
+| `test_w4_gatesb` | 10/10 | not run |
+| `test_w3_k7_owner_queue` | 10/10 | not run |
+| `test_w4_owner_actions` | 6/6 | not run |
+| `test_w4_owner_queue_race` | 2/2 | not run |
+| `test_first_customer_gate` | 12/12 | not run |
+| `test_launch0_listing_truth` | 14/14 | not run |
+| `test_gates` | 44/44 | not run |
+| `test_artefacts` | 23/23 | not run |
+| `test_w4_listready` | 31/31 | not run |
+| `test_eligibility` | 34/34 | not run |
+| `test_w4_adopt_manual_listing` | 19/19 | not run |
+| `test_physfix_photo_first` | not run | 8/8 |
+| `test_fb2_i_repairs` | not run | 7/7 |
+| `test_cert_intel_wave2` | not run | 15/15 |
+| `test_w4_ownerimg` | not run | 35/35 |
+| `test_search_hero_publish` | not run | 4/4 |
+
+`test_w4_owner_queue_race` failed once (1/2) under machine contention. The failing check was
+`etsy_surface:*` requests queued twice by concurrent passes, which none of this work touches. A
+solo rerun passed 2/2.
