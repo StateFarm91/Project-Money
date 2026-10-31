@@ -156,7 +156,8 @@ Everything else is refused with an explicit `unsupported construction ...` reaso
 - There is no shaping, no rounds and no assembly. Baskets, ornaments, amigurumi, stockings,
   hats and garments are out of scope here, although `creative.prototype.author` and
   `garment_design` handle some of them on the tournament path behind the funnel.
-- Taste is unmeasured in production. `image_vision` is CLOSED, so the pre-engineering gate
+- Taste is unmeasured in production (see `rescore_judged`: once the vision judge records a verdict for a waiting intake concept, the next scheduled intake pass re-scores it, keyed `score:<slug>:<date>`, never after `draft:<slug>` exists).
+   `image_vision` is CLOSED, so the pre-engineering gate
   leaves every intake concept WAITING. Promotion to `cir.draft` happens only once the vision
   judge records a verdict (proved in the tests with a fixture judgement).
 - Nothing in production writes concept proposals onto research tasks yet. The research agent
@@ -167,7 +168,7 @@ Everything else is refused with an explicit `unsupported construction ...` reaso
 
 The new file is `tests/test_w5_concept_intake.py`, with 13 tests:
 
-- an evidence-backed opportunity becomes a concept, waits at the gate without a judgement,
+- a concept that is NOT one of the 34 POOL seeds becomes a concept from evidence, waits at the gate without a judgement, is re-scored by the next scheduled intake pass once a (fixture) vision judgement is on record,
   and with a fixture judgement is promoted to `cir.draft` (`draft:<slug>`), which drafts and
   queues `cir.compile` with provenance;
 - `radar.scan` scores the approved concept with the pool;

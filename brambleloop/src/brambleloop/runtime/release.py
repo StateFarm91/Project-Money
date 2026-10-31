@@ -214,12 +214,17 @@ def _released_on(ctx: JobContext, slug: str, version: str):
         return created.date() if created else None
 
 
-def _seed_for(slug: str):
+def _seed_for(slug: str, db=None):
     seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
     if seed is None:
         # D-W5-7: a Launch-0 product the radar scored under a retired alias.
         alias = products_launch0.radar_concept_for(slug)
         seed = next((s for s in POOL if s.slug == alias), None) if alias else None
+    if seed is None and db is not None:
+        # W5-CONCEPT: an approved intake concept (exact slug only; POOL always wins).
+        from ..radar import intake
+
+        seed = intake.seed_for(db, slug)
     return seed
 
 

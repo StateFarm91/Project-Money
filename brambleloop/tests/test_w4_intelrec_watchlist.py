@@ -767,6 +767,7 @@ def test_seed_shops_copy_no_competitor_content():
     rep = watchlist.record_comparison(db)["report"]
     watchlist._assert_no_content(rep)                     # aliases only, all eight shops
     text = json.dumps(rep)
+    assert CATALOGUES and all(CATALOGUES.values())
     for listings in CATALOGUES.values():
         for item in listings:
             assert item["title"] not in text and item["description"] not in text
