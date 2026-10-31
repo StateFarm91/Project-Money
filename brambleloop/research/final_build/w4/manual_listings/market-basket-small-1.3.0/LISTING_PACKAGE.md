@@ -15,6 +15,13 @@
 >   fails. The listing hero carries no caption on Etsy, so this is what makes it truthful.
 >   After the redraw the certificate was re-issued `valid` and every disclosed frame
 >   re-verified from its bytes; the frame sha256s are in the evidence JSON.
+> - **SECREVIEW-RENDER F1/F2 (2026-10-31, de5658c2).** Only the corners soften; the flats stay
+>   at 13.9 cm, and `rim_flats_cm` checks that. The softening (0.75) is an **estimate, not a
+>   measurement**, so the description now carries "About the shape … Rim shape estimated until
+>   a sample is made." The alt text of the hero, scale and gallery-angle frames ends with the
+>   same note, because Etsy shows those images with no caption. `export_check` refuses a
+>   frame whose note is missing. Re-run: the certificate is `valid`, every frame was
+>   re-verified, and the hashes are in the evidence JSON.
 > - Superseded: the 1.2.0 version of this package, which is in git history at this path's
 >   former name, `market-basket-small-1.2.0/`.
 
@@ -118,6 +125,7 @@ These are the terms Brambleloop offers; they have not yet been through legal rev
 
 DISCLOSURES
 - ⚠ About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.
+- About the shape: the rounded rim drawn in the images is estimated from how the pattern is built, not measured. Rim shape estimated until a sample is made.
 - Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.
 - This design was created with AI assistance, and every row's stitch count is checked before release.
 - This is a digital pattern. No physical item is shipped.
@@ -298,8 +306,8 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 | File name (`f"{slug}-{pattern_filename(t)}"`) | `market-basket-small-pattern-us.pdf` (34 chars) | `market-basket-small-pattern-uk.pdf` (34 chars) |
 | Format | PDF | PDF |
 | Pages | **13** (the premium 1.3.0 edition) | 13 |
-| Size (scratch run) | 3,787,849 bytes | 3,787,994 bytes |
-| sha256 (scratch chain run, 1.3.0) | `28c3b352…479b` | `f93bcbf8…32f2` |
+| Size (scratch run) | 3,523,040 bytes | 3,523,187 bytes |
+| sha256 (scratch chain run, 1.3.0) | `fcdded05…a499` | `dc3f7d6e…41b5` |
 | Identical to the customer editions? | **Yes**, byte for byte: `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` | **Yes**: `…-1.3.0-uk.pdf` |
 
 **Checked text.** The regenerated US and UK PDF text contains no "nursery", "baby", "child", "children", "infant", "nesting", "three sizes", "CPSIA" or "under 3".
@@ -311,7 +319,7 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 
 **Files to upload.** These must be the certified PDFs re-rendered from the **corrected source**. That means W-PDF (`claude/w4-PDF1`) after merging this branch's source change, and production `assets.built` after deploy. Their sha256 must match production's `pdf_sha256_by_terminology` for this release.
 - **Any PDF rendered before this change is stale.** It still carries the nursery safety block.
-- **The tester kit is now 1.3.0** (`tester_kit/market-basket-small-1.3.0-TEST.pdf`, `eeefd60b…`, 13 pages, bound to `c4aa14a0…`). It is **PROVISIONAL** until the W-PHYSFIX record-sheet fields merge. A sample made from any 1.2.x kit does not bind to 1.3.0.
+- **The tester kit is now 1.3.0** (`tester_kit/market-basket-small-1.3.0-TEST.pdf`, `48e54525…`, 13 pages, bound to `c4aa14a0…`). It is **PROVISIONAL** until the W-PHYSFIX record-sheet fields merge. A sample made from any 1.2.x kit does not bind to 1.3.0.
 
 **Delivery message.** This is set at shop level. Its text is `store_foundation.copy_v2.DIGITAL_SALE_MESSAGE`:
 
@@ -370,10 +378,10 @@ Whether it is set on the live shop is NEEDS PRODUCTION READBACK.
 
 | # | Frame | Label (pixels) | Alt text (system, verbatim) |
 |---|---|---|---|
-| 7 | Disclosed render, hero | "Digital rendering of the pattern's finished design, not a photograph" + cm scale | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
-| 8 | Disclosed render, scale | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
+| 7 | Disclosed render, hero | "Digital rendering of the pattern's finished design, not a photograph" + cm scale | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made." |
+| 8 | Disclosed render, scale | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made." |
 | 9 | Disclosed render, detail (base from above) | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the base seen from above, every base round stitch for stitch, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
-| 10 | Disclosed render, angle | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
+| 10 | Disclosed render, angle | same | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the finished piece seen from the side at a raised angle. Rim shape estimated until a sample is made." |
 | 11 | Supplement CONSTRUCTION | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: how it is built: the stitch count of every round or row, in working order." |
 | 12 | Supplement COLOUR_CONTEXT | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: each yarn colour's share of the finished piece, counted from the pattern." |
 | 13 | Supplement MATERIALS | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the yarn colours, yarn weight, hook size and gauge the pattern calls for." |

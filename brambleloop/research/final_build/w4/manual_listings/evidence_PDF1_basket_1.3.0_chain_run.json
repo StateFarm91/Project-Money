@@ -1,8 +1,8 @@
 {
  "generated_at": "2026-10-31",
- "by": "W-PDF (claude/w4-PDF1) after the soft-corner render change (846fb89f)",
- "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed); each disclosed frame then re-verified from its bytes with render_verification.verify_claim.",
- "caveat": "Asset sha256 values come from a scratch run; production must re-render after deploy. The release hash is content-derived.",
+ "by": "W-PDF (claude/w4-PDF1) after SECREVIEW-RENDER F1-F6 (de5658c2)",
+ "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed); each disclosed frame re-verified from its bytes with render_verification.verify_claim.",
+ "caveat": "Asset sha256 values come from a scratch run; production must re-render after deploy. The release hash is content-derived. The rim softening is an estimate (render_contract.ESTIMATED_SHAPE), stated in the listing copy and in the alt text of every frame that shows the wall.",
  "products": {
   "market-basket-small": {
    "slug": "market-basket-small",
@@ -31,7 +31,18 @@
     "fiber art project"
    ],
    "price_cad": 6.5,
-   "description": "Crochet Hexagonal Bread Basket — a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a confident beginner maker, every row written out and charted, so you can follow whichever you prefer.\nIf you are searching for crochet home decor, diy basket and home decor diy, this is the one: every row is written out and charted, and every stitch count is checked before release.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match\n- 13-page PDF, laid out to be readable on a phone or printed\n\nTHE DETAILS\n- Finished size: hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall, worked at the gauge below\n- Difficulty: confident beginner\n- Yarn: worsted cotton\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook\n- Stitches used: inc, sc\n- Colours: 2 (cream, wine)\n- cream: about 32-48 m\n- wine: about 10-14 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.\n\nDISCLOSURES\n- About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.\n- Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.\n- This design was created with AI assistance, and every row's stitch count is checked before release.\n- This is a digital pattern. No physical item is shipped.",
+   "description": "Crochet Hexagonal Bread Basket — a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a confident beginner maker, every row written out and charted, so you can follow whichever you prefer.\nIf you are searching for crochet home decor, diy basket and home decor diy, this is the one: every row is written out and charted, and every stitch count is checked before release.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match\n- 13-page PDF, laid out to be readable on a phone or printed\n\nTHE DETAILS\n- Finished size: hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall, worked at the gauge below\n- Difficulty: confident beginner\n- Yarn: worsted cotton\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook\n- Stitches used: inc, sc\n- Colours: 2 (cream, wine)\n- cream: about 32-48 m\n- wine: about 10-14 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.\n\nDISCLOSURES\n- About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.\n- About the shape: the rounded rim drawn in the images is estimated from how the pattern is built, not measured. Rim shape estimated until a sample is made.\n- Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.\n- This design was created with AI assistance, and every row's stitch count is checked before release.\n- This is a digital pattern. No physical item is shipped.",
+   "description_carries_estimate": true,
+   "alt_text_carries_estimate": {
+    "market-basket-small-disclosed-hero": true,
+    "market-basket-small-disclosed-scale": true,
+    "market-basket-small-disclosed-detail": false,
+    "market-basket-small-gallery-angle": true,
+    "market-basket-small-gallery-construction": false,
+    "market-basket-small-gallery-colour_context": false,
+    "market-basket-small-gallery-materials": false,
+    "market-basket-small-gallery-contents": false
+   },
    "listing_assets": [
     {
      "position": 1,
@@ -93,7 +104,7 @@
     "release_hash": "c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c",
     "state": "valid",
     "geometry_fingerprint": "f45b46544ed02850",
-    "claims_fingerprint": "ed4e87dd6747f007",
+    "claims_fingerprint": "ff3729a573718dc5",
     "gate_results": {
      "DATA_TRUTH": "passed",
      "LAYOUT_QA": "passed",
@@ -104,16 +115,16 @@
      {
       "position": 1,
       "asset_id": "market-basket-small-disclosed-hero",
-      "sha256": "f5ff019b78c3dc1fe9d9e9078452655d32d0498881cd258773ea19c28f83c99d",
+      "sha256": "71f6b955e8122603e887b185f720cd36a502274d3c3f4742819c89b4613eeb54",
       "kind": "disclosed_render",
-      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
+      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made."
      },
      {
       "position": 2,
       "asset_id": "market-basket-small-disclosed-scale",
-      "sha256": "3189554b2537d854d4a121bdc917422691e2bbb0575f163a618a98dd6eec45fa",
+      "sha256": "5a68eb6fdb3d1382e4184e83f6fc55c32685305f0709e66fab651571f65fb6a5",
       "kind": "disclosed_render",
-      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
+      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made."
      },
      {
       "position": 3,
@@ -125,9 +136,9 @@
      {
       "position": 4,
       "asset_id": "market-basket-small-gallery-angle",
-      "sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+      "sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
       "kind": "disclosed_gallery_frame",
-      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the finished piece seen from the side at a raised angle."
+      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the finished piece seen from the side at a raised angle. Rim shape estimated until a sample is made."
      },
      {
       "position": 5,
@@ -153,7 +164,7 @@
      {
       "position": 8,
       "asset_id": "market-basket-small-gallery-contents",
-      "sha256": "ed69e7f110fd46dd84692ec978df526cb7f4fb240655dfd906f2fd9ac9979074",
+      "sha256": "4b1a9bd513549ae0e402f71e74cbea422865fc9eaead89fb8d4a061934bf96e1",
       "kind": "disclosed_gallery_frame",
       "alt_text": "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size."
      }
@@ -163,27 +174,38 @@
     "market-basket-small-disclosed-hero": {
      "status": "PASS",
      "failed": [],
+     "verifier_version": "render-verification/3.1.0",
      "rim_corners_cm": [
       [
-       15.46,
+       15.47,
        15.48
+      ]
+     ],
+     "rim_flats_cm": [
+      [
+       13.85,
+       13.86
       ]
      ]
     },
     "market-basket-small-disclosed-scale": {
      "status": "PASS",
      "failed": [],
+     "verifier_version": "render-verification/3.1.0",
      "rim_corners_cm": [
       [
        15.46,
        15.48
       ]
-     ]
+     ],
+     "rim_flats_cm": []
     },
     "market-basket-small-disclosed-detail": {
      "status": "PASS",
      "failed": [],
-     "rim_corners_cm": []
+     "verifier_version": "render-verification/3.1.0",
+     "rim_corners_cm": [],
+     "rim_flats_cm": []
     }
    },
    "store_publish": "dead in SHADOW (capability not enabled), as expected"

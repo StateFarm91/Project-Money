@@ -34,9 +34,12 @@ The kit now binds to `market-basket-small@1.3.0`, content hash `c4aa14a0…`.
   11.9 m wine) were recomputed from the twin and are the same.
 - **What the PDF no longer says:** the 1.2.1 soft-fold wording ("turning upward over the first
   few rounds", "about 8 to 9 cm") no longer applies and is gone.
-- **The renders now match the pattern:** a defined base fold, with corners crisp at the base and
-  softening toward a rounded rim. `render_verification` checks this shape, so the test PDF
-  carries no idealised caption.
+- **The renders now draw the pattern's shape:** a defined base fold, with corners crisp at the
+  base and softening toward a rounded rim; the flats stay at 13.9 cm. `render_verification`
+  checks this shape. How far the corners soften is an **estimate**, and every rim picture says
+  "Rim shape estimated until a sample is made." The test PDF's release date is still the
+  builder's hard-coded 2026-10-07 (design review D4); the fix is a one-line hook in W-PHYSFIX's
+  `quality/tester_kit.py`, to be applied at integration.
 
 **The CA$66 ceiling is provisional** until the final kit, carrying the W-PHYSFIX fields, is
 approved. A 1.2.x sample would not count as evidence for 1.3.0, because the content hash is
@@ -84,9 +87,9 @@ The kit was rebuilt by the same builder after the LISTING1 source correction (ki
 |---|---|
 | Release | `market-basket-small@1.3.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
-| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `eeefd60bef06ec124349bc529628395705472aad59e83d1475a005999077ba4e` |
+| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `48e54525d105687a5079189fca0764aee4eb2eee125503aef64afbbb12b344c6` |
 | Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
-| Manifest `KIT_MANIFEST.json` | `739a4eb6520c24bfe0fe0a4b945d3dc382e407891a2da52395dde4fb5645c749` |
+| Manifest `KIT_MANIFEST.json` | `9794656d5c53f461c3ee75e3299d67648b293f6266b4ada975f6fc6daa10f009` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.

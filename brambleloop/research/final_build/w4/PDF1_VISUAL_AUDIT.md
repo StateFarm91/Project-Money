@@ -40,6 +40,20 @@ walls; they are a held family, outside the approval.
   - **The old straight-cornered prism now FAILS verification for this product** on `rim_corners_cm` (hero, scale and angle). Pinned by `test_pdf_premium.test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verification`.
   - The medium and large baskets and every other product draw as before. The medium and large keep their soft-fold caption.
 
+**Independent reviews of the 1.3.0 renders and design (2026-10-31).** Sources: `INDEPENDENT_SECREVIEW_RENDER_38c1603.md` on `origin/claude/w4-SECREVIEW-RENDER-38c1603`, and `DESIGN_REVIEW_basket_small_1.3.0.md` on `origin/claude/w4-DESIGNREVIEW-basket-1.3.0`.
+
+| Finding | Resolution |
+|---|---|
+| F1 (HIGH): the caption was removed for an unmeasured shape | `render_contract.ESTIMATED_SHAPE` reads "Rim shape estimated until a sample is made." It appears in:<br>• the PDF: cover second line, About box, schematic caption and gallery;<br>• the listing copy: the new `DISCLOSURES["estimated_shape"]`, added when any disclosed frame carries `manifest["estimated"]`;<br>• the alt text of the hero, scale and gallery-angle frames, all ≤ 250 characters.<br>`export_check` refuses a frame whose note is missing from the alt text or the copy. Nothing claims the shape is measured. |
+| F2 (MED): the rim was widened across the flats | `render_contract.soft_radius` now pulls only points outside the same-perimeter circle, so the corners move and the flats stay at the twin's 13.86 cm. The new `rim_flats_cm` check fails the old widening model (test). Measured: hero 13.85 against 13.86. |
+| F3: margin | The verifier docstring states what `rim_corners_cm` proves (soft against straight), what it cannot (the 0.75 magnitude), and the margin (prism 3.4 % against a 2 % tolerance). |
+| F4: versions | `disclosed-render-contract/3.1`, `disclosed-render/3.1.0` (qualified alongside 3.0.0, which is identical for every other product), `render-verification/3.1.0`. |
+| F5: citation | The construction review is cited by branch path in `render_contract`. |
+| F6: "rise straight up" | Now reads "turn up at a defined edge to make the wall" (pages 2 and 3). |
+| D3: Rnd 11 height | Now reads "about 0.7 cm tall" (`value_stack.milestones`, one decimal under 1.5 cm). |
+| D4: TEST PDF date | `quality/tester_kit.py:406` hard-codes `released_on=date(2026, 10, 7)`. That file is W-PHYSFIX's builder, so the fix is the one-line hook below, for integration: `released_on=date.fromisoformat(kit.get("released_on", "2026-10-31"))`. |
+| D2: kit fields | These arrive with W-PHYSFIX. The kit is rebuilt after PHYSFIX merges and stays PROVISIONAL until then. |
+
 **Visuals and listing.**
 - The shadow release chain was re-run on 1.3.0 (`manual_listings/evidence_PDF1_basket_1.3.0_chain_run.json`).
 - Results:
@@ -57,17 +71,17 @@ walls; they are a held family, outside the approval.
 
 | File | Pages | SHA-256 |
 |---|---|---|
-| `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` (US) | 13 | `28c3b352e77f55d06d7e45db47831c535647a3fb075bb07586fd1a695384479b` |
-| `…/market-basket-small-1.3.0-uk.pdf` (UK) | 13 | `f93bcbf80497aaa31507c3c11dcec550c4d297b73be232db4a50ddb9cbee32f2` |
-| `…/NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf` | 14 | `9f87717aad98105a0d915198866de40bbd362588583d68858f7da860d8ba7825` |
+| `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` (US) | 13 | `fcdded05f60501f1430ce37edac4d18a40c98880ca87b38f46d587887a51a499` |
+| `…/market-basket-small-1.3.0-uk.pdf` (UK) | 13 | `dc3f7d6eee587b0f903c0ed08aa30da4cbc7069457ce8991c4d1612b7fd741b5` |
+| `…/NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf` | 14 | `f07e0a3517f528202d52c87edb6e1342e59df2668b097345c8d2fe9bdb83abf3` |
 
 **Tester kit (PROVISIONAL** until W-PHYSFIX reaches `claude/w4-INTEG8-next`**):**
 
 | File | SHA-256 |
 |---|---|
-| `tester_kit/market-basket-small-1.3.0-TEST.pdf` (13 pp) | `eeefd60bef06ec124349bc529628395705472aad59e83d1475a005999077ba4e` |
+| `tester_kit/market-basket-small-1.3.0-TEST.pdf` (13 pp) | `48e54525d105687a5079189fca0764aee4eb2eee125503aef64afbbb12b344c6` |
 | `tester_kit/market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pp) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
-| `tester_kit/KIT_MANIFEST.json` | `739a4eb6520c24bfe0fe0a4b945d3dc382e407891a2da52395dde4fb5645c749` |
+| `tester_kit/KIT_MANIFEST.json` | `9794656d5c53f461c3ee75e3299d67648b293f6266b4ada975f6fc6daa10f009` |
 
 **Superseded.** The basket 1.2.1 editions and kit PDFs are kept in the tree as a record. See
 `customer_editions/market-basket-small-1.2.1/SUPERSEDED.md`. The coaster is unaffected and

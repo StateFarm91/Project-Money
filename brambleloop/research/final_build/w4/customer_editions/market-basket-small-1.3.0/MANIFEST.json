@@ -5,11 +5,11 @@
   "cir_fingerprint": "1a4cff97533c",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "e375cf6cb31e76fffc6ad11b434cab68db91692e",
+  "engine_commit": "820b9706b340fad854e762677867d69e4d9e616a",
   "engine_source_clean": true,
   "files": {
     "NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf": {
-      "bytes": 3790073,
+      "bytes": 3525260,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -26,7 +26,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 1,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -34,7 +34,7 @@
           "kind": "disclosed_render",
           "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
           "page": 3,
-          "png_sha256": "3189554b2537d854d4a121bdc917422691e2bbb0575f163a618a98dd6eec45fa",
+          "png_sha256": "5a68eb6fdb3d1382e4184e83f6fc55c32685305f0709e66fab651571f65fb6a5",
           "source": "visual.disclosed_render.render",
           "view": "scale"
         },
@@ -90,7 +90,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 14",
           "page": 7,
-          "png_sha256": "b92c3fdca7a98aebd0c2188326c7a5f0c1d8b4c7f77b0f79c7b41f988e0ae53f",
+          "png_sha256": "9ce895a1e35f04b6b39b873b1abb8b78660ddefb3673866552d7863c0849d3dc",
           "round": 14,
           "source": "publish.construction_diagrams.stages"
         },
@@ -98,7 +98,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 16",
           "page": 8,
-          "png_sha256": "96e2e3886622d750371ff97abe0160a6a8e32f6a7a44aae43cbc4df5f5e971ae",
+          "png_sha256": "ec1333f57ea2eb841d118f957477cc1f79c9320b0049c871505cee19dd6bc8da",
           "round": 16,
           "source": "publish.construction_diagrams.stages"
         },
@@ -106,7 +106,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 17",
           "page": 8,
-          "png_sha256": "800127f8c3933d87e5d9dc9817cc2411b315c8b0d16072e90fbd02fc9e62a2fe",
+          "png_sha256": "a4816fe58bab2a5ae9c0de6d501c183444f6474a021902f14e3b95f9937aa8c1",
           "round": 17,
           "source": "publish.construction_diagrams.stages"
         },
@@ -114,7 +114,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 19",
           "page": 8,
-          "png_sha256": "544bfc197f0deabdaca23c40b8e08a1ba3f2f03cedf419862aad06dcf4e47305",
+          "png_sha256": "f8f881e973b6c19fa93eba5e4b24542c4d36dd33f54818317d86832029f2ff42",
           "round": 19,
           "source": "publish.construction_diagrams.stages"
         },
@@ -122,7 +122,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 22",
           "page": 8,
-          "png_sha256": "1646819ade8e35a308090905e3adc2210d570db737bada7e145aa48fd54d903e",
+          "png_sha256": "a5311f80c370963f1c5e3a153fa5a36902ec5a636f7d165b4a7f1cbca790970c",
           "round": 22,
           "source": "publish.construction_diagrams.stages"
         },
@@ -142,7 +142,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "f5ff019b78c3dc1fe9d9e9078452655d32d0498881cd258773ea19c28f83c99d",
+          "png_sha256": "71f6b955e8122603e887b185f720cd36a502274d3c3f4742819c89b4613eeb54",
           "source": "visual.disclosed_render.render",
           "view": "hero"
         },
@@ -150,7 +150,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -171,11 +171,11 @@
       "pages": 14,
       "problems": [],
       "reproducible": true,
-      "sha256": "9f87717aad98105a0d915198866de40bbd362588583d68858f7da860d8ba7825",
+      "sha256": "f07e0a3517f528202d52c87edb6e1342e59df2668b097345c8d2fe9bdb83abf3",
       "terminology": "US"
     },
     "market-basket-small-1.3.0-uk.pdf": {
-      "bytes": 3787994,
+      "bytes": 3523187,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -192,7 +192,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 1,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -200,7 +200,7 @@
           "kind": "disclosed_render",
           "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
           "page": 3,
-          "png_sha256": "3189554b2537d854d4a121bdc917422691e2bbb0575f163a618a98dd6eec45fa",
+          "png_sha256": "5a68eb6fdb3d1382e4184e83f6fc55c32685305f0709e66fab651571f65fb6a5",
           "source": "visual.disclosed_render.render",
           "view": "scale"
         },
@@ -256,7 +256,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 14",
           "page": 7,
-          "png_sha256": "b92c3fdca7a98aebd0c2188326c7a5f0c1d8b4c7f77b0f79c7b41f988e0ae53f",
+          "png_sha256": "9ce895a1e35f04b6b39b873b1abb8b78660ddefb3673866552d7863c0849d3dc",
           "round": 14,
           "source": "publish.construction_diagrams.stages"
         },
@@ -264,7 +264,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 16",
           "page": 8,
-          "png_sha256": "96e2e3886622d750371ff97abe0160a6a8e32f6a7a44aae43cbc4df5f5e971ae",
+          "png_sha256": "ec1333f57ea2eb841d118f957477cc1f79c9320b0049c871505cee19dd6bc8da",
           "round": 16,
           "source": "publish.construction_diagrams.stages"
         },
@@ -272,7 +272,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 17",
           "page": 8,
-          "png_sha256": "800127f8c3933d87e5d9dc9817cc2411b315c8b0d16072e90fbd02fc9e62a2fe",
+          "png_sha256": "a4816fe58bab2a5ae9c0de6d501c183444f6474a021902f14e3b95f9937aa8c1",
           "round": 17,
           "source": "publish.construction_diagrams.stages"
         },
@@ -280,7 +280,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 19",
           "page": 8,
-          "png_sha256": "544bfc197f0deabdaca23c40b8e08a1ba3f2f03cedf419862aad06dcf4e47305",
+          "png_sha256": "f8f881e973b6c19fa93eba5e4b24542c4d36dd33f54818317d86832029f2ff42",
           "round": 19,
           "source": "publish.construction_diagrams.stages"
         },
@@ -288,7 +288,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 22",
           "page": 8,
-          "png_sha256": "1646819ade8e35a308090905e3adc2210d570db737bada7e145aa48fd54d903e",
+          "png_sha256": "a5311f80c370963f1c5e3a153fa5a36902ec5a636f7d165b4a7f1cbca790970c",
           "round": 22,
           "source": "publish.construction_diagrams.stages"
         },
@@ -308,7 +308,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "f5ff019b78c3dc1fe9d9e9078452655d32d0498881cd258773ea19c28f83c99d",
+          "png_sha256": "71f6b955e8122603e887b185f720cd36a502274d3c3f4742819c89b4613eeb54",
           "source": "visual.disclosed_render.render",
           "view": "hero"
         },
@@ -316,7 +316,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -332,11 +332,11 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "f93bcbf80497aaa31507c3c11dcec550c4d297b73be232db4a50ddb9cbee32f2",
+      "sha256": "dc3f7d6eee587b0f903c0ed08aa30da4cbc7069457ce8991c4d1612b7fd741b5",
       "terminology": "UK"
     },
     "market-basket-small-1.3.0.pdf": {
-      "bytes": 3787849,
+      "bytes": 3523040,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -353,7 +353,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 1,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -361,7 +361,7 @@
           "kind": "disclosed_render",
           "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
           "page": 3,
-          "png_sha256": "3189554b2537d854d4a121bdc917422691e2bbb0575f163a618a98dd6eec45fa",
+          "png_sha256": "5a68eb6fdb3d1382e4184e83f6fc55c32685305f0709e66fab651571f65fb6a5",
           "source": "visual.disclosed_render.render",
           "view": "scale"
         },
@@ -417,7 +417,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 14",
           "page": 7,
-          "png_sha256": "b92c3fdca7a98aebd0c2188326c7a5f0c1d8b4c7f77b0f79c7b41f988e0ae53f",
+          "png_sha256": "9ce895a1e35f04b6b39b873b1abb8b78660ddefb3673866552d7863c0849d3dc",
           "round": 14,
           "source": "publish.construction_diagrams.stages"
         },
@@ -425,7 +425,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 16",
           "page": 8,
-          "png_sha256": "96e2e3886622d750371ff97abe0160a6a8e32f6a7a44aae43cbc4df5f5e971ae",
+          "png_sha256": "ec1333f57ea2eb841d118f957477cc1f79c9320b0049c871505cee19dd6bc8da",
           "round": 16,
           "source": "publish.construction_diagrams.stages"
         },
@@ -433,7 +433,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 17",
           "page": 8,
-          "png_sha256": "800127f8c3933d87e5d9dc9817cc2411b315c8b0d16072e90fbd02fc9e62a2fe",
+          "png_sha256": "a4816fe58bab2a5ae9c0de6d501c183444f6474a021902f14e3b95f9937aa8c1",
           "round": 17,
           "source": "publish.construction_diagrams.stages"
         },
@@ -441,7 +441,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 19",
           "page": 8,
-          "png_sha256": "544bfc197f0deabdaca23c40b8e08a1ba3f2f03cedf419862aad06dcf4e47305",
+          "png_sha256": "f8f881e973b6c19fa93eba5e4b24542c4d36dd33f54818317d86832029f2ff42",
           "round": 19,
           "source": "publish.construction_diagrams.stages"
         },
@@ -449,7 +449,7 @@
           "kind": "construction_diagram",
           "label": "after Rnd 22",
           "page": 8,
-          "png_sha256": "1646819ade8e35a308090905e3adc2210d570db737bada7e145aa48fd54d903e",
+          "png_sha256": "a5311f80c370963f1c5e3a153fa5a36902ec5a636f7d165b4a7f1cbca790970c",
           "round": 22,
           "source": "publish.construction_diagrams.stages"
         },
@@ -469,7 +469,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "f5ff019b78c3dc1fe9d9e9078452655d32d0498881cd258773ea19c28f83c99d",
+          "png_sha256": "71f6b955e8122603e887b185f720cd36a502274d3c3f4742819c89b4613eeb54",
           "source": "visual.disclosed_render.render",
           "view": "hero"
         },
@@ -477,7 +477,7 @@
           "kind": "disclosed_render",
           "label": "Digital rendering of the pattern's finished design, not a photograph",
           "page": 12,
-          "png_sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
+          "png_sha256": "4a1f866f11f1634c8ff1ebc6584882429c32f349c8c824a219da86d2e6d33397",
           "source": "visual.disclosed_render.render",
           "view": "angle"
         },
@@ -493,7 +493,7 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "28c3b352e77f55d06d7e45db47831c535647a3fb075bb07586fd1a695384479b",
+      "sha256": "fcdded05f60501f1430ce37edac4d18a40c98880ca87b38f46d587887a51a499",
       "terminology": "US"
     }
   },
