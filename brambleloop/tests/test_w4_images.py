@@ -58,7 +58,8 @@ main.db.create_all()
 Registry(main.db).seed_defaults()
 
 # Kept small for CPU: one product per form plus the set the finding is about.
-BUILDS = ["hexagon_coasters", "snowflake_ornaments", "basket_medium"]
+# D-W4-OWNER-BASKET-IDENTITY: the launched basket is the small one (the medium is held).
+BUILDS = ["hexagon_coasters", "snowflake_ornaments", "basket_small"]
 
 
 def _rows():
@@ -74,8 +75,10 @@ def test_candidates_cover_the_preview_products_and_the_proposals():
     cands = IR.candidates()
     assert cands
     builds = {c["build"] for c in cands}
-    assert {"basket_small", "basket_medium", "basket_large", "cloudline_blanket",
+    assert {"basket_small", "cloudline_blanket",
             "hexagon_coasters", "snowflake_ornaments", "snowfall_throw"} <= builds
+    # D-W4-OWNER-BASKET-IDENTITY: the held nursery family's sizes are not reviewed for a page.
+    assert not {"basket_medium", "basket_large"} & builds
     # W4-IMGCAP1: the old `in_customer_preview == 5` claim became false once CAP-1 raised the
     # Launch-0 cap (the field counted the *owner* Store Preview grid, which now holds 8). What
     # is still true, and asserted: only the 5 core products may reach the customer page; the 3
@@ -83,7 +86,7 @@ def test_candidates_cover_the_preview_products_and_the_proposals():
     from brambleloop.products import launch0 as L
 
     core = {c["slug"] for c in cands if c["group"] == "launch0"}
-    assert core == {"nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+    assert core == {"hexagonal-bread-basket", "cloudline-baby-blanket", "hexagon-coaster-set",
                     "nordic-star-ornaments", "winter-village-graphghan"}
     eligible = {c["slug"] for c in cands if c["customer_page_eligible"]}
     assert eligible == core
@@ -135,7 +138,7 @@ def test_a_set_hero_shows_every_piece_and_verifies():
                for c in orn["verifier"]["checks"])
     assert rows["hexagon_coasters"]["pieces_finding"] is None
     assert rows["hexagon_coasters"]["status"] == IR.VERIFIED_NOT_APPROVED
-    assert rows["basket_medium"]["status"] == IR.VERIFIED_NOT_APPROVED
+    assert rows["basket_small"]["status"] == IR.VERIFIED_NOT_APPROVED
 
 
 def test_pieces_finding_reads_the_manifest_conservatively():

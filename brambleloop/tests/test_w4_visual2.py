@@ -47,11 +47,14 @@ def _certify(db, slug, version, jobs):
 
 
 def test_sizes_and_colours_come_from_the_certified_cir():
-    basket = launch0.candidate("nursery-nesting-baskets")
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the small basket is sold alone as the
+    # Hexagonal Bread Basket, so its listing sells one size; the held family's medium and
+    # large still each sell their own one size.
+    basket = launch0.candidate("hexagonal-bread-basket")
     small = launch0.cir_for(basket.variants[0].build)
-    assert len(basket.variants) == 3
+    assert len(basket.variants) == 1
     cat, sizes, colours = SE._category_for(small.slug)
-    assert sizes == 3, sizes                       # S/M/L sold on the primary's listing
+    assert sizes == 1, sizes                       # one size on its own listing
     assert colours == len(small.colors) and colours > 1, colours
     med = launch0.cir_for("basket_medium")
     _cat, msizes, mcolours = SE._category_for(med.slug)
@@ -61,15 +64,17 @@ def test_sizes_and_colours_come_from_the_certified_cir():
 
 def test_gallery_applicability_is_measured_not_assumed():
     db = _db()
-    basket = launch0.candidate("nursery-nesting-baskets")
+    basket = launch0.candidate("hexagonal-bread-basket")
     small = launch0.cir_for(basket.variants[0].build)
     base = ["DESIRE", "SCALE", "DETAIL", "ANGLE", "CONSTRUCTION", "MATERIALS"]
     _certify(db, small.slug, small.version, base)
     g = SE.gallery(db, small.slug, small.version)
-    assert g["sizes"] == 3 and g["colours"] == len(small.colors)
-    # with sizes/colours hard-coded to 1 these two jobs were silently not applicable
-    assert "SIZING" in g["applicable"] and "COLOUR_CONTEXT" in g["applicable"], g
-    assert {"SIZING", "COLOUR_CONTEXT"} <= set(g["missing"]) and g["status"] == SE.FAIL
+    # Measured from the CIR: two colours, and one size since D-W4-OWNER-BASKET-IDENTITY.
+    assert g["sizes"] == 1 and g["colours"] == len(small.colors)
+    # with colours hard-coded to 1 this job was silently not applicable; SIZING is not
+    # applicable because the listing sells one size, and that is measured too
+    assert "COLOUR_CONTEXT" in g["applicable"] and "SIZING" not in g["applicable"], g
+    assert "COLOUR_CONTEXT" in g["missing"] and g["status"] == SE.FAIL
     _certify(db, "no-such-product-anywhere", "1.0.0", base)
     u = SE.gallery(db, "no-such-product-anywhere", "1.0.0")
     assert u["status"] == SE.UNMEASURED, u

@@ -157,7 +157,10 @@ def test_the_listing_audit_records_the_product_record_it_was_drafted_from():
         rows = [r.detail for r in s.scalars(select(AuditLog).where(
             AuditLog.action == "listing.seo_drafted"))]
     sources = {d["product_record"]["source"] for d in rows}
-    assert sources == {"products.launch0:nursery-nesting-baskets",
+    # D-W4-OWNER-BASKET-IDENTITY: the small basket is drafted from its own launched product;
+    # the medium and large from the held nursery family.
+    assert sources == {"products.launch0:hexagonal-bread-basket",
+                       "products.launch0:nursery-nesting-baskets",
                        "products.launch0:hexagon-coaster-set",
                        "products.launch0:cloudline-baby-blanket"}, sources
     assert all(d["product_record"]["launch0"] for d in rows)

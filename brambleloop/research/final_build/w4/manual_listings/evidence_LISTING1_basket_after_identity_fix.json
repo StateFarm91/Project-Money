@@ -1,0 +1,194 @@
+{
+ "generated_at": "2026-10-27",
+ "by": "W-LISTING (claude/w4-LISTING1), after D-W4-OWNER-BASKET-IDENTITY source fix",
+ "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed). Run on the working tree with the launch0/seo/creative source changes of this branch.",
+ "caveat": "PDF sha256 values come from a scratch render (released_on differs from production); the release (content) hash is content-derived.",
+ "products": {
+  "market-basket-small": {
+   "slug": "market-basket-small",
+   "version": "1.2.0",
+   "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+   "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+   "title_chars": 95,
+   "tags": [
+    "basket crochet",
+    "written and chart",
+    "crochet home decor",
+    "pdf crochet pattern",
+    "hexagon basket",
+    "diy basket",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "price_cad": 6.5,
+   "description": "Crochet Hexagonal Bread Basket — a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a confident beginner maker, every row written out and charted, so you can follow whichever you prefer.\nIf you are searching for crochet home decor, diy basket and home decor diy, this is the one: every row is written out and charted, and every stitch count is checked before release.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match\n- 7-page PDF, laid out to be readable on a phone or printed\n\nTHE DETAILS\n- Finished size: hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall, worked at the gauge below\n- Difficulty: confident beginner\n- Yarn: worsted cotton\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook\n- Stitches used: inc, sc\n- Colours: 2 (cream, wine)\n- cream: about 32-48 m\n- wine: about 10-14 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.\n\nDISCLOSURES\n- About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.\n- Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.\n- This design was created with AI assistance, and every row's stitch count is checked before release.\n- This is a digital pattern. No physical item is shipped.",
+   "pricing": {
+    "price_cad": 6.5,
+    "net_cad": 5.6045,
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "proposed_cad": 6.5,
+    "basis": "products.launch0.price_plan(hexagonal-bread-basket): band CA$4.00-12.00 (SOURCED), proposal CA$6.50, decided by commerce.pricing",
+    "candidate": "hexagonal-bread-basket",
+    "reasons": [],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "price_point": {
+     "recorded": true,
+     "id": 1,
+     "price_cad": 6.5,
+     "previous_price_cad": null
+    },
+    "product_record": "products.launch0:hexagonal-bread-basket"
+   },
+   "assets": {
+    "slug": "market-basket-small",
+    "version": "1.2.0",
+    "release": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+    "rebuild": "",
+    "pages": 7,
+    "size_label": "16 x 9 cm",
+    "finished_size_cm": [
+     16.0,
+     8.7
+    ],
+    "yardage": {
+     "cream": 40.2,
+     "wine": 11.9
+    },
+    "tolerance": 0.2,
+    "calibrated": false,
+    "pdf_sha256": "c5dbe6614d204bf81ac6a8ccd61bb92642a946dd00ff75bb35e0bf21768300b1",
+    "chart_sha256": "bd6e163a558b35216b2b8ed750bd07308892348f825b4f1bf17960c4c2e62758",
+    "legend_sha256": "8b3f7b570bdaf8075727de8a9b8847fe76a3f509d0142d2ac6a64217f6557265",
+    "pdf_sha256_by_terminology": {
+     "UK": "fc3592b89b686192eec3183c4a10304f1b5b9a26a876d19f61775e8fbd152d6d",
+     "US": "c5dbe6614d204bf81ac6a8ccd61bb92642a946dd00ff75bb35e0bf21768300b1"
+    },
+    "frames": [
+     {
+      "position": 1,
+      "role": "hero",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "611fd598c280d09c5e78e5823acb0db1660be6d3b65efaea3590e379f97e3cb2"
+     },
+     {
+      "position": 2,
+      "role": "whats_included",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "547b281ac4eb935dfd60f8fb59b9d95f3ede242c939720d9fa872f709800f0db"
+     },
+     {
+      "position": 3,
+      "role": "size",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "3ef635ff71b773d3f9b4e9e70be9e9be1ab2e467d24e56ca4738c088153460dd"
+     },
+     {
+      "position": 4,
+      "role": "materials",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "de61fa735197a1f0729a3ad85b33e23fb5a6824b266c9b09a8959fbf59cc022a"
+     },
+     {
+      "position": 5,
+      "role": "pattern_preview",
+      "asset_class": "PATTERN_PREVIEW",
+      "sha256": "1dc2876d58e28891443c698a95f8be107a4f77d8240368722b5fa5197a6ab426"
+     },
+     {
+      "position": 6,
+      "role": "chart",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "adbbc01bac567e3bcdddf1381ecef30674ace29dd5bb289519f5d15c7716ded6"
+     }
+    ]
+   },
+   "seo": {
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "basket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "disclosures": {
+     "checked": true,
+     "slug": "market-basket-small",
+     "version": "1.2.0",
+     "complete": true,
+     "missing": [],
+     "misplaced": [],
+     "finding": false
+    },
+    "search_hero": {
+     "judged": true,
+     "verdict": "REFUSED",
+     "reasons": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against",
+      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "search_package": {
+     "written": true,
+     "id": 1,
+     "state": "CURRENT",
+     "keywords": {
+      "phrases": 17,
+      "added": 17,
+      "removed": 0
+     },
+     "readiness": "EXTERNAL_GATED",
+     "verdict": "REFUSED"
+    },
+    "materials": [
+     "worsted cotton",
+     "worsted cotton"
+    ]
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im"
+    ]
+   },
+   "pdfs": {
+    "UK": {
+     "key": "market-basket-small/1.2.0/pattern-uk.pdf",
+     "sha256": "fc3592b89b686192eec3183c4a10304f1b5b9a26a876d19f61775e8fbd152d6d",
+     "bytes": 376636,
+     "content_type": "application/pdf",
+     "durable": true
+    },
+    "US": {
+     "key": "market-basket-small/1.2.0/pattern-us.pdf",
+     "sha256": "c5dbe6614d204bf81ac6a8ccd61bb92642a946dd00ff75bb35e0bf21768300b1",
+     "bytes": 376631,
+     "content_type": "application/pdf",
+     "durable": true
+    }
+   }
+  }
+ }
+}
