@@ -238,6 +238,14 @@ for n in range(3):
 for n in range(2):
     job(DB, "listing.seo", inputs={"slug": "s-twice", "version": "1.0.0", "rebuild": f"t{n}"},
         outputs={"ok": False}, at=NOW - timedelta(hours=n + 1))
+# compile/revise cycle: each revision changes the CIR, so the digest rule cannot see it
+for n in range(2):
+    job(DB, "cir.revise", inputs={"cir": {"slug": "s-cycle", "version": "1.0.0", "rows": n},
+                                  "revision": n},
+        outputs={"artifact": "s-cycle@1.0.0", "work_done": 1}, agent="crochet_engineer",
+        at=NOW - timedelta(hours=n + 1))
+job(DB, "cir.revise", inputs={"cir": {"slug": "s-onerev", "version": "1.0.0"}, "revision": 0},
+    outputs={"artifact": "s-onerev@1.0.0", "work_done": 1}, agent="crochet_engineer")
 
 
 # ---- states -------------------------------------------------------------------------------------
@@ -372,8 +380,13 @@ def test_stall_and_loop_detection():
     assert any(s["kind"] == "waiting_too_long" for s in waiting["stalls"]), waiting
     loop = rows[("s-loop", "1.0.0")]
     assert loop["looping"] and loop["loops"][0]["runs"] == 3, loop
+    assert loop["loops"][0]["kind"] == "same_input_digest"
     assert loop["loops"][0]["outputs_unchanged"] is True
     assert not rows[("s-twice", "1.0.0")]["looping"]
+    cycle = rows[("s-cycle", "1.0.0")]
+    assert cycle["looping"] and cycle["loops"][0]["kind"] == "compile_revise_cycle", cycle
+    assert cycle["loops"][0]["runs"] == 2
+    assert not rows[("s-onerev", "1.0.0")]["looping"], "one revision is within the cap"
     # healthy rows are not stalled: successor present, or the row moved past it
     for slug in ("s-dev", "s-review", "s-listing", "s-owner"):
         assert not rows[(slug, "1.0.0")]["stalled"], (slug, rows[(slug, "1.0.0")]["stalls"])
@@ -383,7 +396,7 @@ def test_stall_and_loop_detection():
     # the shadow refusal of store.publish is a HOLD (owner), not a stall
     owner = rows[("s-owner", "1.0.0")]
     assert not owner["stalled"] and "owner" in owner["held_reasons"], owner
-    assert fl["stalled_count"] >= 2 and fl["looping_count"] == 1
+    assert fl["stalled_count"] >= 2 and fl["looping_count"] == 2  # s-loop, s-cycle
 
 
 def _fresh_db(tag):
@@ -478,7 +491,7 @@ def test_readback_projection_carries_no_private_data():
                         "physical_sample", "ready_for_publication", "private_draft_ready",
                         "stalled", "looping", "held_by_reason", "useful_vs_noop"}, set(out)
     assert out["readable"] is True and out["by_state"][pi.REJECTED] >= 2
-    assert out["stalled"] >= 2 and out["looping"] == 1
+    assert out["stalled"] >= 2 and out["looping"] == 2
     assert out["held_by_reason"]["paid_approval"] >= 1
     for w in ("24h", "7d"):
         assert set(out["useful_vs_noop"][w]) == {"useful", "no_op"}

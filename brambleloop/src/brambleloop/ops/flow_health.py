@@ -11,7 +11,9 @@
     no later success of the same type;
   * LOOPING -- the same job type re-ran on the same input digest (`production_inventory.
     input_digest`, volatile keys such as the rebuild token removed) `LOOP_MIN` times inside
-    `LOOP_WINDOW`; reported with whether the outputs were unchanged too;
+    `LOOP_WINDOW`, reported with whether the outputs were unchanged too; or a compile/revise
+    cycle: more completed `cir.revise` runs on one version than `engineering_ops.
+    MAX_REVISIONS` allows (each revision changes the CIR, so the digest rule misses it);
   * HELD -- the row's holds (owner / physical / paid_approval / policy) from the inventory,
     plus a refused dead letter (shadow mode is the owner's phase decision).
 
@@ -143,9 +145,25 @@ def row_flow(item: dict, jobs: list, *, now: datetime) -> dict:
     for (jt, digest), runs in sorted(groups.items()):
         if len(runs) >= LOOP_MIN:
             outs = {inv_mod.output_digest(r.outputs) for r in runs}
-            loops.append({"job_type": jt, "input_digest": digest, "runs": len(runs),
+            loops.append({"kind": "same_input_digest", "job_type": jt,
+                          "input_digest": digest, "runs": len(runs),
                           "job_ids": [r.id for r in runs][-5:],
                           "outputs_unchanged": len(outs) == 1})
+    # The compile/revise cycle (ported from FABLE-P0 stage_register): each revision changes
+    # the CIR, so its input digest differs and the rule above cannot see it. The engineer may
+    # revise a version `MAX_REVISIONS` times; more completed revisions than that inside the
+    # window means the repair rule is not converging.
+    from ..runtime.engineering_ops import MAX_REVISIONS
+
+    revisions = [j for j in jobs if j.job_type == "cir.revise" and j.status == "done"
+                 and j.finished_at and now - j.finished_at <= LOOP_WINDOW]
+    if len(revisions) > MAX_REVISIONS:
+        loops.append({"kind": "compile_revise_cycle", "job_type": "cir.revise",
+                      "input_digest": None, "runs": len(revisions),
+                      "job_ids": [r.id for r in revisions][-5:], "outputs_unchanged": None,
+                      "why": f"{len(revisions)} revisions of one version in "
+                             f"{LOOP_WINDOW.days} d against a cap of {MAX_REVISIONS}: the "
+                             f"repair rule is not converging"})
     return {"slug": slug, "version": version, "state": item["state"],
             "latest_stage": inv_mod.stage_of(latest.job_type) if latest else None,
             "latest_job": ({"id": latest.id, "job_type": latest.job_type,

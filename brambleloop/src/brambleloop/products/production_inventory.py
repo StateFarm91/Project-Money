@@ -140,7 +140,13 @@ JOB_PREFIXES = ("radar.score", "research.", "cir.", "gate.", "chain.rebuild", "l
 AUDIT_ACTIONS = ("assets.built", "assets.listing_images_built", "assets.listing_images_blocked",
                  "listing.seo_drafted", "listing.seo_blocked", "quality.reverified",
                  "store.release_gates", "listing.parity", "pricing.refused",
-                 "gate.release_withheld", "launch.held")
+                 "launch.held")
+# Retention (ported idea from FABLE-P0): every action above has a decision in
+# `ops.retention.KNOWN_READ_ACTIONS`. The ones a state is derived from are lifetime_total
+# (pruning would move a product to an earlier state). `quality.reverified` and
+# `listing.parity` are windowed: their readers take the newest row, rewritten daily / on every
+# publish attempt, and a pruned parity verdict reads UNKNOWN, which is never Ready.
+# `pricing.refused` is `latest`: it only annotates a hold, never sets a state.
 
 
 def stage_of(job_type: str) -> str:

@@ -187,6 +187,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # "uncalendared"): a product planned once stays planned, so pruning would un-plan it.
     "launch.planned": ("lifetime_total", "launch.demand/readiness: ever planned per product"),
     "launch.held": ("lifetime_total", "launch.demand: ever held per product"),
+    # W5-INVENTORY: products.production_inventory reads the newest pricing refusal after a
+    # product's visual package as a policy HOLD annotation only; no state is derived from it,
+    # so pruning an older refusal changes no product's state.
+    "pricing.refused": ("latest", "products.production_inventory: newest refusal annotates "
+                                  "a policy hold; never sets a state"),
     # K8: the customer workspace lists the newest 50 defect candidates only, so pruning rows
     # older than the horizon cannot change what it shows.
     "support.defect_candidate": ("windowed",

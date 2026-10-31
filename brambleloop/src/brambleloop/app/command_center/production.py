@@ -163,11 +163,13 @@ def _stalls_loops(flow: dict) -> dict:
                           "job_id": st.get("job_id"), "job_type": st.get("job_type"),
                           "detail": st.get("why") or f"{st.get('age_hours')} h"})
         for lp in r["loops"]:
-            items.append({"title": name, "status": "DEGRADED", "kind": "LOOPING",
+            items.append({"title": name, "status": "DEGRADED",
+                          "kind": f"LOOPING: {lp.get('kind', 'same_input_digest')}",
                           "job_type": lp["job_type"], "runs": lp["runs"],
                           "input_digest": lp["input_digest"],
-                          "detail": "outputs unchanged" if lp["outputs_unchanged"]
-                          else "outputs varied"})
+                          "detail": lp.get("why") or ("outputs unchanged"
+                                                       if lp["outputs_unchanged"]
+                                                       else "outputs varied")})
     status = "BLOCKED" if flow["stalled_count"] else "DEGRADED" if flow["looping_count"] else "OK"
     return providers.envelope(status, items, ["jobs"], provider="production.flow_health",
                               reason=None if status == "OK" else
