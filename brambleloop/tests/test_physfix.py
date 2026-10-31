@@ -801,17 +801,15 @@ def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
         c.components, c.assembly = [a, b], []
         return c
 
+    # SECREVIEW 81b3e45 R22/R23 interim: a design with holds has no design digest (None),
+    # so neither a rename nor a real change can scope or lift a size halt -- it is
+    # product-wide. The canonical hold encoding stays in `design_geometry` for the TODO.
     one, two = held("side"), held("other_hold")
-    d1 = physical.design_digest(one, _compile(one))
-    assert d1 and d1 == physical.design_digest(two, _compile(two)), "a hold rename moved it"
-    moved = held("side")
-    moved.components[0].holds = [Hold(name="side", at_row=1, count=5, from_stitch=15)]
-    moved.components[0].rows[1].skips = 5
-    moved.components[0].rows[1].ops = [Op("sc", 15)]
-    moved.components[0].rows[1].declared_count = 15
-    moved.components[1].rows = [Row(index=1, ops=[Op("sc", 5)], declared_count=5)]
-    d_moved = physical.design_digest(moved, _compile(moved))
-    assert d_moved and d_moved != d1, "a real hold change kept the digest (or did not compile)"
+    assert _compile(one).ok and _compile(two).ok
+    assert physical.design_digest(one, _compile(one)) is None
+    assert physical.design_digest(two, _compile(two)) is None
+    g1 = physical.design_geometry(one, _compile(one))
+    assert g1 == physical.design_geometry(two, _compile(two)), "a hold rename moved geometry"
 
     base = _basket_medium()
     rows = base.components[0].rows
@@ -825,45 +823,100 @@ def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
         "working into another row kept the digest"
 
 
-def test_hold_order_and_identical_piece_order_are_not_the_design():
-    """SECREVIEW e3fd0b0 R18: the order of a piece's holds, and the order of two identical
-    pieces that resume different holds (left and right sleeve), are cosmetic. A real change
-    to a hold or a piece still moves the digest."""
+def test_designs_with_holds_are_halted_product_wide_until_holds_are_canonical():
+    """SECREVIEW 81b3e45 R22/R23, fail-closed interim (TODO(physfix-holds) in
+    `quality.physical.design_digest`): full graph canonicalisation of holds is future work.
+
+    - every hold-bearing construction -- including the reviewer's R22 reorders (identical
+      holding panels resumed by different straps; a chain of identical joining strips) and
+      the R23 pair (a real change the multiset sort mapped onto another design) -- has no
+      design digest, so no two of them share one;
+    - a size halt raised on such a design is product-wide: it halts every certification of
+      the product, whatever its geometry, and no passing make lifts it;
+    - a design with no holds is unchanged: it has a digest, and a scoped halt still lets a
+      different design certify.
+    """
     from brambleloop.cir.benchmarks import cardigan
     from brambleloop.cir.compiler import compile_cir as _compile
     from brambleloop.cir.model import CIR, Component, Hold, Op, Row
+    from brambleloop.gates.incidents import IncidentTracker, release_scope
+    from brambleloop.ops.incident_lifecycle import open_or_restate
 
-    def panel(holds):
-        return Component(name="panel", construction="flat", foundation=20,
+    def panel(name, holds):
+        return Component(name=name, construction="flat", foundation=20,
                          foundation_kind="chain",
                          rows=[Row(index=1, ops=[Op("sc", 20)], declared_count=20),
                                Row(index=2, ops=[Op("sc", 8)], declared_count=8, skips=12),
                                Row(index=3, ops=[Op("sc", 8)], declared_count=8)],
                          holds=holds)
 
-    def strap(name, hold, rows=1):
+    def strap(name, hold, rows=1, holds=None):
         return Component(name=name, construction="flat", foundation=0,
                          foundation_kind="none",
                          rows=[Row(index=i, ops=[Op("sc", 6)], declared_count=6)
-                               for i in range(1, rows + 1)], resumes=hold)
+                               for i in range(1, rows + 1)], resumes=hold, holds=holds or [])
 
-    def digest(comps):
+    def design(comps):
         c = CIR.from_dict(cardigan("XS").to_dict())
         c.components, c.assembly = comps, []
         r = _compile(c)
         assert r.ok, [f.code for f in r.findings if f.is_error]
-        return physical.design_digest(c, r)
+        return c, r
 
-    H = lambda n, f: Hold(name=n, at_row=1, count=6, from_stitch=f)  # noqa: E731
-    base = digest([panel([H("a", 8), H("b", 14)]), strap("s1", "a"), strap("s2", "b")])
-    assert base
-    assert digest([panel([H("b", 14), H("a", 8)]), strap("s1", "a"), strap("s2", "b")]) == base
-    assert digest([panel([H("a", 8), H("b", 14)]), strap("s2", "b"), strap("s1", "a")]) == base
-    assert digest([panel([H("a", 8), H("b", 14)]), strap("s1", "b"), strap("s2", "a")]) == base
-    # The reverse: real changes still move it.
-    assert digest([panel([H("a", 7), H("b", 14)]), strap("s1", "a"), strap("s2", "b")]) != base
-    assert digest([panel([H("a", 8), H("b", 14)]), strap("s1", "a", rows=2),
-                   strap("s2", "b")]) != base
+    H = lambda n, f=8: Hold(name=n, at_row=1, count=6, from_stitch=f)  # noqa: E731
+    P = lambda: panel("p", [H("a", 8), H("b", 14)])  # noqa: E731
+    constructions = {
+        "R18 hold order": [panel("p", [H("b", 14), H("a", 8)]), strap("s1", "a"),
+                           strap("s2", "b")],
+        "R22 P1": [panel("L", [H("hl")]), panel("R", [H("hr")]), strap("s1", "hl"),
+                   strap("s2", "hr", rows=3)],
+        "R22 P1 reordered": [panel("R", [H("hr")]), panel("L", [H("hl")]), strap("s1", "hl"),
+                             strap("s2", "hr", rows=3)],
+        "R22 P2": [panel("p", [H("h0")]), strap("A", "h0", holds=[H("ha", 0)]),
+                   strap("B", "ha", holds=[H("hb", 0)]), strap("end", "hb", rows=3)],
+        "R22 P2 reordered": [panel("p", [H("h0")]), strap("B", "ha", holds=[H("hb", 0)]),
+                             strap("A", "h0", holds=[H("ha", 0)]), strap("end", "hb", rows=3)],
+        "R23 D1": [P(), strap("X1", "a", holds=[H("xa", 0)]),
+                   strap("X2", "b", holds=[H("xb", 0)]), strap("W", "xa", rows=3),
+                   strap("T", "xb")],
+        "R23 D2 reordered": [P(), strap("X2", "b", holds=[H("xb", 0)]),
+                             strap("X1", "a", holds=[H("xa", 0)]), strap("W", "xb", rows=3),
+                             strap("T", "xa")],
+    }
+    for label, comps in constructions.items():
+        c, r = design(comps)
+        assert physical.design_digest(c, r) is None, label
+
+    # A halt raised on a hold-bearing design carries no digest, so it is product-wide.
+    db = _db()
+    slug = "held-design"
+    with db.session() as s:
+        open_or_restate(s, signature=f"physical-size:{slug}:x", severity="P1",
+                        product_slug=slug, halts_publication=True, summary="size",
+                        detail={"release_scope": {"slug": slug, "version": "1.0.0",
+                                                  "content_hash": "c" * 64,
+                                                  "design_digest": None}})
+    tracker = IncidentTracker(db)
+    inc = tracker.open_incidents(slug)[0]
+    assert release_scope(inc) == {}
+    for digest in (None, "", "d" * 64, physical.design_digest(_basket_medium())):
+        assert tracker.publication_halted(slug, content_hash=digest), digest
+    assert tracker.resolve_halts_disproved_by(slug, version="1.1.0", design_digest="d" * 64,
+                                              physical_test_id=1) == []
+    assert tracker.publication_halted(slug)
+
+    # A design with no holds behaves exactly as before.
+    flat = _basket_medium()
+    assert not physical._has_holds(flat) and physical.design_digest(flat)
+    with db.session() as s:
+        open_or_restate(s, signature="physical-size:flat:y", severity="P1",
+                        product_slug="flat", halts_publication=True, summary="size",
+                        detail={"release_scope": {"slug": "flat", "version": "1.0.0",
+                                                  "content_hash": "c" * 64,
+                                                  "design_digest": physical.design_digest(flat)}})
+    assert tracker.publication_halted("flat", content_hash=physical.design_digest(flat))
+    other = _geometry_changed_medium("1.3.1")
+    assert not tracker.publication_halted("flat", content_hash=physical.design_digest(other))
 
 
 def test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan():
@@ -886,6 +939,24 @@ def test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan():
     assert all(a.get("tester") != "owner" for a in planned.get("assignments") or []), planned
     _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True))
     assert testers.from_db(db)["count"] == 1
+
+
+def test_an_owner_make_under_a_testers_ref_is_filed_as_owner_and_never_counted():
+    """SECREVIEW 81b3e45 R24: owner_made with a real tester's ref is filed under "owner" and
+    never counts as that tester's delivered test (`growth_ops.creators_reading`)."""
+    from brambleloop.runtime import growth_ops
+
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    for _ in range(2):
+        _run(db, "physical.record", {**_inputs(cir, scope="full_make", holds_shape=True),
+                                     "tester_ref": "tester-1", "owner_made": True})
+    rows = _rows(db)
+    assert len(rows) == 2 and {r.tester_ref for r in rows} == {"owner"}, rows
+    reading = growth_ops.creators_reading(db)
+    refs = [g.get("tester_ref") for g in reading.get("graduations") or []]
+    assert "tester-1" not in refs and "owner" not in refs, reading.get("graduations")
 
 
 def test_a_sample_is_evidence_only_from_an_independent_agreed_tester():

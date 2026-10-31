@@ -690,3 +690,36 @@ solo rerun passed 2/2.
     the test stricter.
 - **R21: the last stale cost line is gone.** The listing package's last "CA$59.65" alternative
   is removed, and the stale-figure test now covers that file.
+
+## 15. Delta review 5 (`INDEPENDENT_SECREVIEW_PHYSFIX_81b3e45.md`): the fail-closed interim
+
+- **R22/R23: designs with holds now fail closed instead of being canonicalised.** Positional
+  labels for holds and resumes could not yet be canonicalised in both directions: a cosmetic
+  reorder of identical holding pieces moved the digest (R22), and the multiset re-sort from
+  `5f7ee773` mapped a real change onto another design (R23). So:
+  - **The 5f7ee773 piece re-sort is reverted.** The hold-order sort stays; the reviewer found
+    it sound.
+  - **`design_digest` returns None for any design with holds or resumes**
+    (`_HOLD_DIGEST_INTERIM`). A size halt on such a design therefore carries no digest. That
+    makes it product-wide: it halts every certification of the product, and no make lifts it.
+    This is the same rule as for a halt with no digest. No Launch-0 CIR has holds.
+  - **The real fix is future work,** marked `TODO(physfix-holds)` in `design_digest`. It needs
+    a canonical tree (AHU) encoding of the resume forest, and refusing resume cycles (R25)
+    first.
+  - Test: `test_designs_with_holds_are_halted_product_wide_until_holds_are_canonical` covers:
+    - the reviewer's R22 P1/P2 reorders and the R23 D1/D2′ pair, all with no digest;
+    - a halt with no digest halts every incoming digest, and no make resolves it;
+    - a design with no holds keeps its digest and its scoped behaviour.
+  - The R11 test now asserts None for hold designs, and that `design_geometry` is still
+    rename-invariant.
+- **R24: an owner make is never counted as a tester's.** An owner-made row is filed under
+  `tester_ref="owner"` whatever ref was passed, and `growth_ops.creators_reading` skips
+  owner-made rows (`testers._counts_as_tester`).
+  - Test: `test_an_owner_make_under_a_testers_ref_is_filed_as_owner_and_never_counted`.
+- **The optional R20 gap is closed:** a `tester_agreement` whose qualification is "." no longer
+  opens `tester_roster` (added to `test_executor`).
+- **Not done:**
+  - R25 (the compiler accepting a self-resume): hold designs are fail-closed for halts in the
+    meantime.
+  - R26 (Info: the vendored `owner/gate_clearance_business.json` input still says 59.65; it is
+    overwritten on patch, and not owner-facing).

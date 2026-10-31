@@ -1346,6 +1346,9 @@ def test_tester_roster_counts_agreement_not_prospects():
         s.add(CreatorProfile(ref="legacy", permissions=[{"kind": "tester_agreement"}]))
         s.add(CreatorProfile(ref="photo", permissions=[{"asset_ref": "a", "scope": "s"}]))
         s.add(CreatorProfile(ref="delivered", delivered=1))
+        s.add(CreatorProfile(ref="unqualified", permissions=[{
+            "kind": "tester_agreement",
+            "independence": {"relationship": "none", "qualification": "."}}]))
     assert gate.open(db) is False, "a non-independent permission opened tester_roster"
     from brambleloop.quality import tester_programme as tp
 
