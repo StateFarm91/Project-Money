@@ -724,7 +724,8 @@ def calibration_for(cir, assessments: list[SampleAssessment]) -> float:
 
 
 def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
-           evidence_class: str | None = None, owner_made: bool = False) -> int:
+           evidence_class: str | None = None, owner_made: bool = False,
+           design_digest: str | None = None) -> int:
     """Store the sample. The row is the evidence; the assessment is what we concluded.
 
     `passed` is not "the tester liked it": it is whether this sample can be used, which
@@ -750,6 +751,9 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
     if content_hash:
         # The text the tester worked against (F-078): what certification binds evidence to.
         measured["content_hash"] = content_hash
+    if design_digest:
+        # For display, and the size-halt lift's refuse-only same-geometry check (R31).
+        measured["design_digest"] = design_digest
     # F-072: a swatch and a full make are different evidence and are never substituted. The
     # class is stamped on the row so binding reads it rather than inferring it later.
     from ..gates.risk_matrix import scope_to_class
