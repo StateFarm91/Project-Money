@@ -368,10 +368,21 @@ def test_no_sample_blocks_on_physical_proof_and_a_bound_sample_clears_it():
     gate = FC.gate_product(cir, db=db, version=cir.version)
     assert {c.area: c for c in gate.checks}["gauge_and_size_claims"].state == FC.UNRESOLVED
     with db.session() as s:
-        s.add(PhysicalTest(product_slug=cir.slug, version=cir.version, tester_ref="t-1",
+        # SECREVIEW F3: a bound sample that never measured the size proves no size.
+        s.add(PhysicalTest(product_slug=cir.slug, version=cir.version, tester_ref="t-gauge",
                            completed_at=now, passed=True,
                            measured={"content_hash": binding["content_hash"],
                                      "factor": 1.05, "yarn": "x", "stitch": "sc"}))
+    gate = FC.gate_product(cir, db=db, version=cir.version)
+    assert {c.area: c for c in gate.checks}["gauge_and_size_claims"].state == FC.UNRESOLVED
+    with db.session() as s:
+        s.add(PhysicalTest(product_slug=cir.slug, version=cir.version, tester_ref="t-1",
+                           completed_at=now, passed=True,
+                           # SECREVIEW F3: the clearing sample measured the made object and
+                           # its size agreed; a sample with no size comparison proves no size.
+                           measured={"content_hash": binding["content_hash"],
+                                     "factor": 1.05, "yarn": "x", "stitch": "sc",
+                                     "size_agrees": True}))
     try:
         gate = FC.gate_product(cir, db=db, version=cir.version)
         check = {c.area: c for c in gate.checks}["gauge_and_size_claims"]

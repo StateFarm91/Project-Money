@@ -504,8 +504,10 @@ def first_customer_requirement(matrix: dict, binding: dict | None) -> dict:
     if met:
         why = f"{need} of this content is bound, and sample(s) {size_proven} proved its size"
     elif class_met:
-        why = (f"{need} of this content is bound, but only as gauge evidence (a swatch): a "
-               f"first customer needs made pieces of this content whose measured size agreed")
+        why = (f"{need} of this content is bound, but none of it proved the finished size: "
+               f"only gauge evidence (a swatch) or a sample with no agreeing size "
+               f"measurement. A first customer needs made pieces of this content whose "
+               f"measured size agreed")
     else:
         why = (f"effective class {matrix.get('effective')} needs {need} of this exact "
                f"content before a first customer; held: {held or 'none'}")
