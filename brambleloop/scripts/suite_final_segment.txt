@@ -59,6 +59,7 @@ tests/test_money_truth.py
 tests/test_network_guard.py
 tests/test_operating_cost_basis.py
 tests/test_persistence.py
+tests/test_physfix.py
 tests/test_physical.py
 tests/test_pinned_clock.py
 tests/test_platform.py

@@ -64,9 +64,15 @@ OPS = "b" * 40
 
 
 def _db():
+    """A fresh database per call. Named uniquely: naming it by `len(os.listdir(_TMP))`
+    reused an earlier test's file whenever SQLite removed that file's -wal/-shm on close
+    (garbage-collection timing), so a test could read another test's rows -- e.g. the
+    listing visits that open `listing_traffic` and turn #23 OPEN."""
+    import uuid
+
     from brambleloop.core.db import Database
 
-    db = Database(f"sqlite:///{_TMP}/d{len(os.listdir(_TMP))}.sqlite")
+    db = Database(f"sqlite:///{_TMP}/d-{uuid.uuid4().hex}.sqlite")
     db.create_all()
     return db
 
