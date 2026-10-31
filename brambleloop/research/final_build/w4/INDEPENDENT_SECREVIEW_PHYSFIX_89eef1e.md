@@ -158,6 +158,11 @@ code, and at least equal to what is promised.
 | test_physfix | 27/27 passed |
 | test_secreview_physfix_adversarial | 12/12 passed |
 | test_secreview_physfix_42eac69_probes | 8/8 passed |
-| test_risk_matrix, test_w4_launchfix, test_physfix_photo_first, test_vacuity, test_first_customer_gate, test_launch0_listing_truth | running at the time of this commit; see the follow-up commit |
+| test_risk_matrix | all OK (rc=0, 103 s) |
+| test_w4_launchfix | 32 passed, 0 failed |
+| test_physfix_photo_first | 8/8 passed |
+| test_vacuity | all OK (rc=0) |
+| test_first_customer_gate | 12 passing, 0 failing |
+| test_launch0_listing_truth | all OK (rc=0, 220 s) |
 
 The author's suites are green, but they do not cover R5–R7. The new probe file fails 6 of 8, by design: each failure is a finding.
