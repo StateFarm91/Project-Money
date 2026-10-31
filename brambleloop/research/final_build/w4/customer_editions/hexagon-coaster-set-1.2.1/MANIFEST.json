@@ -5,8 +5,8 @@
   "cir_fingerprint": "f963f15bc438",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "3f80da633b996f82d39d038c7d625f96868c0589",
-  "engine_source_clean": false,
+  "engine_commit": "187b02b4a92a3f8769a5ae408eb6569ed95a3532",
+  "engine_source_clean": true,
   "files": {
     "NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf": {
       "bytes": 1281167,
