@@ -209,6 +209,12 @@ def launch0_facts() -> list[ProductFacts]:
 
 # word -> (source attribute path, why). The word must occur in that source's text at call time.
 PRODUCT_LICENCES: dict[str, dict[str, tuple[str, str]]] = {
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the owner positioned the small basket as a
+    # kitchen and home product; the candidate record says so in its own words.
+    "hexagonal-bread-basket": {
+        "kitchen": ("candidate.what_it_is", "the owner positioned it for the kitchen"),
+        "table": ("candidate.what_it_is", "the owner positioned it for the table"),
+    },
     "nursery-nesting-baskets": {
         "nesting": ("candidate.title", "the product record names them Nesting Baskets"),
         "three": ("candidate.title", "the product record sells three sizes"),

@@ -437,6 +437,24 @@ CATALOGUE_BRIEFS: dict[str, EmotionalBrief] = {
 # single-crochet walls, six stacked corners); nothing here claims stiffness or lying flat,
 # which only a worked sample can establish.
 ENGINEERED_BRIEFS: dict[str, EmotionalBrief] = {
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the small basket sold alone, kitchen and home.
+    "hexagonal-bread-basket": EmotionalBrief(
+        key="hexagonal-bread-basket", recipient="host", occasion="everyday",
+        feeling="cosy",
+        moment=("Sunday lunch: warm rolls go into the hexagon basket in the middle of the "
+                "table, and it is passed hand to hand until it comes back empty."),
+        function=("holds bread rolls on the table at a meal, and fruit or napkins on the "
+                  "kitchen counter between meals"),
+        gifting=("Given at a housewarming with a loaf from the baker's, the first thing on "
+                 "a friend's new kitchen table."),
+        sensory=("six-sided single crochet walls worked in rounds from a flat base",
+                 "cream walls crossed by two narrow wine bands near the rim"),
+        handmade_life=("A small kitchen make for one or two evenings, used at the table the "
+                       "same weekend."),
+        laura_scene=("The basket of rolls on a wooden table set for lunch; product-first, "
+                     "Laura's hand reaching for a roll optional."),
+        premise=("A cream hexagon basket with wine bands holds warm rolls in the middle of "
+                 "a set table.")),
     "nursery-nesting-baskets": EmotionalBrief(
         key="nursery-nesting-baskets", recipient="new_parent", occasion="new_baby",
         feeling="tender",

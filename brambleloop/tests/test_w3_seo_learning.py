@@ -58,8 +58,8 @@ def test_shown_but_not_clicked_is_ctr():
 
 def test_clicked_is_conversion_with_measured_rates():
     db = fresh_db()
-    _outcome(db, "nursery-nesting-baskets", 2000, 80, 6, 2)
-    row = learning.funnel(db)["per_product"]["nursery-nesting-baskets"]
+    _outcome(db, "hexagonal-bread-basket", 2000, 80, 6, 2)
+    row = learning.funnel(db)["per_product"]["hexagonal-bread-basket"]
     assert row["diagnosis"]["stage"] == "conversion"
     assert row["rates"]["ctr"] == 0.04 and row["rates"]["conversion"] == 0.025
     assert row["orders"]["basis"] == "measured"

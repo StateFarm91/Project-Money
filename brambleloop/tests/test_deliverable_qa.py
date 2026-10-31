@@ -1506,7 +1506,15 @@ def test_a_childrens_pattern_carries_every_statement_its_audience_requires():
     a publishable deliverable". This is the check that can go back to failing if the block
     stops rendering -- it looks in the document, not at the template that produced it.
     """
-    for slug in ("cloudline-baby-blanket", "market-basket-small", "market-basket-large"):
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the small basket is the kitchen-and-home Bread
+    # Basket and carries no children's block (asserted below); the held nursery family's medium
+    # and large sizes still do.
+    assert l0.childrens_assignment("market-basket-small") is None
+    _, _, small = _childrens_doc("market-basket-small")
+    small_flat = _flat(small).lower()
+    for word in ("nursery", "baby", "infant", "children", "cpsia"):
+        assert word not in small_flat, word
+    for slug in ("cloudline-baby-blanket", "market-basket-medium", "market-basket-large"):
         assignment = l0.childrens_assignment(slug)
         assert assignment is not None, slug
         for terminology in pdf_mod.TERMINOLOGIES:
@@ -1599,7 +1607,8 @@ def test_the_safety_block_derives_its_facts_from_the_pattern_it_is_in():
     agrees with its own cover.
     """
     blanket_cir, blanket_twin, blanket = _childrens_doc("cloudline-baby-blanket")
-    basket_cir, basket_twin, basket = _childrens_doc("market-basket-small")
+    # The held nursery family's medium basket (the small one is no longer a children's item).
+    basket_cir, basket_twin, basket = _childrens_doc("market-basket-medium")
     b_flat, k_flat = _flat(blanket), _flat(basket)
 
     assert f"{blanket_twin.width_cm:.0f} x {blanket_twin.height_cm:.0f} cm" in b_flat

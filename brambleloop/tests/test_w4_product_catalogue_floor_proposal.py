@@ -142,7 +142,7 @@ def test_the_engineered_additions_survive_the_unchanged_jury_only_as_needs_taste
     from brambleloop.creative import audit, jury
 
     r = audit.audit_launch0_engineered()
-    assert r["audited"] == ["nursery-nesting-baskets", "hexagon-coaster-set",
+    assert r["audited"] == ["hexagonal-bread-basket", "hexagon-coaster-set",
                             "nordic-forest-mosaic-throw-baby", "housewarming-key-basket"]
     assert r["survivors"] == r["audited"], r["verdicts"]
     for v in r["verdicts"].values():
