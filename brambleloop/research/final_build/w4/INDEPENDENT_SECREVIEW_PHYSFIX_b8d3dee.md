@@ -152,4 +152,27 @@ I scanned `git diff origin/claude/w4-INTEG8-next...origin/claude/w4-PHYSFIX-PHOT
 
 ## 8. Test runs
 
-(partial report: the test runs are in progress and will be added in the next commit.)
+Every file was run alone, one at a time, at `b8d3dee0` (`cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>`). Two early attempts overlapped by mistake. I stopped both and discarded their results; the table below is from one clean sequential run.
+
+| File | Result |
+|---|---|
+| `test_physfix` | rc=0, 78s: 44/44 passed |
+| `test_physfix_size_lift_http` | rc=0, 5s: 1/1 passed |
+| `test_secreview_physfix_adversarial` | rc=0, 8s: 12/12 passed |
+| `test_secreview_physfix_42eac69_probes` | rc=0, 7s: 8/8 passed |
+| `test_secreview_physfix_89eef1e_probes` | rc=0, 5s: 8/8 passed |
+| `test_secreview_physfix_b8d3dee_probes` | rc=0, 14s: P5 FINDING: I2 lifted on a make of 1.2.0 (withheld by I1) -> {'incident': 2, 'physical_test_id': 4, 'slug': 'm |
+| `test_w4_b2gates:1` | rc=0, 85s: 12/12 passing |
+| `test_w4_b2gates:2` | rc=0, 83s: 12/12 passing |
+| `test_w4_b2gates:3` | rc=0, 84s: 12/12 passing |
+| `test_w4_resume_runner` | rc=0, 126s: OK   test_without_the_flags_nothing_changes (0.2s) |
+| `test_risk_matrix` | rc=0, 99s: OK   test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet |
+| `test_physfix_photo_first` | rc=0, 6s: 8/8 passed |
+| `test_w4_launchfix` | rc=0, 24s: 32 passed, 0 failed |
+| `test_vacuity` | rc=0, 8s: OK   test_the_scan_sees_the_suite |
+| `test_first_customer_gate` | rc=0, 17s: 12 passing, 0 failing |
+| `test_gates` | rc=0, 3s: OK   test_unsupported_size_claim_is_blocked |
+| `test_executor` | rc=0, 21s: OK   test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row |
+
+All exit 0. `test_w4_b2gates` passed 12/12 on all three runs. The b8d3dee probe file exits 0 by design: it prints `FINDING` for P5 (R35) and does not assert, so it can sit in a suite until R35 is fixed. Then P5 should be turned into an asserting test.
+
