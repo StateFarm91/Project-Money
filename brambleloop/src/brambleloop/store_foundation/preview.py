@@ -113,7 +113,10 @@ def _evaluate(db, today=None) -> tuple[dict, list[dict], dict]:
 
 def _live_on_etsy(db) -> dict:
     """W-ADOPT: whether any listing is live on Etsy (published, or published by hand and
-    adopted), from the listings table. Never a hard-coded False; unreadable is None."""
+    adopted), from the listings table. Never a hard-coded False; unreadable is None.
+    With no database (the code-only summary) no listing is recorded, so neither is live."""
+    if db is None:
+        return {"live": False, "published": False}
     try:
         from sqlalchemy import select
 
