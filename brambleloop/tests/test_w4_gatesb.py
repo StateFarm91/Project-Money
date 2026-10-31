@@ -191,14 +191,17 @@ def test_tester_agreement_needs_express_consent_and_opens_the_gate():
     db = _db()
     try:
         tp.record_agreement(db, handle_ref="t1", specialties=["home_decor"],
-                            express_consent=False, consent_source="form")
+                            express_consent=False, consent_source="form",
+                            relationship="none", qualification="https://ravelry/x")
         raise AssertionError("recorded without consent")
     except tp.TesterRefused:
         pass
     assert executor._tester_recruited(db, None) is False
     out = tp.record_agreement(db, handle_ref="t1", specialties=["home_decor"],
                               express_consent=True, consent_source="intake form v1 row 1",
-                              photo_scopes=["brambleloop_listing"])
+                              photo_scopes=["brambleloop_listing"],
+                              # SECREVIEW R6: mandatory tester terms.
+                              relationship="none", qualification="https://ravelry/x")
     assert out["recorded"] and out["brief"]["ok"]
     assert executor._tester_recruited(db, None) is True
     with db.session() as s:

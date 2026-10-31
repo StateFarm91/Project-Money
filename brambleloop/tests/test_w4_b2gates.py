@@ -215,7 +215,9 @@ def test_tester_agreement_route_opens_the_gate_only_with_consent():
     main.db.create_all()
     c = TestClient(main.app)
     good = {"handle_ref": "ravelry:tester-one", "specialties": ["home_decor"],
-            "express_consent": True, "consent_source": "Ravelry DM 2026-10-11, kept in inbox"}
+            "express_consent": True, "consent_source": "Ravelry DM 2026-10-11, kept in inbox",
+            # SECREVIEW R6: the tester terms are mandatory on this route.
+            "relationship": "none", "qualification": "https://www.ravelry.com/projects/x/y"}
     assert c.post("/api/tester/agreement", json=good).status_code == 401
     h = {"Authorization": f"Bearer {OPS}"}
     assert _gate(main.db, "tester_roster") is False
@@ -223,6 +225,15 @@ def test_tester_agreement_route_opens_the_gate_only_with_consent():
     assert r.status_code == 400 and "express consent" in r.json()["error"], r.text
     r = c.post("/api/tester/agreement", json={**good, "consent_source": ""}, headers=h)
     assert r.status_code == 400, r.text
+    # SECREVIEW R6: missing or disallowed independence/qualification is refused (400).
+    for bad in ({k: v for k, v in good.items() if k != "relationship"},
+                {k: v for k, v in good.items() if k != "qualification"},
+                {**good, "relationship": "my husband"},
+                {**good, "relationship": "my mom"},
+                {**good, "relationship": "coworker"},
+                {**good, "qualification": "  "}):
+        r = c.post("/api/tester/agreement", json=bad, headers=h)
+        assert r.status_code == 400, (bad, r.text)
     assert _gate(main.db, "tester_roster") is False
     r = c.post("/api/tester/agreement", json=good, headers=h)
     assert r.status_code == 200 and r.json()["recorded"] is True, r.text

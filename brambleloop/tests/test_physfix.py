@@ -404,6 +404,52 @@ def test_the_design_digest_is_geometry_only():
     assert physical.design_digest(gauge) != base
 
 
+def _expanded(ops: list) -> list:
+    out = []
+    for o in ops:
+        if "times" in o:
+            for _ in range(int(o["times"])):
+                out += _expanded(o["ops"])
+        else:
+            out += [{**o, "count": 1} for _ in range(int(o["count"]))]
+    return out
+
+
+def test_the_design_digest_reads_compiled_stitches_not_notation():
+    """SECREVIEW R5: notation, case and number type are not the design; stitches are."""
+    from brambleloop.cir.model import CIR
+
+    base = physical.design_digest(_basket_medium())
+    body = _basket_medium().to_dict()
+    assert any("times" in o for c in body["components"] for r in c["rows"]
+               for o in r["ops"]), "no repeat in the fixture: the expansion proves nothing"
+    for comp in body["components"]:
+        for row in comp["rows"]:
+            row["ops"] = _expanded(row["ops"])
+    assert physical.design_digest(CIR.from_dict(body)) == base, "notation moved the digest"
+    body = _basket_medium().to_dict()
+    body["gauge"]["yarn_weight"] = body["gauge"]["yarn_weight"].upper()
+    for m in body["materials"]:
+        m["yarn_weight"] = m["yarn_weight"].title()
+    assert physical.design_digest(CIR.from_dict(body)) == base, "case moved the digest"
+    a, b = _basket_medium().to_dict(), _basket_medium().to_dict()
+    a["gauge"]["stitches_per_10cm"], b["gauge"]["stitches_per_10cm"] = 13, 13.0
+    a["gauge"]["hook_mm"], b["gauge"]["hook_mm"] = 5, 5.0
+    assert physical.design_digest(CIR.from_dict(a)) == physical.design_digest(
+        CIR.from_dict(b)), "int vs float moved the digest"
+    # The reverse: any change to the compiled stitches moves it.
+    for mutate in (lambda d: d["components"][0]["rows"][-1]["ops"][0].update(loop="back"),
+                   lambda d: d["components"][0]["rows"][-1]["ops"][0].update(stitch="hdc"),
+                   lambda d: d["components"][0].update(make=2)):
+        d = _basket_medium().to_dict()
+        mutate(d)
+        try:
+            moved = physical.design_digest(CIR.from_dict(d))
+        except Exception:  # noqa: BLE001 - an uncompilable mutation is also not "the same"
+            moved = None
+        assert moved != base, "a compiled-stitch change kept the digest"
+
+
 def test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt():
     from brambleloop.gates.incidents import IncidentTracker
 
@@ -629,27 +675,93 @@ def test_tester_terms_one_independent_qualified_tester_and_an_all_inclusive_ceil
             assert needle in call, (key, needle)
         assert kit["testers"] == 1
         # The ceiling is all-inclusive and covers what the tester receives.
-        assert kit["tester_receives_cad"] <= kit["ceiling_all_inclusive_cad"], key
+        assert kit["tester_receives_cad"] <= kit["max_cost_cad"], key
     basket = tester_kit.KIT
     assert round(2.795 * 20.0, 2) + 2 * 5.00 == basket["tester_receives_cad"] == 65.90
-    assert basket["ceiling_all_inclusive_cad"] == 66.00
+    assert basket["max_cost_cad"] == 66.00
     assert tp.outreach_markdown() == (KIT_DIR / "OUTREACH.md").read_text()
     fields = {f for f, _l, _r in tp.INTAKE_FIELDS}
     assert {"relationship", "qualification"} <= fields
     db = _db()
-    for rel, qual in (("I am the owner's sister", "https://x/y"), ("none", ""),
-                      ("", "https://x/y"), ("I hold shares (financial interest)", "photo.jpg")):
+    # SECREVIEW R6: an allow-list. Every one of these is refused, including the relatives and
+    # free text the old keyword denylist let through, and an agreement with no declaration.
+    refused = ("I am the owner's sister", "my husband", "his wife", "my mom", "my brother",
+               "my boyfriend", "my daughter", "cousin", "close friend", "coworker",
+               "I live with Jacob", "contractor", "employee", "I hold shares",
+               "partner", "household member", "", None)
+    for rel in refused:
         try:
             tp.record_agreement(db, handle_ref="t", specialties=["home_decor"],
                                 express_consent=True, consent_source="form",
-                                relationship=rel, qualification=qual)
+                                relationship=rel, qualification="https://x/y")
         except tp.TesterRefused:
             continue
-        raise AssertionError(f"accepted a tester who is not independent/qualified: {rel!r}")
-    out = tp.record_agreement(db, handle_ref="t2", specialties=["home_decor"],
-                              express_consent=True, consent_source="form",
-                              relationship="none", qualification="https://ravelry/x")
-    assert out
+        raise AssertionError(f"accepted a tester who is not independent: {rel!r}")
+    for qual in ("", "   ", None):
+        try:
+            tp.record_agreement(db, handle_ref="t", specialties=["home_decor"],
+                                express_consent=True, consent_source="form",
+                                relationship="none", qualification=qual)
+        except tp.TesterRefused:
+            continue
+        raise AssertionError(f"accepted a tester with no qualification evidence: {qual!r}")
+    try:
+        tp.record_agreement(db, handle_ref="t", specialties=["home_decor"],
+                            express_consent=True, consent_source="form")
+    except tp.TesterRefused:
+        pass
+    else:
+        raise AssertionError("an agreement without the tester terms was recorded")
+    for n, rel in enumerate(("none", "None.", "acquaintance (declared)",
+                             "Acquaintance (declared)")):
+        out = tp.record_agreement(db, handle_ref=f"ok{n}", specialties=["home_decor"],
+                                  express_consent=True, consent_source="form",
+                                  relationship=rel, qualification="https://ravelry/x")
+        assert out["permission"]["independence"]["relationship"] in (
+            "none", "acquaintance (declared)"), out
+
+
+def test_one_cost_figure_per_kit_everywhere_it_is_stated():
+    """SECREVIEW R7: the owner card, the gate-clearance card, the approval doc and the tester
+    call state one figure, and that figure covers what the call promises."""
+    from brambleloop.build2 import gate_clearance
+    from brambleloop.ops import owner_queue
+    from brambleloop.quality import tester_kit
+
+    kit = tester_kit.KIT
+    assert kit["max_cost_cad"] == 66.00 and kit["tester_receives_cad"] == 65.90
+    card = next(d for d in owner_queue.DECISIONS if d["id"] == "tester_outreach")
+    assert card["max_cost_cad"] == kit["max_cost_cad"], card
+    assert "CA$66.00" in card["decision"] and "59.65" not in card["decision"]
+    assert gate_clearance.card_fields(None, "physical_proof", {})["max_cost_cad"] == \
+        kit["max_cost_cad"]
+    doc = (KIT_DIR / "BASKET_KIT_FOR_OWNER_APPROVAL.md").read_text()
+    action = doc.split("## 9. OWNER ACTION REQUIRED")[1]
+    assert "CA$66.00" in action and "59.65" not in action
+    assert "CA$65.90" in (KIT_DIR / "OUTREACH.md").read_text()
+    manifest = json.loads((KIT_DIR / "KIT_MANIFEST.json").read_text())
+    assert manifest["max_cost_cad"] == kit["max_cost_cad"]
+    coaster = tester_kit.COASTER_KIT
+    assert coaster["max_cost_cad"] == 100.00 and coaster["tester_receives_cad"] == 99.96
+    assert json.loads((KIT_DIR / "KIT_MANIFEST_hexagon-coaster-set.json").read_text())[
+        "max_cost_cad"] == 100.00
+
+
+def test_every_production_tester_intake_passes_the_tester_terms():
+    """SECREVIEW R6: no production caller of record_agreement may skip the terms."""
+    import ast
+
+    callers = []
+    for path in (ROOT / "src").rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "record_agreement"):
+                kws = {k.arg for k in node.keywords}
+                callers.append((str(path.relative_to(ROOT)), kws))
+    assert callers, "no production caller found: the scan proved nothing"
+    for where, kws in callers:
+        assert {"relationship", "qualification"} <= kws, (where, kws)
 
 
 def test_both_kits_rebuild_byte_identical_from_the_one_builder():

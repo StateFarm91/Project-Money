@@ -347,12 +347,48 @@ def _is_flat_piece(cir, result, name: str) -> bool:
     return build_twin(cir, result, component=name).shape == "disc"
 
 
+def _non_finite(report: SampleReport) -> list[str]:
+    """SECREVIEW R9: every measured number must be a finite number. NaN compares False with
+    every tolerance, so a NaN width would otherwise "agree" with any stated size."""
+    import math
+
+    bad = []
+
+    def check(label, v):
+        if isinstance(v, bool):
+            return
+        if isinstance(v, (int, float)) and not math.isfinite(v):
+            bad.append(label)
+
+    for key in ("hook_mm", "measured_width_cm", "measured_height_cm", "measured_around_cm",
+                "measured_flats_cm", "hours", "swatch_stitches_per_10cm",
+                "swatch_rows_per_10cm", "rim_across_points_cm", "inside_depth_cm",
+                "rnd11_height_cm"):
+        check(key, getattr(report, key))
+    check("ball_band.grams", report.ball_band.grams)
+    check("ball_band.metres", report.ball_band.metres)
+    for colour, grams in (report.grams_by_color or {}).items():
+        check(f"grams_by_color.{colour}", grams)
+    for i, entry in enumerate(report.piece_measurements or [], start=1):
+        if isinstance(entry, dict):
+            check(f"piece {i} width_cm", entry.get("width_cm"))
+            check(f"piece {i} height_cm", entry.get("height_cm"))
+    return bad
+
+
 def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessment:
     """Compare one real sample against what the twin predicted for exactly what was made."""
     if cir is not None and result is None:
         from ..cir.compiler import compile_cir
 
         result = compile_cir(cir)
+    bad = _non_finite(report)
+    if bad:
+        refused = SampleAssessment(report=report, estimated_metres={}, measured_metres={})
+        refused.findings.append(Finding(
+            "SAMPLE_MEASUREMENT_INVALID",
+            f"not a finite number: {bad}; a measurement is a number", "ERROR"))
+        return refused
     out = SampleAssessment(
         report=report, estimated_metres={}, measured_metres=report.metres_by_color(),
         yarn=next((m.name for m in (cir.materials if cir else []) if m.name), None),
@@ -817,70 +853,124 @@ def size_coverage(db, cir) -> dict:
             "rule": "a physical sample covers exactly the one size it was worked in"}
 
 
-# SECREVIEW R1 (42eac69): what a design digest covers -- only what decides the made object's
-# finished size and shape. Everything else (title, notes, colour names and hexes, provenance,
-# list order where order means nothing) is canonicalised away, so a cosmetic edit is the
-# same design and never certifies past, or resolves, a size halt.
-_PIECE_KEYS = ("construction", "foundation", "foundation_kind", "make", "holds", "resumes",
-               "grain")
-_ROW_KEYS = ("index", "declared_count", "turning_chain", "turning_chain_counts", "into",
-             "allow_remainder", "skips")
-_GAUGE_KEYS = ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm", "yarn_weight",
-               "chains_per_10cm")
-# Free text and labels: never geometry, at any depth.
+# SECREVIEW R1/R5 (42eac69, 89eef1e): a design digest covers only what decides the made
+# object's finished size and shape, read from what the COMPILER produced and the twin built --
+# never from how the CIR happens to write it. `[inc] x6` and six `inc`, `sc 3` and three `sc 1`,
+# "Worsted" and "worsted", 13 and 13.0 are each the same design. Labels, notes, colours,
+# provenance and piece order are dropped.
 _COSMETIC = frozenset({"note", "notes", "name", "title", "color", "colour", "colorway",
-                       "color_id", "label", "description", "designer_notes"})
+                       "color_id", "label", "description", "designer_notes", "source_url",
+                       "retrieved", "table", "design_key", "provenance"})
 
 
-def _canon(value):
-    """Drop cosmetic keys at any depth; sort dict keys (json does) and keep list order."""
+def _num(v):
+    return round(float(v), 6)
+
+
+def _canon(value, names: dict | None = None):
+    """Vocabulary lower-cased and stripped, numbers as floats, cosmetic keys dropped, and
+    component names replaced by their canonical piece position."""
+    names = names or {}
     if isinstance(value, dict):
-        return {k: _canon(v) for k, v in value.items() if k not in _COSMETIC}
+        return {str(k).lower(): _canon(v, names) for k, v in value.items()
+                if str(k).lower() not in _COSMETIC}
     if isinstance(value, (list, tuple)):
-        return [_canon(v) for v in value]
+        return [_canon(v, names) for v in value]
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)):
+        return _num(value)
     if isinstance(value, str):
-        return value.strip()
-    return value
+        text = value.strip()
+        return names.get(text, text.lower())
+    return str(value).strip().lower()
 
 
-def design_geometry(cir) -> dict:
+def _compiled_rows(result, component: str) -> list[dict]:
+    """The compiled rows of one piece, each stitch expanded one by one (repeats resolved)."""
+    rows = []
+    for r in result.rows:
+        if r.component != component:
+            continue
+        stitches = []
+        for op in r.ops:
+            unit = [str(op.stitch).strip().lower(), str(op.loop or "both").strip().lower(),
+                    int(op.spans or 0)]
+            stitches.extend([unit] * int(op.count))
+        rows.append({"stitches": stitches, "into": int(r.into_count),
+                     "consumed": int(r.consumed), "produced": int(r.produced),
+                     "remainder": int(r.remainder), "turning_chain": int(r.turning_chain or 0),
+                     "turning_chain_counts": bool(r.turning_chain_counts)})
+    return rows
+
+
+def _twin_shape(cir, result, component: str) -> dict:
+    from ..cir.twin import build_twin
+
+    t = build_twin(cir, result, component=component)
+    out = {}
+    for k in ("width_cm", "height_cm", "circumference_cm", "across_points_cm",
+              "across_flats_cm", "sides"):
+        v = getattr(t, k, None)
+        out[k] = None if v is None else round(float(v), 1)
+    out["shape"] = (t.shape or "flat").lower() if getattr(t, "shape", None) else "flat"
+    return out
+
+
+def design_geometry(cir, result=None) -> dict:
     """The canonical geometry of a design: the input to `design_digest`.
 
-    - every piece: construction, foundation, quantity (`make`), holds/resumes, grain, and each
-      row/round's stitch ops and counts (`into`, skips, turning chains), in working order;
-    - the gauge (stitches and rows per 10 cm, stitch, hook, yarn weight, chain gauge);
+    - every piece: construction, foundation, quantity (`make`), grain, holds/resumes, its
+      COMPILED rows -- each stitch expanded singly with its loop and span, the stitches worked
+      into, consumed, produced, remainder and turning chain -- and its twin's finished shape
+      and dimensions;
+    - the gauge (stitches and rows per 10 cm, stitch, hook, yarn weight, chain gauge), as
+      floats and lower-cased vocabulary;
     - the yarn weights and fibres, as a sorted set (names, colourways and order dropped);
-    - assembly, the size set (graded size and its matrix) and the represented configuration.
+    - assembly, the size set (`grading`) and the represented configuration.
 
     Pieces are sorted by their canonical content, so naming or listing them in another order is
-    the same design; rows keep their order, because working order is geometry."""
-    body = cir.to_dict()
-    pieces = []
-    for comp in body.get("components") or []:
-        piece = {k: _canon(comp.get(k)) for k in _PIECE_KEYS}
-        piece["rows"] = [{**{k: _canon(r.get(k)) for k in _ROW_KEYS},
-                          "ops": _canon(r.get("ops"))} for r in comp.get("rows") or []]
-        pieces.append(piece)
+    the same design; rows keep their working order, because working order is geometry."""
     import json
 
-    pieces.sort(key=lambda p: json.dumps(p, sort_keys=True, default=str))
+    from ..cir.compiler import compile_cir
+
+    result = result if result is not None else compile_cir(cir)
+    body = cir.to_dict()
+    raw = []
+    for comp, spec in zip(cir.components, body.get("components") or []):
+        piece = {k: _canon(spec.get(k)) for k in ("construction", "foundation",
+                                                  "foundation_kind", "make", "grain")}
+        piece["rows"] = _compiled_rows(result, comp.name)
+        piece["twin"] = _twin_shape(cir, result, comp.name)
+        raw.append((comp.name, spec, piece))
+    order = sorted(raw, key=lambda t: json.dumps(t[2], sort_keys=True, default=str))
+    names = {name: f"piece#{i}" for i, (name, _s, _p) in enumerate(order)}
+    pieces = []
+    for name, spec, piece in order:
+        piece["holds"] = _canon(spec.get("holds"), names)
+        piece["resumes"] = _canon(spec.get("resumes"), names)
+        pieces.append(piece)
     gauge = body.get("gauge") or {}
     materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
                                     "fibre": sorted(str(f).strip().lower()
                                                     for f in (m.get("fibre_content") or ()))},
                                    sort_keys=True)
                         for m in body.get("materials") or []})
-    graded = body.get("graded") or {}
     return {
         "construction": _canon(body.get("construction")),
         "pieces": pieces,
-        "gauge": {k: gauge.get(k) for k in _GAUGE_KEYS},
+        "gauge": {k: _canon(gauge.get(k)) for k in _GAUGE_KEYS},
         "materials": materials,
-        "assembly": _canon(body.get("assembly") or []),
-        "sizes": {"size": graded.get("size"), "ease_cm": _canon(graded.get("ease_cm")),
-                  "matrix": _canon(graded.get("sizes"))} if graded else None,
-        "variant": dict(getattr(cir, "represented_variant", {}) or {}),
+        "assembly": _canon(body.get("assembly") or [], names),
+        # SECREVIEW R8: `CIR.to_dict` writes the size set as `grading`.
+        "sizes": _canon(body.get("grading")) if body.get("grading") else None,
+        "variant": _canon(dict(getattr(cir, "represented_variant", {}) or {})),
     }
+
+
+_GAUGE_KEYS = ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm", "yarn_weight",
+               "chains_per_10cm")
 
 
 def design_digest(cir, result=None) -> str | None:
@@ -888,8 +978,9 @@ def design_digest(cir, result=None) -> str | None:
 
     `gates.certificate._release_hash` covers the whole CIR, version and title included, so a
     relabel or a retitle of identical geometry is "different content". A size halt is a
-    statement about the made object, so it is keyed on `design_geometry` alone: a version,
-    title, whitespace, notes, colour-name or list-order change is the same design.
+    statement about the made object, so it is keyed on `design_geometry` alone -- the compiled
+    stitches and the twin -- so a version, title, whitespace, notes, colour-name, list-order,
+    repeat-notation, case or number-type change is the same design.
     Unreadable or uncompilable is None, and callers fail closed."""
     import hashlib
     import json
@@ -900,7 +991,7 @@ def design_digest(cir, result=None) -> str | None:
         result = result if result is not None else compile_cir(cir)
         if not result.ok:
             return None
-        payload = json.dumps(design_geometry(cir), sort_keys=True, default=str)
+        payload = json.dumps(design_geometry(cir, result), sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
     except Exception:  # noqa: BLE001 - unreadable design: callers fail closed
         return None

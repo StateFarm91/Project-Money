@@ -33,6 +33,10 @@ from pathlib import Path
 
 BUILD_KEY = "basket_small"
 
+# Whole balls reimbursed per make, at the ESTIMATED retail price in MATERIALS.
+BALLS_REIMBURSED = 2
+BALL_CAD = 5.00
+
 # Filled from the CIR at build time; the static copy is what the owner card quotes.
 KIT: dict = {
     "slug": "market-basket-small",
@@ -44,16 +48,16 @@ KIT: dict = {
     "scope": "full_make",
     "size": "small",
     "make_hours_estimate": 2.15,
-    "max_cost_cad": 59.65,
-    # Tester terms: exactly one tester; the CA$66.00 approval ceiling is ALL-INCLUSIVE (what
-    # the tester receives plus any payment-processing fee). The tester receives CA$65.90
-    # (fee 2.795 h x CA$20 = CA$55.90, plus 2 balls x CA$5.00 = CA$10.00), leaving CA$0.10, so
-    # payment must be by a fee-free method; any other method needs a higher ceiling first.
+    # SECREVIEW R7: ONE figure -- the owner-approved, ALL-INCLUSIVE ceiling (what the tester
+    # receives plus any payment-processing fee) that the owner card, the approval doc and the
+    # tester call all state. `build` checks that it covers what the call promises and the risk
+    # matrix's own per-metre ceiling for this make (CA$59.65).
+    "max_cost_cad": 66.00,
     "testers": 1,
     "tester_receives_cad": 65.90,
-    "ceiling_all_inclusive_cad": 66.00,
-    "cost_basis": ("gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at "
-                   "CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been "
+    "cost_basis": ("ESTIMATED, all-inclusive: tester fee 2.795 h (2.15 h x1.3) at CA$20/h = "
+                   "CA$55.90, plus 2 balls x CA$5.00 = CA$10.00, paid in full (CA$65.90) by a "
+                   "fee-free transfer, leaving CA$0.10 for processing. No tester has been "
                    "paid yet"),
 }
 
@@ -158,14 +162,13 @@ COASTER_KIT: dict = {
     "scope": "full_make",
     "size": "set_of_four",
     "make_hours_estimate": 3.46,
-    "max_cost_cad": 92.03,
-    # Tester terms as for the basket: one tester; CA$100.00 all-inclusive; the tester receives
-    # CA$99.96 (4.498 h x CA$20 = CA$89.96, plus 2 balls x CA$5.00), so payment is fee-free.
+    # One all-inclusive figure, as for the basket (covers the risk matrix's CA$92.03).
+    "max_cost_cad": 100.00,
     "testers": 1,
     "tester_receives_cad": 99.96,
-    "ceiling_all_inclusive_cad": 100.00,
-    "cost_basis": ("gates.risk_matrix.owner_action_spec: 4.5 tester hours (estimate x1.3) at "
-                   "CA$20/h + 35 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been "
+    "cost_basis": ("ESTIMATED, all-inclusive: tester fee 4.498 h (3.46 h x1.3) at CA$20/h = "
+                   "CA$89.96, plus 2 balls x CA$5.00 = CA$10.00, paid in full (CA$99.96) by a "
+                   "fee-free transfer, leaving CA$0.04 for processing. No tester has been "
                    "paid yet"),
 }
 
@@ -465,23 +468,32 @@ def build(out_dir: Path, key: str = BUILD_KEY) -> dict:
     result = compile_cir(cir)
     twin = build_twin(cir, result)
     version, chash = content_hash(key)
-    # The quoted ceiling is recomputed, never trusted: the static copy must equal what the
-    # risk matrix's own rates give for this make.
+    # SECREVIEW R7: one figure, recomputed, never trusted. The call promises the fee at the
+    # risk matrix's own rate plus whole balls; the one ceiling must cover that promise and the
+    # risk matrix's per-metre ceiling for this make, and the call must state the promise.
+    from . import tester_programme
+
     ceiling = risk_matrix.owner_action_spec(
         slug=cir.slug, version=version, content_hash=chash,
         required=risk_matrix.FULL_PHYSICAL_MAKE, effective_class="B",
         make_hours=kit["make_hours_estimate"],
         yarn_metres=sum(twin.yarn_metres_by_color.values()))["max_cost_cad"]
-    if abs(ceiling - kit["max_cost_cad"]) > 0.005:
-        raise ValueError(f"{cir.slug}: the kit quotes CA${kit['max_cost_cad']:.2f} but the "
-                         f"risk matrix gives CA${ceiling:.2f}")
+    fee = round(kit["make_hours_estimate"] * 1.3 * risk_matrix.TESTER_FEE_CAD_PER_HOUR, 2)
+    promised = round(fee + BALLS_REIMBURSED * BALL_CAD, 2)
+    if abs(promised - kit["tester_receives_cad"]) > 0.005:
+        raise ValueError(f"{cir.slug}: the call promises CA${kit['tester_receives_cad']:.2f}; "
+                         f"fee + balls is CA${promised:.2f}")
+    if kit["max_cost_cad"] + 0.005 < max(promised, ceiling):
+        raise ValueError(f"{cir.slug}: the ceiling CA${kit['max_cost_cad']:.2f} is below the "
+                         f"promise CA${promised:.2f} or the risk matrix's CA${ceiling:.2f}")
+    post = spec.get("outreach_post") or tester_programme.OUTREACH_POST
+    if f"CA${kit['tester_receives_cad']:.2f}" not in post["body"]:
+        raise ValueError(f"{cir.slug}: the tester call does not state the promised amount")
     doc = build_pattern_pdf(cir, terminology="US", twin=twin, released_on=date(2026, 10, 7))
     pattern = out_dir / f"{kit['slug']}-{version}-TEST.pdf"
     pattern.write_bytes(doc.pdf_bytes)
     sheet = out_dir / f"{kit['slug']}-{version}-RECORD-SHEET.pdf"
     sheet.write_bytes(_record_sheet_pdf(version, chash, key))
-    from . import tester_programme
-
     outreach = out_dir / spec["outreach"]
     outreach.write_text(tester_programme.outreach_markdown(
         spec.get("outreach_post") or tester_programme.OUTREACH_POST))

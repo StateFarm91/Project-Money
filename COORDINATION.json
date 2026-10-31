@@ -135,26 +135,20 @@
       "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department",
       "work_order": "brambleloop/research/final_build/w5/CODEX_WO_P0_LEARNING_REFERENCE.md",
       "background": "brambleloop/research/final_build/w5/LEARNING_MAP.md"
+    },
+    {
+      "id": "OPUS2-LEARNING-GAPS",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "head": "3cbf6e96/9c1a0037",
+      "state": "in_review",
+      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
     }
   ],
   "unowned": [
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
-    },
-    {
-      "id": "P0-GALLERY-ASSEMBLY",
-      "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant); INCLUDES: a photo-led / mixed variant of the disclosed listing-set certificate (listing_set.certify_disclosed refuses a mixed set today, so Launch-0 galleries cannot lead with the owner's unedited sample photo even after PHYSFIX-PHOTO ordering)"
-    },
-    {
-      "id": "P0-REVERIFY-WITHHOLD",
-      "priority": "P0",
-      "summary": "Found by W-INVENTORY: a failing quality.reverified audit row is kept only for a retention window and for_publish does not read it, so after pruning a product that failed re-verification can advance. Fix in runtime/quality_ops: a failed re-verification records a durable withholding (gate.release_withheld or equivalent) that for_publish already refuses on; test that pruning the audit row does not reopen the gate."
-    },
-    {
-      "id": "P0-DRAFT-CONSTRUCTIONS",
-      "priority": "P0",
-      "summary": "Catalogue breadth: the research-driven draft path (radar concept_to_cir) supports only flat_rows panels and drafts every concept in a category as the same striped panel (W-CONCEPT report). Needed: concept motif/premise reaching the CIR, plus construction families already supported by the compiler elsewhere (in-the-round vessels, motif assembly, colourwork charts) routed from intake concepts. Coordinate with integrator; touches radar/ and cir/ drafting."
     }
   ],
   "reviews": [
@@ -323,6 +317,54 @@
       "report_branch": "claude/w4-CONSTRUCTREVIEW-basket",
       "notes": "Rnd 10->11 COSMETIC (rounded edge over Rnds 11-13; height ~8.0-8.5 vs 8.7 cm, within 12%). Fix copy ('rise straight up', p5 checkpoint), visuals (crisp prism), kit fields (wall-height method, base_edge, corners_at_rim). Optional 1.3.0 BLO Rnd 11 = owner decision.",
       "recorded": "2026-10-31T08:05Z"
+    },
+    {
+      "subject": "PHYSFIX delta 2",
+      "sha": "29378b85+89eef1ec",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-89eef1e",
+      "notes": "R5 Med-High digest hashes notation not compiled stitches; R6 Med tester independence opt-in/leaky; R7 Low two cost figures",
+      "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "CONCEPT delta",
+      "sha": "bb680ec5",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-CONCEPT-bb680ec",
+      "notes": "G1 High queued cir.draft for a withdrawn concept runs ungated; G2 Low; G3 Med surviving mutants",
+      "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "PDF1 engine + 1.2.1",
+      "sha": "3f80da63",
+      "verdict": "CODE ACCEPT / PRODUCT CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PDF1-3f80da6",
+      "notes": "V1 High: basket renders draw a crisp prism (listing hero uncaptioned) - blocks sale; awaiting owner 1.3.0 decision. Chart Rnd6 marks illegible; L1-L5 Low",
+      "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "OPUS2 review B (54766c9e)",
+      "sha": "54766c9e",
+      "verdict": "NOT RUN",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2B-54766c9",
+      "notes": "reviewer session hit the 5-hour usage limit before writing; superseded by B2/C at 9c1a0037",
+      "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "OPUS2 B2 runtime/learning",
+      "sha": "9c1a0037",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2B2-9c1a003",
+      "notes": "chain successors, REVERIFY-WITHHOLD, scan evidence, commercial lessons, LEARNING-GAPS, authority",
+      "recorded": "2026-10-31T12:35Z"
+    },
+    {
+      "subject": "OPUS2 C product/visual",
+      "sha": "9c1a0037",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2C-9c1a003",
+      "notes": "review-A delta (size gate, laura_home), photo-led certificate, DRAFT-CONSTRUCTIONS, ba3be4e3",
+      "recorded": "2026-10-31T12:35Z"
     }
   ],
   "integration": {

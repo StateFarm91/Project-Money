@@ -130,23 +130,31 @@ class TesterRefused(ValueError):
     pass
 
 
-# Declared relationships that make a tester not independent (F-071 and the tester terms):
-# the owner, the owner's household or family, and anyone with a financial interest.
-NOT_INDEPENDENT = ("owner", "household", "family", "spouse", "partner", "parent", "child",
-                   "sibling", "relative", "financial", "investor", "shareholder", "employee",
-                   "paid by brambleloop", "business partner")
+# SECREVIEW R6 (89eef1e): independence is an ALLOW-LIST, not a keyword denylist. A tester
+# declares exactly one of these, normalised (case and punctuation ignored). Anything else --
+# family of any degree, a partner, someone in the owner's household, an employee or
+# contractor, anyone with a financial interest, or any free-text description -- is refused,
+# and the operator brings it to the owner instead.
+ALLOWED_RELATIONSHIPS = {"none": "none", "acquaintancedeclared": "acquaintance (declared)"}
+
+
+def _norm_relationship(text: str | None) -> str:
+    import re
+
+    return re.sub(r"[^a-z]", "", (text or "").lower())
 
 
 def independence_problems(relationship: str | None) -> list[str]:
-    """Why a declared relationship disqualifies a tester; [] when independent ('none')."""
-    text = (relationship or "").strip().lower()
-    if not text:
-        return ["no relationship declaration: a tester declares any relationship, or 'none'"]
-    if text in ("none", "no", "n/a", "no relationship"):
+    """Why a relationship declaration disqualifies a tester; [] for an allowed one."""
+    if relationship is None or not str(relationship).strip():
+        return ["no relationship declaration: a tester declares 'none' or "
+                "'acquaintance (declared)'"]
+    if _norm_relationship(relationship) in ALLOWED_RELATIONSHIPS:
         return []
-    hits = [w for w in NOT_INDEPENDENT if w in text]
-    return ([f"declared relationship {relationship!r} is not independent ({hits}): not the "
-             f"owner, not a household or family member, no financial interest"] if hits else [])
+    return [f"declared relationship {relationship!r} is not on the independence allow-list "
+            f"({sorted(ALLOWED_RELATIONSHIPS.values())}). Family of any degree, a partner, "
+            f"the owner's household, an employee or contractor and any financial interest "
+            f"are refused; bring any other declaration to the owner"]
 
 
 def record_agreement(db, *, handle_ref: str, specialties: list[str], express_consent: bool,
@@ -163,14 +171,14 @@ def record_agreement(db, *, handle_ref: str, specialties: list[str], express_con
     from ..core.models import CreatorProfile
     from ..growth import creators, owned
 
-    if relationship is not None or qualification is not None:
-        # The tester terms: a declared, independent relationship, and shown qualification.
-        problems = independence_problems(relationship)
-        if not (qualification or "").strip():
-            problems.append("no qualification evidence: a photo or link to a finished piece "
-                            "worked in joined rounds")
-        if problems:
-            raise TesterRefused("; ".join(problems))
+    # SECREVIEW R6: the tester terms are mandatory for every new agreement -- an allowed
+    # relationship declaration and qualification evidence. Absent is refused, never skipped.
+    problems = independence_problems(relationship)
+    if not str(qualification or "").strip():
+        problems.append("no qualification evidence: a photo or link to a finished piece "
+                        "worked in joined rounds")
+    if problems:
+        raise TesterRefused("; ".join(problems))
     if not express_consent:
         raise TesterRefused("no express consent recorded: a tester is somebody who agreed, "
                             "and CASL needs the agreement before we write to them")
@@ -193,7 +201,10 @@ def record_agreement(db, *, handle_ref: str, specialties: list[str], express_con
             raise TesterRefused(f"{scope!r} is not a permission scope: {creators.SCOPES}")
     permission = {"kind": "tester_agreement", "consent_version": CONSENT_VERSION,
                   "consent_basis": consent.basis, "consent_source": consent.source,
-                  "agreed_on": on.isoformat(), "photo_scopes": list(photo_scopes or [])}
+                  "agreed_on": on.isoformat(), "photo_scopes": list(photo_scopes or []),
+                  "independence": {
+                      "relationship": ALLOWED_RELATIONSHIPS[_norm_relationship(relationship)],
+                      "qualification": str(qualification).strip()[:300]}}
     with db.session() as s:
         row = s.scalar(select(CreatorProfile).where(CreatorProfile.ref == ref))
         if row is None:
