@@ -455,7 +455,9 @@ def listing_readiness(db, slug: str, *, now=None, trust_gate: dict | None = None
     gates = []
     with db.session() as s:
         listing = _latest_listing(s, slug)
-        live = bool(listing is not None and listing.state == "published"
+        from ..core.listing_state import is_live_on_etsy
+
+        live = bool(listing is not None and is_live_on_etsy(listing.state)
                     and (listing.etsy_listing_id or ""))
         gates.append({"gate": "listing_live", "status": PASS if live else FAIL,
                       "why": ("published with an Etsy listing id" if live else

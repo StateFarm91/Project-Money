@@ -195,6 +195,86 @@ function notYetAskableCard(env) {
     sourcesList(env.sources));
 }
 
+// W-ADOPT (E-4): link a listing made by hand in Etsy Shop Manager to its certified release.
+// The server reads the listing from Etsy (never writes), records VERIFIED or UNVERIFIED with
+// every difference, and blocks a second automated listing for that release. Step-up required.
+function adoptListingCard() {
+  const inp = (id, placeholder) => h("input", { id, type: "text", placeholder, required: true });
+  const lid = inp("adopt-listing-id", "Etsy listing id, from the listing URL");
+  const slug = inp("adopt-slug", "e.g. hexagon-coaster-set");
+  const version = inp("adopt-version", "e.g. 1.2.0");
+  const release = inp("adopt-release", "certified release hash (64 hex)");
+  const out = h("div", { class: "preview-out" });
+  const row = (label, el) => h("label", { class: "field" }, h("span", null, label), el);
+  const btn = h("button", { class: "btn btn-primary", type: "submit" }, "Adopt listing");
+  const form = h("form", { class: "stack" }, row("Etsy listing id", lid), row("Product slug", slug),
+    row("Version", version), row("Release hash", release), btn);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const params = { etsy_listing_id: lid.value.trim(), slug: slug.value.trim(),
+      version: version.value.trim(), release: release.value.trim() };
+    const body = await guardedAction({
+      title: `Adopt Etsy listing ${params.etsy_listing_id} as ${params.slug}@${params.version}?`,
+      lines: ["Reads the listing from Etsy and records what it holds; nothing is written to Etsy.",
+        "Differences from the certified package are recorded and open a review item.",
+        "Afterwards the system will not create another listing for this release."],
+      confirmLabel: "Adopt", requiresStepUp: true, reasonLabel: "Why are you deciding this?",
+      reasonRequired: true, run: (reason) => api.action("listing.adopt_manual", { ...params, reason }),
+      success: "Adoption recorded.",
+    });
+    const res = (body && body.result) || null;
+    if (!res) return;
+    const diffs = Array.isArray(res.differences) ? res.differences : [];
+    clear(out).append(h("div", { class: res.verification === "VERIFIED" && !diffs.length ? "callout callout-info" : "callout callout-warn" },
+      h("p", { class: "answer" }, `${res.verification}${res.repeat ? " (already adopted)" : ""}: Etsy listing ${res.etsy_listing_id}`),
+      diffs.length ? h("ul", null, diffs.map((d) => h("li", null, `${d.field}${d.note ? `: ${d.note}` : ""}`))) : null));
+  });
+  return card({ title: "Adopt a hand-made Etsy listing", labelId: "approvals-adopt",
+    subtitle: "For a listing you published yourself in Shop Manager" }, form, out, baselineForm(lid, slug, version));
+}
+
+// W-ADOPT-2: accept an adopted listing's live copy (your Shop Manager edits) as the baseline
+// the daily census compares against. Preview first: it reads Etsy, runs the Product Truth and
+// disclosure checks and shows a digest; Accept binds that digest and needs step-up.
+function baselineForm(lid, slug, version) {
+  const out = h("div", { class: "preview-out" });
+  let shown = null;
+  const params = () => ({ etsy_listing_id: lid.value.trim(), slug: slug.value.trim(), version: version.value.trim() });
+  const accept = h("button", { type: "button", class: "btn btn-primary", disabled: true }, "Accept live copy as baseline");
+  const preview = h("button", { type: "button", class: "btn" }, "Preview live copy");
+  preview.addEventListener("click", async () => {
+    preview.disabled = true; accept.disabled = true; shown = null;
+    try {
+      const r = await api.action("listing.baseline_preview", params());
+      shown = (r && r.result) || null;
+      const refusals = (shown && shown.refusals) || [];
+      const diffs = (shown && shown.differences_from_certified) || [];
+      clear(out).append(h("div", { class: refusals.length ? "callout callout-bad" : "callout callout-info" },
+        h("p", { class: "answer" }, refusals.length ? "Cannot be accepted:" : `Acceptable. Differs from the certified copy in ${diffs.length} field(s).`),
+        refusals.length ? h("ul", null, refusals.map((x) => h("li", null, x))) : null,
+        diffs.length ? h("ul", null, diffs.map((d) => h("li", null, `${d.field}${d.note ? `: ${d.note}` : ""}`))) : null,
+        h("p", { class: "mono" }, `Digest: ${(shown && shown.digest) || ""}`)));
+      accept.disabled = !(shown && shown.acceptable);
+    } catch (e) { toast(e.message, "bad"); }
+    finally { preview.disabled = false; }
+  });
+  accept.addEventListener("click", async () => {
+    if (!shown) return;
+    const body = await guardedAction({
+      title: `Accept the live copy of Etsy listing ${shown.etsy_listing_id} as its baseline?`,
+      lines: ["The daily census will compare this listing with exactly the copy you previewed.",
+        "Only changes made after now will raise a drift incident."],
+      confirmLabel: "Accept", requiresStepUp: true, reasonLabel: "Why are you deciding this?",
+      reasonRequired: true,
+      run: (reason) => api.action("listing.accept_baseline", { ...params(), expected_digest: shown.digest, reason }),
+      success: "Baseline accepted.",
+    });
+    if (body) { accept.disabled = true; shown = null; }
+  });
+  return h("div", { class: "stack" }, h("h3", null, "Accept your Shop Manager edits as the baseline"),
+    h("div", { class: "btn-row" }, preview, accept), out);
+}
+
 export async function render({ params, rerender }) {
   if (params[0]) {
     const result = await api.approval(params[0]);
@@ -228,6 +308,7 @@ export async function render({ params, rerender }) {
     // W4-LAUNCHFIX: Etsy policy page readings are recorded on their own view.
     card({ title: "Etsy policy readings" }, h("p", null, h("a", { href: "#/policy" }, "Record your reading of each Etsy policy page"))),
     releaseCard(data.release),
+    adoptListingCard(),
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,

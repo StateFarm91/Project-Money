@@ -359,7 +359,9 @@ def ads_plan(db, *, today: date | None = None) -> dict:
             reasons.append("ad_authority: " + authority["why"])
         if not gate["may_scale"]:
             reasons.append(f"trust (#17): {gate['blocking']}")
-        if not listing or listing["state"] != "published":
+        from ..core.listing_state import is_live_on_etsy
+
+        if not listing or not is_live_on_etsy(listing["state"]):
             reasons.append("no published listing to send traffic to")
         # F-263: search readiness per listing -- the stored search certificate (F-294, tags +
         # category + properties) must be PASS and current for the listing as it stands.
@@ -628,7 +630,9 @@ def plan_pins(db, items: dict, *, today: date, previous: dict | None,
             amplified = pins.amplify(winner, existing)
             if amplified["next_angles"]:
                 angles.append(amplified["next_angles"][0])
-        destination = f"listing:{listing['id']}" if listing and listing["state"] == "published" \
+        from ..core.listing_state import is_live_on_etsy
+
+        destination = f"listing:{listing['id']}" if listing and is_live_on_etsy(listing["state"]) \
             else ""
         keywords = tuple((listing or {}).get("tags", [])[:3])
         pin_set = [pins.Pin(product_slug=slug, angle=a, destination=destination,

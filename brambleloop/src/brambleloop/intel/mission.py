@@ -291,7 +291,9 @@ def mission_status(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                                        "verdict": d.get("verdict"),
                                        "pods": {k: (v or {}).get("verdict")
                                                 for k, v in (d.get("pods") or {}).items()}}
-        published = list(s.scalars(select(Listing).where(Listing.state == "published")))
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        published = list(s.scalars(select(Listing).where(Listing.state.in_(LIVE_ON_ETSY))))
         from ..commerce import orders_ingest as _oi
 
         orders = [(o.product_slug, float(o.revenue_cad or 0.0))

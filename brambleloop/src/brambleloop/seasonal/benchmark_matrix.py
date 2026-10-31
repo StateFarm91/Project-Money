@@ -136,10 +136,12 @@ def _our_department(db, department: str, event: str, today: date) -> dict:
                                  "blocked" if pv is not None and cert else
                                  "not_certified" if pv is not None else "no_release"),
                 "launch_date": (listing.created_at.date().isoformat()
-                                if listing is not None and listing.state == "published"
+                                if listing is not None
+                                and listing.state in ("published", "published_manually")
                                 else launch),
                 "launch_basis": ("published" if listing is not None
-                                 and listing.state == "published" else "planned_from_leadtime"),
+                                 and listing.state in ("published", "published_manually")
+                                 else "planned_from_leadtime"),
                 "traffic": visits if outcomes else UNMEASURED,
                 "conversion": (round(orders / visits, 4) if outcomes and visits and live
                                else UNMEASURED),
