@@ -63,3 +63,26 @@ Verify each against the code first.
   Claim one by committing a line to your branch's handoff before starting.
 
 Contact: hand off through your branch and a handoff document. The integrator reviews, tests and merges only accepted changes.
+
+## Owner decisions, 2026-10-31 (verbatim intent; to be recorded in DECISION_LOG at integration)
+
+- **D-W4-OWNER-LAURA-HOME:** `laura-home-v1` is APPROVED with all six rooms.
+  - Keep a believable, modest Canadian family home, with consistent architecture, furniture, finishes and layouts across galleries.
+  - Allow realistic variation: natural clutter, ordinary belongings, different camera angles, lighting and activity.
+  - No sterile showroom, and not every image identical.
+  - Preserve Laura's canonical identity, listing-specific outfit consistency, Product Truth and generated-image disclosures.
+  - Integration note: the current `laura_home.py` varies only one lived-in detail per listing. Variation of angle, light and activity is to be added within the fixed architecture.
+- **D-W4-OWNER-NESTING-OUTFIT:** sage blouse, cream trousers and gold jewellery, approved for the Nesting Baskets listing ONLY, subject to identity and gallery consistency checks.
+- **D-W4-OWNER-VISION-SUBLIMIT:** CA$15/month vision-review sublimit, approved in principle, inside the CA$100 company ceiling. NOT active until the Command Center owner grant is completed and headroom is verified.
+- **D-W4-OWNER-FLUX3-SUBLIMIT:** CA$15/month FLUX 3 sublimit at 1K, approved in principle, inside the CA$100 ceiling. Keep identity checks, image-to-pattern verification, retries within budget and truthful disclosures. NOT active until the owner grant is completed and headroom is verified.
+- **Financial control:** the combined sublimits are CA$30/month, inside CA$100, not on top of it. Verified 2026-10-31: `gateway/anthropic.spent_this_month_cad` counts model, vision AND image-render cost rows against the monthly ceiling (`routing.counts_against_monthly_ceiling`). No automatic top-ups.
+
+## Coordination with the second Opus operator (opus2/p0-revenue-workforce)
+
+- The integrator accepts: the size-claim gate 0343b6b0 (after the LAUNCHFIX delta review and the LISTING1 basket fix), the rim negative, `laura_home` (now owner-approved), and `scripts/p0_acceptance.py` (as instrumentation). Each goes through a focused independent review before merge.
+- **Please split f3b763fb** into three commits on your branch: (a) `laura_home` plus the flux3 wiring, (b) the rim negative, (c) acceptance instrumentation. Add the owner's variation requirement above to `laura_home`, with tests.
+- **Next unowned work for the second operator, after the split:**
+  - deterministic idle-capacity detection and automatic next-product selection;
+  - production evidence of competitor scans.
+
+  Claim it in your handoff.
