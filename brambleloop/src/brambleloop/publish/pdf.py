@@ -1470,7 +1470,7 @@ def _yarn_ball(c, cx: float, cy: float, r: float, rgb) -> None:
     c.setLineWidth(0.7)
     q = c.beginPath()
     q.moveTo(cx + r * 0.7, cy - r * 0.7)
-    q.curveTo(cx + r * 1.2, cy - r * 1.1, cx + r * 1.5, cy - r * 0.7, cx + r * 1.9, cy - r * 1.0)
+    q.curveTo(cx + r * 1.1, cy - r * 1.05, cx + r * 1.3, cy - r * 0.8, cx + r * 1.5, cy - r * 1.0)
     c.drawPath(q, fill=0, stroke=1)
     c.restoreState()
 
@@ -1690,7 +1690,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
               figure={"kind": "brand_artwork", "source": "brand.canonical_assets hero_logo "
                       "(owner artwork, exact, resampled to fit)", "label": "Brambleloop"})
     if sample_photo_placeholders:
-        doc.text(PAGE_W / 2, PAGE_H - 7 * mm, "PROOF COPY WITH PHOTO PLACEHOLDERS - NOT FOR SALE",
+        doc.text(PAGE_W / 2, PAGE_H - 4.6 * mm, "PROOF COPY WITH PHOTO PLACEHOLDERS - NOT FOR SALE",
                  FONT_UI_BOLD, MIN_BODY_PT, ACCENT, align="centre", track=0.8)
     title_y = PAGE_H - 8 * mm - logo_h - 12 * mm
     title_size = 34
@@ -2016,7 +2016,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         rgb = yarn_rgb.get(m.color_id or m.colorway or "", None)
         if rgb is not None:
             _yarn_ball(c, x + 12 * mm, row_top - card_h / 2, 7.5 * mm, rgb)
-        tx = x + 25 * mm
+        tx = x + 26 * mm
         letter = letters.get(m.color_id) if m.color_id else None
         tag = f"Colour {letter}" if letter else "Yarn"
         described = f"{m.name} ({m.yarn_weight})"
@@ -2029,7 +2029,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         doc.text(tx, row_top - 12.5 * mm, (m.colorway or m.name).capitalize(), FONT_DISPLAY_BOLD,
                  15, FOREST)
         yy = row_top - 17.5 * mm
-        card_lines = _wrap(c, described, FONT_BODY, 9.5, card_w - 28 * mm)
+        card_lines = _wrap(c, described, FONT_BODY, 9.5, card_w - 29 * mm)
         for line in card_lines:
             doc.text(tx, yy, line, FONT_BODY, 9.5, INK)
             yy -= 4.3 * mm
@@ -2040,7 +2040,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             if make_total > 1:
                 amount += f" for all {make_total}"
             doc.prose.append(amount)
-            for line in _wrap(c, amount, FONT_BODY_BOLD, 9.5, card_w - 28 * mm):
+            for line in _wrap(c, amount, FONT_BODY_BOLD, 9.5, card_w - 29 * mm):
                 doc.text(tx, yy, line, FONT_BODY_BOLD, 9.5, FOREST)
                 yy -= 4.3 * mm
         if yy < row_top - card_h + 2 * mm:
