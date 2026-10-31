@@ -1,0 +1,149 @@
+"""OPUS2-P0: P0-DRAFT-CONSTRUCTIONS -- a fallback draft is the construction its name promises.
+
+W-CONCEPT's finding: the radar fallback (`concept_to_cir`) drafted every concept as one flat
+striped panel. Every seed still reaching it is a shaped object, so a basket is now worked in
+the round from the concept's own repeat and palette, and a form no fallback rule makes is
+refused by name instead of drafted as a panel under its name.
+
+Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_opus2_draft_constructions.py
+"""
+from __future__ import annotations
+
+import _tmp; _tmp.install()  # noqa: E702
+import dataclasses
+import sys
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from brambleloop.cir.compiler import compile_cir  # noqa: E402
+from brambleloop.cir.model import CIR, Repeat  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.core.models import PatternVersion, Product  # noqa: E402
+from brambleloop.creative import fallback_constructions as F  # noqa: E402
+from brambleloop.gates import originality as O  # noqa: E402
+from brambleloop.radar.opportunity import POOL  # noqa: E402
+from brambleloop.runtime import pipeline  # noqa: E402
+
+FALLBACK = [s for s in POOL if pipeline._engineered_cir(s.slug) is None]
+
+
+def _db(slug):
+    db = Database(f"sqlite:///{tempfile.mkdtemp(prefix='opus2_dc_')}/d.sqlite")
+    db.create_all()
+    seed = pipeline._seed_for(slug)
+    with db.session() as s:
+        # An established earlier version: the real handler takes the fallback (as
+        # test_fallback_draft_provenance sets it up).
+        p = Product(slug=slug, title=seed.title)
+        s.add(p)
+        s.flush()
+        s.add(PatternVersion(product_id=p.id, version="0.9.0", cir_json={}, certified=True))
+    return db, seed
+
+
+def _payload(seed):
+    out = {k: v for k, v in dataclasses.asdict(seed).items() if not isinstance(v, tuple)}
+    out.update(pipeline.concept_geometry(seed))
+    return out
+
+
+def _draft(db, inputs):
+    emitted, audits = [], []
+    ctx = SimpleNamespace(db=db, job=SimpleNamespace(inputs=inputs),
+                          audit=lambda action, **kw: audits.append((action, kw)),
+                          enqueue=lambda role, kind, data, **kw: emitted.append((kind, data)))
+    return pipeline.handle_cir_draft(ctx), emitted, audits
+
+
+def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
+    assert FALLBACK
+    for seed in FALLBACK:
+        route = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle)
+        assert route["family"] in (F.VESSEL, F.REFUSED), (seed.slug, route)
+        if route["family"] == F.REFUSED:
+            assert route["needs"] and route["why"], seed.slug
+    assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
+    assert F.plan(category="blanket", title="Granny Throw")["family"] == F.FLAT_PANEL
+    assert F.plan(category="blanket", title="Baby Hat")["family"] == F.REFUSED
+    assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.REFUSED
+
+
+def test_a_basket_concept_drafts_a_vessel_that_compiles_and_carries_the_concept():
+    db, seed = _db("nordic-forest-basket")
+    inputs = _payload(seed)
+    result, emitted, audits = _draft(db, inputs)
+    assert result["drafted"] is True and result["construction"] == F.VESSEL, result
+    assert emitted[0][0] == "cir.compile"
+    cir = CIR.from_dict(emitted[0][1]["cir"])
+    assert cir.construction == "joined_rounds" and cir.components[0].foundation_kind == \
+        "magic_ring"
+    assert compile_cir(cir).ok
+    # The concept's own palette and stitch repeat are in the fabric, not a fixed table's.
+    assert set(cir.colors) == set(inputs["colors"])
+    used = {r.color for r in cir.components[0].rows}
+    assert used == set(inputs["colors"]), used
+    wanted = [tuple(x) for x in inputs["stitch_repeat"]]
+    walls = [r for r in cir.components[0].rows
+             if r.ops and isinstance(r.ops[0], Repeat)
+             and [(o.stitch, o.count) for o in r.ops[0].ops] == wanted]
+    assert walls, "the concept's repeat is worked in the walls"
+    # Provenance names the producer that actually made it, and still binds the concept.
+    prov = cir.provenance
+    assert prov is not None and prov.concept_key == seed.slug
+    assert set(F.VESSEL_PRIMITIVES) <= set(prov.primitives_used)
+    assert f"runtime.pipeline.concept_geometry:{seed.category}" in prov.primitives_used
+    codes = {f.code for f in O.provenance_findings(cir)}
+    assert not codes & {"PROVENANCE_MISSING", "PROVENANCE_INCOMPLETE", "PROVENANCE_NOT_OURS"}
+    drafted = [kw for a, kw in audits if a == "cir.drafted"]
+    assert drafted[0]["detail"]["construction"] == F.VESSEL
+    assert drafted[0]["detail"]["provenance"] == "recorded"
+
+
+def test_a_shaped_concept_is_refused_by_name_and_nothing_is_compiled():
+    for slug in ("woodland-fox-amigurumi", "alpine-slouch-beanie", "wedding-ring-cushion",
+                 "easter-egg-cosies", "lattice-triangle-shawl"):
+        db, seed = _db(slug)
+        result, emitted, audits = _draft(db, _payload(seed))
+        assert result["drafted"] is False and emitted == [], (slug, result)
+        refused = [kw for a, kw in audits if a == "cir.draft_refused"]
+        assert refused and refused[0]["detail"]["gate"] == "construction", (slug, audits)
+        assert refused[0]["detail"]["needs"], slug
+    # A bundle never reaches the fallback: the handler turns it away earlier, unchanged.
+    db, seed = _db("nordic-forest-bundle")
+    result, emitted, _ = _draft(db, _payload(seed))
+    assert result["drafted"] is False and result.get("is_bundle")
+    assert [k for k, _ in emitted] == ["collection.assemble"]   # assembled, never drafted
+
+
+def test_unknown_lineage_basket_is_still_drafted_without_provenance():
+    """The route never invents lineage: geometry the table did not produce stays unknown."""
+    db, seed = _db("nordic-forest-basket")
+    inputs = _payload(seed)
+    inputs["rows"] += 2
+    result, emitted, audits = _draft(db, inputs)
+    assert result["drafted"] is True
+    cir = CIR.from_dict(emitted[0][1]["cir"])
+    assert cir.provenance is None
+    drafted = [kw for a, kw in audits if a == "cir.drafted"]
+    assert drafted[0]["detail"]["provenance"].startswith("UNKNOWN")
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                import traceback
+
+                fails += 1
+                print("FAIL", name, repr(e))
+                traceback.print_exc()
+    print(f"{fails} failed")
+    sys.exit(1 if fails else 0)

@@ -361,3 +361,77 @@ kind). Tests: `tests/test_opus2_reverify_withhold.py` 4/4. The regression covers
 23 suites: every suite reading withholding, quality_ops, gate.quality or for_publish,
 plus the vacuity, retention, cost, roles, autonomy-timeline, maturity and launchfix guards.
 All exit 0.
+
+## 19. P0-DRAFT-CONSTRUCTIONS (claimed from `unowned`, 2026-10-31)
+
+**Problem (W-CONCEPT report).** The radar fallback `concept_to_cir` drafted every concept as
+one flat striped panel. Every seed still reaching it is a shaped object. That covers the two
+baskets, three amigurumi, a hat set, a beanie, two shawls, a tote, two garments, a stocking, a
+mobile, egg cosies, a pumpkin cluster and a ring cushion. A flat panel under those names is a
+pattern that does not make the thing it is called.
+
+**Built.**
+- `creative/fallback_constructions.py`:
+  - `plan(category, title, is_bundle)` returns `flat_panel`, `vessel` or `refused`, with
+    `needs` and `why`.
+  - `vessel(concept, provenance=)` builds a hexagon disc base from a magic ring
+    (`products.vessels._disc_rounds`, `base_stitches_for`). The base count is a whole number
+    of six wedges and of the concept's repeat. The walls alternate plain sc rounds (main
+    colour) with the concept's own repeat (accent). The size comes from the title (bread
+    gives small, market gives large, otherwise medium).
+- `runtime/pipeline.handle_cir_draft` fallback block, the only integration point:
+  - A refusal audits `cir.draft_refused` with `gate: construction`, `category` and `needs`,
+    and returns `drafted: False, gate: construction`.
+  - A vessel's provenance names `creative.fallback_constructions.vessel`,
+    `products.vessels._disc_rounds`, `products.vessels.base_stitches_for`,
+    `concept_geometry:<category>` and `gauge_for:<yarn>`. Unknown lineage still gets no
+    provenance, so the originality gate still refuses it.
+  - `cir.drafted` and the result carry `construction`.
+  - Flat forms are unchanged byte for byte. Bundles keep `collection.assemble`.
+- `tests/test_fallback_draft_provenance.py`: the pinned producer chain for
+  `nordic-forest-basket` is updated to the vessel chain. No other assertion changed, and the
+  digest is still recomputed independently.
+- Tests: `tests/test_opus2_draft_constructions.py`, 4/4. It checks that every fallback seed is
+  routed and none is a shaped object on a panel. The basket compiles in joined rounds from a
+  magic ring and carries the concept's palette and repeat. Shaped concepts are refused by
+  name with nothing compiled. Unknown lineage stays unknown.
+
+**Not done (honest).** In-the-round colourwork charts and motif assembly (granny squares,
+hexagon joins) are not fallback rules yet. Concepts that need them are refused by name. Those
+refusals are the evidence §20 counts. No flat colourwork seed reaches the fallback: all of
+them are engineered designs.
+
+## 20. P0-LEARNING-GAPS (new; owner directive 2026-10-31 §3 items 17-18 and §4)
+
+**Built.**
+- `intel/knowledge_gaps.py`:
+  - `LINES`: the owner's 12 intended product lines, each with a pod and catalogue categories.
+    No category is in two lines.
+  - `evidence(db)` counts per line: certified releases; `cir.draft_refused` rows with gate
+    `construction` over 30 days (with refused slugs and needs); `cir.compiled ok:false`; and
+    purchased `BenchmarkProduct` rows in the pod.
+  - `score` uses fixed weights: no certified release counts 3; each refusal counts 1, up to
+    3; each failed compile counts 1, up to 2.
+  - `assess(db)` records `OperatingReading` kind `learning.knowledge_gaps`. It raises at most
+    `MAX_OPEN=2` open `OwnerAction`s keyed `knowledge_gap:<line>`, one per pod. Each names the
+    listing `benchmark_refresh._pick` (`purchase_selection`) would buy, with its observed
+    price as the maximum cost.
+  - It never asks twice. It never recommends a second purchase for a line the library
+    already covers ("learning pending"). It never asks the owner to find a listing, and it
+    never buys.
+  - `latest(db)` lets Product Development and the owner view read the newest reading.
+- `runtime/learning_gaps_ops.py`: the `learning.knowledge_gaps` job.
+  - Agent `analyst`, action class O.
+  - Weekly cadence `knowledge_gaps` in `worker.CADENCES`.
+  - Work key `work_done`.
+  - Retention entry for `cir.draft_refused` (windowed).
+  - `autonomy_map.json` regenerated.
+- Tests: `tests/test_opus2_knowledge_gaps.py`, 6/6, including a real `cir.draft` refusal
+  becoming the amigurumi gap.
+
+**Boundary with Codex P0-LEARNING-REFERENCE.** This touches no files under `teardown/`, and
+not `improve/mine.py`, `improve/design_knowledge.py` or `quality/design_eval.py`. Codex's
+analysed `BenchmarkProduct` rows count automatically as library coverage. A covered line then
+stops recommending purchases until its teardown teaches something.
+**Suggested integrator hook:** once Codex's `DesignRule` exists, a gap line whose approved rules
+increase could lower its score. Not built, so as not to read an unmerged API.
