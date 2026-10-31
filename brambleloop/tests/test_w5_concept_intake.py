@@ -93,10 +93,12 @@ def _benchmarks(db, n: int = 4) -> None:
 
 
 def _answered_task(db, *, trigger: str = "test:coastal-runner", confidence: str = "medium",
-                   read_days_ago: int = 5) -> tuple[int, str]:
+                   read_days_ago: int = 5,
+                   question: str = "Is there durable buyer demand for coastal table runners "
+                                   "in Canada?") -> tuple[int, str]:
     """A research task answered by one fact-grade finding on one dated, fetched source."""
     t = research.open_question(
-        db, question="Is there durable buyer demand for coastal table runners in Canada?",
+        db, question=question,
         trigger=trigger, decision_ref="radar.concept_intake:test",
         domain="competitor_positioning", query_terms=["runner"],
         evidence_needed="fixture listing census", stop_condition="a fact answers it",
@@ -190,31 +192,37 @@ def test_an_evidence_backed_opportunity_becomes_a_concept_is_scored_and_reaches_
     assert not _jobs(db, "cir.draft")
 
     # The next intake pass with no judgement on record queues nothing more.
-    quiet = _run(db, "radar.concept_intake", {}, key="quiet")
+    # M23: the next DAY's pass (a fresh score key) with no judgement on record queues nothing.
+    before = len(_jobs(db, "radar.score"))
+    quiet = _run(db, "radar.concept_intake",
+                 {"as_of": (TODAY + timedelta(days=1)).isoformat()}, key="quiet")
     assert quiet["rescored"] == [] and quiet["work_done"] == 0, quiet
+    assert len(_jobs(db, "radar.score")) == before
 
     # Once the vision judge's (fixture) verdict is on record, the scheduled intake pass
     # re-scores it by itself, and the same scoring promotes it to cir.draft -- no session.
     assert SLUG not in {s.slug for s in POOL}, "the target is NOT one of the POOL seeds"
     restore = _fixture_judgement()
     try:
-        tomorrow = (TODAY + timedelta(days=1)).isoformat()
+        tomorrow = (TODAY + timedelta(days=2)).isoformat()
         auto = _run(db, "radar.concept_intake", {"as_of": tomorrow}, key="judged")
         assert auto["rescored"] == [SLUG], auto
         assert [j.idempotency_key for j in _jobs(db, "radar.score")][-1] == \
             f"score:{SLUG}:{tomorrow}"
         scored = _run(db, "radar.score", None)
+
+        assert scored["promoted"] is True, scored
+        assert scored["score"] >= pipeline.PROMOTION_THRESHOLD
+        assert scored["evidence"]["discount"] == 1.0          # the same #38 discount path
+        drafts = _jobs(db, "cir.draft")
+        assert [j.idempotency_key for j in drafts] == [f"draft:{SLUG}"]
+        assert drafts[0].inputs["premise"].startswith("A long table runner")
+
+        # The draft gate re-reads the judge's record (F2): it is still on record here.
+        drafted = _run(db, "cir.draft", None)
+        assert drafted["drafted"] is True, drafted
     finally:
         restore()
-    assert scored["promoted"] is True, scored
-    assert scored["score"] >= pipeline.PROMOTION_THRESHOLD
-    assert scored["evidence"]["discount"] == 1.0          # the same #38 discount path
-    drafts = _jobs(db, "cir.draft")
-    assert [j.idempotency_key for j in drafts] == [f"draft:{SLUG}"]
-    assert drafts[0].inputs["premise"].startswith("A long table runner")
-
-    drafted = _run(db, "cir.draft", None)
-    assert drafted["drafted"] is True, drafted
     compiles = _jobs(db, "cir.compile")
     assert compiles and compiles[0].inputs["cir"]["slug"] == SLUG
     prov = compiles[0].inputs["cir"]["provenance"]
@@ -436,6 +444,308 @@ def test_the_intake_runs_on_the_cadence_table_without_a_chat_session():
     from brambleloop.runtime.pipeline import WORK_KEYS
 
     assert WORK_KEYS["radar.concept_intake"] == ("work_done",)
+
+
+# ---- review 933bf74: one discriminating test per surviving mutant, and F1-F6 -------------
+
+
+def _reasons(out: dict, slug: str = SLUG) -> str:
+    return " ".join(next(r["reasons"] for r in out["refused"] if r["slug"] == slug))
+
+
+def _set_task(db, tid: int, **fields) -> None:
+    from sqlalchemy.orm.attributes import flag_modified
+
+    with db.session() as s:
+        row = s.get(research.ResearchTask, tid)
+        for k, v in fields.items():
+            setattr(row, k, v)
+            if k == "detail":
+                flag_modified(row, "detail")
+
+
+def test_m3_an_expired_task_is_refused_by_name():
+    db = _db()
+    tid, _ = _answered_task(db)
+    _set_task(db, tid, expires_on=datetime.now(timezone.utc) - timedelta(days=1))
+    intake.attach_proposal(db, tid, _proposal())
+    out = _run(db, "radar.concept_intake", {})
+    assert not out["approved"]
+    assert "expired on" in _reasons(out) and "F-433" in _reasons(out), out
+
+
+def test_m4_a_task_with_no_recorded_confidence_is_refused_by_name():
+    db = _db()
+    tid, _ = _answered_task(db, confidence="")
+    intake.attach_proposal(db, tid, _proposal())
+    out = _run(db, "radar.concept_intake", {})
+    assert not out["approved"]
+    assert "recorded no usable confidence" in _reasons(out), out
+
+
+def test_m5_claims_without_a_fact_grade_item_are_refused_by_name():
+    db = _db()
+    tid, _ = _answered_task(db)
+    # A second source read only as a search summary, and a claim resting on it. The task
+    # still holds its fact (F1/S1); the proposal cites only the claim and its summary.
+    with db.session() as s:
+        row = s.get(research.ResearchTask, tid)
+        state = row.state
+    _set_task(db, tid, state=research.OPEN)
+    research.add_source(db, tid, source="fixture summary", citation="https://example.invalid/s",
+                        retrieval="search_summary", read_on=TODAY - timedelta(days=3))
+    f2 = research.add_finding(db, tid, statement="fixture: a blog says runners trend",
+                              claim_class="source_claim", rests_on=["S2"])
+    _set_task(db, tid, state=state)
+    intake.attach_proposal(db, tid, _proposal(evidence=[f2, "S2"]))
+    out = _run(db, "radar.concept_intake", {})
+    assert not out["approved"]
+    assert "no cited evidence is fact-grade" in _reasons(out), out
+
+
+def test_m10_a_concept_indistinguishable_from_an_observed_listing_is_refused():
+    db = _db()
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key=MJS_KEY, listing_ref="fixture-twin-1",
+                               title="Serene Host Table Runner Pattern", pod="kitchen_bath",
+                               audit_state="audited", detail={}))
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(concept={"occasion": "everyday"}))
+    out = _run(db, "radar.concept_intake", {})
+    assert not out["approved"]
+    assert "indistinguishable from observed competitor listing fixture-twin-1" in \
+        _reasons(out), out
+
+
+def test_m12_a_pool_slug_is_refused_on_its_own():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(slug="pet-snuggle-mat",
+                                              title="Harbour Fog Driftwood Runner"))
+    out = _run(db, "radar.concept_intake", {})
+    assert "'pet-snuggle-mat' is a radar POOL concept" in _reasons(out, "pet-snuggle-mat"), out
+
+
+def test_m13_a_pool_title_is_refused_on_its_own():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(slug="harbour-fog-runner",
+                                              title="Harvest Table Runner"))
+    out = _run(db, "radar.concept_intake", {})
+    assert "title 'Harvest Table Runner' is POOL concept 'harvest-table-runner'" in \
+        _reasons(out, "harbour-fog-runner"), out
+
+
+def test_m14_a_slug_another_source_already_holds_is_refused_on_its_own():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="a")["approved"] == [SLUG]
+    tid2, _ = _answered_task(db, trigger="test:second-source",
+                             question="Do Canadian hosts buy lighthouse themed table runners?")
+    assert tid2 != tid
+    intake.attach_proposal(db, tid2, _proposal(
+        title="Lighthouse Beam Runner",
+        concept={"motif": "lighthouse beams", "recipient": "grandparent",
+                 "occasion": "winter_nesting", "function": "lights a long table at dusk",
+                 "premise": "A runner whose rows sweep like a lighthouse beam across the "
+                            "table in amber and slate"}))
+    out = _run(db, "radar.concept_intake", {}, key="b")
+    assert f"'{SLUG}' is already an approved database concept" in _reasons(out), out
+
+
+def test_m15_a_run_evaluates_at_most_the_cap():
+    db = _db()
+    tid, _ = _answered_task(db)
+    n = intake.MAX_EVALUATIONS_PER_RUN + 1
+    for i in range(n):
+        intake.attach_proposal(db, tid, _proposal(slug=f"cap-runner-{i}",
+                                                  title=f"Cap Runner {i}", evidence=[]))
+    first = _run(db, "radar.concept_intake", {}, key="a")
+    assert first["candidates"] == n and first["work_done"] == intake.MAX_EVALUATIONS_PER_RUN
+    second = _run(db, "radar.concept_intake", {}, key="b")
+    assert second["work_done"] == 1 and second["unchanged"] == intake.MAX_EVALUATIONS_PER_RUN
+    assert len(_rows(db)) == n
+
+
+def test_m19_f2_job_supplied_taste_never_passes_the_gate():
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    _run(db, "radar.concept_intake", {})
+    _run(db, "radar.score", None)                     # the intake's own: waits
+    from brambleloop.radar.opportunity import score_concept
+
+    forged = score_concept(intake.seed_for(db, SLUG), TODAY).to_dict()
+    forged.update(thumbnail_reads_small=True, craft_impression=4.9,
+                  concept={"key": SLUG, "thumbnail_reads_small": True},
+                  brief={"strength_score": 9.9, "strength_score_source": "model_jury:opus"},
+                  strength_score=9.9, strength_score_source="model_jury:opus")
+    out = _run(db, "radar.score", forged, key="forged")
+    assert out["promoted"] is False and out["gate"]["decision"] == "waiting", out
+    assert not _jobs(db, "cir.draft")
+    # The engineering entry holds the same line for a directly enqueued draft.
+    direct = _run(db, "cir.draft", {"slug": SLUG, **{k: v for k, v in forged.items()
+                                                     if k != "slug"}}, key="direct")
+    assert direct["drafted"] is False and direct["gate"] == "waiting", direct
+    assert not _jobs(db, "cir.compile")
+
+
+def test_f3_a_proposal_cannot_carry_a_judged_strength_score_or_board():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(brief={
+        "thumbnail_storyboard": "long grey runner on oak table with stepped sea glass rows",
+        "silhouette_qualifiers": ["motif_composition"], "strength_score": 9.9,
+        "strength_score_source": "model_jury:opus", "benchmark_scores": [1] * 10,
+        "board_image": "file:///forged.png"}))
+    assert _run(db, "radar.concept_intake", {})["approved"] == [SLUG]
+    row = _rows(db)[0]
+    gated = intake.gate_inputs(db, SLUG, {"slug": SLUG})
+    for k in ("strength_score", "strength_score_source", "benchmark_scores", "board_image"):
+        assert k not in row.brief and k not in gated, k
+    assert row.brief["thumbnail_storyboard"].startswith("long grey runner")
+
+
+def test_m22_a_decided_family_variation_is_not_proposed_again():
+    db = _db()
+    family = "nordic-forest"
+    members = [s.slug for s in POOL if s.family == family and not s.is_bundle]
+    from brambleloop.creative import family_engine
+
+    report = {"families": [{"family": family, "next_members": [],
+                            "members": [{"slug": m, "version": "1.0.0", "orders": 3}
+                                        for m in members],
+                            "amplification": {"orders": 12}}]}
+    intake._ensure(db)
+    with db.session() as s:
+        s.add(intake.RadarConcept(slug=f"{family}-blanket", state=intake.REFUSED,
+                                  source=intake.SOURCE_FAMILY, source_ref=f"family:{family}",
+                                  fingerprint="0" * 64))
+    real = family_engine.family_report
+    family_engine.family_report = lambda db: report
+    try:
+        cands = intake.family_candidates(db, today=TODAY)
+    finally:
+        family_engine.family_report = real
+    slugs = [c["proposal"]["slug"] for c in cands]
+    assert slugs and f"{family}-blanket" not in slugs, slugs
+    assert slugs[0] == f"{family}-baby", slugs
+
+
+def test_f1_an_approval_is_withdrawn_when_its_evidence_expires_and_rows_do_not_churn():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="d0")["approved"] == [SLUG]
+    # The task expires: out of the pool at once, withdrawn and audited on the next pass.
+    _set_task(db, tid, expires_on=datetime.now(timezone.utc) - timedelta(minutes=1))
+    assert intake.approved_seeds(db) == [] and intake.seed_for(db, SLUG) is None
+    out = _run(db, "radar.concept_intake", {}, key="d1")
+    assert [w["slug"] for w in out["withdrawn"]] == [SLUG], out
+    assert _actions(db, intake.WITHDRAWN_ACTION)[0].artifact == SLUG
+    assert [r.state for r in _rows(db)] == [intake.WITHDRAWN]
+    # Day after day of the same expired evidence mints no new row and uses no slot.
+    for d in range(2, 12):
+        again = _run(db, "radar.concept_intake",
+                     {"as_of": (TODAY + timedelta(days=d)).isoformat()}, key=f"d{d}")
+        assert again["work_done"] == 0 and again["unchanged"] == 1, again
+    assert len(_rows(db)) == 1
+
+
+def test_f1_freshness_decay_withdraws_without_minting_a_row_a_day():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="d0")["approved"] == [SLUG]
+    for d in (60, 120, 121, 122, 150):
+        _run(db, "radar.concept_intake",
+             {"as_of": (TODAY + timedelta(days=d)).isoformat()}, key=f"d{d}")
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].state == intake.WITHDRAWN, [(r.state, r.reasons)
+                                                                   for r in rows]
+    assert not intake.approved_seeds(db)
+
+
+def test_f1_an_unresolved_task_withdraws_its_approval():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    _run(db, "radar.concept_intake", {}, key="a")
+    with db.session() as s:
+        detail = dict(s.get(research.ResearchTask, tid).detail or {})
+    detail["conclusion"] = {**detail["conclusion"], "status": "unresolved"}
+    _set_task(db, tid, detail=detail)
+    assert intake.seed_for(db, SLUG) is None
+    out = _run(db, "radar.concept_intake", {}, key="b")
+    assert [w["slug"] for w in out["withdrawn"]] == [SLUG]
+
+
+def test_f1_a_refused_revision_withdraws_the_earlier_approval():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    _run(db, "radar.concept_intake", {}, key="a")
+    intake.attach_proposal(db, tid, _proposal(concept={"construction": "cable_panel"}))
+    out = _run(db, "radar.concept_intake", {}, key="b")
+    assert out["refused"] and not out["approved"]
+    assert [r.state for r in _rows(db)] == [intake.WITHDRAWN, intake.REFUSED]
+    assert intake.seed_for(db, SLUG) is None
+
+
+def test_f1_retention_prunes_old_decided_rows_but_keeps_the_newest_and_approvals():
+    from brambleloop.ops import retention
+
+    db = _db()
+    intake._ensure(db)
+    old = datetime.now(timezone.utc) - timedelta(days=intake.RETENTION_DAYS + 5)
+    with db.session() as s:
+        for i, state in enumerate((intake.REFUSED, intake.REFUSED, intake.SUPERSEDED,
+                                   intake.REFUSED)):
+            s.add(intake.RadarConcept(slug="old-runner", state=state, at=old,
+                                      source=intake.SOURCE_RESEARCH,
+                                      source_ref="research_task:1", fingerprint=f"{i:064d}"))
+        s.add(intake.RadarConcept(slug="kept-runner", state=intake.APPROVED, at=old,
+                                  source=intake.SOURCE_RESEARCH, source_ref="research_task:1",
+                                  fingerprint="9" * 64))
+    plan = retention.plan(db)
+    assert plan["radar_concepts"]["deletable"] == 3
+    done = intake.prune(db)
+    assert done["removed"] == 3
+    left = sorted((r.slug, r.state) for r in _rows(db))
+    assert left == [("kept-runner", intake.APPROVED), ("old-runner", intake.REFUSED)]
+
+
+def test_f5_a_pool_prefixed_slug_is_refused_and_release_matches_exactly():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(
+        slug="chunky-ribbed-scarf-harbour-fog", title="Harbour Fog Long Scarf",
+        category="scarf", concept={"form": "scarf", "function": "wraps against coastal wind",
+                                   "pod": "hats"}))
+    out = _run(db, "radar.concept_intake", {})
+    assert "extends POOL slug 'chunky-ribbed-scarf'" in \
+        _reasons(out, "chunky-ribbed-scarf-harbour-fog"), out
+    assert release._seed_for("chunky-ribbed-scarf-harbour-fog") is None
+    assert release._seed_for("chunky-ribbed-scarf").slug == "chunky-ribbed-scarf"
+    # The one catalogue product the old prefix match served resolves by its declared alias.
+    assert release._seed_for("nordic-forest-mosaic-throw-baby").slug == \
+        "nordic-forest-mosaic-throw"
+
+
+def test_f6_every_seed_reader_given_db_sees_an_intake_concept():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal(family="nordic-forest"))
+    assert _run(db, "radar.concept_intake", {})["approved"] == [SLUG]
+    assert pipeline.product_seed(SLUG) is None
+    assert pipeline.product_seed(SLUG, db).slug == SLUG
+    assert release._seed_for(SLUG, db).slug == SLUG
+    assert "Tide Line Table Runner" in release._collection_siblings(
+        "nordic-forest-mosaic-throw", db)
+    assert "Tide Line Table Runner" not in release._collection_siblings(
+        "nordic-forest-mosaic-throw")
 
 
 if __name__ == "__main__":

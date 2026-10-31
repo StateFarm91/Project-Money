@@ -1026,6 +1026,9 @@ def plan(db, *, now: datetime | None = None) -> dict:
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
         "reservations_kept_hours": reservations.KEEP_RELEASED_HOURS,
         "oauth_handshakes": oauth_store.prune_handshakes(db, now=now, dry_run=True),
+        # W5-CONCEPT: decided, non-approved intake rows past radar.intake.RETENTION_DAYS,
+        # keeping the newest row per (source, slug) -- its fingerprint is the idempotency key.
+        "radar_concepts": _radar_concepts(db, now=now, dry_run=True),
         "never_touched": {
             "cost_entries": ("every ceiling in the company is computed from these and the "
                              "ledger reconciles against them. About 1,200 rows a month"),
@@ -1070,9 +1073,11 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     # and a spent one is kept long enough that a replay is still answerable as a replay.
     # `oauth_credentials` is not in this function at all and must never be.
     handshakes = oauth_store.prune_handshakes(db, now=now, dry_run=bool(dry_run))
+    concepts = _radar_concepts(db, now=now, dry_run=bool(dry_run))
 
     removed = {"audit_log": 0, "jobs": 0, "dead_letters": 0,
-               "oauth_handshakes": handshakes["deletable" if dry_run else "removed"]}
+               "oauth_handshakes": handshakes["deletable" if dry_run else "removed"],
+               "radar_concepts": concepts["deletable" if dry_run else "removed"]}
     if not dry_run:
         with db.session() as s:
             for row_id in audit["deletable_ids"]:
@@ -1097,6 +1102,13 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
         "jobs": {k: v for k, v in jobs.items() if k != "deletable_ids"},
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
     }
+
+
+def _radar_concepts(db, *, now: datetime, dry_run: bool) -> dict:
+    """Imported lazily, like the OAuth handshakes: `radar.intake` owns its own rule."""
+    from ..radar import intake
+
+    return intake.prune(db, now=now, dry_run=dry_run)
 
 
 def _replay_memory_days() -> int:

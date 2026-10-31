@@ -61,6 +61,12 @@ REFUSED_ACTION = "concept.intake_refused"
 HANDOFF_ACTION = "concept.intake_handoff"
 
 PROPOSED, APPROVED, REFUSED, SUPERSEDED = "proposed", "approved", "refused", "superseded"
+# F1 (review 933bf74): an approval whose evidence went stale, expired or became unresolved.
+WITHDRAWN = "withdrawn"
+WITHDRAWN_ACTION = "concept.intake_withdrawn"
+# Retention (ops.retention calls `prune`): decided, non-approved rows older than this go,
+# except the newest row per (source_ref, slug), which carries the idempotency fingerprint.
+RETENTION_DAYS = 90
 SOURCE_RESEARCH, SOURCE_FAMILY = "research", "family"
 
 # Bounded per run: an intake that evaluates without limit is a worker that never finishes.
@@ -168,6 +174,11 @@ _SEED_FIELDS = ("slug", "title", "category", "price_cad", "maker_hours", "design
 _CONCEPT_FIELDS = ("premise", "pod", "form", "construction", "motif", "palette_story",
                    "recipient", "occasion", "feeling", "function")
 _JUDGED_FIELDS = ("thumbnail_reads_small", "craft_impression")
+# F3 (review 933bf74): brief fields that are JUDGED values -- a strength score and its judge,
+# benchmark scores, a grid board. Only their own producers (the jury, the grid record) may
+# supply them; a proposal that carries one is carrying a judgement nobody made.
+_JUDGED_BRIEF_FIELDS = ("strength_score", "strength_score_source", "benchmark_scores",
+                        "board_image")
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _WORD = re.compile(r"[a-z]+")
 
@@ -226,7 +237,10 @@ def fingerprint(source_ref: str, proposal: dict, evidence: dict) -> str:
     body = {"source_ref": source_ref, "proposal": proposal,
             "evidence": [{k: i.get(k) for k in ("ref", "kind", "date", "claim_class")}
                          for i in evidence.get("items") or []],
-            "quality": evidence.get("quality")}
+            # F1: the recorded facts, never the day-dependent quality -- freshness decay must
+            # not mint a new row every day. A re-answered task (new answer date) is new input;
+            # an approval whose evidence decays is WITHDRAWN by `withdraw_unsupported`.
+            "answered": evidence.get("answered")}
     return hashlib.sha256(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -238,7 +252,8 @@ def _clean(proposal: dict) -> dict:
                if k in _CONCEPT_FIELDS}
     from ..creative.preengineering import BRIEF_FIELDS
 
-    brief = {k: v for k, v in dict(p.get("brief") or {}).items() if k in BRIEF_FIELDS}
+    brief = {k: v for k, v in dict(p.get("brief") or {}).items()
+             if k in BRIEF_FIELDS and k not in _JUDGED_BRIEF_FIELDS}
     out = {k: p.get(k) for k in _SEED_FIELDS if p.get(k) is not None}
     if isinstance(out.get("maker_hours"), (list, tuple)):
         out["maker_hours"] = [float(x) for x in out["maker_hours"]]
@@ -283,7 +298,11 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
                        f"is not an approved opportunity")
     if conclusion.get("status") == "unresolved":
         reasons.append(f"research task {task_id} concluded unresolved")
-    now = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    # The moment evidence is judged at: the start of `today`, or the real time when `today`
+    # is today -- so an expiry earlier today is already an expiry (F1, review 933bf74).
+    now = max(datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
+              datetime.now(timezone.utc) if today >= datetime.now(timezone.utc).date()
+              else datetime.min.replace(tzinfo=timezone.utc))
     if expires is not None and expires <= now:
         reasons.append(f"research task {task_id} expired on {expires.date().isoformat()} "
                        f"(F-433): stale evidence is not current evidence")
@@ -352,7 +371,8 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
             "uncertainty": round(1.0 - quality, 3), "confidence": confidence,
             "fact_share": round(grade, 3), "freshness": round(freshness, 3),
             "oldest_evidence_days": age, "fresh_for_days": fresh_days,
-            "task": int(task_id), "domain": domain}
+            "task": int(task_id), "domain": domain,
+            "answered": answered.isoformat() if answered is not None else None}
 
 
 def attach_proposal(db, task_id: int, proposal: dict) -> dict:
@@ -401,13 +421,39 @@ def approved_rows(db) -> list[RadarConcept]:
         rows = list(s.scalars(select(RadarConcept).where(RadarConcept.state == APPROVED)
                               .order_by(RadarConcept.id)))
         s.expunge_all()
+    unsupported = _unsupported_research(db, rows)
     seen, out = set(), []
     for r in rows:
-        if r.slug in pool or r.slug in seen:
+        if r.slug in pool or r.slug in seen or r.id in unsupported:
             continue
         seen.add(r.slug)
         out.append(r)
     return out
+
+
+def _unsupported_research(db, rows) -> set[int]:
+    """F1: ids of approved research rows whose task is no longer an approved opportunity --
+    not ANSWERED, concluded unresolved, or past `expires_on` -- read from the task row at the
+    moment of use, so a stale approval is out of the pool even before `run` withdraws it."""
+    from ..intel import research
+
+    refs = {r.id: r.source_ref for r in rows if r.source == SOURCE_RESEARCH}
+    if not refs:
+        return set()
+    research._ensure(db)
+    ids = {int(v.split(":", 1)[1]) for v in refs.values()}
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        tasks = {t.id: t for t in s.scalars(select(research.ResearchTask)
+                                            .where(research.ResearchTask.id.in_(ids)))}
+        ok = set()
+        for tid, t in tasks.items():
+            expires = _aware(t.expires_on)
+            concl = (t.detail or {}).get("conclusion") or {}
+            if (t.state == research.ANSWERED and concl.get("status") != "unresolved"
+                    and (expires is None or expires > now)):
+                ok.add(tid)
+    return {rid for rid, ref in refs.items() if int(ref.split(":", 1)[1]) not in ok}
 
 
 def approved_seeds(db) -> list[ConceptSeed]:
@@ -451,10 +497,15 @@ def gate_inputs(db, slug: str, inputs: dict) -> dict:
         return dict(inputs)
     from ..creative import intake as creative_intake
 
-    out = dict(inputs)
-    for k in _JUDGED_FIELDS + ("concept",):
-        out.pop(k, None)
-    out.update(got["brief"])
+    from ..creative.preengineering import BRIEF_FIELDS
+
+    # F2 (review 933bf74): everything the gate judges comes from the database row or the
+    # vision judge's record. The job's own concept, brief, taste and strength fields are
+    # dropped, whoever enqueued it.
+    drop = set(_JUDGED_FIELDS) | set(_CONCEPT_FIELDS) | set(BRIEF_FIELDS) | {
+        "concept", "brief", "key", "make_lane", "provenance"}
+    out = {k: v for k, v in dict(inputs).items() if k not in drop}
+    out.update({k: v for k, v in got["brief"].items() if k not in _JUDGED_BRIEF_FIELDS})
     out.update({**got["concept"], "key": slug, "title": got["seed"].title,
                 "provenance": f"radar.intake:{got['source_ref']}"})
     judged = creative_intake.judgement_for(db, slug) or {}
@@ -526,6 +577,13 @@ def _originality_reasons(db, p: dict, built, source_ref: str) -> tuple[list[str]
     detail: dict = {}
     if any(s.slug == slug for s in POOL):
         reasons.append(f"duplicate: {slug!r} is a radar POOL concept")
+    else:
+        shadow = next((s.slug for s in POOL if slug.startswith(s.slug + "-")), None)
+        if shadow:
+            # F5: a slug a POOL slug prefixes is read as that POOL product's size variant by
+            # slug-prefix readers; it would be priced and listed as something it is not.
+            reasons.append(f"duplicate: {slug!r} extends POOL slug {shadow!r} and would be "
+                           f"read as its variant")
     est = preengineering.established(db, slug)
     if est:
         reasons.append(f"duplicate: {slug!r} is {est}")
@@ -854,6 +912,7 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
         "quality": ev.get("quality")})
     verdict = validate(db, candidate["proposal"], ev, source_ref=candidate["source_ref"])
     now = datetime.now(timezone.utc)
+    withdrawn_ids: list[int] = []
     with db.session() as s:
         row = s.get(RadarConcept, row_id)
         row.reasons = list(verdict["reasons"])
@@ -872,6 +931,20 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
                 old.state = SUPERSEDED
         else:
             row.state = REFUSED
+            # F1: a changed proposal for an approved (source_ref, slug) that is now refused
+            # takes the earlier approval with it -- the newest decision is the standing one.
+            for old in s.scalars(select(RadarConcept).where(
+                    RadarConcept.slug == slug, RadarConcept.state == APPROVED,
+                    RadarConcept.source_ref == candidate["source_ref"],
+                    RadarConcept.id != row_id)):
+                old.state = WITHDRAWN
+                old.reasons = list(old.reasons or []) + [
+                    f"withdrawn: its revised proposal (row {row_id}) was refused"]
+                withdrawn_ids.append(old.id)
+    for old_id in withdrawn_ids:
+        audit(WITHDRAWN_ACTION, artifact=slug, detail={
+            "row": old_id, "source_ref": candidate["source_ref"],
+            "reasons": [f"revised proposal row {row_id} was refused"]})
     if not verdict["ok"]:
         audit(REFUSED_ACTION, artifact=slug, detail={
             "row": row_id, "source_ref": candidate["source_ref"],
@@ -924,10 +997,81 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
     return out
 
 
+def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
+    """F1: an approval stands only while its evidence does. Each approved row is re-checked
+    against its source as of `today`; one that no longer passes (stale, expired, unresolved,
+    an unproven family) is WITHDRAWN -- out of the pool -- and audited with the reasons."""
+    _ensure(db)
+    with db.session() as s:
+        rows = list(s.scalars(select(RadarConcept).where(RadarConcept.state == APPROVED)
+                              .order_by(RadarConcept.id)))
+        s.expunge_all()
+    report = None
+    out = []
+    for row in rows:
+        refs = ((row.detail or {}).get("proposal") or {}).get("evidence") or []
+        if row.source == SOURCE_RESEARCH:
+            ev = research_evidence(db, int(row.source_ref.split(":", 1)[1]), refs, today=today)
+        else:
+            if report is None:
+                from ..creative.family_engine import family_report
+
+                report = {f["family"]: f for f in family_report(db).get("families") or []}
+            fam = report.get(row.source_ref.split(":", 1)[1])
+            ev = (family_evidence(db, fam, today=today) if fam is not None else
+                  {"ok": False, "reasons": [f"{row.source_ref} is no longer a certified "
+                                            f"family"]})
+            if fam is not None and not isinstance(fam.get("amplification"), dict):
+                ev = {**ev, "ok": False, "reasons": list(ev.get("reasons") or []) + [
+                    f"{row.source_ref} no longer has proven demand to amplify"]}
+        if ev.get("ok"):
+            continue
+        with db.session() as s:
+            r = s.get(RadarConcept, row.id)
+            r.state = WITHDRAWN
+            r.decided_at = datetime.now(timezone.utc)
+            r.reasons = list(r.reasons or []) + [f"withdrawn {today.isoformat()}: {x}"
+                                                 for x in ev.get("reasons") or []][:10]
+        audit(WITHDRAWN_ACTION, artifact=row.slug, detail={
+            "row": row.id, "source_ref": row.source_ref,
+            "reasons": list(ev.get("reasons") or [])[:5], "as_of": today.isoformat()})
+        out.append({"slug": row.slug, "reasons": list(ev.get("reasons") or [])[:3]})
+    return out
+
+
+def prune(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
+    """Retention for `radar_concepts` (called by `ops.retention`). Approved rows are never
+    pruned. Refused, superseded and withdrawn rows older than RETENTION_DAYS go, except the
+    newest row of each (source_ref, slug): its fingerprint is what keeps an unchanged refused
+    proposal from being re-evaluated."""
+    _ensure(db)
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=RETENTION_DAYS)
+    with db.session() as s:
+        rows = list(s.execute(select(RadarConcept.id, RadarConcept.source_ref,
+                                     RadarConcept.slug, RadarConcept.state, RadarConcept.at)
+                              .order_by(RadarConcept.id)).all())
+    newest: dict[tuple, int] = {}
+    for rid, ref, slug, _st, _at in rows:
+        newest[(ref, slug)] = rid
+    deletable = [rid for rid, ref, slug, st, at in rows
+                 if st in (REFUSED, SUPERSEDED, WITHDRAWN) and newest[(ref, slug)] != rid
+                 and at is not None and _aware(at) < cutoff]
+    if not dry_run and deletable:
+        with db.session() as s:
+            for rid in deletable:
+                row = s.get(RadarConcept, rid)
+                if row is not None:
+                    s.delete(row)
+    return {"rows": len(rows), "deletable": len(deletable),
+            "removed": 0 if dry_run else len(deletable), "retention_days": RETENTION_DAYS}
+
+
 def run(db, *, audit, enqueue, today: date | None = None) -> dict:
     """One intake pass: research proposals, then family variations. Bounded, idempotent."""
     _ensure(db)
     today = today or datetime.now(timezone.utc).date()
+    withdrawn = withdraw_unsupported(db, audit=audit, today=today)
     candidates = research_candidates(db, today=today) + family_candidates(db, today=today)
     decided, unchanged = [], 0
     for cand in candidates:
@@ -940,9 +1084,9 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
         decided.append(out)
     rescored = rescore_judged(db, audit=audit, enqueue=enqueue, today=today)
     return {"candidates": len(candidates), "unchanged": unchanged,
-            "rescored": rescored,
+            "rescored": rescored, "withdrawn": withdrawn,
             "approved": [d["slug"] for d in decided if d["state"] == APPROVED],
             "refused": [{"slug": d["slug"], "reasons": d.get("reasons", [])[:3]}
                         for d in decided if d["state"] == REFUSED],
-            "work_done": len(decided) + len(rescored), "network_calls": 0, "spend_cad": 0.0,
+            "work_done": len(decided) + len(rescored) + len(withdrawn), "network_calls": 0, "spend_cad": 0.0,
             "as_of": today.isoformat()}

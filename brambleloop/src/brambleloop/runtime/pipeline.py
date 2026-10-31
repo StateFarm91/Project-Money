@@ -192,19 +192,19 @@ def _seed_for(slug: str, db=None) -> ConceptSeed | None:
     return seed
 
 
-def product_seed(slug: str) -> ConceptSeed | None:
+def product_seed(slug: str, db=None) -> ConceptSeed | None:
     """The radar concept a PRODUCT slug was scored as: its own, or its retired alias (D-W5-7).
 
     For readers keyed on a certified product (teardown class, benchmark challenge, storefront
     strength). `_seed_for` stays exact for the drafting path, where a seed decides whether a
     payload is a new concept for the pre-engineering gate.
     """
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, db)      # F6: an approved intake concept answers too
     if seed is None:
         from ..products import launch0 as l0
 
         alias = l0.radar_concept_for(slug)
-        seed = _seed_for(alias) if alias else None
+        seed = _seed_for(alias, db) if alias else None
     return seed
 
 
@@ -389,8 +389,9 @@ def handle_radar_score(ctx: JobContext) -> dict:
         # holds (and the vision judge's record, if any) -- read here, never from the job.
         from ..radar import intake
 
-        intake_fields = {k: v for k, v in intake.gate_inputs(ctx.db, seed.slug, {}).items()}
-        c.update(intake_fields)
+        # F2 (review 933bf74): the job's own concept/brief/taste fields are dropped, not merged.
+        intake_fields = intake.gate_inputs(ctx.db, seed.slug, {})
+        c = intake.gate_inputs(ctx.db, seed.slug, c)
 
     today = _scan_date(ctx)
     rescored = score_concept(seed, today)
@@ -694,7 +695,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
 
     if (not preengineering.established(ctx.db, slug)
             and (seed is not None or isinstance(ctx.job.inputs.get("concept"), dict))):
-        gate = preengineering.gate_concept(ctx.db, dict(ctx.job.inputs))
+        gate_inputs = dict(ctx.job.inputs)
+        if seed is not None and seed.origin:
+            # F2: an intake concept is gated on its database row and the vision judge's
+            # record here too, so a directly enqueued cir.draft cannot carry its own taste.
+            from ..radar import intake as _intake
+
+            gate_inputs = _intake.gate_inputs(ctx.db, slug, gate_inputs)
+        gate = preengineering.gate_concept(ctx.db, gate_inputs)
         if not gate["engineer"]:
             effects = preengineering.record(ctx, gate, source="cir.draft")
             return {"artifact": slug, "drafted": False, "gate": gate["decision"],
@@ -1075,7 +1083,7 @@ def handle_certify(ctx: JobContext) -> dict:
         # the reason audited, before anything downstream is built for it.
         from ..teardown import lab as teardown_lab
 
-        seed = product_seed(cir.slug)
+        seed = product_seed(cir.slug, ctx.db)
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))

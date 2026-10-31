@@ -752,7 +752,10 @@ def test_an_inaccessible_shop_is_a_recorded_limitation_never_a_scan():
     # The member and its monitoring are preserved; it backs off rather than knocking.
     assert "ivyloop" in watchlist.BY_KEY
     assert next(x for x in again["shops"] if x["key"] == "ivyloop")["deferred"]
-    sm = watchlist.summary(db)
+    # W1 (review 933bf74): read at the scan's own time, with every other cause of
+    # DEGRADED absent, so the limitation alone is what the status reports.
+    sm = watchlist.summary(db, now=now + timedelta(hours=1))
+    assert not sm["stale"] and not sm["outages"] and not sm["waiting"], sm
     assert sm["status"] == "DEGRADED" and sm["not_accessible"], sm
     assert "not accessible since 2026-10-27" in sm["reason"]
 

@@ -215,7 +215,11 @@ def _released_on(ctx: JobContext, slug: str, version: str):
 
 
 def _seed_for(slug: str, db=None):
-    seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+    # F5 (review 933bf74): exact match only. The prefix match this replaced gave any slug that
+    # merely began with a POOL slug that POOL seed's category, price and season; the one
+    # catalogue product that relied on it (nordic-forest-mosaic-throw-baby) resolves through
+    # its declared Launch-0 alias below.
+    seed = next((s for s in POOL if s.slug == slug), None)
     if seed is None:
         # D-W5-7: a Launch-0 product the radar scored under a retired alias.
         alias = products_launch0.radar_concept_for(slug)
@@ -428,7 +432,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # pattern does not produce, and then checked by Asset Truth like any other asset.
     from ..cir.writer import write_pattern
 
-    siblings = _collection_siblings(slug)
+    siblings = _collection_siblings(slug, ctx.db)
     # #63: the creative brief is derived from the engineering evidence *before* the
     # conversion creative exists, so it constrains the frames rather than captioning them.
     from ..publish import brief as brief_mod
@@ -938,7 +942,7 @@ def _contribution_per_visitor_guard(ctx: JobContext, slug: str, category: str,
         return {"proposed_cad": proposed, "status": UNMEASURED_PRICE,
                 "why": "this listing has no recorded visits and measured orders yet"}
     peers = [r for k, r in rows.items() if k != slug
-             and (_seed_for(k).category if _seed_for(k) else "") == category]
+             and (getattr(_seed_for(k, ctx.db), "category", "") or "") == category]
     richer = [r for r in peers if r["price_cad"] > mine["price_cad"]
               and r["contribution_per_visitor"] > mine["contribution_per_visitor"]]
     with ctx.db.session() as s:
@@ -2342,7 +2346,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         maker_hours=seed.maker_hours if seed else (4.0, 12.0),
         season=seed.season if seed else None,
         price_cad=float(listing.get("price_cad") or i.get("price_cad") or 0.0),
-        siblings=_collection_siblings(slug))
+        siblings=_collection_siblings(slug, ctx.db))
 
     pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
     problems = content_mod.check_ecosystem(pieces, facts)
@@ -2591,12 +2595,15 @@ def handle_support_triage(ctx: JobContext) -> dict:
     return out
 
 
-def _collection_siblings(slug: str) -> list[str]:
-    """Other products in this product's family, for the cross-sell frame."""
-    seed = _seed_for(slug)
+def _collection_siblings(slug: str, db=None) -> list[str]:
+    """Other products in this product's family, for the cross-sell frame. With `db`, an
+    approved intake concept is a family member too (F6, review 933bf74)."""
+    from ..radar.intake import pool_with_intake
+
+    seed = _seed_for(slug, db)
     if seed is None or not seed.family:
         return []
-    return [m.title for m in POOL
+    return [m.title for m in pool_with_intake(db)
             if m.family == seed.family and m.slug != seed.slug and not m.is_bundle][:4]
 
 
@@ -2700,7 +2707,7 @@ def enqueue_member_collections(ctx: JobContext, member_slug: str, release_hash: 
     assemble from, keyed on the member's release so a re-run of the same certificate adds
     nothing.
     """
-    seed = _seed_for(member_slug)
+    seed = _seed_for(member_slug, ctx.db)
     if seed is None or seed.is_bundle or not seed.family:
         return []
     started = []
@@ -2740,7 +2747,7 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
 
     slug = ctx.job.inputs["slug"]
     family = ctx.job.inputs.get("family")
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     members = [m for m in POOL if m.family == family and not m.is_bundle]
     if not members:
         raise ValueError(f"{slug}: a bundle with no members cannot be assembled")

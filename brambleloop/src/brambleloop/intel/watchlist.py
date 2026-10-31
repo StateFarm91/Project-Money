@@ -546,14 +546,14 @@ def _assert_no_content(rep: dict) -> None:
 
 # ---- Laura's provider and the delegated review --------------------------------------------
 
-def summary(db) -> dict:
+def summary(db, *, now: datetime | None = None) -> dict:
     """Laura's `intelligence` provider.
 
     Review M-1: UNKNOWN while any watchlist shop has never been read, or cannot be read
     (no credential / refused credential) -- an unobserved watchlist is not OK. DEGRADED on a
     source outage, a stale observation, or a validated opportunity awaiting a decision.
     """
-    now = _now()
+    now = _now(now)
     outages, stale, unobserved, limited = [], [], [], []
     for m in WATCHLIST:
         if m.role == ANCHOR:
