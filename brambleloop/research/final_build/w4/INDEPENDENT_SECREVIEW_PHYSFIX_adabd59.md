@@ -177,8 +177,18 @@ left blank is left out, so the intake decides". Repro: `test_blank_followed_answ
 
 ## Suite runs (`PYTHONPATH=src:tests nice -n 19 python tests/<f>`, one at a time)
 
-- PHYSFIX `test_physfix`: **17/17 passed**.
-- PHYSFIX `test_physical`, `test_physical_record_blocked`, `test_risk_matrix`; PHOTO `test_physfix_photo_first`, `test_physfix`, `test_w4_launchfix`: still running when this was committed. Results go in a follow-up commit below.
+All exit 0, with no failures:
+- PHYSFIX `adabd597`:
+  - `test_physfix`: 17/17
+  - `test_physical`: 18 OK
+  - `test_physical_record_blocked`: exit 0
+  - `test_risk_matrix`: exit 0
+- PHOTO `23efd5dc`:
+  - `test_physfix_photo_first`: 4/4
+  - `test_physfix`: 17/17
+  - `test_w4_launchfix`: 22 passed, 0 failed
+
+The shipped suites are green. The findings come only from the adversarial tests below.
 
 Adversarial file: `brambleloop/research/final_build/w4/secreview_physfix_adversarial_tests.py`.
 Copy it to `brambleloop/tests/` on a PHYSFIX checkout to run it. Result on `adabd597`: **5/12
