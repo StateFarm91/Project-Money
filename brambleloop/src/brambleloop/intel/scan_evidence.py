@@ -177,7 +177,9 @@ def _anchor(db) -> dict:
         reason = (fail["error"] or str(fail["outputs"].get("reason") or "")[:300]
                   or f"latest mjs.scan job {fail['status']}")
     # Review OPUS2B2 F3.1: a failure newer than the last success is the anchor's state.
-    if reason is not None and fail is attempted:
+    # Review OPUS2D R1: judged on the latest FINISHED attempt, so a queued or running retry
+    # never hides the failure it is retrying.
+    if reason is not None and (ok is None or fail["id"] > ok["id"]):
         state = (NOT_ACCESSIBLE if re.search(_REFUSED_TEXT, reason, re.I) else ATTEMPTED)
     elif last_ok:
         state = SCANNED

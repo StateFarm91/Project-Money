@@ -737,3 +737,17 @@ constructions suite is 12/12.
 Every refusal is a `cir.draft_refused` row with `gate: construction` and `needs`. The weekly
 `learning.knowledge_gaps` job counts them per product line and raises capped owner-approval
 reference recommendations. That is how a blocked construction reaches Learning.
+
+## 31. Review OPUS2D (fb52cb9e): ACCEPT for Batch 5; every LOW item fixed (2026-10-31)
+
+Report: `claude/w5-SECREVIEW-OPUS2D-fb52cb9`. F2-1 and F3.1 are closed. All six
+recommendations are done:
+
+| Item | Fix | Test (mutation-checked where noted) |
+|---|---|---|
+| R1: the anchor reads "scanned" while a retry is queued or running | `_anchor` judges the latest **finished** attempt: `fail["id"] > ok["id"]`, not `fail is attempted`. | `test_review_opus2d_r1_a_queued_retry_never_hides_the_anchors_failure` (60-day success, 1-hour 403, pending retry → `not_accessible`) |
+| R2: the shared purchase cap is one-sided | `benchmark_refresh.assess` also counts open `knowledge_gap:` rows against `knowledge_gaps.MAX_PURCHASE_REQUESTS_OPEN`. That is a one-line counting change in `intel/benchmark_refresh.py`, which completes the cap opus2 introduced. | `test_review_opus2d_r2_benchmark_refresh_honours_the_shared_cap_too` |
+| R3: the `gate.quality` enqueue after re-certification was pinned only by source text | Behavioural test: the real `_persist_release` re-certifies under a new hash twice. Exactly one `gate.quality` is queued (idempotent per hash), and the withhold is carried. | `test_review_opus2d_r3_recertification_queues_exactly_one_gate_quality`. **Mutation killed:** with the enqueue disabled, the test fails. |
+| R4: no test exercises the SHA-256 match | Swapped-bytes test: the photo qualifies and is attested, then the leading frame points at other stored bytes. The certificate refuses. | `test_review_opus2d_r4_bytes_that_are_not_the_attested_photo_never_lead` |
+| R5: the new size patterns over-refuse | A hook or needle in, just before, or just after any match is tool advice. `vessel_count` covers storage sets only (baskets, bowls, bins, boxes, trays), never contents ("2 bags of yarn") or what a thing holds or stores. `named_range` letters are case-sensitive ("2x to 4x"), and a range of rounds, rows or stitches is the work, not a size. "bag pair of handles" is not a pair of bags. | `test_review_opus2d_r5_correct_copy_is_not_refused_and_real_claims_still_are`: every R5 phrase passes, and every earlier must-fail row still fails |
+| INFO: the handler's `slug=`/`rationale=` wiring was untested | Handler-level test with a non-alias basket seed whose size promise is only in its rationale. The real `cir.draft` refuses it. | `test_review_opus2d_the_handler_passes_slug_and_rationale_to_the_route` |

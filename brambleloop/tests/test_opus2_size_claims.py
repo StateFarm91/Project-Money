@@ -227,6 +227,23 @@ REVIEW_C_MUST_PASS = (
 )
 
 
+# Independent review OPUS2D (fb52cb9e), R5: correct copy the new patterns over-refused.
+REVIEW_D_MUST_PASS = (
+    "Materials: 4 mm / 4.5 mm hook", "Hook: 5 mm / 6 mm", "You will need 2 bags of yarn.",
+    "Store 2 tote bags in it.", "Holds 3 plant pots on a shelf.",
+    "A small and a large hook help.", "Repeat 2x to 4x as needed.",
+    "Worked from small to large rounds", "A tote bag pair of handles",
+)
+
+
+def test_review_opus2d_r5_correct_copy_is_not_refused_and_real_claims_still_are():
+    assert REVIEW_D_MUST_PASS and REVIEW_C_MUST_FAIL + REVIEW_MUST_FAIL
+    for t in REVIEW_D_MUST_PASS:
+        assert Z.check_texts({"listing description": t})["state"] == Z.PASS, t
+    for t in REVIEW_C_MUST_FAIL + REVIEW_MUST_FAIL:
+        assert Z.check_texts({"listing description": t})["state"] == Z.FAIL, t
+
+
 def test_review_opus2c_n11_n12_probe_rows_are_each_judged_as_the_review_expects():
     assert REVIEW_C_MUST_FAIL and REVIEW_C_MUST_PASS
     for t in REVIEW_C_MUST_FAIL:

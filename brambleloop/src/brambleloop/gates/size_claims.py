@@ -100,11 +100,14 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
                               rf"(?:[a-z]+\s+){{0,2}}?{_VESSEL}\b", re.I),
      lambda m: _to_int(m.group(1)) if m.group(1) else _GROUPED[m.group(2).lower()]),
     # Review OPUS2C N1.1: forms that got through.
-    ("vessel_group", re.compile(rf"\b{_VESSEL}\s+(trio|pair)\b", re.I),
+    ("vessel_group", re.compile(rf"\b{_VESSEL}\s+(trio|pair)\b(?!\s+of\b)", re.I),
      lambda m: _GROUPED[m.group(1).lower()]),
-    ("named_range", re.compile(rf"\b{_FULL}\s+(?:to|through|thru|-|–)\s+{_FULL}\b|"
-                               rf"(?<![\w/]){_TOK}\s+(?:to|through|thru)\s+{_TOK}(?![\w/])",
-                               re.I), lambda m: None),
+    # Review OPUS2D R5: size letters are case-sensitive here ("2x to 4x" is a repeat count),
+    # and a range of the work itself ("small to large rounds") is not a size promise.
+    ("named_range", re.compile(rf"\b(?i:{_FULL})\s+(?i:to|through|thru|-|–)\s+(?i:{_FULL})\b"
+                               rf"(?!\s+(?i:rounds?|rows?|stitch(?:es)?|sts)\b)|"
+                               rf"(?<![\w/]){_TOK}\s+(?:to|through|thru)\s+{_TOK}(?![\w/])"),
+     lambda m: None),
     ("multi_size", re.compile(r"\bmulti-?\s?sized?\b|\bmultiple\s+size\s+options?\b|"
                               r"\bgraduat(?:ing|ed)\s+sizes\b", re.I), lambda m: None),
     ("dimension_tail_unit", re.compile(
@@ -119,8 +122,13 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
     ("article_named", re.compile(rf"\ban?\s+{_FULL}\s*(?:,|&|\band\b)\s*(?:and\s+)?"
                                  rf"(?:an?\s+{_FULL}\s*(?:,|&|\band\b)\s*(?:and\s+)?)*"
                                  rf"an?\s+{_FULL}\b", re.I), _distinct_full),
-    ("vessel_count", re.compile(rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?{_VESSEL}"
-                                rf"(?:\s+set)?\b", re.I), _count_word),
+    # Review OPUS2D R5: only storage sets, never contents ("bags of yarn") or what a thing
+    # holds ("holds 3 plant pots", "store 2 tote bags").
+    ("vessel_count", re.compile(rf"(?<!\bstore\s)(?<!\bstores\s)(?<!\bholds\s)(?<!\bhold\s)"
+                                rf"(?<!\bfits\s)(?<!\bfit\s)(?<!\bcarry\s)(?<!\bcarries\s)"
+                                rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?"
+                                rf"(?:baskets?|bowls?|bins?|box(?:es)?|trays?)(?:\s+set)?\b"
+                                rf"(?!\s+of\b)", re.I), _count_word),
     ("named_plus", re.compile(rf"\b{_FULL}\s*\+\s*{_FULL}\b", re.I), _distinct_full),
     ("nesting", re.compile(r"\bnesting\b", re.I), lambda m: None),
     ("several_sizes", re.compile(r"\b(?:multiple|several|various)\s+sizes\b|"
@@ -133,6 +141,8 @@ _VESSEL_RX = re.compile(rf"\b{_VESSEL}\b", re.I)
 
 # A size word followed by these is advice about a hook or gauge, never a promise of sizes.
 _TOOL_BETWEEN = re.compile(r"\b(?:hook|needle)s?\b", re.I)
+_TOOL_BEFORE = re.compile(r"\b(?:hook|needle)s?\W{0,3}(?:\w+\W+){0,1}$", re.I)
+_TOOL_AFTER = re.compile(r"^\W{0,3}(?:\w+\W+){0,1}(?:crochet\s+)?(?:hook|needle)s?\b", re.I)
 _NOT_A_CLAIM_AFTER = re.compile(r"^\s*(?:larger|smaller|bigger|up|down)\b", re.I)
 _HOOK_BEFORE = re.compile(r"\b(?:hook|needle)s?\s*(?:\w+\s+){0,1}$", re.I)
 
@@ -178,6 +188,12 @@ def claims_in(text: str, *, graded_reference_ok: bool = False) -> list[dict]:
                                         or _HOOK_BEFORE.search(read[:m.start()])
                                         # Review OPUS2C N1.2: "two hook sizes" is advice.
                                         or _TOOL_BETWEEN.search(m.group(0))):
+                    continue
+                # Review OPUS2D R5: a hook or needle in, or just after, any match is tool
+                # advice ("4 mm / 4.5 mm hook", "a small and a large hook"), never a size.
+                if name != "count" and (_TOOL_BETWEEN.search(m.group(0))
+                                        or _TOOL_AFTER.match(read[m.end():])
+                                        or _TOOL_BEFORE.search(read[:m.start()])):
                     continue
                 found.append((name, m, count_of(m)))
         if _VESSEL_RX.search(read):

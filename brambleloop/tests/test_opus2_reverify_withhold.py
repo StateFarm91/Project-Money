@@ -174,6 +174,41 @@ def test_review_opus2b2_f21_a_recertification_keeps_the_failure_and_queues_the_c
         assert not list(s.scalars(_select(Job).where(Job.job_type == "gate.quality")))
 
 
+def test_review_opus2d_r3_recertification_queues_exactly_one_gate_quality():
+    """Behavioural: the real _persist_release re-certifies under a new release hash."""
+    from sqlalchemy import select as _select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, Phase
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline
+    from brambleloop.runtime.worker import JobContext
+
+    cir = D._cir()
+    db = D._db(cir)
+    real = _sim([{"ok": False, "problems": ["SIM drift"]}])
+    try:
+        D._run(db, "validator", "cir.twin", _ref(cir))
+    finally:
+        QO.reverify = real
+    with db.session() as s:
+        old = s.scalar(select(PatternVersion))
+        old_hash, old_cert = old.release_hash, dict(old.certificate or {})
+    q = JobQueue(db)
+    parent = q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    ctx = JobContext(job=parent, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    new_hash = ("f" if old_hash[:1] != "f" else "e") * 64
+    for _ in range(2):                                  # the same re-certification twice
+        pipeline._persist_release(ctx, cir, {"granted": True, "fresh": 1}, new_hash)
+    with db.session() as s:
+        jobs = list(s.scalars(_select(Job).where(Job.job_type == "gate.quality")))
+        pv = s.scalar(select(PatternVersion))
+        assert pv.release_hash == new_hash and pv.certificate.get("fresh") == 1
+    assert len(jobs) == 1, [j.idempotency_key for j in jobs]
+    assert jobs[0].idempotency_key.startswith(f"reverify-after-recert:{cir.slug}@")
+    assert _held(db, cir)["blocks_publish"] is True and W.REVERIFY_FAILED in old_cert
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

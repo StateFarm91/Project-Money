@@ -362,6 +362,28 @@ def test_a_hat_is_refused_naming_the_two_figures_the_sourced_chart_lacks():
         route["needs"]
 
 
+def test_review_opus2d_the_handler_passes_slug_and_rationale_to_the_route():
+    """A non-alias basket seed whose size promise is only in its rationale is refused by the
+    real handler: the wiring, not just plan(), carries the premise (review OPUS2D INFO)."""
+    import dataclasses
+
+    from brambleloop.radar import opportunity
+
+    i = next(k for k, sd in enumerate(opportunity.POOL) if sd.slug == "nordic-forest-basket")
+    original = opportunity.POOL[i]
+    opportunity.POOL[i] = dataclasses.replace(
+        original, rationale="Worked in the round in three sizes from one chart.")
+    try:
+        db, seed = _db("nordic-forest-basket")
+        result, emitted, audits = _draft(db, _payload(seed))
+    finally:
+        opportunity.POOL[i] = original
+    assert pipeline._seed_for("nordic-forest-basket") is original
+    assert result["drafted"] is False and result["gate"] == "construction", result
+    refused = [kw for a, kw in audits if a == "cir.draft_refused"][0]["detail"]
+    assert "one certified release per size" in refused["needs"] and emitted == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
