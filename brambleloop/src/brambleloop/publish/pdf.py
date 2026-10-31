@@ -981,6 +981,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # document has been laid out, and laying it out twice must not mean drawing a
     # two-thousand-pixel chart twice.
     art = _chart_art(cir, twin)
+    # The legend keyed in this document's own terminology (the chart art is shared by both).
+    art = dict(art, legend=render_legend(cir, twin, terminology=terminology))
 
     # Laid out until the count it prints is the count it has. Printing "of 7" on a document
     # that turned out to be 8 pages long is worse than printing nothing, because a customer
@@ -2277,32 +2279,39 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # The writer's own header (title, version, gauge, materials, terminology) as a strip.
     hdr = [h for h in parsed["header"]]
     if hdr:
+        # The writer's own header lines, set in full (never cut to fit): the short ones
+        # (version, terminology) share a row, the long ones (gauge, materials) get a row each.
         h_lines = [h for h in hdr if h != cir.title]
-        half = (len(h_lines) + 1) // 2
-        col_w = usable / 2 - 8 * mm
-        # Wrapped in full: a header line is the writer's text and is never cut to fit.
-        cols = [[_wrap(c, h, FONT_BODY, 9.5, col_w) for h in h_lines[:half]],
-                [_wrap(c, h, FONT_BODY, 9.5, col_w) for h in h_lines[half:]]]
-        rows_n = max(sum(len(w) for w in col) for col in cols)
-        hh = 5 * mm + rows_n * 4.8 * mm
+        short = [h for h in h_lines if len(h) <= 28]
+        long_ = [h for h in h_lines if len(h) > 28]
+        rows_: list[list[list[str]]] = []
+        if short:
+            rows_.append([[h] for h in short[:2]])
+            for h in short[2:]:
+                rows_.append([[h]])
+        for h in long_:
+            rows_.append([_wrap(c, h, FONT_BODY, 9.5, usable - 8 * mm)])
+        hh = 5 * mm + sum(max(len(cell) for cell in row) for row in rows_) * 4.8 * mm
         doc.need(hh + 4 * mm)
         top = doc.y + 2 * mm
         doc.panel(MARGIN, top, usable, hh, fill=SURFACE)
         if cir.title in hdr:
             doc.prose.append(cir.title)
-        for col_i, col in enumerate(cols):
-            yy = top - 5.8 * mm
-            for h, wrapped in zip(h_lines[:half] if col_i == 0 else h_lines[half:], col):
-                doc.prose.append(h)
-                for line in wrapped:
-                    doc.text(MARGIN + 4 * mm + col_i * usable / 2, yy, line, FONT_BODY, 9.5, INK)
-                    yy -= 4.8 * mm
+        yy = top - 5.8 * mm
+        for row in rows_:
+            for col_i, cell in enumerate(row):
+                doc.prose.append(" ".join(cell))
+                y2 = yy
+                for line in cell:
+                    doc.text(MARGIN + 4 * mm + col_i * usable / 2, y2, line, FONT_BODY, 9.5,
+                             INK)
+                    y2 -= 4.8 * mm
+            yy -= max(len(cell) for cell in row) * 4.8 * mm
         doc.y = top - hh - 6 * mm
     if stages:
-        doc.para("Each card shows the piece after the last round in it, drawn from this "
-                 "pattern's stitch data — a construction diagram, not a photograph. The rose "
-                 "outline marks the edge of the round just worked; the first rounds are drawn "
-                 "enlarged so they can be seen.", size=9.5, color=MUTED,
+        doc.para("Each card shows the piece after its last round: a construction diagram drawn "
+                 "from this pattern's stitch data, not a photograph. The rose outline is the "
+                 "round just worked; early rounds are shown enlarged.", size=9.5, color=MUTED,
                  font=FONT_BODY_ITALIC)
         doc.space(1 * mm)
     stage_for = {}
@@ -2603,7 +2612,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
              f"{pdf_fonts.LICENCE.split(' (')[0]}.", size=9.5, color=MUTED)
     doc.space(1 * mm)
     credit = "" if designer == COPYRIGHT_HOLDER else f" Designed by {designer}."
-    doc.para(f"(c) {released_on.year} {COPYRIGHT_HOLDER}. All rights reserved.{credit}",
+    doc.para(f"© {released_on.year} {COPYRIGHT_HOLDER}. All rights reserved.{credit}",
              size=9.5, color=MUTED)
     doc.space(1 * mm)
     doc.kv("release version", cir.version)
@@ -2682,7 +2691,7 @@ def _step_cards(doc: "_Doc", groups: list, yarn_rgb: dict, comp, head: str) -> N
     usable = PAGE_W - 2 * MARGIN
     gap = 5 * mm
     cw = (usable - gap) / 2
-    pic = 28 * mm
+    pic = 27 * mm
     tx_off = pic + 6 * mm
     tw = cw - tx_off - 4 * mm
     size = 9.5

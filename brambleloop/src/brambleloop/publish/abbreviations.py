@@ -407,7 +407,7 @@ NOTATION: tuple[tuple[str, str, re.Pattern[str]], ...] = (
     # the key is a second copy of a decision that already has a single source, so it points at
     # the source instead of answering.
     ("Rnd",
-     "round -- worked around the piece rather than in turned rows. How each round is "
+     "round — worked around the piece rather than in turned rows. How each round is "
      "started and finished is stated once, at the top of the instructions",
      re.compile(r"\bRnd\b")),
 )

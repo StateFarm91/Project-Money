@@ -250,6 +250,22 @@ def test_technique_notes_name_no_stitch_literally_and_localise():
                                   "increase", "fastening off"}
 
 
+def test_the_chart_legend_speaks_the_documents_terminology():
+    """A UK edition's legend keys `dc inc`, as its instructions do, not `inc (UK ...)`."""
+    cir = launch0.cir_for("hexagon_coasters")
+    twin = build_twin(cir, compile_cir(cir))
+    uk = charts.render_legend(cir, twin, terminology="UK")
+    us = charts.render_legend(cir, twin, terminology="US")
+    bilingual = charts.render_legend(cir, twin)
+    assert uk.tobytes() != us.tobytes() != bilingual.tobytes()
+    _cir, doc = _doc("hexagon_coasters", "UK")
+    reader = PdfReader(io.BytesIO(doc.pdf_bytes))
+    legend_page = next(f["page"] for f in doc.figures if f["kind"] == "chart_legend")
+    images = reader.pages[legend_page - 1].images
+    assert any(im.image.convert("RGB").tobytes() == uk.convert("RGB").tobytes()
+               for im in images), "the UK document does not carry the UK legend"
+
+
 def test_text_and_graphics_clear_their_contrast_floors():
     for fg, bg in ((pdf.INK, pdf.PAPER), (pdf.MUTED, pdf.PAPER), (pdf.ACCENT, pdf.PAPER),
                    (pdf.TAUPE, pdf.PAPER), (pdf.INK, pdf.SURFACE), (pdf.MUTED, pdf.SURFACE),

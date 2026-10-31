@@ -971,11 +971,17 @@ def render_any_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     return render_chart(cir, twin, spec, caption=caption)
 
 
-def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> Image.Image:
+def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None, *,
+                  terminology: str | None = None) -> Image.Image:
     """A legend covering exactly the stitches and colours the chart actually uses.
 
     Listing every stitch in the taxonomy would be padding; listing fewer than the chart uses
     would be a defect. Both are derived from the twin so neither can happen.
+
+    `terminology` set: each stitch is keyed by the token and name the document in that
+    terminology uses (`publish.abbreviations`), so a UK pattern's legend says `dc inc` where its
+    instructions do, instead of the canonical US code with a UK gloss beside it. Unset (the
+    standalone chart asset), the bilingual US-code form is kept.
     """
     spec = spec or ChartSpec()
     row_h = 34
@@ -1003,12 +1009,19 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     for code in stitches:
         d.rectangle([24, y, 24 + 24, y + 24], fill=CREAM, outline=LINE)
         d.text((36, y + 12), GLYPHS.get(code, code[:1]), font=body, fill=INK, anchor="mm")
-        try:
-            st = taxonomy.get(code)
-            name = f"{st.name_us}  (UK {st.name_uk})"
-        except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
-            name = code
-        d.text((64, y + 12), f"{code}   {name}", font=body, fill=INK, anchor="lm")
+        if terminology:
+            from . import abbreviations
+
+            label = (f"{abbreviations.token(code, terminology)}   "
+                     f"{abbreviations.meaning(code, terminology)}")
+        else:
+            try:
+                st = taxonomy.get(code)
+                name = f"{st.name_us}  (UK {st.name_uk})"
+            except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
+                name = code
+            label = f"{code}   {name}"
+        d.text((64, y + 12), label, font=body, fill=INK, anchor="lm")
         y += row_h
 
     y += 8
