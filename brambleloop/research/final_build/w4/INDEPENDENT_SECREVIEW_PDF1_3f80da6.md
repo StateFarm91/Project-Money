@@ -31,7 +31,24 @@ INTEG8-trial-adopt was not reviewed.
 
 ## Tests (run one at a time, `PYTHONPATH=src:tests nice -n 19 python tests/<f>`)
 
-_Test run in progress; results are appended in the next commit._
+All 12 pass at 3f80da63.
+
+| Test | Result | Time |
+|---|---|---|
+| test_pdf_premium | OK (21 tests) | 109 s |
+| test_value_stack | OK. The first run failed only because `sqlalchemy` was missing from this container; it passed after `pip install -r requirements.txt` | — |
+| test_pdf_layout_bounds | OK | 3 s |
+| test_accessibility | OK | 159 s |
+| test_childrens | OK | 0 s |
+| test_launch0 | OK | 41 s |
+| test_launch0_listing_truth | OK (14) | 424 s |
+| test_cert_listing_frames | PASS, 0 failing | 87 s |
+| test_search_hero_publish | 4/4 passing | 139 s |
+| test_originality | 28 passing, 0 failing | 18 s |
+| test_k9_graded_truth | 8 passing, 0 failing | 8 s |
+| test_deliverable_qa | OK (61), including `test_every_piece_of_type_inside_a_chart_clears_the_brands_minimum` and `test_the_listing_chart_shows_what_the_document_shows` (the 58 px pin) | 898 s |
+
+The move of the chart face to Work Sans breaks none of `render_verification`, originality or the listing-frame certificates.
 
 ## 1. Code safety and integrity
 
