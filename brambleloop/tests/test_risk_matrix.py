@@ -71,7 +71,11 @@ def _launch0():
     from brambleloop.products import launch0
 
     out = {}
-    for slug in launch0.LAUNCH0_SLUGS:
+    # LISTING1 (D-W4-OWNER-BASKET-IDENTITY): the three-size basket family is held for
+    # verification, not launched, but its CIRs stay in launch scope and gated
+    # (`launch0.launch_scope_slugs`). It is read through that held path, so the medium
+    # basket's Class B requirements are still asserted.
+    for slug in tuple(launch0.LAUNCH0_SLUGS) + tuple(launch0.HELD_FOR_VERIFICATION):
         for v in launch0.candidate(slug).variants:
             cir = launch0.cir_for(v.build)
             out[cir.slug] = cir

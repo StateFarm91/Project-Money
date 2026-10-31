@@ -293,11 +293,6 @@ if __name__ == "__main__":
     (HERE / "GATE_CLEARANCE_BUSINESS.json").write_text(json.dumps(data, indent=1,
                                                                   default=str) + "\n")
     (HERE / "GATE_CLEARANCE_BUSINESS.md").write_text(render(data))
-    (HERE / "tester_kit" / "OUTREACH.md").write_text(
-        "# Tester call -- prepared, NOT SENT (owner confirmation required)\n\n"
-        f"Channel: {tester_programme.CHANNEL['primary']}\n\n"
-        f"**{tester_programme.OUTREACH_POST['title']}**\n\n"
-        f"{tester_programme.OUTREACH_POST['body']}\n\n## Consent text\n\n"
-        f"{tester_programme.CONSENT_TEXT}\n")
+    (HERE / "tester_kit" / "OUTREACH.md").write_text(tester_programme.outreach_markdown())
     print("wrote GATE_CLEARANCE_BUSINESS.{json,md}, tester_kit/OUTREACH.md",
           data["totals"])

@@ -336,9 +336,18 @@ def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it
     assert _certify(db, relabel).get("halted_by_incident") is True, "a relabel certified"
     assert tracker.publication_halted(cir.slug), "a relabel lifted the halt"
 
-    fixed = _basket_medium()
-    fixed.version = "1.3.1"
-    fixed.title = fixed.title + " (revised)"        # a different design
+    # SECREVIEW R1: cosmetic edits are the same design -- none certifies past the halt.
+    for edit in (lambda c: setattr(c, "title", c.title + " (revised)"),
+                 lambda c: setattr(c, "title", c.title + " "),
+                 lambda c: setattr(c, "designer_notes", (c.designer_notes or "") + " Enjoy!"),
+                 lambda c: c.materials.reverse()):
+        same = _basket_medium()
+        same.version = "1.3.0"
+        edit(same)
+        assert _certify(db, same).get("halted_by_incident") is True, "a cosmetic edit certified"
+    assert tracker.publication_halted(cir.slug)
+
+    fixed = _geometry_changed_medium("1.3.1")       # a genuinely different made object
     result = _certify(db, fixed)
     assert not result.get("halted_by_incident") and result.get("granted"), result
     assert tracker.publication_halted(fixed.slug), "certification alone lifted the halt"
@@ -362,6 +371,38 @@ def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it
         assert inc.resolved and inc.detail.get("fixed_in_version") == "1.3.1", inc.detail
 
 
+def _geometry_changed_medium(version: str):
+    """The medium basket with one more straight wall round: a different made object."""
+    import copy
+
+    c = _basket_medium()
+    c.version = version
+    rows = c.components[0].rows
+    extra = copy.deepcopy(rows[-1])
+    extra.index = rows[-1].index + 1
+    rows.append(extra)
+    return c
+
+
+def test_the_design_digest_is_geometry_only():
+    """SECREVIEW R1: labels, notes, whitespace and list order are not the design; rows are."""
+    base = physical.design_digest(_basket_medium())
+    assert base
+    for edit in (lambda c: setattr(c, "version", "9.9.9"),
+                 lambda c: setattr(c, "title", c.title + " (revised)"),
+                 lambda c: setattr(c, "title", c.title + " "),
+                 lambda c: setattr(c, "designer_notes", (c.designer_notes or "") + " x"),
+                 lambda c: c.materials.reverse(),
+                 lambda c: setattr(c.components[0], "name", "bowl")):
+        c = _basket_medium()
+        edit(c)
+        assert physical.design_digest(c) == base
+    assert physical.design_digest(_geometry_changed_medium("1.2.0")) != base
+    gauge = _basket_medium()
+    gauge.gauge.stitches_per_10cm += 1.0
+    assert physical.design_digest(gauge) != base
+
+
 def test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt():
     from brambleloop.gates.incidents import IncidentTracker
 
@@ -374,6 +415,30 @@ def test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt():
                                               tester_ref="tester-2"))
     assert (job.outputs or {}).get("size_halts_lifted") == [], job.outputs
     assert IncidentTracker(db).publication_halted(cir.slug)
+    # SECREVIEW R1: two makes of one geometry disagree, so the owner decides.
+    assert str((job.outputs or {}).get("owner_review") or "").startswith(
+        "physical_size_conflict:"), job.outputs
+    # ...and a retitle of the same geometry is still the same design.
+    retitled = _basket_medium()
+    retitled.version = "1.3.0"
+    retitled.title += " (revised)"
+    assert _certify(db, retitled).get("halted_by_incident") is True
+    job = _run(db, "physical.record", _inputs(retitled, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-3"))
+    assert IncidentTracker(db).publication_halted(cir.slug), job.outputs
+
+
+def test_a_piece_height_that_is_not_a_number_is_refused():
+    """SECREVIEW R3: a given height is checked like the width, never skipped."""
+    db = _db()
+    cir = _coasters()
+    _certify(db, cir)
+    good = _inputs(cir, scope="full_make", made={"coaster": 4}, lies_flat=True)
+    for bad in ("8.3", -1, True):
+        pieces = [dict(p) for p in good["piece_measurements"]]
+        pieces[1]["height_cm"] = bad
+        _run(db, "physical.record", dict(good, piece_measurements=pieces))
+    assert _rows(db) == [], [r.measured.get("piece_measurements") for r in _rows(db)]
 
 
 def test_followed_exactly_must_be_a_real_yes_or_no():
@@ -511,6 +576,81 @@ def test_the_basket_kit_asks_for_the_unedited_hero_and_carries_no_nursery_wordin
     assert {a for _k, _l, a in spec["fields"]} >= {"lies_flat", "holds_shape", "problem_notes"}
 
 
+def test_the_basket_records_the_construction_review_observations():
+    """CONSTRUCTION_REVIEW_basket_small_1.2.0 §5: wall-height method, base edge, rim corners,
+    rim span and an optional round-11 height are structured fields, typed at intake."""
+    from brambleloop.quality import tester_kit
+
+    spec = tester_kit.KITS["basket_small"]
+    apis = {a for _k, _l, a in spec["fields"]}
+    assert apis >= {"inside_depth_cm", "base_edge", "wall_vertical_from_rnd", "corners_at_rim",
+                    "rim_across_points_cm", "rnd11_height_cm"}, apis
+    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.2.0-RECORD-SHEET.pdf").split())
+    for needle in ("OUTSIDE: from the flat table to the top of the rim, at the middle of a flat "
+                   "side", "crisp fold, or a rounded curve", "corners still visible at the rim"):
+        assert needle in text, needle
+    _, chash = tester_kit.content_hash("basket_small")
+    payload = tester_kit.intake_payload(
+        {"tester_ref": "t", "made_basket": "1", "base_edge": "rounded curve",
+         "wall_vertical_from_rnd": "13", "corners_at_rim": "no", "rim_points": "15.2",
+         "followed": "yes"}, content_hash=chash, key="basket_small")
+    assert payload["base_edge"] == "rounded" and payload["wall_vertical_from_rnd"] == 13
+    assert payload["corners_at_rim"] is False and payload["rim_across_points_cm"] == 15.2
+
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    obs = {"base_edge": "rounded", "wall_vertical_from_rnd": 13, "corners_at_rim": "no",
+           "rim_across_points_cm": 15.2, "inside_depth_cm": 7.9, "rnd11_height_cm": 1.4}
+    for bad in ({"base_edge": "rounded"}, {"base_edge": "wobbly"},
+                {"rim_across_points_cm": "15"}, {"corners_at_rim": "maybe"},
+                {"wall_vertical_from_rnd": 12.5}):
+        _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True, **bad))
+    assert _rows(db) == [], [r.measured.get("observations") for r in _rows(db)]
+    _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True, **obs))
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].passed is True, rows and rows[0].measured["findings"]
+    stored = rows[0].measured["observations"]
+    assert stored["base_edge"] == "rounded" and stored["corners_at_rim"] is False
+    assert stored["wall_height_method"] == physical.WALL_HEIGHT_METHOD
+
+
+def test_tester_terms_one_independent_qualified_tester_and_an_all_inclusive_ceiling():
+    from brambleloop.quality import tester_kit, tester_programme as tp
+
+    for key, spec in tester_kit.KITS.items():
+        kit = spec["kit"]
+        call = (KIT_DIR / spec["outreach"]).read_text()
+        assert "ONE tester" in call and "1-3" not in call, key
+        for needle in ("not the shop's owner", "household or family",
+                       "no financial interest", "relationship", "joined rounds",
+                       "fee-free transfer", f"CA${kit['tester_receives_cad']:.2f}"):
+            assert needle in call, (key, needle)
+        assert kit["testers"] == 1
+        # The ceiling is all-inclusive and covers what the tester receives.
+        assert kit["tester_receives_cad"] <= kit["ceiling_all_inclusive_cad"], key
+    basket = tester_kit.KIT
+    assert round(2.795 * 20.0, 2) + 2 * 5.00 == basket["tester_receives_cad"] == 65.90
+    assert basket["ceiling_all_inclusive_cad"] == 66.00
+    assert tp.outreach_markdown() == (KIT_DIR / "OUTREACH.md").read_text()
+    fields = {f for f, _l, _r in tp.INTAKE_FIELDS}
+    assert {"relationship", "qualification"} <= fields
+    db = _db()
+    for rel, qual in (("I am the owner's sister", "https://x/y"), ("none", ""),
+                      ("", "https://x/y"), ("I hold shares (financial interest)", "photo.jpg")):
+        try:
+            tp.record_agreement(db, handle_ref="t", specialties=["home_decor"],
+                                express_consent=True, consent_source="form",
+                                relationship=rel, qualification=qual)
+        except tp.TesterRefused:
+            continue
+        raise AssertionError(f"accepted a tester who is not independent/qualified: {rel!r}")
+    out = tp.record_agreement(db, handle_ref="t2", specialties=["home_decor"],
+                              express_consent=True, consent_source="form",
+                              relationship="none", qualification="https://ravelry/x")
+    assert out
+
+
 def test_both_kits_rebuild_byte_identical_from_the_one_builder():
     from brambleloop.quality import tester_kit
 
@@ -567,14 +707,21 @@ def test_a_sample_proves_one_size_and_the_first_customer_evidence_says_which():
     job = _run(db, "physical.record", _inputs(small, scope="full_make", holds_shape=True,
                                               size="small"))
     assert (job.outputs or {})["covers_size"]["size"] == "small", job.outputs
+    # D-W4-OWNER-BASKET-IDENTITY (LISTING1, integrated in Batch 4): the small basket is its own
+    # one-size listing, `hexagonal-bread-basket`, so its sample leaves nothing of THAT listing
+    # unproven. The held three-size family keeps medium and large unproven.
     cov = physical.size_coverage(db, small)
-    assert cov["listing"] == "nursery-nesting-baskets"
-    assert cov["proven"] == ["small"] and cov["unproven"] == ["medium", "large"], cov
+    assert cov["listing"] == "hexagonal-bread-basket", cov
+    assert cov["proven"] == ["small"] and cov["unproven"] == [], cov
     binding = physical_binding(db, small)
     check = check_gauge_and_size_claims(small, build_twin(small, compile_cir(small)), binding)
-    assert check.state == PASS and "not proven: ['medium', 'large']" in check.detail, check.detail
+    assert check.state == PASS and "proven sizes of hexagonal-bread-basket: ['small']" in \
+        check.detail and "not proven: none" in check.detail, check.detail
     medium = physical_binding(db, _basket("basket_medium"))
-    assert medium["passed"] is False and medium["size_coverage"]["proven"] == ["small"]
+    assert medium["passed"] is False, medium
+    assert medium["size_coverage"]["listing"] == "nursery-nesting-baskets", medium
+    assert medium["size_coverage"]["proven"] == ["small"], medium
+    assert medium["size_coverage"]["unproven"] == ["medium", "large"], medium
 
 
 def test_a_sample_claiming_another_or_several_sizes_is_refused():

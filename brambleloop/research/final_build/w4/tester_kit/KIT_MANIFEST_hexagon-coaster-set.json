@@ -8,6 +8,9 @@
  "size": "set_of_four",
  "make_hours_estimate": 3.46,
  "max_cost_cad": 92.03,
+ "testers": 1,
+ "tester_receives_cad": 99.96,
+ "ceiling_all_inclusive_cad": 100.0,
  "cost_basis": "gates.risk_matrix.owner_action_spec: 4.5 tester hours (estimate x1.3) at CA$20/h + 35 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
  "content_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
  "finished_size_cm": {
@@ -194,7 +197,8 @@
  },
  "files": {
   "hexagon-coaster-set-1.2.0-TEST.pdf": "7d10fc229525b650a3a2d77171c36842a9c46abab4213157a04cedafb4739909",
-  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df"
+  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df",
+  "OUTREACH_hexagon-coaster-set.md": "71cd7a323b08f4c2216507416ee4591aee98a81524c12ce42fb9f0e3f9a2c737"
  },
  "pattern_pages": 7,
  "built_by": "quality.tester_kit.build(key='hexagon_coasters')"

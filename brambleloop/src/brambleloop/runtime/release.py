@@ -3038,13 +3038,21 @@ def handle_physical_record(ctx: JobContext) -> dict:
         problem_notes=str(i.get("problem_notes") or ""),
         size=i.get("size"),
         piece_measurements=i.get("piece_measurements"),
-        measured_flats_cm=i.get("measured_flats_cm"))
+        measured_flats_cm=i.get("measured_flats_cm"),
+        base_edge=(str(i["base_edge"]).strip().lower() if i.get("base_edge") is not None
+                   else None),
+        wall_vertical_from_rnd=i.get("wall_vertical_from_rnd"),
+        corners_at_rim=_flag("corners_at_rim"),
+        rim_across_points_cm=i.get("rim_across_points_cm"),
+        inside_depth_cm=i.get("inside_depth_cm"),
+        rnd11_height_cm=i.get("rnd11_height_cm"))
 
     assessment = assess(report, twin, cir, result)
     incomplete = [f for f in assessment.findings if f.code in (
         "SAMPLE_SCOPE_INVALID", "SAMPLE_SHAPE_UNRECORDED", "SAMPLE_SWATCH_GAUGE_MISSING",
         "SAMPLE_MEASURED_PIECE_UNKNOWN", "SAMPLE_SIZE_NOT_THIS_RELEASE",
-        "SAMPLE_FOLLOWED_UNRECORDED", "SAMPLE_PIECES_UNMEASURED")]
+        "SAMPLE_FOLLOWED_UNRECORDED", "SAMPLE_PIECES_UNMEASURED",
+        "SAMPLE_OBSERVATION_INVALID")]
     if incomplete:
         # An incomplete or self-contradictory record is refused, not stored as evidence of
         # anything: the operator re-enters it from the tester's sheet.
@@ -3062,9 +3070,13 @@ def handle_physical_record(ctx: JobContext) -> dict:
                       "evidence_class": evidence_class,
                       "release_certified": certified, **assessment.to_dict()})
 
-    from ..quality.physical import design_digest
+    review = None
+    if assessment.outcome == PARTIAL:
+        review = _route_partial_to_owner(ctx, slug, version, content_hash, row_id, assessment)
 
-    design = design_digest(cir, result)
+    from ..quality import physical as _physical
+
+    design = _physical.design_digest(cir, result)
     halted = None
     if assessment.size_agrees is False:
         halted = _halt_release_on_size(ctx, slug, version, content_hash, row_id, assessment,
@@ -3076,14 +3088,21 @@ def handle_physical_record(ctx: JobContext) -> dict:
         # size lifts an earlier design's size halt.
         from ..gates.incidents import IncidentTracker
 
-        lifted = IncidentTracker(ctx.db).resolve_halts_disproved_by(
+        tracker = IncidentTracker(ctx.db)
+        lifted = tracker.resolve_halts_disproved_by(
             slug, version=version, design_digest=design, physical_test_id=row_id)
         if lifted:
             ctx.audit("physical.size_halt_superseded", artifact=f"{slug}@{version}",
                       detail={"incidents": lifted, "design_digest": design, "row": row_id})
-    review = None
-    if assessment.outcome == PARTIAL:
-        review = _route_partial_to_owner(ctx, slug, version, content_hash, row_id, assessment)
+        # SECREVIEW R1: a passing make of the SAME geometry a tester measured wrong is
+        # conflicting evidence. It never resolves the halt; the owner weighs the two.
+        from ..gates.incidents import release_scope
+
+        conflicts = [inc.id for inc in tracker.open_incidents(slug)
+                     if inc.halts_publication
+                     and release_scope(inc).get("design_digest") == design]
+        if conflicts:
+            review = review or _route_conflict_to_owner(ctx, slug, version, row_id, conflicts)
 
     # A usable sample changes every yardage figure for its yarn and stitch, which means the
     # PDFs and listings built from the old estimate are now stale. Keyed on the factor, so
@@ -3154,6 +3173,34 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
                       "findings": [f.code for f in assessment.findings],
                       "halt": signature})
     return signature
+
+
+def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: int,
+                             incidents: list[int]) -> str:
+    """SECREVIEW R1: two makes of one geometry disagree about its size. The owner decides."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    key = f"physical_size_conflict:{slug}@{version}:{row_id}"
+    with ctx.db.session() as s:
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+            s.add(OwnerAction(
+                requirement_key=key,
+                action=(f"Physical sample {row_id} of {slug}@{version} measured the stated "
+                        f"size, but an earlier make of the same geometry did not (open size "
+                        f"halt incident(s) {incidents}). Compare the two records and photos and "
+                        f"decide: a measurement error on one sheet, or a pattern that does not "
+                        f"reliably come out at its stated size."),
+                reason=("Two makes of one design disagree about its finished size. Software "
+                        "never settles conflicting physical evidence in favour of the passing "
+                        "one; the halt stays until you decide."),
+                max_cost_cad=0.0, minutes=15,
+                consequence_of_delay=f"{slug} stays halted from publication.",
+                blocks=f"publication of {slug}"))
+    ctx.audit("physical.size_conflict", artifact=f"{slug}@{version}",
+              detail={"row": row_id, "incidents": incidents, "key": key})
+    return key
 
 
 def _route_partial_to_owner(ctx: JobContext, slug: str, version: str, content_hash: str,

@@ -45,6 +45,13 @@ KIT: dict = {
     "size": "small",
     "make_hours_estimate": 2.15,
     "max_cost_cad": 59.65,
+    # Tester terms: exactly one tester; the CA$66.00 approval ceiling is ALL-INCLUSIVE (what
+    # the tester receives plus any payment-processing fee). The tester receives CA$65.90
+    # (fee 2.795 h x CA$20 = CA$55.90, plus 2 balls x CA$5.00 = CA$10.00), leaving CA$0.10, so
+    # payment must be by a fee-free method; any other method needs a higher ceiling first.
+    "testers": 1,
+    "tester_receives_cad": 65.90,
+    "ceiling_all_inclusive_cad": 66.00,
     "cost_basis": ("gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at "
                    "CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been "
                    "paid yet"),
@@ -84,13 +91,18 @@ PROTOCOL_STEPS: tuple[str, ...] = (
     "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook; "
     + REWEIGH,
     "Make the basket exactly as written in the test PDF; note every place you had to guess, "
-    "re-read or rip back, with the round number",
+    "re-read or rip back, with the round number. Optional: just after round 11, note how tall "
+    "the work stands (cm)",
     "Weigh what is left of each ball; grams used = re-weighed start minus end, per colour",
-    "Measure the finished base across the points and across the flats, and the wall height, "
-    "in cm, without stretching",
+    "Measure the finished base across the points and across the flats, in cm, without "
+    "stretching. Measure the wall height OUTSIDE: from the flat table to the top of the rim, "
+    "at the middle of a flat side (optional: the inside depth too)",
     "Set the empty basket on a flat table. Does the base sit flat without rocking? Does it hold "
     "its shape (walls upright, no collapse, lean or flare)? Answer yes or no to each, and write "
     "any problem in the problems box",
+    "Look at where the base turns into the wall: a crisp fold, or a rounded curve? If rounded, "
+    "from which round is the wall upright? Are the six corners still visible at the rim (yes or "
+    "no)? Measure the rim across the points (cm)",
     "Record total hours (not the swatch) and whether you followed the instructions exactly",
     "Photograph in daylight on a real surface (wood, linen or a countertop). Keep every camera "
     "file UNEDITED: no filter, crop, resize or retouch; landscape or square, at least 2000 px "
@@ -117,9 +129,16 @@ RECORD_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("swatch_rows", "swatch: rounds per 10 cm", "swatch_rows_per_10cm"),
     ("width_cm", "base across the points (cm)", "measured_width_cm"),
     ("flats_cm", "base across the flats (cm)", "measured_flats_cm"),
-    ("height_cm", "wall height (cm)", "measured_height_cm"),
+    ("height_cm", "wall height outside, table to rim at mid-flat (cm)", "measured_height_cm"),
+    ("inside_depth", "optional: inside depth (cm)", "inside_depth_cm"),
     ("lies_flat", "base sits flat, no rocking? yes/no", "lies_flat"),
     ("holds_shape", "holds its shape? yes/no", "holds_shape"),
+    # CONSTRUCTION_REVIEW_basket_small_1.2.0 §5: the base edge and the rim, in structured form.
+    ("base_edge", "base edge: crisp fold or rounded curve", "base_edge"),
+    ("wall_vertical_from_rnd", "if rounded: wall upright from round", "wall_vertical_from_rnd"),
+    ("corners_at_rim", "six corners visible at the rim? yes/no", "corners_at_rim"),
+    ("rim_points", "rim across the points (cm)", "rim_across_points_cm"),
+    ("rnd11_height", "optional: height just after round 11 (cm)", "rnd11_height_cm"),
     ("hours", "total hours", "hours"),
     ("followed", "followed exactly? yes/no", "instructions_followed"),
     ("problems", "anything unclear or wrong (round numbers)", "problem_notes"),
@@ -140,6 +159,11 @@ COASTER_KIT: dict = {
     "size": "set_of_four",
     "make_hours_estimate": 3.46,
     "max_cost_cad": 92.03,
+    # Tester terms as for the basket: one tester; CA$100.00 all-inclusive; the tester receives
+    # CA$99.96 (4.498 h x CA$20 = CA$89.96, plus 2 balls x CA$5.00), so payment is fee-free.
+    "testers": 1,
+    "tester_receives_cad": 99.96,
+    "ceiling_all_inclusive_cad": 100.00,
     "cost_basis": ("gates.risk_matrix.owner_action_spec: 4.5 tester hours (estimate x1.3) at "
                    "CA$20/h + 35 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been "
                    "paid yet"),
@@ -210,21 +234,54 @@ COASTER_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("problems", "anything unclear or wrong (round numbers)", "problem_notes"),
 )
 
+COASTER_OUTREACH: dict = {
+    "title": "[Tester call] Crochet Hexagon Coaster Set (4) -- DK cotton, ~4 hrs, paid",
+    "body": (
+        "Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop "
+        "BrambleloopStudio) is looking for ONE tester for a set of four hexagonal coasters "
+        "worked in single crochet in joined rounds: each about 9.7 cm across the points and "
+        "8.4 cm across the flats, DK-weight cotton in two colours (about 23 m + 6 m for all "
+        "four), 5.0 mm hook.\n\n"
+        "Who can apply: an adult who is not the shop's owner, not a member of the owner's "
+        "household or family, and has no financial interest in Brambleloop. Please tell us "
+        "about any relationship you have with Brambleloop or its owner, and include a photo "
+        "of, or a link to, a finished piece you crocheted in joined rounds.\n\n"
+        "What we ask: make all four coasters from the test PDF within 14 days, follow it "
+        "exactly, and fill in the record sheet -- grams used per colour for the whole set "
+        "(weighed after your swatch), the ball band (grams and metres), your hook, the size "
+        "of each coaster, whether each one lies flat, hours, whether you followed it exactly, "
+        "and anything that was unclear or wrong. Please make all four: the test measures the "
+        "yarn for the whole set. Mistakes you find are the most useful thing you can send.\n\n"
+        "What you get: CA$99.96 in total, paid to you in full -- a CA$89.96 test fee plus "
+        "CA$10.00 towards two balls of yarn -- by a fee-free transfer (any payment-processing "
+        "fee is ours and is never deducted from you); the final pattern free, another "
+        "Brambleloop pattern of your choice, and credit if you want it. We never ask for "
+        "reviews, ratings or favourites, and nothing depends on whether you like it.\n\n"
+        "To apply, reply in this thread or message the Brambleloop Ravelry account; we will "
+        "send the intake form (it records your consent to be emailed about this test, which "
+        "you can withdraw any time). Brambleloop Studio, Canada."),
+}
+
 # One builder, one table: each kit's product key, constants and manifest file name.
 KITS: dict[str, dict] = {
     "basket_small": {"kit": KIT, "materials": MATERIALS, "person": PERSON_NEEDED,
                      "protocol": PROTOCOL_STEPS, "fields": RECORD_FIELDS,
-                     "manifest": "KIT_MANIFEST.json"},
+                     "manifest": "KIT_MANIFEST.json", "outreach": "OUTREACH.md"},
     "hexagon_coasters": {"kit": COASTER_KIT, "materials": COASTER_MATERIALS,
                          "person": COASTER_PERSON, "protocol": COASTER_STEPS,
                          "fields": COASTER_FIELDS,
-                         "manifest": "KIT_MANIFEST_hexagon-coaster-set.json"},
+                         "manifest": "KIT_MANIFEST_hexagon-coaster-set.json",
+                         "outreach": "OUTREACH_hexagon-coaster-set.md",
+                         "outreach_post": COASTER_OUTREACH},
 }
 
 _NUMBER_KEYS = {"ball_band_grams", "ball_band_metres", "hook_mm", "swatch_stitches_per_10cm",
                 "swatch_rows_per_10cm", "measured_width_cm", "measured_height_cm",
-                "measured_flats_cm", "hours"}
-_YES_NO_KEYS = {"lies_flat", "holds_shape"}
+                "measured_flats_cm", "hours", "inside_depth_cm", "rim_across_points_cm",
+                "rnd11_height_cm"}
+_YES_NO_KEYS = {"lies_flat", "holds_shape", "corners_at_rim"}
+_WHOLE_KEYS = {"wall_vertical_from_rnd"}
+_CHOICE_KEYS = {"base_edge": ("crisp", "rounded")}
 
 
 def _yes_no(value) -> bool | None:
@@ -273,6 +330,21 @@ def intake_payload(sheet: dict, *, content_hash: str, key: str = BUILD_KEY) -> d
             payload[api] = _yes_no(raw)
         elif api in _NUMBER_KEYS:
             payload[api] = float(raw)
+        elif api in _WHOLE_KEYS:
+            n = float(raw)
+            if n != int(n):
+                raise ValueError(f"{label}: a round number, not {raw!r}")
+            payload[api] = int(n)
+        elif api in _CHOICE_KEYS:
+            text = str(raw).strip().lower()
+            choice = next((c for c in _CHOICE_KEYS[api] if text in (c, c.split()[0])), None)
+            if choice is None and "fold" in text:
+                choice = "crisp"
+            if choice is None and "curve" in text:
+                choice = "rounded"
+            if choice is None:
+                raise ValueError(f"{label}: one of {_CHOICE_KEYS[api]}, not {raw!r}")
+            payload[api] = choice
         else:
             payload[api] = str(raw)
     # SECREVIEW F4: no default for "followed exactly?" -- a blank answer stays out, and the
@@ -408,6 +480,11 @@ def build(out_dir: Path, key: str = BUILD_KEY) -> dict:
     pattern.write_bytes(doc.pdf_bytes)
     sheet = out_dir / f"{kit['slug']}-{version}-RECORD-SHEET.pdf"
     sheet.write_bytes(_record_sheet_pdf(version, chash, key))
+    from . import tester_programme
+
+    outreach = out_dir / spec["outreach"]
+    outreach.write_text(tester_programme.outreach_markdown(
+        spec.get("outreach_post") or tester_programme.OUTREACH_POST))
     materials = spec["materials"]
     manifest = {
         **kit, "version": version, "content_hash": chash,
@@ -430,7 +507,7 @@ def build(out_dir: Path, key: str = BUILD_KEY) -> dict:
                                 "recorded) goes to the owner and binds nothing; FAIL binds "
                                 "nothing; a size outside 12% halts this release")},
         "files": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in (pattern, sheet)},
+                  for p in (pattern, sheet, outreach)},
         "pattern_pages": doc.pages,
         "built_by": f"quality.tester_kit.build(key={key!r})",
     }
