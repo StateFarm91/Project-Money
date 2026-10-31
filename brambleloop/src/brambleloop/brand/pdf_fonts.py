@@ -80,6 +80,22 @@ def register() -> tuple[str, ...]:
 
 
 @lru_cache(maxsize=None)
+def verified_path(file: str) -> Path:
+    """The bundled face `file`, after checking its bytes against SHA256SUMS (SECREVIEW L2).
+
+    For callers that load a face by path rather than through reportlab -- the PIL chart
+    renderer -- so a swapped file is refused there exactly as `register` refuses it here."""
+    path = FONT_DIR / file
+    if not path.exists():
+        raise FontIntegrityError(f"{file} is not bundled in {FONT_DIR}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if _pinned().get(file) != digest:
+        raise FontIntegrityError(f"{file}: sha256 {digest} is not the pinned "
+                                 f"{_pinned().get(file)}")
+    return path
+
+
+@lru_cache(maxsize=None)
 def _cmap(name: str) -> frozenset[int]:
     from reportlab.pdfbase import pdfmetrics
 

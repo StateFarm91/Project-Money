@@ -19,9 +19,9 @@ This section supersedes the 1.2.0 editions below. They are retired from
 
 | File | Pages | SHA-256 |
 |---|---|---|
-| `customer_editions/hexagon-coaster-set-1.2.1/hexagon-coaster-set-1.2.1.pdf` (US) | 13 | `20012510b5d10a7d04a5c68927e4ec3605ed1652349e954c096d872a3157f69e` |
-| `…/hexagon-coaster-set-1.2.1-uk.pdf` (UK) | 13 | `26dce91670b8ff3a7fc2fb7b95dcb2f64399c0d747d5eac52b4f23fb4b41e6c7` |
-| `…/NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf` | 13 | `5602b0f0cc00a33e50af201136a0c3f3475e0c0d317509383cec54e3bdf90874` |
+| `customer_editions/hexagon-coaster-set-1.2.1/hexagon-coaster-set-1.2.1.pdf` (US) | 13 | `486374908a883156ba98d5e8ca775c4e097e6747d6a88b2a4cda1a87f941e813` |
+| `…/hexagon-coaster-set-1.2.1-uk.pdf` (UK) | 13 | `7de39602b67005a07df4c8503cb342beb4ec916f333006471f0fab606096feec` |
+| `…/NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf` | 13 | `70edfa9e3cd1512f2e5e3b554acf4ffef2ee4db93e672bb0db366cea4c87e357` |
 | `customer_editions/market-basket-small-1.2.1/market-basket-small-1.2.1.pdf` (US) | 13 | `60510401f175e97841a57dc4111b2ea7d6144dd88873e5222982810c0eaa43b6` |
 | `…/market-basket-small-1.2.1-uk.pdf` (UK) | 13 | `a152c6e8d54c2986dede372edf8ebede661ea011682d315bbacf16bb25151e2c` |
 | `…/NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf` | 14 | `30debaae4556bbd8eee954891a489c595065d97ca8a7fb8484a3172d422b2eb5` |
@@ -35,7 +35,7 @@ content hashes:
 |---|---|
 | basket `…-1.2.1-TEST.pdf` | `28b877ed081654d1b8861f406879b1b38a0aa871f9d8cd6a075649c41a566e6c` |
 | basket `…-1.2.1-RECORD-SHEET.pdf` | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
-| coaster `…-1.2.1-TEST.pdf` | `f8ed3abb6ef748d0aeb6c451e7894adc981c63b1f00882fe349cee101b74569d` |
+| coaster `…-1.2.1-TEST.pdf` | `2992eb1e7edff3b0664e81646fffdacbc3ebdd883937699b8609d6f7cdbff26d` |
 | coaster `…-1.2.1-RECORD-SHEET.pdf` | `13451d201e6085296041a16909a8e4f1631ac6567126e375d2ff10e985666bc5` |
 
 **How each audit finding was resolved.** Each fix is pinned by a test in `tests/test_pdf_premium.py`
@@ -64,6 +64,20 @@ unless stated otherwise.
 The construction-review fixes are composer text only. `write_pattern` output and the release
 hash are unchanged, so these are still 1.2.1. The coaster has no wall and its bytes are
 unchanged. Pinned by `test_pdf_premium.test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make`.
+
+**Independent review at 3f80da63 (`INDEPENDENT_SECREVIEW_PDF1_3f80da6.md`: code SHIP, product FIX BEFORE SALE).**
+
+| Finding | Resolution |
+|---|---|
+| M1: round-chart marks fixed in ink (1.3:1 on the coaster's wine Rnd 6) | `charts.render_round_chart` now draws each mark in `_readable_on(<that cell's colour>)`, on both the polygon path and the sector path. On the coaster, the Rnd 6 marks are cream on wine; checked visually at 150 dpi. The basket's charted Rnds 1-10 are all cream, so its bytes are unchanged. Pinned by `test_pdf_premium.test_every_round_chart_increase_mark_reads_on_its_own_cell`: every mark reaches 4.5:1 against its own cell, and the injected fixed-ink defect fails the test. |
+| L1: `pdf._fold` failed open | It now raises `pdf.FoldDisclosureRefused`, so the document is not built without the disclosure. Pinned by `test_the_soft_fold_disclosure_fails_closed`. |
+| L2: PIL chart font not sha-pinned | `charts._font` loads the brand face through the new `brand.pdf_fonts.verified_path`, which checks the same SHA256SUMS and raises `FontIntegrityError`. Pinned by `test_the_chart_font_is_sha_pinned`. |
+| V1: basket renders draw a crisp prism | **Unchanged, by coordinator instruction.** It waits on the owner's 1.3.0 (back-loop Rnd 11) decision. If that is approved, the pattern will make the shape the render draws. **This blocks sale of the basket.** |
+
+**Backlog from the independent review (recorded, not fixed here):**
+- **L3:** the height lower bound (one row height) and "Rnd 14" are heuristics. Replace them with measured values when the first physical record lands.
+- **L4:** raster text inside the schematic and render tiles is about 5-7.5 pt. The same disclosure appears beside each tile in live text.
+- **L5:** several pages are 50-70 % empty (basket p8/p11, coaster p9/p11).
 
 **Backlog from the construction review (recorded, not fixed here):**
 - **F3-geometry.** Draw the soft base edge and the softening corners in `visual.disclosed_render._draw_vessel`. That needs a matching change to `visual.render_verification` (wall-round banding off the front face). The same renderer feeds the listing images, so it belongs to a renderer and listing pass, not this text release.

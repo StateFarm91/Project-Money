@@ -216,8 +216,11 @@ def _font(size: int) -> ImageFont.ImageFont:
     # F5 (2026-10-31): the brand's own proportional face, bundled with the package and pinned
     # (`brand.pdf_fonts`), so the chart inside the customer's PDF is set in the same family as
     # the page around it rather than a system monospace.
-    brand = str(Path(__file__).resolve().parents[1] / "brand" / "fonts" / "pdf"
-                / "WorkSans-Medium.ttf")
+    # L2 (SECREVIEW-PDF1): loaded through the same sha pin as the PDF path; a swapped file
+    # raises `FontIntegrityError` rather than quietly changing the chart's pixels.
+    from ..brand.pdf_fonts import verified_path
+
+    brand = str(verified_path("WorkSans-Medium.ttf"))
     for path in ((configured,) if configured else ()) + (brand,
                  "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -951,8 +954,11 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                     cell = cells[position]
                     if cell.stitch not in ROUND_MARKED_CODES:
                         continue
+                    # M1 (SECREVIEW-PDF1): the mark takes the colour that reads on *this*
+                    # cell -- ink on cream was 1.3:1 on the coaster's wine Rnd 6.
                     d.text(poly_pt(inner + ring_px * 0.5, (position + 0.5) / n),
-                           GLYPHS.get(cell.stitch, "V"), font=glyph_font, fill=INK,
+                           GLYPHS.get(cell.stitch, "V"), font=glyph_font,
+                           fill=_readable_on(_hex_to_rgb(cir.colors.get(cell.color))),
                            anchor="mm")
             continue
         for position in range(drawn):
@@ -981,7 +987,8 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                 radius = inner + ring_px * 0.5
                 d.text((cx + radius * math.cos(angle),
                         cy + radius * math.sin(angle)),
-                       GLYPHS.get(cell.stitch, "V"), font=glyph_font, fill=INK, anchor="mm")
+                       GLYPHS.get(cell.stitch, "V"), font=glyph_font,
+                       fill=_readable_on(_hex_to_rgb(cir.colors.get(cell.color))), anchor="mm")
 
     if plain:
         # `plain` is the fabric view: the object as the twin knows it, seen from above, with

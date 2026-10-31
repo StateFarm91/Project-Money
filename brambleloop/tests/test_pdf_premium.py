@@ -358,6 +358,113 @@ def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
     assert value_stack.height_words(7.975, 8.7) == "about 8 to 9 cm"
     assert value_stack.height_words(3.625, 4.35) == "about 4 cm"
 
+
+def test_every_round_chart_increase_mark_reads_on_its_own_cell():
+    """SECREVIEW-PDF1 M1: the coaster's Rnd 6 "V" marks were ink on wine, 1.3:1.
+
+    Every mark the round chart draws is paired with the colour of the cell it sits on (the
+    renderer asks `_readable_on` for that cell immediately before drawing it) and must reach
+    the 4.5:1 text floor. A renderer that goes back to one fixed ink stops asking, the pairing
+    breaks, and this fails -- as it does on the injected defect below."""
+    from PIL import ImageDraw
+
+    marks = set(charts.GLYPHS[c] for c in charts.ROUND_MARKED_CODES)
+
+    def measure(key):
+        cir = launch0.cir_for(key)
+        twin = build_twin(cir, compile_cir(cir))
+        seen, pending, in_key = [], [], [False]
+        real_readable, real_text = charts._readable_on, ImageDraw.ImageDraw.text
+        real_legend = charts.render_legend
+
+        def legend(*a, **k):                # the key draws its sample mark on cream; not a cell
+            in_key[0] = True
+            try:
+                return real_legend(*a, **k)
+            finally:
+                in_key[0] = False
+
+        def readable(bg):
+            out = real_readable(bg)
+            pending.append((out, bg))
+            return out
+
+        def text(self, xy, t, *a, **k):
+            if (t in marks and not in_key[0] and k.get("anchor") == "mm"
+                    and k.get("stroke_width") is None):
+                fill = k.get("fill")
+                bg = next((b for f, b in reversed(pending) if f == fill), None)
+                seen.append((fill, bg))
+            pending.clear()
+            return real_text(self, xy, t, *a, **k)
+
+        charts._readable_on, ImageDraw.ImageDraw.text = readable, text
+        charts.render_legend = pdf.render_legend = legend
+        try:
+            pdf._chart_art(cir, twin)
+        finally:
+            charts._readable_on, ImageDraw.ImageDraw.text = real_readable, real_text
+            charts.render_legend = pdf.render_legend = real_legend
+        return seen
+
+    norm = lambda c: tuple(v / 255 for v in c)  # noqa: E731
+    for key in KEYS:
+        seen = measure(key)
+        assert seen, key
+        for fill, bg in seen:
+            assert bg is not None, (key, fill)
+            assert bible.contrast_ratio(norm(fill), norm(bg)) >= 4.5, (key, fill, bg)
+    coaster_bgs = {bg for _f, bg in measure("hexagon_coasters")}
+    assert len(coaster_bgs) >= 2       # cream rounds and the wine Rnd 6 both carry marks
+
+    original = charts._readable_on
+    try:
+        charts._readable_on = lambda bg: charts.INK      # the shipped 1.2.1 defect
+        injected = measure("hexagon_coasters")
+        assert any(bible.contrast_ratio(norm(f), norm(b)) < 4.5 for f, b in injected if b)
+    finally:
+        charts._readable_on = original
+
+
+def test_the_soft_fold_disclosure_fails_closed():
+    """SECREVIEW-PDF1 L1: if the fold cannot be derived the basket document is refused."""
+    from brambleloop.publish import value_stack
+
+    original = value_stack.soft_fold
+    try:
+        def broken(cir, twin):
+            raise RuntimeError("injected")
+        value_stack.soft_fold = broken
+        try:
+            cir = launch0.cir_for("basket_small")
+            pdf._fold(cir, build_twin(cir, compile_cir(cir)))
+        except pdf.FoldDisclosureRefused:
+            pass
+        else:
+            raise AssertionError("a broken soft_fold was swallowed")
+    finally:
+        value_stack.soft_fold = original
+
+
+def test_the_chart_font_is_sha_pinned():
+    """SECREVIEW-PDF1 L2: the PIL chart face is loaded through the same pin as the PDF."""
+    path = pdf_fonts.verified_path("WorkSans-Medium.ttf")
+    assert path.name == "WorkSans-Medium.ttf"
+    sums = pdf_fonts._pinned()
+    pdf_fonts.verified_path.cache_clear()
+    real = pdf_fonts._pinned
+    try:
+        pdf_fonts._pinned = lambda: {**sums, "WorkSans-Medium.ttf": "0" * 64}
+        try:
+            pdf_fonts.verified_path("WorkSans-Medium.ttf")
+        except pdf_fonts.FontIntegrityError:
+            pass
+        else:
+            raise AssertionError("a face off its pin was loaded")
+    finally:
+        pdf_fonts._pinned = real
+        pdf_fonts.verified_path.cache_clear()
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

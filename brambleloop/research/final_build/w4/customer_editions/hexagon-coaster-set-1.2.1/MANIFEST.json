@@ -5,11 +5,11 @@
   "cir_fingerprint": "f963f15bc438",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "88fbea93f80d22010ce3093603885f42caf955c9",
-  "engine_source_clean": true,
+  "engine_commit": "3f80da633b996f82d39d038c7d625f96868c0589",
+  "engine_source_clean": false,
   "files": {
     "NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf": {
-      "bytes": 1280638,
+      "bytes": 1281167,
       "claims": [
         "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -131,11 +131,11 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "5602b0f0cc00a33e50af201136a0c3f3475e0c0d317509383cec54e3bdf90874",
+      "sha256": "70edfa9e3cd1512f2e5e3b554acf4ffef2ee4db93e672bb0db366cea4c87e357",
       "terminology": "US"
     },
     "hexagon-coaster-set-1.2.1-uk.pdf": {
-      "bytes": 1279478,
+      "bytes": 1280010,
       "claims": [
         "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -252,11 +252,11 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "26dce91670b8ff3a7fc2fb7b95dcb2f64399c0d747d5eac52b4f23fb4b41e6c7",
+      "sha256": "7de39602b67005a07df4c8503cb342beb4ec916f333006471f0fab606096feec",
       "terminology": "UK"
     },
     "hexagon-coaster-set-1.2.1.pdf": {
-      "bytes": 1279355,
+      "bytes": 1279888,
       "claims": [
         "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -373,7 +373,7 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "20012510b5d10a7d04a5c68927e4ec3605ed1652349e954c096d872a3157f69e",
+      "sha256": "486374908a883156ba98d5e8ca775c4e097e6747d6a88b2a4cda1a87f941e813",
       "terminology": "US"
     }
   },

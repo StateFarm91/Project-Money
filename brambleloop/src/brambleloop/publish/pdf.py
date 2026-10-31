@@ -1245,12 +1245,23 @@ def _rings(twin: TwinModel):
     return [r for r in rings if r.rise_cm <= 0], [r for r in rings if r.rise_cm > 0]
 
 
+class FoldDisclosureRefused(ValueError):
+    """The soft-fold truth disclosure could not be composed, so the document is not built."""
+
+
 def _fold(cir: CIR, twin: TwinModel) -> dict | None:
-    """`value_stack.soft_fold`: a vessel whose base turns into its wall in a curve."""
+    """`value_stack.soft_fold`: a vessel whose base turns into its wall in a curve.
+
+    L1 (SECREVIEW-PDF1): this fails **closed**. `soft_fold` already answers None for a piece
+    with no wall; anything it raises means the height range, the "turning upward" wording and
+    the idealised-render disclosure cannot be derived, and printing "rise straight up" and the
+    exact twin height instead would be the untrue document. So the build is refused."""
     try:
         return value_stack.soft_fold(cir, twin)
-    except Exception:  # pragma: no cover - a twin with no rings has no fold to report
-        return None
+    except Exception as exc:  # noqa: BLE001 - re-raised as a refusal, never swallowed
+        raise FoldDisclosureRefused(
+            f"{cir.slug}: the base-to-wall disclosure could not be composed "
+            f"({type(exc).__name__}: {exc}); refusing to print a document without it") from exc
 
 
 def _tall(cir: CIR, twin: TwinModel) -> str:
