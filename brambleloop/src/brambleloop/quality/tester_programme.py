@@ -157,6 +157,44 @@ def independence_problems(relationship: str | None) -> list[str]:
             f"are refused; bring any other declaration to the owner"]
 
 
+def qualification_problems(qualification) -> list[str]:
+    """SECREVIEW R16: qualification evidence of substance -- a web link (http/https with a
+    host) or a stored photo reference (`photo:<sha256>`, or a bare SHA-256). "." is not."""
+    import re
+
+    text = str(qualification or "").strip()
+    if re.fullmatch(r"https?://[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(:\d+)?(/\S*)?", text):
+        return []
+    if re.fullmatch(r"(photo:)?[0-9a-f]{64}", text.lower()):
+        return []
+    return [f"qualification {text[:60]!r} is not evidence: give a link (https://...) to, or a "
+            f"stored photo (photo:<sha256>) of, a finished piece worked in joined rounds"]
+
+
+def independent_agreement(db, tester_ref: str | None) -> dict | None:
+    """SECREVIEW R12: the recorded tester agreement that makes `tester_ref` an independent,
+    qualified tester, or None. Only a permission written by `record_agreement` through the
+    allow-list counts; an agreement recorded before the allow-list (no `independence` block),
+    the owner, and an unknown reference are None."""
+    from sqlalchemy import select
+
+    from ..core.models import CreatorProfile
+
+    ref = str(tester_ref or "").strip()
+    if not ref or ref.lower() == "owner":
+        return None
+    with db.session() as s:
+        row = s.scalar(select(CreatorProfile).where(CreatorProfile.ref == ref))
+        perms = list(row.permissions or []) if row is not None else []
+    for p in reversed(perms):
+        ind = (p or {}).get("independence") or {}
+        if ((p or {}).get("kind") == "tester_agreement"
+                and ind.get("relationship") in ALLOWED_RELATIONSHIPS.values()
+                and not qualification_problems(ind.get("qualification"))):
+            return dict(p)
+    return None
+
+
 def record_agreement(db, *, handle_ref: str, specialties: list[str], express_consent: bool,
                      consent_source: str, photo_scopes: list[str] | None = None,
                      agreed_on: date | None = None, relationship: str | None = None,
@@ -173,10 +211,7 @@ def record_agreement(db, *, handle_ref: str, specialties: list[str], express_con
 
     # SECREVIEW R6: the tester terms are mandatory for every new agreement -- an allowed
     # relationship declaration and qualification evidence. Absent is refused, never skipped.
-    problems = independence_problems(relationship)
-    if not str(qualification or "").strip():
-        problems.append("no qualification evidence: a photo or link to a finished piece "
-                        "worked in joined rounds")
+    problems = independence_problems(relationship) + qualification_problems(qualification)
     if problems:
         raise TesterRefused("; ".join(problems))
     if not express_consent:

@@ -724,15 +724,23 @@ def calibration_for(cir, assessments: list[SampleAssessment]) -> float:
 
 
 def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
-           evidence_class: str | None = None) -> int:
+           evidence_class: str | None = None, owner_made: bool = False) -> int:
     """Store the sample. The row is the evidence; the assessment is what we concluded.
 
     `passed` is not "the tester liked it": it is whether this sample can be used, which
     means a plausible factor, a size that agrees with the claim, and instructions actually
     followed. A sample that fails still gets stored, because a disagreement is the most
     valuable thing a sample can produce.
+
+    SECREVIEW R12: every sample is bound to the recorded, independent, qualified tester
+    agreement of the person who made it (`tester_programme.independent_agreement`). There is
+    no default tester: a sample with no such agreement is refused. The one exception is an
+    explicit `owner_made=True`, which is stored as NON-evidence -- never passed, never a size
+    proof, never bound, never calibrating -- so the owner's own make can be noted but never
+    stand in for an independent tester's (F-071).
     """
     from ..laura.private.firewall import reject_private
+    from .tester_programme import independent_agreement
 
     # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
     reject_private((assessment, content_hash, evidence_class), context="product_truth")
@@ -754,15 +762,32 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
         # PHYSFIX G1: a partial make is never stamped as a whole-pattern make.
         raise ValueError(f"a sample of {assessment.made} is not the whole pattern and cannot "
                          f"be recorded as {measured['evidence_class']}")
+    agreement = None if owner_made else independent_agreement(
+        db, assessment.report.tester_ref)
+    if owner_made:
+        measured.update(owner_made=True, evidence_role="owner_made_non_evidence",
+                        size_proof=False)
+    elif agreement is None:
+        raise ValueError(
+            f"tester {assessment.report.tester_ref!r} has no recorded, independent, qualified "
+            f"tester agreement (tester_programme.record_agreement); a sample is evidence only "
+            f"from such a tester. An owner's own make is recorded with owner_made=True, as "
+            f"non-evidence")
+    else:
+        measured["tester_agreement"] = {
+            "ref": assessment.report.tester_ref,
+            "relationship": (agreement.get("independence") or {}).get("relationship"),
+            "consent_version": agreement.get("consent_version"),
+            "agreed_on": agreement.get("agreed_on")}
     with db.session() as s:
         row = PhysicalTest(
             product_slug=assessment.report.product_slug,
             version=assessment.report.version,
-            tester_ref=assessment.report.tester_ref,
+            tester_ref=assessment.report.tester_ref or ("owner" if owner_made else ""),
             completed_at=assessment.assessed_at,
             # PHYSFIX: only a PASS passes. PARTIAL (a recorded problem) and FAIL are stored,
-            # bind nothing and calibrate nothing.
-            passed=assessment.outcome == PASS,
+            # bind nothing and calibrate nothing. An owner-made sample never passes (R12).
+            passed=(assessment.outcome == PASS) and not owner_made,
             measured=measured,
             notes=assessment.report.notes[:2000],
         )
@@ -886,8 +911,13 @@ def _canon(value, names: dict | None = None):
     return str(value).strip().lower()
 
 
-def _compiled_rows(result, component: str) -> list[dict]:
-    """The compiled rows of one piece, each stitch expanded one by one (repeats resolved)."""
+def _compiled_rows(result, component: str, into_of: dict | None = None) -> list[dict]:
+    """The compiled rows of one piece, each stitch expanded one by one (repeats resolved).
+
+    SECREVIEW R14: which row each row is worked into is geometry (a row worked into an earlier
+    row leaves the rows between unworked). It is kept as an offset back from the row itself
+    -- 1 for the previous row, the default -- so renumbering rows is not a change."""
+    into_of = into_of or {}
     rows = []
     for r in result.rows:
         if r.component != component:
@@ -897,7 +927,9 @@ def _compiled_rows(result, component: str) -> list[dict]:
             unit = [str(op.stitch).strip().lower(), str(op.loop or "both").strip().lower(),
                     int(op.spans or 0)]
             stitches.extend([unit] * int(op.count))
+        target = into_of.get(r.index)
         rows.append({"stitches": stitches, "into": int(r.into_count),
+                     "into_offset": 1 if target is None else int(r.index) - int(target),
                      "consumed": int(r.consumed), "produced": int(r.produced),
                      "remainder": int(r.remainder), "turning_chain": int(r.turning_chain or 0),
                      "turning_chain_counts": bool(r.turning_chain_counts)})
@@ -941,15 +973,29 @@ def design_geometry(cir, result=None) -> dict:
     for comp, spec in zip(cir.components, body.get("components") or []):
         piece = {k: _canon(spec.get(k)) for k in ("construction", "foundation",
                                                   "foundation_kind", "make", "grain")}
-        piece["rows"] = _compiled_rows(result, comp.name)
+        piece["rows"] = _compiled_rows(result, comp.name,
+                                       {r.index: r.into for r in comp.rows})
         piece["twin"] = _twin_shape(cir, result, comp.name)
+        # SECREVIEW R11: a hold's geometry (row, count, offset) without its name, in order.
+        piece["holds"] = [_canon(h) for h in (spec.get("holds") or [])]
         raw.append((comp.name, spec, piece))
     order = sorted(raw, key=lambda t: json.dumps(t[2], sort_keys=True, default=str))
     names = {name: f"piece#{i}" for i, (name, _s, _p) in enumerate(order)}
+    # Hold names become positions too (piece#i/hold#j), so renaming a hold and the piece that
+    # resumes it is the same design -- exactly as a component rename is.
+    holds = {}
+    for i, (_name, spec, _p) in enumerate(order):
+        for j, h in enumerate(spec.get("holds") or []):
+            hname = str((h or {}).get("name") or "").strip()
+            if hname:
+                holds.setdefault(hname, f"piece#{i}/hold#{j}")
     pieces = []
     for name, spec, piece in order:
-        piece["holds"] = _canon(spec.get("holds"), names)
-        piece["resumes"] = _canon(spec.get("resumes"), names)
+        resumed = spec.get("resumes")
+        if isinstance(resumed, str) and resumed.strip() in holds:
+            piece["resumes"] = holds[resumed.strip()]
+        else:
+            piece["resumes"] = _canon(resumed, names)
         pieces.append(piece)
     gauge = body.get("gauge") or {}
     materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
@@ -962,7 +1008,7 @@ def design_geometry(cir, result=None) -> dict:
         "pieces": pieces,
         "gauge": {k: _canon(gauge.get(k)) for k in _GAUGE_KEYS},
         "materials": materials,
-        "assembly": _canon(body.get("assembly") or [], names),
+        "assembly": _canon(body.get("assembly") or [], {**names, **holds}),
         # SECREVIEW R8: `CIR.to_dict` writes the size set as `grading`.
         "sizes": _canon(body.get("grading")) if body.get("grading") else None,
         "variant": _canon(dict(getattr(cir, "represented_variant", {}) or {})),

@@ -34,6 +34,13 @@ def _booted() -> Database:
     db = Database(f"sqlite:///{tmp}/risk.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    # SECREVIEW R12: the fixture tester has a recorded, independent, qualified agreement.
+    from brambleloop.quality import tester_programme as _tp
+
+    _tp.record_agreement(db, handle_ref="tester-1", specialties=["home_decor"],
+                         express_consent=True, consent_source="test fixture",
+                         relationship="none",
+                         qualification="https://www.ravelry.com/projects/tester/sample")
     return db
 
 
@@ -393,7 +400,11 @@ def test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet(
     assert not req.action.lower().startswith("crochet"), req.action
     assert "independent tester (not the owner)" in req.action
     assert "physical.record" in req.action and "full_make" in req.action
-    assert req.max_cost_cad > 8 * rm.TESTER_FEE_CAD_PER_HOUR      # the tester is paid
+    # The tester is paid (not just yarn), at the kit's one all-inclusive figure (R17).
+    from brambleloop.quality import tester_kit
+
+    assert req.max_cost_cad == tester_kit.KIT["max_cost_cad"]
+    assert req.max_cost_cad >= tester_kit.KIT["tester_receives_cad"] > 2 * 5.00
     assert req.minutes == rm.OWNER_MINUTES                         # owner time: approval only
 
 

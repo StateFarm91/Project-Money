@@ -3019,7 +3019,9 @@ def handle_physical_record(ctx: JobContext) -> dict:
                          "missing answer is not a yes")
 
     report = SampleReport(
-        product_slug=slug, version=version, tester_ref=i.get("tester_ref", "owner"),
+        # SECREVIEW R12: no default tester. `physical.record` binds the sample to the tester's
+        # recorded independent agreement, or refuses it (owner_made is non-evidence).
+        product_slug=slug, version=version, tester_ref=str(i.get("tester_ref") or ""),
         grams_by_color={str(k): float(v) for k, v in (i.get("grams_by_color") or {}).items()},
         ball_band=BallBand(grams=float(i["ball_band_grams"]),
                            metres=float(i["ball_band_metres"])),
@@ -3063,15 +3065,16 @@ def handle_physical_record(ctx: JobContext) -> dict:
     from ..gates.risk_matrix import scope_to_class
 
     evidence_class = scope_to_class(i.get("scope"), measured_finished_size=measured_size)
+    owner_made = i.get("owner_made") is True
     row_id = record(ctx.db, assessment, content_hash=content_hash,
-                    evidence_class=evidence_class)
+                    evidence_class=evidence_class, owner_made=owner_made)
     ctx.audit("physical.recorded", artifact=f"{slug}@{version}",
               detail={"row": row_id, "content_hash": content_hash,
                       "evidence_class": evidence_class,
                       "release_certified": certified, **assessment.to_dict()})
 
     review = None
-    if assessment.outcome == PARTIAL:
+    if assessment.outcome == PARTIAL and not owner_made:
         review = _route_partial_to_owner(ctx, slug, version, content_hash, row_id, assessment)
 
     from ..quality import physical as _physical
@@ -3083,7 +3086,7 @@ def handle_physical_record(ctx: JobContext) -> dict:
                                        design)
     lifted: list[int] = []
     if (assessment.size_proof and evidence_class == "full_physical_make" and design
-            and assessment.whole_pattern):
+            and assessment.whole_pattern and not owner_made):
         # SECREVIEW F1: only a passed full make of a different design that measured the stated
         # size lifts an earlier design's size halt.
         from ..gates.incidents import IncidentTracker
@@ -3136,7 +3139,8 @@ def handle_physical_record(ctx: JobContext) -> dict:
             "usable": assessment.usable_for_calibration,
             "findings": [f.code for f in assessment.findings],
             "publication_halted": halted, "size_halts_lifted": lifted,
-            "size_proof": assessment.size_proof, "owner_review": review,
+            "size_proof": assessment.size_proof and not owner_made,
+            "owner_made_non_evidence": owner_made, "owner_review": review,
             "rebuilt": rebuilt, "photos": photos}
 
 

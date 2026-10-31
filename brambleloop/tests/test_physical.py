@@ -62,7 +62,7 @@ def _sample(twin, *, ratio: float = 1.0, **kw) -> SampleReport:
     grams = {colour: (metres * ratio) / (BAND.metres / BAND.grams)
              for colour, metres in twin.yarn_metres_by_color.items()}
     defaults = dict(product_slug="market-basket-medium", version="1.0.0",
-                    tester_ref="owner", grams_by_color=grams, ball_band=BAND,
+                    tester_ref="tester-1", grams_by_color=grams, ball_band=BAND,
                     hook_mm=4.0, hours=7.5,
                     # PHYSFIX G3: a basket is a 3-D piece, so the record says it held shape.
                     holds_shape=True,
@@ -70,6 +70,17 @@ def _sample(twin, *, ratio: float = 1.0, **kw) -> SampleReport:
                     instructions_followed=True)
     defaults.update(kw)
     return SampleReport(**defaults)
+
+
+def _agree(db, ref: str = "tester-1"):
+    """SECREVIEW R12: samples count only from a tester with a recorded, independent,
+    qualified agreement -- so the fixture's tester agrees first, through the one intake."""
+    from brambleloop.quality import tester_programme as tp
+
+    tp.record_agreement(db, handle_ref=ref, specialties=["home_decor"], express_consent=True,
+                        consent_source="test fixture", relationship="none",
+                        qualification="https://www.ravelry.com/projects/tester/basket")
+    return db
 
 
 # ---- the measurement itself ------------------------------------------------
@@ -96,6 +107,7 @@ def test_the_factor_reaches_the_yardage_the_customer_reads():
     cir, result, twin = _basket()
     db = Database("sqlite://")
     db.create_all()
+    _agree(db)
     record(db, assess(_sample(twin, ratio=1.15, measured_width_cm=20.5,
                               measured_height_cm=16.2), twin, cir))
 
@@ -114,6 +126,7 @@ def test_with_no_sample_the_estimate_stays_uncalibrated():
     cir, _, twin = _basket()
     db = Database("sqlite://")
     db.create_all()
+    _agree(db)
     assert calibration_from_db(db, cir) == 1.0
     assert twin.calibrated is False
 
@@ -200,6 +213,7 @@ def test_a_failed_sample_is_stored_but_never_used():
     cir, _, twin = _basket()
     db = Database("sqlite://")
     db.create_all()
+    _agree(db)
     record(db, assess(_sample(twin, ratio=1.05, measured_width_cm=26.0), twin, cir))
 
     with db.session() as s:
@@ -217,6 +231,7 @@ def _booted() -> Database:
     db = Database(f"sqlite:///{tmp}/physical.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    _agree(db)
     return db
 
 
@@ -240,7 +255,7 @@ def test_a_recorded_sample_calibrates_the_published_figures():
     grams = {c: (m * 1.2) / (BAND.metres / BAND.grams)
              for c, m in twin.yarn_metres_by_color.items()}
     JobQueue(db).enqueue("quality_director", "physical.record", {
-        "slug": cir.slug, "version": cir.version, "tester_ref": "owner",
+        "slug": cir.slug, "version": cir.version, "tester_ref": "tester-1",
         "grams_by_color": grams, "ball_band_grams": BAND.grams,
         "ball_band_metres": BAND.metres, "hook_mm": 4.0, "holds_shape": True,
         "instructions_followed": True,
@@ -262,7 +277,7 @@ def test_a_sample_that_disagrees_about_size_halts_the_product():
     grams = {c: m / (BAND.metres / BAND.grams)
              for c, m in twin.yarn_metres_by_color.items()}
     JobQueue(db).enqueue("quality_director", "physical.record", {
-        "slug": cir.slug, "version": cir.version, "tester_ref": "owner",
+        "slug": cir.slug, "version": cir.version, "tester_ref": "tester-1",
         "grams_by_color": grams, "ball_band_grams": BAND.grams,
         "ball_band_metres": BAND.metres, "holds_shape": True, "instructions_followed": True,
         "measured_width_cm": 27.0, "measured_height_cm": 16.0})

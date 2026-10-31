@@ -13,7 +13,9 @@ physical evidence before live sale (`gates.risk_matrix`):
 * the Launch-0 blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;
 * the three market baskets are Class B on `dimensional_form`, share one gauge, stitch and
   yarn weight (sc, 12.5 sts/10 cm, 5.0 mm, worsted cotton), and the small one is the
-  cheapest make (~2.2 h, ~52 m; ceiling CA$59.65 at the risk matrix's own rates).
+  cheapest make (~2.2 h, ~52 m). Its one approved figure is `KIT["max_cost_cad"]`,
+  CA$66.00 all-inclusive (CA$65.90 to the tester); the risk matrix's per-metre rate is only
+  its floor.
 
 A full make of the small basket satisfies its partial-physical requirement (a full make
 contains one, `risk_matrix.satisfies`), calibrates the sc/worsted-cotton yardage factor all
@@ -36,6 +38,11 @@ BUILD_KEY = "basket_small"
 # Whole balls reimbursed per make, at the ESTIMATED retail price in MATERIALS.
 BALLS_REIMBURSED = 2
 BALL_CAD = 5.00
+
+# SECREVIEW 3e542a1 R15: the figure each kit's owner approval names. A kit whose
+# `max_cost_cad` exceeds it -- a typo, or a raise nobody approved -- refuses to build, as one
+# below what the call promises does. Raising it is an owner decision recorded here.
+APPROVED_CEILING_CAD = {"basket_small": 66.00, "hexagon_coasters": 100.00}
 
 # Filled from the CIR at build time; the static copy is what the owner card quotes.
 KIT: dict = {
@@ -486,6 +493,10 @@ def build(out_dir: Path, key: str = BUILD_KEY) -> dict:
     if kit["max_cost_cad"] + 0.005 < max(promised, ceiling):
         raise ValueError(f"{cir.slug}: the ceiling CA${kit['max_cost_cad']:.2f} is below the "
                          f"promise CA${promised:.2f} or the risk matrix's CA${ceiling:.2f}")
+    approved = APPROVED_CEILING_CAD.get(key)
+    if approved is None or kit["max_cost_cad"] > approved + 0.005:
+        raise ValueError(f"{cir.slug}: the ceiling CA${kit['max_cost_cad']:.2f} is above the "
+                         f"approved CA${(approved or 0.0):.2f}")
     post = spec.get("outreach_post") or tester_programme.OUTREACH_POST
     if f"CA${kit['tester_receives_cad']:.2f}" not in post["body"]:
         raise ValueError(f"{cir.slug}: the tester call does not state the promised amount")

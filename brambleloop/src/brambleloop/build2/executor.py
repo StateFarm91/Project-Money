@@ -253,7 +253,9 @@ def _physical_proof_available(db, env) -> bool:
 
     with db.session() as s:
         rows = list(s.scalars(select(PhysicalTest).limit(50)))
-    return any(row.completed_at is not None for row in rows)
+    # SECREVIEW R12: an owner's own make is non-evidence; it opens no physical-proof gate.
+    return any(row.completed_at is not None and not (row.measured or {}).get("owner_made")
+               for row in rows)
 
 
 def _vision_usable(db, env) -> bool:
@@ -315,7 +317,19 @@ def _tester_recruited(db, env) -> bool:
     # permission.
     with db.session() as s:
         rows = s.execute(select(CreatorProfile.delivered, CreatorProfile.permissions)).all()
-    return any((delivered or 0) > 0 or bool(permissions) for delivered, permissions in rows)
+    from ..quality.tester_programme import ALLOWED_RELATIONSHIPS, qualification_problems
+
+    def counts(p) -> bool:
+        # SECREVIEW R12: a tester agreement counts only if it passed the independence
+        # allow-list with qualification evidence; other recorded permissions as before.
+        if (p or {}).get("kind") != "tester_agreement":
+            return bool(p)
+        ind = (p or {}).get("independence") or {}
+        return (ind.get("relationship") in ALLOWED_RELATIONSHIPS.values()
+                and not qualification_problems(ind.get("qualification")))
+
+    return any((delivered or 0) > 0 or any(counts(p) for p in (permissions or []))
+               for delivered, permissions in rows)
 
 
 def _owned_surface_probed(db, env) -> bool:
