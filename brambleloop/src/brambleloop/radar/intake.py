@@ -896,6 +896,34 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
             "score_job": getattr(job, "id", None)}
 
 
+def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
+    """An approved concept that waited at the pre-engineering gate for a taste judgement is
+    re-scored once the vision judge's verdict is on record, so it reaches `cir.draft` with no
+    session in the loop. Keyed `score:<slug>:<date>` (shared with radar.scan): at most once a
+    day, and never for a concept whose `draft:<slug>` already exists. No judgement, no job."""
+    from ..core.models import Job
+    from ..creative import intake as creative_intake
+
+    out = []
+    for row in approved_rows(db):
+        with db.session() as s:
+            drafted = s.scalar(select(Job.id).where(
+                Job.idempotency_key == f"draft:{row.slug}").limit(1))
+        if drafted is not None or not creative_intake.judgement_for(db, row.slug):
+            continue
+        payload = score_concept(_seed_from(row), today).to_dict()
+        payload["intake"] = {"row": row.id, "source_ref": row.source_ref,
+                             "reason": "vision judgement recorded"}
+        job = enqueue("market_radar", "radar.score", payload,
+                      idempotency_key=f"score:{row.slug}:{today.isoformat()}")
+        if job is not None:
+            audit(HANDOFF_ACTION, artifact=row.slug, detail={
+                "row": row.id, "job_type": "radar.score", "job_id": job.id,
+                "reason": "re-scored: a vision judgement is now on record"})
+            out.append(row.slug)
+    return out
+
+
 def run(db, *, audit, enqueue, today: date | None = None) -> dict:
     """One intake pass: research proposals, then family variations. Bounded, idempotent."""
     _ensure(db)
@@ -910,9 +938,11 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
             unchanged += 1
             continue
         decided.append(out)
+    rescored = rescore_judged(db, audit=audit, enqueue=enqueue, today=today)
     return {"candidates": len(candidates), "unchanged": unchanged,
+            "rescored": rescored,
             "approved": [d["slug"] for d in decided if d["state"] == APPROVED],
             "refused": [{"slug": d["slug"], "reasons": d.get("reasons", [])[:3]}
                         for d in decided if d["state"] == REFUSED],
-            "work_done": len(decided), "network_calls": 0, "spend_cad": 0.0,
+            "work_done": len(decided) + len(rescored), "network_calls": 0, "spend_cad": 0.0,
             "as_of": today.isoformat()}

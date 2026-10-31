@@ -189,10 +189,21 @@ def test_an_evidence_backed_opportunity_becomes_a_concept_is_scored_and_reaches_
     assert waited["promoted"] is False and waited["gate"]["decision"] == "waiting", waited
     assert not _jobs(db, "cir.draft")
 
-    # With the judge's (fixture) verdict on record, the same scoring promotes it.
+    # The next intake pass with no judgement on record queues nothing more.
+    quiet = _run(db, "radar.concept_intake", {}, key="quiet")
+    assert quiet["rescored"] == [] and quiet["work_done"] == 0, quiet
+
+    # Once the vision judge's (fixture) verdict is on record, the scheduled intake pass
+    # re-scores it by itself, and the same scoring promotes it to cir.draft -- no session.
+    assert SLUG not in {s.slug for s in POOL}, "the target is NOT one of the POOL seeds"
     restore = _fixture_judgement()
     try:
-        scored = _run(db, "radar.score", {"slug": SLUG}, key="rescore")
+        tomorrow = (TODAY + timedelta(days=1)).isoformat()
+        auto = _run(db, "radar.concept_intake", {"as_of": tomorrow}, key="judged")
+        assert auto["rescored"] == [SLUG], auto
+        assert [j.idempotency_key for j in _jobs(db, "radar.score")][-1] == \
+            f"score:{SLUG}:{tomorrow}"
+        scored = _run(db, "radar.score", None)
     finally:
         restore()
     assert scored["promoted"] is True, scored
