@@ -301,7 +301,23 @@ calls the network or a model, or bypasses SHADOW, a gate or an owner action.
 
 `df` before the run: 30 GB available.
 
-RESULTS_PLACEHOLDER
+| Suite | Result |
+|-------|--------|
+| test_opus2_chain_deadends | PASS (0 failed, 5s) |
+| test_opus2_commercial_lessons | PASS (0 failed, 5s) |
+| test_opus2_draft_constructions | PASS (0 failed, 5s) |
+| test_opus2_knowledge_gaps | PASS (0 failed, 2s) |
+| test_opus2_laura_home | PASS (0 failed, 11s) |
+| test_opus2_photo_led_gallery | PASS (0 failed, ~210s) |
+| test_opus2_reverify_withhold | PASS (0 failed) |
+| test_opus2_rim_negative | PASS (0 failed) |
+| test_opus2_scan_evidence | PASS (0 failed); the suite does not cover F3.1 |
+| test_opus2_size_claims | PASS (0 failed) |
+| test_shadow | PASS (rc=0, 883s) |
+| test_v11_autonomy_timeline | PASS (0 failing, 96s; the committed map matches the generator) |
+| test_vacuity | PASS (rc=0, 10s) |
+| test_w4_fmbatch1_retention_guard | PASS (rc=0, 33s) |
+| test_route_auth_default_deny | **NOT RUN**: `starlette.testclient` needs an HTTP client package that `requirements.lock` does not install. Installing an unpinned package was refused in this sandbox, so this suite needs re-running in a fully provisioned environment. That is an environment limitation, not a finding against the branch. |
 
 ## Required before integration
 
