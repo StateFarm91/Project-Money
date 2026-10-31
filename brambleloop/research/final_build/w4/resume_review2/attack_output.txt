@@ -1,0 +1,86 @@
+== REGRESSION: plain uninterrupted full run, base runner vs RESUMEFIX runner
+  base: exit 0, status passed, release_eligible True, scope full
+  base plain run, evaluated by fixed guards                  PASSES record_release,boot_guard,boot_in_container,deploy_check
+  fix: exit 0, status passed, release_eligible True, scope full
+  fix plain run (must PASS all four)                         PASSES record_release,boot_guard,boot_in_container,deploy_check
+  exit equal: True | stdout equal: True | log equal: True | record keys equal: True | record values equal: False | record-dir entries: ['locks'] ['locks']
+  record diffs: {'lock': ('"artifacts/suite_runs/locks/0e656c1a02aca22b.lock"', '"artifacts/suite_runs/locks/149eee5e0646040d.lock"'), 'duration_s': ('3', '2')}
+== GATING: checkpoint / shard / resumed runs, and forgeries
+ CHECKPOINT=1 complete: exit 0 status passed eligible False keys ['checkpoint', 'checkpoint_mode', 'resumed', 'suite_results'] scope full
+  as written                                                 refused everywhere
+  forged bit                                                 refused everywhere
+  forged bit + provenance keys deleted                       refused everywhere
+  ... + checkpoint dir deleted                               refused everywhere
+  ... + run id renamed (dir kept)                            refused everywhere
+  forged bit + keys deleted + log edited (dir kept)          PASSES boot_in_container
+  forged bit + dir deleted + log edited (keys kept)          refused everywhere
+  ALL: keys, dir, log, rename (= forging a plain run)        PASSES record_release,boot_guard,boot_in_container,deploy_check
+ SHARD=0/1 complete: exit 0 status passed eligible False keys ['checkpoint', 'checkpoint_mode', 'resumed', 'suite_results'] scope full
+  as written                                                 refused everywhere
+  forged bit                                                 refused everywhere
+  forged bit + provenance keys deleted                       refused everywhere
+  ... + checkpoint dir deleted                               refused everywhere
+  ... + run id renamed (dir kept)                            refused everywhere
+  forged bit + keys deleted + log edited (dir kept)          PASSES boot_in_container
+  forged bit + dir deleted + log edited (keys kept)          refused everywhere
+  ALL: keys, dir, log, rename (= forging a plain run)        PASSES record_release,boot_guard,boot_in_container,deploy_check
+ CHECKPOINT=1 killed, then RESUME: exit 0 status passed eligible False keys ['checkpoint', 'checkpoint_mode', 'resumed', 'suite_results'] scope full
+  as written                                                 refused everywhere
+  forged bit                                                 refused everywhere
+  forged bit + provenance keys deleted                       refused everywhere
+  ... + checkpoint dir deleted                               refused everywhere
+  ... + run id renamed (dir kept)                            refused everywhere
+  forged bit + keys deleted + log edited (dir kept)          PASSES boot_in_container
+  forged bit + dir deleted + log edited (keys kept)          refused everywhere
+  ALL: keys, dir, log, rename (= forging a plain run)        PASSES record_release,boot_guard,boot_in_container,deploy_check
+== KILL at every checkpoint step (SIGKILL to the process group when the tool is entered/left)
+  plan:before      no record written
+  plan:after       no record written
+  begin:before as left (status running, eligible False)      refused everywhere
+  begin:before + forged bit                                  refused everywhere
+  begin:before     then RESUME: exit 4, status passed, eligible True (REFUSED: no run secret for 20261031T011127Z-303 in /tmp/rr2-tvv2qgov/k-begin-before-keys: this checkpoint cannot be authenticated (copied from another run or ho)
+  begin:before after RESUME                                  refused everywhere
+  begin:after as left (status running, eligible False)       refused everywhere
+  begin:after + forged bit                                   refused everywhere
+  begin:after      then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011128Z-383 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  begin:after after RESUME                                   refused everywhere
+  start:before as left (status running, eligible False)      refused everywhere
+  start:before + forged bit                                  refused everywhere
+  start:before     then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011129Z-474 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  start:before after RESUME                                  refused everywhere
+  start:after as left (status running, eligible False)       refused everywhere
+  start:after + forged bit                                   refused everywhere
+  start:after      then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011131Z-595 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  start:after after RESUME                                   refused everywhere
+  finish:before as left (status running, eligible False)     refused everywhere
+  finish:before + forged bit                                 refused everywhere
+  finish:before    then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011133Z-722 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  finish:before after RESUME                                 refused everywhere
+  finish:after as left (status running, eligible False)      refused everywhere
+  finish:after + forged bit                                  refused everywhere
+  finish:after     then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011134Z-883 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  finish:after after RESUME                                  refused everywhere
+  restore:before as left (status running, eligible False)    refused everywhere
+  restore:before + forged bit                                refused everywhere
+  restore:before   then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011136Z-1050 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  restore:before after RESUME                                refused everywhere
+  restore:after as left (status running, eligible False)     refused everywhere
+  restore:after + forged bit                                 refused everywhere
+  restore:after    then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011143Z-3255 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  restore:after after RESUME                                 refused everywhere
+  finalize:before as left (status running, eligible False)   refused everywhere
+  finalize:before + forged bit                               refused everywhere
+  finalize:before  then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011151Z-5465 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  finalize:before after RESUME                               refused everywhere
+  finalize:after as left (status running, eligible False)    refused everywhere
+  finalize:after + forged bit                                refused everywhere
+  finalize:after   then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011159Z-8582 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  finalize:after after RESUME                                refused everywhere
+  seal:before as left (status passed, eligible False)        refused everywhere
+  seal:before + forged bit                                   refused everywhere
+  seal:before      then RESUME: exit 4, status passed, eligible True (REFUSED: run 20261031T011208Z-11701 ended 'passed', not interrupted; RESUME continues only an interrupted run)
+  seal:before after RESUME                                   refused everywhere
+  seal:after as left (status passed, eligible False)         refused everywhere
+  seal:after + forged bit                                    refused everywhere
+  seal:after       then RESUME: exit 4, status passed, eligible True (REFUSED: segment 1 of run 20261031T011217Z-14836 completed (passed); RESUME continues only an interrupted run. Start a new run.)
+  seal:after after RESUME                                    refused everywhere

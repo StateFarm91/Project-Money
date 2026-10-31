@@ -1,0 +1,8 @@
+CONTROL  killed after flaky FAILED, plain RESUME: exit 1; record status failed, failing_suites ['tests/test_flaky.py'], flaky executions 1, suite_results [('test_flaky.py', 'failed', 1), ('test_gate.py', 'passed', 2)]
+   stderr: RESUME: 1 suite(s) already failed in this run and are NOT re-run; the run cannot pass: tests/test_flaky.py
+ATTACK 1 chain before truncation: [('begin', None, None), ('result', 'tests/test_flaky.py', 'failed')]
+ATTACK 1 truncated chain to its 'begin' entry, RESUME: exit 0; record status passed, failing_suites [], flaky executions 2, suite_results [('test_flaky.py', 'passed', 2), ('test_gate.py', 'passed', 2)]
+ATTACK 2 run 1 (uninterrupted, completed): exit 1; record status failed, failing_suites ['tests/test_flaky.py'], flaky executions 1, suite_results [('test_flaky.py', 'failed', 1), ('test_gate.py', 'passed', 1)]
+ATTACK 2 plain RESUME of the completed run: exit 4 REFUSED: segment 1 of run 20261031T011402Z-2572 completed (failed); RESUME continues only an interrupted run. Start a new run.
+ATTACK 2 truncated chain + record status 'interrupted' + EXIT line removed, RESUME: exit 0; record status passed, failing_suites [], flaky executions 2, suite_results [('test_flaky.py', 'passed', 2), ('test_gate.py', 'passed', 2)]
+orphaned segment-1 attempt files left in place: ['tests_test_flaky.py.s1.json', 'tests_test_gate.py.s1.json']
