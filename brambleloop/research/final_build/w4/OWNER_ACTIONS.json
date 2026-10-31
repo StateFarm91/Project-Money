@@ -155,7 +155,7 @@
      "id": "tester_outreach",
      "decision": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$66.00 all-inclusive: CA$65.90 to the one tester by a fee-free transfer). You are not asked to crochet.",
      "why": "3 requirements are parked on it",
-     "evidence": "gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
+     "evidence": "gate 'tester_roster' opens when: at least one tester agreement recorded through tester_programme.record_agreement that passed the independence allow-list with qualification evidence. A prospect, another permission or a delivery count is not an independent tester",
      "max_cost_cad": 66.0,
      "max_cost_display": "CA$66.00",
      "max_cost_basis": "ESTIMATED, all-inclusive (quality.tester_kit.KIT): CA$55.90 fee + CA$10.00 yarn to the tester, CA$0.10 for processing",

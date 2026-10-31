@@ -825,6 +825,69 @@ def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
         "working into another row kept the digest"
 
 
+def test_hold_order_and_identical_piece_order_are_not_the_design():
+    """SECREVIEW e3fd0b0 R18: the order of a piece's holds, and the order of two identical
+    pieces that resume different holds (left and right sleeve), are cosmetic. A real change
+    to a hold or a piece still moves the digest."""
+    from brambleloop.cir.benchmarks import cardigan
+    from brambleloop.cir.compiler import compile_cir as _compile
+    from brambleloop.cir.model import CIR, Component, Hold, Op, Row
+
+    def panel(holds):
+        return Component(name="panel", construction="flat", foundation=20,
+                         foundation_kind="chain",
+                         rows=[Row(index=1, ops=[Op("sc", 20)], declared_count=20),
+                               Row(index=2, ops=[Op("sc", 8)], declared_count=8, skips=12),
+                               Row(index=3, ops=[Op("sc", 8)], declared_count=8)],
+                         holds=holds)
+
+    def strap(name, hold, rows=1):
+        return Component(name=name, construction="flat", foundation=0,
+                         foundation_kind="none",
+                         rows=[Row(index=i, ops=[Op("sc", 6)], declared_count=6)
+                               for i in range(1, rows + 1)], resumes=hold)
+
+    def digest(comps):
+        c = CIR.from_dict(cardigan("XS").to_dict())
+        c.components, c.assembly = comps, []
+        r = _compile(c)
+        assert r.ok, [f.code for f in r.findings if f.is_error]
+        return physical.design_digest(c, r)
+
+    H = lambda n, f: Hold(name=n, at_row=1, count=6, from_stitch=f)  # noqa: E731
+    base = digest([panel([H("a", 8), H("b", 14)]), strap("s1", "a"), strap("s2", "b")])
+    assert base
+    assert digest([panel([H("b", 14), H("a", 8)]), strap("s1", "a"), strap("s2", "b")]) == base
+    assert digest([panel([H("a", 8), H("b", 14)]), strap("s2", "b"), strap("s1", "a")]) == base
+    assert digest([panel([H("a", 8), H("b", 14)]), strap("s1", "b"), strap("s2", "a")]) == base
+    # The reverse: real changes still move it.
+    assert digest([panel([H("a", 7), H("b", 14)]), strap("s1", "a"), strap("s2", "b")]) != base
+    assert digest([panel([H("a", 8), H("b", 14)]), strap("s1", "a", rows=2),
+                   strap("s2", "b")]) != base
+
+
+def test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan():
+    """SECREVIEW e3fd0b0 R19: owner-made rows are non-evidence and never a tester (F-071)."""
+    from brambleloop.quality import testers
+
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    _run(db, "physical.record", {**_inputs(cir, scope="full_make", holds_shape=True),
+                                 "tester_ref": "owner", "owner_made": True})
+    assert len(_rows(db)) == 1
+    roster = testers.from_db(db)
+    assert roster["count"] == 0, roster
+    planned = testers.plan(db, [{"slug": cir.slug, "risk_class": "B",
+                                 "specialty": "home_decor", "make_hours": 2.15,
+                                 "needed_by": __import__("datetime").date(2026, 12, 1)}],
+                           today=__import__("datetime").date(2026, 11, 1))
+    assert all(t.get("ref") != "owner" for t in planned.get("testers") or []), planned
+    assert all(a.get("tester") != "owner" for a in planned.get("assignments") or []), planned
+    _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True))
+    assert testers.from_db(db)["count"] == 1
+
+
 def test_a_sample_is_evidence_only_from_an_independent_agreed_tester():
     """SECREVIEW 3e542a1 R12: no default "owner", no unknown or pre-allow-list tester; an
     explicit owner make is stored as non-evidence and satisfies nothing."""
@@ -906,7 +969,9 @@ def test_the_kit_ceiling_is_checked_from_above_and_no_stale_figure_remains():
     w4 = ROOT / "research/final_build/w4"
     for path in (w4 / "OWNER_ACTIONS.json", w4 / "OWNER_ACTIONS.md",
                  ROOT / "src/brambleloop/app/command_center/snapshots/OWNER_ACTIONS.json",
-                 w4 / "GATE_CLEARANCE_BUSINESS.md", w4 / "GATE_CLEARANCE_BUSINESS.json"):
+                 w4 / "GATE_CLEARANCE_BUSINESS.md", w4 / "GATE_CLEARANCE_BUSINESS.json",
+                 # SECREVIEW e3fd0b0 R21: the listing package offered the old figure.
+                 w4 / "manual_listings/market-basket-small-1.2.0/LISTING_PACKAGE.md"):
         text = path.read_text()
         assert "185.0" not in text and "CA$185" not in text, path
         assert "59.65" not in text, path
