@@ -502,7 +502,7 @@ def test_the_basket_kit_asks_for_the_unedited_hero_and_carries_no_nursery_wordin
     from brambleloop.quality import tester_kit
 
     spec = tester_kit.KITS["basket_small"]
-    text = " ".join(_sheet_text(KIT_DIR / f"market-basket-small-{spec['version']}-RECORD-SHEET.pdf").split())
+    text = " ".join(_sheet_text(KIT_DIR / f"market-basket-small-{tester_kit.content_hash('basket_small')[0]}-RECORD-SHEET.pdf").split())
     manifest = (KIT_DIR / spec["manifest"]).read_text()
     for needle in ("UNEDITED", "listing's first photo", "sit flat", "hold its shape"):
         assert needle in text, needle
@@ -568,11 +568,14 @@ def test_a_sample_proves_one_size_and_the_first_customer_evidence_says_which():
                                               size="small"))
     assert (job.outputs or {})["covers_size"]["size"] == "small", job.outputs
     cov = physical.size_coverage(db, small)
-    assert cov["listing"] == "nursery-nesting-baskets"
-    assert cov["proven"] == ["small"] and cov["unproven"] == ["medium", "large"], cov
+    # D-W4-OWNER-BASKET-IDENTITY (LISTING1, merged 2026-10-31): the small basket is its own
+    # one-size product, so a sample of it proves every size that listing sells -- and still
+    # nothing about the reserve family's medium and large (asserted below).
+    assert cov["listing"] == "hexagonal-bread-basket"
+    assert cov["proven"] == ["small"] and cov["unproven"] == [], cov
     binding = physical_binding(db, small)
     check = check_gauge_and_size_claims(small, build_twin(small, compile_cir(small)), binding)
-    assert check.state == PASS and "not proven: ['medium', 'large']" in check.detail, check.detail
+    assert check.state == PASS and "not proven: none" in check.detail, check.detail
     medium = physical_binding(db, _basket("basket_medium"))
     assert medium["passed"] is False and medium["size_coverage"]["proven"] == ["small"]
 
