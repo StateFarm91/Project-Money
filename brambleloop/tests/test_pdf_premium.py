@@ -542,6 +542,10 @@ def test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verificati
     assert "estimated" not in D.render(small, "detail").manifest            # base only
     assert "estimated" not in D.render(medium, "hero").manifest
     assert K.ESTIMATED_SHAPE in DISCLOSURES["estimated_shape"]
+    from brambleloop.visual import launch_imagery as LI
+    assert LI.supplement_alt_text("ANGLE", "Hexagonal Bread Basket",
+                                  "market-basket-small").endswith(K.ESTIMATED_SHAPE)
+    assert K.ESTIMATED_SHAPE not in LI.supplement_alt_text("ANGLE", "Basket", "market-basket-medium")
     basket = _flat(_doc("basket_small")[1])
     assert basket.count(K.ESTIMATED_SHAPE) >= 3            # cover, about box, schematic, gallery
     assert "rise straight up" not in basket and "turn up at a defined edge" in basket
