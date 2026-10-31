@@ -954,6 +954,7 @@ def test_designs_with_assembly_are_halted_product_wide_until_seams_are_canonical
             Seam(method="whipstitch", piece_a="C", piece_b="A", edge_a="bottom",
                  edge_b="top"), S("B", "D")]),
     }
+    assert len(seamed) == 4 and all(seams for _, seams in seamed.values())
     for label, (comps, seams) in seamed.items():
         assert design(comps, seams) is None, label
 
