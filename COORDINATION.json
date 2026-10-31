@@ -129,10 +129,12 @@
     },
     {
       "id": "P0-LEARNING-REFERENCE",
-      "operator": "reserved:codex (work order being prepared by integrator)",
+      "operator": "codex (assigned by integrator; awaiting Codex start)",
       "branch": "codex/p0-learning-reference",
-      "state": "reserved",
-      "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department"
+      "state": "assigned",
+      "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department",
+      "work_order": "brambleloop/research/final_build/w5/CODEX_WO_P0_LEARNING_REFERENCE.md",
+      "background": "brambleloop/research/final_build/w5/LEARNING_MAP.md"
     }
   ],
   "unowned": [

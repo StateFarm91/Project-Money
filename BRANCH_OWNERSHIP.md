@@ -99,3 +99,12 @@ Contact: hand off through your branch and a handoff document. The integrator rev
 - Roadmap: Master Plan, Build 2, Final Master and the P0 workforce, with 24/7 Railway operation that does not depend on Claude sessions.
 - The second operator's claims, now in review: P0-CHAIN-DEADENDS, P0-COMPETITOR-EVIDENCE and P0-PERF-LEARNING (54766c9e).
 - Still unowned: P0-GALLERY-ASSEMBLY (including a disclosed certificate for photo-led or mixed galleries) and deterministic idle-capacity detection with automatic next-product selection.
+
+## Update 2026-10-31T07:40Z: autonomous learning and reference intelligence (owner P0 directive)
+
+- **`codex/p0-learning-reference` (Codex):** `P0-LEARNING-REFERENCE`. The work order is `brambleloop/research/final_build/w5/CODEX_WO_P0_LEARNING_REFERENCE.md`:
+  - WO-1: the teardown analyst job, with independent review of findings.
+  - WO-2: a versioned, approved design-knowledge store, read by the CIR drafting and revision step and by the writer.
+  - WO-3: held-out before-and-after design evaluation.
+- The map of what already exists is `brambleloop/research/final_build/w5/LEARNING_MAP.md`. The learning system is `improve/` plus `teardown/`, so do not build a competing one.
+- **Unowned:** `P0-DRAFT-CONSTRUCTIONS` (catalogue breadth beyond flat panels) has been offered to the second operator.
