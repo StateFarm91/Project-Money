@@ -24,7 +24,7 @@
       "operator": "main-opus",
       "branch": "claude/w5-INVENTORY",
       "scope": "15-state inventory, flow health, CC Production view",
-      "state": "in_review",
+      "state": "fixing_review",
       "head": "d0e523bb",
       "review_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b"
     },
@@ -39,7 +39,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "coaster_done_in_audit",
+      "state": "basket_final_in_progress",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -47,39 +47,49 @@
       "id": "W-LISTING",
       "operator": "main-opus",
       "branch": "claude/w4-LISTING1",
-      "scope": "basket identity source fix, manual listing packages"
+      "scope": "basket identity source fix, manual listing packages",
+      "state": "in_review",
+      "head": "d11fe80f"
     },
     {
       "id": "W-LAUNCHFIX",
       "operator": "main-opus",
       "branch": "claude/w4-LAUNCHFIX",
-      "scope": "launch gates, CC #/policy form, sample-photo gate"
+      "scope": "launch gates, CC #/policy form, sample-photo gate",
+      "state": "merged",
+      "head": "8c14dbf2"
     },
     {
       "id": "W-PHYSFIX",
       "operator": "main-opus",
       "branch": "claude/w4-PHYSFIX",
-      "scope": "physical intake, tester kits, photo-first ordering"
+      "scope": "physical intake, tester kits, photo-first ordering",
+      "state": "fixing_review",
+      "head": "adabd597"
     },
     {
       "id": "W-ADOPT",
       "operator": "main-opus",
       "branch": "claude/w4-ADOPT",
       "scope": "manual listing adoption",
-      "state": "in_review",
-      "head": "af04209949c19478b168511ee0f27c7ad6575cdc"
+      "state": "fixing_review",
+      "head": "af042099"
     },
     {
       "id": "W-RESUMEFIX",
       "operator": "main-opus",
       "branch": "claude/w4-RESUMEFIX",
-      "scope": "restartable runner security"
+      "scope": "restartable runner security",
+      "state": "merged",
+      "head": "e634e6fc"
     },
     {
       "id": "W-READBACK",
       "operator": "main-opus",
       "branch": "claude/w4-READBACK",
-      "scope": "production evidence endpoint"
+      "scope": "production evidence endpoint",
+      "state": "merged",
+      "head": "5d95c4d0"
     },
     {
       "id": "INTEG-PDF-CHAIN",
@@ -104,6 +114,20 @@
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
+    },
+    {
+      "id": "W-CHANNELGATE",
+      "operator": "integrator-worker",
+      "branch": "claude/w5-CHANNELGATE",
+      "area": "gates/channel_policy.py; one additive refusal in publish/release_gates.for_publish for channel etsy; channel_eligibility attribute",
+      "state": "in_progress"
+    },
+    {
+      "id": "W-CHANNELRESEARCH",
+      "operator": "integrator-worker",
+      "branch": "(research file only) research/final_build/w5/CHANNEL_COMPLIANCE_RESEARCH.md",
+      "area": "Etsy AI-instruction rule wording; alternative channels; genuine human-development path",
+      "state": "in_progress"
     }
   ],
   "unowned": [
@@ -156,6 +180,13 @@
   "integration": {
     "base": "claude/w4-INTEG8-next",
     "production": "ee35a493",
-    "batch4_status": "reviews pending: LAUNCHFIX delta (8c14dbf2), RESUMEFIX re-review (e634e6fc), PHYSFIX (adabd597 + PHOTO 23efd5dc), ADOPT (af042099 -> claude/w4-SECREVIEW-ADOPT-af04209); READBACK SHIP. Integration note: ADOPT and READBACK both edit app/main.py api_catalogue and app/verify_checks.py; reconcile at merge."
-  }
+    "batch4_status": "INTEG8-next bcbe391b: merged READBACK(+L1-L4 fixed), LAUNCHFIX, RESUMEFIX; touched suites running. Waiting: PHYSFIX(-PHOTO), ADOPT fixes; LISTING1 review."
+  },
+  "owner_directives": [
+    {
+      "date": "2026-10-31",
+      "id": "D-W5-OWNER-CHANNEL-ISOLATION",
+      "summary": "Etsy AI-generated-craft-pattern policy is a channel-specific publication gate only; never a company-wide engineering blocker. All internal stages continue. Investigate genuinely human-developed patterns and alternative channels. Never fabricate authorship, testing or provenance; never publish against confirmed platform restrictions or bypass safeguards."
+    }
+  ]
 }

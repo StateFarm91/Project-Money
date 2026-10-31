@@ -86,3 +86,12 @@ Contact: hand off through your branch and a handoff document. The integrator rev
   - production evidence of competitor scans.
 
   Claim it in your handoff.
+
+## Update 2026-10-31T02:45Z: channel isolation (owner directive D-W5-OWNER-CHANNEL-ISOLATION)
+
+- Etsy's AI-generated-craft-pattern rule is a **channel-specific publication gate only**, never a company-wide engineering blocker. Research, design, validation, PDFs, imagery, gallery assembly, listing preparation and learning all continue for every product.
+- New owned work:
+  - `claude/w5-CHANNELGATE` (W-CHANNELGATE): `gates/channel_policy.py` plus one additive Etsy refusal in `for_publish`.
+  - W-CHANNELRESEARCH: research file only.
+- **Second operator:** your size-claims gate will sit beside this in `for_publish`. Keep your lines clearly separated; the integrator reconciles them.
+- Batch 4 merged so far: READBACK (with L1–L4 fixed), LAUNCHFIX, RESUMEFIX. PHYSFIX, ADOPT and INVENTORY are fixing their review findings.
