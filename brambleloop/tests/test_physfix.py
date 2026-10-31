@@ -426,6 +426,97 @@ def test_a_size_mismatch_halts_the_product_and_only_the_owner_lifts_it_on_eviden
     assert not result.get("halted_by_incident") and result.get("granted"), result
 
 
+def halted_and_corrected(db):
+    """A product halted on size, and a corrected re-release made in full by an independent
+    tester at the stated size: everything an owner lift needs, nothing lifted yet. Shared with
+    the Command Center HTTP test (`test_physfix_size_lift_http`)."""
+    from brambleloop.gates.incidents import IncidentTracker
+    from brambleloop.runtime import release as R
+
+    cir = _basket_medium()
+    _certify(db, cir)
+    job = _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
+                                              measured_width_cm=40.0))
+    assert (job.outputs or {})["publication_halted"], job.outputs
+    fixed = _geometry_changed_medium("1.3.1")
+    assert _certify(db, fixed).get("halted_by_incident") is True
+    job = _run(db, "physical.record", _inputs(fixed, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-2",
+                                              content_hash=R._content_hash_of(fixed)))
+    good_row = (job.outputs or {})["physical_test_id"]
+    inc_id = next(i.id for i in IncidentTracker(db).open_incidents(cir.slug)
+                  if i.signature.startswith("physical-size:"))
+    return cir, fixed, inc_id, good_row
+
+
+def _size_withheld(db, cir) -> list[str]:
+    from brambleloop.publish import release_gates
+
+    out = release_gates.for_publish(db, slug=cir.slug, version=cir.version, read_only=True)
+    return [r for r in out["reasons"] if r.startswith("release withheld (physical size)")]
+
+
+def test_the_failed_release_never_publishes_again_after_an_owner_lift():
+    """The owner's lift withholds the release that measured wrong, permanently and in the
+    same transaction: (a) the corrected version certifies and is not withheld by
+    `for_publish`; (b) the failed version is refused by `for_publish`, and re-certifying it
+    -- the same text or a changed text under its version -- does not un-withhold it, nor can
+    the kind be cleared; (c) the refusal survives `retention.apply`."""
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.ops import retention
+    from brambleloop.publish import withholding
+    from brambleloop.runtime import release as R
+
+    db = _db()
+    cir, fixed, inc_id, good_row = halted_and_corrected(db)
+    assert _size_withheld(db, cir) == [], "withheld before any lift"
+    R.lift_size_halt(db, incident_id=inc_id, physical_test_id=good_row, actor="owner:cc:s",
+                     stepped_up=True, reason="1.3.1 re-made at the stated size")
+    with db.session() as s:
+        inc = s.get(Incident, inc_id)
+        assert inc.resolved and inc.detail["withheld_release"]["version"] == cir.version
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == withholding.DURABLE_AUDIT)))
+    assert len(rows) == 1 and rows[0].artifact == f"{cir.slug}@{cir.version}", rows
+    assert rows[0].detail["kind"] == withholding.PHYSICAL_SIZE_FAILED
+    assert rows[0].detail["content_hash"], rows[0].detail
+
+    # (a) the corrected version certifies and is not withheld.
+    result = _certify(db, fixed)
+    assert result.get("granted") and not result.get("halted_by_incident"), result
+    assert _size_withheld(db, fixed) == []
+    # (b) the failed version is refused, and stays refused through re-certification.
+    assert _size_withheld(db, cir), "the failed release may publish"
+    assert withholding.reasons(db, cir.slug, cir.version)["blocks_build"] is True
+    _certify(db, cir)
+    assert _size_withheld(db, cir), "re-certifying the same text un-withheld it"
+    changed = _basket_medium()
+    changed.title += " (re-issued)"                  # another text under the failed version
+    _certify(db, changed)
+    assert _size_withheld(db, changed), "a re-certified text un-withheld the failed version"
+    try:
+        withholding.record(db, cir.slug, cir.version, kind=withholding.PHYSICAL_SIZE_FAILED,
+                           reason=None)
+    except withholding.WithholdingRefused:
+        pass
+    else:
+        raise AssertionError("the permanent withholding was cleared")
+    assert _size_withheld(db, cir)
+    # (c) retention, run far in the future, keeps it.
+    for _ in range(3):                    # more rows than retention keeps per action
+        with db.session() as s:
+            s.add(AuditLog(actor="t", action=withholding.DURABLE_AUDIT,
+                           artifact="other@1.0.0", detail={"kind": "teardown_qa"}))
+    retention.apply(db, now=datetime.now(timezone.utc) + timedelta(days=4000))
+    with db.session() as s:
+        kept = s.scalar(select(AuditLog).where(AuditLog.action == withholding.DURABLE_AUDIT,
+                                               AuditLog.artifact == f"{cir.slug}@{cir.version}"))
+    assert kept is not None, "retention pruned the durable withholding"
+    assert _size_withheld(db, cir), "retention un-withheld the failed release"
+    assert retention.KNOWN_READ_ACTIONS[withholding.DURABLE_AUDIT][0] == "lifetime_total"
+
+
 def _geometry_changed_medium(version: str):
     """The medium basket with one more straight wall round: a different made object."""
     import copy

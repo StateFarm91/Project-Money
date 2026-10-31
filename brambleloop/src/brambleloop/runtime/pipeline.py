@@ -1451,7 +1451,12 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             previous = existing.release_hash
             existing.cir_json = cir.to_dict()
             existing.release_hash = release_hash
-            existing.certificate = certificate
+            # PHYSFIX: a permanent withholding (the version a sample measured at the wrong
+            # size) survives the replaced certificate -- re-certifying never un-withholds it.
+            from ..publish import withholding as _withholding
+
+            existing.certificate = _withholding.carry_permanent(existing.certificate,
+                                                                certificate)
             existing.certified = True
             ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
                       detail={"previous_release_hash": previous,

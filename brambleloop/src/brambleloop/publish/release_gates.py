@@ -1535,6 +1535,14 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for kind, entry in sorted(held["reasons"].items()):
         if kind == withholding.TEARDOWN_QA:
             reasons.append(f"release withheld (#163): {entry['reason']}")
+    # PHYSFIX (SECREVIEW 8da830d R28 follow-up): the version a physical sample measured at
+    # the wrong size never publishes again -- read from the record and, independently, from
+    # its durable audit row, so neither a replaced certificate nor retention un-withholds it.
+    size_failed = [str(entry["reason"]) for kind, entry in held["reasons"].items()
+                   if kind == withholding.PHYSICAL_SIZE_FAILED]
+    size_failed += withholding.durable_reasons(db, slug, version)
+    for why in dict.fromkeys(size_failed):
+        reasons.append(f"release withheld (physical size): {why}")
     # F-111 / F-118 / F-120 (cluster C): the product-level scope -- legacy quarantine, and
     # for a Launch-0 slug the first customer's nine-area gate -- decided in one place.
     from . import eligibility
