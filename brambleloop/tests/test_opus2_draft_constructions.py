@@ -350,6 +350,18 @@ def test_an_egg_cosy_set_drafts_one_piece_cups_sized_to_an_egg():
     assert any("cosy" in p for p in drafted["name_truth"]), drafted
 
 
+def test_a_hat_is_refused_naming_the_two_figures_the_sourced_chart_lacks():
+    assert F.HEAD_CHART_URL.startswith("https://www.craftyarncouncil.com/")
+    assert set(F.HEAD_CIRCUMFERENCE_CM) == {"preemie", "baby", "toddler", "child", "tween",
+                                             "woman", "man"}
+    assert all(lo < hi for lo, hi in F.HEAD_CIRCUMFERENCE_CM.values())
+    assert F.HAT_UNSOURCED == ("hat_height", "negative_ease")
+    route = F.plan(category="hat", title="Alpine Slouch Beanie")
+    assert route["family"] == F.REFUSED
+    assert "hat height and negative ease" in route["needs"] and "circumference only" in \
+        route["needs"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

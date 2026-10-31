@@ -684,3 +684,56 @@ The owner's seven states are tracked separately.
 - The egg cosy is refused by name truth until the W-LISTING rule recognises a one-piece cup.
 - "Nordic Forest Mosaic Storage Basket" fails the colourwork rule: one colour per round.
 - `test_risk_matrix` fails on the integration base itself (`KeyError('market-basket-medium')`).
+
+## 29. Hats: the sourced head chart, and why hats stay refused (2026-10-31)
+
+**Sourced.** The Craft Yarn Council head circumference chart was retrieved on 2026-10-31 from
+https://www.craftyarncouncil.com/standards/head-circumference-chart (HTTP 200). It is
+transcribed into `fallback_constructions.HEAD_CIRCUMFERENCE_CM`; centimetre ranges are kept as
+`cir.graded` keeps them:
+
+| Size | cm |
+|---|---|
+| preemie | 23–30.5 |
+| baby | 35.5–40.5 |
+| toddler | 40.5–46 |
+| child | 45.5–51 |
+| tween | 51–56 |
+| woman | 53–58.5 |
+| man | 56–61 |
+
+**Not on the page:** hat height, negative ease, and any measuring note. A beanie needs a crown
+depth and a ribbing or body circumference below the head's, and neither has a sourced figure.
+- So hats stay **refused, never guessed**.
+- The refusal now names the two missing figures (`HAT_UNSOURCED`), so the knowledge-gap job
+  routes a precise gap: "hat height and negative ease from a published standard".
+- A purchased hat reference, through Codex's intake, or a physical sample would supply them.
+
+Test: `test_a_hat_is_refused_naming_the_two_figures_the_sourced_chart_lacks`. The
+constructions suite is 12/12.
+
+## 30. Where the construction backlog stands (stopping record for this pass)
+
+**Drafted by the radar fallback:**
+- basket (vessel);
+- cushion (panel pair);
+- plain triangle shawl;
+- tote (vessel plus measured sewn straps);
+- egg cosy (one-piece cup).
+
+**Refused by name, with the exact blocker:**
+
+| Form | Blocker | Who can unblock it |
+|---|---|---|
+| Two-colour rounds / mosaic / tapestry | per-stitch colour in the shared CIR model ("a CIR row carries one colour") | Main Opus decides; opus2 offers to implement |
+| Hats and beanies | no sourced hat height or negative ease (§29) | a sourced standard or a reference purchase (Codex intake) or a physical sample |
+| Garments, cardigans | graded designs live in the `creative/` concept path | W-CONCEPT |
+| Shaped amigurumi | multi-piece shaped construction in the `creative/` concept path | W-CONCEPT |
+| Stockings | heel and toe shaping on a closed tube | the next fallback rule. Feasible, but no stocking seed reaches the fallback except `nordic-forest-stocking`, whose title claims "Mosaic" colourwork, which also needs the per-stitch colour |
+| Lattice / lace shawls | a stitch chart on triangle shaping; and `name_truth` does not yet read "lattice" or "lace" | the chart: opus2 after per-stitch colour, or a motif-on-shaping rule; the vocabulary: the `name_truth` owner |
+| Tea cosies, mobiles, bundles, multi-size concepts | spout openings / hanger assembly / member releases / one release per size | as recorded in each refusal |
+| Cosy publication | `launch0` name truth reads "cosy" as a seamed form (§27) | W-LISTING |
+
+Every refusal is a `cir.draft_refused` row with `gate: construction` and `needs`. The weekly
+`learning.knowledge_gaps` job counts them per product line and raises capped owner-approval
+reference recommendations. That is how a blocked construction reaches Learning.

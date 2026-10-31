@@ -42,7 +42,8 @@ VESSEL_CATEGORIES = frozenset({"basket"})
 # Category -> the construction it would need. None of these is a flat panel.
 NEEDS: dict[str, str] = {
     "amigurumi": "shaped pieces worked in the round, stuffed and joined",
-    "hat": "a crown worked in the round and graded per head circumference",
+    "hat": ("a hat height and negative ease from a published standard: the CYC head "
+            "circumference chart (HEAD_CIRCUMFERENCE_CM) publishes circumference only"),
     "garment": "a graded garment design (creative.garment_design)",
     "stocking": "a closed tube with a heel and toe",
     "nursery": "several shaped pieces assembled on a hanger",
@@ -56,6 +57,18 @@ NEEDS: dict[str, str] = {
     # (`first_customer.colourwork_findings`) refuses a mosaic claim the fabric cannot make, and
     # test_shadow drafts a raw mosaic concept to prove bad arithmetic dies at the compiler.
 }
+
+# The Craft Yarn Council head circumference chart, transcribed from the page on the retrieval
+# date (cm row; ranges kept, as cir.graded keeps them). It is the ONLY sourced head data in
+# this build. It publishes no hat height and no negative ease, so a hat cannot be sized from
+# it without inventing two numbers -- and is refused rather than guessed.
+HEAD_CHART_URL = "https://www.craftyarncouncil.com/standards/head-circumference-chart"
+HEAD_CHART_RETRIEVED = "2026-10-31"
+HEAD_CIRCUMFERENCE_CM: dict[str, tuple[float, float]] = {
+    "preemie": (23.0, 30.5), "baby": (35.5, 40.5), "toddler": (40.5, 46.0),
+    "child": (45.5, 51.0), "tween": (51.0, 56.0), "woman": (53.0, 58.5), "man": (56.0, 61.0),
+}
+HAT_UNSOURCED = ("hat_height", "negative_ease")
 
 # Title words that name a shaped, closed or assembled object whatever the category says. The
 # assembled forms are launch0's (a flat panel under them promises a make it does not contain).
