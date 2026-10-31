@@ -180,4 +180,16 @@ The listing-set certificate is `state: valid` at `release_hash c4aa14a0…`, ver
 
 Each was run one at a time as `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py` at 38c16035.
 
-TESTS_PENDING
+| Test | Result | Wall time |
+|---|---|---|
+| test_pdf_premium | rc 0, 25 OK (includes the new soft-corner test) | 115 s |
+| test_disclosed_render | rc 0, 27/27 | 117 s |
+| test_w4_fidelity | rc 0, 22 passed | 151 s |
+| test_w4_render_assembled | rc 0, ALL PASSED (50 OK) | 17 s |
+| test_w4_visual_certified_gallery | rc 0, 7/7 | 39 s |
+| test_cert_listing_frames | rc 0, 0 failing (6 OK) | 100 s |
+| test_search_hero_publish | rc 0, 4/4 | 150 s |
+| test_launch0_listing_truth | rc 0, 14 OK | 428 s |
+| test_deliverable_qa | running (the first attempt was killed by the 30-minute background limit; re-run in progress) | |
+
+These were run after installing `scipy==1.17.1` and `requirements.txt`; see F7. The passing suite does not change the verdict: F1 and F2 are truth findings, and the tests pin the current behaviour, which is the caption's absence.
