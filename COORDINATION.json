@@ -41,7 +41,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "release_pass: coaster 1.2.1 (text) + basket 1.3.0 (BLO base-wall design change); kits rebound",
+      "state": "basket 1.3.0 built+certified (c4aa14a0, head 4fb6252d); design review running; truthful wall-corner renders in progress",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -132,7 +132,7 @@
       "id": "P0-LEARNING-REFERENCE",
       "operator": "codex (assigned by integrator; awaiting Codex start)",
       "branch": "codex/p0-learning-reference",
-      "state": "assigned",
+      "state": "assigned; owner starting Codex via ChatGPT Pro",
       "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department",
       "work_order": "brambleloop/research/final_build/w5/CODEX_WO_P0_LEARNING_REFERENCE.md",
       "background": "brambleloop/research/final_build/w5/LEARNING_MAP.md"
@@ -150,6 +150,11 @@
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
+    },
+    {
+      "id": "P1-OWNER-QUEUE-RACES",
+      "priority": "P1",
+      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
     }
   ],
   "reviews": [
@@ -398,6 +403,30 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2C-9c1a003",
       "notes": "",
       "recorded": "2026-10-31T14:00Z"
+    },
+    {
+      "subject": "Integrator-only fixes (bcbe391b, f259afe4, 282e47ce, 210aa9f8, merge resolutions, f4c3899b)",
+      "sha": "6f68213b",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-INTEGFIX-6f68213",
+      "notes": "SHIP; LOW-1..3 + INFO-1..2 follow-ups. LOW-3: other owner-queue writers keep the read-then-insert race (pre-existing)",
+      "recorded": "2026-10-31T17:25Z"
+    },
+    {
+      "subject": "PHYSFIX delta 4",
+      "sha": "216785e2+e3fd0b0e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-e3fd0b0",
+      "notes": "R18 Med latent: holds order / identical-piece order leak into digest; R19-R21 Low",
+      "recorded": "2026-10-31T17:25Z"
+    },
+    {
+      "subject": "Basket 1.3.0 design",
+      "sha": "4fb6252d (release c4aa14a0)",
+      "verdict": "PENDING",
+      "report_branch": "claude/w4-DESIGNREVIEW-basket-1.3.0",
+      "notes": "",
+      "recorded": "2026-10-31T17:25Z"
     }
   ],
   "integration": {
@@ -432,6 +461,21 @@
       "date": "2026-10-31",
       "id": "D-W4-OWNER-BASKET-TESTER-PLANNING",
       "summary": "Owner authorizes PLANNING around a maximum CA$66 tester budget for the small Hexagonal Bread Basket; NOT authorization to commission or pay. Before final commissioning approval: independent review of the Rnd 10->11 base-to-wall transition (no invented technique), internal consistency of dimensions/gauge/yarn, fix any real defect at source and recertify, preserve full-make testing/shape checks/measurements/unedited photos, confirm tester independence and qualification and that CA$66 covers fee and materials. Premium PDF improvements stay on the roadmap (7-page tester PDF not yet at commercial standard)."
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W4-OWNER-BASKET-1.3.0",
+      "summary": "APPROVED: back-loop-only transition at Rnd 11 of the small Hexagonal Bread Basket, the smallest source change, for a defined base-to-wall edge. Preserve six-sided geometry and counts; recalculate gauge/dimensions/yarn; regenerate US/UK PDFs, tester kit, diagrams and visual specs; revalidate and recertify; independent review of the design change; every listing asset references the exact certified version. No tester against 1.2.1. CA$66 ceiling provisional until the final kit is approved."
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W5-OWNER-REFBUY-PROPOSAL",
+      "summary": "The 17-pattern proposal replaces the unexecuted 13-pattern MJ's plan for consideration only, not purchase authorization. Present tranche 1 (five items) with designer, title, CAD price, link, knowledge gained, relevance, duplicate check and licence; verify the two MJ's basket benchmark IDs against the owner's original links. No purchases without explicit approval."
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W5-OWNER-COMPLETION-METRICS",
+      "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
     }
   ]
 }
