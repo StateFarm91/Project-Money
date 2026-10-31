@@ -114,12 +114,13 @@ The rebuilt `MANIFEST.json` is identical to the committed one in every field exc
 `PYTHONPATH=src:tests nice -n 19 python tests/<f>`, run one at a time:
 
 - `test_pdf_premium.py`: 17 OK, 0 FAIL, exit 0.
-- `test_deliverable_qa.py`: see the tally at the end of this file. At the time of writing, 30 tests were OK and 3 had failed. All 3 failures are `ModuleNotFoundError("No module named 'sqlalchemy'")`, which is an environment gap in this container, not a product defect:
+- `test_deliverable_qa.py`: 57 OK, 4 FAIL, exit 1. All 4 failures are `ModuleNotFoundError("No module named 'sqlalchemy'")`, which is an environment gap in this container, not a product defect:
   - `test_every_place_that_renders_the_customer_pdf_pins_its_date`
   - `test_every_place_that_ships_the_customer_pdf_ships_every_terminology`
   - `test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist`
+  - `test_the_pdf_the_listing_and_the_gate_read_one_difficulty_ladder`
 
-  These three are **unverified** here.
+  These four are **unverified** here.
 
 ## 7. Findings
 
@@ -161,4 +162,4 @@ Severity scale: **Medium** (fix before sale), **Low** (fix in next pass), **Info
 3. **Make a physical sample, measure it and calibrate the twin.** This turns "computed, not measured" into measured size and yarn figures, settles the hook question in F11, and allows a real photograph to replace the proof placeholder.
 4. **Add written colour-change cues inside the rounds,** for example "join Rnd 5 with wine" and "join Rnd 6 with cream; fasten off wine". At present this information exists only in the Techniques and Finishing sections.
 5. **Mark every page of the proof as NOT FOR SALE,** using a running header or a diagonal watermark.
-6. **Install `sqlalchemy` in the test environment,** so the three deliverable-QA checks on date pinning and terminology shipping actually run.
+6. **Install `sqlalchemy` in the test environment,** so the four deliverable-QA checks (date pinning, terminology shipping, support columns, difficulty ladder) actually run.
