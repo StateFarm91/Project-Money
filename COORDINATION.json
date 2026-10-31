@@ -24,9 +24,9 @@
       "operator": "main-opus",
       "branch": "claude/w5-INVENTORY",
       "scope": "15-state inventory, flow health, CC Production view",
-      "state": "fixing_review",
-      "head": "d0e523bb",
-      "review_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b"
+      "state": "in_delta_review",
+      "head": "5e72bce8",
+      "review_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce"
     },
     {
       "id": "W-CONCEPT",
@@ -135,6 +135,11 @@
     {
       "id": "P0-GALLERY-ASSEMBLY",
       "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant); INCLUDES: a photo-led / mixed variant of the disclosed listing-set certificate (listing_set.certify_disclosed refuses a mixed set today, so Launch-0 galleries cannot lead with the owner's unedited sample photo even after PHYSFIX-PHOTO ordering)"
+    },
+    {
+      "id": "P0-REVERIFY-WITHHOLD",
+      "priority": "P0",
+      "summary": "Found by W-INVENTORY: a failing quality.reverified audit row is kept only for a retention window and for_publish does not read it, so after pruning a product that failed re-verification can advance. Fix in runtime/quality_ops: a failed re-verification records a durable withholding (gate.release_withheld or equivalent) that for_publish already refuses on; test that pruning the audit row does not reopen the gate."
     }
   ],
   "reviews": [
@@ -262,6 +267,14 @@
       "verdict": "PENDING",
       "report_branch": "claude/w4-PDFAUDIT-basket-63d9cee",
       "notes": "running",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "INVENTORY delta",
+      "sha": "5e72bce8",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce",
+      "notes": "H1,M1-M4,M7/M9/M12 reported fixed; 24h verdict limit accepted by integrator (fail-closed)",
       "recorded": "2026-10-31T06:50Z"
     }
   ],
