@@ -331,14 +331,19 @@ def _basket_medium():
     return cir
 
 
-def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it():
-    """SECREVIEW F1: the halt is bound to the design, not the version string.
+def test_a_size_mismatch_halts_the_product_and_only_the_owner_lifts_it_on_evidence():
+    """Integrator decision (SECREVIEW 8da830d R28): every size halt is product-wide.
 
-    - the same design stays halted, under its own version and under a relabel;
-    - a different design may certify, but certifying lifts nothing;
-    - only a passed full make of the different design, measuring the stated size, resolves it.
+    - the same design stays halted, under its own version, a relabel and cosmetic edits;
+    - a genuinely different, correct design stays halted too -- certifying lifts nothing,
+      and neither does its own passed full make at the stated size, which goes to the owner;
+    - the owner lift is refused without the owner session, step-up, a reason, or qualifying
+      evidence, and with all of them resolves the halt (audited), after which the corrected
+      release certifies.
     """
+    from brambleloop.app.command_center import approvals
     from brambleloop.gates.incidents import IncidentTracker
+    from brambleloop.runtime import release as R
 
     db = _db()
     cir = _basket_medium()
@@ -346,15 +351,13 @@ def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it
     job = _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True,
                                               measured_width_cm=40.0))
     assert (job.outputs or {})["publication_halted"], job.outputs
+    failing_row = (job.outputs or {})["physical_test_id"]
     tracker = IncidentTracker(db)
     assert tracker.publication_halted(cir.slug)
     assert _certify(db, cir).get("halted_by_incident") is True
     relabel = _basket_medium()
     relabel.version = "1.3.0"                      # the same design under another version
     assert _certify(db, relabel).get("halted_by_incident") is True, "a relabel certified"
-    assert tracker.publication_halted(cir.slug), "a relabel lifted the halt"
-
-    # SECREVIEW R1: cosmetic edits are the same design -- none certifies past the halt.
     for edit in (lambda c: setattr(c, "title", c.title + " (revised)"),
                  lambda c: setattr(c, "title", c.title + " "),
                  lambda c: setattr(c, "designer_notes", (c.designer_notes or "") + " Enjoy!"),
@@ -363,30 +366,64 @@ def test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it
         same.version = "1.3.0"
         edit(same)
         assert _certify(db, same).get("halted_by_incident") is True, "a cosmetic edit certified"
-    assert tracker.publication_halted(cir.slug)
 
     fixed = _geometry_changed_medium("1.3.1")       # a genuinely different made object
-    result = _certify(db, fixed)
-    assert not result.get("halted_by_incident") and result.get("granted"), result
-    assert tracker.publication_halted(fixed.slug), "certification alone lifted the halt"
-    from brambleloop.gates.first_customer import physical_binding
+    assert physical.design_digest(fixed) != physical.design_digest(cir)
+    assert _certify(db, fixed).get("halted_by_incident") is True, "a different design certified"
+    # Its own passed full make at the stated size, by an independent tester, lifts nothing:
+    # software never lifts a size halt. The owner is asked.
+    job = _run(db, "physical.record", _inputs(fixed, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-2",
+                                              content_hash=R._content_hash_of(fixed)))
+    out = job.outputs or {}
+    assert out.get("size_halts_lifted") == [] and out.get("size_proof"), out
+    assert str(out.get("owner_review") or "").startswith("physical_size_conflict:"), out
+    assert tracker.publication_halted(fixed.slug), "a passing make lifted the halt"
+    good_row = out["physical_test_id"]
+    inc_id = next(i.id for i in tracker.open_incidents(cir.slug)
+                  if i.signature.startswith("physical-size:"))
+    with db.session() as s:
+        detail = s.get(Incident, inc_id).detail
+    assert detail.get("scope") == "product-wide" and "release_scope" not in detail, detail
 
-    assert physical_binding(db, fixed)["passed"] is False, "the old sample bound to the fix"
-    # A swatch of the fix proves no size and lifts nothing.
-    _run(db, "physical.record", {
-        "slug": fixed.slug, "version": fixed.version, "tester_ref": "t2", "scope": "swatch",
-        "instructions_followed": True, "grams_by_color": {"cream": 6.0},
-        "ball_band_grams": BAND_GRAMS, "ball_band_metres": BAND_METRES,
-        "swatch_stitches_per_10cm": fixed.gauge.stitches_per_10cm,
-        "swatch_rows_per_10cm": fixed.gauge.rows_per_10cm})
-    assert tracker.publication_halted(fixed.slug)
-    # Its own passed full make at the stated size does.
-    job = _run(db, "physical.record", _inputs(fixed, scope="full_make", holds_shape=True))
-    assert (job.outputs or {}).get("size_halts_lifted"), job.outputs
+    # The owner lift: each missing condition is refused and changes nothing.
+    owner = "owner:cc:sess-1"
+    lift = dict(incident_id=inc_id, physical_test_id=good_row, reason="corrected and re-made")
+    for label, kw in (("no step-up", dict(lift, actor=owner, stepped_up=False)),
+                      ("not the owner", dict(lift, actor="orchestrator", stepped_up=True)),
+                      ("no reason", dict(lift, actor=owner, stepped_up=True, reason=" ")),
+                      ("the failing make", dict(lift, actor=owner, stepped_up=True,
+                                                physical_test_id=failing_row))):
+        try:
+            R.lift_size_halt(db, **kw)
+        except R.SizeHaltLiftRefused:
+            pass
+        else:
+            raise AssertionError(f"lifted with {label}")
+        assert tracker.publication_halted(cir.slug), label
+    assert approvals.ACTIONS["physical_size.lift"][0] is True, "the route must require step-up"
+    try:
+        approvals.execute(db, "physical_size.lift", {"incident_id": inc_id,
+                                                     "physical_test_id": good_row}, actor=owner)
+    except approvals.ActionRefused:
+        pass
+    else:
+        raise AssertionError("the Command Center action lifted without a reason")
+    assert tracker.publication_halted(cir.slug)
+
+    done = approvals.execute(db, "physical_size.lift",
+                             {"incident_id": inc_id, "physical_test_id": good_row,
+                              "reason": "1.3.1 re-made by tester-2 at the stated size"},
+                             actor=owner)
+    assert done["result"]["lifted"] is True and done["audit_id"], done
     assert not tracker.publication_halted(fixed.slug)
     with db.session() as s:
-        inc = s.scalar(select(Incident).where(Incident.signature.like("physical-size:%")))
+        inc = s.get(Incident, inc_id)
         assert inc.resolved and inc.detail.get("fixed_in_version") == "1.3.1", inc.detail
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "physical.size_halt_lifted_by_owner")) is not None
+    result = _certify(db, fixed)
+    assert not result.get("halted_by_incident") and result.get("granted"), result
 
 
 def _geometry_changed_medium(version: str):
@@ -490,6 +527,23 @@ def test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt():
     job = _run(db, "physical.record", _inputs(retitled, scope="full_make", holds_shape=True,
                                               tester_ref="tester-3"))
     assert IncidentTracker(db).publication_halted(cir.slug), job.outputs
+    # Integrator decision: a passing make of the very release the halt measured is not
+    # evidence for the owner lift either -- the lift needs a re-released version.
+    from brambleloop.runtime import release as R
+
+    with db.session() as s:
+        inc_id = s.scalar(select(Incident.id).where(Incident.signature.like("physical-size:%")))
+        same_row = s.scalar(select(PhysicalTest.id).where(PhysicalTest.passed.is_(True),
+                                                          PhysicalTest.version == cir.version))
+    assert inc_id and same_row
+    try:
+        R.lift_size_halt(db, incident_id=inc_id, physical_test_id=same_row,
+                         actor="owner:cc:s", stepped_up=True, reason="looks fine to me")
+    except R.SizeHaltLiftRefused as exc:
+        assert "re-released" in str(exc), exc
+    else:
+        raise AssertionError("the owner lift took the halted release's own make as evidence")
+    assert IncidentTracker(db).publication_halted(cir.slug)
 
 
 def test_a_piece_height_that_is_not_a_number_is_refused():
@@ -802,13 +856,13 @@ def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
         c.components, c.assembly = [a, b], []
         return c
 
-    # SECREVIEW 81b3e45 R22/R23 interim: a design with holds has no design digest (None),
-    # so neither a rename nor a real change can scope or lift a size halt -- it is
-    # product-wide. The canonical hold encoding stays in `design_geometry` for the TODO.
+    # Integrator decision (SECREVIEW 8da830d R28): the digest is computed for every design
+    # again, for evidence and audit display only -- no size halt is scoped or lifted by it
+    # (see test_every_restatement_and_every_real_change_stays_halted_product_wide).
     one, two = held("side"), held("other_hold")
     assert _compile(one).ok and _compile(two).ok
-    assert physical.design_digest(one, _compile(one)) is None
-    assert physical.design_digest(two, _compile(two)) is None
+    assert physical.design_digest(one, _compile(one)) == \
+        physical.design_digest(two, _compile(two)) is not None
     g1 = physical.design_geometry(one, _compile(one))
     assert g1 == physical.design_geometry(two, _compile(two)), "a hold rename moved geometry"
 
@@ -824,25 +878,84 @@ def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
         "working into another row kept the digest"
 
 
-def test_designs_with_holds_are_halted_product_wide_until_holds_are_canonical():
-    """SECREVIEW 81b3e45 R22/R23, fail-closed interim (TODO(physfix-holds) in
-    `quality.physical.design_digest`): full graph canonicalisation of holds is future work.
+def _restated(cir, mutate):
+    """`cir` round-tripped through its dict, with `mutate(dict)` applied."""
+    from brambleloop.cir.model import CIR
 
-    - every hold-bearing construction -- including the reviewer's R22 reorders (identical
-      holding panels resumed by different straps; a chain of identical joining strips) and
-      the R23 pair (a real change the multiset sort mapped onto another design) -- has no
-      design digest, so no two of them share one;
-    - a size halt raised on such a design is product-wide: it halts every certification of
-      the product, whatever its geometry, and no passing make lifts it;
-    - a design with no holds is unchanged: it has a digest, and a scoped halt still lets a
-      different design certify.
-    """
+    d = cir.to_dict()
+    mutate(d)
+    return CIR.from_dict(d)
+
+
+def _split_quantity(d):
+    """SECREVIEW 8da830d R28: `make: N` restated as N identical components of `make: 1`."""
+    import copy
+
+    comp = d["components"][0]
+    n = int(comp.get("make") or 1)
+    comp["make"] = 1
+    d["components"] = [dict(copy.deepcopy(comp), name=f"{comp['name']}_{i}")
+                       for i in range(n)] + d["components"][1:]
+
+
+def test_every_restatement_and_every_real_change_stays_halted_product_wide():
+    """Integrator decision (SECREVIEW 8da830d R28). Each review round found a restatement of
+    one physical object that moved the design digest and so escaped a digest-scoped size halt:
+    R1 (title, notes, material order), R5 (repeat notation, case, int vs float), R11/R18
+    (version, piece name, hold order), R22/R23 (hold/resume reorders), R27 (seam order and
+    orientation), R28 (`make: N` vs N pieces). With every size halt product-wide, each of
+    them -- and a genuinely different, correct design -- is refused certification while the
+    halt is open, through the real chain. Nothing reads the digest to decide."""
     from brambleloop.cir.benchmarks import cardigan
     from brambleloop.cir.compiler import compile_cir as _compile
-    from brambleloop.cir.model import CIR, Component, Hold, Op, Row
-    from brambleloop.gates.incidents import IncidentTracker, release_scope
-    from brambleloop.ops.incident_lifecycle import open_or_restate
+    from brambleloop.cir.model import CIR, Component, Hold, Op, Row, Seam
+    from brambleloop.gates.incidents import IncidentTracker
 
+    # A real size halt on the medium basket, through the intake.
+    db = _db()
+    base = _basket_medium()
+    _certify(db, base)
+    job = _run(db, "physical.record", _inputs(base, scope="full_make", holds_shape=True,
+                                              measured_width_cm=40.0))
+    assert (job.outputs or {})["publication_halted"], job.outputs
+    slug = base.slug
+
+    def upper_case(d):
+        d["gauge"]["yarn_weight"] = d["gauge"]["yarn_weight"].upper()
+
+    def expand(d):
+        for comp in d["components"]:
+            for row in comp["rows"]:
+                row["ops"] = _expanded(row["ops"])
+
+    def int_gauge(d):
+        hook = d["gauge"]["hook_mm"]
+        assert float(hook) == int(hook), "the fixture's hook is not whole: no int restatement"
+        d["gauge"]["hook_mm"] = int(hook)                      # 5.0 -> 5, the same hook
+
+    basket_restatements = {
+        "R1 title": lambda d: d.update(title=d["title"] + " (revised)"),
+        "R1 notes": lambda d: d.update(designer_notes=(d.get("designer_notes") or "") + " x"),
+        "R1 material order": lambda d: d["materials"].reverse(),
+        "R5 repeat notation": expand,
+        "R5 case": upper_case,
+        "R5 number type": int_gauge,
+        "R11 version": lambda d: d.update(version="9.9.9"),
+        "R18 piece name": lambda d: d["components"][0].update(name="bowl"),
+        "real change: make 2": lambda d: d["components"][0].update(make=2),
+        "R28 make 2 as two pieces": lambda d: (d["components"][0].update(make=2),
+                                               _split_quantity(d)),
+    }
+    assert len(basket_restatements) == 10
+    for label, mutate in basket_restatements.items():
+        c = _restated(base, mutate)
+        assert c.slug == slug, label
+        assert _certify(db, c).get("halted_by_incident") is True, label
+    real = _geometry_changed_medium("1.3.1")
+    assert physical.design_digest(real) != physical.design_digest(base)
+    assert _certify(db, real).get("halted_by_incident") is True, "a real change certified"
+
+    # Hold- and seam-bearing designs (R18/R22/R23/R27) certified under the halted product.
     def panel(name, holds):
         return Component(name=name, construction="flat", foundation=20,
                          foundation_kind="chain",
@@ -857,125 +970,73 @@ def test_designs_with_holds_are_halted_product_wide_until_holds_are_canonical():
                          rows=[Row(index=i, ops=[Op("sc", 6)], declared_count=6)
                                for i in range(1, rows + 1)], resumes=hold, holds=holds or [])
 
-    def design(comps):
-        c = CIR.from_dict(cardigan("XS").to_dict())
-        c.components, c.assembly = comps, []
-        r = _compile(c)
-        assert r.ok, [f.code for f in r.findings if f.is_error]
-        return c, r
-
-    H = lambda n, f=8: Hold(name=n, at_row=1, count=6, from_stitch=f)  # noqa: E731
-    P = lambda: panel("p", [H("a", 8), H("b", 14)])  # noqa: E731
-    constructions = {
-        "R18 hold order": [panel("p", [H("b", 14), H("a", 8)]), strap("s1", "a"),
-                           strap("s2", "b")],
-        "R22 P1": [panel("L", [H("hl")]), panel("R", [H("hr")]), strap("s1", "hl"),
-                   strap("s2", "hr", rows=3)],
-        "R22 P1 reordered": [panel("R", [H("hr")]), panel("L", [H("hl")]), strap("s1", "hl"),
-                             strap("s2", "hr", rows=3)],
-        "R22 P2": [panel("p", [H("h0")]), strap("A", "h0", holds=[H("ha", 0)]),
-                   strap("B", "ha", holds=[H("hb", 0)]), strap("end", "hb", rows=3)],
-        "R22 P2 reordered": [panel("p", [H("h0")]), strap("B", "ha", holds=[H("hb", 0)]),
-                             strap("A", "h0", holds=[H("ha", 0)]), strap("end", "hb", rows=3)],
-        "R23 D1": [P(), strap("X1", "a", holds=[H("xa", 0)]),
-                   strap("X2", "b", holds=[H("xb", 0)]), strap("W", "xa", rows=3),
-                   strap("T", "xb")],
-        "R23 D2 reordered": [P(), strap("X2", "b", holds=[H("xb", 0)]),
-                             strap("X1", "a", holds=[H("xa", 0)]), strap("W", "xb", rows=3),
-                             strap("T", "xa")],
-    }
-    for label, comps in constructions.items():
-        c, r = design(comps)
-        assert physical.design_digest(c, r) is None, label
-
-    # A halt raised on a hold-bearing design carries no digest, so it is product-wide.
-    db = _db()
-    slug = "held-design"
-    with db.session() as s:
-        open_or_restate(s, signature=f"physical-size:{slug}:x", severity="P1",
-                        product_slug=slug, halts_publication=True, summary="size",
-                        detail={"release_scope": {"slug": slug, "version": "1.0.0",
-                                                  "content_hash": "c" * 64,
-                                                  "design_digest": None}})
-    tracker = IncidentTracker(db)
-    inc = tracker.open_incidents(slug)[0]
-    assert release_scope(inc) == {}
-    for digest in (None, "", "d" * 64, physical.design_digest(_basket_medium())):
-        assert tracker.publication_halted(slug, content_hash=digest), digest
-    assert tracker.resolve_halts_disproved_by(slug, version="1.1.0", design_digest="d" * 64,
-                                              physical_test_id=1) == []
-    assert tracker.publication_halted(slug)
-
-    # A design with no holds behaves exactly as before.
-    flat = _basket_medium()
-    assert not physical._has_holds(flat) and physical.design_digest(flat)
-    with db.session() as s:
-        open_or_restate(s, signature="physical-size:flat:y", severity="P1",
-                        product_slug="flat", halts_publication=True, summary="size",
-                        detail={"release_scope": {"slug": "flat", "version": "1.0.0",
-                                                  "content_hash": "c" * 64,
-                                                  "design_digest": physical.design_digest(flat)}})
-    assert tracker.publication_halted("flat", content_hash=physical.design_digest(flat))
-    other = _geometry_changed_medium("1.3.1")
-    assert not tracker.publication_halted("flat", content_hash=physical.design_digest(other))
-
-
-def test_designs_with_assembly_are_halted_product_wide_until_seams_are_canonical():
-    """SECREVIEW 7282c47 R27, the interim extended: a design with any seam has no design
-    digest (TODO(physfix-holds)), so a seam-list reorder or a swapped seam orientation can
-    never scope or escape a size halt -- the halt is product-wide. Hold-free, seam-free
-    designs keep their digests byte-for-byte."""
-    from brambleloop.cir.benchmarks import cardigan
-    from brambleloop.cir.compiler import compile_cir as _compile
-    from brambleloop.cir.model import CIR, Component, Op, Row, Seam
-    from brambleloop.gates.incidents import IncidentTracker, release_scope
-    from brambleloop.ops.incident_lifecycle import open_or_restate
-
     def sq(name, n=10, rows=4):
         return Component(name=name, construction="flat", foundation=n, foundation_kind="chain",
                          rows=[Row(index=i, ops=[Op("sc", n)], declared_count=n)
                                for i in range(1, rows + 1)])
 
-    def design(comps, seams):
-        c = CIR.from_dict(cardigan("XS").to_dict())
-        c.components, c.assembly = comps, seams
-        r = _compile(c)
-        assert r.ok, [f.code for f in r.findings if f.is_error]
-        return physical.design_digest(c, r)
-
+    H = lambda n, f=8: Hold(name=n, at_row=1, count=6, from_stitch=f)  # noqa: E731
     S = lambda a, b: Seam(method="whipstitch", piece_a=a, piece_b=b,  # noqa: E731
                           edge_a="top", edge_b="bottom")
-    P = lambda first, second: [sq(first), sq(second), sq("C", 10, 2), sq("D", 10, 6)]  # noqa
-    seamed = {
-        "base": (P("A", "B"), [S("A", "C"), S("B", "D")]),
-        "A1 identical pieces reordered": (P("B", "A"), [S("A", "C"), S("B", "D")]),
-        "A2 seam list reordered": (P("A", "B"), [S("B", "D"), S("A", "C")]),
-        "A3 seam orientation swapped": (P("A", "B"), [
+    P = lambda: panel("p", [H("a", 8), H("b", 14)])  # noqa: E731
+    Q = lambda first, second: [sq(first), sq(second), sq("C", 10, 2), sq("D", 10, 6)]  # noqa
+    graphs = {
+        "R18 hold order": ([panel("p", [H("b", 14), H("a", 8)]), strap("s1", "a"),
+                            strap("s2", "b")], []),
+        "R22 P1 reordered": ([panel("R", [H("hr")]), panel("L", [H("hl")]), strap("s1", "hl"),
+                              strap("s2", "hr", rows=3)], []),
+        "R22 P2 reordered": ([panel("p", [H("h0")]), strap("B", "ha", holds=[H("hb", 0)]),
+                              strap("A", "h0", holds=[H("ha", 0)]),
+                              strap("end", "hb", rows=3)], []),
+        "R23 D2 reordered": ([P(), strap("X2", "b", holds=[H("xb", 0)]),
+                              strap("X1", "a", holds=[H("xa", 0)]), strap("W", "xb", rows=3),
+                              strap("T", "xa")], []),
+        "R27 identical pieces reordered": (Q("B", "A"), [S("A", "C"), S("B", "D")]),
+        "R27 seam list reordered": (Q("A", "B"), [S("B", "D"), S("A", "C")]),
+        "R27 seam orientation swapped": (Q("A", "B"), [
             Seam(method="whipstitch", piece_a="C", piece_b="A", edge_a="bottom",
                  edge_b="top"), S("B", "D")]),
     }
-    assert len(seamed) == 4 and all(seams for _, seams in seamed.values())
-    for label, (comps, seams) in seamed.items():
-        assert design(comps, seams) is None, label
+    assert len(graphs) == 7
+    for label, (comps, seams) in graphs.items():
+        c = CIR.from_dict(cardigan("XS").to_dict())
+        c.slug, c.components, c.assembly = slug, comps, seams
+        assert _compile(c).ok, label
+        assert _certify(db, c).get("halted_by_incident") is True, label
+    assert IncidentTracker(db).publication_halted(slug)
 
-    # A size halt on a seamed design carries no digest, so it halts every certification of
-    # the product -- the reordered and the re-oriented release included.
+
+def test_a_quantity_restatement_of_a_launch0_set_stays_halted():
+    """SECREVIEW 8da830d R28, through the real chain on a Launch-0 product: four coasters
+    written as `make: 4` and as four identical pieces are one object. The split moves the
+    design digest (which is why a digest-scoped halt failed open), and the halt holds."""
+    from brambleloop.gates.incidents import IncidentTracker
+
     db = _db()
-    slug = "seamed-design"
-    with db.session() as s:
-        open_or_restate(s, signature=f"physical-size:{slug}:x", severity="P1",
-                        product_slug=slug, halts_publication=True, summary="size",
-                        detail={"release_scope": {"slug": slug, "version": "1.0.0",
-                                                  "content_hash": "c" * 64,
-                                                  "design_digest": design(*seamed["base"])}})
-    tracker = IncidentTracker(db)
-    assert release_scope(tracker.open_incidents(slug)[0]) == {}
-    for label, (comps, seams) in seamed.items():
-        assert tracker.publication_halted(slug, content_hash=design(comps, seams)), label
+    cir = _coasters()
+    _certify(db, cir)
+    good = _inputs(cir, scope="full_make", made={"coaster": 4}, lies_flat=True)
+    wrong = [dict(p) for p in good["piece_measurements"]]
+    wrong[2]["width_cm"] = wrong[2]["width_cm"] * 1.3
+    job = _run(db, "physical.record", dict(good, piece_measurements=wrong))
+    assert (job.outputs or {})["publication_halted"], job.outputs
+    split = _restated(cir, lambda d: (d.update(version="1.0.1"), _split_quantity(d)))
+    assert len(split.components) == 4 and _compile_ok(split)
+    assert physical.design_digest(split) != physical.design_digest(cir), "R28 no longer moves it"
+    assert _certify(db, split).get("halted_by_incident") is True, "the split escaped the halt"
+    assert IncidentTracker(db).publication_halted(cir.slug)
 
-    # Hold-free, seam-free designs: digests unchanged byte-for-byte (pinned on two fixtures,
-    # computed before this interim was extended).
-    pinned = {  # design_digest at 7282c47, before R27
+
+def _compile_ok(cir) -> bool:
+    return compile_cir(cir).ok
+
+
+def test_hold_free_products_are_unchanged_except_for_halts():
+    """The digest is still computed (for evidence and audit display), byte-for-byte as before
+    on hold-free, seam-free products, and a product with no halt certifies as before."""
+    import hashlib
+
+    pinned = {  # design_digest at 7282c47 and 8da830d
         "basket_medium_sport": (_basket_medium(),
                                 "0552640f6964c73e402bd58c2e46b004ae20bc843213a7c1632a2c7ef47ea8aa"),
         "basket_small": (_basket("basket_small"),
@@ -983,12 +1044,16 @@ def test_designs_with_assembly_are_halted_product_wide_until_seams_are_canonical
         "hexagon_coasters": (_coasters(),
                              "7c4d39e44569d0c7d2a15b6a3c55ed3d25afd3fe96bf5d44ca6ce00662a41b08"),
     }
+    assert len(pinned) == 3
     for label, (c, want) in pinned.items():
-        assert not c.assembly and not physical._has_holds(c), label
-        r = _compile(c)
+        assert not c.assembly and not any(x.holds or x.resumes for x in c.components), label
+        r = compile_cir(c)
         payload = json.dumps(physical.design_geometry(c, r), sort_keys=True, default=str)
         assert physical.design_digest(c, r) == want == \
             hashlib.sha256(payload.encode()).hexdigest(), label
+    db = _db()
+    result = _certify(db, _basket_medium())
+    assert result.get("granted") and not result.get("halted_by_incident"), result
 
 
 def test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan():

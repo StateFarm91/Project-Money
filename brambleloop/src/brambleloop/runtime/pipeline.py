@@ -914,28 +914,17 @@ def _certify_listing(ctx: JobContext, cir: CIR):
     return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}
 
 
-def _incoming_design(cir) -> str | None:
-    """The version-independent design digest of this CIR (SECREVIEW F1), or None if unreadable.
-
-    A release-scoped size halt names the design a tester measured wrong; a relabel of the same
-    design under another version string has the same digest and stays halted."""
-    from ..quality.physical import design_digest
-
-    return design_digest(cir)
-
-
 @handlers.register("gate.certify")
 def handle_certify(ctx: JobContext) -> dict:
     cir = CIR.from_dict(ctx.job.inputs["cir"])
 
     # Publication is halted while a P0/P1 defect is open against this product.
     tracker = IncidentTracker(ctx.db)
-    # PHYSFIX G4 / SECREVIEW F1: a halt scoped to one design (a physical sample whose size
-    # disagreed) lets a *different* design certify (F-168) -- never a relabel of the same one,
-    # because the scope is the version-independent design digest. Certifying lifts nothing:
-    # the halt is resolved only by a passed full make of the new design whose size agreed
-    # (`runtime.release.handle_physical_record`). Every other halt is product-wide as before.
-    if tracker.publication_halted(cir.slug, content_hash=lambda: _incoming_design(cir)):
+    # PHYSFIX G4, integrator decision (SECREVIEW 8da830d R28): every halt -- a physical size
+    # halt included -- is product-wide. No design digest decides whether this release may
+    # certify past a halt; a size halt is lifted only by the owner, on qualifying evidence
+    # (`runtime.release.lift_size_halt`). Certifying lifts nothing.
+    if tracker.publication_halted(cir.slug):
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
                   detail={"reason": "open P0/P1 incident"})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,

@@ -1003,8 +1003,8 @@ def design_geometry(cir, result=None) -> dict:
             piece["resumes"] = _canon(resumed, names)
         pieces.append(piece)
     # SECREVIEW 81b3e45 R23: no re-sort after `resumes` is filled in -- it hid real changes
-    # (which tied piece another hangs from). Designs with holds or resumes never reach here
-    # from `design_digest` (see `_HOLD_DIGEST_INTERIM`).
+    # (which tied piece another hangs from). Positional hold/resume labels are therefore not
+    # canonical (R22): the digest is for audit display only (see `design_digest`).
     gauge = body.get("gauge") or {}
     materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
                                     "fibre": sorted(str(f).strip().lower()
@@ -1027,25 +1027,23 @@ _GAUGE_KEYS = ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm", "
                "chains_per_10cm")
 
 
-# See `design_digest`: while True, a design with holds or resumes has no design digest.
-_HOLD_DIGEST_INTERIM = True
-
-
-def _has_holds(cir) -> bool:
-    """Whether the design is not yet canonicalisable: holds, resumes or assembly (R27)."""
-    return bool(getattr(cir, "assembly", None)) or any(
-        getattr(c, "holds", None) or getattr(c, "resumes", None) for c in cir.components)
-
-
 def design_digest(cir, result=None) -> str | None:
-    """SECREVIEW F1/R1: what a release IS for its size claim, independent of its labels.
+    """A digest of `design_geometry` -- the compiled stitches and the twin -- for EVIDENCE
+    AND AUDIT DISPLAY ONLY (it names a size-halt incident and is shown with it).
 
-    `gates.certificate._release_hash` covers the whole CIR, version and title included, so a
-    relabel or a retitle of identical geometry is "different content". A size halt is a
-    statement about the made object, so it is keyed on `design_geometry` alone -- the compiled
-    stitches and the twin -- so a version, title, whitespace, notes, colour-name, list-order,
-    repeat-notation, case or number-type change is the same design.
-    Unreadable or uncompilable is None, and callers fail closed."""
+    Integrator decision (SECREVIEW 8da830d R28): no code path may use this digest to scope a
+    size halt, to let a "different design" certify past one, or to resolve or lift one. Six
+    review rounds (R1/R5 notation and labels, R11/R18 version and names, R22/R23 holds, R27
+    seams, R28 quantity) each found a restatement of one physical object that moved it, and
+    every one failed OPEN because the digest scoped or lifted a halt. Every size halt is now
+    product-wide and only the owner lifts it (`runtime.release.lift_size_halt`).
+
+    TODO(physfix-holds): digest-scoped halts may be reintroduced ONLY with a canonical design
+    identity that passes an adversarial review -- one piece forest with holds, resumes and
+    seams as its edges (AHU encoding), seams sorted and symmetric seams oriented, `make: N`
+    folded with N identical pieces (R28), per-piece gauge and work direction included (R29),
+    resume cycles refused (R25). Until then nothing reads this to decide.
+    Unreadable or uncompilable is None."""
     import hashlib
     import json
 
@@ -1055,23 +1053,7 @@ def design_digest(cir, result=None) -> str | None:
         result = result if result is not None else compile_cir(cir)
         if not result.ok:
             return None
-        if _HOLD_DIGEST_INTERIM and _has_holds(cir):
-            # SECREVIEW 81b3e45 R22/R23, fail-closed interim: positional labels for holds and
-            # resumes cannot yet be canonicalised both ways (a cosmetic reorder moved the
-            # digest; a re-sort hid a real change). For a design with holds or resumes the
-            # digest is None, so a size halt on it is PRODUCT-WIDE, never scoped to a design,
-            # and never lifted by a make (incidents.release_scope / resolve_halts_disproved_by
-            # read None as "no scope"). No Launch-0 CIR has holds.
-            # SECREVIEW 7282c47 R27: the same holds for assembly -- seam-list order, seam
-            # orientation and which of two identical pieces a seam names all moved the
-            # digest -- so a design with any seam has no digest either.
-            # TODO(physfix-holds): canonical tree (AHU) encoding of the piece forest, with
-            # holds/resumes AND seams as its edges -- each piece = its pre-resume content +
-            # sorted (hold geometry, resumer's form) + sorted canonically-oriented seams;
-            # seam list sorted by canonical content; refuse resume cycles first (R25) --
-            # then lift this interim.
-            return None
         payload = json.dumps(design_geometry(cir, result), sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
-    except Exception:  # noqa: BLE001 - unreadable design: callers fail closed
+    except Exception:  # noqa: BLE001 - unreadable design: no digest to display
         return None
