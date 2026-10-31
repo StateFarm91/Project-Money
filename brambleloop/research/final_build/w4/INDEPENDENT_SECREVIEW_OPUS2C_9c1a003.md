@@ -30,8 +30,23 @@
 | test_opus2_rim_negative | 0 | 0 failed |
 | test_opus2_scan_evidence | 0 | 0 failed |
 | test_opus2_size_claims | 0 | 0 failed |
+| test_cert_listing_frames | 0 | PASS: 0 failing |
+| test_search_hero_publish | 0 | 4/4 passing |
+| test_w4_launchfix | 0 | 32 passed, 0 failed (after installing requirements-test.lock; the first run stopped on a missing httpx test dependency, not a defect) |
+| test_compiler | 0 | OK   test_unknown_colour_is_rejected |
+| test_twin | 0 | OK   test_twin_reports_colours_actually_present |
+| test_reverse | 0 | OK   test_written_output_is_human_readable |
+| test_radar | 0 | OK   test_window_scales_with_the_size_of_the_project |
+| test_vacuity | 0 | OK   test_the_scan_sees_the_suite |
+| test_fallback_draft_provenance | 0 | OK |
+| test_maturity | 0 | OK   test_work_that_ran_in_july_is_not_production_observed_today |
+| test_w3_b2_canonical_assets | 0 | OK all 18 tests |
+| test_w3_laura_core_identity | 0 | PASS: 0 failing |
+| test_canon_manifest | 0 | OK test_photorealism_still_fails_closed |
+| test_w4_flux3generator | 0 | 9/9 passing |
+| test_w4_ownerimg | 0 | 35 passed, 0 failed |
 
-_(partial: the remaining suites are still running and will be added in a follow-up commit)_
+All 25 suites pass (rc=0). The suites passing does not cancel F2-1: the positive photo-led test certifies an unattested photo.
 
 ---
 
