@@ -39,7 +39,9 @@ def scorecard(db, *, now: datetime | None = None) -> dict:
         with db.session() as s:
             by = dict(s.execute(select(Listing.state, func.count())
                                 .group_by(Listing.state)).all())
-        return {"live": int(by.get("published", 0)), "by_state": {k: int(v) for k, v in by.items()},
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        return {"live": sum(int(by.get(st, 0)) for st in LIVE_ON_ETSY), "by_state": {k: int(v) for k, v in by.items()},
                 "source": "listings"}
 
     def search_visibility():

@@ -1137,13 +1137,24 @@ def _expected_listings(db) -> dict[str, dict]:
     from ..core.models import Listing
     from ..integrations import etsy_exercise
 
+    from ..publish import manual_adoption
+
+    # W-ADOPT: a listing the owner made by hand and adopted (`listing.adopt_manual`) is one
+    # of ours; its expected state is the one read from Etsy when it was adopted.
+    adopted = manual_adoption.adopted_states(db)
+    baselines = manual_adoption.accepted_baselines(db)
     out: dict[str, dict] = {}
     with db.session() as s:
         for row in s.scalars(select(Listing).where(Listing.etsy_listing_id != "")):
-            out[str(row.etsy_listing_id)] = {
+            lid = str(row.etsy_listing_id)
+            out[lid] = {
                 "slug": row.product_slug, "version": row.version,
-                "state": EXPECTED_REMOTE_STATE.get(row.state, "draft"),
+                "state": (adopted.get(lid, "active")
+                          if row.state == manual_adoption.LISTING_STATE
+                          else EXPECTED_REMOTE_STATE.get(row.state, "draft")),
                 "local_state": row.state}
+            if row.state == manual_adoption.LISTING_STATE and lid in baselines:
+                out[lid]["accepted_baseline"] = baselines[lid]
     for draft in etsy_exercise.outstanding_drafts(db):
         out.setdefault(str(draft["listing_id"]), {"slug": None, "version": None,
                                                   "state": "draft",
@@ -1151,21 +1162,89 @@ def _expected_listings(db) -> dict[str, dict]:
     return out
 
 
-def _field_drift(db, known: dict, remote: dict) -> list[str]:
-    """Title, description, tags, materials, price, quantity, taxonomy and type drift."""
+def _certified_field_drift(db, known: dict, remote: dict, *,
+                           skip: tuple[str, ...] = ()) -> list[str]:
+    """Every certified-payload field Etsy holds differently, except those in `skip`."""
     from ..integrations import etsy_verify
 
-    if not known.get("slug"):
-        return []
     try:
         payload = certified_payload(db, known["slug"], known["version"])
     except Exception as e:  # noqa: BLE001 - no certified payload is itself a finding
-        return [f"no certified payload to compare against: {str(e)[:160]}"]
+        what = (f" for the fields the accepted baseline does not cover (everything except "
+                f"{', '.join(skip)})" if skip else "")
+        return [f"no certified payload to compare against{what}: {str(e)[:160]}"]
     sent = sent_fields(payload)
     verdict = etsy_verify.verify(sent, remote, expect_state="")
     return ([f"{m['field']}: certified {m['sent']!r}, Etsy holds {m['remote']!r}"
-             for m in verdict.summary()["mismatched"]]
-            + [f"{f}: not returned" for f in verdict.summary()["not_returned"]])
+             for m in verdict.summary()["mismatched"] if m["field"] not in skip]
+            + [f"{f}: not returned" for f in verdict.summary()["not_returned"]
+               if f not in skip])
+
+
+#: The category-independent fields every Brambleloop listing carries (ListingPayload
+#: defaults plus the CIR's materials). Compared for an adopted, baselined listing even when
+#: the full certified payload is unavailable (category or search certificate not yet PASS).
+POLICY_FIELDS = ("who_made", "when_made", "is_supply", "type", "quantity", "materials")
+
+
+def _policy_field_drift(db, known: dict, remote: dict) -> list[str]:
+    """who_made / when_made / is_supply / type / quantity / materials against what every
+    listing of ours must carry, built from the stored copy and the certified CIR."""
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import Listing, PatternVersion, Product
+    from ..integrations import etsy_verify
+    from ..integrations.etsy import build_payload
+
+    try:
+        with db.session() as s:
+            li = s.scalar(select(Listing).where(Listing.product_slug == known["slug"],
+                                                Listing.version == known["version"]))
+            product = s.scalar(select(Product).where(Product.slug == known["slug"]))
+            pv = s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id,
+                PatternVersion.version == known["version"]))
+            copy = dict(title=li.title, description=li.description, price_cad=li.price_cad,
+                        tags=list(li.tags))
+            cir = CIR.from_dict(pv.cir_json)
+        payload = build_payload(materials=[m.name for m in cir.materials], **copy)
+    except Exception as e:  # noqa: BLE001 - uncomparable policy fields are drift, visibly
+        return [f"policy fields ({', '.join(POLICY_FIELDS)}) cannot be compared: "
+                f"{type(e).__name__}: {str(e)[:120]}"]
+    fields = {k: v for k, v in payload.to_dict().items() if k in POLICY_FIELDS}
+    verdict = etsy_verify.verify(fields, remote, expect_state="")
+    return ([f"{m['field']}: certified {m['sent']!r}, Etsy holds {m['remote']!r}"
+             for m in verdict.summary()["mismatched"] if m["field"] in POLICY_FIELDS]
+            + [f"{f}: not returned" for f in verdict.summary()["not_returned"]
+               if f in POLICY_FIELDS])
+
+
+def _field_drift(db, known: dict, remote: dict) -> list[str]:
+    """Title, description, tags, materials, price, quantity, taxonomy and type drift."""
+    if not known.get("slug"):
+        return []
+    if known.get("accepted_baseline"):
+        # W-ADOPT-2 / SECREVIEW F-1: an adopted listing whose live copy the owner accepted
+        # (step-up, audited) is compared with that baseline for the copy fields the owner
+        # reviewed -- and ONLY those. Every other field (who_made, when_made, is_supply,
+        # type, quantity, materials, properties) is still compared with the certified
+        # payload, so a baseline can never silence policy or buyer-trust drift.
+        from ..publish.manual_adoption import BASELINE_FIELDS, baseline_drift
+
+        copy = baseline_drift(known["accepted_baseline"], remote)
+        try:
+            certified_payload(db, known["slug"], known["version"])
+        except Exception as e:  # noqa: BLE001 - no full payload: the policy fields still count
+            # SECREVIEW N-1: listing properties need the certified payload. Without one they
+            # are UNCOMPARED, and that is drift: the halting incident stays open (a census
+            # cannot resolve it by observation) until a certified payload exists and the
+            # listing compares clean against it. A baseline never relaxes this.
+            return (copy + _policy_field_drift(db, known, remote)
+                    + [f"properties: no certified payload to compare against "
+                       f"({str(e)[:120]}); UNVERIFIED"])
+        return copy + _certified_field_drift(db, known, remote, skip=BASELINE_FIELDS)
+    return _certified_field_drift(db, known, remote)
 
 
 @handlers.register("etsy.listing_census")

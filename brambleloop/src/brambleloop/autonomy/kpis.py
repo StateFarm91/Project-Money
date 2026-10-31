@@ -129,7 +129,7 @@ def department_guards(db, key: str, *, since: datetime) -> list[str]:
                 breaches.append(f"{n} pattern version(s) certified with no certificate")
         if key == "store_commerce" and shadow:
             n = s.scalar(select(func.count()).select_from(m.Listing).where(
-                m.Listing.state.in_(["active", "published", "live"])))
+                m.Listing.state.in_(["active", "published", "published_manually", "live"])))
             if n:
                 breaches.append(f"{n} listing(s) live while the phase is shadow")
         if key in ("growth", "finance"):

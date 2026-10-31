@@ -778,9 +778,15 @@ def api_catalogue() -> dict:
     order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
     filters = _catalogue_filters()
 
+    # W-ADOPT: never a hard-coded False -- a listing the owner published by hand (adopted,
+    # `published_manually`) is live, and a catalogue saying otherwise is a false safety signal.
+    from ..core.listing_state import is_live_on_etsy
+
+    live = sorted(f"{l.product_slug}@{l.version}" for l in listings if is_live_on_etsy(l.state))
     return {
-        "published": False,
-        "why": ("BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
+        "published": bool(live),
+        "why": (f"{len(live)} listing(s) live on Etsy: {', '.join(live[:10])}" if live else
+                "BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
                 "integration in this system, so nothing here can reach a customer."),
         "listings": [
             {"slug": l.product_slug, "version": l.version, "title": l.title,
