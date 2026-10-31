@@ -5,8 +5,8 @@
   "cir_fingerprint": "a1d1d0d5dbe5",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "f8939863c654b559d23d4f6fba15294277edd923",
-  "engine_source_clean": false,
+  "engine_commit": "88fbea93f80d22010ce3093603885f42caf955c9",
+  "engine_source_clean": true,
   "files": {
     "NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf": {
       "bytes": 3404323,
