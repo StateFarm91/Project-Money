@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T07:29:59.143278+00:00",
+ "generated_at": "2026-10-31T09:11:46.712764+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -2149,6 +2149,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "knowledge_gaps",
+      "agent": "analyst",
+      "job_type": "learning.knowledge_gaps",
+      "period_seconds": 604800
+     },
+     {
       "name": "failure_mine",
       "agent": "orchestrator",
       "job_type": "improve.mine",
@@ -2285,6 +2291,7 @@
     "handler_modules": [
      "brambleloop.learn.runtime",
      "brambleloop.runtime.commercial_ops",
+     "brambleloop.runtime.learning_gaps_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -2299,7 +2306,8 @@
      "improve.role_work",
      "improve.sandbox",
      "improve.weekly",
-     "learn.scan"
+     "learn.scan",
+     "learning.knowledge_gaps"
     ],
     "permitted_without_handler": []
    },

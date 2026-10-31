@@ -118,6 +118,7 @@ tests/test_w3_spend_paid_calls.py
 tests/test_w3_suite_job_identity.py
 tests/test_w3_supply_chain.py
 tests/test_w3_tmp_hygiene.py
+tests/test_w4_adopt_manual_listing.py
 tests/test_w4_agents.py
 tests/test_w4_auditfix_cc_auth.py
 tests/test_w4_auto_spend_wiring.py

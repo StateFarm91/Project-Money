@@ -370,7 +370,8 @@ CHARTERS: tuple[Charter, ...] = (
                # W4-F454: analytics -- measurement already lives in this department.
                "analyst"),
        prefixes=("improve.", "learn."),
-       job_types=set(),
+       # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps and reference recommendations.
+       job_types={"learning.knowledge_gaps"},
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
                     "improve.sandbox", "improve.monitor", "learn.scan",
                     "autonomy.department_review"),

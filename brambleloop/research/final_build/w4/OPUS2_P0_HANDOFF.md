@@ -435,3 +435,38 @@ analysed `BenchmarkProduct` rows count automatically as library coverage. A cove
 stops recommending purchases until its teardown teaches something.
 **Suggested integrator hook:** once Codex's `DesignRule` exists, a gap line whose approved rules
 increase could lower its score. Not built, so as not to read an unmerged API.
+
+## 21. P0-NEXT-PRODUCT: already covered; nothing built (2026-10-31)
+
+**Finding.** Selecting the next product when capacity is free already works on its own:
+- The hourly `chain.rebuild` (listing agent) calls `release_recovery.seed_launch0`.
+- That drafts the next Launch-0 release whose code version is not certified: one per run
+  (`SEED_PER_RUN=1`), in listing order, keyed per design and fingerprint.
+- A release already seeded is skipped, so the next run takes the next one. A held or failed
+  product therefore never stops the one after it.
+- After certification, `chain.rebuild`, `rebuild_graph` and `ops.queue_check` carry the
+  release onward.
+
+**What I tried and withdrew.**
+- `products.pipeline_board.handle_product_pipeline` is written as a `product.pipeline` job
+  ("WIRING REQUEST to W4-AUTO") but is not registered. I wired it with a daily cadence and a
+  Product & Design `next_work` provider.
+- The overnight suite (`test_v11_autonomy_overnight`) then showed the board's advance
+  enqueueing `cir.draft` for all 10 never-built Launch-0 slugs at once. It uses its own key
+  (`pipeline-draft:<slug>`), so it duplicates `seed_launch0`'s drafting, and 10 chains reached
+  `store.publish` in one night. That refusal in SHADOW is correct, but the suite counts it as
+  10 unretried failures.
+- All of that wiring is reverted. Nothing from it is on this branch.
+
+**For the integrator.** Do not register `product.pipeline` as written. If the board should
+run on a schedule, register it as a reading only, and remove its `launch_scope_drafts`
+enqueue: `seed_launch0` already owns that advance.
+
+**Gap that remains real.** Five board proposals and five creative candidates pass Product
+Truth on the board but are not catalogue releases. Adopting them into the release registry is
+a code change (`builder.CATALOGUE`, `RELEASE_VERSIONS`), so the runtime cannot make it. Each
+needs an integrator decision.
+
+**Also fixed here.** `learning.knowledge_gaps` (§20) had no department charter, so
+`test_v11_autonomy_orchestrator` failed on 3cbf6e96. It is now in the Learn / Improvement
+charter's `job_types`, and the autonomy map is regenerated.

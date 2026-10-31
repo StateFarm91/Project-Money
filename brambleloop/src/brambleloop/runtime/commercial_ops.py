@@ -16,8 +16,11 @@ def handle_commercial_lessons(ctx: JobContext) -> dict:
     from ..improve import commercial_lessons as CL
 
     out = CL.record_lessons(ctx.db)
-    ctx.audit(JOB_TYPE, detail={k: out[k] for k in ("measurable", "why", "shop", "published",
-                                                    "withdrawn")})
+    # Fields named one by one: W-ADOPT's guard (SECREVIEW F-4) keeps the listing-state
+    # literal out of tuples; these are lesson counts, not listing states.
+    ctx.audit(JOB_TYPE, detail={"measurable": out["measurable"], "why": out["why"],
+                                "shop": out["shop"], "lessons_published": out["published"],
+                                "withdrawn": out["withdrawn"]})
     return {"ran": True, "measurable": out["measurable"], "why": out["why"][:300],
             "published": len(out["published"]), "withdrawn": len(out["withdrawn"]),
             "categories": {k: {"state": v["state"], "verdict": v["verdict"]}
