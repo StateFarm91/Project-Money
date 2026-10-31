@@ -652,3 +652,35 @@ and backs "cosy" and "pouch". Not built here.
 Tests: `tests/test_opus2_draft_constructions.py`, 11/11, including
 `test_an_egg_cosy_set_drafts_one_piece_cups_sized_to_an_egg`. That test checks the snug
 girth, between the assumed egg girth and 15% over it.
+
+## 28. Completion metrics per opus2 cluster (D-W5-OWNER-COMPLETION-METRICS), 2026-10-31T19:00Z
+
+The owner's seven states are tracked separately.
+- **Implemented** means on `opus2/p0-revenue-workforce` with its own tests passing.
+- **Reviewed** means an independent review verdict exists for the code as it now stands.
+- **Integrated / Certified / Deployed / Production verified / End-to-end** belong to Main
+  Opus. None of them is true for any opus2 cluster yet: nothing here is merged into a shared
+  branch, certified by the single full suite, deployed to Railway, or observed in production.
+
+| Cluster | Implemented | Independently reviewed | Integrated | Certified | Deployed | Prod. verified | E2E |
+|---|---|---|---|---|---|---|---|
+| Size-claim truth gate | yes (fb52cb9e) | A: changes required → fixed; C: ACCEPT; C's N1.1/N1.2 residuals fixed in fb52cb9e (in review D) | no | no | no | no | no |
+| `laura_home` + FLUX 3 wiring | yes | A → fixed; C: ACCEPT; N2.1 fixed in fb52cb9e (review D) | no | no | no | no | no |
+| Rim negative | yes | A: ACCEPT | no | no | no | no | no |
+| Offline acceptance runner | yes | A: ACCEPT (instrumentation only) | no | n/a | n/a | n/a | n/a |
+| Commercial lessons | yes | B2: ACCEPT; F4.1 fixed in 1cc31974 | no | no | no | no | no |
+| Chain dead-end successors | yes | B2: ACCEPT; F1.1/F1.2 fixed in 1cc31974 | no | no | no | no | no |
+| Competitor-scan evidence | yes | B2: changes required (F3.1) → fixed in 1cc31974; review D in flight | no | no | no | no | no |
+| Photo-led gallery certificate | yes | C: changes required (F2-1 HIGH) → fixed in fb52cb9e; review D in flight | no | no | no | no | no |
+| Re-verification withholding | yes | B2: ACCEPT; F2.1/F2.2 fixed in 1cc31974 | no | no | no | no | no |
+| Draft constructions: vessel and refusals | yes | C: ACCEPT; N3.1-N3.3 fixed in fb52cb9e (review D) | no | no | no | no | no |
+| Draft constructions: cushion, triangle shawl | yes (3232862e, 9b8f8423) | **not yet reviewed** | no | no | no | no | no |
+| Draft constructions: tote + `cir.assembly` round span | yes (768f2b35) | **not yet reviewed** | no | no | no | no | no |
+| Draft constructions: egg cosy | yes (30a9eb7d) | **not yet reviewed** | no | no | no | no | no |
+| Knowledge gaps → purchase recommendations | yes | B2: ACCEPT; F5.1/F5.2 fixed in 1cc31974 | no | no | no | no | no |
+| P0-NEXT-PRODUCT | covered by existing code (`seed_launch0`); nothing built | n/a | n/a | n/a | n/a | n/a | n/a |
+
+**Known publication blocks that the owner should see (none is a defect hidden in opus2 code):**
+- The egg cosy is refused by name truth until the W-LISTING rule recognises a one-piece cup.
+- "Nordic Forest Mosaic Storage Basket" fails the colourwork rule: one colour per round.
+- `test_risk_matrix` fails on the integration base itself (`KeyError('market-basket-medium')`).
