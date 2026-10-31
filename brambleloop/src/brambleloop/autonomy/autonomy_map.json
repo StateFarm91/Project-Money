@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T12:53:15.648286+00:00",
+ "generated_at": "2026-10-31T15:51:20.713996+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 131,
-  "handlers": 163,
+  "cadences": 135,
+  "handlers": 167,
   "agents": 34,
-  "follow_on_edges": 81
+  "follow_on_edges": 83
  },
  "departments": [
   {
@@ -147,6 +147,7 @@
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
+     "runtime/chain_successors.py:launch_held",
      "runtime/orders.py:handle_trajectory"
     ]
    },
@@ -414,6 +415,12 @@
       "agent": "market_radar",
       "job_type": "intel.children_portfolio",
       "period_seconds": 86400
+     },
+     {
+      "name": "scan_evidence",
+      "agent": "market_radar",
+      "job_type": "intel.scan_evidence",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -462,6 +469,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.evidence_ops",
      "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
@@ -477,6 +485,7 @@
      "intel.opportunity_review",
      "intel.panel_discovery",
      "intel.pod_learning",
+     "intel.scan_evidence",
      "intel.serp_capture",
      "intel.watchlist_compare",
      "intel.watchlist_scan",
@@ -921,6 +930,7 @@
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
      "runtime/pipeline.py:_draft_creative",
+     "runtime/pipeline.py:_persist_release",
      "runtime/release_recovery.py:retry_halted"
     ]
    },
@@ -1303,6 +1313,12 @@
       "period_seconds": 3600
      },
      {
+      "name": "chain_successors",
+      "agent": "listing",
+      "job_type": "chain.successors",
+      "period_seconds": 3600
+     },
+     {
       "name": "remerchandising_review",
       "agent": "listing",
       "job_type": "seasonal.remerchandising",
@@ -1446,6 +1462,7 @@
     ],
     "executable_job_types": [
      "chain.rebuild",
+     "chain.successors",
      "etsy.credential_health",
      "etsy.dashboard_harvest",
      "etsy.listing_census",
@@ -2127,6 +2144,18 @@
       "period_seconds": 86400
      },
      {
+      "name": "commercial_lessons",
+      "agent": "analyst",
+      "job_type": "improve.commercial_lessons",
+      "period_seconds": 86400
+     },
+     {
+      "name": "knowledge_gaps",
+      "agent": "analyst",
+      "job_type": "learning.knowledge_gaps",
+      "period_seconds": 604800
+     },
+     {
       "name": "failure_mine",
       "agent": "orchestrator",
       "job_type": "improve.mine",
@@ -2262,9 +2291,12 @@
    "execution": {
     "handler_modules": [
      "brambleloop.learn.runtime",
+     "brambleloop.runtime.commercial_ops",
+     "brambleloop.runtime.learning_gaps_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
+     "improve.commercial_lessons",
      "improve.league",
      "improve.measure",
      "improve.mine",
@@ -2275,7 +2307,8 @@
      "improve.role_work",
      "improve.sandbox",
      "improve.weekly",
-     "learn.scan"
+     "learn.scan",
+     "learning.knowledge_gaps"
     ],
     "permitted_without_handler": []
    },
