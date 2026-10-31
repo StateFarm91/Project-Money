@@ -127,49 +127,6 @@
       ]
     },
     {
-      "id": "OPUS2-PERF-LEARNING",
-      "operator": "opus2",
-      "branch": "opus2/p0-revenue-workforce",
-      "unowned_id": "P0-PERF-LEARNING",
-      "files": [
-        "src/brambleloop/improve/commercial_lessons.py",
-        "src/brambleloop/runtime/commercial_ops.py",
-        "src/brambleloop/improve/bus.py (2 subjects)",
-        "src/brambleloop/improve/consume.py (2 subjects)"
-      ],
-      "claimed_at": "2026-10-31T01:20Z",
-      "state": "ready_for_review",
-      "head": "2eb13017"
-    },
-    {
-      "id": "OPUS2-CHAIN-DEADENDS",
-      "operator": "opus2",
-      "branch": "opus2/p0-revenue-workforce",
-      "unowned_id": "P0-CHAIN-DEADENDS (+ P0-NEXT-PRODUCT successor half)",
-      "files": [
-        "src/brambleloop/runtime/chain_successors.py (new)",
-        "src/brambleloop/runtime/release.py (hooks: pricing.position, assets.build, launch.plan)",
-        "src/brambleloop/runtime/pipeline.py (listing.parity audit gains version; one import)"
-      ],
-      "claimed_at": "2026-10-31T02:35Z",
-      "state": "built_regression_running",
-      "note": "Deterministic successor for each of the four W-INVENTORY dead ends. Stall detection stays W-INVENTORY's; this adds the successors, not a detector."
-    },
-    {
-      "id": "OPUS2-COMPETITOR-EVIDENCE",
-      "operator": "opus2",
-      "branch": "opus2/p0-revenue-workforce",
-      "unowned_id": "P0-COMPETITOR-EVIDENCE",
-      "files": [
-        "src/brambleloop/intel/scan_evidence.py (new, read-only)",
-        "src/brambleloop/runtime/evidence_ops.py (new)",
-        "registrations: agents/registry.py, authority/classes.py, runtime/worker.py, runtime/pipeline.py"
-      ],
-      "claimed_at": "2026-10-31T03:10Z",
-      "state": "built_regression_running",
-      "note": "No edit to W-CONCEPT's intel/watchlist.py or intel/benchmarks.py: reads their state. The seed shops read not_registered until W-CONCEPT merges, then their watchlist state."
-    },
-    {
       "id": "OPUS2-GALLERY-PHOTO-LED",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
