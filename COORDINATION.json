@@ -459,6 +459,30 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2D-fb52cb9",
       "notes": "",
       "recorded": "2026-10-31T18:35Z"
+    },
+    {
+      "subject": "OPUS2 delta D (F2-1, F3.1)",
+      "sha": "fb52cb9e",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2D-fb52cb9",
+      "notes": "all opus2 parts reviewed under A/B2/C/D ACCEPT; R1-R4 Low. Merged into claude/w5-INTEG1-trial at fb52cb9e exactly.",
+      "recorded": "2026-10-31T19:30Z"
+    },
+    {
+      "subject": "OPUS2 post-review commits",
+      "sha": "768f2b35..9caf0e0b",
+      "verdict": "PENDING (not yet reviewed; not integrated)",
+      "report_branch": "",
+      "notes": "tote, egg cosy, hat CYC chart (DRAFT-CONSTRUCTIONS parts 4-5) + completion-states records",
+      "recorded": "2026-10-31T19:30Z"
+    },
+    {
+      "subject": "PHYSFIX delta 6",
+      "sha": "3d28b658+7282c470",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-7282c47",
+      "notes": "R27 Med latent: assembly/seam order moves digest; one-line fix (extend interim to assembly). R25/R26 non-blocking follow-ups",
+      "recorded": "2026-10-31T19:30Z"
     }
   ],
   "integration": {
