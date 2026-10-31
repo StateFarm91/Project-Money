@@ -113,6 +113,20 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers
+    # added by ops.production_evidence without an entry, caught by
+    # test_w4_fmbatch1_retention_guard on the merged tree.
+    "chain.rebuild_completed": ("windowed",
+                                "ops.production_evidence.stale_rebuilds counts the last 7 days"),
+    "chain.rebuild_unbound": ("windowed",
+                              "ops.production_evidence.stale_rebuilds counts the last 7 days"),
+    "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    "ops.truth.sweep": ("latest", "ops.production_evidence.publishing_halt reads the newest "
+                                  "sweep (freshness judged by its age)"),
+    "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
+                                          "refresh"),
+    "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
+                                       "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.
@@ -249,6 +263,27 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                  "ops.activation_authority grant chain (sealed_chain)"),
     "owner.activation.rebased": ("lifetime_total",
                                  "ops.activation_authority grant chain (sealed_chain)"),
+    # W4-LAUNCHFIX D2: the owner's launch decisions (listing fees, brand risk, registration)
+    # are a sealed chain like the grant families above; pruning a row breaks it.
+    "owner.launch_decision.recorded": ("lifetime_total",
+                                       "ops.launch_decisions decision chain (sealed_chain)"),
+    "owner.launch_decision.revoked": ("lifetime_total",
+                                      "ops.launch_decisions decision chain (sealed_chain)"),
+    "owner.launch_decision.rebased": ("lifetime_total",
+                                      "ops.launch_decisions decision chain (sealed_chain)"),
+    # W4-LAUNCHFIX review F-2: the Etsy exercise's sealed evidence is a sealed chain too.
+    "etsy.exercise_evidence": ("lifetime_total",
+                               "integrations.etsy_exercise evidence chain (sealed_chain)"),
+    "etsy.exercise_evidence_revoked": ("lifetime_total",
+                                       "integrations.etsy_exercise evidence chain "
+                                       "(sealed_chain)"),
+    "etsy.exercise_evidence_rebased": ("lifetime_total",
+                                       "integrations.etsy_exercise evidence chain "
+                                       "(sealed_chain)"),
+    # W4-LAUNCHFIX: the owner's verbatim confirmation beside each CC policy page reading,
+    # read over all rows as the readings' audit history (app.command_center.policy_readings).
+    "policy.page_reading_attested": ("lifetime_total",
+        "app.command_center.policy_readings.status: every attestation, joined to its snapshot"),
     # rc1-ORD2: the owner's Etsy ledger mapping verification is a sealed chain like the
     # families above; pruning a row breaks it and every ledger fee reverts to unverified.
     "owner.etsy_ledger_mapping.verified": ("lifetime_total",

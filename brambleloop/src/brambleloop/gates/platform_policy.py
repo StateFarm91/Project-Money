@@ -295,7 +295,7 @@ def review_change(db, source: str, *, reviewed_by: str, tested: str,
 
 def record_page_reading(db, *, source: str, text: str, version: str = "", summary: str = "",
                         read_by: str, checked_on: str = "",
-                        today: date | None = None) -> dict:
+                        today: date | None = None, owner_attested: bool = False) -> dict:
     """An operator's reading of an Etsy policy page, recorded and acted on at once.
 
     Etsy's bot protection refuses automated retrieval of these pages (recorded in
@@ -325,9 +325,18 @@ def record_page_reading(db, *, source: str, text: str, version: str = "", summar
         raise PolicyRefused(f"checked_on {checked!r} is not an ISO date") from e
     if age < 0:
         raise PolicyRefused("a reading cannot be dated in the future")
+    # W4-LAUNCHFIX E3, narrowed after review F-1. Only a reading the OWNER attested through
+    # the Command Center form (`app.command_center.policy_readings.record`: owner session,
+    # step-up, verbatim confirmation) is compared with earlier page readings alone, so the
+    # owner's first reading is the baseline rather than a "change" from the repository's
+    # excerpt seed. Every other caller -- POST /api/policy/snapshot with the operator token,
+    # where `read_by` is a body field -- keeps the original comparison against the newest
+    # reading of any basis: its first reading differs from the seed, is a material change,
+    # and opens the owner's `policy:<source>` review card exactly as before.
     res = record_snapshot(db, source, text=text, version=version or checked,
                           summary=summary, checked_on=checked, read_by=read_by.strip(),
-                          basis=PAGE_BASIS)
+                          basis=PAGE_BASIS,
+                          compare_basis=PAGE_BASIS if owner_attested is True else None)
     resolved: list[int] = []
     current = age <= MAX_AGE_DAYS
     if current:
@@ -571,7 +580,8 @@ class Classification:
 
 
 def classify(*, product_class: str, assets: list[AssetClaim],
-             ai_assisted_design: bool = False, digital: bool = True) -> Classification:
+             ai_assisted_design: bool = False, digital: bool = True,
+             photographed_sample: bool = False) -> Classification:
     """Classify a release and generate the disclosures it owes.
 
     The one rule worth stating separately: an image in a role that makes a claim about the
@@ -627,7 +637,11 @@ def classify(*, product_class: str, assets: list[AssetClaim],
     if any_deterministic:
         disclosures.append(DISCLOSURES["deterministic_render"])
     if any_disclosed:
-        disclosures.append(DISCLOSURES["disclosed_render"])
+        # W4-LAUNCHFIX: generated from the facts. "No sample has been photographed" is said
+        # only when no qualifying sample photograph leads the gallery.
+        from ..publish.sample_photo import disclosure_copy
+
+        disclosures.append(disclosure_copy(photographed_sample=photographed_sample))
 
     if not assets:
         problems.append(
@@ -714,13 +728,15 @@ def release_assets(frames: list[dict], generated: list[dict] | None = None,
 
 def classify_release(frames: list[dict], generated: list[dict] | None = None, *,
                      ai_assisted_design: bool = True,
-                     disclosed: list[dict] | None = None) -> Classification:
+                     disclosed: list[dict] | None = None,
+                     photographed_sample: bool = False) -> Classification:
     """#35 for one release: Brambleloop sells seller-designed digital patterns whose design
     was developed with AI assistance, so the class is `ai_assisted_design`, digital."""
     return classify(product_class=AI_ASSISTED_DESIGN if ai_assisted_design
                     else SELLER_DESIGNED_DIGITAL,
                     assets=release_assets(frames, generated, disclosed),
-                    ai_assisted_design=ai_assisted_design, digital=True)
+                    ai_assisted_design=ai_assisted_design, digital=True,
+                    photographed_sample=photographed_sample)
 
 
 def disclosure_block(classification: Classification) -> str:
