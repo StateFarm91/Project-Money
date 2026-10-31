@@ -116,18 +116,15 @@
       "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
     },
     {
-      "id": "W-CHANNELGATE",
-      "operator": "integrator-worker",
-      "branch": "claude/w5-CHANNELGATE",
-      "area": "gates/channel_policy.py; one additive refusal in publish/release_gates.for_publish for channel etsy; channel_eligibility attribute",
-      "state": "in_progress"
-    },
-    {
-      "id": "W-CHANNELRESEARCH",
-      "operator": "integrator-worker",
-      "branch": "(research file only) research/final_build/w5/CHANNEL_COMPLIANCE_RESEARCH.md",
-      "area": "Etsy AI-instruction rule wording; alternative channels; genuine human-development path",
-      "state": "in_progress"
+      "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "head": "54766c9e",
+      "state": "in_review",
+      "review_branches": [
+        "claude/w5-SECREVIEW-OPUS2A-54766c9",
+        "claude/w5-SECREVIEW-OPUS2B-54766c9"
+      ]
     }
   ],
   "unowned": [
@@ -136,21 +133,8 @@
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
     },
     {
-      "id": "P0-COMPETITOR-EVIDENCE",
-      "scope": "production evidence of competitor scans (timestamps, downstream research, honest not-accessible records)"
-    },
-    {
       "id": "P0-GALLERY-ASSEMBLY",
       "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant); INCLUDES: a photo-led / mixed variant of the disclosed listing-set certificate (listing_set.certify_disclosed refuses a mixed set today, so Launch-0 galleries cannot lead with the owner's unedited sample photo even after PHYSFIX-PHOTO ordering)"
-    },
-    {
-      "id": "P0-PERF-LEARNING",
-      "scope": "live-listing performance into Winner Amplification and product priorities (no fabricated data)"
-    },
-    {
-      "id": "P0-CHAIN-DEADENDS",
-      "priority": "P0",
-      "summary": "Chain dead-ends found by W-INVENTORY (research/final_build/w4/INVENTORY.md): (1) pricing.position refusal stops with no successor or owner action; (2) assets.build ok:false enqueues nothing; (3) listing.parity audit row not version-bound at the producer; (4) launch.plan seasonal hold with no re-plan when window reopens. Each needs a deterministic successor (fix job, owner action, or scheduled re-evaluation) with tests. Runtime/pipeline files; coordinate with integrator before touching runtime/pipeline.py."
     }
   ],
   "reviews": [
@@ -186,7 +170,13 @@
     {
       "date": "2026-10-31",
       "id": "D-W5-OWNER-CHANNEL-ISOLATION",
-      "summary": "Etsy AI-generated-craft-pattern policy is a channel-specific publication gate only; never a company-wide engineering blocker. All internal stages continue. Investigate genuinely human-developed patterns and alternative channels. Never fabricate authorship, testing or provenance; never publish against confirmed platform restrictions or bypass safeguards."
+      "summary": "Etsy AI-generated-craft-pattern policy is a channel-specific publication gate only; never a company-wide engineering blocker. All internal stages continue. Investigate genuinely human-developed patterns and alternative channels. Never fabricate authorship, testing or provenance; never publish against confirmed platform restrictions or bypass safeguards.",
+      "superseded_by": "D-W5-OWNER-RETURN-TO-PLAN"
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W5-OWNER-RETURN-TO-PLAN",
+      "summary": "Permanent: return to the original Master Plan / Build 2 / Final Master / P0 workforce roadmap. No further Etsy AI-pattern policy research or compliance engineering; preserve existing safeguards; handle a publication-eligibility requirement only when that specific publication action needs it. Never misrepresent authorship, testing or provenance. The issue must not block any engineering, product development, certification, PDFs, imagery, listing packages or other channels. Goal: 24/7 Railway operation independent of Claude sessions. Coordinate via GitHub; Secondary Opus continues unowned P0; Main Opus integrates, certifies, deploys."
     }
   ]
 }
