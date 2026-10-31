@@ -183,6 +183,33 @@ The review is `INDEPENDENT_SECREVIEW_ADOPT_af04209.md` on `claude/w4-SECREVIEW-A
   - Three non-listing uses are allowlisted, each with its reason.
   - Its docstring states what it does not cover: literals built at runtime, and tuples split across lines.
 
+## Delta review fixes (SECREVIEW of `752950e4`: R-1, N-1 to N-5)
+
+The review is `INDEPENDENT_SECREVIEW_ADOPT_752950e.md` on `claude/w4-SECREVIEW-ADOPT-752950e`.
+
+- **R-1 (High, operational): retention runs again.** `listing.adopted_manual` is now classified as `lifetime_total` in `ops/retention.KNOWN_READ_ACTIONS`, the same entry as INTEG8 `42aa6a72`. `commerce.orders_ingest` reads every adoption, so pruning would change the answer. `test_w4_fmbatch1_retention_guard` passes.
+- **N-1 (Medium): no payload stays halting.** For a baselined listing with no certified payload, the census now adds `properties: no certified payload ...; UNVERIFIED`. The halting `etsy.listing_drift` therefore stays open, and no census can resolve it until a certified payload exists and the listing compares clean. A baseline never relaxes a halting gate.
+- **N-2 (Medium): nothing uncompared is ever dropped.**
+  - The preview's fresh comparison returns `not_verifiable`, minus the structural file-hash note.
+  - That list is carried into `not_covered_by_baseline` and stored on the baseline.
+  - `proof_problems` always counts it. A baseline from before this field existed falls back to the adoption's notes, never to nothing.
+- **N-3 (Low): the preview compares properties that were actually read.** The listing passed to the comparison now includes the properties read from Etsy (canonicalised), as the census and read-back do. Unread or unreadable properties produce an explicit line.
+- **N-4 (Low): every proof clause is pinned.** `test_each_proof_clause_alone_makes_a_manual_listing_unproven` starts from a proven listing and breaks one condition at a time. Each of these alone makes it unproven:
+  - UNVERIFIED;
+  - a recorded difference;
+  - a not-verifiable note;
+  - `baseline.not_covered`;
+  - `baseline.not_verifiable`;
+  - an older baseline falling back to the adoption's notes;
+  - an open review incident;
+  - an open drift incident;
+  - no adoption record.
+- **N-5 (Info): repeat adoptions get a claim.** A repeat adoption backfills the `manual_listing_claims` row.
+- **Appendix A.1 and A.2** are ported as assertion tests in `test_w4_secreview_adopt_adversarial.py`, with the review's suggestion that `materials=[]` is pinned as drift.
+- **One ported precondition changed.** `test_after_acceptance_policy_fields_still_drift` now requires "no policy-field drift" before the change, instead of "no drift at all": after N-1, uncompared properties correctly keep the incident open.
+
+**Launch-day consequence, stated plainly:** until the certified category and the search certificate are PASS, an adopted listing keeps one halting `etsy.listing_drift` line, for its uncompared properties, even after the owner accepts a copy baseline. Accepting stops the copy edits being reported. It cannot stand in for the missing certified payload.
+
 ## What this does not do (honest limits)
 
 - **It does not verify file bytes.** Etsy exposes no file hash. Sizes are compared only when `assets.built` recorded them for this release.
