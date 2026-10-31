@@ -63,6 +63,25 @@ class AdoptionRefused(ValueError):
     """The adoption cannot be recorded; the message is owner-facing and stable."""
 
 
+from sqlalchemy import DateTime as _DateTime, String as _String  # noqa: E402
+from sqlalchemy.orm import Mapped as _Mapped, mapped_column as _col  # noqa: E402
+
+from ..core.db import Base as _Base  # noqa: E402
+from ..core.models import utcnow as _utcnow  # noqa: E402
+
+
+class ManualListingClaim(_Base):
+    """SECREVIEW F-3: one Etsy listing id belongs to at most one release, enforced by the
+    database. Written in the same transaction as the adoption, so two concurrent adoptions
+    of one id for two releases cannot both commit (the primary key refuses the second)."""
+
+    __tablename__ = "manual_listing_claims"
+    etsy_listing_id: _Mapped[str] = _col(_String(32), primary_key=True)
+    slug: _Mapped[str] = _col(_String(80))
+    version: _Mapped[str] = _col(_String(20))
+    at: _Mapped[datetime] = _col(_DateTime(timezone=True), default=_utcnow)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -152,7 +171,8 @@ def _certified_taxonomy(db, slug: str, version: str) -> dict:
         return {"known": False, "why": f"category unreadable: {type(e).__name__}"}
     if sel.get("status") != category.CHOSEN or not sel.get("taxonomy_id"):
         return {"known": False, "why": f"certified category {sel.get('status') or 'UNKNOWN'}"}
-    return {"known": True, "taxonomy_id": int(sel["taxonomy_id"])}
+    return {"known": True, "taxonomy_id": int(sel["taxonomy_id"]),
+            "properties": sel.get("properties")}
 
 
 # ---- reading Etsy ---------------------------------------------------------------------
@@ -218,6 +238,10 @@ def read_listing(db, listing_id: str, *, transport=None) -> dict:
         shop = str(client.credentials.shop_id or "")
         held = str(out["remote"].get("shop_id") or "")
         out["own_shop"] = bool(shop and held and held == shop) if held else None
+        try:
+            out["properties"] = client.get_listing_properties(listing_id)
+        except Exception as e:  # noqa: BLE001 - unread properties are recorded, not fatal
+            out["properties_error"] = f"{type(e).__name__}: {str(e)[:160]}"
         try:
             out["files"] = client.get_listing_files(listing_id)
         except Exception as e:  # noqa: BLE001 - files unread is recorded, not fatal
@@ -302,6 +326,21 @@ def compare(db, *, slug: str, version: str, release: str, certified: dict,
     if tax["known"]:
         if observed["taxonomy_id"] is None or int(observed["taxonomy_id"]) != tax["taxonomy_id"]:
             diff("taxonomy_id", tax["taxonomy_id"], observed["taxonomy_id"])
+        # SECREVIEW F-2: listing properties against the certified category's, as the
+        # census compares them; unread is not compared, never matched.
+        from ..runtime.etsy_ops import canonical_properties
+
+        try:
+            want_props = canonical_properties(tax.get("properties"))
+            got_props = (canonical_properties(read["properties"])
+                         if isinstance(read.get("properties"), list) else None)
+        except ValueError as e:
+            want_props, got_props = None, None
+            not_verifiable.append(f"properties: {e}")
+        if got_props is None and want_props is not None:
+            not_verifiable.append("properties: getListingProperties was not read")
+        elif want_props is not None and got_props != want_props:
+            diff("properties", want_props, got_props)
     else:
         not_verifiable.append(f"taxonomy: {tax['why']}; Etsy holds "
                               f"{observed['taxonomy_id']!r}")
@@ -522,14 +561,20 @@ def adopt(db, *, etsy_listing_id: Any, slug: str, version: str, release: str,
         "expected_remote_state": expected_state,
         "verified_at": _now().isoformat(), "adopted_by": actor, "reason": reason[:300]}
 
-    review_id = _review(db, slug=slug, version=version, listing_id=lid,
-                        verification=verification, differences=result["differences"],
-                        not_verifiable=result["not_verifiable"], error=read["error"])
-    record["review_incident_id"] = review_id
-
     try:
         with db.session() as s:
             listing = s.get(Listing, certified["listing_id"])
+            # F-3: re-checked inside the write transaction; the claim row below makes the
+            # database refuse the race this check alone could still lose.
+            taken = s.scalar(select(Listing).where(Listing.etsy_listing_id == lid,
+                                                   Listing.id != listing.id))
+            if taken is not None:
+                raise AdoptionRefused(f"Etsy listing {lid} is already linked to "
+                                      f"{taken.product_slug}@{taken.version}")
+            claim = s.get(ManualListingClaim, lid)
+            if claim is not None and (claim.slug, claim.version) != (slug, version):
+                raise AdoptionRefused(f"Etsy listing {lid} is already linked to "
+                                      f"{claim.slug}@{claim.version}")
             if repeat:
                 intent = s.get(DraftIntent, key)
                 adopted_at = (intent.detail or {}).get("adopted_at") or record["verified_at"]
@@ -545,15 +590,26 @@ def adopt(db, *, etsy_listing_id: Any, slug: str, version: str, release: str,
                                   detail={**record, "adopted_at": record["verified_at"]}))
                 if listing.etsy_listing_id and listing.etsy_listing_id != lid:
                     raise AdoptionRefused("the listing gained a different Etsy id meanwhile")
+                if claim is None:
+                    s.add(ManualListingClaim(etsy_listing_id=lid, slug=slug, version=version))
             # Exactly where the automated path writes it (draft_intent.checkpoint).
             listing.etsy_listing_id = lid
             listing.state = LISTING_STATE
     except IntegrityError:
-        # A concurrent adoption or automated claim won the unique (slug, version) intent.
-        _refuse(db, actor, artifact, f"{artifact} gained a creation intent concurrently; "
-                f"retry to see whether it is this adoption", etsy_listing_id=lid)
+        # A concurrent adoption won the unique (slug, version) intent or the unique Etsy id.
+        _refuse(db, actor, artifact, f"{artifact} or Etsy listing {lid} was claimed by a "
+                f"concurrent adoption or creation; retry to see which", etsy_listing_id=lid)
     except AdoptionRefused as e:
         _refuse(db, actor, artifact, str(e), etsy_listing_id=lid)
+
+    # The review item only for an adoption that was actually recorded.
+    review_id = _review(db, slug=slug, version=version, listing_id=lid,
+                        verification=verification, differences=result["differences"],
+                        not_verifiable=result["not_verifiable"], error=read["error"])
+    record["review_incident_id"] = review_id
+    with db.session() as s:
+        intent = s.get(DraftIntent, key)
+        intent.detail = {**(intent.detail or {}), "review_incident_id": review_id}
 
     audit_id = _audit(db, actor, ADOPTED, artifact, {
         "etsy_listing_id": lid, "slug": slug, "version": version, "release": release,
@@ -713,9 +769,41 @@ def baseline_preview(db, *, slug: str, version: str, etsy_listing_id: Any,
     differences = compare(db, slug=slug, version=version, release=adopted.get("release") or "",
                           certified=certified, read=read)["differences"]
     problems = truth_problems(db, slug=slug, version=version, snap=snap)
+    not_covered = not_covered_by_baseline(db, slug=slug, version=version,
+                                          remote=read["remote"], differences=differences)
     return {"slug": slug, "version": version, "etsy_listing_id": lid, "snapshot": snap,
-            "digest": digest_of(snap), "differences_from_certified": differences,
+            "digest": digest_of(snap), "covers_fields": list(BASELINE_FIELDS),
+            "differences_from_certified": differences,
+            # F-1: shown to the owner, never accepted: these stay open and visible.
+            "not_covered_by_baseline": not_covered,
             "acceptable": not problems, "refusals": problems, "etsy_calls": read["calls"]}
+
+
+def _field_of(line: str) -> str:
+    return str(line).split(":", 1)[0].strip()
+
+
+def not_covered_by_baseline(db, *, slug: str, version: str, remote: dict,
+                            differences: list) -> list[str]:
+    """SECREVIEW F-1: every difference a copy baseline does NOT cover, listed for the owner.
+
+    The listing fields outside BASELINE_FIELDS exactly as the census will compare them, plus
+    the adoption-time package differences (files, counts) that are not copy.
+    """
+    from ..runtime import etsy_ops
+
+    known = {"slug": slug, "version": version}
+    try:
+        etsy_ops.certified_payload(db, slug, version)
+        fields = etsy_ops._certified_field_drift(db, known, remote, skip=BASELINE_FIELDS)
+    except Exception as e:  # noqa: BLE001
+        fields = etsy_ops._policy_field_drift(db, known, remote) + [
+            f"properties: no certified payload ({str(e)[:120]}), so listing properties are "
+            f"UNVERIFIED"]
+    package = [f"{d['field']}: certified {d.get('certified')!r}, Etsy holds {d.get('etsy')!r}"
+               for d in differences
+               if d.get("field") not in BASELINE_FIELDS and d.get("field") != "disclosures"]
+    return fields + package
 
 
 def accept_baseline(db, *, slug: str, version: str, etsy_listing_id: Any,
@@ -760,9 +848,13 @@ def accept_baseline(db, *, slug: str, version: str, etsy_listing_id: Any,
         raise AdoptionRefused("refused: the live copy contradicts Product Truth or a required "
                               "disclosure: " + "; ".join(shown["refusals"][:3]))
     baseline = {"snapshot": shown["snapshot"], "digest": shown["digest"],
+                "covers_fields": list(BASELINE_FIELDS),
                 "accepted_at": _now().isoformat(), "accepted_by": actor,
                 "reason": str(reason)[:300],
-                "accepted_differences": shown["differences_from_certified"][:20]}
+                "accepted_differences": [d for d in shown["differences_from_certified"]
+                                         if d.get("field") in BASELINE_FIELDS
+                                         or d.get("field") == "disclosures"][:20],
+                "not_covered": shown["not_covered_by_baseline"][:20]}
     with db.session() as s:
         intent = s.get(DraftIntent, key_for(slug, version))
         detail = dict(intent.detail or {})
@@ -772,19 +864,88 @@ def accept_baseline(db, *, slug: str, version: str, etsy_listing_id: Any,
                             for k in ("digest", "accepted_at", "accepted_by")})
         intent.detail = {**detail, "accepted_baseline": baseline,
                          "baseline_history": history[-20:]}
-        resolved = []
-        for sig in (signature, f"etsy.listing_drift:{lid}"):
-            row = s.scalar(select(Incident).where(Incident.signature == sig,
-                                                  Incident.resolved.is_(False)))
-            if row is not None:
-                row.resolved = True
-                row.detail = {**(row.detail or {}),
-                              "resolution": f"owner accepted the live copy as the baseline "
-                                            f"(digest {shown['digest'][:12]}) at "
-                                            f"{baseline['accepted_at']}"}
-                resolved.append(sig)
+        resolved, kept = [], []
+        resolution = (f"owner accepted the live copy as the baseline (digest "
+                      f"{shown['digest'][:12]}, fields {', '.join(BASELINE_FIELDS)}) at "
+                      f"{baseline['accepted_at']}")
+        # F-1: the halting drift incident is resolved only when every drift it records is a
+        # field the owner reviewed and accepted; the review item only when nothing is left
+        # outside the baseline. Anything else stays open, restated, and visible.
+        drift_row = s.scalar(select(Incident).where(
+            Incident.signature == f"etsy.listing_drift:{lid}", Incident.resolved.is_(False)))
+        if drift_row is not None:
+            recorded = list((drift_row.detail or {}).get("drift") or [])
+            if recorded and all(_field_of(d) in BASELINE_FIELDS for d in recorded):
+                drift_row.resolved = True
+                drift_row.detail = {**(drift_row.detail or {}), "resolution": resolution}
+                resolved.append(drift_row.signature)
+            else:
+                kept.append(drift_row.signature)
+        review_row = s.scalar(select(Incident).where(Incident.signature == signature,
+                                                     Incident.resolved.is_(False)))
+        if baseline["not_covered"]:
+            row, _ = lifecycle.open_or_restate(
+                s, signature=signature, severity="P2", product_slug=slug,
+                halts_publication=False,
+                summary="", detail={"listing_id": lid,
+                                    "not_covered_by_baseline": baseline["not_covered"]})
+            row.summary = (f"Baseline accepted for Etsy listing {lid} ({artifact}) covers "
+                           f"{', '.join(BASELINE_FIELDS)} only. Still open, not accepted: "
+                           f"{'; '.join(baseline['not_covered'][:4])}")[:2000]
+            kept.append(signature)
+        elif review_row is not None:
+            review_row.resolved = True
+            review_row.detail = {**(review_row.detail or {}), "resolution": resolution}
+            resolved.append(signature)
     audit_id = _audit(db, actor, BASELINE_ACCEPTED, artifact, {
-        "etsy_listing_id": lid, **baseline, "incidents_resolved": resolved})
+        "etsy_listing_id": lid, **baseline, "incidents_resolved": resolved,
+        "incidents_kept_open": kept})
     return {"accepted": True, "etsy_listing_id": lid, "digest": shown["digest"],
+            "covers_fields": list(BASELINE_FIELDS),
             "accepted_differences": baseline["accepted_differences"],
-            "incidents_resolved": resolved, "audit_id": audit_id}
+            "not_covered_by_baseline": baseline["not_covered"],
+            "incidents_resolved": resolved, "incidents_kept_open": kept,
+            "audit_id": audit_id}
+
+
+# ---- SECREVIEW F-2: what proves a manual listing in a live phase ------------------------
+
+#: Adoption notes that are facts about Etsy's API, not unverified listing content.
+_STRUCTURAL_NOTES = ("digital file hash: NOT READABLE",)
+
+
+def proof_problems(db, *, slug: str, version: str, etsy_listing_id: str) -> list[str]:
+    """Why a `published_manually` listing is NOT proven to match its certificate.
+
+    Empty only when the adoption is VERIFIED (read from Etsy, our shop) AND the live listing
+    matched the certified release and package -- or every difference is a copy field covered
+    by an owner-accepted baseline -- AND nothing was left uncompared, AND no review or drift
+    incident is open for it. A recorded difference is never "read back verified".
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    adopted = adoption_for(db, slug, version) or {}
+    lid = str(etsy_listing_id or "")
+    if str(adopted.get("etsy_listing_id") or "") != lid:
+        return ["published manually with no adoption record"]
+    out = []
+    if adopted.get("verification") != VERIFIED:
+        out.append("manual adoption UNVERIFIED (not read back)")
+    base = adopted.get("accepted_baseline") or {}
+    if base:
+        uncovered = list(base.get("not_covered") or [])
+    else:
+        uncovered = [f"{d.get('field')}" for d in adopted.get("differences") or []]
+        uncovered += [n for n in adopted.get("not_verifiable") or []
+                      if not str(n).startswith(_STRUCTURAL_NOTES)]
+    if uncovered:
+        out.append("the live listing does not match its certificate and no accepted "
+                   "baseline covers: " + "; ".join(str(u)[:120] for u in uncovered[:5]))
+    with db.session() as s:
+        for sig in (f"{REVIEW_PREFIX}{slug}@{version}", f"etsy.listing_drift:{lid}"):
+            if s.scalar(select(Incident).where(Incident.signature == sig,
+                                               Incident.resolved.is_(False))) is not None:
+                out.append(f"open incident {sig}")
+    return out

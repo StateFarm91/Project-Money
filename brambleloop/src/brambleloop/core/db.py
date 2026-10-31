@@ -141,6 +141,7 @@ class Database:
         from . import models  # noqa: F401  (import registers the mappings)
         from ..learn import models as learn_models  # noqa: F401; additive Learn tables
         from ..publish import draft_intent  # noqa: F401; additive remote-create intent
+        from ..publish import manual_adoption  # noqa: F401; W-ADOPT manual_listing_claims
         from ..commerce import search_visibility  # noqa: F401; F-248 owner readings
         # v1.1 lanes, registered here so a worker-only or scheduler-only process creates
         # them too (each also creates its tables lazily, so nothing broke before this).

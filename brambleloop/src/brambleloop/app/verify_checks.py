@@ -110,15 +110,13 @@ def _published_rows_proven(db) -> dict:
                 reasons.append("not certified")
             if li.state == "published_manually":
                 # W-ADOPT: the owner's step-up adoption is the authority record for a listing
-                # made by hand; its Etsy read at adoption is the read-back, and only VERIFIED
-                # counts. No `store.published` row exists for it, by construction.
-                from ..publish.manual_adoption import VERIFIED, adoption_for
+                # made by hand. SECREVIEW F-2: it is "read back verified" only when the Etsy
+                # read matched the certificate (or an accepted copy baseline covers every
+                # difference) and no review or drift incident is open.
+                from ..publish.manual_adoption import proof_problems
 
-                adopted = adoption_for(db, li.product_slug, li.version) or {}
-                if str(adopted.get("etsy_listing_id") or "") != str(li.etsy_listing_id):
-                    reasons.append("published manually with no adoption record")
-                elif adopted.get("verification") != VERIFIED:
-                    reasons.append("manual adoption UNVERIFIED (not read back)")
+                reasons += proof_problems(db, slug=li.product_slug, version=li.version,
+                                          etsy_listing_id=li.etsy_listing_id)
             else:
                 if art not in granted:
                     reasons.append("no owner publication grant recorded")
