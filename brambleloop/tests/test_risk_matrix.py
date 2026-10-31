@@ -258,7 +258,8 @@ def test_runtime_full_make_unblocks_class_c_and_a_material_change_queues_one_ret
         # What the tester measured on the finished object. The sphere's twin refuses a flat
         # width, so there is no size comparison; the class still comes from the scope.
         "ball_band_metres": 210.0, "measured_width_cm": 9.5, "measured_height_cm": 6.0,
-        "holds_shape": True})   # PHYSFIX G3: a 3-D piece's shape is part of the record
+        # PHYSFIX G3 / SECREVIEW F2: a 3-D piece's shape and "followed exactly?" are answers.
+        "holds_shape": True, "instructions_followed": True})
     _drain(db)
     with db.session() as s:
         rows = list(s.scalars(select(PhysicalTest)))
@@ -303,7 +304,7 @@ def test_runtime_swatch_is_recorded_partial_and_does_not_unblock_class_c():
     sample = {
         "slug": cir.slug, "version": cir.version, "tester_ref": "tester-1",
         "grams_by_color": {c: m / 2.1 for c, m in twin.yarn_metres_by_color.items()},
-        "ball_band_grams": 100.0, "ball_band_metres": 210.0}
+        "ball_band_grams": 100.0, "ball_band_metres": 210.0, "instructions_followed": True}
     JobQueue(db).enqueue("quality_director", "physical.record", dict(sample))
     _drain(db)
     with db.session() as s:
@@ -358,7 +359,12 @@ def test_first_customer_tier_requires_the_class_its_risk_needs():
     m_a = {"effective": "A", "required_physical": None}
     swatch = {"bound_classes": {1: rm.PARTIAL_PHYSICAL}}
     assert not rm.first_customer_requirement(m_c, swatch)["met"]
-    assert rm.first_customer_requirement(m_a, swatch)["met"]
+    # SECREVIEW F3: a swatch is gauge evidence only, so on its own it no longer meets even the
+    # Class A floor; partial evidence of made pieces whose size agreed does.
+    assert not rm.first_customer_requirement(m_a, swatch)["met"]
+    made = {"bound_classes": {1: rm.PARTIAL_PHYSICAL}, "size_proven": [1]}
+    assert rm.first_customer_requirement(m_a, made)["met"]
+    assert not rm.first_customer_requirement(m_c, made)["met"]
     assert not rm.first_customer_requirement(m_a, {"bound_classes": {}})["met"]
 
     from brambleloop.gates.first_customer import UNRESOLVED, check_gauge_and_size_claims

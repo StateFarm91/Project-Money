@@ -129,7 +129,7 @@
   {
    "field": "flats_cm",
    "label": "base across the flats (cm)",
-   "api": "notes"
+   "api": "measured_flats_cm"
   },
   {
    "field": "height_cm",

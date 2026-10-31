@@ -52,7 +52,7 @@ block. The kit will then be rebuilt by the same builder.
 | Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
 | Test PDF `market-basket-small-1.2.0-TEST.pdf` (9 pages) | `a724cbae5d58ff469a991668d257f54dce57c7e0d0437bcb323ecca2bfb72b0c` |
 | Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` (2 pages) | `ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42` |
-| Manifest `KIT_MANIFEST.json` | `95f4befaa7cd16c9f3f93862017994eabb2573f084d868c30a04379b5b8df0ff` |
+| Manifest `KIT_MANIFEST.json` | `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
@@ -104,7 +104,7 @@ say so.
 |---|---|---|---|
 | Base across the points | 16.0 cm | 14.08–17.92 cm | yes (`measured_width_cm`) |
 | Wall height | 8.7 cm | 7.66–9.74 cm | yes (`measured_height_cm`) |
-| Base across the flats | 13.9 cm | 12.23–15.57 cm | recorded on the sheet; the operator reads it |
+| Base across the flats | 13.9 cm | 12.23–15.57 cm | yes (`measured_flats_cm`) |
 | Circumference (optional) | 48.0 cm | 42.24–53.76 cm | yes, if given |
 | Yarn used ÷ 52.1 m | 1.0 | plausible 0.4–2.5; stated claim ±20% (41.7–62.5 m) | factor bounds |
 
@@ -203,19 +203,25 @@ The code reaches each outcome; nobody assigns it by hand.
   - The sample binds to content `1ddde587…`.
   - It clears the first-customer `gauge_and_size_claims` area **for the small size only**. The
     evidence says so: "proven: small; not proven: medium, large".
+  - Only a made basket whose measured size agreed counts. A gauge swatch alone never proves the
+    size and never clears this area.
   - If the factor is not 1.0, it calibrates `worsted cotton:sc` yardage.
 - **PARTIAL:** the base rocks, the basket does not hold its shape, or the tester wrote a
-  problem.
+  problem or any other note.
   - The sample is stored, binds nothing and calibrates nothing.
   - It comes to you as an owner action that names the problem.
   - Software never turns a PARTIAL into a pass. You decide between a pattern fix and a repeat
     sample.
 - **FAIL:** an implausible yarn factor, an unknown colour, the instructions not followed, or a
   size outside 12%. The sample binds nothing.
+- **Refused at intake (re-enter from the sheet):** "followed exactly?" left blank or not a plain
+  yes or no, a missing shape answer, or a missing measurement.
   - **A size outside 12% halts publication of this release.** The halt is a P1 incident scoped
     to `market-basket-small@1.2.0` at this content hash.
-  - A corrected release can still be certified. Certifying it lifts the halt on the old one. The
-    corrected release then needs its own sample.
+  - The halt is bound to the design, not the version number, so relabelling the same pattern
+    as a new version stays halted.
+  - A corrected design can be certified, but certification lifts nothing. The halt lifts only
+    when a passed full make of the corrected design measures the stated size.
 - **Fix path:**
   1. Correct the generator (`products.vessels.build_basket`), or the renderer if the text was
      unclear. The PDF is never patched.

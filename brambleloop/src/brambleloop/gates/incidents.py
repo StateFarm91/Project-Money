@@ -107,11 +107,12 @@ class IncidentTracker:
     def publication_halted(self, product_slug: str, *, content_hash=None) -> bool:
         """Gate E: a P0/P1 incident stops the publication workflow for that product.
 
-        `content_hash` is passed only by certification of a specific content, and only lifts
-        a halt that is scoped to one *other* release content (`detail.release_scope`, e.g.
-        a physical sample whose size disagreed, F-168). It may be a callable, evaluated only
-        when such a halt exists. Every other halt, and every caller that does not name a
-        content, is unchanged."""
+        `content_hash` is passed only by certification, and names the incoming release's
+        version-independent design digest (`quality.physical.design_digest`; SECREVIEW F1).
+        It lifts only a halt scoped to one *other* design (`detail.release_scope`, e.g. a
+        physical sample whose size disagreed, F-168), and only for that certification. It may
+        be a callable, evaluated only when such a halt exists. Every other halt, a halt with no
+        design digest on file, and every caller that names no design are unchanged."""
         halting = [i for i in self.open_incidents(product_slug) if i.halts_publication]
         if not halting or content_hash is None:
             return bool(halting)
@@ -121,24 +122,26 @@ class IncidentTracker:
         current = content_hash() if callable(content_hash) else content_hash
         if not current:
             return True
-        return any(release_scope(i).get("content_hash") == current for i in scoped)
+        return any(release_scope(i).get("design_digest") == current for i in scoped)
 
-    def resolve_superseded_release_halts(self, product_slug: str, *, version: str,
-                                         content_hash: str) -> list[int]:
-        """Resolve release-scoped halts of this product whose content is no longer current.
+    def resolve_halts_disproved_by(self, product_slug: str, *, version: str,
+                                   design_digest: str, physical_test_id: int) -> list[int]:
+        """Resolve release-scoped size halts of this product whose design is not this one.
 
-        Called once a different content of the product is certified: the halted release is
-        superseded, and the corrected one carries none of the halted release's evidence (it
-        needs its own sample, F-078)."""
+        Called only when a passed full make of a *different* design of the product measured
+        the stated size correctly (SECREVIEW F1): the correction has its own physical proof.
+        Certification alone never resolves a size halt, and a sample of the halted design
+        itself never resolves its own halt."""
         resolved: list[int] = []
         for inc in self.open_incidents(product_slug):
             scope = release_scope(inc)
-            if (not scope or inc.product_slug != product_slug
-                    or not content_hash or scope.get("content_hash") == content_hash):
+            if (not scope or inc.product_slug != product_slug or not design_digest
+                    or scope.get("design_digest") == design_digest):
                 continue
-            self.resolve(inc.id, (f"superseded: {product_slug}@{version} (content "
-                                  f"{content_hash[:12]}) is certified; it needs its own "
-                                  f"physical sample"), new_version=version)
+            self.resolve(inc.id, (f"superseded: {product_slug}@{version} (design "
+                                  f"{design_digest[:12]}) passed its own full make "
+                                  f"{physical_test_id} with the stated size"),
+                         new_version=version)
             resolved.append(inc.id)
         return resolved
 
@@ -157,9 +160,10 @@ class IncidentTracker:
 
 
 def release_scope(incident) -> dict:
-    """The one release content an incident halts, or {} for a product-wide incident."""
+    """The one design an incident halts, or {} for a product-wide incident (no digest on file
+    reads as product-wide: it fails closed)."""
     scope = (getattr(incident, "detail", None) or {}).get("release_scope")
-    return scope if isinstance(scope, dict) and scope.get("content_hash") else {}
+    return scope if isinstance(scope, dict) and scope.get("design_digest") else {}
 
 
 def apply_support_patch(*_args, **_kwargs):

@@ -914,16 +914,14 @@ def _certify_listing(ctx: JobContext, cir: CIR):
     return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}
 
 
-def _incoming_content(cir) -> str | None:
-    """The content hash `certify` would bind for this CIR, or None if it cannot be read."""
-    try:
-        from ..cir.writer import write_pattern
-        from ..gates.certificate import _release_hash
+def _incoming_design(cir) -> str | None:
+    """The version-independent design digest of this CIR (SECREVIEW F1), or None if unreadable.
 
-        result = compile_cir(cir)
-        return _release_hash(cir, write_pattern(cir, result, "US")) if result.ok else None
-    except Exception:  # noqa: BLE001 - unreadable content stays halted
-        return None
+    A release-scoped size halt names the design a tester measured wrong; a relabel of the same
+    design under another version string has the same digest and stays halted."""
+    from ..quality.physical import design_digest
+
+    return design_digest(cir)
 
 
 @handlers.register("gate.certify")
@@ -932,10 +930,12 @@ def handle_certify(ctx: JobContext) -> dict:
 
     # Publication is halted while a P0/P1 defect is open against this product.
     tracker = IncidentTracker(ctx.db)
-    # PHYSFIX G4: a halt scoped to one release content (a physical sample whose size
-    # disagreed) halts that content, not a corrected one (F-168); every other halt is
-    # product-wide as before.
-    if tracker.publication_halted(cir.slug, content_hash=lambda: _incoming_content(cir)):
+    # PHYSFIX G4 / SECREVIEW F1: a halt scoped to one design (a physical sample whose size
+    # disagreed) lets a *different* design certify (F-168) -- never a relabel of the same one,
+    # because the scope is the version-independent design digest. Certifying lifts nothing:
+    # the halt is resolved only by a passed full make of the new design whose size agreed
+    # (`runtime.release.handle_physical_record`). Every other halt is product-wide as before.
+    if tracker.publication_halted(cir.slug, content_hash=lambda: _incoming_design(cir)):
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
                   detail={"reason": "open P0/P1 incident"})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
@@ -1024,13 +1024,6 @@ def handle_certify(ctx: JobContext) -> dict:
     _request_physical_retest(ctx, cir, cert)
 
     if cert.granted:
-        # PHYSFIX G4: the corrected content is certified, so a release-scoped halt on an
-        # earlier content of this product is superseded and resolved.
-        superseded = tracker.resolve_superseded_release_halts(
-            cir.slug, version=cir.version, content_hash=cert.content_hash)
-        if superseded:
-            ctx.audit("physical.size_halt_superseded", artifact=f"{cir.slug}@{cir.version}",
-                      detail={"incidents": superseded, "content_hash": cert.content_hash})
         previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
         # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
@@ -1233,10 +1226,18 @@ def physical_evidence_rows(db, slug: str) -> list[dict]:
             from ..gates.risk_matrix import physical_class_of
 
             cls, legacy = physical_class_of(measured)
+            # SECREVIEW F3: whether the row proved the finished size. Stamped by
+            # `physical.record` from W-PHYSFIX on; an older row proved it only if its size
+            # was compared and agreed, and it was not a swatch.
+            proof = measured.get("size_proof")
+            if proof is None:
+                proof = (measured.get("size_agrees") is True
+                         and measured.get("scope") != "swatch")
             out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
                         "passed": t.passed, "completed_at": t.completed_at,
                         "content_hash": content, "compatible_variants": variants,
-                        "evidence_class": cls, "legacy_unstamped": legacy})
+                        "evidence_class": cls, "legacy_unstamped": legacy,
+                        "size_proof": bool(proof)})
     return out
 
 

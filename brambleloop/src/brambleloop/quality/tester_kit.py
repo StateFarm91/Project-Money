@@ -116,7 +116,7 @@ RECORD_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("swatch_sts", "swatch: stitches per 10 cm", "swatch_stitches_per_10cm"),
     ("swatch_rows", "swatch: rounds per 10 cm", "swatch_rows_per_10cm"),
     ("width_cm", "base across the points (cm)", "measured_width_cm"),
-    ("flats_cm", "base across the flats (cm)", "notes"),
+    ("flats_cm", "base across the flats (cm)", "measured_flats_cm"),
     ("height_cm", "wall height (cm)", "measured_height_cm"),
     ("lies_flat", "base sits flat, no rocking? yes/no", "lies_flat"),
     ("holds_shape", "holds its shape? yes/no", "holds_shape"),
@@ -171,7 +171,8 @@ COASTER_STEPS: tuple[str, ...] = (
     "Work a 10 x 10 cm sc swatch; record stitches and rounds per 10 cm and the hook; " + REWEIGH,
     "Make all FOUR coasters exactly as written; note every guess, re-read or rip-back by round",
     "Weigh what is left; grams used = re-weighed start minus end, per colour, for all four",
-    "Measure each coaster across the points and the flats, flat on a table, unstretched (cm)",
+    "Measure EACH coaster across the points and across the flats, flat on a table, unstretched, "
+    "and write all four in their own boxes (cm)",
     "Lay each coaster on a flat table: does it lie flat? If one cups (edges lift) or ruffles "
     "(wavy edge), answer no and say which in the problems box",
     "Record total hours (all four, not the swatch) and whether you followed it exactly",
@@ -194,9 +195,15 @@ COASTER_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("hook_mm", "hook used (mm)", "hook_mm"),
     ("swatch_sts", "swatch: stitches per 10 cm", "swatch_stitches_per_10cm"),
     ("swatch_rows", "swatch: rounds per 10 cm", "swatch_rows_per_10cm"),
-    ("width_cm", "across points, furthest coaster (cm)", "measured_width_cm"),
-    ("height_cm", "across flats, same coaster (cm)", "measured_height_cm"),
-    ("all_sizes", "all four: points x flats (cm)", "notes"),
+    # SECREVIEW F6: every coaster in its own checked fields, each compared with the twin.
+    ("c1_points", "coaster 1 across the points (cm)", "piece.coaster.1.width_cm"),
+    ("c1_flats", "coaster 1 across the flats (cm)", "piece.coaster.1.height_cm"),
+    ("c2_points", "coaster 2 across the points (cm)", "piece.coaster.2.width_cm"),
+    ("c2_flats", "coaster 2 across the flats (cm)", "piece.coaster.2.height_cm"),
+    ("c3_points", "coaster 3 across the points (cm)", "piece.coaster.3.width_cm"),
+    ("c3_flats", "coaster 3 across the flats (cm)", "piece.coaster.3.height_cm"),
+    ("c4_points", "coaster 4 across the points (cm)", "piece.coaster.4.width_cm"),
+    ("c4_flats", "coaster 4 across the flats (cm)", "piece.coaster.4.height_cm"),
     ("lies_flat", "all four lie flat? yes/no", "lies_flat"),
     ("hours", "total hours (all four)", "hours"),
     ("followed", "followed exactly? yes/no", "instructions_followed"),
@@ -215,17 +222,20 @@ KITS: dict[str, dict] = {
 }
 
 _NUMBER_KEYS = {"ball_band_grams", "ball_band_metres", "hook_mm", "swatch_stitches_per_10cm",
-                "swatch_rows_per_10cm", "measured_width_cm", "measured_height_cm", "hours"}
+                "swatch_rows_per_10cm", "measured_width_cm", "measured_height_cm",
+                "measured_flats_cm", "hours"}
 _YES_NO_KEYS = {"lies_flat", "holds_shape"}
 
 
 def _yes_no(value) -> bool | None:
+    """Exactly yes or no (SECREVIEW F2): "yes"/"y" and "no"/"n", any case. Blank is None
+    (unanswered); anything else is refused rather than guessed from its first letter."""
     if value is None or str(value).strip() == "":
         return None
     text = str(value).strip().lower()
-    if text.startswith("y"):
+    if text in ("yes", "y"):
         return True
-    if text.startswith("n"):
+    if text in ("no", "n"):
         return False
     raise ValueError(f"expected yes or no, got {value!r}")
 
@@ -242,11 +252,15 @@ def intake_payload(sheet: dict, *, content_hash: str, key: str = BUILD_KEY) -> d
                      "size": kit["size"], "content_hash": content_hash,
                      "grams_by_color": {}, "made": {}}
     notes: list[str] = []
+    pieces: dict[tuple[str, int], dict] = {}
     for field_key, label, api in spec["fields"]:
         raw = sheet.get(field_key)
         if raw is None or str(raw).strip() == "":
             continue
-        if api.startswith("grams_by_color."):
+        if api.startswith("piece."):
+            _p, comp, n, key = api.split(".")
+            pieces.setdefault((comp, int(n)), {"component": comp})[key] = float(raw)
+        elif api.startswith("grams_by_color."):
             payload["grams_by_color"][api.split(".", 1)[1]] = float(raw)
         elif api.startswith("made."):
             count = float(raw)
@@ -255,15 +269,16 @@ def intake_payload(sheet: dict, *, content_hash: str, key: str = BUILD_KEY) -> d
             payload["made"][api.split(".", 1)[1]] = int(count)
         elif api == "notes":
             notes.append(f"{label}: {raw}")
-        elif api == "instructions_followed":
-            payload[api] = bool(_yes_no(raw))
-        elif api in _YES_NO_KEYS:
+        elif api in _YES_NO_KEYS or api == "instructions_followed":
             payload[api] = _yes_no(raw)
         elif api in _NUMBER_KEYS:
             payload[api] = float(raw)
         else:
             payload[api] = str(raw)
-    payload.setdefault("instructions_followed", True)
+    # SECREVIEW F4: no default for "followed exactly?" -- a blank answer stays out, and the
+    # intake refuses a record without it.
+    if pieces:
+        payload["piece_measurements"] = [pieces[k] for k in sorted(pieces)]
     payload["notes"] = "; ".join(notes)
     if not payload["made"]:
         del payload["made"]      # the intake refuses a multi-piece full make without it

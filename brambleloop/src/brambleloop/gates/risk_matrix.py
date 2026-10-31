@@ -372,7 +372,8 @@ def owner_action_spec(*, slug: str, version: str, content_hash: str | None, requ
                       "them), finished measurements, whether each flat piece lies flat and "
                       "each 3-D piece holds its shape, and any problem found"),
         "swatch": ("stitches and rows per 10 cm, hook, ball band and grams; no finished "
-                   "measurements"),
+                   "measurements. A swatch is gauge evidence only: it never proves a "
+                   "finished size and does not meet the first-customer floor"),
     }[intake_scope]
     return {
         "requirement_key": retest_key(slug, version, content_hash),
@@ -484,8 +485,9 @@ def matrix_for(cir, result=None, *, calibrated_primitives=frozenset()) -> dict:
 
 
 def first_customer_requirement(matrix: dict, binding: dict | None) -> dict:
-    """What the first-customer gate needs: at least a partial physical test of this content,
-    and a full make where the effective class needs one.
+    """What the first-customer gate needs: at least a partial physical test of this content
+    that measured made pieces and found their size right, and a full make where the
+    effective class needs one. A swatch alone never meets it (SECREVIEW F3).
 
     The first paid products carry extraordinary scrutiny (gates.first_customer), so even a
     Class A product needs *some* measured sample before its size claims clear there; F-080
@@ -493,12 +495,22 @@ def first_customer_requirement(matrix: dict, binding: dict | None) -> dict:
     """
     need = matrix.get("required_physical") or PARTIAL_PHYSICAL
     held = bound_classes(binding)
-    met = any(satisfies(h, need) for h in held)
+    class_met = any(satisfies(h, need) for h in held)
+    # SECREVIEW F3: the first customer reads finished-size and shape claims, so the floor is
+    # a bound sample of made pieces whose size agreed. A swatch binds as partial evidence of
+    # gauge only (it can meet readiness' Class B gauge requirement) and never meets this.
+    size_proven = list((binding or {}).get("size_proven") or [])
+    met = class_met and bool(size_proven)
+    if met:
+        why = f"{need} of this content is bound, and sample(s) {size_proven} proved its size"
+    elif class_met:
+        why = (f"{need} of this content is bound, but only as gauge evidence (a swatch): a "
+               f"first customer needs made pieces of this content whose measured size agreed")
+    else:
+        why = (f"effective class {matrix.get('effective')} needs {need} of this exact "
+               f"content before a first customer; held: {held or 'none'}")
     return {"required": need, "effective_class": matrix.get("effective"), "held": held,
-            "met": met,
-            "why": (f"{need} of this content is bound" if met else
-                    f"effective class {matrix.get('effective')} needs {need} of this exact "
-                    f"content before a first customer; held: {held or 'none'}")}
+            "size_proven": size_proven, "met": met, "why": why}
 
 
 def catalogue_status(db) -> dict:

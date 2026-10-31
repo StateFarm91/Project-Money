@@ -110,6 +110,8 @@ through it without an API edit.
 
 ## 4. A size mismatch halts that release (G4): behaviour changed to match the description
 
+> **Superseded in part by §10 F1:** the halt is now keyed on the version-independent design digest, and a passed full make of a different design lifts it. Certification no longer does.
+
 The docstring said that a size disagreement "halts its publication". The code filed one P2
 `DefectReport`, and `IncidentTracker` halts only at 3 reports. I made the behaviour match the
 description, scoped as the spec requires:
@@ -168,10 +170,10 @@ content hashes are unchanged. The record sheets changed.
 |---|---|
 | `market-basket-small-1.2.0-TEST.pdf` (unchanged) | `a724cbae5d58ff469a991668d257f54dce57c7e0d0437bcb323ecca2bfb72b0c` |
 | `market-basket-small-1.2.0-RECORD-SHEET.pdf` (was `335fd7aa…`) | `ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42` |
-| `KIT_MANIFEST.json` | `95f4befaa7cd16c9f3f93862017994eabb2573f084d868c30a04379b5b8df0ff` |
+| `KIT_MANIFEST.json` | `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb` |
 | `hexagon-coaster-set-1.2.0-TEST.pdf` (unchanged) | `7d10fc229525b650a3a2d77171c36842a9c46abab4213157a04cedafb4739909` |
-| `hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf` (was `892484a8…`) | `ded8995eba32060f6d3559d735934fb84b9e206310a495f3b0a01607ee4e2b17` |
-| `KIT_MANIFEST_hexagon-coaster-set.json` | `6a43f3f7b9fc536985a40c9ce774a51317229ec9e930b244d7093efe98759cf8` |
+| `hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf` (was `892484a8…`) | `7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df` |
+| `KIT_MANIFEST_hexagon-coaster-set.json` | `d56e25f949f48faa9b48095034762ce0c15d5d0e40da03d74cc0d75fcadecb83` |
 
 Content hashes (unchanged):
 - basket: `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991`
@@ -315,3 +317,69 @@ not certified here". A disclosed set also has no slot for a camera photo. So for
 listing, the photo-first gallery the gate needs also requires a mixed or photo-led variant of
 `certify_disclosed`. This change makes the ListingAsset path correct; the disclosed path is a
 gallery-pipeline change for its owner.
+
+## 10. Independent review fixes (SECREVIEW of `adabd597` / `23efd5dc`: DO NOT SHIP → fixed)
+
+The review is `INDEPENDENT_SECREVIEW_PHYSFIX_adabd59.md` on
+`claude/w4-SECREVIEW-PHYSFIX-adabd59`. Each finding is fixed at the root and has its own
+regression test. The reviewer's 12 adversarial probes are adopted as
+`tests/test_secreview_physfix_adversarial.py`. They passed 5/12 on `adabd597` and pass 12/12
+now. The only change to them: their swatch payloads answer "followed exactly?", which is now
+required.
+
+- **F1 (HIGH). A relabel no longer lifts a size halt.**
+  - The halt is keyed on `quality.physical.design_digest`: the CIR without its version, plus the
+    pattern text with the version string removed. A version-only relabel has the same digest, so
+    `gate.certify` stays halted.
+  - Certification no longer resolves anything. `resolve_superseded_release_halts` is removed.
+  - `IncidentTracker.resolve_halts_disproved_by` resolves a halt only when `physical.record`
+    stores a passed full make of a *different* design, with `size_proof` (its size agreed). A
+    passing sample of the halted design never lifts its own halt.
+  - A halt with no digest on file is product-wide (fails closed).
+  - Tests: `test_a_size_mismatch_halts_that_design_and_only_a_proven_correction_lifts_it`, which
+    replaces the relabel-based test; `test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt`;
+    and the adversarial `test_relabelled_identical_content_does_not_lift_size_halt` and chain test.
+- **F2 (HIGH) and F4 (MEDIUM). "Followed exactly?" is parsed strictly.**
+  - Accepted: a real bool, or exactly yes, y, true, no, n or false.
+  - Blank, missing or anything else (for example "0", "nope", 1) is refused at intake.
+  - `SampleReport.instructions_followed` defaults to None, which raises `SAMPLE_FOLLOWED_UNRECORDED`
+    (ERROR).
+  - `tester_kit.intake_payload` no longer defaults it to True. Its yes/no parser is exact rather
+    than reading the first letter.
+  - Tests: `test_followed_exactly_must_be_a_real_yes_or_no`, plus the two adversarial probes.
+- **F3 (MEDIUM-HIGH). A swatch is gauge evidence only.**
+  - Each row is stamped `size_proof`: a PASS of made pieces whose size agreed.
+  - `bind_physical_evidence` returns `size_proven`.
+  - `size_coverage.proven` counts only size proof. A swatch is listed as `gauge_only`.
+  - `first_customer_requirement.met` needs a size proof as well as the class.
+  - A swatch still binds as `partial_physical`, so readiness' Class B gauge requirement is
+    unchanged. The swatch cost offer now says it does not meet the first-customer floor.
+  - Legacy rows count as size proof only if their size was compared and agreed and they were
+    not a swatch.
+  - `test_risk_matrix.test_first_customer_tier_requires_the_class_its_risk_needs` used to assert
+    that a swatch met the Class A floor. It now asserts that it does not, and that made pieces
+    with a size proof do. This makes the test stricter.
+  - Tests: `test_a_swatch_never_proves_a_size_or_meets_the_first_customer_floor`, plus two
+    adversarial probes.
+- **F5. Notes go to the owner.** Any free-text `notes` is now a REVIEW finding, so the sample is
+  PARTIAL and the owner reviews it. `test_physical`'s notes test now asserts PARTIAL, which is
+  stricter. Both kits moved their measurement lines out of `notes` into checked fields.
+  - Tests: `test_a_problem_written_in_notes_goes_to_the_owner`, plus the adversarial probe.
+- **F6. Every coaster is a checked measurement.**
+  - `piece_measurements` holds one entry per made piece, and each is compared with its
+    component's twin at 12%.
+  - It is required wherever a component is made more than once. A count mismatch is refused
+    (`SAMPLE_PIECES_UNMEASURED`).
+  - The coaster sheet has eight checked boxes (points and flats for coasters 1–4).
+  - The basket's across-the-flats is now a checked field (`measured_flats_cm`).
+  - Tests: `test_every_coaster_is_measured_in_a_checked_field` (three measured is refused; one
+    wrong coaster fails the set), and the coaster sheet test.
+- **F7. The `parts_made` docstring now matches the code.** A component covering the whole set
+  returns "whole pattern? = True" and is still recorded `partial_physical`.
+  - Test: `test_parts_made_says_whole_but_a_component_stays_partial`.
+
+**Kits rebuilt:**
+- The basket TEST.pdf, the basket record sheet and both content hashes are unchanged.
+- New coaster record sheet: `7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df`.
+- New manifests: basket `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb`,
+  coaster `d56e25f949f48faa9b48095034762ce0c15d5d0e40da03d74cc0d75fcadecb83`.

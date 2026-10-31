@@ -66,7 +66,7 @@
   "Work a 10 x 10 cm sc swatch; record stitches and rounds per 10 cm and the hook; then RE-WEIGH each ball and use that as its start weight, so the swatch's yarn is not counted as project yarn",
   "Make all FOUR coasters exactly as written; note every guess, re-read or rip-back by round",
   "Weigh what is left; grams used = re-weighed start minus end, per colour, for all four",
-  "Measure each coaster across the points and the flats, flat on a table, unstretched (cm)",
+  "Measure EACH coaster across the points and across the flats, flat on a table, unstretched, and write all four in their own boxes (cm)",
   "Lay each coaster on a flat table: does it lie flat? If one cups (edges lift) or ruffles (wavy edge), answer no and say which in the problems box",
   "Record total hours (all four, not the swatch) and whether you followed it exactly",
   "Photograph in daylight on a real surface; keep every camera file UNEDITED (no filter, crop, resize or retouch), landscape or square, at least 2000 px each side, with space around",
@@ -120,19 +120,44 @@
    "api": "swatch_rows_per_10cm"
   },
   {
-   "field": "width_cm",
-   "label": "across points, furthest coaster (cm)",
-   "api": "measured_width_cm"
+   "field": "c1_points",
+   "label": "coaster 1 across the points (cm)",
+   "api": "piece.coaster.1.width_cm"
   },
   {
-   "field": "height_cm",
-   "label": "across flats, same coaster (cm)",
-   "api": "measured_height_cm"
+   "field": "c1_flats",
+   "label": "coaster 1 across the flats (cm)",
+   "api": "piece.coaster.1.height_cm"
   },
   {
-   "field": "all_sizes",
-   "label": "all four: points x flats (cm)",
-   "api": "notes"
+   "field": "c2_points",
+   "label": "coaster 2 across the points (cm)",
+   "api": "piece.coaster.2.width_cm"
+  },
+  {
+   "field": "c2_flats",
+   "label": "coaster 2 across the flats (cm)",
+   "api": "piece.coaster.2.height_cm"
+  },
+  {
+   "field": "c3_points",
+   "label": "coaster 3 across the points (cm)",
+   "api": "piece.coaster.3.width_cm"
+  },
+  {
+   "field": "c3_flats",
+   "label": "coaster 3 across the flats (cm)",
+   "api": "piece.coaster.3.height_cm"
+  },
+  {
+   "field": "c4_points",
+   "label": "coaster 4 across the points (cm)",
+   "api": "piece.coaster.4.width_cm"
+  },
+  {
+   "field": "c4_flats",
+   "label": "coaster 4 across the flats (cm)",
+   "api": "piece.coaster.4.height_cm"
   },
   {
    "field": "lies_flat",
@@ -169,7 +194,7 @@
  },
  "files": {
   "hexagon-coaster-set-1.2.0-TEST.pdf": "7d10fc229525b650a3a2d77171c36842a9c46abab4213157a04cedafb4739909",
-  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "ded8995eba32060f6d3559d735934fb84b9e206310a495f3b0a01607ee4e2b17"
+  "hexagon-coaster-set-1.2.0-RECORD-SHEET.pdf": "7c40361dfa4e171617c52f749691d8e7b386c7e39dd783e0f8a03f650e8cc6df"
  },
  "pattern_pages": 7,
  "built_by": "quality.tester_kit.build(key='hexagon_coasters')"
