@@ -518,9 +518,13 @@ DECISIONS: tuple[dict, ...] = (
                            "first buyer becomes the tester")},
     {"id": "trademark_filing", "batch": "go_live", "kind": "spend",
      "gates": (), "keys": ("brand_clearance",),
-     "decision": ("Decide whether to file a Canadian trademark for 'Brambleloop Studio' "
-                  "(CA$458.05 first class). The free knock-out search is company work."),
-     "why": "a filing is legal spend in the owner's name",
+     "decision": ("Accept (or not) the residual risk shown by the recorded knock-out "
+                  "screening of 'Brambleloop Studio' -- this is what launch needs. "
+                  "Optionally, decide whether to file a Canadian trademark (CA$458.05 first "
+                  "class); filing is not required. The free knock-out search is company "
+                  "work."),
+     "why": ("accepting residual legal risk is the owner's judgement; a filing is legal "
+             "spend in the owner's name"),
      "max_cost_cad": 460.0, "cost_basis": "stated (CIPO first-class fee, rounded up)",
      "minutes": 20,
      "consequence_of_yes": "the name is protected before brand equity accumulates on it",
