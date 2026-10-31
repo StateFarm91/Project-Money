@@ -174,7 +174,25 @@ Caveat: the draft and build stages read only the certificate summary, not the du
 
 ### Test runs (at `33cbfc53`, from the hash-pinned `requirements.lock` and `requirements-test.lock`)
 
-RESULTS_PLACEHOLDER
+Each file was run on its own: `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py`. Every one exited 0 with no failures.
+
+| File | Result |
+|---|---|
+| test_physfix | 41/41 |
+| test_physfix_size_lift_http | 1/1 |
+| test_secreview_physfix_adversarial | 12/12 |
+| test_secreview_physfix_42eac69_probes | 8/8 |
+| test_secreview_physfix_89eef1e_probes | 8/8 |
+| test_risk_matrix | 17/17 |
+| test_physfix_photo_first | 8/8 |
+| test_w4_launchfix | 32 passed, 0 failed |
+| test_vacuity | all OK, 0 failed |
+| test_first_customer_gate | 12/12 |
+| test_w4_fmbatch1_retention_guard | 5/5 |
+| test_gates | 44/44 |
+| test_executor | 44/44 |
+
+The suite is green, and it does not cover R30, which `probe_r30.py` (§2) reproduces. My extra HTTP probe (CSRF, stale timestamp, nonce replay) behaved correctly.
 
 ## 7. Shipping
 
