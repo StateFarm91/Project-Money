@@ -199,3 +199,39 @@ The new file is `tests/test_w5_concept_intake.py`, with 13 tests:
   shop recorded as a limitation and not as scanned, and no competitor content copied. The
   existing fixtures now serve the seed shops (one listing each, in pods no other shop
   occupies), and the shop-count assertions include them.
+
+## Review 933bf74 fixes (INDEPENDENT_SECREVIEW_CONCEPT_933bf74)
+
+- **F1 (HIGH), stale approvals.**
+  - An approval now stands only while its evidence does. Each intake pass first runs
+    `withdraw_unsupported`. It re-checks every approved row against its source as of the run
+    date: the research task must still be ANSWERED, unexpired and not unresolved, and must still
+    clear the quality floor; a family must still be certified with proven orders. A row that
+    fails is moved to `withdrawn` and audited as `concept.intake_withdrawn`.
+  - `approved_rows` also re-reads each research task at the moment of use. An expired or
+    unresolved approval therefore leaves the scored pool before the next pass runs.
+  - A changed proposal that is refused withdraws the earlier approval.
+  - The fingerprint now holds recorded facts (refs, source dates, the answer date) and no longer
+    holds the day-dependent quality. Freshness decay therefore no longer creates a refused row
+    every day.
+  - Retention: `radar.intake.prune` is called from `ops.retention.plan` and `apply`. It removes
+    refused, superseded and withdrawn rows older than 90 days, but always keeps the newest row
+    per (source, slug), because that row holds the idempotency fingerprint. Approved rows are
+    never pruned.
+- **F2, taste fields from the job.** For an intake concept, the gate's inputs are rebuilt from
+  the database row and the vision judge's record. The job's own concept, brief, taste and
+  strength fields are dropped. This applies in `radar.score` and also in a directly enqueued
+  `cir.draft`.
+- **F3, judged brief fields.** `strength_score`, `strength_score_source`, `benchmark_scores` and
+  `board_image` are stripped from proposal briefs, and `gate_inputs` filters them again.
+- **F5, prefix match.** `release._seed_for` now matches exactly. The one catalogue product that
+  relied on the old prefix match, `nordic-forest-mosaic-throw-baby`, resolves through its
+  declared Launch-0 alias. Intake also refuses any slug that a POOL slug prefixes.
+- **F6, callers without `db`.** `product_seed(slug, db)`, the release pricing peers,
+  `_collection_siblings`, the member-collection trigger, `collection.assemble`, the storefront
+  `opening_grid` and the readiness challenge representatives now all pass `db`.
+  - Collection assembly still takes its members from POOL. A bundle never waits on an
+    uncertified intake member.
+- **F4, discriminating tests.** Each mutant the reviewer listed as surviving now has its own
+  test in `tests/test_w5_concept_intake.py`. W1 is covered in `test_w4_intelrec_watchlist.py`:
+  `summary(now=...)` asserts that DEGRADED is caused by the limitation alone.
