@@ -1290,7 +1290,17 @@ def _wall_rise_words(cir: CIR, twin: TwinModel, unit: str, lead: str) -> str:
     if _fold(cir, twin):
         return (f"{lead} make the wall, turning upward over the first few {unit}s and then "
                 f"rising straight")
+    from ..visual import render_contract as _K
+    if _K.rim_softening(cir):
+        # SECREVIEW-RENDER F6: the back-loop round makes a defined edge; the wall's corners
+        # then soften toward the rim, so "straight up" over-promises.
+        return f"{lead} turn up at a defined edge to make the wall"
     return f"{lead} rise straight up to make the wall"
+
+
+def _soft_corners(cir: CIR) -> bool:
+    from ..visual import render_contract as _K
+    return bool(_K.rim_softening(cir))
 
 
 def _idealised(cir: CIR, twin: TwinModel) -> str | None:
@@ -1326,9 +1336,16 @@ def _render_gap(cir: CIR, twin: TwinModel) -> dict | None:
     base, wall = _rings(twin)
     from ..visual import render_contract as _K
     if base and wall and (twin.sides or 0) >= 3 and _K.rim_softening(cir) > 0:
-        # The renders draw this wall as the pattern makes it -- the defined fold, corners
-        # crisp at the base and softening to a rounded rim -- so there is no gap to caption.
-        return None
+        # The renders draw the defined fold the pattern makes and corners that soften to a
+        # rounded rim -- but how far they soften is an estimate (render_contract
+        # RIM_CORNER_SOFTENING), so every picture says so (SECREVIEW-RENDER F1).
+        return {
+            "cover1": ("Digital rendering, drawn stitch by stitch from this pattern — not a "
+                       "photograph."),
+            "long": ("These pictures draw the defined base edge the pattern makes, with the "
+                     "wall's corners crisp at the base and softening toward a rounded rim. "
+                     + _K.ESTIMATED_SHAPE),
+            "short": _K.ESTIMATED_SHAPE}
     if base and wall and (twin.sides or 0) >= 3:
         return {
             "long": ("These pictures are idealised in one respect: they draw the corners "
@@ -1435,7 +1452,8 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
             how += (f". {unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
                     f"grow a flat base, and {unit}s "
                     f"{_span_words(wall[0].index, wall[-1].index)} "
-                    + (_wall_rise_words(cir, twin, unit, "")[1:] if _fold(cir, twin) else
+                    + (_wall_rise_words(cir, twin, unit, "")[1:]
+                       if _fold(cir, twin) or _soft_corners(cir) else
                        "rise straight up from it to make the wall"))
         elif sides:
             how += f", with the increases stacked so that they build {sides} corners"
@@ -1857,8 +1875,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                "pattern — not a photograph.")
         if _render_gap(cir, twin):
             # F3: two lines, the second saying what the picture idealises.
-            cap = ("Idealised digital rendering, drawn stitch by stitch from this pattern — "
-                   "not a photograph.")
+            cap = _render_gap(cir, twin).get(
+                "cover1", "Idealised digital rendering, drawn stitch by stitch from this "
+                          "pattern — not a photograph.")
             cap2 = _render_gap(cir, twin)["short"]
             doc.prose.append(cap)
             doc.prose.append(cap2)

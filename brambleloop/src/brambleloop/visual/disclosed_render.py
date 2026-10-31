@@ -49,7 +49,7 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_render"
-RENDERER_VERSION = "disclosed-render/3.0.0"   # contract 3: legible lettering
+RENDERER_VERSION = "disclosed-render/3.1.0"  # 3.1: soft wall corners (K.rim_softening); else identical to 3.0.0   # contract 3: legible lettering
 
 # The views a listing set is built from, and the gallery role each plays. One job each
 # (publish.eligibility.check_set refuses duplicate jobs).
@@ -577,8 +577,8 @@ def _wall_levels(cir, result, wall) -> list[float]:
 def wall_outline(cir, R: float, sides: int, z: float, wall_top_cm: float,
                  t0: float = 0.0, t1: float = 1.0) -> list[tuple[float, float]]:
     """The wall's outline at height `z` (plan coordinates, cm), with the corner softening
-    `K.rim_softening` gives this product: each point moves radially from the polygon toward
-    the same-perimeter circle by `w_rim * z / wall_top_cm`. 0 is the polygon itself."""
+    `K.rim_softening` gives this product (`K.soft_radius`: corners pulled toward the
+    same-perimeter circle by `w_rim * z / wall_top_cm`, mid-faces unmoved). 0 is the polygon."""
     pts = _path(R, t0, t1, sides)
     w_rim = K.rim_softening(cir) if sides else 0.0
     if not w_rim or wall_top_cm <= 0:
@@ -588,7 +588,7 @@ def wall_outline(cir, R: float, sides: int, z: float, wall_top_cm: float,
     out = []
     for x, y in pts:
         r = math.hypot(x, y)
-        f = ((1 - w) * r + w * Rc) / r if r else 1.0
+        f = K.soft_radius(r, w, Rc) / r if r else 1.0
         out.append((x * f, y * f))
     return out
 
@@ -749,7 +749,7 @@ def _round_view(cir, result, twin, palette, view: str,
             if w_rim:
                 Rc = R * sides * math.sin(math.pi / sides) / math.pi
                 top_y = max(top_y, max(
-                    y * ((1 - w_rim) + w_rim * Rc / math.hypot(x, y))
+                    y * K.soft_radius(math.hypot(x, y), w_rim, Rc) / math.hypot(x, y)
                     for x, y in zip(xs, ys) if math.hypot(x, y)))
             height_cm = H * ca + (top_y - min(ys)) * sa
             px = min((zw - margin) / span_x, (zh - margin) / height_cm)
@@ -842,6 +842,10 @@ def render(cir, view: str, *, layout: dict | None = None) -> RenderedFrame:
     }
     if layout:
         manifest["layout_params"] = dict(layout)
+    if form == "rounds" and drawn.get("part") == "wall" and K.rim_softening(cir):
+        # F1 (SECREVIEW-RENDER): the drawn rim is an estimate; the frame says so wherever it
+        # travels (alt text, listing copy), because Etsy shows the image without a caption.
+        manifest["estimated"] = [K.ESTIMATED_SHAPE]
     return RenderedFrame(view=view, png=png, manifest=manifest)
 
 

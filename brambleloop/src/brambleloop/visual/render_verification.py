@@ -49,6 +49,18 @@ Tolerances (each is stated with why, and none was tuned to make a frame pass):
                   (The scale bar's segment boundaries are excused +-1 px: they are re-drawn
                   from a measured pixels-per-cm.)
 
+Contract 3.1 (W4-PDF1, soft wall corners; SECREVIEW-RENDER F3), the limits stated plainly:
+  rim_corners_cm  tells a softened rim from a straight-cornered prism; it cannot confirm the
+                  softening's magnitude (render_contract.RIM_CORNER_SOFTENING = 0.75 is an
+                  estimate). Measured margin: the prism is 16.0 cm across the rim corners
+                  against 15.48 expected (3.4 %), so it fails while EXTENT_REL stays under
+                  about 3.3 %; drawn weights from about 0.3 to 1.0 pass the hero view. The
+                  verifier confirms render = contract, not render = a measured basket -- the
+                  twin has no softening -- which is why every place the rim is shown carries
+                  render_contract.ESTIMATED_SHAPE.
+  rim_flats_cm    holds the across-the-flats span at the twin's value at the rim (oblique
+                  views); a rim widened across the flats fails it.
+
 Contract 2 (PT-05): version 1 verified every stitch and the caption and read no other text,
 so a scale view re-lettered with a false finished size and a false material/safety claim
 passed. Every text pixel is now accounted for.
@@ -69,7 +81,7 @@ from PIL import Image, ImageDraw
 
 from . import render_contract as K
 
-VERIFIER_VERSION = "render-verification/3.0.0"   # contract 3: two-line caption, wrapped lines
+VERIFIER_VERSION = "render-verification/3.1.0"   # contract 3.1: soft wall corners (rim checks)
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
@@ -815,22 +827,20 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
         checks.append(_check("wall_counts", UNKNOWN, "no front face found"))
         return {}
     y_bottom = float(ys.max()) + K.GAP_PX / 2
-    # Soft corners (`K.rim_softening`, W4-PDF1): the mid-face point moves radially from the
-    # apothem toward the same-perimeter circle as the wall rises, so on screen a front-face
-    # stitch at height z sits lower by that outward step times sin(camera). The step is linear
-    # in z, so the un-projection stays one factor `k` (= cos(camera) on a straight prism).
+    # Soft corners (`K.rim_softening` / `K.soft_radius`, contract 3.1, W4-PDF1): a front-face
+    # point X cm from the face's middle lies r = hypot(X, a) from the axis; if r exceeds the
+    # same-perimeter circle Rc it is pulled in by w(z) * (r - Rc), so on screen it sits higher
+    # by a * w(z) * (r - Rc) / r * sin(camera). w is linear in z, so each stitch un-projects by
+    # one factor k(X) (= cos(camera) on a straight prism, and at every mid-face point).
     ws = model.get("rim_softening", 0.0) or 0.0
     a_cm = R * math.cos(math.pi / 6)
     Rc = 3.0 * R / math.pi                      # a hexagon's same-perimeter circle
-    k = ca - (ws * (Rc - a_cm) * sa / H if H else 0.0)
 
     def k_at(x_px: float) -> float:
-        # A point X cm along the flat front face is r = hypot(X, a) from the axis; the wall
-        # moves it radially by w(z) * (Rc - r), which on screen is a * (Rc/r - 1) * w(z) * sin.
         if not ws or not H:
             return ca
         r = math.hypot((x_px - cx) / u, a_cm)
-        return ca - a_cm * sa * ws * (Rc / r - 1.0) / H
+        return ca + a_cm * sa * ws * max(0.0, r - Rc) / r / H
 
     rounds: dict[int, list] = {}
     above = 0
@@ -888,7 +898,28 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
                 rim_softening=ws))
         else:
             checks.append(_check("rim_corners_cm", UNKNOWN, "the rim row is outside the frame"))
-    checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX, u * k) else FAIL,
+        # Across the flats at the rim (SECREVIEW-RENDER F2). The flats are where the stitch
+        # count puts them all the way up (`K.soft_radius` never moves a mid-face), so the
+        # front and back rim, read on the central column, are 2a apart in depth: on screen
+        # 2a * sin(camera). A rim widened across the flats -- the error the first soft-corner
+        # model made (+1.06 cm) -- fails here. Needs an oblique camera; an elevation sees no
+        # depth and reports UNKNOWN rather than passing.
+        if sa > 0.2:
+            col = frame.yarn[:, int(round(cx)) - half: int(round(cx)) + half + 1] >= 0
+            ys_c = np.nonzero(col.any(axis=1))[0]
+            if ys_c.size and top_front is not None:
+                back_top = float(ys_c.min())
+                m_f = (top_front - back_top) / (sa * u)
+                checks.append(_check(
+                    "rim_flats_cm",
+                    PASS if _within(m_f, 2 * a_cm, EXTENT_REL, EXTENT_PX, u * sa) else FAIL,
+                    "across the flats at the rim: back rim to front rim on the central "
+                    "column, un-projected by sin(camera); the flats do not move as the "
+                    "corners soften", measured=round(m_f, 2), expected=round(2 * a_cm, 2)))
+            else:
+                checks.append(_check("rim_flats_cm", UNKNOWN, "no rim on the central column"))
+    checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX,
+                                                          u * (k_at(top_c["cx"]) if top_c else ca)) else FAIL,
                          "front-face height, un-projected by the contract camera angle",
                          measured=round(m_H, 2), expected=round(H, 2)))
     checks.append(_check("stitch_counts", FAIL if count_bad else PASS,

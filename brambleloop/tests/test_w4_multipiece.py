@@ -112,7 +112,7 @@ def test_single_piece_heroes_are_byte_identical_to_before():
     # hexagon_coasters dde60f6bbe780d18, snowfall_throw c7c15427340597e4.
     from brambleloop.visual import render_contract as K
 
-    assert K.CONTRACT_VERSION == "disclosed-render-contract/3"
+    assert K.CONTRACT_VERSION == "disclosed-render-contract/3.1"   # 3.1: basket-small corners only
     before = {"basket_medium": "a0011d65108949e3", "cloudline_blanket": "95f59af9b7e0bdee",
               "hexagon_coasters": "fd296d0e413c4bd8", "snowfall_throw": "0d76c06c3339e5a9"}
     assert before

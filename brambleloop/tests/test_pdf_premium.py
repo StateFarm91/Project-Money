@@ -347,12 +347,14 @@ def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
     basket = _flat(_doc("basket_small")[1])
     assert "sc in back loop of next 60 sts" in basket and "back loop only" in basket.lower()
     assert "BACK LOOP ONLY" in basket.upper() and "Insert the hook under the back loop only" in basket
-    assert "rise straight up" in basket and "turning upward over the first few" not in basket
+    assert "turn up at a defined edge" in basket and "turning upward over the first few" not in basket
     assert "8.7 cm tall" in basket and "about 8 to 9 cm" not in basket
     assert "beginning to turn up" not in basket and "judge the height" not in basket
     assert "is worked in the back loop only" in basket                         # the tip
-    # The renders now draw the soft corners the wall makes, so no idealised caption remains.
+    # The renders draw the soft corners the wall makes; the rim's softening is an estimate
+    # and is captioned as one (SECREVIEW-RENDER F1), never as measured.
     assert "idealised" not in basket.lower() and "gentle curve" not in basket
+    assert "Rim shape estimated until a sample is made." in basket
     coaster = _flat(_doc("hexagon_coasters")[1])
     assert "idealised" not in coaster.lower()
 
@@ -511,6 +513,39 @@ def test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verificati
     assert K.rim_softening(medium) == 0.0
     ok = V.verify(D.render(medium, "hero").png, cir=medium, view="hero")
     assert ok["status"] == V.PASS, ok["failed"]
+
+    # SECREVIEW-RENDER F2: only the corners soften; the flats stay at the twin's value up the
+    # wall, and a rim widened across the flats (the first model: every point toward the
+    # same-perimeter circle) fails the new rim_flats_cm check.
+    for view in ("hero", "angle"):
+        good = V.verify(D.render(small, view).png, cir=small, view=view)
+        flats = next(c for c in good["checks"] if c["check"] == "rim_flats_cm")
+        assert flats["status"] == V.PASS and abs(flats["expected"] - 13.86) < 0.05, flats
+    real_sr = K.soft_radius
+    try:
+        K.soft_radius = lambda r, w, Rc: (1 - w) * r + w * Rc
+        widened = {v: D.render(small, v).png for v in ("hero", "angle")}
+    finally:
+        K.soft_radius = real_sr
+    for view, png in widened.items():
+        bad = V.verify(png, cir=small, view=view)
+        assert "rim_flats_cm" in bad["failed"], (view, bad["failed"])
+
+    # SECREVIEW-RENDER F1: the rim is an estimate and every place it is shown says so.
+    from brambleloop.publish import disclosed_listing as L
+    from brambleloop.gates.platform_policy import DISCLOSURES
+    for view in ("hero", "scale", "angle"):
+        frame = D.render(small, view)
+        assert frame.manifest["estimated"] == [K.ESTIMATED_SHAPE]
+        alt = L.alt_text(frame.manifest, small)
+        assert alt.endswith(K.ESTIMATED_SHAPE) and len(alt) <= L.ALT_TEXT_ADVICE, alt
+    assert "estimated" not in D.render(small, "detail").manifest            # base only
+    assert "estimated" not in D.render(medium, "hero").manifest
+    assert K.ESTIMATED_SHAPE in DISCLOSURES["estimated_shape"]
+    basket = _flat(_doc("basket_small")[1])
+    assert basket.count(K.ESTIMATED_SHAPE) >= 3            # cover, about box, schematic, gallery
+    assert "rise straight up" not in basket and "turn up at a defined edge" in basket
+    assert "about 0.7 cm tall" in basket                   # design review D3
 
 
 def small_points(cir) -> float:

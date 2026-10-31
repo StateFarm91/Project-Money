@@ -104,9 +104,16 @@ def alt_text(manifest: dict, cir) -> str:
                 and int((manifest.get("layout") or {}).get("objects") or 1) > 1 else "")
         size = (f" About {dims['width']:g} x {dims['height']:g} cm{each} at the stated gauge, "
                 f"with a centimetre scale bar.")
-    text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}")
+    # SECREVIEW-RENDER F1: a frame whose drawn shape is partly estimated says so in its alt
+    # text, because Etsy shows the image with no caption (render_contract.ESTIMATED_SHAPE).
+    estimate = " ".join(manifest.get("estimated") or [])
+    text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}"
+            + (f" {estimate}" if estimate else ""))
     if len(text) > ALT_TEXT_ADVICE and size:
         text = text.replace(", with a centimetre scale bar.", ".")
+    if estimate and len(text) > ALT_TEXT_MAX:
+        raise DisclosureMissing(f"{cir.slug}: the alt text cannot carry the estimate note "
+                                f"within {ALT_TEXT_MAX} characters")
     return text[:ALT_TEXT_MAX]
 
 
@@ -152,6 +159,13 @@ def export_check(frame: dict, *, image_bytes: bytes, description: str, cir=None)
         problems.append("alt text longer than Etsy allows")
     if not _phrase_in(description):
         problems.append("disclosure missing from the listing copy")
+    # SECREVIEW-RENDER F1: an estimated shape travels with its note, in the alt text and the
+    # copy, because the image itself is shown without a caption.
+    for note in ((frame.get("disclosed_render") or {}).get("estimated") or []):
+        if note not in frame.get("alt_text", ""):
+            problems.append(f"estimate note missing from the image's alt text: {note!r}")
+        if note not in (description or ""):
+            problems.append(f"estimate note missing from the listing copy: {note!r}")
     from ..visual.product_authority import structural_floor
 
     floor = structural_floor(frame)

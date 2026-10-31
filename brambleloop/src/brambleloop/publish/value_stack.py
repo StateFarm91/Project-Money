@@ -181,6 +181,10 @@ def milestones(cir, twin) -> dict:
             elif fold and tall > 0:
                 rise = (f" and {height_words(ring.axial_cm - fold['loss_cm'], ring.axial_cm)}"
                         f" tall")
+            elif 0 < tall < 1.5:
+                # Design review D3: the first wall round is about 0.7 cm; whole-cm rounding
+                # printed "1 cm", a figure nobody would measure.
+                rise = f" and about {tall:.1f} cm tall"
             else:
                 rise = f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"
             measured = (f"{row.declared_count} stitches around, about {across:.0f} cm "

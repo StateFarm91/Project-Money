@@ -17,7 +17,11 @@ import hashlib
 # `render_verification._verify_assembled` (W4-VISUAL2), which measures its hero/scale.
 # W4-PRODREADY: contract 3 (legible lettering) replaces contract 2; a 2.x render letters its
 # disclosure at 6.6 px in a phone gallery and no longer qualifies.
-QUALIFIED_RENDERERS = frozenset({"disclosed-render/3.0.0", "disclosed-render-assembled/2.0.0"})
+# 3.1.0 (W4-PDF1): soft wall corners for the products `render_contract.SOFT_CORNER_SLUGS`
+# names, verified by `render_verification` 3.1; byte-identical to 3.0.0 for every other
+# product, so 3.0.0 frames of those products stay qualified.
+QUALIFIED_RENDERERS = frozenset({"disclosed-render/3.0.0", "disclosed-render/3.1.0",
+                                 "disclosed-render-assembled/2.0.0"})
 
 
 def redraw_refusal(slug):
