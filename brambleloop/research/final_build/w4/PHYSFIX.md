@@ -915,3 +915,82 @@ had a different gauge, and the corrected release failed certification on
 (`dataclasses.replace`). The shared object inside the product builder is unchanged. The
 reviewer probe file `test_secreview_physfix_89eef1e_probes.py` also changes `c.gauge` in
 place, but it runs in its own process, so it is left as it is.
+
+## 19. Delta review 8 (SECREVIEW 33cbfc5): R30–R34, and two combined-tree failures
+
+**R30 (Medium): a restated halt lost the first failed release.**
+
+The problem. When the same design failed again, `open_or_restate` replaced
+`detail.measured_release` with the newest failure. In the reviewer's §2 path:
+
+1. A (1.2.0) fails, and a size halt opens.
+2. B (1.3.0), a relabel of A, also fails and restates the same incident.
+3. A passing make of A is recorded.
+
+The lift then accepted A's make as "re-release" evidence and withheld only B.
+
+The fix.
+
+- `_halt_release_on_size` reads the open incident and appends to `detail.measured_releases`,
+  never overwriting it. Each entry holds slug, version, content hash, physical test id and
+  design digest. `measured_release` now always names the first failure, for readers of that
+  single field. `runtime.release.measured_releases(detail)` reads the list, falling back to
+  older single-entry incidents.
+- `lift_size_halt` refuses evidence whose version OR content hash matches any release in the
+  list. It also refuses a match against any release measured by another open size halt of
+  the same product.
+- In the same transaction, the lift permanently withholds every release in the list, with one
+  durable `gate.release_withheld` row each.
+
+The test,
+`test_a_restated_halt_keeps_every_failed_release_and_the_lift_withholds_them_all`, follows
+exactly that path:
+
+- the incident holds both releases, in order;
+- the lift refuses A's make, names A in the refusal, and writes nothing;
+- a lift on a real re-release (1.3.1) withholds both A and B;
+- both stay refused by `for_publish` through re-certification;
+- 1.3.1 certifies and is not withheld.
+
+**R31 (Low): a pure relabel counted as a "re-release".**
+
+- `physical.record` now stores the sample's design digest. If that digest equals a failed
+  release's digest, `lift_size_halt` refuses unless the owner also sends
+  `same_design_confirmed: true`. The digest can only add this refusal; it never permits
+  anything.
+- The owner prompt now says "Same geometry as a failed release: YES/no" and lists the
+  versions that measured wrong.
+- Test: `test_a_lift_on_the_failed_geometry_needs_the_owner_to_confirm_it`.
+- Not built: blocking certification of a later version whose geometry matches a withheld one.
+  The reviewer listed it as optional. It would also block the owner's own confirmed
+  same-design correction, so it needs its own decision.
+
+**R32 (Low): the basket builder shared one `Gauge` object.**
+
+- `products/vessels.py` now gives each built CIR its own copy (`gauge=replace(...)`) and its
+  own provenance copy (`dict(vars(...))`), for baskets and coasters.
+- Test: `test_the_basket_builder_never_shares_its_gauge`. Editing one CIR's gauge no longer
+  changes the next CIR built, and the pinned basket digest is unchanged.
+
+**R33 (Info): the lift's checks and writes were in separate sessions.** `lift_size_halt` now
+runs the checks and every write in one session. A refused lift writes nothing, and the test
+asserts that.
+
+**R34 (Info): no change.** The probe files remain valid regressions.
+
+**Combined tree.** I merged `origin/claude/w4-INTEG8-next` (0b270ae8) and reproduced both
+reported failures on that tree.
+
+1. `test_w4_resume_runner` F7: `tests/test_physfix.py` now reads `datetime.now(`, so it is
+   declared in `scripts/suite_final_segment.txt`, in sorted position.
+2. `test_w4_b2gates.test_every_registry_data_gated_row_has_a_named_checkable_gate` failed with
+   `(23, 'OPEN-DEFECT')`. This was **not** a registry or `tester_roster` defect, and row 23
+   and its `listing_traffic` gate are unchanged. The cause is in the test harness:
+   - `_db()` named each database `d{len(os.listdir(_TMP))}.sqlite`;
+   - when SQLite removed an earlier file's `-wal`/`-shm` on close, which depends on
+     garbage-collection timing, the count fell and `_db()` reopened an earlier test's file;
+   - that file was `d6.sqlite`, from `test_each_data_gate_opens…`, which holds listing visits;
+   - those visits correctly open `listing_traffic`, which turns #23 OPEN.
+
+   A probe confirmed the collision on two of three runs. `_db()` now uses a unique name per
+   call, and three runs in a row each passed 12/12. The test's assertions are unchanged.

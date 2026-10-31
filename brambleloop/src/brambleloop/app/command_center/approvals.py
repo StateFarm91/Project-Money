@@ -707,7 +707,9 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 # Only reached after the route's require_stepup (ACTIONS[...][0] is True).
                 result = _rel.lift_size_halt(db, incident_id=_int(body, "incident_id"),
                                              physical_test_id=_int(body, "physical_test_id"),
-                                             actor=actor, stepped_up=True, reason=reason)
+                                             actor=actor, stepped_up=True, reason=reason,
+                                             same_design_confirmed=(
+                                                 body.get("same_design_confirmed") is True))
             except _rel.SizeHaltLiftRefused as exc:
                 raise ActionRefused(str(exc)[:400]) from None
         elif action.startswith("launch_decision."):
@@ -769,7 +771,7 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "period", "sha256", "version", "archived",
                                            "decision", "choice", "photo_id",
                                            "attested", "lifted", "incident",
-                                           "physical_test_id",
+                                           "physical_test_id", "withheld", "same_geometry",
                                            "etsy_listing_id", "verification", "repeat",
                                            "audit_id", "review_incident_id",
                                            "accepted", "incidents_resolved")}})

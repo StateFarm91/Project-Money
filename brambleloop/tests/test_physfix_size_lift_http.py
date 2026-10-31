@@ -130,7 +130,7 @@ def test_the_size_halt_lift_needs_a_session_step_up_reason_and_evidence():
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["result"]["lifted"] is True and out["audit_id"], out
-    assert out["result"]["withheld"] == f"{cir.slug}@{cir.version}", out
+    assert out["result"]["withheld"] == [f"{cir.slug}@{cir.version}"], out
     assert not tracker.publication_halted(cir.slug)
     with main.db.session() as s:
         assert s.get(Incident, inc_id).resolved

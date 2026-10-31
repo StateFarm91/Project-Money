@@ -475,7 +475,8 @@ def test_the_failed_release_never_publishes_again_after_an_owner_lift():
                      stepped_up=True, reason="1.3.1 re-made at the stated size")
     with db.session() as s:
         inc = s.get(Incident, inc_id)
-        assert inc.resolved and inc.detail["withheld_release"]["version"] == cir.version
+        assert inc.resolved and [r["version"] for r in inc.detail["withheld_releases"]] == [
+            cir.version], inc.detail
         rows = list(s.scalars(select(AuditLog).where(
             AuditLog.action == withholding.DURABLE_AUDIT)))
     assert len(rows) == 1 and rows[0].artifact == f"{cir.slug}@{cir.version}", rows
@@ -515,6 +516,123 @@ def test_the_failed_release_never_publishes_again_after_an_owner_lift():
     assert kept is not None, "retention pruned the durable withholding"
     assert _size_withheld(db, cir), "retention un-withheld the failed release"
     assert retention.KNOWN_READ_ACTIONS[withholding.DURABLE_AUDIT][0] == "lifetime_total"
+
+
+def test_a_restated_halt_keeps_every_failed_release_and_the_lift_withholds_them_all():
+    """SECREVIEW 33cbfc5 R30, the reviewer's section 2 path: a failure on A (1.2.0) and a
+    failure on B (1.3.0, the same design relabelled, which restates the same incident), then
+    a passing make of A. The incident keeps both failed releases (append-only); the lift
+    refuses A's make as evidence -- and writes nothing -- and a lift on a real re-release
+    withholds BOTH A and B permanently, in one transaction, while the re-release is free."""
+    from brambleloop.gates.incidents import IncidentTracker
+    from brambleloop.publish import withholding
+    from brambleloop.runtime import release as R
+
+    db = _db()
+    a = _basket_medium()
+    _certify(db, a)
+    _run(db, "physical.record", _inputs(a, scope="full_make", holds_shape=True,
+                                        measured_width_cm=40.0))
+    b = _basket_medium()
+    b.version = "1.3.0"
+    _certify(db, b)
+    _run(db, "physical.record", _inputs(b, scope="full_make", holds_shape=True,
+                                        tester_ref="tester-2", measured_width_cm=40.0,
+                                        content_hash=R._content_hash_of(b)))
+    good_a = _run(db, "physical.record", _inputs(a, scope="full_make", holds_shape=True,
+                                                 tester_ref="tester-3",
+                                                 content_hash=R._content_hash_of(a)))
+    good_a = (good_a.outputs or {})["physical_test_id"]
+    incs = [i for i in IncidentTracker(db).open_incidents(a.slug)
+            if i.signature.startswith("physical-size:")]
+    assert len(incs) == 1, "B did not restate A's incident: the path is not exercised"
+    inc = incs[0]
+    got = [(r["version"], r["content_hash"]) for r in R.measured_releases(inc.detail)]
+    assert got == [(a.version, R._content_hash_of(a)), (b.version, R._content_hash_of(b))], got
+    assert inc.detail["measured_release"]["version"] == a.version, "the first was overwritten"
+
+    owner = dict(actor="owner:cc:s", stepped_up=True, reason="looks fine")
+    try:
+        R.lift_size_halt(db, incident_id=inc.id, physical_test_id=good_a, **owner)
+    except R.SizeHaltLiftRefused as exc:
+        assert f"{a.slug}@{a.version}" in str(exc), exc
+    else:
+        raise AssertionError("the first failed release's own make lifted the halt")
+    assert IncidentTracker(db).publication_halted(a.slug)
+    with db.session() as s:
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == withholding.DURABLE_AUDIT)) is None, "a refused lift wrote"
+
+    fixed = _geometry_changed_medium("1.3.1")
+    _certify(db, fixed)
+    good = _run(db, "physical.record", _inputs(fixed, scope="full_make", holds_shape=True,
+                                               tester_ref="tester-2",
+                                               content_hash=R._content_hash_of(fixed)))
+    out = R.lift_size_halt(db, incident_id=inc.id,
+                           physical_test_id=(good.outputs or {})["physical_test_id"], **owner)
+    assert sorted(out["withheld"]) == [f"{a.slug}@{a.version}", f"{b.slug}@{b.version}"], out
+    assert not IncidentTracker(db).publication_halted(a.slug)
+    with db.session() as s:
+        rows = sorted(r.artifact for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == withholding.DURABLE_AUDIT)))
+    assert rows == sorted([f"{a.slug}@{a.version}", f"{b.slug}@{b.version}"]), rows
+    for failed in (a, b):
+        assert _size_withheld(db, failed), f"{failed.version} may publish"
+        _certify(db, failed)
+        assert _size_withheld(db, failed), f"re-certifying {failed.version} un-withheld it"
+    assert _certify(db, fixed).get("granted")
+    assert _size_withheld(db, fixed) == []
+
+
+def test_a_lift_on_the_failed_geometry_needs_the_owner_to_confirm_it():
+    """SECREVIEW 33cbfc5 R31: a "re-release" that is a pure relabel of the failed geometry is
+    refused as evidence unless the owner confirms the same design (a measurement error). The
+    digest only adds this refusal: it never permits a lift."""
+    from brambleloop.runtime import release as R
+
+    db = _db()
+    a = _basket_medium()
+    _certify(db, a)
+    _run(db, "physical.record", _inputs(a, scope="full_make", holds_shape=True,
+                                        measured_width_cm=40.0))
+    relabel = _basket_medium()
+    relabel.version = "1.4.0"
+    _certify(db, relabel)
+    job = _run(db, "physical.record", _inputs(relabel, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-2",
+                                              content_hash=R._content_hash_of(relabel)))
+    out = job.outputs or {}
+    with db.session() as s:
+        action = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == out.get("owner_review")))
+        assert action is not None and "Same geometry as a failed release: YES" in \
+            action.action, out
+        inc_id = s.scalar(select(Incident.id).where(Incident.signature.like("physical-size:%")))
+    lift = dict(incident_id=inc_id, physical_test_id=out["physical_test_id"],
+                actor="owner:cc:s", stepped_up=True, reason="the first tester mis-measured")
+    try:
+        R.lift_size_halt(db, **lift)
+    except R.SizeHaltLiftRefused as exc:
+        assert "same_design_confirmed" in str(exc), exc
+    else:
+        raise AssertionError("a relabel of the failed geometry lifted without confirmation")
+    done = R.lift_size_halt(db, same_design_confirmed=True, **lift)
+    assert done["lifted"] and done["same_geometry"] is True, done
+    assert _size_withheld(db, a), "the failed release is not withheld"
+
+
+def test_the_basket_builder_never_shares_its_gauge():
+    """SECREVIEW 33cbfc5 R32: every built CIR gets its own Gauge and its own provenance copy,
+    so an in-place edit of one basket can never change the next."""
+    from brambleloop.products.vessels import build_basket, build_hexagon_coaster
+
+    for build in (lambda: build_basket("medium"), build_hexagon_coaster):
+        one, two = build(), build()
+        assert one.gauge is not two.gauge and one.gauge == two.gauge
+        one.gauge.stitches_per_10cm += 5.0
+        assert build().gauge == two.gauge, "an edit of one CIR's gauge leaked into the builder"
+    assert physical.design_digest(_basket_medium()) == \
+        "0552640f6964c73e402bd58c2e46b004ae20bc843213a7c1632a2c7ef47ea8aa"
 
 
 def _geometry_changed_medium(version: str):
