@@ -241,7 +241,25 @@ all fail; the 17th, the owner-kit wording test, was added later. On this branch,
 **Run results:** each suite was run one at a time, `nice -n 19`, with
 `PYTHONPATH=src:tests`, checking free disk first. The full suite was not run.
 
-RESULTS_PLACEHOLDER
+| Suite | Result | Run |
+|---|---|---|
+| `test_physfix.py` | 17/17 | r3, final code |
+| `test_physical.py` | 18/18 | r3, final code |
+| `test_w4_gatesb.py` | 10/10 | r3, final code |
+| `test_shadow.py` | 10/10 | r3, final code |
+| `test_risk_matrix.py` | 17/17 | r2; rerun on the final code on `claude/w4-PHYSFIX-PHOTO` |
+| `test_physical_record_blocked.py` | 5/5 | r2; rerun on `-PHOTO` |
+| `test_first_customer_gate.py` | 12/12 | r2; rerun on `-PHOTO` |
+| `test_launch0_listing_truth.py` | 14/14 | r2 |
+| `test_eligibility.py` | 34/34 | r2 |
+| `test_gates.py` | 44/44 | r2 |
+| `test_acceptance_gates.py` | 23/23 | r2 |
+| `test_w4_listready.py` | 31/31 | r2 |
+| `test_artefacts.py` | 23/23 | r2 |
+
+r2 ran before the last two edits: the base-sits-flat rule and the kit's photo steps. The suites
+those edits touch were rerun in r3, or on `-PHOTO` (see §9). r2 and later runs used the shared
+`testslot.sh` gate.
 
 ## 8. Not done here, and why
 
@@ -255,3 +273,45 @@ RESULTS_PLACEHOLDER
   sample.
 - **`BUILD_STATE.md` was not edited**, to avoid a conflict with the integrating branch. This
   file is the record.
+
+## 9. Photo-first gallery ordering (`claude/w4-PHYSFIX-PHOTO`, on top of `claude/w4-LAUNCHFIX`)
+
+**The problem:** W4-LAUNCHFIX's `publish/sample_photo.py` gate requires the certified gallery's
+**first** frame to be the unedited sample photo of a passed full make of this release.
+`physical_upgrade.plan_upgrade` appended the photo frame last, so the gate could never be
+satisfied.
+
+**The fix.** The branch is LAUNCHFIX (`0f0306dd`) with this branch merged in, plus one commit.
+It is built there because it needs LAUNCHFIX's `sample_photo.py` and `intake(unedited=)`.
+- **Which photo leads.** `plan_upgrade` puts the photo at position 1 when all of these hold:
+  - it was attested unedited at intake, and is not marked edited or AI-processed;
+  - its `physical_test_id` is a passed, completed full make of the same slug@version.
+- **Everything else** keeps its relative order behind the photo: renders, charts and the PDF
+  preview. The certificate still labels each one.
+- **Renumbering is two-phase,** because the slot `(slug, version, position)` is unique. A moved
+  photo's recorded `frame_position` is kept true.
+- **Any other photo** is appended last, as before.
+- **Re-certification works as before:**
+  - the new frame is unapproved until asset truth has run;
+  - the moved frame set supersedes the old listing-set certificate by its hashes;
+  - the content binding is re-checked by `sample_photo` at publication.
+
+**Tests:** `tests/test_physfix_photo_first.py`, 4 tests.
+- A completed upgrade puts the photo at position 1, followed by hero, chart and pattern preview
+  in their old order. The gate refuses before re-certification. After a certificate is issued
+  through the real `release_gates.certificate_step`, the gate accepts. The per-frame gate
+  readings in this test are supplied.
+- A renders-only gallery is refused.
+- A photo not attested unedited does not lead and does not satisfy the gate.
+- A photo with no passed full make behind it does not lead.
+
+**Against the old ordering** (detached `1d915053`), the main test fails, with the photo at
+position 4. The three guard tests pass there too, as intended.
+
+**Remaining gap (not in this lane): the Launch-0 galleries are disclosed-render sets**,
+certified by `release_gates` → `listing_set.certify_disclosed`. That path explicitly refuses a
+mixed set: "the disclosed-render certificate does not cover ListingAsset frames; a mixed set is
+not certified here". A disclosed set also has no slot for a camera photo. So for a Launch-0
+listing, the photo-first gallery the gate needs also requires a mixed or photo-led variant of
+`certify_disclosed`. This change makes the ListingAsset path correct; the disclosed path is a
+gallery-pipeline change for its owner.
