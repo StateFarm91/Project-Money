@@ -285,3 +285,36 @@ Each W-INVENTORY dead end now has a deterministic successor (`runtime/chain_succ
 - **Production read once deployed:** `operating_readings` kind `intel.scan_evidence`. A
   Command Center tile and an `/api/readback/evidence` row are integration choices for the
   W-READBACK / CC owners.
+
+## 16. Cluster 6: OPUS2-GALLERY-PHOTO-LED (P0-GALLERY-ASSEMBLY: the photo-led certificate)
+
+- **Gap (from COORDINATION.json).** `listing_set.certify_disclosed` refused a mixed set, so a
+  Launch-0 gallery could not lead with the owner's unedited sample photo, even after
+  W-PHYSFIX-PHOTO's ordering. The photo frame was left out of the certificate, so the upload
+  lacked it and LAUNCHFIX's sample-photo gate would refuse activation.
+- **Built.**
+  - `listing_set.certify_photo_led` + `photo_lead_frame`: position 1 is the photo (job PROOF,
+    purpose PHYSICAL_PROOF, medium PHYSICAL_PRODUCT_PHOTO, no disclaimer label), and the
+    disclosed frames and supplements move down one, keeping their order and their disclosure.
+  - Each attestation must hold: unedited, not AI-processed, test passed, test completed, full
+    make, same release (and the photo's bytes are the test's photo), camera provenance, rights
+    basis. The photographed configuration must be the listing's (F-757; one sample is one
+    size). Alt text may not call it a render or AI imagery.
+  - The photo adds its own readings to DATA_TRUTH (approved and unblocked, bytes hash-match)
+    and COMMERCIAL_QA (the photo, now the hero, read at thumbnail size). Each must have run and
+    passed; a failed disclosed gate stays failed.
+  - The supplement rules moved to `_with_supplements`; `certify_disclosed`'s behaviour is
+    unchanged.
+- **Wired.** `release_gates.sample_photo_lead` re-reads every eligibility fact from the
+  PhysicalPhoto and PhysicalTest rows rather than trusting PHYSFIX-PHOTO's `leads_gallery`
+  mark. `disclosed_listing_set` uses the photo-led certificate when one exists.
+  `etsy_ops.certified_images` uploads it first, with its certified alt text.
+- **Dependency.** The full-make class comes from W-PHYSFIX's `risk_matrix.physical_class_of`.
+  On this base it is absent, so `full_make` is not attested and the photo cannot lead (tested).
+  After W-PHYSFIX merges, it works without change.
+- **Tests.** `test_opus2_photo_led_gallery` 6/6, on the real chain (gate.certify,
+  assets.build, listing_set, certified_images) for the Cloudline blanket, with a labelled
+  full-make stand-in where needed.
+- **Integration.** Small hunks in `release_gates.py` (a new function before
+  `disclosed_listing_set`, plus the certificate choice) and `etsy_ops.py` (W-ADOPT also edits
+  this file).

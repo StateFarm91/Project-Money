@@ -147,6 +147,24 @@
       "claimed_at": "2026-10-31T03:10Z",
       "state": "built_regression_running",
       "note": "No edit to W-CONCEPT's intel/watchlist.py or intel/benchmarks.py: reads their state. The seed shops read not_registered until W-CONCEPT merges, then their watchlist state."
+    },
+    {
+      "id": "OPUS2-GALLERY-PHOTO-LED",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-GALLERY-ASSEMBLY (photo-led / mixed disclosed certificate)",
+      "files": [
+        "src/brambleloop/publish/listing_set.py (certify_photo_led, photo_lead_frame, _with_supplements)",
+        "src/brambleloop/publish/release_gates.py (sample_photo_lead; disclosed_listing_set chooses the certificate)",
+        "src/brambleloop/runtime/etsy_ops.py (certified_images keeps the photo's alt text)"
+      ],
+      "claimed_at": "2026-10-31T03:40Z",
+      "state": "built_regression_pending",
+      "depends_on": [
+        "claude/w4-PHYSFIX (risk_matrix.physical_class_of, intake unedited attestation)",
+        "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
+        "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
+      ]
     }
   ],
   "unowned": [
