@@ -144,6 +144,15 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+    },
+    {
+      "id": "OPUS2-LISTING-PACKAGE-JOB",
+      "operator": "opus2",
+      "branch": "opus2/p0-listing-package",
+      "from": "INTEG-LISTING-JOB (offered by the integrator on PR #3, 2026-10-31T19:17Z)",
+      "state": "in_progress",
+      "scope": "automatic listing-package assembly job: for each certified release at the end of the SHADOW chain, assemble the owner-review listing package (identity, title, description, tags, price, certified gallery order, PDFs, product truth, risk class, children's decision, publication blockers) from the chain's own stored outputs; durable, idempotent per release hash; never publishes",
+      "not_touching": "publish/pdf.py (W-PDF), products/production_inventory.py (W-INVENTORY), the manual LISTING_PACKAGE.md files (W-LISTING)"
     }
   ],
   "unowned": [
