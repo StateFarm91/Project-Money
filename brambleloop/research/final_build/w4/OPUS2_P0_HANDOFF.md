@@ -165,3 +165,13 @@ No full suite was run (Main Opus's single uninterrupted run). Local venv built f
 | Offline acceptance instrumentation | yes (branch) | no | no | n/a | no | no |
 
 The P0 workforce is **not** operational in production on the strength of this work.
+
+## 9. Claims (BRANCH_OWNERSHIP update of 2026-10-31T01:10Z: claim by committing a line here)
+
+- **CLAIMED 2026-10-31 (second Opus operator): growth and performance-learning ingestion into
+  future product decisions.** Measured own-listing outcomes (`listing_outcomes` owner-export
+  rows, orders) become routed lessons on the existing bus, so `radar.score`'s existing bounded
+  lesson nudge reorders what is engineered next. New files plus small registrations; no edit to
+  `radar.score`. Not claimed: the gallery cluster (found already built: `image_production` →
+  `approve` → `ListingAsset`), next-product selection (overlaps W-INVENTORY's stall detection
+  until it merges), competitor-scan evidence (inside W-CONCEPT's watchlist files).
