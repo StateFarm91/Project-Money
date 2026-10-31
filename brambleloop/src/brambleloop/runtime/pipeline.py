@@ -676,6 +676,26 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     # as three patterns and delivered as one invented swatch. Bundles route to collection
     # assembly instead, which builds the listing out of its members' real releases.
     seed = _seed_for(slug, ctx.db)
+    if seed is None:
+        # G1 (review bb680ec): a draft queued for an intake concept that has since been
+        # withdrawn (or never approved) is refused at execution time. Without this it fell
+        # through to the raw-geometry fallback below with no pre-engineering gate. Checked
+        # from the database and the job's declared provenance; an established design is a
+        # rebuild and is never blocked by an intake row that happens to share its slug.
+        from ..creative import preengineering as _pe
+        from ..radar import intake as _intake
+
+        declared = str(ctx.job.inputs.get("provenance") or "")
+        if (not _pe.established(ctx.db, slug)
+                and (declared.startswith("radar.intake:") or _intake.has_rows(ctx.db, slug))):
+            state = _intake.latest_state(ctx.db, slug)
+            ctx.audit("cir.draft_refused", artifact=slug, detail={
+                "gate": "radar.intake", "state": state or "no row",
+                "reason": (f"intake concept {slug!r} is not currently approved "
+                           f"({state or 'no row'}); a queued draft does not outlive its "
+                           f"approval")})
+            return {"artifact": slug, "drafted": False, "gate": "radar.intake",
+                    "reasons": [f"intake concept not currently approved ({state or 'no row'})"]}
     if seed is not None and seed.is_bundle:
         ctx.audit("cir.skipped_bundle", artifact=slug,
                   detail={"reason": "a bundle has no pattern of its own; it is its members"})

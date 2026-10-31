@@ -748,6 +748,167 @@ def test_f6_every_seed_reader_given_db_sees_an_intake_concept():
         "nordic-forest-mosaic-throw")
 
 
+# ---- review bb680ec: G1 (queued draft after withdrawal), G2 (prune), G3 (N8 N9 N10 N17 N18) --
+
+
+def test_g1_a_queued_draft_does_not_outlive_its_withdrawn_approval():
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    _run(db, "radar.concept_intake", {})
+    _run(db, "radar.score", None)                                   # waits: no judgement
+    restore = _fixture_judgement()
+    try:
+        _run(db, "radar.concept_intake",
+             {"as_of": (TODAY + timedelta(days=2)).isoformat()}, key="judged")
+        assert _run(db, "radar.score", None)["promoted"] is True
+        assert [j.idempotency_key for j in _jobs(db, "cir.draft")] == [f"draft:{SLUG}"]
+        # Withdrawn between radar.score and cir.draft -- with the judgement still on record.
+        _set_task(db, tid, expires_on=datetime.now(timezone.utc) - timedelta(minutes=1))
+        out = _run(db, "radar.concept_intake", {}, key="withdraw")
+        assert [w["slug"] for w in out["withdrawn"]] == [SLUG]
+        drafted = _run(db, "cir.draft", None)
+    finally:
+        restore()
+    assert drafted["drafted"] is False and drafted["gate"] == "radar.intake", drafted
+    assert not _jobs(db, "cir.compile"), "a withdrawn concept was compiled"
+    refusals = [a for a in _actions(db, "cir.draft_refused") if a.artifact == SLUG]
+    assert refusals and refusals[-1].detail["gate"] == "radar.intake"
+    assert refusals[-1].detail["state"] == intake.WITHDRAWN
+    assert not [a for a in _actions(db, "cir.drafted")]
+    # A rebuild of an established design is never blocked by an intake row sharing its slug.
+    intake._ensure(db)
+    with db.session() as s:
+        s.add(intake.RadarConcept(slug="hexagon-coaster-set", state=intake.REFUSED,
+                                  source=intake.SOURCE_RESEARCH, source_ref=f"research_task:{tid}",
+                                  fingerprint="h" * 64))
+    rebuilt = _run(db, "cir.draft", {"slug": "hexagon-coaster-set"}, key="rebuild")
+    assert rebuilt.get("engineered") is True, rebuilt
+
+
+def test_g1_a_draft_declaring_intake_provenance_without_any_row_is_refused():
+    db = _db()
+    out = _run(db, "cir.draft", {"slug": "phantom-runner", "provenance":
+                                 "radar.intake:research_task:99", "title": "Phantom Runner",
+                                 "category": "runner", "stitch_repeat": [["sc", 3], ["dc", 1]],
+                                 "width_stitches": 60, "rows": 16,
+                                 "colors": {"forest": "#244A3A"}})
+    assert out["drafted"] is False and out["gate"] == "radar.intake", out
+    assert not _jobs(db, "cir.compile")
+
+
+def test_g2_prune_keeps_a_non_newest_row_that_holds_a_current_fingerprint():
+    from brambleloop.ops import retention
+
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())                       # A: approved
+    _run(db, "radar.concept_intake", {}, key="a")
+    intake.attach_proposal(db, tid, _proposal(concept={"construction": "cable_panel"}))
+    _run(db, "radar.concept_intake", {}, key="b")                      # B: refused, A withdrawn
+    intake.attach_proposal(db, tid, _proposal())                       # back to A: unchanged
+    assert _run(db, "radar.concept_intake", {}, key="c")["unchanged"] == 1
+    later = datetime.now(timezone.utc) + timedelta(days=intake.RETENTION_DAYS + 110)
+    assert retention.apply(db, now=later)["removed"]["radar_concepts"] == 0
+    assert [r.state for r in _rows(db)] == [intake.WITHDRAWN, intake.REFUSED]
+    again = _run(db, "radar.concept_intake", {}, key="d")
+    assert again["unchanged"] == 1 and not again["approved"], again
+
+
+def _old_rows(db, specs, *, days: int) -> None:
+    intake._ensure(db)
+    at = datetime.now(timezone.utc) - timedelta(days=days)
+    with db.session() as s:
+        for i, (slug, state) in enumerate(specs):
+            s.add(intake.RadarConcept(slug=slug, state=state, at=at,
+                                      source=intake.SOURCE_RESEARCH,
+                                      source_ref="research_task:1",
+                                      fingerprint=f"{days:03d}{i:061d}"))
+
+
+def test_n8_prune_never_deletes_an_approved_row_even_when_it_is_not_the_newest():
+    db = _db()
+    _old_rows(db, [("lone-runner", intake.APPROVED), ("lone-runner", intake.PROPOSED)],
+              days=intake.RETENTION_DAYS + 30)
+    assert intake.prune(db)["removed"] == 0
+    assert [r.state for r in _rows(db)] == [intake.APPROVED, intake.PROPOSED]
+
+
+def test_n9_prune_keeps_decided_rows_younger_than_the_horizon():
+    db = _db()
+    _old_rows(db, [("young-runner", intake.REFUSED), ("young-runner", intake.REFUSED)],
+              days=intake.RETENTION_DAYS - 10)
+    assert intake.prune(db)["removed"] == 0 and len(_rows(db)) == 2
+    _old_rows(db, [("aged-runner", intake.REFUSED), ("aged-runner", intake.REFUSED)],
+              days=intake.RETENTION_DAYS + 10)
+    assert intake.prune(db)["removed"] == 1 and len(_rows(db)) == 3
+
+
+def test_n10_ops_retention_apply_prunes_the_table():
+    from brambleloop.ops import retention
+
+    db = _db()
+    _old_rows(db, [("aged-runner", intake.REFUSED)] * 3, days=intake.RETENTION_DAYS + 10)
+    dry = retention.apply(db, dry_run=True)
+    assert dry["removed"]["radar_concepts"] == 2 and len(_rows(db)) == 3
+    done = retention.apply(db)
+    assert done["removed"]["radar_concepts"] == 2 and len(_rows(db)) == 1
+
+
+def test_n17_a_family_that_loses_proven_demand_has_its_variation_withdrawn():
+    db = _db()
+    family = "nordic-forest"
+    members = [s.slug for s in POOL if s.family == family and not s.is_bundle]
+    from brambleloop.creative import family_engine
+
+    report = {"families": [{"family": family, "next_members": [],
+                            "members": [{"slug": m, "version": "1.0.0", "orders": 3}
+                                        for m in members],
+                            "amplification": {"orders": 12}}]}
+    real = family_engine.family_report
+    family_engine.family_report = lambda db: report
+    try:
+        with db.session() as s:
+            c = Customer(customer_ref="fixture-customer-n17")
+            s.add(c)
+            s.flush()
+            for i in range(12):
+                s.add(Order(customer_id=c.id, external_ref=f"fixture-n17-{i}",
+                            product_slug=members[i % len(members)],
+                            at=datetime.now(timezone.utc) - timedelta(days=3 + i)))
+        first = _run(db, "radar.concept_intake", {}, key="f1")
+        assert first["approved"], first
+        report["families"][0]["amplification"] = "UNMEASURED"
+        second = _run(db, "radar.concept_intake", {}, key="f2")
+    finally:
+        family_engine.family_report = real
+    gone = {w["slug"]: " ".join(w["reasons"]) for w in second["withdrawn"]}
+    assert set(first["approved"]) <= set(gone), second
+    assert all("no longer has proven demand" in r for r in gone.values()), gone
+    assert not intake.approved_seeds(db)
+
+
+def test_n18_gate_inputs_strips_judged_brief_fields_from_a_stored_row():
+    db = _db()
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    _run(db, "radar.concept_intake", {})
+    # A row approved before _clean stripped them (933bf74) can still hold judged fields.
+    from sqlalchemy.orm.attributes import flag_modified
+
+    with db.session() as s:
+        row = s.scalar(select(intake.RadarConcept).where(intake.RadarConcept.slug == SLUG))
+        row.brief = {**row.brief, "strength_score": 9.9,
+                     "strength_score_source": "model_jury:opus",
+                     "benchmark_scores": [1] * 10, "board_image": "file:///forged.png"}
+        flag_modified(row, "brief")
+    gated = intake.gate_inputs(db, SLUG, {"slug": SLUG})
+    for k in ("strength_score", "strength_score_source", "benchmark_scores", "board_image"):
+        assert k not in gated, k
+    assert gated["thumbnail_storyboard"].startswith("long grey runner")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

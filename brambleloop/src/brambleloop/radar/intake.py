@@ -456,6 +456,23 @@ def _unsupported_research(db, rows) -> set[int]:
     return {rid for rid, ref in refs.items() if int(ref.split(":", 1)[1]) not in ok}
 
 
+def has_rows(db, slug: str) -> bool:
+    """True when intake has ever recorded a row for `slug` (any state)."""
+    if db is None or not slug:
+        return False
+    _ensure(db)
+    with db.session() as s:
+        return s.scalar(select(RadarConcept.id).where(RadarConcept.slug == slug)
+                        .limit(1)) is not None
+
+
+def latest_state(db, slug: str) -> str | None:
+    _ensure(db)
+    with db.session() as s:
+        return s.scalar(select(RadarConcept.state).where(RadarConcept.slug == slug)
+                        .order_by(RadarConcept.id.desc()).limit(1))
+
+
 def approved_seeds(db) -> list[ConceptSeed]:
     """The approved database concepts as `ConceptSeed`s, in approval order."""
     return [_seed_from(r) for r in approved_rows(db)]
@@ -1039,6 +1056,12 @@ def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
     return out
 
 
+def _current_fingerprints(db, *, today: date) -> set[str]:
+    """The fingerprints today's candidates produce (what `evaluate` would look up)."""
+    cands = research_candidates(db, today=today) + family_candidates(db, today=today)
+    return {fingerprint(c["source_ref"], _clean(c["proposal"]), c["evidence"]) for c in cands}
+
+
 def prune(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     """Retention for `radar_concepts` (called by `ops.retention`). Approved rows are never
     pruned. Refused, superseded and withdrawn rows older than RETENTION_DAYS go, except the
@@ -1049,14 +1072,19 @@ def prune(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     cutoff = now - timedelta(days=RETENTION_DAYS)
     with db.session() as s:
         rows = list(s.execute(select(RadarConcept.id, RadarConcept.source_ref,
-                                     RadarConcept.slug, RadarConcept.state, RadarConcept.at)
+                                     RadarConcept.slug, RadarConcept.state, RadarConcept.at,
+                                     RadarConcept.fingerprint)
                               .order_by(RadarConcept.id)).all())
     newest: dict[tuple, int] = {}
-    for rid, ref, slug, _st, _at in rows:
+    for rid, ref, slug, _st, _at, _fp in rows:
         newest[(ref, slug)] = rid
-    deletable = [rid for rid, ref, slug, st, at in rows
+    # G2 (review bb680ec): a row holding the fingerprint a CURRENT candidate would produce is
+    # what keeps that unchanged proposal from being re-evaluated, whether or not it is the
+    # newest row of its slug -- so it is never pruned.
+    current = _current_fingerprints(db, today=now.date())
+    deletable = [rid for rid, ref, slug, st, at, fp in rows
                  if st in (REFUSED, SUPERSEDED, WITHDRAWN) and newest[(ref, slug)] != rid
-                 and at is not None and _aware(at) < cutoff]
+                 and fp not in current and at is not None and _aware(at) < cutoff]
     if not dry_run and deletable:
         with db.session() as s:
             for rid in deletable:
