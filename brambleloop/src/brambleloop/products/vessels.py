@@ -19,7 +19,7 @@ becomes the diameter that goes on the listing.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 from ..gates.originality import catalogue_provenance
@@ -149,7 +149,8 @@ def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
         construction="joined_rounds",
         risk_class="B",
         colors=dict(PALETTE),
-        gauge=COTTON_GAUGE,
+        # SECREVIEW 33cbfc5 R32: each CIR gets its own copy, never the shared module object.
+        gauge=replace(COTTON_GAUGE),
         materials=[
             Material(name="worsted cotton", yarn_weight="worsted", colorway="cream",
                      color_id="cream"),
@@ -177,7 +178,7 @@ def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
             "market-basket-trio",
             {"builder": "products.vessels.build_basket", "size": spec.key,
              "across_cm": spec.across_cm, "tall_cm": spec.tall_cm,
-             "gauge": vars(COTTON_GAUGE)},
+             "gauge": dict(vars(COTTON_GAUGE))},
             ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
     )
 
@@ -206,7 +207,7 @@ def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
         construction="joined_rounds",
         risk_class="A",
         colors=dict(PALETTE),
-        gauge=COASTER_GAUGE,
+        gauge=replace(COASTER_GAUGE),
         materials=[
             Material(name="dk cotton", yarn_weight="dk", colorway="cream", color_id="cream"),
             Material(name="dk cotton", yarn_weight="dk", colorway="wine", color_id="wine"),
@@ -226,7 +227,7 @@ def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
         provenance=catalogue_provenance(
             "hexie-coaster-set",
             {"builder": "products.vessels.build_hexagon_coaster", "across_cm": across_cm,
-             "make": make, "gauge": vars(COASTER_GAUGE)},
+             "make": make, "gauge": dict(vars(COASTER_GAUGE))},
             ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
     )
 
