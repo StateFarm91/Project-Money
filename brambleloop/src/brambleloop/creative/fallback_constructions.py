@@ -31,6 +31,7 @@ from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
+PANEL_PAIR = "panel_pair"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -75,12 +76,48 @@ def plan(*, category: str, title: str, is_bundle: bool = False) -> dict:
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    lowered = (title or "").lower()
+    if (category in PANEL_PAIR_CATEGORIES or re.search(_PANEL_PAIR_WORDS, lowered)) \
+            and not _shaped_title(re.sub(_PANEL_PAIR_WORDS, "", lowered)):
+        return {"family": PANEL_PAIR, "needs": "",
+                "why": "a cushion is a front and a back panel seamed around a pad"}
     word = _shaped_title(title)
     if word:
         return {"family": REFUSED, "needs": f"the construction a {word} is made in",
                 "why": (f"the title names a {word!r}, which one flat panel does not make; the "
                         f"fallback refuses rather than drafting a panel under that name")}
     return {"family": FLAT_PANEL, "needs": "", "why": "a flat form"}
+
+
+# A cushion or pillow cover: two identical panels of the concept's own repeat, joined on three
+# edges and closed over the pad on the fourth. Matching panels make every seam's two edges the
+# same length by construction, which is what the assembly check measures.
+PANEL_PAIR_CATEGORIES = frozenset({"pillow", "wedding"})
+_PANEL_PAIR_WORDS = r"\b(?:cushion|pillow)s?\b"
+PANEL_PAIR_PRIMITIVES = ("creative.fallback_constructions.panel_pair",)
+
+
+def panel_pair(panel: CIR) -> CIR:
+    """Front and back from one flat-panel CIR, with the seams that make it a cushion."""
+    import dataclasses
+
+    from ..cir.model import Seam
+
+    if len(panel.components) != 1:
+        raise ValueError(f"{panel.slug}: a panel pair is built from exactly one panel")
+    body = panel.components[0]
+    front = dataclasses.replace(body, name="front", make=1)
+    back = dataclasses.replace(body, name="back", make=1)
+    assembly = [Seam("whipstitch", "front", "back", edge_a=e, edge_b=e,
+                     note=f"Hold the panels wrong sides together and whipstitch the {e} edges.")
+                for e in ("left", "top", "right")]
+    assembly.append(Seam("whipstitch", "front", "back", edge_a="bottom", edge_b="bottom",
+                         stuff_before_closing=True,
+                         note="Insert the cushion pad, then whipstitch the bottom edges closed."))
+    return dataclasses.replace(
+        panel, components=[front, back], assembly=assembly,
+        designer_notes=(f"{panel.designer_notes}; drafted as a cushion cover: front and back "
+                        f"panels, seamed on all four edges around a pad"))
 
 
 # A basket's finished size, chosen from its title, never from the panel width table: the

@@ -172,9 +172,9 @@
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "pr": 3,
-      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin",
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722",
       "state": "ready_for_review",
-      "evidence": "tests/test_opus2_draft_constructions.py 4/4; 35-suite drafting/guard regression exit 0",
+      "evidence": "tests/test_opus2_draft_constructions.py 5/5 (vessel + panel_pair cushion); 39-suite regression exit 0 (2026-10-31)",
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
       "note": "does not touch radar/intake.py or the W-CONCEPT concept path"
     },

@@ -750,16 +750,31 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         elif lineage["known"]:
             concept.source_provenance = lineage["source"]
             concept.source_brief = lineage["brief"]
-            cir = concept_to_cir(concept, primitives=lineage["primitives"])
+            extra = FC.PANEL_PAIR_PRIMITIVES if route["family"] == FC.PANEL_PAIR else ()
+            cir = concept_to_cir(concept, primitives=tuple(lineage["primitives"]) + extra)
         else:
             cir = concept_to_cir(concept)
+        if route["family"] == FC.PANEL_PAIR:
+            cir = FC.panel_pair(cir)
     except PrototypeRefused as exc:
         # Malformed benchmark identities are unknown lineage, never stringified into a record.
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "provenance"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
+    # this fallback now makes. Recorded, never a refusal here: publication refuses it
+    # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.
+    name_problems: list[str] = []
+    if route["family"] != FC.FLAT_PANEL:
+        try:
+            from ..publish.eligibility import name_truth
+
+            name_problems = [str(p)[:200] for p in name_truth(cir, None)]
+        except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
+            name_problems = [f"UNKNOWN: {type(exc).__name__}"]
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "concept_to_cir fallback", "construction": route["family"],
+                      "name_truth": name_problems,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)

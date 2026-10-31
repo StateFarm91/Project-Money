@@ -470,3 +470,32 @@ needs an integrator decision.
 **Also fixed here.** `learning.knowledge_gaps` (§20) had no department charter, so
 `test_v11_autonomy_orchestrator` failed on 3cbf6e96. It is now in the Learn / Improvement
 charter's `job_types`, and the autonomy map is regenerated.
+
+## 22. P0-DRAFT-CONSTRUCTIONS, part 2: cushions as seamed panel pairs (2026-10-31)
+
+**Built.**
+- `creative/fallback_constructions.py` gains the family `panel_pair`.
+  - It applies to categories `pillow` and `wedding`, and to any title naming a cushion or
+    pillow. A title that names a cushion plus a closed shape the panel pair does not make,
+    such as an egg cosy, stays refused.
+  - `panel_pair(panel)` takes the concept's own flat panel (`concept_to_cir`, unchanged) as a
+    front and a back. It whipstitches the left, top and right edges, then closes the bottom
+    over the pad (`stuff_before_closing`).
+  - Identical panels make every seam's two edges the same length by construction.
+  - Its provenance chain gains `creative.fallback_constructions.panel_pair`.
+- `wedding-ring-cushion` now drafts. It compiles, `launch0.title_promise` is backed (an
+  assembled form with real seams), and `publish.eligibility.name_truth` finds nothing. Its
+  risk class C still requires a physical test at certification, which is the correct gate.
+- `cir.drafted` now records `name_truth` for the vessel and panel-pair families. It is a
+  reading only; publication's `NAME_OUTRUNS_PATTERN` stays the refusal.
+
+**Found (honest).** "Nordic Forest **Mosaic** Storage Basket" fails name truth as a vessel:
+one colour per round is relief, and the house rule (`pipeline_board`) is never to call that
+"mosaic". The old flat-panel draft failed the same way, so this is not a regression, and
+publication refuses it.
+- The draft audit now carries the problem, so the gap is visible.
+- A truthful two-colour-per-round chart in the round is the next construction rule worth
+  building. Alternatively, the radar seed could be retitled "relief", which is the
+  integrator's or W-CONCEPT's call, since the seed lives in `radar/opportunity.py`.
+
+Tests: `tests/test_opus2_draft_constructions.py`, 5/5.

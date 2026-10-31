@@ -63,13 +63,16 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
     assert FALLBACK
     for seed in FALLBACK:
         route = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle)
-        assert route["family"] in (F.VESSEL, F.REFUSED), (seed.slug, route)
+        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.REFUSED), (seed.slug, route)
         if route["family"] == F.REFUSED:
             assert route["needs"] and route["why"], seed.slug
     assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
     assert F.plan(category="blanket", title="Granny Throw")["family"] == F.FLAT_PANEL
     assert F.plan(category="blanket", title="Baby Hat")["family"] == F.REFUSED
-    assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.REFUSED
+    assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.PANEL_PAIR
+    assert F.plan(category="wedding", title="Wedding Ring Cushion")["family"] == F.PANEL_PAIR
+    # A cushion word never rescues a closed shape the panel pair does not make.
+    assert F.plan(category="seasonal_decor", title="Egg Cosy Cushion")["family"] == F.REFUSED
 
 
 def test_a_basket_concept_drafts_a_vessel_that_compiles_and_carries_the_concept():
@@ -100,11 +103,14 @@ def test_a_basket_concept_drafts_a_vessel_that_compiles_and_carries_the_concept(
     assert not codes & {"PROVENANCE_MISSING", "PROVENANCE_INCOMPLETE", "PROVENANCE_NOT_OURS"}
     drafted = [kw for a, kw in audits if a == "cir.drafted"]
     assert drafted[0]["detail"]["construction"] == F.VESSEL
+    # Its title says "Mosaic" and one colour per round is relief, so publication's name-truth
+    # rule will refuse it; the draft records that rather than hiding it.
+    assert any("mosaic" in p for p in drafted[0]["detail"]["name_truth"]), drafted[0]
     assert drafted[0]["detail"]["provenance"] == "recorded"
 
 
 def test_a_shaped_concept_is_refused_by_name_and_nothing_is_compiled():
-    for slug in ("woodland-fox-amigurumi", "alpine-slouch-beanie", "wedding-ring-cushion",
+    for slug in ("woodland-fox-amigurumi", "alpine-slouch-beanie",
                  "easter-egg-cosies", "lattice-triangle-shawl"):
         db, seed = _db(slug)
         result, emitted, audits = _draft(db, _payload(seed))
@@ -130,6 +136,39 @@ def test_unknown_lineage_basket_is_still_drafted_without_provenance():
     assert cir.provenance is None
     drafted = [kw for a, kw in audits if a == "cir.drafted"]
     assert drafted[0]["detail"]["provenance"].startswith("UNKNOWN")
+
+
+def test_a_cushion_concept_drafts_two_seamed_panels_that_back_its_name():
+    from brambleloop.products import launch0
+    from brambleloop.publish import eligibility as E
+
+    db, seed = _db("wedding-ring-cushion")
+    inputs = _payload(seed)
+    result, emitted, audits = _draft(db, inputs)
+    assert result["drafted"] is True and result["construction"] == F.PANEL_PAIR, result
+    cir = CIR.from_dict(emitted[0][1]["cir"])
+    assert [c.name for c in cir.components] == ["front", "back"]
+    assert compile_cir(cir).ok
+    # Four seams, the last closed over the pad; every seam joins the front to the back.
+    assert len(cir.assembly) == 4 and cir.assembly[-1].stuff_before_closing
+    assert {(s.piece_a, s.piece_b) for s in cir.assembly} == {("front", "back")}
+    assert {s.edge_a for s in cir.assembly} == {"left", "top", "right", "bottom"}
+    # Both panels carry the concept's own repeat: the cover is the concept, twice.
+    wanted = [tuple(x) for x in inputs["stitch_repeat"]]
+    for comp in cir.components:
+        assert any(isinstance(r.ops[0], Repeat)
+                   and [(o.stitch, o.count) for o in r.ops[0].ops] == wanted
+                   for r in comp.rows), comp.name
+    # Name truth: "cushion" is an assembled form, and real seams back it.
+    assert launch0.title_promise(cir)["backed"] is True
+    assert E.name_truth(cir, None) == []
+    drafted = [kw for a, kw in audits if a == "cir.drafted"]
+    assert drafted[0]["detail"]["name_truth"] == []
+    assert "cushion" in launch0.ASSEMBLED_FORMS and E.NAME_OUTRUNS_PATTERN
+    prov = cir.provenance
+    assert prov is not None and set(F.PANEL_PAIR_PRIMITIVES) <= set(prov.primitives_used)
+    codes = {f.code for f in O.provenance_findings(cir)}
+    assert not codes & {"PROVENANCE_MISSING", "PROVENANCE_INCOMPLETE", "PROVENANCE_NOT_OURS"}
 
 
 if __name__ == "__main__":
