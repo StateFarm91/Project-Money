@@ -769,6 +769,7 @@ def test_seed_shops_copy_no_competitor_content():
     text = json.dumps(rep)
     assert CATALOGUES and all(CATALOGUES.values())
     for listings in CATALOGUES.values():
+        assert listings
         for item in listings:
             assert item["title"] not in text and item["description"] not in text
     for key in SEED_KEYS:
