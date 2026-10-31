@@ -483,6 +483,22 @@
       "report_branch": "claude/w4-SECREVIEW-PHYSFIX-7282c47",
       "notes": "R27 Med latent: assembly/seam order moves digest; one-line fix (extend interim to assembly). R25/R26 non-blocking follow-ups",
       "recorded": "2026-10-31T19:30Z"
+    },
+    {
+      "subject": "PHYSFIX delta 7",
+      "sha": "b53fba09+8da830dc",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-8da830d",
+      "notes": "R27 closed; R28 Med reachable (make:N vs N components); R29 Low (per-piece gauge)",
+      "recorded": "2026-10-31T19:50Z"
+    },
+    {
+      "subject": "Batch 5 trial suites",
+      "sha": "16da3951",
+      "verdict": "41/41 pass",
+      "report_branch": "claude/w5-INTEG1-trial",
+      "notes": "INVENTORY+CONCEPT+opus2@fb52cb9e",
+      "recorded": "2026-10-31T19:50Z"
     }
   ],
   "integration": {
@@ -532,6 +548,13 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-COMPLETION-METRICS",
       "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
+    }
+  ],
+  "integrator_decisions": [
+    {
+      "date": "2026-10-31",
+      "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
+      "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
     }
   ]
 }
