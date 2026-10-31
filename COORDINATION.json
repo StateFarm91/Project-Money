@@ -24,7 +24,7 @@
       "operator": "main-opus",
       "branch": "claude/w5-INVENTORY",
       "scope": "15-state inventory, flow health, CC Production view",
-      "state": "in_delta_review",
+      "state": "accepted_batch5",
       "head": "5e72bce8",
       "review_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce"
     },
@@ -32,14 +32,15 @@
       "id": "W-CONCEPT",
       "operator": "main-opus",
       "branch": "claude/w5-CONCEPT",
-      "scope": "research-to-concept intake, seed-shop watchlist"
+      "scope": "research-to-concept intake, seed-shop watchlist",
+      "state": "fixing_review"
     },
     {
       "id": "W-PDF",
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket_final_in_progress",
+      "state": "release_pass: coaster 1.2.1 (text) + basket 1.3.0 (BLO base-wall design change); kits rebound",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -72,7 +73,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-ADOPT",
       "scope": "manual listing adoption",
-      "state": "fixing_review",
+      "state": "fixing_delta_review",
       "head": "af042099"
     },
     {
@@ -125,6 +126,13 @@
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
       ]
+    },
+    {
+      "id": "P0-LEARNING-REFERENCE",
+      "operator": "reserved:codex (work order being prepared by integrator)",
+      "branch": "codex/p0-learning-reference",
+      "state": "reserved",
+      "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department"
     }
   ],
   "unowned": [
@@ -140,6 +148,11 @@
       "id": "P0-REVERIFY-WITHHOLD",
       "priority": "P0",
       "summary": "Found by W-INVENTORY: a failing quality.reverified audit row is kept only for a retention window and for_publish does not read it, so after pruning a product that failed re-verification can advance. Fix in runtime/quality_ops: a failed re-verification records a durable withholding (gate.release_withheld or equivalent) that for_publish already refuses on; test that pruning the audit row does not reopen the gate."
+    },
+    {
+      "id": "P0-DRAFT-CONSTRUCTIONS",
+      "priority": "P0",
+      "summary": "Catalogue breadth: the research-driven draft path (radar concept_to_cir) supports only flat_rows panels and drafts every concept in a category as the same striped panel (W-CONCEPT report). Needed: concept motif/premise reaching the CIR, plus construction families already supported by the compiler elsewhere (in-the-round vessels, motif assembly, colourwork charts) routed from intake concepts. Coordinate with integrator; touches radar/ and cir/ drafting."
     }
   ],
   "reviews": [
@@ -256,26 +269,34 @@
     {
       "subject": "CONCEPT",
       "sha": "933bf742",
-      "verdict": "PENDING",
+      "verdict": "CHANGES_REQUIRED",
       "report_branch": "claude/w5-SECREVIEW-CONCEPT-933bf74",
-      "notes": "running",
+      "notes": "F1 High (approval never withdrawn on stale evidence; refused rows pile up), F2-F4 Med, F5-F6 Low, many surviving mutants",
       "recorded": "2026-10-31T06:50Z"
     },
     {
       "subject": "PDF basket",
       "sha": "63d9ceec",
-      "verdict": "PENDING",
+      "verdict": "CHANGES_REQUIRED",
       "report_branch": "claude/w4-PDFAUDIT-basket-63d9cee",
-      "notes": "running",
+      "notes": "FIX BEFORE SALE: F2,F3,F4,N1,N2,N3 Medium; N4 design (no BLO base-wall round)",
       "recorded": "2026-10-31T06:50Z"
     },
     {
       "subject": "INVENTORY delta",
       "sha": "5e72bce8",
-      "verdict": "PENDING",
+      "verdict": "ACCEPT",
       "report_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce",
-      "notes": "H1,M1-M4,M7/M9/M12 reported fixed; 24h verdict limit accepted by integrator (fail-closed)",
+      "notes": "SHIP; 4 LOW coverage/hardening notes",
       "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "ADOPT delta",
+      "sha": "752950e4",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-ADOPT-752950e",
+      "notes": "R-1 High (retention unclassified; fixed at integration 42aa6a72), N-1/N-2 Med, N-3/N-4 Low",
+      "recorded": "2026-10-31T07:20Z"
     }
   ],
   "integration": {
