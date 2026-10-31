@@ -136,7 +136,17 @@ The new check emits on the other hexagonal vessels too, and it passes there, so 
 
 ## Tests (115464fc, run one at a time, `PYTHONPATH=src:tests nice -n 19`)
 
-TESTS_PLACEHOLDER
+| Test | Result | Last line |
+|---|---|---|
+| test_pdf_premium | PASS (rc 0, 134 s) | OK   test_tips_are_triggered_by_the_pattern_and_quote_its_numbers |
+| test_disclosed_render | PASS (rc 0, 111 s) | 27/27 passing |
+| test_w4_fidelity | PASS (rc 0, 143 s) | 22 passed, 0 failed |
+| test_w4_prodready_contract3 | PASS (rc 0, 24 s) | 6/6 passed |
+| test_cert_listing_frames | PASS (rc 0, 93 s) | PASS: 0 failing |
+| test_search_hero_publish | PASS (rc 0, 147 s) | 4/4 passing |
+| test_launch0_listing_truth | PASS (rc 0, 431 s) | OK   test_the_planner_routes_retired_concept_slugs_to_the_launch0_slugs |
+| test_w4_visual_certified_gallery | PASS (rc 0, 39 s) | 7/7 passing |
+| test_disclosed_certified_upload | PASS (rc 0, 64 s) | 7/7 passing |
 
 ## Recommended follow-ups (non-blocking)
 
