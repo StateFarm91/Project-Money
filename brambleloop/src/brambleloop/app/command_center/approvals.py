@@ -56,7 +56,32 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # statement here -- the original file (kept by hash) and its totals, reconciled against
     # the ledger. Records evidence only; moves nothing.
     "finance.statement_archive": (False, "archive an Etsy monthly statement and its totals"),
+    # W4-LAUNCHFIX D2: the two launch-readiness rows that were hard-coded unready read the
+    # owner's sealed decision (ops.launch_decisions). Preview reads; record seals under step-up;
+    # revoke only tightens.
+    "launch_decision.preview": (False, "read the exact content a launch decision would bind"),
+    "launch_decision.record": (True, "record a sealed owner launch decision (fees / trademark)"),
+    "launch_decision.revoke": (False, "revoke a launch decision (tightens)"),
+    # W4-LAUNCHFIX review F-7: the owner attests a sample photograph unedited here, never
+    # through the operator-token photo intake.
+    "physical_photo.attest_unedited": (True, "attest a sample photograph is unedited"),
+    # W-ADOPT (E-4): link a listing the owner made by hand in Shop Manager to its certified
+    # release. Reads Etsy (never writes), records the verification and blocks a duplicate
+    # automated create. Step-up: it binds a live listing to a release's records.
+    "listing.adopt_manual": (True, "adopt a hand-made Etsy listing as a certified release's "
+                                   "listing (reads Etsy; never writes)"),
+    # W-ADOPT-2: the owner accepts an adopted listing's live copy as its census baseline, so
+    # hand edits stop raising the halting drift incident. Preview reads Etsy and shows the
+    # Product Truth / disclosure checks and the digest; accept binds that digest (step-up).
+    "listing.baseline_preview": (False, "read an adopted listing's live copy and the checks "
+                                        "an accepted baseline must pass"),
+    "listing.accept_baseline": (True, "accept an adopted listing's live copy as its census "
+                                      "baseline (refused if it contradicts Product Truth)"),
 }
+
+#: The readiness rows each launch decision answers (their OwnerAction requirement keys).
+LAUNCH_DECISION_BY_KEY = {"listing_fees": ("listing_fees",),
+                          "brand_clearance": ("brand_risk_acceptance", "trademark_registration")}
 
 #: The words the owner confirms, verbatim. Anything else is refused.
 POLICY_REVIEW_CONFIRMATION = "reviewed and tested"
@@ -101,7 +126,11 @@ _AUTHORITY_MESSAGES = (
     "owner credential unavailable",
 )
 _AUTHORITY_PREFIXES = ("the owner publication grant chain does not verify",
-                       "the owner activation approval chain does not verify")
+                       "the owner activation approval chain does not verify",
+                       # W4-LAUNCHFIX D2 (ops.launch_decisions refusals)
+                       "no valid knock-out search on record", "choice must be one of",
+                       "decision must be one of", "the listing-fee decision takes no choice",
+                       "the owner launch decision chain does not verify")
 
 
 def _owner_message(exc: Exception) -> str:
@@ -168,6 +197,19 @@ def _gate_card(c: dict) -> dict:
                                   f"CA${_caps.campaign_cad:.2f} lifetime"),
                         "params": {"daily_cap_cad": _caps.daily_cad,
                                    "lifetime_cap_cad": _caps.campaign_cad}})
+    if rk in LAUNCH_DECISION_BY_KEY:
+        from ...ops import launch_decisions as _ld
+
+        reason = ("recorded here by the owner (step-up), sealed and bound to the previewed "
+                  "content; launch readiness re-checks the record")
+        for decision in LAUNCH_DECISION_BY_KEY[rk]:
+            actions.append({"action": "launch_decision.preview", "requires_step_up": False,
+                            "params": {"decision": decision}})
+            for choice in sorted(_ld.CHOICES[decision]):
+                actions.append({"action": "launch_decision.record", "requires_step_up": True,
+                                "label": f"{decision}: {choice}",
+                                "params": {"decision": decision, "choice": choice,
+                                           "expected_digest": "<from launch_decision.preview>"}})
     if oa:
         actions.append({"action": "owner_action.defer", "requires_step_up": False,
                         "params": {"owner_action_id": oa}})
@@ -645,6 +687,42 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             result = _review_policy_change(db, body, actor=actor)
         elif action == "finance.statement_archive":
             result = _archive_statement(db, body, actor=actor)
+        elif action == "physical_photo.attest_unedited":
+            from ...publish import physical_upgrade as _pu
+
+            try:
+                result = _pu.attest_unedited(db, _int(body, "photo_id"), actor=actor,
+                                             confirm=str(body.get("confirm") or ""))
+            except _pu.UpgradeRefused as exc:
+                raise ActionRefused(str(exc)[:300]) from None
+        elif action.startswith("launch_decision."):
+            from ...ops import launch_decisions as ld
+
+            if action == "launch_decision.preview":
+                content = ld.snapshot(db, str(body.get("decision") or ""))
+                return {"result": {"content": content, "digest": ld.digest(content)},
+                        "audit_id": None}  # a read: nothing to audit
+            if action == "launch_decision.record":
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                result = ld.record(db, authorization=_ops_token(),
+                                   decision=str(body.get("decision") or ""),
+                                   expected_digest=body.get("expected_digest"),
+                                   reason=tagged, choice=body.get("choice"))
+            else:
+                ident = _int(body, "approval_id")
+                with db.session() as s:
+                    row = s.get(AuditLog, ident)
+                    if row is None or row.action != ld.APPROVED:
+                        raise ActionNotFound(f"no launch decision {ident}")
+                result = ld.revoke(db, authorization=_ops_token(), approval_id=ident)
+        elif action == "listing.adopt_manual":
+            result = _adopt_manual(db, body, reason, actor=actor)
+        elif action == "listing.baseline_preview":
+            return {"result": _baseline(db, body, reason, actor=actor, preview=True),
+                    "audit_id": None}  # a read of Etsy: nothing recorded here
+        elif action == "listing.accept_baseline":
+            result = _baseline(db, body, reason, actor=actor, preview=False)
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:
@@ -673,7 +751,12 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "improvement", "owner_approved", "acknowledged",
                                            "deferred", "source", "snapshot_id",
                                            "reviewed", "review_audit_id", "confirmed",
-                                           "period", "sha256", "version", "archived")}})
+                                           "period", "sha256", "version", "archived",
+                                           "decision", "choice", "photo_id",
+                                           "attested",
+                                           "etsy_listing_id", "verification", "repeat",
+                                           "audit_id", "review_incident_id",
+                                           "accepted", "incidents_resolved")}})
     return {"result": result, "audit_id": audit_id}
 
 
@@ -693,3 +776,36 @@ def _archive_statement(db, body: dict, *, actor: str) -> dict:
                               totals=body.get("totals") if isinstance(body.get("totals"), dict)
                               else {}, recorded_by=f"owner:{actor}"[:64])
 
+
+
+def _adopt_manual(db, body: dict, reason: str, *, actor: str) -> dict:
+    """W-ADOPT: `publish.manual_adoption.adopt`, behind session + CSRF + nonce + step-up."""
+    from ...publish import manual_adoption
+
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    try:
+        return manual_adoption.adopt(
+            db, etsy_listing_id=body.get("etsy_listing_id"), slug=str(body.get("slug") or ""),
+            version=str(body.get("version") or ""), release=str(body.get("release") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+
+
+def _baseline(db, body: dict, reason: str, *, actor: str, preview: bool) -> dict:
+    """W-ADOPT-2: preview, or accept (step-up, digest-bound), an adopted listing's baseline."""
+    from ...publish import manual_adoption
+
+    kw = dict(slug=str(body.get("slug") or ""), version=str(body.get("version") or ""),
+              etsy_listing_id=body.get("etsy_listing_id"))
+    try:
+        if preview:
+            return manual_adoption.baseline_preview(db, **kw)
+        if not reason:
+            raise ActionRefused("owner decision reason required")
+        return manual_adoption.accept_baseline(
+            db, **kw, expected_digest=str(body.get("expected_digest") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None

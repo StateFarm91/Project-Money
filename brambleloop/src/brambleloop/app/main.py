@@ -778,9 +778,15 @@ def api_catalogue() -> dict:
     order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
     filters = _catalogue_filters()
 
+    # W-ADOPT: never a hard-coded False -- a listing the owner published by hand (adopted,
+    # `published_manually`) is live, and a catalogue saying otherwise is a false safety signal.
+    from ..core.listing_state import is_live_on_etsy
+
+    live = sorted(f"{l.product_slug}@{l.version}" for l in listings if is_live_on_etsy(l.state))
     return {
-        "published": False,
-        "why": ("BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
+        "published": bool(live),
+        "why": (f"{len(live)} listing(s) live on Etsy: {', '.join(live[:10])}" if live else
+                "BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
                 "integration in this system, so nothing here can reach a customer."),
         "listings": [
             {"slug": l.product_slug, "version": l.version, "title": l.title,
@@ -5623,10 +5629,42 @@ def api_verify() -> JSONResponse:
                        if str(c.get("check", "")).startswith("provider_health:")]
     unhealthy = [c for c in provider_health if c.get("verdict") in ("FAIL", "DEGRADED")]
     status = _verify_status(passed, smoke, unhealthy)
+    # W4-READBACK: production-evidence checks (publishing halt, stale rebuilds, paid-call
+    # dedupe, weekly jobs). Each is false without evidence. They are readbacks of recovery,
+    # beside the safety checks: they never change `ok` or the status code. Anonymous callers
+    # get each one's name and ok only (security.PUBLIC_PROJECTIONS).
+    try:
+        from ..ops.production_evidence import checks as _evidence_checks
+
+        evidence_checks = _evidence_checks(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is false, never a pass
+        from ..ops.production_evidence import CHECK_NAMES
+
+        evidence_checks = [{"check": n, "ok": False,
+                            "evidence": {"readable": False, "error_class": type(exc).__name__}}
+                           for n in CHECK_NAMES]
     return JSONResponse({"ok": passed, "status": status, "checks": checks,
+                         "evidence_checks": evidence_checks,
                          "provider_health": provider_health,
                          "readbacks": {"estimate_drift": drift, "smoke_matrix": smoke}},
                         status_code=200 if passed else 503)
+
+
+@app.get("/api/readback/evidence")
+def api_readback_evidence() -> JSONResponse:
+    """W4-READBACK: projected operational evidence for the operator readback
+    (`ops/readback.py --evidence`). Authenticated ONLY by the separate read-only
+    `BRAMBLELOOP_READBACK_TOKEN` (`security.READBACK_ROUTES`, `core.readbackauth`); the
+    operator token is refused here. Read-only: counts, ids, job types, error classes, ages and
+    product slugs -- no payloads, error text, conversations, owner or customer data, secrets."""
+    from ..ops.production_evidence import evidence
+
+    # The deploy readback's operator-only rows, projected (production_evidence.DEPLOY_READBACK).
+    handlers = {"/api/departments": api_departments, "/api/swarm/runtime": api_swarm_runtime,
+                "/api/funding/packets": api_funding_packets, "/api/offsite": api_offsite,
+                "/api/continuity": api_continuity, "/api/etsy": api_etsy}
+    return JSONResponse(evidence(db, deploy_handlers=handlers),
+                        headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/verify/smoke")

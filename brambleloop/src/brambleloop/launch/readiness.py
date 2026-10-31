@@ -401,14 +401,20 @@ BENCHMARK_PURCHASES = OwnerRequest(
 
 TRADEMARK_SCREEN = OwnerRequest(
     key="brand_clearance",
-    # W4-OWNER: the free knock-out search on the Canadian register is a public read-only
-    # search -- company work, not an owner decision. The owner's decision is the filing.
-    action=("Decide whether to file a Canadian trademark for \"Brambleloop Studio\" "
-            "(CA$458.05 for the first class). The free knock-out search on the Canadian "
-            "register is company work and is not asked of you."),
+    # W4-OWNER: the free knock-out search is company work, not an owner decision.
+    # W4-LAUNCHFIX review F-8: the REQUIRED owner decision is accepting the residual risk the
+    # recorded screening shows (sealed `brand_risk_acceptance`); filing is optional and
+    # recorded separately (`trademark_registration`), never required for launch.
+    action=("Read the recorded knock-out screening for \"Brambleloop Studio\" and, if you "
+            "accept the residual risk it shows, record that acceptance (Approvals: "
+            "brand_risk_acceptance, step-up). Separately and optionally, record whether to "
+            "file a Canadian trademark (CA$458.05 for the first class); filing is not "
+            "required for launch. The screening itself is company work and is not asked of "
+            "you."),
     reason=("The shop name goes on every listing, PDF and image. Discovering a conflict "
             "after the name is on a hundred customer documents is expensive in a way that "
-            "checking first is not. Filing is a spend decision, so it is the owner's."),
+            "checking first is not. Accepting the remaining risk is a legal judgement and "
+            "filing is a spend, so both are the owner's; only the acceptance gates launch."),
     max_cost_cad=460.0,
     minutes=20,
     consequence_of_delay=("Brand equity accumulates on a name that has not been cleared. "
@@ -784,13 +790,25 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                        ETSY_PAYOUT_CONFIRM_ONBOARDED if payout.get("onboarded") is True else
                        ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT)))
 
+    # W4-LAUNCHFIX D2: was `ready=False` with no evidence path, so no phase transition could
+    # ever be recorded. Ready only on the owner's sealed decision (ops.launch_decisions,
+    # recorded via the Command Center under step-up) covering today's catalogue at today's
+    # per-listing fee. Unreadable or absent is not ready.
+    try:
+        from ..ops.launch_decisions import listing_fees_state
+
+        fees = listing_fees_state(db, len(listings))
+    except Exception as exc:  # noqa: BLE001 - unreadable is unapproved
+        fees = {"ready": False, "why": f"unreadable: {type(exc).__name__}"}
+    fees_ready = bool(fees.get("ready"))
     out.append(Requirement(
         key="listing_fees",
         description="the owner has approved Etsy's listing and transaction fees",
-        ready=False, blocked_by=BLOCKED_OWNER,
+        ready=fees_ready, blocked_by=None if fees_ready else BLOCKED_OWNER,
         evidence={"listings": len(listings),
-                  "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2)},
-        owner_request=listing_fees_request(len(listings))))
+                  "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2),
+                  "owner_decision": fees},
+        owner_request=None if fees_ready else listing_fees_request(len(listings))))
 
     model_state = _model_state(db)
     out.append(Requirement(
@@ -832,12 +850,31 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         # hands; each unmet row carries the spend request the owner would approve.
         owner_request=None))
 
+    # W4-LAUNCHFIX D2: was `ready=False` with no evidence path. Ready only on a valid recorded
+    # knock-out screening (brand.clearance, company work) AND the owner's sealed acceptance of
+    # its residual risk, bound to that exact screening (ops.launch_decisions BRAND_RISK).
+    # Registration is recorded separately and is not required (Master Plan v1.2 s.29).
+    # Without a screening the work is ours.
+    try:
+        from ..ops.launch_decisions import brand_clearance_state
+
+        brand = brand_clearance_state(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is uncleared
+        brand = {"ready": False, "knockout": "UNKNOWN",
+                 "why": f"unreadable: {type(exc).__name__}"}
+    brand_ready = bool(brand.get("ready"))
     out.append(Requirement(
         key="brand_clearance",
-        description="the shop name has been through a trademark knock-out search",
-        ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"name": "Brambleloop Studio"},
-        owner_request=TRADEMARK_SCREEN))
+        description=("the shop name has been through a trademark knock-out screening and "
+                     "the owner has accepted its residual risk (filing is optional)"),
+        ready=brand_ready,
+        blocked_by=(None if brand_ready else
+                    BLOCKED_OWNER if brand.get("knockout") == "VALID" else BLOCKED_BUILD),
+        evidence={"name": "Brambleloop Studio", **brand},
+        # Asked of the owner only once there is a screening to decide on: a request on a
+        # build-blocked row would ask the owner for the company's own work.
+        owner_request=(TRADEMARK_SCREEN if not brand_ready
+                       and brand.get("knockout") == "VALID" else None)))
 
     # #168: the pre-launch benchmark challenge. Deliberately a requirement rather than a
     # report, because a comparison nobody is obliged to act on is a comparison that loses to

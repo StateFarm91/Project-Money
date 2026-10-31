@@ -9,7 +9,8 @@
 // INTEG6: listings (v24) and LAURAONE (v20) shells merged, so a new version.
 // CLOSE6b: CLOSE6's shell changes (timeline, Ask, overnight brief) merged on top, so v26.
 // INTEG8: CLOSE6b (v26) and WIRE1 (v26, Visual Studio panel) shells merged, so v27.
-const VERSION = "cc-shell-v27";
+// W4-LAUNCHFIX: the Policy readings view (#/policy) joins the shell, so v28.
+const VERSION = "cc-shell-v28";
 const SHELL = [
   "./",
   "index.html",
@@ -48,6 +49,7 @@ const SHELL = [
   "js/views/money.js",
   "js/views/more.js",
   "js/views/notifications.js",
+  "js/views/policy.js",
   "js/views/operations.js",
   "js/views/store.js",
   "js/views/timeline.js",

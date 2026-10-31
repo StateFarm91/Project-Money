@@ -55,6 +55,14 @@ cannot contain its own hash) and read by `check` from git at the candidate -- ne
 working tree. The same record is what the runtime boot guard (`brambleloop.ops.release_record`)
 verifies inside the container, so a push that skipped this hook still runs only as SHADOW.
 
+NO CHECKPOINTED, RESUMED OR SHARDED RUN (W4-RESUMEFIX F1; owner decision
+D-W4-OWNER-RESUME-POLICY). Certification is one uninterrupted, plain full run. A run record that
+carries checkpoint or resume provenance (`checkpoint`, `checkpoint_mode`, `resumed`,
+`suite_results`, `shard`, ...), whose log carries `CHECKPOINT`/`RESUME` lines, or whose run id has
+a checkpoint directory beside it, is refused everywhere this guard reads a record -- whatever its
+`release_eligible` bit says. There is deliberately no override and no verification hook: letting
+such a run certify needs new code, a fresh independent review and a new owner decision.
+
 ROLLBACK (A3-06). Rolling production back is refused by rule 1 -- correctly, for an accident.
 A deliberate rollback is a different act and has its own door: `rollback-commit --to <sha>
 --reason "<owner reason>"` writes a commit on top of the deployed one whose tree is exactly
@@ -113,6 +121,43 @@ def resolve(repo: Path, rev: str) -> str | None:
     return out if code == 0 and out else None
 
 
+#: W4-RESUMEFIX F1: keys only run_tests.sh's CHECKPOINT/RESUME/SHARD modes write. Their mere
+#: presence refuses the record (presence, not value: `resumed: false` is still a checkpoint run).
+RESUME_PROVENANCE_KEYS = ("checkpoint", "checkpoint_mode", "resumed", "resume_of", "shard",
+                          "suite_results")
+#: The runner prints these unindented in a checkpoint run's log (suite output is indented).
+_CKPT_LOG = re.compile(r"^(CHECKPOINT|RESUME)\b", re.M)
+RESUME_POLICY = "D-W4-OWNER-RESUME-POLICY"
+_RUN_ID = re.compile(r"[A-Za-z0-9TZ-]+")
+
+
+def resume_provenance(rec: dict, record_dir: Path | None = None,
+                      log_text: str | None = None) -> list[str]:
+    """Why this run record is a checkpointed/resumed/sharded run; empty for a plain run.
+
+    There is no override: a non-empty answer is a refusal (owner decision
+    D-W4-OWNER-RESUME-POLICY)."""
+    found = []
+    keys = [k for k in RESUME_PROVENANCE_KEYS if k in rec]
+    if keys:
+        found.append("carries checkpoint/resume provenance (" + ", ".join(keys) + ")")
+    if record_dir is not None:
+        ids = {str(rec.get("run_id") or "")}
+        job = str(rec.get("job_id") or "")
+        if job.startswith("suite-"):
+            ids.add(job[len("suite-"):])
+        for rid in sorted(i for i in ids if i and _RUN_ID.fullmatch(i)):
+            if (Path(record_dir) / rid).is_dir():
+                found.append(f"run {rid} has a checkpoint directory in {record_dir}")
+    if log_text is not None and _CKPT_LOG.search(log_text):
+        found.append("its log carries CHECKPOINT/RESUME lines")
+    if not found:
+        return []
+    return [f"suite run {rec.get('run_id')!r} is a checkpointed, resumed or sharded run: "
+            + "; ".join(found) + f". Only one uninterrupted plain full run certifies a release "
+            f"(owner decision {RESUME_POLICY}); there is no override"]
+
+
 def records(record_dir: Path = RECORD_DIR) -> list[dict]:
     """Every readable run record, newest first. An unreadable one is skipped, and counted."""
     out = []
@@ -135,6 +180,14 @@ def latest_suite(record_dir: Path = RECORD_DIR, *, sha: str | None = None,
             continue
         if eligible_only and not rec.get("release_eligible"):
             continue
+        if eligible_only:
+            try:
+                log_text = (Path(record_dir) / f"{rec.get('run_id')}.log").read_text(
+                    errors="replace")
+            except OSError:
+                log_text = None
+            if resume_provenance(rec, record_dir, log_text):
+                continue                     # F1: never "the latest eligible run"
         return rec
     return None
 
@@ -149,6 +202,9 @@ def _log_confirms(rec: dict, base: Path) -> str | None:
         return f"the run's log {raw!r} is gone, so the record cannot be re-derived"
     if f"RUN ID: {rec.get('run_id')}" not in text or f"GIT SHA: {rec.get('git_sha')}" not in text:
         return "the log does not name this run and SHA; record and log disagree"
+    why = resume_provenance(rec, None, text)
+    if why:
+        return why[0]
     totals = _TOTAL.findall(text)
     if not totals:
         return "the log has no TOTAL line; the run did not finish"
@@ -269,9 +325,10 @@ def supply_chain_evidence(repo: Path, sha: str, layout: dict = LAYOUT) -> tuple[
     return ev, [f"supply chain: {p}" for p in v["problems"]]
 
 
-def _record_problems(rec: dict, read) -> list[str]:
+def _record_problems(rec: dict, read, record_dir: Path | None = None) -> list[str]:
     """Why a release record does not prove its SHA; mirrors release_record.check_record."""
     reasons: list[str] = []
+    suite_log_text = None
     sc = rec.get("supply_chain")
     if isinstance(sc, dict) and sc.get("status") == "refused":
         reasons.append("tracked release record carries a refused supply-chain verdict: "
@@ -304,7 +361,7 @@ def _record_problems(rec: dict, read) -> list[str]:
             except ValueError:
                 reasons.append("tracked suite run record is not JSON")
         else:
-            text = data.decode(errors="replace")
+            text = suite_log_text = data.decode(errors="replace")
             if suite is not None and (f"RUN ID: {suite.get('run_id')}" not in text
                                       or f"GIT SHA: {sha}" not in text):
                 reasons.append("the tracked log does not name this run and SHA; record and "
@@ -324,6 +381,8 @@ def _record_problems(rec: dict, read) -> list[str]:
         elif suite.get("scope") != "full" or suite.get("failing_suites") or int(
                 suite.get("suites_failing") or 0):
             reasons.append("tracked suite run record is not a full run with zero failing")
+    if suite is not None or suite_log_text is not None:
+        reasons.extend(resume_provenance(suite or {}, record_dir, suite_log_text))
     return reasons
 
 
@@ -344,7 +403,8 @@ def _full_log_problems(repo: Path, cand: str, rec: dict, layout: dict) -> list[s
     return []
 
 
-def release_proof(repo: Path, cand: str, layout: dict = LAYOUT) -> tuple[dict | None, list[str]]:
+def release_proof(repo: Path, cand: str, layout: dict = LAYOUT,
+                  record_dir: Path | None = None) -> tuple[dict | None, list[str]]:
     """The tracked release record at `cand` that proves `cand`'s deployable tree, or why not."""
     rel_dir = layout["prefix"] + layout["release"]
     names = [p for _m, p in _ls_tree(repo, cand, rel_dir)
@@ -368,7 +428,8 @@ def release_proof(repo: Path, cand: str, layout: dict = LAYOUT) -> tuple[dict | 
         def read(rel: str) -> bytes | None:
             return _blobs(repo, cand, [f"{rel_dir}/{rel}"]).get(f"{rel_dir}/{rel}")
 
-        why = _record_problems(rec, read) + _full_log_problems(repo, cand, rec, layout)
+        why = (_record_problems(rec, read, record_dir)
+               + _full_log_problems(repo, cand, rec, layout))
         sha = str(rec.get("sha") or "")
         if not why:
             code, _ = _git(repo, "merge-base", "--is-ancestor", sha, cand)
@@ -476,7 +537,7 @@ def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
     suite = None
     proof = None
     if cand is not None:
-        proof, why = release_proof(repo, cand, layout)
+        proof, why = release_proof(repo, cand, layout, record_dir=record_dir)
         reasons.extend(why)
         if proof is not None:
             suite = proof["suite"]
@@ -570,6 +631,9 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
     why = _log_confirms(rec, log_base or (repo / layout["prefix"].rstrip("/")))
     if why:
         return {"ok": False, "reasons": [why]}
+    prov = resume_provenance(rec, record_dir)
+    if prov:
+        return {"ok": False, "reasons": prov}
     supply, sc_problems = supply_chain_evidence(repo, full, layout)
     if sc_problems:
         return {"ok": False, "reasons": sc_problems, "supply_chain": supply}

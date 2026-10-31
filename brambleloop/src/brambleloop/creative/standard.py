@@ -452,8 +452,10 @@ def north_star_cohorts(db, *, with_proxies: bool = False):
 
         products = list(s.scalars(select(Product)))
         listed = {r.product_slug for r in s.scalars(select(Listing))}
+        from ..core.listing_state import LIVE_ON_ETSY
+
         published = {r.product_slug for r in s.scalars(select(Listing).where(
-            Listing.state == "published"))}
+            Listing.state.in_(LIVE_ON_ETSY)))}
         published |= {a.artifact.split("@")[0] for a in s.scalars(select(AuditLog).where(
             AuditLog.action == "store.published")) if a.artifact}
         certified = {p.slug for p, _v in s.execute(

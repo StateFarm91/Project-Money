@@ -388,6 +388,46 @@ def test_a_green_run_against_the_fake_promotes_nothing():
     assert promoted == [], promoted
 
 
+def test_a_finished_run_records_its_claims_and_only_a_live_one_clears_remote_state():
+    """W4-LAUNCHFIX D1: the finished row carries each claim's state, so the first-customer
+    gate's `etsy_remote_state` judges recorded evidence. A run against the local model never
+    clears it; the same real code path, its requests counted as reaching Etsy, does."""
+    from brambleloop.gates import first_customer as fc
+
+    reset()
+    with FakeEtsy() as fake:
+        run_full(fake)
+    with DB.session() as s:
+        row = s.scalars(select(AuditLog).where(AuditLog.action == etsy_exercise.RUN_FINISHED)
+                        .order_by(AuditLog.id.desc())).first()
+    claims = {c["claim"]: c["state_after"] for c in row.detail["claims"]}
+    assert row.detail["against_etsy"] is False and "form_encoded_create" in claims, row.detail
+    assert "VERIFIED_AGAINST_ETSY" not in {claims[c] for c in
+                                           ("form_encoded_create", "multipart_image_upload")}
+    assert fc.check_etsy_remote_state(DB).state == fc.UNVERIFIABLE
+
+    reset()
+    original = etsy_probe.against_etsy
+    etsy_probe.against_etsy = lambda client: True   # what a run at openapi.etsy.com reports
+    try:
+        with FakeEtsy() as fake:
+            # The production transport: review F-5 counts only a UrllibTransport run.
+            report = run_full(fake, transport=UrllibTransport())
+    finally:
+        etsy_probe.against_etsy = original
+    assert report["ok"] is True and report["status"].startswith(
+        etsy_exercise.LIVE_STATUS_PREFIX), report["status"]
+    assert report["evidence"]["sealed"] is True, report["evidence"]
+    check = fc.check_etsy_remote_state(DB)
+    assert check.state == fc.PASS, check
+    reset()
+    with DB.session() as s:
+        s.execute(delete(AuditLog).where(AuditLog.action.in_(
+            [etsy_exercise.EVIDENCE_ACTION, etsy_exercise.EVIDENCE_REVOKED,
+             etsy_exercise.EVIDENCE_REBASED])))
+    assert fc.check_etsy_remote_state(DB).state == fc.UNVERIFIABLE
+
+
 def test_running_twice_leaves_one_shop_not_two():
     reset()
     with FakeEtsy() as fake:

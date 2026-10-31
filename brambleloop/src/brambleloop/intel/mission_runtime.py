@@ -1974,8 +1974,10 @@ def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> li
     out.append(("seo_content", listing is not None,
                 f"listing drafted ({listing_state})" if listing is not None else
                 "no listing drafted"))
-    out.append(("launch", listing_state == "published",
-                "published" if listing_state == "published" else
+    from ..core.listing_state import is_live_on_etsy
+
+    out.append(("launch", is_live_on_etsy(listing_state),
+                str(listing_state) if is_live_on_etsy(listing_state) else
                 "not published: launch is owner-gated and refused in shadow mode"))
     out.append(("measurement", orders > 0,
                 f"{orders} order(s) attributed" if orders else
@@ -2110,7 +2112,8 @@ def response_outcomes(db, *, today: date | None = None) -> dict:
                 orders = len(_oi.countable_orders(s, select(Order).where(
                     Order.product_slug == slug)))  # rc1-ORD2
                 listing = s.scalar(select(Listing).where(
-                    Listing.product_slug == slug, Listing.state == "published")
+                    Listing.product_slug == slug,
+                    Listing.state.in_(("published", "published_manually")))
                     .order_by(Listing.id).limit(1))
                 published_at = listing.created_at if listing is not None else None
                 complaints = [c.id for c in s.scalars(select(SupportCase).where(

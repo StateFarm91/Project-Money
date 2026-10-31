@@ -48,7 +48,8 @@ def test_the_packet_covers_the_eight_launch0_products_and_every_release():
     assert [x["candidate"] for x in p["products"]] == list(l0.LAUNCH0_SLUGS)
     assert p["product_count"] == len(l0.LAUNCH0_SLUGS) == 8
     rels = [r["cir_slug"] for x in p["products"] for r in x["releases"]]
-    assert len(rels) == 10 and len(set(rels)) == 10, rels
+    # D-W4-OWNER-BASKET-IDENTITY: the launched basket is one size, so 8 releases, not 10.
+    assert len(rels) == 8 and len(set(rels)) == 8, rels
     for x in p["products"]:
         assert x["releases"], x["candidate"]
         for r in x["releases"]:

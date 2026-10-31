@@ -1746,16 +1746,21 @@ def handle_store_publish(ctx: JobContext) -> dict:
         copy = dict(title=listing.title, description=listing.description,
                     price_cad=listing.price_cad, tags=list(listing.tags))
         already = listing.etsy_listing_id
+        manual = listing.state == "published_manually"
         release = ctx.job.inputs.get("release") or listing.release_hash or ""
 
     if already:
         # Publishing twice must not create a second listing. Updating an existing one is a
         # different operation with a different risk profile, so it is refused here rather
-        # than guessed at.
+        # than guessed at. W-ADOPT: a listing the owner made by hand and adopted
+        # (`listing.adopt_manual`) stops here the same way.
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
-                  detail={"reason": f"already on Etsy as listing {already}"})
+                  detail={"reason": f"already on Etsy as listing {already}"
+                                    + (" (published manually and adopted)" if manual else ""),
+                          "published_manually": manual})
         return {"slug": slug, "version": version, "published": False,
-                "etsy_listing_id": already, "reason": "already published"}
+                "etsy_listing_id": already,
+                "reason": "already published manually" if manual else "already published"}
 
     # C-49: both names live in their own modules; importing them here is what lets a
     # non-shadow publish run at all rather than die with NameError on its first line.
@@ -2231,7 +2236,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
     slug, version = i["slug"], i.get("version", "1.0.0")
     artifact = f"{slug}@{version}"
     parity_verdict = _listing_parity(ctx)
-    release_gates = _release_gates(ctx)
+    release_gates = _release_gates(ctx, stage="activation")
     ctx.audit("store.activate_gates", artifact=artifact,
               detail={"parity_blocks": parity_verdict["blocks_release"],
                       "release_gates_block": release_gates["blocks_release"],
@@ -2341,7 +2346,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     # Read authority and mutable gates again after read-back/budget work, directly at
     # the effect boundary. A queued magic string is never owner evidence.
-    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    final_gates, final_parity = (_release_gates(ctx, stage="activation"),
+                                  _listing_parity(ctx))
     refusal = activation_authority.validate(
         ctx.db, authorisation, slug=slug, version=version,
         listing_id=listing_id, release=i.get("release", ""))
@@ -2361,7 +2367,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
                           job_id=ctx.job.id)
     # Reserving can wait on another accounting transaction. Authority and product truth
     # must be current after that wait; a revoked attempt retains conservative exposure.
-    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    final_gates, final_parity = (_release_gates(ctx, stage="activation"),
+                                  _listing_parity(ctx))
     refusal = activation_authority.validate(
         ctx.db, authorisation, slug=slug, version=version,
         listing_id=listing_id, release=i.get("release", ""))
@@ -2433,7 +2440,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
             "etsy_listing_id": listing_id, "state_on_etsy": after.get("state")}
 
 
-def _release_gates(ctx: JobContext) -> dict:
+def _release_gates(ctx: JobContext, stage: str = "draft") -> dict:
     """The publish gates for the listing this job would export, never raising.
 
     A gate that crashed has not passed, so an error is reported as a block with its reason
@@ -2451,7 +2458,7 @@ def _release_gates(ctx: JobContext) -> dict:
             ctx.db, slug=slug, version=version,
             today=_date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
             positioning=i.get("positioning"), store_root=i.get("artifact_dir"),
-            read_only=True)
+            read_only=True, stage=stage)
     except Exception as e:  # noqa: BLE001 - a crashed gate is a closed gate
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": [f"release gates could not be evaluated: "
@@ -2886,7 +2893,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
                 x["orders"] += 1
                 x["revenue"] += float(o.revenue_cad or 0.0)
         live_since: dict[str, datetime] = {}
-        for r in s.scalars(select(Listing).where(Listing.state == "published")):
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        for r in s.scalars(select(Listing).where(Listing.state.in_(LIVE_ON_ETSY))):
             at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
                 tzinfo=timezone.utc)
             if r.product_slug not in live_since or at < live_since[r.product_slug]:

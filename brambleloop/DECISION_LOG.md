@@ -2610,6 +2610,43 @@ The dry run reports no problems.
 - **F-091.** The 4 remaining direct `gateway.anthropic` importers are accepted as by design (coordinator, 2026-10-26): `runtime/release`, `runtime/worker`, `app/main` and `experiments/controlled`. They drive the vendor's own probe and provider objects (`probe`, `vision_probe`, `AnthropicProvider`, `NO_KEY_REASON`, `DEFAULT_MODEL`). A second vendor brings its own probe rather than reusing these. The 22 business callers are behind `gateway/providers` (cd1f4a17), and the import ratchet keeps the list from growing.
 - **F-464.** The conversion of the two render handlers to `runtime/awaiting` goes to the product-engine lane after AGENTS2 merges (coordinator, 2026-10-26). It was not built on FMBATCH2: the handlers are in `runtime/release.py`, which AGENTS2 is editing, and the split changes billing semantics on the paid render path. The design and risk are in `research/final_build/w4/FMBATCH2.md`. The row stays B.
 
+**D-W4-OWNER-RESUME-POLICY: a resumed, checkpointed or sharded suite run never certifies a release (owner, 2026-10-27).** The owner's words, as relayed by the coordinator, quoted exactly: "For the restartable test runner, retain the existing single-uninterrupted-run certification requirement. Do not permit resumed runs to certify releases until all independent review findings are fixed, the attack probes pass and a fresh independent review approves the implementation." Consequence (W4-RESUMEFIX F1): `run_tests.sh` writes `release_eligible: false` from the first record write of any CHECKPOINT/RESUME/SHARD run; `ops/deploy_guard.py` and `brambleloop.ops.release_record.check_record` refuse every record with checkpoint or resume provenance, or whose run has a checkpoint directory, citing this decision. There is no owner-verification bypass and no stub that could be flipped: allowing a resumed run to certify needs new code, a fresh independent review and a new owner decision. Recorded as a paragraph, not a heading, so `core/decision_index.json` and the deployable tree digest do not change.
+
+## D-W4-OWNER-BASKET-IDENTITY — The small hexagonal basket launches alone as a kitchen and home product (owner, 2026-10-27)
+
+**Owner decision, quoted exactly as relayed by the coordinator on 2026-10-27:** "I approve positioning the Hexagonal Bread Basket 1.2.0 as a kitchen and home product. The first listing sells the small basket only. Remove inaccurate nursery, baby-product and three-size nesting-basket claims from its listing package and customer PDF. Preserve the existing larger basket family for separately verified future releases. Keep the proposed CA$6.50 price pending final pricing verification."
+
+**Why it was needed.** W-LISTING found that the system's own output contradicted itself for `market-basket-small@1.2.0`:
+- the CIR, the PDF and the first line of the description call it a bread basket;
+- the title, the tags and a children's safety block sold it as nursery decor for children under 3;
+- the price reason and the image alt text described three nesting sizes, although the listing sold one size.
+
+**Applied in code (W-LISTING, `claude/w4-LISTING1`).**
+- **`products/launch0.py`: new Launch-0 candidate `hexagonal-bread-basket`.**
+  - One variant (`basket_small`) and no children's sub-category.
+  - Listing identity `basket` with no qualifier.
+  - CA$4–12 band, CA$6.50 proposal.
+- **`products/launch0.py`: launch list and lookups.**
+  - The new candidate replaces `nursery-nesting-baskets` in `_CORE_LAUNCH0_SLUGS`, so there are still 8 products.
+  - `nursery-nesting-baskets` stays in `CANDIDATES`, unchanged, as a reserve.
+  - `candidate_for_cir` and the children's audience map give a CIR to the launched candidate that sells it. A reserve never re-claims it.
+- **Supporting entries.**
+  - `seo/strategy.py` and `seo/facts.py`: the new product's families, tags, title and lead. `kitchen` and `table` are licensed from the candidate record.
+  - `seo/shop.py`: the basket's shelf is Home & Table.
+  - `creative/emotional_brief.py` and `creative/audit.py`: the new product's brief and motif.
+
+**What did not change.**
+- The CIR builder, the version and the instructions are unchanged. The content/release hash stays `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991`, so certification evidence and the tester kit's hash binding still hold.
+- The medium and large releases and their records are unchanged, preserved for separately verified future releases. `nursery-nesting-baskets` is listed in `launch0.HELD_FOR_VERIFICATION`. It is not launched, but its CIRs stay inside `launch_scope_slugs`, so every Launch-0 gate still applies to medium and large: first-customer, plan price, children's statements and their per-size frames (`visual.launch_imagery._primary_for`). Taking them out of scope would have let a re-certified medium or large skip the first-customer gate (`publish.eligibility.legacy_status`).
+- Launch-0 drops from 10 releases to 8. Medium and large are no longer seeded as launch work, and are outside the approved vision batch's frame scope (`finance.launch_review`).
+
+**Consequences.**
+- **Customer PDF.** It loses the children's safety block (9 pages to 7), so its bytes and `assets.built` hashes change and the PDFs must be re-rendered.
+- **Listing copy.** `listing.seo` regenerates the title, tags and description from the corrected source.
+- **Price.** CA$6.50 stands, pending final pricing verification. Its "3 finished sizes" reason no longer applies to a one-size product.
+
+**Reversible?** Yes, by owner decision.
+
 **D-W4-OWNER-SEEDSHOPS: the original seed shops are preserved as benchmarks (owner, 2026-10-27).** The owner's words, as relayed by the coordinator: "preserve the original seed-shop requirements for HanJanCrochet, IvyLoop, LoveandStitchDesigns and FireflyCrochets. Do not silently drop any original benchmark… Where a shop cannot be accessed through an authorized source, record the limitation, preserve the monitoring job and use permitted alternative evidence. Do not pretend an inaccessible shop was scanned." Resolves INTELREC remediation G9. Applied on `claude/w5-CONCEPT`: one `Member` (`intel/watchlist.py`, role `seed`) and one `BenchmarkSpec` (`intel/benchmarks.py`, `SEED_SHOPS`, mandatory) per shop, URLs from `radar/market.COMPETITORS` / spec/05 without the tracking query. A shop the sanctioned Etsy read path cannot find (HTTP 404/410 or no exact `findShops` match) is recorded `not_accessible` with "not accessible: <reason>", the date, `monitoring: kept` and the permitted alternative evidence (the dated spec/05 public-profile seed observation); nothing scan-shaped is written, it backs off like an outage, and Laura's provider reads DEGRADED with the limitation named, never OK.
 
 **D-W5-CONCEPT: new radar concepts come from recorded evidence as database rows, validated before scoring (W5-CONCEPT, 2026-10-27).** `radar/intake.py` + `radar.concept_intake` (market_radar, 6-hourly cadence). A research task ANSWERED with fact-grade findings and dated sources, plus a structured concept proposal attached to it, or a certified family whose orders prove demand and that has no declared next member, becomes a `radar_concepts` row. Before it can be scored it must clear: recorded evidence of computed quality ≥ 0.40 (confidence × fact share × freshness against the domain's window); a construction the radar draft path compiles honestly (`flat_rows` only, in nine categories, each mapped to the forms a flat panel actually is); the closed concept vocabulary; the children's product_creation pre-check; and dedupe and anti-copy checks against POOL, the database concepts, the catalogue, certified products and observed competitor listings. Whitespace, risk class and make lane are derived, never typed. Taste fields cannot be set by a proposal. POOL behaviour is byte-unchanged when no row is approved. Reason: the factory could not make a product it had not been edited to know about, and the alternative (a model writing seeds into code) would put unverified concepts beyond the deterministic gates.

@@ -65,10 +65,13 @@ def derive(db, slug: str) -> dict:
             ListingAsset.product_slug == slug)) or 0
         orders = s.scalar(select(func.count()).select_from(Order).where(
             Order.product_slug == slug)) or 0
+    from ..core.listing_state import LIVE_ON_ETSY
+
     states = {x.state for x in listings}
-    if listings and states <= {"retired", "withdrawn"} and "published" not in states:
+    live = bool(states & set(LIVE_ON_ETSY))
+    if listings and states <= {"retired", "withdrawn"} and not live:
         stage, why = "RETIRED", "every listing is retired or withdrawn"
-    elif "published" in states:
+    elif live:
         stage, why = ("GROWING", f"{orders} order(s) recorded") if orders else \
             ("LIVE", "a listing is published")
     elif listings:

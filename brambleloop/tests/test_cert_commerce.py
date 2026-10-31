@@ -355,7 +355,7 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     grid = Spy(preengineering, "release_grid_verdict",
                replacement=lambda db, slug: {"cleared": True, "why": "forced by cert harness"})
     gates = Spy(pipeline, "_release_gates",
-                replacement=lambda ctx: {"blocks_release": False, "reasons": [],
+                replacement=lambda ctx, **_kw: {"blocks_release": False, "reasons": [],
                                          "forced": "cert harness"})
     # FB-1 B (F-524): the certified listing images are read after the release gates and
     # before anything is stored or sent, and are proven to refuse on a missing or unreadable

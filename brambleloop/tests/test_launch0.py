@@ -750,6 +750,18 @@ def test_launch_scope_holds_every_variant_slug_and_only_launch0():
     assert {"market-basket-small", "market-basket-medium", "market-basket-large",
             "hexagon-coaster-set", "cloudline-baby-blanket"} <= scope
     assert "harvest-table-runner" not in scope          # the reserve is not launched
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the small basket is the launched product
+    # hexagonal-bread-basket (kitchen and home, not for children); the three-size nursery
+    # family is not launched but is held inside the quarantine, so medium and large keep every
+    # Launch-0 gate until they are separately verified.
+    assert "hexagonal-bread-basket" in l0.LAUNCH0_SLUGS
+    assert "nursery-nesting-baskets" not in l0.LAUNCH0_SLUGS
+    assert {"nursery-nesting-baskets", "hexagonal-bread-basket"} <= scope
+    assert l0.candidate_for_cir("market-basket-small").slug == "hexagonal-bread-basket"
+    assert l0.childrens_decision("market-basket-small")[0] == l0.NOT_FOR_CHILDREN
+    for size in ("market-basket-medium", "market-basket-large"):
+        assert l0.candidate_for_cir(size).slug == "nursery-nesting-baskets", size
+        assert l0.childrens_assignment(size) == ("nursery_decor", "under_3"), size
     # W4-LAUNCHREADY: the Nordic Forest blanket joined as three sized variants.
     assert {"nordic-forest-mosaic-throw-baby", "mosaic-placemat-pair",
             "housewarming-key-basket"} <= scope
