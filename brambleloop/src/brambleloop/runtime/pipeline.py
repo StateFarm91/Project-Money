@@ -747,6 +747,18 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.vessel(concept, provenance=provenance)
+        elif route["family"] == FC.TRIANGLE:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TRIANGLE_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.triangle(concept, provenance=provenance)
         elif lineage["known"]:
             concept.source_provenance = lineage["source"]
             concept.source_brief = lineage["brief"]

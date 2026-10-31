@@ -63,7 +63,8 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
     assert FALLBACK
     for seed in FALLBACK:
         route = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle)
-        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.REFUSED), (seed.slug, route)
+        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.TRIANGLE, F.REFUSED), \
+            (seed.slug, route)
         if route["family"] == F.REFUSED:
             assert route["needs"] and route["why"], seed.slug
     assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
@@ -169,6 +170,44 @@ def test_a_cushion_concept_drafts_two_seamed_panels_that_back_its_name():
     assert prov is not None and set(F.PANEL_PAIR_PRIMITIVES) <= set(prov.primitives_used)
     codes = {f.code for f in O.provenance_findings(cir)}
     assert not codes & {"PROVENANCE_MISSING", "PROVENANCE_INCOMPLETE", "PROVENANCE_NOT_OURS"}
+
+
+def test_a_plain_triangle_shawl_drafts_and_a_named_stitch_pattern_is_refused():
+    from brambleloop.gates.certificate import certify
+    from brambleloop.publish import eligibility as E
+
+    assert F.plan(category="shawl", title="Everyday Triangle Shawl")["family"] == F.TRIANGLE
+    for title, word in (("Lattice Triangle Shawl", "lattice"),
+                        ("Mother's Day Lace Shawlette", "lace"),
+                        ("Cable Kerchief", "cable")):
+        route = F.plan(category="shawl", title=title)
+        assert route["family"] == F.REFUSED and word in route["needs"], (title, route)
+    # Through the real handler: the radar's lattice shawl is refused by name, nothing compiled.
+    db, seed = _db("lattice-triangle-shawl")
+    result, emitted, audits = _draft(db, _payload(seed))
+    assert result["drafted"] is False and result["gate"] == "construction" and emitted == []
+    refused = [kw for a, kw in audits if a == "cir.draft_refused"]
+    assert "lattice" in refused[0]["detail"]["needs"]
+    # The construction itself, from a concept whose title names no stitch pattern.
+    geo = pipeline.concept_geometry(seed)
+    concept = pipeline.Concept(
+        slug="everyday-triangle-shawl", title="Everyday Triangle Shawl", category="shawl",
+        stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+        width_stitches=geo["width_stitches"], rows=geo["rows"], colors=geo["colors"],
+        risk_class=seed.risk_class)
+    cir = F.triangle(concept)
+    assert compile_cir(cir).ok
+    rows = cir.components[0].rows
+    assert rows[0].declared_count == 3
+    assert all(b.declared_count - a.declared_count == 2 for a, b in zip(rows, rows[1:]))
+    assert {r.color for r in rows} == set(concept.colors)
+    assert E.name_truth(cir, None) == []
+    codes = {f.code for f in certify(cir).errors}
+    assert codes <= {"PROVENANCE_MISSING"}, codes      # this unit build carries no lineage
+    gauge = cir.gauge
+    wingspan = rows[-1].declared_count * 10.0 / gauge.stitches_per_10cm
+    assert abs(wingspan - F.SHAWL_WINGSPAN_CM) < 2.0, wingspan
+    assert f"{wingspan:.0f} cm along the top edge" in cir.finished_size_note
 
 
 if __name__ == "__main__":

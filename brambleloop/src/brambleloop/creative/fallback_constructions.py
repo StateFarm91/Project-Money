@@ -32,6 +32,7 @@ from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
+TRIANGLE = "triangle"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -41,7 +42,6 @@ NEEDS: dict[str, str] = {
     "amigurumi": "shaped pieces worked in the round, stuffed and joined",
     "hat": "a crown worked in the round and graded per head circumference",
     "garment": "a graded garment design (creative.garment_design)",
-    "shawl": "triangle or crescent shaping with planned increases",
     "bag": "a vessel with a strap or handle join",
     "stocking": "a closed tube with a heel and toe",
     "nursery": "several shaped pieces assembled on a hanger",
@@ -77,6 +77,16 @@ def plan(*, category: str, title: str, is_bundle: bool = False) -> dict:
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     lowered = (title or "").lower()
+    if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
+        named = re.search(_STITCH_PATTERN_WORDS, lowered)
+        if named:
+            return {"family": REFUSED,
+                    "needs": f"a {named.group(0)} stitch chart worked on triangle shaping",
+                    "why": (f"the title names {named.group(0)!r}, a stitch pattern the plain "
+                            f"triangle rule does not chart; drafting it would sell a "
+                            f"{named.group(0)} the pattern does not make")}
+        return {"family": TRIANGLE, "needs": "",
+                "why": "a triangle shawl worked flat from the point, increasing at each end"}
     if (category in PANEL_PAIR_CATEGORIES or re.search(_PANEL_PAIR_WORDS, lowered)) \
             and not _shaped_title(re.sub(_PANEL_PAIR_WORDS, "", lowered)):
         return {"family": PANEL_PAIR, "needs": "",
@@ -118,6 +128,63 @@ def panel_pair(panel: CIR) -> CIR:
         panel, components=[front, back], assembly=assembly,
         designer_notes=(f"{panel.designer_notes}; drafted as a cushion cover: front and back "
                         f"panels, seamed on all four edges around a pad"))
+
+
+# A triangle shawl, worked flat from the point: three single crochet on a three-chain
+# foundation, then an increase at each end of every row. Plain fabric in two-row stripes (every
+# change falls at the same edge, so the resting colour is carried up that edge). A title that
+# names a stitch pattern is refused, because plain single crochet is not lattice, lace or cable.
+TRIANGLE_CATEGORIES = frozenset({"shawl"})
+_TRIANGLE_WORDS = r"\b(?:shawl|shawlette|triangle scarf|kerchief)s?\b"
+_STITCH_PATTERN_WORDS = (r"\b(?:lattice|lace|lacy|mosaic|cable[sd]?|bobble[sd]?|granny|"
+                         r"chevron|ripple|waffle|shell|puff|popcorn|star|diamond|tulip|"
+                         r"fair ?isle|tapestry|filet)\b")
+TRIANGLE_PRIMITIVES = ("creative.fallback_constructions.triangle",)
+SHAWL_WINGSPAN_CM = 150.0
+
+
+def triangle(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A corner-to-point triangle shawl in the concept's palette, sized by its wingspan."""
+    from ..creative.prototype import gauge_for
+
+    gauge = gauge_for(concept.yarn_weight)
+    palette = list(concept.colors)
+    if not palette:
+        raise ValueError(f"{concept.slug}: a shawl needs at least one colour")
+    # The last row's count is 3 + 2 * (rows - 1); choose the row count whose last row is
+    # nearest the wingspan at stitch gauge.
+    wanted = SHAWL_WINGSPAN_CM * gauge.stitches_per_10cm / 10.0
+    n_rows = max(10, int(round((wanted - 3) / 2)) + 1)
+    rows = [Row(index=1, ops=[Op("sc", 3)], declared_count=3, turning_chain=1,
+                color=palette[0])]
+    count = 3
+    for i in range(2, n_rows + 1):
+        rows.append(Row(index=i, ops=[Op("inc"), Op("sc", count - 2), Op("inc")],
+                        declared_count=count + 2, turning_chain=1,
+                        color=palette[((i - 1) // 2) % len(palette)]))
+        count += 2
+    wingspan = count * 10.0 / gauge.stitches_per_10cm
+    depth = n_rows * 10.0 / gauge.rows_per_10cm
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version, construction="flat_rows",
+        risk_class=concept.risk_class, colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=p) for p in palette],
+        components=[Component(
+            name="shawl", construction="flat_rows", rows=rows, foundation=3,
+            foundation_kind="chain",
+            note=("Worked flat from the point. Increase in the first and last stitch of every "
+                  "row; the colour changes every two rows at the same edge, so carry the "
+                  "resting colour loosely up that edge."))],
+        designer_notes=(f"{concept.category} concept drafted as a triangle shawl: {n_rows} "
+                        f"rows from a 3-stitch point to {count} stitches, plain single "
+                        f"crochet in two-row stripes"),
+        finished_size_note=(
+            f"A triangle about {wingspan:.0f} cm along the top edge and {depth:.0f} cm from "
+            f"the top edge to the point, at the stated gauge. Computed, not yet measured on a "
+            f"worked sample."),
+        provenance=provenance,
+    )
 
 
 # A basket's finished size, chosen from its title, never from the panel width table: the

@@ -499,3 +499,42 @@ publication refuses it.
   integrator's or W-CONCEPT's call, since the seed lives in `radar/opportunity.py`.
 
 Tests: `tests/test_opus2_draft_constructions.py`, 5/5.
+
+## 23. P0-DRAFT-CONSTRUCTIONS, part 3: triangle shawls; tote blocked on a chain gauge (2026-10-31)
+
+**Built: family `triangle`.** It applies to category `shawl` and to titles naming a shawl,
+shawlette, triangle scarf or kerchief.
+- `triangle(concept)` works flat from the point. It starts with 3 sc on a 3-chain foundation,
+  then works an increase at each end of every row.
+- The colour changes every two rows, so each change falls at the same edge and the resting
+  colour is carried up that edge.
+- The row count is chosen so the last row is nearest a 150 cm wingspan at the yarn's
+  published gauge. The size note states the computed wingspan and depth, and says it has not
+  been measured.
+- Provenance names `creative.fallback_constructions.triangle`.
+- **Stitch-pattern guard.** A shawl title naming a stitch pattern is refused, naming the
+  chart it would need. The words are lattice, lace, mosaic, cable, bobble, granny, chevron,
+  ripple, waffle, shell, puff, popcorn, star, diamond, tulip, fair isle, tapestry and filet.
+  Plain single crochet is none of those.
+- So both radar shawl seeds ("Lattice Triangle Shawl", "Mother's Day Lace Shawlette") stay
+  refused, with needs "a lattice/lace stitch chart worked on triangle shaping". The knowledge-
+  gap job counts that.
+- Tests: `tests/test_opus2_draft_constructions.py`, 6/6. A plain triangle compiles. Each row
+  adds exactly 2 stitches. Name truth is clean, and certification finds nothing beyond the
+  missing provenance (a unit build has no lineage). The wingspan is within 2 cm of target.
+- **Finding for the integrator.** `publish.eligibility.name_truth` does not read "lattice" or
+  "lace". A plain single-crochet triangle titled "Lattice Triangle Shawl" passed it in the
+  probe. The guard here covers this fallback only, and the vocabulary gap stays open for
+  every other path.
+
+**Tried and not built: tote with slot handles.**
+- The tote would be a vessel with two handle slots: on one round, skip h and chain h on
+  opposite sides; on the next, work into the chains.
+- It compiles. Certification refuses it with `SPECIFICATION_INCOMPLETE: chain gauge`, because
+  a slot's length depends on `Gauge.chains_per_10cm` and no yarn here has a stated one.
+  Inventing a figure would be fabricated evidence.
+- Strap-sewn handles cannot be measured either: `cir.assembly` places a join only along
+  flat-row side edges, not on a span of a piece worked in rounds.
+- **Needs one of:** a measured chain gauge (physical calibration, the owner's tester queue),
+  or an assembly-model extension for spans on round pieces (shared `cir/assembly.py`,
+  integrator's call).
