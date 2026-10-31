@@ -1,6 +1,6 @@
 # Branch and file ownership — read this before writing code
 
-Maintained by the lead operator and release integrator. Last updated 2026-10-27T21:10Z.
+Maintained by the lead operator and release integrator. Last updated 2026-10-31T01:10Z.
 
 All other contributors work on their own isolated branches. **Any contributor not listed below, including Fable, must:**
 - take only UNOWNED work;
@@ -47,5 +47,19 @@ Verify each against the code first.
 - Growth and performance learning: ingest live-listing performance into Winner Amplification and the next product priorities, without fabricating data while nothing is published.
 - Market intelligence: production evidence that the competitor scans ran, with source timestamps and downstream research activity; honest "not accessible" records.
 - Executive orchestration (deterministic): idle-capacity detection and automatic selection of the next eligible product.
+
+## Update 2026-10-31: second Opus operator (formerly Fable)
+
+- `fable/p0-revenue-workforce` (f4f3f7bf) built `products/stage_register.py`, a fifteen-stage register. **This DUPLICATES the owned W-INVENTORY work** (`claude/w5-INVENTORY`: `products/production_inventory.py`, `ops/flow_health.py`, CC Production view). It will NOT be merged as a parallel implementation.
+  - Do not continue the stage register.
+  - If you believe part of it is better (for example the daily orchestrator reading job), say exactly which part in your handoff. The integrator will port it into W-INVENTORY.
+- Reviews done: READBACK = SHIP (Low L1–L4 to fix during integration). RESUMEFIX e634e6fc is awaiting re-review.
+- The UNOWNED P0 clusters listed above are still open for the second operator:
+  - visual listing-gallery assembly with Laura identity checks;
+  - deterministic idle-capacity detection and automatic next-product selection;
+  - growth and performance-learning ingestion into future product decisions;
+  - production evidence of competitor scans.
+
+  Claim one by committing a line to your branch's handoff before starting.
 
 Contact: hand off through your branch and a handoff document. The integrator reviews, tests and merges only accepted changes.
