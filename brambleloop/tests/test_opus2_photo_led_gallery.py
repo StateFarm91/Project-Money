@@ -114,14 +114,29 @@ def _hero_bytes(db, cir):
     return out.getvalue()
 
 
-def _add_photo(db, cir, *, approved=True, unedited=True, passed=True, version=None):
+def _content_hash(cir):
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.gates.certificate import _release_hash
+
+    return _release_hash(cir, write_pattern(cir, compile_cir(cir), "US"))
+
+
+def _add_photo(db, cir, *, approved=True, unedited=True, passed=True, version=None,
+               attest=True, attest_sha=None):
+    """A photo through the same records the publish gates' qualifying-photo rule reads: a
+    passed full make bound to this release's content hash, and (unless `attest=False`) the
+    owner's Command Center attestation of these bytes (review OPUS2C F2-1)."""
+    from brambleloop.publish import physical_upgrade as PU
+
     data = _hero_bytes(db, cir)
     stored = ArtifactStore().put(f"photos/{cir.slug}.jpg", data, "image/jpeg")
     with db.session() as s:
         t = PhysicalTest(product_slug=cir.slug, version=version or cir.version,
                          tester_ref="fixture-tester", passed=passed,
                          completed_at=datetime.now(timezone.utc),
-                         measured={"evidence_class": "full_make"})
+                         measured={"evidence_class": risk_matrix.FULL_PHYSICAL_MAKE,
+                                   "content_hash": _content_hash(cir)})
         s.add(t)
         s.flush()
         p = PhysicalPhoto(product_slug=cir.slug, version=cir.version, source="tester",
@@ -136,24 +151,29 @@ def _add_photo(db, cir, *, approved=True, unedited=True, passed=True, version=No
                            blocked_reasons=[] if approved else ["awaiting asset-truth review"],
                            claims={"physical_photo_id": p.id, "provenance": "camera",
                                    "leads_gallery": True}))
+        pid = p.id
+    if attest:
+        PU.attest_unedited(db, pid, actor="owner:cc:fixture-session",
+                           confirm=PU.UNEDITED_CONFIRMATION)
+        if attest_sha is not None:
+            with db.session() as s:
+                row = s.get(PhysicalPhoto, pid)
+                row.detail = {**row.detail, "owner_attestation": {
+                    **row.detail["owner_attestation"], "sha256": attest_sha}}
     return stored.sha256
 
 
 class _FullMake:
-    """Stand-in for W-PHYSFIX's `risk_matrix.physical_class_of` (not on this base)."""
+    """Formerly a stand-in for `risk_matrix.physical_class_of`. Review OPUS2C F2-1 makes the
+    photo lead read only `sample_photo.qualifying_photos`, whose full-make binding is the real
+    `first_customer.physical_binding`; replacing the classifier would break that rule, so this
+    is now a no-op kept for the callers' shape."""
 
     def __enter__(self):
-        self.had = hasattr(risk_matrix, "physical_class_of")
-        self.saved = getattr(risk_matrix, "physical_class_of", None)
-        risk_matrix.physical_class_of = lambda m: (
-            (risk_matrix.FULL_PHYSICAL_MAKE, "fixture") if m.get("evidence_class") == "full_make"
-            else ("partial", "fixture"))
+        return self
 
     def __exit__(self, *a):
-        if self.had:
-            risk_matrix.physical_class_of = self.saved
-        else:
-            del risk_matrix.physical_class_of
+        return False
 
 
 def _latest_cert(db, cir):
@@ -272,6 +292,55 @@ def test_the_upload_serves_the_photo_first_with_its_certified_alt_text():
     assert first["sha256"] == sha and first["kind"] == LS.PHOTO_LEAD
     assert first["alt_text"].startswith("Photograph of a") and got["images"][0].alt_text \
         == first["alt_text"]
+
+
+def _photo_led(db, cir):
+    cert = _latest_cert(db, cir) or {}
+    return any(f.get("kind") == LS.PHOTO_LEAD for f in cert.get("frames") or [])
+
+
+def test_review_opus2c_f21_only_a_qualifying_photo_may_lead():
+    """(a) intake-unedited but not owner-attested, (b) owner attestation of other bytes, and
+    (c) a file the system itself recorded as generated: none leads, and each says why in the
+    words of the one photo standard."""
+    from brambleloop.core.models import ArtefactProvenance
+    from brambleloop.publish import sample_photo as SP
+
+    cases = []
+    db, cir = _release("f21a")
+    _add_photo(db, cir, attest=False)
+    cases.append((db, cir, "Command Center"))
+    db, cir = _release("f21b")
+    _add_photo(db, cir, attest_sha="b" * 64)
+    cases.append((db, cir, "Command Center"))
+    db, cir = _release("f21c")
+    sha = _add_photo(db, cir)
+    with db.session() as s:
+        s.add(ArtefactProvenance(artefact_class="render", artefact_key=f"gen/{sha[:12]}",
+                                 product_slug=cir.slug, provider="fixture-provider",
+                                 model="fixture-model", sha256=sha))
+    cases.append((db, cir, "recorded by the system itself"))
+    assert cases
+    for db, cir, words in cases:
+        assert SP.qualifying_photos(db, cir.slug, cir.version)["qualifying"] == []
+        with _FullMake():
+            v = _verdict(db, cir)
+        assert v["certificate"]["valid"] is False, v
+        assert not _photo_led(db, cir)
+        assert any("owner_attested" in r and words in r for r in v["reasons"]), \
+            (words, v["reasons"][:4])
+
+
+def test_the_photo_lead_takes_its_attestation_from_the_one_rule_only():
+    """Static: the photo-led certificate builds no attestation of its own."""
+    import inspect
+
+    from brambleloop.publish import release_gates
+
+    src = inspect.getsource(release_gates.sample_photo_lead)
+    assert "sample_photo.qualifying_photos(" in src
+    for rebuilt in ('pdetail.get("unedited")', "physical_class_of", "PhysicalTest"):
+        assert rebuilt not in src, rebuilt
 
 
 if __name__ == "__main__":

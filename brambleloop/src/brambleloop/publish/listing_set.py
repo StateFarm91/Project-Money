@@ -415,8 +415,12 @@ def _with_supplements(slug: str, frames: list[CertifiedFrame], supplements,
 
 
 # What a leading sample photograph must be attested as, each by the record that proves it.
-PHOTO_ATTESTATION = ("unedited", "not_ai_processed", "test_passed", "test_completed",
-                     "full_make", "same_release", "camera_provenance", "rights_basis")
+# Review OPUS2C F2-1: every entry is answered by the one photo standard (the publish gates'
+# qualifying-photo rule); `owner_attested` is the owner's Command Center attestation of these
+# exact bytes, which no intake flag can stand in for.
+PHOTO_ATTESTATION = ("owner_attested", "unedited", "not_ai_processed", "test_passed",
+                     "test_completed", "full_make", "same_release", "camera_provenance",
+                     "rights_basis")
 
 
 def photo_lead_frame(*, slug: str, version: str, photo: dict,
@@ -431,8 +435,9 @@ def photo_lead_frame(*, slug: str, version: str, photo: dict,
     att = dict(photo.get("attestation") or {})
     missing = [k for k in PHOTO_ATTESTATION if att.get(k) is not True]
     if missing:
+        why = f" ({att['why']})" if att.get("why") else ""
         raise ListingSetRefused(f"{slug}@{version}: the sample photograph cannot lead the "
-                                f"gallery; not attested: {', '.join(missing)}")
+                                f"gallery; not attested: {', '.join(missing)}{why}"[:600])
     if att.get("slug") != slug or att.get("version") != version:
         raise ListingSetRefused(f"{slug}@{version}: the photograph's make is "
                                 f"{att.get('slug')}@{att.get('version')}, another release")

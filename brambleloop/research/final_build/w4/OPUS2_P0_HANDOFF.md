@@ -557,3 +557,29 @@ and 6, and CHANGES REQUIRED for part 3. Base merged: `f4c3899b`.
 
 Not changed: F2.1's pre-existing loss of `teardown_qa` on re-certification. That belongs to
 the owner of the re-certification path; only my own kind is carried.
+
+## 25. Review OPUS2C (9c1a0037): every finding in opus2 code fixed (2026-10-31)
+
+Report: `claude/w5-SECREVIEW-OPUS2C-9c1a003`. The verdict was ACCEPT for parts 1, 3 and 4, and
+CHANGES REQUIRED for part 2 (F2-1 HIGH).
+
+| Finding | Fix | Test |
+|---|---|---|
+| **F2-1 HIGH**: the photo-led certificate accepts a photo `sample_photo.qualifying_photos` rejects | `release_gates.sample_photo_lead` now asks that rule only. The lead qualifies exactly when the rule lists this photo id with this frame's SHA-256. The rule covers the owner's Command Center attestation of these bytes, a file the system did not make, a passed full make bound by `first_customer.physical_binding` to this release's content hash, rights, and bytes on file. Every attestation field comes from that one verdict, and the refusal carries the rule's reason. `owner_attested` was added to `listing_set.PHOTO_ATTESTATION`. There is no second photo standard. | `test_review_opus2c_f21_only_a_qualifying_photo_may_lead` covers (a) intake-unedited but not owner-attested, (b) an attestation of other bytes, and (c) a sha recorded with a provider. `test_the_photo_lead_takes_its_attestation_from_the_one_rule_only` is a static check that no rebuilt attestation remains. The positive fixture now binds the full make to the content hash and attests through `physical_upgrade.attest_unedited(actor="owner:cc:…")`. The `risk_matrix.physical_class_of` stand-in is now a no-op: the real classifier is on this base, and replacing it broke the rule. |
+| F2-2 LOW: camera provenance read from the frame | Moot. It is derived from the qualifying verdict. | (as above) |
+| N1.1 LOW: size-claim forms that got through | New patterns: `vessel_group` ("Market Basket Trio"), `named_range` ("small to large", "XS to 5X"), `multi_size` ("multi-size", "graduating sizes"), `dimension_tail_unit` ("Sizes: 20, 25 and 30 cm"), `dimension_slash` (a same-unit list; "20 cm / 8 in" stays one size), `article_named` ("a small, a medium and a large"), `vessel_count` ("3 baskets", "3-piece basket set"), and `named_plus` ("small + large"). | `test_review_opus2c_n11_n12_probe_rows_are_each_judged_as_the_review_expects`. Every review row is pinned, and the earlier pass rows still pass. |
+| N1.2 LOW: "two hook sizes" read as a claim | A count whose in-between words name a hook or needle is advice. | (same) |
+| N2.1 INFO: categories without a decoy entry can name another knitted item | `laura_home.KNITTED_OR_CROCHETED` is filtered from every category's clutter and moment, so the "no other crocheted or knitted item" sentence is true for every frame. | `test_review_opus2c_n21_no_frame_of_any_category_names_another_knitted_item` |
+| N3.1 MED: a trio concept drafted as one basket | `fallback_constructions.plan(slug=, rationale=)` refuses a concept whose slug, title or rationale makes a size claim (`gates.size_claims`). The refusal needs "one certified release per size". Through the real handler, `market-basket-trio` is a retired alias that already routes to the three engineered sizes. `pumpkin-cluster-set` (3 sizes) is refused too. | `test_review_opus2c_n31_n32_several_sizes_and_shaped_categories_are_refused` |
+| N3.2 LOW: the flat route takes shaped or charted categories | `NEEDS` gains `ornament` and `flower`. Title words gain `granny`, `hexagon`, `hexie` and `bed`. `mosaic_blanket` and `graphghan` are deliberately left on the flat route: they are flat fabrics, W-CONCEPT's intake refuses them upstream, publication's colourwork rule refuses a false mosaic claim, and `test_shadow` drafts a raw mosaic concept to prove bad arithmetic dies at the compiler. Refusing them broke that core test, so the refusal was withdrawn. | (same); `test_shadow` passes |
+| N3.3 LOW: draft failures were not named refusals | `handle_cir_draft` turns `ValueError`/`KeyError` from a construction (including `UnknownStitch`) into `cir.draft_refused` with `gate: construction`. | `test_review_opus2c_n33_a_construction_that_cannot_be_built_is_a_named_refusal` |
+| Test gap: vessel twin and reverse unasserted | The vessel test now asserts `build_twin` and `reverse.compare(...) == []`. | `test_a_basket_concept_drafts_a_vessel_…` |
+
+**N3.2 follow-up for the integrator.** Once W-CONCEPT (accepted for Batch 5) merges, `NEEDS`
+could import its `UNSUPPORTED_CATEGORY_WHY` so there is one table. I have not done it here,
+because that branch is not on this base.
+
+**Next construction (blocked; integrator's call).** Two colours per round, which would make
+"Mosaic" titles truthful, needs a per-stitch colour in the CIR. `first_customer.colourwork_findings`
+states it: "a CIR row carries one colour". That is a change to the shared model, compiler,
+twin and writer, not a fallback rule.

@@ -726,42 +726,39 @@ def sample_photo_lead(db, *, slug: str, version: str, frames, cir) -> dict | Non
     import hashlib
 
     from ..core.artifacts import ArtifactStore
-    from ..core.models import PhysicalPhoto, PhysicalTest
-    from ..gates import risk_matrix
+    from . import sample_photo
 
     lead = next((f for f in frames if getattr(f, "asset_class", "") == "PHYSICAL_PRODUCT_PHOTO"
                  and (getattr(f, "claims", None) or {}).get("leads_gallery") is True), None)
     if lead is None:
         return None
     claims = dict(lead.claims or {})
-    with db.session() as s:
-        photo = s.get(PhysicalPhoto, claims.get("physical_photo_id")) \
-            if claims.get("physical_photo_id") else None
-        test = (s.get(PhysicalTest, photo.physical_test_id)
-                if photo is not None and photo.physical_test_id else None)
-        pdetail = dict(photo.detail or {}) if photo is not None else {}
-        measured = dict(test.measured or {}) if test is not None else {}
-        facts = {"photo_sha": photo.sha256 if photo is not None else None,
-                 "rights": photo.rights_basis if photo is not None else "",
-                 "t_slug": test.product_slug if test is not None else None,
-                 "t_version": test.version if test is not None else None,
-                 "passed": test.passed if test is not None else None,
-                 "completed": test.completed_at is not None if test is not None else False}
-    classify = getattr(risk_matrix, "physical_class_of", None)
-    full_make = bool(classify is not None and test is not None
-                     and classify(measured)[0] == risk_matrix.FULL_PHYSICAL_MAKE)
-    attestation = {
-        "unedited": pdetail.get("unedited") is True and not pdetail.get("edited"),
-        "not_ai_processed": not pdetail.get("ai_processed"),
-        "test_passed": facts["passed"] is True, "test_completed": facts["completed"],
-        "full_make": full_make,
-        "same_release": (facts["t_slug"], facts["t_version"]) == (slug, version)
-                        and facts["photo_sha"] == lead.sha256,
-        "camera_provenance": claims.get("provenance") == "camera",
-        "rights_basis": bool(facts["rights"]),
-        "slug": facts["t_slug"], "version": facts["t_version"],
-        "full_make_classifier": "risk_matrix.physical_class_of" if classify else
-                                "absent on this build (arrives with W-PHYSFIX): not attested"}
+    # Review OPUS2C F2-1 (HIGH): ONE photo standard. Whether this photograph may lead is
+    # `sample_photo.qualifying_photos` -- the owner's Command Center attestation bound to these
+    # bytes, not a system-made file, bound by `first_customer.physical_binding` to a passed full
+    # make of this release's content, rights, bytes on file. Nothing is rebuilt here: the lead
+    # qualifies exactly when that rule lists this photo id with this frame's SHA-256.
+    pid = claims.get("physical_photo_id")
+    try:
+        verdict = sample_photo.qualifying_photos(db, slug, version)
+    except Exception as exc:  # noqa: BLE001 - an unreadable rule qualifies nothing
+        verdict = {"qualifying": [], "rejected": [
+            {"photo_id": pid, "why": f"qualifying_photos unreadable: {type(exc).__name__}"}]}
+    match = next((q for q in verdict.get("qualifying") or []
+                  if q.get("photo_id") == pid and q.get("sha256") == lead.sha256), None)
+    rejected = next((q for q in verdict.get("rejected") or [] if q.get("photo_id") == pid),
+                    None)
+    ok = match is not None
+    why = ("" if ok else (rejected or {}).get("why")
+           or "the lead frame's photo is not a qualifying photograph of this release "
+              "(photo id or SHA-256 not on file for it)")
+    from .listing_set import PHOTO_ATTESTATION
+
+    attestation = {**{k: ok for k in PHOTO_ATTESTATION},
+                   "slug": slug if ok else None, "version": version if ok else None,
+                   "rule": "publish.sample_photo.qualifying_photos",
+                   "physical_test_id": (match or {}).get("physical_test_id"),
+                   **({"why": why} if why else {})}
     qa: dict = {"asset_truth": {"ok": bool(lead.approved) and not (lead.blocked_reasons or [])}}
     try:
         data = ArtifactStore().get(lead.sha256, db=db)

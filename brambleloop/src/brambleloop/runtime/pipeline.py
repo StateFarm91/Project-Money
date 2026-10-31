@@ -727,7 +727,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     # decided before any CIR exists. A shaped form no fallback rule makes is refused by name
     # rather than drafted as a flat panel under that name.
     route = FC.plan(category=concept.category, title=concept.title,
-                    is_bundle=bool(seed.is_bundle) if seed is not None else False)
+                    is_bundle=bool(seed.is_bundle) if seed is not None else False,
+                    slug=concept.slug, rationale=seed.rationale if seed is not None else "")
     if route["family"] == FC.REFUSED:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": route["why"][:400], "gate": "construction",
@@ -773,6 +774,16 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "provenance"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    except (ValueError, KeyError) as exc:
+        # Review OPUS2C N3.3: a construction that cannot be built from these inputs (an empty
+        # repeat, no colours, a stitch outside the taxonomy) is a named refusal, not a crash.
+        why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": why[:400], "gate": "construction",
+                          "category": concept.category,
+                          "needs": f"inputs the {route['family']} construction can work"})
+        return {"artifact": slug, "drafted": False, "gate": "construction",
+                "construction": route["family"], "reasons": [why[:300]]}
     # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
     # this fallback now makes. Recorded, never a refusal here: publication refuses it
     # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.

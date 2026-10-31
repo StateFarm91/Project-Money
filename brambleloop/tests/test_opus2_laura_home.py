@@ -220,6 +220,23 @@ def test_review_opus2a_no_decoy_of_the_products_own_kind_in_any_room_frame():
         assert "mobile" not in v["moment"]
 
 
+def test_review_opus2c_n21_no_frame_of_any_category_names_another_knitted_item():
+    import re
+
+    rx = re.compile(rf"\b(?:{H.KNITTED_OR_CROCHETED})", re.I)
+    categories = sorted(set(H.ROOM_FOR_CATEGORY) | {"afghan", "rug"}) + [None]
+    roles = ("lifestyle", "lifestyle_2", "in_use", "context", "scale")
+    assert categories and roles
+    for category in categories:
+        room = H.room_for(category)[0]
+        for i in range(30):
+            for r in roles:
+                v = H.variation(room, listing=f"n21-{i}", role=r, category=category)
+                text = " ".join(v["clutter"] + [v["moment"]])
+                assert not rx.search(text), (category, text)
+                assert v["clutter"][0] != v["clutter"][1], (category, v)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

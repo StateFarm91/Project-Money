@@ -68,7 +68,9 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
         if route["family"] == F.REFUSED:
             assert route["needs"] and route["why"], seed.slug
     assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
-    assert F.plan(category="blanket", title="Granny Throw")["family"] == F.FLAT_PANEL
+    # Review OPUS2C N3.2: a granny square is a motif assembly, not one panel.
+    assert F.plan(category="blanket", title="Granny Throw")["family"] == F.REFUSED
+    assert F.plan(category="blanket", title="Everyday Throw")["family"] == F.FLAT_PANEL
     assert F.plan(category="blanket", title="Baby Hat")["family"] == F.REFUSED
     assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.PANEL_PAIR
     assert F.plan(category="wedding", title="Wedding Ring Cushion")["family"] == F.PANEL_PAIR
@@ -85,7 +87,15 @@ def test_a_basket_concept_drafts_a_vessel_that_compiles_and_carries_the_concept(
     cir = CIR.from_dict(emitted[0][1]["cir"])
     assert cir.construction == "joined_rounds" and cir.components[0].foundation_kind == \
         "magic_ring"
-    assert compile_cir(cir).ok
+    result = compile_cir(cir)
+    assert result.ok
+    # Review OPUS2C test gap: the vessel also twins and reverses cleanly.
+    from brambleloop.cir import reverse
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.cir.writer import write_pattern
+
+    assert build_twin(cir, result) is not None
+    assert reverse.compare(cir, write_pattern(cir, result, "US")) == []
     # The concept's own palette and stitch repeat are in the fabric, not a fixed table's.
     assert set(cir.colors) == set(inputs["colors"])
     used = {r.color for r in cir.components[0].rows}
@@ -208,6 +218,42 @@ def test_a_plain_triangle_shawl_drafts_and_a_named_stitch_pattern_is_refused():
     wingspan = rows[-1].declared_count * 10.0 / gauge.stitches_per_10cm
     assert abs(wingspan - F.SHAWL_WINGSPAN_CM) < 2.0, wingspan
     assert f"{wingspan:.0f} cm along the top edge" in cir.finished_size_note
+
+
+def test_review_opus2c_n31_n32_several_sizes_and_shaped_categories_are_refused():
+    # N3.1: the trio's premise is "in three sizes"; one draft is one size. Through the real
+    # handler the radar's trio is a retired alias that drafts nothing itself: it routes to the
+    # three engineered sizes, one release each. The fallback rule refuses it on its own too.
+    db, seed = _db("market-basket-trio")
+    result, emitted, audits = _draft(db, _payload(seed))
+    assert result["drafted"] is False and result.get("retired_alias") is True, result
+    assert len(result["routed_to"]) == 3, result
+    assert not any(kind == "cir.compile" and data["cir"]["slug"] == seed.slug
+                   for kind, data in emitted), emitted       # nothing drafted under "trio"
+    route = F.plan(category=seed.category, title=seed.title, slug=seed.slug,
+                   rationale=seed.rationale)
+    assert route["family"] == F.REFUSED and "one certified release per size" in route["needs"]
+    assert F.plan(category="basket", title="Market Basket Trio")["family"] == F.REFUSED
+    assert F.plan(category="basket", title="Storage Basket",
+                  rationale="Worked in three sizes")["family"] == F.REFUSED
+    assert F.plan(category="basket", title="Storage Basket", slug="storage-basket-trio",
+                  rationale="")["family"] == F.REFUSED
+    assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
+    # N3.2: shaped or charted categories and titles never take the flat route.
+    for category, title in (("ornament", "Star Ornament"), ("flower", "Daisy"),
+                            ("blanket", "Hexagon Granny Blanket"), ("pet", "Cat Bed")):
+        assert F.plan(category=category, title=title)["family"] == F.REFUSED, title
+    assert F.plan(category="blanket", title="Everyday Throw")["family"] == F.FLAT_PANEL
+
+
+def test_review_opus2c_n33_a_construction_that_cannot_be_built_is_a_named_refusal():
+    db, seed = _db("nordic-forest-basket")
+    inputs = {**_payload(seed), "colors": {}}          # a vessel needs a colour
+    result, emitted, audits = _draft(db, inputs)
+    assert result["drafted"] is False and result["gate"] == "construction", result
+    assert emitted == [] and "colour" in result["reasons"][0]
+    refused = [kw for a, kw in audits if a == "cir.draft_refused"]
+    assert refused and refused[0]["detail"]["gate"] == "construction"
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ _NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
 _NUM = r"(\d{1,2}|" + "|".join(_NUMBER_WORDS) + r")"
 _FULL = r"(?:small|medium|large|extra[- ]large)"
 # Size letters are matched case-sensitively: "S, M, L" is a size list, "m/s" is not.
-_TOK = r"(?:XXS|XS|S|M|L|XL|XXL|[2-5]XL)"
+_TOK = r"(?:XXS|XS|S|M|L|XL|XXL|[2-6]XL?)"
 # Objects sold in graded sets. A set of coasters, ornaments or placemats is a count of pieces
 # in one size, never a claim of several sizes, so those nouns are deliberately absent.
 _VESSEL = (r"(?:baskets?|bowls?|bins?|box(?:es)?|trays?|pots?|planters?|bags?|totes?|"
@@ -99,6 +99,29 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
     ("vessel_set", re.compile(rf"\b(?:set\s+of\s+{_NUM}|(trio|pair))\s+(?:of\s+)?"
                               rf"(?:[a-z]+\s+){{0,2}}?{_VESSEL}\b", re.I),
      lambda m: _to_int(m.group(1)) if m.group(1) else _GROUPED[m.group(2).lower()]),
+    # Review OPUS2C N1.1: forms that got through.
+    ("vessel_group", re.compile(rf"\b{_VESSEL}\s+(trio|pair)\b", re.I),
+     lambda m: _GROUPED[m.group(1).lower()]),
+    ("named_range", re.compile(rf"\b{_FULL}\s+(?:to|through|thru|-|–)\s+{_FULL}\b|"
+                               rf"(?<![\w/]){_TOK}\s+(?:to|through|thru)\s+{_TOK}(?![\w/])",
+                               re.I), lambda m: None),
+    ("multi_size", re.compile(r"\bmulti-?\s?sized?\b|\bmultiple\s+size\s+options?\b|"
+                              r"\bgraduat(?:ing|ed)\s+sizes\b", re.I), lambda m: None),
+    ("dimension_tail_unit", re.compile(
+        r"\b(?:sizes?|diameters?|widths?|heights?)\s*:?\s*\d+(?:\.\d+)?"
+        r"(?:\s*(?:,|/|&|\band\b)\s*\d+(?:\.\d+)?)+\s*(?:cm|mm|in(?:ches)?\b)", re.I),
+     lambda m: len(re.findall(r"\d+(?:\.\d+)?", m.group(0)))),
+    # A slash list of the same unit is several sizes; "20 cm / 8 in" is one size converted.
+    ("dimension_slash", re.compile(rf"{_DIM}(?:\s*/\s*{_DIM})+", re.I),
+     lambda m: (len(re.findall(_DIM, m.group(0)))
+                if len({u.lower()[:2] for u in re.findall(r"cm|mm|in|\"", m.group(0))}) == 1
+                else 1)),
+    ("article_named", re.compile(rf"\ban?\s+{_FULL}\s*(?:,|&|\band\b)\s*(?:and\s+)?"
+                                 rf"(?:an?\s+{_FULL}\s*(?:,|&|\band\b)\s*(?:and\s+)?)*"
+                                 rf"an?\s+{_FULL}\b", re.I), _distinct_full),
+    ("vessel_count", re.compile(rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?{_VESSEL}"
+                                rf"(?:\s+set)?\b", re.I), _count_word),
+    ("named_plus", re.compile(rf"\b{_FULL}\s*\+\s*{_FULL}\b", re.I), _distinct_full),
     ("nesting", re.compile(r"\bnesting\b", re.I), lambda m: None),
     ("several_sizes", re.compile(r"\b(?:multiple|several|various)\s+sizes\b|"
                                  r"\ball\s+sizes\b(?!\s+of\s+(?:yarn|hooks?|needles?))|"
@@ -109,6 +132,7 @@ _BARE_SET = re.compile(rf"\bset\s+of\s+{_NUM}\b", re.I)
 _VESSEL_RX = re.compile(rf"\b{_VESSEL}\b", re.I)
 
 # A size word followed by these is advice about a hook or gauge, never a promise of sizes.
+_TOOL_BETWEEN = re.compile(r"\b(?:hook|needle)s?\b", re.I)
 _NOT_A_CLAIM_AFTER = re.compile(r"^\s*(?:larger|smaller|bigger|up|down)\b", re.I)
 _HOOK_BEFORE = re.compile(r"\b(?:hook|needle)s?\s*(?:\w+\s+){0,1}$", re.I)
 
@@ -151,7 +175,9 @@ def claims_in(text: str, *, graded_reference_ok: bool = False) -> list[dict]:
         for name, rx, count_of in _PATTERNS:
             for m in rx.finditer(read):
                 if name == "count" and (_NOT_A_CLAIM_AFTER.match(read[m.end():])
-                                        or _HOOK_BEFORE.search(read[:m.start()])):
+                                        or _HOOK_BEFORE.search(read[:m.start()])
+                                        # Review OPUS2C N1.2: "two hook sizes" is advice.
+                                        or _TOOL_BETWEEN.search(m.group(0))):
                     continue
                 found.append((name, m, count_of(m)))
         if _VESSEL_RX.search(read):

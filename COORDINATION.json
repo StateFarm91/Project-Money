@@ -108,13 +108,15 @@
       "id": "OPUS2-SIZECLAIMS",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "gates/size_claims.py"
+      "scope": "gates/size_claims.py",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
     },
     {
       "id": "OPUS2-LAURAHOME",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
+      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
     },
     {
       "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
@@ -162,7 +164,8 @@
         "claude/w4-PHYSFIX (risk_matrix.physical_class_of, intake unedited attestation)",
         "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
         "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
-      ]
+      ],
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
     },
     {
       "id": "OPUS2-REVERIFY-WITHHOLD",
@@ -187,7 +190,8 @@
       "state": "ready_for_review",
       "evidence": "tests/test_opus2_draft_constructions.py 6/6 (vessel, panel_pair cushion, triangle shawl); 39-suite regression exit 0 (2026-10-31)",
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
-      "note": "does not touch radar/intake.py or the W-CONCEPT concept path"
+      "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
     },
     {
       "id": "OPUS2-NEXT-PRODUCT-FINDING",

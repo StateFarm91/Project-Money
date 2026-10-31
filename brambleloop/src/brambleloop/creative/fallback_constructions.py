@@ -47,12 +47,21 @@ NEEDS: dict[str, str] = {
     "nursery": "several shaped pieces assembled on a hanger",
     "toy": "shaped pieces worked in the round, stuffed and joined",
     "coaster": "a disc worked in joined rounds (products.vessels.build_hexagon_coaster)",
+    # Review OPUS2C N3.2: shaped or charted categories the flat route must not take.
+    "ornament": "a small shaped or closed piece with a hanging loop",
+    "flower": "a motif worked in rounds and joined",
+    # `mosaic_blanket` and `graphghan` are deliberately NOT refused here: they are flat
+    # fabrics, W-CONCEPT's intake refuses them upstream, publication's colourwork rule
+    # (`first_customer.colourwork_findings`) refuses a mosaic claim the fabric cannot make, and
+    # test_shadow drafts a raw mosaic concept to prove bad arithmetic dies at the compiler.
 }
 
 # Title words that name a shaped, closed or assembled object whatever the category says. The
 # assembled forms are launch0's (a flat panel under them promises a make it does not contain).
 _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "sweater",
-                 "shawl", "shawlette", "tote", "bag", "cluster", "egg cosy", "mitten", "sock")
+                 "shawl", "shawlette", "tote", "bag", "cluster", "egg cosy", "mitten", "sock",
+                 # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
+                 "granny", "hexagon", "hexie", "bed")
 
 
 def _shaped_title(title: str) -> str | None:
@@ -65,11 +74,33 @@ def _shaped_title(title: str) -> str | None:
     return None
 
 
-def plan(*, category: str, title: str, is_bundle: bool = False) -> dict:
+def _several_sizes(*texts: str) -> str | None:
+    """The first size promise in a concept's slug, title or rationale (gates.size_claims)."""
+    from ..gates import size_claims
+
+    for text in texts:
+        words = re.sub(r"[-_]", " ", text or "")
+        found = size_claims.claims_in(words)
+        if found:
+            return found[0]["phrase"]
+    return None
+
+
+def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
+         rationale: str = "") -> dict:
     """The construction family a fallback concept is drafted in, and why."""
     if is_bundle:
         return {"family": REFUSED, "needs": "the member releases it collects",
                 "why": "a bundle is a collection of other designs, not a design to draft"}
+    # Review OPUS2C N3.1: one draft is one release is one size. A concept whose slug, title
+    # or premise promises several (a trio, three sizes) is refused, never drafted as one.
+    promise = _several_sizes(slug, title, rationale)
+    if promise:
+        return {"family": REFUSED,
+                "needs": "one certified release per size (products.vessels.build_basket per "
+                         "BASKET_SIZES), each listed on its own",
+                "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
+                        f"is one release of one size")}
     if category in NEEDS:
         return {"family": REFUSED, "needs": NEEDS[category],
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "

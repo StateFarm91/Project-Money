@@ -231,12 +231,16 @@ def _index(salt: str, n: int) -> int:
     return int(hashlib.sha256(salt.encode()).hexdigest(), 16) % n
 
 
+# Review OPUS2C N2.1: every frame says no other crocheted or knitted item is present, so no
+# frame of any category may name one -- including a category with no decoy entry yet.
+KNITTED_OR_CROCHETED = (r"throw|blanket|afghan|cardigan|sweater|jumper|mittens?|scarf|beanie|"
+                        r"knit\w*|crochet\w*|cos(?:y|ies)|coz(?:y|ies)")
+
+
 def _undecoyed(items: tuple[str, ...], category: str | None) -> tuple[str, ...]:
     rx = DECOY_FOR_CATEGORY.get(str(category or "").lower())
-    if not rx:
-        return items
-    kept = tuple(x for x in items if not re.search(rf"\b(?:{rx})", x, re.I))
-    return kept
+    pattern = KNITTED_OR_CROCHETED + (f"|{rx}" if rx else "")
+    return tuple(x for x in items if not re.search(rf"\b(?:{pattern})", x, re.I))
 
 
 def variation(room: Room, *, listing: str, role: str = "lifestyle",

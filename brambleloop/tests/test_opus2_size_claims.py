@@ -212,6 +212,29 @@ def test_a_generic_disclaimer_never_hides_a_size_claim_in_the_same_sentence():
         assert v["state"] == Z.FAIL and v["claimed"] == 3, t
 
 
+# Independent review OPUS2C (9c1a0037), N1.1 and N1.2: every probe row, pinned.
+REVIEW_C_MUST_FAIL = (
+    "Includes sizes small to large.", "Available in small through large.",
+    "From small to extra large.", "XS to 5X", "Sizes: 20, 25 and 30 cm.",
+    "20 cm / 25 cm / 30 cm", "multi-size pattern", "multiple size options",
+    "a small, a medium and a large basket", "three baskets in graduating sizes", "3 baskets",
+    "3-piece basket set", "small + large", "Market Basket Trio",
+)
+REVIEW_C_MUST_PASS = (
+    "Go up two hook sizes for a looser fabric.", "About 20 cm / 8 in across.",
+    "One basket, 2 colours.", "Use 2 strands held together.", "A small basket for bread",
+    "Crochet Storage Basket",
+)
+
+
+def test_review_opus2c_n11_n12_probe_rows_are_each_judged_as_the_review_expects():
+    assert REVIEW_C_MUST_FAIL and REVIEW_C_MUST_PASS
+    for t in REVIEW_C_MUST_FAIL:
+        assert Z.check_texts({"listing title": t})["state"] == Z.FAIL, t
+    for t in REVIEW_C_MUST_PASS + REVIEW_MUST_PASS:
+        assert Z.check_texts({"listing title": t})["state"] == Z.PASS, t
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
