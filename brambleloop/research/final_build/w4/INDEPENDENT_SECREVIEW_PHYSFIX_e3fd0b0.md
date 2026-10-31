@@ -304,5 +304,14 @@ Run from `brambleloop/`, one at a time:
 - test_secreview_physfix_adversarial rc=0 9s :: 12/12 passed
 - test_secreview_physfix_42eac69_probes rc=0 7s :: 8/8 passed
 - test_secreview_physfix_89eef1e_probes rc=0 5s :: 8/8 passed
-- (remaining suites still running at partial push)
+- test_risk_matrix rc=0 109s :: OK   test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet
+- test_physical rc=0 84s :: OK   test_with_no_sample_the_estimate_stays_uncalibrated
+- test_physical_record_blocked rc=0 5s :: 5/5 passing
+- test_executor rc=0 24s :: OK   test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row
+- test_w4_b2gates rc=0 94s :: 12/12 passing
+- test_physfix_photo_first rc=0 7s :: 8/8 passed
+- test_w4_launchfix rc=0 27s :: 32 passed, 0 failed
+- test_vacuity rc=0 9s :: OK   test_the_scan_sees_the_suite
+- test_first_customer_gate rc=0 18s ::   12 passing, 0 failing
 
+All 13 suites pass (rc=0). They pass while R18 and R19 are open: no suite probes hold/piece order or owner-made rows in the roster.
