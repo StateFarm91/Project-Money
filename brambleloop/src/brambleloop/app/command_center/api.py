@@ -682,6 +682,39 @@ def make_router(db) -> APIRouter:
                             "page": str(body.get("page") or "")[:40]})
         return ok(out)
 
+    # ---- W4-LAUNCHFIX: Etsy policy page readings from the owner's phone (#/policy) ---------
+    # Owner session (CSRF/nonce by the gate) to read; step-up to record, because a reading is
+    # evidence that opens gates. Same path as POST /api/policy/snapshot; `read_by` is the
+    # authenticated owner, never the body. The pasted text is stored only as its SHA-256.
+
+    @router.get("/policy/readings")
+    def policy_readings_state(request: Request):
+        from . import policy_readings
+
+        return ok(policy_readings.status(db))
+
+    @router.post("/policy/readings")
+    async def policy_readings_record(request: Request):
+        from . import policy_readings
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, policy_readings.STEP_UP_ACTION)
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(
+                lambda: policy_readings.record(db, body, actor=actor(request)))
+        except policy_readings.DuplicateReading as exc:
+            raise auth.refuse(db, request, 409, "DUPLICATE", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        except policy_readings.ReadingRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": policy_readings.STEP_UP_ACTION,
+                            "source": out.get("source"), "snapshot_id": out.get("id"),
+                            "material_change": out.get("material_change")})
+        return ok(out)
+
     # ---- the owner's Launch-0 image-review batch (W4-LISTREADY, D-W4-LAUNCH-VISION-BATCH) ----
     # Owner session for both; step-up to activate. Activation fixes the frame scope from the
     # stored Launch-0 frames, then enqueues the one batch run. Nothing else raises a ceiling.

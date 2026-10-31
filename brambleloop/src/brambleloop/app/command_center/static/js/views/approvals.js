@@ -225,6 +225,8 @@ export async function render({ params, rerender }) {
       meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
+    // W4-LAUNCHFIX: Etsy policy page readings are recorded on their own view.
+    card({ title: "Etsy policy readings" }, h("p", null, h("a", { href: "#/policy" }, "Record your reading of each Etsy policy page"))),
     releaseCard(data.release),
     batchesCard(data.decision_batches),
     notYetAskableCard(data.not_yet_askable),

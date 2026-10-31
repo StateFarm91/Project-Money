@@ -128,14 +128,16 @@ def _physical(db, cir) -> dict:
               action="a tester crochets the sample and records it (tester roster)")
 
 
-def _remote() -> dict:
+def _remote(db=None) -> dict:
     from ..gates.first_customer import check_etsy_remote_state
 
-    c = check_etsy_remote_state()
-    state = PASS if c.state == "PASS" else UNKNOWN
+    # W4-LAUNCHFIX D1: judged on the recorded controlled-exercise evidence in `db`.
+    c = check_etsy_remote_state(db)
+    state = {"PASS": PASS, "FAIL": FAIL}.get(c.state, UNKNOWN)
     return _g(state, c.detail, owner=OWNER, evidence=c.measured_on,
-              action=("grant the first draft publication (sealed owner grant); the first "
-                      "upload is read back from Etsy"))
+              action=("the owner's word to run the CA$0 controlled Etsy exercise (POST "
+                      "/api/etsy/exercise, mode full): a test draft, image, update, read-back "
+                      "and verified delete against openapi.etsy.com"))
 
 
 def _grant(db, slug: str, version: str, release: str) -> dict:
@@ -235,7 +237,7 @@ def build(db, *, readiness: dict | None = None, store_root=None) -> dict:
                 lambda: _upload_payload(db, cir.slug, cir.version, rel, store_root))
             g["durable_delivery"] = _safe(lambda: _durable(db, cir.slug, cir.version))
             g["physical_sample"] = _safe(lambda: _physical(db, cir), owner=OWNER)
-            g["etsy_upload_confirmed"] = _safe(_remote, owner=OWNER)
+            g["etsy_upload_confirmed"] = _safe(lambda: _remote(db), owner=OWNER)
             g["publication_grant"] = _safe(lambda: _grant(db, cir.slug, cir.version, rel),
                                            owner=OWNER)
             for k, b in BLOCKER.items():
@@ -294,7 +296,7 @@ def _shop(db, products: list[dict]) -> dict:
     out["etsy_taxonomy_read"] = _safe(taxonomy_gate)
     out["category_matched"] = all_products("etsy_category", "category", COMPANY)
     out["durable_delivery"] = all_products("durable_delivery", "certified PDFs held", COMPANY)
-    out["etsy_upload_confirmed"] = _safe(_remote, owner=OWNER)
+    out["etsy_upload_confirmed"] = _safe(lambda: _remote(db), owner=OWNER)
     return out
 
 

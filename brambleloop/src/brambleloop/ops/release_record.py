@@ -20,6 +20,12 @@ it is committed on top (`ops/deploy_guard.py record` writes it; a record-only co
 Binding to the tree digest rather than to the running commit is what makes that sound: the
 record-only commit has the same deployable tree as the commit the suite ran on.
 
+NO CHECKPOINTED, RESUMED OR SHARDED RUN (W4-RESUMEFIX F1; owner decision
+D-W4-OWNER-RESUME-POLICY). A suite record carrying checkpoint or resume provenance, a log with
+`CHECKPOINT`/`RESUME` lines, or a run id with a checkpoint directory under `artifacts/suite_runs/`
+is refused, whatever its `release_eligible` bit says. There is no override; this mirrors
+`ops/deploy_guard.resume_provenance`.
+
 WHAT IT DOES. Off the hosting platform it only reports. On it (any `RAILWAY_*` marker, or
 `BRAMBLELOOP_BOOT_GUARD=enforce|refuse`), an unproven build is forced to SHADOW (the
 `BRAMBLELOOP_PHASE` the process sees is overwritten before anything reads it) and a P1
@@ -44,6 +50,12 @@ PLATFORM_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME", "RAILWAY_
 MODE_ENV = "BRAMBLELOOP_BOOT_GUARD"
 INCIDENT_SIGNATURE = "release.unproven_build"
 _TOTAL = re.compile(r"^TOTAL PASSING: (\d+) ; suites failing: (\d+)\s*$", re.M)
+#: W4-RESUMEFIX F1: same keys and log markers as ops/deploy_guard.py (a test holds them equal).
+RESUME_PROVENANCE_KEYS = ("checkpoint", "checkpoint_mode", "resumed", "resume_of", "shard",
+                          "suite_results")
+_CKPT_LOG = re.compile(r"^(CHECKPOINT|RESUME)\b", re.M)
+RESUME_POLICY = "D-W4-OWNER-RESUME-POLICY"
+_RUN_ID = re.compile(r"[A-Za-z0-9TZ-]+")
 
 
 def deployable(rel: str) -> bool:
@@ -87,9 +99,41 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def check_record(rec: dict, release_dir: Path) -> list[str]:
-    """Why this record does not prove a release-eligible build; empty when it does."""
+def resume_provenance(suite: dict, checkpoint_root: Path | None = None,
+                      log_text: str | None = None) -> list[str]:
+    """Why this suite record is a checkpointed/resumed/sharded run; empty for a plain run.
+    No override exists (owner decision D-W4-OWNER-RESUME-POLICY)."""
+    found = []
+    keys = [k for k in RESUME_PROVENANCE_KEYS if k in suite]
+    if keys:
+        found.append("carries checkpoint/resume provenance (" + ", ".join(keys) + ")")
+    if checkpoint_root is not None:
+        ids = {str(suite.get("run_id") or "")}
+        job = str(suite.get("job_id") or "")
+        if job.startswith("suite-"):
+            ids.add(job[len("suite-"):])
+        for rid in sorted(i for i in ids if i and _RUN_ID.fullmatch(i)):
+            if (Path(checkpoint_root) / rid).is_dir():
+                found.append(f"run {rid} has a checkpoint directory")
+    if log_text is not None and _CKPT_LOG.search(log_text):
+        found.append("its log carries CHECKPOINT/RESUME lines")
+    if not found:
+        return []
+    return [f"suite run {suite.get('run_id')!r} is a checkpointed, resumed or sharded run: "
+            + "; ".join(found) + f". Only one uninterrupted plain full run certifies a release "
+            f"(owner decision {RESUME_POLICY}); there is no override"]
+
+
+def check_record(rec: dict, release_dir: Path,
+                 checkpoint_root: Path | None = None) -> list[str]:
+    """Why this record does not prove a release-eligible build; empty when it does.
+
+    `checkpoint_root` defaults to `<root>/artifacts/suite_runs` beside the release directory;
+    a run id with a checkpoint directory there is refused (W4-RESUMEFIX F1)."""
     reasons: list[str] = []
+    if checkpoint_root is None:
+        checkpoint_root = release_dir.parent / "artifacts" / "suite_runs"
+    log_text = None
     sha = str(rec.get("sha") or "")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         reasons.append("record does not name a full commit SHA")
@@ -116,7 +160,7 @@ def check_record(rec: dict, release_dir: Path) -> list[str]:
             except ValueError:
                 reasons.append("tracked suite record is not JSON")
         else:
-            text = p.read_text(errors="replace")
+            text = log_text = p.read_text(errors="replace")
             if suite is not None and (f"RUN ID: {suite.get('run_id')}" not in text
                                       or f"GIT SHA: {sha}" not in text):
                 reasons.append("tracked log does not name this run and SHA")
@@ -131,6 +175,8 @@ def check_record(rec: dict, release_dir: Path) -> list[str]:
         if suite.get("scope") != "full" or suite.get("failing_suites") or int(
                 suite.get("suites_failing") or 0):
             reasons.append("suite record is not a full run with zero failing suites")
+    if suite is not None or log_text is not None:
+        reasons.extend(resume_provenance(suite or {}, checkpoint_root, log_text))
     return reasons
 
 

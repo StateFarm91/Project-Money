@@ -691,6 +691,8 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
 
     with single_flight(db) as claim:
         report["single_flight"] = claim
+        # W4-LAUNCHFIX review F-4: the run's own breadcrumbs are those written after this id.
+        start_id = _last_audit_id(db)
         _audit(db, RUN_STARTED, {"mode": mode, "phase": report["phase"]})
 
         client = _client(db, env, transport, breadcrumbs=(mode == "full"))
@@ -764,8 +766,207 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
         _audit(db, RUN_FINISHED, {"mode": mode, "ok": redacted["ok"],
                                   "status": redacted["status"],
                                   "shop_is_clean": redacted["shop_is_clean"],
-                                  "rotations": redacted["after"]["oauth"]["rotations"]})
+                                  "rotations": redacted["after"]["oauth"]["rotations"],
+                                  # W4-LAUNCHFIX D1: which claim this run settled, per claim,
+                                  # so `gates.first_customer.check_etsy_remote_state` judges
+                                  # recorded evidence. Names and states only, after redaction.
+                                  "against_etsy": bool(redacted.get("against_etsy")),
+                                  "claims": _claim_states(redacted)})
+        # W4-LAUNCHFIX review F-2/F-4/F-5: the evidence the first-customer gate reads is a
+        # sealed, chained row, bound to this run's own drafts and to the transport it used.
+        report_seal = _seal_evidence(db, mode=mode, report=redacted, start_id=start_id,
+                                     transport=transport)
+        redacted["evidence"] = report_seal
         return redacted
+
+
+def _last_audit_id(db) -> int:
+    from sqlalchemy import func
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        return int(s.scalar(select(func.max(AuditLog.id))) or 0)
+
+
+def _run_drafts(db, start_id: int) -> tuple[list[str], list[str]]:
+    """The drafts this run created, and those it confirmed gone by a read of Etsy."""
+    from ..core.models import AuditLog
+
+    created, removed = [], []
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.id > start_id,
+                AuditLog.action.in_((DRAFT_CREATED, DRAFT_REMOVED))).order_by(AuditLog.id)):
+            d = row.detail or {}
+            lid = str(d.get("listing_id") or "")
+            if not lid:
+                continue
+            if row.action == DRAFT_CREATED:
+                created.append(lid)
+            elif str(d.get("confirmed_by") or "").strip():
+                removed.append(lid)
+    return created, removed
+
+
+def _seal_evidence(db, *, mode: str, report: dict, start_id: int, transport: Any) -> dict:
+    """Append the sealed evidence row. Never raises: an unsealable run is reported as such
+    and simply proves nothing to the gate (fail closed)."""
+    from datetime import datetime, timezone
+
+    created, removed = _run_drafts(db, start_id)
+    detail = {"principal": EVIDENCE_PRINCIPAL, "mode": mode, "ok": bool(report.get("ok")),
+              "status": str(report.get("status") or ""),
+              "against_etsy": bool(report.get("against_etsy")),
+              "transport": type(transport).__name__,
+              "transport_is_urllib": type(transport) is UrllibTransport,
+              "claims": _claim_states(report), "drafts_created": created,
+              "drafts_removed_confirmed": removed,
+              "recorded_at": datetime.now(timezone.utc).isoformat()}
+    try:
+        ident = EVIDENCE.append(db, action=EVIDENCE_ACTION, artifact=f"exercise:{mode}",
+                                detail=detail)
+    except ValueError as exc:
+        return {"sealed": False, "why": str(exc)[:200]}
+    return {"sealed": True, "evidence_id": ident}
+
+
+#: W4-LAUNCHFIX review F-2: the sealed family the first-customer gate reads. HMAC under the
+#: operator credential (as the owner grant families), hash-chained by `core.sealed_chain`,
+#: so a hand-inserted, edited, replayed or deleted row breaks the chain and proves nothing.
+EVIDENCE_ACTION = "etsy.exercise_evidence"
+EVIDENCE_REVOKED = "etsy.exercise_evidence_revoked"
+EVIDENCE_REBASED = "etsy.exercise_evidence_rebased"
+EVIDENCE_PRINCIPAL = "system:etsy_exercise"
+
+#: W4-LAUNCHFIX review F-3: Etsy's contract drifts; a round trip older than this proves
+#: nothing about today (the policy-reading window is 30 days; the exercise is costlier).
+EVIDENCE_MAX_AGE_DAYS = 90
+
+
+def _seal(detail: dict) -> str:
+    import hashlib
+    import hmac
+    import json
+    import os
+
+    from ..core import opsauth
+
+    if not opsauth.configured():
+        raise ValueError("operator credential unavailable, so the evidence cannot be sealed")
+    return hmac.new(os.environ[opsauth.TOKEN_VAR].strip().encode(),
+                    json.dumps(detail, sort_keys=True, separators=(",", ":"),
+                               default=str).encode(), hashlib.sha256).hexdigest()
+
+
+def _make_evidence_ledger():
+    from ..core.sealed_chain import GrantLedger
+
+    return GrantLedger(approved=EVIDENCE_ACTION, revoked=EVIDENCE_REVOKED,
+                       rebased=EVIDENCE_REBASED, principal=EVIDENCE_PRINCIPAL, seal=_seal,
+                       signature="authority_chain_tamper:etsy_exercise_evidence",
+                       label="Etsy exercise evidence")
+
+
+EVIDENCE = _make_evidence_ledger()
+
+
+def _claim_states(report: dict) -> list[dict]:
+    """`[{claim, state_after}]` from a run's own `etsy_probe.claims()` output, or []."""
+    out = []
+    for row in (report.get("exercise") or {}).get("claims") or []:
+        if isinstance(row, dict) and row.get("claim"):
+            out.append({"claim": str(row["claim"]),
+                        "state_after": str(row.get("state_after") or "")})
+    return out
+
+
+LIVE_STATUS_PREFIX = "EXERCISED against openapi.etsy.com"
+
+
+def remote_state_evidence(db, *, now=None) -> dict:
+    """W4-LAUNCHFIX D1 (hardened after review F-2..F-5): what the SEALED runs prove. Reads only.
+
+    Only `etsy.exercise_evidence` rows count, and only while their sealed chain verifies
+    (`EVIDENCE.refusal`). The newest sealed row that is a full run, finished ok, whose status
+    says it ran against openapi.etsy.com, whose requests went to the Etsy host
+    (`etsy_probe.against_etsy`, exact host) over the production `UrllibTransport`, is the live
+    run. It counts only while younger than `EVIDENCE_MAX_AGE_DAYS`, and its round trip is its
+    OWN: at least one draft it created, every one confirmed gone by a read of Etsy, and no
+    exercise draft anywhere still outstanding. Claims a later run (sealed or not) marked
+    CONTRADICTED are reported; a contradiction can only make the gate fail.
+    """
+    from datetime import datetime, timezone
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    out = {"live_run_at": None, "live_run_id": None, "verified_claims": [],
+           "contradicted_claims": [], "round_trip_clean": False, "drafts_created": 0,
+           "drafts_unmatched": [], "runs": 0, "stale": False, "rejected": []}
+    if db is None:
+        return out
+    with db.session() as s:
+        sealed = [(r.id, r.actor, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == EVIDENCE_ACTION).order_by(AuditLog.id))]
+        finished = [(r.id, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == RUN_FINISHED).order_by(AuditLog.id))]
+    out["runs"] = len(sealed)
+    live = None
+    for rid, actor, d in reversed(sealed):
+        why = None
+        if actor != EVIDENCE_PRINCIPAL:
+            why = "not written by the exercise principal"
+        else:
+            try:
+                why = EVIDENCE.refusal(db, rid)
+            except Exception as exc:  # noqa: BLE001 - unverifiable is no evidence
+                why = f"unverifiable: {type(exc).__name__}"
+        if why is not None:
+            out["rejected"].append({"id": rid, "why": str(why)[:160]})
+            continue
+        if not (d.get("mode") == "full" and d.get("ok") is True
+                and str(d.get("status") or "").startswith(LIVE_STATUS_PREFIX)
+                and d.get("against_etsy") is True and d.get("transport_is_urllib") is True):
+            continue
+        live = (rid, d)
+        break
+    if live is not None:
+        rid, d = live
+        out["live_run_id"] = rid
+        out["live_run_at"] = d.get("recorded_at")
+        try:
+            at = datetime.fromisoformat(str(d.get("recorded_at")))
+            age = (now - at).total_seconds() / 86400.0
+        except (TypeError, ValueError):
+            age = None
+        if age is None or age < 0 or age > EVIDENCE_MAX_AGE_DAYS:
+            out["stale"] = True
+        else:
+            out["verified_claims"] = sorted({
+                str(c.get("claim")) for c in d.get("claims") or [] if isinstance(c, dict)
+                and c.get("state_after") == "VERIFIED_AGAINST_ETSY"})
+        created = [str(x) for x in d.get("drafts_created") or []]
+        removed = set(str(x) for x in d.get("drafts_removed_confirmed") or [])
+        outstanding = [r["listing_id"] for r in outstanding_drafts(db)]
+        out["drafts_created"] = len(created)
+        out["drafts_unmatched"] = sorted((set(created) - removed) | set(outstanding))[:10]
+        out["round_trip_clean"] = bool(created) and not out["drafts_unmatched"]
+        # The live run's own RUN_FINISHED row precedes its sealed row; later ones follow it.
+        since_sealed = since_finished = rid
+    else:
+        since_sealed = since_finished = -1
+    contradicted = set()
+    for sid, _actor, d in sealed:
+        if sid >= since_sealed:
+            contradicted |= {str(c.get("claim")) for c in d.get("claims") or []
+                             if isinstance(c, dict) and c.get("state_after") == "CONTRADICTED"}
+    for fid, d in finished:
+        if fid > since_finished:
+            contradicted |= {str(c.get("claim")) for c in d.get("claims") or []
+                             if isinstance(c, dict) and c.get("state_after") == "CONTRADICTED"}
+    out["contradicted_claims"] = sorted(contradicted)
+    return out
 
 
 def _status(report: dict) -> str:

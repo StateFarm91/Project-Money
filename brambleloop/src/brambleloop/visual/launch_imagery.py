@@ -307,6 +307,15 @@ def _primary_for(slug: str):
                 # A sibling variant released under its own slug gets the frames of its own
                 # CIR; SIZING (every size together) stays with the primary's listing.
                 return listing, getattr(cand, "title", listing), c, [], cat
+    # D-W4-OWNER-BASKET-IDENTITY: a family held for separately verified future releases keeps
+    # the frames it always had for the sizes it still owns (each its own CIR, no SIZING); a
+    # size a launched product now sells was matched above and never reaches here.
+    for listing in getattr(launch0, "HELD_FOR_VERIFICATION", ()):
+        cand, cirs, cat = _listing_parts(listing)
+        for c in cirs:
+            owner = launch0.candidate_for_cir(c.slug)
+            if c.slug == slug and owner is not None and owner.slug == listing:
+                return listing, getattr(cand, "title", listing), c, [], cat
     from .render_verification import authoritative_cir
 
     cir = authoritative_cir(slug)

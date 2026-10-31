@@ -56,8 +56,8 @@ def test_every_launch0_primary_is_offered_its_verified_applicable_jobs():
     # Offered without a database, so CONTENTS (which needs the release's assets.built PDF)
     # is refused here with its reason; it is certified on the release path
     # (tests/test_w4_visual2.py, test_disclosed_certified_upload).
-    want = {"nursery-nesting-baskets": ["ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "SIZING",
-                                        "MATERIALS"],
+    # D-W4-OWNER-BASKET-IDENTITY: the launched basket is the small one alone, so no SIZING.
+    want = {"hexagonal-bread-basket": ["ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "MATERIALS"],
             "cloudline-baby-blanket": ["COLOUR_CONTEXT", "MATERIALS"],
             "hexagon-coaster-set": ["COLOUR_CONTEXT", "MATERIALS"],
             # promoted by lane PIPE (18baa94); both are flat colourwork pieces
@@ -253,7 +253,7 @@ def test_a_basket_sibling_released_under_its_own_slug_gets_its_own_frames_withou
         assert LI.check_supplement(med.slug, med.version, f["job"], f["png"])["status"] == "PASS"
     # Its own CIR: the shape-bearing frames differ from the small basket's (MATERIALS may
     # legitimately be identical -- same yarns, hook and gauge).
-    small = {f["job"]: f["sha256"] for f in _offer(primaries()["nursery-nesting-baskets"])["frames"]}
+    small = {f["job"]: f["sha256"] for f in _offer(primaries()["hexagonal-bread-basket"])["frames"]}
     mine = {f["job"]: f["sha256"] for f in offer["frames"]}
     assert all(mine[j] != small[j] for j in ("ANGLE", "CONSTRUCTION")), (mine, small)
 

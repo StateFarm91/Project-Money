@@ -62,7 +62,7 @@ def bytes_on_file(db, sha: str) -> bool:
 
 def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
            rights_basis: str = "", taken_by: str = "", physical_test_id: int | None = None,
-           note: str = "") -> dict:
+           note: str = "", unedited: bool = False) -> dict:
     """Record one physical photograph. Idempotent on its hash.
 
     CB2-I04: a SHA-256 and a rights label are not a photograph. The bytes must be in the
@@ -89,7 +89,13 @@ def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
                                 physical_test_id=physical_test_id,
                                 state=(HELD_NO_BYTES if not present else
                                        "received" if rights_basis else HELD_NO_RIGHTS),
-                                detail={"note": note[:500]})
+                                detail={"note": note[:500],
+                                        # W4-LAUNCHFIX: the photographer's attestation that
+                                        # this file is unedited (Etsy requires one unedited
+                                        # photo of a made sample). Absent is not unedited.
+                                        "unedited": unedited is True,
+                                        "unedited_attested_by": (taken_by[:120]
+                                                                 if unedited is True else "")})
             s.add(row)
             s.flush()
             new = True
@@ -253,3 +259,34 @@ def measure_impact(db, *, today: date | None = None) -> dict:
         else:
             row.payload = payload
     return payload
+
+
+#: W4-LAUNCHFIX review F-7: the owner's own attestation that a sample photograph is unedited,
+#: recorded through the Command Center (owner session, CSRF, nonce, step-up), never from an
+#: operator-token job body. The words are confirmed verbatim.
+UNEDITED_CONFIRMATION = ("I have checked this file: it is the photograph exactly as taken of a "
+                         "sample made from this pattern, with no edit, filter, crop, AI "
+                         "processing or composite")
+
+
+def attest_unedited(db, photo_id: int, *, actor: str, confirm: str) -> dict:
+    """Record the owner's verbatim attestation on one PhysicalPhoto. Raises UpgradeRefused."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import PhysicalPhoto
+
+    if str(confirm or "").strip() != UNEDITED_CONFIRMATION:
+        raise UpgradeRefused(f"confirm must be exactly {UNEDITED_CONFIRMATION!r}")
+    if not str(actor or "").startswith("owner:cc:"):
+        raise UpgradeRefused("only the owner's Command Center session may attest a photograph")
+    with db.session() as s:
+        photo = s.get(PhysicalPhoto, int(photo_id))
+        if photo is None:
+            raise UpgradeRefused(f"no physical photo {photo_id}")
+        photo.detail = {**(photo.detail or {}), "owner_attestation": {
+            "by": actor[:64], "sha256": photo.sha256, "confirmed": UNEDITED_CONFIRMATION,
+            "at": datetime.now(timezone.utc).isoformat()}}
+        flag_modified(photo, "detail")
+        return {"photo_id": photo.id, "sha256": photo.sha256, "attested": True}

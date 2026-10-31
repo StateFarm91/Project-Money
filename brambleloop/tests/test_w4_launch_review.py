@@ -106,7 +106,8 @@ def test_activation_needs_step_up_runs_once_and_fixes_the_owners_numbers():
     except LR.LaunchReviewRefused:
         pass
     st = LR.open_batch(db, by="owner", stepped_up=True, now=T0)
-    assert st["status"] == LR.OPEN and st["frames"] == 60
+    # 8 Launch-0 releases x 6 frames (D-W4-OWNER-BASKET-IDENTITY: one basket size, not 3).
+    assert st["status"] == LR.OPEN and st["frames"] == 48
     assert st["total_cap_cad"] == 7.07 and st["daily_cap_cad"] == 8.00
     assert st["decision_ref"] == "D-W4-LAUNCH-VISION-BATCH" and st["agent"] == "quality_director"
     assert st["expires_at"] == (T0 + timedelta(days=14)).isoformat()
@@ -166,7 +167,9 @@ def test_every_batch_call_is_reserved_before_it_is_made_and_counted_by_the_batch
 
 def test_the_batch_total_is_enforced_and_nothing_is_sent_once_it_is_spent():
     db = _db()
-    _activated(db, per_release=8)        # 170 calls possible: more than CA$7.07 buys
+    # 8 releases x 10 frames = the 80 frames 10 x 8 gave before D-W4-OWNER-BASKET-IDENTITY:
+    # more calls possible than CA$7.07 buys.
+    _activated(db, per_release=10)
     sent, refused_at = 0, None
     for release in LR.launch0_releases():
         frames = _release_frames(db, release)

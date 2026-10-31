@@ -2,6 +2,9 @@
 
 Wave-3 lane G, directive section 13. One listing per Launch-0 *product*:
 
+- `hexagonal-bread-basket`   one listing, the small basket alone, kitchen and home
+  (D-W4-OWNER-BASKET-IDENTITY, 2026-10-27). `nursery-nesting-baskets` below is the reserve
+  family, kept for separately verified future releases.
 - `nursery-nesting-baskets`  ONE listing, three sizes (small / medium / large) -- not three
   listings. The size words are licensed by the variant set (`facts.for_product`).
 - `hexagon-coaster-set`      one listing, a set of four.
@@ -93,6 +96,24 @@ FUNNEL: dict[str, dict] = {
 # priority: 1 (core) .. 3 (long tail); an ordinal judgement, `priority_basis` says so.
 
 FAMILIES: dict[str, list[dict]] = {
+    # D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the small basket alone, kitchen and home.
+    "hexagonal-bread-basket": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["crochet basket", "basket pattern", "crochet basket pattern"]},
+        {"family": "shape", "intent": "attribute", "priority": 1,
+         "phrases": ["hexagon basket", "hexagonal basket"]},
+        {"family": "use", "intent": "use/room", "priority": 1,
+         "phrases": ["bread basket", "crochet bread basket"]},
+        {"family": "room_use", "intent": "use/room", "priority": 2,
+         "phrases": ["kitchen crochet", "kitchen decor", "table decor",
+                     "crochet home decor"]},
+        {"family": "material", "intent": "attribute", "priority": 2,
+         "phrases": ["cotton crochet"]},
+        {"family": "skill_construction", "intent": "skill", "priority": 3,
+         "phrases": ["beginner crochet", "single crochet"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
     "nursery-nesting-baskets": [
         {"family": "object_core", "intent": "object+format", "priority": 1,
          "phrases": ["crochet basket", "basket pattern", "crochet basket pattern"]},
@@ -231,6 +252,11 @@ FAMILIES: dict[str, list[dict]] = {
 # The 13 tags chosen from the families (order = slot order). Chosen by hand from the families;
 # the builder verifies each is in a family, true, within limits and not stuffed.
 TAGS: dict[str, list[str]] = {
+    "hexagonal-bread-basket": [
+        "crochet basket", "basket pattern", "hexagon basket", "bread basket",
+        "hexagonal basket", "kitchen crochet", "kitchen decor", "table decor",
+        "crochet home decor", "cotton crochet", "beginner crochet", "single crochet",
+        "pdf crochet pattern"],
     "nursery-nesting-baskets": [
         "crochet basket", "basket pattern", "hexagon basket", "nesting baskets",
         "storage basket", "nursery storage", "nursery decor", "crochet storage",
@@ -276,6 +302,8 @@ TAGS: dict[str, list[str]] = {
 # Buyer-first titles: object + "crochet pattern" first (matching and CTR), then the
 # differentiators a shopper filters by, then the deliverable. Under 140, no repeated word.
 TITLES: dict[str, str] = {
+    "hexagonal-bread-basket": ("Hexagonal Bread Basket Crochet Pattern | Kitchen and Table "
+                               "Decor | Worsted Cotton | PDF with Chart, US and UK Terms"),
     "nursery-nesting-baskets": ("Hexagon Nesting Baskets Crochet Pattern in 3 Sizes | "
                                 "Nursery Storage | Worsted Cotton | PDF with Chart, "
                                 "US and UK Terms"),
@@ -348,13 +376,18 @@ def _description(facts, cand) -> dict:
     cir = facts.cir
     hook = getattr(getattr(cir, "gauge", None), "hook_mm", None)
     yarn = sorted(set(facts.materials))
-    obj = {"nursery-nesting-baskets": "a set of three hexagon nesting baskets",
+    obj = {"hexagonal-bread-basket": "a hexagonal bread basket",
+           "nursery-nesting-baskets": "a set of three hexagon nesting baskets",
            "hexagon-coaster-set": "a set of four hexagon coasters",
            "cloudline-baby-blanket": "the Cloudline baby blanket",
            "nordic-star-ornaments": "a set of six textured stripe ornaments",
            "winter-village-graphghan": "the Winter Snowfall throw"}.get(cand.slug,
                                                                       cand.title.lower())
     lead = {
+        "hexagonal-bread-basket": (
+            "Make a hexagonal bread basket for the kitchen and the table: one size, worked in "
+            "the round from a flat six-sided base up into straight walls, in cream with wine "
+            "bands."),
         "nursery-nesting-baskets": (
             "Make a set of three hexagon baskets that nest inside each other: one pattern, "
             "small, medium and large, worked in the round from a flat base up into straight "
