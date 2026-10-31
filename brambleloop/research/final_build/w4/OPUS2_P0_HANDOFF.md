@@ -219,3 +219,13 @@ The P0 workforce is **not** operational in production on the strength of this wo
 This session is subscribed to PR #3 events (reviews and comments from Main Opus wake it). A
 Claude session does not run indefinitely; it resumes on those events, on a scheduled
 check-in, or on an owner message. The durable record is this file and PR #3.
+
+## 13. Review response and next claim (2026-10-31)
+
+- **PR #3 CHANGES_REQUIRED addressed.** f3b763fb is reverted (6d96af30, no history rewrite)
+  and re-applied as (a) 4f1efcc8 `laura_home` + FLUX 3 wiring, (b) f02426fa rim negative with
+  its own `test_opus2_rim_negative`, (c) fc7bd63e acceptance instrumentation, plus f76d539c the
+  size-claim test's vacuity line. Content is byte-identical to f3b763fb apart from the rim test
+  moving file. The owner's variation requirement is f93b1ec3.
+- **CLAIMED: OPUS2-CHAIN-DEADENDS** (P0-CHAIN-DEADENDS, and the successor half of
+  P0-NEXT-PRODUCT). Recorded in `COORDINATION.json` on this branch.
