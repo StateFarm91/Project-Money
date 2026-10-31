@@ -113,6 +113,20 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers
+    # added by ops.production_evidence without an entry, caught by
+    # test_w4_fmbatch1_retention_guard on the merged tree.
+    "chain.rebuild_completed": ("windowed",
+                                "ops.production_evidence.stale_rebuilds counts the last 7 days"),
+    "chain.rebuild_unbound": ("windowed",
+                              "ops.production_evidence.stale_rebuilds counts the last 7 days"),
+    "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    "ops.truth.sweep": ("latest", "ops.production_evidence.publishing_halt reads the newest "
+                                  "sweep (freshness judged by its age)"),
+    "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
+                                          "refresh"),
+    "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
+                                       "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.
