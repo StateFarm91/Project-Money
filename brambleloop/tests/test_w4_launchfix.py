@@ -744,9 +744,17 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # for_publish (e.g. products.inventory) use the default draft stage.
     users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
                    if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
+    # Batch 4 integration: W-PHYSFIX-PHOTO's photo-first ordering in publish/physical_upgrade.py
+    # names publish.sample_photo in a comment and a docstring only. It must never import or
+    # call it, so it cannot judge the photo gate.
     assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
                      "brambleloop/runtime/release.py"], users
+    import re as _re
+    pu = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
+    assert not _re.search(r"import[^\n]*sample_photo|sample_photo\s*\.|sample_photo\s*\(", pu), \
+        "physical_upgrade must not import or call sample_photo"
     rel = (ROOT / "src/brambleloop/runtime/release.py").read_text()
     assert "_sample_photo.requirement(" in rel and "photographed_sample=_photographed" in rel
     inv = (ROOT / "src/brambleloop/products/inventory.py").read_text()

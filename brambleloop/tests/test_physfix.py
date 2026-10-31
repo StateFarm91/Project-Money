@@ -567,14 +567,21 @@ def test_a_sample_proves_one_size_and_the_first_customer_evidence_says_which():
     job = _run(db, "physical.record", _inputs(small, scope="full_make", holds_shape=True,
                                               size="small"))
     assert (job.outputs or {})["covers_size"]["size"] == "small", job.outputs
+    # D-W4-OWNER-BASKET-IDENTITY (LISTING1, integrated in Batch 4): the small basket is its own
+    # one-size listing, `hexagonal-bread-basket`, so its sample leaves nothing of THAT listing
+    # unproven. The held three-size family keeps medium and large unproven.
     cov = physical.size_coverage(db, small)
-    assert cov["listing"] == "nursery-nesting-baskets"
-    assert cov["proven"] == ["small"] and cov["unproven"] == ["medium", "large"], cov
+    assert cov["listing"] == "hexagonal-bread-basket", cov
+    assert cov["proven"] == ["small"] and cov["unproven"] == [], cov
     binding = physical_binding(db, small)
     check = check_gauge_and_size_claims(small, build_twin(small, compile_cir(small)), binding)
-    assert check.state == PASS and "not proven: ['medium', 'large']" in check.detail, check.detail
+    assert check.state == PASS and "proven sizes of hexagonal-bread-basket: ['small']" in \
+        check.detail and "not proven: none" in check.detail, check.detail
     medium = physical_binding(db, _basket("basket_medium"))
-    assert medium["passed"] is False and medium["size_coverage"]["proven"] == ["small"]
+    assert medium["passed"] is False, medium
+    assert medium["size_coverage"]["listing"] == "nursery-nesting-baskets", medium
+    assert medium["size_coverage"]["proven"] == ["small"], medium
+    assert medium["size_coverage"]["unproven"] == ["medium", "large"], medium
 
 
 def test_a_sample_claiming_another_or_several_sizes_is_refused():
