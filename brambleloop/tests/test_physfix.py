@@ -502,7 +502,7 @@ def test_the_basket_kit_asks_for_the_unedited_hero_and_carries_no_nursery_wordin
     from brambleloop.quality import tester_kit
 
     spec = tester_kit.KITS["basket_small"]
-    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.2.0-RECORD-SHEET.pdf").split())
+    text = " ".join(_sheet_text(KIT_DIR / f"market-basket-small-{spec['version']}-RECORD-SHEET.pdf").split())
     manifest = (KIT_DIR / spec["manifest"]).read_text()
     for needle in ("UNEDITED", "listing's first photo", "sit flat", "hold its shape"):
         assert needle in text, needle

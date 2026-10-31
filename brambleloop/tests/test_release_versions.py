@@ -166,10 +166,12 @@ def test_the_pt_redesigns_carry_a_new_version():
     # from the declared yarn (the 1.3.0 typed-gauge record is builder.as_drawn, still refused).
     assert built["autumn-oak-mosaic-throw"].version == "1.4.0"
     assert built["cloudline-baby-blanket"].version == "1.2.0"
-    assert built["hexagon-coaster-set"].version == "1.2.0"
+    # W4-PDF1 2026-10-31: the written colour-change/ends wording and "the ch 1 does not count
+    # as a stitch" changed the round-worked vessels' text, so they moved a patch (1.2.1).
+    assert built["hexagon-coaster-set"].version == "1.2.1"
     for slug, cir in built.items():
         if slug.startswith("market-basket-"):
-            assert cir.version == "1.2.0", slug
+            assert cir.version == "1.2.1", slug
         # W4-K9 (F-762/F-763): the size matrix and stated fit are new customer-visible
         # content in every graded size, so each graded design moved one minor further.
         if slug.startswith("harbour-drop-shoulder-pullover-"):

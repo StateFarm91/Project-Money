@@ -1,6 +1,6 @@
 {
  "slug": "market-basket-small",
- "version": "1.2.0",
+ "version": "1.2.1",
  "title": "Crochet Hexagonal Bread Basket",
  "risk_class": "B (dimensional_form)",
  "positioning": "kitchen and home (bread basket); small size only",
@@ -10,7 +10,7 @@
  "make_hours_estimate": 2.15,
  "max_cost_cad": 59.65,
  "cost_basis": "gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
- "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+ "content_hash": "9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf",
  "finished_size_cm": {
   "across_points": 16.0,
   "across_flats": 13.9,
@@ -164,7 +164,7 @@
  ],
  "covers_size": {
   "slug": "market-basket-small",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "size": "small",
   "rule": "a sample covers exactly this one size"
  },
@@ -175,9 +175,9 @@
   "outcomes": "PASS binds; PARTIAL (not flat, shape not held, a problem recorded) goes to the owner and binds nothing; FAIL binds nothing; a size outside 12% halts this release"
  },
  "files": {
-  "market-basket-small-1.2.0-TEST.pdf": "e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57",
-  "market-basket-small-1.2.0-RECORD-SHEET.pdf": "ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42"
+  "market-basket-small-1.2.1-TEST.pdf": "f04887887882b60dbaf1bf3978f90a85bceaf04fbf84a39f8406f3a6a5f902c3",
+  "market-basket-small-1.2.1-RECORD-SHEET.pdf": "7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883"
  },
- "pattern_pages": 7,
+ "pattern_pages": 13,
  "built_by": "quality.tester_kit.build(key='basket_small')"
 }

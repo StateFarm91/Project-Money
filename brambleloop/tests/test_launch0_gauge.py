@@ -31,7 +31,7 @@ class GaugeTests(unittest.TestCase):
                 self.assertTrue(certify(c).granted)
                 self.assertFalse(gauge_findings(c))
                 self.assertEqual(c.components[0].foundation_kind,"magic_ring")
-                self.assertEqual(c.version,"1.2.0")
+                self.assertEqual(c.version,"1.2.1")  # W4-PDF1: text-only 1.2.1
                 if 'basket' in c.slug:
                     self.assertEqual(twin.shape,VESSEL)
                     self.assertEqual(c.risk_class,"B")

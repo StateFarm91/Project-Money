@@ -1,6 +1,6 @@
 # Small bread basket: physical tester kit for owner approval
 
-**Product:** `market-basket-small@1.2.0`, the Crochet Hexagonal Bread Basket.
+**Product:** `market-basket-small@1.2.1`, the Crochet Hexagonal Bread Basket.
 - Positioning: a kitchen and home product.
 - Size: small only. This kit covers that one size and no other.
 
@@ -20,13 +20,26 @@ it, run `cd brambleloop && nice -n 19 python3 research/final_build/w4/tester_kit
 
 ---
 
+## Rebuilt 2026-10-31 for release 1.2.1 (text only)
+
+The kit now binds to `market-basket-small@1.2.1`, content hash `9251c2ec…`. Release 1.2.1 changes
+only the written text, from the independent PDF audit:
+- the colour-change and ends wording: cut wine after Rnd 19; carry cream up the inside of the join;
+- "the ch 1 does not count as a stitch".
+
+Stitches, counts, geometry, yarn amounts and the CA$66 ceiling are unchanged. The test PDF is the
+premium customer edition at 13 pages. A 1.2.0 sample would not count as evidence for 1.2.1,
+because physical evidence binds to the exact content hash, so this kit replaces the 1.2.0 one.
+
+---
+
 ## Resolved 2026-10-31: the nursery safety block is gone
 
 The kit was rebuilt by the same builder after the LISTING1 source correction (kitchen and home, small size only) was integrated.
 
 - The test PDF is now 7 pages, down from 9.
 - Text extraction finds "nursery", "baby", "child", "CPSIA", "nesting", "three sizes" and "under 3" zero times each.
-- The content hash is unchanged (`1ddde587…`), so the kit's binding to the certified release still holds.
+- At 1.2.0 the content hash was unchanged (`1ddde587…`). The 1.2.1 rebuild above has a new one.
 - The PDF was never edited by hand.
 
 ---
@@ -35,11 +48,11 @@ The kit was rebuilt by the same builder after the LISTING1 source correction (ki
 
 | Item | Value |
 |---|---|
-| Release | `market-basket-small@1.2.0`, one piece (`basket` × 1) |
-| Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
-| Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57` |
-| Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` (2 pages) | `ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42` |
-| Manifest `KIT_MANIFEST.json` | `c2822758342cf5dbf8f14ff04d8c1fe01e61297b6e42135a986b3be9dd5f19db` |
+| Release | `market-basket-small@1.2.1`, one piece (`basket` × 1) |
+| Content hash (evidence binds to this) | `9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf` |
+| Test PDF `market-basket-small-1.2.1-TEST.pdf` (13 pages) | `f04887887882b60dbaf1bf3978f90a85bceaf04fbf84a39f8406f3a6a5f902c3` |
+| Record sheet `market-basket-small-1.2.1-RECORD-SHEET.pdf` (2 pages) | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
+| Manifest `KIT_MANIFEST.json` | `98daf2a35bd1693ed3a774a5c379801d009cc1b7adb53ab2c7753da96c1bfe7a` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
@@ -187,7 +200,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **PASS:**
   - Conditions: the size is within 12%; the base sits flat and the basket holds its shape; no
     problem is recorded; the instructions were followed; the yarn factor is plausible.
-  - The sample binds to content `1ddde587…`.
+  - The sample binds to content `9251c2ec…`.
   - It clears the first-customer `gauge_and_size_claims` area **for the small size only**. The
     evidence says so: "proven: small; not proven: medium, large".
   - Only a made basket whose measured size agreed counts. A gauge swatch alone never proves the
@@ -204,7 +217,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **Refused at intake (re-enter from the sheet):** "followed exactly?" left blank or not a plain
   yes or no, a missing shape answer, or a missing measurement.
   - **A size outside 12% halts publication of this release.** The halt is a P1 incident scoped
-    to `market-basket-small@1.2.0` at this content hash.
+    to `market-basket-small@1.2.1` at this content hash.
   - The halt is bound to the design, not the version number, so relabelling the same pattern
     as a new version stays halted.
   - A corrected design can be certified, but certification lifts nothing. The halt lifts only
@@ -223,4 +236,4 @@ The code reaches each outcome; nobody assigns it by hand.
 
 | Action | Why | Max cost | Minutes | Consequence of waiting |
 |---|---|---|---|---|
-| Approve commissioning one independent tester to make `market-basket-small@1.2.0` from this kit. The ceiling is CA$66.00 (fee plus whole balls), or CA$59.65 with yarn reimbursed per metre. That condition (a test PDF with no children's notes) was met on 2026-10-31. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs `partial_physical` evidence of this exact content | CA$66.00 (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
+| Approve commissioning one independent tester to make `market-basket-small@1.2.1` from this kit. The ceiling is CA$66.00 (fee plus whole balls), or CA$59.65 with yarn reimbursed per metre. That condition (a test PDF with no children's notes) was met on 2026-10-31. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs `partial_physical` evidence of this exact content | CA$66.00 (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
