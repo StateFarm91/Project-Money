@@ -903,7 +903,7 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         for product in s.scalars(select(Product).order_by(Product.slug)):
             if not any(v.certified for v in product.versions):
                 continue
-            seed = _seed_for(product.slug)
+            seed = _seed_for(product.slug, db)
             category = (seed.category if seed is not None else "") or ""
             if not category:
                 uncategorised.append(product.slug)

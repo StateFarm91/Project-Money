@@ -328,3 +328,30 @@ def handle_opportunity_review(ctx: JobContext) -> dict:
         "decisions": [{k: d.get(k) for k in ("gap", "last", "on")} for d in out["decisions"]]})
     return {"decisions": len(out["decisions"]), "network_calls": 0,
             "work_done": out["work_done"]}
+
+
+# ---- W5-CONCEPT: evidence-backed concept intake -------------------------------------------
+
+@handlers.register("radar.concept_intake")
+def handle_concept_intake(ctx: JobContext) -> dict:
+    """Research-approved opportunities and proven families become radar concepts as rows.
+
+    `radar.intake.run`: each concept proposal attached to an answered research task, and each
+    coordinated variation of a certified family whose orders prove demand, is proposed,
+    validated (recorded evidence and its quality, a construction `cir.draft` compiles, the
+    closed concept vocabulary, the children's product_creation pre-check, originality /
+    dedupe / anti-copy) and approved or refused -- every step audited. An approval enqueues
+    the ordinary `radar.score` (`score:<slug>:<date>`), whose pre-engineering gate decides
+    whether `cir.draft` follows. Unchanged input is never re-evaluated (fingerprint).
+    GREEN: deterministic, no model call, no network, CA$0.
+    """
+    from datetime import date as _date
+
+    from ..radar import intake
+
+    raw = (ctx.job.inputs or {}).get("as_of")
+    today = _date.fromisoformat(raw) if raw else None
+    out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
+    ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
+        "candidates", "unchanged", "approved", "refused", "work_done", "as_of")})
+    return out

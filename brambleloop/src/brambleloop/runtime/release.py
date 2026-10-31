@@ -214,12 +214,21 @@ def _released_on(ctx: JobContext, slug: str, version: str):
         return created.date() if created else None
 
 
-def _seed_for(slug: str):
-    seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+def _seed_for(slug: str, db=None):
+    # F5 (review 933bf74): exact match only. The prefix match this replaced gave any slug that
+    # merely began with a POOL slug that POOL seed's category, price and season; the one
+    # catalogue product that relied on it (nordic-forest-mosaic-throw-baby) resolves through
+    # its declared Launch-0 alias below.
+    seed = next((s for s in POOL if s.slug == slug), None)
     if seed is None:
         # D-W5-7: a Launch-0 product the radar scored under a retired alias.
         alias = products_launch0.radar_concept_for(slug)
         seed = next((s for s in POOL if s.slug == alias), None) if alias else None
+    if seed is None and db is not None:
+        # W5-CONCEPT: an approved intake concept (exact slug only; POOL always wins).
+        from ..radar import intake
+
+        seed = intake.seed_for(db, slug)
     return seed
 
 
@@ -259,7 +268,7 @@ SEED_CORRECTIONS: dict[str, dict] = {
 }
 
 
-def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
+def _product_record(slug: str, inputs: dict | None = None, db=None) -> dict | None:
     """What this product IS, read from its own record -- never a default (PT-01).
 
     A Launch-0 product answers from `products.launch0.listing_identity`: its kind, its Etsy
@@ -276,13 +285,13 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
                 "techniques": list(identity.techniques), "season": None,
                 "launch0": slug in products_launch0.launch_scope_slugs(),
                 "source": f"products.launch0:{cand.slug if cand else slug}"}
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, db)      # W5-CONCEPT: an approved intake concept answers too
     if seed is not None:
         category = _truthful_category(seed.slug, seed.category)
         category = SEED_CORRECTIONS.get(slug, {}).get("category", category)
         return {"category": category, "kind": category, "nouns": [],
                 "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
-                "launch0": False, "source": f"radar.pool:{seed.slug}"}
+                "launch0": False, "source": seed.origin or f"radar.pool:{seed.slug}"}
     category = (inputs or {}).get("category")
     if category:
         return {"category": str(category), "kind": str(category), "nouns": [],
@@ -423,7 +432,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # pattern does not produce, and then checked by Asset Truth like any other asset.
     from ..cir.writer import write_pattern
 
-    siblings = _collection_siblings(slug)
+    siblings = _collection_siblings(slug, ctx.db)
     # #63: the creative brief is derived from the engineering evidence *before* the
     # conversion creative exists, so it constrains the frames rather than captioning them.
     from ..publish import brief as brief_mod
@@ -697,7 +706,7 @@ def _pricing_net_inputs(db, slug: str) -> dict:
 def handle_pricing_position(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         # PT-01: no default product type, so no default price band either.
         ctx.audit("pricing.refused", artifact=slug, detail={
@@ -709,7 +718,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     launch = products_launch0.launch_price(slug) if record["launch0"] else None
     if record["launch0"]:
         return _price_launch0(ctx, i, slug, record, launch)
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     category = record["category"]
     band = CATEGORY_BANDS_CAD.get(category, DEFAULT_BAND)
     sizes = len(ctx.job.inputs.get("sizes") or []) or 1
@@ -933,7 +942,7 @@ def _contribution_per_visitor_guard(ctx: JobContext, slug: str, category: str,
         return {"proposed_cad": proposed, "status": UNMEASURED_PRICE,
                 "why": "this listing has no recorded visits and measured orders yet"}
     peers = [r for k, r in rows.items() if k != slug
-             and (_seed_for(k).category if _seed_for(k) else "") == category]
+             and (getattr(_seed_for(k, ctx.db), "category", "") or "") == category]
     richer = [r for r in peers if r["price_cad"] > mine["price_cad"]
               and r["contribution_per_visitor"] > mine["contribution_per_visitor"]]
     with ctx.db.session() as s:
@@ -961,7 +970,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # PT-01: the title, tags and category come from the product's own record. A product
     # nobody has described is refused here -- there is no default product type.
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         why = (f"{UNKNOWN_PRODUCT}: no product record names what {slug} is (no Launch-0 "
                f"identity, no radar seed, no category in the job); no listing is drafted "
@@ -2109,7 +2118,7 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     today = (date.fromisoformat(i["as_of"]) if i.get("as_of") else date.today())
 
     window = None
@@ -2216,7 +2225,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     from ..teardown import lab as teardown_lab
     from .pipeline import _mark_withheld
 
-    seed_ = _seed_for(slug)
+    seed_ = _seed_for(slug, ctx.db)
     qa_ = teardown_lab.product_qa(ctx.db, slug,
                                   product_class=(seed_.category if seed_ else ""))
     if qa_.get("blocks_release"):
@@ -2288,7 +2297,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
 
     i = dict(ctx.job.inputs)
     slug, version = i["slug"], i["version"]
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     listing = i.get("listing") or {}
     launch_on = date.fromisoformat(i["launch"]["launch_on"])
 
@@ -2325,7 +2334,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         f"{name} about {m * (1 - tol):.0f}-{m * (1 + tol):.0f} m"
         for name, m in sorted(twin.yarn_metres_by_color.items())) or "see the pattern"
 
-    record = _product_record(slug, i)
+    record = _product_record(slug, i, ctx.db)
     if record is None:
         why = f"{UNKNOWN_PRODUCT}: no product record names what {slug} is"
         ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",
@@ -2344,7 +2353,7 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         maker_hours=seed.maker_hours if seed else (4.0, 12.0),
         season=seed.season if seed else None,
         price_cad=float(listing.get("price_cad") or i.get("price_cad") or 0.0),
-        siblings=_collection_siblings(slug))
+        siblings=_collection_siblings(slug, ctx.db))
 
     pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
     problems = content_mod.check_ecosystem(pieces, facts)
@@ -2593,12 +2602,15 @@ def handle_support_triage(ctx: JobContext) -> dict:
     return out
 
 
-def _collection_siblings(slug: str) -> list[str]:
-    """Other products in this product's family, for the cross-sell frame."""
-    seed = _seed_for(slug)
+def _collection_siblings(slug: str, db=None) -> list[str]:
+    """Other products in this product's family, for the cross-sell frame. With `db`, an
+    approved intake concept is a family member too (F6, review 933bf74)."""
+    from ..radar.intake import pool_with_intake
+
+    seed = _seed_for(slug, db)
     if seed is None or not seed.family:
         return []
-    return [m.title for m in POOL
+    return [m.title for m in pool_with_intake(db)
             if m.family == seed.family and m.slug != seed.slug and not m.is_bundle][:4]
 
 
@@ -2702,7 +2714,7 @@ def enqueue_member_collections(ctx: JobContext, member_slug: str, release_hash: 
     assemble from, keyed on the member's release so a re-run of the same certificate adds
     nothing.
     """
-    seed = _seed_for(member_slug)
+    seed = _seed_for(member_slug, ctx.db)
     if seed is None or seed.is_bundle or not seed.family:
         return []
     started = []
@@ -2742,7 +2754,7 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
 
     slug = ctx.job.inputs["slug"]
     family = ctx.job.inputs.get("family")
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
     members = [m for m in POOL if m.family == family and not m.is_bundle]
     if not members:
         raise ValueError(f"{slug}: a bundle with no members cannot be assembled")

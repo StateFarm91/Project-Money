@@ -89,6 +89,8 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
+                            # W5-CONCEPT: evidence-backed concept intake.
+                            "radar.concept_intake",
                             # W4-INTELREC: the owner's permanent watchlist.
                             "intel.watchlist_scan", "intel.watchlist_compare",
                             "intel.opportunity_review",
