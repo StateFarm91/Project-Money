@@ -11,7 +11,9 @@ the owner, who will inspect them before any sale.
 | `customer_editions/hexagon-coaster-set-1.2.0/hexagon-coaster-set-1.2.0.pdf` (US, sale) | 13 | `47d07b66b7bd25fcf3789bfff3b1e83489e317e676baf10d3b9ad8ed10da6b19` | final |
 | `…/hexagon-coaster-set-1.2.0-uk.pdf` (UK, sale) | 13 | `675107fe739e978437eb1d29d55bcc92b68163a3cbd9309c45f186fca36b83aa` | final |
 | `…/NOT-FOR-SALE-hexagon-coaster-set-1.2.0-photo-placeholder-proof.pdf` | 13 | `ac8304e99c2043607f46fcf3750e3cb2001d37d6dd0f4961ed8e0792e85271bb` | proof only |
-| `customer_editions/market-basket-small-1.2.0/…` | see §5 | see §5 | waits for the LISTING1 identity fix |
+| `customer_editions/market-basket-small-1.2.0/market-basket-small-1.2.0.pdf` (US, sale) | 13 | `75af1ee5cc2960c6bb125601dfed39fb5ee113eb3e878c5fa74abb238449f412` | final |
+| `…/market-basket-small-1.2.0-uk.pdf` (UK, sale) | 13 | `24f6317fe74e4af868d19d490d1f3603e404aec2989d4f88a0a90c06bd1efbc0` | final |
+| `…/NOT-FOR-SALE-market-basket-small-1.2.0-photo-placeholder-proof.pdf` | 14 | `e15ae0d3130dc319cc180404a2d337856f616d360e1927ee80cfeed319b25c20` | proof only |
 
 Each folder has a `MANIFEST.json` that holds the following:
 - the CIR fingerprint;
@@ -142,7 +144,39 @@ cotton") by `fibres_named`. It does not claim "100%".
 
 ## 5. market-basket-small 1.2.0
 
-BASKET_STATUS_PLACEHOLDER
+Built after merging `origin/claude/w4-LISTING1@d11fe80f` (D-W4-OWNER-BASKET-IDENTITY) into this
+branch, at engine/merge commit `46921cee`. The release hash is unchanged
+(`1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991`), and the certified
+pattern text was not touched. The command was
+`PYTHONPATH=src python scripts/build_customer_editions.py --released 2026-10-27 basket_small`.
+The three files above are byte-identical to the preview built from the WIP merge, and each was
+rendered twice with identical bytes.
+
+**Owner ruling (kitchen and home, small size only).** Verified by text extraction
+(`publish.pdf.extracted_text`) on all three files: "nursery", "baby", "child", "CPSIA",
+"nesting", "three sizes" and "under 3" each occur 0 times. The children's safety page is gone,
+because the catalogue no longer assigns the small basket to children. The document's use and
+size are the CIR's own: the title "Crochet Hexagonal Bread Basket", and one basket, 16.0 cm
+across the points, 13.9 cm across the flats and 8.7 cm tall. "BABY" survives only as pixels in
+the owner's logo line, which is the brand artwork and not a product claim.
+
+**Page-by-page (US, 13 pages, 100 dpi; UK checked for terminology).**
+1. Cover: angle render showing the inside, the stripes and the base; folio legible on the band.
+2. Overview: "one hexagonal basket, base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall"; at-a-glance panel; About box.
+3. How it is made: elevation schematic with height and width; measurements column; base plan beside "Rnds 1 to 10: a flat base of 60 stitches". Fixed during QA: "Rnd 1 to 10" became "Rnds".
+4. Materials: worsted cotton cards. Fixed: the 3-line description ran into the yarn-ball tail. No blocking pins, correctly, because the writer says not to block the piece flat.
+5. Gauge: the round-5 milestone check; the two-gauges note; the 5-row progress table.
+6. Abbreviations and techniques.
+7. and 8. Instructions: 10 stage cards (base: Rnds 2, 4, 6, 8, 10; wall: each colour boundary at 14, 16, 17, 19, 22). Every count matches the writer (`test_stage_diagrams_match_the_written_counts`).
+8. Finishing: "Do not block this piece flat …".
+9. Tips: 6 cards, including "Turning the base into the wall" with Rnd 11/14 from the twin. There is no "matching set" tip, because the pattern makes one basket.
+10. and 11. Round chart (rounds 1–10, wedges; the grid is now at 3:1 contrast). The caption continues on page 11 under the 2-lines-each-side rule; the legend is in the edition's own terminology.
+12. Gallery: hero, plus angle and base views, captioned as renderings.
+13. Terms and support.
+
+The proof (14 pages) adds placeholder boxes in the gallery and a "NOT FOR SALE" banner on the
+cover; the banner was moved clear of the logo frame.
+
 
 ## 6. Engine changes (`claude/w4-PDF1`)
 
