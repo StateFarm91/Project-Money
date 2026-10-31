@@ -783,7 +783,8 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
         row = PhysicalTest(
             product_slug=assessment.report.product_slug,
             version=assessment.report.version,
-            tester_ref=assessment.report.tester_ref or ("owner" if owner_made else ""),
+            # SECREVIEW 81b3e45 R24: an owner make is filed under "owner", never a tester's ref.
+            tester_ref="owner" if owner_made else assessment.report.tester_ref,
             completed_at=assessment.assessed_at,
             # PHYSFIX: only a PASS passes. PARTIAL (a recorded problem) and FAIL are stored,
             # bind nothing and calibrate nothing. An owner-made sample never passes (R12).
@@ -1001,11 +1002,9 @@ def design_geometry(cir, result=None) -> dict:
         else:
             piece["resumes"] = _canon(resumed, names)
         pieces.append(piece)
-    # SECREVIEW R18: the pieces are a multiset. Pieces that tie before `resumes` is known (a
-    # left and a right sleeve) are ordered again by their full content, so listing them in
-    # the other order is the same design. Tied pieces that themselves hold stitches are
-    # identical, so which of them a resume points at is immaterial.
-    pieces.sort(key=lambda p: json.dumps(p, sort_keys=True, default=str))
+    # SECREVIEW 81b3e45 R23: no re-sort after `resumes` is filled in -- it hid real changes
+    # (which tied piece another hangs from). Designs with holds or resumes never reach here
+    # from `design_digest` (see `_HOLD_DIGEST_INTERIM`).
     gauge = body.get("gauge") or {}
     materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
                                     "fibre": sorted(str(f).strip().lower()
@@ -1028,6 +1027,15 @@ _GAUGE_KEYS = ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm", "
                "chains_per_10cm")
 
 
+# See `design_digest`: while True, a design with holds or resumes has no design digest.
+_HOLD_DIGEST_INTERIM = True
+
+
+def _has_holds(cir) -> bool:
+    return any(getattr(c, "holds", None) or getattr(c, "resumes", None)
+               for c in cir.components)
+
+
 def design_digest(cir, result=None) -> str | None:
     """SECREVIEW F1/R1: what a release IS for its size claim, independent of its labels.
 
@@ -1045,6 +1053,17 @@ def design_digest(cir, result=None) -> str | None:
 
         result = result if result is not None else compile_cir(cir)
         if not result.ok:
+            return None
+        if _HOLD_DIGEST_INTERIM and _has_holds(cir):
+            # SECREVIEW 81b3e45 R22/R23, fail-closed interim: positional labels for holds and
+            # resumes cannot yet be canonicalised both ways (a cosmetic reorder moved the
+            # digest; a re-sort hid a real change). For a design with holds or resumes the
+            # digest is None, so a size halt on it is PRODUCT-WIDE, never scoped to a design,
+            # and never lifted by a make (incidents.release_scope / resolve_halts_disproved_by
+            # read None as "no scope"). No Launch-0 CIR has holds.
+            # TODO(physfix-holds): canonical tree (AHU) encoding of the resume forest --
+            # each piece = its pre-resume content + sorted (hold geometry, resumer's form);
+            # refuse resume cycles first (R25) -- then lift this interim.
             return None
         payload = json.dumps(design_geometry(cir, result), sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
