@@ -157,7 +157,11 @@ The twin gives `yarn_metres_by_color` = {cream **40.2**, wine **11.9**}, with to
 `PYTHONPATH=src:tests nice -n 19 python tests/<f>`, run one at a time:
 
 - `test_pdf_premium.py`: 17 OK, 0 FAIL, exit 0.
-- `test_deliverable_qa.py`: see the result line appended at the end of this section.
+- `test_deliverable_qa.py`: 57 OK, 4 FAIL, exit 1. All 4 failures are `ModuleNotFoundError("No module named 'sqlalchemy'")`, the same container gap as in the coaster audit, so these checks are **unverified** here:
+  - `test_every_place_that_renders_the_customer_pdf_pins_its_date`
+  - `test_every_place_that_ships_the_customer_pdf_ships_every_terminology`
+  - `test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist`
+  - `test_the_pdf_the_listing_and_the_gate_read_one_difficulty_ladder`
 
 ## 7. Recurrence of the coaster findings F1–F10
 
@@ -209,4 +213,3 @@ The twin gives `yarn_metres_by_color` = {cream **40.2**, wine **11.9**}, with to
 6. **Make and measure a physical sample.** This calibrates the twin and settles whether the wall stands at the stated gauge (N7). It also lets a real photograph replace the proof placeholder.
 7. **Mark every proof page NOT FOR SALE (F9). Keep the page-break logic from splitting captions (N5).**
 
-- Interim: `test_deliverable_qa.py` still running at the time of the first push (8 OK, 0 FAIL so far); the final count is added in a follow-up commit.
