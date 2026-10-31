@@ -203,7 +203,7 @@ Apart from R22 and R23, nothing blocks shipping.
 
 Each test was run one at a time with `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py` at `81b3e45c`. The first attempt failed on missing `sqlalchemy` and `fastapi`; I installed `requirements.txt` and re-ran.
 
-_Partial report: test results pending; see the next commit._
+All 13 pass (exit 0). The tests do not catch R22, R23 or R25; the probes do.
 
 ```
 test_physfix rc=0 35s :: 37/37 passed
@@ -212,6 +212,13 @@ test_secreview_physfix_42eac69_probes rc=0 10s :: 8/8 passed
 test_secreview_physfix_89eef1e_probes rc=0 6s :: 8/8 passed
 test_executor rc=0 32s :: OK   test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row
 test_creators rc=0 1s :: OK   test_two_completed_collaborations_are_a_coincidence
+test_risk_matrix rc=0 116s :: OK   test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet
+test_physical rc=0 90s :: OK   test_with_no_sample_the_estimate_stays_uncalibrated
+test_physical_record_blocked rc=0 5s :: 5/5 passing
+test_physfix_photo_first rc=0 8s :: 8/8 passed
+test_w4_launchfix rc=0 29s :: 32 passed, 0 failed
+test_vacuity rc=0 11s :: OK   test_the_scan_sees_the_suite
+test_first_customer_gate rc=0 20s ::   12 passing, 0 failing
 ```
 
 ## Appendix: probe scripts (reviewer-only, not committed as tests)
