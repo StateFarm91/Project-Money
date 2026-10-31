@@ -846,3 +846,63 @@ a different design to certify past a halt or lift it, so no expectation was chan
 product. After a lift, the release that measured wrong could certify again. The owner's
 OwnerAction text tells them the evidence must be a re-released version; retiring the bad
 version stays an owner decision.
+
+## 18. The release that measured wrong never publishes again; the lift's HTTP test
+
+This closes the residual recorded in §17: after a lift, the release that failed could
+certify and publish again.
+
+**Permanent withholding, recorded with the lift.** `lift_size_halt` now does all of the
+following in one database transaction. If any write fails, none is kept.
+
+- It resolves the incident.
+- It withholds the incident's measured release, by exact slug, version and content hash, on
+  the release's withholding record (`publish.withholding`). This uses the new kind
+  `physical_size_failed`.
+- It writes the durable audit row `gate.release_withheld`, with `kind`, `reason`,
+  `content_hash` and `incident`.
+- It writes the lift's own audit row.
+
+Older incidents that carry `release_scope` instead of `measured_release` are read for the
+release to withhold. An incident that names no release to withhold cannot be lifted.
+
+**Why the withholding cannot be undone.**
+
+- `physical_size_failed` is PERMANENT. `record(..., reason=None)` for it is refused.
+- It is BUILD_BLOCKING, so draft and rebuild refuse it.
+- `pipeline._persist_release` carries it over when a re-certification replaces the stored
+  certificate (`withholding.carry_permanent`).
+- `release_gates.for_publish` refuses the version on its record entry and, independently, on
+  any durable `gate.release_withheld` row of that kind.
+- `ops.retention` classifies `gate.release_withheld` as `lifetime_total`, so retention keeps
+  it at any age.
+
+**Tests.**
+
+`test_physfix.py::test_the_failed_release_never_publishes_again_after_an_owner_lift`:
+
+- the corrected version certifies, and `for_publish` gives it no physical-size withholding;
+- the failed version is refused by `for_publish`. It stays refused after being re-certified
+  with the same text, and after a changed text is certified under the same version;
+- clearing the kind is refused;
+- `retention.apply`, run 4000 days ahead with more rows than it keeps per action, leaves the
+  durable row in place and the refusal in force.
+
+The shared scenario is the helper `halted_and_corrected`.
+
+New file `tests/test_physfix_size_lift_http.py` posts to the real Command Center route
+`POST /api/cc/actions/physical_size.lift`, on the app's own database, with a real halt and a
+real corrected re-release. The request is:
+
+- refused with no owner session (401), and the ops token does not count as one;
+- refused with a session whose step-up has lapsed (403 `STEP_UP_REQUIRED`);
+- refused with a session and step-up but no reason (409);
+- refused with all three on non-qualifying evidence (409, "does not qualify");
+- accepted with all three plus qualifying evidence (200). The halt is lifted, the failed
+  release is withheld, and the action is audited as `cc.owner_action.physical_size.lift`
+  under the `owner:cc:*` actor.
+
+**About "passes `for_publish`".** In a fixture database, `for_publish` still refuses the
+corrected version on gates unrelated to this change: listing set, search, photography and the
+first-customer scope. What the test asserts is that the physical-size withholding does not
+refuse the corrected version, and does refuse the failed one.

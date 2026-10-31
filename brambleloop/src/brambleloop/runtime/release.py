@@ -3252,7 +3252,13 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         if row is None or row.product_slug != inc.product_slug:
             raise SizeHaltLiftRefused(f"no sample {physical_test_id} of {inc.product_slug}")
         m = row.measured or {}
-        halted = (inc.detail or {}).get("measured_release") or {}
+        # `release_scope` is the pre-decision name of the same record (incidents opened
+        # before the integrator decision); it is read here only to know what to withhold.
+        halted = dict((inc.detail or {}).get("measured_release")
+                      or (inc.detail or {}).get("release_scope") or {})
+        if not halted.get("slug") or not halted.get("version"):
+            raise SizeHaltLiftRefused(f"size halt {incident_id} names no measured release to "
+                                      f"withhold; it cannot be lifted")
         problems = []
         if row.passed is not True:
             problems.append("the sample did not pass")
@@ -3279,21 +3285,47 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         if problems:
             raise SizeHaltLiftRefused("evidence does not qualify: " + "; ".join(problems))
         slug, version = inc.product_slug, row.version
-    from ..gates.incidents import IncidentTracker
 
-    IncidentTracker(db).resolve(
-        int(incident_id), (f"lifted by the owner ({actor[:64]}) on sample {physical_test_id}: "
-                           f"a passed full make of {slug}@{version} by an independent tester "
-                           f"at the stated size. Reason: {reason[:300]}"),
-        new_version=version)
+    # One transaction: the lift, the permanent withholding of the release that measured wrong
+    # (exact slug, version and content hash), its durable audit row and the lift's audit row.
+    # Either all of them are written or none is.
+    from ..core.models import utcnow
+    from ..publish import withholding
+
+    failed_v, failed_hash = str(halted["version"]), str(halted.get("content_hash") or "")
+    why = (f"physical sample {(inc.detail or {}).get('physical_test_id')} measured "
+           f"{slug}@{failed_v} (content {failed_hash[:12] or 'unrecorded'}) at the wrong "
+           f"size; size halt {incident_id} was lifted by the owner on {slug}@{version}")
     with db.session() as s:
+        inc = s.get(Incident, int(incident_id))
+        if inc is None or inc.resolved:
+            raise SizeHaltLiftRefused(f"no open physical size halt {incident_id}")
+        inc.resolved = True
+        detail = dict(inc.detail or {})
+        detail.update(resolution=(f"lifted by the owner ({actor[:64]}) on sample "
+                                  f"{physical_test_id}: a passed full make of {slug}@{version} "
+                                  f"by an independent tester at the stated size. Reason: "
+                                  f"{reason[:300]}"),
+                      resolved_at=utcnow().isoformat(), fixed_in_version=version,
+                      withheld_release={"slug": slug, "version": failed_v,
+                                        "content_hash": failed_hash})
+        inc.detail = detail
+        held = withholding.record_in(s, slug, failed_v, kind=withholding.PHYSICAL_SIZE_FAILED,
+                                     reason=why)
+        s.add(AuditLog(actor=actor[:64], action=withholding.DURABLE_AUDIT,
+                       artifact=f"{slug}@{failed_v}",
+                       detail={"kind": withholding.PHYSICAL_SIZE_FAILED, "reason": why,
+                               "content_hash": failed_hash, "incident": int(incident_id),
+                               "stored_record": bool(held.get("recorded"))}))
         s.add(AuditLog(actor=actor[:64], action="physical.size_halt_lifted_by_owner",
                        artifact=f"{slug}@{version}",
                        detail={"incident": int(incident_id),
                                "physical_test_id": int(physical_test_id),
+                               "withheld": f"{slug}@{failed_v}",
                                "reason": reason[:300], "stepped_up": True}))
     return {"incident": int(incident_id), "physical_test_id": int(physical_test_id),
-            "slug": slug, "version": version, "lifted": True}
+            "slug": slug, "version": version, "lifted": True,
+            "withheld": f"{slug}@{failed_v}"}
 
 
 def _route_partial_to_owner(ctx: JobContext, slug: str, version: str, content_hash: str,
