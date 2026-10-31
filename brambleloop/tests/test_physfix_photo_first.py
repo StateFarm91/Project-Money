@@ -78,7 +78,7 @@ def _passed_full_make(db, cir) -> int:
                            for c, m in twin.yarn_metres_by_color.items()},
         "ball_band_grams": BAND_GRAMS, "ball_band_metres": BAND_METRES,
         "measured_width_cm": twin.width_cm, "measured_height_cm": twin.height_cm,
-        "holds_shape": True, "lies_flat": True})
+        "holds_shape": True, "lies_flat": True, "instructions_followed": True})
     with db.session() as s:
         row = s.scalar(select(PhysicalTest).order_by(PhysicalTest.id.desc()).limit(1))
         assert row is not None and row.passed, job.last_error
@@ -179,6 +179,16 @@ def test_a_photo_with_no_passed_full_make_behind_it_does_not_lead():
     with db.session() as s:
         photo = s.scalar(select(PhysicalPhoto))
         assert photo.detail["frame_position"] == plan["frame_position"]
+
+
+def test_the_dormant_sample_request_asks_for_what_the_intake_requires():
+    """The readiness owner request names the shape answer, "followed exactly?" and problems,
+    which `physical.record` refuses a full make without (PHYSFIX G3, SECREVIEW F2)."""
+    from brambleloop.launch import readiness
+
+    action = readiness.PHYSICAL_SAMPLE.action
+    for needle in ("holds its shape", "any problem", "followed exactly", "full_make"):
+        assert needle in action, (needle, action)
 
 
 if __name__ == "__main__":
