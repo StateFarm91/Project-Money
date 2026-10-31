@@ -37,10 +37,10 @@ release.
 |---|---|
 | test_w5_concept_intake | pass, 0 failure(s) (45 s) |
 | test_radar | pass (2 s) |
-| test_shadow | running (partial report) |
+| test_shadow | pass, rc=0, 0 FAIL (782 s) |
 | test_w4_fmbatch1_retention_guard | pass (31 s) |
 | test_vacuity | pass (8 s) |
-| test_cert_wiring | pending (partial report) |
+| test_cert_wiring | pass, 16/16 (755 s) |
 | test_fallback_draft_provenance | pass (4 s) |
 
 ## 1. G1: is it closed on every path?
