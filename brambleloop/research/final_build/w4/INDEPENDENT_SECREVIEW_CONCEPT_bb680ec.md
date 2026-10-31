@@ -26,7 +26,7 @@ The fix is small. Until it lands, a withdrawal does not stop work that is alread
 | test_w5_concept_intake | pass, 0 failures (39 s) |
 | test_w4_intelrec_watchlist | pass (18 s) |
 | test_radar | pass (2 s) |
-| test_shadow | still running at commit time; result appended below when done |
+| test_shadow | pass, rc=0 (812 s) |
 | test_w4_fmbatch1_retention_guard | pass (30 s) |
 | test_cost_governance_wave2 | pass (21 s) |
 | test_vacuity | pass (9 s) |
