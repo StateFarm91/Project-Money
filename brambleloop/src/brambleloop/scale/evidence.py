@@ -23,6 +23,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 from .runrate import UNMEASURED
+from ..core.listing_state import is_live_on_etsy
 
 FORECAST_KIND = "scale.forecast"
 
@@ -417,7 +418,7 @@ def calibration(db, *, today: date | None = None) -> dict:
         if kept:
             terms["aov_cad"] = revenue / len(kept)
         live = sum(1 for created, state in listings
-                   if state == "published" and created is not None and created <= end)
+                   if is_live_on_etsy(state) and created is not None and created <= end)
         # Only terms both sides measured are decomposed; revenue is always compared.
         common = {k: v for k, v in terms.items() if k in forecast.terms}
         actual = cal.Actual(period=period, revenue_cad=revenue, terms=common,

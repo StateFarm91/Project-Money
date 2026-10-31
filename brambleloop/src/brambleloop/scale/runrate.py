@@ -459,8 +459,10 @@ def orders_source_live(db) -> dict:
 
     with db.session() as s:
         orders_ever = s.scalar(select(func.count()).select_from(Order)) or 0
+        from ..core.listing_state import LIVE_ON_ETSY
+
         published = s.scalar(select(func.count()).select_from(Listing).where(
-            Listing.state == "published")) or 0
+            Listing.state.in_(LIVE_ON_ETSY))) or 0
     live = bool(orders_ever or published)
     return {"live": live, "orders_ever": int(orders_ever), "published_listings": int(published),
             "why": ("orders have been recorded or a listing is published, so a count is a "
@@ -505,7 +507,9 @@ def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
         _void = {o.id for o in orders if not _oi.countable(o, _held)}
         sales = [x for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
                  if _aware(x.at) is not None and _aware(x.at) >= since]
-        published = sum(1 for r in s.scalars(select(Listing)) if r.state == "published")
+        from ..core.listing_state import is_live_on_etsy
+
+        published = sum(1 for r in s.scalars(select(Listing)) if is_live_on_etsy(r.state))
         support = [c for c in s.scalars(select(SupportCase))
                    if _aware(c.at) is not None and _aware(c.at) >= since]
 

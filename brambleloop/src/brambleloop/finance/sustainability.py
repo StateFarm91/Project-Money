@@ -58,7 +58,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 AI_KINDS = ("llm", "api", "image")
-LIVE_STATES = ("published", "active")
+LIVE_STATES = ("published", "published_manually", "active")
 
 # F-325's refusal floor: below this much cost history, or this many costed calls, the
 # forecast refuses rather than extrapolates.

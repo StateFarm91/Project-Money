@@ -492,7 +492,14 @@ def listing_history(db) -> dict[str, list[dict]]:
     from ..core.models import AuditLog, Listing
 
     published: dict[str, datetime] = {}
+    adopted: set[str] = set()
     with db.session() as s:
+        # W-ADOPT: a listing the owner made by hand and adopted is matched like a published
+        # one. Its effective time stays the listing row's creation (the certified version
+        # existed before the hand-made listing), labelled with the adoption as its basis.
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == "listing.adopted_manual")):
+            if a.artifact:
+                adopted.add(a.artifact)
         for a in s.scalars(select(AuditLog).where(AuditLog.action == "store.published")):
             if a.artifact and a.at is not None:
                 at = a.at if a.at.tzinfo else a.at.replace(tzinfo=timezone.utc)
@@ -510,7 +517,9 @@ def listing_history(db) -> dict[str, list[dict]]:
                 "slug": r.product_slug, "version": r.version,
                 "collection": r.version == "collection",
                 "effective_from": at,
-                "basis": "store.published" if key in published else "listing_row_created_at"})
+                "basis": ("store.published" if key in published else
+                          "listing.adopted_manual" if key in adopted and
+                          r.state == "published_manually" else "listing_row_created_at")})
     for entries in out.values():
         entries.sort(key=lambda e: (e["effective_from"] or datetime.min.replace(
             tzinfo=timezone.utc), e["version"]))
