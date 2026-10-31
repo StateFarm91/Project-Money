@@ -20,27 +20,14 @@ it, run `cd brambleloop && nice -n 19 python3 research/final_build/w4/tester_kit
 
 ---
 
-## ⚠ Before you approve: the test PDF still carries children's (nursery) safety notes
+## Resolved 2026-10-31: the nursery safety block is gone
 
-The kit's test PDF is the customer PDF of this release, rendered by `publish.pdf`. Pages 7–8
-print a block titled "Safety notes for a children's item". It says, among other things, "intended
-for children under 3 years" and "Keep this out of the cot … in a nursery".
+The kit was rebuilt by the same builder after the LISTING1 source correction (kitchen and home, small size only) was integrated.
 
-**Where it comes from:** the catalogue (`products.launch0.childrens_assignment`), which still
-files the small basket under the `nursery-nesting-baskets` listing.
-
-**Why the PDF is not edited by hand:** the PDF is never patched, because patterns are software
-releases.
-
-**What fixes it:** the LISTING1 source correction (kitchen and home positioning) will remove the
-block. The kit will then be rebuilt by the same builder.
-- **The kit's own text has no nursery or baby wording:** the record sheet, the manifest and these
-  instructions. A test checks this.
-- **The content hash may not change.** It covers the pattern CIR and the written pattern text,
-  not the PDF's safety block. If it does change, the kit is rebound to the new hash and the
-  digests below are replaced.
-
-**Do not send the kit to a tester until the rebuilt test PDF no longer contains this block.**
+- The test PDF is now 7 pages, down from 9.
+- Text extraction finds "nursery", "baby", "child", "CPSIA", "nesting", "three sizes" and "under 3" zero times each.
+- The content hash is unchanged (`1ddde587…`), so the kit's binding to the certified release still holds.
+- The PDF was never edited by hand.
 
 ---
 
@@ -50,9 +37,9 @@ block. The kit will then be rebuilt by the same builder.
 |---|---|
 | Release | `market-basket-small@1.2.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
-| Test PDF `market-basket-small-1.2.0-TEST.pdf` (9 pages) | `a724cbae5d58ff469a991668d257f54dce57c7e0d0437bcb323ecca2bfb72b0c` |
+| Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57` |
 | Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` (2 pages) | `ed68e9409f0d9aa9332c48f9784a9280c173925f8b555cd3ade2e48053023e42` |
-| Manifest `KIT_MANIFEST.json` | `9e192bfdc95f125b4fd0373ea0bcc1e5c6e085711997dddbe1fed8a196ba2cbb` |
+| Manifest `KIT_MANIFEST.json` | `c2822758342cf5dbf8f14ff04d8c1fe01e61297b6e42135a986b3be9dd5f19db` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
