@@ -1,0 +1,401 @@
+{
+  "build_key": "hexagon_coasters",
+  "builder": "brambleloop.products.launch0.cir_for('hexagon_coasters')",
+  "certificate_granted": true,
+  "cir_fingerprint": "b9f6aa139509",
+  "compiles": true,
+  "engine_branch": "claude/w4-PDF1",
+  "engine_commit": "b93ce9310e83cd423c8c8f63a12d6434651b49be",
+  "engine_source_clean": true,
+  "files": {
+    "NOT-FOR-SALE-hexagon-coaster-set-1.2.0-photo-placeholder-proof.pdf": {
+      "bytes": 1968419,
+      "claims": [
+        "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "proof, NOT FOR SALE: marked placeholders for sample photographs",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop",
+          "page": 1,
+          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "2a0224e50bd5f112a0bb0ef243c67ca09ea9630c9e4f3cda577c8a5d27dd1870",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 1",
+          "page": 7,
+          "png_sha256": "9f32ddba874a56ecb3c12bed800a6a3884cff4b821c84e0415c0a8e1388e8198",
+          "round": 1,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "646af24ab791530784963a73a6e8d7cee77e6627cbbc2cf1421b3129e6b683cd",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 3",
+          "page": 7,
+          "png_sha256": "76b6715701a391098d0462341448843f72508880448fc9f1946b1960f05cf441",
+          "round": 3,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "65560e148c2fecc4222440ea1cefec1494529f4ab7a5be47e17c049a3b066155",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 5",
+          "page": 7,
+          "png_sha256": "0e02a842c3acd226c97aadbb99bbe77deeb9b954968b56c9efc7d7250d5c5541",
+          "round": 5,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "721655cefa2ff2a37feaad1d1cda741933043bf09af674d38f8c6b5b757d93cf",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 7",
+          "page": 7,
+          "png_sha256": "b3b0eb1af6e3bd3feff3aa2233738816292edfcb49dfe0f5c1fbaa616625d336",
+          "round": 7,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "ecba036533fa699d161ffe85f4f1683feb0a03db6850a3d6c238b24d92e76eb5",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        },
+        {
+          "kind": "photo_placeholder",
+          "label": "Placeholder for a photograph of a tester's sample. Not for sale.",
+          "page": 12
+        }
+      ],
+      "pages": 13,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "ac8304e99c2043607f46fcf3750e3cb2001d37d6dd0f4961ed8e0792e85271bb",
+      "terminology": "US"
+    },
+    "hexagon-coaster-set-1.2.0-uk.pdf": {
+      "bytes": 1968271,
+      "claims": [
+        "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "sale",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop",
+          "page": 1,
+          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "2a0224e50bd5f112a0bb0ef243c67ca09ea9630c9e4f3cda577c8a5d27dd1870",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 1",
+          "page": 7,
+          "png_sha256": "9f32ddba874a56ecb3c12bed800a6a3884cff4b821c84e0415c0a8e1388e8198",
+          "round": 1,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "646af24ab791530784963a73a6e8d7cee77e6627cbbc2cf1421b3129e6b683cd",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 3",
+          "page": 7,
+          "png_sha256": "76b6715701a391098d0462341448843f72508880448fc9f1946b1960f05cf441",
+          "round": 3,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "65560e148c2fecc4222440ea1cefec1494529f4ab7a5be47e17c049a3b066155",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 5",
+          "page": 7,
+          "png_sha256": "0e02a842c3acd226c97aadbb99bbe77deeb9b954968b56c9efc7d7250d5c5541",
+          "round": 5,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "721655cefa2ff2a37feaad1d1cda741933043bf09af674d38f8c6b5b757d93cf",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 7",
+          "page": 7,
+          "png_sha256": "b3b0eb1af6e3bd3feff3aa2233738816292edfcb49dfe0f5c1fbaa616625d336",
+          "round": 7,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "ecba036533fa699d161ffe85f4f1683feb0a03db6850a3d6c238b24d92e76eb5",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        }
+      ],
+      "pages": 13,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "675107fe739e978437eb1d29d55bcc92b68163a3cbd9309c45f186fca36b83aa",
+      "terminology": "UK"
+    },
+    "hexagon-coaster-set-1.2.0.pdf": {
+      "bytes": 1968054,
+      "claims": [
+        "hexagon, 9.7 cm across the points, 8.4 cm across the flats at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "sale",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop",
+          "page": 1,
+          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "2a0224e50bd5f112a0bb0ef243c67ca09ea9630c9e4f3cda577c8a5d27dd1870",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 1",
+          "page": 7,
+          "png_sha256": "9f32ddba874a56ecb3c12bed800a6a3884cff4b821c84e0415c0a8e1388e8198",
+          "round": 1,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "646af24ab791530784963a73a6e8d7cee77e6627cbbc2cf1421b3129e6b683cd",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 3",
+          "page": 7,
+          "png_sha256": "76b6715701a391098d0462341448843f72508880448fc9f1946b1960f05cf441",
+          "round": 3,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "65560e148c2fecc4222440ea1cefec1494529f4ab7a5be47e17c049a3b066155",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 5",
+          "page": 7,
+          "png_sha256": "0e02a842c3acd226c97aadbb99bbe77deeb9b954968b56c9efc7d7250d5c5541",
+          "round": 5,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "721655cefa2ff2a37feaad1d1cda741933043bf09af674d38f8c6b5b757d93cf",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 7",
+          "page": 7,
+          "png_sha256": "b3b0eb1af6e3bd3feff3aa2233738816292edfcb49dfe0f5c1fbaa616625d336",
+          "round": 7,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "fd296d0e413c4bd8c76a5b3b318ef4aec889051d571f961be28e0caa637af6d9",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "ecba036533fa699d161ffe85f4f1683feb0a03db6850a3d6c238b24d92e76eb5",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        }
+      ],
+      "pages": 13,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "47d07b66b7bd25fcf3789bfff3b1e83489e317e676baf10d3b9ad8ed10da6b19",
+      "terminology": "US"
+    }
+  },
+  "fonts_sha256": {
+    "CormorantGaramond-Bold.ttf": "33d2af0d7ce36bc4561ffc1496bcdb86c3ea161f6fc2992162bceda189de84f3",
+    "CormorantGaramond-MediumItalic.ttf": "a1efb5fc9c7acf21b370a24c738d56a48f35bc67bb91bd010f958ced9bc78347",
+    "CormorantGaramond-SemiBold.ttf": "e57a9d78b041388ebbebb5042cf18f65a79f16b0d32f1040c8c76e6def6ffd11",
+    "Lora-Bold.ttf": "1dfd2b1475244d7078952295666786845f954a06364be5d599b3bd487b4ee6e3",
+    "Lora-Italic.ttf": "6ec35639f2d3b098ff8896f96eb406a19f36c2f0c90a2c4434bc259408d167a7",
+    "Lora-Regular.ttf": "6243c6e53a9ea8f561c977ab7056d140620e0922b0130a2308d5ea88a2d1c22e",
+    "Lora-SemiBold.ttf": "46e66f18da0988ce514a74b63986429dc182d1de7fe204365d944eff5349c338",
+    "WorkSans-Medium.ttf": "df9786cbf6f46171544c0c498f1c2736b2c55455bb6afbdac705f621129b638b",
+    "WorkSans-Regular.ttf": "b6de94f71b0894e6590e1f1d3cfe5e12572da6b125d2198e1ecd2335f0e3eb30",
+    "WorkSans-SemiBold.ttf": "71fb413d1ddd88aaa2505eb224347eed8868a4ed0cbbd08fd4c4861c0e7bc867"
+  },
+  "generation_command": "cd brambleloop && PYTHONPATH=src python scripts/build_customer_editions.py --released 2026-10-27 hexagon_coasters",
+  "images": "every product picture is a disclosed deterministic render (visual.disclosed_render) or a construction diagram (publish.construction_diagrams); no photograph and no generated image",
+  "physical_sample": "none recorded; twin.calibrated=False, so every size and yarn amount in the document is computed and labelled as such",
+  "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+  "released_on": "2026-10-27",
+  "reproducibility": "each file rendered twice in one process with identical bytes; reportlab invariant mode, fixed release date, pinned fonts, deterministic PNG/JPEG encodes",
+  "slug": "hexagon-coaster-set",
+  "title": "Hexagon Coaster Set",
+  "version": "1.2.0"
+}
