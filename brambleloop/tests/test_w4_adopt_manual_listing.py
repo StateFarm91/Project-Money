@@ -139,7 +139,7 @@ def remote_listing(lid: str, **over) -> dict:
            # The category-independent fields every listing of ours carries (ListingPayload
            # defaults and the CIR's materials), as Etsy returns them.
            "who_made": "i_did", "when_made": "made_to_order", "is_supply": True,
-           "type": "download", "quantity": 999, "materials": ["dk cotton", "dk cotton"],
+           "type": "download", "quantity": 999, "materials": ["dk cotton"],
            "price": {"amount": 400, "divisor": 100, "currency_code": "CAD"},
            "images": [{"rank": 1, "alt_text": "photo"}, {"rank": 2, "alt_text": "render"}],
            "_files": [{"filename": "hexagon-coaster-set-pattern-us.pdf", "size_bytes": 60876},

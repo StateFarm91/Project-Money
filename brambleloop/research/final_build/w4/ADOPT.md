@@ -154,6 +154,35 @@ Touched suites and their importers were each run separately at nice 19 (see the 
   - a behavioural test that each of these readers counts an adopted listing;
   - a static guard that fails on any `state == "published"`, `state != "published"`, `by.get("published"` or `"published" in states` left in `src/`.
 
+## Independent review fixes (SECREVIEW of `af042099`: F-1 to F-4)
+
+The review is `INDEPENDENT_SECREVIEW_ADOPT_af04209.md` on `claude/w4-SECREVIEW-ADOPT-af04209`. Its Appendix A suite is ported as `tests/test_w4_secreview_adopt_adversarial.py`, with one fixture value changed (see that file's docstring).
+
+- **F-1 (High): a baseline covers only the copy fields the owner reviewed.**
+  - The fields are `BASELINE_FIELDS`: title, description, tags, price and taxonomy_id.
+  - The census (`etsy_ops._field_drift`) compares those with the baseline, and **every other field with the certified payload**: who_made, when_made, is_supply, type, quantity, materials and properties.
+  - Without a full certified payload (category or search certificate not yet PASS), it still compares the category-independent policy fields (`POLICY_FIELDS`) against the stored copy and the CIR's materials.
+  - **Preview** lists `not_covered_by_baseline`: policy-field drift, package differences such as files, and properties left UNVERIFIED. These are shown to the owner and never accepted.
+  - **`accept_baseline`:**
+    - resolves `etsy.listing_drift:<id>` only when every drift line it records is in `BASELINE_FIELDS`; otherwise the incident is kept open (`incidents_kept_open`) and the census resolves it only by observation;
+    - keeps the non-halting review item open, restated, while anything is not covered.
+- **F-2 (Medium): live-phase proof requires a match.** `manual_adoption.proof_problems`, used by `verify_checks._published_rows_proven`, proves a manual listing only when all of these hold:
+  - the adoption is VERIFIED;
+  - the live listing matched the certificate, or every difference is a copy field under an accepted baseline;
+  - nothing was left uncompared, apart from the file hash, which Etsy does not expose. An unknown category, unread properties or an unknown price band all count as uncompared;
+  - no `listing.adoption_review` or `etsy.listing_drift` incident is open.
+
+  Adoption now also reads and compares listing properties when the category is CHOSEN.
+- **F-3 (Low): one Etsy id, one release, enforced by the database.**
+  - A new table `manual_listing_claims` uses the Etsy id as primary key. It is written in the same transaction as the adoption and registered in `core/db.create_all`.
+  - The write transaction also re-checks that no other `Listing` carries the id.
+  - Tests: a threaded race (both reads complete, then both writes race, and exactly one commits) and a direct duplicate insert refused by the database.
+  - The review item is now opened only after the adoption is actually recorded.
+- **F-4 (Info): the static guard now matches its claim.**
+  - It flags any comparison with the `"published"` literal in either operand order and whatever the variable is called, any membership tuple or `.in_(...)` that lists it, and `.get("published")`, unless the same line names `published_manually`.
+  - Three non-listing uses are allowlisted, each with its reason.
+  - Its docstring states what it does not cover: literals built at runtime, and tuples split across lines.
+
 ## What this does not do (honest limits)
 
 - **It does not verify file bytes.** Etsy exposes no file hash. Sizes are compared only when `assets.built` recorded them for this release.

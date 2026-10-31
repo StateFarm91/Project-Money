@@ -4,7 +4,10 @@ Each test asserts the SAFE behaviour. A failing test is a finding (see
 research/final_build/w4/INDEPENDENT_SECREVIEW_ADOPT_af04209.md).
 
 Ported verbatim from the review's Appendix A into the branch suite (W-ADOPT, fixes F-1..F-4);
-only this docstring, the temp sandbox line and the non-zero exit on failure were added.
+only this docstring, the temp sandbox line and the non-zero exit on failure were added, and
+one fixture value changed: `test_after_acceptance_policy_fields_still_drift` built its listing
+with `materials=[]`, which the fix now (correctly) reports as drift against the CIR's
+materials before any change is made; it uses the certified `["dk cotton"]` instead.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_w4_secreview_adopt_adversarial.py
 """
@@ -45,7 +48,7 @@ def test_after_acceptance_policy_fields_still_drift():
     lid = "7101"
     base = T.remote_listing(lid, description=T.EDITED, who_made="i_did",
                             when_made="made_to_order", is_supply=True, type="download",
-                            quantity=999, materials=[])
+                            quantity=999, materials=["dk cotton"])
     live = {lid: dict(base)}
     t = T.transport(live)
     _adopt_and_accept(lid, live, t)
