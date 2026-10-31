@@ -26,10 +26,10 @@ Each suite ran solo: `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python3 
 | `test_etsy_exercise` | 32 passed, 0 failed |
 | `test_search_hero_publish` | 4/4 passing |
 | `test_first_customer_gate` | 12 passing, 0 failing |
-| `test_etsy_readback_observe` | PENDING |
-| `test_cert_commerce` | PENDING |
-| `test_launch` | PENDING |
-| `test_cost_governance_wave2` | PENDING |
+| `test_etsy_readback_observe` | 37 passed, 0 failed |
+| `test_cert_commerce` | 14/14 passed |
+| `test_launch` | exit 0, no FAIL |
+| `test_cost_governance_wave2` | exit 0, no FAIL |
 | adversarial probes (below) | 5 holes reproduced (N-1 x2, N-2, N-3, N-4) and 1 pre-existing sibling (N-5); 3 probes held (p4, p5a, p6) |
 
 The probe file was `tests/adv_secreview_launchfix_8c14dbf.py`. It imports the fixtures from `test_w4_launchfix`. It is not pushed, because only this report is pushed. The essential code of each probe is quoted below.
