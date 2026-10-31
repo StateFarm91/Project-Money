@@ -262,7 +262,12 @@ def test_verify_endpoint_reports_the_standing_safety_assertions():
         public = c.get("/api/verify").json()
     # W4-SECPATCH: anonymously each check is its name and verdict only, no evidence.
     assert [{"check": ch["check"], "ok": ch["ok"]} for ch in body["checks"]] == public["checks"]
-    assert set(public) == {"ok", "checks"}, sorted(public)
+    # W4-READBACK: plus the production-evidence checks, also name and verdict only.
+    assert set(public) == {"ok", "checks", "evidence_checks"}, sorted(public)
+    assert [{"check": ch["check"], "ok": ch["ok"]} for ch in body["evidence_checks"]] == \
+        public["evidence_checks"]
+    assert all(set(ch) == {"check", "ok"} for ch in public["evidence_checks"]) and \
+        len(public["evidence_checks"]) == 4, public["evidence_checks"]
     names = {ch["check"] for ch in body["checks"]}
     for expected in ("phase_is_shadow", "nothing_published", "no_paid_advertising",
                      "no_revenue_claimed", "every_agent_has_a_cost_ceiling",
