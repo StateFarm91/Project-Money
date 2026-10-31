@@ -777,6 +777,15 @@ def test_g1_a_queued_draft_does_not_outlive_its_withdrawn_approval():
     assert refusals and refusals[-1].detail["gate"] == "radar.intake"
     assert refusals[-1].detail["state"] == intake.WITHDRAWN
     assert not [a for a in _actions(db, "cir.drafted")]
+    # The database row alone is enough: a draft for the withdrawn slug that declares no
+    # intake provenance (raw geometry, as a re-draft would carry) is refused the same way.
+    bare = _run(db, "cir.draft", {"slug": SLUG, "title": "Tide Line Table Runner",
+                                  "category": "runner", "stitch_repeat": [["sc", 3], ["dc", 1]],
+                                  "width_stitches": 60, "rows": 16,
+                                  "colors": {"forest": "#244A3A", "cream": "#FAF6EB"}},
+                key="bare")
+    assert bare["drafted"] is False and bare["gate"] == "radar.intake", bare
+    assert not _jobs(db, "cir.compile")
     # A rebuild of an established design is never blocked by an intake row sharing its slug.
     intake._ensure(db)
     with db.session() as s:

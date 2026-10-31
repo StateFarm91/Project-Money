@@ -235,3 +235,27 @@ The new file is `tests/test_w5_concept_intake.py`, with 13 tests:
 - **F4, discriminating tests.** Each mutant the reviewer listed as surviving now has its own
   test in `tests/test_w5_concept_intake.py`. W1 is covered in `test_w4_intelrec_watchlist.py`:
   `summary(now=...)` asserts that DEGRADED is caused by the limitation alone.
+
+## Review bb680ec fixes (INDEPENDENT_SECREVIEW_CONCEPT_bb680ec)
+
+- **G1 (HIGH): a queued draft outlived a withdrawn approval.** `cir.draft` now refuses at
+  execution time when the slug has no current approval but intake knows it. Intake knows a slug
+  when it has a `radar_concepts` row (any state) or when the job declares `radar.intake:`
+  provenance. The refusal is audited as `cir.draft_refused` (gate `radar.intake`, with the row
+  state), and nothing is enqueued. An established design is exempt, so an intake row that
+  shares its slug never blocks a rebuild. A still-approved intake concept re-runs the
+  pre-engineering gate as before, on database values only.
+- **G2: prune and re-evaluation.** `prune` now also keeps any row whose fingerprint matches one
+  that today's candidates would produce. A row that is stopping an unchanged proposal from being
+  re-evaluated is therefore never deleted, even when it is not the newest row for its slug.
+- **G3: surviving mutants.** One targeted test kills each:
+
+  | Mutant | Test |
+  |---|---|
+  | N8 (approved rows never pruned) | `test_n8_*` |
+  | N9 (age horizon) | `test_n9_*` |
+  | N10 (`ops.retention.apply` calls `intake.prune`) | `test_n10_*` |
+  | N17 (family withdrawal when proven demand is lost) | `test_n17_*` |
+  | N18 (`gate_inputs` strips judged fields from stored rows) | `test_n18_*` |
+
+  The G1 and G2 tests are `test_g1_*` and `test_g2_*`.
