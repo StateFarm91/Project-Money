@@ -294,6 +294,14 @@ def make_router(db) -> APIRouter:
 
         return ok(first_sale.view(db))
 
+    # W5-INVENTORY: the Production view (inventory states, flow health, departments),
+    # read-only, owner session; derived from rows in recorded gate mode, never written.
+    @router.get("/production")
+    def production_view(request: Request):
+        from . import production
+
+        return ok(production.view(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
