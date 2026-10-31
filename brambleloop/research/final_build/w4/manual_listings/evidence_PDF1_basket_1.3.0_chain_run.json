@@ -1,7 +1,7 @@
 {
  "generated_at": "2026-10-31",
- "by": "W-PDF (claude/w4-PDF1) after D-W4-OWNER-BASKET-1.3.0 (Rnd 11 back loop only)",
- "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed), on claude/w4-PDF1 at 69516b8f.",
+ "by": "W-PDF (claude/w4-PDF1) after the soft-corner render change (846fb89f)",
+ "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed); each disclosed frame then re-verified from its bytes with render_verification.verify_claim.",
  "caveat": "Asset sha256 values come from a scratch run; production must re-render after deploy. The release hash is content-derived.",
  "products": {
   "market-basket-small": {
@@ -104,14 +104,14 @@
      {
       "position": 1,
       "asset_id": "market-basket-small-disclosed-hero",
-      "sha256": "6bccea33b5cdd9048635fa0f4c336882aa9bfc1fd07cdc275ae01717ccb6ab43",
+      "sha256": "f5ff019b78c3dc1fe9d9e9078452655d32d0498881cd258773ea19c28f83c99d",
       "kind": "disclosed_render",
       "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
      },
      {
       "position": 2,
       "asset_id": "market-basket-small-disclosed-scale",
-      "sha256": "ac09460499ab496a340d26233a0ff4a7eb4bf4c2d45c0b55dff375f4763e3607",
+      "sha256": "3189554b2537d854d4a121bdc917422691e2bbb0575f163a618a98dd6eec45fa",
       "kind": "disclosed_render",
       "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
      },
@@ -125,7 +125,7 @@
      {
       "position": 4,
       "asset_id": "market-basket-small-gallery-angle",
-      "sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+      "sha256": "d62a93d9a05139138d1c0918198e6157340cef5c248ce9f1dc65b7032b7f46eb",
       "kind": "disclosed_gallery_frame",
       "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the finished piece seen from the side at a raised angle."
      },
@@ -153,11 +153,38 @@
      {
       "position": 8,
       "asset_id": "market-basket-small-gallery-contents",
-      "sha256": "a4fec32a7dd518f287a5dd462417a1cd36e3d903d712148165d51601fa817ff2",
+      "sha256": "ed69e7f110fd46dd84692ec978df526cb7f4fb240655dfd906f2fd9ac9979074",
       "kind": "disclosed_gallery_frame",
       "alt_text": "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size."
      }
     ]
+   },
+   "disclosed_frames_reverified": {
+    "market-basket-small-disclosed-hero": {
+     "status": "PASS",
+     "failed": [],
+     "rim_corners_cm": [
+      [
+       15.46,
+       15.48
+      ]
+     ]
+    },
+    "market-basket-small-disclosed-scale": {
+     "status": "PASS",
+     "failed": [],
+     "rim_corners_cm": [
+      [
+       15.46,
+       15.48
+      ]
+     ]
+    },
+    "market-basket-small-disclosed-detail": {
+     "status": "PASS",
+     "failed": [],
+     "rim_corners_cm": []
+    }
    },
    "store_publish": "dead in SHADOW (capability not enabled), as expected"
   }

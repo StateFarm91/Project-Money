@@ -9,6 +9,12 @@
 > - Size, yarn and claims are unchanged.
 > - Every listing asset and the listing-set certificate (state `valid`, four gates passed) are
 >   at `1.3.0` with release hash `c4aa14a0…`.
+> - **The renders were redrawn on 2026-10-31 (846fb89f).** They show the shape the 1.3.0
+>   instructions make: a defined base fold, with corners crisp at the base and softening to a
+>   rounded rim. `render_verification` checks that shape, and the old straight prism now
+>   fails. The listing hero carries no caption on Etsy, so this is what makes it truthful.
+>   After the redraw the certificate was re-issued `valid` and every disclosed frame
+>   re-verified from its bytes; the frame sha256s are in the evidence JSON.
 > - Superseded: the 1.2.0 version of this package, which is in git history at this path's
 >   former name, `market-basket-small-1.2.0/`.
 
@@ -292,8 +298,8 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 | File name (`f"{slug}-{pattern_filename(t)}"`) | `market-basket-small-pattern-us.pdf` (34 chars) | `market-basket-small-pattern-uk.pdf` (34 chars) |
 | Format | PDF | PDF |
 | Pages | **13** (the premium 1.3.0 edition) | 13 |
-| Size (scratch run) | 3,402,275 bytes | 3,402,418 bytes |
-| sha256 (scratch chain run, 1.3.0) | `5ac0375a…a67b` | `b49cebde…5335` |
+| Size (scratch run) | 3,787,849 bytes | 3,787,994 bytes |
+| sha256 (scratch chain run, 1.3.0) | `28c3b352…479b` | `f93bcbf8…32f2` |
 | Identical to the customer editions? | **Yes**, byte for byte: `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` | **Yes**: `…-1.3.0-uk.pdf` |
 
 **Checked text.** The regenerated US and UK PDF text contains no "nursery", "baby", "child", "children", "infant", "nesting", "three sizes", "CPSIA" or "under 3".
@@ -305,7 +311,7 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 
 **Files to upload.** These must be the certified PDFs re-rendered from the **corrected source**. That means W-PDF (`claude/w4-PDF1`) after merging this branch's source change, and production `assets.built` after deploy. Their sha256 must match production's `pdf_sha256_by_terminology` for this release.
 - **Any PDF rendered before this change is stale.** It still carries the nursery safety block.
-- **The tester kit is now 1.3.0** (`tester_kit/market-basket-small-1.3.0-TEST.pdf`, `edc25c5a…`, 13 pages, bound to `c4aa14a0…`). It is **PROVISIONAL** until the W-PHYSFIX record-sheet fields merge. A sample made from any 1.2.x kit does not bind to 1.3.0.
+- **The tester kit is now 1.3.0** (`tester_kit/market-basket-small-1.3.0-TEST.pdf`, `eeefd60b…`, 13 pages, bound to `c4aa14a0…`). It is **PROVISIONAL** until the W-PHYSFIX record-sheet fields merge. A sample made from any 1.2.x kit does not bind to 1.3.0.
 
 **Delivery message.** This is set at shop level. Its text is `store_foundation.copy_v2.DIGITAL_SALE_MESSAGE`:
 

@@ -34,8 +34,9 @@ The kit now binds to `market-basket-small@1.3.0`, content hash `c4aa14a0…`.
   11.9 m wine) were recomputed from the twin and are the same.
 - **What the PDF no longer says:** the 1.2.1 soft-fold wording ("turning upward over the first
   few rounds", "about 8 to 9 cm") no longer applies and is gone.
-- **What the renders still idealise:** one thing. They draw the corners running straight up the
-  wall, and no wall round keeps the corners.
+- **The renders now match the pattern:** a defined base fold, with corners crisp at the base and
+  softening toward a rounded rim. `render_verification` checks this shape, so the test PDF
+  carries no idealised caption.
 
 **The CA$66 ceiling is provisional** until the final kit, carrying the W-PHYSFIX fields, is
 approved. A 1.2.x sample would not count as evidence for 1.3.0, because the content hash is
@@ -83,9 +84,9 @@ The kit was rebuilt by the same builder after the LISTING1 source correction (ki
 |---|---|
 | Release | `market-basket-small@1.3.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
-| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `edc25c5ab960628bd3a0ef29b5f8bbf1e1dffdc12469367c40aaa8265dd0c106` |
+| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `eeefd60bef06ec124349bc529628395705472aad59e83d1475a005999077ba4e` |
 | Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
-| Manifest `KIT_MANIFEST.json` | `be9dcc3e4f040777f5bf5bd053a5e0472f7b43d228c98aa952d1b38929d8c48e` |
+| Manifest `KIT_MANIFEST.json` | `739a4eb6520c24bfe0fe0a4b945d3dc382e407891a2da52395dde4fb5645c749` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.

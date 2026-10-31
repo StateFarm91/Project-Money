@@ -28,7 +28,17 @@ walls; they are a held family, outside the approval.
 - The PDF states the twin's 8.7 cm, which the twin now models correctly, because the twin's sharp fold is the fold this pattern makes.
 - Rnd 11 reads "sc in back loop of next 60 sts" (US) or "dc in back loop of next 60 sts" (UK), followed by "-- back loop only: …".
 - A new **Back loop only** technique note is triggered by the text, and the "Turning the base into the wall" tip now describes the ridge and the fold.
-- **The renders are still captioned, more narrowly.** They now match the base edge. They still draw the corners running straight up the wall, and no wall round keeps them; the construction review §1.3 expects the rim to relax toward a rounded hexagon. Every render therefore says it is "idealised in one respect". The cover reads: "the base edge is defined as drawn; the wall's corners soften toward the rim".
+- **The renders now draw the shape the pattern makes, so the small basket carries no idealised caption.** The renders were redrawn (846fb89f) after the coordinator's instruction, under the owner rule "never show a shape the product does not have":
+  - `render_contract.rim_softening`, which applies to `market-basket-small` only, gives the wall a defined fold at the base and corners that are crisp there and soften toward a rounded rim.
+  - Each wall point moves radially from the hexagon toward the circle of the same perimeter, with a weight that is 0 at the fold and grows linearly to `RIM_CORNER_SOFTENING = 0.75` at the rim.
+  - **0.75 is a modelling figure.** The review says the rim tends toward the circle, so the figure is backlog until a sample's rim measurement replaces it.
+  - **The renderer:** it draws this wall, sizes the frame to the drawn rim, and softens construction-stage diagrams as a fraction of the finished wall's height.
+  - **`render_verification`:** it measures the same wall, with tolerances unchanged:
+    - per-stitch un-projection on the front face;
+    - wall height read on the central column;
+    - a new `rim_corners_cm` check across the corners at the top wall round. It expects 2R on a straight prism, so other products are measured as before and gain a check.
+  - **The old straight-cornered prism now FAILS verification for this product** on `rim_corners_cm` (hero, scale and angle). Pinned by `test_pdf_premium.test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verification`.
+  - The medium and large baskets and every other product draw as before. The medium and large keep their soft-fold caption.
 
 **Visuals and listing.**
 - The shadow release chain was re-run on 1.3.0 (`manual_listings/evidence_PDF1_basket_1.3.0_chain_run.json`).
@@ -38,22 +48,26 @@ walls; they are a held family, outside the approval.
   - the listing-set certificate is `valid` at release hash `c4aa14a0…`, with DATA_TRUTH, LAYOUT_QA, COMMERCIAL_QA and POLICY_PROVENANCE passed over all eight frames;
   - `store.publish` is dead in SHADOW, as expected.
 - The chain's `assets.build` PDFs are byte-identical to the customer editions below.
+- **Re-run after the soft-corner change:**
+  - the listing-set certificate is still `valid` at `c4aa14a0…`, with all four gates passed;
+  - the hero, scale and angle frames are new bytes;
+  - each disclosed frame was re-verified from its bytes with `verify_claim` and passed, with `rim_corners_cm` at 15.46 cm against 15.48 cm.
 
 **Editions** (`--released 2026-10-31`):
 
 | File | Pages | SHA-256 |
 |---|---|---|
-| `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` (US) | 13 | `5ac0375ac13469e543091bfd7a12845603ce21216244ced5176b92797063a67b` |
-| `…/market-basket-small-1.3.0-uk.pdf` (UK) | 13 | `b49cebde8674a8613633840ec394575718681a14f66a46790dd567d46fbd5335` |
-| `…/NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf` | 14 | `496316be77f17adc60fd3274d68488b8f47ca7c4b0dd16c79873cd510d28d54f` |
+| `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` (US) | 13 | `28c3b352e77f55d06d7e45db47831c535647a3fb075bb07586fd1a695384479b` |
+| `…/market-basket-small-1.3.0-uk.pdf` (UK) | 13 | `f93bcbf80497aaa31507c3c11dcec550c4d297b73be232db4a50ddb9cbee32f2` |
+| `…/NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf` | 14 | `9f87717aad98105a0d915198866de40bbd362588583d68858f7da860d8ba7825` |
 
 **Tester kit (PROVISIONAL** until W-PHYSFIX reaches `claude/w4-INTEG8-next`**):**
 
 | File | SHA-256 |
 |---|---|
-| `tester_kit/market-basket-small-1.3.0-TEST.pdf` (13 pp) | `edc25c5ab960628bd3a0ef29b5f8bbf1e1dffdc12469367c40aaa8265dd0c106` |
+| `tester_kit/market-basket-small-1.3.0-TEST.pdf` (13 pp) | `eeefd60bef06ec124349bc529628395705472aad59e83d1475a005999077ba4e` |
 | `tester_kit/market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pp) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
-| `tester_kit/KIT_MANIFEST.json` | `be9dcc3e4f040777f5bf5bd053a5e0472f7b43d228c98aa952d1b38929d8c48e` |
+| `tester_kit/KIT_MANIFEST.json` | `739a4eb6520c24bfe0fe0a4b945d3dc382e407891a2da52395dde4fb5645c749` |
 
 **Superseded.** The basket 1.2.1 editions and kit PDFs are kept in the tree as a record. See
 `customer_editions/market-basket-small-1.2.1/SUPERSEDED.md`. The coaster is unaffected and
