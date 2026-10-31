@@ -622,3 +622,33 @@ market bag or shopper, unless the rest of the title names a shape this rule does
 - Shaped amigurumi and graded hats and garments are in the `creative/` concept path, owned
   by W-CONCEPT.
 - Stockings and cosies need a closed tube with heel or toe shaping.
+
+## 27. P0-DRAFT-CONSTRUCTIONS, part 5: egg cosies (2026-10-31)
+
+**Built: family `cosy`.** It applies to titles naming an egg cosy or cozy. Tea cosies stay
+refused: spout and handle openings are a different construction.
+- `cosy(concept)` is worked from the crown down. A magic-ring disc increases, in six wedges,
+  to the round nearest the egg's girth, then straight rounds follow to about 6 cm.
+- The fabric is plain single crochet in two-round stripes of the concept's palette. The
+  concept's stitch repeat is deliberately not used, because its unit would force a stitch
+  count that slips off the egg. The designer note says so.
+- A "set" or a plural title makes 4 (`launch0.title_promise` backed).
+- **The egg girth is a stated design assumption, not sourced or measured**
+  (`EGG_AROUND_CM = 13.8`). The finished-size note says "an assumed size, not a measured
+  one", and a physical test confirms the fit.
+- `easter-egg-cosies` was refused before this; it now drafts. It compiles, twins and reverses
+  cleanly, and certification raises no finding.
+
+**Known publication block: a rule owned by W-LISTING.** `launch0.assembled_form`/`name_truth`
+reads "cosy" as an assembled form, backed only by seams or held-stitch joins. A cup worked in
+one piece in the round is closed by construction, but the rule does not say so, so
+publication refuses it (`NAME_OUTRUNS_PATTERN`). The draft records this in `cir.drafted`'s
+`name_truth`.
+
+**Proposed one-line rule for the owner:** a component with `construction == "joined_rounds"`
+and `foundation_kind == "magic_ring"` that is never seamed is a closed shape by construction,
+and backs "cosy" and "pouch". Not built here.
+
+Tests: `tests/test_opus2_draft_constructions.py`, 11/11, including
+`test_an_egg_cosy_set_drafts_one_piece_cups_sized_to_an_egg`. That test checks the snug
+girth, between the assumed egg girth and 15% over it.

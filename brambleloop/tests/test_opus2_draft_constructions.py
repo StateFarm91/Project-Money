@@ -63,7 +63,8 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
     assert FALLBACK
     for seed in FALLBACK:
         route = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle)
-        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.TRIANGLE, F.TOTE, F.REFUSED), \
+        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.TRIANGLE, F.TOTE, F.COSY,
+                                   F.REFUSED), \
             (seed.slug, route)
         if route["family"] == F.REFUSED:
             assert route["needs"] and route["why"], seed.slug
@@ -122,7 +123,7 @@ def test_a_basket_concept_drafts_a_vessel_that_compiles_and_carries_the_concept(
 
 def test_a_shaped_concept_is_refused_by_name_and_nothing_is_compiled():
     for slug in ("woodland-fox-amigurumi", "alpine-slouch-beanie",
-                 "easter-egg-cosies", "lattice-triangle-shawl"):
+                 "lattice-triangle-shawl", "nordic-forest-stocking"):
         db, seed = _db(slug)
         result, emitted, audits = _draft(db, _payload(seed))
         assert result["drafted"] is False and emitted == [], (slug, result)
@@ -318,6 +319,35 @@ def test_the_round_span_measures_only_the_written_clause_on_a_round_piece():
     wide = dataclasses.replace(cir, assembly=[dataclasses.replace(cir.assembly[0],
                                                                   stitches_from_centre=1)])
     assert "ASSEMBLY_MISMATCH" in {f.code for f in certify(wide).errors}
+
+
+def test_an_egg_cosy_set_drafts_one_piece_cups_sized_to_an_egg():
+    from brambleloop.cir import reverse
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.gates.certificate import certify
+    from brambleloop.products import launch0
+
+    assert F.plan(category="seasonal_decor", title="Tea Cosy")["family"] == F.REFUSED
+    assert F.plan(category="seasonal_decor", title="Egg Cozy")["family"] == F.COSY
+    db, seed = _db("easter-egg-cosies")
+    result, emitted, audits = _draft(db, _payload(seed))
+    assert result["drafted"] is True and result["construction"] == F.COSY, result
+    cir = CIR.from_dict(emitted[0][1]["cir"])
+    res = compile_cir(cir)
+    assert res.ok and build_twin(cir, res) is not None
+    assert reverse.compare(cir, write_pattern(cir, res, "US")) == []
+    comp = cir.components[0]
+    assert comp.foundation_kind == "magic_ring" and comp.make == F.COSY_SET
+    assert launch0.title_promise(cir)["backed"] is True          # "Set" -> four cosies
+    around = comp.rows[-1].declared_count * 10.0 / cir.gauge.stitches_per_10cm
+    assert F.EGG_AROUND_CM <= around <= F.EGG_AROUND_CM * 1.15, around   # snug, not loose
+    assert not {f.code for f in certify(cir, db=db).errors}
+    # Name truth reads "cosy" as an assembled form backed only by seams or held-stitch joins;
+    # a cup worked in one piece in the round is closed by construction but the rule (owned
+    # by W-LISTING) does not yet say so. The draft records it; publication still refuses.
+    drafted = [kw for a, kw in audits if a == "cir.drafted"][0]["detail"]
+    assert any("cosy" in p for p in drafted["name_truth"]), drafted
 
 
 if __name__ == "__main__":

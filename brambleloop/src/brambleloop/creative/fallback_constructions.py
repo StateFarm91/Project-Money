@@ -33,6 +33,7 @@ FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
 TOTE = "tote"
+COSY = "cosy"
 TRIANGLE = "triangle"
 REFUSED = "refused"
 
@@ -59,7 +60,7 @@ NEEDS: dict[str, str] = {
 # Title words that name a shaped, closed or assembled object whatever the category says. The
 # assembled forms are launch0's (a flat panel under them promises a make it does not contain).
 _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "sweater",
-                 "shawl", "shawlette", "cluster", "egg cosy", "mitten", "sock",
+                 "shawl", "shawlette", "cluster", "mitten", "sock",
                  # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
                  "granny", "hexagon", "hexie", "bed")
 
@@ -107,6 +108,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if re.search(_EGG_COSY_WORDS, (title or "").lower()):
+        rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
+        if not _shaped_title(rest):
+            return {"family": COSY, "needs": "",
+                    "why": "an egg cosy is a small cup worked from the crown down"}
     if category in TOTE_CATEGORIES or re.search(_TOTE_WORDS, (title or "").lower()):
         rest = re.sub(_TOTE_WORDS, "", (title or "").lower())
         if not _shaped_title(rest):
@@ -350,6 +356,64 @@ def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         designer_notes=(f"{body_cir.designer_notes}; drafted as a tote: two "
                         f"{STRAP_STITCHES}-stitch straps sewn across {STRAP_STITCHES} "
                         f"stitches of the top round at its eighth points"))
+
+
+# An egg cosy: a cup worked from the crown down -- a magic-ring disc, then straight rounds --
+# sized to sit over an egg whose widest girth is taken as EGG_AROUND_CM. That figure is a
+# stated DESIGN ASSUMPTION, not a sourced or measured one: no egg measurement is on file, so
+# the finished-size note says so and a physical test confirms the fit. Plain single crochet in two-round stripes of the concept's palette:
+# the concept's stitch repeat would force a stitch count that slips off the egg, so it is not
+# used, and nothing claims it is. A "set" makes four.
+_EGG_COSY_WORDS = r"\begg\s+co(?:s|z)(?:y|ies)\b"
+EGG_AROUND_CM = 13.8
+COSY_TALL_CM = 6.0
+COSY_SET = 4
+COSY_PRIMITIVES = ("creative.fallback_constructions.cosy", "products.vessels._disc_rounds")
+
+
+def cosy(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A set of egg cosies in the concept's palette, worked from the crown down."""
+    from ..creative.prototype import gauge_for
+    from ..products.launch0 import PLURAL_MARKERS
+    from ..products.vessels import _disc_rounds
+
+    gauge = gauge_for(concept.yarn_weight)
+    palette = list(concept.colors)
+    if not palette:
+        raise ValueError(f"{concept.slug}: a cosy needs at least one colour")
+    # The round nearest the egg's circumference, in whole wedges of six (flat crown).
+    count = max(12, int(round(EGG_AROUND_CM * gauge.stitches_per_10cm / 10.0 / 6)) * 6)
+    rows = _disc_rounds(count, palette[0])
+    row_cm = 10.0 / gauge.rows_per_10cm
+    wall_rounds = max(4, int(round(COSY_TALL_CM / row_cm)))
+    index = rows[-1].index
+    for w in range(1, wall_rounds + 1):
+        index += 1
+        rows.append(Row(index=index, ops=[Op("sc", count)], declared_count=count,
+                        color=palette[((w - 1) // 2) % len(palette)]))
+    lowered = (concept.title or "").lower()
+    make = COSY_SET if (re.search(r"\bcos(?:ies)\b|\bcoz(?:ies)\b", lowered)
+                        or any(re.search(rf"\b{m}\b", lowered) for m in PLURAL_MARKERS)) else 1
+    around = count * 10.0 / gauge.stitches_per_10cm
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version, construction="joined_rounds",
+        risk_class=concept.risk_class, colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=p) for p in palette],
+        components=[Component(
+            name="cosy", construction="joined_rounds", rows=rows, foundation=0,
+            foundation_kind="magic_ring", make=make,
+            note=(f"Make {make}. Worked from the crown down: increase to {count} stitches, "
+                  f"then {wall_rounds} straight rounds, changing colour every two rounds."))],
+        designer_notes=(f"{concept.category} concept drafted as {make} egg cosies: a "
+                        f"{count}-stitch crown and {wall_rounds} straight rounds of plain "
+                        f"single crochet; the concept's stitch repeat is not used"),
+        finished_size_note=(
+            f"About {around:.1f} cm around and {wall_rounds * row_cm:.1f} cm tall at the "
+            f"stated gauge, designed for an egg about {EGG_AROUND_CM} cm around its widest "
+            f"point (an assumed size, not a measured one). Computed, not yet measured on a "
+            f"worked sample."),
+        provenance=provenance)
 
 
 VESSEL_PRIMITIVES = ("creative.fallback_constructions.vessel", "products.vessels._disc_rounds",
