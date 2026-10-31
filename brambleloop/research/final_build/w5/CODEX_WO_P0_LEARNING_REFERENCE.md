@@ -30,7 +30,7 @@
 **Problem.** `teardown/intake.receive` stores an upload, but no job ever analyses it: `teardown_state` stays `queued`. `teardown/reader.analysis()` is never persisted, and no findings are reviewed.
 
 **Build:**
-1. Create `runtime/teardown_ops.py` with handler `teardown.analyse(job)`. Register it in the runtime handler registry, the same way existing handlers in `runtime/*_ops.py` are registered. Add a daily cadence `teardown_analyse_sweep` in `runtime/worker.py` CADENCES, and regenerate `autonomy/autonomy_map.json` with `cd brambleloop && PYTHONPATH=src python -m brambleloop.autonomy.map`; `test_v11_autonomy_timeline` enforces this.
+1. Create `runtime/teardown_ops.py` with handler `teardown.analyse(job)`. Register it in the runtime handler registry, the same way existing handlers in `runtime/*_ops.py` are registered. Add a daily cadence `teardown_analyse_sweep` in `runtime/worker.py` CADENCES, and regenerate `autonomy/autonomy_map.json` with `cd brambleloop && PYTHONPATH=src python -m brambleloop.autonomy.map --write src/brambleloop/autonomy/autonomy_map.json`; `test_v11_autonomy_timeline` enforces this.
 2. Make `teardown/intake.receive` enqueue `teardown.analyse` with an idempotency key `teardown:<benchmark_id>:<file_sha256>`. The sweep enqueues any `BenchmarkProduct` whose `teardown_state == "queued"`.
 3. The handler runs `reader.read`, then `analysis`, `architecture_answers`, `construction_correspondence` and `size_family.all_size_parse` / `schematic_cross_check`.
    - Persist to a new `BenchmarkAnalysis` table (add it to `core/models.py` and `core/db.create_all`). Store only closed vocabulary, numbers, element-presence booleans and file hashes.
