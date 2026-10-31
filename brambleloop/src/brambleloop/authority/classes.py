@@ -89,7 +89,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "improve.mine": _R, "improve.retrospective": _R, "intel.acceptance": _R,
     "intel.benchmark_health": _R, "intel.benchmark_refresh": _R,
     "intel.gallery_analysis": _R, "intel.panel_discovery": _R, "intel.pod_learning": _R,
-    "intel.serp_capture": _R, "intel.children_portfolio": _R, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
+    "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,
     "radar.competitor_snapshot": _R, "radar.scan": _R, "radar.score": _R,
     "intel.watchlist_scan": _R, "intel.watchlist_compare": _R, "intel.opportunity_review": _R,
@@ -98,7 +98,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     # build: internal artefacts, code/config/process changes, work generation
     "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.owned_photography": _B,
     "assets.physical_upgrade": _B, "assets.render": _B, "autonomy.orchestrate": _B,
-    "build.tick": _B, "chain.rebuild": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
+    "build.tick": _B, "chain.rebuild": _B, "chain.successors": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
     "collection.assemble": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,

@@ -131,8 +131,22 @@
         "src/brambleloop/runtime/pipeline.py (listing.parity audit gains version; one import)"
       ],
       "claimed_at": "2026-10-31T02:35Z",
-      "state": "in_progress",
+      "state": "built_regression_running",
       "note": "Deterministic successor for each of the four W-INVENTORY dead ends. Stall detection stays W-INVENTORY's; this adds the successors, not a detector."
+    },
+    {
+      "id": "OPUS2-COMPETITOR-EVIDENCE",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-COMPETITOR-EVIDENCE",
+      "files": [
+        "src/brambleloop/intel/scan_evidence.py (new, read-only)",
+        "src/brambleloop/runtime/evidence_ops.py (new)",
+        "registrations: agents/registry.py, authority/classes.py, runtime/worker.py, runtime/pipeline.py"
+      ],
+      "claimed_at": "2026-10-31T03:10Z",
+      "state": "built_regression_running",
+      "note": "No edit to W-CONCEPT's intel/watchlist.py or intel/benchmarks.py: reads their state. The seed shops read not_registered until W-CONCEPT merges, then their watchlist state."
     }
   ],
   "unowned": [

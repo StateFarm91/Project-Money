@@ -1629,7 +1629,11 @@ def handle_store_publish(ctx: JobContext) -> dict:
     refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),
                          action="store.publish")
     parity_verdict = _listing_parity(ctx)
-    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
+    # P0-CHAIN-DEADENDS (3): the row names the release it judged, so a verdict for one
+    # version is never read as another's (W-INVENTORY found it bound to the slug alone).
+    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"),
+              detail={**parity_verdict, "version": ctx.job.inputs.get("version"),
+                      "release": ctx.job.inputs.get("release", "")})
 
     # The release-chain publish gates (#58, #60, #65, #66, #70, #80, #172, #173, #297), on
     # the same split as parity: computed on every attempt from evidence on file, so Shadow
@@ -2476,6 +2480,10 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.salvage_review": ("work_done",),
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),
+    # OPUS2-P0 (P0-CHAIN-DEADENDS): dead ends re-driven or resolved.
+    "chain.successors": ("work_done",),
+    # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
+    "intel.scan_evidence": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
@@ -3111,6 +3119,7 @@ from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

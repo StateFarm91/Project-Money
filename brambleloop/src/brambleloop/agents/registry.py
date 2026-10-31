@@ -104,7 +104,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # capability anybody had to buy (B-478, B-483).
                             "culture.sweep", "intel.gallery_analysis",
                             # W4-AGENTS C1: the priority baby & children's family (F-351..366).
-                            "intel.children_portfolio"],
+                            "intel.children_portfolio",
+                            # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): per-shop scan evidence.
+                            "intel.scan_evidence"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     # The creative side of #94: it judges this catalogue against an observed human one and
     # records the result. It writes no product, publishes nothing and contacts nobody; the
@@ -250,6 +252,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["seasonal.remerchandising",
                             "listing.draft", "listing.seo", "collection.assemble",
                             "chain.rebuild",
+                            # OPUS2-P0 (P0-CHAIN-DEADENDS): re-drive dead ends once per deploy.
+                            "chain.successors",
                             # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
                             "listing.taxonomy_refresh",
                             # F-280: launch-week Search Visibility owner card (no-op in

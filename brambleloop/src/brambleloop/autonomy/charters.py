@@ -286,7 +286,7 @@ CHARTERS: tuple[Charter, ...] = (
                "integration_steward"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
                  "etsy.listing", "seo.", "storefront."),
-       job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
+       job_types={"chain.rebuild", "chain.successors", "seasonal.remerchandising", "etsy.credential_health",
                   "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify",
                   "etsy.dashboard_harvest"},
        generatable=("seasonal.remerchandising", "seo.cycle", "storefront.review",

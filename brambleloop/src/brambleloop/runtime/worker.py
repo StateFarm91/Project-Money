@@ -713,6 +713,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
+    # OPUS2-P0 (P0-CHAIN-DEADENDS): each recorded dead end is re-driven once per deployed
+    # commit and closed once its stage succeeds. CA$0; never re-drives under an unknown commit.
+    ("chain_successors", "listing", "chain.successors", 60 * 60),
     # Daily, because what blocks a launch changes as the company builds: a requirement that
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
@@ -968,6 +971,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-AGENTS C1: the priority children's family -- research coverage (F-353), style
     # segments (F-358), launch mix (F-366), Baby & Kids architecture (F-365). CA$0.
     ("children_portfolio", "market_radar", "intel.children_portfolio", 24 * 60 * 60),
+    # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): which named shops were actually scanned, when, and
+    # what the scans produced; honest not-registered / not-accessible records. CA$0.
+    ("scan_evidence", "market_radar", "intel.scan_evidence", 24 * 60 * 60),
     # W4-AGENTS C2 (F-744): every model experiment kept as a durable normalised record. CA$0.
     ("model_ledger", "publishing", "visual.model_ledger", 24 * 60 * 60),
     # W4-AGENTS C3: F-113 legacy salvage re-gate (weekly; recommends only) and the F-775

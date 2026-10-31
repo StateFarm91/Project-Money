@@ -229,3 +229,59 @@ check-in, or on an owner message. The durable record is this file and PR #3.
   moving file. The owner's variation requirement is f93b1ec3.
 - **CLAIMED: OPUS2-CHAIN-DEADENDS** (P0-CHAIN-DEADENDS, and the successor half of
   P0-NEXT-PRODUCT). Recorded in `COORDINATION.json` on this branch.
+
+## 14. Cluster 4: OPUS2-CHAIN-DEADENDS (P0-CHAIN-DEADENDS; successor half of P0-NEXT-PRODUCT)
+
+Each W-INVENTORY dead end now has a deterministic successor (`runtime/chain_successors.py`):
+
+| Dead end | Successor | Who acts |
+|---|---|---|
+| `pricing.position` refuses on the net floor or `OUTSIDE_PLAN_BAND` | one owner action `chain-deadend:pricing:<slug>@<version>` (CA$0, 10 min) with the refusal and reasons, plus a P2 incident | owner (a price outside the band is a commercial decision) |
+| `pricing.position` refuses `UNKNOWN_PRODUCT` | P2 incident only, no owner action | company (catalogue defect) |
+| `assets.build` `ok: false` (images misrepresent the pattern) | P2 incident naming the visual department, with the problems | company |
+| `listing.parity` audit row unversioned | the row's detail now carries `version` and `release` (artifact unchanged, so slug-keyed readers keep working) | n/a |
+| `launch.plan` HOLD / SIMPLIFY | `launch.plan` re-queued for the day after the missed occasion (06:00Z), or +30 days with no date; one per release per date; PIVOT is unchanged | the chain itself |
+
+- **No loops.** The hourly `chain.successors` sweep (listing agent, class B like `chain.rebuild`)
+  re-drives each open dead end **once per deployed commit**, because only a code change can
+  change a deterministic refusal. It never re-drives while the commit is unknown (the
+  `ops.queue_check` rule). It resolves the incident once the stage has succeeded for that exact
+  slug, version and release.
+- **Stage bodies unchanged.** `handle_assets_build`, `handle_pricing_position` and
+  `handle_launch_plan` keep their names and bodies (tests inspect their source). Each lost its
+  decorator, and a registered wrapper at the end of `runtime/release.py` runs it and adds the
+  successor. A successor failure never changes the stage's own result.
+- **Halts.** Every incident is P2 and non-halting: the stage's own refusal already stops the
+  product, and nothing else is halted.
+- **Tests.** `test_opus2_chain_deadends` 10/10 (owner action once, defect vs decision,
+  images, re-plan date and idempotency, pivot, unknown occasion, per-commit re-drive,
+  unknown-commit refusal, resolution, parity version).
+- **Integration.** `runtime/release.py` (decorators moved; wrappers appended at the end),
+  `runtime/pipeline.py` (parity detail; `WORK_KEYS`), `agents/registry.py` (listing may run
+  `chain.successors`), `authority/classes.py`, `autonomy/charters.py` (store_commerce
+  job_types), `runtime/worker.py` (hourly cadence), `autonomy_map.json` regenerated. W-INVENTORY
+  can drop its "policy hold, no successor" notes for these four once both merge.
+
+## 15. Cluster 5: OPUS2-COMPETITOR-EVIDENCE (P0-COMPETITOR-EVIDENCE)
+
+- **Built.** `intel/scan_evidence.py` (read-only) + daily `intel.scan_evidence` (market_radar,
+  class O, CA$0; `runtime/evidence_ops.py`). For each of the owner's eight named shops, in the
+  owner's order, it reports: method (Open API v3, key-only), schedule (the scanner's
+  cadence), last attempted, last successful, source timestamp, provenance (the row it read),
+  failure reason, consecutive failures, limitations, and downstream output (listings observed
+  with first and last seen). It also reports the credential state from the last `etsy.probe`
+  and the two MJ's reference listings (1767833856 Fall for Granny Baskets, 4295011799 Homebody
+  Baskets): observed or not, and why.
+- **States are derived.** `scanned`, `attempted_not_scanned`, `not_accessible`,
+  `never_attempted`, `not_registered`. A seed shop reads `not_registered` on this base: no scan
+  can have run, so none is claimed. After W-CONCEPT merges, it reads its watchlist state
+  instead, including W-CONCEPT's `not_accessible` records. The anchor's failure is only a
+  failure newer than its last success.
+- **No content copied.** No competitor title, description or listing URL enters the evidence
+  (tested). One durable `operating_readings` row per UTC day, which retention does not prune.
+- **No W-CONCEPT files touched.** It reads `watchlist._state`, `watchlist.WATCHLIST` and
+  `benchmarks.MJS*`.
+- **Tests.** `test_opus2_scan_evidence` 7/7.
+- **Production read once deployed:** `operating_readings` kind `intel.scan_evidence`. A
+  Command Center tile and an `/api/readback/evidence` row are integration choices for the
+  W-READBACK / CC owners.

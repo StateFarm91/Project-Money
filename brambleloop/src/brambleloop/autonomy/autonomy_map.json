@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T01:29:04.735231+00:00",
+ "generated_at": "2026-10-31T02:10:00.599447+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 132,
-  "handlers": 164,
+  "cadences": 134,
+  "handlers": 166,
   "agents": 34,
-  "follow_on_edges": 81
+  "follow_on_edges": 82
  },
  "departments": [
   {
@@ -147,6 +147,7 @@
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
+     "runtime/chain_successors.py:launch_held",
      "runtime/orders.py:handle_trajectory"
     ]
    },
@@ -220,18 +221,6 @@
     "platform"
    ],
    "follow_on": [
-    {
-     "from": "launch.plan",
-     "to": "listing.seo"
-    },
-    {
-     "from": "launch.plan",
-     "to": "marketing.schedule"
-    },
-    {
-     "from": "launch.plan",
-     "to": "store.publish"
-    },
     {
      "from": "plan.cycle",
      "to": "radar.scan"
@@ -414,6 +403,12 @@
       "agent": "market_radar",
       "job_type": "intel.children_portfolio",
       "period_seconds": 86400
+     },
+     {
+      "name": "scan_evidence",
+      "agent": "market_radar",
+      "job_type": "intel.scan_evidence",
+      "period_seconds": 86400
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -462,6 +457,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.evidence_ops",
      "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
@@ -477,6 +473,7 @@
      "intel.opportunity_review",
      "intel.panel_discovery",
      "intel.pod_learning",
+     "intel.scan_evidence",
      "intel.serp_capture",
      "intel.watchlist_compare",
      "intel.watchlist_scan",
@@ -1109,7 +1106,6 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
-     "assets.build",
      "assets.launch_review",
      "creative.image_benchmark",
      "listing.draft",
@@ -1119,6 +1115,7 @@
      "runtime/release.py:_intake_photo",
      "runtime/release.py:enqueue",
      "runtime/release.py:follow",
+     "runtime/release.py:handle_assets_build",
      "visual.controlled_experiment",
      "visual.image_production"
     ]
@@ -1189,12 +1186,7 @@
     "store_commerce",
     "product_truth"
    ],
-   "follow_on": [
-    {
-     "from": "assets.build",
-     "to": "pricing.position"
-    }
-   ],
+   "follow_on": [],
    "learning_signal": [
     "useful_completions_24h",
     "defect_dead_letters_24h",
@@ -1303,6 +1295,12 @@
       "period_seconds": 3600
      },
      {
+      "name": "chain_successors",
+      "agent": "listing",
+      "job_type": "chain.successors",
+      "period_seconds": 3600
+     },
+     {
       "name": "remerchandising_review",
       "agent": "listing",
       "job_type": "seasonal.remerchandising",
@@ -1385,20 +1383,20 @@
     "follow_on_from": [
      "app/command_center/api.py:make_router",
      "app/command_center/api.py:store_settings_sync",
-     "assets.build",
      "chain.rebuild",
      "content.draft",
      "gate.certify",
      "growth.steer",
      "integrations/taxonomy_drift.py:after_refresh",
-     "launch.plan",
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
-     "pricing.position",
      "runtime/pipeline.py:_publish_and_read_back",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
-     "runtime/release.py:_targeted_rebuild"
+     "runtime/release.py:_targeted_rebuild",
+     "runtime/release.py:handle_assets_build",
+     "runtime/release.py:handle_launch_plan",
+     "runtime/release.py:handle_pricing_position"
     ]
    },
    "cadence": [
@@ -1446,6 +1444,7 @@
     ],
     "executable_job_types": [
      "chain.rebuild",
+     "chain.successors",
      "etsy.credential_health",
      "etsy.dashboard_harvest",
      "etsy.listing_census",
@@ -1931,7 +1930,7 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "ads.adjust",
-     "launch.plan",
+     "runtime/release.py:handle_launch_plan",
      "storefront.review"
     ]
    },
