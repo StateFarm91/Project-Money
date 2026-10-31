@@ -255,7 +255,39 @@ This is prior-review F7, still open.
 Run one at a time on `claude/w4-PDF1` at `4fb6252d` with
 `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>`:
 
-_Partial: test results pending (run in progress)._
+| File | Result |
+|---|---|
+| test_compiler | ✅ OK |
+| test_twin | ✅ OK |
+| test_reverse | ✅ OK |
+| test_launch0_gauge | ✅ OK (pins the small basket at 1.3.0) |
+| test_release_versions | ✅ OK |
+| test_pdf_premium | ✅ OK (103 s; includes `test_the_soft_fold_disclosure_fails_closed` and the tips test) |
+| test_cert_listing_frames | ✅ OK, after a local `pip install sqlalchemy`. The first run failed with `ModuleNotFoundError: sqlalchemy`, an environment gap, not code. |
+| test_launch0_listing_truth | ❌ **4 FAIL** (see below) |
+
+The four failing tests in test_launch0_listing_truth are:
+- `test_a_certificate_bound_to_no_release_is_neither_filed_nor_served`
+- `test_a_listing_variant_other_than_the_sets_is_refused`
+- `test_no_sample_blocks_on_physical_proof_and_a_bound_sample_clears_it`
+- `test_the_disclosed_set_and_its_certificate_make_imagery_pass`
+
+All four fail with the same gate list:
+- "mobile QA (#66): 4 context(s) not rendered";
+- "gallery minimum quality (#80): remove frames [1–7]";
+- "four-gate export (#58) … never ran: COMMERCIAL_QA";
+- "listing-set certificate (#70): no valid certificate".
+
+**These failures are not caused by 1.3.0.** I re-ran the file at the parent of the design commit
+(`69516b8^`, the basket at 1.2.1) in the same environment and got **the same 4 failures with the
+same messages**.
+- The cause is upstream of this change. `publish/mobile.py` reports NOT_RENDERED when no mobile
+  context render is supplied, so the downstream gates refuse.
+- It needs separate triage: either a missing render dependency in this container, or a regression
+  on `claude/w4-PDF1` that predates 1.3.0.
+- It does mean that, in this environment, this test file cannot confirm the listing-set
+  certificate path. The chain evidence JSON records a `valid` certificate from the builder's own
+  run. I did not reproduce it. See D7.
 
 ## Findings
 
@@ -265,6 +297,7 @@ _Partial: test results pending (run in progress)._
 | D2 | **Moderate (test coverage)** | The provisional kit has no base-edge field, no rim-corner field and no defined wall-height method, so it cannot confirm the property 1.3.0 was made for (prior F7, open). |
 | D3 | Minor (copy) | p5 "Round 11 … 1 cm tall", under "the difference is gauge", rounds 0.72 cm up by about 40 %. Prefer "about 0.7 cm" or "the first wall round stands up". |
 | D4 | Minor (version linkage) | The kit TEST PDF prints "RELEASED 2026-10-07 · version 1.3.0". The date is hard-coded at `quality/tester_kit.py:406`. |
+| D7 | Moderate (verification gap, pre-existing) | `test_launch0_listing_truth`: 4 FAIL, identical at `69516b8^`, so not caused by 1.3.0. The listing-set certificate (state `valid` in the chain evidence) could not be independently reproduced here. Triage this on `claude/w4-PDF1` before sale. |
 | D5 | Info | The superseded 1.2.1 kit PDFs remain beside the 1.3.0 kit in `tester_kit/`. |
 | D6 | Info (carried) | Carried from 1.2.0: hook 5.0 mm is a constant for every weight; the yardage omits the join sl st and ch 1 (about 0.85 m, runs low, inside ±20 %); make-hours 2.15 is untraced (prior F5, F6). |
 | — | Resolved from the 1.2.0 review | F1 (soft fold) is resolved by the back-loop Rnd 11. F2 ("rise straight up", the contradictory tip) is resolved. F3 is half resolved: the base edge is now true, and the wall corners remain (D1). F4 (8.7 cm only an upper bound) is resolved: 8.7 cm is now a central estimate. |
