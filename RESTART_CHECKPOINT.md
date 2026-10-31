@@ -1,50 +1,68 @@
-# Restart checkpoint: 2026-10-27T21:20Z (Opus weekly allowance at 98%)
+# Restart checkpoint, 2026-10-31T06:50Z
 
-All Opus workers were stopped to preserve the allowance. Their work is pushed as checkpoints. Commits named "WIP checkpoint" have tests that are NOT confirmed for that exact state.
+**Read this first after any interruption** (usage limit, worker restart or new session). Then read `COORDINATION.json` and `BRANCH_OWNERSHIP.md`. Commits named "WIP checkpoint" have tests that are NOT confirmed for that exact state.
 
 ## Production
+- Production is `claude/repository-setup-nc9x6o` at **ee35a493**, deployed 2026-10-27T16:06Z.
+- `/api/verify` returned ok=True, 13/13, at 2026-10-31T06:45Z.
+- Phase SHADOW. Nothing is published; Laura's switches are OFF.
 
-- Production: `claude/repository-setup-nc9x6o` = **ee35a493**, deployed 2026-10-27T16:06Z.
-- Readback: 11/12. The failing check is `no_unexpected_dead_letters_in_24h`.
-- SHADOW mode, nothing published, Laura switches OFF.
+## Batch 4: `claude/w4-INTEG8-next` at 98904d86
+**Merged:**
+- READBACK 5d95c4d0, with review findings L1–L4 fixed in bcbe391b.
+- LAUNCHFIX 8c14dbf2, SHIP. Recommended follow-up: N-2, seal the owner photo attestation.
+- RESUMEFIX e634e6fc, SHIP for Batch 4. A resumed run never certifies.
+- LISTING1 d11fe80f, SHIP. Low findings F-1 to F-3 can be fixed at integration.
+- The final-segment declaration (282e47ce).
 
-## Branch heads and state
+**Post-merge suites:** running into `scratchpad/b4_listing.out`. `test_w4_resume_runner` P09 failed once under heavy load and then passed on a clean rerun; watch it in the full suite.
 
-| Branch | Head | State | Next action |
-|---|---|---|---|
-| claude/w4-INTEG8-next | ca5ac1df | Batch 4 base: owner-queue race fix d11d494c, readback operator rows, DEPLOYED_HISTORY | merge reviewed branches below, then run the touched set once, then ONE full uninterrupted suite |
-| claude/w4-READBACK | 5d95c4d0 | done; all listed suites pass | independent review running: claude/w4-SECREVIEW-READBACK-5d95c4d |
-| claude/w4-LAUNCHFIX | 323f302b (WIP) | review of 0f0306dd said DO NOT SHIP: F-1 High (ops-token baseline), F-2/F-3 (D1 evidence unsealed, no age bound), F-6 (fee terms not bound), F-7 (photo vs render); owner clarification: photo gate on activation only | finish the fixes, run suites through testslot.sh, send a delta review |
-| claude/w4-BRANDSCREEN | 24c5c90c | trademark knock-out screening | read the result |
-| claude/w4-PHYSFIX | 74487340 | intake fixes | verify the tests, then review |
-| claude/w4-PHYSFIX-PHOTO | f2a6ea29 | photo-first gallery ordering (on LAUNCHFIX) | verify, then review |
-| claude/w4-ADOPT | c718b9a7 (WIP) | adoption done at 45a2d02c; follow-up (owner baseline, published_manually readers) partial | finish, then review |
-| claude/w4-RESUMEFIX | adb7c77c (WIP) | F1–F8 in progress. MUST land before Batch 4 certifies (C1 is a live hole) | finish, run the probe, then a fresh independent review |
-| claude/w4-PDF1 | 4ed0957a (WIP) | premium PDFs, layout fixes in progress | finish, visual QA, independent PDF and pattern audit, show the owner |
-| claude/w4-LISTING1 | 565475dc (WIP) | basket identity source fix (kitchen and home, small only) in progress | finish, report whether the release hash changed |
-| claude/w5-CONCEPT | af5cc7c1 (WIP) | research-to-concept intake, seed-shop watchlist | finish (Batch 5) |
-| claude/w5-INVENTORY | 0066c708 (WIP) | 15-state inventory and dashboard; test count fix pending | finish (Batch 5) |
-| claude/w4-LEDGER9 | 17d86da2 | six-state ledger | done |
+**Still to merge before certification:**
 
-## Owner decisions recorded this session (verbatim in ROSTER; record in DECISION_LOG when the branches merge)
+| Branch | Head | State |
+|---|---|---|
+| claude/w4-PHYSFIX | 626afdf8 | fixing review F1–F7 (F1 and F2 are High); worker resumed |
+| claude/w4-PHYSFIX-PHOTO | 78888e44 (WIP) | built on LAUNCHFIX; readiness text; worker resumed |
+| claude/w4-ADOPT | f4104a47 (WIP) | fixing review F-1 to F-4 (F-1 is High); worker resumed |
 
-- Basket = kitchen and home, small size only.
-- Resumed runs never certify until the fixes, the probes and a fresh review all pass.
-- The sample photo gates public publication only.
-- The seed shops are monitored permanently.
+**Then:** merge these three, run the touched suites once, run ONE uninterrupted full suite (only with enough capacity to finish it), then the deploy guard, DRY_RUN, rollback rehearsal and the owner's exact-SHA approval. Never deploy without that approval.
+
+**Merge reconciliation note:** ADOPT and READBACK both edit `app/main.py` (api_catalogue) and `app/verify_checks.py`.
+
+## Batch 5
+| Branch | Head | State |
+|---|---|---|
+| claude/w5-INVENTORY | 5e72bce8 | fixing review H1, M1–M4 and mutants M7, M9, M12; worker resumed |
+| claude/w5-CONCEPT | 933bf742 | done; review running, writing to claude/w5-SECREVIEW-CONCEPT-933bf74 |
+| claude/w4-PDF1 | 63d9ceec | coaster and basket editions done |
+
+**PDF1 audits:**
+- Coaster: FIX BEFORE SALE, F1–F4 Medium, to be fixed in a 1.2.1 pass.
+- Basket: audit running, writing to claude/w4-PDFAUDIT-basket-63d9cee. Batch the 1.2.1 fixes after it reports.
+
+**opus2/p0-revenue-workforce:**
+
+| Commit | Content | Verdict |
+|---|---|---|
+| 54766c9e | size gate, laura_home | CHANGES_REQUIRED (review A) |
+| 54766c9e | rim negative, p0_acceptance | ACCEPT |
+| 54766c9e | chain successors, scan evidence, lessons | review B running (claude/w5-SECREVIEW-OPUS2B-54766c9) |
+| dd211ff4 | photo-led gallery certificate | to review after B |
+
+**Integrator-planned work:**
+- Automatic premium PDF inside `assets.build`.
+- The listing-package assembly job.
+
+## Owner directives in force
+- **D-W5-OWNER-RETURN-TO-PLAN (permanent):** no Etsy AI-pattern policy research or compliance engineering. Existing safeguards stay. Never misrepresent authorship, testing or provenance.
+- Opus 5.5 Medium only. Keep SHADOW. CA$100 ceiling. Laura's identity is locked.
 
 ## Owner actions pending
-
 - Rotate BRAMBLELOOP_OPS_TOKEN, then ANTHROPIC_API_KEY.
-- Apply the db-backup staged patch 616577eb (OFFLOAD_* removal).
+- Apply the db-backup staged patch 616577eb.
 - Approve deleting the partial dump 20261027T162700Z.
-- Basket sample approval (when the kit is ready).
-- Etsy AI-instructions ruling.
-- Policy readings (via the #/policy form once deployed).
-- Set BRAMBLELOOP_READBACK_TOKEN (once deployed).
+- Basket tester kit (about CA$66): ready once its TEST.pdf is rebuilt from the corrected source after PHYSFIX merges.
 
 ## Resume commands
-
-- Test gate: `/home/user/bl-runs/testslot.sh env PYTHONPATH=src:tests PYTHONDONTWRITEBYTECODE=1 /home/user/bl-runs/venv-integ4/bin/python tests/<f>` (3 slots).
-- Full suite (one at a time): `PY=/home/user/bl-runs/venv-integ4/bin/python REQUIRE_CLEAN=1 JOBS=3 setsid nohup bash run_tests.sh > /home/user/bl-runs/fullsuite-<sha>.out 2>&1 < /dev/null &`, from a frozen worktree.
-- Deploy only after owner approval of the exact SHA: `DRY_RUN=1 sh ops/deploy.sh --deployed ee35a493dfd817bd105455091af601a3aa86eb9c` first.
+- Test gate, run from `brambleloop/`: `/home/user/bl-runs/testslot.sh env PYTHONPATH=src:tests PYTHONDONTWRITEBYTECODE=1 /home/user/bl-runs/venv-integ4/bin/python tests/<f>`.
+- Full suite: `PY=/home/user/bl-runs/venv-integ4/bin/python REQUIRE_CLEAN=1 JOBS=3 setsid nohup bash run_tests.sh`. Run it only when nothing else is running, and only with enough usage left to finish.

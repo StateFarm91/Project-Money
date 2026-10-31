@@ -344,3 +344,8 @@ Each W-INVENTORY dead end now has a deterministic successor (`runtime/chain_succ
   After the fixes, test_maturity, test_w4_launchfix and every opus2 suite pass, as do
   test_v11_autonomy_timeline, test_ranking_readiness, test_w4_ownerimg and
   test_w4_firstsale_deliverables.
+
+## 18. CLAIMED: OPUS2-REVERIFY-WITHHOLD (P0-REVERIFY-WITHHOLD, 2026-10-31T07:20Z)
+
+Base merged: 0cf0c59d. A failed re-verification will record a durable withholding that
+`for_publish` already refuses on, so pruning the audit row cannot reopen the gate.

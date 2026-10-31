@@ -187,6 +187,7 @@ tests/test_w4_integ3_defects.py
 tests/test_w4_intelrec_amplify.py
 tests/test_w4_intelrec_watchlist.py
 tests/test_w4_launch_review_card.py
+tests/test_w4_launchfix.py
 tests/test_w4_laura1_briefing.py
 tests/test_w4_laura1_budget.py
 tests/test_w4_laura_ceo.py
@@ -198,11 +199,13 @@ tests/test_w4_marketintel.py
 tests/test_w4_ondemand.py
 tests/test_w4_overnight_grade.py
 tests/test_w4_owner_observations.py
+tests/test_w4_owner_queue_race.py
 tests/test_w4_ownerhome.py
 tests/test_w4_ownerimg.py
 tests/test_w4_pl_auth.py
 tests/test_w4_plact.py
 tests/test_w4_proddiag.py
+tests/test_w4_readback_evidence.py
 tests/test_w4_rel2.py
 tests/test_w4_research_agent.py
 tests/test_w4_resume_runner.py

@@ -314,6 +314,7 @@ def audit_catalogue() -> dict:
 # concept vocabulary; an unmapped construction is reported, never guessed.
 ENGINEERED_COHORT = "launch0_engineered"
 ENGINEERED_MOTIF: dict[str, str] = {
+    "hexagonal-bread-basket": "hexagon",
     "nursery-nesting-baskets": "hexagon",
     "hexagon-coaster-set": "hexagon-contrast-round",
 }

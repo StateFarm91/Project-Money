@@ -24,22 +24,23 @@
       "operator": "main-opus",
       "branch": "claude/w5-INVENTORY",
       "scope": "15-state inventory, flow health, CC Production view",
-      "state": "fixing_review",
-      "head": "d0e523bb",
-      "review_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b"
+      "state": "accepted_batch5",
+      "head": "5e72bce8",
+      "review_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce"
     },
     {
       "id": "W-CONCEPT",
       "operator": "main-opus",
       "branch": "claude/w5-CONCEPT",
-      "scope": "research-to-concept intake, seed-shop watchlist"
+      "scope": "research-to-concept intake, seed-shop watchlist",
+      "state": "fixing_review"
     },
     {
       "id": "W-PDF",
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket_final_in_progress",
+      "state": "release_pass: coaster 1.2.1 (text) + basket 1.3.0 (BLO base-wall design change); kits rebound",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -72,7 +73,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-ADOPT",
       "scope": "manual listing adoption",
-      "state": "fixing_review",
+      "state": "fixing_delta_review",
       "head": "af042099"
     },
     {
@@ -127,6 +128,13 @@
       ]
     },
     {
+      "id": "P0-LEARNING-REFERENCE",
+      "operator": "reserved:codex (work order being prepared by integrator)",
+      "branch": "codex/p0-learning-reference",
+      "state": "reserved",
+      "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department"
+    },
+    {
       "id": "OPUS2-GALLERY-PHOTO-LED",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
@@ -143,6 +151,18 @@
         "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
         "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
       ]
+    },
+    {
+      "id": "OPUS2-REVERIFY-WITHHOLD",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-REVERIFY-WITHHOLD",
+      "files": [
+        "src/brambleloop/runtime/quality_ops.py",
+        "tests/test_opus2_reverify_withhold.py"
+      ],
+      "claimed_at": "2026-10-31T07:20Z",
+      "state": "in_progress"
     }
   ],
   "unowned": [
@@ -153,6 +173,16 @@
     {
       "id": "P0-GALLERY-ASSEMBLY",
       "scope": "listing-gallery assembly to the certified release with Laura identity checks (no paid generation without grant); INCLUDES: a photo-led / mixed variant of the disclosed listing-set certificate (listing_set.certify_disclosed refuses a mixed set today, so Launch-0 galleries cannot lead with the owner's unedited sample photo even after PHYSFIX-PHOTO ordering)"
+    },
+    {
+      "id": "P0-REVERIFY-WITHHOLD",
+      "priority": "P0",
+      "summary": "Found by W-INVENTORY: a failing quality.reverified audit row is kept only for a retention window and for_publish does not read it, so after pruning a product that failed re-verification can advance. Fix in runtime/quality_ops: a failed re-verification records a durable withholding (gate.release_withheld or equivalent) that for_publish already refuses on; test that pruning the audit row does not reopen the gate."
+    },
+    {
+      "id": "P0-DRAFT-CONSTRUCTIONS",
+      "priority": "P0",
+      "summary": "Catalogue breadth: the research-driven draft path (radar concept_to_cir) supports only flat_rows panels and drafts every concept in a category as the same striped panel (W-CONCEPT report). Needed: concept motif/premise reaching the CIR, plus construction families already supported by the compiler elsewhere (in-the-round vessels, motif assembly, colourwork charts) routed from intake concepts. Coordinate with integrator; touches radar/ and cir/ drafting."
     }
   ],
   "reviews": [
@@ -177,12 +207,143 @@
       "sha": "f4f3f7bf",
       "verdict": "REJECTED",
       "reason": "duplicates W5-INVENTORY; reference only"
+    },
+    {
+      "subject": "LAUNCHFIX",
+      "sha": "8c14dbf2",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-LAUNCHFIX-8c14dbf",
+      "notes": "SHIP; N-2 Medium recommended (seal owner photo attestation)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "RESUMEFIX",
+      "sha": "e634e6fc",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-RESUMEREVIEW2",
+      "notes": "SHIP for Batch 4; resume NOT SAFE for certification (resumed runs never certify)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PHYSFIX+PHOTO",
+      "sha": "adabd597+23efd5dc",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-adabd59",
+      "notes": "F1,F2 High; F3 Med-High; F4 Med; F5-F7 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "ADOPT",
+      "sha": "af042099",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-ADOPT-af04209",
+      "notes": "F-1 High, F-2 Med, F-3 Low, F-4 Info",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "INVENTORY",
+      "sha": "d0e523bb",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b",
+      "notes": "H1 High, M1-M4, 3 surviving mutants",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PDF coaster",
+      "sha": "b547434e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-PDFAUDIT-b547434",
+      "notes": "FIX BEFORE SALE: F1-F4 Medium (1.2.1 pass)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "LISTING1",
+      "sha": "d11fe80f",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-LISTING1-d11fe80",
+      "notes": "SHIP; F-1..F-3 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 size gate + laura_home",
+      "sha": "54766c9e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2A-54766c9",
+      "notes": "size gate F1.1 High, F1.2 Med, F1.3/F1.4 Low; laura_home F2.1 Med, F2.2 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 rim negative + p0_acceptance",
+      "sha": "54766c9e",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2A-54766c9",
+      "notes": "",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 chain successors + scan evidence + lessons",
+      "sha": "54766c9e",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2B-54766c9",
+      "notes": "running",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 photo-led certificate",
+      "sha": "dd211ff4",
+      "verdict": "PENDING",
+      "report_branch": "",
+      "notes": "queued after B",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "CONCEPT",
+      "sha": "933bf742",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-CONCEPT-933bf74",
+      "notes": "F1 High (approval never withdrawn on stale evidence; refused rows pile up), F2-F4 Med, F5-F6 Low, many surviving mutants",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PDF basket",
+      "sha": "63d9ceec",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-PDFAUDIT-basket-63d9cee",
+      "notes": "FIX BEFORE SALE: F2,F3,F4,N1,N2,N3 Medium; N4 design (no BLO base-wall round)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "INVENTORY delta",
+      "sha": "5e72bce8",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w5-SECREVIEW-INVENTORY-5e72bce",
+      "notes": "SHIP; 4 LOW coverage/hardening notes",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "ADOPT delta",
+      "sha": "752950e4",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-ADOPT-752950e",
+      "notes": "R-1 High (retention unclassified; fixed at integration 42aa6a72), N-1/N-2 Med, N-3/N-4 Low",
+      "recorded": "2026-10-31T07:20Z"
     }
   ],
   "integration": {
     "base": "claude/w4-INTEG8-next",
     "production": "ee35a493",
-    "batch4_status": "INTEG8-next bcbe391b: merged READBACK(+L1-L4 fixed), LAUNCHFIX, RESUMEFIX; touched suites running. Waiting: PHYSFIX(-PHOTO), ADOPT fixes; LISTING1 review."
+    "batch4_status": "INTEG8-next bcbe391b: merged READBACK(+L1-L4 fixed), LAUNCHFIX, RESUMEFIX; touched suites running. Waiting: PHYSFIX(-PHOTO), ADOPT fixes; LISTING1 review.",
+    "basket_commissioning": {
+      "construction_review": "running -> claude/w4-CONSTRUCTREVIEW-basket",
+      "design_change_N4": "ON HOLD pending construction review (PDF worker told: text-only 1.2.1)",
+      "kit_terms_fix_at_integration": [
+        "OUTREACH says 1-3 testers; budget covers ONE",
+        "independence: exclude owner, household/family, anyone with a financial interest; tester declares relationships; evidence of a completed joined-rounds piece",
+        "CA$66 must include payment-processor fees (fee set net, or ceiling stated inclusive)",
+        "kit/outreach rebound to the recertified version"
+      ],
+      "status": "not ready for commissioning approval"
+    }
   },
   "owner_directives": [
     {
@@ -195,6 +356,11 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-RETURN-TO-PLAN",
       "summary": "Permanent: return to the original Master Plan / Build 2 / Final Master / P0 workforce roadmap. No further Etsy AI-pattern policy research or compliance engineering; preserve existing safeguards; handle a publication-eligibility requirement only when that specific publication action needs it. Never misrepresent authorship, testing or provenance. The issue must not block any engineering, product development, certification, PDFs, imagery, listing packages or other channels. Goal: 24/7 Railway operation independent of Claude sessions. Coordinate via GitHub; Secondary Opus continues unowned P0; Main Opus integrates, certifies, deploys."
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W4-OWNER-BASKET-TESTER-PLANNING",
+      "summary": "Owner authorizes PLANNING around a maximum CA$66 tester budget for the small Hexagonal Bread Basket; NOT authorization to commission or pay. Before final commissioning approval: independent review of the Rnd 10->11 base-to-wall transition (no invented technique), internal consistency of dimensions/gauge/yarn, fix any real defect at source and recertify, preserve full-make testing/shape checks/measurements/unedited photos, confirm tester independence and qualification and that CA$66 covers fee and materials. Premium PDF improvements stay on the roadmap (7-page tester PDF not yet at commercial standard)."
     }
   ]
 }
