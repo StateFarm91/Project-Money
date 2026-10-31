@@ -257,6 +257,15 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                       "ops.launch_decisions decision chain (sealed_chain)"),
     "owner.launch_decision.rebased": ("lifetime_total",
                                       "ops.launch_decisions decision chain (sealed_chain)"),
+    # W4-LAUNCHFIX review F-2: the Etsy exercise's sealed evidence is a sealed chain too.
+    "etsy.exercise_evidence": ("lifetime_total",
+                               "integrations.etsy_exercise evidence chain (sealed_chain)"),
+    "etsy.exercise_evidence_revoked": ("lifetime_total",
+                                       "integrations.etsy_exercise evidence chain "
+                                       "(sealed_chain)"),
+    "etsy.exercise_evidence_rebased": ("lifetime_total",
+                                       "integrations.etsy_exercise evidence chain "
+                                       "(sealed_chain)"),
     # W4-LAUNCHFIX: the owner's verbatim confirmation beside each CC policy page reading,
     # read over all rows as the readings' audit history (app.command_center.policy_readings).
     "policy.page_reading_attested": ("lifetime_total",

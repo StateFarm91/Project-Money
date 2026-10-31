@@ -411,14 +411,20 @@ def test_a_finished_run_records_its_claims_and_only_a_live_one_clears_remote_sta
     etsy_probe.against_etsy = lambda client: True   # what a run at openapi.etsy.com reports
     try:
         with FakeEtsy() as fake:
-            report = run_full(fake)
+            # The production transport: review F-5 counts only a UrllibTransport run.
+            report = run_full(fake, transport=UrllibTransport())
     finally:
         etsy_probe.against_etsy = original
     assert report["ok"] is True and report["status"].startswith(
         etsy_exercise.LIVE_STATUS_PREFIX), report["status"]
+    assert report["evidence"]["sealed"] is True, report["evidence"]
     check = fc.check_etsy_remote_state(DB)
     assert check.state == fc.PASS, check
     reset()
+    with DB.session() as s:
+        s.execute(delete(AuditLog).where(AuditLog.action.in_(
+            [etsy_exercise.EVIDENCE_ACTION, etsy_exercise.EVIDENCE_REVOKED,
+             etsy_exercise.EVIDENCE_REBASED])))
     assert fc.check_etsy_remote_state(DB).state == fc.UNVERIFIABLE
 
 

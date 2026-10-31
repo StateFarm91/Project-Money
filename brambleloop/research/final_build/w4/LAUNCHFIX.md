@@ -377,6 +377,30 @@ The photo requirement now blocks only the stage that genuinely needs it:
 - `tests/test_etsy_readback_observe.py` (two lambdas);
 - `tests/test_cert_commerce.py` (one `Spy` replacement).
 
+## 5d. Response to the independent review of 0f0306dd (`INDEPENDENT_SECREVIEW_LAUNCHFIX_0f0306d.md`)
+
+Each finding has a regression test in `tests/test_w4_launchfix.py` (`test_review_f*`). Each test was run against the 0f0306dd source (the new test file with the old `src/`). Every one of them fails there except F-9, which corrects a test and not the code.
+
+| Finding | Fix | Regression test | On 0f0306dd |
+|---|---|---|---|
+| **F-1 (High)** ops-token page reading became an unreviewed baseline | `record_page_reading(..., owner_attested=False)`. Only the CC `#/policy` path (`policy_readings.record`: owner session, step-up, verbatim attestation) passes `owner_attested=True` and compares against page readings alone. `POST /api/policy/snapshot` (ops token) keeps the original comparison: its first reading is a material change and opens the owner's `policy:<source>` card. `app/main.py` is untouched. | `test_review_f1_an_ops_token_first_reading_still_opens_the_owner_review` | FAILS (`material_change` False) |
+| **F-2** unsealed D1 evidence | New sealed, chained family `etsy.exercise_evidence` (`GrantLedger`, HMAC under the operator credential, principal `system:etsy_exercise`), written by `run()` through `_seal_evidence`. `remote_state_evidence` reads only those rows, checks the actor and verifies the chain and seal. A removal counts only with `confirmed_by`. | `test_review_f2_hand_inserted_unsealed_evidence_never_passes` | FAILS (forged rows gave PASS) |
+| **F-3** no age bound | `EVIDENCE_MAX_AGE_DAYS = 90` on the sealed `recorded_at`. Older evidence is UNVERIFIABLE ("older than the evidence window"). | `test_review_f3_old_evidence_is_stale` | FAILS |
+| **F-4** round trip not scoped to the live run | The sealed row lists this run's own drafts: breadcrumbs after the run's start id, with removals only where `confirmed_by` is set. A clean round trip needs at least one such draft, all of them confirmed gone, and no outstanding exercise draft anywhere. A fresh, sealed live run is now required even if every claim were static-verified. | `test_review_f4_the_round_trip_must_be_the_live_runs_own` | FAILS |
+| **F-5** `against_etsy` was a URL prefix | `against_etsy` compares the exact https host. The sealed row records the transport class, and only `type(transport) is UrllibTransport` counts. | `test_review_f5_only_the_etsy_host_and_the_production_transport_count` | FAILS |
+| **F-6** fee terms not bound | `listing_fees_state` compares every `_fee_terms()` field (USD and CAD fee, period, transaction rate, fee reading) with the sealed content. Any difference is unready and named in `changed_terms`. | `test_review_f6_every_sealed_fee_term_is_bound` | FAILS |
+| **F-7** a recorded render could pass as the photo | Three changes. (1) `sample_photo._synthetic_shas` refuses a SHA that `ArtefactProvenance` records with a provider or model, that a non-photo `ListingAsset` holds, or that is a disclosed render. (2) The certified first frame must have `medium == PHYSICAL_PRODUCT_PHOTO`. (3) The unedited attestation must be the owner's, given through the CC action `physical_photo.attest_unedited` (step-up, verbatim confirmation, actor `owner:cc:*`). The ops-token body flag alone no longer qualifies. | `test_review_f7_a_recorded_render_or_unattested_or_non_photo_frame_never_qualifies` | FAILS |
+| **F-8** owner card text | `TRADEMARK_SCREEN`, the requirement description, the comment and the `owner_queue` decision now name the required residual-risk acceptance, with filing optional and not required. | `test_review_f8_the_owner_card_names_the_risk_acceptance_and_filing_as_optional` | FAILS |
+| **F-9** ambiguous replay test | Sends a different body under the replayed nonce and asserts `code == "REPLAY"`. | `test_cc_policy_form_needs_a_session_csrf_and_step_up` | passes on 0f0306dd too: the gate was already correct, the test was imprecise |
+| F-10, F-11 (Info) | Not changed. F-10 is the existing `GrantLedger` model. F-11 is the existing exercise lane; the owner should know that D1 now depends on it. | none | none |
+
+**Owner clarification, unchanged and still in force (§5c).** The photo gate refuses at activation and public publication only. A private draft keeps every other gate, its sealed grant and the copy-truth check. Internal work is never blocked.
+
+**Consequences to note:**
+- The D1 evidence is sealed under the operator credential, so **rotating that credential invalidates earlier evidence**, as it does every owner grant. Re-run the CA$0 exercise after rotation.
+- Production has no exercise run on record, so nothing existing is lost.
+- `ops/retention.py` records the three new evidence actions as `lifetime_total` (sealed chain).
+
 ## 6. Files changed
 
 - `src/brambleloop/gates/first_customer.py`: D1, the check and its wiring.

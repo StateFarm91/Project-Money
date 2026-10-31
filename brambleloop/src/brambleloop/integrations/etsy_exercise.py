@@ -967,3 +967,17 @@ def remote_state_evidence(db, *, now=None) -> dict:
                              if isinstance(c, dict) and c.get("state_after") == "CONTRADICTED"}
     out["contradicted_claims"] = sorted(contradicted)
     return out
+
+
+def _status(report: dict) -> str:
+    if not report.get("against_etsy"):
+        return ("RAN AGAINST A LOCAL MODEL OF ETSY, NOT ETSY. Every confirmation below is "
+                "evidence about this system's own correctness against our reading of Etsy's "
+                "document. It promotes nothing to VERIFIED_AGAINST_ETSY.")
+    if report.get("ok"):
+        return ("EXERCISED against openapi.etsy.com. The shop was read back and holds no "
+                "test draft.")
+    if not report.get("shop_is_clean"):
+        return ("ATTEMPTED, AND THE SHOP IS NOT CLEAN. See owner_actions for the listing id "
+                "and title to remove in Shop Manager.")
+    return "ATTEMPTED -- the shop is clean; see the steps and findings for what failed."
