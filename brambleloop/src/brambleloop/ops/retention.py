@@ -125,6 +125,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                   "sweep (freshness judged by its age)"),
     "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
                                           "refresh"),
+    # W-ADOPT: commerce.orders_ingest matches orders against every adoption ever recorded.
+    "listing.adopted_manual": ("lifetime_total",
+                               "commerce.orders_ingest matches every adopted listing; "
+                               "manual_adoption links a hand-made listing to its release"),
     "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
                                        "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
