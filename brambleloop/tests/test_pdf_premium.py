@@ -351,7 +351,8 @@ def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
     assert "8.7 cm tall" in basket and "about 8 to 9 cm" not in basket
     assert "beginning to turn up" not in basket and "judge the height" not in basket
     assert "is worked in the back loop only" in basket                         # the tip
-    assert "idealised in one respect" in basket and "gentle curve" not in basket
+    # The renders now draw the soft corners the wall makes, so no idealised caption remains.
+    assert "idealised" not in basket.lower() and "gentle curve" not in basket
     coaster = _flat(_doc("hexagon_coasters")[1])
     assert "idealised" not in coaster.lower()
 
@@ -476,6 +477,45 @@ def test_the_chart_font_is_sha_pinned():
     finally:
         pdf_fonts._pinned = real
         pdf_fonts.verified_path.cache_clear()
+
+
+def test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verification():
+    """W4-PDF1 (owner rule: never show a shape the product does not have).
+
+    The small basket 1.3.0's walls have no stitch at the corner columns, so its renders draw
+    the corners crisp at the base fold and softening toward a rounded rim
+    (`render_contract.rim_softening`), and `render_verification` measures that wall. The
+    straight-cornered prism the renderer drew before -- injected by drawing with the
+    softening switched off -- now FAILS verification for this product, on the new
+    `rim_corners_cm` check, while every other basket keeps its straight walls and passes."""
+    from brambleloop.visual import disclosed_render as D
+    from brambleloop.visual import render_contract as K
+    from brambleloop.visual import render_verification as V
+
+    small = launch0.cir_for("basket_small")
+    for view in ("hero", "scale", "angle"):
+        good = V.verify(D.render(small, view).png, cir=small, view=view)
+        assert good["status"] == V.PASS, (view, good["failed"])
+        rim = next(c for c in good["checks"] if c["check"] == "rim_corners_cm")
+        assert rim["expected"] < 2 * small_points(small) - 0.3, rim     # visibly rounder
+    real = K.rim_softening
+    try:
+        K.rim_softening = lambda cir: 0.0                 # draw the old straight prism
+        prism = {v: D.render(small, v).png for v in ("hero", "scale", "angle")}
+    finally:
+        K.rim_softening = real
+    for view, png in prism.items():
+        bad = V.verify(png, cir=small, view=view)
+        assert bad["status"] == V.FAIL and "rim_corners_cm" in bad["failed"], (view, bad["failed"])
+    medium = launch0.cir_for("basket_medium")
+    assert K.rim_softening(medium) == 0.0
+    ok = V.verify(D.render(medium, "hero").png, cir=medium, view="hero")
+    assert ok["status"] == V.PASS, ok["failed"]
+
+
+def small_points(cir) -> float:
+    twin = build_twin(cir, compile_cir(cir))
+    return twin.across_points_cm / 2
 
 if __name__ == "__main__":
     fails = 0

@@ -144,9 +144,10 @@ def stages(cir) -> list[Stage]:
             j = wall_index[k] + 1
             D._draw_vessel(d, cir, twin, palette, sides, cx=S / 2, ground=ground,
                            px=wall_px, alpha=alpha, base=base, wall=wall[:j], rows=rows,
-                           levels=levels[:j])
+                           levels=levels[:j], wall_top_cm=levels[-1])
             top = [D._project(x, y, levels[j - 1], cx=S / 2, cy=ground, px=wall_px,
-                              alpha=alpha) for x, y in D._path(R, 0.0, 1.0, sides)]
+                              alpha=alpha)
+                   for x, y in D.wall_outline(cir, R, sides, levels[j - 1], levels[-1])]
             d.line(top + [top[0]], fill=HIGHLIGHT, width=4 * SUPERSAMPLE)
             part = "wall"
         else:

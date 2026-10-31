@@ -574,8 +574,28 @@ def _wall_levels(cir, result, wall) -> list[float]:
     return out
 
 
+def wall_outline(cir, R: float, sides: int, z: float, wall_top_cm: float,
+                 t0: float = 0.0, t1: float = 1.0) -> list[tuple[float, float]]:
+    """The wall's outline at height `z` (plan coordinates, cm), with the corner softening
+    `K.rim_softening` gives this product: each point moves radially from the polygon toward
+    the same-perimeter circle by `w_rim * z / wall_top_cm`. 0 is the polygon itself."""
+    pts = _path(R, t0, t1, sides)
+    w_rim = K.rim_softening(cir) if sides else 0.0
+    if not w_rim or wall_top_cm <= 0:
+        return pts
+    Rc = R * sides * math.sin(math.pi / sides) / math.pi
+    w = w_rim * min(1.0, z / wall_top_cm)
+    out = []
+    for x, y in pts:
+        r = math.hypot(x, y)
+        f = ((1 - w) * r + w * Rc) / r if r else 1.0
+        out.append((x * f, y * f))
+    return out
+
+
 def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float, px: float,
-                 alpha: float, base, wall, rows, levels: list[float]) -> list[dict]:
+                 alpha: float, base, wall, rows, levels: list[float],
+                 wall_top_cm: float | None = None) -> list[dict]:
     """A vessel: the base disc, then walls one row height per wall round, painter's order.
 
     `ground` is the screen y of the base centre (Z=0, Y=0); `levels` the top of each wall
@@ -584,6 +604,13 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
     proj = lambda X, Y, Z: _project(X, Y, Z, cx=cx, cy=ground, px=px, alpha=alpha)  # noqa: E731
     sa = math.sin(alpha)
     gauge_st = cir.gauge.stitch_type
+    # Soft wall corners (`K.rim_softening`): 0 draws the straight-cornered prism, unchanged.
+    # The softening is a fraction of the *finished* wall's height, so a construction stage
+    # partway up draws the corners only as soft as they are at that height.
+    H_top = wall_top_cm if wall_top_cm is not None else (levels[-1] if levels else 0.0)
+
+    def wall_path(t0, t1, z):
+        return wall_outline(cir, R, sides, z, H_top, t0, t1)
 
     def tiles(back: bool):
         out = []
@@ -603,8 +630,8 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
                 if facing_back != back:
                     continue
                 path = _path(R, t0, t1, sides)
-                bottom = [proj(x, y, z0) for x, y in path]
-                top = [proj(x, y, z1) for x, y in path]
+                bottom = [proj(x, y, z0) for x, y in wall_path(t0, t1, z0)]
+                top = [proj(x, y, z1) for x, y in wall_path(t0, t1, z1)]
                 # Outer surface seen from the front, inner surface of the back seen from
                 # inside: left-to-right on screen, top edge first.
                 if top[0][0] > top[-1][0]:
@@ -637,7 +664,7 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
             _post(d, *post, rgb)
     # The rim, so the opening reads as an opening.
     H = levels[-1] if levels else 0.0
-    rim = [proj(x, y, H) for x, y in _path(R, 0.0, 1.0, sides)]
+    rim = [proj(x, y, H) for x, y in wall_path(0.0, 1.0, H)]
     d.line(rim + [rim[0]], fill=K.GAP, width=K.GAP_PX + 1)
     return [{"round": ring.index, "count": len(rows[ring.index]),
              "colour": rows[ring.index][0].color, "part": "wall"} for ring in wall]
@@ -714,7 +741,17 @@ def _round_view(cir, result, twin, palette, view: str,
             alpha = math.radians(K.camera_deg(view))
             ca, sa = math.cos(alpha), math.sin(alpha)
             margin = 80 if view == "scale" else 0
-            height_cm = H * ca + span_y * sa
+            # A softened wall (`K.rim_softening`) bows its mid-faces outward toward the rim,
+            # so the back of the rim can stand above the hexagon's own extent: size the frame
+            # to the rim as drawn. On a straight prism this is exactly `span_y`.
+            w_rim = K.rim_softening(cir) if sides else 0.0
+            top_y = max(ys)
+            if w_rim:
+                Rc = R * sides * math.sin(math.pi / sides) / math.pi
+                top_y = max(top_y, max(
+                    y * ((1 - w_rim) + w_rim * Rc / math.hypot(x, y))
+                    for x, y in zip(xs, ys) if math.hypot(x, y)))
+            height_cm = H * ca + (top_y - min(ys)) * sa
             px = min((zw - margin) / span_x, (zh - margin) / height_cm)
             cx = zx0 + margin / 2 + (zw - margin) / 2
             low = (zy0 + (zh - margin) / 2) + height_cm * px / 2

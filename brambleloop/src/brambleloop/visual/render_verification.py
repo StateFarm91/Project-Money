@@ -233,6 +233,9 @@ def expected_model(cir, component: str | None = None, *, shape: bool = True) -> 
         model["base_rounds"] = base_n
         model["wall_rounds"] = len(counts) - base_n
         model["sides"] = sides
+        # The wall's corner softening, from the same contract the renderer draws to
+        # (`K.rim_softening`): 0 is the straight-cornered prism.
+        model["rim_softening"] = K.rim_softening(cir) if sides else 0.0
     return model
 
 
@@ -812,10 +815,27 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
         checks.append(_check("wall_counts", UNKNOWN, "no front face found"))
         return {}
     y_bottom = float(ys.max()) + K.GAP_PX / 2
+    # Soft corners (`K.rim_softening`, W4-PDF1): the mid-face point moves radially from the
+    # apothem toward the same-perimeter circle as the wall rises, so on screen a front-face
+    # stitch at height z sits lower by that outward step times sin(camera). The step is linear
+    # in z, so the un-projection stays one factor `k` (= cos(camera) on a straight prism).
+    ws = model.get("rim_softening", 0.0) or 0.0
+    a_cm = R * math.cos(math.pi / 6)
+    Rc = 3.0 * R / math.pi                      # a hexagon's same-perimeter circle
+    k = ca - (ws * (Rc - a_cm) * sa / H if H else 0.0)
+
+    def k_at(x_px: float) -> float:
+        # A point X cm along the flat front face is r = hypot(X, a) from the axis; the wall
+        # moves it radially by w(z) * (Rc - r), which on screen is a * (Rc/r - 1) * w(z) * sin.
+        if not ws or not H:
+            return ca
+        r = math.hypot((x_px - cx) / u, a_cm)
+        return ca - a_cm * sa * ws * (Rc / r - 1.0) / H
+
     rounds: dict[int, list] = {}
     above = 0
     for c in front:
-        z = (y_bottom - c["cy"]) / (u * ca)
+        z = (y_bottom - c["cy"]) / (u * k_at(c["cx"]))
         j = bisect.bisect_right(tops, z)       # rounds are as tall as their own stitches
         if j >= len(walls):
             above += 1               # inside of the back wall, seen over the rim
@@ -830,14 +850,45 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
         if any(c["colour"] != r["colour"] or c["mixed_colour"] for c in got):
             colour_bad.append(r["index"])
         pitches.extend(np.diff([c["cx"] for c in got]).tolist())
-    top_front = min((c["y0"] for j in rounds for c in rounds[j]), default=None)
-    m_H = (y_bottom - top_front + K.GAP_PX / 2) / (u * ca) if top_front is not None else 0.0
+    # The top of the wall, read on the central column the bottom was read on: on a straight
+    # prism the face's top edge is level, so this is the same pixel; on a softened wall the
+    # face's ends lift toward the corners and only the centre is at the un-projected height.
+    placed = [c for j in rounds for c in rounds[j]]
+    central = [c for c in placed if abs(c["cx"] - cx) <= w_face * u]
+    top_c = min(central or placed, key=lambda c: c["y0"], default=None)
+    top_front = top_c["y0"] if top_c is not None else None
+    m_H = ((y_bottom - top_front + K.GAP_PX / 2) / (u * k_at(top_c["cx"]))
+           if top_front is not None else 0.0)
     m_w = 2 * m_R
     ext_ok = _within(m_w, 2 * R, EXTENT_REL, EXTENT_PX, u)
     checks.append(_check("extent_cm", PASS if ext_ok else FAIL,
                          "across the corners, from the scale bar", measured=round(m_w, 2),
                          expected=round(2 * R, 2)))
-    checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX, u * ca) else FAIL,
+    # Across the corners just under the rim (W4-PDF1). The base fixes the overall extent, so
+    # a drawing whose corners run straight up passes `extent_cm` whatever the pattern makes at
+    # the top; this reads the silhouette at the last wall round's mid-height, where the two
+    # side corners (Y = 0) are the leftmost and rightmost yarn, against the corner radius the
+    # contract's wall gives there. On a straight prism the expectation is 2R, as before.
+    if walls and H:
+        h_last = walls[-1]["height_cm"]
+        z_s = H - h_last / 2
+        r_corner = R - ws * (z_s / H) * (R - Rc)
+        y_s = (y_bottom - K.GAP_PX / 2) - (a_cm * sa + z_s * ca) * u
+        row = int(round(y_s))
+        if 0 <= row < frame.yarn.shape[0]:
+            xs_row = np.nonzero(frame.yarn[row] >= 0)[0]
+            m_c = ((float(xs_row.max()) - float(xs_row.min()) + K.GAP_PX) / u
+                   if xs_row.size else 0.0)
+            checks.append(_check(
+                "rim_corners_cm",
+                PASS if _within(m_c, 2 * r_corner, EXTENT_REL, EXTENT_PX, u) else FAIL,
+                "across the corners at the top wall round: the corners soften toward the rim "
+                "exactly as far as the contract's wall does (0 on a straight prism)",
+                measured=round(m_c, 2), expected=round(2 * r_corner, 2),
+                rim_softening=ws))
+        else:
+            checks.append(_check("rim_corners_cm", UNKNOWN, "the rim row is outside the frame"))
+    checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX, u * k) else FAIL,
                          "front-face height, un-projected by the contract camera angle",
                          measured=round(m_H, 2), expected=round(H, 2)))
     checks.append(_check("stitch_counts", FAIL if count_bad else PASS,

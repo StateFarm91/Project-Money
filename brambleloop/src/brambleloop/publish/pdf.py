@@ -1324,6 +1324,11 @@ def _render_gap(cir: CIR, twin: TwinModel) -> dict | None:
                       f"{fold['first_wall']} to {fold['settled']} and the corners are softer "
                       f"than drawn.")}
     base, wall = _rings(twin)
+    from ..visual import render_contract as _K
+    if base and wall and (twin.sides or 0) >= 3 and _K.rim_softening(cir) > 0:
+        # The renders draw this wall as the pattern makes it -- the defined fold, corners
+        # crisp at the base and softening to a rounded rim -- so there is no gap to caption.
+        return None
     if base and wall and (twin.sides or 0) >= 3:
         return {
             "long": ("These pictures are idealised in one respect: they draw the corners "

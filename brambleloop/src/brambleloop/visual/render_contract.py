@@ -83,6 +83,23 @@ OBLIQUE_DEG = 25.0
 # read over the rim. Measured by `render_verification` with the same un-projection.
 ANGLE_DEG = 50.0
 
+# Soft wall corners (W4-PDF1, 2026-10-31; owner rule "never show a shape the product does not
+# have"). A stacked-hexagon wall has no stitch at the corner columns above the base, so the
+# corners are crisp at the base fold and relax toward the rim (CONSTRUCTION_REVIEW_basket
+# §1.3). The renderer and the verifier draw and measure the same wall: each point moves
+# radially from the hexagon toward the circle of the same perimeter by a weight that grows
+# linearly with height, from 0 at the fold to RIM_CORNER_SOFTENING at the rim. 0.75 is a
+# modelling figure -- the review says the rim tends toward the circle, not that it reaches it
+# -- to be replaced by the first physical sample's rim measurement. Scoped to the products
+# whose renders the owner has had redrawn; every other product draws and verifies as before.
+RIM_CORNER_SOFTENING = 0.75
+SOFT_CORNER_SLUGS = frozenset({"market-basket-small"})
+
+
+def rim_softening(cir) -> float:
+    """The rim weight for this product's wall corners, 0.0 where corners are drawn straight."""
+    return RIM_CORNER_SOFTENING if getattr(cir, "slug", None) in SOFT_CORNER_SLUGS else 0.0
+
 
 # Elongated flat pieces (W4-VISUAL2). A table runner is 3.8:1; drawn upright in a square
 # frame it reads as a thin strip that fills ~13 % of the frame at 340 px, so the whole-piece
