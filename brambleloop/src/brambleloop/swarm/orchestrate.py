@@ -1986,7 +1986,7 @@ WORK_SOURCES: dict[str, tuple[str, str, str]] = {
 OWNER = "owner"
 _CLOSED_GAPS = ("covered", "dismissed", "closed", "abandoned", "retired")
 _CLOSED_EXPERIMENTS = ("concluded", "stopped", "killed", "decided")
-_CLOSED_LISTINGS = ("published", "retired", "withdrawn", "superseded")
+_CLOSED_LISTINGS = ("published", "published_manually", "retired", "withdrawn", "superseded")
 
 
 def _business_work_items(db, agents: dict, cells: dict) -> list[dict]:

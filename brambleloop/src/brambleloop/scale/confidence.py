@@ -98,8 +98,10 @@ def _counts(db) -> dict:
     with db.session() as s:
         certified = s.scalar(select(func.count()).select_from(PatternVersion)
                              .where(PatternVersion.certified == True)) or 0  # noqa: E712
+        from ..core.listing_state import LIVE_ON_ETSY
+
         listings = s.scalar(select(func.count()).select_from(Listing)
-                            .where(Listing.state == "published")) or 0
+                            .where(Listing.state.in_(LIVE_ON_ETSY))) or 0
         physical_passed = s.scalar(select(func.count()).select_from(PhysicalTest)
                                    .where(PhysicalTest.passed == True)) or 0  # noqa: E712
         open_incidents = s.scalar(select(func.count()).select_from(Incident)

@@ -127,6 +127,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                           "refresh"),
     "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
                                        "last 24 h"),
+    # W-ADOPT: commerce.orders_ingest matches orders against every adoption ever recorded.
+    "listing.adopted_manual": ("lifetime_total",
+                               "commerce.orders_ingest matches every adopted listing; "
+                               "manual_adoption links a hand-made listing to its release"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.

@@ -1715,16 +1715,21 @@ def handle_store_publish(ctx: JobContext) -> dict:
         copy = dict(title=listing.title, description=listing.description,
                     price_cad=listing.price_cad, tags=list(listing.tags))
         already = listing.etsy_listing_id
+        manual = listing.state == "published_manually"
         release = ctx.job.inputs.get("release") or listing.release_hash or ""
 
     if already:
         # Publishing twice must not create a second listing. Updating an existing one is a
         # different operation with a different risk profile, so it is refused here rather
-        # than guessed at.
+        # than guessed at. W-ADOPT: a listing the owner made by hand and adopted
+        # (`listing.adopt_manual`) stops here the same way.
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
-                  detail={"reason": f"already on Etsy as listing {already}"})
+                  detail={"reason": f"already on Etsy as listing {already}"
+                                    + (" (published manually and adopted)" if manual else ""),
+                          "published_manually": manual})
         return {"slug": slug, "version": version, "published": False,
-                "etsy_listing_id": already, "reason": "already published"}
+                "etsy_listing_id": already,
+                "reason": "already published manually" if manual else "already published"}
 
     # C-49: both names live in their own modules; importing them here is what lets a
     # non-shadow publish run at all rather than die with NameError on its first line.
@@ -2856,7 +2861,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
                 x["orders"] += 1
                 x["revenue"] += float(o.revenue_cad or 0.0)
         live_since: dict[str, datetime] = {}
-        for r in s.scalars(select(Listing).where(Listing.state == "published")):
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        for r in s.scalars(select(Listing).where(Listing.state.in_(LIVE_ON_ETSY))):
             at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
                 tzinfo=timezone.utc)
             if r.product_slug not in live_since or at < live_since[r.product_slug]:
