@@ -914,13 +914,28 @@ def _certify_listing(ctx: JobContext, cir: CIR):
     return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}
 
 
+def _incoming_design(cir) -> str | None:
+    """The version-independent design digest of this CIR (SECREVIEW F1), or None if unreadable.
+
+    A release-scoped size halt names the design a tester measured wrong; a relabel of the same
+    design under another version string has the same digest and stays halted."""
+    from ..quality.physical import design_digest
+
+    return design_digest(cir)
+
+
 @handlers.register("gate.certify")
 def handle_certify(ctx: JobContext) -> dict:
     cir = CIR.from_dict(ctx.job.inputs["cir"])
 
     # Publication is halted while a P0/P1 defect is open against this product.
     tracker = IncidentTracker(ctx.db)
-    if tracker.publication_halted(cir.slug):
+    # PHYSFIX G4 / SECREVIEW F1: a halt scoped to one design (a physical sample whose size
+    # disagreed) lets a *different* design certify (F-168) -- never a relabel of the same one,
+    # because the scope is the version-independent design digest. Certifying lifts nothing:
+    # the halt is resolved only by a passed full make of the new design whose size agreed
+    # (`runtime.release.handle_physical_record`). Every other halt is product-wide as before.
+    if tracker.publication_halted(cir.slug, content_hash=lambda: _incoming_design(cir)):
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
                   detail={"reason": "open P0/P1 incident"})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
@@ -1211,10 +1226,18 @@ def physical_evidence_rows(db, slug: str) -> list[dict]:
             from ..gates.risk_matrix import physical_class_of
 
             cls, legacy = physical_class_of(measured)
+            # SECREVIEW F3: whether the row proved the finished size. Stamped by
+            # `physical.record` from W-PHYSFIX on; an older row proved it only if its size
+            # was compared and agreed, and it was not a swatch.
+            proof = measured.get("size_proof")
+            if proof is None:
+                proof = (measured.get("size_agrees") is True
+                         and measured.get("scope") != "swatch")
             out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
                         "passed": t.passed, "completed_at": t.completed_at,
                         "content_hash": content, "compatible_variants": variants,
-                        "evidence_class": cls, "legacy_unstamped": legacy})
+                        "evidence_class": cls, "legacy_unstamped": legacy,
+                        "size_proof": bool(proof)})
     return out
 
 
@@ -1715,16 +1738,21 @@ def handle_store_publish(ctx: JobContext) -> dict:
         copy = dict(title=listing.title, description=listing.description,
                     price_cad=listing.price_cad, tags=list(listing.tags))
         already = listing.etsy_listing_id
+        manual = listing.state == "published_manually"
         release = ctx.job.inputs.get("release") or listing.release_hash or ""
 
     if already:
         # Publishing twice must not create a second listing. Updating an existing one is a
         # different operation with a different risk profile, so it is refused here rather
-        # than guessed at.
+        # than guessed at. W-ADOPT: a listing the owner made by hand and adopted
+        # (`listing.adopt_manual`) stops here the same way.
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
-                  detail={"reason": f"already on Etsy as listing {already}"})
+                  detail={"reason": f"already on Etsy as listing {already}"
+                                    + (" (published manually and adopted)" if manual else ""),
+                          "published_manually": manual})
         return {"slug": slug, "version": version, "published": False,
-                "etsy_listing_id": already, "reason": "already published"}
+                "etsy_listing_id": already,
+                "reason": "already published manually" if manual else "already published"}
 
     # C-49: both names live in their own modules; importing them here is what lets a
     # non-shadow publish run at all rather than die with NameError on its first line.
@@ -2856,7 +2884,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
                 x["orders"] += 1
                 x["revenue"] += float(o.revenue_cad or 0.0)
         live_since: dict[str, datetime] = {}
-        for r in s.scalars(select(Listing).where(Listing.state == "published")):
+        from ..core.listing_state import LIVE_ON_ETSY
+
+        for r in s.scalars(select(Listing).where(Listing.state.in_(LIVE_ON_ETSY))):
             at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
                 tzinfo=timezone.utc)
             if r.product_slug not in live_since or at < live_since[r.product_slug]:

@@ -309,8 +309,9 @@ PHYSICAL_SAMPLE = OwnerRequest(
     action=("Approve commissioning one independent tester (not the owner) to make one "
             "sample -- the 20 cm storage basket is the best candidate, about 6-8 hours -- "
             "from the customer PDF, then record it through the physical.record job with "
-            "scope full_make: grams per colour, ball band, hook, finished measurements, and "
-            "anything the written instructions got wrong."),
+            "scope full_make: grams per colour, ball band, hook, finished measurements, "
+            "whether it holds its shape, whether the instructions were followed exactly, "
+            "and any problem (anything the written instructions got wrong)."),
     reason=("Yardage is an uncalibrated estimate carrying an explicit plus or minus 20%, and "
             "nothing but a real sample replaces that. It also calibrates every future "
             "estimate at that gauge, and gates.risk_matrix requires a full physical make of "
