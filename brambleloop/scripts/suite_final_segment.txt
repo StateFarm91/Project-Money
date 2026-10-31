@@ -223,5 +223,7 @@ tests/test_w4_swarmcontrol.py
 tests/test_w4_swarmmetrics.py
 tests/test_w4_wire1_routes.py
 tests/test_w4_wraptest.py
+tests/test_w5_concept_intake.py
+tests/test_w5_inventory.py
 tests/test_waiter.py
 tests/test_web_security.py
