@@ -302,7 +302,18 @@
   "integration": {
     "base": "claude/w4-INTEG8-next",
     "production": "ee35a493",
-    "batch4_status": "INTEG8-next bcbe391b: merged READBACK(+L1-L4 fixed), LAUNCHFIX, RESUMEFIX; touched suites running. Waiting: PHYSFIX(-PHOTO), ADOPT fixes; LISTING1 review."
+    "batch4_status": "INTEG8-next bcbe391b: merged READBACK(+L1-L4 fixed), LAUNCHFIX, RESUMEFIX; touched suites running. Waiting: PHYSFIX(-PHOTO), ADOPT fixes; LISTING1 review.",
+    "basket_commissioning": {
+      "construction_review": "running -> claude/w4-CONSTRUCTREVIEW-basket",
+      "design_change_N4": "ON HOLD pending construction review (PDF worker told: text-only 1.2.1)",
+      "kit_terms_fix_at_integration": [
+        "OUTREACH says 1-3 testers; budget covers ONE",
+        "independence: exclude owner, household/family, anyone with a financial interest; tester declares relationships; evidence of a completed joined-rounds piece",
+        "CA$66 must include payment-processor fees (fee set net, or ceiling stated inclusive)",
+        "kit/outreach rebound to the recertified version"
+      ],
+      "status": "not ready for commissioning approval"
+    }
   },
   "owner_directives": [
     {
@@ -315,6 +326,11 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-RETURN-TO-PLAN",
       "summary": "Permanent: return to the original Master Plan / Build 2 / Final Master / P0 workforce roadmap. No further Etsy AI-pattern policy research or compliance engineering; preserve existing safeguards; handle a publication-eligibility requirement only when that specific publication action needs it. Never misrepresent authorship, testing or provenance. The issue must not block any engineering, product development, certification, PDFs, imagery, listing packages or other channels. Goal: 24/7 Railway operation independent of Claude sessions. Coordinate via GitHub; Secondary Opus continues unowned P0; Main Opus integrates, certifies, deploys."
+    },
+    {
+      "date": "2026-10-31",
+      "id": "D-W4-OWNER-BASKET-TESTER-PLANNING",
+      "summary": "Owner authorizes PLANNING around a maximum CA$66 tester budget for the small Hexagonal Bread Basket; NOT authorization to commission or pay. Before final commissioning approval: independent review of the Rnd 10->11 base-to-wall transition (no invented technique), internal consistency of dimensions/gauge/yarn, fix any real defect at source and recertify, preserve full-make testing/shape checks/measurements/unedited photos, confirm tester independence and qualification and that CA$66 covers fee and materials. Premium PDF improvements stay on the roadmap (7-page tester PDF not yet at commercial standard)."
     }
   ]
 }
