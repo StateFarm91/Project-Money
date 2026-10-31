@@ -144,6 +144,15 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+    },
+    {
+      "id": "OPUS2-OWNER-QUEUE-RACES",
+      "operator": "opus2",
+      "branch": "opus2/p1-owner-queue-races",
+      "from": "P1-OWNER-QUEUE-RACES (offered on PR #3, 2026-10-31T19:17Z)",
+      "state": "in_progress",
+      "scope": "every OwnerAction writer that reads-then-inserts takes the same owner-queue lock (release._serialise_owner_queue: Postgres advisory xact lock / SQLite BEGIN IMMEDIATE), with a forced-interleaving test per writer family; behaviour otherwise unchanged",
+      "note": "touches one line per writer in files owned by others; each edit is the lock call only"
     }
   ],
   "unowned": [
