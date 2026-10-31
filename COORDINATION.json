@@ -159,6 +159,110 @@
       "sha": "f4f3f7bf",
       "verdict": "REJECTED",
       "reason": "duplicates W5-INVENTORY; reference only"
+    },
+    {
+      "subject": "LAUNCHFIX",
+      "sha": "8c14dbf2",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-LAUNCHFIX-8c14dbf",
+      "notes": "SHIP; N-2 Medium recommended (seal owner photo attestation)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "RESUMEFIX",
+      "sha": "e634e6fc",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-RESUMEREVIEW2",
+      "notes": "SHIP for Batch 4; resume NOT SAFE for certification (resumed runs never certify)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PHYSFIX+PHOTO",
+      "sha": "adabd597+23efd5dc",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-adabd59",
+      "notes": "F1,F2 High; F3 Med-High; F4 Med; F5-F7 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "ADOPT",
+      "sha": "af042099",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-ADOPT-af04209",
+      "notes": "F-1 High, F-2 Med, F-3 Low, F-4 Info",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "INVENTORY",
+      "sha": "d0e523bb",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b",
+      "notes": "H1 High, M1-M4, 3 surviving mutants",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PDF coaster",
+      "sha": "b547434e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-PDFAUDIT-b547434",
+      "notes": "FIX BEFORE SALE: F1-F4 Medium (1.2.1 pass)",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "LISTING1",
+      "sha": "d11fe80f",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w4-SECREVIEW-LISTING1-d11fe80",
+      "notes": "SHIP; F-1..F-3 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 size gate + laura_home",
+      "sha": "54766c9e",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2A-54766c9",
+      "notes": "size gate F1.1 High, F1.2 Med, F1.3/F1.4 Low; laura_home F2.1 Med, F2.2 Low",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 rim negative + p0_acceptance",
+      "sha": "54766c9e",
+      "verdict": "ACCEPT",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2A-54766c9",
+      "notes": "",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 chain successors + scan evidence + lessons",
+      "sha": "54766c9e",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2B-54766c9",
+      "notes": "running",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "OPUS2 photo-led certificate",
+      "sha": "dd211ff4",
+      "verdict": "PENDING",
+      "report_branch": "",
+      "notes": "queued after B",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "CONCEPT",
+      "sha": "933bf742",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-CONCEPT-933bf74",
+      "notes": "running",
+      "recorded": "2026-10-31T06:50Z"
+    },
+    {
+      "subject": "PDF basket",
+      "sha": "63d9ceec",
+      "verdict": "PENDING",
+      "report_branch": "claude/w4-PDFAUDIT-basket-63d9cee",
+      "notes": "running",
+      "recorded": "2026-10-31T06:50Z"
     }
   ],
   "integration": {
