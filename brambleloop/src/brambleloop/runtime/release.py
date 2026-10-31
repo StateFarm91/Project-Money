@@ -2947,15 +2947,36 @@ def handle_physical_record(ctx: JobContext) -> dict:
     *falsified* by it. Folding a size disagreement into the calibration factor would turn the
     one check that can catch a wrong geometry model into a number that quietly absorbs it.
 
-    A sample that disagrees about size raises a defect against the product, which halts its
-    publication. That is the correct outcome: the listing's size claim is wrong, and no
-    amount of yarn arithmetic fixes a basket that is not the size we said.
+    PHYSFIX. What was made is part of the record (`scope`, `made`), and the yarn is compared
+    against the estimate for exactly those pieces; a swatch is gauge evidence only. A sample
+    covers exactly one size: this release. Three outcomes (`quality.physical`):
+
+    - PASS binds as evidence of its class and may calibrate.
+    - PARTIAL -- a flat piece that does not lie flat, a 3-D piece that does not hold its
+      shape, or a problem the tester recorded -- is stored, binds nothing, calibrates nothing
+      and is routed to the owner as an owner action. It never passes by itself.
+    - FAIL binds nothing.
+
+    A sample that disagrees about size halts publication of the release it measured: a P1
+    incident against the product, scoped to this design (F-168: the affected scope, not the
+    company), keyed on the version-independent design digest so a relabel stays halted
+    (SECREVIEW F1). A different design may be certified, but the halt is resolved only when
+    a passed full make of that design measures the stated size. That is the correct outcome: the listing's size
+    claim is wrong, and no amount of yarn arithmetic fixes a basket that is not the size we
+    said.
     """
-    from ..gates.incidents import DefectReport, IncidentTracker
-    from ..quality.physical import BallBand, SampleReport, assess, calibration_from_db, record
+    from ..quality.physical import (
+        PARTIAL, BallBand, SampleReport, assess, calibration_from_db, parts_made, record,
+    )
 
     i = ctx.job.inputs
     slug, version = i["slug"], i.get("version", "1.0.0")
+    # F-078 / PHYSFIX G5: a sample covers exactly the one release it was worked from. The
+    # intake takes no compatible-variant or multi-size claim; nothing here invents coverage.
+    for claim in ("compatible_variants", "sizes"):
+        if i.get(claim):
+            raise ValueError(f"`{claim}` is refused: a physical sample covers exactly the one "
+                             f"size it was worked in ({slug}@{version})")
     # A sample is most needed by a release that is blocked only on physical evidence (Class
     # C, a gauge outside its yarn's band, an uncalibrated stitch), so the CIR is the one the
     # chain examined for slug@version whatever its certification state -- and the content
@@ -2966,8 +2987,41 @@ def handle_physical_record(ctx: JobContext) -> dict:
     result = compile_cir(cir)
     twin = build_twin(cir, result)   # uncalibrated on purpose: this is what we predicted
 
+    measured_size = any(i.get(k) is not None for k in
+                        ("measured_width_cm", "measured_height_cm", "measured_around_cm",
+                         "measured_flats_cm")) or bool(i.get("piece_measurements"))
+    if not i.get("scope") and not measured_size:
+        # The legacy inference read "no measurement" as a partial sample of unknown parts,
+        # which was then compared against the whole pattern's yarn. What was made is stated.
+        raise ValueError("a sample with no finished measurement must state its scope "
+                         "(swatch, or component with `made`)")
+    parts_made(cir, i.get("scope"), i.get("made"))     # refuses an inconsistent record
+
+    def _flag(key):
+        # Strict yes/no (SECREVIEW F2): a real boolean, or exactly yes/no/true/false. Anything
+        # else -- "0", "nope", 1 -- is refused rather than read by Python's truthiness.
+        v = i.get(key)
+        if v is None or isinstance(v, bool):
+            return v
+        text = str(v).strip().lower() if isinstance(v, str) else None
+        if text in ("yes", "y", "true"):
+            return True
+        if text in ("no", "n", "false"):
+            return False
+        if text == "":
+            return None
+        raise ValueError(f"`{key}` must be yes or no, not {v!r}")
+
+    followed = _flag("instructions_followed")
+    if followed is None:
+        # SECREVIEW F2/F4: unanswered is unknown, and unknown is never "followed".
+        raise ValueError("`instructions_followed` must be answered yes or no; a blank or "
+                         "missing answer is not a yes")
+
     report = SampleReport(
-        product_slug=slug, version=version, tester_ref=i.get("tester_ref", "owner"),
+        # SECREVIEW R12: no default tester. `physical.record` binds the sample to the tester's
+        # recorded independent agreement, or refuses it (owner_made is non-evidence).
+        product_slug=slug, version=version, tester_ref=str(i.get("tester_ref") or ""),
         grams_by_color={str(k): float(v) for k, v in (i.get("grams_by_color") or {}).items()},
         ball_band=BallBand(grams=float(i["ball_band_grams"]),
                            metres=float(i["ball_band_metres"])),
@@ -2977,36 +3031,81 @@ def handle_physical_record(ctx: JobContext) -> dict:
         measured_around_cm=i.get("measured_around_cm"),
         hours=i.get("hours"),
         notes=i.get("notes", ""),
-        instructions_followed=bool(i.get("instructions_followed", True)))
+        instructions_followed=followed,
+        scope=i.get("scope"), made=i.get("made"),
+        measured_component=i.get("measured_component"),
+        swatch_stitches_per_10cm=i.get("swatch_stitches_per_10cm"),
+        swatch_rows_per_10cm=i.get("swatch_rows_per_10cm"),
+        lies_flat=_flag("lies_flat"), holds_shape=_flag("holds_shape"),
+        problem_notes=str(i.get("problem_notes") or ""),
+        size=i.get("size"),
+        piece_measurements=i.get("piece_measurements"),
+        measured_flats_cm=i.get("measured_flats_cm"),
+        base_edge=(str(i["base_edge"]).strip().lower() if i.get("base_edge") is not None
+                   else None),
+        wall_vertical_from_rnd=i.get("wall_vertical_from_rnd"),
+        corners_at_rim=_flag("corners_at_rim"),
+        rim_across_points_cm=i.get("rim_across_points_cm"),
+        inside_depth_cm=i.get("inside_depth_cm"),
+        rnd11_height_cm=i.get("rnd11_height_cm"))
 
-    assessment = assess(report, twin, cir)
+    assessment = assess(report, twin, cir, result)
+    incomplete = [f for f in assessment.findings if f.code in (
+        "SAMPLE_SCOPE_INVALID", "SAMPLE_SHAPE_UNRECORDED", "SAMPLE_SWATCH_GAUGE_MISSING",
+        "SAMPLE_MEASURED_PIECE_UNKNOWN", "SAMPLE_SIZE_NOT_THIS_RELEASE",
+        "SAMPLE_FOLLOWED_UNRECORDED", "SAMPLE_PIECES_UNMEASURED",
+        "SAMPLE_OBSERVATION_INVALID", "SAMPLE_MEASUREMENT_INVALID")]
+    if incomplete:
+        # An incomplete or self-contradictory record is refused, not stored as evidence of
+        # anything: the operator re-enters it from the tester's sheet.
+        raise ValueError("; ".join(f"{f.code}: {f.message}" for f in incomplete))
     # F-072: `scope` is what the tester did -- "full_make", "swatch" or "component". With no
-    # scope, a sample that reported a finished measurement is a full make and one that
-    # reported only yarn used is partial; an unknown scope word is refused, never guessed.
+    # scope, a sample that reported a finished measurement is a full make; an unknown scope
+    # word is refused, never guessed.
     from ..gates.risk_matrix import scope_to_class
 
-    evidence_class = scope_to_class(
-        i.get("scope"), measured_finished_size=any(
-            i.get(k) is not None for k in ("measured_width_cm", "measured_height_cm",
-                                           "measured_around_cm")))
+    evidence_class = scope_to_class(i.get("scope"), measured_finished_size=measured_size)
+    owner_made = i.get("owner_made") is True
     row_id = record(ctx.db, assessment, content_hash=content_hash,
-                    evidence_class=evidence_class)
+                    evidence_class=evidence_class, owner_made=owner_made)
     ctx.audit("physical.recorded", artifact=f"{slug}@{version}",
               detail={"row": row_id, "content_hash": content_hash,
                       "evidence_class": evidence_class,
                       "release_certified": certified, **assessment.to_dict()})
 
+    review = None
+    if assessment.outcome == PARTIAL and not owner_made:
+        review = _route_partial_to_owner(ctx, slug, version, content_hash, row_id, assessment)
+
+    from ..quality import physical as _physical
+
+    design = _physical.design_digest(cir, result)
+    halted = None
     if assessment.size_agrees is False:
+        halted = _halt_release_on_size(ctx, slug, version, content_hash, row_id, assessment,
+                                       design)
+    lifted: list[int] = []
+    if (assessment.size_proof and evidence_class == "full_physical_make" and design
+            and assessment.whole_pattern and not owner_made):
+        # SECREVIEW F1: only a passed full make of a different design that measured the stated
+        # size lifts an earlier design's size halt.
+        from ..gates.incidents import IncidentTracker
+
         tracker = IncidentTracker(ctx.db)
-        for finding in assessment.findings:
-            if finding.code != "SAMPLE_SIZE_DISAGREES":
-                continue
-            tracker.report(DefectReport(
-                product_slug=slug, pattern_version=version, component=None, row=None,
-                customer_ref=f"physical-test:{row_id}", text=finding.message))
-        ctx.audit("physical.size_disagreement", artifact=f"{slug}@{version}",
-                  detail={"measured": assessment.to_dict()["measured_metres"],
-                          "findings": [f.code for f in assessment.findings]})
+        lifted = tracker.resolve_halts_disproved_by(
+            slug, version=version, design_digest=design, physical_test_id=row_id)
+        if lifted:
+            ctx.audit("physical.size_halt_superseded", artifact=f"{slug}@{version}",
+                      detail={"incidents": lifted, "design_digest": design, "row": row_id})
+        # SECREVIEW R1: a passing make of the SAME geometry a tester measured wrong is
+        # conflicting evidence. It never resolves the halt; the owner weighs the two.
+        from ..gates.incidents import release_scope
+
+        conflicts = [inc.id for inc in tracker.open_incidents(slug)
+                     if inc.halts_publication
+                     and release_scope(inc).get("design_digest") == design]
+        if conflicts:
+            review = review or _route_conflict_to_owner(ctx, slug, version, row_id, conflicts)
 
     # A usable sample changes every yardage figure for its yarn and stitch, which means the
     # PDFs and listings built from the old estimate are now stale. Keyed on the factor, so
@@ -3033,11 +3132,110 @@ def handle_physical_record(ctx: JobContext) -> dict:
 
     return {"slug": slug, "version": version, "physical_test_id": row_id,
             "content_hash": content_hash, "release_certified": certified,
+            "outcome": assessment.outcome, "scope": assessment.scope,
+            "made": assessment.made, "covers_size": assessment.covers_size,
             "factor": assessment.factor, "calibration_now": factor,
             "size_agrees": assessment.size_agrees,
             "usable": assessment.usable_for_calibration,
             "findings": [f.code for f in assessment.findings],
+            "publication_halted": halted, "size_halts_lifted": lifted,
+            "size_proof": assessment.size_proof and not owner_made,
+            "owner_made_non_evidence": owner_made, "owner_review": review,
             "rebuilt": rebuilt, "photos": photos}
+
+
+PHYSICAL_SIZE_HALT = "physical-size"
+
+
+def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash: str,
+                          row_id: int, assessment, design: str | None) -> str:
+    """PHYSFIX G4: a size outside tolerance halts publication of the release it measured.
+
+    One P1 incident per design, with `halts_publication` -- the flag every publication path
+    already reads. Scoped (F-168) by `detail.release_scope.design_digest`, the
+    version-independent digest: `gate.certify` lets a *different* design certify, a relabel
+    of this one stays halted, and only a passed full make of a different design that measured
+    the stated size resolves it. With no digest the halt is product-wide (fails closed)."""
+    from ..ops.incident_lifecycle import open_or_restate
+
+    signature = f"{PHYSICAL_SIZE_HALT}:{slug}:{(design or content_hash or '')[:16]}"
+    findings = [f.message for f in assessment.findings if f.code == "SAMPLE_SIZE_DISAGREES"]
+    with ctx.db.session() as s:
+        open_or_restate(
+            s, signature=signature, severity="P1", product_slug=slug, halts_publication=True,
+            summary=(f"physical sample {row_id} of {slug}@{version} disagrees with the stated "
+                     f"size: {'; '.join(findings)[:400]}"),
+            detail={"release_scope": {"slug": slug, "version": version,
+                                      "content_hash": content_hash,
+                                      "design_digest": design},
+                    "physical_test_id": row_id, "findings": findings,
+                    "clears_when": ("a passed full make of a different design of this "
+                                    "product measures the stated size; a relabel of this "
+                                    "design never clears it")})
+    ctx.audit("physical.size_disagreement", artifact=f"{slug}@{version}",
+              detail={"measured": assessment.to_dict()["measured_metres"],
+                      "findings": [f.code for f in assessment.findings],
+                      "halt": signature})
+    return signature
+
+
+def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: int,
+                             incidents: list[int]) -> str:
+    """SECREVIEW R1: two makes of one geometry disagree about its size. The owner decides."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    key = f"physical_size_conflict:{slug}@{version}:{row_id}"
+    with ctx.db.session() as s:
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+            s.add(OwnerAction(
+                requirement_key=key,
+                action=(f"Physical sample {row_id} of {slug}@{version} measured the stated "
+                        f"size, but an earlier make of the same geometry did not (open size "
+                        f"halt incident(s) {incidents}). Compare the two records and photos and "
+                        f"decide: a measurement error on one sheet, or a pattern that does not "
+                        f"reliably come out at its stated size."),
+                reason=("Two makes of one design disagree about its finished size. Software "
+                        "never settles conflicting physical evidence in favour of the passing "
+                        "one; the halt stays until you decide."),
+                max_cost_cad=0.0, minutes=15,
+                consequence_of_delay=f"{slug} stays halted from publication.",
+                blocks=f"publication of {slug}"))
+    ctx.audit("physical.size_conflict", artifact=f"{slug}@{version}",
+              detail={"row": row_id, "incidents": incidents, "key": key})
+    return key
+
+
+def _route_partial_to_owner(ctx: JobContext, slug: str, version: str, content_hash: str,
+                            row_id: int, assessment) -> str:
+    """PHYSFIX G3: a PARTIAL sample is the owner's to review; nothing passes it automatically."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    key = f"physical_review:{slug}@{version}:{row_id}"
+    problems = [f.message for f in assessment.findings if f.severity == "REVIEW"]
+    with ctx.db.session() as s:
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+            s.add(OwnerAction(
+                requirement_key=key,
+                action=(f"Review physical sample {row_id} of {slug}@{version} (content "
+                        f"{(content_hash or '')[:12]}), recorded PARTIAL: "
+                        + "; ".join(problems)[:600]
+                        + ". It does not count as physical evidence. Decide whether the "
+                          "pattern needs a fix (a new release and a re-test) or the sample "
+                          "needs repeating."),
+                reason=("The tester made the object but recorded a problem with it. A "
+                        "sample that does not lie flat, does not hold its shape or reports "
+                        "a problem is never passed by software."),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay=(f"{slug}@{version} has no passed physical sample, so "
+                                      f"its first-customer size claims stay unresolved."),
+                blocks=f"physical evidence for {slug}@{version}"))
+    ctx.audit("physical.owner_review", artifact=f"{slug}@{version}",
+              detail={"row": row_id, "key": key, "problems": problems})
+    return key
 
 
 def _intake_photo(ctx: JobContext, i: dict) -> dict:

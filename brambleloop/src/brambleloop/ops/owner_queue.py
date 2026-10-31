@@ -505,12 +505,16 @@ DECISIONS: tuple[dict, ...] = (
      "gates": ("tester_roster", "physical_proof"), "keys": ("physical_calibration",),
      "decision": ("Confirm the prepared public tester call (Ravelry 'The Testing Pool'; "
                   "research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid "
-                  "sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 "
-                  "incl. yarn). You are not asked to crochet."),
+                  "sample make of market-basket-small (Hexagonal Bread Basket, max CA$66.00 "
+                  "all-inclusive: CA$65.90 to the one tester by a fee-free transfer). You are "
+                  "not asked to crochet."),
      "why": ("recruiting testers is outreach to real people (an exit from shadow mode); the "
              "physical proof is made by that tester, so both gates are this one decision"),
-     "max_cost_cad": 59.65, "cost_basis": ("ESTIMATED ceiling, gates.risk_matrix: 2.8 "
-                                            "tester h x CA$20 + 63 m yarn (W4-GATESB)"),
+     # SECREVIEW R7: the kit's one all-inclusive figure (quality.tester_kit.KIT), applied
+     # below so the card, the approval doc and the tester call never disagree.
+     "max_cost_cad": 66.00, "cost_basis": ("ESTIMATED, all-inclusive (quality.tester_kit.KIT): "
+                                            "CA$55.90 fee + CA$10.00 yarn to the tester, "
+                                            "CA$0.10 for processing"),
      "minutes": 25,
      "consequence_of_yes": ("a measured sample calibrates yardage and Class C products can "
                             "become shippable"),
@@ -807,17 +811,20 @@ def batch_cards(cards: list[dict]) -> dict:
                      "unknown cost is UNKNOWN, never CA$0")}
 
 
-def _tester_estimate() -> float | None:
+def _kit_ceiling() -> float | None:
+    """SECREVIEW R7: the basket kit's one all-inclusive figure, or None (UNKNOWN)."""
     try:
-        from ..gates import risk_matrix as rm
+        from ..quality import tester_kit
 
-        return round(8 * rm.TESTER_FEE_CAD_PER_HOUR + 25.0, 2)
-    except Exception:  # noqa: BLE001 - an unreadable estimate is UNKNOWN, never 0
+        return float(tester_kit.KIT["max_cost_cad"])
+    except Exception:  # noqa: BLE001 - an unreadable figure is UNKNOWN, never 0
         return None
 
 
 for _d in DECISIONS:
     if _d["id"] == "tester_outreach":
-        _d["max_cost_cad"] = _tester_estimate()
+        # The decision IS this kit's make (its text and gates say so), so it states the kit's
+        # figure -- not a separate generic 8-hour estimate that disagreed with the call.
+        _d["max_cost_cad"] = _kit_ceiling()
         if _d["max_cost_cad"] is None:
             _d["cost_basis"] = "UNKNOWN"

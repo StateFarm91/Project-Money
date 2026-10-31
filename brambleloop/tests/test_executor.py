@@ -1339,12 +1339,20 @@ def test_tester_roster_counts_agreement_not_prospects():
     with db.session() as s:
         s.add(CreatorProfile(ref="prospect", invited=1))
     assert gate.open(db) is False, "a prospect opened tester_roster"
+    # SECREVIEW R20: only an independent tester agreement opens it -- not another
+    # permission, an agreement recorded before the allow-list, or a delivery count.
     with db.session() as s:
-        s.add(CreatorProfile(ref="agreed", permissions=["test_pattern"]))
-    assert gate.open(db) is True
-    db = _db()
-    with db.session() as s:
+        s.add(CreatorProfile(ref="permission", permissions=["test_pattern"]))
+        s.add(CreatorProfile(ref="legacy", permissions=[{"kind": "tester_agreement"}]))
+        s.add(CreatorProfile(ref="photo", permissions=[{"asset_ref": "a", "scope": "s"}]))
         s.add(CreatorProfile(ref="delivered", delivered=1))
+    assert gate.open(db) is False, "a non-independent permission opened tester_roster"
+    from brambleloop.quality import tester_programme as tp
+
+    tp.record_agreement(db, handle_ref="agreed", specialties=["home_decor"],
+                        express_consent=True, consent_source="test fixture",
+                        relationship="none",
+                        qualification="https://www.ravelry.com/projects/agreed/x")
     assert gate.open(db) is True
 
 

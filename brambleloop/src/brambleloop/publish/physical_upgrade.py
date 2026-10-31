@@ -145,6 +145,9 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
     from ..core.models import ListingAsset, ListingOutcome, PhysicalPhoto
 
     today = today or datetime.now(timezone.utc).date()
+    # W-PHYSFIX (LAUNCHFIX review F-7 alignment): whether this photograph leads the gallery is
+    # decided by the publication gate's own predicate, read before this write session opens.
+    leads = _leads_gallery(db, photo_id)
     with db.session() as s:
         photo = s.get(PhysicalPhoto, photo_id)
         if photo is None:
@@ -158,25 +161,30 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
             return {"photo_id": photo_id, "upgraded": False,
                     "why": "the photograph's bytes are not in the artefact store under its "
                            "SHA-256, so there is nothing to put in the listing"}
-        slug = photo.product_slug
-        version = photo.version or s.scalar(
-            select(ListingAsset.version).where(ListingAsset.product_slug == slug)
-            .order_by(ListingAsset.id.desc()).limit(1)) or "1.0.0"
+        slug, version = _photo_release(s, photo)
         frames = list(s.scalars(select(ListingAsset).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version)))
-        replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
-                       for f in frames if f.asset_class != "PHYSICAL_PRODUCT_PHOTO"
-                       and f.role in PROOF_ROLES]
-        position = (max((f.position for f in frames), default=0) or 0) + 1
-        s.add(ListingAsset(
-            product_slug=slug, version=version, position=position,
+        new_frame = ListingAsset(
+            product_slug=slug, version=version, position=0,
             asset_class="PHYSICAL_PRODUCT_PHOTO", role=role, sha256=photo.sha256,
             claims={"physical_photo_id": photo.id, "source": photo.source,
                     "rights_basis": photo.rights_basis, "taken_by": photo.taken_by,
-                    "supplements": [r["position"] for r in replaceable],
-                    "provenance": "camera"},
+                    "provenance": "camera", "leads_gallery": leads},
             approved=False,
-            blocked_reasons=["awaiting asset-truth review and listing-set re-certification"]))
+            blocked_reasons=["awaiting asset-truth review and listing-set re-certification"])
+        # W-PHYSFIX (Etsy Help 44297885802647 / 115015663347, publish.sample_photo): the
+        # unedited photograph of a passed full make of this release goes FIRST; every other
+        # frame keeps its relative order behind it (renders, charts, PDF preview -- each still
+        # labelled by the certificate). Any other photograph is appended last, as before.
+        ordered = sorted(frames, key=lambda f: f.position)
+        ordered = [new_frame] + ordered if leads else ordered + [new_frame]
+        _renumber(s, ordered)
+        position = new_frame.position
+        replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
+                       for f in frames if f.asset_class != "PHYSICAL_PRODUCT_PHOTO"
+                       and f.role in PROOF_ROLES]
+        new_frame.claims = {**new_frame.claims,
+                            "supplements": [r["position"] for r in replaceable]}
         before = list(s.scalars(select(ListingOutcome).where(
             ListingOutcome.product_slug == slug,
             ListingOutcome.period_end <= today.isoformat())))
@@ -191,6 +199,71 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
         flag_modified(photo, "detail")
     return {"photo_id": photo_id, "upgraded": True, "slug": slug, "version": version,
             "frame_position": position, "replaceable": replaceable, "baseline": baseline}
+
+
+def _photo_release(s, photo) -> tuple[str, str]:
+    """The slug@version a photograph's frame is filed under."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+
+    slug = photo.product_slug
+    version = photo.version or s.scalar(
+        select(ListingAsset.version).where(ListingAsset.product_slug == slug)
+        .order_by(ListingAsset.id.desc()).limit(1)) or "1.0.0"
+    return slug, version
+
+
+def _leads_gallery(db, photo_id: int) -> bool:
+    """Whether this photograph is the one the gallery must lead with.
+
+    Exactly the photographs `publish.sample_photo.qualifying_photos` accepts for this release
+    -- the owner's Command Center attestation of the file (`attest_unedited`), the intake
+    attestation, a rights basis, a passed full make bound to this release's content, and not a
+    file the system itself made. The same function, not a copy of its rules, so the frame put
+    first is always one the publication gate accepts. Unreadable reads as "does not lead"."""
+    from ..core.models import PhysicalPhoto
+    from . import sample_photo
+
+    try:
+        with db.session() as s:
+            photo = s.get(PhysicalPhoto, photo_id)
+            if photo is None:
+                return False
+            slug, version = _photo_release(s, photo)
+        q = sample_photo.qualifying_photos(db, slug, version)
+    except Exception:  # noqa: BLE001 - an unreadable gate never puts a photo first
+        return False
+    return any(p.get("photo_id") == photo_id for p in q.get("qualifying") or [])
+
+
+def _renumber(s, ordered) -> None:
+    """Positions 1..n in this order. Two flushes, because (slug, version, position) is unique:
+    every frame first moves clear of the range, then takes its place. Moving a frame changes
+    the frame set, which supersedes the listing-set certificate by fingerprint (#70)."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import PhysicalPhoto
+
+    old = {id(f): f.position for f in ordered}
+    offset = 100000
+    for i, f in enumerate(ordered, start=1):
+        f.position = offset + i
+        if f not in s:
+            s.add(f)
+    s.flush()
+    for i, f in enumerate(ordered, start=1):
+        f.position = i
+    s.flush()
+    # A photograph whose frame moved keeps its recorded frame position true.
+    for f in ordered:
+        pid = (f.claims or {}).get("physical_photo_id")
+        if pid is None or old[id(f)] == f.position or old[id(f)] == 0:
+            continue
+        p = s.get(PhysicalPhoto, pid)
+        if p is not None and (p.detail or {}).get("frame_position") is not None:
+            p.detail = {**p.detail, "frame_position": f.position}
+            flag_modified(p, "detail")
 
 
 def measure_impact(db, *, today: date | None = None) -> dict:
@@ -289,4 +362,37 @@ def attest_unedited(db, photo_id: int, *, actor: str, confirm: str) -> dict:
             "by": actor[:64], "sha256": photo.sha256, "confirmed": UNEDITED_CONFIRMATION,
             "at": datetime.now(timezone.utc).isoformat()}}
         flag_modified(photo, "detail")
-        return {"photo_id": photo.id, "sha256": photo.sha256, "attested": True}
+        out = {"photo_id": photo.id, "sha256": photo.sha256, "attested": True}
+    # W-PHYSFIX: a photograph planned before the owner attested it was filed last; now that it
+    # may qualify, it moves to the front -- if, and only if, the gate's predicate accepts it.
+    out["moved_to_front"] = lead_with_if_qualifying(db, int(photo_id))
+    return out
+
+
+def lead_with_if_qualifying(db, photo_id: int) -> bool:
+    """Move an already-planned photograph's frame to position 1 when it qualifies.
+
+    The rest keep their order; the frame set changes, so the listing-set certificate is
+    superseded and re-certification runs as for any upgrade (#70)."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset, PhysicalPhoto
+
+    if not _leads_gallery(db, photo_id):
+        return False
+    with db.session() as s:
+        photo = s.get(PhysicalPhoto, photo_id)
+        slug, version = _photo_release(s, photo)
+        frames = sorted(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)),
+            key=lambda f: f.position)
+        mine = [f for f in frames if f.asset_class == "PHYSICAL_PRODUCT_PHOTO"
+                and f.sha256 == photo.sha256]
+        if not mine or frames[0] is mine[0]:
+            return bool(mine)
+        frame = mine[0]
+        _renumber(s, [frame] + [f for f in frames if f is not frame])
+        frame.claims = {**(frame.claims or {}), "leads_gallery": True}
+        frame.approved = False
+        frame.blocked_reasons = ["awaiting asset-truth review and listing-set re-certification"]
+    return True

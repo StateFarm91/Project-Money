@@ -253,7 +253,9 @@ def _physical_proof_available(db, env) -> bool:
 
     with db.session() as s:
         rows = list(s.scalars(select(PhysicalTest).limit(50)))
-    return any(row.completed_at is not None for row in rows)
+    # SECREVIEW R12: an owner's own make is non-evidence; it opens no physical-proof gate.
+    return any(row.completed_at is not None and not (row.measured or {}).get("owner_made")
+               for row in rows)
 
 
 def _vision_usable(db, env) -> bool:
@@ -311,11 +313,23 @@ def _tester_recruited(db, env) -> bool:
 
     # Somebody who *agreed*, not anybody on file (C-38). A CreatorProfile is written for a
     # prospect the moment they are observed, so counting rows opened this gate on a list of
-    # people nobody has spoken to. Agreement is evidenced by a delivery or a recorded
-    # permission.
+    # people nobody has spoken to. Agreement is evidenced by an independent tester agreement
+    # (SECREVIEW R20) and nothing else.
     with db.session() as s:
         rows = s.execute(select(CreatorProfile.delivered, CreatorProfile.permissions)).all()
-    return any((delivered or 0) > 0 or bool(permissions) for delivered, permissions in rows)
+    from ..quality.tester_programme import ALLOWED_RELATIONSHIPS, qualification_problems
+
+    def counts(p) -> bool:
+        # SECREVIEW R12/R20: only a tester agreement that passed the independence allow-list
+        # with qualification evidence. No other permission, and no delivery count, stands in
+        # for an independent tester.
+        if not isinstance(p, dict) or p.get("kind") != "tester_agreement":
+            return False
+        ind = p.get("independence") or {}
+        return (ind.get("relationship") in ALLOWED_RELATIONSHIPS.values()
+                and not qualification_problems(ind.get("qualification")))
+
+    return any(any(counts(p) for p in (permissions or [])) for _d, permissions in rows)
 
 
 def _owned_surface_probed(db, env) -> bool:
@@ -796,8 +810,9 @@ GATES: tuple[Gate, ...] = (
          "real people and therefore an exit from shadow mode",
          _tester_recruited,
          (9, 250),
-         "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. "
-         "A prospect on file is not a tester"),
+         "at least one tester agreement recorded through tester_programme.record_agreement "
+         "that passed the independence allow-list with qualification evidence. A prospect, "
+         "another permission or a delivery count is not an independent tester"),
     Gate("image_generation",
          "an image-generation provider that conditions on reference images, because an "
          "identity lock is reference conditioning rather than a better prompt",

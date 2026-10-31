@@ -3,21 +3,29 @@
  "version": "1.2.0",
  "title": "Crochet Hexagonal Bread Basket",
  "risk_class": "B (dimensional_form)",
+ "positioning": "kitchen and home (bread basket); small size only",
  "required": "partial_physical (a full make satisfies it and gives the #64 photograph)",
  "scope": "full_make",
+ "size": "small",
  "make_hours_estimate": 2.15,
- "max_cost_cad": 59.65,
- "cost_basis": "gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
+ "max_cost_cad": 66.0,
+ "testers": 1,
+ "tester_receives_cad": 65.9,
+ "cost_basis": "ESTIMATED, all-inclusive: tester fee 2.795 h (2.15 h x1.3) at CA$20/h = CA$55.90, plus 2 balls x CA$5.00 = CA$10.00, paid in full (CA$65.90) by a fee-free transfer, leaving CA$0.10 for processing. No tester has been paid yet",
  "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
  "finished_size_cm": {
   "across_points": 16.0,
   "across_flats": 13.9,
   "wall_height": 8.7
  },
+ "pieces": {
+  "basket": 1
+ },
  "yarn_metres_by_colour": {
   "cream": 40.2,
   "wine": 11.9
  },
+ "yarn_metres_scope": "every piece the pattern makes (cir.twin._yardage x make)",
  "yardage_tolerance": 0.2,
  "materials": [
   {
@@ -59,19 +67,27 @@
  },
  "protocol": [
   "Before starting: weigh each full ball and record the ball band (grams and metres)",
-  "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook",
-  "Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number",
-  "Weigh what is left of each ball; grams used = start minus end, per colour",
-  "Measure the finished base across the points and across the flats, and the wall height, in cm, without stretching",
-  "Record total hours and whether you followed the instructions exactly",
-  "Photograph the finished basket on a plain surface (top and side) in daylight",
-  "Return the record sheet and photos; the operator enters them (POST /api/physical-test and /api/physical-photo)"
+  "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook; then RE-WEIGH each ball and use that as its start weight, so the swatch's yarn is not counted as project yarn",
+  "Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number. Optional: just after round 11, note how tall the work stands (cm)",
+  "Weigh what is left of each ball; grams used = re-weighed start minus end, per colour",
+  "Measure the finished base across the points and across the flats, in cm, without stretching. Measure the wall height OUTSIDE: from the flat table to the top of the rim, at the middle of a flat side (optional: the inside depth too)",
+  "Set the empty basket on a flat table. Does the base sit flat without rocking? Does it hold its shape (walls upright, no collapse, lean or flare)? Answer yes or no to each, and write any problem in the problems box",
+  "Look at where the base turns into the wall: a crisp fold, or a rounded curve? If rounded, from which round is the wall upright? Are the six corners still visible at the rim (yes or no)? Measure the rim across the points (cm)",
+  "Record total hours (not the swatch) and whether you followed the instructions exactly",
+  "Photograph in daylight on a real surface (wood, linen or a countertop). Keep every camera file UNEDITED: no filter, crop, resize or retouch; landscape or square, at least 2000 px each side, the whole basket in frame with space around it",
+  "Shots: (1) three-quarter view from about 30 degrees above, empty or with two or three rolls below the rim -- the listing's first photo; (2) straight down from above; (3) side view at table level; (4) a tape measure across the points, then a tape at wall height; (5) close-up of the rim and colour change; (6) in use on a set table with bread",
+  "Return the record sheet and the original photo files; the operator enters them (POST /api/physical-test and /api/physical-photo)"
  ],
  "record_fields": [
   {
    "field": "tester_ref",
    "label": "your tester reference",
    "api": "tester_ref"
+  },
+  {
+   "field": "made_basket",
+   "label": "baskets made (of 1)",
+   "api": "made.basket"
   },
   {
    "field": "grams_cream",
@@ -99,9 +115,14 @@
    "api": "hook_mm"
   },
   {
-   "field": "swatch",
-   "label": "swatch: sts and rounds per 10 cm",
-   "api": "notes"
+   "field": "swatch_sts",
+   "label": "swatch: stitches per 10 cm",
+   "api": "swatch_stitches_per_10cm"
+  },
+  {
+   "field": "swatch_rows",
+   "label": "swatch: rounds per 10 cm",
+   "api": "swatch_rows_per_10cm"
   },
   {
    "field": "width_cm",
@@ -111,12 +132,52 @@
   {
    "field": "flats_cm",
    "label": "base across the flats (cm)",
-   "api": "notes"
+   "api": "measured_flats_cm"
   },
   {
    "field": "height_cm",
-   "label": "wall height (cm)",
+   "label": "wall height outside, table to rim at mid-flat (cm)",
    "api": "measured_height_cm"
+  },
+  {
+   "field": "inside_depth",
+   "label": "optional: inside depth (cm)",
+   "api": "inside_depth_cm"
+  },
+  {
+   "field": "lies_flat",
+   "label": "base sits flat, no rocking? yes/no",
+   "api": "lies_flat"
+  },
+  {
+   "field": "holds_shape",
+   "label": "holds its shape? yes/no",
+   "api": "holds_shape"
+  },
+  {
+   "field": "base_edge",
+   "label": "base edge: crisp fold or rounded curve",
+   "api": "base_edge"
+  },
+  {
+   "field": "wall_vertical_from_rnd",
+   "label": "if rounded: wall upright from round",
+   "api": "wall_vertical_from_rnd"
+  },
+  {
+   "field": "corners_at_rim",
+   "label": "six corners visible at the rim? yes/no",
+   "api": "corners_at_rim"
+  },
+  {
+   "field": "rim_points",
+   "label": "rim across the points (cm)",
+   "api": "rim_across_points_cm"
+  },
+  {
+   "field": "rnd11_height",
+   "label": "optional: height just after round 11 (cm)",
+   "api": "rnd11_height_cm"
   },
   {
    "field": "hours",
@@ -131,17 +192,26 @@
   {
    "field": "problems",
    "label": "anything unclear or wrong (round numbers)",
-   "api": "notes"
+   "api": "problem_notes"
   }
  ],
+ "covers_size": {
+  "slug": "market-basket-small",
+  "version": "1.2.0",
+  "size": "small",
+  "rule": "a sample covers exactly this one size"
+ },
  "intake": {
   "test": "POST /api/physical-test (queued job physical.record)",
   "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
-  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+  "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at",
+  "outcomes": "PASS binds; PARTIAL (not flat, shape not held, a problem recorded) goes to the owner and binds nothing; FAIL binds nothing; a size outside 12% halts this release"
  },
  "files": {
-  "market-basket-small-1.2.0-TEST.pdf": "5d4578d24d3116efd9d3e2cd15a2f722b9cfb3cd1ca3dfe331b4c81c11abcc2d",
-  "market-basket-small-1.2.0-RECORD-SHEET.pdf": "335fd7aa9c65a0b1ab52119db02fd644e327206b76a4dc80a3769f29c7bfcf76"
+  "market-basket-small-1.2.0-TEST.pdf": "e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57",
+  "market-basket-small-1.2.0-RECORD-SHEET.pdf": "59ea3c2703d827f2d1ddf05e43dd26aec84a9be37690a16fe43f40f166da0cf9",
+  "OUTREACH.md": "bed9dbe29c837bdb499e6eba90747744bd08b08d5b3ddeeabf7c4f1488e47b3f"
  },
- "pattern_pages": 9
+ "pattern_pages": 7,
+ "built_by": "quality.tester_kit.build(key='basket_small')"
 }
