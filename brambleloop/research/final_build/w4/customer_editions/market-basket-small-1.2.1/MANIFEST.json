@@ -5,13 +5,13 @@
   "cir_fingerprint": "a1d1d0d5dbe5",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "2ba03e87d5d1cf4c3d9f3f0426c32a9b86a869a2",
-  "engine_source_clean": true,
+  "engine_commit": "f8939863c654b559d23d4f6fba15294277edd923",
+  "engine_source_clean": false,
   "files": {
     "NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf": {
-      "bytes": 3403329,
+      "bytes": 3404323,
       "claims": [
-        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; about 8 to 9 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
       "difficulty": "confident beginner",
       "edition": "proof, NOT FOR SALE: marked placeholders for sample photographs",
@@ -171,13 +171,13 @@
       "pages": 14,
       "problems": [],
       "reproducible": true,
-      "sha256": "218fb9abbd43492bf569d580e97a2810cc2db1376942f1ad6dd91d286bd344ea",
+      "sha256": "30debaae4556bbd8eee954891a489c595065d97ca8a7fb8484a3172d422b2eb5",
       "terminology": "US"
     },
     "market-basket-small-1.2.1-uk.pdf": {
-      "bytes": 3401271,
+      "bytes": 3402266,
       "claims": [
-        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; about 8 to 9 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
       "difficulty": "confident beginner",
       "edition": "sale",
@@ -332,13 +332,13 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "2f953db255d8b2a855a4d3d4f7456ecf962ddb44e86ad185325432f579396ffc",
+      "sha256": "a152c6e8d54c2986dede372edf8ebede661ea011682d315bbacf16bb25151e2c",
       "terminology": "UK"
     },
     "market-basket-small-1.2.1.pdf": {
-      "bytes": 3401109,
+      "bytes": 3402109,
       "claims": [
-        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; about 8 to 9 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
       "difficulty": "confident beginner",
       "edition": "sale",
@@ -493,7 +493,7 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "babe395f2c6dc99def1fdc44d00b9429551962202ce60ea0405743a44edbc56c",
+      "sha256": "60510401f175e97841a57dc4111b2ea7d6144dd88873e5222982810c0eaa43b6",
       "terminology": "US"
     }
   },

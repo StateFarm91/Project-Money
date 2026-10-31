@@ -325,6 +325,39 @@ def test_text_and_graphics_clear_their_contrast_floors():
     assert bible.contrast_ratio(as_unit(charts.GRID), as_unit(charts.CREAM)) >= 3.0
 
 
+
+def test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make():
+    """W4-CONSTRUCTREVIEW-basket F2/F3/F4: a both-loops first wall round makes a soft fold.
+
+    No "rise straight up", no Rnd 11 height blamed on gauge, the height as a range that does
+    not overstate the twin's upper bound, and every render captioned as idealised. The coaster
+    (no wall) and a crisp back-loop fold keep the plain wording."""
+    from brambleloop.publish import value_stack
+
+    basket = _flat(_doc("basket_small")[1])
+    assert "rise straight up" not in basket
+    assert "turning upward over the first few rounds and then rising straight" in basket
+    assert "the edge of the base beginning to turn up" in basket
+    assert "judge the height from round 14 on" in basket
+    assert "8.7 cm tall" not in basket and "about 8 to 9 cm tall" in basket
+    assert "Idealised digital rendering" in basket
+    assert basket.count("These pictures are idealised") >= 3       # about box, schematic, gallery
+    coaster = _flat(_doc("hexagon_coasters")[1])
+    assert "idealised" not in coaster.lower()
+
+    cir = launch0.cir_for("basket_small")
+    twin = build_twin(cir, compile_cir(cir))
+    fold = value_stack.soft_fold(cir, twin)
+    assert fold and fold["first_wall"] == 11 and fold["settled"] == 14
+    assert fold["high_cm"] == twin.height_cm and fold["low_cm"] < fold["high_cm"]
+    # Injected crisp fold: Rnd 11 through the back loop is the fold the twin models.
+    for c in twin.cells:
+        if c.row == 11:
+            c.loop = "back"
+    assert value_stack.soft_fold(cir, twin) is None
+    assert value_stack.height_words(7.975, 8.7) == "about 8 to 9 cm"
+    assert value_stack.height_words(3.625, 4.35) == "about 4 cm"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

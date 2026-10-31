@@ -22,16 +22,16 @@ This section supersedes the 1.2.0 editions below. They are retired from
 | `customer_editions/hexagon-coaster-set-1.2.1/hexagon-coaster-set-1.2.1.pdf` (US) | 13 | `20012510b5d10a7d04a5c68927e4ec3605ed1652349e954c096d872a3157f69e` |
 | `…/hexagon-coaster-set-1.2.1-uk.pdf` (UK) | 13 | `26dce91670b8ff3a7fc2fb7b95dcb2f64399c0d747d5eac52b4f23fb4b41e6c7` |
 | `…/NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf` | 13 | `5602b0f0cc00a33e50af201136a0c3f3475e0c0d317509383cec54e3bdf90874` |
-| `customer_editions/market-basket-small-1.2.1/market-basket-small-1.2.1.pdf` (US) | 13 | `babe395f2c6dc99def1fdc44d00b9429551962202ce60ea0405743a44edbc56c` |
-| `…/market-basket-small-1.2.1-uk.pdf` (UK) | 13 | `2f953db255d8b2a855a4d3d4f7456ecf962ddb44e86ad185325432f579396ffc` |
-| `…/NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf` | 14 | `218fb9abbd43492bf569d580e97a2810cc2db1376942f1ad6dd91d286bd344ea` |
+| `customer_editions/market-basket-small-1.2.1/market-basket-small-1.2.1.pdf` (US) | 13 | `60510401f175e97841a57dc4111b2ea7d6144dd88873e5222982810c0eaa43b6` |
+| `…/market-basket-small-1.2.1-uk.pdf` (UK) | 13 | `a152c6e8d54c2986dede372edf8ebede661ea011682d315bbacf16bb25151e2c` |
+| `…/NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf` | 14 | `30debaae4556bbd8eee954891a489c595065d97ca8a7fb8484a3172d422b2eb5` |
 
 **The tester kits,** rebuilt by `research/final_build/w4/tester_kit_coaster.py`, bind to the new
 content hashes:
 
 | Kit file | SHA-256 |
 |---|---|
-| basket `…-1.2.1-TEST.pdf` | `f04887887882b60dbaf1bf3978f90a85bceaf04fbf84a39f8406f3a6a5f902c3` |
+| basket `…-1.2.1-TEST.pdf` | `28b877ed081654d1b8861f406879b1b38a0aa871f9d8cd6a075649c41a566e6c` |
 | basket `…-1.2.1-RECORD-SHEET.pdf` | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
 | coaster `…-1.2.1-TEST.pdf` | `f8ed3abb6ef748d0aeb6c451e7894adc981c63b1f00882fe349cee101b74569d` |
 | coaster `…-1.2.1-RECORD-SHEET.pdf` | `13451d201e6085296041a16909a8e4f1631ac6567126e375d2ff10e985666bc5` |
@@ -55,6 +55,19 @@ unless stated otherwise.
 | N1: logo on product PDFs | The cover uses the tagline-free horizontal lockup (`identity_system.lockup_horizontal`). The owner's raster is untouched. |
 | F10: legal-review sentence | Kept, because it is true until a legal review exists. |
 | N4: base-to-wall transition | On hold, by owner decision. No design change. |
+| Construction review F2 (basket copy) | Independent review `CONSTRUCTION_REVIEW_basket_small_1.2.0.md` (verdict on N4: cosmetic, not a defect). "Rise straight up" is gone from the overview and the construction text. It now reads "make the wall, turning upward over the first few rounds and then rising straight", which agrees with the tip. The Rnd 11 checkpoint now reads "the edge of the base beginning to turn up". The checkpoint header no longer blames gauge for the height of the first wall rounds ("judge the height from round 14 on"). |
+| Construction review F3 (visual promise) | Captioned, not corrected. The cover, schematic, About box and gallery each say: "These pictures are idealised: they draw a sharp edge where the base meets the wall and corners running straight up it. Worked as written, the base turns up in a gentle curve over Rnds 11 to 14 and the corners soften toward the rim." The cover caption reads "Idealised digital rendering". **The render geometry itself is unchanged**, and that remains open: see the backlog below. |
+| Construction review F4 (height) | `value_stack.soft_fold` detects a vessel whose first wall round is worked through both loops. Everywhere the PDF composes a height, it prints the range "about 8 to 9 cm": the range runs from the twin's 8.7 cm upper bound down to one row height (0.725 cm) less. The in-pixel annotation on the schematic render still letters 8.7 cm. The caption under it says that this figure assumes a sharp fold. |
+
+The construction-review fixes are composer text only. `write_pattern` output and the release
+hash are unchanged, so these are still 1.2.1. The coaster has no wall and its bytes are
+unchanged. Pinned by `test_pdf_premium.test_the_basket_does_not_promise_a_crease_its_instructions_do_not_make`.
+
+**Backlog from the construction review (recorded, not fixed here):**
+- **F3-geometry.** Draw the soft base edge and the softening corners in `visual.disclosed_render._draw_vessel`. That needs a matching change to `visual.render_verification` (wall-round banding off the front face). The same renderer feeds the listing images, so it belongs to a renderer and listing pass, not this text release.
+- **F5 (yardage).** The 22 joining sl st + ch 1 (about 0.85 m) and the woven tails are not counted. That is about 2-3 %, inside the ±20 % band, and the error runs low.
+- **F6 (hook).** `creative.prototype.gauge_for` hard-codes `hook_mm=5.0` for every weight. 12.5 sts / 10 cm is a mid-band density, not a structural one. "Whatever hook gets you gauge" and the DK substitution can both produce a soft wall.
+- **Kit fields (review §5).** `wall_height_method`, `base_edge` / `wall_vertical_from_rnd`, `corners_at_rim` with `rim_across_points_cm`, and `rnd11_height_cm` are not on the record sheet yet. Adding them is a kit change, and the CA$66 approval would need to be re-read against the new sheet.
 
 **Visual check.** All pages of the US and UK editions of both products, and both proofs, were
 rendered at 100/80/50 dpi and inspected.

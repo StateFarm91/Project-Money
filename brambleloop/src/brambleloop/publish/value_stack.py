@@ -78,6 +78,46 @@ def _rings_by_row(cir, twin):
     return rings if rings and len(rings) == len(rows) else None
 
 
+def soft_fold(cir, twin) -> dict | None:
+    """Where a vessel's base turns into its wall without a crease, and what that costs in height.
+
+    W4-CONSTRUCTREVIEW-basket F2/F4 (2026-10-31). The twin folds the base into the wall as an
+    instantaneous right angle (`cir.geometry.Revolution`: the first wall round has no radius
+    change and rises a full row height), which is the shape a back- or front-loop round makes.
+    A first wall round worked through both loops makes something else: the fold is a curve
+    spread over the first few wall rounds, so the twin's height is an **upper bound**, and a
+    maker measuring Rnd 11 finds an edge still turning, not a centimetre of wall.
+
+    The curve is not modelled. What is derived is its extent and a bound on the height it
+    takes: the rounds up to the one the "Turning the base into the wall" tip names
+    (`tips.py`: the fourth wall round), and at most one row height lost -- the independent
+    review's estimate is 0.5-0.8 cm against a 0.725 cm row. None for a piece with no wall, or
+    whose first wall round is worked in one loop (a crisp fold the twin does model).
+    """
+    rings = _rings_by_row(cir, twin)
+    if not rings:
+        return None
+    base = [r for r in rings if r.rise_cm <= 0]
+    wall = [r for r in rings if r.rise_cm > 0]
+    if not base or not wall or not twin.height_cm:
+        return None
+    first = wall[0].index
+    loops = {getattr(c, "loop", "both") for c in twin.cells if c.row == first}
+    if not loops or loops != {"both"}:
+        return None
+    loss = wall[0].row_height_cm
+    high = float(twin.height_cm)
+    return {"first_wall": first, "settled": wall[min(len(wall) - 1, 3)].index,
+            "loss_cm": loss, "high_cm": high, "low_cm": max(0.0, high - loss)}
+
+
+def height_words(low: float, high: float) -> str:
+    """'about 8 to 9 cm': each bound to the nearest whole centimetre, halves rounded up."""
+    lo, hi = int(low + 0.5), int(high + 0.5)
+    lo = min(lo, hi)
+    return f"about {hi} cm" if lo == hi else f"about {lo} to {hi} cm"
+
+
 def milestones(cir, twin) -> dict:
     """The rows where the fabric changes, and what should be true at each.
 
@@ -113,6 +153,7 @@ def milestones(cir, twin) -> dict:
     total = len(rows)
     height = twin.height_cm or 0.0
     rings = _rings_by_row(cir, twin)
+    fold = soft_fold(cir, twin)
     points = sorted({1, max(1, total // 4), max(1, total // 2),
                      max(1, (total * 3) // 4), total})
     out = []
@@ -134,9 +175,16 @@ def milestones(cir, twin) -> dict:
             # A round is worked around the piece, not across it, and until the wall starts
             # the thing on the hook has no height to measure -- so the measurement offered is
             # the one a maker can actually take.
+            if fold and tall > 0 and row.index < fold["settled"]:
+                # F2: the edge is still turning here; a height would blame gauge for the fold.
+                rise = ", the edge of the base beginning to turn up"
+            elif fold and tall > 0:
+                rise = (f" and {height_words(ring.axial_cm - fold['loss_cm'], ring.axial_cm)}"
+                        f" tall")
+            else:
+                rise = f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"
             measured = (f"{row.declared_count} stitches around, about {across:.0f} cm "
-                        f"{convention}"
-                        + (f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"))
+                        f"{convention}" + rise)
             label, unit = f"round {index} of {total}", "round"
         else:
             top = (row_tops.get(row.index)

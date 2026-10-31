@@ -1245,6 +1245,59 @@ def _rings(twin: TwinModel):
     return [r for r in rings if r.rise_cm <= 0], [r for r in rings if r.rise_cm > 0]
 
 
+def _fold(cir: CIR, twin: TwinModel) -> dict | None:
+    """`value_stack.soft_fold`: a vessel whose base turns into its wall in a curve."""
+    try:
+        return value_stack.soft_fold(cir, twin)
+    except Exception:  # pragma: no cover - a twin with no rings has no fold to report
+        return None
+
+
+def _tall(cir: CIR, twin: TwinModel) -> str:
+    """The height in words that do not overstate it (W4-CONSTRUCTREVIEW-basket F4).
+
+    The twin's height assumes a sharp fold between base and wall. Where the pattern makes a
+    soft one, that number is an upper bound, so the height is given as a range."""
+    fold = _fold(cir, twin)
+    if fold:
+        return f"{value_stack.height_words(fold['low_cm'], fold['high_cm'])} tall"
+    return f"{twin.height_cm:.1f} cm tall"
+
+
+def _sized(cir: CIR, twin: TwinModel, statement: str | None) -> str | None:
+    """`size_statement` with its height replaced by `_tall` where the fold is soft."""
+    if not statement or not twin.height_cm or not _fold(cir, twin):
+        return statement
+    return statement.replace(f"{twin.height_cm:.1f} cm tall", _tall(cir, twin))
+
+
+def _wall_rise_words(cir: CIR, twin: TwinModel, unit: str, lead: str) -> str:
+    """How the wall leaves the base (F2): straight up only where the pattern makes a crease.
+
+    `lead` is the verb phrase before it ("rise straight up from it" / "keep that count and"),
+    so the sentence reads whole either way."""
+    if _fold(cir, twin):
+        return (f"{lead} make the wall, turning upward over the first few {unit}s and then "
+                f"rising straight")
+    return f"{lead} rise straight up to make the wall"
+
+
+def _idealised(cir: CIR, twin: TwinModel) -> str | None:
+    """What the renders draw that the pattern does not make (W4-CONSTRUCTREVIEW-basket F3).
+
+    The renderer draws the twin's shape: a sharp fold from base to wall and corners running
+    straight up it. Worked through both loops, the base turns up in a curve and the corners
+    soften toward the rim. The geometry is not corrected in this edition (the renderer and
+    its independent verifier are shared with the listing images), so each picture says so."""
+    fold = _fold(cir, twin)
+    if not fold:
+        return None
+    return (f"These pictures are idealised: they draw a sharp edge where the base meets the "
+            f"wall and corners running straight up it. Worked as written, the base turns up "
+            f"in a gentle curve over Rnds {fold['first_wall']} to {fold['settled']} and the "
+            f"corners soften toward the rim.")
+
+
 def _sides(cir: CIR, result) -> int | None:
     from ..cir.geometry import corners
 
@@ -1257,13 +1310,14 @@ def _sides(cir: CIR, result) -> int | None:
         return None
 
 
-def _short_size(twin: TwinModel) -> str:
+def _short_size(twin: TwinModel, cir: CIR | None = None) -> str:
     """The finished size in the fewest words that still name their convention (cover strip)."""
     if not twin.width_cm:
         return "see inside"
     if twin.sides and twin.across_points_cm:
         if twin.shape not in (None, "disc") and twin.height_cm:
-            return f"{twin.across_points_cm:.1f} cm across the points, {twin.height_cm:.1f} cm tall"
+            return (f"{twin.across_points_cm:.1f} cm across the points, "
+                    f"{_tall(cir, twin) if cir is not None else f'{twin.height_cm:.1f} cm tall'}")
         return (f"{twin.across_points_cm:.1f} cm across the points, "
                 f"{twin.across_flats_cm:.1f} cm across the flats")
     if twin.shape is not None:
@@ -1308,7 +1362,7 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
     first = (f"This pattern makes {count} {shape + ' ' if shape else ''}{noun}"
              if len(cir.components) == 1 else
              f"This pattern makes {cir.title.lower()}, from {make} pieces")
-    size = size_statement(twin) if twin.width_cm else None
+    size = _sized(cir, twin, size_statement(twin)) if twin.width_cm else None
     if size and shape:
         # "hexagonal coasters: hexagon, 9.7 cm ..." says the shape twice.
         size = re.sub(r"^[a-z]+(,| base)\s*", lambda m: "base " if "base" in m.group(0) else "",
@@ -1338,8 +1392,9 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         if base and wall:
             how += (f". {unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
                     f"grow a flat base, and {unit}s "
-                    f"{_span_words(wall[0].index, wall[-1].index)} rise straight up from it "
-                    f"to make the wall")
+                    f"{_span_words(wall[0].index, wall[-1].index)} "
+                    + (_wall_rise_words(cir, twin, unit, "")[1:] if _fold(cir, twin) else
+                       "rise straight up from it to make the wall"))
         elif sides:
             how += f", with the increases stacked so that they build {sides} corners"
         out.append(how + ".")
@@ -1758,11 +1813,26 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                                "label": K.DISCLOSURE})
         cap = ("Digital rendering of the finished design, drawn stitch by stitch from this "
                "pattern — not a photograph.")
-        doc.prose.append(cap)
-        doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
+        if _idealised(cir, twin):
+            # F3: two lines, the second saying what the picture idealises.
+            fold = _fold(cir, twin)
+            cap = ("Idealised digital rendering, drawn stitch by stitch from this pattern — "
+                   "not a photograph.")
+            cap2 = (f"Worked as written, the base edge curves up over Rnds "
+                    f"{fold['first_wall']} to {fold['settled']} and the corners are softer "
+                    f"than drawn.")
+            doc.prose.append(cap)
+            doc.prose.append(cap2)
+            doc.text(PAGE_W / 2, caption_y + 2.2 * mm, cap, FONT_BODY_ITALIC, 9.5, MUTED,
+                     align="centre")
+            doc.text(PAGE_W / 2, caption_y - 2.2 * mm, cap2, FONT_BODY_ITALIC, 9.5, MUTED,
+                     align="centre")
+        else:
+            doc.prose.append(cap)
+            doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
     # The facts strip in the forest band.
     strip = [("Skill", difficulty_word.capitalize()),
-             ("Finished size", _short_size(twin)),
+             ("Finished size", _short_size(twin, cir)),
              ("Yarn", _yarn_weight_label(cir)),
              ("Hook", f"{cir.gauge.hook_mm:g} mm" if cir.gauge else "see Materials")]
     col_w = usable / len(strip)
@@ -1788,7 +1858,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     rows: list[tuple[str, str, str, dict]] = []
     if twin.width_cm and twin.height_cm:
         if twin.shape is not None and size_statement(twin):
-            size = f"{size_statement(twin)} at the stated gauge"
+            size = f"{_sized(cir, twin, size_statement(twin))} at the stated gauge"
         else:
             size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
         if not twin.calibrated:
@@ -1865,7 +1935,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # About this pattern: how it was made, what the pictures are, what has been tested.
     notes = [("How this pattern was made.", AI_DISCLOSURE.split(": ", 1)[1]),
-             ("About the pictures.", IMAGE_DISCLOSURE.split(": ", 1)[1]),
+             ("About the pictures.", IMAGE_DISCLOSURE.split(": ", 1)[1]
+              + (" " + _idealised(cir, twin) if _idealised(cir, twin) else "")),
              ("Physical testing:", physical_status(twin).split(": ", 1)[1])]
     inner = usable - 10 * mm
     laid = []
@@ -1926,7 +1997,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                          f"{unit.capitalize()}s {_span_words(base[0].index, base[-1].index)} "
                          f"increase to grow a flat base of {len(rows_ix[base[-1].index])} "
                          f"stitches; {unit}s {_span_words(wall[0].index, wall[-1].index)} keep "
-                         f"that count and rise straight up to make the wall. There are no "
+                         f"that count and "
+                         f"{_wall_rise_words(cir, twin, unit, '')[1:]}. There are no "
                          f"seams to sew.", size=10)
             elif base:
                 doc.para(f"Each {piece} is one piece, worked outward from the centre in joined "
@@ -1963,7 +2035,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             elif twin.width_cm:
                 facts.append(("across" if twin.shape else "width", f"{twin.width_cm:.1f} cm"))
             if twin.shape not in (None, "disc") and twin.height_cm:
-                facts.append(("height", f"{twin.height_cm:.1f} cm"))
+                facts.append(("height", _tall(cir, twin)[:-len(" tall")]))
             elif twin.shape is None and twin.height_cm:
                 facts.append(("length", f"{twin.height_cm:.1f} cm"))
             rows_ix = _rows_by_index(twin)
@@ -1989,9 +2061,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             for line in _wrap(c, note, FONT_BODY_ITALIC, 9.5, tw):
                 doc.text(tx, yy, line, FONT_BODY_ITALIC, 9.5, MUTED)
                 yy -= 4.4 * mm
-            doc.y = top - box - 4 * mm
+            doc.y = min(top - box - 4 * mm, yy - 2 * mm)
             cap = ("The schematic is a digital rendering drawn from the pattern's data, not a "
                    "photograph. The scale bar is in centimetres.")
+            fold = _fold(cir, twin)
+            if fold:
+                # F4: the drawing letters the twin's height, which is an upper bound here.
+                cap += (f" The {fold['high_cm']:.1f} cm height lettered on the drawing assumes "
+                        f"a sharp fold at the base; the curve the base makes as it turns up "
+                        f"takes some of it, so expect "
+                        f"{value_stack.height_words(fold['low_cm'], fold['high_cm'])}. "
+                        + _idealised(cir, twin))
             doc.para(cap, size=9.5, color=MUTED, font=FONT_BODY_ITALIC, keep=True)
             if base_view is not None:
                 # A vessel's schematic needs its base as well as its wall: the elevation shows
@@ -2247,10 +2327,20 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     if progress and len(progress["milestones"]) > 2:
         unit = progress["unit"]
         doc.heading("Checking your progress", size=12)
-        doc.para(
-            f"At these {unit}s the piece should measure roughly this much. If it does not, "
-            f"the difference is gauge, and it is easier to fix now than at {unit} "
-            f"{progress['rows_total']}.", size=10)
+        fold = _fold(cir, twin)
+        if fold:
+            # F2: the first wall rounds are still turning; their height is the fold, not gauge.
+            doc.para(
+                f"At these {unit}s the piece should measure roughly this much. If the width "
+                f"across the points does not match, the difference is gauge, and it is easier "
+                f"to fix now than at {unit} {progress['rows_total']}. The height of the first "
+                f"few wall {unit}s depends on how the edge of the base turns up, not on gauge, "
+                f"so judge the height from {unit} {fold['settled']} on.", size=10)
+        else:
+            doc.para(
+                f"At these {unit}s the piece should measure roughly this much. If it does not, "
+                f"the difference is gauge, and it is easier to fix now than at {unit} "
+                f"{progress['rows_total']}.", size=10)
         for mark in progress["milestones"]:
             doc.kv(f"{mark['unit']} {mark['row']} of {progress['rows_total']}",
                    mark["measured"])
@@ -2506,6 +2596,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         doc.new_page(head)
         doc.heading("Gallery", kicker="The finished design")
         doc.para(IMAGE_DISCLOSURE, size=9.5, color=MUTED)
+        if _idealised(cir, twin):
+            doc.para(_idealised(cir, twin), size=9.5, color=MUTED)
         if not sample_photo_placeholders:
             doc.para("This edition contains no photographs: every picture in it is a rendering "
                      "or a diagram drawn from the pattern.", size=9.5, color=MUTED)

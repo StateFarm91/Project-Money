@@ -27,6 +27,16 @@ only the written text, from the independent PDF audit:
 - the colour-change and ends wording: cut wine after Rnd 19; carry cream up the inside of the join;
 - "the ch 1 does not count as a stitch".
 
+The test PDF was rebuilt again the same day, after the independent construction review. The
+content hash is unchanged. The changes:
+- the wall is described as turning upward over the first few rounds, not "rising straight up";
+- the Rnd 11 checkpoint reads "the edge of the base beginning to turn up";
+- the height is given as "about 8 to 9 cm", because 8.7 cm is an upper bound;
+- every render is captioned as idealised.
+
+The review's suggested record-sheet fields (base edge, wall-height method, corners at the rim)
+are backlog. The record sheet is unchanged.
+
 Stitches, counts, geometry, yarn amounts and the CA$66 ceiling are unchanged. The test PDF is the
 premium customer edition at 13 pages. A 1.2.0 sample would not count as evidence for 1.2.1,
 because physical evidence binds to the exact content hash, so this kit replaces the 1.2.0 one.
@@ -50,9 +60,9 @@ The kit was rebuilt by the same builder after the LISTING1 source correction (ki
 |---|---|
 | Release | `market-basket-small@1.2.1`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf` |
-| Test PDF `market-basket-small-1.2.1-TEST.pdf` (13 pages) | `f04887887882b60dbaf1bf3978f90a85bceaf04fbf84a39f8406f3a6a5f902c3` |
+| Test PDF `market-basket-small-1.2.1-TEST.pdf` (13 pages) | `28b877ed081654d1b8861f406879b1b38a0aa871f9d8cd6a075649c41a566e6c` |
 | Record sheet `market-basket-small-1.2.1-RECORD-SHEET.pdf` (2 pages) | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
-| Manifest `KIT_MANIFEST.json` | `98daf2a35bd1693ed3a774a5c379801d009cc1b7adb53ab2c7753da96c1bfe7a` |
+| Manifest `KIT_MANIFEST.json` | `54ec9cedd2ed6965124c6718ceb027853ce37dcfa3ffa3b83b1676faedfef173` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
