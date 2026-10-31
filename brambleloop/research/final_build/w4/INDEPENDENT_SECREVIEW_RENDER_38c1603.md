@@ -190,6 +190,6 @@ Each was run one at a time as `cd brambleloop && PYTHONPATH=src:tests nice -n 19
 | test_cert_listing_frames | rc 0, 0 failing (6 OK) | 100 s |
 | test_search_hero_publish | rc 0, 4/4 | 150 s |
 | test_launch0_listing_truth | rc 0, 14 OK | 428 s |
-| test_deliverable_qa | running (the first attempt was killed by the 30-minute background limit; re-run in progress) | |
+| test_deliverable_qa | rc 0, 61 OK, 0 FAIL (re-run alone; the first attempt was killed by the 30-minute background limit) | 952 s |
 
 These were run after installing `scipy==1.17.1` and `requirements.txt`; see F7. The passing suite does not change the verdict: F1 and F2 are truth findings, and the tests pin the current behaviour, which is the caption's absence.
