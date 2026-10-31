@@ -525,6 +525,9 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "cc.check.run": ("lifetime_total",
         "ops.on_demand._last_run: the newest row per artifact, which the global "
         "keep-per-action does not protect"),
+    # OPUS2-P0 (P0-LEARNING-GAPS): a 30-day count of construction refusals per product line.
+    "cir.draft_refused": ("windowed",
+        "intel.knowledge_gaps.evidence counts construction refusals over WINDOW_DAYS (30)"),
     "cir.compiled": ("lifetime_total",
         "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
         "days, longer than the retention horizon"),

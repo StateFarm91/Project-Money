@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T02:10:00.599447+00:00",
+ "generated_at": "2026-10-31T07:29:59.143278+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 134,
-  "handlers": 166,
+  "cadences": 135,
+  "handlers": 167,
   "agents": 34,
   "follow_on_edges": 82
  },
@@ -221,6 +221,18 @@
     "platform"
    ],
    "follow_on": [
+    {
+     "from": "launch.plan",
+     "to": "listing.seo"
+    },
+    {
+     "from": "launch.plan",
+     "to": "marketing.schedule"
+    },
+    {
+     "from": "launch.plan",
+     "to": "store.publish"
+    },
     {
      "from": "plan.cycle",
      "to": "radar.scan"
@@ -1106,6 +1118,7 @@
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
+     "assets.build",
      "assets.launch_review",
      "creative.image_benchmark",
      "listing.draft",
@@ -1115,7 +1128,6 @@
      "runtime/release.py:_intake_photo",
      "runtime/release.py:enqueue",
      "runtime/release.py:follow",
-     "runtime/release.py:handle_assets_build",
      "visual.controlled_experiment",
      "visual.image_production"
     ]
@@ -1186,7 +1198,12 @@
     "store_commerce",
     "product_truth"
    ],
-   "follow_on": [],
+   "follow_on": [
+    {
+     "from": "assets.build",
+     "to": "pricing.position"
+    }
+   ],
    "learning_signal": [
     "useful_completions_24h",
     "defect_dead_letters_24h",
@@ -1383,20 +1400,20 @@
     "follow_on_from": [
      "app/command_center/api.py:make_router",
      "app/command_center/api.py:store_settings_sync",
+     "assets.build",
      "chain.rebuild",
      "content.draft",
      "gate.certify",
      "growth.steer",
      "integrations/taxonomy_drift.py:after_refresh",
+     "launch.plan",
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
+     "pricing.position",
      "runtime/pipeline.py:_publish_and_read_back",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
-     "runtime/release.py:_targeted_rebuild",
-     "runtime/release.py:handle_assets_build",
-     "runtime/release.py:handle_launch_plan",
-     "runtime/release.py:handle_pricing_position"
+     "runtime/release.py:_targeted_rebuild"
     ]
    },
    "cadence": [
@@ -1930,7 +1947,7 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "ads.adjust",
-     "runtime/release.py:handle_launch_plan",
+     "launch.plan",
      "storefront.review"
     ]
    },

@@ -68,7 +68,8 @@ JOB_CLASS: dict[str, ActionClass] = {
     "storefront.review": _O,     # W4-AGENTS: reads stored readings, writes a review row
     "finance.accounting.cycle": _O, "finance.challenge": _O,
     "finance.escalation_check": _O, "finance.governor": _O, "finance.reconcile": _O,
-    "growth.journey": _O, "improve.measure": _O, "improve.commercial_lessons": _O, "improve.monitor": _O,
+    "growth.journey": _O, "improve.measure": _O, "improve.commercial_lessons": _O,
+    "learning.knowledge_gaps": _O, "improve.monitor": _O,
     "launch.readiness": _O, "listing.outcomes": _O, "listing.search_visibility_watch": _O,
     "marketing.ads_readiness": _O, "ops.capacity": _O, "ops.dependencies": _O,
     "ops.health": _O, "ops.heartbeat": _O, "ops.maturity_disagreements": _O,

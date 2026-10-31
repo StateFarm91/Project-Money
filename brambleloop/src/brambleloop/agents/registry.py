@@ -1015,7 +1015,9 @@ DEFAULT_AGENTS.extend([
                      "readings only. Cannot spend, publish or author a pattern.",
          allowed_job_types=["improve.measure",
                             # OPUS2-P0: measured listing performance into routed lessons.
-                            "improve.commercial_lessons"],
+                            "improve.commercial_lessons",
+                            # OPUS2-P0: knowledge gaps and reference recommendations.
+                            "learning.knowledge_gaps"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="integration_steward",
          description="Integration: re-verifies the Etsy API surface, provider credentials "
