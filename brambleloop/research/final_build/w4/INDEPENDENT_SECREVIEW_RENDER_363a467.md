@@ -132,7 +132,7 @@ Etsy shows the description on the same listing, and it carries the "About the sh
 ### F4. Versions
 
 - Renderer is 3.1.0, contract 3.1, verifier 3.1.0. The test pins were updated.
-- Other products' bytes: `test_w4_multipiece.test_single_piece_heroes_are_byte_identical_to_before` pins basket_medium, cloudline, coasters and snowfall. (running; to be filled in).
+- Other products' bytes: `test_w4_multipiece.test_single_piece_heroes_are_byte_identical_to_before` pins basket_medium, cloudline, coasters and snowfall: **5/5 passing, unchanged**.
 - Gap: R2.
 
 ### F3, F5, F6, D3
@@ -152,9 +152,9 @@ Etsy shows the description on the same listing, and it carries the "About the sh
 | test_w4_prodready_contract3 | 6/6 (24 s) |
 | test_cert_listing_frames | PASS, 0 failing (99 s) |
 | test_search_hero_publish | 4/4 (161 s) |
-| test_launch0_listing_truth | (running; to be filled in) |
-| test_w4_visual_certified_gallery | (running; to be filled in) |
-| test_w4_multipiece (extra, F4 bytes) | (running; to be filled in) |
+| test_launch0_listing_truth | PASS, rc 0, all OK (457 s) |
+| test_w4_visual_certified_gallery | 7/7 (41 s) |
+| test_w4_multipiece (extra, F4 bytes) | 5/5 (13 s) |
 
 Green tests do not clear R1: the mutant that deletes the new check passes every suite above that touches it.
 
