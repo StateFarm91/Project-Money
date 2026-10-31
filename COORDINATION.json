@@ -499,6 +499,22 @@
       "report_branch": "claude/w5-INTEG1-trial",
       "notes": "INVENTORY+CONCEPT+opus2@fb52cb9e",
       "recorded": "2026-10-31T19:50Z"
+    },
+    {
+      "subject": "PHYSFIX delta 8 (product-wide halts)",
+      "sha": "ad07b595+33cbfc53",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-33cbfc5",
+      "notes": "halt closed by construction; R30 Med: restate overwrites measured_release so first failed release escapes withholding/re-release check. Combined tree: suite_final_segment (test_physfix), b2gates row 23",
+      "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "Basket render delta",
+      "sha": "363a467a",
+      "verdict": "CODE CHANGES_REQUIRED / PRODUCT FIT FOR CUSTOMER",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-363a467",
+      "notes": "R1 High export_check trusts manifest 'estimated'; R2 Med 3.0.0 still qualified; R3-R6 Low",
+      "recorded": "2026-10-31T22:00Z"
     }
   ],
   "integration": {
