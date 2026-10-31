@@ -2,14 +2,14 @@
   "build_key": "basket_small",
   "builder": "brambleloop.products.launch0.cir_for('basket_small')",
   "certificate_granted": true,
-  "cir_fingerprint": "fc05b2333987",
+  "cir_fingerprint": "a1d1d0d5dbe5",
   "compiles": true,
   "engine_branch": "claude/w4-PDF1",
-  "engine_commit": "46921cee80783d7a62ce25f8051462af9ceb6009",
+  "engine_commit": "2ba03e87d5d1cf4c3d9f3f0426c32a9b86a869a2",
   "engine_source_clean": true,
   "files": {
-    "NOT-FOR-SALE-market-basket-small-1.2.0-photo-placeholder-proof.pdf": {
-      "bytes": 3367483,
+    "NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf": {
+      "bytes": 3403329,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -18,9 +18,9 @@
       "figures": [
         {
           "kind": "brand_artwork",
-          "label": "Brambleloop",
+          "label": "Brambleloop crochet patterns",
           "page": 1,
-          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
         },
         {
           "kind": "disclosed_render",
@@ -171,11 +171,11 @@
       "pages": 14,
       "problems": [],
       "reproducible": true,
-      "sha256": "e15ae0d3130dc319cc180404a2d337856f616d360e1927ee80cfeed319b25c20",
+      "sha256": "218fb9abbd43492bf569d580e97a2810cc2db1376942f1ad6dd91d286bd344ea",
       "terminology": "US"
     },
-    "market-basket-small-1.2.0-uk.pdf": {
-      "bytes": 3366481,
+    "market-basket-small-1.2.1-uk.pdf": {
+      "bytes": 3401271,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -184,9 +184,9 @@
       "figures": [
         {
           "kind": "brand_artwork",
-          "label": "Brambleloop",
+          "label": "Brambleloop crochet patterns",
           "page": 1,
-          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
         },
         {
           "kind": "disclosed_render",
@@ -332,11 +332,11 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "24f6317fe74e4af868d19d490d1f3603e404aec2989d4f88a0a90c06bd1efbc0",
+      "sha256": "2f953db255d8b2a855a4d3d4f7456ecf962ddb44e86ad185325432f579396ffc",
       "terminology": "UK"
     },
-    "market-basket-small-1.2.0.pdf": {
-      "bytes": 3366261,
+    "market-basket-small-1.2.1.pdf": {
+      "bytes": 3401109,
       "claims": [
         "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
       ],
@@ -345,9 +345,9 @@
       "figures": [
         {
           "kind": "brand_artwork",
-          "label": "Brambleloop",
+          "label": "Brambleloop crochet patterns",
           "page": 1,
-          "source": "brand.canonical_assets hero_logo (owner artwork, exact, resampled to fit)"
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
         },
         {
           "kind": "disclosed_render",
@@ -493,7 +493,7 @@
       "pages": 13,
       "problems": [],
       "reproducible": true,
-      "sha256": "75af1ee5cc2960c6bb125601dfed39fb5ee113eb3e878c5fa74abb238449f412",
+      "sha256": "babe395f2c6dc99def1fdc44d00b9429551962202ce60ea0405743a44edbc56c",
       "terminology": "US"
     }
   },
@@ -509,13 +509,13 @@
     "WorkSans-Regular.ttf": "b6de94f71b0894e6590e1f1d3cfe5e12572da6b125d2198e1ecd2335f0e3eb30",
     "WorkSans-SemiBold.ttf": "71fb413d1ddd88aaa2505eb224347eed8868a4ed0cbbd08fd4c4861c0e7bc867"
   },
-  "generation_command": "cd brambleloop && PYTHONPATH=src python scripts/build_customer_editions.py --released 2026-10-27 basket_small",
+  "generation_command": "cd brambleloop && PYTHONPATH=src python scripts/build_customer_editions.py --released 2026-10-31 basket_small",
   "images": "every product picture is a disclosed deterministic render (visual.disclosed_render) or a construction diagram (publish.construction_diagrams); no photograph and no generated image",
   "physical_sample": "none recorded; twin.calibrated=False, so every size and yarn amount in the document is computed and labelled as such",
-  "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
-  "released_on": "2026-10-27",
+  "release_hash": "9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf",
+  "released_on": "2026-10-31",
   "reproducibility": "each file rendered twice in one process with identical bytes; reportlab invariant mode, fixed release date, pinned fonts, deterministic PNG/JPEG encodes",
   "slug": "market-basket-small",
   "title": "Crochet Hexagonal Bread Basket",
-  "version": "1.2.0"
+  "version": "1.2.1"
 }

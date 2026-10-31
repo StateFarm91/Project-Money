@@ -1,5 +1,67 @@
 # W4-PDF1: visual audit of the first customer pattern editions
 
+## 0. Release 1.2.1 (2026-10-31): corrected from both independent audits
+
+This section supersedes the 1.2.0 editions below. They are retired from
+`customer_editions/` and kept in the git history.
+
+**Scope of the change.**
+- 1.2.1 is a text-only release. Stitches, counts, geometry and yarn figures are all unchanged.
+- The basket's base-to-wall design change (N4) is on hold, by owner decision, pending a construction review. `vessels.py` changed only its `RELEASE_VERSION`.
+- Both releases were certified through `gates.certificate.certify`.
+
+| Release | Release hash |
+|---|---|
+| `hexagon-coaster-set@1.2.1` | `83b5db1f2cb4e9d2ce6a8011ed43278d048e4d9b60aaccc7086f0853e599534e` |
+| `market-basket-small@1.2.1` | `9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf` |
+
+**The editions.** All were built with `--released 2026-10-31`; each folder holds a `MANIFEST.json`.
+
+| File | Pages | SHA-256 |
+|---|---|---|
+| `customer_editions/hexagon-coaster-set-1.2.1/hexagon-coaster-set-1.2.1.pdf` (US) | 13 | `20012510b5d10a7d04a5c68927e4ec3605ed1652349e954c096d872a3157f69e` |
+| `…/hexagon-coaster-set-1.2.1-uk.pdf` (UK) | 13 | `26dce91670b8ff3a7fc2fb7b95dcb2f64399c0d747d5eac52b4f23fb4b41e6c7` |
+| `…/NOT-FOR-SALE-hexagon-coaster-set-1.2.1-photo-placeholder-proof.pdf` | 13 | `5602b0f0cc00a33e50af201136a0c3f3475e0c0d317509383cec54e3bdf90874` |
+| `customer_editions/market-basket-small-1.2.1/market-basket-small-1.2.1.pdf` (US) | 13 | `babe395f2c6dc99def1fdc44d00b9429551962202ce60ea0405743a44edbc56c` |
+| `…/market-basket-small-1.2.1-uk.pdf` (UK) | 13 | `2f953db255d8b2a855a4d3d4f7456ecf962ddb44e86ad185325432f579396ffc` |
+| `…/NOT-FOR-SALE-market-basket-small-1.2.1-photo-placeholder-proof.pdf` | 14 | `218fb9abbd43492bf569d580e97a2810cc2db1376942f1ad6dd91d286bd344ea` |
+
+**The tester kits,** rebuilt by `research/final_build/w4/tester_kit_coaster.py`, bind to the new
+content hashes:
+
+| Kit file | SHA-256 |
+|---|---|
+| basket `…-1.2.1-TEST.pdf` | `f04887887882b60dbaf1bf3978f90a85bceaf04fbf84a39f8406f3a6a5f902c3` |
+| basket `…-1.2.1-RECORD-SHEET.pdf` | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
+| coaster `…-1.2.1-TEST.pdf` | `f8ed3abb6ef748d0aeb6c451e7894adc981c63b1f00882fe349cee101b74569d` |
+| coaster `…-1.2.1-RECORD-SHEET.pdf` | `13451d201e6085296041a16909a8e4f1631ac6567126e375d2ff10e985666bc5` |
+
+**How each audit finding was resolved.** Each fix is pinned by a test in `tests/test_pdf_premium.py`
+unless stated otherwise.
+
+| Finding | Resolution |
+|---|---|
+| F2: ends contradiction, "all 2/4 changes", "up the inside" on a flat coaster | `cir.colour_changes.rounds_instruction` derives the text per colour. A colour whose last round is not the last is cut and fastened off ("Cut wine after Rnd 6" on the coaster, "Cut wine after Rnd 19" on the basket). A resting colour is carried on the wrong side (flat) or up the inside (vessel). Ends are given per piece ("about 4 on each coaster"). "Both colour changes" / "All four colour changes". Turned-row wording is unchanged. |
+| F3: whether the ch 1 counts | `writer.JOINED_LINE`: "The ch 1 does not count as a stitch." |
+| F7: row-gauge contradiction | The disc gauge note says the row gauge is a swatch check only. |
+| F1: orphaned "plus 15%" | The sentence is printed only under substitution metres that are actually printed. On the coaster there are none, so it is absent. |
+| N3: "1-1 x 100g balls" | Now "1 x 100g ball". |
+| F4 / N2: key does not match the chart | The legend is built from the marks, colours and letters the printed chart actually carries. The coaster key is V only (no x). The basket key is cream only, with no letter note. |
+| F5 / F6: chart readability | Charts are drawn as hexagons for stacked-increase pieces. Round numbers sit on plain cells with a cream halo, with no box over a cell. The chart uses the Work Sans brand face. It is embedded at 3× the pixels of the measured rung, with the grid line scaled to match. Legibility is still measured on the 1× rung. |
+| F8: generic notation examples | The examples now come from the pattern itself: coaster `[ ... ] x 6` and `(42 sts)`; basket `(60 sts)`. |
+| F9: proof marking | "NOT FOR SALE" appears on every page of the proofs. |
+| N5: split caption | Chart and schematic captions are kept whole. |
+| N6: seam tip | On a vessel the tip now says "turn the basket so the line sits at the back". |
+| N1: logo on product PDFs | The cover uses the tagline-free horizontal lockup (`identity_system.lockup_horizontal`). The owner's raster is untouched. |
+| F10: legal-review sentence | Kept, because it is true until a legal review exists. |
+| N4: base-to-wall transition | On hold, by owner decision. No design change. |
+
+**Visual check.** All pages of the US and UK editions of both products, and both proofs, were
+rendered at 100/80/50 dpi and inspected.
+- The hexagon charts are crisp. No round number collides with a mark.
+- Fixed during this pass: the coaster's colour tip still said "up the inside". It is now "on the wrong side at the join".
+- The text of all six files contains none of these terms: nursery, baby, child, CPSIA, nesting, three sizes, under 3.
+
 **Status.** Engine changes, tests and records are on `claude/w4-PDF1`. Nothing was published, and
 no Etsy or Railway request was made. These PDFs go first to the independent reviewer and then to
 the owner, who will inspect them before any sale.
