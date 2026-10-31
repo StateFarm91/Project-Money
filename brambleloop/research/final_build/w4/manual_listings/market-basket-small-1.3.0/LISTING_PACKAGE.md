@@ -385,7 +385,7 @@ Whether it is set on the live shop is NEEDS PRODUCTION READBACK.
 | 11 | Supplement CONSTRUCTION | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: how it is built: the stitch count of every round or row, in working order." |
 | 12 | Supplement COLOUR_CONTEXT | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: each yarn colour's share of the finished piece, counted from the pattern." |
 | 13 | Supplement MATERIALS | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the yarn colours, yarn weight, hook size and gauge the pattern calls for." |
-| 14 | **CONTENTS: PDF page preview** | "Preview of the pattern document" | "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size." |
+| 14 | **CONTENTS: PDF page preview** | "Preview of the pattern document" | "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size. Rim shape estimated until a sample is made." |
 
 **Supplement alt text came from the product record.** It used to say "Nesting Baskets, three sizes". It now reads "Hexagonal Bread Basket", because `visual.launch_imagery._primary_for` reads the new candidate's title. The [PACKAGE EDIT] that patched it earlier is no longer needed.
 

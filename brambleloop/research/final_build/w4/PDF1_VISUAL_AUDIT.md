@@ -54,6 +54,23 @@ walls; they are a held family, outside the approval.
 | D4: TEST PDF date | `quality/tester_kit.py:406` hard-codes `released_on=date(2026, 10, 7)`. That file is W-PHYSFIX's builder, so the fix is the one-line hook below, for integration: `released_on=date.fromisoformat(kit.get("released_on", "2026-10-31"))`. |
 | D2: kit fields | These arrive with W-PHYSFIX. The kit is rebuilt after PHYSFIX merges and stays PROVISIONAL until then. |
 
+**Render delta review of 363a467a** (`INDEPENDENT_SECREVIEW_RENDER_363a467.md` on `origin/claude/w4-SECREVIEW-RENDER-363a467`). Verdict: product fit for customer, code not to ship. The fixes are in 39ac0dfe.
+
+| Finding | Resolution |
+|---|---|
+| R1 (HIGH): the frame attests its own estimate note | `render_contract.estimate_notes(slug, view)` derives the requirement from the product and the contract: every view of a `SOFT_CORNER_SLUGS` product except the base. `export_check`, `alt_text` and the copy disclosure (`platform_policy._owes_estimate`) all use it. The frame's `estimated` field is informational only. A frame with the field stripped is refused (test). |
+| R2 (MED): 3.0.0 still qualified for the basket | `product_authority` now accepts only `SOFT_CORNER_MIN_RENDERER` = `disclosed-render/3.1.0` for a soft-cornered product. A 3.0.0 stamp is UNKNOWN at `structural_floor`, which covers the prism and the widened 38c16035 frames (test). |
+| R3: elevation flats silent | The scale view now emits `rim_flats_cm` from the top wall round's central stitch pitch. Mid-faces inside Rc do not move, so that pitch equals the side pitch only while the flats hold. Current render: 13.95 against 13.86 (0.65 %), PASS. The 38c16035 widened rim reads 14.61 (+5.4 %), FAIL (test). It is never skipped: when fewer than three central stitches are visible, the check reports UNKNOWN. |
+| R4: CONTENTS alt text | It now ends with the estimate note. |
+| R5: photo shot 3 | Now reads "the wall as it stands; do not straighten it or pose the corners". |
+| R6: garbled comment | Fixed. |
+
+After the fixes, the shadow chain was re-run:
+- the certificate is `valid`;
+- the hero, scale and detail frames were re-verified (scale now shows `rim_flats_cm` PASS);
+- the hero, scale, angle and contents alt texts and the description carry the note;
+- the editions and kits are byte-identical to the previous build.
+
 **Visuals and listing.**
 - The shadow release chain was re-run on 1.3.0 (`manual_listings/evidence_PDF1_basket_1.3.0_chain_run.json`).
 - Results:

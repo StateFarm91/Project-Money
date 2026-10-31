@@ -1,8 +1,8 @@
 {
  "generated_at": "2026-10-31",
- "by": "W-PDF (claude/w4-PDF1) after SECREVIEW-RENDER F1-F6 (de5658c2)",
+ "by": "W-PDF (claude/w4-PDF1) after SECREVIEW-RENDER-363a467 R1-R6 (39ac0dfe)",
  "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> market-basket-small (real release chain, SHADOW, scratch SQLite, sockets closed); each disclosed frame re-verified from its bytes with render_verification.verify_claim.",
- "caveat": "Asset sha256 values come from a scratch run; production must re-render after deploy. The release hash is content-derived. The rim softening is an estimate (render_contract.ESTIMATED_SHAPE), stated in the listing copy and in the alt text of every frame that shows the wall.",
+ "caveat": "Asset sha256 values come from a scratch run; production must re-render after deploy. The release hash is content-derived. The rim softening is an estimate (render_contract.ESTIMATED_SHAPE), stated in the listing copy and in the alt text of every frame that shows the rim (hero, scale, gallery angle, contents preview).",
  "products": {
   "market-basket-small": {
    "slug": "market-basket-small",
@@ -41,7 +41,7 @@
     "market-basket-small-gallery-construction": false,
     "market-basket-small-gallery-colour_context": false,
     "market-basket-small-gallery-materials": false,
-    "market-basket-small-gallery-contents": false
+    "market-basket-small-gallery-contents": true
    },
    "listing_assets": [
     {
@@ -166,7 +166,7 @@
       "asset_id": "market-basket-small-gallery-contents",
       "sha256": "4b1a9bd513549ae0e402f71e74cbea422865fc9eaead89fb8d4a061934bf96e1",
       "kind": "disclosed_gallery_frame",
-      "alt_text": "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size."
+      "alt_text": "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size. Rim shape estimated until a sample is made."
      }
     ]
    },
@@ -183,6 +183,7 @@
      ],
      "rim_flats_cm": [
       [
+       "PASS",
        13.85,
        13.86
       ]
@@ -198,7 +199,13 @@
        15.48
       ]
      ],
-     "rim_flats_cm": []
+     "rim_flats_cm": [
+      [
+       "PASS",
+       13.95,
+       13.86
+      ]
+     ]
     },
     "market-basket-small-disclosed-detail": {
      "status": "PASS",
