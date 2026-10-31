@@ -86,3 +86,16 @@ Contact: hand off through your branch and a handoff document. The integrator rev
   - production evidence of competitor scans.
 
   Claim it in your handoff.
+
+## Update 2026-10-31T02:45Z: channel isolation (owner directive D-W5-OWNER-CHANNEL-ISOLATION)
+
+- Etsy's AI-generated-craft-pattern rule is a **channel-specific publication gate only**, never a company-wide engineering blocker. Research, design, validation, PDFs, imagery, gallery assembly, listing preparation and learning all continue for every product.
+- **SUPERSEDED the same day by D-W5-OWNER-RETURN-TO-PLAN:** W-CHANNELGATE and W-CHANNELRESEARCH were stopped before producing anything, and nothing was merged. Existing safeguards are unchanged. A publication-eligibility requirement is handled only when a specific publication action needs it. Do not start policy research or compliance engineering on this topic.
+- **Second operator:** your size-claims gate will sit beside this in `for_publish`. Keep your lines clearly separated; the integrator reconciles them.
+- Batch 4 merged so far: READBACK (with L1–L4 fixed), LAUNCHFIX, RESUMEFIX. PHYSFIX, ADOPT and INVENTORY are fixing their review findings.
+
+## Update 2026-10-31T02:35Z: back to the original plan (D-W5-OWNER-RETURN-TO-PLAN, permanent)
+
+- Roadmap: Master Plan, Build 2, Final Master and the P0 workforce, with 24/7 Railway operation that does not depend on Claude sessions.
+- The second operator's claims, now in review: P0-CHAIN-DEADENDS, P0-COMPETITOR-EVIDENCE and P0-PERF-LEARNING (54766c9e).
+- Still unowned: P0-GALLERY-ASSEMBLY (including a disclosed certificate for photo-led or mixed galleries) and deterministic idle-capacity detection with automatic next-product selection.

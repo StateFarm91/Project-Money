@@ -38,7 +38,7 @@ from typing import Callable, Iterable
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from ..core import opsauth
+from ..core import opsauth, readbackauth
 
 
 # ---- 1. escaping ------------------------------------------------------------
@@ -241,7 +241,9 @@ PUBLIC_PROJECTIONS: dict[str, object] = {
     "/api/status": {"version": True,
                     "build": {"commit": True, "commit_short": True, "known": True},
                     "boot_guard": {"enforced": True, "ok": True}},
-    "/api/verify": {"ok": True, "checks": [{"check": True, "ok": True}]},
+    "/api/verify": {"ok": True, "checks": [{"check": True, "ok": True}],
+                    # W4-READBACK: production-evidence checks, name and verdict only.
+                    "evidence_checks": [{"check": True, "ok": True}]},
     "/api/verify/smoke": {"verdict": True, "as_of": True},
     "/api/build": {"final_master": {"launch_ready": True}},
     "/api/catalogue": {"published": True},
@@ -311,10 +313,36 @@ def owner_session_route(route_path: str) -> bool:
     return route_path.startswith(OWNER_SESSION_PREFIX) or route_path in OWNER_SESSION_PAGES
 
 
+# W4-READBACK: routes authenticated by the separate read-only readback credential
+# (`core.readbackauth`, `BRAMBLELOOP_READBACK_TOKEN`) and by nothing else -- not the operator
+# token. They are GET-only, are not on PUBLIC_GET_ROUTES (so `requires_operator` stays true and
+# no sweep treats them as public), and the readback credential opens no other route: every
+# other gated route still checks `core.opsauth`, which the readback value never matches.
+READBACK_ROUTES: frozenset[str] = frozenset({"/api/readback/evidence"})
+
+
+def readback_route(route_path: str) -> bool:
+    return route_path in READBACK_ROUTES
+
+
+def readback_gate(request: Request) -> None:
+    if request.method.upper() not in {"GET", "HEAD"}:
+        raise OperatorRefused(405, "read-only route")
+    try:
+        readbackauth.check(request.headers.get("authorization"))
+    except readbackauth.ReadbackAuthUnavailable as e:
+        raise OperatorRefused(503, str(e)) from None
+    except readbackauth.ReadbackAuthRefused:
+        raise OperatorRefused(401, "readback credential required") from None
+
+
 def operator_gate(request: Request) -> None:
     """Application-wide dependency. Default-deny for anything that is not a public read."""
     route = request.scope.get("route")
     route_path = getattr(route, "path", None) or request.url.path
+    if readback_route(route_path):
+        readback_gate(request)
+        return
     if owner_session_route(route_path):
         if _owner_session_gate is None:
             raise OperatorRefused(503, "owner command center authentication not installed")

@@ -2204,7 +2204,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
     slug, version = i["slug"], i.get("version", "1.0.0")
     artifact = f"{slug}@{version}"
     parity_verdict = _listing_parity(ctx)
-    release_gates = _release_gates(ctx)
+    release_gates = _release_gates(ctx, stage="activation")
     ctx.audit("store.activate_gates", artifact=artifact,
               detail={"parity_blocks": parity_verdict["blocks_release"],
                       "release_gates_block": release_gates["blocks_release"],
@@ -2314,7 +2314,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     # Read authority and mutable gates again after read-back/budget work, directly at
     # the effect boundary. A queued magic string is never owner evidence.
-    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    final_gates, final_parity = (_release_gates(ctx, stage="activation"),
+                                  _listing_parity(ctx))
     refusal = activation_authority.validate(
         ctx.db, authorisation, slug=slug, version=version,
         listing_id=listing_id, release=i.get("release", ""))
@@ -2334,7 +2335,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
                           job_id=ctx.job.id)
     # Reserving can wait on another accounting transaction. Authority and product truth
     # must be current after that wait; a revoked attempt retains conservative exposure.
-    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    final_gates, final_parity = (_release_gates(ctx, stage="activation"),
+                                  _listing_parity(ctx))
     refusal = activation_authority.validate(
         ctx.db, authorisation, slug=slug, version=version,
         listing_id=listing_id, release=i.get("release", ""))
@@ -2406,7 +2408,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
             "etsy_listing_id": listing_id, "state_on_etsy": after.get("state")}
 
 
-def _release_gates(ctx: JobContext) -> dict:
+def _release_gates(ctx: JobContext, stage: str = "draft") -> dict:
     """The publish gates for the listing this job would export, never raising.
 
     A gate that crashed has not passed, so an error is reported as a block with its reason
@@ -2424,7 +2426,7 @@ def _release_gates(ctx: JobContext) -> dict:
             ctx.db, slug=slug, version=version,
             today=_date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
             positioning=i.get("positioning"), store_root=i.get("artifact_dir"),
-            read_only=True)
+            read_only=True, stage=stage)
     except Exception as e:  # noqa: BLE001 - a crashed gate is a closed gate
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": [f"release gates could not be evaluated: "

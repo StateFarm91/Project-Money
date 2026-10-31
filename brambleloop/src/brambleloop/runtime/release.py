@@ -1164,8 +1164,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # written into the copy the export check later reads back.
     disclosed = [f for f in on_file if f.get("kind") == "disclosed_render"]
     try:
+        from ..publish import sample_photo as _sample_photo
+
+        try:
+            _photographed = bool(_sample_photo.requirement(ctx.db, slug, version)["satisfied"])
+        except Exception:  # noqa: BLE001 - unknown is "not photographed": never over-claim
+            _photographed = False
         classification = platform_policy.classify_release(release_frames, generated,
-                                                          disclosed=disclosed)
+                                                          disclosed=disclosed,
+                                                          photographed_sample=_photographed)
         class_problems = [f"POLICY_CLASSIFICATION: {p}" for p in classification.problems]
     except platform_policy.PolicyRefused as exc:
         classification = None
@@ -3038,7 +3045,8 @@ def _intake_photo(ctx: JobContext, i: dict) -> dict:
         ctx.db, slug=i["slug"], version=i.get("version", ""),
         source=i.get("source", "tester"), sha256=i.get("sha256", ""),
         rights_basis=i.get("rights_basis", ""), taken_by=i.get("taken_by", ""),
-        physical_test_id=i.get("physical_test_id"), note=i.get("note", ""))
+        physical_test_id=i.get("physical_test_id"), note=i.get("note", ""),
+        unedited=i.get("unedited") is True)
     queued = None
     if rec["may_use"]:
         job = ctx.enqueue("publishing", "assets.physical_upgrade",

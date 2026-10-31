@@ -10162,3 +10162,39 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
 - Tests: `tests/test_w4_laura_ceo.py` 13/13.
 
 **Not done.** ADD-LCEO-07 needs the production run in `research/final_build/w4/LAURACEO.md` §5, after deploy and owner approval. Until then it is open, not PASS.
+
+## 2026-10-27 — W4-READBACK: read-only production evidence surface (branch `claude/w4-READBACK`, not deployed)
+
+**Why.** SECPATCH made public GETs deny-by-default (kept). Nothing outside the owner's session could see why a public `/api/verify` boolean was false (e.g. `no_unexpected_dead_letters_in_24h`, with no job type visible).
+
+**Built.**
+- `ops/production_evidence.py`. Row-only evidence for:
+  - dead letters in 24 h, by job type and error class (never the error text);
+  - the publishing halt (systemic row and truth sweep);
+  - stale-artefact rebuilds (verified rebuilds counted apart from `already_fresh` no-ops);
+  - paid-call dedupe (the same request billed twice in 24 h);
+  - weekly jobs (`improve.weekly` required);
+  - certification stages with slugs;
+  - the 12-stage autonomy loop: useful completions apart from no-ops (`did_no_work`), with the newest example ids.
+- `/api/verify` gains `evidence_checks`: `publishing_halt_clear`, `stale_artefacts_rebuilding`, `no_repeated_paid_call_in_24h` and `weekly_jobs_completing`.
+  - Each is false without evidence.
+  - Anonymous callers see `{check, ok}` only.
+  - They do not change `ok` or the status code: they are readbacks of recovery, not safety invariants.
+- `GET /api/readback/evidence` is authenticated ONLY by the new `BRAMBLELOOP_READBACK_TOKEN` (`core/readbackauth.py`, `security.READBACK_ROUTES`).
+  - Closed (503) while the token is unset, shorter than 32 characters, or equal to the ops token.
+  - The ops token is refused, and the readback token is refused on every other route.
+- `ops/readback.py --evidence` reads the token from the environment only and judges each item PASS / FAIL / UNKNOWN. UNKNOWN is never a pass.
+- Contract pin: api_routes `750cd12d5d99f93d` (row in `ops/CONTRACT_CHANGES.md`).
+- Deploy readback without the operator token: `/api/readback/evidence` also carries `deploy_readback`. These are the six operator-only manifest rows (departments, swarm runtime, funding packets, offsite, continuity, etsy).
+  - Each handler is called in-process; only its status and the row's one field leave. A list is reduced to its length.
+  - `ops/readback.py` reads these rows with `BRAMBLELOOP_READBACK_TOKEN`. It falls back to the ops token (INTEG8 707f9113's path) when only that is set, and otherwise reports NEEDS_OPERATOR, never PASS.
+- `etsy_taxonomy` section (for W-LAUNCHFIX E4): the newest `etsy.taxonomy_refreshed` row, projected to:
+  - category choices (ids and path names), and whether each chosen node's stored schema offers "Crochet";
+  - property-candidate nodes with their property ids and names;
+  - the refresh time.
+- Tests (2026-10-27, run one at a time; the later ones through `testslot.sh`): `test_w4_readback_evidence` 19/19. The suites listed below also pass; the last results are in the commit message:
+  - `test_w4_secpatch_public_surface`, `test_w4_secpatch2`, `test_route_auth_default_deny`, `test_w4_fmbatch1_route_audit`, `test_w4_fmbatch1_contracts`;
+  - `test_deploy`: its exact anonymous key-set pin gained `evidence_checks`, with each item `{check, ok}` only and equal to the operator view;
+  - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
+
+**Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.
