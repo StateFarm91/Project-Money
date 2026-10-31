@@ -1,5 +1,68 @@
 # W4-PDF1: visual audit of the first customer pattern editions
 
+## 00. Basket release 1.3.0 (2026-10-31): back loop only at Rnd 11 (D-W4-OWNER-BASKET-1.3.0)
+
+The owner approved the construction review's §4 fix for the **small** basket only.
+
+**The source change.** `products.vessels.build_basket` works the first wall round of a
+`DEFINED_EDGE_SIZES` size ("small") in the back loop:
+`Row(11, [Op("sc", 60, loop="back")], 60, "cream")`, with the row note "back loop only: the
+unworked front loops make the edge the base folds up along". The small basket's default version
+is `SMALL_BASKET_VERSION = "1.3.0"`. The medium and large baskets stay at 1.2.1 with both-loops
+walls; they are a held family, outside the approval.
+
+**Validation.** Everything was recomputed, nothing carried over:
+- compile, twin and reverse (US and UK) are clean, with no findings;
+- `corners` = 6;
+- 60 stitches on every wall round and 1,050 in total;
+- the twin gives 16.0 × 13.9 × 8.7 cm and 40.2 m cream + 11.9 m wine, unchanged;
+- the claims fingerprint is unchanged and the content fingerprint moved. The
+  `release_fingerprints.tsv` row was updated with the version bump, by the documented path.
+
+| Release | Release hash |
+|---|---|
+| `market-basket-small@1.3.0` | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
+
+**Copy.**
+- `value_stack.soft_fold` returns None on a back-loop fold, so the 1.2.1 soft-fold wording is gone: no "turning upward over the first few rounds", no "about 8 to 9 cm", and no Rnd 11 "beginning to turn up".
+- The PDF states the twin's 8.7 cm, which the twin now models correctly, because the twin's sharp fold is the fold this pattern makes.
+- Rnd 11 reads "sc in back loop of next 60 sts" (US) or "dc in back loop of next 60 sts" (UK), followed by "-- back loop only: …".
+- A new **Back loop only** technique note is triggered by the text, and the "Turning the base into the wall" tip now describes the ridge and the fold.
+- **The renders are still captioned, more narrowly.** They now match the base edge. They still draw the corners running straight up the wall, and no wall round keeps them; the construction review §1.3 expects the rim to relax toward a rounded hexagon. Every render therefore says it is "idealised in one respect". The cover reads: "the base edge is defined as drawn; the wall's corners soften toward the rim".
+
+**Visuals and listing.**
+- The shadow release chain was re-run on 1.3.0 (`manual_listings/evidence_PDF1_basket_1.3.0_chain_run.json`).
+- Results:
+  - `gate.certify` granted;
+  - all six listing assets are at 1.3.0;
+  - the listing-set certificate is `valid` at release hash `c4aa14a0…`, with DATA_TRUTH, LAYOUT_QA, COMMERCIAL_QA and POLICY_PROVENANCE passed over all eight frames;
+  - `store.publish` is dead in SHADOW, as expected.
+- The chain's `assets.build` PDFs are byte-identical to the customer editions below.
+
+**Editions** (`--released 2026-10-31`):
+
+| File | Pages | SHA-256 |
+|---|---|---|
+| `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` (US) | 13 | `5ac0375ac13469e543091bfd7a12845603ce21216244ced5176b92797063a67b` |
+| `…/market-basket-small-1.3.0-uk.pdf` (UK) | 13 | `b49cebde8674a8613633840ec394575718681a14f66a46790dd567d46fbd5335` |
+| `…/NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf` | 14 | `496316be77f17adc60fd3274d68488b8f47ca7c4b0dd16c79873cd510d28d54f` |
+
+**Tester kit (PROVISIONAL** until W-PHYSFIX reaches `claude/w4-INTEG8-next`**):**
+
+| File | SHA-256 |
+|---|---|
+| `tester_kit/market-basket-small-1.3.0-TEST.pdf` (13 pp) | `edc25c5ab960628bd3a0ef29b5f8bbf1e1dffdc12469367c40aaa8265dd0c106` |
+| `tester_kit/market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pp) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
+| `tester_kit/KIT_MANIFEST.json` | `be9dcc3e4f040777f5bf5bd053a5e0472f7b43d228c98aa952d1b38929d8c48e` |
+
+**Superseded.** The basket 1.2.1 editions and kit PDFs are kept in the tree as a record. See
+`customer_editions/market-basket-small-1.2.1/SUPERSEDED.md`. The coaster is unaffected and
+stays at 1.2.1.
+
+**Visual check.**
+- US pages 1, 6, 7 and 9 were checked at 100 dpi: the cover caption, the technique note, the Rnd 11 card with its "after Rnd 14" diagram, and the tip. The page count is unchanged at 13.
+- An independent design review follows, and nothing was commissioned.
+
 ## 0. Release 1.2.1 (2026-10-31): corrected from both independent audits
 
 This section supersedes the 1.2.0 editions below. They are retired from

@@ -1,0 +1,521 @@
+{
+  "build_key": "basket_small",
+  "builder": "brambleloop.products.launch0.cir_for('basket_small')",
+  "certificate_granted": true,
+  "cir_fingerprint": "1a4cff97533c",
+  "compiles": true,
+  "engine_branch": "claude/w4-PDF1",
+  "engine_commit": "a06c26d34c9ce9cdadfd00b9161d41a064902a22",
+  "engine_source_clean": false,
+  "files": {
+    "NOT-FOR-SALE-market-basket-small-1.3.0-photo-placeholder-proof.pdf": {
+      "bytes": 3404498,
+      "claims": [
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "proof, NOT FOR SALE: marked placeholders for sample photographs",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop crochet patterns",
+          "page": 1,
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "ac09460499ab496a340d26233a0ff4a7eb4bf4c2d45c0b55dff375f4763e3607",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic, base: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "66862141ed8da72cdc2a23fa1582036c4e8f368774795e0676c357fab01cb83a",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "da08bd18042dffc6c9a1f1f21bbc9585860707050f12c2a3d3d789bba3e0af88",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "1639ca886ea909ec1149d4699ecfcb283c8b3ad8191db0da6b100e9b56f95097",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 8",
+          "page": 7,
+          "png_sha256": "36b1f0ee4434830f1b4fdbfdd4e37cbf7e992be8539b9c8f1172a59614e486d3",
+          "round": 8,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 10",
+          "page": 7,
+          "png_sha256": "8f515ceaa4a57ad55709f8b499eab9c216eb8c6dad16a1e63489d578f77ac48f",
+          "round": 10,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 14",
+          "page": 7,
+          "png_sha256": "422b4d7ddde2a12d45cc564ab7e6aa843481aaa4a1c877ce96dbd6c349cc602f",
+          "round": 14,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 16",
+          "page": 8,
+          "png_sha256": "28164749baa43893c5dd5b86f269793a6e8e522cb4cdc7f769e350e3fb2fb6af",
+          "round": 16,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 17",
+          "page": 8,
+          "png_sha256": "f63e395ddb7ef587fadac89092477ef5db12ae2f7c0ed38ee95c678772c85602",
+          "round": 17,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 19",
+          "page": 8,
+          "png_sha256": "6a07e2ac1ce51f92e0f796039157de41d2cbb74ef6ac63bd020743ff51399a36",
+          "round": 19,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 22",
+          "page": 8,
+          "png_sha256": "17dfadca819410bf3b1b64fc79b5172a37898989a1c1b38e599990f23769e134",
+          "round": 22,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "6bccea33b5cdd9048635fa0f4c336882aa9bfc1fd07cdc275ae01717ccb6ab43",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        },
+        {
+          "kind": "photo_placeholder",
+          "label": "Placeholder for a photograph of a tester's sample. Not for sale.",
+          "page": 13
+        }
+      ],
+      "pages": 14,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "496316be77f17adc60fd3274d68488b8f47ca7c4b0dd16c79873cd510d28d54f",
+      "terminology": "US"
+    },
+    "market-basket-small-1.3.0-uk.pdf": {
+      "bytes": 3402418,
+      "claims": [
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "sale",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop crochet patterns",
+          "page": 1,
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "ac09460499ab496a340d26233a0ff4a7eb4bf4c2d45c0b55dff375f4763e3607",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic, base: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "66862141ed8da72cdc2a23fa1582036c4e8f368774795e0676c357fab01cb83a",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "da08bd18042dffc6c9a1f1f21bbc9585860707050f12c2a3d3d789bba3e0af88",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "1639ca886ea909ec1149d4699ecfcb283c8b3ad8191db0da6b100e9b56f95097",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 8",
+          "page": 7,
+          "png_sha256": "36b1f0ee4434830f1b4fdbfdd4e37cbf7e992be8539b9c8f1172a59614e486d3",
+          "round": 8,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 10",
+          "page": 7,
+          "png_sha256": "8f515ceaa4a57ad55709f8b499eab9c216eb8c6dad16a1e63489d578f77ac48f",
+          "round": 10,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 14",
+          "page": 7,
+          "png_sha256": "422b4d7ddde2a12d45cc564ab7e6aa843481aaa4a1c877ce96dbd6c349cc602f",
+          "round": 14,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 16",
+          "page": 8,
+          "png_sha256": "28164749baa43893c5dd5b86f269793a6e8e522cb4cdc7f769e350e3fb2fb6af",
+          "round": 16,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 17",
+          "page": 8,
+          "png_sha256": "f63e395ddb7ef587fadac89092477ef5db12ae2f7c0ed38ee95c678772c85602",
+          "round": 17,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 19",
+          "page": 8,
+          "png_sha256": "6a07e2ac1ce51f92e0f796039157de41d2cbb74ef6ac63bd020743ff51399a36",
+          "round": 19,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 22",
+          "page": 8,
+          "png_sha256": "17dfadca819410bf3b1b64fc79b5172a37898989a1c1b38e599990f23769e134",
+          "round": 22,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "6bccea33b5cdd9048635fa0f4c336882aa9bfc1fd07cdc275ae01717ccb6ab43",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        }
+      ],
+      "pages": 13,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "b49cebde8674a8613633840ec394575718681a14f66a46790dd567d46fbd5335",
+      "terminology": "UK"
+    },
+    "market-basket-small-1.3.0.pdf": {
+      "bytes": 3402275,
+      "claims": [
+        "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge (computed, not yet measured on a worked sample)"
+      ],
+      "difficulty": "confident beginner",
+      "edition": "sale",
+      "figures": [
+        {
+          "kind": "brand_artwork",
+          "label": "Brambleloop crochet patterns",
+          "page": 1,
+          "source": "brand.identity_system lockup_horizontal (supporting vector lockup, tagline-free; N1)"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 1,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "ac09460499ab496a340d26233a0ff4a7eb4bf4c2d45c0b55dff375f4763e3607",
+          "source": "visual.disclosed_render.render",
+          "view": "scale"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Schematic, base: Digital rendering of the pattern's finished design, not a photograph",
+          "page": 3,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 2",
+          "page": 7,
+          "png_sha256": "66862141ed8da72cdc2a23fa1582036c4e8f368774795e0676c357fab01cb83a",
+          "round": 2,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 4",
+          "page": 7,
+          "png_sha256": "da08bd18042dffc6c9a1f1f21bbc9585860707050f12c2a3d3d789bba3e0af88",
+          "round": 4,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 6",
+          "page": 7,
+          "png_sha256": "1639ca886ea909ec1149d4699ecfcb283c8b3ad8191db0da6b100e9b56f95097",
+          "round": 6,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 8",
+          "page": 7,
+          "png_sha256": "36b1f0ee4434830f1b4fdbfdd4e37cbf7e992be8539b9c8f1172a59614e486d3",
+          "round": 8,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 10",
+          "page": 7,
+          "png_sha256": "8f515ceaa4a57ad55709f8b499eab9c216eb8c6dad16a1e63489d578f77ac48f",
+          "round": 10,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 14",
+          "page": 7,
+          "png_sha256": "422b4d7ddde2a12d45cc564ab7e6aa843481aaa4a1c877ce96dbd6c349cc602f",
+          "round": 14,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 16",
+          "page": 8,
+          "png_sha256": "28164749baa43893c5dd5b86f269793a6e8e522cb4cdc7f769e350e3fb2fb6af",
+          "round": 16,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 17",
+          "page": 8,
+          "png_sha256": "f63e395ddb7ef587fadac89092477ef5db12ae2f7c0ed38ee95c678772c85602",
+          "round": 17,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 19",
+          "page": 8,
+          "png_sha256": "6a07e2ac1ce51f92e0f796039157de41d2cbb74ef6ac63bd020743ff51399a36",
+          "round": 19,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "construction_diagram",
+          "label": "after Rnd 22",
+          "page": 8,
+          "png_sha256": "17dfadca819410bf3b1b64fc79b5172a37898989a1c1b38e599990f23769e134",
+          "round": 22,
+          "source": "publish.construction_diagrams.stages"
+        },
+        {
+          "kind": "chart",
+          "label": "Chart",
+          "page": 10,
+          "source": "publish.charts (twin cell grid)"
+        },
+        {
+          "kind": "chart_legend",
+          "label": "Chart legend",
+          "page": 11,
+          "source": "publish.charts.render_legend"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "6bccea33b5cdd9048635fa0f4c336882aa9bfc1fd07cdc275ae01717ccb6ab43",
+          "source": "visual.disclosed_render.render",
+          "view": "hero"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "5f338c3c52c83dec35389034561f0843c827cb4f0a8fc3db5e6df96260b5bcc0",
+          "source": "visual.disclosed_render.render",
+          "view": "angle"
+        },
+        {
+          "kind": "disclosed_render",
+          "label": "Digital rendering of the pattern's finished design, not a photograph",
+          "page": 12,
+          "png_sha256": "a2010fcd661eb2bf3af76f3a306567b21e60319473b9d00098e4b1ab3f991ae0",
+          "source": "visual.disclosed_render.render",
+          "view": "detail"
+        }
+      ],
+      "pages": 13,
+      "problems": [],
+      "reproducible": true,
+      "sha256": "5ac0375ac13469e543091bfd7a12845603ce21216244ced5176b92797063a67b",
+      "terminology": "US"
+    }
+  },
+  "fonts_sha256": {
+    "CormorantGaramond-Bold.ttf": "33d2af0d7ce36bc4561ffc1496bcdb86c3ea161f6fc2992162bceda189de84f3",
+    "CormorantGaramond-MediumItalic.ttf": "a1efb5fc9c7acf21b370a24c738d56a48f35bc67bb91bd010f958ced9bc78347",
+    "CormorantGaramond-SemiBold.ttf": "e57a9d78b041388ebbebb5042cf18f65a79f16b0d32f1040c8c76e6def6ffd11",
+    "Lora-Bold.ttf": "1dfd2b1475244d7078952295666786845f954a06364be5d599b3bd487b4ee6e3",
+    "Lora-Italic.ttf": "6ec35639f2d3b098ff8896f96eb406a19f36c2f0c90a2c4434bc259408d167a7",
+    "Lora-Regular.ttf": "6243c6e53a9ea8f561c977ab7056d140620e0922b0130a2308d5ea88a2d1c22e",
+    "Lora-SemiBold.ttf": "46e66f18da0988ce514a74b63986429dc182d1de7fe204365d944eff5349c338",
+    "WorkSans-Medium.ttf": "df9786cbf6f46171544c0c498f1c2736b2c55455bb6afbdac705f621129b638b",
+    "WorkSans-Regular.ttf": "b6de94f71b0894e6590e1f1d3cfe5e12572da6b125d2198e1ecd2335f0e3eb30",
+    "WorkSans-SemiBold.ttf": "71fb413d1ddd88aaa2505eb224347eed8868a4ed0cbbd08fd4c4861c0e7bc867"
+  },
+  "generation_command": "cd brambleloop && PYTHONPATH=src python scripts/build_customer_editions.py --released 2026-10-31 basket_small",
+  "images": "every product picture is a disclosed deterministic render (visual.disclosed_render) or a construction diagram (publish.construction_diagrams); no photograph and no generated image",
+  "physical_sample": "none recorded; twin.calibrated=False, so every size and yarn amount in the document is computed and labelled as such",
+  "release_hash": "c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c",
+  "released_on": "2026-10-31",
+  "reproducibility": "each file rendered twice in one process with identical bytes; reportlab invariant mode, fixed release date, pinned fonts, deterministic PNG/JPEG encodes",
+  "slug": "market-basket-small",
+  "title": "Crochet Hexagonal Bread Basket",
+  "version": "1.3.0"
+}

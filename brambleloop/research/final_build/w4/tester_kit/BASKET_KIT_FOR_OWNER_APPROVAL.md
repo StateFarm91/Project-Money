@@ -1,9 +1,9 @@
 # Small bread basket: physical tester kit for owner approval
 
-> **PROVISIONAL (2026-10-31).** These 1.2.1 kits do not yet carry the record-sheet fields that W-PHYSFIX added on `claude/w4-PHYSFIX` 29378b85: wall-height method, `base_edge`, `corners_at_rim` and `rim_across_points_cm`. They also lack its one-tester terms. Once PHYSFIX lands in `claude/w4-INTEG8-next` (Batch 4), merge it and rebuild the kits with `tester_kit_coaster.py`. Do not commission a tester from these files.
+> **PROVISIONAL (2026-10-31).** These 1.3.0 kits do not yet carry the record-sheet fields that W-PHYSFIX added on `claude/w4-PHYSFIX` 29378b85: wall-height method, `base_edge`, `corners_at_rim` and `rim_across_points_cm`. They also lack its one-tester terms. Once PHYSFIX lands in `claude/w4-INTEG8-next` (Batch 4), merge it and rebuild the kits with `tester_kit_coaster.py`. Do not commission a tester from these files.
 
 
-**Product:** `market-basket-small@1.2.1`, the Crochet Hexagonal Bread Basket.
+**Product:** `market-basket-small@1.3.0`, the Crochet Hexagonal Bread Basket.
 - Positioning: a kitchen and home product.
 - Size: small only. This kit covers that one size and no other.
 
@@ -23,7 +23,27 @@ it, run `cd brambleloop && nice -n 19 python3 research/final_build/w4/tester_kit
 
 ---
 
-## Rebuilt 2026-10-31 for release 1.2.1 (text only)
+## Rebuilt 2026-10-31 for release 1.3.0 (owner decision D-W4-OWNER-BASKET-1.3.0)
+
+The kit now binds to `market-basket-small@1.3.0`, content hash `c4aa14a0…`.
+- **The design change:** Rnd 11 is "sc in back loop of next 60 sts", marked "back loop only".
+  The unworked front loops make a defined edge where the base turns into the wall. This is the
+  fold that the twin and the renders draw.
+- **What did not change:** stitch counts (60 per wall round), the six-sided geometry, the size
+  (16.0 cm across the points, 13.9 cm across the flats, 8.7 cm tall) and the yarn (40.2 m cream,
+  11.9 m wine) were recomputed from the twin and are the same.
+- **What the PDF no longer says:** the 1.2.1 soft-fold wording ("turning upward over the first
+  few rounds", "about 8 to 9 cm") no longer applies and is gone.
+- **What the renders still idealise:** one thing. They draw the corners running straight up the
+  wall, and no wall round keeps the corners.
+
+**The CA$66 ceiling is provisional** until the final kit, carrying the W-PHYSFIX fields, is
+approved. A 1.2.x sample would not count as evidence for 1.3.0, because the content hash is
+different.
+
+---
+
+## Rebuilt 2026-10-31 for release 1.2.1 (text only; superseded by 1.3.0 above)
 
 The kit now binds to `market-basket-small@1.2.1`, content hash `9251c2ec…`. Release 1.2.1 changes
 only the written text, from the independent PDF audit:
@@ -61,11 +81,11 @@ The kit was rebuilt by the same builder after the LISTING1 source correction (ki
 
 | Item | Value |
 |---|---|
-| Release | `market-basket-small@1.2.1`, one piece (`basket` × 1) |
-| Content hash (evidence binds to this) | `9251c2ecbba689a1b3caeae1fbb63b9f80d81555ccc9ebdb947a193904f27edf` |
-| Test PDF `market-basket-small-1.2.1-TEST.pdf` (13 pages) | `28b877ed081654d1b8861f406879b1b38a0aa871f9d8cd6a075649c41a566e6c` |
-| Record sheet `market-basket-small-1.2.1-RECORD-SHEET.pdf` (2 pages) | `7aadefa2f7df848d60ff91910b1b2fc99bbda2388e860e877182179a77abb883` |
-| Manifest `KIT_MANIFEST.json` | `54ec9cedd2ed6965124c6718ceb027853ce37dcfa3ffa3b83b1676faedfef173` |
+| Release | `market-basket-small@1.3.0`, one piece (`basket` × 1) |
+| Content hash (evidence binds to this) | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
+| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `edc25c5ab960628bd3a0ef29b5f8bbf1e1dffdc12469367c40aaa8265dd0c106` |
+| Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
+| Manifest `KIT_MANIFEST.json` | `be9dcc3e4f040777f5bf5bd053a5e0472f7b43d228c98aa952d1b38929d8c48e` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
@@ -213,7 +233,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **PASS:**
   - Conditions: the size is within 12%; the base sits flat and the basket holds its shape; no
     problem is recorded; the instructions were followed; the yarn factor is plausible.
-  - The sample binds to content `9251c2ec…`.
+  - The sample binds to content `c4aa14a0…`.
   - It clears the first-customer `gauge_and_size_claims` area **for the small size only**. The
     evidence says so: "proven: small; not proven: medium, large".
   - Only a made basket whose measured size agreed counts. A gauge swatch alone never proves the
@@ -230,7 +250,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **Refused at intake (re-enter from the sheet):** "followed exactly?" left blank or not a plain
   yes or no, a missing shape answer, or a missing measurement.
   - **A size outside 12% halts publication of this release.** The halt is a P1 incident scoped
-    to `market-basket-small@1.2.1` at this content hash.
+    to `market-basket-small@1.3.0` at this content hash.
   - The halt is bound to the design, not the version number, so relabelling the same pattern
     as a new version stays halted.
   - A corrected design can be certified, but certification lifts nothing. The halt lifts only
@@ -249,4 +269,4 @@ The code reaches each outcome; nobody assigns it by hand.
 
 | Action | Why | Max cost | Minutes | Consequence of waiting |
 |---|---|---|---|---|
-| Approve commissioning one independent tester to make `market-basket-small@1.2.1` from this kit. The ceiling is CA$66.00 (fee plus whole balls), or CA$59.65 with yarn reimbursed per metre. That condition (a test PDF with no children's notes) was met on 2026-10-31. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs `partial_physical` evidence of this exact content | CA$66.00 (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
+| Approve commissioning one independent tester to make `market-basket-small@1.3.0` from this kit, once it is final (not provisional). The ceiling is CA$66.00, provisional until the final kit is approved, (fee plus whole balls), or CA$59.65 with yarn reimbursed per metre. That condition (a test PDF with no children's notes) was met on 2026-10-31. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs `partial_physical` evidence of this exact content | CA$66.00 (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
