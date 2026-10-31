@@ -233,7 +233,7 @@ class Flux3Generator:
                 # where she is.
                 from ..visual import laura_home
 
-                home = laura_home.scene_for(slug)
+                home = laura_home.scene_for(slug, role=role)
                 scene = {"environment": home["environment"], "pose": brief or "",
                          "framing": ""}
                 if base is not None:

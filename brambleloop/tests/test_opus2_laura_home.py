@@ -149,6 +149,46 @@ def test_a_product_only_styled_scene_carries_the_room_cue_within_the_cap():
     assert cue in call["prompt"], call["prompt"][:400]
 
 
+def test_owner_variation_angle_light_clutter_and_moment_vary_inside_a_fixed_architecture():
+    """D-W4-OWNER-LAURA-HOME: consistent architecture, realistic variation, never identical."""
+    roles = ("lifestyle", "lifestyle_2", "in_use", "context", "detail_in_room", "scale")
+    for room in H.ROOMS.values():
+        assert len(room.all_lights) >= 3 and len(room.moments) >= 4, room.key
+        frames = [H.environment(room, listing="nursery-nesting-baskets", role=r)
+                  for r in roles]
+        assert all(room.structure in f and room.anchors in f and H.HOUSE in f
+                   for f in frames), room.key
+        assert len(set(frames)) >= 4, (room.key, "a gallery's frames should not be identical")
+        vs = [H.variation(room, listing="nursery-nesting-baskets", role=r) for r in roles]
+        assert len({v["angle"] for v in vs}) >= 2 and len({v["moment"] for v in vs}) >= 2
+        assert all(v["clutter"][0] != v["clutter"][1] for v in vs)
+        # Reproducible: a repair of the same frame keeps its scene.
+        assert H.environment(room, listing="nursery-nesting-baskets", role="in_use") == \
+            H.environment(room, listing="nursery-nesting-baskets", role="in_use")
+
+
+def test_every_variation_option_is_inside_the_home_and_never_describes_laura():
+    options = list(H.ANGLES)
+    for room in H.ROOMS.values():
+        options += list(room.all_lights) + list(room.moments) + list(room.lived_in)
+    assert options
+    for text in options:
+        assert H.problems(text) == [], text
+        assert not outfits._IDENTITY_WORDS.search(text), text
+
+
+def test_the_longest_possible_frame_fits_without_truncation():
+    for room in H.ROOMS.values():
+        longest = (f"Laura's own home ({H.HOME_ID}), {room.name}: {H.HOUSE}. {room.structure}. "
+                   f"{room.anchors}. Lived in: "
+                   + "; ".join(sorted(room.lived_in, key=len)[-2:])
+                   + f". In the frame: {max(room.moments, key=len)}. "
+                   f"Light: {max(room.all_lights, key=len)}. Camera: {max(H.ANGLES, key=len)}. "
+                   f"A believable, modest family home with ordinary belongings, natural "
+                   f"photographic composition.")
+        assert len(longest) <= H.MAX_ENVIRONMENT_CHARS, (room.key, len(longest))
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

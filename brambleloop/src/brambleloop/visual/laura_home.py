@@ -17,8 +17,16 @@ with stable structural details (floor, walls, windows, light, anchor furniture) 
 list of ordinary lived-in details, plus details shared by the whole house so adjacent rooms
 read as one home. A product category is assigned one room (`ROOM_FOR_CATEGORY`), so every
 lifestyle frame of a listing is in the same room by construction, and two products in the
-same room are photographed in the same room. The environment text is deterministic:
-the same room always produces the same words.
+same room are photographed in the same room.
+
+Owner ruling D-W4-OWNER-LAURA-HOME (2026-10-31): `laura-home-v1` is approved with all six
+rooms; architecture, furniture, finishes and layouts stay consistent, while realistic variation
+is allowed -- natural clutter, ordinary belongings, different camera angles, lighting and
+activity -- and not every image may be identical. So the architecture is fixed in every frame
+and `variation` chooses, per listing and image role, a camera angle (`ANGLES`), a light the
+room's own windows and lamps can give (`Room.all_lights`), two lived-in details and one
+ordinary household moment (`Room.moments`). The choice is a stable hash: the same frame always
+gets the same scene, so a repair does not move the room.
 
 Boundaries. This is art direction for the scene only. It never describes Laura (her identity
 is `visual.canonical`, untouched here), never describes the product (that is the certified
@@ -39,13 +47,21 @@ class Room:
     key: str
     name: str
     structure: str        # floor, walls, windows: what never changes between photographs
-    light: str            # where the light comes from, at what time of day
+    light: str            # the room's usual light; also the product-only cue's light
     anchors: str          # the furniture a viewer recognises the room by
-    lived_in: tuple[str, ...]   # ordinary details; one is chosen per frame, deterministically
+    lived_in: tuple[str, ...]   # ordinary details; two are chosen per frame, deterministically
+    # D-W4-OWNER-LAURA-HOME (2026-10-31): realistic variation inside the fixed architecture.
+    lights: tuple[str, ...] = ()       # light the room's own windows and lamps can give
+    moments: tuple[str, ...] = ()      # ordinary household activity in the frame
 
     def to_dict(self) -> dict:
         return {"key": self.key, "name": self.name, "structure": self.structure,
-                "light": self.light, "anchors": self.anchors, "lived_in": list(self.lived_in)}
+                "light": self.light, "anchors": self.anchors, "lived_in": list(self.lived_in),
+                "lights": list(self.all_lights), "moments": list(self.moments)}
+
+    @property
+    def all_lights(self) -> tuple[str, ...]:
+        return (self.light,) + tuple(x for x in self.lights if x != self.light)
 
 
 # Shared by every room, so the nursery, kitchen and living room read as one house.
@@ -62,7 +78,13 @@ ROOMS: dict[str, Room] = {
         anchors="a round pine table with four mismatched chairs by the window",
         lived_in=("a fruit bowl with a few apples", "a folded tea towel over the oven handle",
                   "a child's drawing held on the fridge with a magnet",
-                  "a kettle and two mugs by the sink")),
+                  "a kettle and two mugs by the sink"),
+        lights=("overcast midday light from the back window, even and soft",
+                "warm late-afternoon light low across the table, the pendant lamp on"),
+        moments=("a mug of tea set down beside the product mid-morning",
+                 "groceries half unpacked on the counter behind",
+                 "a recipe card propped against the backsplash",
+                 "bread just out of the bag on a board nearby")),
     "living_room": Room(
         key="living_room", name="the living room",
         structure="a wide window onto the front street, a gas fireplace with a plain white "
@@ -71,7 +93,13 @@ ROOMS: dict[str, Room] = {
         anchors="an oatmeal fabric sofa with a worn arm and a low oak coffee table",
         lived_in=("a few paperbacks stacked on the coffee table",
                   "a child's toy left by the sofa leg", "a houseplant in a terracotta pot",
-                  "a reading lamp and a half-finished mug of tea")),
+                  "a reading lamp and a half-finished mug of tea"),
+        lights=("bright overcast daylight from the front window",
+                "evening light with the floor lamp and the fireplace lit"),
+        moments=("a throw pulled back as if someone just got up",
+                 "a board game paused on the coffee table",
+                 "laundry half folded at one end of the sofa",
+                 "a cup of coffee on the side table")),
     "nursery": Room(
         key="nursery", name="the nursery",
         structure="pale warm-grey walls, one window with blackout-lined linen curtains, a "
@@ -79,7 +107,13 @@ ROOMS: dict[str, Room] = {
         light="soft late-morning daylight through half-open curtains",
         anchors="a white wooden crib and a cushioned glider chair in the corner",
         lived_in=("a folded muslin cloth on the dresser", "a small stack of board books",
-                  "a soft toy on the glider seat", "a basket of folded baby clothes")),
+                  "a soft toy on the glider seat", "a basket of folded baby clothes"),
+        lights=("gentle early-afternoon nap-time light, curtains mostly drawn",
+                "morning light from the open curtains, a small lamp on the dresser"),
+        moments=("the crib sheet freshly changed",
+                 "a bottle and a burp cloth set on the dresser",
+                 "a mobile turning slowly above the crib",
+                 "a lullaby book left open on the glider")),
     "dining": Room(
         key="dining", name="the dining area beside the kitchen",
         structure="the same sage cabinets visible through the doorway, a window onto the "
@@ -87,7 +121,13 @@ ROOMS: dict[str, Room] = {
         light="daylight from the side window, early evening warmth",
         anchors="a rectangular oak table that seats six, ladder-back chairs",
         lived_in=("a jug of water and glasses", "a bread board with a few rolls",
-                  "napkins folded at two places", "a candle that has been burned before")),
+                  "napkins folded at two places", "a candle that has been burned before"),
+        lights=("bright weekend-lunch daylight from the side window",
+                "evening light with the pendant over the table on"),
+        moments=("the table being set for a family meal",
+                 "a serving bowl on its way to the table",
+                 "a child's colouring sheet pushed to one end of the table",
+                 "a pot of tea between two places")),
     "entry": Room(
         key="entry", name="the front hall",
         structure="a front door with a narrow window beside it, a coat bench, a boot tray "
@@ -95,14 +135,26 @@ ROOMS: dict[str, Room] = {
         light="daylight from the narrow window by the door",
         anchors="a wooden coat bench with hooks above it",
         lived_in=("winter boots on the boot tray", "a set of keys in a dish",
-                  "a child's mittens on the bench", "an umbrella in a stand")),
+                  "a child's mittens on the bench", "an umbrella in a stand"),
+        lights=("grey winter daylight from the door window",
+                "warm hall light switched on against an early dark evening"),
+        moments=("someone heading out, a bag already on the bench",
+                 "snow melting on the boot tray",
+                 "a school bag hanging on a hook",
+                 "a parcel just brought in from the step")),
     "bedroom": Room(
         key="bedroom", name="the main bedroom",
         structure="a window with linen curtains, a pale wood bed frame, a braided rug",
         light="soft morning daylight, curtains half drawn",
         anchors="a made bed with a cream duvet and an oak nightstand",
-        lived_in=("a book open face-down on the nightstand", "a glass of water",
-                  "a cardigan over the end of the bed", "a small framed family photo")),
+        lived_in=("a book left open, spine up, on the nightstand", "a glass of water",
+                  "a cardigan over the end of the bed", "a small framed family photo"),
+        lights=("bright mid-morning light with the curtains open",
+                "soft evening light from the bedside lamp"),
+        moments=("clothes laid out on the bed for the day",
+                 "a mug of coffee on the nightstand",
+                 "the duvet pulled straight after the bed was made",
+                 "a tote bag being packed at the foot of the bed")),
 }
 
 # Product category -> the room it is photographed in. Unknown categories go to the living
@@ -128,7 +180,17 @@ FORBIDDEN = re.compile(
     r"pristine|spotless|minimalist white void|studio backdrop|photographed sample|"
     r"real sample|handmade sample photo)\b", re.I)
 
-MAX_ENVIRONMENT_CHARS = 800
+# Camera positions a household photographer would actually use. No position names a feature
+# of Laura: the frame is chosen around the product, never around her appearance.
+ANGLES: tuple[str, ...] = (
+    "a standing three-quarter view",
+    "a low view across the room, as if from a chair",
+    "a closer view from the side, the room soft behind",
+    "a wider view from the doorway",
+    "a slightly high view looking down at the product in use",
+)
+
+MAX_ENVIRONMENT_CHARS = 900
 MAX_CUE_CHARS = 150
 
 
@@ -145,18 +207,40 @@ def room_for(category: str | None) -> tuple[Room, str]:
     return ROOMS[key], f"category {category!r} is photographed in {ROOMS[key].name}"
 
 
-def _pick(room: Room, salt: str) -> str:
-    """One lived-in detail, chosen by a stable hash so a listing's frames agree."""
-    i = int(hashlib.sha256(f"{room.key}:{salt}".encode()).hexdigest(), 16) % len(room.lived_in)
-    return room.lived_in[i]
+def _index(salt: str, n: int) -> int:
+    return int(hashlib.sha256(salt.encode()).hexdigest(), 16) % n
 
 
-def environment(room: Room, *, listing: str) -> str:
-    """The scene environment for every lifestyle frame of `listing` in `room`. Deterministic."""
+def variation(room: Room, *, listing: str, role: str = "lifestyle") -> dict:
+    """What may differ between frames (D-W4-OWNER-LAURA-HOME): angle, light, clutter, moment.
+
+    Keyed by listing and role, so one gallery's frames are not identical, the same frame is
+    reproducible (a repair keeps its scene), and two listings in one room are not copies.
+    """
+    salt = f"{HOME_ID}:{room.key}:{listing}:{role}"
+    lights = room.all_lights
+    first = _index(salt + ":clutter", len(room.lived_in))
+    second = (first + 1 + _index(salt + ":clutter2", len(room.lived_in) - 1)) % len(room.lived_in)
+    out = {"angle": ANGLES[_index(salt + ":angle", len(ANGLES))],
+           "light": lights[_index(salt + ":light", len(lights))],
+           "clutter": [room.lived_in[first], room.lived_in[second]]}
+    out["moment"] = (room.moments[_index(salt + ":moment", len(room.moments))]
+                     if room.moments else "")
+    return out
+
+
+def environment(room: Room, *, listing: str, role: str = "lifestyle") -> str:
+    """The scene environment for one lifestyle frame of `listing` in `room`. Deterministic.
+
+    The architecture (house, room structure, anchor furniture) is identical in every frame;
+    the angle, light, everyday clutter and household moment vary by frame.
+    """
+    v = variation(room, listing=listing, role=role)
+    moment = f" In the frame: {v['moment']}." if v["moment"] else ""
     text = (f"Laura's own home ({HOME_ID}), {room.name}: {HOUSE}. {room.structure}. "
-            f"{room.anchors}. Lived in: {_pick(room, listing)}. Light: {room.light}. "
-            f"Ordinary and uncluttered, an everyday family home, natural photographic "
-            f"composition from a standing viewpoint.")
+            f"{room.anchors}. Lived in: {v['clutter'][0]}; {v['clutter'][1]}.{moment} "
+            f"Light: {v['light']}. Camera: {v['angle']}. A believable, modest family home "
+            f"with ordinary belongings, natural photographic composition.")
     check(text)
     if len(text) > MAX_ENVIRONMENT_CHARS:
         # Refused, never truncated: a description cut mid-sentence drops the details that
@@ -204,13 +288,15 @@ def category_of_slug(slug: str) -> str:
     return _category_of(slug)
 
 
-def scene_for(slug: str, *, listing: str | None = None) -> dict:
-    """Everything a lifestyle generation needs about where it happens, for one release slug."""
+def scene_for(slug: str, *, listing: str | None = None, role: str = "lifestyle") -> dict:
+    """Everything a lifestyle generation needs about where it happens, for one frame."""
     category = category_of_slug(slug)
     room, why = room_for(category)
     listing = listing or slug
     return {"home": HOME_ID, "room": room.key, "room_name": room.name, "category": category,
-            "why": why, "environment": environment(room, listing=listing),
+            "why": why, "role": role,
+            "variation": variation(room, listing=listing, role=role),
+            "environment": environment(room, listing=listing, role=role),
             "cue": cue(room)}
 
 
