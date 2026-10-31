@@ -2483,6 +2483,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.salvage_review": ("work_done",),
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),
+    # FABLE-P0 §6: the product stage register (products counted on their stage).
+    "products.stage_register": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
     # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
     "listing.search_visibility_aging": ("work_done",),
@@ -3117,6 +3119,7 @@ from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance r
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
+from . import register_ops  # noqa: E402,F401  (FABLE-P0 §6: products.stage_register)
 
 
 def _listing_parity(ctx: JobContext) -> dict:
