@@ -898,12 +898,16 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
                 rim_softening=ws))
         else:
             checks.append(_check("rim_corners_cm", UNKNOWN, "the rim row is outside the frame"))
-        # Across the flats at the rim (SECREVIEW-RENDER F2). The flats are where the stitch
-        # count puts them all the way up (`K.soft_radius` never moves a mid-face), so the
-        # front and back rim, read on the central column, are 2a apart in depth: on screen
-        # 2a * sin(camera). A rim widened across the flats -- the error the first soft-corner
-        # model made (+1.06 cm) -- fails here. Needs an oblique camera; an elevation sees no
-        # depth and reports UNKNOWN rather than passing.
+        # Across the flats at the rim (SECREVIEW-RENDER F2, 363a467 R3). The flats are where
+        # the stitch count puts them all the way up (`K.soft_radius` never moves a mid-face).
+        # Oblique views read them directly: front and back rim on the central column are 2a
+        # apart in depth, 2a * sin(camera) on screen. An elevation sees no depth, so it reads
+        # them from the top wall round's central stitches instead: a mid-face point inside Rc
+        # does not move, so their spacing is the side pitch exactly when the flats hold, and a
+        # rim widened across the flats spreads them (+5-7 % at the rim for the 38c16035
+        # model). Either way the check is emitted -- never silently skipped.
+        top_round = sorted(rounds.get(len(walls) - 1, []), key=lambda c: c["cx"])
+        mid = [c for c in top_round if abs(c["cx"] - cx) <= 1.6 * w_face * u]
         if sa > 0.2:
             col = frame.yarn[:, int(round(cx)) - half: int(round(cx)) + half + 1] >= 0
             ys_c = np.nonzero(col.any(axis=1))[0]
@@ -918,6 +922,19 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
                     "corners soften", measured=round(m_f, 2), expected=round(2 * a_cm, 2)))
             else:
                 checks.append(_check("rim_flats_cm", UNKNOWN, "no rim on the central column"))
+        elif len(mid) >= 3:
+            m_p = float(np.median(np.diff([c["cx"] for c in mid]))) / u
+            checks.append(_check(
+                "rim_flats_cm",
+                PASS if _within(m_p, w_face, EXTENT_REL, 1.0, u) else FAIL,
+                "across the flats at the rim, on an elevation: the top wall round's central "
+                "stitch pitch, which equals the side pitch only if the mid-faces have not "
+                "moved outward", measured=round(2 * a_cm * m_p / w_face, 2),
+                expected=round(2 * a_cm, 2), central_pitch_cm=round(m_p, 4),
+                expected_pitch_cm=round(w_face, 4)))
+        else:
+            checks.append(_check("rim_flats_cm", UNKNOWN,
+                                 "fewer than three central stitches on the top wall round"))
     checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX,
                                                           u * (k_at(top_c["cx"]) if top_c else ca)) else FAIL,
                          "front-face height, un-projected by the contract camera angle",

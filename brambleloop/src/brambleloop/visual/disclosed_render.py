@@ -49,7 +49,9 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_render"
-RENDERER_VERSION = "disclosed-render/3.1.0"  # 3.1: soft wall corners (K.rim_softening); else identical to 3.0.0   # contract 3: legible lettering
+# 3.0.0: contract 3 (legible lettering). 3.1.0 (W4-PDF1): soft wall corners for
+# `render_contract.SOFT_CORNER_SLUGS` (K.rim_softening); byte-identical to 3.0.0 otherwise.
+RENDERER_VERSION = "disclosed-render/3.1.0"
 
 # The views a listing set is built from, and the gallery role each plays. One job each
 # (publish.eligibility.check_set refuses duplicate jobs).

@@ -552,6 +552,60 @@ def test_the_basket_render_draws_soft_corners_and_the_old_prism_fails_verificati
     assert "about 0.7 cm tall" in basket                   # design review D3
 
 
+
+def test_the_rim_estimate_is_owed_by_the_product_not_by_the_frames_word():
+    """SECREVIEW-RENDER-363a467 R1-R4.
+
+    R1: a frame whose manifest has lost its `estimated` field still owes the note, because the
+    requirement comes from the product and the render contract. R2: a 3.0.0 stamp is not
+    qualified for the soft-cornered basket (it names the prism or the widened 38c16035 rim).
+    R3: the elevation emits `rim_flats_cm` and fails a rim widened across the flats. R4: the
+    CONTENTS preview's alt text carries the note."""
+    import copy
+    import tempfile
+
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.publish import disclosed_listing as L
+    from brambleloop.visual import disclosed_render as D
+    from brambleloop.visual import launch_imagery as LI
+    from brambleloop.visual import render_contract as K
+    from brambleloop.visual import render_verification as V
+    from brambleloop.visual.product_authority import structural_floor
+
+    small = launch0.cir_for("basket_small")
+    with tempfile.TemporaryDirectory() as tmp:
+        store = ArtifactStore(tmp)
+        rec = L.build(small, store=store)
+        hero = next(f for f in rec["frames"] if f["view"] == "hero")
+        png = D.render(small, "hero").png                      # deterministic: same bytes
+        assert hashlib.sha256(png).hexdigest() == hero["image"]["sha256"]
+        stripped = copy.deepcopy(hero)
+        stripped["disclosed_render"].pop("estimated", None)
+        stripped["alt_text"] = stripped["alt_text"].replace(" " + K.ESTIMATED_SHAPE, "")
+        out = L.export_check(stripped, image_bytes=png, description="no note here", cir=small)
+        assert not out["ok"] and any("estimate note missing" in p for p in out["problems"]), out
+        # R2: the same bytes, stamped 3.0.0, are not qualified for this product.
+        old = copy.deepcopy(hero)
+        old["disclosed_render"]["renderer_version"] = "disclosed-render/3.0.0"
+        floor = structural_floor(old)
+        assert floor["status"] != "PASS", floor
+        assert structural_floor(hero)["status"] == "PASS"
+    # R3: the elevation now measures the flats and fails the widened (38c16035) rim.
+    good = V.verify(D.render(small, "scale").png, cir=small, view="scale")
+    assert [c["status"] for c in good["checks"] if c["check"] == "rim_flats_cm"] == [V.PASS]
+    real = K.soft_radius
+    try:
+        K.soft_radius = lambda r, w, Rc: (1 - w) * r + w * Rc
+        widened = D.render(small, "scale").png
+    finally:
+        K.soft_radius = real
+    assert "rim_flats_cm" in V.verify(widened, cir=small, view="scale")["failed"]
+    # R4
+    assert LI.supplement_alt_text("CONTENTS", "Hexagonal Bread Basket",
+                                  "market-basket-small").endswith(K.ESTIMATED_SHAPE)
+    assert K.ESTIMATED_SHAPE not in LI.supplement_alt_text("CONTENTS", "Coasters",
+                                                           "hexagon-coaster-set")
+
 def small_points(cir) -> float:
     twin = build_twin(cir, compile_cir(cir))
     return twin.across_points_cm / 2

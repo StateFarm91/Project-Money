@@ -695,6 +695,16 @@ DISCLOSED_ROLE: dict[str, str] = {
 }
 
 
+def _owes_estimate(frame: dict) -> bool:
+    """Whether a disclosed frame shows a shape the render contract marks as estimated, from
+    the product and the contract rather than the frame's own manifest (R1)."""
+    from ..visual import render_contract as K
+
+    manifest = frame.get("disclosed_render") or {}
+    return bool(K.estimate_notes(frame.get("slug") or manifest.get("slug"),
+                                 manifest.get("view") or frame.get("view")))
+
+
 def release_assets(frames: list[dict], generated: list[dict] | None = None,
                    disclosed: list[dict] | None = None) -> list[AssetClaim]:
     """The asset claims a release's listing gallery makes, from the records on file.
@@ -732,7 +742,7 @@ def release_assets(frames: list[dict], generated: list[dict] | None = None,
             ref=str(frame.get("image_ref") or f"disclosed-{frame.get('position')}"), role=role,
             generated=False, deterministic_render=True, disclosed_render=True,
             labelled=bool(disclosure.get("in_image") and disclosure.get("in_alt_text")),
-            estimated_shape=bool((frame.get("disclosed_render") or {}).get("estimated"))))
+            estimated_shape=_owes_estimate(frame)))
     return claims
 
 

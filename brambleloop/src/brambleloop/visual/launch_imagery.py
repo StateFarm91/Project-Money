@@ -254,7 +254,7 @@ def supplement_alt_text(job: str, title: str, slug: str | None = None) -> str:
         # A preview of the document, not a render of the design: the preview label leads.
         from .contents_frame import alt_text
 
-        return alt_text(title)
+        return alt_text(title, slug)
     from . import render_contract as K
 
     # SECREVIEW-RENDER F1: the angle frame shows the estimated rim; say so where it travels.

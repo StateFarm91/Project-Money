@@ -106,7 +106,7 @@ def alt_text(manifest: dict, cir) -> str:
                 f"with a centimetre scale bar.")
     # SECREVIEW-RENDER F1: a frame whose drawn shape is partly estimated says so in its alt
     # text, because Etsy shows the image with no caption (render_contract.ESTIMATED_SHAPE).
-    estimate = " ".join(manifest.get("estimated") or [])
+    estimate = " ".join(K.estimate_notes(cir.slug, manifest.get("view")))
     text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}"
             + (f" {estimate}" if estimate else ""))
     if len(text) > ALT_TEXT_ADVICE and size:
@@ -159,9 +159,13 @@ def export_check(frame: dict, *, image_bytes: bytes, description: str, cir=None)
         problems.append("alt text longer than Etsy allows")
     if not _phrase_in(description):
         problems.append("disclosure missing from the listing copy")
-    # SECREVIEW-RENDER F1: an estimated shape travels with its note, in the alt text and the
-    # copy, because the image itself is shown without a caption.
-    for note in ((frame.get("disclosed_render") or {}).get("estimated") or []):
+    # SECREVIEW-RENDER F1 / 363a467 R1: an estimated shape travels with its note, in the alt
+    # text and the copy, because the image is shown without a caption. Which frames owe it is
+    # derived from the product and the render contract, never from the frame's own manifest.
+    slug = (cir.slug if cir is not None else None) or frame.get("slug") \
+        or (frame.get("disclosed_render") or {}).get("slug")
+    view = (frame.get("disclosed_render") or {}).get("view") or frame.get("view")
+    for note in K.estimate_notes(slug, view):
         if note not in frame.get("alt_text", ""):
             problems.append(f"estimate note missing from the image's alt text: {note!r}")
         if note not in (description or ""):

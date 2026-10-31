@@ -114,6 +114,21 @@ def rim_softening(cir) -> float:
     return RIM_CORNER_SOFTENING if getattr(cir, "slug", None) in SOFT_CORNER_SLUGS else 0.0
 
 
+# The first renderer that draws `SOFT_CORNER_SLUGS` as the contract does. An earlier stamp
+# names other drawings of these products (the straight prism, or the 38c16035 rim widened
+# across the flats), so it is not qualified for them (SECREVIEW-RENDER-363a467 R2).
+SOFT_CORNER_MIN_RENDERER = "disclosed-render/3.1.0"
+
+
+def estimate_notes(slug, view) -> list[str]:
+    """The estimate notes a frame of `slug` showing `view` must carry, from the product and
+    this contract -- never from the frame's own manifest (SECREVIEW-RENDER-363a467 R1). Every
+    view of a soft-cornered product shows the rim except the base seen from above."""
+    if slug in SOFT_CORNER_SLUGS and view != "detail":
+        return [ESTIMATED_SHAPE]
+    return []
+
+
 def soft_radius(r: float, w: float, Rc: float) -> float:
     """A wall point's distance from the axis after softening by weight `w` (0..1): pulled
     toward the same-perimeter circle `Rc` only where it lies outside it (the corners)."""

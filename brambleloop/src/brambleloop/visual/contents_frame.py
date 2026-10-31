@@ -65,12 +65,16 @@ def preview_label() -> str:
     return PREVIEW_LABEL
 
 
-def alt_text(title: str) -> str:
-    """The certified alt text: the preview label first, then what the frame shows."""
+def alt_text(title: str, slug: str | None = None) -> str:
+    """The certified alt text: the preview label first, then what the frame shows. The pages
+    include the cover render, so a soft-cornered product's preview carries the rim estimate
+    (SECREVIEW-RENDER-363a467 R4)."""
     from ..publish.disclosed_listing import ALT_TEXT_MAX
+    from . import render_contract as K
 
+    estimate = f" {K.ESTIMATED_SHAPE}" if slug in K.SOFT_CORNER_SLUGS else ""
     return (f"{preview_label()}. {title}: the first pages of the PDF pattern you download, "
-            f"shown at reduced size.")[:ALT_TEXT_MAX]
+            f"shown at reduced size.{estimate}")[:ALT_TEXT_MAX]
 
 
 # --------------------------------------------------------------------------- the PDF
