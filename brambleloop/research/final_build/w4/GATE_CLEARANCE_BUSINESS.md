@@ -5,7 +5,7 @@ Owner authorisation 2026-10-07. Per gate: cleared / owner action (exact cost, li
 | gate | status | owner minutes | max CA$ |
 |---|---|---|---|
 | benchmark_purchases | OWNER-ACTION | 75 | 300.0 |
-| physical_proof | OWNER-ACTION | 5 | 59.65 |
+| physical_proof | OWNER-ACTION | 5 | 66.0 |
 | tester_roster | OWNER-ACTION | 20 | 0.0 |
 | second_market_benchmark | COMPANY-SELECTED (observation pending) | - | - |
 | owned_surfaces | PARTLY CLEARED (Etsy shop recognised) + OWNER-ACTION | 65 | 25.0 |
@@ -13,7 +13,7 @@ Owner authorisation 2026-10-07. Per gate: cleared / owner action (exact cost, li
 | ad_authority | NOT-YET-ASKABLE | - | - |
 | live_listings | ASKED IN leave_shadow (company work first, per product) | - | - |
 
-Asked now: ~165 min, up to CA$384.65.
+Asked now: ~165 min, up to CA$391.00.
 
 ## 1. benchmark_purchases -- buy these 13 (OWNER ACTION)
 
@@ -56,17 +56,19 @@ physical evidence before live sale (`gates.risk_matrix`):
 
 * hexagon-coaster-set is Class A -- clears on deterministic evidence; a make proves nothing
   it needs;
-* cloudline-baby-blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;
+* the Launch-0 blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;
 * the three market baskets are Class B on `dimensional_form`, share one gauge, stitch and
   yarn weight (sc, 12.5 sts/10 cm, 5.0 mm, worsted cotton), and the small one is the
-  cheapest make (~2.2 h, ~52 m; ceiling CA$59.65 at the risk matrix's own rates).
+  cheapest make (~2.2 h, ~52 m). Its one approved figure is `KIT["max_cost_cad"]`,
+  CA$66.00 all-inclusive (CA$65.90 to the tester); the risk matrix's per-metre rate is only
+  its floor.
 
 A full make of the small basket satisfies its partial-physical requirement (a full make
 contains one, `risk_matrix.satisfies`), calibrates the sc/worsted-cotton yardage factor all
 three baskets use, falsifies or confirms a closed 3-D form's stated size (the risk the class
 exists for), and yields the finished-object photograph #64's upgrade path is waiting for.
 
-Printable kit: `research/final_build/w4/tester_kit/` -- market-basket-small-1.2.0-TEST.pdf, market-basket-small-1.2.0-RECORD-SHEET.pdf
+Printable kit: `research/final_build/w4/tester_kit/` -- market-basket-small-1.2.0-TEST.pdf, market-basket-small-1.2.0-RECORD-SHEET.pdf, OUTREACH.md
 
 Materials (ESTIMATED CA$):
 
@@ -76,22 +78,25 @@ Materials (ESTIMATED CA$):
 - tapestry needle, 4 stitch markers, scissors -- 1 set -- CA$4.00
 - kitchen scale reading to 1 g -- tester's own -- CA$0.00
 - tape measure / ruler (cm) -- tester's own -- CA$0.00
-- materials total ~CA$20.00; approval ceiling CA$59.65 (gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet)
+- materials total ~CA$20.00; approval ceiling CA$66.00 (ESTIMATED, all-inclusive: tester fee 2.795 h (2.15 h x1.3) at CA$20/h = CA$55.90, plus 2 balls x CA$5.00 = CA$10.00, paid in full (CA$65.90) by a fee-free transfer, leaving CA$0.10 for processing. No tester has been paid yet)
 
 Person: one independent adult crocheter (not the owner, F-071) who agreed through the tester programme (quality.tester_programme). Skill: confident with single crochet worked in joined rounds, increasing at six points to make a flat hexagon, and turning a base into straight walls; can read a written pattern in US terms; owns or can borrow a 1 g kitchen scale. Time: about 2-3 hours of making plus 15 minutes of measuring and recording.
 
 Protocol:
 
 1. Before starting: weigh each full ball and record the ball band (grams and metres)
-2. Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook
-3. Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number
-4. Weigh what is left of each ball; grams used = start minus end, per colour
-5. Measure the finished base across the points and across the flats, and the wall height, in cm, without stretching
-6. Record total hours and whether you followed the instructions exactly
-7. Photograph the finished basket on a plain surface (top and side) in daylight
-8. Return the record sheet and photos; the operator enters them (POST /api/physical-test and /api/physical-photo)
+2. Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook; then RE-WEIGH each ball and use that as its start weight, so the swatch's yarn is not counted as project yarn
+3. Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number. Optional: just after round 11, note how tall the work stands (cm)
+4. Weigh what is left of each ball; grams used = re-weighed start minus end, per colour
+5. Measure the finished base across the points and across the flats, in cm, without stretching. Measure the wall height OUTSIDE: from the flat table to the top of the rim, at the middle of a flat side (optional: the inside depth too)
+6. Set the empty basket on a flat table. Does the base sit flat without rocking? Does it hold its shape (walls upright, no collapse, lean or flare)? Answer yes or no to each, and write any problem in the problems box
+7. Look at where the base turns into the wall: a crisp fold, or a rounded curve? If rounded, from which round is the wall upright? Are the six corners still visible at the rim (yes or no)? Measure the rim across the points (cm)
+8. Record total hours (not the swatch) and whether you followed the instructions exactly
+9. Photograph in daylight on a real surface (wood, linen or a countertop). Keep every camera file UNEDITED: no filter, crop, resize or retouch; landscape or square, at least 2000 px each side, the whole basket in frame with space around it
+10. Shots: (1) three-quarter view from about 30 degrees above, empty or with two or three rolls below the rim -- the listing's first photo; (2) straight down from above; (3) side view at table level; (4) a tape measure across the points, then a tape at wall height; (5) close-up of the rim and colour change; (6) in use on a set table with bread
+11. Return the record sheet and the original photo files; the operator enters them (POST /api/physical-test and /api/physical-photo)
 
-Records -> intake: your tester reference -> `tester_ref`; grams used, colour A (cream) -> `grams_by_color.cream`; grams used, colour B (wine) -> `grams_by_color.wine`; ball band: grams per ball -> `ball_band_grams`; ball band: metres per ball -> `ball_band_metres`; hook used (mm) -> `hook_mm`; swatch: sts and rounds per 10 cm -> `notes`; base across the points (cm) -> `measured_width_cm`; base across the flats (cm) -> `notes`; wall height (cm) -> `measured_height_cm`; total hours -> `hours`; followed exactly? yes/no -> `instructions_followed`; anything unclear or wrong (round numbers) -> `notes`
+Records -> intake: your tester reference -> `tester_ref`; baskets made (of 1) -> `made.basket`; grams used, colour A (cream) -> `grams_by_color.cream`; grams used, colour B (wine) -> `grams_by_color.wine`; ball band: grams per ball -> `ball_band_grams`; ball band: metres per ball -> `ball_band_metres`; hook used (mm) -> `hook_mm`; swatch: stitches per 10 cm -> `swatch_stitches_per_10cm`; swatch: rounds per 10 cm -> `swatch_rows_per_10cm`; base across the points (cm) -> `measured_width_cm`; base across the flats (cm) -> `measured_flats_cm`; wall height outside, table to rim at mid-flat (cm) -> `measured_height_cm`; optional: inside depth (cm) -> `inside_depth_cm`; base sits flat, no rocking? yes/no -> `lies_flat`; holds its shape? yes/no -> `holds_shape`; base edge: crisp fold or rounded curve -> `base_edge`; if rounded: wall upright from round -> `wall_vertical_from_rnd`; six corners visible at the rim? yes/no -> `corners_at_rim`; rim across the points (cm) -> `rim_across_points_cm`; optional: height just after round 11 (cm) -> `rnd11_height_cm`; total hours -> `hours`; followed exactly? yes/no -> `instructions_followed`; anything unclear or wrong (round numbers) -> `problem_notes`
 
 Entered via POST /api/physical-test (queued job physical.record); photo via POST /api/physical-photo {slug, sha256, source, rights}. the physical.record job writes a PhysicalTest row with completed_at.
 
@@ -103,11 +108,13 @@ Channel: Ravelry group 'The Testing Pool' -- a public tester-call post from the 
 
 **[Tester call] Crochet Hexagonal Bread Basket -- worsted cotton, ~3 hrs, paid**
 
-Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for 1-3 testers for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.
+Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for ONE tester for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.
 
-What we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the one-page record sheet -- grams used per colour, the ball band (grams and metres), your hook, finished measurements, hours, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.
+Who can apply: an adult who is not the shop's owner, not a member of the owner's household or family, and has no financial interest in Brambleloop. Please tell us about any relationship you have with Brambleloop or its owner, and include a photo of, or a link to, a finished piece you crocheted in joined rounds.
 
-What you get: the final pattern free, another Brambleloop pattern of your choice, a test fee for the make with yarn reimbursed (amount confirmed before you start), and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.
+What we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the record sheet -- grams used per colour, the ball band (grams and metres), your hook, the finished measurements, whether it sits flat and holds its shape, hours, whether you followed it exactly, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.
+
+What you get: CA$65.90 in total, paid to you in full -- a CA$55.90 test fee plus CA$10.00 towards two balls of yarn -- by a fee-free transfer (any payment-processing fee is ours and is never deducted from you); the final pattern free, another Brambleloop pattern of your choice, and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.
 
 To apply, reply in this thread or message the Brambleloop Ravelry account; we will send the intake form (it records your consent to be emailed about this test, which you can withdraw any time). Brambleloop Studio, Canada.
 
@@ -124,6 +131,8 @@ I agree that Brambleloop Studio may email me about this pattern test (instructio
 - `specialties` (required): what you usually make (departments)
 - `can_weigh_grams` (required): do you have a kitchen scale reading to 1 g? (yes/no)
 - `terms_preference` (required): US or UK crochet terms
+- `relationship` (required): any relationship to Brambleloop or its owner -- household, family, work or financial? describe it, or write 'none'
+- `qualification` (required): a photo of, or link to, a finished piece you crocheted in joined rounds
 - `express_consent` (required): tick: I agree that Brambleloop Studio may email me about this pattern test (instructio...
 - `photo_permission_scopes`: optional: brambleloop_listing / brambleloop_site / brambleloop_email / advertising
 - `credit_preference`: optional: credit by name / by handle / no credit

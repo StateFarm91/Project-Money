@@ -41,6 +41,13 @@ def _db() -> Database:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/blocked.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    # SECREVIEW R12: the fixture tester has a recorded, independent, qualified agreement.
+    from brambleloop.quality import tester_programme as _tp
+
+    _tp.record_agreement(db, handle_ref="tester-1", specialties=["home_decor"],
+                         express_consent=True, consent_source="test fixture",
+                         relationship="none",
+                         qualification="https://www.ravelry.com/projects/tester/sample")
     return db
 
 

@@ -52,7 +52,23 @@ def _db() -> Database:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/physfix.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    _agree_testers(db)
     return db
+
+
+AGREED_TESTERS = ("tester-1", "tester-2", "tester-3", "t", "t1", "t2")
+
+
+def _agree_testers(db, refs=AGREED_TESTERS) -> None:
+    """SECREVIEW R12: a sample counts only from a tester with a recorded, independent,
+    qualified agreement, so the fixtures' testers agree first, through the one intake."""
+    from brambleloop.quality import tester_programme as tp
+
+    for ref in refs:
+        tp.record_agreement(db, handle_ref=ref, specialties=["home_decor"],
+                            express_consent=True, consent_source="test fixture",
+                            relationship="none",
+                            qualification="https://www.ravelry.com/projects/tester/hexagon-basket")
 
 
 def _run(db, job_type: str, inputs: dict) -> Job:
@@ -693,7 +709,7 @@ def test_tester_terms_one_independent_qualified_tester_and_an_all_inclusive_ceil
         try:
             tp.record_agreement(db, handle_ref="t", specialties=["home_decor"],
                                 express_consent=True, consent_source="form",
-                                relationship=rel, qualification="https://x/y")
+                                relationship=rel, qualification="https://www.ravelry.com/projects/tester/hexagon-basket")
         except tp.TesterRefused:
             continue
         raise AssertionError(f"accepted a tester who is not independent: {rel!r}")
@@ -716,7 +732,7 @@ def test_tester_terms_one_independent_qualified_tester_and_an_all_inclusive_ceil
                              "Acquaintance (declared)")):
         out = tp.record_agreement(db, handle_ref=f"ok{n}", specialties=["home_decor"],
                                   express_consent=True, consent_source="form",
-                                  relationship=rel, qualification="https://ravelry/x")
+                                  relationship=rel, qualification="https://www.ravelry.com/projects/tester/hexagon-basket")
         assert out["permission"]["independence"]["relationship"] in (
             "none", "acquaintance (declared)"), out
 
@@ -764,6 +780,139 @@ def test_one_cost_figure_per_kit_everywhere_it_is_stated():
     assert coaster["max_cost_cad"] == 100.00 and coaster["tester_receives_cad"] == 99.96
     assert json.loads((KIT_DIR / "KIT_MANIFEST_hexagon-coaster-set.json").read_text())[
         "max_cost_cad"] == 100.00
+
+
+def test_a_hold_rename_is_the_same_design_and_into_is_geometry():
+    """SECREVIEW 3e542a1 R11/R14: hold names are labels; which row a row is worked into is
+    geometry."""
+    from brambleloop.cir.benchmarks import cardigan
+    from brambleloop.cir.compiler import compile_cir as _compile
+    from brambleloop.cir.model import CIR, Component, Hold, Op, Row
+
+    def held(name):
+        a = Component(name="panel", construction="flat", foundation=20,
+                      foundation_kind="chain",
+                      rows=[Row(index=1, ops=[Op("sc", 20)], declared_count=20),
+                            Row(index=2, ops=[Op("sc", 14)], declared_count=14, skips=6)],
+                      holds=[Hold(name=name, at_row=1, count=6, from_stitch=14)])
+        b = Component(name="strap", construction="flat", foundation=0, foundation_kind="none",
+                      rows=[Row(index=1, ops=[Op("sc", 6)], declared_count=6)], resumes=name)
+        c = CIR.from_dict(cardigan("XS").to_dict())
+        c.components, c.assembly = [a, b], []
+        return c
+
+    one, two = held("side"), held("other_hold")
+    d1 = physical.design_digest(one, _compile(one))
+    assert d1 and d1 == physical.design_digest(two, _compile(two)), "a hold rename moved it"
+    moved = held("side")
+    moved.components[0].holds = [Hold(name="side", at_row=1, count=5, from_stitch=15)]
+    moved.components[0].rows[1].skips = 5
+    moved.components[0].rows[1].ops = [Op("sc", 15)]
+    moved.components[0].rows[1].declared_count = 15
+    moved.components[1].rows = [Row(index=1, ops=[Op("sc", 5)], declared_count=5)]
+    d_moved = physical.design_digest(moved, _compile(moved))
+    assert d_moved and d_moved != d1, "a real hold change kept the digest (or did not compile)"
+
+    base = _basket_medium()
+    rows = base.components[0].rows
+    same_count = [r for r in rows if r.index >= 13]
+    assert len(same_count) > 3, "no straight wall rounds: the into check proves nothing"
+    changed = _basket_medium()
+    target = next(r for r in changed.components[0].rows if r.index == 15)
+    target.into = 13
+    assert compile_cir(changed).ok, "the into fixture no longer compiles"
+    assert physical.design_digest(changed) != physical.design_digest(base), \
+        "working into another row kept the digest"
+
+
+def test_a_sample_is_evidence_only_from_an_independent_agreed_tester():
+    """SECREVIEW 3e542a1 R12: no default "owner", no unknown or pre-allow-list tester; an
+    explicit owner make is stored as non-evidence and satisfies nothing."""
+    from brambleloop.build2 import executor
+    from brambleloop.core.models import CreatorProfile
+    from brambleloop.gates.first_customer import physical_binding
+
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    with db.session() as s:
+        s.add(CreatorProfile(ref="legacy-1", specialties=["home_decor"], invited=1,
+                             delivered=0, permissions=[{"kind": "tester_agreement",
+                                                        "consent_version": "v0"}]))
+    for ref in (None, "", "owner", "nobody-agreed", "legacy-1"):
+        inputs = _inputs(cir, scope="full_make", holds_shape=True)
+        if ref is None:
+            inputs.pop("tester_ref")
+        else:
+            inputs["tester_ref"] = ref
+        _run(db, "physical.record", inputs)
+    assert _rows(db) == [], [r.tester_ref for r in _rows(db)]
+    job = _run(db, "physical.record", {**_inputs(cir, scope="full_make", holds_shape=True),
+                                       "tester_ref": "owner", "owner_made": True})
+    rows = _rows(db)
+    assert len(rows) == 1 and rows[0].passed is False, job.last_error
+    m = rows[0].measured
+    assert m["owner_made"] is True and m["size_proof"] is False
+    assert m["evidence_role"] == "owner_made_non_evidence"
+    binding = physical_binding(db, cir)
+    assert binding["passed"] is False and binding["first_customer"]["met"] is False
+    assert physical.size_coverage(db, cir)["proven"] == []
+    assert executor._physical_proof_available(db, None) is False
+    _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True))
+    rows = _rows(db)
+    assert rows[-1].passed is True and rows[-1].measured["tester_agreement"]["ref"] == "tester-1"
+    assert rows[-1].measured["tester_agreement"]["relationship"] == "none"
+    assert executor._physical_proof_available(db, None) is True
+    fresh = Database(f"sqlite:///{tempfile.mkdtemp()}/legacy.sqlite")
+    fresh.create_all()
+    with fresh.session() as s:
+        s.add(CreatorProfile(ref="legacy-1", specialties=["home_decor"], invited=1,
+                             delivered=0, permissions=[{"kind": "tester_agreement"}]))
+    assert executor._tester_recruited(fresh, None) is False, "a pre-allow-list agreement counted"
+
+
+def test_qualification_evidence_must_be_a_link_or_a_stored_photo():
+    """SECREVIEW 3e542a1 R16."""
+    from brambleloop.quality import tester_programme as tp
+
+    for bad in (".", "yes", "https://x", "http://", "photo:abc", "ravelry.com"):
+        assert tp.qualification_problems(bad), bad
+    for good in ("https://www.ravelry.com/projects/me/basket", "http://example.org/p.jpg",
+                 "photo:" + "a" * 64, "b" * 64):
+        assert tp.qualification_problems(good) == [], good
+
+
+def test_the_kit_ceiling_is_checked_from_above_and_no_stale_figure_remains():
+    """SECREVIEW 3e542a1 R13/R15/R17."""
+    from brambleloop.launch import readiness
+    from brambleloop.quality import tester_kit
+
+    for key, spec in tester_kit.KITS.items():
+        kit = spec["kit"]
+        real = kit["max_cost_cad"]
+        try:
+            kit["max_cost_cad"] = round(real * 10, 2)
+            with tempfile.TemporaryDirectory() as tmp:
+                try:
+                    tester_kit.build(Path(tmp), key)
+                except ValueError as exc:
+                    assert "above the approved" in str(exc), exc
+                else:
+                    raise AssertionError(f"{key}: a ceiling 10x the approval built")
+        finally:
+            kit["max_cost_cad"] = real
+        assert real == tester_kit.APPROVED_CEILING_CAD[key]
+    assert readiness.PHYSICAL_SAMPLE.max_cost_cad == tester_kit.KIT["max_cost_cad"]
+    w4 = ROOT / "research/final_build/w4"
+    for path in (w4 / "OWNER_ACTIONS.json", w4 / "OWNER_ACTIONS.md",
+                 ROOT / "src/brambleloop/app/command_center/snapshots/OWNER_ACTIONS.json",
+                 w4 / "GATE_CLEARANCE_BUSINESS.md", w4 / "GATE_CLEARANCE_BUSINESS.json"):
+        text = path.read_text()
+        assert "185.0" not in text and "CA$185" not in text, path
+        assert "59.65" not in text, path
+    doc = json.loads((w4 / "OWNER_ACTIONS.json").read_text())
+    item = next(i for b in doc["batches"] for i in b["items"] if i["id"] == "tester_outreach")
+    assert item["max_cost_cad"] == tester_kit.KIT["max_cost_cad"], item["max_cost_cad"]
 
 
 def test_every_production_tester_intake_passes_the_tester_terms():
