@@ -34,6 +34,12 @@ KIND = "learning.knowledge_gaps"
 ACTION_PREFIX = "knowledge_gap:"
 MAX_OPEN = 2
 WINDOW_DAYS = 30
+# Review OPUS2B2 F5.1: reference-purchase requests share one cap with intel.benchmark_refresh,
+# which raises its own (`benchmark_refresh:`) through the same `_pick`.
+MAX_PURCHASE_REQUESTS_OPEN = 3
+# Review OPUS2B2 F5.2: a line whose request the owner closed is not asked again for this long,
+# unless the library has since gained a benchmark in its pod.
+SUPPRESS_DAYS_AFTER_CLOSE = 56
 
 # Fixed weights: an empty product line is the strongest signal, then a concept we could not
 # draft at all, then one we drafted wrong.
@@ -206,9 +212,30 @@ def assess(db, *, today: date | None = None, pick=None) -> dict:
         open_rows = {r.requirement_key: r for r in s.scalars(select(OwnerAction).where(
             OwnerAction.requirement_key.like(f"{ACTION_PREFIX}%"),
             OwnerAction.done == False))}  # noqa: E712
+        refresh_open = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like(f"{benchmark_refresh.ACTION_PREFIX}%"),
+            OwnerAction.done == False)))  # noqa: E712
+        closed_at = {}
+        for r in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like(f"{ACTION_PREFIX}%"),
+                OwnerAction.done == True)):  # noqa: E712
+            when = r.state_at or r.at
+            if when is not None and when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            if when is not None and (r.requirement_key not in closed_at
+                                     or when > closed_at[r.requirement_key]):
+                closed_at[r.requirement_key] = when
         asked_pods = set()
+        now = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
         for g in found:
             key = f"{ACTION_PREFIX}{g['line']}"
+            closed = closed_at.get(key)
+            if key not in open_rows and closed is not None \
+                    and (now - closed).days < SUPPRESS_DAYS_AFTER_CLOSE:
+                held.append({"line": g["line"], "why": (
+                    f"the owner closed this request on {closed.date().isoformat()}; not "
+                    f"asked again for {SUPPRESS_DAYS_AFTER_CLOSE} days")})
+                continue
             if g["covered_by_library"]:
                 unrecommended.append({"line": g["line"], "why": (
                     f"the library already holds {g['library']} {g['pod']} benchmark(s); "
@@ -228,11 +255,26 @@ def assess(db, *, today: date | None = None, pick=None) -> dict:
                     f"{MAX_OPEN} knowledge-gap purchases already open; no indiscriminate "
                     f"spending")})
                 continue
+            if len(open_rows) + len(refresh_open) >= MAX_PURCHASE_REQUESTS_OPEN:
+                held.append({"line": g["line"], "why": (
+                    f"{MAX_PURCHASE_REQUESTS_OPEN} reference-purchase requests are already "
+                    f"open across knowledge gaps and benchmark refresh")})
+                continue
             chosen = pick(db, g["pod"])
             if not chosen:
                 unrecommended.append({"line": g["line"], "why": (
                     f"no observed {g['pod']} listing to recommend; the owner is never asked "
                     f"to go and find one")})
+                continue
+            if not chosen.get("price_cad") or float(chosen["price_cad"]) <= 0:
+                unrecommended.append({"line": g["line"], "why": (
+                    "the chosen listing has no observed price; a purchase is never shown "
+                    "as CA$0")})
+                continue
+            marks = {str(chosen.get("url") or ""), str(chosen.get("listing_ref") or "")} - {""}
+            if any(m in f"{r.action} {r.reason}" for r in refresh_open for m in marks):
+                held.append({"line": g["line"], "why": (
+                    "benchmark refresh already asks the owner about this listing")})
                 continue
             row = OwnerAction(
                 requirement_key=key,
@@ -241,7 +283,7 @@ def assess(db, *, today: date | None = None, pick=None) -> dict:
                 reason=(f"Knowledge gap in {g['label']} (score {g['score']}): {g['why']}. "
                         f"A reference here would teach {g['teaches']}. It answers: "
                         f"{chosen.get('answers', '')}"[:900]),
-                max_cost_cad=round(float(chosen.get("price_cad") or 0.0), 2), minutes=10,
+                max_cost_cad=round(float(chosen["price_cad"]), 2), minutes=10,
                 consequence_of_delay=("this product line keeps being refused or drafted "
                                       "without reference knowledge; the gap is re-assessed "
                                       "weekly"),

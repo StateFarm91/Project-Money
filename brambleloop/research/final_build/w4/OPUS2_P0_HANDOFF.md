@@ -538,3 +538,22 @@ shawlette, triangle scarf or kerchief.
 - **Needs one of:** a measured chain gauge (physical calibration, the owner's tester queue),
   or an assembly-model extension for spans on round pieces (shared `cir/assembly.py`,
   integrator's call).
+
+## 24. Review OPUS2B2 (9c1a0037): every finding fixed (2026-10-31)
+
+Report: `claude/w5-SECREVIEW-OPUS2B2-9c1a003`. The verdict was ACCEPT for parts 1, 2, 4, 5
+and 6, and CHANGES REQUIRED for part 3. Base merged: `f4c3899b`.
+
+| Finding | Fix | Test |
+|---|---|---|
+| **F3.1 MED (required)**: a shop that once scanned and failed since reads "scanned" | `scan_evidence._failed_since_success` derives the state from the latest attempt. A refusal (credential refused, 403, a recorded limitation) is `not_accessible`; an outage is `attempted_not_scanned`. `failure_reason` is always given, and the old success stays as `last_successful`. The anchor follows the same rule. | `test_review_opus2b2_f31_success_then_repeated_refusal_is_not_scanned` (the reviewer's repro). The earlier anchor test pinned the old behaviour and now expects `not_accessible`. |
+| F1.1 LOW: the pricing owner action stays open after the dead end clears | The sweep's resolve branch closes `chain-deadend:pricing:<slug>@<version>` as `satisfied`, with a reason, through `owner_queue.close`. | `test_review_opus2b2_f11_the_pricing_owner_action_closes_with_its_dead_end` |
+| F1.2 LOW: the parity row's version is not defaulted like the verdict's | `version` now defaults to `"1.0.0"`, matching `_listing_parity`. | the parity source pin is updated |
+| F2.1 LOW: re-certification drops the re-verification withhold | `withholding.carry_reverification` carries the failing checks and the `quality_reverify` kind onto the new certificate (fail closed, marked `carried_across_recertification`). The pipeline then queues `gate.quality` at once, so the new content is checked promptly. | `test_review_opus2b2_f21_a_recertification_keeps_the_failure_and_queues_the_checks` |
+| F2.2 INFO: two texts still say nothing is blocked | The incident note now says publication is withheld. `certificate_changed` is true only when the reading changed the record. | the same test, plus `test_w4_departments` |
+| F4.1 LOW: overlapping owner exports double-count | `commercial_lessons._non_overlapping` keeps each product's widest periods first and drops a row that overlaps one already kept. | `test_review_opus2b2_f41_overlapping_exports_are_counted_once` |
+| F5.1 LOW: no cap shared with benchmark_refresh | `MAX_PURCHASE_REQUESTS_OPEN=3` across the `knowledge_gap:` and `benchmark_refresh:` prefixes. A listing benchmark_refresh already asks about is held. | `test_review_opus2b2_f51_one_cap_with_benchmark_refresh_and_no_double_ask` |
+| F5.2 LOW: declined lines come back; a missing price shows CA$0 | A line whose request was closed rests for `SUPPRESS_DAYS_AFTER_CLOSE=56`. A pick with no observed price is never raised. | `test_review_opus2b2_f52_a_closed_line_rests_and_a_priceless_pick_is_never_raised` |
+
+Not changed: F2.1's pre-existing loss of `teardown_qa` on re-certification. That belongs to
+the owner of the re-certification path; only my own kind is carried.

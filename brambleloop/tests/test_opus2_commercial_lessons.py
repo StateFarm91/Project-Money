@@ -166,6 +166,20 @@ def test_publishing_is_idempotent_and_new_evidence_supersedes_the_old_lesson():
         assert s.scalar(select(func.count()).select_from(ListingOutcome)) == 4
 
 
+def test_review_opus2b2_f41_overlapping_exports_are_counted_once():
+    from brambleloop.improve import commercial_lessons as CL
+
+    db = _db()
+    _outcome(db, "market-basket-small", 400, 20, start="2026-10-01", end="2026-10-31",
+             source=EXPORT_SOURCE + "october")
+    _outcome(db, "market-basket-small", 200, 10, start="2026-10-15", end="2026-10-31",
+             source=EXPORT_SOURCE + "second-half")       # inside October: the same days
+    _outcome(db, "market-basket-small", 300, 6, start="2026-11-01", end="2026-11-30",
+             source=EXPORT_SOURCE + "november")          # a different month: counted
+    g = CL.measured_groups(db)["basket"]
+    assert (g.visits, g.orders) == (700, 26), (g.visits, g.orders)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

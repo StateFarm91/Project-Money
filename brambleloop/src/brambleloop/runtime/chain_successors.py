@@ -223,6 +223,19 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
             with db.session() as s:
                 lifecycle.resolve_signatures(s, [sig], resolution=(
                     f"{STAGES[kind][0]} has since succeeded for this release"), now=now)
+                # Review OPUS2B2 F1.1: the owner's "decide the price" action closes with the
+                # dead end, so the owner is not asked about a product that now has a price.
+                if kind == "pricing":
+                    from ..core.models import OwnerAction
+                    from ..ops import owner_queue
+
+                    key = OWNER_KEY + f"{inputs.get('slug')}@{inputs.get('version')}"
+                    for action in s.scalars(select(OwnerAction).where(
+                            OwnerAction.requirement_key == key,
+                            OwnerAction.done.is_(False))):
+                        owner_queue.close(action, owner_queue.SATISFIED,
+                                          "pricing.position has since cleared this release's "
+                                          "price; no owner decision is needed", now=now)
             resolved.append(sig)
             continue
         if here == UNKNOWN_COMMIT:

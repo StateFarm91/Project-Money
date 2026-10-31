@@ -89,6 +89,37 @@ def _category_and_family(slug: str) -> tuple[str, str | None]:
     return category_of_slug(slug) or "", None
 
 
+def _non_overlapping(rows: list) -> list:
+    """Review OPUS2B2 F4.1: one product's overlapping export periods are counted once.
+
+    Two owner exports whose periods overlap (October, then the second half of October) are
+    different rows for the same days. Per product, the widest periods are kept first and a row
+    whose period overlaps one already kept is dropped, so no day's visits or orders count twice.
+    A row without both dates cannot be compared and is kept as recorded.
+    """
+    from datetime import date
+
+    def period(r):
+        try:
+            return date.fromisoformat(str(r.period_start)), date.fromisoformat(str(r.period_end))
+        except (TypeError, ValueError):
+            return None
+
+    kept, by_slug = [], {}
+    for r in sorted(rows, key=lambda r: (-((period(r)[1] - period(r)[0]).days
+                                           if period(r) else -1), r.id)):
+        p = period(r)
+        if p is None:
+            kept.append(r)
+            continue
+        taken = by_slug.setdefault(r.product_slug, [])
+        if any(p[0] <= end and start <= p[1] for start, end in taken):
+            continue
+        taken.append(p)
+        kept.append(r)
+    return sorted(kept, key=lambda r: r.id)
+
+
 def measured_groups(db) -> dict[str, Group]:
     """Per-category totals from export-intake outcome rows that carry orders."""
     from sqlalchemy import select
@@ -101,7 +132,7 @@ def measured_groups(db) -> dict[str, Group]:
         rows = list(s.scalars(select(ListingOutcome)
                               .where(ListingOutcome.source.like(f"{EXPORT_SOURCE}%"))
                               .order_by(ListingOutcome.id)))
-        for r in rows:
+        for r in _non_overlapping(rows):
             if r.orders is None or r.visits is None:
                 continue          # a row without its orders measures nothing about conversion
             category, family = _category_and_family(r.product_slug)

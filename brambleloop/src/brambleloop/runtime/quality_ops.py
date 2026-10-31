@@ -179,8 +179,10 @@ def _incident(db, slug: str, version: str, check: str, problems: list[str]) -> i
                        summary=(f"certified {slug}@{version} no longer passes {check} on "
                                 f"re-verification: {problems[0] if problems else ''}")[:500],
                        detail={"problems": problems[:20], "check": check,
-                               "note": "regression detection only; the certificate is "
-                                       "unchanged and nothing was blocked"})
+                               # Review OPUS2B2 F2.2: say what now happens.
+                               "note": "regression detected: certification is unchanged, "
+                                       "but publication is withheld (withholding kind "
+                                       "quality_reverify) until this check passes again"})
         s.add(inc)
         s.flush()
         return inc.id
@@ -216,7 +218,8 @@ def _run_check(ctx: JobContext) -> dict:
                       "withheld_checks": held.get("failed_checks", []),
                       "release_hash": i.get("release_hash", "")})
     return {**r, "slug": slug, "version": version, "incident": inc, "resolved": resolved,
-            "certificate_changed": False, "withheld_checks": held.get("failed_checks", []),
+            # True only when this reading changed the stored withholding record.
+            "certificate_changed": bool(held.get("changed")), "withheld_checks": held.get("failed_checks", []),
             "work_done": 1}
 
 

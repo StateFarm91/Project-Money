@@ -176,6 +176,58 @@ def test_a_real_drafting_refusal_becomes_the_lines_gap():
     assert gap["needs"] and "in the round" in gap["needs"][0]
 
 
+def test_review_opus2b2_f51_one_cap_with_benchmark_refresh_and_no_double_ask():
+    from brambleloop.intel import benchmark_refresh as BR
+
+    db = _db()
+    for slug in ("woodland-fox-amigurumi", "no-sew-reindeer"):
+        _refuse(db, slug, "amigurumi")
+    with db.session() as s:
+        # benchmark_refresh already asks about the amigurumi listing the picker would choose.
+        s.add(OwnerAction(requirement_key=f"{BR.ACTION_PREFIX}new_category:amigurumi",
+                          action="Buy one benchmark pattern: 'x' (https://example.invalid/"
+                                 "amigurumi)", reason="refresh", max_cost_cad=7.5))
+    out = K.assess(db, today=TODAY, pick=_picker())
+    assert not any(r["line"] == "amigurumi" for r in out["raised"])
+    assert any(h["line"] == "amigurumi" and "benchmark refresh already asks" in h["why"]
+               for h in out["held"])
+    # Two more refresh requests fill the shared cap: nothing else is raised.
+    db2 = _db()
+    with db2.session() as s:
+        for i in range(K.MAX_PURCHASE_REQUESTS_OPEN):
+            s.add(OwnerAction(requirement_key=f"{BR.ACTION_PREFIX}t:{i}", action="a",
+                              reason="r", max_cost_cad=5.0))
+    out2 = K.assess(db2, today=TODAY, pick=_picker())
+    assert out2["raised"] == [] and any("reference-purchase requests are already open"
+                                        in h["why"] for h in out2["held"])
+
+
+def test_review_opus2b2_f52_a_closed_line_rests_and_a_priceless_pick_is_never_raised():
+    from datetime import datetime, timedelta, timezone
+
+    db = _db()
+    out = K.assess(db, today=TODAY, pick=_picker())
+    first = out["raised"][0]["line"]
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"{K.ACTION_PREFIX}{first}"))
+        row.done, row.state = True, "withdrawn"
+        row.state_at = datetime.combine(TODAY, datetime.min.time(), tzinfo=timezone.utc)
+    again = K.assess(db, today=TODAY + timedelta(days=7), pick=_picker())
+    assert not any(r["line"] == first for r in again["raised"])
+    assert any(h["line"] == first and "owner closed this request" in h["why"]
+               for h in again["held"])
+    later = K.assess(db, today=TODAY + timedelta(days=K.SUPPRESS_DAYS_AFTER_CLOSE + 1),
+                     pick=_picker())
+    assert not any(h["line"] == first and "owner closed" in h["why"] for h in later["held"])
+    # A pick with no observed price raises nothing, ever shown as CA$0.
+    db3 = _db()
+    out3 = K.assess(db3, today=TODAY, pick=_picker(prices={"amigurumi": 0}))
+    assert all(r["line"] != "amigurumi" for r in out3["raised"])
+    assert any(u["line"] == "amigurumi" and "never shown as CA$0" in u["why"]
+               for u in out3["unrecommended"])
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -14,10 +14,14 @@ original seed shops -- and for the two MJ's reference listings the owner named.
 
 States are derived, never declared:
 
-    scanned                 a successful scan is recorded, with its time
-    attempted_not_scanned   attempts are recorded, none succeeded; the last failure is given
-    not_accessible          the read path could not reach the shop by name (recorded by the
-                            watchlist scan); the limitation and its date are given
+    scanned                 the LATEST attempt succeeded (or no attempt is newer than the
+                            last success), with its time
+    attempted_not_scanned   the latest attempt failed (an outage), or none ever succeeded;
+                            the failure is always given, and any older success is kept as
+                            last_successful (review OPUS2B2 F3.1)
+    not_accessible          the latest attempt was refused (credential refused, 403, or the
+                            read path could not reach the shop by name); the limitation and
+                            its date are given
     never_attempted         registered for scanning, no attempt recorded yet
     not_registered          named by the owner but not in this build's scan registry; no scan
                             can have run (the seed shops join it with W-CONCEPT,
@@ -29,6 +33,7 @@ evidence; listing references are Etsy ids already held. No network, no model, CA
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 READING_KIND = "intel.scan_evidence"
@@ -118,6 +123,36 @@ def _seed_observation(shop: str) -> dict | None:
             "kind": "public-profile seed observation (price band, formats; no content)"}
 
 
+# Latest-attempt states that mean the source refuses us (not a transient outage).
+_REFUSED_STATES = frozenset({"credential_refused", "not_accessible", "forbidden"})
+_REFUSED_TEXT = r"\b(?:403|401|forbidden|refused|not accessible|unauthori[sz]ed)\b"
+
+
+def _when(value):
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _failed_since_success(state, last_ok_at, last_attempt_at) -> bool:
+    """True when the newest attempt failed and is newer than the newest success."""
+    if state in (None, "ok"):
+        return False
+    attempt, ok = _when(last_attempt_at), _when(last_ok_at)
+    if attempt is None:
+        return False
+    if ok is None:
+        return True
+    if attempt.tzinfo is None:
+        attempt = attempt.replace(tzinfo=timezone.utc)
+    if ok.tzinfo is None:
+        ok = ok.replace(tzinfo=timezone.utc)
+    return attempt > ok
+
+
 def _anchor(db) -> dict:
     from sqlalchemy import select
 
@@ -136,16 +171,20 @@ def _anchor(db) -> dict:
     fail = next((j for j in jobs if j["status"] in ("dead", "failed")
                  or j["outputs"].get("ran") is False), None)
     last_ok = (bench or {}).get("last_scan_at") or (ok or {}).get("finished_at")
-    if last_ok:
+    reason = None
+    if fail is not None and (ok is None or fail["id"] > ok["id"]):
+        # Only a failure newer than the last success is the shop's current failure.
+        reason = (fail["error"] or str(fail["outputs"].get("reason") or "")[:300]
+                  or f"latest mjs.scan job {fail['status']}")
+    # Review OPUS2B2 F3.1: a failure newer than the last success is the anchor's state.
+    if reason is not None and fail is attempted:
+        state = (NOT_ACCESSIBLE if re.search(_REFUSED_TEXT, reason, re.I) else ATTEMPTED)
+    elif last_ok:
         state = SCANNED
     elif attempted:
         state = ATTEMPTED
     else:
         state = NEVER
-    reason = None
-    if fail is not None and (ok is None or fail["id"] > ok["id"]):
-        # Only a failure newer than the last success is the shop's current failure.
-        reason = fail["error"] or str(fail["outputs"].get("reason") or "")[:300] or None
     return {"key": benchmarks.MJS_KEY, "registered_as": "benchmark anchor (intel.benchmarks.MJS)",
             "schedule": _cadence("mjs.scan"), "state": state,
             "last_attempted": (attempted or {}).get("finished_at") or (attempted or {}).get(
@@ -163,7 +202,14 @@ def _watched(db, member) -> dict:
 
     st = watchlist._state(db, member.key)
     state = st.get("state")
-    if state == "ok" or st.get("last_ok_at"):
+    # Review OPUS2B2 F3.1: the state is the LATEST attempt's. A shop that once scanned and has
+    # failed since is not "scanned" -- its old success is kept as `last_successful`, and its
+    # current failure is always reported.
+    failing = _failed_since_success(state, st.get("last_ok_at"), st.get("last_attempt_at"))
+    if failing:
+        derived = (NOT_ACCESSIBLE if state in _REFUSED_STATES or st.get("limitation")
+                   else ATTEMPTED)
+    elif state == "ok" or st.get("last_ok_at"):
         derived = SCANNED
     elif state == "not_accessible":
         derived = NOT_ACCESSIBLE
@@ -179,7 +225,9 @@ def _watched(db, member) -> dict:
             "last_attempted": st.get("last_attempt_at"), "last_successful": st.get("last_ok_at"),
             "source_timestamp": st.get("last_ok_at"),
             "provenance": f"company_memory {watchlist.STATE_PREFIX}{member.key}",
-            "failure_reason": (st.get("last_error") if derived != SCANNED else None),
+            "failure_reason": (None if derived == SCANNED else
+                               st.get("last_error") or (f"latest attempt: {state}" if state
+                                                        else None)),
             "consecutive_failures": int(st.get("consecutive_failures") or 0),
             "listings_seen_last_scan": st.get("listings_seen"),
             "limitations": limits,

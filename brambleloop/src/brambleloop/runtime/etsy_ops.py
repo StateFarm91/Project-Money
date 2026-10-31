@@ -357,8 +357,15 @@ def seed_owner_queue(db, *, defer: frozenset[str] | set[str] = frozenset()) -> d
     from ..core.models import OwnerAction
     from ..intel import etsy_surfaces
 
+    from .release import _serialise_owner_queue
+
     queued, restated = [], []
     with db.session() as s:
+        # Batch 4: this read and the inserts below are one serialised transaction, under the
+        # same owner-queue lock `launch.readiness` takes for its own requests. Two readiness
+        # passes at once each read "no row for this key" before either inserted, and the
+        # owner saw an `etsy_surface:*` request twice (test_w4_owner_queue_race under load).
+        _serialise_owner_queue(s, db)
         existing: dict[str, OwnerAction] = {}
         for row in s.scalars(select(OwnerAction).where(
                 OwnerAction.requirement_key.like(f"{SURFACE_PREFIX}%"))):

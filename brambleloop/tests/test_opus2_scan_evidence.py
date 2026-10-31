@@ -111,7 +111,36 @@ def test_a_failed_anchor_attempt_after_a_success_is_its_current_failure():
                   inputs={}, outputs={"ran": False, "reason": "ping returned HTTP 403"},
                   finished_at=NOW - timedelta(hours=1)))
     mjs = _by_shop(SE.report(db, now=NOW))["MJsOffTheHookDesigns"]
-    assert mjs["state"] == SE.SCANNED and "403" in mjs["failure_reason"]
+    # Review OPUS2B2 F3.1: a refusal newer than the last success is the anchor's state; the
+    # old success stays as last_successful.
+    assert mjs["state"] == SE.NOT_ACCESSIBLE and "403" in mjs["failure_reason"]
+    assert mjs["last_successful"] is not None
+
+
+def test_review_opus2b2_f31_success_then_repeated_refusal_is_not_scanned():
+    """The reviewer's repro: once scanned in August, refused by the API ever since."""
+    db = _db()
+    _watch_state(db, "MadelineMaeCo", {"state": "credential_refused",
+                                       "last_ok_at": "2026-08-01T00:00:00+00:00",
+                                       "last_attempt_at": "2026-10-31T06:00:00+00:00",
+                                       "last_error": "403 key refused",
+                                       "consecutive_failures": 40})
+    _watch_state(db, "ZKBDESIGNER", {"state": "source_outage",
+                                     "last_ok_at": "2026-10-01T00:00:00+00:00",
+                                     "last_attempt_at": "2026-10-31T06:00:00+00:00",
+                                     "last_error": "timeout", "consecutive_failures": 3})
+    rep = SE.report(db, now=NOW)
+    shops = _by_shop(rep)
+    m = shops["MadelineMaeCo"]
+    assert m["state"] == SE.NOT_ACCESSIBLE, m
+    assert m["failure_reason"] == "403 key refused" and m["consecutive_failures"] == 40
+    assert m["last_successful"] == "2026-08-01T00:00:00+00:00"
+    z = shops["ZKBDESIGNER"]
+    assert z["state"] == SE.ATTEMPTED and z["failure_reason"] == "timeout", z
+    # Neither is counted as scanned, and both reach the owner-facing list.
+    assert not any(r["state"] == SE.SCANNED for r in (m, z))
+    listed = {r["shop"] if isinstance(r, dict) else r for r in rep.get("not_scanned", [])}
+    assert {"MadelineMaeCo", "ZKBDESIGNER"} <= listed, rep.get("not_scanned")
 
 
 def test_watchlist_states_scanned_outage_and_not_accessible_are_reported_as_recorded():

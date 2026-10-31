@@ -130,6 +130,50 @@ def test_an_unknown_reading_changes_nothing_and_reconcile_keeps_the_kind():
     assert W.QUALITY_REVERIFY in _held(db, cir)["reasons"]
 
 
+def test_review_opus2b2_f21_a_recertification_keeps_the_failure_and_queues_the_checks():
+    from sqlalchemy import select as _select
+
+    from brambleloop.core.models import Job
+
+    cir = D._cir()
+    db = D._db(cir)
+    real = _sim([{"ok": False, "problems": ["SIM drift"]}])
+    try:
+        D._run(db, "validator", "cir.twin", _ref(cir))
+    finally:
+        QO.reverify = real
+    assert _held(db, cir)["blocks_publish"] is True
+    # What the pipeline's re-certification does: a fresh certificate replaces the old one.
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion))
+        fresh, carried = W.carry_reverification(pv.certificate, {"granted": True, "new": 1})
+        pv.certificate = fresh
+    assert carried is True
+    held = _held(db, cir)
+    assert held["blocks_publish"] is True and W.QUALITY_REVERIFY in held["reasons"]
+    assert held["reasons"][W.QUALITY_REVERIFY]["carried_across_recertification"] is True
+    # A certificate with nothing to carry is returned unchanged.
+    same, none = W.carry_reverification({"granted": True}, {"granted": True, "x": 2})
+    assert none is False and same == {"granted": True, "x": 2}
+    # The check passing on the new content clears it.
+    real = _sim([{"ok": True, "problems": []}])
+    try:
+        out = D._run(db, "validator", "cir.twin", _ref(cir))
+    finally:
+        QO.reverify = real
+    assert W.QUALITY_REVERIFY not in _held(db, cir)["reasons"]
+    assert out["certificate_changed"] is True
+    # The pipeline queues gate.quality right after a carried re-certification.
+    import inspect
+
+    from brambleloop.runtime import pipeline
+
+    src = inspect.getsource(pipeline)
+    assert "carry_reverification(" in src and '"reverify-after-recert:' in src
+    with db.session() as s:
+        assert not list(s.scalars(_select(Job).where(Job.job_type == "gate.quality")))
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

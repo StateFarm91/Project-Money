@@ -162,6 +162,36 @@ def record_reverification(db, slug: str, version: str, *, check: str,
     return {**out, "failed_checks": sorted(failed)}
 
 
+def carry_reverification(previous: dict | None, certificate: dict) -> tuple[dict, bool]:
+    """Review OPUS2B2 F2.1: a re-certification keeps the re-verification failure it replaces.
+
+    Re-certifying a version under a new release hash replaces the stored certificate, and with
+    it this durable record, so publication would stop being withheld until the next daily
+    re-verification. Fail closed instead: the failing checks and the `QUALITY_REVERIFY` kind
+    are carried onto the new certificate, marked as carried, and clear only when each check
+    passes on the new content. Returns (certificate, carried).
+    """
+    prev = dict(previous or {})
+    failed = dict(prev.get(REVERIFY_FAILED) or {})
+    entry = (prev.get(RECORD) or {}).get(QUALITY_REVERIFY)
+    if not failed and not entry:
+        return certificate, False
+    cert = dict(certificate or {})
+    if failed:
+        cert[REVERIFY_FAILED] = {**dict(cert.get(REVERIFY_FAILED) or {}), **failed}
+    record_ = dict(cert.get(RECORD) or {})
+    record_[QUALITY_REVERIFY] = {
+        **(dict(entry) if entry else {"reason": "quality re-verification failed: " + "; ".join(
+            f"{c}: {p}" for c, p in sorted(failed.items()))[:360],
+            "at": datetime.now(timezone.utc).isoformat()}),
+        "carried_across_recertification": True}
+    cert[RECORD] = record_
+    summary = _summary(record_)
+    if summary:
+        cert[SUMMARY] = summary
+    return cert, True
+
+
 def reasons(db, slug: str, version: str) -> dict:
     """The record as stored, without re-evaluating anything."""
     with db.session() as s:

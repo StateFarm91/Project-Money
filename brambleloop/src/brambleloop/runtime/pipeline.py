@@ -1488,10 +1488,20 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             # writer no longer produces, while the PDF regenerates from the new one. The
             # record is replaced and the change is audited rather than left to be discovered.
             previous = existing.release_hash
+            # Review OPUS2B2 F2.1: a failed re-verification survives the replacement (fail
+            # closed) and the checks are queued now, so the new content clears it promptly.
+            from ..publish import withholding as _withholding
+
+            certificate, carried = _withholding.carry_reverification(
+                existing.certificate, certificate)
             existing.cir_json = cir.to_dict()
             existing.release_hash = release_hash
             existing.certificate = certificate
             existing.certified = True
+            if carried:
+                ctx.enqueue("quality_director", "gate.quality", {},
+                            idempotency_key=f"reverify-after-recert:{cir.slug}@{cir.version}:"
+                                            f"{release_hash[:16]}")
             ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
                       detail={"previous_release_hash": previous,
                               "release_hash": release_hash,
@@ -1682,8 +1692,9 @@ def handle_store_publish(ctx: JobContext) -> dict:
     parity_verdict = _listing_parity(ctx)
     # P0-CHAIN-DEADENDS (3): the row names the release it judged, so a verdict for one
     # version is never read as another's (W-INVENTORY found it bound to the slug alone).
+    # Review OPUS2B2 F1.2: the version defaults as the verdict's does.
     ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"),
-              detail={**parity_verdict, "version": ctx.job.inputs.get("version"),
+              detail={**parity_verdict, "version": ctx.job.inputs.get("version", "1.0.0"),
                       "release": ctx.job.inputs.get("release", "")})
 
     # The release-chain publish gates (#58, #60, #65, #66, #70, #80, #172, #173, #297), on

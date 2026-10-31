@@ -201,13 +201,33 @@ def test_the_sweep_closes_a_dead_end_once_its_stage_succeeds_for_that_release():
     assert all(v[2] for v in _incidents(db).values())
 
 
+def test_review_opus2b2_f11_the_pricing_owner_action_closes_with_its_dead_end():
+    db = _db()
+    refused = {"slug": REL["slug"], "stopped": True, "refused": "no price clears the floor",
+               "reasons": ["net contribution below floor"]}
+    with _Stage("handle_pricing_position", refused):
+        _run(db, "pricing", "pricing.position", REL)
+    with db.session() as s:
+        s.add(Job(agent="pricing", job_type="pricing.position", status=JobStatus.DONE,
+                  inputs=dict(REL), outputs={"price_cad": 6.5},
+                  finished_at=datetime.now(timezone.utc)))
+    out = _run(db, "listing", "chain.successors", {})
+    assert out["resolved"] == [CS.signature(CS.PRICING, REL["slug"], REL["version"])], out
+    with db.session() as s:
+        acts = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like(f"{CS.OWNER_KEY}%"))))
+        assert acts and all(a.done for a in acts)
+        assert all(a.state == "satisfied" and "cleared" in (a.state_reason or "")
+                   for a in acts)
+
+
 def test_the_parity_row_carries_the_version_and_release_it_judged():
     import inspect
 
     src = inspect.getsource(pipeline)
     i = src.index('ctx.audit("listing.parity"')
     window = src[i:i + 300]
-    assert '"version": ctx.job.inputs.get("version")' in window
+    assert '"version": ctx.job.inputs.get("version", "1.0.0")' in window
     assert '"release": ctx.job.inputs.get("release", "")' in window
 
 
