@@ -41,7 +41,7 @@ LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
 | Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57` |
 | Record sheet `market-basket-small-1.2.0-RECORD-SHEET.pdf` | `59ea3c2703d827f2d1ddf05e43dd26aec84a9be37690a16fe43f40f166da0cf9` |
 | Tester call `OUTREACH.md` (NOT SENT) | `bed9dbe29c837bdb499e6eba90747744bd08b08d5b3ddeeabf7c4f1488e47b3f` |
-| Manifest `KIT_MANIFEST.json` | `ddbd4ed443356a25ac41931de17411d21192cac3b3c12e7021439cdc116b1e60` |
+| Manifest `KIT_MANIFEST.json` | `728a20a093c493d1f3994b3f0ee43582b2a214640871592cbe22bce3a44793e8` |
 | Risk class | B (`dimensional_form`); the first-customer gate needs `partial_physical` of this content, and a full make satisfies it |
 
 Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
@@ -61,43 +61,36 @@ Copies for review are in the scratchpad's `customer_pdfs/tester_kit/` folder.
 - **Gauge:** 12.5 sts × 13.8 rows = 10 cm in sc, with a 5.0 mm hook.
 - **Fibre:** cotton is taken from the yarn name. The CIR's `fibre_content` field is empty.
 
-## 3. Cost (ESTIMATED: these are ceilings, not spend)
+## 3. Cost: one figure, CA$66.00 all-inclusive (ESTIMATED; a ceiling, not spend)
 
-**The code ceiling, CA$59.65**, from `gates.risk_matrix.owner_action_spec`. The kit builder
-recomputes this figure and refuses to build if it disagrees:
+**The figure you are asked to approve is CA$66.00.** It is all-inclusive: what the one tester
+receives, plus any payment-processing fee. The same figure appears on:
+- the owner card (`ops.owner_queue` `tester_outreach`);
+- the gate-clearance card (`quality.tester_kit.KIT`);
+- this document;
+- the kit manifest.
 
-```
-tester time  2.15 h (launch0.make_hours) x 1.3 = 2.795 h x CA$20/h  = CA$55.90
-yarn         52.1 m (twin) x 1.2       = 62.52 m x CA$0.06/m        = CA$ 3.75
-ceiling                                                             = CA$59.65
-```
-
-**The whole-ball figure.** Yarn is bought by the ball, not by the metre:
-
-```
-tester fee                                CA$55.90
-2 balls x CA$5.00                         CA$10.00
-fee + whole balls (tester owns tools)     CA$65.90   (CA$6.25 over the CA$59.65 ceiling)
-fee + every listed material (CA$20.00)    CA$75.90   (tester owns no tools)
-```
-
-**Recommendation:** approve an **all-inclusive ceiling of CA$66.00** for **exactly one tester**.
-"All-inclusive" means what the tester receives plus any payment-processing fee:
+The tester call (`OUTREACH.md`) promises the tester CA$65.90 paid in full, which is the
+CA$66.00 less the processing allowance. The kit builder recomputes all of this and refuses to
+build if any figure disagrees.
 
 ```
-paid to the tester   fee CA$55.90 + 2 balls CA$10.00         = CA$65.90
-processing fee       must be <= CA$0.10                        (fee-free transfer)
-ceiling              all-inclusive                           = CA$66.00
+tester fee   2.15 h (launch0.make_hours) x 1.3 = 2.795 h x CA$20/h  = CA$55.90
+yarn         2 whole balls x CA$5.00 (estimated retail)          = CA$10.00
+paid to the tester, in full, by a fee-free transfer             = CA$65.90
+processing allowance                                            = CA$ 0.10
+ceiling, all-inclusive                                          = CA$66.00
 ```
 
-- The tester call promises CA$65.90 paid in full, with any processing fee borne by Brambleloop
-  and never deducted.
-- That fits under CA$66.00 only with a fee-free method, for example an Interac e-Transfer from an
-  account that charges nothing for it. This is ESTIMATED: no method has been chosen.
-- If the payment method charges a fee, approve a higher ceiling before the call is posted. A card
-  processor at about 2.9% + CA$0.30 (ESTIMATED) adds about CA$2.21, for a ceiling of about
-  CA$68.11.
-- The CA$66.00 covers one make only. It does not cover a second tester.
+- **The risk matrix's own figure is a basis, not a second ceiling.** At its per-metre yarn rate
+  it gives CA$59.65 (CA$55.90 + 62.52 m x CA$0.06). Yarn is bought by the ball, so the
+  CA$66.00 covers it.
+- **The payment method must be fee-free**, for example an Interac e-Transfer with no fee. This
+  is ESTIMATED: no method has been chosen.
+- **If the method charges a fee,** approve a higher figure before the call is posted. A card
+  processor at about 2.9% + CA$0.30 (ESTIMATED) would need about CA$68.11. In that case
+  `KIT["max_cost_cad"]` is changed, and the builder re-checks every place the figure is stated.
+- **CA$66.00 covers exactly one make.** It does not cover a second tester.
 
 ## 4. Measurements and tolerances (twin COMPUTED; tolerance `quality.physical.SIZE_DISAGREEMENT` = 12%)
 

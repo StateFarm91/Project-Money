@@ -3052,7 +3052,7 @@ def handle_physical_record(ctx: JobContext) -> dict:
         "SAMPLE_SCOPE_INVALID", "SAMPLE_SHAPE_UNRECORDED", "SAMPLE_SWATCH_GAUGE_MISSING",
         "SAMPLE_MEASURED_PIECE_UNKNOWN", "SAMPLE_SIZE_NOT_THIS_RELEASE",
         "SAMPLE_FOLLOWED_UNRECORDED", "SAMPLE_PIECES_UNMEASURED",
-        "SAMPLE_OBSERVATION_INVALID")]
+        "SAMPLE_OBSERVATION_INVALID", "SAMPLE_MEASUREMENT_INVALID")]
     if incomplete:
         # An incomplete or self-contradictory record is refused, not stored as evidence of
         # anything: the operator re-enters it from the tester's sheet.
