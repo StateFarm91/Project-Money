@@ -272,7 +272,24 @@ The remaining fail-open is R11.
 Each suite ran one at a time, from `brambleloop/`, with
 `PYTHONPATH=src:tests nice -n 19 python tests/<f>.py`, at 3e542a17.
 
-RESULTS_PLACEHOLDER
+All 12 runs exited 0 (owner-queue race run twice):
+
+| Suite | Result |
+|---|---|
+| test_physfix | 31/31 |
+| test_secreview_physfix_adversarial | 12/12 |
+| test_secreview_physfix_42eac69_probes | 8/8 |
+| test_secreview_physfix_89eef1e_probes | 8/8 |
+| test_w4_b2gates | exit 0, all OK |
+| test_risk_matrix | exit 0, all OK |
+| test_physfix_photo_first | 8/8 |
+| test_w4_launchfix | 32 passed, 0 failed |
+| test_vacuity | exit 0, all OK |
+| test_first_customer_gate | 12 passing, 0 failing |
+| test_w4_owner_queue_race (run 1) | exit 0, all OK |
+| test_w4_owner_queue_race (run 2) | exit 0, all OK |
+
+The green suites do not cover R11, R12 or R14: no existing probe renames a hold, records a sample under `"owner"`, or changes `Row.into`.
 
 Probe scripts were run from `/tmp` and are not committed. The reproductions above are
 self-contained.
