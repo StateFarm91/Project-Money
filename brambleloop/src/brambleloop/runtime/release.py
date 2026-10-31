@@ -2957,13 +2957,12 @@ def handle_physical_record(ctx: JobContext) -> dict:
       and is routed to the owner as an owner action. It never passes by itself.
     - FAIL binds nothing.
 
-    A sample that disagrees about size halts publication of the release it measured: a P1
-    incident against the product, scoped to this design (F-168: the affected scope, not the
-    company), keyed on the version-independent design digest so a relabel stays halted
-    (SECREVIEW F1). A different design may be certified, but the halt is resolved only when
-    a passed full make of that design measures the stated size. That is the correct outcome: the listing's size
-    claim is wrong, and no amount of yarn arithmetic fixes a basket that is not the size we
-    said.
+    A sample that disagrees about size halts publication of the product: a P1 incident
+    against the product, product-wide (integrator decision, SECREVIEW 8da830d R28 -- no
+    design digest scopes, escapes or lifts it). No later sample lifts it either: a passing
+    full make while a size halt is open is routed to the owner, who alone lifts the halt, on
+    evidence (`lift_size_halt`). That is the correct outcome: the listing's size claim is
+    wrong, and no amount of yarn arithmetic fixes a basket that is not the size we said.
     """
     from ..quality.physical import (
         PARTIAL, BallBand, SampleReport, assess, calibration_from_db, parts_made, record,
@@ -3084,28 +3083,19 @@ def handle_physical_record(ctx: JobContext) -> dict:
     if assessment.size_agrees is False:
         halted = _halt_release_on_size(ctx, slug, version, content_hash, row_id, assessment,
                                        design)
-    lifted: list[int] = []
-    if (assessment.size_proof and evidence_class == "full_physical_make" and design
+    # Integrator decision (SECREVIEW 8da830d R28): software never lifts a size halt. A
+    # passing independent full make at the stated size while one is open -- of this release
+    # or of any other -- is routed to the owner, who may lift it (`lift_size_halt`).
+    lifted: list[int] = []      # always empty; kept so callers reading the key see "none"
+    if (assessment.size_proof and evidence_class == "full_physical_make"
             and assessment.whole_pattern and not owner_made):
-        # SECREVIEW F1: only a passed full make of a different design that measured the stated
-        # size lifts an earlier design's size halt.
         from ..gates.incidents import IncidentTracker
 
-        tracker = IncidentTracker(ctx.db)
-        lifted = tracker.resolve_halts_disproved_by(
-            slug, version=version, design_digest=design, physical_test_id=row_id)
-        if lifted:
-            ctx.audit("physical.size_halt_superseded", artifact=f"{slug}@{version}",
-                      detail={"incidents": lifted, "design_digest": design, "row": row_id})
-        # SECREVIEW R1: a passing make of the SAME geometry a tester measured wrong is
-        # conflicting evidence. It never resolves the halt; the owner weighs the two.
-        from ..gates.incidents import release_scope
-
-        conflicts = [inc.id for inc in tracker.open_incidents(slug)
-                     if inc.halts_publication
-                     and release_scope(inc).get("design_digest") == design]
-        if conflicts:
-            review = review or _route_conflict_to_owner(ctx, slug, version, row_id, conflicts)
+        open_halts = [inc.id for inc in IncidentTracker(ctx.db).open_incidents(slug)
+                      if inc.halts_publication and inc.product_slug == slug
+                      and str(inc.signature).startswith(f"{PHYSICAL_SIZE_HALT}:")]
+        if open_halts:
+            review = review or _route_conflict_to_owner(ctx, slug, version, row_id, open_halts)
 
     # A usable sample changes every yardage figure for its yarn and stitch, which means the
     # PDFs and listings built from the old estimate are now stale. Keyed on the factor, so
@@ -3151,11 +3141,11 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
                           row_id: int, assessment, design: str | None) -> str:
     """PHYSFIX G4: a size outside tolerance halts publication of the release it measured.
 
-    One P1 incident per design, with `halts_publication` -- the flag every publication path
-    already reads. Scoped (F-168) by `detail.release_scope.design_digest`, the
-    version-independent digest: `gate.certify` lets a *different* design certify, a relabel
-    of this one stays halted, and only a passed full make of a different design that measured
-    the stated size resolves it. With no digest the halt is product-wide (fails closed)."""
+    A P1 incident with `halts_publication` -- the flag every publication path already reads
+    -- and product-wide (integrator decision, SECREVIEW 8da830d R28). The design digest is
+    stored for evidence and audit display only, and names the incident (a repeat sample of
+    one design restates it); nothing reads it to scope, escape or lift the halt. Only the
+    owner lifts it (`lift_size_halt`)."""
     from ..ops.incident_lifecycle import open_or_restate
 
     signature = f"{PHYSICAL_SIZE_HALT}:{slug}:{(design or content_hash or '')[:16]}"
@@ -3165,13 +3155,16 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
             s, signature=signature, severity="P1", product_slug=slug, halts_publication=True,
             summary=(f"physical sample {row_id} of {slug}@{version} disagrees with the stated "
                      f"size: {'; '.join(findings)[:400]}"),
-            detail={"release_scope": {"slug": slug, "version": version,
-                                      "content_hash": content_hash,
-                                      "design_digest": design},
+            detail={"measured_release": {"slug": slug, "version": version,
+                                         "content_hash": content_hash},
+                    # Evidence and audit display only: never read to scope or lift the halt.
+                    "design_digest_for_audit": design,
+                    "scope": "product-wide",
                     "physical_test_id": row_id, "findings": findings,
-                    "clears_when": ("a passed full make of a different design of this "
-                                    "product measures the stated size; a relabel of this "
-                                    "design never clears it")})
+                    "clears_when": ("only the owner lifts it (Command Center "
+                                    f"{SIZE_HALT_LIFT_ACTION}, step-up), on a passed full "
+                                    "make of a re-released version by an independent "
+                                    "tester whose measured size agrees")})
     ctx.audit("physical.size_disagreement", artifact=f"{slug}@{version}",
               detail={"measured": assessment.to_dict()["measured_metres"],
                       "findings": [f.code for f in assessment.findings],
@@ -3181,7 +3174,10 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
 
 def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: int,
                              incidents: list[int]) -> str:
-    """SECREVIEW R1: two makes of one geometry disagree about its size. The owner decides."""
+    """A passing make measured the stated size while a size halt is open. The owner decides.
+
+    SECREVIEW R1, widened by the integrator decision (8da830d R28): software never weighs the
+    passing make against the failing one, whichever design either was."""
     from sqlalchemy import select
 
     from ..core.models import OwnerAction
@@ -3192,19 +3188,144 @@ def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: i
             s.add(OwnerAction(
                 requirement_key=key,
                 action=(f"Physical sample {row_id} of {slug}@{version} measured the stated "
-                        f"size, but an earlier make of the same geometry did not (open size "
-                        f"halt incident(s) {incidents}). Compare the two records and photos and "
-                        f"decide: a measurement error on one sheet, or a pattern that does not "
-                        f"reliably come out at its stated size."),
-                reason=("Two makes of one design disagree about its finished size. Software "
-                        "never settles conflicting physical evidence in favour of the passing "
-                        "one; the halt stays until you decide."),
+                        f"size, but an earlier make of {slug} did not (open size halt "
+                        f"incident(s) {incidents}). Compare the records and photos. If "
+                        f"{slug}@{version} is a re-released version and this was a full make "
+                        f"by an independent tester, you may lift the halt in the Command "
+                        f"Center ({SIZE_HALT_LIFT_ACTION}, step-up) naming the incident and "
+                        f"sample {row_id}; otherwise it stays."),
+                reason=("A size halt applies to the whole product and software never lifts "
+                        "it: conflicting physical evidence is yours to weigh, and the halt "
+                        "stays until you decide."),
                 max_cost_cad=0.0, minutes=15,
                 consequence_of_delay=f"{slug} stays halted from publication.",
                 blocks=f"publication of {slug}"))
     ctx.audit("physical.size_conflict", artifact=f"{slug}@{version}",
               detail={"row": row_id, "incidents": incidents, "key": key})
     return key
+
+
+SIZE_HALT_LIFT_ACTION = "physical_size.lift"
+
+
+class SizeHaltLiftRefused(ValueError):
+    """The owner's lift of a size halt was refused; the message says which condition failed."""
+
+
+def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
+                   stepped_up: bool, reason: str) -> dict:
+    """The one way a physical size halt is lifted: the owner, on qualifying evidence.
+
+    Integrator decision (SECREVIEW 8da830d R28). Called only from the Command Center action
+    `physical_size.lift`, after the owner session, CSRF/nonce and a fresh step-up. Refused
+    unless every condition holds:
+
+    - the actor is the owner's Command Center session, with a fresh step-up, and a reason;
+    - the incident is an open, publication-halting physical size halt;
+    - the evidence is a stored sample of the same product, recorded after the halt opened,
+      that PASSED as a full physical make of the whole pattern and proved the size (its
+      measured size agrees);
+    - it was made by an independent, qualified tester (`independent_agreement`), never the
+      owner;
+    - it was worked against a re-released version: another version and another content hash
+      than the release the halt measured, a text the chain examined (bound at intake).
+
+    No design digest is read. The lift resolves that incident only, and is audited."""
+    from datetime import timedelta
+
+    from ..core.models import AuditLog, Incident, PhysicalTest
+    from ..quality.tester_programme import independent_agreement
+
+    if not str(actor or "").startswith("owner:cc:"):
+        raise SizeHaltLiftRefused("only the owner's Command Center session may lift a size halt")
+    if stepped_up is not True:
+        raise SizeHaltLiftRefused("lifting a size halt needs the owner's fresh step-up")
+    reason = str(reason or "").strip()
+    if not reason:
+        raise SizeHaltLiftRefused("owner decision reason required")
+    with db.session() as s:
+        inc = s.get(Incident, int(incident_id))
+        if (inc is None or inc.resolved or not inc.halts_publication
+                or not str(inc.signature).startswith(f"{PHYSICAL_SIZE_HALT}:")):
+            raise SizeHaltLiftRefused(f"no open physical size halt {incident_id}")
+        row = s.get(PhysicalTest, int(physical_test_id))
+        if row is None or row.product_slug != inc.product_slug:
+            raise SizeHaltLiftRefused(f"no sample {physical_test_id} of {inc.product_slug}")
+        m = row.measured or {}
+        # `release_scope` is the pre-decision name of the same record (incidents opened
+        # before the integrator decision); it is read here only to know what to withhold.
+        halted = dict((inc.detail or {}).get("measured_release")
+                      or (inc.detail or {}).get("release_scope") or {})
+        if not halted.get("slug") or not halted.get("version"):
+            raise SizeHaltLiftRefused(f"size halt {incident_id} names no measured release to "
+                                      f"withhold; it cannot be lifted")
+        problems = []
+        if row.passed is not True:
+            problems.append("the sample did not pass")
+        if (m.get("evidence_class") != "full_physical_make" or m.get("whole_pattern") is not True
+                or m.get("scope") == "swatch"):
+            problems.append("the sample is not a full make of the whole pattern")
+        if m.get("size_proof") is not True or m.get("size_agrees") is not True:
+            problems.append("the sample's measured size does not agree with the stated size")
+        if (m.get("owner_made") or row.tester_ref == "owner"
+                or independent_agreement(db, row.tester_ref) is None):
+            problems.append("the sample was not made by an independent, qualified tester")
+        if not m.get("content_hash"):
+            problems.append("the sample names no examined release text")
+        elif (row.version == halted.get("version")
+              or m.get("content_hash") == halted.get("content_hash")):
+            problems.append("the sample is of the release the halt measured, not a "
+                            "re-released version")
+        def _naive(t):
+            return t.replace(tzinfo=None) - (t.utcoffset() or timedelta(0)) if t else None
+
+        opened, done = _naive(inc.at), _naive(row.completed_at)
+        if done is None or opened is None or done <= opened:
+            problems.append("the sample was not recorded after the halt opened")
+        if problems:
+            raise SizeHaltLiftRefused("evidence does not qualify: " + "; ".join(problems))
+        slug, version = inc.product_slug, row.version
+
+    # One transaction: the lift, the permanent withholding of the release that measured wrong
+    # (exact slug, version and content hash), its durable audit row and the lift's audit row.
+    # Either all of them are written or none is.
+    from ..core.models import utcnow
+    from ..publish import withholding
+
+    failed_v, failed_hash = str(halted["version"]), str(halted.get("content_hash") or "")
+    why = (f"physical sample {(inc.detail or {}).get('physical_test_id')} measured "
+           f"{slug}@{failed_v} (content {failed_hash[:12] or 'unrecorded'}) at the wrong "
+           f"size; size halt {incident_id} was lifted by the owner on {slug}@{version}")
+    with db.session() as s:
+        inc = s.get(Incident, int(incident_id))
+        if inc is None or inc.resolved:
+            raise SizeHaltLiftRefused(f"no open physical size halt {incident_id}")
+        inc.resolved = True
+        detail = dict(inc.detail or {})
+        detail.update(resolution=(f"lifted by the owner ({actor[:64]}) on sample "
+                                  f"{physical_test_id}: a passed full make of {slug}@{version} "
+                                  f"by an independent tester at the stated size. Reason: "
+                                  f"{reason[:300]}"),
+                      resolved_at=utcnow().isoformat(), fixed_in_version=version,
+                      withheld_release={"slug": slug, "version": failed_v,
+                                        "content_hash": failed_hash})
+        inc.detail = detail
+        held = withholding.record_in(s, slug, failed_v, kind=withholding.PHYSICAL_SIZE_FAILED,
+                                     reason=why)
+        s.add(AuditLog(actor=actor[:64], action=withholding.DURABLE_AUDIT,
+                       artifact=f"{slug}@{failed_v}",
+                       detail={"kind": withholding.PHYSICAL_SIZE_FAILED, "reason": why,
+                               "content_hash": failed_hash, "incident": int(incident_id),
+                               "stored_record": bool(held.get("recorded"))}))
+        s.add(AuditLog(actor=actor[:64], action="physical.size_halt_lifted_by_owner",
+                       artifact=f"{slug}@{version}",
+                       detail={"incident": int(incident_id),
+                               "physical_test_id": int(physical_test_id),
+                               "withheld": f"{slug}@{failed_v}",
+                               "reason": reason[:300], "stepped_up": True}))
+    return {"incident": int(incident_id), "physical_test_id": int(physical_test_id),
+            "slug": slug, "version": version, "lifted": True,
+            "withheld": f"{slug}@{failed_v}"}
 
 
 def _route_partial_to_owner(ctx: JobContext, slug: str, version: str, content_hash: str,

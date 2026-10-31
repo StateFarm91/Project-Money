@@ -65,6 +65,11 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # W4-LAUNCHFIX review F-7: the owner attests a sample photograph unedited here, never
     # through the operator-token photo intake.
     "physical_photo.attest_unedited": (True, "attest a sample photograph is unedited"),
+    # PHYSFIX integrator decision (SECREVIEW 8da830d R28): a physical size halt is
+    # product-wide and only the owner lifts it, on a passed full make of a re-released
+    # version by an independent tester whose size agrees (`runtime.release.lift_size_halt`).
+    "physical_size.lift": (True, "lift a product-wide physical size halt on qualifying "
+                                 "evidence (a passed independent full make of a re-release)"),
     # W-ADOPT (E-4): link a listing the owner made by hand in Shop Manager to its certified
     # release. Reads Etsy (never writes), records the verification and blocks a duplicate
     # automated create. Step-up: it binds a live listing to a release's records.
@@ -695,6 +700,16 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                              confirm=str(body.get("confirm") or ""))
             except _pu.UpgradeRefused as exc:
                 raise ActionRefused(str(exc)[:300]) from None
+        elif action == "physical_size.lift":
+            from ...runtime import release as _rel
+
+            try:
+                # Only reached after the route's require_stepup (ACTIONS[...][0] is True).
+                result = _rel.lift_size_halt(db, incident_id=_int(body, "incident_id"),
+                                             physical_test_id=_int(body, "physical_test_id"),
+                                             actor=actor, stepped_up=True, reason=reason)
+            except _rel.SizeHaltLiftRefused as exc:
+                raise ActionRefused(str(exc)[:400]) from None
         elif action.startswith("launch_decision."):
             from ...ops import launch_decisions as ld
 
@@ -753,7 +768,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "reviewed", "review_audit_id", "confirmed",
                                            "period", "sha256", "version", "archived",
                                            "decision", "choice", "photo_id",
-                                           "attested",
+                                           "attested", "lifted", "incident",
+                                           "physical_test_id",
                                            "etsy_listing_id", "verification", "repeat",
                                            "audit_id", "review_incident_id",
                                            "accepted", "incidents_resolved")}})

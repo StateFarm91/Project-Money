@@ -742,3 +742,176 @@ re-oriented (A3). Every variant compiles and has no digest, and a size halt file
 still halts every variant. The basket (medium, sport), the small basket and the coasters have
 no holds and no seams. Their digests are pinned to the values computed at 7282c47 and still
 equal sha256 of `design_geometry`, unchanged byte-for-byte. Nothing else was changed.
+
+## 17. Integrator decision (delta review 7, SECREVIEW 8da830d): every size halt is product-wide
+
+**The finding.** Review 7 returned DO NOT SHIP on R28: a piece declared `make: N` and the same
+piece written as N identical components get different design digests. Three Launch-0 products
+are affected: `hexagon_coasters` (4), `snowflake_ornaments` (6) and `placemat_pair` (2). R29 is
+Low: a per-piece `gauge` is outside the digest.
+
+**The decision (integrator), and why.** Six rounds in a row each found a different
+restatement of the same object that moved the digest:
+
+| Round | Restatement |
+|---|---|
+| R1, R5 | labels, notes and notation |
+| R11, R18 | version, piece names and hold order |
+| R22, R23 | hold and resume reorders |
+| R27 | seam order and orientation |
+| R28 | quantity |
+
+Every one failed OPEN, because the digest was used to SCOPE a size halt (a "different
+design" could certify past it) or to LIFT one (a passing make of a "different design"
+resolved it). Rather than chase the next restatement, the digest no longer decides
+anything. This removes a feature, F-168's design-scoped size halt, in exchange for
+fail-closed safety.
+
+**What changed.**
+
+1. **Every size halt is product-wide.**
+   - `IncidentTracker.publication_halted(slug)` takes no `content_hash`, and returns whether
+     any open incident on the product halts publication.
+   - `gate.certify` asks only that question. `pipeline._incoming_design` is gone.
+   - `resolve_halts_disproved_by` and `release_scope` are removed.
+   - `handle_physical_record` no longer lifts anything. Its `size_halts_lifted` output is
+     always `[]`.
+   - The size-halt incident stores the measured release (`measured_release`), `scope:
+     "product-wide"`, and `design_digest_for_audit`, which is used for evidence and audit
+     display only. The digest also still names the incident's signature, so a repeat sample
+     of one design restates the same incident.
+2. **Only the owner lifts a size halt.** The owner uses `runtime.release.lift_size_halt`
+   through the Command Center action `physical_size.lift`, which requires the owner session,
+   CSRF/nonce and a fresh step-up (`ACTIONS[...][0] is True`). The lift is audited twice: as
+   `cc.owner_action.physical_size.lift` and as `physical.size_halt_lifted_by_owner`. It is
+   refused unless every one of these holds:
+   - the actor is `owner:cc:*`, the session has stepped up, and a reason is given;
+   - the incident is an open, publication-halting `physical-size:*` incident;
+   - the evidence is a stored sample of the same product, recorded after the halt opened;
+   - the sample PASSED as `full_physical_make` of the whole pattern, with `size_proof` and
+     `size_agrees` set;
+   - the tester is an independent, qualified tester (`independent_agreement`), not the owner;
+   - the sample was worked against a re-released version: a different version and a
+     different content hash from the release the halt measured.
+
+   A passing independent full make recorded while a size halt is open is routed to the owner
+   through the existing `physical_size_conflict:*` OwnerAction. Its text names the lift
+   action, the incident and the sample. Software never lifts.
+3. **Dead code removed.**
+   - `_HOLD_DIGEST_INTERIM` and `_has_holds` are removed.
+   - `design_digest` is computed again for every design, held and seamed designs included,
+     for evidence only.
+   - The TODO(physfix-holds) now reads: digest-scoped halts may be reintroduced only with a
+     canonical design identity that passes an adversarial review. That identity would be one
+     piece forest with holds, resumes and seams as its edges, with `make: N` folded (R28),
+     per-piece gauge and work direction included (R29), and resume cycles refused (R25).
+   - R28 folding and R29 are not implemented now.
+
+**Tests** (`test_physfix.py`, now 40 tests)
+
+- `test_a_size_mismatch_halts_the_product_and_only_the_owner_lifts_it_on_evidence`:
+  - a relabel, cosmetic edits and a genuinely different design all stay halted;
+  - that design's own passing independent full make lifts nothing and goes to the owner;
+  - the lift is refused without step-up, from a non-owner actor, with no reason, and on the
+    failing make;
+  - with all conditions met it resolves the halt and is audited, and the fix then
+    certifies.
+- `test_a_passing_sample_of_the_halted_design_never_lifts_its_own_halt` also checks that the
+  owner lift refuses the halted release's own passing make (not a re-released version).
+- `test_every_restatement_and_every_real_change_stays_halted_product_wide` runs through the
+  real chain:
+  - R1 title, notes and material order;
+  - R5 repeat notation, case and int-for-float;
+  - R11 version and R18 piece name;
+  - a real `make: 2`, and R28 `make: 2` written as two pieces;
+  - a real geometry change;
+  - R18 hold order, R22 P1/P2 reorders, R23 D2, and the three R27 seam variants.
+
+  Every one is `halted_by_incident`.
+- `test_a_quantity_restatement_of_a_launch0_set_stays_halted` uses the reviewer's R28
+  reproduction on `hexagon_coasters`, through the intake. The split still moves the digest,
+  and the halt holds.
+- `test_hold_free_products_are_unchanged_except_for_halts`: the three pinned digests are
+  byte-for-byte unchanged, and an unhalted product certifies as before.
+- `test_a_hold_rename_is_the_same_design_and_into_is_geometry` now expects equal, non-None
+  digests for a hold rename, because the interim is gone.
+- On the pre-decision code (b53fba09) the new tests fail. Examples: "a different design
+  certified", "the split escaped the halt", "real change: make 2", and the missing lift
+  function.
+
+**Probe files.** The three adopted reviewer probe files pass unchanged. None of them expected
+a different design to certify past a halt or lift it, so no expectation was changed.
+
+**Residual, recorded rather than built.** The lift resolves the incident for the whole
+product. After a lift, the release that measured wrong could certify again. The owner's
+OwnerAction text tells them the evidence must be a re-released version; retiring the bad
+version stays an owner decision.
+
+## 18. The release that measured wrong never publishes again; the lift's HTTP test
+
+This closes the residual recorded in §17: after a lift, the release that failed could
+certify and publish again.
+
+**Permanent withholding, recorded with the lift.** `lift_size_halt` now does all of the
+following in one database transaction. If any write fails, none is kept.
+
+- It resolves the incident.
+- It withholds the incident's measured release, by exact slug, version and content hash, on
+  the release's withholding record (`publish.withholding`). This uses the new kind
+  `physical_size_failed`.
+- It writes the durable audit row `gate.release_withheld`, with `kind`, `reason`,
+  `content_hash` and `incident`.
+- It writes the lift's own audit row.
+
+Older incidents that carry `release_scope` instead of `measured_release` are read for the
+release to withhold. An incident that names no release to withhold cannot be lifted.
+
+**Why the withholding cannot be undone.**
+
+- `physical_size_failed` is PERMANENT. `record(..., reason=None)` for it is refused.
+- It is BUILD_BLOCKING, so draft and rebuild refuse it.
+- `pipeline._persist_release` carries it over when a re-certification replaces the stored
+  certificate (`withholding.carry_permanent`).
+- `release_gates.for_publish` refuses the version on its record entry and, independently, on
+  any durable `gate.release_withheld` row of that kind.
+- `ops.retention` classifies `gate.release_withheld` as `lifetime_total`, so retention keeps
+  it at any age.
+
+**Tests.**
+
+`test_physfix.py::test_the_failed_release_never_publishes_again_after_an_owner_lift`:
+
+- the corrected version certifies, and `for_publish` gives it no physical-size withholding;
+- the failed version is refused by `for_publish`. It stays refused after being re-certified
+  with the same text, and after a changed text is certified under the same version;
+- clearing the kind is refused;
+- `retention.apply`, run 4000 days ahead with more rows than it keeps per action, leaves the
+  durable row in place and the refusal in force.
+
+The shared scenario is the helper `halted_and_corrected`.
+
+New file `tests/test_physfix_size_lift_http.py` posts to the real Command Center route
+`POST /api/cc/actions/physical_size.lift`, on the app's own database, with a real halt and a
+real corrected re-release. The request is:
+
+- refused with no owner session (401), and the ops token does not count as one;
+- refused with a session whose step-up has lapsed (403 `STEP_UP_REQUIRED`);
+- refused with a session and step-up but no reason (409);
+- refused with all three on non-qualifying evidence (409, "does not qualify");
+- accepted with all three plus qualifying evidence (200). The halt is lifted, the failed
+  release is withheld, and the action is audited as `cc.owner_action.physical_size.lift`
+  under the `owner:cc:*` actor.
+
+**About "passes `for_publish`".** In a fixture database, `for_publish` still refuses the
+corrected version on gates unrelated to this change: listing set, search, photography and the
+first-customer scope. What the test asserts is that the physical-size withholding does not
+refuse the corrected version, and does refuse the failed one.
+
+**Test isolation fix.** `vessels.build_basket` returns one shared `Gauge` object on every call.
+The older test `test_the_design_digest_is_geometry_only` changed it in place
+(`stitches_per_10cm += 1.0`). In a full-file run, every basket built after that test therefore
+had a different gauge, and the corrected release failed certification on
+`TWIN_DIMENSION_IMPLAUSIBLE` in the new withholding test. The test now changes a copy
+(`dataclasses.replace`). The shared object inside the product builder is unchanged. The
+reviewer probe file `test_secreview_physfix_89eef1e_probes.py` also changes `c.gauge` in
+place, but it runs in its own process, so it is left as it is.
