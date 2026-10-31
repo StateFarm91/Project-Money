@@ -46,6 +46,13 @@ def _db() -> Database:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/photo.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    # SECREVIEW 3e542a1 R12: the sample's tester has a recorded, independent agreement.
+    from brambleloop.quality import tester_programme as tp
+
+    tp.record_agreement(db, handle_ref="tester-1", specialties=["home_decor"],
+                        express_consent=True, consent_source="test fixture",
+                        relationship="none",
+                        qualification="https://www.ravelry.com/projects/tester/basket")
     return db
 
 
