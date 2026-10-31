@@ -23,7 +23,10 @@
       "id": "W-INVENTORY",
       "operator": "main-opus",
       "branch": "claude/w5-INVENTORY",
-      "scope": "15-state inventory, flow health, CC Production view"
+      "scope": "15-state inventory, flow health, CC Production view",
+      "state": "in_review",
+      "head": "d0e523bb",
+      "review_branch": "claude/w5-SECREVIEW-INVENTORY-d0e523b"
     },
     {
       "id": "W-CONCEPT",
@@ -35,7 +38,10 @@
       "id": "W-PDF",
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
-      "scope": "premium customer PDFs, publish/pdf.py"
+      "scope": "premium customer PDFs, publish/pdf.py",
+      "state": "coaster_done_in_audit",
+      "head": "b547434e",
+      "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
     {
       "id": "W-LISTING",
@@ -116,6 +122,11 @@
     {
       "id": "P0-PERF-LEARNING",
       "scope": "live-listing performance into Winner Amplification and product priorities (no fabricated data)"
+    },
+    {
+      "id": "P0-CHAIN-DEADENDS",
+      "priority": "P0",
+      "summary": "Chain dead-ends found by W-INVENTORY (research/final_build/w4/INVENTORY.md): (1) pricing.position refusal stops with no successor or owner action; (2) assets.build ok:false enqueues nothing; (3) listing.parity audit row not version-bound at the producer; (4) launch.plan seasonal hold with no re-plan when window reopens. Each needs a deterministic successor (fix job, owner action, or scheduled re-evaluation) with tests. Runtime/pipeline files; coordinate with integrator before touching runtime/pipeline.py."
     }
   ],
   "reviews": [
