@@ -73,8 +73,11 @@ class FallbackProvenance(unittest.TestCase):
         self.assertEqual(prov.concept_key, SLUG)
         self.assertEqual(prov.generated_by, "brambleloop")
         self.assertEqual(prov.benchmarks_consulted, ())
+        # OPUS2-P0 (P0-DRAFT-CONSTRUCTIONS): a basket concept is worked in the round, so the
+        # producer chain names the vessel drafter instead of the flat-panel builder.
         self.assertEqual(prov.primitives_used, (
-            "runtime.pipeline.concept_to_cir",
+            "creative.fallback_constructions.vessel", "products.vessels._disc_rounds",
+            "products.vessels.base_stitches_for",
             f"runtime.pipeline.concept_geometry:{self.seed.category}",
             "creative.prototype.gauge_for:worsted"))
         # Independently recompute the digest from the queued inputs: it binds this design.
