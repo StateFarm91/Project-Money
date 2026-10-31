@@ -145,6 +145,9 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
     from ..core.models import ListingAsset, ListingOutcome, PhysicalPhoto
 
     today = today or datetime.now(timezone.utc).date()
+    # W-PHYSFIX (LAUNCHFIX review F-7 alignment): whether this photograph leads the gallery is
+    # decided by the publication gate's own predicate, read before this write session opens.
+    leads = _leads_gallery(db, photo_id)
     with db.session() as s:
         photo = s.get(PhysicalPhoto, photo_id)
         if photo is None:
@@ -158,13 +161,9 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
             return {"photo_id": photo_id, "upgraded": False,
                     "why": "the photograph's bytes are not in the artefact store under its "
                            "SHA-256, so there is nothing to put in the listing"}
-        slug = photo.product_slug
-        version = photo.version or s.scalar(
-            select(ListingAsset.version).where(ListingAsset.product_slug == slug)
-            .order_by(ListingAsset.id.desc()).limit(1)) or "1.0.0"
+        slug, version = _photo_release(s, photo)
         frames = list(s.scalars(select(ListingAsset).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version)))
-        leads = _leads_gallery(s, photo, slug, version)
         new_frame = ListingAsset(
             product_slug=slug, version=version, position=0,
             asset_class="PHYSICAL_PRODUCT_PHOTO", role=role, sha256=photo.sha256,
@@ -202,20 +201,40 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
             "frame_position": position, "replaceable": replaceable, "baseline": baseline}
 
 
-def _leads_gallery(s, photo, slug: str, version: str) -> bool:
-    """Whether this photograph is the one the gallery must lead with: attested unedited at
-    intake, and recorded against a passed, completed full make of this slug@version. Its
-    binding to the release content is re-checked by `publish.sample_photo` at publication."""
-    from ..core.models import PhysicalTest
-    from ..gates.risk_matrix import FULL_PHYSICAL_MAKE, physical_class_of
+def _photo_release(s, photo) -> tuple[str, str]:
+    """The slug@version a photograph's frame is filed under."""
+    from sqlalchemy import select
 
-    detail = photo.detail or {}
-    if detail.get("unedited") is not True or detail.get("edited") or detail.get("ai_processed"):
+    from ..core.models import ListingAsset
+
+    slug = photo.product_slug
+    version = photo.version or s.scalar(
+        select(ListingAsset.version).where(ListingAsset.product_slug == slug)
+        .order_by(ListingAsset.id.desc()).limit(1)) or "1.0.0"
+    return slug, version
+
+
+def _leads_gallery(db, photo_id: int) -> bool:
+    """Whether this photograph is the one the gallery must lead with.
+
+    Exactly the photographs `publish.sample_photo.qualifying_photos` accepts for this release
+    -- the owner's Command Center attestation of the file (`attest_unedited`), the intake
+    attestation, a rights basis, a passed full make bound to this release's content, and not a
+    file the system itself made. The same function, not a copy of its rules, so the frame put
+    first is always one the publication gate accepts. Unreadable reads as "does not lead"."""
+    from ..core.models import PhysicalPhoto
+    from . import sample_photo
+
+    try:
+        with db.session() as s:
+            photo = s.get(PhysicalPhoto, photo_id)
+            if photo is None:
+                return False
+            slug, version = _photo_release(s, photo)
+        q = sample_photo.qualifying_photos(db, slug, version)
+    except Exception:  # noqa: BLE001 - an unreadable gate never puts a photo first
         return False
-    test = s.get(PhysicalTest, photo.physical_test_id) if photo.physical_test_id else None
-    return bool(test is not None and test.passed is True and test.completed_at is not None
-                and test.product_slug == slug and test.version == version
-                and physical_class_of(test.measured)[0] == FULL_PHYSICAL_MAKE)
+    return any(p.get("photo_id") == photo_id for p in q.get("qualifying") or [])
 
 
 def _renumber(s, ordered) -> None:
@@ -343,4 +362,37 @@ def attest_unedited(db, photo_id: int, *, actor: str, confirm: str) -> dict:
             "by": actor[:64], "sha256": photo.sha256, "confirmed": UNEDITED_CONFIRMATION,
             "at": datetime.now(timezone.utc).isoformat()}}
         flag_modified(photo, "detail")
-        return {"photo_id": photo.id, "sha256": photo.sha256, "attested": True}
+        out = {"photo_id": photo.id, "sha256": photo.sha256, "attested": True}
+    # W-PHYSFIX: a photograph planned before the owner attested it was filed last; now that it
+    # may qualify, it moves to the front -- if, and only if, the gate's predicate accepts it.
+    out["moved_to_front"] = lead_with_if_qualifying(db, int(photo_id))
+    return out
+
+
+def lead_with_if_qualifying(db, photo_id: int) -> bool:
+    """Move an already-planned photograph's frame to position 1 when it qualifies.
+
+    The rest keep their order; the frame set changes, so the listing-set certificate is
+    superseded and re-certification runs as for any upgrade (#70)."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset, PhysicalPhoto
+
+    if not _leads_gallery(db, photo_id):
+        return False
+    with db.session() as s:
+        photo = s.get(PhysicalPhoto, photo_id)
+        slug, version = _photo_release(s, photo)
+        frames = sorted(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)),
+            key=lambda f: f.position)
+        mine = [f for f in frames if f.asset_class == "PHYSICAL_PRODUCT_PHOTO"
+                and f.sha256 == photo.sha256]
+        if not mine or frames[0] is mine[0]:
+            return bool(mine)
+        frame = mine[0]
+        _renumber(s, [frame] + [f for f in frames if f is not frame])
+        frame.claims = {**(frame.claims or {}), "leads_gallery": True}
+        frame.approved = False
+        frame.blocked_reasons = ["awaiting asset-truth review and listing-set re-certification"]
+    return True

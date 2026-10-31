@@ -95,12 +95,19 @@ def _render_gallery(db, cir) -> None:
                                claims={}, blocked_reasons=[]))
 
 
-def _upgrade(db, cir, test_id, *, unedited: bool = True) -> dict:
+OWNER = "owner:cc:test-session"
+
+
+def _upgrade(db, cir, test_id, *, unedited: bool = True, attest: bool = True) -> dict:
+    """Intake, then (LAUNCHFIX review F-7) the owner's Command Center attestation of the file,
+    then the upgrade plan. `attest=False` stops at the intake flag alone."""
     sha = ArtifactStore().put("sample.jpg", b"unedited camera file of the made basket",
                               "image/jpeg").sha256
     rec = pu.intake(db, slug=cir.slug, version=cir.version, source="tester", sha256=sha,
                     rights_basis="tester_agreement", taken_by="tester-1",
                     physical_test_id=test_id, unedited=unedited)
+    if attest:
+        pu.attest_unedited(db, rec["photo_id"], actor=OWNER, confirm=pu.UNEDITED_CONFIRMATION)
     plan = pu.plan_upgrade(db, rec["photo_id"])
     assert plan["upgraded"], plan
     return {**plan, "sha256": sha}
@@ -189,6 +196,47 @@ def test_the_dormant_sample_request_asks_for_what_the_intake_requires():
     action = readiness.PHYSICAL_SAMPLE.action
     for needle in ("holds its shape", "any problem", "followed exactly", "full_make"):
         assert needle in action, (needle, action)
+
+
+def test_unedited_at_intake_but_not_owner_attested_is_never_put_first():
+    """The ordering uses the gate's own predicate: the intake flag alone does not qualify."""
+    db = _db()
+    cir, release = _certified_basket(db)
+    _render_gallery(db, cir)
+    test_id = _passed_full_make(db, cir)
+    plan = _upgrade(db, cir, test_id, unedited=True, attest=False)
+    assert plan["frame_position"] == len(RENDERS) + 1, plan
+    _recertify(db, cir, release)
+    assert sample_photo.requirement(db, cir.slug, cir.version)["satisfied"] is False
+
+
+def test_owner_attestation_after_planning_moves_the_photo_to_the_front():
+    db = _db()
+    cir, release = _certified_basket(db)
+    _render_gallery(db, cir)
+    test_id = _passed_full_make(db, cir)
+    plan = _upgrade(db, cir, test_id, attest=False)
+    assert plan["frame_position"] == len(RENDERS) + 1, plan
+    out = pu.attest_unedited(db, plan["photo_id"], actor=OWNER,
+                             confirm=pu.UNEDITED_CONFIRMATION)
+    assert out["moved_to_front"] is True, out
+    with db.session() as s:
+        first = min(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug)), key=lambda f: f.position)
+        assert first.sha256 == plan["sha256"] and first.approved is False
+        assert s.get(PhysicalPhoto, plan["photo_id"]).detail["frame_position"] == 1
+    cert = _recertify(db, cir, release)
+    assert cert["valid"], cert
+    assert sample_photo.requirement(db, cir.slug, cir.version)["satisfied"] is True
+
+
+def test_the_ordering_predicate_is_the_gates_own():
+    """physical_upgrade decides the lead by calling `sample_photo.qualifying_photos`."""
+    import inspect
+
+    src = inspect.getsource(pu._leads_gallery)
+    assert "sample_photo.qualifying_photos(" in src
+    assert "unedited" not in src.split('"""')[-1], "a copied rule crept back in"
 
 
 if __name__ == "__main__":
