@@ -663,3 +663,30 @@ solo rerun passed 2/2.
   59.65).
 - **Combined-tree fix.** `test_executor.test_tester_roster_counts_agreement_not_prospects` stores
   a permission as a plain string. `_tester_recruited` now handles non-dict permissions as before.
+
+## 14. Delta review 4 (`INDEPENDENT_SECREVIEW_PHYSFIX_e3fd0b0.md`)
+
+- **R18: list order no longer reaches the digest.**
+  - Each piece's holds are sorted by geometry (row, offset, count) before they get `hold#j`
+    positions.
+  - After `resumes` is filled in, the piece list is sorted again by full content, so it is a
+    multiset. Swapping a left and a right sleeve, or listing the holds in another order, gives
+    the same digest.
+  - Real changes still move it.
+  - Test: `test_hold_order_and_identical_piece_order_are_not_the_design`, built on the
+    reviewer's probes 2–4 plus two reverse checks.
+- **R19: owner-made rows are never testers.** `quality.testers.from_db` and `plan` skip
+  `owner_made` rows and the ref "owner". Test:
+  `test_an_owner_made_row_is_never_a_tester_in_the_roster_or_plan`.
+- **R20: only an independent agreement opens `tester_roster`.**
+  - `_tester_recruited` counts only a `tester_agreement` dict that passed the allow-list with
+    qualification evidence.
+  - A string permission, another kind of permission, a pre-allow-list agreement and
+    `delivered > 0` no longer count.
+  - The gate's description, and the owner packet's evidence for `tester_outreach` (via
+    `patch_tester_outreach.py`), say so.
+  - `test_executor.test_tester_roster_counts_agreement_not_prospects` now asserts all four are
+    refused and that an agreement recorded through `record_agreement` opens the gate. This makes
+    the test stricter.
+- **R21: the last stale cost line is gone.** The listing package's last "CA$59.65" alternative
+  is removed, and the stale-figure test now covers that file.

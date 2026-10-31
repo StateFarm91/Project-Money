@@ -383,7 +383,7 @@ Status as of 2026-10-27. **Every box is open unless marked done.**
 - [ ] **O-2.** Read the Listing Image Requirements legal page in person. Source: W-IMAGEPOLICY §6.1.
 - [ ] **O-3.** Check the listing form for a "made with AI" attribute. Source: W-IMAGEPOLICY §6.3.
 - [ ] **O-4.** Approve `tester_outreach` for market-basket-small@1.2.0.
-  - Cost: **CA$66.00** (fee plus 2 balls, ESTIMATED), or CA$59.65 with yarn reimbursed per metre.
+  - Cost: **CA$66.00** all-inclusive (CA$65.90 to the one tester, fee plus 2 balls, ESTIMATED).
   - Time: 25 minutes.
   - Also add the "re-weigh after the swatch" line (G2), and rebuild the kit's TEST.pdf from the corrected renderer (§6).
   - Consequence of waiting: no compliant listing is possible.

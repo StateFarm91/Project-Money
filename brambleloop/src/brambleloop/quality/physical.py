@@ -976,9 +976,13 @@ def design_geometry(cir, result=None) -> dict:
         piece["rows"] = _compiled_rows(result, comp.name,
                                        {r.index: r.into for r in comp.rows})
         piece["twin"] = _twin_shape(cir, result, comp.name)
-        # SECREVIEW R11: a hold's geometry (row, count, offset) without its name, in order.
-        piece["holds"] = [_canon(h) for h in (spec.get("holds") or [])]
-        raw.append((comp.name, spec, piece))
+        # SECREVIEW R11/R18: a hold's geometry (row, offset, count) without its name, in a
+        # canonical order -- the list order of holds is cosmetic, like their names.
+        held = sorted((h or {} for h in (spec.get("holds") or [])),
+                      key=lambda h: (float(h.get("at_row") or 0), float(h.get("from_stitch") or 0),
+                                     float(h.get("count") or 0)))
+        piece["holds"] = [_canon(h) for h in held]
+        raw.append((comp.name, {**spec, "holds": held}, piece))
     order = sorted(raw, key=lambda t: json.dumps(t[2], sort_keys=True, default=str))
     names = {name: f"piece#{i}" for i, (name, _s, _p) in enumerate(order)}
     # Hold names become positions too (piece#i/hold#j), so renaming a hold and the piece that
@@ -997,6 +1001,11 @@ def design_geometry(cir, result=None) -> dict:
         else:
             piece["resumes"] = _canon(resumed, names)
         pieces.append(piece)
+    # SECREVIEW R18: the pieces are a multiset. Pieces that tie before `resumes` is known (a
+    # left and a right sleeve) are ordered again by their full content, so listing them in
+    # the other order is the same design. Tied pieces that themselves hold stitches are
+    # identical, so which of them a resume points at is immaterial.
+    pieces.sort(key=lambda p: json.dumps(p, sort_keys=True, default=str))
     gauge = body.get("gauge") or {}
     materials = sorted({json.dumps({"yarn_weight": (m.get("yarn_weight") or "").strip().lower(),
                                     "fibre": sorted(str(f).strip().lower()

@@ -45,6 +45,13 @@ def patch(doc: dict) -> tuple[dict, float, float]:
             new = float(card["max_cost_cad"])
             item.update(decision=card["decision"], max_cost_cad=new,
                         max_cost_display=_display(new), max_cost_basis=card["cost_basis"])
+            ev = str(item.get("evidence") or "")
+            if ev.startswith("gate 'tester_roster' opens when: "):
+                # SECREVIEW R20: the gate's own current description, not the old rule.
+                from brambleloop.build2 import executor
+
+                item["evidence"] = ("gate 'tester_roster' opens when: "
+                                    + executor.GATE_BY_KEY["tester_roster"].how)
             for c in item.get("clearance") or []:
                 if c.get("detail", {}).get("gate") == "physical_proof":
                     c["detail"] = proof
@@ -71,6 +78,7 @@ def main() -> None:
         if line.startswith("| tester_outreach |"):
             cells = line.split(" | ")
             cells[1] = card["decision"]
+            cells[3] = card["evidence"]
             cells[4] = card["max_cost_display"]
             lines[n] = " | ".join(cells)
         if line.startswith(f"## {batch['title']} ("):
