@@ -583,3 +583,42 @@ because that branch is not on this base.
 "Mosaic" titles truthful, needs a per-stitch colour in the CIR. `first_customer.colourwork_findings`
 states it: "a CIR row carries one colour". That is a change to the shared model, compiler,
 twin and writer, not a fallback rule.
+
+## 26. P0-DRAFT-CONSTRUCTIONS, part 4: totes with sewn straps (2026-10-31)
+
+**Core change, additive (`cir/assembly.py`).**
+- What it measures: a join placed on a piece worked in rounds, using the writer's existing
+  clause "across round R, N sts either side of centre" (`Seam.stitches_from_centre`). New
+  `_placed_on_round_cm` measures it as `2N × 10 / stitches_per_10cm` cm.
+- Before: the strap end was compared with the whole rim. The tote probe on this base gave
+  "strap.bottom is 4.0cm and basket.top is 25.6cm", which is not what is sewn.
+- Scope: it applies only to the `top` or `bottom` edge of a non-flat piece with
+  `stitches_from_centre` set. Anything else is unchanged.
+- Existing verdicts: none of the 30 engineered or catalogue CIRs uses `stitches_from_centre`,
+  so no existing verdict changes. The model, the writer and the reverse parser are unchanged.
+
+**Built: the `tote` family.** It applies to category `bag` and to titles naming a tote, bag,
+market bag or shopper, unless the rest of the title names a shape this rule does not make.
+- `tote(concept)` takes the large vessel (`vessel(size="large")`): a hexagon base, with walls
+  in the concept's own repeat and palette.
+- The straps are `strap` × 2: 6 sc wide and about 50 cm long at the yarn's gauge.
+- Each end is sewn across 6 stitches of the top round. The notes give exact positions: the
+  front strap's ends over stitches n/8 and 3n/8 of the round, counted from the join, and the
+  second strap mirrored on the back at +n/2.
+- Provenance names `creative.fallback_constructions.tote` and
+  `cir.assembly._placed_on_round_cm`.
+- `everyday-market-tote` was refused before this; it now drafts. It compiles, twins, reverses
+  cleanly (`reverse.compare == []`), passes name truth, and certification raises no
+  `ASSEMBLY_MISMATCH` and no provenance finding.
+
+**Tests:** 2 new tests, 10/10 in total.
+- `test_a_tote_concept_drafts_a_vessel_with_two_measured_sewn_straps`.
+- `test_the_round_span_measures_only_the_written_clause_on_a_round_piece`: the exact span
+  length; no measurement for an unplaced seam, a flat piece_b or a side edge; and a strap
+  wider than its sewn span is refused with `ASSEMBLY_MISMATCH`.
+
+**Still refused, with the evidence or owner each needs:**
+- Two-colour rounds (mosaic or tapestry) need a per-stitch colour in the shared CIR model.
+- Shaped amigurumi and graded hats and garments are in the `creative/` concept path, owned
+  by W-CONCEPT.
+- Stockings and cosies need a closed tube with heel or toe shaping.

@@ -186,9 +186,9 @@
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "pr": 3,
-      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722; triangle shawl added (stitch-pattern titles refused), handoff \u00a723; tote blocked on a stated chain gauge",
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722; triangle shawl added (stitch-pattern titles refused), handoff \u00a723; tote blocked on a stated chain gauge; tote with sewn straps + cir/assembly._placed_on_round_cm (additive), handoff \u00a726",
       "state": "ready_for_review",
-      "evidence": "tests/test_opus2_draft_constructions.py 6/6 (vessel, panel_pair cushion, triangle shawl); 39-suite regression exit 0 (2026-10-31)",
+      "evidence": "tests/test_opus2_draft_constructions.py 10/10 (vessel, cushion, triangle, tote, refusals); 93-suite regression exit 0 except base-owned test_risk_matrix (2026-10-31)",
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
       "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
       "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"

@@ -63,7 +63,7 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
     assert FALLBACK
     for seed in FALLBACK:
         route = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle)
-        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.TRIANGLE, F.REFUSED), \
+        assert route["family"] in (F.VESSEL, F.PANEL_PAIR, F.TRIANGLE, F.TOTE, F.REFUSED), \
             (seed.slug, route)
         if route["family"] == F.REFUSED:
             assert route["needs"] and route["why"], seed.slug
@@ -254,6 +254,70 @@ def test_review_opus2c_n33_a_construction_that_cannot_be_built_is_a_named_refusa
     assert emitted == [] and "colour" in result["reasons"][0]
     refused = [kw for a, kw in audits if a == "cir.draft_refused"]
     assert refused and refused[0]["detail"]["gate"] == "construction"
+
+
+def test_a_tote_concept_drafts_a_vessel_with_two_measured_sewn_straps():
+    from brambleloop.cir import reverse
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.publish import eligibility as E
+
+    db, seed = _db("everyday-market-tote")
+    inputs = _payload(seed)
+    result, emitted, audits = _draft(db, inputs)
+    assert result["drafted"] is True and result["construction"] == F.TOTE, result
+    cir = CIR.from_dict(emitted[0][1]["cir"])
+    assert [c.name for c in cir.components] == ["basket", "strap"]
+    strap = cir.components[1]
+    assert strap.make == 2 and strap.rows[0].declared_count == F.STRAP_STITCHES
+    res = compile_cir(cir)
+    assert res.ok
+    assert reverse.compare(cir, write_pattern(cir, res, "US")) == []
+    assert build_twin(cir, res) is not None
+    # Every strap end is measured against the rim span it is sewn across, and is sound:
+    # certification refuses a join that does not sew together (ASSEMBLY_MISMATCH).
+    from brambleloop.gates.certificate import certify
+
+    codes = {f.code for f in certify(cir, db=db).errors}
+    assert "ASSEMBLY_MISMATCH" not in codes and not codes & {
+        "PROVENANCE_MISSING", "PROVENANCE_INCOMPLETE", "PROVENANCE_NOT_OURS"}, codes
+    assert E.name_truth(cir, None) == []
+    assert set(F.TOTE_PRIMITIVES) <= set(cir.provenance.primitives_used)
+    text = write_pattern(cir, res, "US")
+    n = cir.components[0].rows[-1].declared_count
+    assert f"over stitch {n // 8} " in text and f"over stitch {3 * n // 8} " in text
+
+
+def test_the_round_span_measures_only_the_written_clause_on_a_round_piece():
+    from brambleloop.cir.assembly import _placed_on_round_cm
+    from brambleloop.cir.model import Seam
+
+    db, seed = _db("everyday-market-tote")
+    concept = pipeline.Concept(
+        slug=seed.slug, title=seed.title, category=seed.category,
+        stitch_repeat=[tuple(x) for x in pipeline.concept_geometry(seed)["stitch_repeat"]],
+        width_stitches=10, rows=4, colors=pipeline.concept_geometry(seed)["colors"])
+    cir = F.tote(concept)
+    top = cir.components[0].rows[-1].index
+    st_cm = 10.0 / cir.gauge.stitches_per_10cm
+    on_round = Seam("whipstitch", "strap", "basket", edge_a="bottom", edge_b="top",
+                    at_round=top, stitches_from_centre=3)
+    assert abs(_placed_on_round_cm(cir, on_round) - 6 * st_cm) < 1e-9
+    # Not placed by stitches, or on a flat piece, or on a side edge: not this measurement.
+    for seam in (Seam("whipstitch", "strap", "basket", edge_a="bottom", edge_b="top",
+                      at_round=top),
+                 Seam("whipstitch", "basket", "strap", edge_a="top", edge_b="top", at_round=1,
+                      stitches_from_centre=3),
+                 Seam("whipstitch", "strap", "basket", edge_a="bottom", edge_b="left",
+                      at_round=top, stitches_from_centre=3)):
+        assert _placed_on_round_cm(cir, seam) is None
+    # A strap wider than the span it is sewn across does not assemble.
+    from brambleloop.gates.certificate import certify
+
+    import dataclasses
+    wide = dataclasses.replace(cir, assembly=[dataclasses.replace(cir.assembly[0],
+                                                                  stitches_from_centre=1)])
+    assert "ASSEMBLY_MISMATCH" in {f.code for f in certify(wide).errors}
 
 
 if __name__ == "__main__":

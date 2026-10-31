@@ -32,6 +32,7 @@ from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
+TOTE = "tote"
 TRIANGLE = "triangle"
 REFUSED = "refused"
 
@@ -42,7 +43,6 @@ NEEDS: dict[str, str] = {
     "amigurumi": "shaped pieces worked in the round, stuffed and joined",
     "hat": "a crown worked in the round and graded per head circumference",
     "garment": "a graded garment design (creative.garment_design)",
-    "bag": "a vessel with a strap or handle join",
     "stocking": "a closed tube with a heel and toe",
     "nursery": "several shaped pieces assembled on a hanger",
     "toy": "shaped pieces worked in the round, stuffed and joined",
@@ -59,7 +59,7 @@ NEEDS: dict[str, str] = {
 # Title words that name a shaped, closed or assembled object whatever the category says. The
 # assembled forms are launch0's (a flat panel under them promises a make it does not contain).
 _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "sweater",
-                 "shawl", "shawlette", "tote", "bag", "cluster", "egg cosy", "mitten", "sock",
+                 "shawl", "shawlette", "cluster", "egg cosy", "mitten", "sock",
                  # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
                  "granny", "hexagon", "hexie", "bed")
 
@@ -107,6 +107,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if category in TOTE_CATEGORIES or re.search(_TOTE_WORDS, (title or "").lower()):
+        rest = re.sub(_TOTE_WORDS, "", (title or "").lower())
+        if not _shaped_title(rest):
+            return {"family": TOTE, "needs": "",
+                    "why": "a tote is a vessel worked in the round with two sewn straps"}
     lowered = (title or "").lower()
     if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
         named = re.search(_STITCH_PATTERN_WORDS, lowered)
@@ -231,13 +236,15 @@ def _basket_size(title: str):
     return next(s for s in BASKET_SIZES if s.key == key)
 
 
-def vessel(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None = None) -> CIR:
     """A basket from the concept's own stitch repeat and palette, worked in joined rounds."""
     from ..creative.prototype import gauge_for
-    from ..products.vessels import _disc_rounds, base_stitches_for, hexagon_spans_cm
+    from ..products.vessels import (BASKET_SIZES, _disc_rounds, base_stitches_for,
+                                    hexagon_spans_cm)
 
     gauge = gauge_for(concept.yarn_weight)
-    spec = _basket_size(concept.title)
+    spec = (next(s for s in BASKET_SIZES if s.key == size) if size
+            else _basket_size(concept.title))
     repeat = [(str(code), int(n)) for code, n in concept.stitch_repeat]
     unit = sum(n for _, n in repeat)
     if unit <= 0:
@@ -289,6 +296,60 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
             f"gauge. Computed, not yet measured on a worked sample."),
         provenance=provenance,
     )
+
+
+# A tote: the large vessel, plus two straps sewn to its top round. Each strap end is sewn
+# across `STRAP_STITCHES` stitches of the rim (`stitches_from_centre`, which `cir.assembly`
+# measures on a piece worked in rounds), so every join's two lengths are compared. Ends sit at
+# the eighth points of the rim: one strap on the front half, its mirror on the back.
+TOTE_CATEGORIES = frozenset({"bag"})
+_TOTE_WORDS = r"\b(?:tote|bag|market bag|shopper)s?\b"
+STRAP_STITCHES = 6
+STRAP_CM = 50.0
+TOTE_PRIMITIVES = ("creative.fallback_constructions.tote", "products.vessels._disc_rounds",
+                   "products.vessels.base_stitches_for", "cir.assembly._placed_on_round_cm")
+
+
+def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A tote bag: a large vessel in the concept's repeat and palette, with two sewn straps."""
+    import dataclasses
+
+    from ..cir.model import Seam
+
+    body_cir = vessel(concept, version=version, provenance=provenance, size="large")
+    body = body_cir.components[0]
+    n = body.rows[-1].declared_count
+    top = body.rows[-1].index
+    colour = body.rows[0].color
+    gauge = body_cir.gauge
+    strap_rows = max(20, int(round(STRAP_CM * gauge.rows_per_10cm / 10.0)))
+    strap = Component(
+        name="strap", construction="flat_rows", foundation=STRAP_STITCHES,
+        foundation_kind="chain", make=2, grain="up",
+        rows=[Row(index=i, ops=[Op("sc", STRAP_STITCHES)], declared_count=STRAP_STITCHES,
+                  color=colour, turning_chain=1) for i in range(1, strap_rows + 1)],
+        note=(f"Make 2. Chain {STRAP_STITCHES + 1}, then {strap_rows} rows of "
+              f"{STRAP_STITCHES} single crochet: a strap about "
+              f"{strap_rows * 10.0 / gauge.rows_per_10cm:.0f} cm long."))
+    half = STRAP_STITCHES // 2
+    first, second = n // 8, 3 * n // 8      # the front half's eighth points
+    assembly = [
+        Seam("whipstitch", "strap", "basket", edge_a="bottom", edge_b="top", at_round=top,
+             stitches_from_centre=half, mirrored=True,
+             note=(f"Centre the strap's first end over stitch {first} of round {top}, "
+                   f"counting from the round's join; the second strap's first end goes over "
+                   f"stitch {first + n // 2}")),
+        Seam("whipstitch", "strap", "basket", edge_a="top", edge_b="top", at_round=top,
+             stitches_from_centre=half, mirrored=True,
+             note=(f"Without twisting the strap, centre its other end over stitch {second} "
+                   f"of round {top}; the second strap's other end goes over stitch "
+                   f"{second + n // 2}")),
+    ]
+    return dataclasses.replace(
+        body_cir, components=[body, strap], assembly=assembly,
+        designer_notes=(f"{body_cir.designer_notes}; drafted as a tote: two "
+                        f"{STRAP_STITCHES}-stitch straps sewn across {STRAP_STITCHES} "
+                        f"stitches of the top round at its eighth points"))
 
 
 VESSEL_PRIMITIVES = ("creative.fallback_constructions.vessel", "products.vessels._disc_rounds",
