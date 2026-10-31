@@ -721,6 +721,25 @@ def test_tester_terms_one_independent_qualified_tester_and_an_all_inclusive_ceil
             "none", "acquaintance (declared)"), out
 
 
+def test_a_non_finite_measurement_is_refused():
+    """SECREVIEW R9: NaN compares False with every tolerance, so a NaN width or gauge would
+    otherwise "agree" with any stated size. Every measured number must be finite."""
+    nan, inf = float("nan"), float("inf")
+    db = _db()
+    cir = _basket()
+    _certify(db, cir)
+    for bad in ({"measured_width_cm": nan}, {"measured_flats_cm": inf},
+                {"rim_across_points_cm": nan}, {"hours": nan},
+                {"grams_by_color": {"cream": nan, "wine": 6.0}}):
+        _run(db, "physical.record", _inputs(cir, scope="full_make", holds_shape=True, **bad))
+    _run(db, "physical.record", {
+        "slug": cir.slug, "version": cir.version, "tester_ref": "t", "scope": "swatch",
+        "instructions_followed": True, "grams_by_color": {"cream": 6.0},
+        "ball_band_grams": BAND_GRAMS, "ball_band_metres": BAND_METRES,
+        "swatch_stitches_per_10cm": nan, "swatch_rows_per_10cm": cir.gauge.rows_per_10cm})
+    assert _rows(db) == [], [r.measured.get("findings") for r in _rows(db)]
+
+
 def test_one_cost_figure_per_kit_everywhere_it_is_stated():
     """SECREVIEW R7: the owner card, the gate-clearance card, the approval doc and the tester
     call state one figure, and that figure covers what the call promises."""
