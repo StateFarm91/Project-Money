@@ -914,13 +914,28 @@ def _certify_listing(ctx: JobContext, cir: CIR):
     return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}
 
 
+def _incoming_design(cir) -> str | None:
+    """The version-independent design digest of this CIR (SECREVIEW F1), or None if unreadable.
+
+    A release-scoped size halt names the design a tester measured wrong; a relabel of the same
+    design under another version string has the same digest and stays halted."""
+    from ..quality.physical import design_digest
+
+    return design_digest(cir)
+
+
 @handlers.register("gate.certify")
 def handle_certify(ctx: JobContext) -> dict:
     cir = CIR.from_dict(ctx.job.inputs["cir"])
 
     # Publication is halted while a P0/P1 defect is open against this product.
     tracker = IncidentTracker(ctx.db)
-    if tracker.publication_halted(cir.slug):
+    # PHYSFIX G4 / SECREVIEW F1: a halt scoped to one design (a physical sample whose size
+    # disagreed) lets a *different* design certify (F-168) -- never a relabel of the same one,
+    # because the scope is the version-independent design digest. Certifying lifts nothing:
+    # the halt is resolved only by a passed full make of the new design whose size agreed
+    # (`runtime.release.handle_physical_record`). Every other halt is product-wide as before.
+    if tracker.publication_halted(cir.slug, content_hash=lambda: _incoming_design(cir)):
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
                   detail={"reason": "open P0/P1 incident"})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
@@ -1211,10 +1226,18 @@ def physical_evidence_rows(db, slug: str) -> list[dict]:
             from ..gates.risk_matrix import physical_class_of
 
             cls, legacy = physical_class_of(measured)
+            # SECREVIEW F3: whether the row proved the finished size. Stamped by
+            # `physical.record` from W-PHYSFIX on; an older row proved it only if its size
+            # was compared and agreed, and it was not a swatch.
+            proof = measured.get("size_proof")
+            if proof is None:
+                proof = (measured.get("size_agrees") is True
+                         and measured.get("scope") != "swatch")
             out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
                         "passed": t.passed, "completed_at": t.completed_at,
                         "content_hash": content, "compatible_variants": variants,
-                        "evidence_class": cls, "legacy_unstamped": legacy})
+                        "evidence_class": cls, "legacy_unstamped": legacy,
+                        "size_proof": bool(proof)})
     return out
 
 

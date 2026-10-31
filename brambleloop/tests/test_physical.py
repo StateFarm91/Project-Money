@@ -63,7 +63,11 @@ def _sample(twin, *, ratio: float = 1.0, **kw) -> SampleReport:
              for colour, metres in twin.yarn_metres_by_color.items()}
     defaults = dict(product_slug="market-basket-medium", version="1.0.0",
                     tester_ref="owner", grams_by_color=grams, ball_band=BAND,
-                    hook_mm=4.0, hours=7.5)
+                    hook_mm=4.0, hours=7.5,
+                    # PHYSFIX G3: a basket is a 3-D piece, so the record says it held shape.
+                    holds_shape=True,
+                    # SECREVIEW F2/F4: "followed exactly?" is an answer, never a default.
+                    instructions_followed=True)
     defaults.update(kw)
     return SampleReport(**defaults)
 
@@ -164,13 +168,17 @@ def test_a_tester_who_deviated_calibrates_nothing():
     assert not assessment.usable_for_calibration
 
 
-def test_tester_notes_are_surfaced_without_blocking():
+def test_tester_notes_are_surfaced_and_routed_to_the_owner():
+    """SECREVIEW F5: a note is read by a person before the sample counts. "round 12 reads
+    ambiguously" is a problem, whichever box it was written in."""
+    from brambleloop.quality.physical import PARTIAL, REVIEW
+
     cir, _, twin = _basket()
     assessment = assess(_sample(twin, ratio=1.05, notes="round 12 reads ambiguously"),
                         twin, cir)
     notes = [f for f in assessment.findings if f.code == "SAMPLE_TESTER_NOTES"]
-    assert notes and notes[0].severity == "WARNING"
-    assert assessment.usable_for_calibration
+    assert notes and notes[0].severity == REVIEW
+    assert assessment.outcome == PARTIAL and not assessment.usable_for_calibration
 
 
 def test_a_factor_is_not_applied_to_a_yarn_it_was_not_measured_on():
@@ -234,7 +242,8 @@ def test_a_recorded_sample_calibrates_the_published_figures():
     JobQueue(db).enqueue("quality_director", "physical.record", {
         "slug": cir.slug, "version": cir.version, "tester_ref": "owner",
         "grams_by_color": grams, "ball_band_grams": BAND.grams,
-        "ball_band_metres": BAND.metres, "hook_mm": 4.0,
+        "ball_band_metres": BAND.metres, "hook_mm": 4.0, "holds_shape": True,
+        "instructions_followed": True,
         "measured_width_cm": 20.5, "measured_height_cm": 16.1, "hours": 7.0})
     _drain(db)
 
@@ -255,7 +264,7 @@ def test_a_sample_that_disagrees_about_size_halts_the_product():
     JobQueue(db).enqueue("quality_director", "physical.record", {
         "slug": cir.slug, "version": cir.version, "tester_ref": "owner",
         "grams_by_color": grams, "ball_band_grams": BAND.grams,
-        "ball_band_metres": BAND.metres,
+        "ball_band_metres": BAND.metres, "holds_shape": True, "instructions_followed": True,
         "measured_width_cm": 27.0, "measured_height_cm": 16.0})
     _drain(db)
 
@@ -264,9 +273,12 @@ def test_a_sample_that_disagrees_about_size_halts_the_product():
     assert incidents, "a size disagreement did not raise a defect"
     assert calibration_from_db(db, cir) == 1.0, (
         "a sample that disagrees about the object must not calibrate its yarn")
-    # And it is on the product's record, where the publication halt reads from.
-    assert IncidentTracker(db).publication_halted(cir.slug) or incidents[0].severity, (
-        "a wrong size claim should at minimum be recorded against the product")
+    # PHYSFIX G4: the halt is what the handler says it is -- not "at minimum recorded". One
+    # report halts publication of the release it measured.
+    assert IncidentTracker(db).publication_halted(cir.slug), (
+        "a size outside tolerance must halt publication of the release it measured")
+    halting = [i for i in incidents if i.halts_publication]
+    assert len(halting) == 1 and halting[0].severity == "P1", incidents
 
 
 # ---- F-078 / F-081 through the queue: evidence bound to the content it tested -------------
