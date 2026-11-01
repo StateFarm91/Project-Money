@@ -85,3 +85,13 @@ end-to-end: **no**.
 | EF2-5 LOW: requests under the legacy key orphaned | The exact unfingerprinted key `listing_package:<slug>@<version>` is matched and superseded too | `test_review_opus2ef2_ef25_*` |
 
 `tests/test_opus2_listing_package.py` 13/13; `test_vacuity` OK.
+
+## Review OPUS2G (e93b16ed): ACCEPT; L5-1 fixed, L5-2 stated (2026-11-01)
+
+- L5-1 LOW: a request the owner PARKED stays parked through a transient block, so it is not
+  re-raised when the package returns unchanged; changed content still supersedes it
+  (`test_review_opus2g_l51_*`).
+- L5-2 INFO: a legacy-key request the owner SATISFIED is not carried over. It named no content
+  (it carried no fingerprint), so the owner is asked once under the fingerprinted key.
+- L5-3 INFO: the `LIKE` wildcard on `_` over-matches only keys of the same shape; this is left
+  as it is.
