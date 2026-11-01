@@ -107,6 +107,14 @@ worktrees, not this file.
 
 - 19:30Z note: a same-size mutation (`= 2` → `= 0`) followed by a restore in the same second left a stale `.pyc`, so one test run used MIN_RUN=0. Caches are cleared everywhere, and the affected suites are being rerun. Rule from now on: clear `__pycache__` after every mutation check.
 
+- 22:45Z review OPUS2J:
+  - verdicts: #7 and #8 ACCEPT and merged into INTEG1; colourwork HOLD LIFTED and merged into INTEG1 (`0ef729ac`; the integrator resolved J-7); #3, #10 and #11 CHANGES_REQUIRED;
+  - pushed: #3 J-1 `c3074241`; #7 J-3 tests `3468fe73`;
+  - uncommitted, regression running:
+    - pet bed J-9/J-10/J-11/J-12 (/tmp/claude-0/pet2_results.txt);
+    - colourwork J-6/J-8b (task blfgd13lp);
+    - stocking J-13/J-14/J-15/J-16, which waits for the pet push, then merges pet in and reruns.
+
 ## Done log
 - 2026-11-01T20:45Z: integrator 17:23Z queue done; PR #3 plural object nouns in `771e1e1a` (-b4merge `8f798b0a`); summary posted on PR #3. Stop reason: every queue item is pushed; waiting on re-reviews (#3, #7, #8, #9), first reviews (#10, #11), decisions (P0-NEXT-PRODUCT, motif joins, D-5) and C-1 data.
 - 2026-11-01T20:00Z: #9 OPUS2I I-2/I-4/I-5/I-6/I-7/I-8 pushed in `fa02cb49`, commented; re-review requested. Every review I finding is addressed. The queue waits on: re-reviews (#3 I-1, #7 C-4, #8 F-5, #9); first reviews (#10, #11); integrator decisions (P0-NEXT-PRODUCT, motif joins, D-5); C-1 (jobs.last_error).
