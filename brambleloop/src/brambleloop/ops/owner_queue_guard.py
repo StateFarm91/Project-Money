@@ -19,8 +19,13 @@ row onto a key (review OPUS2F B-2), or reopening a closed row (B-3):
 3. A new row whose key is already open is **merged onto the open row** (review OPUS2F B-1): the
    open row is restated with the newcomer's text, the newcomer is not inserted, and it is given
    the open row's id, so a caller reading `row.id` after the flush gets a real id, never None.
+   The ceiling never drops silently: UNKNOWN on either side stays UNKNOWN, and two stated
+   figures keep the higher (EF2-6). The newcomer is then a detached copy: a caller that changes
+   it after the flush changes nothing stored (EF2-7). Callers that edit a row after writing it
+   must re-read it by `requirement_key`; no current writer does.
    An update that would open a second row for a key (re-key or reopen) is reverted to its
-   previous key or state, so the queue keeps exactly one open action per requirement.
+   previous key or state, so the queue keeps exactly one open action per requirement. A
+   reverted reopen restores the row's lifecycle (state, when, why) as well (EF2-8).
 
 Scope, stated honestly:
 - ORM writes only. A Core `insert(OwnerAction)` bypasses session flush events (B-4); no
@@ -40,7 +45,31 @@ from sqlalchemy import event, inspect as sa_inspect, select, text
 from sqlalchemy.orm import Session
 
 STATS = {"merged": 0, "reverted": 0}
-_RESTATED = ("action", "reason", "max_cost_cad", "minutes", "consequence_of_delay", "blocks")
+# Text the newcomer restates onto the open row when it is not empty. The cost ceiling is never
+# among them: `_merge_cost` handles the figure and its basis together (review OPUS2EF2 EF2-6).
+_RESTATED = ("action", "reason", "minutes", "consequence_of_delay", "blocks",
+             "why_software_cannot", "expires_at")
+_LIFECYCLE = ("state", "state_at", "state_reason")
+
+
+def _merge_cost(keeper, obj) -> None:
+    """Merge a newcomer's ceiling onto the open row without ever lowering it silently.
+
+    UNKNOWN on either side keeps the row UNKNOWN: its 0.0 is a placeholder that no reader may
+    treat as free (W3-WIRE4). Two stated figures keep the higher, so a restatement can never
+    turn an owner's CA$50 ceiling into CA$0.00."""
+    from ..core.models import MAX_COST_UNKNOWN
+
+    new_cost = getattr(obj, "max_cost_cad", None)
+    new_basis = getattr(obj, "max_cost_basis", None) or "stated"
+    if new_cost is None and new_basis != MAX_COST_UNKNOWN:
+        return                                   # the newcomer states no ceiling at all
+    old_basis = keeper.max_cost_basis or "stated"
+    if MAX_COST_UNKNOWN in (old_basis, new_basis):
+        keeper.max_cost_basis = MAX_COST_UNKNOWN
+        return
+    keeper.max_cost_cad = max(float(keeper.max_cost_cad or 0.0), float(new_cost or 0.0))
+    keeper.max_cost_basis = "stated"
 
 
 def _lock(session: Session) -> None:
@@ -67,7 +96,13 @@ def _opening_update(obj):
         return "key", (key_hist.deleted[0] if key_hist.deleted else "")
     done_hist = state.attrs.done.history
     if done_hist.has_changes() and done_hist.deleted and done_hist.deleted[0]:
-        return "done", True
+        # The `done` validator has already moved the lifecycle to "open"; keep what it was so a
+        # reverted reopen restores the owner's real outcome (review OPUS2EF2 EF2-8).
+        before = {}
+        for name in _LIFECYCLE:
+            hist = getattr(state.attrs, name).history
+            before[name] = hist.deleted[0] if hist.deleted else getattr(obj, name)
+        return "done", before
     return None
 
 
@@ -101,6 +136,8 @@ def _one_open_action_per_requirement(session: Session, _flush_context, _instance
                     obj.requirement_key = old
                 else:
                     obj.done = True
+                    for name, value in old.items():   # the validator stamped a new state
+                        setattr(obj, name, value)
                 STATS["reverted"] += 1
             else:
                 holder[obj.requirement_key] = obj
@@ -115,6 +152,7 @@ def _one_open_action_per_requirement(session: Session, _flush_context, _instance
                 value = getattr(obj, field, None)
                 if value not in (None, ""):
                     setattr(keeper, field, value)
+            _merge_cost(keeper, obj)
             session.expunge(obj)
             merged.append((obj, keeper))
             STATS["merged"] += 1

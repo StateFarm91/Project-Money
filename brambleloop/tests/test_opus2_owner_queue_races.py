@@ -85,6 +85,13 @@ def _race(writer, db, n=2):
     return errors
 
 
+def _drop_index(db):
+    from sqlalchemy import text
+
+    with db.engine.begin() as conn:
+        conn.execute(text("DROP INDEX uq_owner_actions_open_requirement"))
+
+
 def _open(db, key=KEY):
     with db.session() as s:
         return list(s.scalars(select(OwnerAction).where(OwnerAction.requirement_key == key,
@@ -106,14 +113,25 @@ def test_a_forced_read_then_insert_race_queues_one_action():
 
 
 def test_without_the_guard_the_same_harness_reproduces_the_duplicate():
-    """Proves the harness forces the race (so the test above is not vacuous)."""
+    """Proves the harness forces the race (so the test above is not vacuous).
+
+    Without the guard both threads insert. Since B-5 the database's own unique index refuses
+    the second insert, so the race now surfaces as an IntegrityError instead of a second row;
+    with the index dropped too, the duplicate is stored."""
+    from sqlalchemy.exc import IntegrityError
+
     db = _db()
     event.remove(Session, "before_flush", G._one_open_action_per_requirement)
     try:
-        assert _race(_read_then_insert, db) == []
+        errors = _race(_read_then_insert, db)
+        assert len(errors) == 1 and isinstance(errors[0], IntegrityError), errors
+        assert len(_open(db)) == 1
+        bare = _db()
+        _drop_index(bare)
+        assert _race(_read_then_insert, bare) == []
+        assert len(_open(bare)) == 2
     finally:
         event.listen(Session, "before_flush", G._one_open_action_per_requirement)
-    assert len(_open(db)) == 2
 
 
 def test_a_real_unlocked_writer_queues_its_requirement_once():
@@ -199,6 +217,117 @@ def test_review_opus2f_b2_b3_rekeying_or_reopening_never_opens_a_second_row():
         legacy = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ""))
         legacy.requirement_key = "fresh-key"
     assert len(_open(db, "fresh-key")) == 1
+
+
+def test_review_opus2ef2_ef26_a_merge_never_lowers_a_stated_ceiling():
+    from brambleloop.core.models import MAX_COST_UNKNOWN
+
+    db = _db()
+    with db.session() as s:                       # the reviewer's repro
+        s.add(OwnerAction(requirement_key="SPEND", action="a", reason="r", max_cost_cad=50.0,
+                          max_cost_basis="stated"))
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="SPEND", action="a2", reason="r", max_cost_cad=0.0,
+                          max_cost_basis=MAX_COST_UNKNOWN))
+    [row] = _open(db, "SPEND")
+    assert row.max_cost_basis == MAX_COST_UNKNOWN and row.max_cost_known is None
+    # Two stated figures keep the higher, in either order.
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="CAP", action="a", reason="r", max_cost_cad=50.0))
+    for restated in (10.0, 80.0):
+        with db.session() as s:
+            s.add(OwnerAction(requirement_key="CAP", action="a", reason="r",
+                              max_cost_cad=restated))
+    [row] = _open(db, "CAP")
+    assert row.max_cost_known == 80.0, row.max_cost_cad
+    # A restatement that names no ceiling leaves it alone; why/expiry are restated.
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="CAP", action="a", reason="r",
+                          why_software_cannot="KYC"))
+    [row] = _open(db, "CAP")
+    assert row.max_cost_known == 80.0 and row.why_software_cannot == "KYC"
+
+
+def test_review_opus2ef2_ef28_a_reverted_reopen_keeps_the_owners_outcome():
+    db = _db()
+    _read_then_insert(db)
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key=KEY, action="old", reason="r", done=True,
+                          state="satisfied", state_reason="owner did it"))
+    with db.session() as s:
+        old = s.scalar(select(OwnerAction).where(OwnerAction.action == "old"))
+        before = (old.state, old.state_at, old.state_reason)
+        old.done = False                          # reopen beside the open row: reverted
+    with db.session() as s:
+        old = s.scalar(select(OwnerAction).where(OwnerAction.action == "old"))
+        assert old.done is True
+        assert (old.state, old.state_reason) == ("satisfied", "owner did it"), old.state
+        assert (old.state, old.state_at, old.state_reason)[0] == before[0]
+    assert len(_open(db)) == 1
+
+
+def test_b5_the_database_itself_holds_one_open_action_per_requirement():
+    """B-4 closed by B-5: a Core write that bypasses the session guard is refused by the index."""
+    from sqlalchemy import insert, update
+    from sqlalchemy.exc import IntegrityError
+
+    db = _db()
+    _read_then_insert(db)
+    for stmt in (insert(OwnerAction).values(requirement_key=KEY, action="core", reason="r",
+                                            done=False),):
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(stmt)
+            raise AssertionError("a Core insert opened a second row")
+        except IntegrityError:
+            pass
+    with db.engine.begin() as conn:                     # closed and keyless rows are free
+        conn.execute(insert(OwnerAction).values(requirement_key=KEY, action="c", reason="r",
+                                                done=True))
+        conn.execute(insert(OwnerAction).values(requirement_key="", action="k1", reason="r",
+                                                done=False))
+        conn.execute(insert(OwnerAction).values(requirement_key="", action="k2", reason="r",
+                                                done=False))
+    try:                                                # a Core reopen is refused too
+        with db.engine.begin() as conn:
+            conn.execute(update(OwnerAction).where(OwnerAction.action == "c").values(done=False))
+        raise AssertionError("a Core reopen opened a second row")
+    except IntegrityError:
+        pass
+    assert len(_open(db)) == 1
+
+
+def test_b5_migrate_defers_the_index_over_duplicates_and_the_dedupe_step_clears_them():
+    from sqlalchemy import insert, inspect
+
+    from brambleloop.core import migrate
+    from brambleloop.ops import owner_queue_dedupe as D
+
+    db = _db()
+    _drop_index(db)                                     # a database from before B-5
+    with db.engine.begin() as conn:
+        for action in ("first", "second", "newest"):
+            conn.execute(insert(OwnerAction).values(requirement_key=KEY, action=action,
+                                                    reason="r", done=False))
+        conn.execute(insert(OwnerAction).values(requirement_key="other", action="solo",
+                                                reason="r", done=False))
+    assert D.conflicts(db.engine) == 1
+    changes = migrate.apply(db.engine)                  # never fails, never alters data
+    assert any("DEFERRED" in c and D.INDEX in c for c in changes), changes
+    assert D.INDEX not in {i["name"] for i in inspect(db.engine).get_indexes("owner_actions")}
+    assert len(_open(db)) == 3
+    closed = D.close_duplicates(db.engine)
+    assert len(closed) == 2 and {c["kept"] for c in closed} == {max(r.id for r in _open(db))}
+    [kept] = _open(db)
+    assert kept.action == "newest" and len(_open(db, "other")) == 1
+    with db.session() as s:
+        gone = list(s.scalars(select(OwnerAction).where(OwnerAction.requirement_key == KEY,
+                                                        OwnerAction.done == True)))  # noqa: E712
+        assert {g.state for g in gone} == {"superseded"}
+        assert all(f"#{kept.id}" in g.state_reason for g in gone)
+    assert D.close_duplicates(db.engine) == [] and D.conflicts(db.engine) == 0
+    assert any(c == f"index {D.INDEX}" for c in migrate.apply(db.engine))
+    assert D.INDEX in {i["name"] for i in inspect(db.engine).get_indexes("owner_actions")}
 
 
 if __name__ == "__main__":

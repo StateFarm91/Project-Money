@@ -81,6 +81,21 @@ base-owned failures above plus `test_v11_accounting_controller` and `test_w4_b2g
 identically on the base 8ea9e43b (month-end close / Etsy re-read timing on 2026-11-01).
 `test_w4_wraptest` and `test_web_security` were cut off by a container restart and pass on rerun.
 
+## Review OPUS2EF2 fixes (2026-11-01)
+
+| Finding | Fix | Test |
+|---|---|---|
+| EF2-6 MED: merge copies `max_cost_cad` without its basis | `_merge_cost`: UNKNOWN on either side keeps the row UNKNOWN; two stated figures keep the higher; a newcomer that names no ceiling leaves it alone. `why_software_cannot` and `expires_at` are restated as well. | `test_review_opus2ef2_ef26_*`, the reviewer's repro (mutation killed) |
+| EF2-8 LOW: a reverted reopen stamps `closed_unclassified` | `_opening_update` keeps the pre-reopen `state`, `state_at` and `state_reason` from attribute history; the revert restores them | `test_review_opus2ef2_ef28_*` (mutation killed) |
+| B-5: integration blocker (integrator) | `uq_owner_actions_open_requirement`, a partial unique index on `requirement_key` WHERE open AND keyed (SQLite and Postgres). `core.migrate` creates it only when `ops.owner_queue_dedupe.conflicts()` is 0, and otherwise records `DEFERRED` (a deploy never fails and data is never altered). `python -m brambleloop.ops.owner_queue_dedupe [--apply]` keeps the newest open row per key, supersedes the rest with a reason naming the kept row, then creates the index. | `test_b5_the_database_itself_holds_*` (Core insert and Core reopen refused: B-4 is now closed by the database), `test_b5_migrate_defers_*` |
+| EF2-7 LOW: a merged newcomer is detached | Documented in the module docstring: a caller that edits a row after writing it must re-read it by `requirement_key`. A helper is left as a follow-up. | — |
+
+The guard-removed control test now expects the index to refuse the race (IntegrityError), and with the index dropped too, it reproduces the duplicate.
+
+`tests/test_opus2_owner_queue_races.py` 11/11. 115-suite regression: exit 0 except the same five
+failures that reproduce on the base (test_risk_matrix, test_v11_accounting_controller,
+test_v11_cc_views, test_w4_b2gate2, test_w4_fmbatch1_provider_health); none involves the index.
+
 ## Completion state
 
 Implemented: yes. Independently reviewed, integrated, certified, deployed, production verified:
