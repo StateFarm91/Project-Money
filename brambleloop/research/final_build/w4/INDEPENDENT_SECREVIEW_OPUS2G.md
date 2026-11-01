@@ -383,7 +383,7 @@ Run one at a time from `brambleloop/` as `PYTHONPATH=src:tests python tests/<f>.
 | #6 | test_w4_owner_queue_race | 3 OK, exit 0 |
 | #6 | test_w4_auditfix_migrate | 2 OK, exit 0 |
 | #6 | test_w4_owner_actions | 6 OK, exit 0 |
-| #6 | test_deploy | PENDING (running at commit time) |
+| #6 | test_deploy | 32 OK, exit 0 (926 s; base 007f5d1c also 32 OK in 929 s; a first run at a 900 s cap timed out with 7 OK, 0 failed) |
 | #7 | test_opus2_culture_sweep_timeout | 3 OK, exit 0 |
 | #7 | test_vacuity | 8 OK, exit 0 |
 | #7 | test_w4_fmbatch1_retention_guard | 5 OK, exit 0 |
