@@ -124,4 +124,70 @@ The delta since b8d3dee changes only the four files above. The prior review swep
 
 ## 6. Test runs
 
-The runs were made one at a time with `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py` on a 4-CPU container. The results are in §6.1, added after the runs finished.
+The runs were made one at a time with `cd brambleloop && PYTHONPATH=src:tests nice -n 19 python tests/<f>.py` on a 4-CPU container. Nothing else was running.
+
+| Suite | rc | Time | Result |
+|---|---|---|---|
+| test_physfix | 0 | 78s | 46/46 passed |
+| test_physfix_size_lift_http | 0 | 4s | 1/1 passed |
+| test_secreview_physfix_adversarial | 0 | 9s | 12/12 passed |
+| test_secreview_physfix_42eac69_probes | 0 | 8s | 8/8 passed |
+| test_secreview_physfix_89eef1e_probes | 0 | 4s | 8/8 passed |
+| test_texture | 0 | 8s | all OK |
+| test_products_adversarial | 0 | 0s | all OK |
+| test_risk_matrix | 0 | 99s | all OK |
+| test_physfix_photo_first | 0 | 6s | 8/8 passed |
+| test_w4_launchfix | 0 | 23s | 32 passed, 0 failed |
+| test_vacuity | 0 | 8s | all OK |
+| test_first_customer_gate | 0 | 15s | 12 passing, 0 failing |
+| test_w4_b2gates | 0 | 90s | 12/12 passing |
+| test_w4_resume_runner, run 1 | 0 | 139s | all OK; p09_a 7.9s |
+| test_w4_resume_runner, run 2 | 0 | 128s | all OK; p09_a 7.9s |
+| test_w4_resume_runner, run 3 | 0 | 126s | all OK; p09_a 8.0s |
+| test_w4_resume_runner, run 4 | 0 | 127s | all OK; p09_a 8.1s |
+| test_w4_resume_runner, run 5 | 0 | 128s | all OK; p09_a 8.7s |
+
+I also re-ran the prior review's `test_secreview_physfix_b8d3dee_probes.py` against c99dde9. P1–P5 were all ok, and P5 is now refused (§1).
+
+The 89eef1e probe file needed the repo's `requirements.txt` installed first. The container started without `sqlalchemy` or `fastapi`, and those first attempts were discarded. They are not counted above.
+
+### 6.1 The flaky timing test: `test_p09_a_finalize_failure_fails_the_run_and_never_fails_open`
+
+**Unloaded:** 5/5 passed, 7.9–8.7s each. Under the load I then added, it failed.
+
+**Under load:** 12 busy-loop processes at nice 0 on 4 CPUs, with the test at `nice -n 19`. The first solo run of `tests/test_w4_resume_runner.py test_p09_a` failed:
+
+```
+FAIL test_p09_a_finalize_failure_fails_the_run_and_never_fails_open
+     TimeoutExpired(['bash', '.../rf-p09-.../repo/run_tests.sh'], 300)
+```
+
+**Mechanism.** `_p09` builds a box with `n_filler=100` synthetic suites and runs them with `JOBS=4`. It SIGKILLs the first segment a fixed `time.sleep(1.0)` after `gate.started`. It then runs the resume segment with a hard `subprocess.run(..., timeout=300)`. The resume segment re-runs or verifies about 100 suites through `run_tests.sh` and `suite_checkpoint.py`. At about 8s of CPU unloaded, a CPU share of roughly 1/40 or less exceeds 300s. A nice-19 process competing with a loaded host easily gets that little.
+
+**Does it fail open?** No. The failure is a timeout raised by the test harness. No assertion reaches a passing state on a wrong record, and the runner's guarantee being tested (finalize failure ⇒ run failed, never eligible) is not contradicted.
+
+**Could it break a full certification run?** **Yes: it is load-sensitive enough to turn a certification run red under heavy concurrent load**, such as several suites or reviewer sessions sharing the box, especially when run at nice 19 as here. It cannot make a run falsely green. In a full run it is one of the longer subprocess-heavy tests, and it shares CPU with the rest of the parallel suite.
+
+**Recommendation.** This is a test-only change.
+- Scale the 300s timeout, or make it an env-overridable deadline such as `RESUME_TEST_TIMEOUT`, with a default of about 900s.
+- Cut `n_filler` from 100 to about 20. The test needs only enough fillers that some complete before the kill.
+- Optionally, wait for a filler manifest instead of the fixed 1.0s sleep.
+
+Severity: Info (test reliability). It is not a product defect.
+
+## 7. Reproduction artefacts (this branch)
+
+- `research/final_build/w4/secreview_c99dde9_probe_dup.py`: R40.
+- `research/final_build/w4/secreview_c99dde9_share_sweep.py`: the `products/` aliasing sweep (R41).
+- The R35 check reuses `tests/test_secreview_physfix_b8d3dee_probes.py` from `claude/w4-SECREVIEW-PHYSFIX-b8d3dee`.
+
+## Verdict (restated)
+
+**SHIP.** R35 is closed, and so are R36 (existing-row case), R37, R38 and R39. Remaining:
+
+- R40 (Low): the duplicate-fold withholding gap. Fix next delta with option (a).
+- R41 (Low): shared catalogue `Seam`.
+- R42 (Info): SQLite lazy BEGIN comment.
+- p09 timing (Info, test-only).
+
+None is Medium or above, and none blocks shipping.
