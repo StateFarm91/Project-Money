@@ -84,6 +84,17 @@ worktrees, not this file.
   Batch 5 (stall re-drive), or on sourcing (hats); see P0_GAP_REGISTER.json. The next wake
   (the 2-hourly loop, or any PR event) polls reviews first and acts on findings and decisions.
 
+- 15:30Z: reviews OPUS2G (#5 ACCEPT; #6, #7, #8 CHANGES_REQUIRED) and OPUS2H (#3 EF2
+  ACCEPT; #9 HOLD) landed on their review branches and are being worked:
+  - pushed: #8 (fa529381), #7 (4c777a0b), #5 (be96a598);
+  - uncommitted, regression running:
+    - #6 D-1/D-2/D-3/D-4 in /home/user/opus2-race (97 suites, /tmp/claude-0/oq5_results.txt);
+    - #9 H2-1..H2-6 in /home/user/opus2-colour (/tmp/claude-0/cw3_results.txt);
+    - #3 H1-1..H1-3 in /home/user/opus2-p0 (/tmp/claude-0/h1_results.txt; not
+      task-tracked, so read the file).
+  - D-5 (a verify check for deferred B-5) is proposed, not built: /api/verify is the
+    integrator's surface.
+
 ## Done log
 - 2026-11-01T13:35Z: stocking pushed in `5c7b984a` with the pet-bed union merge `be12b47b`; PR #11.
 - 2026-11-01T13:00Z: pet basket bed pushed in `d0a7685f`, PR #10 opened (stacked on -b4merge).
