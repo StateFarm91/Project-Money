@@ -100,3 +100,17 @@ test_v11_cc_views, test_w4_b2gate2, test_w4_fmbatch1_provider_health); none invo
 
 Implemented: yes. Independently reviewed, integrated, certified, deployed, production verified:
 **no**.
+
+## Review OPUS2G fixes (2026-11-01)
+
+| Finding | Fix | Test |
+|---|---|---|
+| D-1 MED: dedupe loses an owner deferral and lowers a ceiling | `close_duplicates` keeps the newest PARKED row over any OPEN one (the owner's decision), merges the ceiling across the group with `_merge_cost` (UNKNOWN sticky, otherwise the highest stated figure), and closes each duplicate through `owner_queue.transition` (an `owner_action.lifecycle` audit row naming the kept row) | `test_review_opus2g_d1_*` (the reviewer's repro; "keep newest" mutation killed) |
+| D-2 MED: the acceptance-ruling writer edited a detached copy | `_record_acceptance_ruling` uses `owner_queue.ensure` and then the SATISFIED transition, so the ruling lands on the stored row | `test_review_opus2g_d2_*` (old code mutation killed) |
+| D-3 LOW: a close plus reopen in one flush raises | Documented in the guard: fail-closed; do it in two flushes; no current path does both | — |
+| D-4 LOW: "never lower" not pinned | A 50 → 10 → 50 step was added | ef26 |
+| D-5 INFO: a deferred index is only a log line | Proposed to the integrator: surface `owner_queue_dedupe.conflicts()` as an `/api/verify` check (the integrator's surface) | — |
+
+`tests/test_opus2_owner_queue_races.py` 14/14. 97-suite regression: exit 0 except
+`test_risk_matrix`, `test_v11_accounting_controller`, `test_v11_cc_views` and `test_v11_pwa_browser`,
+all identical without these changes (base-owned; fixed on the certified Batch 4 base).

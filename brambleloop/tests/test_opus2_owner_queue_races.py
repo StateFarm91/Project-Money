@@ -240,6 +240,13 @@ def test_review_opus2ef2_ef26_a_merge_never_lowers_a_stated_ceiling():
                               max_cost_cad=restated))
     [row] = _open(db, "CAP")
     assert row.max_cost_known == 80.0, row.max_cost_cad
+    # OPUS2G D-4: a lower restatement never wins (50 then 10 stays 50).
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="DROP", action="a", reason="r", max_cost_cad=50.0))
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="DROP", action="a", reason="r", max_cost_cad=10.0))
+    [row] = _open(db, "DROP")
+    assert row.max_cost_known == 50.0, row.max_cost_cad
     # A restatement that names no ceiling leaves it alone; why/expiry are restated.
     with db.session() as s:
         s.add(OwnerAction(requirement_key="CAP", action="a", reason="r",
@@ -352,6 +359,54 @@ def test_review_opus2ef2_ef27_ensure_returns_the_stored_row_so_later_edits_land(
         raise AssertionError("a keyless requirement was ensured")
     except ValueError:
         pass
+
+
+def test_review_opus2g_d1_dedupe_keeps_the_owners_deferral_and_never_lowers_a_ceiling():
+    from sqlalchemy import insert
+
+    from brambleloop.core.models import MAX_COST_UNKNOWN, AuditLog
+    from brambleloop.ops import owner_queue_dedupe as D
+
+    db = _db()
+    _drop_index(db)
+    with db.engine.begin() as conn:                   # the reviewer's repro, written by Core
+        conn.execute(insert(OwnerAction).values(
+            requirement_key="K", action="deferred", reason="r", done=False, state="parked",
+            state_reason="deferred by the owner", max_cost_cad=0.0,
+            max_cost_basis=MAX_COST_UNKNOWN))
+        conn.execute(insert(OwnerAction).values(requirement_key="K", action="re-raised",
+                                                reason="r", done=False, max_cost_cad=0.0))
+        conn.execute(insert(OwnerAction).values(requirement_key="C", action="fifty",
+                                                reason="r", done=False, max_cost_cad=50.0))
+        conn.execute(insert(OwnerAction).values(requirement_key="C", action="zero",
+                                                reason="r", done=False, max_cost_cad=0.0))
+    closed = D.close_duplicates(db.engine)
+    assert len(closed) == 2
+    [k] = _open(db, "K")
+    assert k.state == "parked" and k.action == "deferred"            # the owner's deferral kept
+    assert k.max_cost_known is None                                   # UNKNOWN stays UNKNOWN
+    [c] = _open(db, "C")
+    assert c.max_cost_known == 50.0                                    # never lowered to 0.00
+    with db.session() as s:
+        audits = [a for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "owner_action.lifecycle"))]
+        assert len(audits) == 2 and all(a.detail["to"] == "superseded" for a in audits)
+
+
+def test_review_opus2g_d2_an_acceptance_ruling_lands_on_the_stored_row():
+    from brambleloop.app.command_center import approvals
+    from brambleloop.build2 import executor
+
+    db = _db()
+    with db.session() as s:                            # an open row already under the key
+        s.add(OwnerAction(requirement_key=executor.ACCEPTANCE_RULING_KEY,
+                          action="older open request", reason="r"))
+    ruling = sorted(approvals.ACCEPTANCE_RULINGS)[0]
+    out = approvals._record_acceptance_ruling(db, ruling, "owner reason", actor="owner")
+    with db.session() as s:
+        row = s.get(OwnerAction, out["owner_action_id"])
+        assert row.done is True and row.state == "satisfied", (row.done, row.state)
+    assert _open(db, executor.ACCEPTANCE_RULING_KEY) == []
 
 
 if __name__ == "__main__":

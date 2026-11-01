@@ -28,8 +28,12 @@ row onto a key (review OPUS2F B-2), or reopening a closed row (B-3):
    reverted reopen restores the row's lifecycle (state, when, why) as well (EF2-8).
 
 Scope, stated honestly:
-- ORM writes only. A Core `insert(OwnerAction)` bypasses session flush events (B-4); no
-  current site uses one.
+- ORM writes only. A Core `insert(OwnerAction)` bypasses session flush events (B-4); since
+  B-5 the database's partial unique index refuses it.
+- One flush that closes the open row for a key AND reopens an older row for the same key is
+  allowed by this guard, but the unit of work may emit the reopen first and the index then
+  refuses it (review OPUS2G D-3): fail-closed, the transaction rolls back. Close and reopen in
+  two flushes. No current path does both (`store_readiness` reopens only when no row is open).
 - On Postgres the advisory lock is taken at the first such flush, possibly mid-transaction after
   a writer already holds row locks (B-6). A lock-order inversion with a writer that took the
   advisory lock first is broken by Postgres's deadlock detector (one transaction errors and its
