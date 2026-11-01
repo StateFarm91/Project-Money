@@ -110,14 +110,14 @@
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "scope": "gates/size_claims.py",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25"
     },
     {
       "id": "OPUS2-LAURAHOME",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25"
     },
     {
       "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
@@ -129,7 +129,7 @@
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
       ],
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24"
     },
     {
       "id": "P0-LEARNING-REFERENCE",
@@ -147,7 +147,7 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part.",
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24"
     },
     {
       "id": "OPUS2-GALLERY-PHOTO-LED",
@@ -166,7 +166,7 @@
         "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
         "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
       ],
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25"
     },
     {
       "id": "OPUS2-REVERIFY-WITHHOLD",
@@ -180,19 +180,19 @@
       "claimed_at": "2026-10-31T07:20Z",
       "state": "ready_for_review",
       "evidence": "tests/test_opus2_reverify_withhold.py 4/4; 23-suite withholding/quality/for_publish/guard regression all exit 0 (2026-10-31)",
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24"
     },
     {
       "id": "OPUS2-DRAFT-CONSTRUCTIONS",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "pr": 3,
-      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722; triangle shawl added (stitch-pattern titles refused), handoff \u00a723; tote blocked on a stated chain gauge",
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff §22; triangle shawl added (stitch-pattern titles refused), handoff §23; tote blocked on a stated chain gauge",
       "state": "ready_for_review",
       "evidence": "tests/test_opus2_draft_constructions.py 6/6 (vessel, panel_pair cushion, triangle shawl); 39-suite regression exit 0 (2026-10-31)",
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
       "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25"
     },
     {
       "id": "OPUS2-NEXT-PRODUCT-FINDING",
@@ -201,7 +201,7 @@
       "pr": 3,
       "state": "no_build_needed",
       "from_unowned": "P0-NEXT-PRODUCT",
-      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md \u00a721."
+      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md §21."
     },
     {
       "id": "OPUS2-LISTING-PACKAGE-JOB",
@@ -242,6 +242,19 @@
       ],
       "state": "unowned",
       "recorded": "2026-11-01T07:05Z"
+    },
+    {
+      "id": "P0-PHOTO-ASSET-REVIEW",
+      "priority": "P0",
+      "recorded": "2026-11-01T12:55Z",
+      "summary": "No production code path re-approves a PHYSICAL_PRODUCT_PHOTO listing frame. physical_upgrade.upgrade_on_receipt creates it approved=False and lead_with_if_qualifying resets it to approved=False ('awaiting asset-truth review and listing-set re-certification') after the owner's attestation moves it to position 1; only visual/gallery_persist approves (render frames, by position). So a photo-led listing set can never certify in production. Fails closed (liveness, not safety).",
+      "needed": "An asset-truth review of the photo frame that sets approved with a durable audit row: either an owner-session Command Center action (step-up, reason, audited, bound to the frame sha256 and the owner attestation) or a deterministic review job, followed by listing-set re-certification. Must not approve a photo without the qualifying_photos verdict; tests for refusal on edited/unattested/foreign bytes.",
+      "evidence": "Review INTEG5FIX F2 (claude/w5-SECREVIEW-INTEG5FIX cbc96c95): mutation M4 (no fixture approval) fails both photo-led tests.",
+      "files": [
+        "src/brambleloop/publish/physical_upgrade.py",
+        "src/brambleloop/app/command_center/approvals.py (new action)",
+        "src/brambleloop/publish/release_gates.py (sample_photo_lead reads it)"
+      ]
     }
   ],
   "reviews": [

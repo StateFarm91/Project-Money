@@ -26,6 +26,73 @@ def test_a_round_or_row_number_is_a_place_in_the_pattern_not_a_count():
     assert SC.claimed_count(SC.claims_in("A set of 3 nesting baskets in one pattern.")) == 3
 
 
+def test_round_as_a_shape_or_row_never_hides_a_real_size_claim():
+    """Review INTEG5FIX F1 (HIGH): "Round" is a basket shape and "row" a layout word; every one
+    of these promised several pieces or sizes before the fix and must still be refused."""
+    for text in ("Round 3 baskets", "Round 3-piece basket set", "Round 3 basket sizes",
+                 "Round three sizes", "Shop this round 3 basket set.",
+                 "Our round 3 baskets nest neatly.", "round 4 bins",
+                 "Round two baskets for your shelf", "A row 3 baskets wide", "Rows 2 bags",
+                 "3 rounds baskets", "Row of 3 baskets", "Rnd 2 3 baskets",
+                 "Round basket set of 3", "Round, 3 baskets"):
+        state = SC.check_texts({"listing title": text})["state"]
+        assert state == SC.FAIL, (text, state, SC.claims_in(text))
+
+
+
+class _Ctx:
+    """The slice of JobContext `_persist_release` uses: db, job, phase, enqueue, audit."""
+
+    def __init__(self, db):
+        from types import SimpleNamespace
+
+        from brambleloop.core.models import Job
+
+        self.db, self.enqueued, self.audits = db, [], []
+        with db.session() as s:   # provenance needs the job the certificate was built by
+            job = Job(job_type="gate.certify", agent="quality_director")
+            s.add(job)
+            s.flush()
+            job_id = job.id
+        self.job = SimpleNamespace(agent="quality_director", id=job_id)
+        self.phase = None
+
+    def enqueue(self, *a, **k):
+        self.enqueued.append((a, k))
+
+    def audit(self, action, **k):
+        self.audits.append((action, k))
+
+
+def test_a_recertified_release_keeps_both_permanent_and_reverify_withholdings():
+    """Review INTEG5FIX F3: the merged re-certification branch of `pipeline._persist_release`
+    applies `carry_reverification` (OPUS2) and `carry_permanent` (PHYSFIX). Re-certify a
+    size-failed, re-verification-failed version under a NEW release hash and both survive."""
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.products import launch0 as l0
+    from brambleloop.publish import withholding as W
+    from brambleloop.runtime import pipeline as P
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/integ5.sqlite")
+    db.create_all()
+    ctx = _Ctx(db)
+    cir = l0.cir_for("basket_small")
+    P._persist_release(ctx, cir, {"gates": "first"}, "a" * 64)
+    W.record(db, cir.slug, cir.version, kind=W.PHYSICAL_SIZE_FAILED,
+             reason="physical sample measured 14.1 cm across the points (claimed 16.0)")
+    W.record_reverification(db, cir.slug, cir.version, check="pdf", problem="pdf hash drift")
+    before = W.reasons(db, cir.slug, cir.version)
+    assert {W.PHYSICAL_SIZE_FAILED, W.QUALITY_REVERIFY} <= set(before["reasons"]), before
+
+    P._persist_release(ctx, cir, {"gates": "second"}, "b" * 64)   # a new release hash
+    assert any(a == "gate.recertified" for a, _ in ctx.audits), ctx.audits  # branch reached
+    after = W.reasons(db, cir.slug, cir.version)
+    assert W.PHYSICAL_SIZE_FAILED in after["reasons"], after       # carry_permanent
+    assert W.QUALITY_REVERIFY in after["reasons"], after           # carry_reverification
+    assert after["blocks_build"] is True and after["blocks_publish"] is True, after
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]
