@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-01T10:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-01T16:35Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -94,6 +94,16 @@ worktrees, not this file.
       task-tracked, so read the file).
   - D-5 (a verify check for deferred B-5) is proposed, not built: /api/verify is the
     integrator's surface.
+
+- 16:35Z stop record: the integrator's 14:31Z work queue on PR #3 (authoritative while
+  COORDINATION.json is frozen at 0967c3ee) is complete, items 1-5, with a reply mapping each
+  item to its commit. The loop's poll list is widened (PR #3's work-queue comment, every
+  SECREVIEW-OPUS2* branch, PRs #3 and #5-#11). Remaining work waits on:
+  - re-reviews of #6, #7, #8 and #9;
+  - first reviews of #10 and #11;
+  - integrator decisions: P0-NEXT-PRODUCT, motif joins, D-5;
+  - C-1's jobs.last_error;
+  - Batch 5 (stall re-drive) and sourcing (hats).
 
 ## Done log
 - 2026-11-01T16:20Z: #9 OPUS2H H2-1..H2-6 pushed in `f57219d0` and commented. Every review G/H finding is now addressed. The queue waits on re-reviews and the three integrator decisions (P0-NEXT-PRODUCT, #9 adoption, motif joins).
