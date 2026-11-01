@@ -22,7 +22,16 @@ A package with no blocker is `ready_for_owner_review`, and only then does it rai
 action asking the owner to review it. Publishing stays the owner's, by hand or through the
 publish gates. Otherwise it is `blocked` with every reason listed. Packages are idempotent:
 the fingerprint is computed over the content, and an unchanged package is not rewritten.
-Nothing here publishes, calls Etsy, a model or the network, or spends.
+Nothing here publishes, calls Etsy, a model or the network, or spends. It does write
+internally (review OPUS2F A-6): the package reading, its Markdown artefact, the owner's review
+request, and -- through `for_publish` -- the listing-set certificate, hero verdict and
+withholding reconciliation that `store.publish` would also write. Hence action class B, like
+`chain.rebuild`, not OBSERVE.
+
+There is one current package per `slug@version`, fingerprinted over the release hash and every
+field, so a new release, new copy or new frames is a new package (A-7). Once integrated, this
+automatic package is the canonical one for a release; the hand-written
+`manual_listings/*/LISTING_PACKAGE.md` files are W-LISTING's historical record.
 """
 from __future__ import annotations
 
@@ -55,31 +64,45 @@ def _release(db, slug: str, version: str) -> dict | None:
               if product is not None else None)
         if pv is None or not pv.certified:
             return None
-        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
-                                                 Listing.version == version)
-                           .order_by(Listing.id.desc()).limit(1))
+        listings = list(s.scalars(select(Listing).where(Listing.product_slug == slug,
+                                                        Listing.version == version)
+                                  .order_by(Listing.id.desc())))
+        listing = listings[0] if listings else None
         return {"release_hash": pv.release_hash or "", "cir": dict(pv.cir_json or {}),
-                "listing_state": listing.state if listing is not None else None}
+                "listing_state": listing.state if listing is not None else None,
+                "listing_release": (listing.release_hash or "") if listing is not None else ""}
 
 
 def _files(db, slug: str, version: str, release: str) -> dict | None:
+    """The PDFs certified for exactly this release, or None (review OPUS2F A-1).
+
+    The hashes come from `pipeline._certified_pdf_hashes`, the canonical reader: it requires the
+    job's own release to equal this one. An empty release is never a wildcard: it binds nothing.
+    The descriptive fields come only from an `assets.build` job that names this same release.
+    """
     from sqlalchemy import desc, select
 
     from ..core.models import Job, JobStatus
+    from ..runtime import pipeline
 
+    if not release:
+        return None
+    hashes = pipeline._certified_pdf_hashes(db, slug, version, release)
+    if not hashes:
+        return None
+    meta: dict = {}
     with db.session() as s:
         for job in s.scalars(select(Job).where(Job.job_type == "assets.build",
                                                Job.status == JobStatus.DONE)
                              .order_by(desc(Job.id))):
             i, o = dict(job.inputs or {}), dict(job.outputs or {})
-            if i.get("slug") == slug and i.get("version") == version and (
-                    not release or o.get("release", i.get("release", release)) == release):
-                return {"pdf_sha256_by_terminology": o.get("pdf_sha256_by_terminology")
-                        or ({"US": o["pdf_sha256"]} if o.get("pdf_sha256") else {}),
-                        "pages": o.get("pages"), "size_label": o.get("size_label"),
+            if (i.get("slug"), i.get("version")) == (slug, version) and \
+                    (i.get("release") or o.get("release") or "") == release:
+                meta = {"pages": o.get("pages"), "size_label": o.get("size_label"),
                         "finished_size_cm": o.get("finished_size_cm"),
                         "calibrated": o.get("calibrated"), "assets_job": job.id}
-    return None
+                break
+    return {"pdf_sha256_by_terminology": dict(hashes), **meta}
 
 
 def _identity(slug: str, cir: dict) -> dict:
@@ -146,9 +169,19 @@ def assemble(db, slug: str, version: str) -> dict | None:
                    "alt_text": f.get("alt_text")} for f in framed.get("frames") or []]
 
     files = _files(db, slug, version, release)
+    if not release:
+        blockers.append({"source": "release", "why": "the certified release has no release "
+                                                     "hash, so no file can be bound to it"})
     if files is None or not files.get("pdf_sha256_by_terminology"):
         blockers.append({"source": "assets.build",
-                         "why": "no completed assets.build with PDFs for this release"})
+                         "why": "no assets.build certifies PDFs for exactly this release"})
+    # Review OPUS2F A-4: the copy must belong to this release. (One row per slug@version is
+    # already a database constraint, `listings (product_slug, version)` unique, so the row this
+    # reads is the row `certified_payload` reads.)
+    if rel["listing_release"] and release and rel["listing_release"] != release:
+        blockers.append({"source": "listing", "why": (
+            f"the drafted listing was written for release {rel['listing_release'][:12]}, not "
+            f"the certified {release[:12]}")})
 
 
     package = {
@@ -198,9 +231,10 @@ def render(package: dict) -> str:
               "## 7. Disclosures", ""]
     lines += [f"- {d}" for d in p.get("disclosures") or []] or ["- none recorded"]
     lines += ["", "## 8. Gallery (certificate order)", ""]
-    lines += [f"{f['position']}. {f.get('kind')} `{str(f.get('sha256'))[:16]}` "
-              f"{f.get('honesty_label') or ''}".rstrip() for f in p.get("gallery") or []] \
-        or ["UNKNOWN: no certified gallery"]
+    lines += [(f"{f['position']}. {f.get('kind')} `{str(f.get('sha256'))[:16]}` "
+               f"{f.get('honesty_label') or ''}".rstrip()
+               + (f"\n   Alt text: {f['alt_text']}" if f.get("alt_text") else ""))
+              for f in p.get("gallery") or []] or ["UNKNOWN: no certified gallery"]
     lines += ["", "## 9. Outstanding publication requirements", ""]
     lines += [f"- [{b['source']}] {b['why']}" for b in p.get("blockers") or []] \
         or ["- none: ready for the owner's review"]
@@ -230,7 +264,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
                            f"{package['fingerprint'][:16]}.md",
                            render(package).encode(), "text/markdown")
         md_sha = stored.sha256 if stored is not None else None
+    from ..runtime.release import _serialise_owner_queue
+
     with db.session() as s:
+        # The owner-queue lock is the transaction's first statement (SQLite: BEGIN IMMEDIATE
+        # cannot start inside a transaction a read already began).
+        _serialise_owner_queue(s, db)
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
                                                       OperatingReading.period_key == key))
         if changed:
@@ -239,28 +278,38 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
                 s.add(OperatingReading(kind=KIND, period_key=key, payload=body))
             else:
                 row.payload = body
-        action = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == action_key,
-                                                    OwnerAction.done == False))  # noqa: E712
+        # Review OPUS2F A-2/A-3: the review request names the content it asks about. A
+        # request the owner already closed for THIS content is never raised again; a request
+        # for older content is superseded when the content changes or is blocked again.
+        current = f"{action_key}:{package['fingerprint'][:16]}"
+        rows = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like(f"{action_key}:%"))))
         raised = closed = False
-        if package["state"] == READY and action is None:
+        for stale in rows:
+            if not stale.done and (package["state"] != READY
+                                   or stale.requirement_key != current):
+                why = ("the listing package is blocked again: "
+                       + "; ".join(b["why"] for b in package["blockers"][:2])
+                       if package["state"] != READY
+                       else "the listing package changed; a request for the new content "
+                            "replaces this one")
+                owner_queue.close(stale, owner_queue.SUPERSEDED, why[:400], now=now)
+                closed = True
+        already = any(r.requirement_key == current for r in rows)
+        if package["state"] == READY and not already:
             title = ((package.get("copy") or {}).get("title") or key)[:90]
             s.add(OwnerAction(
-                requirement_key=action_key,
+                requirement_key=current,
                 action=f"Review the listing package for {title!r} ({key}) before publication",
                 reason=(f"Every publication gate passes for release "
-                        f"{package['release_hash'][:12]}; the package (copy, gallery, files, "
+                        f"{package['release_hash'][:12]} (package "
+                        f"{package['fingerprint'][:12]}); the package (copy, gallery, files, "
                         f"disclosures) is assembled from the certified chain for your review. "
                         f"Publishing remains your decision."),
                 max_cost_cad=0.0, minutes=15,
                 consequence_of_delay="the release stays unpublished; nothing else waits on it",
                 blocks="INTEG-LISTING-JOB"))
             raised = True
-        elif package["state"] != READY and action is not None:
-            owner_queue.close(action, owner_queue.SUPERSEDED,
-                              "the listing package is blocked again: "
-                              + "; ".join(b["why"] for b in package["blockers"][:2])[:400],
-                              now=now)
-            closed = True
     return {"key": key, "state": package["state"], "changed": changed,
             "blockers": len(package["blockers"]), "markdown_sha256": md_sha,
             "review_requested": raised, "review_withdrawn": closed}
@@ -290,7 +339,9 @@ def sweep(db) -> dict:
         if err is not None or package is None:
             results.append({"key": f"{slug}@{version}", "error": err or "not certified"})
             continue
-        results.append(record(db, package))
+        recorded, rerr = _try(record, db, package)
+        results.append(recorded if rerr is None else
+                       {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]})
     return {"releases": len(results), "results": results,
             "ready": sum(1 for r in results if r.get("state") == READY),
             "changed": sum(1 for r in results if r.get("changed"))}

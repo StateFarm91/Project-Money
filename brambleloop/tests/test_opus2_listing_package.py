@@ -106,7 +106,8 @@ def test_the_job_is_registered_scheduled_and_never_publishes():
     assert handlers.get("listing.package") is not None
     assert ("listing_package", "listing", "listing.package", 6 * 60 * 60) in CADENCES
     Registry(_db("reg")).authorize("listing", "listing.package")
-    assert classes.JOB_CLASS["listing.package"] == classes.JOB_CLASS["listing.outcomes"]
+    # Review OPUS2F A-6: it writes internally (via for_publish too), so BUILD like chain.rebuild.
+    assert classes.JOB_CLASS["listing.package"] == classes.JOB_CLASS["chain.rebuild"]
     assert charters.department_of("listing.package") == "store_commerce"
     assert "listing.package" not in charters.PROTECTED_JOB_TYPES
 
@@ -161,28 +162,135 @@ def test_in_shadow_with_no_sample_photo_the_package_is_blocked_and_no_review_is_
             OperatingReading.kind == LP.KIND)))) == 1
 
 
-def test_a_ready_package_asks_for_one_review_and_a_new_blocker_withdraws_it():
-    db, cir, _rh = _shared()
-    pkg = LP.assemble(db, cir.slug, cir.version)
-    ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "ready-fixture"}
-    r1 = LP.record(db, ready)
-    r2 = LP.record(db, {**ready, "fingerprint": "ready-fixture-2"})
-    assert r1["review_requested"] is True and r2["review_requested"] is False
+def _requests(db, cir, *, open_only=False):
     with db.session() as s:
-        open_ = list(s.scalars(select(OwnerAction).where(
-            OwnerAction.requirement_key == f"{LP.ACTION_PREFIX}{cir.slug}@{cir.version}",
-            OwnerAction.done == False)))  # noqa: E712
+        q = select(OwnerAction).where(OwnerAction.requirement_key.like(
+            f"{LP.ACTION_PREFIX}{cir.slug}@{cir.version}:%"))
+        if open_only:
+            q = q.where(OwnerAction.done == False)  # noqa: E712
+        return list(s.scalars(q.order_by(OwnerAction.id)))
+
+
+def test_a_ready_package_asks_for_one_review_and_a_new_blocker_withdraws_it():
+    db, cir, _rh = _release("ready")
+    pkg = LP.assemble(db, cir.slug, cir.version)
+    ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "a" * 64}
+    r1 = LP.record(db, ready)
+    r2 = LP.record(db, ready)                                   # unchanged: not asked twice
+    assert r1["review_requested"] is True and r2["review_requested"] is False
+    open_ = _requests(db, cir, open_only=True)
     assert len(open_) == 1 and open_[0].max_cost_cad == 0.0
     assert "Publishing remains your decision" in open_[0].reason
     blocked = {**pkg, "state": LP.BLOCKED,
-               "blockers": [{"source": "fixture", "why": "a new defect"}],
-               "fingerprint": "blocked-fixture"}
+               "blockers": [{"source": "fixture", "why": "a new defect"}], "fingerprint": "b" * 64}
     r3 = LP.record(db, blocked)
-    assert r3["review_withdrawn"] is True
+    assert r3["review_withdrawn"] is True and _requests(db, cir, open_only=True) == []
+    row = _requests(db, cir)[0]
+    assert row.state == "superseded" and "a new defect" in row.state_reason
+
+
+def test_review_opus2f_a2_a_review_the_owner_completed_is_never_asked_again():
+    db, cir, _rh = _release("a2")
+    ready = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": [],
+             "fingerprint": "c" * 64}
+    LP.record(db, ready)
     with db.session() as s:
-        row = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == f"{LP.ACTION_PREFIX}{cir.slug}@{cir.version}"))
-    assert row.done is True and row.state == "superseded" and "a new defect" in row.state_reason
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key.like(
+            f"{LP.ACTION_PREFIX}%")))
+        row.done, row.state = True, "satisfied"
+    again = LP.record(db, ready)
+    assert again["review_requested"] is False and len(_requests(db, cir)) == 1
+
+
+def test_review_opus2f_a3_a_changed_ready_package_supersedes_the_stale_request():
+    db, cir, _rh = _release("a3")
+    base = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": []}
+    LP.record(db, {**base, "release_hash": "1" * 64, "fingerprint": "d" * 64})
+    r = LP.record(db, {**base, "release_hash": "2" * 64, "fingerprint": "e" * 64})
+    assert r["review_requested"] is True and r["review_withdrawn"] is True
+    open_ = _requests(db, cir, open_only=True)
+    assert len(open_) == 1 and "222222222222" in open_[0].reason
+    assert open_[0].requirement_key.endswith("e" * 16)
+
+
+def test_review_opus2f_a1_a_pdf_from_another_release_is_never_this_releases_file():
+    from brambleloop.core.models import AuditLog
+
+    db, cir, rh = _release("a1")
+    with db.session() as s:
+        stray = Job(agent="publishing", job_type="assets.build", status=JobStatus.DONE,
+                    inputs={"slug": cir.slug, "version": cir.version},      # no release
+                    outputs={"pdf_sha256_by_terminology": {"US": "0" * 64}})
+        s.add(stray)
+        s.flush()
+        s.add(AuditLog(actor="publishing", action="assets.built", job_id=stray.id,
+                       artifact=f"{cir.slug}@{cir.version}",
+                       detail={"pdf_sha256_by_terminology": {"US": "0" * 64}}))
+    files = LP._files(db, cir.slug, cir.version, rh)
+    assert files and "0" * 64 not in files["pdf_sha256_by_terminology"].values()
+    assert LP._files(db, cir.slug, cir.version, "") is None       # empty release binds nothing
+    assert LP._files(db, cir.slug, cir.version, "9" * 64) is None  # another release: none
+
+
+def test_review_opus2f_a4_copy_written_for_another_release_blocks():
+    db, cir, rh = _release("a4")
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == cir.slug))
+        row.release_hash = "7" * 64
+    pkg = LP.assemble(db, cir.slug, cir.version)
+    assert any(b["source"] == "listing" and "written for release" in b["why"]
+               for b in pkg["blockers"]), pkg["blockers"]
+    # A second row for the same slug@version cannot exist: the database refuses it, so the
+    # package and certified_payload always read the same listing.
+    import sqlalchemy.exc
+
+    try:
+        with db.session() as s:
+            s.add(Listing(product_slug=cir.slug, version=cir.version, title="x",
+                          description="y", tags=[], price_cad=1.0, state="draft",
+                          release_hash=rh))
+    except sqlalchemy.exc.IntegrityError:
+        pass
+    else:
+        raise AssertionError("two listing rows for one release were accepted")
+
+
+def test_review_opus2f_a5_the_rendered_gallery_shows_each_images_alt_text():
+    pkg = {"slug": "s", "version": "1.0.0", "state": LP.BLOCKED, "release_hash": "r",
+           "identity": {}, "copy": None, "files": {}, "disclosures": [], "blockers": [],
+           "gallery": [{"position": 1, "kind": "sample_photo", "sha256": "a" * 64,
+                        "honesty_label": None, "alt_text": "A folded blanket on a chair"},
+                       {"position": 2, "kind": "chart", "sha256": "b" * 64,
+                        "honesty_label": None, "alt_text": None}]}
+    text = LP.render(pkg)
+    assert "   Alt text: A folded blanket on a chair" in text
+    assert text.count("Alt text:") == 1                 # no empty alt line is invented
+
+
+def test_review_opus2f_a8_one_release_failing_to_record_does_not_stop_the_sweep():
+    db, cir, _rh = _shared()
+    real_releases, real_record = LP.certified_releases, LP.record
+    LP.certified_releases = lambda _db: [("broken", "9.9.9"), (cir.slug, cir.version)]
+    real_assemble = LP.assemble
+    LP.assemble = lambda d, slug, version: ({"slug": "broken", "version": "9.9.9",
+                                             "state": LP.BLOCKED}
+                                            if slug == "broken" else real_assemble(d, slug,
+                                                                                    version))
+
+    def record(d, package, **k):
+        if package["slug"] == "broken":
+            raise RuntimeError("record failed for this one release")
+        return real_record(d, package, **k)
+
+    LP.record = record
+    try:
+        out = LP.sweep(db)
+    finally:
+        LP.certified_releases, LP.record, LP.assemble = real_releases, real_record, real_assemble
+    keys = [r.get("key") for r in out["results"]]
+    assert out["releases"] == 2 and keys[0] == "broken@9.9.9"
+    assert "record failed" in out["results"][0]["error"]
+    assert keys[1] == f"{cir.slug}@{cir.version}" and "error" not in out["results"][1]
 
 
 def test_an_uncertified_or_unlisted_release_gets_no_package():

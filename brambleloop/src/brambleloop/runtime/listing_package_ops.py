@@ -2,8 +2,8 @@
 
 Every six hours. Assembles each certified release's package from the chain's own stored
 outputs (`publish.listing_package`), records it durably, and raises one owner review request
-for a package with no blocker. Reads and records only: no Etsy call, model, network or spend,
-and nothing is published. Integrator item INTEG-LISTING-JOB, claimed as OPUS2-LISTING-PACKAGE-JOB.
+for a package with no blocker. Internal writes only (class B, review OPUS2F A-6): no Etsy call,
+model, network or spend, and nothing is published. Integrator item INTEG-LISTING-JOB, claimed as OPUS2-LISTING-PACKAGE-JOB.
 """
 from __future__ import annotations
 

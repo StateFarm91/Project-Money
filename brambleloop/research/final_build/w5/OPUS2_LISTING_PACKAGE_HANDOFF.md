@@ -57,6 +57,21 @@ Regression: 76 suites, all exit 0. They cover every suite reading `for_publish`,
 timeline, orchestrator, overnight, fmbatch1 departments, maturity, launchfix, resume runner,
 shadow, roles and close5 rows3.
 
+## Review OPUS2F fixes (2026-11-01)
+
+| Finding | Fix | Test |
+|---|---|---|
+| A-1 HIGH: PDF hashes not bound to the release | PDFs come from `pipeline._certified_pdf_hashes(db, slug, version, release)`; an empty release hash binds nothing (blocker) | `test_review_opus2f_a1_*` |
+| A-2 MED: a completed review re-asked | the request key carries the package fingerprint; no new request if any row (open or done) exists for that fingerprint | `test_review_opus2f_a2_*` |
+| A-3 MED: stale request left open | a blocked or changed package supersedes (closes) the open request for the old fingerprint | `test_review_opus2f_a3_*` |
+| A-4 MED: listing copy not bound to the release | "drafted listing was written for release X, not the certified Y" is a blocker; the two-row case cannot exist (unique product_slug, version), pinned by a test | `test_review_opus2f_a4_*` |
+| A-5 LOW: alt text not shown | §8 renders each image's alt text | `test_review_opus2f_a5_*` |
+| A-6/A-7 LOW: class and naming | `listing.package` is class B (internal writes); docstrings state the writes and the canonical-package naming | autonomy map regenerated; timeline test |
+| A-8 LOW: one release error stops the sweep | each release's `record` runs under `_try` | `test_review_opus2f_a8_*` |
+| (lock) | `record` takes `release._serialise_owner_queue` as its transaction's first statement (taking it after a read raised "cannot start a transaction within a transaction" on SQLite under SQLAlchemy 2.1.6 / Python 3.13) | A-2/A-3 tests |
+
+`tests/test_opus2_listing_package.py` 11/11. Regression: the same 76 suites, all exit 0 (before the lock-order fix and the two added tests; the suite and the autonomy guards were re-run after them).
+
 ## Completion state (D-W5-OWNER-COMPLETION-METRICS)
 
 Implemented: yes. Independently reviewed, integrated, certified, deployed, production verified,
