@@ -29,6 +29,8 @@ CUT = "cut"
 # carried inside the stitches (worked over), so it travels with the row and rests at the row's
 # end edge like the main colour; nothing is cut at a change inside the row.
 IN_ROW = "in_row"
+TAPESTRY_CUT = "tapestry_cut"   # OPUS2I I-4: a contrast cut between tapestry rows, kept apart
+                                # from the row-change cuts that `carry_is_possible` judges
 
 
 @dataclass
@@ -42,6 +44,8 @@ class ColourPlan:
     turned: bool = True
     events: list[tuple[int, str, str]] = field(default_factory=list)   # (row, colour, kind)
     tapestry_rows: list[int] = field(default_factory=list)
+    tapestry_cuts: int = 0
+    first_tapestry_cut_row: int | None = None
 
     @property
     def carry_is_possible(self) -> bool:
@@ -87,10 +91,10 @@ def plan_component(comp) -> ColourPlan:
                 colours_seen.add(colour)
             elif (plan.turned and colour in resting and resting[colour] != start
                   and colour not in previous_in_row):
-                plan.cut += 1
-                plan.events.append((r.index, colour, CUT))
-                if plan.first_cut_row is None:
-                    plan.first_cut_row = r.index
+                plan.tapestry_cuts += 1
+                plan.events.append((r.index, colour, TAPESTRY_CUT))
+                if plan.first_tapestry_cut_row is None:
+                    plan.first_tapestry_cut_row = r.index
             resting[colour] = end
             plan.events.append((r.index, colour, IN_ROW))
             if r.index not in plan.tapestry_rows:
@@ -98,7 +102,7 @@ def plan_component(comp) -> ColourPlan:
         previous_in_row = set(in_row)
         edge = end
     # Two ends per colour (its first join and its last fasten-off) and two per cut-and-rejoin.
-    plan.ends = 2 * len(colours_seen) + 2 * plan.cut
+    plan.ends = 2 * len(colours_seen) + 2 * plan.cut + 2 * plan.tapestry_cuts
     return plan
 
 
@@ -116,7 +120,7 @@ def _tapestry_sentence(plan: ColourPlan) -> str | None:
     sentence = (f"Colourwork {unit}{plural} {span}: work over the colour not in use so it is "
                 f"carried inside the stitches, and change colour on the last yarn-over of the "
                 f"stitch before the new colour.")
-    cuts = [row for row, _c, kind in plan.events if kind == CUT and row in rows]
+    cuts = [row for row, _c, kind in plan.events if kind == TAPESTRY_CUT]
     if cuts:
         sentence += (f" Where a contrast was left at the other edge ({unit}{'s' if len(cuts) > 1 else ''} "
                      f"{_row_list(sorted(set(cuts)))}), cut it at the end of its last {unit} and "

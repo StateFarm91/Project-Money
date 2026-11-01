@@ -357,6 +357,7 @@ def size_label_backed(label: str, width_cm: float | None, height_cm: float | Non
 COLOURWORK_MIN_ROWS = 3              # rows holding two or more colours
 COLOURWORK_MIN_ROW_SHARE = 0.20      # ...as a share of all rows
 COLOURWORK_MIN_MINORITY_SHARE = 0.10  # the minority colour's share of each such row
+COLOURWORK_MIN_RUN = 2               # OPUS2I I-7: adjacent contrast stitches, so dots are not a motif
 _NEEDS_REACH_DOWN = ("mosaic", "overlay", "graphghan")
 _NEEDS_BOBBINS = ("intarsia",)
 _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
@@ -367,15 +368,23 @@ def colourwork_motif(grid) -> dict:
     rows = [[c for c in row if c] for row in grid]
     rows = [r for r in rows if r]
     multi = []
+    runs = []
     for row in rows:
         counts: dict[str, int] = {}
         for c in row:
             counts[c] = counts.get(c, 0) + 1
         if len(counts) >= 2:
             multi.append(min(counts.values()) / len(row))
+            main = max(counts, key=counts.get)
+            longest = current = 0
+            for c in row:
+                current = current + 1 if c != main else 0
+                longest = max(longest, current)
+            runs.append(longest)
     return {"rows": len(rows), "two_colour_rows": len(multi),
             "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
-            "min_minority_share": round(min(multi), 3) if multi else 0.0}
+            "min_minority_share": round(min(multi), 3) if multi else 0.0,
+            "min_contrast_run": min(runs) if runs else 0}
 
 
 def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
@@ -390,12 +399,14 @@ def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
     if claim in _MOTIF_TECHNIQUES:
         ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
               and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
-              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE)
+              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE
+              and motif.get("min_contrast_run", 0) >= COLOURWORK_MIN_RUN)
         return ok, (f"{motif['two_colour_rows']} of {motif['rows']} rows carry two colours "
                     f"(needs >= {COLOURWORK_MIN_ROWS} and >= "
                     f"{COLOURWORK_MIN_ROW_SHARE:.0%}), the scarcest colour is "
                     f"{motif['min_minority_share']:.0%} of such a row (needs >= "
-                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%})")
+                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%}), the shortest contrast run is "
+                    f"{motif.get('min_contrast_run', 0)} st (needs >= {COLOURWORK_MIN_RUN})")
     return False, "an unrecognised colourwork claim backs nothing"
 
 

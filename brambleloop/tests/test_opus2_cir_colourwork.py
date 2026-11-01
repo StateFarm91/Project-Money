@@ -44,11 +44,11 @@ def _tapestry(main="natural", contrast="rust", colors=None) -> CIR:
     colors = colors if colors is not None else {"natural": "#EFE6D2", "rust": "#A4502C"}
     rows = [Row(1, [Op("sc", 6)], declared_count=6, color=main),
             Row(2, [Op("inc", 6)], declared_count=12, color=main),
-            Row(3, [Repeat([Op("sc", 3), Op("sc", 1, color=contrast)], times=3)],
+            Row(3, [Repeat([Op("sc", 2), Op("sc", 2, color=contrast)], times=3)],
                 declared_count=12, color=main),
-            Row(4, [Repeat([Op("sc", 2), Op("sc", 2, color=contrast)], times=3)],
+            Row(4, [Repeat([Op("sc", 1), Op("sc", 2, color=contrast), Op("sc", 1)], times=3)],
                 declared_count=12, color=main),
-            Row(5, [Repeat([Op("sc", 3), Op("sc", 1, color=contrast)], times=3)],
+            Row(5, [Repeat([Op("sc", 2), Op("sc", 2, color=contrast)], times=3)],
                 declared_count=12, color=main),
             Row(6, [Op("sc", 12)], declared_count=12, color=main)]
     return CIR(slug="tapestry-fixture", title="Tapestry Fixture", version="1.0.0",
@@ -73,11 +73,12 @@ def test_the_writer_names_the_contrast_and_the_reverse_compiler_reads_it_back():
     cir = _tapestry()
     result = compile_cir(cir)
     text = writer.write_pattern(cir, result)
-    assert "sc in next st with rust" in text, text
+    assert "sc in next 2 sts with rust" in text, text
     findings = reverse.compare(cir, text)
     assert not [f for f in findings if f.severity == "ERROR"], findings
     # A document that drops the contrast describes a different fabric: it is a mismatch.
     plain = text.replace(" with rust", "")
+    assert plain != text
     assert [f for f in reverse.compare(cir, plain) if f.severity == "ERROR"]
 
 
@@ -132,7 +133,7 @@ def test_the_twin_paints_each_stitch_and_fabric_truth_backs_a_colourwork_claim()
     result = compile_cir(cir)
     twin = build_twin(cir, result)
     band = [c for c in twin.cells if c.row == 3]
-    assert [c.color for c in band][:4] == ["natural"] * 3 + ["rust"]
+    assert [c.color for c in band][:4] == ["natural"] * 2 + ["rust"] * 2
     assert {c.color for c in twin.cells if c.row == 6} == {"natural"}
     assert set(twin.yarn_metres_by_color) == {"natural", "rust"}
     assert twin.yarn_metres_by_color["rust"] < twin.yarn_metres_by_color["natural"]
@@ -211,7 +212,7 @@ def test_review_opus2h_h22_a_contrast_left_at_the_other_edge_is_cut_and_carry_is
               components=[Component("panel", "flat_rows", foundation=12, rows=rows)],
               colors={"natural": "#EFE6D2", "rust": "#A4502C"})
     plan = CC.analyse(cir)["panel"]
-    assert plan.tapestry_rows == [2, 4] and plan.cut == 1 and plan.ends == 6, plan
+    assert plan.tapestry_rows == [2, 4] and plan.tapestry_cuts == 1 and plan.ends == 6, plan
     line = CC.instruction(plan)
     assert "Colourwork rows 2 and 4" in line and "cut it" in line, line
     assert "2-4" not in line
@@ -232,6 +233,122 @@ def test_review_opus2h_h23_h24_h26_colour_errors_fail_at_compile():
     rose = _tapestry(contrast="Dusty Rose",
                      colors={"natural": "#EFE6D2", "Dusty Rose": "#C9A0A0"})
     assert "COLOUR_KEY_UNWRITABLE" in codes(rose)
+
+
+def _truth(cir, title, tags=()):
+    import dataclasses
+
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.gates import first_customer as FCG
+    from brambleloop.products import launch0 as L
+
+    claimed = dataclasses.replace(cir, title=title)
+    twin = build_twin(claimed, compile_cir(claimed))
+    return L.fabric_truth(claimed, twin), FCG.colourwork_findings(claimed, twin, title=title,
+                                                                    tags=tags)
+
+
+def _band(rows_spec, total_rows=6):
+    """rows_spec: {row index: ops}; other rows plain natural, 12 sts."""
+    rows = [Row(1, [Op("sc", 6)], declared_count=6, color="natural"),
+            Row(2, [Op("inc", 6)], declared_count=12, color="natural")]
+    for i in range(3, total_rows + 1):
+        rows.append(Row(i, rows_spec.get(i, [Op("sc", 12)]), declared_count=12,
+                        color="natural"))
+    return CIR(slug="band", title="Band", version="1.0.0", construction="joined_rounds",
+               gauge=Gauge(18, 20), colors={"natural": "#EFE6D2", "rust": "#A4502C"},
+               components=[Component("body", "joined_rounds", foundation=0,
+                                     foundation_kind="magic_ring", rows=rows)])
+
+
+def test_review_opus2i_i2_the_listing_gate_shares_the_technique_rule():
+    token = _band({3: [Op("sc", 11), Op("sc", 1, color="rust")]})
+    truth, findings = _truth(token, "Overlay Mosaic Intarsia Basket",
+                             tags=("mosaic", "fair isle", "intarsia"))
+    assert truth["backed"] is False
+    claimed = {f.split("claims ")[1].split(";")[0] for f in findings}
+    assert {"'mosaic'", "'fair isle'", "'intarsia'"} <= claimed, findings
+    band = _tapestry()
+    truth, findings = _truth(band, "Tapestry Basket", tags=("tapestry",))
+    assert truth["backed"] is True and findings == [], findings
+    truth, findings = _truth(band, "Tapestry Mosaic Basket")       # all, never any (I-5 C14)
+    assert truth["backed"] is False and any("'mosaic'" in f for f in findings)
+
+
+def _flat_band(width, spec, total=6):
+    rows = [Row(i, spec.get(i, [Op("sc", width)]), declared_count=width, turning_chain=1,
+                color="natural") for i in range(1, total + 1)]
+    return CIR(slug="flat-band", title="Flat Band", version="1.0.0", construction="flat_rows",
+               gauge=Gauge(18, 20), colors={"natural": "#EFE6D2", "rust": "#A4502C"},
+               components=[Component("panel", "flat_rows", foundation=width, rows=rows)])
+
+
+def test_review_opus2i_i5_i7_each_threshold_is_pinned_at_its_boundary():
+    """Each case fails exactly one rule, so each threshold mutated to zero is caught."""
+    from brambleloop.products import launch0 as L
+
+    def backed(width, spec, total=6):
+        return _truth(_flat_band(width, spec, total), "Tapestry Panel")[0]["backed"]
+
+    two = [Op("sc", 5), Op("sc", 2, color="rust"), Op("sc", 5)]      # 16.7%, run 2
+    assert backed(12, {2: two, 3: two, 4: two})                       # all rules pass
+    assert not backed(12, {2: two, 3: two})                           # MIN_ROWS only
+    assert not backed(12, {2: two, 3: two, 4: two}, total=16)         # ROW_SHARE only (3/16)
+    thin = [Op("sc", 11), Op("sc", 2, color="rust"), Op("sc", 11)]    # 2/24 = 8.3%, run 2
+    assert not backed(24, {2: thin, 3: thin, 4: thin})                # MINORITY_SHARE only
+    dots = [Op("sc", 2), Op("sc", 1, color="rust"), Op("sc", 5), Op("sc", 1, color="rust"),
+            Op("sc", 3)]                                              # 16.7%, run 1
+    assert not backed(12, {2: dots, 3: dots, 4: dots})                # MIN_RUN only (I-7)
+    assert (L.COLOURWORK_MIN_ROWS, L.COLOURWORK_MIN_ROW_SHARE,
+            L.COLOURWORK_MIN_MINORITY_SHARE, L.COLOURWORK_MIN_RUN) == (3, 0.20, 0.10, 2)
+
+
+def test_review_opus2i_i4_a_tapestry_cut_is_not_a_stripe_cut():
+    from brambleloop.cir import colour_changes as CC
+
+    def row(i, ops, colour):
+        return Row(i, ops, declared_count=12, turning_chain=1, color=colour)
+    rows = [row(1, [Op("sc", 12)], "natural"), row(2, [Op("sc", 12)], "natural"),
+            row(3, [Op("sc", 12)], "sage"), row(4, [Op("sc", 12)], "sage"),
+            row(5, [Op("sc", 12)], "natural"),
+            row(6, [Op("sc", 6), Op("sc", 6, color="rust")], "natural"),
+            row(7, [Op("sc", 12)], "natural"),
+            row(8, [Op("sc", 6, color="rust"), Op("sc", 6)], "natural")]
+    cir = CIR(slug="mixed", title="Mixed", version="1.0.0", construction="flat_rows",
+              gauge=Gauge(18, 20),
+              colors={"natural": "#EFE6D2", "sage": "#9CAF88", "rust": "#A4502C"},
+              components=[Component("panel", "flat_rows", foundation=12, rows=rows)])
+    plan = CC.analyse(cir)["panel"]
+    assert plan.cut == 0 and plan.carry_is_possible, plan          # the stripes carry
+    assert plan.tapestry_cuts == 1 and plan.first_tapestry_cut_row == 8
+    line = CC.instruction(plan)
+    assert "cannot be carried" not in line and "Colourwork rows 6 and 8" in line, line
+
+
+def test_review_opus2i_i5_c19_the_carried_strand_is_charged_exactly():
+    from brambleloop.cir import twin as T
+
+    # 60 stitches, so the carry shows through the 0.1 m rounding of the materials list.
+    rows = [Row(1, [Op("sc", 60)], declared_count=60, turning_chain=1, color="natural"),
+            Row(2, [Op("sc", 30), Op("sc", 30, color="rust")], declared_count=60,
+                turning_chain=1, color="natural")]
+    cir = CIR(slug="carry", title="Carry", version="1.0.0", construction="flat_rows",
+              gauge=Gauge(18, 20), colors={"natural": "#EFE6D2", "rust": "#A4502C"},
+              components=[Component("panel", "flat_rows", foundation=60, rows=rows)])
+    st_cm = 10.0 / 18
+    worked = T._YARN_FACTOR.get("sc", 3.0) * st_cm * 30
+    carried = T.CARRY_FACTOR * st_cm * 30
+    got = T.build_twin(cir, compile_cir(cir)).yarn_metres_by_color["rust"]
+    assert got == round((worked + carried) / 100.0, 1), (got, worked, carried)
+    assert got > round(worked / 100.0, 1)                       # the carry moves the figure
+
+
+def test_review_opus2i_i6_a_coloured_chain_is_stated():
+    cir = _tapestry()
+    cir.components[0].rows[5] = Row(6, [Op("sc", 11), Op("ch", 1, color="rust")],
+                                    declared_count=12, color="natural")
+    codes = {f.code for f in compile_cir(cir).findings}
+    assert "COLOUR_ON_CHAIN" in codes, codes
 
 
 if __name__ == "__main__":

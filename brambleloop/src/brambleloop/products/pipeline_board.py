@@ -267,7 +267,7 @@ def stocking_cir(version: str = "0.2.0"):
     """W4-CREATIVE `first-christmas-stocking`, engineered as pattern software from flat pieces.
 
     The brief asked for stranded colourwork in the round with a turned heel. The CIR cannot
-    express per-stitch colour (`launch0.per_stitch_colour_expressible()` is False) and the
+    express a mosaic or intarsia claim (`launch0.technique_backed` refuses both; per-stitch colour alone backs only a measured tapestry motif) and the
     tiler makes flat rows, so that stocking cannot be written truthfully today. This one can,
     and its title says what it is ("Relief", not colourwork):
 

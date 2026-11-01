@@ -364,6 +364,14 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
                     ERROR, "COLOUR_ON_NON_STITCH",
                     f"{op.stitch} makes no stitch, so it cannot be worked in {op.color!r}",
                     comp.name, row.index))
+            elif getattr(op, "color", None) and op.stitch == "ch":
+                # OPUS2I I-6: allowed (a contrast chain is real), but stated: it changes which
+                # yarn is carried across the chain space.
+                findings.append(Finding(
+                    WARNING, "COLOUR_ON_CHAIN",
+                    f"a chain worked in {op.color!r}: the main colour is carried across the "
+                    f"chain space, which the written pattern does not describe",
+                    comp.name, row.index))
         if stitch_colours and not row.color:
             findings.append(Finding(
                 ERROR, "STITCH_COLOUR_WITHOUT_ROW_COLOUR",
