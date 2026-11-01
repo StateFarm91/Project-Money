@@ -198,11 +198,22 @@ def architecture(db) -> dict:
                        f"needs {BABY_KIDS_DEPTH} (an empty department is worse than none)"}
     by_family: dict[str, list[str]] = {}
     by_age: dict[str, list[str]] = {}
+    from .family_engine import CULTURE_FAMILY_PREFIX
+
     for k in kids:
-        by_family.setdefault(k["family"], []).append(k["slug"])
+        # Review OPUS2I F-5: the storefront navigation groups by a checked family only; a
+        # culture family (one signal, no visual-identity check) is listed as a single.
+        fam = k["family"]
+        by_family.setdefault("single" if fam.startswith(CULTURE_FAMILY_PREFIX) else fam,
+                             []).append(k["slug"])
         by_age.setdefault(k["age_range"], []).append(k["slug"])
+    culture = sorted({k["family"] for k in kids if k["family"].startswith(CULTURE_FAMILY_PREFIX)})
     return {"propose_collection": True, "section": "Baby & Kids",
-            "children_certified": len(kids), "navigation": {
+            "children_certified": len(kids),
+            "planned": {"internal": True, "culture_families": culture,
+                        "why": "one cultural signal, no shared-visual-identity check: planning "
+                               "data only, never a navigation group"},
+            "navigation": {
                 "by_family": by_family,
                 "by_age_range": ({a: v for a, v in by_age.items() if a != UNMEASURED}
                                  or UNMEASURED)},

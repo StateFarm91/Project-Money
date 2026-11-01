@@ -58,7 +58,8 @@ def test_one_signal_translated_across_types_is_one_family():
     families = {f["family"]: f for f in rep["families"]}
     aurora = families["culture:sig-aurora"]
     assert sorted(m["slug"] for m in aurora["members"]) == ["aurora-stocking", "aurora-throw"]
-    assert aurora["distinct_designs"] == 2 and aurora["bundle_ready"] is True
+    assert aurora["distinct_designs"] == 2
+    assert aurora["bundle_ready"] is False         # OPUS2I F-5: never derived as a set
     assert [m["slug"] for m in families["culture:sig-harbour"]["members"]] == ["harbour-throw"]
     assert "unrelated-coaster" in rep["single_products"]
     # The family grows: the signal's concept not yet made is its next member; a rejected one
@@ -141,7 +142,11 @@ def test_review_opus2g_f2_the_childrens_architecture_reads_the_culture_family_to
         _certified(db, slug, rows=4 + 2 * i)
     arch = children.architecture(db)
     assert arch["propose_collection"] is True, arch
-    assert sorted(arch["navigation"]["by_family"].get("culture:sig-aurora", [])) == sorted(slugs)
+    # Read through the culture family (F-2), but never grouped under it in the navigation (F-5).
+    by_family = arch["navigation"]["by_family"]
+    assert "culture:sig-aurora" not in by_family and sorted(by_family["single"]) == sorted(slugs)
+    assert all(k == "single" for k in by_family)
+    assert arch["planned"]["culture_families"] == ["culture:sig-aurora"]   # db passed (F-2)
 
 
 if __name__ == "__main__":
