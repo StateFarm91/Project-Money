@@ -149,7 +149,7 @@ The runs were made one at a time with `cd brambleloop && PYTHONPATH=src:tests ni
 
 I also re-ran the prior review's `test_secreview_physfix_b8d3dee_probes.py` against c99dde9. P1–P5 were all ok, and P5 is now refused (§1).
 
-The 89eef1e probe file needed the repo's `requirements.txt` installed first. The container started without `sqlalchemy` or `fastapi`, and those first attempts were discarded. They are not counted above.
+The container started without `sqlalchemy` or `fastapi`, so a first attempt at the whole list failed on import. I installed `requirements.txt`, discarded that attempt and re-ran everything. They are not counted above.
 
 ### 6.1 The flaky timing test: `test_p09_a_finalize_failure_fails_the_run_and_never_fails_open`
 
