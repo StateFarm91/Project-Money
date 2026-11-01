@@ -652,6 +652,12 @@
       "date": "2026-10-31",
       "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
       "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
+    },
+    {
+      "id": "I-B4-R40-DEFER",
+      "recorded": "2026-11-01T08:05Z",
+      "decision": "Batch 4 is certified and deployed without the R40-R42 follow-up (claude/w4-PHYSFIX-R40 43021c1e). R40 is Low, fail-open, and unreachable in production until an owner-commissioned independent tester's passing make allows an owner size-halt lift; the fix is not yet tested or reviewed. It goes through tests + independent review into Batch 5 and is disclosed in the Batch 4 deploy-approval request. Not waived.",
+      "reason": "Owner directive 2026-11-01 section 3: investigate by severity and release requirements; do not silently waive a fail-open issue. Adding it now would add a review cycle to Batch 4 for no production effect."
     }
   ],
   "production_observations": [
