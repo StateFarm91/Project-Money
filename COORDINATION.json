@@ -250,6 +250,16 @@
       "scope": "culture/classify.py catches the classifier TimeoutError: files nothing, counts the unknown spend once at the reservation estimate (never zero), releases the reservation, never re-sends (F-307/F-339 unchanged)",
       "not_touching": "gateway/paid_calls.py, gateway/anthropic.py (the anti-double-spend protocol), runtime/release.py",
       "evidence": "tests/test_opus2_culture_sweep_timeout.py 3/3 (2 fail on the unfixed code with the production TimeoutError); culture, spend-governance, provider-boundary, resume-runner, vacuity suites (10) exit 0"
+    },
+    {
+      "id": "OPUS2-FAMILY-MEMBERSHIP",
+      "operator": "opus2",
+      "branch": "opus2/p0-family-membership",
+      "state": "ready_for_review",
+      "area": "P0 product-family development for products discovered after the opening pool",
+      "scope": "creative.family_engine.family_of reads a declared family from culture_concepts (the cultural signal a concept was translated from, matched by product_slug or slug) when the radar POOL has none; a culture family's next members are the signal's other live concepts. Never inferred from category or palette.",
+      "not_touching": "culture engine, W-CONCEPT concept generation, radar POOL",
+      "evidence": "tests/test_opus2_family_membership.py 2/2; 10 suites reading family_engine/children/cross_sell/amplify exit 0"
     }
   ],
   "unowned": [
@@ -265,7 +275,7 @@
         "src/brambleloop/culture/classify.py",
         "src/brambleloop/runtime/release.py (handle_culture_sweep)"
       ],
-      "state": "claimed",
+      "state": "unowned",
       "recorded": "2026-11-01T07:05Z",
       "claimed_by": "opus2",
       "claimed_at": "2026-11-01T09:20Z"

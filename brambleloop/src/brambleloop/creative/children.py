@@ -188,7 +188,7 @@ def architecture(db) -> dict:
         c = launch0.candidate_for_cir(r["slug"])
         audience = getattr(c, "audience", "") if c else ""
         if is_children(audience=audience or "", title=(r["cir"] or {}).get("title", "")):
-            fam, _src = family_of(r["slug"])
+            fam, _src = family_of(r["slug"], db)
             kids.append({"slug": r["slug"], "family": fam or "single",
                          "age_range": audience or UNMEASURED})
     if len(kids) < BABY_KIDS_DEPTH:
