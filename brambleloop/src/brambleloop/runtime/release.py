@@ -3098,13 +3098,13 @@ def handle_physical_record(ctx: JobContext) -> dict:
                  if inc.halts_publication and inc.product_slug == slug
                  and str(inc.signature).startswith(f"{PHYSICAL_SIZE_HALT}:")]
         if halts:
-            # R31, display only: whether this release has the geometry of a failed one.
-            failed_digests = {r.get("design_digest") for inc in halts
-                              for r in measured_releases(inc.detail)} | {
-                (inc.detail or {}).get("design_digest_for_audit") for inc in halts}
-            same = bool(design) and design in failed_digests
-            failed_versions = sorted({r.get("version") for inc in halts
-                                      for r in measured_releases(inc.detail)} - {None})
+            # R31, display only: whether this release has the geometry of a failed one --
+            # any the product ever had (R35), not only the open halts'.
+            with ctx.db.session() as s:
+                ever = failed_releases_ever(s, slug)
+            failed_digests = {r.get("design_digest") for r in ever} - {None}
+            same = not design or design in failed_digests
+            failed_versions = sorted({r.get("version") for r in ever} - {None})
             review = review or _route_conflict_to_owner(
                 ctx, slug, version, row_id, [inc.id for inc in halts],
                 same_geometry=same, failed_versions=failed_versions)
@@ -3172,8 +3172,11 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
         # SECREVIEW 33cbfc5 R30: a repeat failure restates this incident. The measured
         # releases are APPEND-ONLY -- never overwritten -- so the first release measured wrong
         # can never drop out of the re-release check or the withholding of the lift.
+        # SECREVIEW b8d3dee R36: locked, so a concurrent lift cannot resolve it between this
+        # read and the append below (PostgreSQL; SQLite serialises writers).
         existing = s.scalar(select(Incident).where(Incident.signature == signature,
-                                                   Incident.resolved == False))  # noqa: E712
+                                                   Incident.resolved == False)  # noqa: E712
+                            .with_for_update())
         releases = measured_releases(existing.detail) if existing is not None else []
         releases.append(entry)
         first = releases[0]
@@ -3201,6 +3204,9 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
     return signature
 
 
+_SAME_YES = "YES (a lift on it also needs same_design_confirmed)"
+
+
 def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: int,
                              incidents: list[int], *, same_geometry: bool = False,
                              failed_versions: list[str] | None = None) -> str:
@@ -3221,7 +3227,8 @@ def _route_conflict_to_owner(ctx: JobContext, slug: str, version: str, row_id: i
                         f"size, but an earlier make of {slug} did not (open size halt "
                         f"incident(s) {incidents}; measured wrong: "
                         f"{', '.join(failed_versions or []) or 'unrecorded'}). Same geometry "
-                        f"as a failed release: {'YES' if same_geometry else 'no'}. Compare "
+                        f"as a failed release: "
+                        f"{_SAME_YES if same_geometry else 'no'}. Compare "
                         f"the records and photos. The Command Center lift "
                         f"({SIZE_HALT_LIFT_ACTION}, step-up, naming the incident and sample "
                         f"{row_id}) accepts only a full make by an independent tester of a "
@@ -3258,6 +3265,52 @@ def measured_releases(detail: dict | None) -> list[dict]:
         one = detail.get("measured_release") or detail.get("release_scope") or {}
         if isinstance(one, dict) and one.get("version"):
             out = [dict(one, physical_test_id=detail.get("physical_test_id"))]
+    return out
+
+
+def failed_releases_ever(s, slug: str) -> list[dict]:
+    """Every release of `slug` any physical size halt has ever measured at the wrong size.
+
+    SECREVIEW b8d3dee R35: not only open incidents. Read, inside the caller's session, from
+    three independent records, so that none of them alone has to survive:
+
+    - the durable `gate.release_withheld` rows of kind `physical_size_failed` (lifetime_total
+      in `ops.retention`, never pruned) -- the primary record: every release a lift resolved
+      was withheld with one;
+    - the stored releases' withholding record of that kind (`PatternVersion.certificate`);
+    - every `physical-size:` incident of the product, open or resolved (`measured_releases`,
+      the legacy `measured_release` / `release_scope`, and a lift's `withheld_releases`).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Incident, PatternVersion, Product
+    from ..publish import withholding
+
+    out: list[dict] = []
+    for a in s.scalars(select(AuditLog).where(AuditLog.action == withholding.DURABLE_AUDIT,
+                                              AuditLog.artifact.like(f"{slug}@%"))):
+        d = a.detail or {}
+        if d.get("kind") == withholding.PHYSICAL_SIZE_FAILED:
+            out.append({"slug": slug, "version": a.artifact.split("@", 1)[1],
+                        "content_hash": d.get("content_hash"),
+                        "design_digest": d.get("design_digest"), "source": "durable"})
+    product = s.scalar(select(Product).where(Product.slug == slug))
+    if product is not None:
+        for pv in s.scalars(select(PatternVersion).where(PatternVersion.product_id == product.id)):
+            if withholding.PHYSICAL_SIZE_FAILED in withholding._stored(dict(pv.certificate or {})):
+                out.append({"slug": slug, "version": pv.version,
+                            "content_hash": pv.release_hash, "source": "withholding"})
+    for inc in s.scalars(select(Incident).where(
+            Incident.product_slug == slug,
+            Incident.signature.like(f"{PHYSICAL_SIZE_HALT}:%"))):
+        detail = inc.detail or {}
+        for r in measured_releases(detail) + [
+                dict(x) for x in (detail.get("withheld_releases") or []) if isinstance(x, dict)]:
+            out.append({**r, "slug": slug, "source": f"incident {inc.id}"})
+        if detail.get("design_digest_for_audit"):
+            out.append({"slug": slug, "version": None, "content_hash": None,
+                        "design_digest": detail["design_digest_for_audit"],
+                        "source": f"incident {inc.id}"})
     return out
 
 
@@ -3306,7 +3359,11 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         return t.replace(tzinfo=None) - (t.utcoffset() or timedelta(0)) if t else None
 
     with db.session() as s:
-        inc = s.get(Incident, int(incident_id))
+        # SECREVIEW b8d3dee R36: the incident row is locked for the whole lift (PostgreSQL;
+        # SQLite serialises writers), so a concurrent repeat failure cannot append to it
+        # unseen or be overwritten by the resolution.
+        inc = s.scalar(select(Incident).where(Incident.id == int(incident_id))
+                       .with_for_update())
         if (inc is None or inc.resolved or not inc.halts_publication
                 or not str(inc.signature).startswith(f"{PHYSICAL_SIZE_HALT}:")):
             raise SizeHaltLiftRefused(f"no open physical size halt {incident_id}")
@@ -3318,11 +3375,9 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         if not failed:
             raise SizeHaltLiftRefused(f"size halt {incident_id} names no measured release to "
                                       f"withhold; it cannot be lifted")
-        # Every release any open size halt of this product measured: none may be evidence.
-        others = [r for o in s.scalars(select(Incident).where(
-                      Incident.product_slug == slug, Incident.resolved == False,  # noqa: E712
-                      Incident.signature.like(f"{PHYSICAL_SIZE_HALT}:%")))
-                  if o.id != inc.id for r in measured_releases(o.detail)]
+        # R35: every release ANY size halt of this product ever measured wrong -- open or
+        # resolved, withheld or not -- is refused as evidence.
+        others = failed_releases_ever(s, slug)
         m = row.measured or {}
         problems = []
         if row.passed is not True:
@@ -3339,19 +3394,25 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
             problems.append("the sample names no examined release text")
         else:
             hit = [r for r in failed + others
-                   if row.version == r.get("version")
-                   or m.get("content_hash") == r.get("content_hash")]
+                   if (r.get("version") and row.version == r.get("version"))
+                   or (r.get("content_hash") and m.get("content_hash") == r.get("content_hash"))]
             if hit:
                 problems.append(
                     "the sample is of a release a size halt measured at the wrong size ("
                     + ", ".join(sorted({f"{slug}@{r.get('version')}" for r in hit}))
                     + "), not a re-released version")
+        # R31, refuse-only, against every failed geometry of the product (R35, R38). A sample
+        # with no recorded digest has unknown geometry and is treated as the same (R37).
         digests = {d for d in [(inc.detail or {}).get("design_digest_for_audit")]
-                   + [r.get("design_digest") for r in failed] if d}
-        same_geometry = bool(m.get("design_digest") and m.get("design_digest") in digests)
+                   + [r.get("design_digest") for r in failed + others] if d}
+        sample_digest = m.get("design_digest")
+        same_geometry = not sample_digest or sample_digest in digests
         if same_geometry and same_design_confirmed is not True:
-            problems.append("the sample's release has the same geometry as a release measured "
-                            "at the wrong size; lifting on it needs same_design_confirmed")
+            problems.append(
+                ("the sample records no design digest, so its geometry is unknown"
+                 if not sample_digest else
+                 "the sample's release has the same geometry as a release measured at the "
+                 "wrong size") + "; lifting on it needs same_design_confirmed")
         opened, done = _naive(inc.at), _naive(row.completed_at)
         if done is None or opened is None or done <= opened:
             problems.append("the sample was not recorded after the halt opened")
