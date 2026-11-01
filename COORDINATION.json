@@ -556,10 +556,34 @@
     {
       "subject": "OPUS2 F (listing job + owner-queue races)",
       "sha": "f779fac2 / ccb3e8e4",
-      "verdict": "PENDING",
+      "verdict": "CHANGES_REQUIRED",
       "report_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "notes": "",
+      "notes": "review F findings A-1..A-8 / B-1..B-6; fixes re-reviewed as OPUS2EF2 (below)",
       "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review E fixes (draft constructions, size gate)",
+      "sha": "0e941757",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-1 MEDIUM (title_promise counts straps; tote second objects/features), EF2-2 test gap required; EF2-3/3b follow-up. PR #3 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part A fixes (listing-package job)",
+      "sha": "b42f4245",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-4 MEDIUM required (READY->BLOCKED->READY never re-asks the owner); EF2-5 follow-up. PR #5 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part B fixes (owner-queue races)",
+      "sha": "007f5d1c",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
     }
   ],
   "integration": {
@@ -628,6 +652,15 @@
         "no_unexpected_dead_letters_in_24h"
       ],
       "notes": "all other 12 checks pass (shadow, nothing published, worker alive, scheduler ticking). Dead-letter detail needs ops token or readback token; integrator does not read secrets. Same check failed 2026-10-27 and recovered by 2026-10-31."
+    },
+    {
+      "observed": "2026-11-01T06:50Z",
+      "what": "Batch 4 certification run 20261101T053634Z-559 on e43eeafe failed test_final_closure_matrix::test_the_committed_matrix_is_exactly_its_adjudication ('F-076','IMPLEMENTED','INTEGRATED'). Real regression in records, not timing: PHYSFIX 626afdf8 replaced the test F-076 cites. Fix claude/w4-INTEG8-certfix 5d435403 (evidence override + regenerated matrix). The run is left to finish for the full failure list; a fresh full run certifies (never a resumed one).",
+      "production_verify": "/api/verify ok=false: only no_unexpected_dead_letters_in_24h failing (unchanged); details need the owner action recorded earlier."
     }
-  ]
+  ],
+  "reviews_in_flight": {
+    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "items": []
+  }
 }

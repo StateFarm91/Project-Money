@@ -56,11 +56,15 @@ the production owner-action evidence
 
 | Etsy listing | resolved name (Ravelry, same designer) | Ravelry price | inclusion |
 |---|---|---|---|
-| https://www.etsy.com/listing/1438034001/crochet-pattern-videotwo-toned-nesting | **Two-Toned Nesting Baskets** | US$7.00 VERIFIED | item 2 below |
-| https://www.etsy.com/listing/1767833856/crochet-pattern-video-fall-for-granny | **Fall For Granny Baskets** | US$6.00 VERIFIED | item 3 below |
+| https://www.etsy.com/ca/listing/4295011799/ (owner-supplied link) | **Homebody Baskets** | US$7.00 VERIFIED (Ravelry, 2026-11-01) | item 2 below |
+| https://www.etsy.com/ca/listing/1767833856/ (owner-supplied link; slug `crochet-pattern-video-fall-for-granny`) | **Fall For Granny Baskets** | US$6.00 VERIFIED | item 3 below |
 
-- **Inference, to confirm:** I matched each listing to its name through the URL slug plus the
-  designer's catalogue. The repo stores only the slug and the listing ID, not the title.
+- **Correction (2026-11-01, owner directive of 2026-11-01 §7):** checked against the two links
+  the owner supplied. Fall For Granny (1767833856) matched. The second benchmark is **Homebody
+  Baskets** (Etsy 4295011799; Ravelry `homebody-baskets`, MJ's Off The Hook Designs, super
+  bulky, published April 2025, US$7.00), **not** Two-Toned Nesting Baskets (Etsy 1438034001),
+  which the earlier draft had inferred from a URL slug. Two-Toned Nesting is no longer in the
+  proposal. Same price, so every total below is unchanged.
 - Both listings stay as commercial benchmarks for the monitoring registry whether or not they
   are bought. Buying them adds the instruction-level teardown.
 - They are the closest commercial comparators to Brambleloop's own Launch-0 baskets:
@@ -102,7 +106,7 @@ All prices are pattern-only, before FX margin and tax.
 | # | designer | pattern | category | price | CA$ | status | gaps | cumulative CA$ |
 |---|---|---|---|---|---|---|---|---|
 | 1 | MJ's Off The Hook Designs | Potted Paradise Mosaic Basket | baskets / home décor / mosaic | US$6.00 | 8.38 | VERIFIED | 1, 2, 3, 5 | 8.38 |
-| 2 | MJ's Off The Hook Designs | Two-Toned Nesting Baskets | baskets (owner benchmark) | US$7.00 | 9.77 | VERIFIED | 1, 5 | 18.15 |
+| 2 | MJ's Off The Hook Designs | Homebody Baskets | baskets (owner benchmark) | US$7.00 | 9.77 | VERIFIED | 1, 5 | 18.15 |
 | 3 | MJ's Off The Hook Designs | Fall For Granny Baskets | baskets / seasonal (owner benchmark) | US$6.00 | 8.38 | VERIFIED | 1, 4, 5 | 26.53 |
 | 4 | Chabepatterns (Maria Isabel) | Anthera Tapestry Bag | bags / tapestry | US$4.70 | 6.56 | VERIFIED | 1, 2, 3 | 33.09 |
 | 5 | MJ's Off The Hook Designs | Halo Hugs V-Neck Sweater | women's garments | US$10.00 | 13.96 | VERIFIED | 1, 5 | **47.05** |
@@ -170,23 +174,25 @@ The same notes apply to every item unless an entry says otherwise.
 - **Duplication:** none. Not in either earlier plan, and neither owned benchmark is worked in
   the round or uses mosaic.
 
-### 2. Two-Toned Nesting Baskets (MJ's Off The Hook Designs): owner-preserved benchmark
+### 2. Homebody Baskets (MJ's Off The Hook Designs): owner-preserved benchmark
 
-- **Source:** https://www.ravelry.com/patterns/library/two-toned-nesting-baskets. Etsy listing
-  https://www.etsy.com/listing/1438034001/crochet-pattern-videotwo-toned-nesting.
-- **Price:** US$7.00, which is CA$9.77. VERIFIED on Ravelry; Etsy price UNVERIFIED.
-- **Specification:** S/M/L, seamless in the round, bulky yarn, HDC, video.
+- **Source:** the owner's link https://www.etsy.com/ca/listing/4295011799/; Ravelry
+  https://www.ravelry.com/patterns/library/homebody-baskets.
+- **Price:** US$7.00, which is CA$9.77. VERIFIED on Ravelry 2026-11-01; Etsy checkout price
+  UNVERIFIED (confirm at checkout; buy wherever the owner prefers, at or below CA$9.77 + FX/tax).
+- **Specification:** super bulky yarn, published April 2025. The size range and construction
+  details are read at teardown, not assumed here.
 - **Learning objectives:**
-  - how a commercial best-seller presents nesting sizes;
+  - how a current MJ's best-seller presents a basket family in super bulky yarn;
   - the base increase scheme and the stop-increasing point;
-  - the colour-change join in rounds;
-  - how sizes are stated against the finished dimensions.
+  - how sizes are stated against finished dimensions.
 - **Gap:** in-the-round vessels, multi-size grading.
-- **Relevance:** direct commercial comparator for `market-basket-small/medium/large` and the
-  held `nursery-nesting-baskets`. It is also a check on our size-claim gate.
-- **Licence:** a free web version also exists. The PDF purchase adds the formatted
-  instruction layout, which is what is studied.
-- **Duplication:** **in earlier plan** (2026-10-19 card). None against the owned benchmarks.
+- **Relevance:** direct commercial comparator for `market-basket-small` and the held
+  `nursery-nesting-baskets`; also a check on our size-claim gate.
+- **Licence:** personal-use pattern purchase; studied for structure only. No text, chart or
+  photograph is copied (non-negotiable).
+- **Duplication:** replaces the earlier draft's Two-Toned Nesting entry. None against the
+  owned benchmarks.
 
 ### 3. Fall For Granny Baskets (MJ's Off The Hook Designs): owner-preserved benchmark
 
