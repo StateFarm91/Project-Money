@@ -293,6 +293,39 @@ def test_review_opus2f_a8_one_release_failing_to_record_does_not_stop_the_sweep(
     assert keys[1] == f"{cir.slug}@{cir.version}" and "error" not in out["results"][1]
 
 
+def test_review_opus2ef2_ef24_ready_blocked_ready_asks_the_owner_again():
+    db, cir, _rh = _release("ef24")
+    pkg = LP.assemble(db, cir.slug, cir.version)
+    ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "f" * 64}
+    blocked = {**pkg, "state": LP.BLOCKED,
+               "blockers": [{"source": "fixture", "why": "transient"}], "fingerprint": "9" * 64}
+    assert LP.record(db, ready)["review_requested"] is True
+    assert LP.record(db, blocked)["review_withdrawn"] is True
+    back = LP.record(db, ready)                  # same content again: the owner never answered
+    assert back["review_requested"] is True, back
+    assert len(_requests(db, cir, open_only=True)) == 1
+    # A withdrawal by the owner, unlike the job's own supersede, is an answer: not re-asked.
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.done == False,  # noqa: E712
+                                                 OwnerAction.requirement_key.like(
+                                                     f"{LP.ACTION_PREFIX}%")))
+        row.done, row.state = True, "withdrawn"
+    assert LP.record(db, ready)["review_requested"] is False
+
+
+def test_review_opus2ef2_ef25_a_request_under_the_legacy_key_is_superseded():
+    db, cir, _rh = _release("ef25")
+    legacy = f"{LP.ACTION_PREFIX}{cir.slug}@{cir.version}"
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key=legacy, action="old review", reason="r"))
+    ready = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": [],
+             "fingerprint": "7" * 64}
+    out = LP.record(db, ready)
+    assert out["review_requested"] is True and out["review_withdrawn"] is True
+    open_ = _requests(db, cir, open_only=True)
+    assert len(open_) == 1 and open_[0].requirement_key.endswith("7" * 16)
+
+
 def test_an_uncertified_or_unlisted_release_gets_no_package():
     db = _db("empty")
     assert LP.certified_releases(db) == [] and LP.assemble(db, "nope", "1.0.0") is None

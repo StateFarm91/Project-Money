@@ -241,14 +241,22 @@ def render(package: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _owner_closed() -> frozenset:
+    from ..ops import owner_queue
+
+    return frozenset({owner_queue.SATISFIED, owner_queue.WITHDRAWN})
+
+
 def record(db, package: dict, *, now: datetime | None = None) -> dict:
     """Store the package durably (one reading per release, rewritten only when it changed) and
     keep the owner's review request in step with its state."""
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
 
     from ..core.artifacts import ArtifactStore
     from ..core.models import OperatingReading, OwnerAction
     from ..ops import owner_queue
+
+    _OWNER_CLOSED = _owner_closed()
 
     now = now or datetime.now(timezone.utc)
     key = f"{package['slug']}@{package['version']}"
@@ -282,8 +290,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
         # request the owner already closed for THIS content is never raised again; a request
         # for older content is superseded when the content changes or is blocked again.
         current = f"{action_key}:{package['fingerprint'][:16]}"
-        rows = list(s.scalars(select(OwnerAction).where(
-            OwnerAction.requirement_key.like(f"{action_key}:%"))))
+        # Review OPUS2EF2 EF2-5: the unfingerprinted key from the first version of this job
+        # (exactly `action_key`) is matched too, so a request left under it is superseded
+        # rather than orphaned beside the fingerprinted one.
+        rows = list(s.scalars(select(OwnerAction).where(or_(
+            OwnerAction.requirement_key.like(f"{action_key}:%"),
+            OwnerAction.requirement_key == action_key))))
         raised = closed = False
         for stale in rows:
             if not stale.done and (package["state"] != READY
@@ -295,7 +307,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
                             "replaces this one")
                 owner_queue.close(stale, owner_queue.SUPERSEDED, why[:400], now=now)
                 closed = True
-        already = any(r.requirement_key == current for r in rows)
+        # Review OPUS2EF2 EF2-4: only an open request, or one the OWNER closed (satisfied or
+        # withdrawn), stands for this content. A request this job superseded itself (the
+        # package was blocked for a while, then came back unchanged) is not the owner's answer,
+        # so the owner is asked again rather than never.
+        already = any(r.requirement_key == current
+                      and (not r.done or r.state in _OWNER_CLOSED) for r in rows)
         if package["state"] == READY and not already:
             title = ((package.get("copy") or {}).get("title") or key)[:90]
             s.add(OwnerAction(

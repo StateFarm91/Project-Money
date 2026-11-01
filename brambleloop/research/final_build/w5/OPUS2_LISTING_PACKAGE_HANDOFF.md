@@ -76,3 +76,12 @@ shadow, roles and close5 rows3.
 
 Implemented: yes. Independently reviewed, integrated, certified, deployed, production verified,
 end-to-end: **no**.
+
+## Review OPUS2EF2 fixes (2026-11-01)
+
+| Finding | Fix | Test |
+|---|---|---|
+| EF2-4 MED: READY → BLOCKED → READY never re-asks | Only an open request, or one the owner closed (satisfied or withdrawn), stands for a fingerprint. A request this job superseded itself counts as absent. | `test_review_opus2ef2_ef24_*` (mutation killed) |
+| EF2-5 LOW: requests under the legacy key orphaned | The exact unfingerprinted key `listing_package:<slug>@<version>` is matched and superseded too | `test_review_opus2ef2_ef25_*` |
+
+`tests/test_opus2_listing_package.py` 13/13; `test_vacuity` OK.
