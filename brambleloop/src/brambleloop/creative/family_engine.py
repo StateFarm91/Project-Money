@@ -40,8 +40,22 @@ def structure_fingerprint(cir_json: dict) -> str:
                           ).hexdigest()[:16]
 
 
-def family_of(slug: str) -> tuple[str | None, str]:
-    """(family key, source) for a certified CIR slug, from the radar pool's declared family."""
+CULTURE_FAMILY_PREFIX = "culture:"
+
+
+def family_of(slug: str, db=None) -> tuple[str | None, str]:
+    """(family key, source) for a certified CIR slug, from a family somebody declared.
+
+    1. The radar pool's declared family (the opening catalogue's design worlds).
+    2. OPUS2 P0-FAMILY-MEMBERSHIP: when `db` is given and the slug is a culture concept's, the
+       cultural signal it was translated from. The culture engine translates one signal across
+       product types (#138: a blanket, a stocking, an ornament from one theme), so the products
+       of one signal are one visual idea sold as a set: a family, declared by the engine's own
+       record (`culture_concepts.signal_key`). Without this every product discovered after the
+       opening pool was a single, and family development and amplification never reached it.
+
+    Never inferred from a category or a palette: a family nobody declared is not one.
+    """
     from ..products import launch0
     from ..radar.opportunity import POOL
 
@@ -50,7 +64,39 @@ def family_of(slug: str) -> tuple[str | None, str]:
     seed = by.get(concept) or by.get(slug)
     if seed is not None and seed.family:
         return seed.family, f"radar.opportunity.POOL[{seed.slug}].family"
+    if db is not None:
+        from sqlalchemy import or_, select
+
+        from ..core.models import CultureConcept
+
+        with db.session() as s:
+            row = s.scalar(select(CultureConcept).where(or_(
+                CultureConcept.product_slug == slug,
+                CultureConcept.slug.in_({slug, concept}))).order_by(CultureConcept.id))
+            if row is not None and (row.signal_key or "").strip():
+                return (f"{CULTURE_FAMILY_PREFIX}{row.signal_key}",
+                        f"culture_concepts[{row.slug}].signal_key")
     return None, "no declared family"
+
+
+def _culture_next_members(db, signal_key: str, certified_slugs: set[str]) -> list[dict]:
+    """A culture family's next members: the same signal's other live concepts, not yet made.
+
+    They go through the ordinary funnel like any concept; listing them here is what lets the
+    family grow instead of each product of a signal being developed as if it stood alone."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureConcept
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CultureConcept).where(
+            CultureConcept.signal_key == signal_key,
+            CultureConcept.status.notin_(("rejected", "withdrawn"))).order_by(
+            CultureConcept.id)))
+    return [{"concept": r.slug, "product_type": r.family, "status": r.status,
+             "route": "culture concept -> creative intake -> cir.draft (the ordinary funnel)"}
+            for r in rows
+            if r.slug not in certified_slugs and (r.product_slug or "") not in certified_slugs][:5]
 
 
 def _certified(db) -> list[dict]:
@@ -87,7 +133,7 @@ def family_report(db) -> dict:
     fams: dict[str, dict] = {}
     singles: list[str] = []
     for r in certified:
-        fam, source = family_of(r["slug"])
+        fam, source = family_of(r["slug"], db)
         if fam is None:
             singles.append(r["slug"])
             continue
@@ -109,6 +155,9 @@ def family_report(db) -> dict:
              for p in POOL if p.family == key and not p.is_bundle
              and p.slug not in certified_slugs),
             key=lambda x: -x["whitespace"])
+        if key.startswith(CULTURE_FAMILY_PREFIX):
+            next_members = _culture_next_members(db, key[len(CULTURE_FAMILY_PREFIX):],
+                                                 certified_slugs)
         out.append({
             "family": key, "source": f["source"], "members": f["members"],
             "distinct_designs": distinct,

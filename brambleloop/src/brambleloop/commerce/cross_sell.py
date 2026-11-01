@@ -27,7 +27,7 @@ def graph(db) -> dict:
     certified = _certified(db)
     slugs = {r["slug"] for r in certified}
     seeds = {p.slug: p for p in POOL}
-    fam_of = {r["slug"]: family_of(r["slug"])[0] for r in certified}
+    fam_of = {r["slug"]: family_of(r["slug"], db)[0] for r in certified}
     section = {}
     for r in certified:
         seed = seeds.get(r["slug"])
