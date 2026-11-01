@@ -76,7 +76,7 @@ the claim when the next word is a material noun ("rope", "cord", "t-shirt yarn")
 ### Tests (subject 1)
 `test_opus2_draft_constructions` 0 failed · `test_opus2_size_claims` 0 failed ·
 `test_opus2_rim_negative` 0 failed · `test_opus2_chain_deadends` 0 failed · `test_vacuity` OK ·
-`test_shadow`: see the Test runs section.
+`test_shadow` was cut off at 900 s (5 OK, 0 failed before the cutoff).
 
 Mutations: M2, M3, M4, M5, M6, M7, M8 and M9 were killed. **M1 and M10 survived.**
 
@@ -126,7 +126,14 @@ open. This matters only if `f779fac2` ever ran against a durable DB.
 *Fix:* also match the exact legacy key, and supersede it.
 
 ### Tests (subject 2)
-See the Test runs section.
+`test_opus2_listing_package` 0 failed · `test_vacuity` OK.
+
+Mutations (each reverted afterwards):
+- **Killed:** A-2 (`already = False`), A-3 (supersede only when blocked), A-4 (blocker off),
+  A-8 (`_try` removed) and A-5 (alt text removed).
+- **Inconclusive:** the A-1 mutation (a non-canonical hash source) failed the suite, but
+  probably through an exception in the mutant itself, not through an assertion. A-1 is still
+  judged fixed by reading the code: the canonical reader is the only hash source.
 
 ---
 
@@ -213,9 +220,9 @@ at a time, after `pip install -r requirements.txt`: the container lacked SQLAlch
 | p0-revenue-workforce | test_opus2_rim_negative | 0 failed |
 | p0-revenue-workforce | test_opus2_chain_deadends | 0 failed |
 | p0-revenue-workforce | test_vacuity | OK |
-| p0-revenue-workforce | test_shadow | PENDING |
-| p0-listing-package | test_opus2_listing_package | PENDING |
-| p0-listing-package | test_vacuity | PENDING |
+| p0-revenue-workforce | test_shadow | cut off by my 900 s timeout: 5 tests OK, 0 failed before the cutoff (not a complete run) |
+| p0-listing-package | test_opus2_listing_package | 0 failed |
+| p0-listing-package | test_vacuity | OK |
 | p1-owner-queue-races | test_opus2_owner_queue_races | 0 failed |
 | p1-owner-queue-races | test_w4_owner_queue_race | OK |
 | p1-owner-queue-races | test_w3_k7_owner_queue | 10 passed |
