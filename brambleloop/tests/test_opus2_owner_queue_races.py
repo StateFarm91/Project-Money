@@ -330,6 +330,30 @@ def test_b5_migrate_defers_the_index_over_duplicates_and_the_dedupe_step_clears_
     assert D.INDEX in {i["name"] for i in inspect(db.engine).get_indexes("owner_actions")}
 
 
+def test_review_opus2ef2_ef27_ensure_returns_the_stored_row_so_later_edits_land():
+    from brambleloop.ops import owner_queue
+
+    db = _db()
+    with db.session() as s:
+        first = owner_queue.ensure(s, "ENS", action="decide", reason="r", max_cost_cad=40.0)
+        first_id = first.id
+    with db.session() as s:
+        row = owner_queue.ensure(s, "ENS", action="decide again", reason="newer",
+                                 max_cost_cad=10.0)
+        assert row.id == first_id and row in s            # the persistent row, not a copy
+        row.why_software_cannot = "KYC"                   # an edit after the write lands
+    [stored] = _open(db, "ENS")
+    assert (stored.action, stored.reason, stored.why_software_cannot) == (
+        "decide again", "newer", "KYC")
+    assert stored.max_cost_known == 40.0                  # the ceiling was not lowered
+    try:
+        with db.session() as s:
+            owner_queue.ensure(s, "  ", action="x")
+        raise AssertionError("a keyless requirement was ensured")
+    except ValueError:
+        pass
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
