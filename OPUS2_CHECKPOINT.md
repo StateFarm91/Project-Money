@@ -108,6 +108,7 @@ worktrees, not this file.
 - 19:30Z note: a same-size mutation (`= 2` → `= 0`) followed by a restore in the same second left a stale `.pyc`, so one test run used MIN_RUN=0. Caches are cleared everywhere, and the affected suites are being rerun. Rule from now on: clear `__pycache__` after every mutation check.
 
 ## Done log
+- 2026-11-01T20:00Z: #9 OPUS2I I-2/I-4/I-5/I-6/I-7/I-8 pushed in `fa02cb49`, commented; re-review requested. Every review I finding is addressed. The queue waits on: re-reviews (#3 I-1, #7 C-4, #8 F-5, #9); first reviews (#10, #11); integrator decisions (P0-NEXT-PRODUCT, motif joins, D-5); C-1 (jobs.last_error).
 - 2026-11-01T19:20Z: #8 F-5 pushed in `d8d80301`, #7 C-4 in `7c3806fc`, both commented.
 - 2026-11-01T19:00Z: review OPUS2I (#5, #6, #7, #8 ACCEPT; #3 I-1 MED; #9 KEEP HOLD on I-2 HIGH). #3 I-1 pushed in `6d6d83d9`, -b4merge `cd9b389b`, commented. In flight, uncommitted:
   - #9 I-2, I-4, I-5, I-6, I-7, I-8: 93-suite run in /tmp/claude-0/cw4_results.txt;
