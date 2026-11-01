@@ -795,3 +795,15 @@ Regression: 104 suites, exit 0 except `test_risk_matrix` (`KeyError('market-bask
 No catalogue `title_promise` verdict changes (26 buildable products compared before and after).
 11 suites that read `title_promise`, `size_claims` or the fallback, plus `test_shadow` and
 `test_vacuity`: exit 0 except the base-owned `test_risk_matrix`.
+
+## 35. Review OPUS2I (558e7ca9): I-1 fixed (2026-11-01)
+
+- I-1 MED: H1-3's whole-word match dropped inflected plural markers ("Sets", "Pairs",
+  "Bundled", "Libraries"). `_plural_marker_pattern` matches each marker as a whole word with its
+  inflections (`s`, `es`, `d`, `ed`; `library` → `libraries`). "Sunset", "Closet" and "Asset"
+  stay backed; every inflected marker is unbacked.
+- I-3 LOW (stated): `<n> baskets of cotton yarn` is still read as contents. This is narrow and
+  reaches no current product.
+
+No catalogue `title_promise` verdict changes (26 products). test_launch0, launch0_listing_truth,
+eligibility, first_customer_gate, size_claims, draft_constructions and vacuity all exit 0.

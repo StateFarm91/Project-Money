@@ -134,6 +134,13 @@ PLURAL_MARKERS: tuple[str, ...] = (
 _COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
 
 
+def _plural_marker_pattern(word: str) -> str:
+    """A multiplicity marker as a whole word with its inflections (OPUS2I I-1)."""
+    if word.endswith("y"):                                  # library -> libraries
+        return rf"\b{re.escape(word[:-1])}(?:y|ies)\b"
+    return rf"\b{re.escape(word)}(?:s|es|d|ed)?\b"
+
+
 def finished_objects(cir: CIR) -> int:
     """How many finished objects the CIR makes: not how many pieces it works.
 
@@ -180,7 +187,9 @@ def title_promise(cir: CIR) -> dict:
         elif token in _COUNT_WORDS:
             claimed = max(claimed or 0, _COUNT_WORDS[token])
     # OPUS2H H1-3: whole words, so "Sunset", "Closet" and "Asset" do not read as "set".
-    plural = [w for w in PLURAL_MARKERS if re.search(rf"\b{re.escape(w)}\b", lowered)]
+    # OPUS2I I-1: with their inflections ("Sets", "Pairs", "Bundled", "Libraries"), so a
+    # plural marker is never dropped by the whole-word rule.
+    plural = [w for w in PLURAL_MARKERS if re.search(_plural_marker_pattern(w), lowered)]
     makes = finished_objects(cir)
 
     if claimed is not None:
