@@ -61,6 +61,13 @@ worktrees, not this file.
   truncated designer PDF crediting a publisher's chart). They stay refused, and the gap stays
   with Codex reference intake.
 
+- 10:30Z loop firing: Batch 4 is CERTIFIED (fa139a78, 10122 passing) and the base is now
+  0967c3ee. PRs #5, #6, #7 and #8 merge cleanly into it. PR #3 conflicts in release_gates.py
+  and withholding.py (REVERIFY-WITHHOLD vs PHYSFIX physical-size kind): both are union
+  resolutions, prepared in the scratch worktree /tmp/claude-0/mt, with the tests running
+  (task b91dvj03c). It goes on a separate branch, opus2/p0-revenue-workforce-b4merge, for
+  the integrator; the frozen PR #3 head is not touched.
+
 ## Done log
 - 2026-11-01T10:20Z: PR #6 EF2-6/EF2-8/B-5 pushed in `61d76d9f`; EF2-7 `ensure()` in `cc8f2b4f`; commented.
 - 2026-11-01T10:15Z: P0-FAMILY-MEMBERSHIP pushed in `0f862a1b`, PR #8 opened.
