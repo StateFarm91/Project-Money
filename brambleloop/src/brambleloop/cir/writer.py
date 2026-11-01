@@ -21,6 +21,13 @@ def _term(code: str, terminology: str) -> str:
 
 
 def write_op(op: Op, terminology: str = "US") -> str:
+    """One op; an op worked in its own colour ends "with <colour>" (P0-CIR-COLOURWORK)."""
+    text = _write_op(op, terminology)
+    colour = getattr(op, "color", None)
+    return f"{text} with {colour}" if colour else text
+
+
+def _write_op(op: Op, terminology: str = "US") -> str:
     code = _term(op.stitch, terminology)
     st = stitches.get(op.stitch)
     n = op.count

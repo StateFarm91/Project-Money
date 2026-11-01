@@ -228,13 +228,14 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
     totals: dict[str, float] = {}
     for r in rows:
         color = r.color or "main"
-        cm = 0.0
         for op in r.ops:
             factor = _YARN_FACTOR.get(op.stitch, 3.0)
-            cm += factor * stitch_width_cm * op.count     # per instance: see _YARN_FACTOR
+            # P0-CIR-COLOURWORK: a stitch worked in its own colour uses that yarn.
+            yarn = getattr(op, "color", None) or color
+            totals[yarn] = totals.get(yarn, 0.0) + factor * stitch_width_cm * op.count
         if r.turning_chain:
-            cm += _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain
-        totals[color] = totals.get(color, 0.0) + cm
+            totals[color] = (totals.get(color, 0.0)
+                             + _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain)
     return {k: round(v / 100.0 * calibration * make, 1) for k, v in totals.items()}
 
 
@@ -269,7 +270,8 @@ def build_twin(
                 for _ in range(st.produces):
                     model.cells.append(
                         Cell(row=r.index, position=pos, stitch=op.stitch,
-                             color=r.color, repeat_group=op.repeat_group,
+                             color=getattr(op, "color", None) or r.color,
+                             repeat_group=op.repeat_group,
                              loop=getattr(op, "loop", "both"))
                     )
                     pos += 1

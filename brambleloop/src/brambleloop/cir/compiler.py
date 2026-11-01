@@ -59,6 +59,7 @@ class ResolvedOp:
     repeat_group: int | None = None  # index of the repeat this op belongs to, if any
     loop: str = "both"
     spans: int = 0
+    color: str | None = None   # P0-CIR-COLOURWORK: the op's own yarn, None = the row's
 
 
 @dataclass
@@ -136,7 +137,7 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
     for i, n in enumerate(nodes):
         if isinstance(n, Op):
             out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop,
-                                  spans=n.spans))
+                                  spans=n.spans, color=getattr(n, "color", None)))
             continue
 
         assert isinstance(n, Repeat)
@@ -176,7 +177,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
                 out.append(
                     ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid,
                                loop=getattr(r, "loop", "both"),
-                               spans=getattr(r, "spans", 0))
+                               spans=getattr(r, "spans", 0),
+                               color=getattr(r, "color", None))
                 )
 
     return out, problems
@@ -317,6 +319,24 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
                     row.index,
                 )
             )
+
+        # P0-CIR-COLOURWORK: an op's own colour is checked against the same table. A row whose
+        # stitches name colours needs a main colour too, so "the other yarn" always means one
+        # stated yarn rather than whatever the maker last held.
+        from .model import op_colours
+
+        stitch_colours = op_colours(row.ops)
+        for colour in sorted(stitch_colours):
+            if cir.colors and colour not in cir.colors:
+                findings.append(Finding(
+                    ERROR, "UNKNOWN_COLOR",
+                    f"a stitch references colour {colour!r} which is not in the colour table",
+                    comp.name, row.index))
+        if stitch_colours and not row.color:
+            findings.append(Finding(
+                ERROR, "STITCH_COLOUR_WITHOUT_ROW_COLOUR",
+                "stitches name their own colour but the row states no main colour",
+                comp.name, row.index))
 
         resolved.append(
             ResolvedRow(
