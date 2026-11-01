@@ -465,7 +465,11 @@ try {
   const menu = await page.$$eval(".menu a", (els) => els.map((e) => ({ id: e.dataset.more, hint: e.querySelector(".menu-hint")?.textContent || "",
     badge: e.querySelector(".badge") })));
   // INTEG4: 11 since W-OWNERIMG/W-VISNEXT added "images" (Gallery production, owner image upload).
-  check(menu.length === 11 && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
+  // W4-LAUNCHFIX added "policy" (the owner's Etsy policy-page readings): the exact list is
+  // pinned, not just its length, so an item added or dropped is a deliberate change here.
+  const MORE_IDS = ["company", "images", "completion", "policy", "operations", "learn",
+    "insights", "notifications", "timeline", "ask", "account", "emergency"];
+  check(JSON.stringify(menu.map((m) => m.id)) === JSON.stringify(MORE_IDS) && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));
   const barBadge = await page.$eval("#tabbar [data-badge=more]", (b) => ({ hidden: b.hidden, t: b.textContent }));
   check(!nb.hidden && nb.t === barBadge.t && !barBadge.hidden, "ccux more: menu shows the same notifications badge as the bar", JSON.stringify([nb, barBadge]));

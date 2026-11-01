@@ -236,14 +236,22 @@ def test_reread_is_suggested_when_etsy_edits_after_the_persons_reading():
     from brambleloop.gates import platform_policy as PP
     from brambleloop.gates import policy_access as PA
 
+    from datetime import datetime, timedelta, timezone
+
+    # Dated relative to today: a reading is fresh for PP.MAX_AGE_DAYS, so a fixed date
+    # (formerly 2026-10-01) went stale on 2026-11-01 and the test failed on the calendar.
+    today = datetime.now(timezone.utc).date()
+    read_on = today - timedelta(days=10)
+    edited_on = today - timedelta(days=5)          # Etsy's edit comes after the reading
+    assert (today - read_on).days < PP.MAX_AGE_DAYS
     db = _db()
     res = PP.record_page_reading(db, source="seller_policy", text="the seller policy " * 20,
-                                 read_by="owner", checked_on="2026-10-01")
+                                 read_by="owner", checked_on=read_on.isoformat())
     with db.session() as s:
         s.add(AuditLog(actor="owner", action=PP.PAGE_READING_AUDIT, detail={"id": res["id"]}))
     arts = _articles(**{"115015808588": _article("115015808588", ["/legal/sellers",
                                                                   "/legal/policy/shilling"],
-                                                 edited="2026-10-05T00:00:00Z")})
+                                                 edited=f"{edited_on.isoformat()}T00:00:00Z")})
     _s, fj, ft = _fetchers(arts)
     PA.assess(db, fetch_json=fj, fetch_text=ft, sleep=lambda s: None)
     st = PA.status(db)

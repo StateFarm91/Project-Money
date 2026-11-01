@@ -91,8 +91,19 @@ def seed(db, *, now: datetime | None = None) -> dict:
 
     _guard(db)
     now = now or datetime.now(timezone.utc)
-    prev = (now.replace(day=1) - timedelta(days=10)).replace(hour=12)
-    cur = now - timedelta(days=2)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev = (month_start - timedelta(days=10)).replace(hour=12)
+    # The current month's events sit at cur - before, cur and cur + after. They must stay
+    # inside [month_start, now]: a fixed `now - 2 days` put them in the PREVIOUS month during
+    # the first three days of a month, whose close then (rightly) refused on the anomalies
+    # (found by certification run 20261101T053634Z-559 on 2026-11-01). Unchanged otherwise.
+    before, after = timedelta(days=1), timedelta(hours=3)
+    span = now - month_start
+    if span >= timedelta(days=2) + before:
+        cur = now - timedelta(days=2)
+    else:
+        before = after = span / 4
+        cur = month_start + span / 2
     connect_order_source(db)
     receipts = [
         _receipt(1001, 501, 9001, 1200, prev),                       # CA$12 pattern
@@ -103,7 +114,7 @@ def seed(db, *, now: datetime | None = None) -> dict:
                  refunds=[{"amount": {"amount": 400, "divisor": 100,
                                       "currency_code": "CAD"}}]),
         _receipt(1006, 506, 9001, 1200, cur, status="fully refunded"),
-        _receipt(1007, 507, 9003, 1500, cur + timedelta(hours=3)),
+        _receipt(1007, 507, 9003, 1500, cur + after),
     ]
     # Etsy charged fees for the first receipts (transaction + processing), read later.
     entries = [
@@ -124,7 +135,7 @@ def seed(db, *, now: datetime | None = None) -> dict:
             ("image", 0.32, "openai", "gpt-image", "hero_render", "granny-square-tote",
              "design", prev + timedelta(days=2)),
             ("llm", 1.1042, "anthropic", _DEEP_MODEL, "trend_research", "", "intel",
-             cur - timedelta(days=1)),
+             cur - before),
             ("image", 0.64, "bfl", "flux", "hero_render", "granny-square-tote", "design",
              cur),
             ("hosting", 7.0, "railway", "", "hosting", "", "ops", prev.replace(day=1)),
@@ -141,7 +152,7 @@ def seed(db, *, now: datetime | None = None) -> dict:
 
     with db.session() as s:
         for cid, at in zip(rows, [prev, prev + timedelta(days=1), prev + timedelta(days=2),
-                                  cur - timedelta(days=1), cur, prev.replace(day=1),
+                                  cur - before, cur, prev.replace(day=1),
                                   prev + timedelta(days=4)]):
             s.get(CostEntry, cid).at = at
         # A modelled listing-fee exposure (written by listing_costs.reserve in production).
