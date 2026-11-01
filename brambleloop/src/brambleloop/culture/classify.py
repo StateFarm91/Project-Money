@@ -140,6 +140,33 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
         return {"filed": {}, "sensitive": flagged, "reason": str(exc)[:300],
                 "note": ("nothing was filed and the reason is above. An unfiled topic list "
                          "is not an empty culture")}
+    except TimeoutError as exc:
+        # P1-CULTURE-SWEEP-TIMEOUT (production 2026-10-27, 2026-11-01): the socket read timed
+        # out after the request reached the provider. Whether it billed is UNKNOWN, and
+        # UNKNOWN is never zero: it is counted once at the reservation's estimate, exactly as
+        # `ModelGateway._billing` counts a timeout. The paid-call intent stays UNCERTAIN
+        # (F-307/F-339), so the call is never re-sent automatically; this attempt simply
+        # files nothing and the sweep goes on reading its fixed topics instead of failing.
+        if db is not None:
+            from ..finance import spend_report
+            from ..gateway import paid_calls
+
+            gw.release_reservation(db, reservation, actual_cad=estimate)
+            spend_report.record(
+                db, agent="market_radar", amount_cad=estimate, estimated_cad=estimate,
+                purpose=TASK, provider="anthropic", model=provider.model,
+                department="culture",
+                detail={"topics": len(topics), "price_basis": "assumed",
+                        "billing": "unknown_counted_at_estimate",
+                        "cost_basis_note": ("the classifier call timed out after it was "
+                                            "sent; whether it billed is UNKNOWN and counted "
+                                            "at the reservation estimate, never as zero"),
+                        **paid_calls.ledger_note()})
+        return {"filed": {}, "sensitive": flagged, "unresolved": True,
+                "reason": f"classifier call timed out: {exc}"[:300],
+                "note": ("nothing was filed: the call's outcome is unknown, so it is counted "
+                         "at its estimate and not re-sent. An unfiled topic list is not an "
+                         "empty culture")}
 
     if db is not None:
         from ..finance import spend_report
