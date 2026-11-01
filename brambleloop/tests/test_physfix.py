@@ -584,6 +584,69 @@ def test_a_restated_halt_keeps_every_failed_release_and_the_lift_withholds_them_
     assert _size_withheld(db, fixed) == []
 
 
+def test_a_release_a_resolved_halt_measured_wrong_is_never_lift_evidence():
+    """SECREVIEW b8d3dee R35, the reviewer's reproduction: A fails (I1); the owner lifts I1 on
+    a corrected B, withholding A; a new failure on C opens a FRESH incident (I2); a passing
+    make of A is offered for I2. The lift refuses it -- A was measured wrong by a resolved
+    halt -- and still refuses it when only the durable withholding row records that (the
+    resolved incident itself gone). The same holds for B failing under I1's own signature
+    (the reviewer's P5)."""
+    import copy
+
+    from brambleloop.gates.incidents import IncidentTracker
+    from brambleloop.runtime import release as R
+
+    owner = dict(actor="owner:cc:s", stepped_up=True, reason="re-made at the stated size")
+
+    def size_halt(db):
+        return [i.id for i in IncidentTracker(db).open_incidents(a.slug)
+                if i.signature.startswith("physical-size:")]
+
+    def make(db, cir, tester, **extra):
+        job = _run(db, "physical.record", _inputs(
+            cir, scope="full_make", holds_shape=True, tester_ref=tester,
+            content_hash=R._content_hash_of(cir), **extra))
+        return (job.outputs or {})["physical_test_id"]
+
+    for case in ("fresh geometry C", "B fails again (P5)"):
+        db = _db()
+        a = _basket_medium()
+        _certify(db, a)
+        _run(db, "physical.record", _inputs(a, scope="full_make", holds_shape=True,
+                                            measured_width_cm=40.0))
+        i1 = size_halt(db)
+        assert len(i1) == 1, i1
+        b = _geometry_changed_medium("1.3.1")
+        _certify(db, b)
+        R.lift_size_halt(db, incident_id=i1[0], physical_test_id=make(db, b, "tester-2"),
+                         **owner)
+        assert size_halt(db) == []
+        if case == "fresh geometry C":
+            c = _geometry_changed_medium("1.3.2")
+            extra = copy.deepcopy(c.components[0].rows[-1])
+            extra.index += 1
+            c.components[0].rows.append(extra)
+        else:
+            c = b
+        _certify(db, c)
+        make(db, c, "t", measured_width_cm=40.0)
+        i2 = size_halt(db)
+        assert len(i2) == 1 and i2 != i1, (case, i1, i2)
+        good_a = make(db, a, "t1")
+        for stage in ("with the resolved incident", "durable row only"):
+            if stage == "durable row only":
+                with db.session() as s:
+                    s.delete(s.get(Incident, i1[0]))
+            try:
+                R.lift_size_halt(db, incident_id=i2[0], physical_test_id=good_a,
+                                 same_design_confirmed=True, **owner)
+            except R.SizeHaltLiftRefused as exc:
+                assert f"{a.slug}@{a.version}" in str(exc), (case, stage, exc)
+            else:
+                raise AssertionError(f"{case}, {stage}: a make of the withheld A lifted I2")
+            assert size_halt(db) == i2, (case, stage)
+
+
 def test_a_lift_on_the_failed_geometry_needs_the_owner_to_confirm_it():
     """SECREVIEW 33cbfc5 R31: a "re-release" that is a pure relabel of the failed geometry is
     refused as evidence unless the owner confirms the same design (a measurement error). The
@@ -619,6 +682,20 @@ def test_a_lift_on_the_failed_geometry_needs_the_owner_to_confirm_it():
     done = R.lift_size_halt(db, same_design_confirmed=True, **lift)
     assert done["lifted"] and done["same_geometry"] is True, done
     assert _size_withheld(db, a), "the failed release is not withheld"
+
+
+def test_the_texture_builders_never_share_their_gauge():
+    """SECREVIEW b8d3dee R39: as R32, for `products.texture`."""
+    from brambleloop.products import texture
+
+    builders = [getattr(texture, n) for n in dir(texture)
+                if n.startswith("build") and callable(getattr(texture, n))]
+    assert len(builders) >= 3, builders
+    for build in builders:
+        one, two = build(), build()
+        assert one.gauge is not two.gauge and one.gauge == two.gauge, build.__name__
+        one.gauge.stitches_per_10cm += 5.0
+        assert build().gauge == two.gauge, f"{build.__name__} leaked an edited gauge"
 
 
 def test_the_basket_builder_never_shares_its_gauge():
