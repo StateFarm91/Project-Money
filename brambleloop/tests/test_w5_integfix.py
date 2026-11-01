@@ -93,6 +93,34 @@ def test_a_recertified_release_keeps_both_permanent_and_reverify_withholdings():
     assert W.QUALITY_REVERIFY in after["reasons"], after           # carry_reverification
     assert after["blocks_build"] is True and after["blocks_publish"] is True, after
 
+
+def test_a_joined_round_tapestry_piece_prints_its_colourwork_in_the_pattern():
+    """Review OPUS2J J-7 (W5-INTEG1 x P0-CIR-COLOURWORK): PDF1's joined-round wording
+    (`colour_changes.rounds_instruction`) must carry the tapestry sentence and its ends; it
+    returned None when no round changed its main colour, so the PDF said nothing about how to
+    work a contrast carried inside the stitches."""
+    from brambleloop.cir import writer
+    from brambleloop.cir.colour_changes import analyse, rounds_instruction
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Repeat, Row
+
+    rows = [Row(1, [Op("sc", 6)], declared_count=6, color="natural"),
+            Row(2, [Op("inc", 6)], declared_count=12, color="natural"),
+            Row(3, [Repeat([Op("sc", 2), Op("sc", 2, color="rust")], times=3)],
+                declared_count=12, color="natural"),
+            Row(4, [Op("sc", 12)], declared_count=12, color="natural")]
+    cir = CIR(slug="j7-fixture", title="J7 Fixture", version="1.0.0",
+              construction="joined_rounds", gauge=Gauge(18, 20),
+              colors={"natural": "#EFE6D2", "rust": "#A4502C"},
+              components=[Component("body", "joined_rounds", foundation=0,
+                                    foundation_kind="magic_ring", rows=rows)])
+    plan = analyse(cir)["body"]
+    assert plan.changes == 0 and plan.tapestry_rows == [3], plan
+    line = rounds_instruction(plan)
+    assert line and "Colourwork round 3" in line and "Ends to weave in: about" in line, line
+    text = writer.write_pattern(cir, compile_cir(cir))
+    assert "Colourwork round 3" in text, "the written pattern omits the tapestry instruction"
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]

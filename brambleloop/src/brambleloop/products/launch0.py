@@ -378,6 +378,68 @@ def size_label_backed(label: str, width_cm: float | None, height_cm: float | Non
     return {"backed": not wrong, "wrong": wrong, "label": label}
 
 
+# Review OPUS2H H2-1: each colourwork claim is backed by its own technique, never by "some
+# row has two colours". Overlay mosaic is defined by stitches reaching past the previous row,
+# which per-stitch colour does not give; graphghan claims follow the mosaic rule; intarsia is
+# colour blocks with no carried strand, which the CIR does not model. Those stay refused
+# until the primitive exists. Tapestry, fair isle and colourwork need a motif of measurable
+# extent. The thresholds are a stated design rule (not a sourced standard), pinned by tests.
+COLOURWORK_MIN_ROWS = 3              # rows holding two or more colours
+COLOURWORK_MIN_ROW_SHARE = 0.20      # ...as a share of all rows
+COLOURWORK_MIN_MINORITY_SHARE = 0.10  # the minority colour's share of each such row
+COLOURWORK_MIN_RUN = 2               # OPUS2I I-7: adjacent contrast stitches, so dots are not a motif
+_NEEDS_REACH_DOWN = ("mosaic", "overlay", "graphghan")
+_NEEDS_BOBBINS = ("intarsia",)
+_MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
+
+
+def colourwork_motif(grid) -> dict:
+    """How much of the fabric is two-colour, measured from the twin's colour grid."""
+    rows = [[c for c in row if c] for row in grid]
+    rows = [r for r in rows if r]
+    multi = []
+    runs = []
+    for row in rows:
+        counts: dict[str, int] = {}
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+        if len(counts) >= 2:
+            multi.append(min(counts.values()) / len(row))
+            main = max(counts, key=counts.get)
+            longest = current = 0
+            for c in row:
+                current = current + 1 if c != main else 0
+                longest = max(longest, current)
+            runs.append(longest)
+    return {"rows": len(rows), "two_colour_rows": len(multi),
+            "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
+            "min_minority_share": round(min(multi), 3) if multi else 0.0,
+            "min_contrast_run": min(runs) if runs else 0}
+
+
+def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
+    """(backed, why) for one colourwork technique claim against the measured motif."""
+    if claim in _NEEDS_REACH_DOWN:
+        if per_stitch_reach_down_expressible():
+            return False, "reach-down is expressible but no rule judges it yet"
+        return False, ("needs stitches that reach past the previous row, which no CIR can "
+                       "express (per-stitch colour alone is not mosaic)")
+    if claim in _NEEDS_BOBBINS:
+        return False, "needs separate colour blocks with no carried strand, not modelled"
+    if claim in _MOTIF_TECHNIQUES:
+        ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
+              and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
+              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE
+              and motif.get("min_contrast_run", 0) >= COLOURWORK_MIN_RUN)
+        return ok, (f"{motif['two_colour_rows']} of {motif['rows']} rows carry two colours "
+                    f"(needs >= {COLOURWORK_MIN_ROWS} and >= "
+                    f"{COLOURWORK_MIN_ROW_SHARE:.0%}), the scarcest colour is "
+                    f"{motif['min_minority_share']:.0%} of such a row (needs >= "
+                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%}), the shortest contrast run is "
+                    f"{motif.get('min_contrast_run', 0)} st (needs >= {COLOURWORK_MIN_RUN})")
+    return False, "an unrecognised colourwork claim backs nothing"
+
+
 def fabric_truth(cir: CIR, twin) -> dict:
     """What the fabric actually does, and whether the name's technique claim is expressible.
 
@@ -399,7 +461,9 @@ def fabric_truth(cir: CIR, twin) -> dict:
 
     text = f"{cir.title} {cir.designer_notes or ''}".lower()
     claims = tuple(c for c in COLOURWORK_CLAIMS if c in text)
-    backed = (not claims) or colours_per_row >= 2
+    motif = colourwork_motif(grid)
+    verdicts = {c: technique_backed(c, motif) for c in claims}
+    backed = (not claims) or all(ok for ok, _why in verdicts.values())
     return {
         "max_colours_in_one_row": colours_per_row,
         "colours_declared": sorted((cir.colors or {}).keys()),
@@ -410,8 +474,8 @@ def fabric_truth(cir: CIR, twin) -> dict:
         "backed": backed,
         "why": ("no colourwork technique is claimed, so the fabric is whatever the stitches "
                 "make" if not claims else
-                f"claims {claims[0]!r}; the fabric puts at most {colours_per_row} colour(s) in "
-                f"any one row, and a two-colour motif needs two"),
+                "; ".join(f"{c!r}: {why}" for c, (_ok, why) in verdicts.items())),
+        "colourwork_motif": motif,
         "cir_can_express_per_stitch_colour": per_stitch_colour_expressible(),
         "cir_can_express_per_stitch_reach_down": per_stitch_reach_down_expressible(),
     }

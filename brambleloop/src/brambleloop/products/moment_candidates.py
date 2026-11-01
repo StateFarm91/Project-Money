@@ -14,7 +14,7 @@ Rules every builder here keeps, because they are the company's rules:
   compiler, twin and certificate decide whether it is true.
 * **The fabric is what this CIR can express.** One colour per row/round, with double crochet
   standing in relief on a single-crochet ground (the catalogue's own motif fabric). Per-stitch
-  colourwork is not expressible (`launch0.per_stitch_colour_expressible()` is False), so no
+  colourwork is judged per technique (`launch0.technique_backed`); mosaic and intarsia are still not expressible, so no
   name or note here claims stranded or tapestry work. Where a brief named a technique the CIR
   cannot carry, the engineered design says what it does instead (see ENGINEERING_NOTES).
 * **Motifs are Brambleloop's own** (`products.motifs`), built from geometry. No competitor

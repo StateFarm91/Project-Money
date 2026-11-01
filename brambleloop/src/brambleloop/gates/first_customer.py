@@ -437,22 +437,27 @@ def product_type_findings(cir, *, title: str, tags=()) -> list[str]:
 def colourwork_findings(cir, twin, *, title: str, tags=()) -> list[str]:
     """A colourwork technique in the title or tags that the fabric cannot make (PT-01).
 
-    `launch0.fabric_truth` measures colours per row; a mosaic needs two in one row and a CIR
-    row carries one colour, so the claim is refused unless the twin shows otherwise.
+    Review OPUS2I I-2: every claim found is judged by the same technique rule as
+    `launch0.fabric_truth` (`technique_backed` over the twin's measured `colourwork_motif`), so
+    the listing a buyer reads can never be backed by fewer than the pattern's own gate needs.
+    Mosaic, overlay, graphghan and intarsia stay refused; tapestry, fair isle and colourwork
+    need a measured motif. On fabric with one colour per row the message is as before.
     """
     from ..products import launch0 as l0
 
     grid = twin.color_grid() if twin is not None else []
     per_row = max((len({c for c in row}) for row in grid), default=0)
-    if per_row >= 2:
-        return []
+    motif = l0.colourwork_motif(grid)
     out = []
     for where, text in [("title", title)] + [(f"tag {t!r}", t) for t in (tags or ())]:
         low = str(text or "").lower()
-        hit = next((c for c in l0.COLOURWORK_CLAIMS if c in low), None)
-        if hit:
-            out.append(f"LISTING_COLOURWORK_UNSUPPORTED: the {where} claims {hit!r}; the "
-                       f"fabric puts at most {per_row} colour(s) in any one row")
+        for hit in (c for c in l0.COLOURWORK_CLAIMS if c in low):
+            ok, why = l0.technique_backed(hit, motif)
+            if ok:
+                continue
+            reason = (f"the fabric puts at most {per_row} colour(s) in any one row"
+                      if per_row < 2 else why)
+            out.append(f"LISTING_COLOURWORK_UNSUPPORTED: the {where} claims {hit!r}; {reason}")
     return out
 
 

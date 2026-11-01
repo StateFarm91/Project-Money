@@ -151,8 +151,17 @@ _LOOP_RE = re.compile(
     re.I)
 
 
+_OP_COLOUR_RE = re.compile(r"^(.+?)\s+with\s+([a-z0-9][a-z0-9_-]*)$", re.I)
+
+
 def _parse_op(text: str, terminology: str) -> Op:
     t = " ".join(text.split())
+    # P0-CIR-COLOURWORK: "sc in next 3 sts with contrast" carries the stitches' own colour.
+    m = _OP_COLOUR_RE.fullmatch(t)
+    if m:
+        op = _parse_op(m.group(1), terminology)
+        op.color = m.group(2)
+        return op
 
     m = _LOOP_RE.fullmatch(t)
     if m:
@@ -507,7 +516,7 @@ def _shape(node: OpNode) -> tuple:
     # The loop is part of the instruction: a back-loop row and a both-loops row have the
     # same counts and different fabric, and a comparison blind to it passes the wrong one.
     if isinstance(node, Op):
-        return ("op", node.stitch, node.count, node.loop)
+        return ("op", node.stitch, node.count, node.loop, getattr(node, "color", None))
     return ("rep", node.times, tuple(_shape(o) for o in node.ops))
 
 
