@@ -41,7 +41,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket 1.3.0 built+certified (c4aa14a0, head 4fb6252d); design review running; truthful wall-corner renders in progress",
+      "state": "accepted (CODE SHIP / PRODUCT FIT conditional on sample) at df5ffc4e; integrates into Batch 5 after Batch 4 certifies",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -149,22 +149,30 @@
       "id": "OPUS2-LISTING-PACKAGE-JOB",
       "operator": "opus2",
       "branch": "opus2/p0-listing-package",
+      "head": "f779fac2",
+      "state": "fixing_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)",
       "from": "INTEG-LISTING-JOB (offered by the integrator on PR #3, 2026-10-31T19:17Z)",
-      "state": "ready_for_review",
       "scope": "automatic listing-package assembly job: for each certified release at the end of the SHADOW chain, assemble the owner-review listing package (identity, title, description, tags, price, certified gallery order, PDFs, product truth, risk class, children's decision, publication blockers) from the chain's own stored outputs; durable, idempotent per release hash; never publishes",
       "not_touching": "publish/pdf.py (W-PDF), products/production_inventory.py (W-INVENTORY), the manual LISTING_PACKAGE.md files (W-LISTING)",
-      "evidence": "tests/test_opus2_listing_package.py 5/5 on the real chain; 76-suite regression exit 0; handoff brambleloop/research/final_build/w5/OPUS2_LISTING_PACKAGE_HANDOFF.md"
+      "evidence": "tests/test_opus2_listing_package.py 5/5 on the real chain; 76-suite regression exit 0; handoff brambleloop/research/final_build/w5/OPUS2_LISTING_PACKAGE_HANDOFF.md",
+      "review": "OPUS2F CHANGES REQUIRED (A-1 HIGH, A-2..A-4 MED)"
+    },
+    {
+      "id": "OPUS2-OWNER-QUEUE-RACES",
+      "operator": "opus2",
+      "branch": "opus2/p1-owner-queue-races",
+      "head": "ccb3e8e4",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "P1-OWNER-QUEUE-RACES"
     }
   ],
   "unowned": [
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
-    },
-    {
-      "id": "P1-OWNER-QUEUE-RACES",
-      "priority": "P1",
-      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
     }
   ],
   "reviews": [
@@ -509,6 +517,54 @@
       "report_branch": "claude/w5-INTEG1-trial",
       "notes": "INVENTORY+CONCEPT+opus2@fb52cb9e",
       "recorded": "2026-10-31T19:50Z"
+    },
+    {
+      "subject": "PHYSFIX delta 8 (product-wide halts)",
+      "sha": "ad07b595+33cbfc53",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-33cbfc5",
+      "notes": "halt closed by construction; R30 Med: restate overwrites measured_release so first failed release escapes withholding/re-release check. Combined tree: suite_final_segment (test_physfix), b2gates row 23",
+      "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "Basket render delta",
+      "sha": "363a467a",
+      "verdict": "CODE CHANGES_REQUIRED / PRODUCT FIT FOR CUSTOMER",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-363a467",
+      "notes": "R1 High export_check trusts manifest 'estimated'; R2 Med 3.0.0 still qualified; R3-R6 Low",
+      "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "PHYSFIX delta 9",
+      "sha": "e3335a51+b8d3dee0",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-b8d3dee",
+      "notes": "R30 closed within an incident; R35 Med: lift ignores releases measured by RESOLVED incidents",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "Basket render delta 2",
+      "sha": "115464fc",
+      "verdict": "CODE ACCEPT / PRODUCT FIT FOR CUSTOMER (conditional on physical sample)",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-115464f",
+      "notes": "N1/N2 Low, N3-N6 Info; PDF1 cleared for Batch 5",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "OPUS2 E (post-review constructions + Low fixes)",
+      "sha": "fb52cb9e..fa3a7b09",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2E-fa3a7b0",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2 F (listing job + owner-queue races)",
+      "sha": "f779fac2 / ccb3e8e4",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
     }
   ],
   "integration": {
@@ -525,7 +581,8 @@
         "kit/outreach rebound to the recertified version"
       ],
       "status": "not ready for commissioning approval"
-    }
+    },
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
   },
   "owner_directives": [
     {
@@ -565,6 +622,17 @@
       "date": "2026-10-31",
       "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
       "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
+    }
+  ],
+  "production_observations": [
+    {
+      "at": "2026-11-01T00:25Z",
+      "sha": "ee35a493",
+      "verify_ok": false,
+      "failing": [
+        "no_unexpected_dead_letters_in_24h"
+      ],
+      "notes": "all other 12 checks pass (shadow, nothing published, worker alive, scheduler ticking). Dead-letter detail needs ops token or readback token; integrator does not read secrets. Same check failed 2026-10-27 and recovered by 2026-10-31."
     }
   ]
 }
