@@ -160,6 +160,12 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                               f"object, a pocket, a closure or a lining) as its own pieces"),
                     "why": (f"the title names {extra.group(0).strip()!r}, which the plain "
                             f"one-piece tote with two straps does not make")}
+        # OPUS2H H1-2: two different size words promise something no single draft is.
+        sizes = {key for word, key in _TOTE_SIZE_WORDS if re.search(rf"\b{word}\b", lowered_t)}
+        if len(sizes) > 1:
+            return {"family": REFUSED,
+                    "needs": "one size per release: the title names several",
+                    "why": f"the title names more than one size ({sorted(sizes)})"}
         oversize = re.search(_TOTE_SIZE_UNSUPPORTED, lowered_t)
         if oversize:
             return {"family": REFUSED,

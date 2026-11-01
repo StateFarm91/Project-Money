@@ -252,14 +252,17 @@ REVIEW_E_MUST_FAIL = (
 REVIEW_E_MUST_PASS = ("3 baskets of yarn", "Repeat 2x to 4x as needed.")
 # Review OPUS2EF2 EF2-3b: a material after "of" is what the pieces are made of, not contents.
 REVIEW_EF2_MUST_FAIL = ("Two bowls of wool rope", "3 baskets of cotton cord",
-                        "2 baskets of t-shirt yarn")
+                        "2 baskets of t-shirt yarn",
+                        # OPUS2H H1-1: a fibre named alone is the material, not contents.
+                        "2 baskets of cotton", "Two baskets of wool", "2 baskets of jute")
+REVIEW_H_MUST_PASS = ("3 bags of yarn", "3 baskets of cotton yarn", "2 bags of scraps")
 
 
 def test_review_opus2e_e2_the_gate_fails_closed_again():
     assert REVIEW_E_MUST_FAIL and REVIEW_E_MUST_PASS
     for t in REVIEW_E_MUST_FAIL + REVIEW_EF2_MUST_FAIL:
         assert Z.check_texts({"listing description": t})["state"] == Z.FAIL, t
-    for t in REVIEW_E_MUST_PASS + REVIEW_D_MUST_PASS:
+    for t in REVIEW_E_MUST_PASS + REVIEW_D_MUST_PASS + REVIEW_H_MUST_PASS:
         assert Z.check_texts({"listing description": t})["state"] == Z.PASS, t
 
 
