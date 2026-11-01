@@ -135,6 +135,10 @@ _VESSEL_RX = re.compile(rf"\b{_VESSEL}\b", re.I)
 _TOOL_BETWEEN = re.compile(r"\b(?:hook|needle)s?\b", re.I)
 _NOT_A_CLAIM_AFTER = re.compile(r"^\s*(?:larger|smaller|bigger|up|down)\b", re.I)
 _HOOK_BEFORE = re.compile(r"\b(?:hook|needle)s?\s*(?:\w+\s+){0,1}$", re.I)
+# Integration fix W5-INTEG1 (PDF1 basket 1.3.0 x OPUS2 size claims): a number that follows a
+# round/row label is a place in the pattern ("Up to Rnd 10 the basket should lie flat"), never
+# a count of pieces or sizes.
+_PATTERN_REF_BEFORE = re.compile(r"\b(?:rnds?|rounds?|rows?)\.?\s*$", re.I)
 
 # A disclaimer counts only when it is ABOUT SIZES ("the small and large are sold separately",
 # "other sizes sold separately", "this listing is the medium basket"). Only the disclaimer's
@@ -174,6 +178,9 @@ def claims_in(text: str, *, graded_reference_ok: bool = False) -> list[dict]:
         found = []
         for name, rx, count_of in _PATTERNS:
             for m in rx.finditer(read):
+                if name in ("count", "vessel_count") and \
+                        _PATTERN_REF_BEFORE.search(read[:m.start()]):
+                    continue
                 if name == "count" and (_NOT_A_CLAIM_AFTER.match(read[m.end():])
                                         or _HOOK_BEFORE.search(read[:m.start()])
                                         # Review OPUS2C N1.2: "two hook sizes" is advice.

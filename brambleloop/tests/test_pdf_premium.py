@@ -171,7 +171,9 @@ def test_the_disclosed_renders_are_the_renderers_own_frames():
 
     for key in KEYS:
         cir, doc = _doc(key)
-        for f in doc.figures:
+        renders = [f for f in doc.figures if f["kind"] == "disclosed_render"]
+        assert renders, key  # the loop below must check at least one render
+        for f in renders:
             if f["kind"] == "disclosed_render":
                 frame = D.render(cir, f["view"])
                 assert hashlib.sha256(frame.png).hexdigest() == f["png_sha256"], f
@@ -298,7 +300,9 @@ def test_the_1_2_1_text_fixes_reach_the_documents():
 
 def test_every_proof_page_says_not_for_sale_and_the_cover_has_no_tagline_lockup():
     _cir, proof = _doc("basket_small", "US", True)
-    for n, page in enumerate(PdfReader(io.BytesIO(proof.pdf_bytes)).pages, 1):
+    pages = PdfReader(io.BytesIO(proof.pdf_bytes)).pages
+    assert len(pages) > 0
+    for n, page in enumerate(pages, 1):
         assert "NOT FOR SALE" in (page.extract_text() or ""), n                 # F9
     for key in KEYS:
         _cir, doc = _doc(key)

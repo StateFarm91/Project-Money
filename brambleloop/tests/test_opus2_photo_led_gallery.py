@@ -160,6 +160,18 @@ def _add_photo(db, cir, *, approved=True, unedited=True, passed=True, version=No
                 row = s.get(PhysicalPhoto, pid)
                 row.detail = {**row.detail, "owner_attestation": {
                     **row.detail["owner_attestation"], "sha256": attest_sha}}
+    if approved:
+        # Integration W5-INTEG1 (W-PHYSFIX-PHOTO x OPUS2 photo-led): an attestation made after
+        # the gallery was planned moves the photo to position 1 and RESETS its approval
+        # (physical_upgrade.lead_with_if_qualifying: "awaiting asset-truth review and
+        # listing-set re-certification"). The asset-truth review happens after that move; the
+        # fixture records it there, so the approved photo it describes is the reviewed one.
+        with db.session() as s:
+            for f in s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == cir.slug,
+                    ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO",
+                    ListingAsset.sha256 == stored.sha256)):
+                f.approved, f.blocked_reasons = True, []
     return stored.sha256
 
 

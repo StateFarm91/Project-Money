@@ -85,7 +85,8 @@ def test_the_reported_basket_defect_refuses_at_its_release():
     """The owner's case: a single basket release whose listing says three sizes."""
     db = _db()
     medium = l0.cir_for("basket_medium")
-    assert (medium.slug, medium.version) == ("market-basket-medium", "1.2.0")
+    # W4-PDF1 released the medium as 1.2.1 (text-only release from the PDF audit; Batch 5).
+    assert (medium.slug, medium.version) == ("market-basket-medium", "1.2.1")
     _release(db, medium, title="Nesting Baskets, three sizes",
              description="Three hexagon baskets that nest.")
     v = Z.for_release(db, slug=medium.slug, version=medium.version)

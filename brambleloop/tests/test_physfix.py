@@ -994,7 +994,7 @@ def test_the_basket_records_the_construction_review_observations():
     apis = {a for _k, _l, a in spec["fields"]}
     assert apis >= {"inside_depth_cm", "base_edge", "wall_vertical_from_rnd", "corners_at_rim",
                     "rim_across_points_cm", "rnd11_height_cm"}, apis
-    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.2.0-RECORD-SHEET.pdf").split())
+    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.3.0-RECORD-SHEET.pdf").split())
     for needle in ("OUTSIDE: from the flat table to the top of the rim, at the middle of a flat "
                    "side", "crisp fold, or a rounded curve", "corners still visible at the rim"):
         assert needle in text, needle
@@ -1327,11 +1327,14 @@ def test_hold_free_products_are_unchanged_except_for_halts():
     on hold-free, seam-free products, and a product with no halt certifies as before."""
     import hashlib
 
-    pinned = {  # design_digest at 7282c47 and 8da830d
+    # design_digest at 7282c47 and 8da830d; basket_small re-pinned at Batch 5 for release
+    # 1.3.0 (D-W4-OWNER-BASKET-1.3.0: Rnd 11 back loop only is geometry, so a 1.2.x sample is
+    # not evidence for 1.3.0 -- the digest must differ, and does).
+    pinned = {
         "basket_medium_sport": (_basket_medium(),
                                 "0552640f6964c73e402bd58c2e46b004ae20bc843213a7c1632a2c7ef47ea8aa"),
         "basket_small": (_basket("basket_small"),
-                         "b65d57e9a6e07a0a05ae2b5627dfd75a06e9f89d058525d324a8b2ed549b6f81"),
+                         "54758cbffc2caa6cd30a7fe66f93d5d1a1c53e1fedf54041e11296b14382aabb"),
         "hexagon_coasters": (_coasters(),
                              "7c4d39e44569d0c7d2a15b6a3c55ed3d25afd3fe96bf5d44ca6ce00662a41b08"),
     }
@@ -1470,7 +1473,7 @@ def test_the_kit_ceiling_is_checked_from_above_and_no_stale_figure_remains():
                  ROOT / "src/brambleloop/app/command_center/snapshots/OWNER_ACTIONS.json",
                  w4 / "GATE_CLEARANCE_BUSINESS.md", w4 / "GATE_CLEARANCE_BUSINESS.json",
                  # SECREVIEW e3fd0b0 R21: the listing package offered the old figure.
-                 w4 / "manual_listings/market-basket-small-1.2.0/LISTING_PACKAGE.md"):
+                 w4 / "manual_listings/market-basket-small-1.3.0/LISTING_PACKAGE.md"):
         text = path.read_text()
         assert "185.0" not in text and "CA$185" not in text, path
         assert "59.65" not in text, path
