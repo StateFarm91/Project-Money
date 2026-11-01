@@ -68,7 +68,18 @@ worktrees, not this file.
   (task b91dvj03c). It goes on a separate branch, opus2/p0-revenue-workforce-b4merge, for
   the integrator; the frozen PR #3 head is not touched.
 
+- 11:50Z in flight:
+  - `opus2/p0-pet-bed` (/home/user/opus2-pet): the pet basket bed is 3/3; the 44-suite run is
+    going (/tmp/claude-0/pet_results.txt).
+  - `opus2/p0-stocking` (/home/user/opus2-stock): the two-panel stocking is 3/3; the 44-suite
+    run is going (/tmp/claude-0/st_results.txt).
+  - PR #9: the colour_changes tapestry follow-up is uncommitted; its 37-suite run is going
+    (/tmp/claude-0/cc_results.txt).
+  - Both new branches are stacked on opus2/p0-revenue-workforce-b4merge.
+
 ## Done log
+- 2026-11-01T11:40Z: PR #3 EF2 fixes pushed in `13d67502`, merged into -b4merge as
+  `55450fc3`, and commented.
 - 2026-11-01T11:00Z: PR #3 Batch 4 merge resolution on `opus2/p0-revenue-workforce-b4merge` `f96d7bd2` (commented). P0-CIR-COLOURWORK pushed `1073196f`, PR #9 (proposal).
 - 2026-11-01T10:20Z: PR #6 EF2-6/EF2-8/B-5 pushed in `61d76d9f`; EF2-7 `ensure()` in `cc8f2b4f`; commented.
 - 2026-11-01T10:15Z: P0-FAMILY-MEMBERSHIP pushed in `0f862a1b`, PR #8 opened.
