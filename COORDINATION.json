@@ -240,6 +240,16 @@
       "note": "touches one line per writer in files owned by others; each edit is the lock call only",
       "evidence": "tests/test_opus2_owner_queue_races.py 11/11; 115-suite regression exit 0 except 5 base-owned",
       "review": "OPUS2EF2 CHANGES REQUIRED -> EF2-6 + EF2-8 fixed, B-5 built (partial unique index + deferred migrate + dedupe script), EF2-7 documented; awaiting re-review"
+    },
+    {
+      "id": "OPUS2-CULTURE-SWEEP-TIMEOUT",
+      "operator": "opus2",
+      "branch": "opus2/p1-culture-sweep-timeout",
+      "state": "ready_for_review",
+      "area": "P1-CULTURE-SWEEP-TIMEOUT (unowned item recorded by the integrator 2026-11-01T07:05Z)",
+      "scope": "culture/classify.py catches the classifier TimeoutError: files nothing, counts the unknown spend once at the reservation estimate (never zero), releases the reservation, never re-sends (F-307/F-339 unchanged)",
+      "not_touching": "gateway/paid_calls.py, gateway/anthropic.py (the anti-double-spend protocol), runtime/release.py",
+      "evidence": "tests/test_opus2_culture_sweep_timeout.py 3/3 (2 fail on the unfixed code with the production TimeoutError); culture, spend-governance, provider-boundary, resume-runner, vacuity suites (10) exit 0"
     }
   ],
   "unowned": [
@@ -255,8 +265,10 @@
         "src/brambleloop/culture/classify.py",
         "src/brambleloop/runtime/release.py (handle_culture_sweep)"
       ],
-      "state": "unowned",
-      "recorded": "2026-11-01T07:05Z"
+      "state": "claimed",
+      "recorded": "2026-11-01T07:05Z",
+      "claimed_by": "opus2",
+      "claimed_at": "2026-11-01T09:20Z"
     },
     {
       "id": "P0-PHOTO-ASSET-REVIEW",
