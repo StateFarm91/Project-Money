@@ -47,7 +47,10 @@ APPROVED_CEILING_CAD = {"basket_small": 66.00, "hexagon_coasters": 100.00}
 # Filled from the CIR at build time; the static copy is what the owner card quotes.
 KIT: dict = {
     "slug": "market-basket-small",
-    "version": "1.2.0",
+    "version": "1.3.0",
+    # Design review D4 (W-PDF1): the date printed on the test PDF is this release's own,
+    # not the builder's former hard-coded 2026-10-07 (still the default for older kits).
+    "released_on": "2026-10-31",
     "title": "Crochet Hexagonal Bread Basket",
     "risk_class": "B (dimensional_form)",
     "positioning": "kitchen and home (bread basket); small size only",
@@ -160,7 +163,7 @@ RECORD_FIELDS: tuple[tuple[str, str, str], ...] = (
 
 COASTER_KIT: dict = {
     "slug": "hexagon-coaster-set",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "title": "Hexagon Coaster Set (4)",
     "risk_class": "A (no section-8 feature; automated threshold)",
     "required": ("partial_physical (first-customer floor, gates.risk_matrix."
@@ -500,7 +503,8 @@ def build(out_dir: Path, key: str = BUILD_KEY) -> dict:
     post = spec.get("outreach_post") or tester_programme.OUTREACH_POST
     if f"CA${kit['tester_receives_cad']:.2f}" not in post["body"]:
         raise ValueError(f"{cir.slug}: the tester call does not state the promised amount")
-    doc = build_pattern_pdf(cir, terminology="US", twin=twin, released_on=date(2026, 10, 7))
+    doc = build_pattern_pdf(cir, terminology="US", twin=twin, released_on=date.fromisoformat(
+                                 str(kit.get("released_on", "2026-10-07"))))
     pattern = out_dir / f"{kit['slug']}-{version}-TEST.pdf"
     pattern.write_bytes(doc.pdf_bytes)
     sheet = out_dir / f"{kit['slug']}-{version}-RECORD-SHEET.pdf"

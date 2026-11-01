@@ -25,7 +25,10 @@ import math
 # to the zone instead of shrinking them, and gives the lettering its own rows below the
 # product zone. Positions are computed here, once, by `caption_layout` and
 # `annotation_layout`; the producer draws them and the verifier re-letters exactly them.
-CONTRACT_VERSION = "disclosed-render-contract/3"
+CONTRACT_VERSION = "disclosed-render-contract/3.1"
+# 3.1 (W4-PDF1, 2026-10-31): soft wall corners for `SOFT_CORNER_SLUGS` (`rim_softening`,
+# `soft_radius`), the `rim_corners_cm` / `rim_flats_cm` checks, and the ESTIMATED_SHAPE note.
+# Every other product draws and verifies exactly as under contract 3.
 
 # Square, because the gallery must share one aspect (layout_qa FRAME_RATIOS_DISAGREE) and a
 # square frame survives the mobile grid's centre crop whole. 2000 px is Etsy's recommended
@@ -82,6 +85,65 @@ OBLIQUE_DEG = 25.0
 # camera raised to this elevation, so the inside of the back wall and the base's upper face
 # read over the rim. Measured by `render_verification` with the same un-projection.
 ANGLE_DEG = 50.0
+
+# Soft wall corners (W4-PDF1, 2026-10-31; owner rule "never show a shape the product does not
+# have"). A stacked-hexagon wall has no stitch at the corner columns above the base, so the
+# corners are crisp at the base fold and relax toward the rim, while the flats stay where the
+# stitch count puts them: CONSTRUCTION_REVIEW_basket_small_1.2.0.md §1.3 on
+# `origin/claude/w4-CONSTRUCTREVIEW-basket` ("the rim relaxes towards a rounded hexagon ...
+# tends from 16.0 cm towards the 15.3 cm circle figure; across-flats stays ~13.9 cm").
+#
+# Model: only the corner regions move. A point of the hexagon farther from the axis than the
+# same-perimeter circle (radius Rc) is pulled radially toward Rc by a weight that grows
+# linearly with height, from 0 at the fold to RIM_CORNER_SOFTENING at the rim; a point inside
+# Rc -- every mid-face, so the across-the-flats span -- does not move.
+#
+# RIM_CORNER_SOFTENING = 0.75 IS AN ESTIMATE, NOT A MEASUREMENT. The review gives the
+# direction ("tends towards"), not a magnitude, and no sample exists. Every place the rounded
+# rim is shown says so (`ESTIMATED_SHAPE`: the PDF captions, the listing description and the
+# image alt text), and the figure is replaced by the first physical sample's rim measurement.
+# Scoped to the products whose renders the owner has had redrawn; every other product draws
+# and verifies exactly as before.
+RIM_CORNER_SOFTENING = 0.75
+SOFT_CORNER_SLUGS = frozenset({"market-basket-small"})
+ESTIMATED_SHAPE = "Rim shape estimated until a sample is made."  # <= 250-char alt text (Etsy advice)
+
+
+def rim_softening(cir) -> float:
+    """The rim weight for this product's wall corners, 0.0 where corners are drawn straight."""
+    return RIM_CORNER_SOFTENING if getattr(cir, "slug", None) in SOFT_CORNER_SLUGS else 0.0
+
+
+# The first renderer that draws `SOFT_CORNER_SLUGS` as the contract does. An earlier stamp
+# names other drawings of these products (the straight prism, or the 38c16035 rim widened
+# across the flats), so it is not qualified for them (SECREVIEW-RENDER-363a467 R2).
+SOFT_CORNER_MIN_RENDERER = "disclosed-render/3.1.0"
+
+
+def renderer_at_least(stamp, minimum: str) -> bool:
+    """Whether a renderer stamp is the same producer as `minimum` at that version or later
+    (N3: a real minimum, not an exact match). 'disclosed-render/3.1.0' >= 'disclosed-render/3.1.0'."""
+    try:
+        name, ver = str(stamp).rsplit("/", 1)
+        mname, mver = minimum.rsplit("/", 1)
+        return name == mname and tuple(map(int, ver.split("."))) >= tuple(map(int, mver.split(".")))
+    except (ValueError, AttributeError):
+        return False
+
+
+def estimate_notes(slug, view) -> list[str]:
+    """The estimate notes a frame of `slug` showing `view` must carry, from the product and
+    this contract -- never from the frame's own manifest (SECREVIEW-RENDER-363a467 R1). Every
+    view of a soft-cornered product shows the rim except the base seen from above."""
+    if slug in SOFT_CORNER_SLUGS and view != "detail":
+        return [ESTIMATED_SHAPE]
+    return []
+
+
+def soft_radius(r: float, w: float, Rc: float) -> float:
+    """A wall point's distance from the axis after softening by weight `w` (0..1): pulled
+    toward the same-perimeter circle `Rc` only where it lies outside it (the corners)."""
+    return r - w * (r - Rc) if r > Rc else r
 
 
 # Elongated flat pieces (W4-VISUAL2). A table runner is 3.8:1; drawn upright in a square

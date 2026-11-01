@@ -133,8 +133,10 @@ def resume_line(comp: Component) -> str:
 
 SPIRAL_LINE = ("Work in a continuous spiral. Do not join the rounds; mark the first stitch "
                "of each round and move the marker up as you go.")
+# F3 (2026-10-31): the stitch totals only add up if the ch 1 is not a stitch, and counting it
+# is the commonest beginner error in joined rounds -- so the line says so.
 JOINED_LINE = ("Join each round with a sl st to the first stitch, then ch 1 to begin the "
-               "next round.")
+               "next round. The ch 1 does not count as a stitch.")
 
 
 def construction_lines(comp: Component) -> list[str]:
@@ -214,6 +216,15 @@ def assembly_lines(cir: CIR) -> list[str]:
 FINISHING_HEADING = "## Finishing"
 
 
+def _is_upright(cir: CIR, result) -> bool:
+    """True when the piece is a measured non-disc (a vessel): it has an inside."""
+    if result is None:
+        return False
+    from . import geometry as _geom
+
+    return any(rev.shape != _geom.DISC for rev in _geom.measure_all(cir, result).values())
+
+
 def finishing_lines(cir: CIR, *, width_cm: float | None = None,
                     height_cm: float | None = None,
                     result: "CompileResult | None" = None) -> list[str]:
@@ -243,15 +254,28 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
            "it cannot work loose in wear or washing."]
 
     colours = len(cir.colors or [])
+    in_rounds = bool(cir.components) and all(
+        c.construction in ("joined_rounds", "spiral_rounds") for c in cir.components)
     if colours > 1:
-        out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
-                   f"every join and every change.")
         # How each change is made, derived from the rows (`cir.colour_changes`, PT-09): a
         # change can be carried only when the resting colour is at the edge the row starts.
-        from .colour_changes import analyse, instruction
+        from .colour_changes import analyse, instruction, rounds_instruction
 
+        if not in_rounds:
+            # Turned-row work keeps its wording. (F2's "an end at every join" is replaced
+            # for round-worked pieces below; a flat-row release changes its text only with
+            # a version of its own.)
+            out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
+                       f"every join and every change.")
+        upright_piece = _is_upright(cir, result) if in_rounds else False
+        by_name = {c.name: c for c in cir.components}
         for plan in analyse(cir).values():
-            line = instruction(plan)
+            if in_rounds:
+                comp = by_name[plan.component]
+                line = rounds_instruction(plan, piece=comp.name.replace("_", " "),
+                                          make=comp.make, upright=upright_piece)
+            else:
+                line = instruction(plan)
             if line:
                 out.append(line if len(cir.components) == 1
                            else f"{plan.component}: {line}")

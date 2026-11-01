@@ -1,4 +1,29 @@
-# Manual Etsy listing package: `market-basket-small@1.2.0` (Hexagonal Bread Basket, kitchen and home)
+# Manual Etsy listing package: `market-basket-small@1.3.0` (Hexagonal Bread Basket, kitchen and home)
+
+> **Updated 2026-10-31 to 1.3.0 by W-PDF (`claude/w4-PDF1`)**, after owner decision
+> **D-W4-OWNER-BASKET-1.3.0**. Rnd 11 is now worked in the back loop only, so the base turns
+> into the wall at a defined edge. The change is to the small basket only.
+> - The release chain was re-run on 1.3.0 (`../evidence_PDF1_basket_1.3.0_chain_run.json`).
+> - The title, tags, price and description are the regenerated output. The description's only
+>   difference is "13-page PDF", because the premium edition replaced the 7-page one.
+> - Size, yarn and claims are unchanged.
+> - Every listing asset and the listing-set certificate (state `valid`, four gates passed) are
+>   at `1.3.0` with release hash `c4aa14a0…`.
+> - **The renders were redrawn on 2026-10-31 (846fb89f).** They show the shape the 1.3.0
+>   instructions make: a defined base fold, with corners crisp at the base and softening to a
+>   rounded rim. `render_verification` checks that shape, and the old straight prism now
+>   fails. The listing hero carries no caption on Etsy, so this is what makes it truthful.
+>   After the redraw the certificate was re-issued `valid` and every disclosed frame
+>   re-verified from its bytes; the frame sha256s are in the evidence JSON.
+> - **SECREVIEW-RENDER F1/F2 (2026-10-31, de5658c2).** Only the corners soften; the flats stay
+>   at 13.9 cm, and `rim_flats_cm` checks that. The softening (0.75) is an **estimate, not a
+>   measurement**, so the description now carries "About the shape … Rim shape estimated until
+>   a sample is made." The alt text of the hero, scale and gallery-angle frames ends with the
+>   same note, because Etsy shows those images with no caption. `export_check` refuses a
+>   frame whose note is missing. Re-run: the certificate is `valid`, every frame was
+>   re-verified, and the hashes are in the evidence JSON.
+> - Superseded: the 1.2.0 version of this package, which is in git history at this path's
+>   former name, `market-basket-small-1.2.0/`.
 
 **Status: NOT READY TO PUBLISH.** This is a preparation package for the owner to enter by hand in
 Etsy Shop Manager. Nothing was published, and no request was made to Etsy or Railway.
@@ -31,9 +56,9 @@ Etsy Shop Manager. Nothing was published, and no request was made to Etsy or Rai
 
 | | Value | Source |
 |---|---|---|
-| CIR slug @ version | `market-basket-small@1.2.0`. CIR title "Crochet Hexagonal Bread Basket". Builder and instructions unchanged. | `products.launch0.cir_for("basket_small")` |
+| CIR slug @ version | `market-basket-small@1.3.0`. CIR title "Crochet Hexagonal Bread Basket". Rnd 11 is "sc in back loop of next 60 sts" (back loop only), and nothing else changed. | `products.launch0.cir_for("basket_small")` |
 | Product (candidate) | `hexagonal-bread-basket`, "Hexagonal Bread Basket", one variant | `products.launch0`, D-W4-OWNER-BASKET-IDENTITY |
-| Content / release hash | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991`. **Unchanged** by the identity fix. | Re-run chain. Equals LAUNCH_PATH §3, W4-SAMPLE §1.1 and the tester kit. |
+| Content / release hash | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` (1.3.0). It was `1ddde587…` at 1.2.0 and `9251c2ec…` at 1.2.1. | The re-run chain (`pattern_versions`, `listings`, `listing_set_certificates`). It equals the customer-edition MANIFEST and the 1.3.0 tester kit. |
 | Certified **in production** at this version? | **UNKNOWN: NEEDS PRODUCTION READBACK.** Production still runs the code that merchandised this CIR as nursery decor, so its stored listing and PDF carry the old framing until this change deploys and the release re-renders. | LAUNCH_PATH E11 |
 | Product Truth | PASS (`passes_gates=True`) | `products.launch0.product_truth(candidate("hexagonal-bread-basket"))` |
 | Risk class | B (`dimensional_form`). The first customer needs `partial_physical`, which in practice is a full make. | `gates.risk_matrix`; W4-SAMPLE §1.1 |
@@ -71,7 +96,7 @@ WHAT YOU GET
 - Written instructions for every row, with a stitch count on each
 - A chart drawn from the same pattern as the written instructions, so the two always agree
 - Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match
-- 7-page PDF, laid out to be readable on a phone or printed
+- 13-page PDF, laid out to be readable on a phone or printed
 
 THE DETAILS
 - Finished size: hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall, worked at the gauge below
@@ -100,6 +125,7 @@ These are the terms Brambleloop offers; they have not yet been through legal rev
 
 DISCLOSURES
 - ⚠ About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.
+- About the shape: the rounded rim drawn in the images is estimated from how the pattern is built, not measured. Rim shape estimated until a sample is made.
 - Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.
 - This design was created with AI assistance, and every row's stitch count is checked before release.
 - This is a digital pattern. No physical item is shipped.
@@ -130,7 +156,7 @@ The system's `gates.policy.check_ai_disclosure` would flag this edited copy unti
 
 **Not edited.**
 - **The AI disclosure.** `DISCLOSURES["ai_assisted_design"]` stays verbatim. Do not reword it to get around Etsy's functional-instructions rule (O-1).
-- **Testing claims.** Add no "tested" or "measured" claim until a passed `PhysicalTest` is bound to `1ddde587…`.
+- **Testing claims.** Add no "tested" or "measured" claim until a passed `PhysicalTest` is bound to `c4aa14a0…`.
 
 ### 2.3 Coverage of the required description elements
 
@@ -279,9 +305,10 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 |---|---|---|
 | File name (`f"{slug}-{pattern_filename(t)}"`) | `market-basket-small-pattern-us.pdf` (34 chars) | `market-basket-small-pattern-uk.pdf` (34 chars) |
 | Format | PDF | PDF |
-| Pages | **7** (was 9: the children's safety pages are gone) | 7 |
-| Size (scratch run) | 376,631 bytes | 376,636 bytes |
-| sha256 (scratch run, **not** the certified file) | `c5dbe661…00b1` | `fc3592b8…2d6d` |
+| Pages | **13** (the premium 1.3.0 edition) | 13 |
+| Size (scratch run) | 3,523,040 bytes | 3,523,187 bytes |
+| sha256 (scratch chain run, 1.3.0) | `fcdded05…a499` | `dc3f7d6e…41b5` |
+| Identical to the customer editions? | **Yes**, byte for byte: `customer_editions/market-basket-small-1.3.0/market-basket-small-1.3.0.pdf` | **Yes**: `…-1.3.0-uk.pdf` |
 
 **Checked text.** The regenerated US and UK PDF text contains no "nursery", "baby", "child", "children", "infant", "nesting", "three sizes", "CPSIA" or "under 3".
 
@@ -292,7 +319,7 @@ So both computations give CA$6.50, and the one-size run records no premium reaso
 
 **Files to upload.** These must be the certified PDFs re-rendered from the **corrected source**. That means W-PDF (`claude/w4-PDF1`) after merging this branch's source change, and production `assets.built` after deploy. Their sha256 must match production's `pdf_sha256_by_terminology` for this release.
 - **Any PDF rendered before this change is stale.** It still carries the nursery safety block.
-- **The tester kit's TEST.pdf is stale too.** It is `a724cbae…`, 9 pages, and also predates the change. The pattern instructions are identical and the content hash is the same, so the tester's evidence still binds. The kit should still be rebuilt so the tester works the customer's text (W4-SAMPLE §0.1 rule).
+- **The tester kit is now 1.3.0** (`tester_kit/market-basket-small-1.3.0-TEST.pdf`, `48e54525…`, 13 pages, bound to `c4aa14a0…`). It is **PROVISIONAL** until the W-PHYSFIX record-sheet fields merge. A sample made from any 1.2.x kit does not bind to 1.3.0.
 
 **Delivery message.** This is set at shop level. Its text is `store_foundation.copy_v2.DIGITAL_SALE_MESSAGE`:
 
@@ -331,7 +358,7 @@ Whether it is set on the live shop is NEEDS PRODUCTION READBACK.
 - alt text up to 500 characters (250 advised).
 
 **Photos: each requires a physical sample, which has not yet been made.**
-- **Sample:** a full make by an independent tester from the exact release PDF (`1ddde587…`), under W4-SAMPLE package A (`tester_outreach`).
+- **Sample:** a full make by an independent tester from the exact release PDF (`c4aa14a0…`, 1.3.0), under W4-SAMPLE package A (`tester_outreach`).
 - **Rights:** each photo needs a rights basis (`tester_agreement` or `brambleloop_made`).
 - **Intake:** by sha256 through `POST /api/physical-photo`.
 - **Styling:** kitchen and home, per the owner's positioning. This matches W-IMAGEPOLICY §5.1.
@@ -340,7 +367,7 @@ Whether it is set on the live shop is NEEDS PRODUCTION READBACK.
 |---|---|---|---|---|---|
 | **1 (FIRST)** | Three-quarter view from about 30° above. The whole basket on a real kitchen or dining table, empty or with two or three bread rolls that do not hide the rim. Centred, generous margin. | **UNEDITED.** No filter, crop, resize or background change. Shoot in final framing; keep the original and its sha256. | **Landscape 4:3 or square 1:1, ≥ 2000 px each side** | none | "Photograph of a crocheted hexagonal bread basket in cream with wine rounds, made from this pattern, holding bread rolls on a wooden table." |
 | 2 | Top-down: the hexagonal base, the six increase lines and the inside | may adjust exposure (not AI) | square, ≥ 2000 px | none | "Overhead photograph of a crocheted hexagonal basket showing its six-sided base and corner increase lines." |
-| 3 | Side profile at table level: wall height, walls standing straight | may adjust | square, ≥ 2000 px | none | "Side photograph of a crocheted hexagonal basket at table level showing straight walls about [measured] cm tall." |
+| 3 | Side profile at table level: the wall as it stands; do not straighten it or pose the corners | may adjust | square, ≥ 2000 px | none | "Side photograph of a crocheted hexagonal basket at table level showing its wall, about [measured] cm tall." |
 | 4 | Scale: tape across the points (about 16 cm); a second frame with the tape at wall height (about 8.7–9 cm) | may crop | square, ≥ 2000 px | none | "Photograph of a crocheted hexagonal basket with a tape measure across its base, about [measured] cm across the points." |
 | 5 | Detail macro of the rim and the colour change | may crop | square, ≥ 2000 px | none | "Close-up photograph of single-crochet stitches at the rim of a crocheted basket where cream meets wine." |
 | 6 | In use: on a set table with bread | may adjust (not AI) | landscape 4:3, ≥ 2000 px | none | "Photograph of a crocheted hexagonal basket of bread rolls in the middle of a table set for a meal." |
@@ -351,14 +378,14 @@ Whether it is set on the live shop is NEEDS PRODUCTION READBACK.
 
 | # | Frame | Label (pixels) | Alt text (system, verbatim) |
 |---|---|---|---|
-| 7 | Disclosed render, hero | "Digital rendering of the pattern's finished design, not a photograph" + cm scale | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
-| 8 | Disclosed render, scale | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
+| 7 | Disclosed render, hero | "Digital rendering of the pattern's finished design, not a photograph" + cm scale | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made." |
+| 8 | Disclosed render, scale | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge. Rim shape estimated until a sample is made." |
 | 9 | Disclosed render, detail (base from above) | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the base seen from above, every base round stitch for stitch, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
-| 10 | Disclosed render, angle | same | "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar." |
+| 10 | Disclosed render, angle | same | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the finished piece seen from the side at a raised angle. Rim shape estimated until a sample is made." |
 | 11 | Supplement CONSTRUCTION | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: how it is built: the stitch count of every round or row, in working order." |
 | 12 | Supplement COLOUR_CONTEXT | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: each yarn colour's share of the finished piece, counted from the pattern." |
 | 13 | Supplement MATERIALS | as above | "Digital rendering of the pattern's finished design, not a photograph. Hexagonal Bread Basket: the yarn colours, yarn weight, hook size and gauge the pattern calls for." |
-| 14 | **CONTENTS: PDF page preview** | "Preview of the pattern document" | "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size." |
+| 14 | **CONTENTS: PDF page preview** | "Preview of the pattern document" | "Preview of the pattern document. Hexagonal Bread Basket: the first pages of the PDF pattern you download, shown at reduced size. Rim shape estimated until a sample is made." |
 
 **Supplement alt text came from the product record.** It used to say "Nesting Baskets, three sizes". It now reads "Hexagonal Bread Basket", because `visual.launch_imagery._primary_for` reads the new candidate's title. The [PACKAGE EDIT] that patched it earlier is no longer needed.
 
@@ -382,8 +409,8 @@ Status as of 2026-10-27. **Every box is open unless marked done.**
   - References: W-IMAGEPOLICY §2.3, §4.8, §6.2; ETSY_POLICY_READINGS_PACKET source 2, Q3.
 - [ ] **O-2.** Read the Listing Image Requirements legal page in person. Source: W-IMAGEPOLICY §6.1.
 - [ ] **O-3.** Check the listing form for a "made with AI" attribute. Source: W-IMAGEPOLICY §6.3.
-- [ ] **O-4.** Approve `tester_outreach` for market-basket-small@1.2.0.
-  - Cost: **CA$66.00** all-inclusive (CA$65.90 to the one tester, fee plus 2 balls, ESTIMATED).
+- [ ] **O-4.** Approve `tester_outreach` for market-basket-small@1.3.0, once the final (non-provisional) kit exists.
+  - Cost: **CA$66.00** (fee plus 2 balls, ESTIMATED), or CA$59.65 with yarn reimbursed per metre.
   - Time: 25 minutes.
   - Also add the "re-weigh after the swatch" line (G2), and rebuild the kit's TEST.pdf from the corrected renderer (§6).
   - Consequence of waiting: no compliant listing is possible.
@@ -396,12 +423,12 @@ Status as of 2026-10-27. **Every box is open unless marked done.**
 - [ ] **O-8.** Confirm the shop currency is CAD. Source: §5.
 - [ ] **O-9.** Final pricing verification of CA$6.50. Source: D-W4-OWNER-BASKET-IDENTITY; §5.
 - [ ] **O-10.** Confirm `digital_sale_message` is set. Source: `intel.etsy_surfaces` (production readback).
-- [ ] **O-11.** Keep the automated publish path disarmed for `market-basket-small@1.2.0` while a manual listing exists. Source: §10.
+- [ ] **O-11.** Keep the automated publish path disarmed for `market-basket-small@1.3.0` while a manual listing exists. Source: §10.
 
 ### Physical
 
-- [ ] **P-1.** Full make by an independent adult who is not the owner (F-071), scope `full_make`, against content hash `1ddde587…`. Source: W4-SAMPLE §1.2.
-- [ ] **P-2.** `POST /api/physical-test` with `passed=True`, bound to `1ddde587…`. Source: W4-SAMPLE §1.7; LAUNCH_PATH E7.
+- [ ] **P-1.** Full make by an independent adult who is not the owner (F-071), scope `full_make`, against content hash `c4aa14a0…`. Source: W4-SAMPLE §1.2.
+- [ ] **P-2.** `POST /api/physical-test` with `passed=True`, bound to `c4aa14a0…`. Source: W4-SAMPLE §1.7; LAUNCH_PATH E7.
 - [ ] **P-3.** Every measurement within ±12% of the stated size: 16.0 / 8.7 / 13.9 cm. The code does not check the flats measurement. Source: W4-SAMPLE §1.4.
 - [ ] **P-4.** Photographs per §8: #1 unedited, a rights basis, and the original's sha256. Source: W-IMAGEPOLICY §4.3, §5.1.
 - [ ] **P-5.** Product Truth reconciles any measured difference. Source: W-IMAGEPOLICY §5.
@@ -426,7 +453,7 @@ Status as of 2026-10-27. **Every box is open unless marked done.**
 
 ### Policy and evidence
 
-- [ ] **V-1.** The release is certified in production at 1.2.0 with hash `1ddde587…`. Source: LAUNCH_PATH E11.
+- [ ] **V-1.** The release is certified in production at 1.3.0 with hash `c4aa14a0…`. Source: LAUNCH_PATH E11.
 - [ ] **V-2.** All nine first-customer areas pass. In the re-run chain, `gauge_and_size_claims` is UNRESOLVED and `etsy_remote_state` is UNVERIFIABLE. Source: evidence JSON; LAUNCH_PATH A9.
 - [ ] **V-3.** Independent vision review. Source: LAUNCH_PATH E6.
 - [ ] **V-4.** The image rules are met: an unedited photo first, renders labelled and never alone, and a PDF preview. Source: W-IMAGEPOLICY §1, §3.
@@ -450,8 +477,8 @@ Status as of 2026-10-27. **Every box is open unless marked done.**
 **Interim manual record.** Kept by the owner at publication, in operator records, not in this repo:
 
 ```
-slug@version:            market-basket-small@1.2.0   (product: hexagonal-bread-basket)
-release_hash:            1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991
+slug@version:            market-basket-small@1.3.0   (product: hexagonal-bread-basket)
+release_hash:            c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c
 etsy_listing_id:         <from the listing URL>
 published_at (UTC):      <ISO 8601>
 state set:               draft | active

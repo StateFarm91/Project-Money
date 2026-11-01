@@ -345,7 +345,13 @@ def test_the_key_covers_the_stitches_that_never_appear_in_the_chart():
 
     # And the notation a row is written in, which no stitch registry can supply.
     labels = {e.token for e in ab.notation_key(text)}
-    assert "(120 sts)" in labels and "[ ... ] x 4" in labels, labels
+    # F8 (2026-10-31): the examples are this pattern's own -- its largest stated count and
+    # its commonest bracket repeat -- not a generic "(120 sts)" and "x 4".
+    import re as _re
+    biggest = max(int(n) for n in _re.findall(r"\((\d+)\s*sts\)", text))
+    reps = [int(n) for n in _re.findall(r"\]\s*x\s*(\d+)", text)]
+    common = max(set(reps), key=lambda k: (reps.count(k), -k))
+    assert f"({biggest} sts)" in labels and f"[ ... ] x {common}" in labels, labels
     # A convention the document does not use is not explained: a key padded with irrelevant
     # entries is a key nobody finishes reading.
     assert "magic ring" not in labels, labels
@@ -575,6 +581,12 @@ def test_no_type_in_the_customer_document_is_set_below_the_brand_minimum():
     for number, line in enumerate(source.splitlines(), 1):
         for match in re.finditer(r'setFont\("Helvetica(?:-Bold)?",\s*(\d+)\)', line):
             if int(match.group(1)) < minimum:
+                offenders.append((number, line.strip()))
+        # The embedded brand faces (brand.pdf_fonts) are named by FONT_* constants, and every
+        # string is drawn through `_Doc.text(x, y, s, FONT_*, size, ...)`: a literal size after
+        # a face constant is a size the document sets.
+        for match in re.finditer(r"\bFONT_[A-Z_]+,\s*(\d+(?:\.\d+)?)\b", line):
+            if float(match.group(1)) < minimum:
                 offenders.append((number, line.strip()))
         for match in re.finditer(r"\bsize=(\d+)\b", line):
             if int(match.group(1)) < minimum:
@@ -1341,13 +1353,21 @@ def test_every_piece_of_type_inside_a_chart_clears_the_brands_minimum():
 
     # And it fails on an injected defect rather than only on a live one: a chart renderer that
     # sets its cue a shade smaller drops under the floor at the cell sizes the catalogue uses.
+    # The cell is the one the catalogue lays out today, measured before the defect is injected:
+    # since the chart type became the brand's proportional face (F5, 2026-10-31) the tiler can
+    # find a larger tile that rescues a smaller cue, so re-laying out under the defect would
+    # measure the tiler's recovery rather than the renderer's mistake. Both are asserted.
+    cir = for_slug("cloudline-baby-blanket")
+    _, twin = _twin_for(cir)
+    art = pdf_mod._chart_art(cir, twin)
     original = charts.CUE_RATIO
     try:
         charts.CUE_RATIO = 0.40
-        cir = for_slug("cloudline-baby-blanket")
-        _, twin = _twin_for(cir)
-        art = pdf_mod._chart_art(cir, twin)
-        assert _chart_type_pt(cir, twin, art)["cue"] < pdf_mod.MIN_BODY_PT
+        assert _chart_type_pt(cir, twin, art)["cue"] < pdf_mod.MIN_BODY_PT, \
+            _chart_type_pt(cir, twin, art)
+        relaid = pdf_mod._chart_art(cir, twin)
+        assert (_chart_type_pt(cir, twin, relaid)["cue"] >= pdf_mod.MIN_BODY_PT
+                or relaid["problems"]), relaid["problems"]
     finally:
         charts.CUE_RATIO = original
 
@@ -1987,10 +2007,12 @@ def test_the_listing_chart_shows_what_the_document_shows():
     # The flagship, with the number in the assertion so a regression is legible in the
     # failure rather than only in the diff. 8.2 px before the fix; 43 px on the seventy-round
     # basket; 56 px (55.9) since the basket was re-derived from its yarn to a 16-round base,
-    # which has fewer rings to fit in the same frame. The pin moved up, never down.
+    # which has fewer rings to fit in the same frame; 58 px (58.0) since the chart type became
+    # the brand's proportional face (F5, 2026-10-31), whose narrower caption lets the frame
+    # scale the disc up. The pin moved up, never down.
     cir = build_basket("large")
     _, twin = _twin_for(cir)
-    assert round(la.chart_frame_unit_px(cir, twin)) == 56, la.chart_frame_unit_px(cir, twin)
+    assert round(la.chart_frame_unit_px(cir, twin)) == 58, la.chart_frame_unit_px(cir, twin)
 
     # Flat: the listing crops to the block the written instructions repeat, which is what the
     # document's chart shows, rather than to a period that merely divides the row count.

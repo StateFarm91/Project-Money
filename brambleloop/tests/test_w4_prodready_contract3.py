@@ -75,8 +75,10 @@ def _verdict(png: bytes, key: str, view: str) -> dict:
 
 
 def test_contract_3_sizes_are_the_floor_at_the_real_display_size():
-    assert K.CONTRACT_VERSION == "disclosed-render-contract/3"
-    assert D.RENDERER_VERSION == "disclosed-render/3.0.0"
+    # 3.1 (W4-PDF1): soft wall corners for render_contract.SOFT_CORNER_SLUGS only; the
+    # contract-3 lettering this test measures is unchanged.
+    assert K.CONTRACT_VERSION == "disclosed-render-contract/3.1"
+    assert D.RENDERER_VERSION == "disclosed-render/3.1.0"
     assert RV.VERIFIER_VERSION.startswith("render-verification/3.")
     gallery = FR.LISTING_VIEW_PX == mobile.CONTEXT_MEANS[mobile.PHONE_GALLERY]["px"]
     assert gallery

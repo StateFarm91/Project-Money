@@ -245,7 +245,7 @@ def supplement_purpose(job: str) -> str:
     return el.ENGINEERING_EVIDENCE if job == "ANGLE" else el.CUSTOMER_INFORMATION
 
 
-def supplement_alt_text(job: str, title: str) -> str:
+def supplement_alt_text(job: str, title: str, slug: str | None = None) -> str:
     """The alt text a supplement frame is certified with: the disclosure first (as every
     disclosed render's is), then what it shows."""
     from ..publish.disclosed_listing import ALT_TEXT_MAX, DISCLOSURE
@@ -254,8 +254,14 @@ def supplement_alt_text(job: str, title: str) -> str:
         # A preview of the document, not a render of the design: the preview label leads.
         from .contents_frame import alt_text
 
-        return alt_text(title)
-    return f"{DISCLOSURE}. {title}: {_SUPPLEMENT_TEXT[job]}."[:ALT_TEXT_MAX]
+        return alt_text(title, slug)
+    from ..publish.disclosed_listing import compose_alt
+    from . import render_contract as K
+
+    # SECREVIEW-RENDER F1 / N5: the angle frame shows the estimated rim; the contract says
+    # which frames owe the note, and compose_alt never truncates it away (N2).
+    notes = K.estimate_notes(slug, "angle") if job == "ANGLE" else []
+    return compose_alt(f"{DISCLOSURE}. ", title, f": {_SUPPLEMENT_TEXT[job]}.", notes)
 
 
 def supplement_medium(job: str) -> str:
@@ -279,7 +285,7 @@ def expected_alt_text(slug: str, job: str) -> str | None:
     found = _primary_for(slug)
     if found is None or job not in _SUPPLEMENT_TEXT:
         return None
-    return supplement_alt_text(job, found[1])
+    return supplement_alt_text(job, found[1], slug)
 
 
 def _category_of(slug: str) -> str:
@@ -489,7 +495,7 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
                 continue
         out.append({"position": position, "job": job, "sha256": sha256,
                     "purpose": supplement_purpose(job),
-                    "alt_text": supplement_alt_text(job, title), "png": png,
+                    "alt_text": supplement_alt_text(job, title, primary.slug), "png": png,
                     "medium": supplement_medium(job), "honesty_label": supplement_label(job),
                     "represented_variant": primary.variant_key})
         position += 1
