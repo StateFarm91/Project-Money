@@ -132,6 +132,18 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if category in PET_CATEGORIES and re.search(_PET_BED_WORDS, (title or "").lower()):
+        lowered_p = (title or "").lower()
+        shaped = re.search(_PET_BED_NOT_PLAIN, lowered_p)
+        if shaped:
+            return {"family": REFUSED,
+                    "needs": (f"the construction a {shaped.group(0).strip()!r} bed needs (a "
+                              f"stuffed bolster, a padded base, a hood or a larger measured "
+                              f"size), worked and joined as its own pieces"),
+                    "why": (f"the title names {shaped.group(0).strip()!r}, which the plain "
+                            f"low-walled basket bed does not make")}
+        return {"family": VESSEL, "needs": "",
+                "why": "a pet basket bed is a wide vessel with a low wall, worked in the round"}
     if category == "stocking" or re.search(_STOCKING_WORDS, (title or "").lower()):
         lowered_s = (title or "").lower()
         rest = re.sub(_STOCKING_WORDS, "", lowered_s)
@@ -420,6 +432,22 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 _SIZE_WORDS = (("bread", "small"), ("market", "large"))
 
 
+# OPUS2: a pet basket bed is the same hexagon vessel, wide and low: one design size, stated in
+# the listing as the compiled diameter (never a pet's size). Padded, bolstered, hooded or
+# large-dog beds are a different construction and are refused by name in `plan`.
+PET_CATEGORIES = frozenset({"pet"})
+_PET_BED_WORDS = r"\b(?:bed|beds|basket|nest)\b"
+_PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pillow|padded|"
+                      r"stuffed|donut|doughnut|cave|igloo|hood(?:ed)?|tent|cuddler|large|"
+                      r"giant|xl|xxl|extra[- ]large|big)\b)")
+
+
+def _pet_bed_size():
+    from ..products.vessels import BasketSize
+
+    return BasketSize("pet_bed", "pet basket bed", across_cm=45.0, tall_cm=10.0)
+
+
 def _basket_size(title: str):
     from ..products.vessels import BASKET_SIZES
 
@@ -435,8 +463,11 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
                                     hexagon_spans_cm)
 
     gauge = gauge_for(concept.yarn_weight)
-    spec = (next(s for s in BASKET_SIZES if s.key == size) if size
+    pet_bed = size == "pet_bed" or (size is None and concept.category in PET_CATEGORIES)
+    spec = (_pet_bed_size() if pet_bed
+            else next(s for s in BASKET_SIZES if s.key == size) if size
             else _basket_size(concept.title))
+    thing = "pet basket bed" if pet_bed else "basket"
     repeat = [(str(code), int(n)) for code, n in concept.stitch_repeat]
     unit = sum(n for _, n in repeat)
     if unit <= 0:
@@ -474,7 +505,8 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
         materials=[Material(name=f"{concept.yarn_weight} acrylic",
                             yarn_weight=concept.yarn_weight, color_id=p) for p in palette],
         components=[Component(
-            name="basket", construction="joined_rounds", rows=rows, foundation=0,
+            name="bed" if pet_bed else "basket", construction="joined_rounds", rows=rows,
+            foundation=0,
             foundation_kind="magic_ring",
             note=("Worked in one piece from the centre of the base. Work each increase into "
                   "the second stitch of the previous round's increase, so the increases stack "
@@ -483,7 +515,7 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
                         f"{base_count} sts, {wall_rounds} wall rounds alternating plain "
                         f"single crochet and the concept's {unit}-st repeat"),
         finished_size_note=(
-            f"A hexagonal basket about {points:.1f} cm across the points and {flats:.1f} cm "
+            f"A hexagonal {thing} about {points:.1f} cm across the points and {flats:.1f} cm "
             f"across the flats, walls about {wall_rounds * row_cm:.0f} cm tall, at the stated "
             f"gauge. Computed, not yet measured on a worked sample."),
         provenance=provenance,

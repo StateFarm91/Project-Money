@@ -230,6 +230,16 @@
       "scope": "radar fallback: a plain stocking (category stocking or a stocking title) drafts as two identical L-shaped panels worked flat from the cuff down (heel chain extends the foot; last rows decrease both ends to round the sole), whipstitched round all but the cuff, with a hanging loop; colourwork, names/monograms, second objects, other sizes and sets refused by name",
       "stacked_on": "opus2/p0-pet-bed (both insert a route at the same place in plan())",
       "evidence": "tests/test_opus2_stocking.py 3/3; 44 fallback/vessel/draft suites exit 0"
+    },
+    {
+      "id": "OPUS2-PET-BED",
+      "operator": "opus2",
+      "branch": "opus2/p0-pet-bed",
+      "state": "ready_for_review",
+      "area": "P0 construction breadth: pet products",
+      "scope": "radar fallback: a `pet` concept titled bed/basket/nest drafts as the hexagon vessel at one design size (45 cm across, 10 cm wall), computed size stated; bolster/cushion/padded/donut/cave/hooded/large-dog and combined beds refused by name; mats stay flat",
+      "stacked_on": "opus2/p0-revenue-workforce-b4merge (the fallback module is not on the base yet)",
+      "evidence": "tests/test_opus2_pet_bed.py 3/3; 44 fallback/vessel/draft suites exit 0 (review C N3.2 cat-bed case updated: drafted as the vessel, never flat)"
     }
   ],
   "unowned": [
