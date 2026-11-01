@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-01T08:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-01T09:35Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -38,6 +38,18 @@ worktrees, not this file.
 7. Construction breadth. The next item comes from handoff §30 or from the knowledge-gap counts;
    per-stitch colour needs Main Opus's decision, so propose it on PR #3.
 
+## In flight (09:35Z)
+- PR #6 worktree: EF2-6, EF2-8 and B-5 (partial unique index, deferred migrate, dedupe script)
+  are written and 11/11; the 115-suite regression is running (/tmp/claude-0/oq4_results.txt).
+- PR #3 worktree: EF2-1 (`launch0.finished_objects`), EF2-2, EF2-3 and EF2-3b are written; the
+  104-suite regression is running (/tmp/claude-0/ef2_results.txt).
+- `opus2/p1-culture-sweep-timeout` (/home/user/opus2-culture): the fix and tests (3/3) are
+  written; the claim is in COORDINATION on that branch; culture suites are running.
+- If the container was reset, rerun those regressions from the uncommitted worktrees, or, if
+  the worktrees are gone, re-apply from the PR comments.
+- Gap register: `P0_GAP_REGISTER.json` on this branch.
+
 ## Done log
+- 2026-11-01T09:10Z: EF2-4 + EF2-5 pushed in `e93b16ed` (PR #5, commented).
 - 2026-11-01: review E fixes pushed in `0e941757`, F-A in `b42f4245`, F-B in `007f5d1c`;
   OPUS2EF2 re-review returned CHANGES REQUIRED (06:50Z).
