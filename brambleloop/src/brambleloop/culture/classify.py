@@ -125,6 +125,7 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     # 2026-09-25 that agent's CA$4.00/day was checked by nothing on this path.
     reservation = None
 
+    sent = False
     try:
         if db is not None:
             budget = gw.check_budget(
@@ -132,6 +133,7 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
                 max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
             estimate = budget["estimate_cad"]
             reservation = budget["reservation_id"]
+        sent = True                     # from here on the request may have reached the provider
         response = provider.complete(CLASSIFY_SYSTEM, prompt(topics),
                                      max_tokens=CLASSIFY_MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
@@ -140,13 +142,19 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
         return {"filed": {}, "sensitive": flagged, "reason": str(exc)[:300],
                 "note": ("nothing was filed and the reason is above. An unfiled topic list "
                          "is not an empty culture")}
-    except TimeoutError as exc:
-        # P1-CULTURE-SWEEP-TIMEOUT (production 2026-10-27, 2026-11-01): the socket read timed
-        # out after the request reached the provider. Whether it billed is UNKNOWN, and
-        # UNKNOWN is never zero: it is counted once at the reservation's estimate, exactly as
-        # `ModelGateway._billing` counts a timeout. The paid-call intent stays UNCERTAIN
-        # (F-307/F-339), so the call is never re-sent automatically; this attempt simply
-        # files nothing and the sweep goes on reading its fixed topics instead of failing.
+    except Exception as exc:  # noqa: BLE001 - classified by outcome below, never swallowed blind
+        # P1-CULTURE-SWEEP-TIMEOUT, widened by review OPUS2G C-2: once the request was sent, a
+        # failure that is not a provider refusal (handled above) is UNCERTAIN -- a timeout, an
+        # unreadable 200 (ValueError), a reset or incomplete read -- exactly the set
+        # `gateway.anthropic._classify_failure` calls UNCERTAIN. Whether it billed is UNKNOWN,
+        # and UNKNOWN is never zero: it is counted once at the reservation's estimate, as
+        # `ModelGateway._billing` counts it. The paid-call intent stays UNCERTAIN (F-307/F-339)
+        # so nothing is re-sent; the attempt files nothing and the sweep goes on. A failure
+        # before anything was sent (the budget check, a bug) is not billed and is re-raised.
+        if not sent:
+            if db is not None:
+                gw.release_reservation(db, reservation)
+            raise
         if db is not None:
             from ..finance import spend_report
             from ..gateway import paid_calls
@@ -158,12 +166,13 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
                 department="culture",
                 detail={"topics": len(topics), "price_basis": "assumed",
                         "billing": "unknown_counted_at_estimate",
-                        "cost_basis_note": ("the classifier call timed out after it was "
-                                            "sent; whether it billed is UNKNOWN and counted "
-                                            "at the reservation estimate, never as zero"),
+                        "cost_basis_note": ("the classifier call failed after it was sent "
+                                            f"({type(exc).__name__}); whether it billed is "
+                                            "UNKNOWN and counted at the reservation "
+                                            "estimate, never as zero"),
                         **paid_calls.ledger_note()})
         return {"filed": {}, "sensitive": flagged, "unresolved": True,
-                "reason": f"classifier call timed out: {exc}"[:300],
+                "reason": f"classifier call outcome unknown ({type(exc).__name__}): {exc}"[:300],
                 "note": ("nothing was filed: the call's outcome is unknown, so it is counted "
                          "at its estimate and not re-sent. An unfiled topic list is not an "
                          "empty culture")}

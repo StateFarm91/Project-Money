@@ -91,6 +91,74 @@ def test_a_retry_that_meets_the_unresolved_intent_files_nothing_without_resendin
     assert out["filed"] == {} and "no known outcome" in out["reason"]
 
 
+def _worker_sweep(failure):
+    """The real culture.sweep job, through the real worker and paid-call guard. Only the
+    network is faked: `AnthropicProvider._send` (the transport) and the culture feeds."""
+    import os
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus, Phase
+    from brambleloop.culture import feeds
+    from brambleloop.gateway import paid_calls
+    from brambleloop.gateway.anthropic import AnthropicProvider
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import release  # noqa: F401 - registers handlers
+    from brambleloop.runtime.worker import Worker
+
+    os.environ.setdefault("ANTHROPIC_API_KEY", "k")     # presence only; _send is faked
+    db = _db()
+    Registry(db).seed_defaults()
+    sent = []
+
+    def fake_send(self, payload, key, **kw):
+        sent.append(1)
+        raise failure
+
+    saved = (AnthropicProvider._send, feeds.discover, feeds.sweep, feeds.default_articles,
+             feeds.env_override)
+    AnthropicProvider._send = fake_send
+    feeds.discover = lambda **k: {"topics": [{"article": "A_topic"}, {"article": "B_topic"}]}
+    feeds.default_articles = lambda db, **k: ["Crochet"]
+    feeds.env_override = lambda *a, **k: []
+    feeds.sweep = lambda db, articles, **k: {
+        "source": feeds.SOURCE_KEY, "channel": feeds.CHANNEL, "recorded": 0,
+        "attempted": len(articles), "readings": [], "failures": [], "measures": "",
+        "lag_days": feeds.PIPELINE_LAG_DAYS}
+    try:
+        job = JobQueue(db).enqueue("market_radar", "culture.sweep", {},
+                                   idempotency_key="sweep-fixture", priority=0)
+        Worker(db, "w-sweep", phase=Phase.SHADOW, job_types=["culture.sweep"],
+               lease_seconds=900).run_once()
+    finally:
+        (AnthropicProvider._send, feeds.discover, feeds.sweep, feeds.default_articles,
+         feeds.env_override) = saved
+    with db.session() as s:
+        row = s.get(Job, job.id)
+        status, attempts, err = row.status, row.attempts, row.last_error
+        outcomes = [r.outcome for r in s.scalars(select(paid_calls.PaidCallRecord))]
+        costs = [(c.amount_cad, (c.detail or {}).get("billing")) for c in s.scalars(
+            select(CostEntry))]
+    return status is JobStatus.DONE, attempts, err, sent, outcomes, costs
+
+
+def test_review_opus2g_c2_c3_every_unknown_outcome_completes_the_sweep_on_attempt_one():
+    import http.client
+
+    failures = (TimeoutError("The read operation timed out"),
+                ValueError("Expecting value: line 1 column 1 (char 0)"),
+                ConnectionResetError(104, "Connection reset by peer"),
+                http.client.IncompleteRead(b"partial"))
+    assert failures
+    for failure in failures:
+        done, attempts, err, sent, outcomes, costs = _worker_sweep(failure)
+        name = type(failure).__name__
+        assert done and attempts == 1, (name, attempts, err)
+        assert len(sent) == 1, (name, sent)                       # never re-sent
+        assert outcomes == ["UNCERTAIN"], (name, outcomes)        # the guard's verdict kept
+        unknown = [a for a, billing in costs if billing == "unknown_counted_at_estimate"]
+        assert len(unknown) == 1 and unknown[0] > 0, (name, costs)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
