@@ -485,6 +485,13 @@ def test_review_opus2h_h12_h13_conflicting_sizes_refused_and_set_is_a_whole_word
     assert promise["plural_markers"] == () and promise["backed"] is True, promise
     renamed = dataclasses.replace(sunset, title="Market Tote Set")
     assert L.title_promise(renamed)["backed"] is False         # a real "set" still is one
+    # OPUS2I I-1: inflected markers still promise more than one.
+    for title in ("Market Tote Sets", "Tote Pairs", "Tote Bundles", "Tote Collections",
+                  "Tote Duos", "Tote Trios", "Bundled Totes", "Tote Libraries"):
+        promise = L.title_promise(dataclasses.replace(sunset, title=title))
+        assert promise["backed"] is False and promise["plural_markers"], title
+    for title in ("Closet Tote", "Asset Tote"):
+        assert L.title_promise(dataclasses.replace(sunset, title=title))["backed"] is True
 
 
 def test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused():
