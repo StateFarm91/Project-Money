@@ -41,7 +41,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket 1.3.0 built+certified (c4aa14a0, head 4fb6252d); design review running; truthful wall-corner renders in progress",
+      "state": "accepted (CODE SHIP / PRODUCT FIT conditional on sample) at df5ffc4e; integrates into Batch 5 after Batch 4 certifies",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -576,7 +576,8 @@
         "kit/outreach rebound to the recertified version"
       ],
       "status": "not ready for commissioning approval"
-    }
+    },
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
   },
   "owner_directives": [
     {
