@@ -470,6 +470,23 @@ def test_review_opus2ef2_finished_objects_counts_groups_by_their_scarcest_piece(
     assert L.finished_objects(selfseam) == body.make
 
 
+def test_review_opus2h_h12_h13_conflicting_sizes_refused_and_set_is_a_whole_word():
+    from brambleloop.products import launch0 as L
+
+    for title in ("Tiny Large Tote", "Small Big Tote", "Medium Large Tote"):
+        route = F.plan(category="bag", title=title)
+        assert route["family"] == F.REFUSED and "more than one size" in route["why"], title
+    seed = pipeline._seed_for("everyday-market-tote")
+    geo = pipeline.concept_geometry(seed)
+    sunset = F.tote(pipeline.Concept(slug="t", title="Sunset Market Tote", category="bag",
+                                     stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                                     width_stitches=10, rows=4, colors=geo["colors"]))
+    promise = L.title_promise(sunset)
+    assert promise["plural_markers"] == () and promise["backed"] is True, promise
+    renamed = dataclasses.replace(sunset, title="Market Tote Set")
+    assert L.title_promise(renamed)["backed"] is False         # a real "set" still is one
+
+
 def test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused():
     from brambleloop.publish.substitution import WEIGHT_BY_KEY
 

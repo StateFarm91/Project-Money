@@ -179,7 +179,8 @@ def title_promise(cir: CIR) -> dict:
             claimed = max(claimed or 0, int(token))
         elif token in _COUNT_WORDS:
             claimed = max(claimed or 0, _COUNT_WORDS[token])
-    plural = [w for w in PLURAL_MARKERS if w in lowered]
+    # OPUS2H H1-3: whole words, so "Sunset", "Closet" and "Asset" do not read as "set".
+    plural = [w for w in PLURAL_MARKERS if re.search(rf"\b{re.escape(w)}\b", lowered)]
     makes = finished_objects(cir)
 
     if claimed is not None:

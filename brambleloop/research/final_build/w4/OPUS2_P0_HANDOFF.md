@@ -780,3 +780,18 @@ Review fixes only, which this frozen branch still takes.
 | EF2-3b LOW: material phrases treated as contents | the contents exclusion keeps the claim when a material noun follows (rope, cord, t-shirt, jersey, twine, macramé) | `REVIEW_EF2_MUST_FAIL` in `test_opus2_size_claims` |
 
 Regression: 104 suites, exit 0 except `test_risk_matrix` (`KeyError('market-basket-medium')`, base-owned).
+
+## 34. Review OPUS2H (13d67502): ACCEPT; LOW follow-ups H1-1 to H1-3 fixed (2026-11-01)
+
+- H1-1: "of <stash>" (yarn, scraps, stuffing, skeins, balls, optionally after a fibre word) is
+  contents; a fibre named alone is the material, so "2 baskets of cotton" and "Two baskets of
+  wool" are claims again.
+- H1-2: a tote title naming two different sizes is refused ("Tiny Large Tote").
+- H1-3: `title_promise` plural markers match whole words, so "Sunset Market Tote" is no longer
+  a "set" (a real "Set" still is).
+- H1-4 (INFO): the second-object refusal lives in `plan()`; it is noted for any later retitling
+  path.
+
+No catalogue `title_promise` verdict changes (26 buildable products compared before and after).
+11 suites that read `title_promise`, `size_claims` or the fallback, plus `test_shadow` and
+`test_vacuity`: exit 0 except the base-owned `test_risk_matrix`.

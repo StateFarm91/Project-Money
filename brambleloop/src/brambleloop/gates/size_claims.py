@@ -132,8 +132,11 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
                                 rf"(?<!\bfits\s)(?<!\bfit\s)(?<!\bcarry\s)(?<!\bcarries\s)"
                                 rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?{_VESSEL}"
                                 rf"(?:\s+set)?\b"
-                                rf"(?!\s+of\s+(?:yarn|wool|cotton|stuffing|fibre|fiber|scraps)\b"
-                                rf"(?!\s+(?:rope|cord|cording|t-?shirt|jersey|twine|macram[eé])))",
+                                # OPUS2H H1-1: "of <stash>" is contents ("3 bags of yarn");
+                                # "of <fibre>" alone is the material and stays a claim
+                                # ("2 baskets of cotton"), unless it names a stash after it.
+                                rf"(?!\s+of\s+(?:(?:wool|cotton|acrylic|fibre|fiber)\s+)?"
+                                rf"(?:yarn|stuffing|scraps|stash|skeins?|balls?)\b)",
                                 re.I), _count_word),
     ("named_plus", re.compile(rf"\b{_FULL}\s*\+\s*{_FULL}\b", re.I), _distinct_full),
     ("nesting", re.compile(r"\bnesting\b", re.I), lambda m: None),
