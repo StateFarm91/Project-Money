@@ -144,17 +144,30 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+    },
+    {
+      "id": "OPUS2-LISTING-PACKAGE-JOB",
+      "operator": "opus2",
+      "branch": "opus2/p0-listing-package",
+      "head": "f779fac2",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)"
+    },
+    {
+      "id": "OPUS2-OWNER-QUEUE-RACES",
+      "operator": "opus2",
+      "branch": "opus2/p1-owner-queue-races",
+      "head": "ccb3e8e4",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "P1-OWNER-QUEUE-RACES"
     }
   ],
   "unowned": [
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
-    },
-    {
-      "id": "P1-OWNER-QUEUE-RACES",
-      "priority": "P1",
-      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
     }
   ],
   "reviews": [
@@ -515,6 +528,38 @@
       "report_branch": "claude/w4-SECREVIEW-RENDER-363a467",
       "notes": "R1 High export_check trusts manifest 'estimated'; R2 Med 3.0.0 still qualified; R3-R6 Low",
       "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "PHYSFIX delta 9",
+      "sha": "e3335a51+b8d3dee0",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-b8d3dee",
+      "notes": "R30 closed within an incident; R35 Med: lift ignores releases measured by RESOLVED incidents",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "Basket render delta 2",
+      "sha": "115464fc",
+      "verdict": "CODE ACCEPT / PRODUCT FIT FOR CUSTOMER (conditional on physical sample)",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-115464f",
+      "notes": "N1/N2 Low, N3-N6 Info; PDF1 cleared for Batch 5",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "OPUS2 E (post-review constructions + Low fixes)",
+      "sha": "fb52cb9e..fa3a7b09",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2E-fa3a7b0",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2 F (listing job + owner-queue races)",
+      "sha": "f779fac2 / ccb3e8e4",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
     }
   ],
   "integration": {
@@ -571,6 +616,17 @@
       "date": "2026-10-31",
       "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
       "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
+    }
+  ],
+  "production_observations": [
+    {
+      "at": "2026-11-01T00:25Z",
+      "sha": "ee35a493",
+      "verify_ok": false,
+      "failing": [
+        "no_unexpected_dead_letters_in_24h"
+      ],
+      "notes": "all other 12 checks pass (shadow, nothing published, worker alive, scheduler ticking). Dead-letter detail needs ops token or readback token; integrator does not read secrets. Same check failed 2026-10-27 and recovered by 2026-10-31."
     }
   ]
 }
