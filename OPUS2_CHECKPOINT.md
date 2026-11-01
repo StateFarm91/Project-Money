@@ -96,6 +96,7 @@ worktrees, not this file.
     integrator's surface.
 
 ## Done log
+- 2026-11-01T16:20Z: #9 OPUS2H H2-1..H2-6 pushed in `f57219d0` and commented. Every review G/H finding is now addressed. The queue waits on re-reviews and the three integrator decisions (P0-NEXT-PRODUCT, #9 adoption, motif joins).
 - 2026-11-01T16:00Z: review G/H follow-ups pushed: #6 `23935b58`, #3 `558e7ca9` (+ -b4merge `f959e41d`), #5 `be96a598`, #7 `4c777a0b`, #8 `fa529381`; all commented. Left: #9 H2-1..H2-6 in regression (/tmp/claude-0/cw3_results.txt). #10/#11 are stacked on the older -b4merge; they merge forward cleanly (no file overlap with the H1 changes except fallback_constructions, a non-overlapping hunk).
 - 2026-11-01T13:35Z: stocking pushed in `5c7b984a` with the pet-bed union merge `be12b47b`; PR #11.
 - 2026-11-01T13:00Z: pet basket bed pushed in `d0a7685f`, PR #10 opened (stacked on -b4merge).
