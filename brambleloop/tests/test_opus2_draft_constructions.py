@@ -492,6 +492,13 @@ def test_review_opus2h_h12_h13_conflicting_sizes_refused_and_set_is_a_whole_word
         assert promise["backed"] is False and promise["plural_markers"], title
     for title in ("Closet Tote", "Asset Tote"):
         assert L.title_promise(dataclasses.replace(sunset, title=title))["backed"] is True
+    # Integrator follow-up to I-1: a finished-object noun in the plural promises several.
+    for title in ("Market Totes", "Tote Bags", "Farmhouse Baskets", "Spring Coasters"):
+        promise = L.title_promise(dataclasses.replace(sunset, title=title))
+        assert promise["backed"] is False and promise["plural_markers"], title
+    for title in ("Market Tote", "Tote Bag", "Bags of Charm Tote"):
+        promise = L.title_promise(dataclasses.replace(sunset, title=title))
+        assert ("bags" in promise["plural_markers"]) == ("Bags" in title), title
 
 
 def test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused():

@@ -807,3 +807,8 @@ No catalogue `title_promise` verdict changes (26 buildable products compared bef
 
 No catalogue `title_promise` verdict changes (26 products). test_launch0, launch0_listing_truth,
 eligibility, first_customer_gate, size_claims, draft_constructions and vacuity all exit 0.
+- Integrator follow-up to I-1 ("Totes"): `title_promise` also reads a finished-object noun in
+  the plural (totes, bags, baskets, coasters, placemats, ornaments, cushions, pillows, blankets,
+  throws, runners, stockings, cosies, bowls, trivets, pot holders, dishcloths, washcloths,
+  scrunchies) as a multiplicity marker, so "Market Totes" on a single tote is unbacked. No
+  catalogue verdict changes (26 products, 11 Launch-0 builders).
