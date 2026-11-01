@@ -343,6 +343,28 @@ def test_review_opus2c_f21_only_a_qualifying_photo_may_lead():
             (words, v["reasons"][:4])
 
 
+def test_review_opus2d_r4_bytes_that_are_not_the_attested_photo_never_lead():
+    """The photo qualifies and is attested; the leading frame is then pointed at other stored
+    bytes. Its own bytes check still passes, so only the SHA-256 match refuses it."""
+    from brambleloop.core.models import ListingAsset
+    from brambleloop.publish import sample_photo as SP
+
+    db, cir = _release("r4")
+    sha = _add_photo(db, cir)
+    assert [q["sha256"] for q in SP.qualifying_photos(db, cir.slug, cir.version)
+            ["qualifying"]] == [sha]
+    other = ArtifactStore().put(f"photos/{cir.slug}-other.jpg",
+                                _hero_bytes(db, cir) + b"\x00", "image/jpeg").sha256
+    assert other != sha
+    with db.session() as s:
+        lead = s.scalar(select(ListingAsset).where(
+            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO"))
+        lead.sha256 = other
+    v = _verdict(db, cir)
+    assert v["certificate"]["valid"] is False and not _photo_led(db, cir), v["reasons"][:3]
+    assert any("owner_attested" in r for r in v["reasons"]), v["reasons"][:3]
+
+
 def test_the_photo_lead_takes_its_attestation_from_the_one_rule_only():
     """Static: the photo-led certificate builds no attestation of its own."""
     import inspect

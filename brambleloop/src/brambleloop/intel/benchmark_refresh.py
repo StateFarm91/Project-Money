@@ -197,10 +197,22 @@ def assess(db, *, today: date | None = None) -> dict:
         open_rows = {r.requirement_key: r for r in s.scalars(select(OwnerAction).where(
             OwnerAction.requirement_key.like(f"{ACTION_PREFIX}%"),
             OwnerAction.done == False))}  # noqa: E712
+        # Review OPUS2D R2: one cap across every reference-purchase request, whichever job
+        # raised it -- the knowledge-gap job counts these rows too.
+        from . import knowledge_gaps as _kg
+
+        gap_open = len(list(s.scalars(select(OwnerAction.id).where(
+            OwnerAction.requirement_key.like(f"{_kg.ACTION_PREFIX}%"),
+            OwnerAction.done == False))))  # noqa: E712
         for rec in recommendations:
             key = f"{ACTION_PREFIX}{rec['trigger']}:{rec['subject']}"[:200]
             if key in open_rows:
                 held.append({"key": key, "why": "already asked; not asked twice"})
+                continue
+            if len(open_rows) + gap_open >= _kg.MAX_PURCHASE_REQUESTS_OPEN:
+                held.append({"key": key, "why": (
+                    f"{_kg.MAX_PURCHASE_REQUESTS_OPEN} reference-purchase requests are "
+                    f"already open across benchmark refresh and knowledge gaps")})
                 continue
             if len(open_rows) >= MAX_OPEN:
                 held.append({"key": key, "why": f"{MAX_OPEN} refresh purchases already "

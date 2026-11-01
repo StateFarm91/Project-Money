@@ -228,6 +228,42 @@ REVIEW_C_MUST_PASS = (
 )
 
 
+# Independent review OPUS2D (fb52cb9e), R5: correct copy the new patterns over-refused.
+REVIEW_D_MUST_PASS = (
+    "Materials: 4 mm / 4.5 mm hook", "Hook: 5 mm / 6 mm", "You will need 2 bags of yarn.",
+    "Store 2 tote bags in it.", "Holds 3 plant pots on a shelf.",
+    "A small and a large hook help.", "Repeat 2x to 4x as needed.",
+    "Worked from small to large rounds", "A tote bag pair of handles",
+)
+
+
+def test_review_opus2d_r5_correct_copy_is_not_refused_and_real_claims_still_are():
+    assert REVIEW_D_MUST_PASS and REVIEW_C_MUST_FAIL + REVIEW_MUST_FAIL
+    for t in REVIEW_D_MUST_PASS:
+        assert Z.check_texts({"listing description": t})["state"] == Z.PASS, t
+    for t in REVIEW_C_MUST_FAIL + REVIEW_MUST_FAIL:
+        assert Z.check_texts({"listing description": t})["state"] == Z.FAIL, t
+
+
+# Independent review OPUS2E (fa3a7b09), E2: claims the R5 narrowing let through.
+REVIEW_E_MUST_FAIL = (
+    "3 plant pots", "2-piece pot set", "3 planters set", "3 tote bags", "Two Market Bags",
+    "Two baskets of different sizes", "Sizes s to xl", "Sizes 2X to 4X",
+)
+REVIEW_E_MUST_PASS = ("3 baskets of yarn", "Repeat 2x to 4x as needed.")
+# Review OPUS2EF2 EF2-3b: a material after "of" is what the pieces are made of, not contents.
+REVIEW_EF2_MUST_FAIL = ("Two bowls of wool rope", "3 baskets of cotton cord",
+                        "2 baskets of t-shirt yarn")
+
+
+def test_review_opus2e_e2_the_gate_fails_closed_again():
+    assert REVIEW_E_MUST_FAIL and REVIEW_E_MUST_PASS
+    for t in REVIEW_E_MUST_FAIL + REVIEW_EF2_MUST_FAIL:
+        assert Z.check_texts({"listing description": t})["state"] == Z.FAIL, t
+    for t in REVIEW_E_MUST_PASS + REVIEW_D_MUST_PASS:
+        assert Z.check_texts({"listing description": t})["state"] == Z.PASS, t
+
+
 def test_review_opus2c_n11_n12_probe_rows_are_each_judged_as_the_review_expects():
     assert REVIEW_C_MUST_FAIL and REVIEW_C_MUST_PASS
     for t in REVIEW_C_MUST_FAIL:

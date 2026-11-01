@@ -32,6 +32,8 @@ from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
+TOTE = "tote"
+COSY = "cosy"
 TRIANGLE = "triangle"
 REFUSED = "refused"
 
@@ -40,12 +42,16 @@ VESSEL_CATEGORIES = frozenset({"basket"})
 # Category -> the construction it would need. None of these is a flat panel.
 NEEDS: dict[str, str] = {
     "amigurumi": "shaped pieces worked in the round, stuffed and joined",
-    "hat": "a crown worked in the round and graded per head circumference",
+    "hat": ("a hat height and negative ease from a published standard: the CYC head "
+            "circumference chart (HEAD_CIRCUMFERENCE_CM) publishes circumference only"),
     "garment": "a graded garment design (creative.garment_design)",
-    "bag": "a vessel with a strap or handle join",
     "stocking": "a closed tube with a heel and toe",
     "nursery": "several shaped pieces assembled on a hanger",
     "toy": "shaped pieces worked in the round, stuffed and joined",
+    # Review OPUS2E E1: a bag that is not a tote (drawstring, backpack, clutch, crossbody,
+    # pouch, sachet, holder) is a different construction; only a titled tote is drafted.
+    "bag": ("a bag construction the tote rule does not make (closure, gusset, flap, "
+            "drawstring or shaped body)"),
     "coaster": "a disc worked in joined rounds (products.vessels.build_hexagon_coaster)",
     # Review OPUS2C N3.2: shaped or charted categories the flat route must not take.
     "ornament": "a small shaped or closed piece with a hanging loop",
@@ -56,10 +62,25 @@ NEEDS: dict[str, str] = {
     # test_shadow drafts a raw mosaic concept to prove bad arithmetic dies at the compiler.
 }
 
+# The Craft Yarn Council head circumference chart, transcribed from the page on the retrieval
+# date (cm row; ranges kept, as cir.graded keeps them). It is the ONLY sourced head data in
+# this build. It publishes no hat height and no negative ease, so a hat cannot be sized from
+# it without inventing two numbers -- and is refused rather than guessed.
+HEAD_CHART_URL = "https://www.craftyarncouncil.com/standards/head-circumference-chart"
+HEAD_CHART_RETRIEVED = "2026-10-31"
+HEAD_CIRCUMFERENCE_CM: dict[str, tuple[float, float]] = {
+    "preemie": (23.0, 30.5), "baby": (35.5, 40.5), "toddler": (40.5, 46.0),
+    "child": (45.5, 51.0), "tween": (51.0, 56.0), "woman": (53.0, 58.5), "man": (56.0, 61.0),
+}
+HAT_UNSOURCED = ("hat_height", "negative_ease")
+
 # Title words that name a shaped, closed or assembled object whatever the category says. The
 # assembled forms are launch0's (a flat panel under them promises a make it does not contain).
 _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "sweater",
-                 "shawl", "shawlette", "tote", "bag", "cluster", "egg cosy", "mitten", "sock",
+                 "shawl", "shawlette", "cluster", "mitten", "sock", "bag",
+                 # Review OPUS2E E1/E4: bag forms and cosy characters the plain rules lack.
+                 "drawstring", "holder", "backpack", "clutch", "crossbody", "pouch", "sachet",
+                 "bean bag", "diaper", "purse", "wallet",
                  # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
                  "granny", "hexagon", "hexie", "bed")
 
@@ -101,12 +122,53 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                          "BASKET_SIZES), each listed on its own",
                 "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
                         f"is one release of one size")}
-    if category in NEEDS:
+    titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
+    if category in NEEDS and not (category == "bag" and titled_tote):
         return {"family": REFUSED, "needs": NEEDS[category],
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if re.search(_EGG_COSY_WORDS, (title or "").lower()):
+        rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
+        extra = re.search(_COSY_NOT_PLAIN, rest)
+        if extra:
+            return {"family": REFUSED,
+                    "needs": (f"the construction a {extra.group(0).strip()!r} cosy needs "
+                              f"(appliqué pieces, a texture stitch, colourwork, or a second "
+                              f"object)"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which a plain "
+                            f"single-crochet cup does not make")}
+        if not _shaped_title(rest):
+            return {"family": COSY, "needs": "",
+                    "why": "an egg cosy is a small cup worked from the crown down"}
+    if re.search(_TOTE_WORDS, (title or "").lower()):
+        lowered_t = (title or "").lower()
+        rest = re.sub(r"\bbags?\b", "", re.sub(_TOTE_WORDS, "", lowered_t))
+        # Review OPUS2E E1: one tote is one finished object. Its straps are parts, so no
+        # count, plural or "set" may be backed by them: such a title is refused here.
+        many = re.search(_MULTIPLE_WORDS, lowered_t)
+        if many:
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished bag, each listed on its own",
+                    "why": (f"the title promises more than one bag ({many.group(0)!r}); one "
+                            f"tote draft is one bag, and its straps are not pieces")}
+        extra = re.search(_TOTE_NOT_PLAIN, rest)
+        if extra:
+            return {"family": REFUSED,
+                    "needs": (f"the construction {extra.group(0).strip()!r} needs (a second "
+                              f"object, a pocket, a closure or a lining) as its own pieces"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which the plain "
+                            f"one-piece tote with two straps does not make")}
+        oversize = re.search(_TOTE_SIZE_UNSUPPORTED, lowered_t)
+        if oversize:
+            return {"family": REFUSED,
+                    "needs": "a vessel size beyond products.vessels.BASKET_SIZES, measured",
+                    "why": (f"the title promises {oversize.group(0)!r}; the tote is drafted "
+                            f"only at the three measured vessel sizes")}
+        if not _shaped_title(rest):
+            return {"family": TOTE, "needs": "",
+                    "why": "a tote is a vessel worked in the round with two sewn straps"}
     lowered = (title or "").lower()
     if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
         named = re.search(_STITCH_PATTERN_WORDS, lowered)
@@ -231,13 +293,15 @@ def _basket_size(title: str):
     return next(s for s in BASKET_SIZES if s.key == key)
 
 
-def vessel(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None = None) -> CIR:
     """A basket from the concept's own stitch repeat and palette, worked in joined rounds."""
     from ..creative.prototype import gauge_for
-    from ..products.vessels import _disc_rounds, base_stitches_for, hexagon_spans_cm
+    from ..products.vessels import (BASKET_SIZES, _disc_rounds, base_stitches_for,
+                                    hexagon_spans_cm)
 
     gauge = gauge_for(concept.yarn_weight)
-    spec = _basket_size(concept.title)
+    spec = (next(s for s in BASKET_SIZES if s.key == size) if size
+            else _basket_size(concept.title))
     repeat = [(str(code), int(n)) for code, n in concept.stitch_repeat]
     unit = sum(n for _, n in repeat)
     if unit <= 0:
@@ -289,6 +353,152 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
             f"gauge. Computed, not yet measured on a worked sample."),
         provenance=provenance,
     )
+
+
+# A tote: the large vessel, plus two straps sewn to its top round. Each strap end is sewn
+# across `STRAP_STITCHES` stitches of the rim (`stitches_from_centre`, which `cir.assembly`
+# measures on a piece worked in rounds), so every join's two lengths are compared. Ends sit at
+# the eighth points of the rim: one strap on the front half, its mirror on the back.
+TOTE_CATEGORIES = frozenset({"bag"})     # the category alone never routes to a tote (E1)
+_TOTE_WORDS = r"\b(?:tote|market bag|shopper)s?\b"
+_MULTIPLE_WORDS = (r"\b(?:\d+|two|three|four|five|six|pair|trio|set|duo|totes|bags|"
+                   r"shoppers|x\s*\d+|bundle|collection|double|family|mother|daughter|twins?|"
+                   r"matching)\b")
+# Review OPUS2EF2 EF2-1: a second object or a construction feature the plain tote does not
+# have (a pocket, a zip, a lining, a reversible body) is refused, never dropped silently.
+_TOTE_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|pockets?|zip|zips|zipper|zippered|zipped|lined|"
+                   r"lining|reversible|gusset(?:ed)?|flap|button|buttoned|magnetic|clasp)\b)")
+# Review OPUS2E E1 / EF2-3: a size word on the title is honoured, never overridden by "large";
+# a size word beyond the three vessel sizes is refused rather than drafted at another size.
+_TOTE_SIZE_WORDS = (("small", "small"), ("mini", "small"), ("tiny", "small"),
+                    ("petite", "small"), ("medium", "medium"), ("large", "large"),
+                    ("big", "large"))
+_TOTE_SIZE_UNSUPPORTED = r"\b(?:jumbo|giant|huge|oversized?|xl|xxl|extra[- ]large)\b"
+STRAP_STITCHES = 6
+STRAP_CM = 50.0
+TOTE_PRIMITIVES = ("creative.fallback_constructions.tote", "products.vessels._disc_rounds",
+                   "products.vessels.base_stitches_for", "cir.assembly._placed_on_round_cm")
+
+
+def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A tote bag: a large vessel in the concept's repeat and palette, with two sewn straps."""
+    import dataclasses
+
+    from ..cir.model import Seam
+
+    lowered = (concept.title or "").lower()
+    size = next((key for word, key in _TOTE_SIZE_WORDS if re.search(rf"\b{word}\b", lowered)),
+                "large")
+    body_cir = vessel(concept, version=version, provenance=provenance, size=size)
+    body = body_cir.components[0]
+    n = body.rows[-1].declared_count
+    top = body.rows[-1].index
+    colour = body.rows[0].color
+    gauge = body_cir.gauge
+    strap_rows = max(20, int(round(STRAP_CM * gauge.rows_per_10cm / 10.0)))
+    strap = Component(
+        name="strap", construction="flat_rows", foundation=STRAP_STITCHES,
+        foundation_kind="chain", make=2, grain="up",
+        rows=[Row(index=i, ops=[Op("sc", STRAP_STITCHES)], declared_count=STRAP_STITCHES,
+                  color=colour, turning_chain=1) for i in range(1, strap_rows + 1)],
+        note=(f"Make 2. Chain {STRAP_STITCHES + 1}, then {strap_rows} rows of "
+              f"{STRAP_STITCHES} single crochet: a strap about "
+              f"{strap_rows * 10.0 / gauge.rows_per_10cm:.0f} cm long."))
+    half = STRAP_STITCHES // 2
+    first, second = n // 8, 3 * n // 8      # the front half's eighth points
+    assembly = [
+        Seam("whipstitch", "strap", "basket", edge_a="bottom", edge_b="top", at_round=top,
+             stitches_from_centre=half, mirrored=True,
+             note=(f"Centre the strap's first end over stitch {first} of round {top}, "
+                   f"counting from the round's join; the second strap's first end goes over "
+                   f"stitch {first + n // 2}")),
+        Seam("whipstitch", "strap", "basket", edge_a="top", edge_b="top", at_round=top,
+             stitches_from_centre=half, mirrored=True,
+             note=(f"Without twisting the strap, centre its other end over stitch {second} "
+                   f"of round {top}; the second strap's other end goes over stitch "
+                   f"{second + n // 2}")),
+    ]
+    return dataclasses.replace(
+        body_cir, components=[body, strap], assembly=assembly,
+        designer_notes=(f"{body_cir.designer_notes}; drafted as a tote: two "
+                        f"{STRAP_STITCHES}-stitch straps sewn across {STRAP_STITCHES} "
+                        f"stitches of the top round at its eighth points"))
+
+
+# An egg cosy: a cup worked from the crown down -- a magic-ring disc, then straight rounds --
+# sized to sit over an egg whose widest girth is taken as EGG_AROUND_CM. That figure is a
+# stated DESIGN ASSUMPTION, not a sourced or measured one: no egg measurement is on file, so
+# the finished-size note says so and a physical test confirms the fit. Plain single crochet in two-round stripes of the concept's palette:
+# the concept's stitch repeat would force a stitch count that slips off the egg, so it is not
+# used, and nothing claims it is. A "set" makes four.
+_EGG_COSY_WORDS = r"\begg\s+co(?:s|z)(?:y|ies)\b"
+# Review OPUS2E E4: characters need appliqué pieces, "and <object>" is a second design, and a
+# named texture is a stitch the plain cup does not contain.
+_COSY_NOT_PLAIN = (r"(?:[&+]|\b(?:bunny|bunnies|rabbit|chick|chicks|owl|face|bear|fox|cat|"
+                   r"duck|lamb|hen|chicken|penguin|animal|character|and|with|bobble|cable|"
+                   r"puff|popcorn|lace|shell|textured?|stripes?|striped|pom[- ]?poms?|tassels?|"
+                   r"colou?r[- ]?block|two[- ]tone|fair[- ]isle|mosaic|tapestry|basket)\b)")
+# Review OPUS2E E3: the girth is never undershot; a yarn whose next whole wedge overshoots it
+# by more than this is refused rather than drafted loose.
+COSY_MAX_EASE = 0.15
+EGG_AROUND_CM = 13.8
+COSY_TALL_CM = 6.0
+COSY_SET = 4
+COSY_PRIMITIVES = ("creative.fallback_constructions.cosy", "products.vessels._disc_rounds")
+
+
+def cosy(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A set of egg cosies in the concept's palette, worked from the crown down."""
+    from ..creative.prototype import gauge_for
+    from ..products.launch0 import PLURAL_MARKERS
+    from ..products.vessels import _disc_rounds
+
+    gauge = gauge_for(concept.yarn_weight)
+    palette = list(concept.colors)
+    if not palette:
+        raise ValueError(f"{concept.slug}: a cosy needs at least one colour")
+    # Review OPUS2E E3: the first whole wedge of six AT OR ABOVE the girth (never below it),
+    # and refused if that overshoots the girth by more than COSY_MAX_EASE.
+    import math as _math
+
+    count = max(12, _math.ceil(EGG_AROUND_CM * gauge.stitches_per_10cm / 10.0 / 6) * 6)
+    around_cm = count * 10.0 / gauge.stitches_per_10cm
+    if around_cm > EGG_AROUND_CM * (1 + COSY_MAX_EASE):
+        raise ValueError(
+            f"{concept.slug}: at {concept.yarn_weight} gauge the nearest flat crown is "
+            f"{around_cm:.1f} cm around, more than {COSY_MAX_EASE:.0%} over the egg's "
+            f"{EGG_AROUND_CM} cm; a cosy that loose is not drafted")
+    rows = _disc_rounds(count, palette[0])
+    row_cm = 10.0 / gauge.rows_per_10cm
+    wall_rounds = max(4, int(round(COSY_TALL_CM / row_cm)))
+    index = rows[-1].index
+    for w in range(1, wall_rounds + 1):
+        index += 1
+        rows.append(Row(index=index, ops=[Op("sc", count)], declared_count=count,
+                        color=palette[((w - 1) // 2) % len(palette)]))
+    lowered = (concept.title or "").lower()
+    make = COSY_SET if (re.search(r"\bcos(?:ies)\b|\bcoz(?:ies)\b", lowered)
+                        or any(re.search(rf"\b{m}\b", lowered) for m in PLURAL_MARKERS)) else 1
+    around = count * 10.0 / gauge.stitches_per_10cm
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version, construction="joined_rounds",
+        risk_class=concept.risk_class, colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=p) for p in palette],
+        components=[Component(
+            name="cosy", construction="joined_rounds", rows=rows, foundation=0,
+            foundation_kind="magic_ring", make=make,
+            note=(f"Make {make}. Worked from the crown down: increase to {count} stitches, "
+                  f"then {wall_rounds} straight rounds, changing colour every two rounds."))],
+        designer_notes=(f"{concept.category} concept drafted as {make} egg cosies: a "
+                        f"{count}-stitch crown and {wall_rounds} straight rounds of plain "
+                        f"single crochet; the concept's stitch repeat is not used"),
+        finished_size_note=(
+            f"About {around:.1f} cm around and {wall_rounds * row_cm:.1f} cm tall at the "
+            f"stated gauge, designed for an egg about {EGG_AROUND_CM} cm around its widest "
+            f"point (an assumed size, not a measured one). Computed, not yet measured on a "
+            f"worked sample."),
+        provenance=provenance)
 
 
 VESSEL_PRIMITIVES = ("creative.fallback_constructions.vessel", "products.vessels._disc_rounds",

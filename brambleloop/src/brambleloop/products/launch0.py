@@ -134,10 +134,40 @@ PLURAL_MARKERS: tuple[str, ...] = (
 _COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
 
 
+def finished_objects(cir: CIR) -> int:
+    """How many finished objects the CIR makes: not how many pieces it works.
+
+    Review OPUS2EF2 EF2-1 (the root of review E's E1 and OPUS2C N3.1): summing
+    `Component.make` counts a tote's two straps as two more bags, so "Tote Bag Bundle" read as
+    backed. Pieces joined by `cir.assembly` are one object: components connected by any seam
+    form a group, and a group yields as many objects as its scarcest piece is worked (two
+    straps on one body is one bag; four straps on two bodies is two). An unjoined component
+    is its own group, so a set of six coasters is still six.
+    """
+    names = [c.name for c in cir.components]
+    parent = {n: n for n in names}
+
+    def root(n):
+        while parent[n] != n:
+            parent[n] = parent[parent[n]]
+            n = parent[n]
+        return n
+
+    for seam in cir.assembly or []:
+        if seam.piece_a in parent and seam.piece_b in parent:
+            parent[root(seam.piece_a)] = root(seam.piece_b)
+    groups: dict[str, int] = {}
+    for c in cir.components:
+        r = root(c.name)
+        groups[r] = min(groups.get(r, c.make), c.make)
+    return sum(groups.values())
+
+
 def title_promise(cir: CIR) -> dict:
     """How many finished pieces the name claims, against how many the CIR makes.
 
-    Measures: a numeral or counting word in the title against the sum of `Component.make`.
+    Measures: a numeral or counting word in the title against `finished_objects` (pieces
+    joined by `cir.assembly` count once; EF2-1), with the worked-piece sum reported beside it.
     Why: `Component.make` is how the CIR says "work four of these", `vessels.py` uses it, and
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
@@ -150,7 +180,7 @@ def title_promise(cir: CIR) -> dict:
         elif token in _COUNT_WORDS:
             claimed = max(claimed or 0, _COUNT_WORDS[token])
     plural = [w for w in PLURAL_MARKERS if w in lowered]
-    makes = sum(c.make for c in cir.components)
+    makes = finished_objects(cir)
 
     if claimed is not None:
         backed = makes >= claimed
@@ -163,7 +193,7 @@ def title_promise(cir: CIR) -> dict:
         backed = True
         why = "the title makes no multiplicity claim, so there is nothing to contradict"
     return {"claimed": claimed, "plural_markers": tuple(plural), "makes": makes,
-            "backed": backed, "why": why}
+            "pieces": sum(c.make for c in cir.components), "backed": backed, "why": why}
 
 
 # ---- motif words (owner directive 2026-10-19, W4-PRODREADY) -------------------------------

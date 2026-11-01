@@ -583,3 +583,200 @@ because that branch is not on this base.
 "Mosaic" titles truthful, needs a per-stitch colour in the CIR. `first_customer.colourwork_findings`
 states it: "a CIR row carries one colour". That is a change to the shared model, compiler,
 twin and writer, not a fallback rule.
+
+## 26. P0-DRAFT-CONSTRUCTIONS, part 4: totes with sewn straps (2026-10-31)
+
+**Core change, additive (`cir/assembly.py`).**
+- What it measures: a join placed on a piece worked in rounds, using the writer's existing
+  clause "across round R, N sts either side of centre" (`Seam.stitches_from_centre`). New
+  `_placed_on_round_cm` measures it as `2N × 10 / stitches_per_10cm` cm.
+- Before: the strap end was compared with the whole rim. The tote probe on this base gave
+  "strap.bottom is 4.0cm and basket.top is 25.6cm", which is not what is sewn.
+- Scope: it applies only to the `top` or `bottom` edge of a non-flat piece with
+  `stitches_from_centre` set. Anything else is unchanged.
+- Existing verdicts: none of the 30 engineered or catalogue CIRs uses `stitches_from_centre`,
+  so no existing verdict changes. The model, the writer and the reverse parser are unchanged.
+
+**Built: the `tote` family.** It applies to category `bag` and to titles naming a tote, bag,
+market bag or shopper, unless the rest of the title names a shape this rule does not make.
+- `tote(concept)` takes the large vessel (`vessel(size="large")`): a hexagon base, with walls
+  in the concept's own repeat and palette.
+- The straps are `strap` × 2: 6 sc wide and about 50 cm long at the yarn's gauge.
+- Each end is sewn across 6 stitches of the top round. The notes give exact positions: the
+  front strap's ends over stitches n/8 and 3n/8 of the round, counted from the join, and the
+  second strap mirrored on the back at +n/2.
+- Provenance names `creative.fallback_constructions.tote` and
+  `cir.assembly._placed_on_round_cm`.
+- `everyday-market-tote` was refused before this; it now drafts. It compiles, twins, reverses
+  cleanly (`reverse.compare == []`), passes name truth, and certification raises no
+  `ASSEMBLY_MISMATCH` and no provenance finding.
+
+**Tests:** 2 new tests, 10/10 in total.
+- `test_a_tote_concept_drafts_a_vessel_with_two_measured_sewn_straps`.
+- `test_the_round_span_measures_only_the_written_clause_on_a_round_piece`: the exact span
+  length; no measurement for an unplaced seam, a flat piece_b or a side edge; and a strap
+  wider than its sewn span is refused with `ASSEMBLY_MISMATCH`.
+
+**Still refused, with the evidence or owner each needs:**
+- Two-colour rounds (mosaic or tapestry) need a per-stitch colour in the shared CIR model.
+- Shaped amigurumi and graded hats and garments are in the `creative/` concept path, owned
+  by W-CONCEPT.
+- Stockings and cosies need a closed tube with heel or toe shaping.
+
+## 27. P0-DRAFT-CONSTRUCTIONS, part 5: egg cosies (2026-10-31)
+
+**Built: family `cosy`.** It applies to titles naming an egg cosy or cozy. Tea cosies stay
+refused: spout and handle openings are a different construction.
+- `cosy(concept)` is worked from the crown down. A magic-ring disc increases, in six wedges,
+  to the round nearest the egg's girth, then straight rounds follow to about 6 cm.
+- The fabric is plain single crochet in two-round stripes of the concept's palette. The
+  concept's stitch repeat is deliberately not used, because its unit would force a stitch
+  count that slips off the egg. The designer note says so.
+- A "set" or a plural title makes 4 (`launch0.title_promise` backed).
+- **The egg girth is a stated design assumption, not sourced or measured**
+  (`EGG_AROUND_CM = 13.8`). The finished-size note says "an assumed size, not a measured
+  one", and a physical test confirms the fit.
+- `easter-egg-cosies` was refused before this; it now drafts. It compiles, twins and reverses
+  cleanly, and certification raises no finding.
+
+**Known publication block: a rule owned by W-LISTING.** `launch0.assembled_form`/`name_truth`
+reads "cosy" as an assembled form, backed only by seams or held-stitch joins. A cup worked in
+one piece in the round is closed by construction, but the rule does not say so, so
+publication refuses it (`NAME_OUTRUNS_PATTERN`). The draft records this in `cir.drafted`'s
+`name_truth`.
+
+**Proposed one-line rule for the owner:** a component with `construction == "joined_rounds"`
+and `foundation_kind == "magic_ring"` that is never seamed is a closed shape by construction,
+and backs "cosy" and "pouch". Not built here.
+
+Tests: `tests/test_opus2_draft_constructions.py`, 11/11, including
+`test_an_egg_cosy_set_drafts_one_piece_cups_sized_to_an_egg`. That test checks the snug
+girth, between the assumed egg girth and 15% over it.
+
+## 28. Completion metrics per opus2 cluster (D-W5-OWNER-COMPLETION-METRICS), 2026-10-31T19:00Z
+
+The owner's seven states are tracked separately.
+- **Implemented** means on `opus2/p0-revenue-workforce` with its own tests passing.
+- **Reviewed** means an independent review verdict exists for the code as it now stands.
+- **Integrated / Certified / Deployed / Production verified / End-to-end** belong to Main
+  Opus. None of them is true for any opus2 cluster yet: nothing here is merged into a shared
+  branch, certified by the single full suite, deployed to Railway, or observed in production.
+
+| Cluster | Implemented | Independently reviewed | Integrated | Certified | Deployed | Prod. verified | E2E |
+|---|---|---|---|---|---|---|---|
+| Size-claim truth gate | yes (fb52cb9e) | A: changes required → fixed; C: ACCEPT; C's N1.1/N1.2 residuals fixed in fb52cb9e (in review D) | no | no | no | no | no |
+| `laura_home` + FLUX 3 wiring | yes | A → fixed; C: ACCEPT; N2.1 fixed in fb52cb9e (review D) | no | no | no | no | no |
+| Rim negative | yes | A: ACCEPT | no | no | no | no | no |
+| Offline acceptance runner | yes | A: ACCEPT (instrumentation only) | no | n/a | n/a | n/a | n/a |
+| Commercial lessons | yes | B2: ACCEPT; F4.1 fixed in 1cc31974 | no | no | no | no | no |
+| Chain dead-end successors | yes | B2: ACCEPT; F1.1/F1.2 fixed in 1cc31974 | no | no | no | no | no |
+| Competitor-scan evidence | yes | B2: changes required (F3.1) → fixed in 1cc31974; review D in flight | no | no | no | no | no |
+| Photo-led gallery certificate | yes | C: changes required (F2-1 HIGH) → fixed in fb52cb9e; review D in flight | no | no | no | no | no |
+| Re-verification withholding | yes | B2: ACCEPT; F2.1/F2.2 fixed in 1cc31974 | no | no | no | no | no |
+| Draft constructions: vessel and refusals | yes | C: ACCEPT; N3.1-N3.3 fixed in fb52cb9e (review D) | no | no | no | no | no |
+| Draft constructions: cushion, triangle shawl | yes (3232862e, 9b8f8423) | **not yet reviewed** | no | no | no | no | no |
+| Draft constructions: tote + `cir.assembly` round span | yes (768f2b35) | **not yet reviewed** | no | no | no | no | no |
+| Draft constructions: egg cosy | yes (30a9eb7d) | **not yet reviewed** | no | no | no | no | no |
+| Knowledge gaps → purchase recommendations | yes | B2: ACCEPT; F5.1/F5.2 fixed in 1cc31974 | no | no | no | no | no |
+| P0-NEXT-PRODUCT | covered by existing code (`seed_launch0`); nothing built | n/a | n/a | n/a | n/a | n/a | n/a |
+
+**Known publication blocks that the owner should see (none is a defect hidden in opus2 code):**
+- The egg cosy is refused by name truth until the W-LISTING rule recognises a one-piece cup.
+- "Nordic Forest Mosaic Storage Basket" fails the colourwork rule: one colour per round.
+- `test_risk_matrix` fails on the integration base itself (`KeyError('market-basket-medium')`).
+
+## 29. Hats: the sourced head chart, and why hats stay refused (2026-10-31)
+
+**Sourced.** The Craft Yarn Council head circumference chart was retrieved on 2026-10-31 from
+https://www.craftyarncouncil.com/standards/head-circumference-chart (HTTP 200). It is
+transcribed into `fallback_constructions.HEAD_CIRCUMFERENCE_CM`; centimetre ranges are kept as
+`cir.graded` keeps them:
+
+| Size | cm |
+|---|---|
+| preemie | 23–30.5 |
+| baby | 35.5–40.5 |
+| toddler | 40.5–46 |
+| child | 45.5–51 |
+| tween | 51–56 |
+| woman | 53–58.5 |
+| man | 56–61 |
+
+**Not on the page:** hat height, negative ease, and any measuring note. A beanie needs a crown
+depth and a ribbing or body circumference below the head's, and neither has a sourced figure.
+- So hats stay **refused, never guessed**.
+- The refusal now names the two missing figures (`HAT_UNSOURCED`), so the knowledge-gap job
+  routes a precise gap: "hat height and negative ease from a published standard".
+- A purchased hat reference, through Codex's intake, or a physical sample would supply them.
+
+Test: `test_a_hat_is_refused_naming_the_two_figures_the_sourced_chart_lacks`. The
+constructions suite is 12/12.
+
+## 30. Where the construction backlog stands (stopping record for this pass)
+
+**Drafted by the radar fallback:**
+- basket (vessel);
+- cushion (panel pair);
+- plain triangle shawl;
+- tote (vessel plus measured sewn straps);
+- egg cosy (one-piece cup).
+
+**Refused by name, with the exact blocker:**
+
+| Form | Blocker | Who can unblock it |
+|---|---|---|
+| Two-colour rounds / mosaic / tapestry | per-stitch colour in the shared CIR model ("a CIR row carries one colour") | Main Opus decides; opus2 offers to implement |
+| Hats and beanies | no sourced hat height or negative ease (§29) | a sourced standard or a reference purchase (Codex intake) or a physical sample |
+| Garments, cardigans | graded designs live in the `creative/` concept path | W-CONCEPT |
+| Shaped amigurumi | multi-piece shaped construction in the `creative/` concept path | W-CONCEPT |
+| Stockings | heel and toe shaping on a closed tube | the next fallback rule. Feasible, but no stocking seed reaches the fallback except `nordic-forest-stocking`, whose title claims "Mosaic" colourwork, which also needs the per-stitch colour |
+| Lattice / lace shawls | a stitch chart on triangle shaping; and `name_truth` does not yet read "lattice" or "lace" | the chart: opus2 after per-stitch colour, or a motif-on-shaping rule; the vocabulary: the `name_truth` owner |
+| Tea cosies, mobiles, bundles, multi-size concepts | spout openings / hanger assembly / member releases / one release per size | as recorded in each refusal |
+| Cosy publication | `launch0` name truth reads "cosy" as a seamed form (§27) | W-LISTING |
+
+Every refusal is a `cir.draft_refused` row with `gate: construction` and `needs`. The weekly
+`learning.knowledge_gaps` job counts them per product line and raises capped owner-approval
+reference recommendations. That is how a blocked construction reaches Learning.
+
+## 31. Review OPUS2D (fb52cb9e): ACCEPT for Batch 5; every LOW item fixed (2026-10-31)
+
+Report: `claude/w5-SECREVIEW-OPUS2D-fb52cb9`. F2-1 and F3.1 are closed. All six
+recommendations are done:
+
+| Item | Fix | Test (mutation-checked where noted) |
+|---|---|---|
+| R1: the anchor reads "scanned" while a retry is queued or running | `_anchor` judges the latest **finished** attempt: `fail["id"] > ok["id"]`, not `fail is attempted`. | `test_review_opus2d_r1_a_queued_retry_never_hides_the_anchors_failure` (60-day success, 1-hour 403, pending retry → `not_accessible`) |
+| R2: the shared purchase cap is one-sided | `benchmark_refresh.assess` also counts open `knowledge_gap:` rows against `knowledge_gaps.MAX_PURCHASE_REQUESTS_OPEN`. That is a one-line counting change in `intel/benchmark_refresh.py`, which completes the cap opus2 introduced. | `test_review_opus2d_r2_benchmark_refresh_honours_the_shared_cap_too` |
+| R3: the `gate.quality` enqueue after re-certification was pinned only by source text | Behavioural test: the real `_persist_release` re-certifies under a new hash twice. Exactly one `gate.quality` is queued (idempotent per hash), and the withhold is carried. | `test_review_opus2d_r3_recertification_queues_exactly_one_gate_quality`. **Mutation killed:** with the enqueue disabled, the test fails. |
+| R4: no test exercises the SHA-256 match | Swapped-bytes test: the photo qualifies and is attested, then the leading frame points at other stored bytes. The certificate refuses. | `test_review_opus2d_r4_bytes_that_are_not_the_attested_photo_never_lead` |
+| R5: the new size patterns over-refuse | A hook or needle in, just before, or just after any match is tool advice. `vessel_count` covers storage sets only (baskets, bowls, bins, boxes, trays), never contents ("2 bags of yarn") or what a thing holds or stores. `named_range` letters are case-sensitive ("2x to 4x"), and a range of rounds, rows or stitches is the work, not a size. "bag pair of handles" is not a pair of bags. | `test_review_opus2d_r5_correct_copy_is_not_refused_and_real_claims_still_are`: every R5 phrase passes, and every earlier must-fail row still fails |
+| INFO: the handler's `slug=`/`rationale=` wiring was untested | Handler-level test with a non-alias basket seed whose size promise is only in its rationale. The real `cir.draft` refuses it. | `test_review_opus2d_the_handler_passes_slug_and_rationale_to_the_route` |
+
+## 32. Review OPUS2E: every finding fixed (2026-11-01)
+
+This branch is otherwise frozen (integrator, PR #3, 2026-10-31T19:17Z). Only these review-E
+fixes were added, because Batch 5 takes it "at its review-E-accepted head".
+
+| Finding | Fix | Test |
+|---|---|---|
+| E1 MED: any "bag" drafted as a tote; counts and sizes ignored | `NEEDS["bag"]` restored. Only a title naming a tote, market bag or shopper takes the tote route. Drawstring, backpack, clutch, crossbody, holder, pouch, sachet, bean bag, diaper bag, purse and wallet are shaped words and are refused. Counts, sets and plurals ("3 Tote Bags", "Tote Pair") are refused: one certified release per finished bag. "Small"/"mini" and "medium" in the title choose the tote size (default large). `launch0.title_promise` is W-LISTING's, so the multiplicity case is closed at drafting instead. | `test_review_opus2e_e1_only_a_titled_single_tote_drafts_and_straps_back_no_count` |
+| E2 MED: the R5 narrowing let real size claims pass | `named_range` is case-insensitive again. `vessel_count` uses `_VESSEL` again, with lookbehinds for what a thing holds, stores, fits or carries, and an exclusion for contents ("bags of yarn"). An all-`\dx` range with no "size" word ("2x to 4x") is skipped. | `test_review_opus2e_e2_the_gate_fails_closed_again` (`REVIEW_E_MUST_FAIL`, `REVIEW_E_MUST_PASS`, plus every earlier row) |
+| E3 LOW: cosy could be smaller than the egg | The stitch count rounds **up** (`ceil(girth*gauge/6)*6`). A weight that would leave more than 15% ease (`COSY_MAX_EASE`) raises "not drafted". This is a stated design assumption, not a sourced standard. | `test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused` (all of `WEIGHT_BY_KEY`) |
+| E4 LOW: character and texture cosies drafted as plain | `_COSY_NOT_PLAIN` (animals and faces, bobble, cable, puff, popcorn, lace, shell, texture, "and"/"with" second objects) is refused with what it needs. The name-truth rule for cosies remains W-LISTING's. | `test_review_opus2e_e4_character_texture_and_second_object_cosies_are_refused` |
+
+`test_opus2_draft_constructions` and `test_opus2_size_claims`: 0 failed. Regression: 103 suites,
+exit 0 except `test_risk_matrix` (base-owned). `test_product_run` timed out during a container
+restart and passes 36/36 when rerun alone.
+
+## 33. Review OPUS2EF2 (0e941757): every finding fixed (2026-11-01)
+
+Review fixes only, which this frozen branch still takes.
+
+| Finding | Fix | Test |
+|---|---|---|
+| EF2-1 MED: `title_promise` counted straps as finished objects; tote second objects and features dropped | `launch0.finished_objects`: components joined by `cir.assembly` form one group, which yields as many objects as its scarcest piece is worked. `title_promise` compares the title against that (the worked-piece sum is reported as `pieces`). No Launch-0 verdict moves (all 11 builders checked). The tote refuses bundle, collection, double, family, mother/daughter, twins and matching; `_TOTE_NOT_PLAIN` refuses `&`, `+`, and/with, pockets, zips, lining, reversible, gusset, flap, button and clasp. | `test_review_opus2ef2_ef21_ef22_ef23_*` (the old-sum mutation is killed), `test_review_opus2ef2_finished_objects_*` |
+| EF2-2 LOW-MED: route narrowing not pinned | Plain non-tote bags ("Lunch Bag", "Grocery Bag", "Project Bag", "Bag") are asserted to reach `NEEDS["bag"]` itself | same test |
+| EF2-3 LOW: tiny/petite, `&`/`+` cosies, stripes and pom-poms | tiny/petite map to small; jumbo, giant, oversize and xl are refused; the cosy refuses `&`, `+`, stripes, pom-poms, tassels, colour block, two-tone, fair isle, mosaic, tapestry and basket | same test |
+| EF2-3b LOW: material phrases treated as contents | the contents exclusion keeps the claim when a material noun follows (rope, cord, t-shirt, jersey, twine, macramé) | `REVIEW_EF2_MUST_FAIL` in `test_opus2_size_claims` |
+
+Regression: 104 suites, exit 0 except `test_risk_matrix` (`KeyError('market-basket-medium')`, base-owned).

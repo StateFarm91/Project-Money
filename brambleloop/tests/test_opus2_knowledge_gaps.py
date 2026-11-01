@@ -228,6 +228,36 @@ def test_review_opus2b2_f52_a_closed_line_rests_and_a_priceless_pick_is_never_ra
                for u in out3["unrecommended"])
 
 
+def test_review_opus2d_r2_benchmark_refresh_honours_the_shared_cap_too():
+    """Knowledge gaps open first; benchmark refresh must not add past the shared cap."""
+    import inspect
+
+    from brambleloop.intel import benchmark_refresh as BR
+
+    db = _db()
+    with db.session() as s:
+        for i in range(K.MAX_PURCHASE_REQUESTS_OPEN):
+            s.add(OwnerAction(requirement_key=f"{K.ACTION_PREFIX}fixture-{i}", action="a",
+                              reason="r", max_cost_cad=5.0))
+    from brambleloop.intel import panel_discovery
+
+    real_pick = BR._pick
+
+    saved = panel_discovery.candidates
+    panel_discovery.candidates = lambda db_: [
+        {"shop_id": 1, "queries": ["a", "b", "c"], "pods": ["amigurumi"]}]
+    BR._pick = lambda db_, pod: {"benchmark": "x", "listing_ref": "L1", "title": "t",
+                                 "price_cad": 6.0, "answers": "a", "url": "https://x.invalid"}
+    try:
+        out = BR.assess(db, today=TODAY)
+    finally:
+        BR._pick, panel_discovery.candidates = real_pick, saved
+    assert out["raised"] == [], out["raised"]
+    assert any("reference-purchase requests are already open" in h["why"]
+               for h in out["held"]), out["held"]
+    assert "MAX_PURCHASE_REQUESTS_OPEN" in inspect.getsource(BR.assess)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

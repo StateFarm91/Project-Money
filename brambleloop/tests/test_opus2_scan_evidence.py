@@ -117,6 +117,21 @@ def test_a_failed_anchor_attempt_after_a_success_is_its_current_failure():
     assert mjs["last_successful"] is not None
 
 
+def test_review_opus2d_r1_a_queued_retry_never_hides_the_anchors_failure():
+    """Success 60 days ago, a 403 an hour ago, then a retry still PENDING."""
+    db = _db()
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                  inputs={}, outputs={"new": 1}, finished_at=NOW - timedelta(days=60)))
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                  inputs={}, outputs={"ran": False, "reason": "ping returned HTTP 403"},
+                  finished_at=NOW - timedelta(hours=1)))
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.PENDING,
+                  inputs={}, outputs={}))
+    mjs = _by_shop(SE.report(db, now=NOW))["MJsOffTheHookDesigns"]
+    assert mjs["state"] == SE.NOT_ACCESSIBLE and "403" in mjs["failure_reason"], mjs
+
+
 def test_review_opus2b2_f31_success_then_repeated_refusal_is_not_scanned():
     """The reviewer's repro: once scanned in August, refused by the API ever since."""
     db = _db()
