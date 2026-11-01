@@ -74,7 +74,7 @@ Nothing publishes, uploads, messages or spends. `record` writes only:
 | ID | Mutation | Result |
 |---|---|---|
 | M5a | `already` back to "any row with the key" | **killed**: ef24 |
-| M5b | legacy `== action_key` match removed | PENDING (rerun in progress at commit time) |
+| M5b | legacy `== action_key` match removed | **killed**: ef25 |
 | M5c | WITHDRAWN dropped from the owner-closed set | **killed**: ef24 |
 | M5d | open rows no longer count (`not r.done` dropped) | **killed**: `test_a_ready_package_asks_for_one_review…` |
 | M5e | SATISFIED dropped from the owner-closed set | **killed**: `test_review_opus2f_a2_…never_asked_again` |
