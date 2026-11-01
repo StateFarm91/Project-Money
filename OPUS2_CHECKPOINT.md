@@ -79,7 +79,13 @@ worktrees, not this file.
 
 - 12:30Z loop: no new reviews; base unchanged (0967c3ee). The pet run found review C's N3.2 test expecting "Cat Bed" refused; updated to "drafted as the vessel, never flat" (the finding's intent), to be noted on the pet PR.
 
+- 13:40Z stop record: every unblocked queue item is pushed and in review. Remaining work is
+  blocked on the integrator's decisions (P0-NEXT-PRODUCT, PR #9 colourwork, motif joins), on
+  Batch 5 (stall re-drive), or on sourcing (hats); see P0_GAP_REGISTER.json. The next wake
+  (the 2-hourly loop, or any PR event) polls reviews first and acts on findings and decisions.
+
 ## Done log
+- 2026-11-01T13:35Z: stocking pushed in `5c7b984a` with the pet-bed union merge `be12b47b`; PR #11.
 - 2026-11-01T13:00Z: pet basket bed pushed in `d0a7685f`, PR #10 opened (stacked on -b4merge).
 - 2026-11-01T11:40Z: PR #3 EF2 fixes pushed in `13d67502`, merged into -b4merge as
   `55450fc3`, and commented.

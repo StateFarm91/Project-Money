@@ -1,6 +1,6 @@
 {
   "kind": "opus2 P0 requirement gap register",
-  "updated": "2026-11-01T09:30Z",
+  "updated": "2026-11-01T13:40Z",
   "maintained_by": "opus2 engineering loop (rewritten with OPUS2_CHECKPOINT.md each work unit)",
   "legend": {
     "impl": "who implemented it: base = existing Build 1/2 code on claude/w4-INTEG8-next; opus2/W-*/codex = that worker's branch",
@@ -10,31 +10,224 @@
     "gap": "missing engineering, or null"
   },
   "requirements": [
-    {"id": "competitor_monitoring", "impl": "base (mjs.scan, intel.serp_capture, benchmark_refresh) + opus2 scan evidence", "reviewed": "B2 ACCEPT after F3.1 fix (D ACCEPT)", "integrated": "batch5_trial", "deployed": "base_code", "gap": null},
-    {"id": "market_intelligence", "impl": "base (radar.scan, culture.sweep, intel.*)", "reviewed": "Build 2 audits", "integrated": "base", "deployed": "base_code", "gap": "culture.sweep dead-letters on classifier timeout (P1-CULTURE-SWEEP-TIMEOUT): opus2 fix in progress"},
-    {"id": "original_opportunity_discovery", "impl": "W-CONCEPT", "reviewed": "CONCEPT delta 2 ACCEPT", "integrated": "batch5_planned", "deployed": "no", "gap": null},
-    {"id": "research_to_development_handoff", "impl": "W-CONCEPT + opus2 chain successors", "reviewed": "ACCEPT (CONCEPT d2, opus2 B2/D)", "integrated": "batch5_trial", "deployed": "no", "gap": null},
-    {"id": "original_pattern_development", "impl": "base CIR engine + opus2 radar fallback constructions", "reviewed": "C/D ACCEPT; E fixes -> EF2 CHANGES_REQUIRED (EF2-1/2/3 fixed, pending push)", "integrated": "batch5_planned (opus2 at review-E-accepted head)", "deployed": "no", "gap": null},
-    {"id": "advanced_construction_breadth", "impl": "opus2 fallback: vessel, cushion, triangle shawl, tote, egg cosy", "reviewed": "partly (E/EF2)", "integrated": "no", "deployed": "no", "gap": "colourwork (per-stitch colour in CIR: integrator decision); hats (no sourced height/ease); garments + amigurumi (W-CONCEPT path); stockings (heel/toe rule not built); lace/lattice shawls (chart on shaping)", "blocked_by": ["integrator: CIR per-stitch colour", "sourcing: hat height/ease (Codex reference intake or sample)"]},
-    {"id": "technical_validation", "impl": "base (compiler, reverse, twin, gates)", "reviewed": "Build 2", "integrated": "base", "deployed": "base_code", "gap": null},
-    {"id": "independent_quality_review", "impl": "base gate.quality + independent review protocol", "reviewed": "Build 2", "integrated": "base", "deployed": "base_code", "gap": null},
-    {"id": "automatic_correction_loops", "impl": "opus2 chain successors + re-verification withholding; base chain.rebuild", "reviewed": "B2/D ACCEPT", "integrated": "batch5_trial", "deployed": "no", "gap": null},
-    {"id": "premium_pdfs", "impl": "W-PDF (PDF1)", "reviewed": "code ACCEPT; product fit conditional on physical sample", "integrated": "batch5_planned", "deployed": "no", "gap": "physical sample (owner/tester)"},
-    {"id": "flux3_visual_production", "impl": "opus2 laura_home + flux3 wiring; base image gateway", "reviewed": "A/C ACCEPT", "integrated": "batch5_trial", "deployed": "no", "gap": "CA$15 FLUX 3 sublimit not granted (owner)", "blocked_by": ["owner grant"]},
-    {"id": "laura_identity_verification", "impl": "base (laura-r2-a42aeac7)", "reviewed": "W3/W4 reviews", "integrated": "base", "deployed": "base_code", "gap": null},
-    {"id": "etsy_gallery_assembly", "impl": "base listing frames + opus2 photo-led certificate (sample_photo.qualifying_photos)", "reviewed": "D ACCEPT", "integrated": "batch5_trial", "deployed": "no", "gap": "no qualifying sample photo exists (physical)"},
-    {"id": "listing_package_assembly", "impl": "opus2 PR #5", "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-4/EF2-5 fixed in e93b16ed", "integrated": "no (batch5 if review accepts)", "deployed": "no", "gap": null},
-    {"id": "owner_approval_workflow", "impl": "base owner queue + opus2 PR #6 race guard", "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-6/EF2-8 + B-5 index fixed, pending push", "integrated": "no", "deployed": "no", "gap": "B-5 partial unique index is an integration blocker before production (integrator)"},
-    {"id": "authorized_publication_controls", "impl": "base store.publish gates + W-LAUNCHFIX/W-READBACK", "reviewed": "ACCEPT", "integrated": "base (Batch 4)", "deployed": "no (Batch 4 not certified)", "gap": null},
-    {"id": "commercial_learning", "impl": "opus2 improve.commercial_lessons", "reviewed": "B2 ACCEPT", "integrated": "batch5_trial", "deployed": "no", "gap": "needs real sales data (none in SHADOW)"},
-    {"id": "product_family_development", "impl": "base creative.family_engine", "reviewed": "Build 2", "integrated": "base", "deployed": "base_code", "gap": "unverified by opus2 whether it runs on new (non-Launch-0) products"},
-    {"id": "winner_amplification", "impl": "base growth_ops (pins.amplify, s5 amplification gated on orders)", "reviewed": "Build 2", "integrated": "base", "deployed": "base_code", "gap": "inert until orders exist (data-gated)"},
-    {"id": "durable_orchestration", "impl": "base autonomy orchestrator + durable queue", "reviewed": "Build 2", "integrated": "base", "deployed": "base_code", "gap": null},
-    {"id": "restart_and_stall_recovery", "impl": "W-RESUMEFIX + W-INVENTORY stall detection + opus2 chain successors", "reviewed": "ACCEPT", "integrated": "base / batch5_planned", "deployed": "no", "gap": "stall re-drive actuator consuming flow_health (handoff §11) waits on W5-INVENTORY merge"},
-    {"id": "automatic_next_product_selection", "impl": "base seed_launch0 + chain.rebuild (opus2 finding: covered)", "reviewed": "no verdict on the finding", "integrated": "base", "deployed": "base_code", "gap": "COORDINATION still lists P0-NEXT-PRODUCT unowned: integrator to accept or reject the 'covered' finding (posted on PR #3, 2026-10-31T20:48Z)", "blocked_by": ["integrator decision"]},
-    {"id": "continuous_catalogue_expansion", "impl": "base radar -> concept pool -> cir.draft; opus2 fallback breadth", "reviewed": "partly", "integrated": "partly", "deployed": "base_code", "gap": "breadth limited to the constructions above; see advanced_construction_breadth"},
-    {"id": "learning_department_integration", "impl": "codex P0-LEARNING-REFERENCE (not started) + opus2 learning.knowledge_gaps", "reviewed": "knowledge gaps B2 ACCEPT", "integrated": "batch5_trial (gaps only)", "deployed": "no", "gap": "reference intake/teardown/held-out evaluation: Codex (owner starting it)", "blocked_by": ["codex start"]},
-    {"id": "production_acceptance_instrumentation", "impl": "opus2 scripts/p0_acceptance.py", "reviewed": "A ACCEPT (instrumentation)", "integrated": "batch5_trial", "deployed": "n/a", "gap": "no production run yet (needs deploy)"}
+    {
+      "id": "competitor_monitoring",
+      "impl": "base (mjs.scan, intel.serp_capture, benchmark_refresh) + opus2 scan evidence",
+      "reviewed": "B2 ACCEPT after F3.1 fix (D ACCEPT)",
+      "integrated": "batch5_trial",
+      "deployed": "base_code",
+      "gap": null
+    },
+    {
+      "id": "market_intelligence",
+      "impl": "base (radar.scan, culture.sweep, intel.*)",
+      "reviewed": "Build 2 audits",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": "culture.sweep timeout fixed on PR #7 (awaiting review)"
+    },
+    {
+      "id": "original_opportunity_discovery",
+      "impl": "W-CONCEPT",
+      "reviewed": "CONCEPT delta 2 ACCEPT",
+      "integrated": "batch5_planned",
+      "deployed": "no",
+      "gap": null
+    },
+    {
+      "id": "research_to_development_handoff",
+      "impl": "W-CONCEPT + opus2 chain successors",
+      "reviewed": "ACCEPT (CONCEPT d2, opus2 B2/D)",
+      "integrated": "batch5_trial",
+      "deployed": "no",
+      "gap": null
+    },
+    {
+      "id": "original_pattern_development",
+      "impl": "base CIR engine + opus2 radar fallback constructions",
+      "reviewed": "C/D ACCEPT; E fixes -> EF2 CHANGES_REQUIRED (EF2-1/2/3 fixed, pending push)",
+      "integrated": "batch5_planned (opus2 at review-E-accepted head)",
+      "deployed": "no",
+      "gap": null
+    },
+    {
+      "id": "advanced_construction_breadth",
+      "impl": "opus2 fallback: vessel, cushion, triangle shawl, tote, egg cosy (PR #3); pet basket bed (PR #10); two-panel stocking (PR #11); per-stitch colour model (PR #9, proposal)",
+      "reviewed": "partly (E/EF2)",
+      "integrated": "no",
+      "deployed": "no",
+      "gap": "colourwork drafting (waits on the PR #9 decision); hats (no sourced height/ease); garments + amigurumi (W-CONCEPT); hexagon/granny motif blankets (the CIR cannot express joining copies of one motif side by side: model decision); lace/lattice charts on shaping",
+      "blocked_by": [
+        "integrator: CIR per-stitch colour",
+        "sourcing: hat height/ease (Codex reference intake or sample)"
+      ]
+    },
+    {
+      "id": "technical_validation",
+      "impl": "base (compiler, reverse, twin, gates)",
+      "reviewed": "Build 2",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": null
+    },
+    {
+      "id": "independent_quality_review",
+      "impl": "base gate.quality + independent review protocol",
+      "reviewed": "Build 2",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": null
+    },
+    {
+      "id": "automatic_correction_loops",
+      "impl": "opus2 chain successors + re-verification withholding; base chain.rebuild",
+      "reviewed": "B2/D ACCEPT",
+      "integrated": "batch5_trial",
+      "deployed": "no",
+      "gap": null
+    },
+    {
+      "id": "premium_pdfs",
+      "impl": "W-PDF (PDF1)",
+      "reviewed": "code ACCEPT; product fit conditional on physical sample",
+      "integrated": "batch5_planned",
+      "deployed": "no",
+      "gap": "physical sample (owner/tester)"
+    },
+    {
+      "id": "flux3_visual_production",
+      "impl": "opus2 laura_home + flux3 wiring; base image gateway",
+      "reviewed": "A/C ACCEPT",
+      "integrated": "batch5_trial",
+      "deployed": "no",
+      "gap": "CA$15 FLUX 3 sublimit not granted (owner)",
+      "blocked_by": [
+        "owner grant"
+      ]
+    },
+    {
+      "id": "laura_identity_verification",
+      "impl": "base (laura-r2-a42aeac7)",
+      "reviewed": "W3/W4 reviews",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": null
+    },
+    {
+      "id": "etsy_gallery_assembly",
+      "impl": "base listing frames + opus2 photo-led certificate (sample_photo.qualifying_photos)",
+      "reviewed": "D ACCEPT",
+      "integrated": "batch5_trial",
+      "deployed": "no",
+      "gap": "no qualifying sample photo exists (physical)"
+    },
+    {
+      "id": "listing_package_assembly",
+      "impl": "opus2 PR #5",
+      "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-4/EF2-5 fixed in e93b16ed (awaiting re-review)",
+      "integrated": "no (batch5 if review accepts)",
+      "deployed": "no",
+      "gap": null
+    },
+    {
+      "id": "owner_approval_workflow",
+      "impl": "base owner queue + opus2 PR #6 race guard",
+      "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-6/EF2-8 + B-5 index fixed, pending push",
+      "integrated": "no",
+      "deployed": "no",
+      "gap": "B-5 index + dedupe script built (PR #6, awaiting re-review); run the dedupe dry run before the first Postgres deploy"
+    },
+    {
+      "id": "authorized_publication_controls",
+      "impl": "base store.publish gates + W-LAUNCHFIX/W-READBACK",
+      "reviewed": "ACCEPT",
+      "integrated": "base (Batch 4)",
+      "deployed": "no (Batch 4 not certified)",
+      "gap": null
+    },
+    {
+      "id": "commercial_learning",
+      "impl": "opus2 improve.commercial_lessons",
+      "reviewed": "B2 ACCEPT",
+      "integrated": "batch5_trial",
+      "deployed": "no",
+      "gap": "needs real sales data (none in SHADOW)"
+    },
+    {
+      "id": "product_family_development",
+      "impl": "base creative.family_engine + opus2 culture-signal families (PR #8)",
+      "reviewed": "Build 2",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": "PR #8 awaiting review"
+    },
+    {
+      "id": "winner_amplification",
+      "impl": "base growth_ops (pins.amplify, s5 amplification gated on orders)",
+      "reviewed": "Build 2",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": "inert until orders exist (data-gated)"
+    },
+    {
+      "id": "durable_orchestration",
+      "impl": "base autonomy orchestrator + durable queue",
+      "reviewed": "Build 2",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": null
+    },
+    {
+      "id": "restart_and_stall_recovery",
+      "impl": "W-RESUMEFIX + W-INVENTORY stall detection + opus2 chain successors",
+      "reviewed": "ACCEPT",
+      "integrated": "base / batch5_planned",
+      "deployed": "no",
+      "gap": "stall re-drive actuator consuming flow_health (handoff \u00a711) waits on W5-INVENTORY merge"
+    },
+    {
+      "id": "automatic_next_product_selection",
+      "impl": "base seed_launch0 + chain.rebuild (opus2 finding: covered)",
+      "reviewed": "no verdict on the finding",
+      "integrated": "base",
+      "deployed": "base_code",
+      "gap": "COORDINATION still lists P0-NEXT-PRODUCT unowned: integrator to accept or reject the 'covered' finding (posted on PR #3, 2026-10-31T20:48Z)",
+      "blocked_by": [
+        "integrator decision"
+      ]
+    },
+    {
+      "id": "continuous_catalogue_expansion",
+      "impl": "base radar -> concept pool -> cir.draft; opus2 fallback breadth",
+      "reviewed": "partly",
+      "integrated": "partly",
+      "deployed": "base_code",
+      "gap": "breadth limited to the constructions above; see advanced_construction_breadth"
+    },
+    {
+      "id": "learning_department_integration",
+      "impl": "codex P0-LEARNING-REFERENCE (not started) + opus2 learning.knowledge_gaps",
+      "reviewed": "knowledge gaps B2 ACCEPT",
+      "integrated": "batch5_trial (gaps only)",
+      "deployed": "no",
+      "gap": "reference intake/teardown/held-out evaluation: Codex (owner starting it)",
+      "blocked_by": [
+        "codex start"
+      ]
+    },
+    {
+      "id": "production_acceptance_instrumentation",
+      "impl": "opus2 scripts/p0_acceptance.py",
+      "reviewed": "A ACCEPT (instrumentation)",
+      "integrated": "batch5_trial",
+      "deployed": "n/a",
+      "gap": "no production run yet (needs deploy)"
+    }
   ],
-  "opus2_open_engineering": ["EF2-1/2/3/3b push (PR #3)", "EF2-6/8 + B-5 push (PR #6)", "P1-CULTURE-SWEEP-TIMEOUT", "EF2-7 ensure() helper (LOW)", "stocking heel/toe construction rule", "per-stitch colour proposal to integrator"]
+  "opus2_open_engineering": [
+    "awaiting reviews: PRs #3 (EF2 + b4merge), #5, #6, #7, #8, #9, #10, #11",
+    "blocked on integrator decisions: P0-NEXT-PRODUCT finding; PR #9 colourwork adoption (unblocks mosaic/tapestry drafting); motif-join semantics",
+    "blocked on Batch 5: stall re-drive actuator (needs W5-INVENTORY flow_health on the base)",
+    "blocked on sourcing: hats (Codex reference intake)"
+  ]
 }
