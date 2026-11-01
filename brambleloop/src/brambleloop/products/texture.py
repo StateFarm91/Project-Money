@@ -18,6 +18,8 @@ and arithmetic the compiler checks rather than a designer's confidence.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..cir import stitches as _stitches
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row, Seam
 from ..creative.prototype import gauge_for
@@ -132,7 +134,7 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
         construction="flat_rows",
         risk_class="A",
         colors=dict(PINE),
-        gauge=CHUNKY,
+        gauge=replace(CHUNKY),  # SECREVIEW b8d3dee R39: never the shared object
         materials=[Material(name="chunky acrylic", yarn_weight="chunky", colorway="pine",
                             color_id="pine")],
         components=[Component(name="scarf", construction="flat_rows", rows=rows,
@@ -147,7 +149,7 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
         provenance=catalogue_provenance(
             "chunky-ribbed-scarf",
             {"builder": "products.texture.build_ribbed_scarf", "width": width, "rows": 101,
-             "rib": "fpdc2/bpdc2", "gauge": vars(CHUNKY)},
+             "rib": "fpdc2/bpdc2", "gauge": dict(vars(CHUNKY))},
             ("products.texture", "post_stitch_ribbing")),
     )
 
@@ -220,7 +222,7 @@ def build_bobble_pillow(version: str = PILLOW_VERSION) -> CIR:
         construction="flat_rows",
         risk_class="B",
         colors=dict(HEARTH),
-        gauge=WORSTED,
+        gauge=replace(WORSTED),  # SECREVIEW b8d3dee R39: never the shared object
         materials=[Material(name="worsted acrylic", yarn_weight="worsted", colorway="gold",
                             color_id="gold")],
         components=[Component(name="front", construction="flat_rows", rows=rows,
@@ -249,7 +251,7 @@ def build_bobble_pillow(version: str = PILLOW_VERSION) -> CIR:
         provenance=catalogue_provenance(
             "bobble-floor-pillow",
             {"builder": "products.texture.build_bobble_pillow", "width": width,
-             "blocks": blocks, "pad_cm": PAD_CM, "gauge": vars(WORSTED)},
+             "blocks": blocks, "pad_cm": PAD_CM, "gauge": dict(vars(WORSTED))},
             ("products.texture", "staggered_bobble_grid")),
     )
 
@@ -291,7 +293,7 @@ def build_cable_throw(version: str = DERIVED_VERSION) -> CIR:
         construction="flat_rows",
         risk_class="A",
         colors=dict(CREAM),
-        gauge=WORSTED,
+        gauge=replace(WORSTED),  # SECREVIEW b8d3dee R39: never the shared object
         materials=[Material(name="worsted acrylic", yarn_weight="worsted", colorway="cream",
                             color_id="cream")],
         components=[Component(name="throw", construction="flat_rows", rows=rows,
@@ -307,6 +309,6 @@ def build_cable_throw(version: str = DERIVED_VERSION) -> CIR:
         provenance=catalogue_provenance(
             "heirloom-cable-blanket",
             {"builder": "products.texture.build_cable_throw", "width": width, "blocks": blocks,
-             "column": 8, "gauge": vars(WORSTED)},
+             "column": 8, "gauge": dict(vars(WORSTED))},
             ("products.texture", "cir.stitches:cable2x2", "post_stitch_ribbing")),
     )

@@ -994,3 +994,56 @@ reported failures on that tree.
 
    A probe confirmed the collision on two of three runs. `_db()` now uses a unique name per
    call, and three runs in a row each passed 12/12. The test's assertions are unchanged.
+
+## 20. Delta review 9 (SECREVIEW b8d3dee): R35–R39
+
+**R35 (Medium): a release measured wrong under a resolved halt could be lift evidence.**
+
+The problem: the lift checked only open incidents. Once a halt is resolved, a new failure
+opens a fresh incident. A release that an earlier, already-lifted halt measured wrong was
+therefore accepted as evidence for lifting the new halt.
+
+The fix, in `runtime.release.failed_releases_ever(s, slug)`. The lift now refuses any
+release (by version or content hash) that appears in any of three independent records:
+
+- the durable `gate.release_withheld` rows of kind `physical_size_failed`. This is the primary
+  record. It is `lifetime_total` in `ops.retention`, so it is never pruned, and every release a
+  lift resolves gets one;
+- the stored releases' withholding record of that kind;
+- every `physical-size:` incident of the product, open or resolved, including its
+  `measured_releases`, the legacy `measured_release` / `release_scope`, and a lift's
+  `withheld_releases`.
+
+`ops.retention` does not prune incidents. Even if a resolved incident were gone, the durable
+rows would still refuse, and the test proves this by deleting the resolved incident. The
+owner prompt's version and geometry display reads the same set.
+
+New test: `test_a_release_a_resolved_halt_measured_wrong_is_never_lift_evidence`. The
+sequence is: A fails (I1), the owner lifts on B, a new failure on C opens a fresh I2, and a
+passing make of A is offered. The lift refuses it, naming A, even with
+`same_design_confirmed`. It still refuses after the resolved I1 is deleted, so the durable
+row alone is enough. The test also runs the reviewer's P5 variant, in which B itself fails
+again, and gets the same result. It fails on e3335a51 with "a make of the withheld A lifted
+I2".
+
+**R36 (Low): concurrent lift and repeat failure.** `lift_size_halt` and
+`_halt_release_on_size` now read the incident with `with_for_update()`. On PostgreSQL that
+locks the row, so a repeat failure cannot append to an incident that is being resolved, and
+the resolution cannot overwrite an appended release. SQLite already serialises writers, and
+SQLAlchemy emits no `FOR UPDATE` for it.
+
+**R37 (Info): samples with no stored design digest.** A sample with no `design_digest` now
+counts as unknown geometry. A lift on it needs `same_design_confirmed`, just as a lift on a
+same-geometry release does. This fails closed.
+
+**R38 (Info): the same-geometry check only looked at this incident.** It now compares against
+every failed geometry the product has ever had, open or resolved.
+
+**R31, presentation.** When the geometry matches, the owner prompt now says "YES (a lift on it
+also needs same_design_confirmed)".
+
+**R39 (Low): `products/texture.py` shared its gauge objects.** It now gives each CIR its own
+gauge copy (`replace(...)` for `CHUNKY` / `WORSTED`) and its own provenance copy
+(`dict(vars(...))`), the same fix as R32. New test:
+`test_the_texture_builders_never_share_their_gauge` covers the scarf, the pillow and the
+throw. It fails on e3335a51 for `build_bobble_pillow`.
