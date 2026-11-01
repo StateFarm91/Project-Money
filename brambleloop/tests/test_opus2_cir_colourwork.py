@@ -128,6 +128,24 @@ def test_the_twin_paints_each_stitch_and_fabric_truth_backs_a_colourwork_claim()
     assert L.fabric_truth(plain, plain_twin)["backed"] is False   # a claim without the fabric
 
 
+def test_the_colour_plan_and_the_pdf_tell_the_maker_how_to_work_a_tapestry_round():
+    from brambleloop.cir import colour_changes as CC
+
+    cir = _tapestry()
+    plan = CC.analyse(cir)["body"]
+    assert plan.tapestry_rows == [3] and plan.ends == 4     # two yarns, joined and fastened
+    assert (3, "rust", CC.IN_ROW) in plan.events and plan.cut == 0
+    text = writer.write_pattern(cir, compile_cir(cir))
+    assert "Colourwork round 3: work over the colour not in use" in text, text
+    # A one-colour-per-row design keeps exactly the sentence it had before.
+    from brambleloop.products import launch0 as L
+
+    stripes = L.cir_for("nordic_forest_baby")
+    before = CC.analyse(stripes)
+    assert before and all(not p.tapestry_rows for p in before.values())
+    assert all("Colourwork" not in (CC.instruction(p) or "") for p in before.values())
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

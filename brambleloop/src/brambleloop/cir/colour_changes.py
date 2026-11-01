@@ -21,10 +21,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .model import CIR
+from .model import CIR, op_colours
 
 CARRIED = "carried"
 CUT = "cut"
+# P0-CIR-COLOURWORK: a row whose stitches change colour is tapestry work. Every yarn in it is
+# carried inside the stitches (worked over), so it travels with the row and rests at the row's
+# end edge like the main colour; nothing is cut at a change inside the row.
+IN_ROW = "in_row"
 
 
 @dataclass
@@ -37,6 +41,7 @@ class ColourPlan:
     ends: int = 0
     turned: bool = True
     events: list[tuple[int, str, str]] = field(default_factory=list)   # (row, colour, kind)
+    tapestry_rows: list[int] = field(default_factory=list)
 
     @property
     def carry_is_possible(self) -> bool:
@@ -70,6 +75,15 @@ def plan_component(comp) -> ColourPlan:
             current = r.color
         end = (1 - start) if plan.turned else start
         resting[r.color] = end
+        # Tapestry: the stitch colours of this row were carried inside it, so they rest where
+        # the row ends too, and each is a yarn the piece uses (its own join and fasten-off).
+        for colour in sorted(op_colours(r.ops) - {r.color}):
+            if colour not in colours_seen:
+                colours_seen.add(colour)
+            resting[colour] = end
+            plan.events.append((r.index, colour, IN_ROW))
+            if r.index not in plan.tapestry_rows:
+                plan.tapestry_rows.append(r.index)
         edge = end
     # Two ends per colour (its first join and its last fasten-off) and two per cut-and-rejoin.
     plan.ends = 2 * len(colours_seen) + 2 * plan.cut
@@ -80,8 +94,30 @@ def analyse(cir: CIR) -> dict[str, ColourPlan]:
     return {c.name: plan_component(c) for c in cir.components}
 
 
+def _tapestry_sentence(plan: ColourPlan) -> str | None:
+    if not plan.tapestry_rows:
+        return None
+    rows = plan.tapestry_rows
+    span = f"{rows[0]}" if len(rows) == 1 else f"{rows[0]}-{rows[-1]}"
+    unit = "row" if plan.turned else "round"
+    plural = "s" if len(rows) > 1 else ""
+    return (f"Colourwork {unit}{plural} {span}: work over the colour not in use so it is carried "
+            f"inside the stitches, and change colour on the last yarn-over of the stitch before "
+            f"the new colour. Do not cut at these changes.")
+
+
 def instruction(plan: ColourPlan) -> str | None:
     """The finishing sentence the written pattern prints about colour changes, or None."""
+    tapestry = _tapestry_sentence(plan)
+    if plan.changes == 0:
+        return tapestry
+    if tapestry:
+        rest = _row_instruction(plan)
+        return f"{rest} {tapestry}" if rest else tapestry
+    return _row_instruction(plan)
+
+
+def _row_instruction(plan: ColourPlan) -> str | None:
     if plan.changes == 0:
         return None
     if plan.carry_is_possible:
