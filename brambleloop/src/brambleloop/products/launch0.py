@@ -363,6 +363,26 @@ _NEEDS_BOBBINS = ("intarsia",)
 _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
 
 
+# Review OPUS2J J-6: spelling variants and synonyms are the same claim. Text is folded
+# ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
+# matching, and each variant maps to the technique whose rule judges it.
+_CLAIM_VARIANTS: dict[str, str] = {
+    "colour work": "colourwork", "color work": "colourwork",
+    "stranded": "fair isle", "jacquard": "fair isle",
+    "two colour": "colourwork", "two color": "colourwork",
+    "duplicate stitch": "intarsia",     # embroidered blocks: not modelled, refused like intarsia
+}
+
+
+def colourwork_claims(text: str) -> tuple[str, ...]:
+    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6)."""
+    folded = " " + re.sub(r"[\s_\-]+", " ", str(text or "").lower()) + " "
+    found: list[str] = [c for c in COLOURWORK_CLAIMS if c in folded]
+    found += [canon for variant, canon in _CLAIM_VARIANTS.items()
+              if re.search(rf"\b{re.escape(variant)}\b", folded)]
+    return tuple(dict.fromkeys(found))
+
+
 def colourwork_motif(grid) -> dict:
     """How much of the fabric is two-colour, measured from the twin's colour grid."""
     rows = [[c for c in row if c] for row in grid]
@@ -430,7 +450,7 @@ def fabric_truth(cir: CIR, twin) -> dict:
     mixed_heights = len(heights) > 1
 
     text = f"{cir.title} {cir.designer_notes or ''}".lower()
-    claims = tuple(c for c in COLOURWORK_CLAIMS if c in text)
+    claims = colourwork_claims(text)
     motif = colourwork_motif(grid)
     verdicts = {c: technique_backed(c, motif) for c in claims}
     backed = (not claims) or all(ok for ok, _why in verdicts.values())
