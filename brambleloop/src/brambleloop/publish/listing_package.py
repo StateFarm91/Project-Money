@@ -298,6 +298,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
             OwnerAction.requirement_key == action_key))))
         raised = closed = False
         for stale in rows:
+            # Review OPUS2G L5-1: a request the owner PARKED (deferred) is the owner's answer;
+            # a transient block leaves it parked. Changed content still supersedes it, because
+            # new content is a new question.
+            owner_parked = (stale.state or "") == owner_queue.PARKED
+            if owner_parked and package["state"] != READY:
+                continue
             if not stale.done and (package["state"] != READY
                                    or stale.requirement_key != current):
                 why = ("the listing package is blocked again: "

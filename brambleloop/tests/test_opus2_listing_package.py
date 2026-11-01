@@ -326,6 +326,26 @@ def test_review_opus2ef2_ef25_a_request_under_the_legacy_key_is_superseded():
     assert len(open_) == 1 and open_[0].requirement_key.endswith("7" * 16)
 
 
+def test_review_opus2g_l51_an_owner_deferral_survives_a_transient_block():
+    db, cir, _rh = _release("l51")
+    pkg = LP.assemble(db, cir.slug, cir.version)
+    ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "6" * 64}
+    blocked = {**pkg, "state": LP.BLOCKED,
+               "blockers": [{"source": "fixture", "why": "transient"}], "fingerprint": "5" * 64}
+    LP.record(db, ready)
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key.like(
+            f"{LP.ACTION_PREFIX}%")))
+        row.state = "parked"
+    LP.record(db, blocked)
+    LP.record(db, ready)
+    rows = _requests(db, cir)
+    assert len(rows) == 1 and rows[0].state == "parked", [(r.state, r.done) for r in rows]
+    # New content is a new question: the parked request is superseded and a new one raised.
+    changed = LP.record(db, {**ready, "fingerprint": "4" * 64})
+    assert changed["review_requested"] is True and changed["review_withdrawn"] is True
+
+
 def test_an_uncertified_or_unlisted_release_gets_no_package():
     db = _db("empty")
     assert LP.certified_releases(db) == [] and LP.assemble(db, "nope", "1.0.0") is None
