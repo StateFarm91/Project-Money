@@ -51,8 +51,15 @@ worktrees, not this file.
 - `opus2/p0-family-membership` `/home/user/opus2-family` (uncommitted; claim in its
   COORDINATION): `family_of` reads the culture signal; culture next members; 2/2. Its suites are
   running (task output b383ivf3a).
-- Next once these land: EF2-7 `owner_queue.ensure` helper; a stocking heel/toe rule; mosaic
-  vessel drafting via `Op.color` (after the integrator decides).
+- Next once these land:
+  - a pet bed construction, after PR #3's EF2 push: a vessel with a large base and a low wall,
+    routed by "pet bed", "cat bed" or "dog bed" titles in the `pet` category, with a measured
+    size added to `products.vessels`;
+  - the EF2-7 `owner_queue.ensure` helper;
+  - mosaic vessel drafting via `Op.color`, after the integrator decides.
+- Hats re-checked at 10:05Z: no published hat-height or ease standard was found (only a
+  truncated designer PDF crediting a publisher's chart). They stay refused, and the gap stays
+  with Codex reference intake.
 
 ## Done log
 - 2026-11-01T09:50Z: P1-CULTURE-SWEEP-TIMEOUT pushed in `ec97a79e`, PR #7 opened.
