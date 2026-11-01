@@ -25,12 +25,12 @@ from brambleloop.cir.model import CIR, Component, Gauge, Op, Repeat, Row  # noqa
 
 
 BASE_DIGESTS = {
-    'basket_large': '0fbec61859f79def4eadaf3e0996910f0b3c971fc2c843fff0fec17c1cd89b7a',
-    'basket_medium': '0a6ffc8af62d7b6f9c58f85cb67409bf61e7441f11b5876fc3f242748a359ab6',
-    'basket_small': '8a28d62a15e7bd856936d2e57fb2da3fafc9b3755bb53e86c16c7de19cd9ccf8',
+    'basket_large': 'c4bd4e9a15aa9b5ae90bb3367588ad1f6d0806cb2fd94c5bb6acf3278bebafac',
+    'basket_medium': '0b9eac0813948279647c4f0d7bc9a8b9497040b535db00e9139308760a2189ec',
+    'basket_small': '007a913006c8ccc9fba78a6500fbd9d854c597610853c2a4a2097d69ab8bafac',
     'cloudline_blanket': '9234419ee25770998fc9b92ef0d9fad4ffa75d10b521f40f857029c64465d9ca',
     'harvest_runner': 'eeb3b7d4ecc0664afe62965cdd1ee0602f2d00545a74eef5611b5ff3eaf8404f',
-    'hexagon_coasters': 'd4a486f10b4e12cfae384f02f9b2d254959a5489f51cf3fc790e71009bf44ef8',
+    'hexagon_coasters': '9e332268e5146933deebef1100d133d32326e6421972801156ee9ca77ee3aa8f',
     'key_basket': 'bbc70e8baa4ca7508bd43655c8ac84837f17f30df617e56ed5fe2a193783f828',
     'nordic_forest_baby': '1a67c10f9e25ec8e89f0e10665ddf6e4928504aef4546d1459f6bb53294bc9e4',
     'placemat_pair': '414099177bbcb2b7cbd662bd549bec095eea7f420c99bebd3bcdfa8ebe7e07ec',
@@ -120,6 +120,10 @@ def test_no_existing_launch_design_changes_its_digest():
                     stack.extend(node.get("ops", []))
         pinned[b] = hashlib.sha256(cir.to_json().encode()).hexdigest()
     # OPUS2H H2-5: the digests themselves, taken on the base (d230e8fd) before Op.color existed.
+    # Re-based at Batch 5 integration (W5-INTEG1 799b3d24, the tree just before this merge):
+    # the baskets and coasters moved with W4-PDF1's reviewed releases (basket small 1.3.0,
+    # medium/large and coasters 1.2.1), not with Op.color -- every digest is identical before
+    # and after the colourwork merge.
     assert pinned == BASE_DIGESTS, {b: d for b, d in pinned.items() if BASE_DIGESTS.get(b) != d}
 
 
