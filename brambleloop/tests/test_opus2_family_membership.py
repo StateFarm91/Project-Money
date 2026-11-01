@@ -85,6 +85,65 @@ def test_a_family_is_never_inferred_and_the_pool_still_wins():
     assert FE.family_of(seed.slug, db)[0] == seed.family        # the declared pool family wins
 
 
+def _orders(db, slug, n):
+    from brambleloop.core.models import Customer, Order
+
+    with db.session() as s:
+        cust = Customer(customer_ref=f"c-{slug}")
+        s.add(cust)
+        s.flush()
+        for i in range(n):
+            s.add(Order(customer_id=cust.id, external_ref=f"{slug}-{i}", product_slug=slug))
+
+
+def _aurora(db):
+    _concept(db, "aurora-ws-blanket", "sig-aurora", product_slug="aurora-throw")
+    _concept(db, "aurora-ws-stocking", "sig-aurora", product_slug="aurora-stocking")
+    _concept(db, "aurora-ws-ornament", "sig-aurora")
+    _certified(db, "aurora-throw")
+    _certified(db, "aurora-stocking", rows=6)
+
+
+def test_review_opus2g_f1_amplify_parks_a_culture_family_at_the_order_floor():
+    db = _db()
+    _aurora(db)
+    _orders(db, "aurora-throw", FE.AMPLIFY_MIN_ORDERS + 1)
+    queued = []
+    out = FE.amplify(db, FE.family_report(db),
+                     enqueue=lambda *a, **k: queued.append((a, k)))      # no KeyError
+    assert queued == [], queued                      # radar.score never gets a concept slug
+    decisions = {d["family"]: d["decision"] for d in out.get("decided", out.get("decisions", []))} \
+        if isinstance(out, dict) else {}
+    assert decisions.get("culture:sig-aurora") == "needs_member_route", out
+
+
+def test_review_opus2g_f2_f3_cross_sell_and_children_read_the_culture_family():
+    from brambleloop.commerce import cross_sell
+
+    db = _db()
+    _aurora(db)
+    nodes = {n["product"]: n for n in cross_sell.graph(db)["nodes"]}
+    throw = nodes["aurora-throw"]
+    assert throw["family"] == "culture:sig-aurora"                 # db passed (F-2)
+    assert throw["related"] == []                                  # never buyer-facing (F-3)
+    assert throw["planned"]["internal"] is True
+    assert throw["planned"]["culture_family_members"] == ["aurora-stocking"]
+
+
+def test_review_opus2g_f2_the_childrens_architecture_reads_the_culture_family_too():
+    from brambleloop.creative import children
+
+    db = _db()
+    slugs = [f"aurora-baby-blanket-{i}" for i in range(children.BABY_KIDS_DEPTH)]
+    assert slugs
+    for i, slug in enumerate(slugs):
+        _concept(db, f"aurora-ws-baby-{i}", "sig-aurora", product_slug=slug)
+        _certified(db, slug, rows=4 + 2 * i)
+    arch = children.architecture(db)
+    assert arch["propose_collection"] is True, arch
+    assert sorted(arch["navigation"]["by_family"].get("culture:sig-aurora", [])) == sorted(slugs)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

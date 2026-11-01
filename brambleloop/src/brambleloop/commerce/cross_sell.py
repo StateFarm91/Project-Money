@@ -45,7 +45,14 @@ def graph(db) -> dict:
             tutorials = UNMEASURED
         materials = sorted({f"{m.get('yarn_weight') or '?'}:{m.get('color_id') or '?'}"
                             for m in (r["cir"].get("materials") or [])}) or UNMEASURED
-        related = sorted(s for s in slugs if s != slug and fam and fam_of.get(s) == fam)
+        same_family = sorted(s for s in slugs if s != slug and fam and fam_of.get(s) == fam)
+        # Review OPUS2G F-3: a culture family (`culture:<signal>`) is one cultural signal
+        # translated across product types, not a checked shared visual identity, so it is
+        # planning data only: never a buyer-facing "related" edge until such a check exists.
+        from ..creative.family_engine import CULTURE_FAMILY_PREFIX
+
+        culture = bool(fam) and fam.startswith(CULTURE_FAMILY_PREFIX)
+        related = [] if culture else same_family
         family_bundles = sorted(p.slug for p in POOL if fam and p.family == fam and p.is_bundle)
         # Review b199cdb L-3: a buyer-facing edge points only at a certified product. A bundle
         # or family member that is only a radar seed is planning data, kept under `planned`.
@@ -58,6 +65,7 @@ def graph(db) -> dict:
                       "tutorials": tutorials, "materials": materials,
                       "next_projects": {"in_catalogue": same_collection[:5]},
                       "planned": {"internal": True,
+                                  "culture_family_members": same_family if culture else [],
                                   "bundles": [b for b in family_bundles if b not in slugs],
                                   "family_members": nxt[:5],
                                   "why": "uncertified radar seeds: planning only, never a "

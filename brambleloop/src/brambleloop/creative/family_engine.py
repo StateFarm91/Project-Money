@@ -274,6 +274,18 @@ def amplify(db, rep: dict, *, enqueue, today=None) -> dict:
                           f"member; held until new evidence")
             _save_amp(db, f["family"], st)
             continue
+        if f["family"].startswith(CULTURE_FAMILY_PREFIX):
+            # Review OPUS2G F-1: a culture family's next members are culture concepts, and
+            # radar.score takes a radar POOL seed. Until a CA$0 route from a culture concept
+            # to the funnel exists, the family is recorded as needing one -- never queued with
+            # a slug radar.score cannot read, and never allowed to stop the other families.
+            st["how"] = ("culture family: its next members are culture concepts, which reach "
+                         "the funnel through creative intake; amplify has no CA$0 route for "
+                         "them yet")
+            _save_amp(db, f["family"], st)
+            decided.append({"family": f["family"], "job_id": None,
+                            "decision": "needs_member_route"})
+            continue
         attempt = int(st.get("attempts") or 0) + 1
         # #22: before more capacity goes to the family, ask WHY its best seller sells.
         # N-8: the study's window starts once per family and is kept, never reset per attempt.
