@@ -1006,6 +1006,10 @@ def handle_certify(ctx: JobContext) -> dict:
 
     # Publication is halted while a P0/P1 defect is open against this product.
     tracker = IncidentTracker(ctx.db)
+    # PHYSFIX G4, integrator decision (SECREVIEW 8da830d R28): every halt -- a physical size
+    # halt included -- is product-wide. No design digest decides whether this release may
+    # certify past a halt; a size halt is lifted only by the owner, on qualifying evidence
+    # (`runtime.release.lift_size_halt`). Certifying lifts nothing.
     if tracker.publication_halted(cir.slug):
         ctx.audit("gate.halted", artifact=f"{cir.slug}@{cir.version}",
                   detail={"reason": "open P0/P1 incident"})
@@ -1297,10 +1301,18 @@ def physical_evidence_rows(db, slug: str) -> list[dict]:
             from ..gates.risk_matrix import physical_class_of
 
             cls, legacy = physical_class_of(measured)
+            # SECREVIEW F3: whether the row proved the finished size. Stamped by
+            # `physical.record` from W-PHYSFIX on; an older row proved it only if its size
+            # was compared and agreed, and it was not a swatch.
+            proof = measured.get("size_proof")
+            if proof is None:
+                proof = (measured.get("size_agrees") is True
+                         and measured.get("scope") != "swatch")
             out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
                         "passed": t.passed, "completed_at": t.completed_at,
                         "content_hash": content, "compatible_variants": variants,
-                        "evidence_class": cls, "legacy_unstamped": legacy})
+                        "evidence_class": cls, "legacy_unstamped": legacy,
+                        "size_proof": bool(proof)})
     return out
 
 
@@ -1531,7 +1543,12 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                 existing.certificate, certificate)
             existing.cir_json = cir.to_dict()
             existing.release_hash = release_hash
-            existing.certificate = certificate
+            # PHYSFIX: a permanent withholding (the version a sample measured at the wrong
+            # size) survives the replaced certificate -- re-certifying never un-withholds it.
+            from ..publish import withholding as _withholding
+
+            existing.certificate = _withholding.carry_permanent(existing.certificate,
+                                                                certificate)
             existing.certified = True
             if carried:
                 ctx.enqueue("quality_director", "gate.quality", {},

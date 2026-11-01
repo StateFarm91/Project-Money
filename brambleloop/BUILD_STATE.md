@@ -1,3 +1,25 @@
+> **2026-11-01 — Batch 4 re-certification (`claude/w4-INTEG8-next`, NOT deployed; production ee35a493 SHADOW).**
+> - **Certification run 20261101T053634Z-559 on e43eeafe FAILED** (clean tree, uninterrupted, 845 suites; 10,076 tests passing,
+>   12 suites failing, 0 environment failures). Not certified. Every failure was root-caused and fixed on
+>   `claude/w4-INTEG8-certfix`, with no test weakened:
+>   - Calendar time bombs exposed on 2026-11-01: the synthetic finance dataset put "current month" events in the previous
+>     month on days 1-3 (r2_finance_close, accounting_controller); a fixed 2026-10-01 policy reading aged past 30 days (b2gate2).
+>   - Expectations made stale by Batch 4's own changes: F-076 cited a test PHYSFIX replaced (closure matrix, via the documented
+>     override); the More menu gained "policy" (pwa_browser, now pinned to the exact id list); the one-size basket identity
+>     (store_preview, now derived from the catalogue); READBACK's anonymous `evidence_checks` (provider_health, kept strict).
+>   - A "mockups" wording trip in `command_center/policy_readings.py` (cc_views guard unchanged).
+>   - Four suites printing lowercase `ok` counted as reporting no passes (fmbatch2 x2, intelrec x2).
+> - All 12 suites pass on the fix branch. A fresh, uninterrupted full run certifies (resumed runs never do).
+> - **R40-R42** (`claude/w4-PHYSFIX-R40` 43021c1e): Low, fail-open, unreachable until an owner-commissioned tester sample; NOT
+>   in Batch 4 (I-B4-R40-DEFER), tested and reviewed for Batch 5; disclosed in the deploy request. Not waived.
+> - **Production dead letter diagnosed** (read-only logs): `culture.sweep` jobs 41979 (2026-11-01 00:13Z) and 34246
+>   (2026-10-27) end in `PaidCallUnresolved` after an interrupted first paid call (probable 60 s timeout escaping
+>   `culture/classify.py`). The anti-double-spend guard held. Recurring (2 of 7 nights); NOT fixed by Batch 4; work item
+>   P1-CULTURE-SWEEP-TIMEOUT. Production is NOT fully healthy while `no_unexpected_dead_letters_in_24h` is red.
+> - Stages: Batch 4 built, reviewed, integrated; certification pending; not deployed. Batch 5 integration in progress on
+>   `claude/w5-INTEG1` (INVENTORY, CONCEPT, opus2 fb52cb9e merged; PDF1 merge in progress). opus2 PR #3/#5/#6 fixes:
+>   CHANGES_REQUIRED (OPUS2EF2).
+
 > **2026-10-21 — W4-LISTREADY (branch `claude/w4-LISTREADY`, NOT deployed; production b931d17 SHADOW).** Production has
 > certified nothing since 2026-10-11. A P0 `systemic-halt:publication`, built only from stale-artefact incidents, halts every
 > `gate.certify`. Fixed at the roots, no gate changed:

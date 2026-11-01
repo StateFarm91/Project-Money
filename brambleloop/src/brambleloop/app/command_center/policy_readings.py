@@ -64,7 +64,7 @@ SOURCES: dict[str, dict] = {
     "listing_image_rules": {"title": "Requirements and Best Practices for Images", "questions": [
         "Does Etsy permit a digital pattern listing whose images, including the FIRST image, "
         "are clearly labelled digital renderings rather than photographs? Record exactly what "
-        "the page says about renderings, mockups, illustrations and AI-generated images, and "
+        "the page says about renderings, digital composites, illustrations and AI-generated images, and "
         "whether it distinguishes a digital download from a physical item.",
         "Must AI-generated or AI-assisted images be disclosed? Where?",
         "Technical rules: images per listing, formats, minimum and recommended size, "

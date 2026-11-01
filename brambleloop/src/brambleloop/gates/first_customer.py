@@ -293,8 +293,21 @@ def physical_binding(db, cir, result=None) -> dict:
                                      version=cir.version, content_hash=content)
     # F-073/F-081: which physical evidence class this product's risk tier needs here.
     matrix = matrix_for(cir, result, calibrated_primitives=calibrated_primitives(db))
+    # PHYSFIX G5: a sample covers exactly one size; which sizes of the listing are proven.
+    from ..quality.physical import size_coverage
+
     return {**binding, "risk_matrix": matrix,
-            "first_customer": first_customer_requirement(matrix, binding)}
+            "first_customer": first_customer_requirement(matrix, binding),
+            "size_coverage": size_coverage(db, cir)}
+
+
+def _coverage_note(physical: dict) -> str:
+    cov = physical.get("size_coverage") or {}
+    if not cov:
+        return ""
+    return (f"; physically proven sizes of {cov.get('listing')}: {cov.get('proven') or 'none'}"
+            f", not proven: {cov.get('unproven') or 'none'} (a sample covers exactly one "
+            f"size)")
 
 
 def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Check:
@@ -317,6 +330,7 @@ def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Chec
                          f"({str(physical.get('content_hash') or '')[:12]})"
                          + (f"; samples on file that do not bind: {unbound}" if unbound
                             else "; none on file")
+                         + _coverage_note(physical)
                          + ". Every finished dimension is arithmetic from the stated gauge "
                            "until somebody works this text",
                          "gates.certificate.bind_physical_evidence on stored PhysicalTest rows")
@@ -334,7 +348,8 @@ def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Chec
         return Check("gauge_and_size_claims", PASS,
                      f"physical sample(s) {physical.get('bound')} passed against this exact "
                      f"content ({str(physical.get('content_hash'))[:12]}); twin calibrated="
-                     f"{twin.calibrated}; {twin.width_cm:.1f} x {twin.height_cm:.1f} cm",
+                     f"{twin.calibrated}; {twin.width_cm:.1f} x {twin.height_cm:.1f} cm"
+                     + _coverage_note(physical),
                      "gates.certificate.bind_physical_evidence on stored PhysicalTest rows, "
                      "twin built with quality.physical.calibration_from_db")
     if not twin.calibrated:

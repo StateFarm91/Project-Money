@@ -187,6 +187,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                        "release's newest outcome; finance.governor, finance.unit_cost, "
                        "improve.presale, ops.backfill, runtime.pipeline and runtime.release "
                        "read it with no window or row limit"),
+    "gate.release_withheld": ("lifetime_total",
+                              "publish.withholding.durable_reasons: a release a physical "
+                              "sample measured at the wrong size is withheld forever (PHYSFIX "
+                              "R28 follow-up); release_gates.for_publish refuses on any such "
+                              "row, at any age"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "

@@ -188,6 +188,12 @@ def assign(tester: Tester, demand: Demand) -> dict:
                      "stop being unproven" if tester.accepted < 2 else "")}
 
 
+def _counts_as_tester(row) -> bool:
+    """SECREVIEW R19: an owner's own make is non-evidence (F-071) -- never a tester."""
+    return (not (row.measured or {}).get("owner_made")
+            and (row.tester_ref or "").strip().lower() != "owner")
+
+
 def from_db(db, *, today: date | None = None) -> dict:
     """The live picture from recorded physical tests."""
     from sqlalchemy import select
@@ -195,7 +201,7 @@ def from_db(db, *, today: date | None = None) -> dict:
     from ..core.models import PhysicalTest
 
     with db.session() as s:
-        rows = list(s.scalars(select(PhysicalTest)))
+        rows = [r for r in s.scalars(select(PhysicalTest)) if _counts_as_tester(r)]
 
     by_ref: dict[str, dict] = {}
     for r in rows:
@@ -235,7 +241,7 @@ def plan(db, products: list[dict], *, today: date | None = None) -> dict:
 
     today = today or date.today()
     with db.session() as s:
-        tests = list(s.scalars(select(PhysicalTest)))
+        tests = [t for t in s.scalars(select(PhysicalTest)) if _counts_as_tester(t)]
     specialty_of = {p["slug"]: p["specialty"] for p in products}
     sampled = {t.product_slug for t in tests if t.passed}
 

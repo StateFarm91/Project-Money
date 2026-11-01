@@ -160,9 +160,21 @@ def test_preview_shows_every_surface():
                    # Section names are copy_v2's owner-nav names (wave 3, lane C).
                    f"<li>{copy_v2.section_name('home')}<span",
                    f"<li>{copy_v2.section_name('baby')}<span",
-                   "CA$6.50", "CA$7.50", "CA$4.00", "3 sizes in one pattern",
+                   "CA$6.50", "CA$7.50", "CA$4.00",
                    "Owner readiness", "Settings that need the owner signed in"):
         assert needle in html, needle
+    # Each tile's size line follows the catalogue, never a fixed count. Since
+    # D-W4-OWNER-BASKET-IDENTITY (LISTING1, Batch 4) the small basket is its own one-size
+    # listing, so no Launch-0 product sells several sizes and none may claim to.
+    from brambleloop.store_foundation import content
+
+    counts = [p["variant_count"] for p in content.launch0_products(None)]
+    assert counts and all(n >= 1 for n in counts), counts
+    for n in sorted(set(counts)):
+        label = f"{n} sizes in one pattern" if n > 1 else "One pattern"
+        assert label in html, label
+    if max(counts) == 1:
+        assert "sizes in one pattern" not in html
 
 
 def test_listing_images_verified_or_withheld():

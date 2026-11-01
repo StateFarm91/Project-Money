@@ -41,7 +41,7 @@
       "operator": "main-opus",
       "branch": "claude/w4-PDF1",
       "scope": "premium customer PDFs, publish/pdf.py",
-      "state": "basket 1.3.0 built+certified (c4aa14a0, head 4fb6252d); design review running; truthful wall-corner renders in progress",
+      "state": "accepted (CODE SHIP / PRODUCT FIT conditional on sample) at df5ffc4e; integrates into Batch 5 after Batch 4 certifies",
       "head": "b547434e",
       "review_branch": "claude/w4-PDFAUDIT-b547434"
     },
@@ -109,19 +109,13 @@
       "id": "OPUS2-SIZECLAIMS",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "gates/size_claims.py",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)",
-      "state": "ready_for_review",
-      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md \u00a732; awaiting re-review"
+      "scope": "gates/size_claims.py"
     },
     {
       "id": "OPUS2-LAURAHOME",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
+      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
     },
     {
       "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
@@ -132,9 +126,7 @@
       "review_branches": [
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
-      ],
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
+      ]
     },
     {
       "id": "P0-LEARNING-REFERENCE",
@@ -151,9 +143,25 @@
       "branch": "opus2/p0-revenue-workforce",
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
-      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part.",
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
+      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+    },
+    {
+      "id": "OPUS2-LISTING-PACKAGE-JOB",
+      "operator": "opus2",
+      "branch": "opus2/p0-listing-package",
+      "head": "f779fac2",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)"
+    },
+    {
+      "id": "OPUS2-OWNER-QUEUE-RACES",
+      "operator": "opus2",
+      "branch": "opus2/p1-owner-queue-races",
+      "head": "ccb3e8e4",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "P1-OWNER-QUEUE-RACES"
     },
     {
       "id": "OPUS2-GALLERY-PHOTO-LED",
@@ -220,9 +228,15 @@
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
     },
     {
-      "id": "P1-OWNER-QUEUE-RACES",
+      "id": "P1-CULTURE-SWEEP-TIMEOUT",
       "priority": "P1",
-      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
+      "summary": "culture.sweep dead-letters when its classifier call times out: culture/classify.py does not catch TimeoutError (escapes, reservation left to expire), and the UNCERTAIN paid-call intent then refuses every retry. Fix candidates: catch the timeout in classify (record UNCERTAIN spend at estimate, never zero, release nothing silently), pass an explicit longer per-call timeout for this call, and have the sweep re-enqueue as a NEW job key after an unresolved call so the night is not lost. Must not weaken F-307/F-339. Evidence: production_observations 2026-11-01T07:05Z.",
+      "files": [
+        "src/brambleloop/culture/classify.py",
+        "src/brambleloop/runtime/release.py (handle_culture_sweep)"
+      ],
+      "state": "unowned",
+      "recorded": "2026-11-01T07:05Z"
     }
   ],
   "reviews": [
@@ -551,6 +565,94 @@
       "report_branch": "claude/w4-SECREVIEW-PHYSFIX-7282c47",
       "notes": "R27 Med latent: assembly/seam order moves digest; one-line fix (extend interim to assembly). R25/R26 non-blocking follow-ups",
       "recorded": "2026-10-31T19:30Z"
+    },
+    {
+      "subject": "PHYSFIX delta 7",
+      "sha": "b53fba09+8da830dc",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-8da830d",
+      "notes": "R27 closed; R28 Med reachable (make:N vs N components); R29 Low (per-piece gauge)",
+      "recorded": "2026-10-31T19:50Z"
+    },
+    {
+      "subject": "Batch 5 trial suites",
+      "sha": "16da3951",
+      "verdict": "41/41 pass",
+      "report_branch": "claude/w5-INTEG1-trial",
+      "notes": "INVENTORY+CONCEPT+opus2@fb52cb9e",
+      "recorded": "2026-10-31T19:50Z"
+    },
+    {
+      "subject": "PHYSFIX delta 8 (product-wide halts)",
+      "sha": "ad07b595+33cbfc53",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-33cbfc5",
+      "notes": "halt closed by construction; R30 Med: restate overwrites measured_release so first failed release escapes withholding/re-release check. Combined tree: suite_final_segment (test_physfix), b2gates row 23",
+      "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "Basket render delta",
+      "sha": "363a467a",
+      "verdict": "CODE CHANGES_REQUIRED / PRODUCT FIT FOR CUSTOMER",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-363a467",
+      "notes": "R1 High export_check trusts manifest 'estimated'; R2 Med 3.0.0 still qualified; R3-R6 Low",
+      "recorded": "2026-10-31T22:00Z"
+    },
+    {
+      "subject": "PHYSFIX delta 9",
+      "sha": "e3335a51+b8d3dee0",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w4-SECREVIEW-PHYSFIX-b8d3dee",
+      "notes": "R30 closed within an incident; R35 Med: lift ignores releases measured by RESOLVED incidents",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "Basket render delta 2",
+      "sha": "115464fc",
+      "verdict": "CODE ACCEPT / PRODUCT FIT FOR CUSTOMER (conditional on physical sample)",
+      "report_branch": "claude/w4-SECREVIEW-RENDER-115464f",
+      "notes": "N1/N2 Low, N3-N6 Info; PDF1 cleared for Batch 5",
+      "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "OPUS2 E (post-review constructions + Low fixes)",
+      "sha": "fb52cb9e..fa3a7b09",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2E-fa3a7b0",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2 F (listing job + owner-queue races)",
+      "sha": "f779fac2 / ccb3e8e4",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "notes": "review F findings A-1..A-8 / B-1..B-6; fixes re-reviewed as OPUS2EF2 (below)",
+      "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review E fixes (draft constructions, size gate)",
+      "sha": "0e941757",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-1 MEDIUM (title_promise counts straps; tote second objects/features), EF2-2 test gap required; EF2-3/3b follow-up. PR #3 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part A fixes (listing-package job)",
+      "sha": "b42f4245",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-4 MEDIUM required (READY->BLOCKED->READY never re-asks the owner); EF2-5 follow-up. PR #5 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part B fixes (owner-queue races)",
+      "sha": "007f5d1c",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
     }
   ],
   "integration": {
@@ -567,7 +669,8 @@
         "kit/outreach rebound to the recertified version"
       ],
       "status": "not ready for commissioning approval"
-    }
+    },
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
   },
   "owner_directives": [
     {
@@ -601,5 +704,64 @@
       "id": "D-W5-OWNER-COMPLETION-METRICS",
       "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
     }
-  ]
+  ],
+  "integrator_decisions": [
+    {
+      "date": "2026-10-31",
+      "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
+      "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
+    },
+    {
+      "id": "I-B4-R40-DEFER",
+      "recorded": "2026-11-01T08:05Z",
+      "decision": "Batch 4 is certified and deployed without the R40-R42 follow-up (claude/w4-PHYSFIX-R40 43021c1e). R40 is Low, fail-open, and unreachable in production until an owner-commissioned independent tester's passing make allows an owner size-halt lift; the fix is not yet tested or reviewed. It goes through tests + independent review into Batch 5 and is disclosed in the Batch 4 deploy-approval request. Not waived.",
+      "reason": "Owner directive 2026-11-01 section 3: investigate by severity and release requirements; do not silently waive a fail-open issue. Adding it now would add a review cycle to Batch 4 for no production effect."
+    }
+  ],
+  "production_observations": [
+    {
+      "at": "2026-11-01T00:25Z",
+      "sha": "ee35a493",
+      "verify_ok": false,
+      "failing": [
+        "no_unexpected_dead_letters_in_24h"
+      ],
+      "notes": "all other 12 checks pass (shadow, nothing published, worker alive, scheduler ticking). Dead-letter detail needs ops token or readback token; integrator does not read secrets. Same check failed 2026-10-27 and recovered by 2026-10-31."
+    },
+    {
+      "observed": "2026-11-01T06:50Z",
+      "what": "Batch 4 certification run 20261101T053634Z-559 on e43eeafe failed test_final_closure_matrix::test_the_committed_matrix_is_exactly_its_adjudication ('F-076','IMPLEMENTED','INTEGRATED'). Real regression in records, not timing: PHYSFIX 626afdf8 replaced the test F-076 cites. Fix claude/w4-INTEG8-certfix 5d435403 (evidence override + regenerated matrix). The run is left to finish for the full failure list; a fresh full run certifies (never a resumed one).",
+      "production_verify": "/api/verify ok=false: only no_unexpected_dead_letters_in_24h failing (unchanged); details need the owner action recorded earlier."
+    },
+    {
+      "observed": "2026-11-01T07:05Z",
+      "what": "Dead-letter diagnosis (owner directive 2026-11-01 section 8), read-only: Railway deploy logs of brambleloop-os and Postgres; no secret read, no SQL run.",
+      "job_type": "culture.sweep (cadence culture_sweep, agent market_radar, daily)",
+      "jobs": [
+        {
+          "job_id": 41979,
+          "window": "2026-11-01T00:13:53Z attempt 2, 00:14:06Z attempt 3",
+          "effect": "anthropic.messages",
+          "worker": "web-2"
+        },
+        {
+          "job_id": 34246,
+          "window": "2026-10-27T00:19Z attempts 2-3; requeued 17:02Z, attempts 1-3 refused again (same job id = same key)",
+          "effect": "anthropic.messages",
+          "worker": "web-2"
+        }
+      ],
+      "error_class": "paid_calls.PaidCallUnresolved (PermanentError) on retries: the Postgres 'duplicate key effect_intents_pkey' lines are the expected claim collision; the first attempt left the paid-call intent UNCERTAIN/PENDING, so the request is never re-sent automatically (F-307/F-339, anti-double-spend).",
+      "probable_trigger": "HYPOTHESIS, not verified against rows: attempt 1's call to the cheap-tier classifier hit the 60 s socket read timeout (AnthropicProvider.timeout_seconds) -> TimeoutError, classified UNCERTAIN; culture/classify.py catches only PermanentError/TransientError, so the TimeoutError escapes, fails the attempt and leaves its budget reservation to expire. Both incidents are at ~00:13-00:19Z, during heavy Postgres checkpoints (270 s write at 00:12Z).",
+      "still_active": "Recurring, not continuous: 2 of the last 7 nightly sweeps. /api/verify returned 200 at 2026-10-31T18:30Z and 503 from 00:15Z; it clears ~2026-11-02T00:14Z unless the next sweep fails the same way.",
+      "affects_autonomy": "Partially: that night's culture/market-radar readings are lost; other work is unaffected and the next nightly job has a new key. No double spend (the guard held). Requeue of such a dead letter cannot succeed by design; a new job is the path.",
+      "fixed_by_batch4": "No. queue/effects.py, gateway/paid_calls.py, gateway/anthropic.py timeout and culture/classify.py are unchanged between production ee35a493 and e43eeafe.",
+      "next": "Batch 5 work item P1-CULTURE-SWEEP-TIMEOUT (unowned, below). Production stays NOT fully healthy while the check is red.",
+      "owner_action": "No longer needed to identify the job. Optional: in the Command Center incidents view, the P1 'effect.reconcile' / paid-call reconciliation incidents for jobs 34246 and 41979 can be resolved once the provider console shows whether those two calls were billed (at most two cheap-tier calls)."
+    }
+  ],
+  "reviews_in_flight": {
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "items": []
+  }
 }

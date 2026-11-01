@@ -744,9 +744,23 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # for_publish (e.g. products.inventory) use the default draft stage.
     users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
                    if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
+    # W-PHYSFIX-PHOTO: physical_upgrade reads the gate's own qualifying predicate to decide
+    # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
+    # gate) and never passes a stage.
     assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
                      "brambleloop/runtime/release.py"], users
+    import re as _re
+    pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
+    calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))
+    assert calls == {"qualifying_photos"}, calls
+    # SECREVIEW R10: no aliased import can reach another sample_photo function unseen.
+    assert not _re.search(r"from\s+[.\w]*sample_photo\s+import", pu_src), \
+        "physical_upgrade imports names out of sample_photo"
+    assert not _re.search(r"import\s+[.\w]*sample_photo\s+as\s", pu_src)
+    assert "requirement" not in _re.findall(r"sample_photo\W+(\w+)", pu_src)
+    assert "stage=" not in pu_src
     rel = (ROOT / "src/brambleloop/runtime/release.py").read_text()
     assert "_sample_photo.requirement(" in rel and "photographed_sample=_photographed" in rel
     inv = (ROOT / "src/brambleloop/products/inventory.py").read_text()

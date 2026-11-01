@@ -39,11 +39,21 @@ TEARDOWN_REQUIREMENTS = "teardown_requirements"
 QUALITY_REVERIFY = "quality_reverify"
 REVERIFY_FAILED = "reverify_failed"      # certificate field: {check: first problem}
 
+
+# PHYSFIX (SECREVIEW 8da830d R28 follow-up): the release a physical sample measured at the
+# wrong size, withheld when the owner lifts the product's size halt on a corrected release
+# (`runtime.release.lift_size_halt`). Permanent: nothing clears it, a re-certification of the
+# version carries it over, and a durable `gate.release_withheld` audit row (lifetime_total
+# in `ops.retention`) restates it, so it survives a replaced certificate and retention.
+PHYSICAL_SIZE_FAILED = "physical_size_failed"
+DURABLE_AUDIT = "gate.release_withheld"
+PERMANENT: tuple[str, ...] = (PHYSICAL_SIZE_FAILED,)
+
 KINDS: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO, COMPETITIVE_STANDARD, TEARDOWN_REQUIREMENTS,
-                          QUALITY_REVERIFY)
+                          QUALITY_REVERIFY, PHYSICAL_SIZE_FAILED)
 # Reasons that mean no content is built for the release at all (#163, #228). The standards
 # withhold *publication*: a listing may be drafted and rebuilt while the bar is not yet met.
-BUILD_BLOCKING: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO)
+BUILD_BLOCKING: tuple[str, ...] = (TEARDOWN_QA, OWNER_VETO, PHYSICAL_SIZE_FAILED)
 
 
 class WithholdingRefused(ValueError):
@@ -96,40 +106,76 @@ def record(db, slug: str, version: str, *, kind: str, reason: str | None) -> dic
     the summary sees every build-blocking reason and nothing a different kind's clearing took
     away. A release that is not stored gets no record: there is nothing to withhold.
     """
+    with db.session() as s:
+        return record_in(s, slug, version, kind=kind, reason=reason)
+
+
+def record_in(s, slug: str, version: str, *, kind: str, reason: str | None) -> dict:
+    """`record`, inside the caller's session (one transaction with whatever else it writes).
+
+    A PERMANENT kind is never cleared: `reason=None` for it is refused."""
     if kind not in KINDS:
         raise WithholdingRefused(f"{kind!r} is not a withholding reason: {list(KINDS)}")
-    with db.session() as s:
-        pv = _release(s, slug, version)
-        if pv is None:
-            return {"slug": slug, "version": version, "recorded": False, "reasons": {},
-                    "why": "no stored release to withhold"}
-        cert = dict(pv.certificate or {})
-        reasons = _stored(cert)
-        changed = False
-        if reason:
-            entry = reasons.get(kind) or {}
-            if entry.get("reason") != str(reason):
-                reasons[kind] = {"reason": str(reason)[:400],
-                                 "at": datetime.now(timezone.utc).isoformat()}
-                changed = True
-        elif kind in reasons:
-            reasons.pop(kind)
-            cleared = dict(cert.get("withholding_cleared") or {})
-            cleared[kind] = datetime.now(timezone.utc).isoformat()
-            cert["withholding_cleared"] = cleared
+    if kind in PERMANENT and not reason:
+        raise WithholdingRefused(f"{kind!r} is permanent: it is never cleared")
+    pv = _release(s, slug, version)
+    if pv is None:
+        return {"slug": slug, "version": version, "recorded": False, "reasons": {},
+                "why": "no stored release to withhold"}
+    cert = dict(pv.certificate or {})
+    reasons = _stored(cert)
+    changed = False
+    if reason:
+        entry = reasons.get(kind) or {}
+        if entry.get("reason") != str(reason):
+            reasons[kind] = {"reason": str(reason)[:400],
+                             "at": datetime.now(timezone.utc).isoformat()}
             changed = True
-        if changed or (RECORD in cert) != bool(reasons) or cert.get(SUMMARY) != _summary(reasons):
-            if reasons:
-                cert[RECORD] = reasons
-            else:
-                cert.pop(RECORD, None)
-            summary = _summary(reasons)
-            if summary:
-                cert[SUMMARY] = summary
-            else:
-                cert.pop(SUMMARY, None)
-            pv.certificate = cert
-        return {**_view(slug, version, reasons), "recorded": True, "changed": changed}
+    elif kind in reasons:
+        reasons.pop(kind)
+        cleared = dict(cert.get("withholding_cleared") or {})
+        cleared[kind] = datetime.now(timezone.utc).isoformat()
+        cert["withholding_cleared"] = cleared
+        changed = True
+    if changed or (RECORD in cert) != bool(reasons) or cert.get(SUMMARY) != _summary(reasons):
+        if reasons:
+            cert[RECORD] = reasons
+        else:
+            cert.pop(RECORD, None)
+        summary = _summary(reasons)
+        if summary:
+            cert[SUMMARY] = summary
+        else:
+            cert.pop(SUMMARY, None)
+        pv.certificate = cert
+    return {**_view(slug, version, reasons), "recorded": True, "changed": changed}
+
+
+def carry_permanent(old_cert: dict | None, new_cert: dict) -> dict:
+    """A re-certification replaces the stored certificate; the PERMANENT kinds survive it."""
+    kept = {k: v for k, v in _stored(dict(old_cert or {})).items() if k in PERMANENT}
+    if not kept:
+        return new_cert
+    cert = dict(new_cert)
+    merged = {**_stored(cert), **kept}
+    cert[RECORD] = merged
+    summary = _summary(merged)
+    if summary:
+        cert[SUMMARY] = summary
+    return cert
+
+
+def durable_reasons(db, slug: str, version: str) -> list[str]:
+    """The PERMANENT withholdings of slug@version restated by their durable audit rows."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == DURABLE_AUDIT,
+                                                     AuditLog.artifact == f"{slug}@{version}")))
+    return [str((r.detail or {}).get("reason") or "")[:400] for r in rows
+            if (r.detail or {}).get("kind") in PERMANENT]
 
 
 def record_reverification(db, slug: str, version: str, *, check: str,

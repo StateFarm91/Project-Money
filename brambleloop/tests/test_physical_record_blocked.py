@@ -41,6 +41,13 @@ def _db() -> Database:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/blocked.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    # SECREVIEW R12: the fixture tester has a recorded, independent, qualified agreement.
+    from brambleloop.quality import tester_programme as _tp
+
+    _tp.record_agreement(db, handle_ref="tester-1", specialties=["home_decor"],
+                         express_consent=True, consent_source="test fixture",
+                         relationship="none",
+                         qualification="https://www.ravelry.com/projects/tester/sample")
     return db
 
 
@@ -85,6 +92,11 @@ def _sample_inputs(cir, **extra) -> dict:
         out["measured_width_cm"] = round(twin.width_cm, 1)
     if twin.height_cm:
         out["measured_height_cm"] = round(twin.height_cm, 1)
+    # PHYSFIX: a whole-object sample states its scope, carries a finished measurement (the
+    # sphere's twin refuses a flat width, so the size is recorded without a comparison) and
+    # says whether the 3-D piece held its shape.
+    out.setdefault("measured_width_cm", 9.5)
+    out.update(scope="full_make", holds_shape=True, instructions_followed=True)
     return {**out, **extra}
 
 

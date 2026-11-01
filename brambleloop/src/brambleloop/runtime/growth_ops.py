@@ -741,7 +741,11 @@ def creators_reading(db) -> dict:
                         c.state = "stopped"
                         stopped.append(c.id)
         testers: dict[str, dict] = {}
+        from ..quality.testers import _counts_as_tester
+
         for t in s.scalars(select(PhysicalTest)):
+            if not _counts_as_tester(t):
+                continue        # SECREVIEW 81b3e45 R24: an owner make is never a tester's
             row = testers.setdefault(t.tester_ref, {"invited": 0, "delivered": 0})
             row["invited"] += 1
             if t.completed_at is not None:

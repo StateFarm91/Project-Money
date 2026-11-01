@@ -1522,7 +1522,13 @@ async def api_tester_agreement(request: Request,
             specialties=[str(x)[:40] for x in specialties][:5],
             express_consent=body.get("express_consent") is True,
             consent_source=str(body.get("consent_source") or "")[:300],
-            photo_scopes=[str(x)[:40] for x in scopes][:10], agreed_on=agreed_on)
+            photo_scopes=[str(x)[:40] for x in scopes][:10], agreed_on=agreed_on,
+            # SECREVIEW R6: the tester terms are mandatory on this intake too; a missing or
+            # disallowed declaration is refused by record_agreement (400 below).
+            relationship=(str(body["relationship"])[:200]
+                          if body.get("relationship") is not None else None),
+            qualification=(str(body["qualification"])[:300]
+                           if body.get("qualification") is not None else None))
     except tester_programme.TesterRefused as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     Registry(db).audit("operator", "tester.agreement_recorded", artifact=out["ref"],

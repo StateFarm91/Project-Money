@@ -34,6 +34,13 @@ def _booted() -> Database:
     db = Database(f"sqlite:///{tmp}/risk.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
+    # SECREVIEW R12: the fixture tester has a recorded, independent, qualified agreement.
+    from brambleloop.quality import tester_programme as _tp
+
+    _tp.record_agreement(db, handle_ref="tester-1", specialties=["home_decor"],
+                         express_consent=True, consent_source="test fixture",
+                         relationship="none",
+                         qualification="https://www.ravelry.com/projects/tester/sample")
     return db
 
 
@@ -71,7 +78,11 @@ def _launch0():
     from brambleloop.products import launch0
 
     out = {}
-    for slug in launch0.LAUNCH0_SLUGS:
+    # LISTING1 (D-W4-OWNER-BASKET-IDENTITY): the three-size basket family is held for
+    # verification, not launched, but its CIRs stay in launch scope and gated
+    # (`launch0.launch_scope_slugs`). It is read through that held path, so the medium
+    # basket's Class B requirements are still asserted.
+    for slug in tuple(launch0.LAUNCH0_SLUGS) + tuple(launch0.HELD_FOR_VERIFICATION):
         for v in launch0.candidate(slug).variants:
             cir = launch0.cir_for(v.build)
             out[cir.slug] = cir
@@ -257,7 +268,9 @@ def test_runtime_full_make_unblocks_class_c_and_a_material_change_queues_one_ret
         "scope": "full_make", "grams_by_color": grams, "ball_band_grams": 100.0,
         # What the tester measured on the finished object. The sphere's twin refuses a flat
         # width, so there is no size comparison; the class still comes from the scope.
-        "ball_band_metres": 210.0, "measured_width_cm": 9.5, "measured_height_cm": 6.0})
+        "ball_band_metres": 210.0, "measured_width_cm": 9.5, "measured_height_cm": 6.0,
+        # PHYSFIX G3 / SECREVIEW F2: a 3-D piece's shape and "followed exactly?" are answers.
+        "holds_shape": True, "instructions_followed": True})
     _drain(db)
     with db.session() as s:
         rows = list(s.scalars(select(PhysicalTest)))
@@ -289,7 +302,9 @@ def test_runtime_full_make_unblocks_class_c_and_a_material_change_queues_one_ret
     assert _audits(db, "test-sphere@1.0.0", ("physical.retest_requested",))
 
 
-def test_runtime_swatch_without_scope_is_recorded_partial_and_does_not_unblock_class_c():
+def test_runtime_swatch_is_recorded_partial_and_does_not_unblock_class_c():
+    """PHYSFIX G1: a sample with no scope and no finished measurement is refused (what was
+    made is stated, never inferred); a declared swatch is partial evidence of gauge only."""
     db = _booted()
     cir = _class_c_sphere()
     _certify(db, cir)
@@ -297,14 +312,23 @@ def test_runtime_swatch_without_scope_is_recorded_partial_and_does_not_unblock_c
     from brambleloop.cir.twin import build_twin
 
     twin = build_twin(cir, compile_cir(cir))
-    JobQueue(db).enqueue("quality_director", "physical.record", {
+    sample = {
         "slug": cir.slug, "version": cir.version, "tester_ref": "tester-1",
         "grams_by_color": {c: m / 2.1 for c, m in twin.yarn_metres_by_color.items()},
-        "ball_band_grams": 100.0, "ball_band_metres": 210.0})
+        "ball_band_grams": 100.0, "ball_band_metres": 210.0, "instructions_followed": True}
+    JobQueue(db).enqueue("quality_director", "physical.record", dict(sample))
+    _drain(db)
+    with db.session() as s:
+        assert not list(s.scalars(select(PhysicalTest))), "an unscoped sample was guessed"
+    JobQueue(db).enqueue("quality_director", "physical.record", {
+        **sample, "scope": "swatch", "grams_by_color": {"main": 5.0},
+        "swatch_stitches_per_10cm": cir.gauge.stitches_per_10cm,
+        "swatch_rows_per_10cm": cir.gauge.rows_per_10cm})
     _drain(db)
     with db.session() as s:
         rows = list(s.scalars(select(PhysicalTest)))
     assert rows and rows[0].measured["evidence_class"] == rm.PARTIAL_PHYSICAL
+    assert rows[0].passed is True and rows[0].measured["factor"] is None
     _certify(db, cir)
     last = _audits(db, "test-sphere@1.0.0")[-1]
     assert last[0] == "gate.blocked"
@@ -346,7 +370,12 @@ def test_first_customer_tier_requires_the_class_its_risk_needs():
     m_a = {"effective": "A", "required_physical": None}
     swatch = {"bound_classes": {1: rm.PARTIAL_PHYSICAL}}
     assert not rm.first_customer_requirement(m_c, swatch)["met"]
-    assert rm.first_customer_requirement(m_a, swatch)["met"]
+    # SECREVIEW F3: a swatch is gauge evidence only, so on its own it no longer meets even the
+    # Class A floor; partial evidence of made pieces whose size agreed does.
+    assert not rm.first_customer_requirement(m_a, swatch)["met"]
+    made = {"bound_classes": {1: rm.PARTIAL_PHYSICAL}, "size_proven": [1]}
+    assert rm.first_customer_requirement(m_a, made)["met"]
+    assert not rm.first_customer_requirement(m_c, made)["met"]
     assert not rm.first_customer_requirement(m_a, {"bound_classes": {}})["met"]
 
     from brambleloop.gates.first_customer import UNRESOLVED, check_gauge_and_size_claims
@@ -371,7 +400,11 @@ def test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet(
     assert not req.action.lower().startswith("crochet"), req.action
     assert "independent tester (not the owner)" in req.action
     assert "physical.record" in req.action and "full_make" in req.action
-    assert req.max_cost_cad > 8 * rm.TESTER_FEE_CAD_PER_HOUR      # the tester is paid
+    # The tester is paid (not just yarn), at the kit's one all-inclusive figure (R17).
+    from brambleloop.quality import tester_kit
+
+    assert req.max_cost_cad == tester_kit.KIT["max_cost_cad"]
+    assert req.max_cost_cad >= tester_kit.KIT["tester_receives_cad"] > 2 * 5.00
     assert req.minutes == rm.OWNER_MINUTES                         # owner time: approval only
 
 

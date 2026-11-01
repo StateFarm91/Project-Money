@@ -105,7 +105,13 @@ class IncidentTracker:
             return rows
 
     def publication_halted(self, product_slug: str) -> bool:
-        """Gate E: a P0/P1 incident stops the publication workflow for that product."""
+        """Gate E: a P0/P1 incident stops the publication workflow for that product.
+
+        PHYSFIX integrator decision (SECREVIEW 8da830d R28): every halt is product-wide. No
+        design digest, content hash or release identity is read here -- a size halt was once
+        scoped to one design digest (F-168), and six review rounds each found a restatement
+        of the same object that moved the digest and so escaped the halt. A size halt is
+        lifted only by the owner (`runtime.release.lift_size_halt`)."""
         return any(i.halts_publication for i in self.open_incidents(product_slug))
 
     def resolve(self, incident_id: int, resolution: str, new_version: str | None = None) -> None:

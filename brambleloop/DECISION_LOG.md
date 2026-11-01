@@ -2646,3 +2646,13 @@ The dry run reports no problems.
 - **Price.** CA$6.50 stands, pending final pricing verification. Its "3 finished sizes" reason no longer applies to a one-size product.
 
 **Reversible?** Yes, by owner decision.
+
+**I-B4-SIZE-HALT-PRODUCT-WIDE: a physical size halt applies to the whole product and only the owner lifts it (integrator, 2026-10-31).** Seven independent review rounds of W4-PHYSFIX each found a new way to restate one physical design so that its design digest moved: the version label, stitch notation, hold names, hold order, seams, quantity (`make: N` versus N pieces) and per-piece gauge. Every one failed open, because the digest was used to scope a size halt or to lift it. The digest therefore no longer decides anything:
+- Every size halt is product-wide.
+- A halt is lifted only through the owner Command Center action `physical_size.lift`. That action needs the owner session, a fresh step-up and a reason, and it is audited.
+- The lift requires evidence: a passing full make, with an agreeing size, of a re-released version by an independent qualified tester, recorded after the halt.
+- The lift refuses any release the product ever measured wrong.
+- The lift permanently withholds every failed release. The withholding is kind `physical_size_failed`, recorded as a durable `gate.release_withheld` row, which retention never prunes.
+- The digest is kept as evidence only.
+
+Halts scoped to a digest may return only with a canonical design identity that passes an adversarial review. This trades away F-168's scoped halt for fail-closed safety, and no real samples exist yet. Recorded as a paragraph, not a heading, so `core/decision_index.json` does not change. Evidence: `research/final_build/w4/PHYSFIX.md` §17–§20; final review `INDEPENDENT_SECREVIEW_PHYSFIX_c99dde9.md` (SHIP).

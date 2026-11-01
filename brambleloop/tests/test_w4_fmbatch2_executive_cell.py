@@ -58,4 +58,4 @@ if __name__ == "__main__":
     for n, fn in list(globals().items()):
         if n.startswith("test_"):
             fn()
-            print("ok", n)
+            print("OK  ", n)  # run_tests.sh counts ^OK (a suite with no OK line is failing)
