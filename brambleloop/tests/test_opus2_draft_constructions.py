@@ -496,6 +496,13 @@ def test_review_opus2h_h12_h13_conflicting_sizes_refused_and_set_is_a_whole_word
     for title in ("Market Totes", "Tote Bags", "Farmhouse Baskets", "Spring Coasters"):
         promise = L.title_promise(dataclasses.replace(sunset, title=title))
         assert promise["backed"] is False and promise["plural_markers"], title
+    # OPUS2J J-1: number words and inflected count words count; colour phrases do not.
+    for title in ("Totes", "Two Market Totes", "Three Totes", "Twin Totes", "Tote Quartets",
+                  "Twelve Tote Dozen"):
+        assert L.title_promise(dataclasses.replace(sunset, title=title))["backed"] is False, title
+    for title in ("Two-Tone Market Tote", "Three-Ply Cotton Tote"):
+        promise = L.title_promise(dataclasses.replace(sunset, title=title))
+        assert promise["claimed"] is None and promise["backed"] is True, (title, promise)
     for title in ("Market Tote", "Tote Bag", "Bags of Charm Tote"):
         promise = L.title_promise(dataclasses.replace(sunset, title=title))
         assert ("bags" in promise["plural_markers"]) == ("Bags" in title), title

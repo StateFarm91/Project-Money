@@ -812,3 +812,14 @@ eligibility, first_customer_gate, size_claims, draft_constructions and vacuity a
   throws, runners, stockings, cosies, bowls, trivets, pot holders, dishcloths, washcloths,
   scrunchies) as a multiplicity marker, so "Market Totes" on a single tote is unbacked. No
   catalogue verdict changes (26 products, 11 Launch-0 builders).
+
+## 36. Review OPUS2J (6d6d83d9): J-1 fixed (2026-11-01)
+
+- J-1 MED, the "Totes" half: plural object nouns were already markers in `771e1e1a`, which
+  postdates the reviewed head.
+- J-1 MED, the number half: `_COUNT_WORDS` gains two to twelve, twin and dozen, matched with
+  their inflections ("Quartets", "Twins"). Colour and construction phrases ("two-tone",
+  "three-ply", "two-colour") are not counts.
+
+"Totes", "Two Market Totes", "Three Totes", "Twin Totes" and "Tote Quartets" are unbacked on one
+tote; "Two-Tone Market Tote" is not a count. No catalogue `title_promise` verdict changes.

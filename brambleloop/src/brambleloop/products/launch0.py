@@ -131,7 +131,13 @@ PLURAL_MARKERS: tuple[str, ...] = (
     "set", "pair", "trio", "duo", "library", "collection", "bundle",
 )
 
-_COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
+_COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4,
+                                # OPUS2J J-1: number words and "twin" count too.
+                                "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+                                "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+                                "twelve": 12, "twin": 2, "dozen": 12}
+# Number words that describe a colour or a construction, never a count of pieces.
+_NOT_A_COUNT = re.compile(r"\b(?:two|three)[- ](?:tone|toned|colou?r(?:ed)?|ply|way|strand(?:ed)?)\b")
 
 
 _PLURAL_OBJECT_NOUNS = (r"\b(?:totes|bags|baskets|coasters|placemats|ornaments|cushions|"
@@ -186,11 +192,16 @@ def title_promise(cir: CIR) -> dict:
     """
     lowered = cir.title.lower()
     claimed: int | None = None
-    for token in re.findall(r"[a-z]+|\d+", lowered):
+    counted = _NOT_A_COUNT.sub(" ", lowered)
+    for token in re.findall(r"[a-z]+|\d+", counted):
         if token.isdigit():
             claimed = max(claimed or 0, int(token))
-        elif token in _COUNT_WORDS:
-            claimed = max(claimed or 0, _COUNT_WORDS[token])
+        else:
+            # OPUS2J J-1: count words with their inflections ("Quartets", "Twins", "Pairs").
+            stem = token if token in _COUNT_WORDS else token[:-1] if token[:-1] in _COUNT_WORDS \
+                else None
+            if stem is not None:
+                claimed = max(claimed or 0, _COUNT_WORDS[stem])
     # OPUS2H H1-3: whole words, so "Sunset", "Closet" and "Asset" do not read as "set".
     # OPUS2I I-1: with their inflections ("Sets", "Pairs", "Bundled", "Libraries"), so a
     # plural marker is never dropped by the whole-word rule.
