@@ -104,6 +104,25 @@ def parse(text: str, topics: list[str]) -> dict:
     return out
 
 
+def _outcome_unknown(exc: BaseException) -> bool:
+    """Whether this failed call's billing is UNKNOWN (OPUS2I C-4).
+
+    In a job scope: the guard's own record for the call is UNCERTAIN. Outside one (a probe, a
+    test): the exception is one `gateway.anthropic._classify_failure` calls UNCERTAIN."""
+    from ..gateway import anthropic as an
+    from ..gateway import paid_calls
+
+    scope = paid_calls._SCOPE.get()
+    if scope is not None:
+        key = (scope.last_call or {}).get("paid_call_key")
+        if not key:
+            return False                          # the guard never reached the provider
+        with scope.db.session() as s:
+            row = s.get(paid_calls.PaidCallRecord, key)
+            return row is not None and row.outcome == paid_calls.UNCERTAIN
+    return an._classify_failure(exc) == paid_calls.UNCERTAIN
+
+
 def classify(topics: list[str], *, provider=None, db=None) -> dict:
     """File a batch of topics, and say plainly when nothing could be filed.
 
@@ -127,15 +146,15 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
 
     sent = False
     try:
+        user = prompt(topics)           # built before the call: a bug here is never "sent"
         if db is not None:
             budget = gw.check_budget(
-                db, model=provider.model, input_tokens=len(prompt(topics)) // 4,
+                db, model=provider.model, input_tokens=len(user) // 4,
                 max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
             estimate = budget["estimate_cad"]
             reservation = budget["reservation_id"]
         sent = True                     # from here on the request may have reached the provider
-        response = provider.complete(CLASSIFY_SYSTEM, prompt(topics),
-                                     max_tokens=CLASSIFY_MAX_TOKENS)
+        response = provider.complete(CLASSIFY_SYSTEM, user, max_tokens=CLASSIFY_MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
         if db is not None:
             gw.release_reservation(db, reservation)
@@ -151,7 +170,11 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
         # `ModelGateway._billing` counts it. The paid-call intent stays UNCERTAIN (F-307/F-339)
         # so nothing is re-sent; the attempt files nothing and the sweep goes on. A failure
         # before anything was sent (the budget check, a bug) is not billed and is re-raised.
-        if not sent:
+        # Review OPUS2I C-4: "sent" alone is not proof. Inside a job the paid-call guard is the
+        # authority -- it writes UNCERTAIN only for a call it actually made -- so the spend is
+        # billed only when that record says so; a write-ahead DB error or a provider-side bug
+        # before the send has no UNCERTAIN record and is re-raised, visible, unbilled.
+        if not sent or not _outcome_unknown(exc):
             if db is not None:
                 gw.release_reservation(db, reservation)
             raise
