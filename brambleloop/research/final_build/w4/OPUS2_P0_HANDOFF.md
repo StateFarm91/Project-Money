@@ -767,3 +767,16 @@ fixes were added, because Batch 5 takes it "at its review-E-accepted head".
 `test_opus2_draft_constructions` and `test_opus2_size_claims`: 0 failed. Regression: 103 suites,
 exit 0 except `test_risk_matrix` (base-owned). `test_product_run` timed out during a container
 restart and passes 36/36 when rerun alone.
+
+## 33. Review OPUS2EF2 (0e941757): every finding fixed (2026-11-01)
+
+Review fixes only, which this frozen branch still takes.
+
+| Finding | Fix | Test |
+|---|---|---|
+| EF2-1 MED: `title_promise` counted straps as finished objects; tote second objects and features dropped | `launch0.finished_objects`: components joined by `cir.assembly` form one group, which yields as many objects as its scarcest piece is worked. `title_promise` compares the title against that (the worked-piece sum is reported as `pieces`). No Launch-0 verdict moves (all 11 builders checked). The tote refuses bundle, collection, double, family, mother/daughter, twins and matching; `_TOTE_NOT_PLAIN` refuses `&`, `+`, and/with, pockets, zips, lining, reversible, gusset, flap, button and clasp. | `test_review_opus2ef2_ef21_ef22_ef23_*` (the old-sum mutation is killed), `test_review_opus2ef2_finished_objects_*` |
+| EF2-2 LOW-MED: route narrowing not pinned | Plain non-tote bags ("Lunch Bag", "Grocery Bag", "Project Bag", "Bag") are asserted to reach `NEEDS["bag"]` itself | same test |
+| EF2-3 LOW: tiny/petite, `&`/`+` cosies, stripes and pom-poms | tiny/petite map to small; jumbo, giant, oversize and xl are refused; the cosy refuses `&`, `+`, stripes, pom-poms, tassels, colour block, two-tone, fair isle, mosaic, tapestry and basket | same test |
+| EF2-3b LOW: material phrases treated as contents | the contents exclusion keeps the claim when a material noun follows (rope, cord, t-shirt, jersey, twine, macramé) | `REVIEW_EF2_MUST_FAIL` in `test_opus2_size_claims` |
+
+Regression: 104 suites, exit 0 except `test_risk_matrix` (`KeyError('market-basket-medium')`, base-owned).
