@@ -323,7 +323,7 @@ changed content supersedes it, and the same content does not.
 |---|---|---|
 | M5f | the PARKED skip removed | **killed**: l51 test |
 | M5g | PARKED rows skipped even when READY with new content | **killed**: l51 test |
-| M5h | every open row treated as parked | see the test table |
+| M5h | every open row treated as parked | **killed**: `test_a_ready_package_asks_for_one_review…`, ef24 |
 
 ---
 
@@ -602,9 +602,9 @@ Each suite was run one at a time from `brambleloop/` on each branch's worktree, 
 | #8 | test_collections | 12 OK, exit 0 |
 | #8 | test_w4_intelrec_c06 | 3 OK, exit 0 |
 | #8 | test_w4_departments | 19 OK, exit 0 |
-| #5 | test_opus2_listing_package | see the addendum below |
-| #5 | test_vacuity | see the addendum below |
-| #5 | test_w4_fmbatch1_retention_guard | see the addendum below |
+| #5 | test_opus2_listing_package | 14 OK, 0 failed, exit 0 (317 s) |
+| #5 | test_vacuity | 8 OK, exit 0 |
+| #5 | test_w4_fmbatch1_retention_guard | 5 OK, exit 0 |
 | #3 | test_opus2_draft_constructions | 19 OK, exit 0 |
 | #3 | test_opus2_size_claims | 13 OK, exit 0 |
 | #3 | test_fallback_draft_provenance | Ran 5 tests, OK |
