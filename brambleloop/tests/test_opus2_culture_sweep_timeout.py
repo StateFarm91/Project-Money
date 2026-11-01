@@ -159,6 +159,40 @@ def test_review_opus2g_c2_c3_every_unknown_outcome_completes_the_sweep_on_attemp
         assert len(unknown) == 1 and unknown[0] > 0, (name, costs)
 
 
+def test_review_opus2i_c4_a_pre_send_failure_re_raises_and_bills_nothing():
+    """In the real worker, a failure before the transport is reached is not unknown spend."""
+    from brambleloop.gateway.anthropic import AnthropicProvider
+
+    real = AnthropicProvider._guarded
+
+    def broken_before_send(self, payload, key, effect, **kw):
+        raise RuntimeError("write-ahead failed before any request left the process")
+
+    AnthropicProvider._guarded = broken_before_send
+    try:
+        done, attempts, err, sent, outcomes, costs = _worker_sweep(TimeoutError("unused"))
+    finally:
+        AnthropicProvider._guarded = real
+    assert not done and "write-ahead failed" in (err or ""), (done, err)   # visible, not swallowed
+    assert sent == [] and outcomes == []
+    assert not [c for c in costs if c[1] == "unknown_counted_at_estimate"], costs
+
+    # Outside a job, a bug in the prompt builder is never billed either.
+    db = _db()
+    real_prompt = C.prompt
+    C.prompt = lambda topics: (_ for _ in ()).throw(RuntimeError("prompt bug"))
+    try:
+        try:
+            C.classify(["A_topic"], provider=_Provider(), db=db)
+            raise AssertionError("a prompt bug was swallowed")
+        except RuntimeError:
+            pass
+    finally:
+        C.prompt = real_prompt
+    with db.session() as s:
+        assert list(s.scalars(select(CostEntry))) == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
