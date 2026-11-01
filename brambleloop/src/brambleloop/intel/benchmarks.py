@@ -137,7 +137,27 @@ ZKB = _watch("zkbdesigner", "ZKBDESIGNER", "https://www.etsy.com/ca/shop/ZKBDESI
 EASY = _watch("the_easy_design", "TheEasyDesign", "https://www.etsy.com/ca/shop/TheEasyDesign",
               "permanent benchmark")
 
-REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY)
+# D-W4-OWNER-SEEDSHOPS (owner decision 2026-10-27): the original seed shops of
+# spec/05_Competitor_and_Market_Seeds.txt are preserved as benchmarks, never silently dropped.
+# URLs are the owner's seed URLs without their tracking query (radar.market.COMPETITORS).
+def _seed_shop(key: str, shop: str) -> BenchmarkSpec:
+    url = f"https://www.etsy.com/ca/shop/{shop}"
+    return BenchmarkSpec(
+        key=key, shop_name=shop, canonical_url=url, owner_supplied_url=url, mandatory=True,
+        reason_for_inclusion=(
+            "Owner decision 2026-10-27 (D-W4-OWNER-SEEDSHOPS): original seed shop from "
+            "spec/05_Competitor_and_Market_Seeds.txt, preserved beside the watchlist. Where an "
+            "authorized source cannot reach it, the limitation is recorded and the monitoring "
+            "job kept; an inaccessible shop is never reported as scanned."))
+
+
+HANJAN = _seed_shop("hanjan_crochet", "HanJanCrochet")
+IVYLOOP = _seed_shop("ivyloop", "IvyLoop")
+LOVEANDSTITCH = _seed_shop("loveandstitch_designs", "LoveandStitchDesigns")
+FIREFLY = _seed_shop("firefly_crochets", "FireflyCrochets")
+SEED_SHOPS: tuple[BenchmarkSpec, ...] = (HANJAN, IVYLOOP, LOVEANDSTITCH, FIREFLY)
+
+REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY) + SEED_SHOPS
 
 
 def mandatory() -> list[BenchmarkSpec]:
