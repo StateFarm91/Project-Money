@@ -1047,3 +1047,68 @@ gauge copy (`replace(...)` for `CHUNKY` / `WORSTED`) and its own provenance copy
 (`dict(vars(...))`), the same fix as R32. New test:
 `test_the_texture_builders_never_share_their_gauge` covers the scarf, the pillow and the
 throw. It fails on e3335a51 for `build_bobble_pillow`.
+
+## 21. Delta review 10 follow-up (SECREVIEW c99dde9): R40–R42, on `claude/w4-PHYSFIX-R40`
+
+This branch starts from `origin/claude/w4-INTEG8-next` at e43eeafe, which already contains
+PHYSFIX at 22c7438e and PHOTO at c99dde99.
+
+### R40 (Low, failed open): a halt folded as a duplicate lost its withholding
+
+**The problem.** On PostgreSQL, two concurrent first failures of one design can both read
+"no open incident" and both insert one, because the row lock has no row to lock yet. The
+`ops.health` hygiene sweep then folds the duplicate (`close_duplicates`) without its
+`measured_releases`. The lift withheld only the kept row's releases, so the duplicate's
+release stayed publishable.
+
+**Fix (a).** `lift_size_halt` now withholds every versioned release in this incident's list
+and in `failed_releases_ever`, not just the lifted incident's own list. For each such version
+it writes whichever half is missing: the stored `physical_size_failed` record, or the durable
+`gate.release_withheld` row. It never rewrites a half that already exists. `withheld` lists
+the versions given a durable row by this lift. This also covers any future route that
+resolves an incident.
+
+**Fix (b).** `_halt_release_on_size` now takes a signature-scoped advisory lock before it
+reads, so two first failures of one design can no longer both insert. The lock is
+`pg_advisory_xact_lock(734543621, <first 4 bytes of sha256(signature)>)`, through
+`_lock_size_signature`. It applies on PostgreSQL only and does nothing on SQLite. The
+two-key form cannot collide with the single-key locks used elsewhere in `src/`.
+
+**Test.** `test_a_folded_duplicate_halt_still_has_its_releases_withheld_after_a_lift` is the
+reviewer's probe turned into a test:
+
+1. A fails.
+2. The racing duplicate row for A2 (1.2.9) is inserted.
+3. Hygiene folds the duplicate. The test asserts that the kept row still lists only A, so the
+   test really reaches R40.
+4. The owner lifts on B.
+
+It then asserts:
+
+- both A and A2 are withheld, on the stored record, in `for_publish`, and with one durable
+  row each;
+- no size halt remains open;
+- the lock call is a no-op on SQLite.
+
+The PostgreSQL lock itself is not exercised, because there is no PostgreSQL in the test
+environment.
+
+### R41 (Low): the catalogue builder shared its seams
+
+`products.builder.build` now gives each build its own copies of the catalogue's seams
+(`[replace(x) for x in design.assembly]`). Before, every build received the same module-level
+mutable `Seam` objects.
+
+**Test.** `test_the_catalogue_builder_never_shares_its_seams` runs over every catalogue
+design that has a seam, and asserts that:
+
+- the built seams are copies, not the catalogue's objects;
+- two builds do not share seams;
+- an in-place edit of one built seam leaves `CATALOGUE` and later builds unchanged.
+
+### R42 (Info): a code comment overstated SQLite's protection
+
+The comments on the R36 row locks said "SQLite serialises writers". They now say what is
+actually true: on SQLite this read is not serialised, because SQLAlchemy drops `FOR UPDATE`
+and pysqlite issues no `BEGIN` before the first write. Production runs on PostgreSQL; SQLite
+is used only in development and tests.
