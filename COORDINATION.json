@@ -208,9 +208,14 @@
       "operator": "opus2",
       "branch": "opus2/p0-listing-package",
       "head": "f779fac2",
-      "state": "in_review",
+      "state": "ready_for_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)"
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)",
+      "from": "INTEG-LISTING-JOB (offered by the integrator on PR #3, 2026-10-31T19:17Z)",
+      "scope": "automatic listing-package assembly job: for each certified release at the end of the SHADOW chain, assemble the owner-review listing package (identity, title, description, tags, price, certified gallery order, PDFs, product truth, risk class, children's decision, publication blockers) from the chain's own stored outputs; durable, idempotent per release hash; never publishes",
+      "not_touching": "publish/pdf.py (W-PDF), products/production_inventory.py (W-INVENTORY), the manual LISTING_PACKAGE.md files (W-LISTING)",
+      "evidence": "tests/test_opus2_listing_package.py 11/11; 76-suite regression exit 0; handoff brambleloop/research/final_build/w5/OPUS2_LISTING_PACKAGE_HANDOFF.md",
+      "review": "OPUS2F CHANGES REQUIRED -> all A-1..A-8 fixed 2026-11-01; awaiting re-review"
     },
     {
       "id": "OPUS2-OWNER-QUEUE-RACES",

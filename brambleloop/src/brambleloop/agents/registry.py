@@ -256,6 +256,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "chain.rebuild",
                             # OPUS2-P0 (P0-CHAIN-DEADENDS): re-drive dead ends once per deploy.
                             "chain.successors",
+                            # OPUS2 (INTEG-LISTING-JOB): owner-review listing packages.
+                            "listing.package",
                             # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
                             "listing.taxonomy_refresh",
                             # F-280: launch-week Search Visibility owner card (no-op in

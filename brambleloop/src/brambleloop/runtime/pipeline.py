@@ -2715,6 +2715,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.acceptance": ("passed",),
     "intel.benchmark_health": ("incidents_opened",),
     "intel.benchmark_refresh": ("triggers", "raised"),
+    # OPUS2 (INTEG-LISTING-JOB): a listing package assembled or changed.
+    "listing.package": ("work_done",),
     "intel.panel_discovery": ("joined", "scanned"),
     "intel.pod_learning": ("records", "judgements", "measured"),
     "laura.executive_tick": ("work_done",),  # W3-D (wired by W3-WIRE4)
@@ -3268,6 +3270,7 @@ from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
+from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
