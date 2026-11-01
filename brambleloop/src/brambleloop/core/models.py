@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary,
-    String, Text, UniqueConstraint,
+    String, Text, UniqueConstraint, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -774,6 +774,17 @@ class OwnerAction(Base):
     # state a ceiling yet (e.g. a provider not chosen): the stored 0.0 is a placeholder that
     # every reader must render as UNKNOWN and no spend path may treat as free or uncapped.
     max_cost_basis: Mapped[str] = mapped_column(String(16), default="stated")
+
+    # OPUS2 B-5 (review OPUS2EF2: an integration blocker before production/Postgres): the
+    # database itself holds one open action per requirement. Partial, so closed rows and
+    # keyless rows are untouched. `core.migrate` creates it on an existing database only when
+    # no duplicate open keys remain; closing those is `ops.owner_queue_dedupe`'s explicit job.
+    __table_args__ = (
+        Index("uq_owner_actions_open_requirement", "requirement_key", unique=True,
+              sqlite_where=text("done = 0 AND requirement_key != ''"),
+              postgresql_where=text("done = false AND requirement_key <> ''"),
+              info={"requires_clean": "brambleloop.ops.owner_queue_dedupe"}),
+    )
 
     @property
     def max_cost_known(self) -> float | None:

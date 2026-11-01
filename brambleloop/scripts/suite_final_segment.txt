@@ -229,3 +229,4 @@ tests/test_web_security.py
 tests/test_opus2_chain_deadends.py
 tests/test_opus2_photo_led_gallery.py
 tests/test_opus2_knowledge_gaps.py
+tests/test_opus2_owner_queue_races.py

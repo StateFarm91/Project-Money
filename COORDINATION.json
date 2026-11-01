@@ -232,9 +232,14 @@
       "operator": "opus2",
       "branch": "opus2/p1-owner-queue-races",
       "head": "ccb3e8e4",
-      "state": "in_review",
+      "state": "ready_for_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "area": "P1-OWNER-QUEUE-RACES"
+      "area": "P1-OWNER-QUEUE-RACES",
+      "from": "P1-OWNER-QUEUE-RACES (offered on PR #3, 2026-10-31T19:17Z)",
+      "scope": "central before_flush guard (ops/owner_queue_guard.py) takes the owner-queue lock for every open OwnerAction insert and re-checks open keys; no per-site edits",
+      "note": "touches one line per writer in files owned by others; each edit is the lock call only",
+      "evidence": "tests/test_opus2_owner_queue_races.py 11/11; 115-suite regression exit 0 except 5 base-owned",
+      "review": "OPUS2EF2 CHANGES REQUIRED -> EF2-6 + EF2-8 fixed, B-5 built (partial unique index + deferred migrate + dedupe script), EF2-7 documented; awaiting re-review"
     }
   ],
   "unowned": [
