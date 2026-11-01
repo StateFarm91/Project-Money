@@ -254,7 +254,9 @@ def build(design: Design, version: str = "1.0.0", *, derive: bool = True) -> CIR
         components=[Component(name="panel", construction="flat_rows", rows=rows,
                               foundation=design.width_stitches, foundation_kind="chain",
                               make=design.pieces)],
-        assembly=list(design.assembly),
+        # SECREVIEW c99dde9 R41: copies of the catalogue's seams, never the module objects
+        # (a mutable dataclass shared with CATALOGUE and every later build).
+        assembly=[replace(x) for x in design.assembly],
         designer_notes=(
             f"{motif.name} on a {motif.width}-stitch repeat, {across} across and "
             + (f"{design.motif_repeats} up ({design.motif_repeats * len(motif.grid)} motif rows). "

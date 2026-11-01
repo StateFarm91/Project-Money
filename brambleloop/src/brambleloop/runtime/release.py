@@ -3161,6 +3161,27 @@ def handle_physical_record(ctx: JobContext) -> dict:
 PHYSICAL_SIZE_HALT = "physical-size"
 
 
+SIZE_HALT_LOCK_NAMESPACE = 734543621   # pg_advisory_xact_lock(int4, int4) class key
+
+
+def _lock_size_signature(s, db, signature: str) -> None:
+    """Hold a transaction-scoped advisory lock on one size-halt signature (PostgreSQL only).
+
+    The two-key form keeps it apart from every single-key lock in `src/`; the second key is a
+    stable 32-bit hash of the signature (never Python's per-process `hash`)."""
+    import hashlib
+
+    from sqlalchemy import text
+
+    from ..core.db import is_postgres
+
+    if not is_postgres(db.engine):
+        return
+    key = int.from_bytes(hashlib.sha256(signature.encode()).digest()[:4], "big", signed=True)
+    s.execute(text("SELECT pg_advisory_xact_lock(:ns, :k)"),
+              {"ns": SIZE_HALT_LOCK_NAMESPACE, "k": key})
+
+
 def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash: str,
                           row_id: int, assessment, design: str | None) -> str:
     """PHYSFIX G4: a size outside tolerance halts publication of the release it measured.
@@ -3184,8 +3205,14 @@ def _halt_release_on_size(ctx: JobContext, slug: str, version: str, content_hash
         # SECREVIEW 33cbfc5 R30: a repeat failure restates this incident. The measured
         # releases are APPEND-ONLY -- never overwritten -- so the first release measured wrong
         # can never drop out of the re-release check or the withholding of the lift.
-        # SECREVIEW b8d3dee R36: locked, so a concurrent lift cannot resolve it between this
-        # read and the append below (PostgreSQL; SQLite serialises writers).
+        # SECREVIEW c99dde9 R40 (b): a signature-scoped advisory lock first, on PostgreSQL, so
+        # two concurrent FIRST failures of one design cannot both read "no open incident" and
+        # insert two (the row lock below locks nothing when no row exists yet).
+        _lock_size_signature(s, ctx.db, signature)
+        # SECREVIEW b8d3dee R36: the existing row is locked on PostgreSQL, so a concurrent lift
+        # cannot resolve it between this read and the append below. R42: SQLite does not
+        # serialise this read (FOR UPDATE is dropped and no BEGIN precedes the first write);
+        # production is PostgreSQL.
         existing = s.scalar(select(Incident).where(Incident.signature == signature,
                                                    Incident.resolved == False)  # noqa: E712
                             .with_for_update())
@@ -3371,9 +3398,11 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         return t.replace(tzinfo=None) - (t.utcoffset() or timedelta(0)) if t else None
 
     with db.session() as s:
-        # SECREVIEW b8d3dee R36: the incident row is locked for the whole lift (PostgreSQL;
-        # SQLite serialises writers), so a concurrent repeat failure cannot append to it
-        # unseen or be overwritten by the resolution.
+        # SECREVIEW b8d3dee R36: the incident row is locked for the whole lift on PostgreSQL,
+        # so a concurrent repeat failure cannot append to it unseen or be overwritten by the
+        # resolution. SECREVIEW c99dde9 R42: on SQLite this is NOT serialised -- SQLAlchemy
+        # drops FOR UPDATE and pysqlite issues no BEGIN before the first write, so the read
+        # runs outside the write transaction. Production is PostgreSQL; SQLite is dev/test.
         inc = s.scalar(select(Incident).where(Incident.id == int(incident_id))
                        .with_for_update())
         if (inc is None or inc.resolved or not inc.halts_publication
@@ -3431,21 +3460,44 @@ def lift_size_halt(db, *, incident_id: int, physical_test_id: int, actor: str,
         if problems:
             raise SizeHaltLiftRefused("evidence does not qualify: " + "; ".join(problems))
 
+        # SECREVIEW c99dde9 R40: withhold EVERY versioned release any size halt of the product
+        # ever measured wrong -- this incident's list and `failed_releases_ever` -- that is not
+        # already withheld, not only this incident's. A release recorded only on a folded
+        # duplicate (`incident_lifecycle.close_duplicates`), or on any future resolve route,
+        # is then still withheld for good. Each missing half (the stored record, the durable
+        # row) is written; nothing already written is rewritten.
+        by_version: dict[str, dict] = {}
+        for r in failed + others:
+            v = r.get("version")
+            if not v:
+                continue
+            entry = by_version.setdefault(str(v), {"r": r, "durable": False})
+            if r.get("source") == "durable":
+                entry["durable"] = True
+            if not entry["r"].get("content_hash") and r.get("content_hash"):
+                entry["r"] = {**entry["r"], "content_hash": r["content_hash"]}
         withheld = []
-        for r in failed:
-            failed_v, failed_hash = str(r["version"]), str(r.get("content_hash") or "")
+        for failed_v, entry in by_version.items():
+            r = entry["r"]
+            failed_hash = str(r.get("content_hash") or "")
             why = (f"physical sample {r.get('physical_test_id')} measured {slug}@{failed_v} "
                    f"(content {failed_hash[:12] or 'unrecorded'}) at the wrong size; size halt "
                    f"{incident_id} was lifted by the owner on {slug}@{version}")
-            held = withholding.record_in(s, slug, failed_v,
-                                         kind=withholding.PHYSICAL_SIZE_FAILED, reason=why)
-            s.add(AuditLog(actor=actor[:64], action=withholding.DURABLE_AUDIT,
-                           artifact=f"{slug}@{failed_v}",
-                           detail={"kind": withholding.PHYSICAL_SIZE_FAILED, "reason": why,
-                                   "content_hash": failed_hash, "incident": int(incident_id),
-                                   "design_digest": r.get("design_digest"),
-                                   "stored_record": bool(held.get("recorded"))}))
-            withheld.append(f"{slug}@{failed_v}")
+            have = withholding._stored(dict(getattr(withholding._release(s, slug, failed_v),
+                                                    "certificate", None) or {}))
+            held = {"recorded": withholding.PHYSICAL_SIZE_FAILED in have}
+            if not held["recorded"]:
+                held = withholding.record_in(s, slug, failed_v,
+                                             kind=withholding.PHYSICAL_SIZE_FAILED, reason=why)
+            if not entry["durable"]:
+                s.add(AuditLog(actor=actor[:64], action=withholding.DURABLE_AUDIT,
+                               artifact=f"{slug}@{failed_v}",
+                               detail={"kind": withholding.PHYSICAL_SIZE_FAILED, "reason": why,
+                                       "content_hash": failed_hash,
+                                       "incident": int(incident_id),
+                                       "design_digest": r.get("design_digest"),
+                                       "stored_record": bool(held.get("recorded"))}))
+                withheld.append(f"{slug}@{failed_v}")
         inc.resolved = True
         detail = dict(inc.detail or {})
         detail.update(resolution=(f"lifted by the owner ({actor[:64]}) on sample "
