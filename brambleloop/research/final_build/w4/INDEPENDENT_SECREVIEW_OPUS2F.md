@@ -176,7 +176,28 @@ of such nesting. A live Postgres test is still missing (handoff: INTEGFIX INFO-1
 Each suite was run alone with `PYTHONPATH=src:tests nice -n 19 python tests/<f>`, in a worktree
 of each subject at its stated head. Python 3.13.18; dependencies from `requirements.txt`.
 
-**PARTIAL: suite results pending at time of this push.**
+| Subject | Suite | Result | Time |
+|---|---|---|---|
+| A | `test_opus2_listing_package.py` | PASS (exit 0) | 121 s |
+| A | `test_w4_owner_queue_race.py` | PASS (exit 0) | 65 s |
+| A | `test_w4_owner_queue_race.py` | PASS (exit 0) | 61 s |
+| A | `test_w4_owner_queue_race.py` | PASS (exit 0) | 60 s |
+| A | `test_route_auth_default_deny.py` | PASS (exit 0) | 7 s |
+| A | `test_w4_fmbatch1_retention_guard.py` | PASS (exit 0) | 37 s |
+| A | `test_v11_autonomy_timeline.py` | PASS (exit 0) | 112 s |
+| A | `test_vacuity.py` | PASS (exit 0) | 10 s |
+| A | `test_shadow.py` | PASS (exit 0) | 922 s |
+| B | `test_opus2_owner_queue_races.py` | PASS (exit 0) | 3 s |
+| B | `test_w4_owner_queue_race.py` | PASS (exit 0) | 62 s |
+| B | `test_w4_owner_queue_race.py` | PASS (exit 0) | 60 s |
+| B | `test_w4_owner_queue_race.py` | PASS (exit 0) | 55 s |
+| B | `test_route_auth_default_deny.py` | PASS (exit 0) | 7 s |
+| B | `test_w4_fmbatch1_retention_guard.py` | PASS (exit 0) | 40 s |
+| B | `test_v11_autonomy_timeline.py` | PASS (exit 0) | 116 s |
+| B | `test_vacuity.py` | PASS (exit 0) | 11 s |
+| B | `test_shadow.py` | PASS (exit 0) | 945 s |
+
+**18/18 runs exit 0.** `test_w4_owner_queue_race` passed 3/3 on each branch. The suites passing does not clear the findings above: none of them exercises A-1..A-3 or B-1..B-4.
 
 Ad-hoc measurements:
 - **A, real chain fixture:** sweep 1 had `changed=1`, state `blocked` with 5 blockers: search
