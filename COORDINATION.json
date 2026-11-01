@@ -144,17 +144,30 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+    },
+    {
+      "id": "OPUS2-LISTING-PACKAGE-JOB",
+      "operator": "opus2",
+      "branch": "opus2/p0-listing-package",
+      "head": "f779fac2",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)"
+    },
+    {
+      "id": "OPUS2-OWNER-QUEUE-RACES",
+      "operator": "opus2",
+      "branch": "opus2/p1-owner-queue-races",
+      "head": "ccb3e8e4",
+      "state": "in_review",
+      "review_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "area": "P1-OWNER-QUEUE-RACES"
     }
   ],
   "unowned": [
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
-    },
-    {
-      "id": "P1-OWNER-QUEUE-RACES",
-      "priority": "P1",
-      "summary": "INTEGFIX review LOW-3: owner-queue writers other than launch.readiness and etsy_ops.seed_owner_queue still read-then-insert without release._serialise_owner_queue; also no live Postgres concurrency test (INFO-1). Fix each writer under the same lock with a forced-interleaving test."
     }
   ],
   "reviews": [
@@ -531,6 +544,22 @@
       "report_branch": "claude/w4-SECREVIEW-RENDER-115464f",
       "notes": "N1/N2 Low, N3-N6 Info; PDF1 cleared for Batch 5",
       "recorded": "2026-11-01T00:25Z"
+    },
+    {
+      "subject": "OPUS2 E (post-review constructions + Low fixes)",
+      "sha": "fb52cb9e..fa3a7b09",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2E-fa3a7b0",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2 F (listing job + owner-queue races)",
+      "sha": "f779fac2 / ccb3e8e4",
+      "verdict": "PENDING",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2F",
+      "notes": "",
+      "recorded": "2026-11-01T00:35Z"
     }
   ],
   "integration": {
