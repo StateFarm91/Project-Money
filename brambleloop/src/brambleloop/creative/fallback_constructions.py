@@ -134,10 +134,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         extra = re.search(_COSY_NOT_PLAIN, rest)
         if extra:
             return {"family": REFUSED,
-                    "needs": (f"the construction a {extra.group(0)!r} cosy needs (appliqué "
-                              f"pieces, a texture stitch, or a second object)"),
-                    "why": (f"the title names {extra.group(0)!r}, which a plain single-crochet "
-                            f"cup does not make")}
+                    "needs": (f"the construction a {extra.group(0).strip()!r} cosy needs "
+                              f"(appliqué pieces, a texture stitch, colourwork, or a second "
+                              f"object)"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which a plain "
+                            f"single-crochet cup does not make")}
         if not _shaped_title(rest):
             return {"family": COSY, "needs": "",
                     "why": "an egg cosy is a small cup worked from the crown down"}
@@ -152,6 +153,19 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                     "needs": "one certified release per finished bag, each listed on its own",
                     "why": (f"the title promises more than one bag ({many.group(0)!r}); one "
                             f"tote draft is one bag, and its straps are not pieces")}
+        extra = re.search(_TOTE_NOT_PLAIN, rest)
+        if extra:
+            return {"family": REFUSED,
+                    "needs": (f"the construction {extra.group(0).strip()!r} needs (a second "
+                              f"object, a pocket, a closure or a lining) as its own pieces"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which the plain "
+                            f"one-piece tote with two straps does not make")}
+        oversize = re.search(_TOTE_SIZE_UNSUPPORTED, lowered_t)
+        if oversize:
+            return {"family": REFUSED,
+                    "needs": "a vessel size beyond products.vessels.BASKET_SIZES, measured",
+                    "why": (f"the title promises {oversize.group(0)!r}; the tote is drafted "
+                            f"only at the three measured vessel sizes")}
         if not _shaped_title(rest):
             return {"family": TOTE, "needs": "",
                     "why": "a tote is a vessel worked in the round with two sewn straps"}
@@ -348,9 +362,18 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
 TOTE_CATEGORIES = frozenset({"bag"})     # the category alone never routes to a tote (E1)
 _TOTE_WORDS = r"\b(?:tote|market bag|shopper)s?\b"
 _MULTIPLE_WORDS = (r"\b(?:\d+|two|three|four|five|six|pair|trio|set|duo|totes|bags|"
-                   r"shoppers|x\s*\d+)\b")
-# Review OPUS2E E1: a size word on the title is honoured, never overridden by "large".
-_TOTE_SIZE_WORDS = (("small", "small"), ("mini", "small"), ("medium", "medium"))
+                   r"shoppers|x\s*\d+|bundle|collection|double|family|mother|daughter|twins?|"
+                   r"matching)\b")
+# Review OPUS2EF2 EF2-1: a second object or a construction feature the plain tote does not
+# have (a pocket, a zip, a lining, a reversible body) is refused, never dropped silently.
+_TOTE_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|pockets?|zip|zips|zipper|zippered|zipped|lined|"
+                   r"lining|reversible|gusset(?:ed)?|flap|button|buttoned|magnetic|clasp)\b)")
+# Review OPUS2E E1 / EF2-3: a size word on the title is honoured, never overridden by "large";
+# a size word beyond the three vessel sizes is refused rather than drafted at another size.
+_TOTE_SIZE_WORDS = (("small", "small"), ("mini", "small"), ("tiny", "small"),
+                    ("petite", "small"), ("medium", "medium"), ("large", "large"),
+                    ("big", "large"))
+_TOTE_SIZE_UNSUPPORTED = r"\b(?:jumbo|giant|huge|oversized?|xl|xxl|extra[- ]large)\b"
 STRAP_STITCHES = 6
 STRAP_CM = 50.0
 TOTE_PRIMITIVES = ("creative.fallback_constructions.tote", "products.vessels._disc_rounds",
@@ -411,9 +434,10 @@ def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 _EGG_COSY_WORDS = r"\begg\s+co(?:s|z)(?:y|ies)\b"
 # Review OPUS2E E4: characters need appliqué pieces, "and <object>" is a second design, and a
 # named texture is a stitch the plain cup does not contain.
-_COSY_NOT_PLAIN = (r"\b(?:bunny|bunnies|rabbit|chick|chicks|owl|face|bear|fox|cat|duck|lamb|"
-                   r"hen|chicken|penguin|animal|character|and|with|bobble|cable|puff|popcorn|"
-                   r"lace|shell|textured?)\b")
+_COSY_NOT_PLAIN = (r"(?:[&+]|\b(?:bunny|bunnies|rabbit|chick|chicks|owl|face|bear|fox|cat|"
+                   r"duck|lamb|hen|chicken|penguin|animal|character|and|with|bobble|cable|"
+                   r"puff|popcorn|lace|shell|textured?|stripes?|striped|pom[- ]?poms?|tassels?|"
+                   r"colou?r[- ]?block|two[- ]tone|fair[- ]isle|mosaic|tapestry|basket)\b)")
 # Review OPUS2E E3: the girth is never undershot; a yarn whose next whole wedge overshoots it
 # by more than this is refused rather than drafted loose.
 COSY_MAX_EASE = 0.15

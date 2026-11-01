@@ -412,6 +412,64 @@ def test_review_opus2e_e1_only_a_titled_single_tote_drafts_and_straps_back_no_co
     assert body("Small Tote") < body("Medium Tote") < body("Market Tote")
 
 
+def test_review_opus2ef2_ef21_ef22_ef23_tote_and_cosy_titles_promise_only_what_is_drafted():
+    from brambleloop.products import launch0 as L
+
+    # EF2-1: second objects, features and multiplicity words are refused.
+    ef21 = ("Tote Bag Bundle", "Tote Bag Collection", "Double Tote", "Tote Bag Family",
+            "Mother & Daughter Tote", "Tote and Coaster", "Market Tote with Pocket",
+            "Tote with Zipper", "Lined Tote", "Reversible Tote", "Jumbo Tote")
+    # EF2-2: plain non-tote bags reach the bag-category refusal itself (no shaped word).
+    ef22 = ("Lunch Bag", "Grocery Bag", "Project Bag", "Bag")
+    assert ef21 and ef22
+    for title in ef21 + ef22:
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    for title in ef22:
+        assert F.plan(category="bag", title=title)["needs"] == F.NEEDS["bag"], title
+    # EF2-3: "tiny"/"petite" draft small; second objects and colourwork on a cosy are refused.
+    for title in ("Tiny Tote", "Petite Market Tote"):
+        assert F.plan(category="bag", title=title)["family"] == F.TOTE, title
+    for title in ("Egg Cosy & Basket", "Egg Cosy + Napkin", "Striped Egg Cosy",
+                  "Egg Cosy Pom Pom", "Two-Tone Egg Cosy"):
+        assert F.plan(category="home_decor", title=title)["family"] == F.REFUSED, title
+    seed = pipeline._seed_for("everyday-market-tote")
+    geo = pipeline.concept_geometry(seed)
+
+    def tote(title):
+        return F.tote(pipeline.Concept(slug="t", title=title, category="bag",
+                                       stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                                       width_stitches=10, rows=4, colors=geo["colors"]))
+    assert (tote("Tiny Tote").components[0].rows[-1].declared_count
+            == tote("Small Tote").components[0].rows[-1].declared_count)
+    # EF2-1 at the root: straps joined by cir.assembly are parts, not finished objects.
+    drafted = tote("Market Tote")
+    assert sum(c.make for c in drafted.components) > 1          # body plus straps
+    assert L.finished_objects(drafted) == 1
+    for title in ("Tote Bag Bundle", "Tote Bag Collection", "Tote Bag Set", "Tote Pair", "2 Totes"):
+        renamed = dataclasses.replace(drafted, title=title)
+        assert L.title_promise(renamed)["backed"] is False, title
+
+
+def test_review_opus2ef2_finished_objects_counts_groups_by_their_scarcest_piece():
+    from brambleloop.cir.model import Seam
+    from brambleloop.products import launch0 as L
+
+    seed = pipeline._seed_for("everyday-market-tote")
+    geo = pipeline.concept_geometry(seed)
+    one = F.tote(pipeline.Concept(slug="t", title="Market Tote", category="bag",
+                                  stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                                  width_stitches=10, rows=4, colors=geo["colors"]))
+    body, *straps = one.components
+    two = dataclasses.replace(one, components=[dataclasses.replace(body, make=2)]
+                              + [dataclasses.replace(c, make=c.make * 2) for c in straps])
+    assert L.finished_objects(two) == 2                          # two bodies, four straps
+    loose = dataclasses.replace(one, assembly=[])                # nothing joined: every piece
+    assert L.finished_objects(loose) == sum(c.make for c in one.components)
+    selfseam = dataclasses.replace(one, components=[body], assembly=[
+        Seam(method=one.assembly[0].method, piece_a=body.name, piece_b=body.name)])
+    assert L.finished_objects(selfseam) == body.make
+
+
 def test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused():
     from brambleloop.publish.substitution import WEIGHT_BY_KEY
 
