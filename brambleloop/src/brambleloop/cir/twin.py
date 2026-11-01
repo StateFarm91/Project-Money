@@ -228,15 +228,27 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
     totals: dict[str, float] = {}
     for r in rows:
         color = r.color or "main"
+        worked: dict[str, int] = {}
         for op in r.ops:
             factor = _YARN_FACTOR.get(op.stitch, 3.0)
             # P0-CIR-COLOURWORK: a stitch worked in its own colour uses that yarn.
             yarn = getattr(op, "color", None) or color
             totals[yarn] = totals.get(yarn, 0.0) + factor * stitch_width_cm * op.count
+            worked[yarn] = worked.get(yarn, 0) + op.count
+        if len(worked) > 1:
+            # OPUS2H H2-2: in a tapestry row every yarn is carried inside the stitches it is not
+            # worked in, so it also travels those stitches' width. Charged at CARRY_FACTOR
+            # (a stated assumption: a laid strand is about one stitch width per stitch).
+            width = sum(worked.values())
+            for yarn, n in worked.items():
+                totals[yarn] = totals.get(yarn, 0.0) + CARRY_FACTOR * stitch_width_cm * (width - n)
         if r.turning_chain:
             totals[color] = (totals.get(color, 0.0)
                              + _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain)
     return {k: round(v / 100.0 * calibration * make, 1) for k, v in totals.items()}
+
+
+CARRY_FACTOR = 1.0   # OPUS2H H2-2: cm of carried strand per stitch width it travels (assumed)
 
 
 def build_twin(

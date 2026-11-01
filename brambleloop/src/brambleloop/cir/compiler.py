@@ -8,6 +8,8 @@ close, the pattern does not ship.
 """
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -46,6 +48,19 @@ class Finding:
             where = f" [{self.component}"
             where += f" row {self.row}]" if self.row is not None else "]"
         return f"{self.severity} {self.code}:{where} {self.message}"
+
+
+_COLOUR_KEY = re.compile(r"[a-z0-9][a-z0-9_-]*")
+
+
+def _ops_flat(nodes):
+    from .model import Op as _Op
+
+    for node in nodes:
+        if isinstance(node, _Op):
+            yield node
+        else:
+            yield from _ops_flat(node.ops)
 
 
 @dataclass
@@ -327,10 +342,27 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
 
         stitch_colours = op_colours(row.ops)
         for colour in sorted(stitch_colours):
-            if cir.colors and colour not in cir.colors:
+            # OPUS2H H2-4: an op colour needs a colour table that names it (the legacy
+            # row-only path keeps its old leniency).
+            if colour not in (cir.colors or {}):
                 findings.append(Finding(
                     ERROR, "UNKNOWN_COLOR",
                     f"a stitch references colour {colour!r} which is not in the colour table",
+                    comp.name, row.index))
+            # OPUS2H H2-6: the writer prints "with <key>" and the reverse compiler reads that
+            # grammar back; a key it cannot read fails here, not at certification.
+            if not _COLOUR_KEY.fullmatch(colour):
+                findings.append(Finding(
+                    ERROR, "COLOUR_KEY_UNWRITABLE",
+                    f"stitch colour key {colour!r} is not a single lowercase word "
+                    f"([a-z0-9][a-z0-9_-]*), so the written pattern cannot name it",
+                    comp.name, row.index))
+        # OPUS2H H2-3: a colour on an op that makes no stitch (a skip) is a modelling error.
+        for op in _ops_flat(row.ops):
+            if getattr(op, "color", None) and stitches.get(op.stitch).produces == 0:
+                findings.append(Finding(
+                    ERROR, "COLOUR_ON_NON_STITCH",
+                    f"{op.stitch} makes no stitch, so it cannot be worked in {op.color!r}",
                     comp.name, row.index))
         if stitch_colours and not row.color:
             findings.append(Finding(

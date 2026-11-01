@@ -58,6 +58,7 @@ def plan_component(comp) -> ColourPlan:
     current = None
     edge = 0                            # the edge row 1 starts from
     colours_seen: set[str] = set()
+    previous_in_row: set[str] = set()
     for r in rows:
         start = edge
         if r.color != current:
@@ -75,15 +76,26 @@ def plan_component(comp) -> ColourPlan:
             current = r.color
         end = (1 - start) if plan.turned else start
         resting[r.color] = end
-        # Tapestry: the stitch colours of this row were carried inside it, so they rest where
-        # the row ends too, and each is a yarn the piece uses (its own join and fasten-off).
-        for colour in sorted(op_colours(r.ops) - {r.color}):
+        # Tapestry: the stitch colours of this row are carried inside it, so each rests where
+        # the row ends, and each is a yarn the piece uses (its own join and fasten-off).
+        # OPUS2H H2-2: a contrast that is resting at the other edge from where this turned row
+        # starts (a plain row moved the work away from it) cannot be picked up there: it is
+        # cut and rejoined, which costs two ends, unless it was carried in the row just before.
+        in_row = sorted(op_colours(r.ops) - {r.color})
+        for colour in in_row:
             if colour not in colours_seen:
                 colours_seen.add(colour)
+            elif (plan.turned and colour in resting and resting[colour] != start
+                  and colour not in previous_in_row):
+                plan.cut += 1
+                plan.events.append((r.index, colour, CUT))
+                if plan.first_cut_row is None:
+                    plan.first_cut_row = r.index
             resting[colour] = end
             plan.events.append((r.index, colour, IN_ROW))
             if r.index not in plan.tapestry_rows:
                 plan.tapestry_rows.append(r.index)
+        previous_in_row = set(in_row)
         edge = end
     # Two ends per colour (its first join and its last fasten-off) and two per cut-and-rejoin.
     plan.ends = 2 * len(colours_seen) + 2 * plan.cut
@@ -98,12 +110,37 @@ def _tapestry_sentence(plan: ColourPlan) -> str | None:
     if not plan.tapestry_rows:
         return None
     rows = plan.tapestry_rows
-    span = f"{rows[0]}" if len(rows) == 1 else f"{rows[0]}-{rows[-1]}"
+    span = _row_list(rows)
     unit = "row" if plan.turned else "round"
     plural = "s" if len(rows) > 1 else ""
-    return (f"Colourwork {unit}{plural} {span}: work over the colour not in use so it is carried "
-            f"inside the stitches, and change colour on the last yarn-over of the stitch before "
-            f"the new colour. Do not cut at these changes.")
+    sentence = (f"Colourwork {unit}{plural} {span}: work over the colour not in use so it is "
+                f"carried inside the stitches, and change colour on the last yarn-over of the "
+                f"stitch before the new colour.")
+    cuts = [row for row, _c, kind in plan.events if kind == CUT and row in rows]
+    if cuts:
+        sentence += (f" Where a contrast was left at the other edge ({unit}{'s' if len(cuts) > 1 else ''} "
+                     f"{_row_list(sorted(set(cuts)))}), cut it at the end of its last {unit} and "
+                     f"rejoin it at the start of the next colourwork {unit}, leaving a 10 cm tail.")
+    else:
+        sentence += " Do not cut at these changes."
+    return sentence
+
+
+def _row_list(rows: list[int]) -> str:
+    """Exact rows: "3", "2 and 4", "2, 4 and 6", runs compressed ("3-10")."""
+    parts: list[str] = []
+    start = prev = None
+    for r in rows:
+        if start is None:
+            start = prev = r
+        elif r == prev + 1:
+            prev = r
+        else:
+            parts.append(f"{start}" if start == prev else f"{start}-{prev}")
+            start = prev = r
+    if start is not None:
+        parts.append(f"{start}" if start == prev else f"{start}-{prev}")
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
 def instruction(plan: ColourPlan) -> str | None:
