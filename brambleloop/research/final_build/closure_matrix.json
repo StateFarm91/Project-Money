@@ -3640,7 +3640,7 @@
    "consumer": "app/main.py POST /api/physical-test -> physical.record",
    "protected_effect": null,
    "tests": [
-    "tests/test_physical.py::test_tester_notes_are_surfaced_without_blocking"
+    "tests/test_physical.py::test_tester_notes_are_surfaced_and_routed_to_the_owner"
    ],
    "evidence": [],
    "build2_rows": [
@@ -3658,7 +3658,9 @@
    "searched": null,
    "slice": "s1",
    "maturity_claimed": "INTEGRATED",
-   "adjudication": [],
+   "adjudication": [
+    "override tests: ['tests/test_physical.py::test_tester_notes_are_surfaced_without_blocking'] -> ['tests/test_physical.py::test_tester_notes_are_surfaced_and_routed_to_the_owner'] (W-PHYSFIX 626afdf8 (SECREVIEW F5) replaced tests/test_physical.py::test_tester_notes_are_surfaced_without_blocking with test_tester_notes_are_surfaced_and_routed_to_the_owner, and tightened the behaviour: a tester's note is now a REVIEW finding that a person reads before the sample counts (the sample is PARTIAL and not usable for calibration until then), instead of being surfaced without blocking. The row's evidence is the replacement test; maturity stays as cap() adjudicates it (tests is an evidence field, applied before cap()). Found by certification run 20261101T053634Z-559 (test_final_closure_matrix).; accepted by integrator 2026-11-01 (Batch 4 certification root cause; evidence citation follows a test rename, no maturity change); adjudicated by cap())"
+   ],
    "id": "F-076",
    "title": "Independent Tester Protocol",
    "version": "v0.2",
