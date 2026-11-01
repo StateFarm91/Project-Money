@@ -52,7 +52,8 @@ def disclosed_render_floor(frame):
         return {'status': 'UNKNOWN', 'why': f"renderer {manifest.get('renderer_version')!r} is not qualified"}
     from . import render_contract as K
     if (frame.get('slug') in K.SOFT_CORNER_SLUGS or manifest.get('slug') in K.SOFT_CORNER_SLUGS) \
-            and manifest.get('renderer_version') != K.SOFT_CORNER_MIN_RENDERER:
+            and not K.renderer_at_least(manifest.get('renderer_version'),
+                                        K.SOFT_CORNER_MIN_RENDERER):
         # R2: for a soft-cornered product an older stamp names a different drawing.
         return {'status': 'UNKNOWN',
                 'why': f"renderer {manifest.get('renderer_version')!r} is not qualified for "

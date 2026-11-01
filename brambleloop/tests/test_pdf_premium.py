@@ -606,6 +606,54 @@ def test_the_rim_estimate_is_owed_by_the_product_not_by_the_frames_word():
     assert K.ESTIMATED_SHAPE not in LI.supplement_alt_text("CONTENTS", "Coasters",
                                                            "hexagon-coaster-set")
 
+
+def test_the_copy_disclosure_and_alt_text_cannot_lose_the_rim_estimate():
+    """SECREVIEW-RENDER-115464f N1, N2, N3, N5.
+
+    N1: `platform_policy._owes_estimate` is derived from the product and the contract, so a
+    frame with no `estimated` field still owes the copy disclosure (kills the mutant that
+    reverts `release_assets` to the manifest field). N2: a very long title is shortened, never
+    the note; a note that cannot fit is refused. N3: the soft-corner renderer floor is a
+    minimum. N5: ANGLE and CONTENTS ask the contract."""
+    from brambleloop.gates import platform_policy as PP
+    from brambleloop.publish import disclosed_listing as L
+    from brambleloop.visual import launch_imagery as LI
+    from brambleloop.visual import render_contract as K
+
+    def frame(slug, view, **extra):
+        return {"kind": "disclosed_render", "generated": False, "slug": slug, "view": view,
+                "role": "hero", "position": 1, "image_ref": "sha256:x",
+                "disclosure": {"in_image": True, "in_alt_text": True},
+                "disclosed_render": {"slug": slug, "view": view, **extra}}
+
+    assert PP._owes_estimate(frame("market-basket-small", "hero"))          # no field at all
+    assert PP._owes_estimate(frame("market-basket-small", "angle", estimated=[]))
+    assert not PP._owes_estimate(frame("market-basket-small", "detail"))
+    assert not PP._owes_estimate(frame("market-basket-medium", "hero", estimated=["x"]))
+    claims = PP.release_assets([], None, [frame("market-basket-small", "hero")])
+    assert claims[0].estimated_shape
+    got = PP.classify(product_class=PP.AI_ASSISTED_DESIGN, assets=claims)
+    assert PP.DISCLOSURES["estimated_shape"] in got.disclosures
+
+    long_title = "Crochet Hexagonal Bread Basket " * 20                     # ~620 characters
+    for text in (LI.supplement_alt_text("ANGLE", long_title, "market-basket-small"),
+                 LI.supplement_alt_text("CONTENTS", long_title, "market-basket-small")):
+        assert len(text) <= L.ALT_TEXT_MAX and text.endswith(K.ESTIMATED_SHAPE), text[-80:]
+        assert "…" in text
+    assert L.compose_alt("h. ", "T", ": tail.", [])  # no note: unchanged behaviour
+    try:
+        L.compose_alt("h" * 300, "Title", "t" * 200, [K.ESTIMATED_SHAPE])
+    except L.DisclosureMissing:
+        pass
+    else:
+        raise AssertionError("a note that cannot fit was dropped instead of refused")
+
+    assert K.renderer_at_least("disclosed-render/3.1.0", K.SOFT_CORNER_MIN_RENDERER)
+    assert K.renderer_at_least("disclosed-render/3.10.0", K.SOFT_CORNER_MIN_RENDERER)
+    assert not K.renderer_at_least("disclosed-render/3.0.0", K.SOFT_CORNER_MIN_RENDERER)
+    assert not K.renderer_at_least("disclosed-render-assembled/9.0.0", K.SOFT_CORNER_MIN_RENDERER)
+    assert LI.supplement_alt_text("ANGLE", "B", "market-basket-medium").endswith("raised angle.")
+
 def small_points(cir) -> float:
     twin = build_twin(cir, compile_cir(cir))
     return twin.across_points_cm / 2

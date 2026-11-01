@@ -120,6 +120,17 @@ def rim_softening(cir) -> float:
 SOFT_CORNER_MIN_RENDERER = "disclosed-render/3.1.0"
 
 
+def renderer_at_least(stamp, minimum: str) -> bool:
+    """Whether a renderer stamp is the same producer as `minimum` at that version or later
+    (N3: a real minimum, not an exact match). 'disclosed-render/3.1.0' >= 'disclosed-render/3.1.0'."""
+    try:
+        name, ver = str(stamp).rsplit("/", 1)
+        mname, mver = minimum.rsplit("/", 1)
+        return name == mname and tuple(map(int, ver.split("."))) >= tuple(map(int, mver.split(".")))
+    except (ValueError, AttributeError):
+        return False
+
+
 def estimate_notes(slug, view) -> list[str]:
     """The estimate notes a frame of `slug` showing `view` must carry, from the product and
     this contract -- never from the frame's own manifest (SECREVIEW-RENDER-363a467 R1). Every

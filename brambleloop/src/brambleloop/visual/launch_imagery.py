@@ -255,12 +255,13 @@ def supplement_alt_text(job: str, title: str, slug: str | None = None) -> str:
         from .contents_frame import alt_text
 
         return alt_text(title, slug)
+    from ..publish.disclosed_listing import compose_alt
     from . import render_contract as K
 
-    # SECREVIEW-RENDER F1: the angle frame shows the estimated rim; say so where it travels.
-    estimate = (f" {K.ESTIMATED_SHAPE}" if job == "ANGLE" and slug in K.SOFT_CORNER_SLUGS
-                else "")
-    return f"{DISCLOSURE}. {title}: {_SUPPLEMENT_TEXT[job]}.{estimate}"[:ALT_TEXT_MAX]
+    # SECREVIEW-RENDER F1 / N5: the angle frame shows the estimated rim; the contract says
+    # which frames owe the note, and compose_alt never truncates it away (N2).
+    notes = K.estimate_notes(slug, "angle") if job == "ANGLE" else []
+    return compose_alt(f"{DISCLOSURE}. ", title, f": {_SUPPLEMENT_TEXT[job]}.", notes)
 
 
 def supplement_medium(job: str) -> str:

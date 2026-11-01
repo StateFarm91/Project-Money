@@ -63,6 +63,29 @@ def _phrase_in(text: str) -> bool:
     return DISCLOSURE.lower() in norm
 
 
+TITLE_FLOOR_CHARS = 12   # a title cut shorter than this no longer names the product
+
+
+def compose_alt(head: str, title: str, tail: str, notes: list[str] | tuple[str, ...] = ()) -> str:
+    """`head + title + tail`, then each note, within `ALT_TEXT_MAX` (SECREVIEW-RENDER N2).
+
+    A note is never truncated away: when the whole does not fit, the title is shortened
+    first (with an ellipsis); if even a title of `TITLE_FLOOR_CHARS` leaves no room, the alt
+    text is refused rather than sent without its note. Without notes the old behaviour holds
+    (the whole is cut at the limit)."""
+    note = "".join(f" {n}" for n in notes if n)
+    text = f"{head}{title}{tail}{note}"
+    if len(text) <= ALT_TEXT_MAX:
+        return text
+    if not note:
+        return text[:ALT_TEXT_MAX]
+    room = ALT_TEXT_MAX - len(head) - len(tail) - len(note)
+    if room < TITLE_FLOOR_CHARS:
+        raise DisclosureMissing(f"the alt text cannot carry {notes!r} within {ALT_TEXT_MAX} "
+                                f"characters, even with the title shortened")
+    return f"{head}{title[:room - 1].rstrip()}…{tail}{note}"
+
+
 def alt_text(manifest: dict, cir) -> str:
     """The image's alt text: the disclosure first, then what it shows, from the CIR."""
     colours = sorted({c for c in (cir.colors or {})
@@ -106,15 +129,12 @@ def alt_text(manifest: dict, cir) -> str:
                 f"with a centimetre scale bar.")
     # SECREVIEW-RENDER F1: a frame whose drawn shape is partly estimated says so in its alt
     # text, because Etsy shows the image with no caption (render_contract.ESTIMATED_SHAPE).
-    estimate = " ".join(K.estimate_notes(cir.slug, manifest.get("view")))
-    text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}"
-            + (f" {estimate}" if estimate else ""))
-    if len(text) > ALT_TEXT_ADVICE and size:
-        text = text.replace(", with a centimetre scale bar.", ".")
-    if estimate and len(text) > ALT_TEXT_MAX:
-        raise DisclosureMissing(f"{cir.slug}: the alt text cannot carry the estimate note "
-                                f"within {ALT_TEXT_MAX} characters")
-    return text[:ALT_TEXT_MAX]
+    notes = K.estimate_notes(cir.slug, manifest.get("view"))
+    tail = f": {shows}, in {' and '.join(colours)}.{size}"
+    full = f"{DISCLOSURE}. {cir.title}{tail}" + "".join(f" {n}" for n in notes)
+    if len(full) > ALT_TEXT_ADVICE and size:
+        tail = tail.replace(", with a centimetre scale bar.", ".")
+    return compose_alt(f"{DISCLOSURE}. ", cir.title, tail, notes)
 
 
 def caption_in_image(png: bytes, cir=None) -> dict:
