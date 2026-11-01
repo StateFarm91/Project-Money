@@ -751,3 +751,19 @@ recommendations are done:
 | R4: no test exercises the SHA-256 match | Swapped-bytes test: the photo qualifies and is attested, then the leading frame points at other stored bytes. The certificate refuses. | `test_review_opus2d_r4_bytes_that_are_not_the_attested_photo_never_lead` |
 | R5: the new size patterns over-refuse | A hook or needle in, just before, or just after any match is tool advice. `vessel_count` covers storage sets only (baskets, bowls, bins, boxes, trays), never contents ("2 bags of yarn") or what a thing holds or stores. `named_range` letters are case-sensitive ("2x to 4x"), and a range of rounds, rows or stitches is the work, not a size. "bag pair of handles" is not a pair of bags. | `test_review_opus2d_r5_correct_copy_is_not_refused_and_real_claims_still_are`: every R5 phrase passes, and every earlier must-fail row still fails |
 | INFO: the handler's `slug=`/`rationale=` wiring was untested | Handler-level test with a non-alias basket seed whose size promise is only in its rationale. The real `cir.draft` refuses it. | `test_review_opus2d_the_handler_passes_slug_and_rationale_to_the_route` |
+
+## 32. Review OPUS2E: every finding fixed (2026-11-01)
+
+This branch is otherwise frozen (integrator, PR #3, 2026-10-31T19:17Z). Only these review-E
+fixes were added, because Batch 5 takes it "at its review-E-accepted head".
+
+| Finding | Fix | Test |
+|---|---|---|
+| E1 MED: any "bag" drafted as a tote; counts and sizes ignored | `NEEDS["bag"]` restored. Only a title naming a tote, market bag or shopper takes the tote route. Drawstring, backpack, clutch, crossbody, holder, pouch, sachet, bean bag, diaper bag, purse and wallet are shaped words and are refused. Counts, sets and plurals ("3 Tote Bags", "Tote Pair") are refused: one certified release per finished bag. "Small"/"mini" and "medium" in the title choose the tote size (default large). `launch0.title_promise` is W-LISTING's, so the multiplicity case is closed at drafting instead. | `test_review_opus2e_e1_only_a_titled_single_tote_drafts_and_straps_back_no_count` |
+| E2 MED: the R5 narrowing let real size claims pass | `named_range` is case-insensitive again. `vessel_count` uses `_VESSEL` again, with lookbehinds for what a thing holds, stores, fits or carries, and an exclusion for contents ("bags of yarn"). An all-`\dx` range with no "size" word ("2x to 4x") is skipped. | `test_review_opus2e_e2_the_gate_fails_closed_again` (`REVIEW_E_MUST_FAIL`, `REVIEW_E_MUST_PASS`, plus every earlier row) |
+| E3 LOW: cosy could be smaller than the egg | The stitch count rounds **up** (`ceil(girth*gauge/6)*6`). A weight that would leave more than 15% ease (`COSY_MAX_EASE`) raises "not drafted". This is a stated design assumption, not a sourced standard. | `test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused` (all of `WEIGHT_BY_KEY`) |
+| E4 LOW: character and texture cosies drafted as plain | `_COSY_NOT_PLAIN` (animals and faces, bobble, cable, puff, popcorn, lace, shell, texture, "and"/"with" second objects) is refused with what it needs. The name-truth rule for cosies remains W-LISTING's. | `test_review_opus2e_e4_character_texture_and_second_object_cosies_are_refused` |
+
+`test_opus2_draft_constructions` and `test_opus2_size_claims`: 0 failed. Regression: 103 suites,
+exit 0 except `test_risk_matrix` (base-owned). `test_product_run` timed out during a container
+restart and passes 36/36 when rerun alone.

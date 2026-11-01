@@ -111,7 +111,9 @@
       "branch": "opus2/p0-revenue-workforce",
       "scope": "gates/size_claims.py",
       "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)",
+      "state": "ready_for_review",
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md \u00a732; awaiting re-review"
     },
     {
       "id": "OPUS2-LAURAHOME",
@@ -199,7 +201,8 @@
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
       "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
       "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)",
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md \u00a732; awaiting re-review"
     },
     {
       "id": "OPUS2-NEXT-PRODUCT-FINDING",

@@ -104,10 +104,12 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
      lambda m: _GROUPED[m.group(1).lower()]),
     # Review OPUS2D R5: size letters are case-sensitive here ("2x to 4x" is a repeat count),
     # and a range of the work itself ("small to large rounds") is not a size promise.
-    ("named_range", re.compile(rf"\b(?i:{_FULL})\s+(?i:to|through|thru|-|–)\s+(?i:{_FULL})\b"
-                               rf"(?!\s+(?i:rounds?|rows?|stitch(?:es)?|sts)\b)|"
-                               rf"(?<![\w/]){_TOK}\s+(?:to|through|thru)\s+{_TOK}(?![\w/])"),
-     lambda m: None),
+    # Review OPUS2E E2: size letters are case-insensitive again ("Sizes s to xl"); a range
+    # whose tokens are both repeat counts ("2x to 4x") is skipped in claims_in, not here.
+    ("named_range", re.compile(rf"\b{_FULL}\s+(?:to|through|thru|-|–)\s+{_FULL}\b"
+                               rf"(?!\s+(?:rounds?|rows?|stitch(?:es)?|sts)\b)|"
+                               rf"(?<![\w/]){_TOK}\s+(?:to|through|thru)\s+{_TOK}(?![\w/])",
+                               re.I), lambda m: None),
     ("multi_size", re.compile(r"\bmulti-?\s?sized?\b|\bmultiple\s+size\s+options?\b|"
                               r"\bgraduat(?:ing|ed)\s+sizes\b", re.I), lambda m: None),
     ("dimension_tail_unit", re.compile(
@@ -124,11 +126,14 @@ _PATTERNS: tuple[tuple[str, re.Pattern, object], ...] = (
                                  rf"an?\s+{_FULL}\b", re.I), _distinct_full),
     # Review OPUS2D R5: only storage sets, never contents ("bags of yarn") or what a thing
     # holds ("holds 3 plant pots", "store 2 tote bags").
+    # Review OPUS2E E2: every vessel noun counts again; only CONTENTS ("bags of yarn") and
+    # what a thing holds or stores are excluded -- "two baskets of different sizes" is a claim.
     ("vessel_count", re.compile(rf"(?<!\bstore\s)(?<!\bstores\s)(?<!\bholds\s)(?<!\bhold\s)"
                                 rf"(?<!\bfits\s)(?<!\bfit\s)(?<!\bcarry\s)(?<!\bcarries\s)"
-                                rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?"
-                                rf"(?:baskets?|bowls?|bins?|box(?:es)?|trays?)(?:\s+set)?\b"
-                                rf"(?!\s+of\b)", re.I), _count_word),
+                                rf"\b{_NUM}(?:\s+|-)(?:piece\s+)?(?:[a-z]+\s+)?{_VESSEL}"
+                                rf"(?:\s+set)?\b"
+                                rf"(?!\s+of\s+(?:yarn|wool|cotton|stuffing|fibre|fiber|scraps)\b)",
+                                re.I), _count_word),
     ("named_plus", re.compile(rf"\b{_FULL}\s*\+\s*{_FULL}\b", re.I), _distinct_full),
     ("nesting", re.compile(r"\bnesting\b", re.I), lambda m: None),
     ("several_sizes", re.compile(r"\b(?:multiple|several|various)\s+sizes\b|"
@@ -188,6 +193,12 @@ def claims_in(text: str, *, graded_reference_ok: bool = False) -> list[dict]:
                                         or _HOOK_BEFORE.search(read[:m.start()])
                                         # Review OPUS2C N1.2: "two hook sizes" is advice.
                                         or _TOOL_BETWEEN.search(m.group(0))):
+                    continue
+                # Review OPUS2E E2: "2x to 4x" is a repeat count unless a size is named.
+                if name == "named_range" and all(
+                        re.fullmatch(r"\d+x", t, re.I) for t in re.findall(r"\w+", m.group(0))
+                        if not re.fullmatch(r"to|through|thru", t, re.I)) \
+                        and not re.search(r"\bsizes?\b", read, re.I):
                     continue
                 # Review OPUS2D R5: a hook or needle in, or just after, any match is tool
                 # advice ("4 mm / 4.5 mm hook", "a small and a large hook"), never a size.

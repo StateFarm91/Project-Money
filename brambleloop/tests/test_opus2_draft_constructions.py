@@ -384,6 +384,65 @@ def test_review_opus2d_the_handler_passes_slug_and_rationale_to_the_route():
     assert "one certified release per size" in refused["needs"] and emitted == []
 
 
+def test_review_opus2e_e1_only_a_titled_single_tote_drafts_and_straps_back_no_count():
+    for category, title in (("bag", "Everyday Market Tote"), ("bag", "Tote Bag"),
+                            ("bag", "Small Tote"), ("home_decor", "Market Shopper")):
+        assert F.plan(category=category, title=title)["family"] == F.TOTE, title
+    refused = (("bag", "Drawstring Bag"), ("home_decor", "Plastic Bag Holder"),
+               ("bag", "Backpack"), ("bag", "Clutch"), ("bag", "Crossbody Phone Bag"),
+               ("toy", "Bean Bag Toss"), ("home_decor", "Lavender Sachet Bag"),
+               ("bag", "Baby Diaper Tote"), ("bag", "3 Tote Bags"), ("bag", "Tote Bags x2"),
+               ("bag", "Gift Bag Set"), ("bag", "Two Market Bags"))
+    assert refused
+    for category, title in refused:
+        assert F.plan(category=category, title=title)["family"] == F.REFUSED, title
+    # Refused by the size gate (count) or, for a count it does not read, by the tote's own
+    # multiplicity rule; either way, one release is one finished object.
+    for title in ("3 Tote Bags", "Market Tote Set", "Tote Pair"):
+        assert "one certified release per" in F.plan(category="bag", title=title)["needs"], title
+    # A size word on the title is honoured, not overridden by "large".
+    seed = pipeline._seed_for("everyday-market-tote")
+    geo = pipeline.concept_geometry(seed)
+
+    def body(title):
+        c = pipeline.Concept(slug="t", title=title, category="bag",
+                             stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                             width_stitches=10, rows=4, colors=geo["colors"])
+        return F.tote(c).components[0].rows[-1].declared_count
+    assert body("Small Tote") < body("Medium Tote") < body("Market Tote")
+
+
+def test_review_opus2e_e3_every_yarn_weight_is_snug_or_refused():
+    from brambleloop.publish.substitution import WEIGHT_BY_KEY
+
+    seed = pipeline._seed_for("easter-egg-cosies")
+    geo = pipeline.concept_geometry(seed)
+    weights = sorted(WEIGHT_BY_KEY)
+    assert len(weights) >= 6
+    drafted = 0
+    for w in weights:
+        c = pipeline.Concept(slug="c", title="Egg Cosy", category="seasonal_decor",
+                             stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                             width_stitches=10, rows=4, colors=geo["colors"], yarn_weight=w)
+        try:
+            cir = F.cosy(c)
+        except ValueError as exc:
+            assert "not drafted" in str(exc), (w, exc)
+            continue
+        drafted += 1
+        around = cir.components[0].rows[-1].declared_count * 10.0 / cir.gauge.stitches_per_10cm
+        assert F.EGG_AROUND_CM <= around <= F.EGG_AROUND_CM * (1 + F.COSY_MAX_EASE), (w, around)
+    assert drafted >= 1
+
+
+def test_review_opus2e_e4_character_texture_and_second_object_cosies_are_refused():
+    assert F.plan(category="seasonal_decor", title="Easter Egg Cosy Set")["family"] == F.COSY
+    for title in ("Easter Bunny Egg Cosy", "Chick Egg Cosies", "Bobble Egg Cosy",
+                  "Easter Egg Cosy and Basket", "Owl Egg Cozy"):
+        route = F.plan(category="seasonal_decor", title=title)
+        assert route["family"] == F.REFUSED and route["needs"], title
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
