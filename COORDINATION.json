@@ -220,6 +220,16 @@
       "state": "no_build_needed",
       "from_unowned": "P0-NEXT-PRODUCT",
       "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md \u00a721."
+    },
+    {
+      "id": "OPUS2-STOCKING",
+      "operator": "opus2",
+      "branch": "opus2/p0-stocking",
+      "state": "ready_for_review",
+      "area": "P0 construction breadth: seasonal stockings",
+      "scope": "radar fallback: a plain stocking (category stocking or a stocking title) drafts as two identical L-shaped panels worked flat from the cuff down (heel chain extends the foot; last rows decrease both ends to round the sole), whipstitched round all but the cuff, with a hanging loop; colourwork, names/monograms, second objects, other sizes and sets refused by name",
+      "stacked_on": "opus2/p0-pet-bed (both insert a route at the same place in plan())",
+      "evidence": "tests/test_opus2_stocking.py 3/3; 44 fallback/vessel/draft suites exit 0"
     }
   ],
   "unowned": [

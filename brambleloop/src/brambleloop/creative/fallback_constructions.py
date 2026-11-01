@@ -35,6 +35,7 @@ PANEL_PAIR = "panel_pair"
 TOTE = "tote"
 COSY = "cosy"
 TRIANGLE = "triangle"
+STOCKING = "stocking"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -45,7 +46,9 @@ NEEDS: dict[str, str] = {
     "hat": ("a hat height and negative ease from a published standard: the CYC head "
             "circumference chart (HEAD_CIRCUMFERENCE_CM) publishes circumference only"),
     "garment": "a graded garment design (creative.garment_design)",
-    "stocking": "a closed tube with a heel and toe",
+    # A stocking whose title the plain two-panel rule cannot back (colourwork, a name, a
+    # second object, another size) is refused in `plan` with its own reason.
+    "stocking": "a stocking construction the two-panel rule does not make",
     "nursery": "several shaped pieces assembled on a hanger",
     "toy": "shaped pieces worked in the round, stuffed and joined",
     # Review OPUS2E E1: a bag that is not a tote (drawstring, backpack, clutch, crossbody,
@@ -123,12 +126,29 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
                         f"is one release of one size")}
     titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
-    if category in NEEDS and not (category == "bag" and titled_tote):
+    if category in NEEDS and not (category == "bag" and titled_tote) and category != "stocking":
         return {"family": REFUSED, "needs": NEEDS[category],
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if category == "stocking" or re.search(_STOCKING_WORDS, (title or "").lower()):
+        lowered_s = (title or "").lower()
+        rest = re.sub(_STOCKING_WORDS, "", lowered_s)
+        extra = re.search(_STOCKING_NOT_PLAIN, rest)
+        if extra:
+            return {"family": REFUSED,
+                    "needs": (f"the construction a {extra.group(0).strip()!r} stocking needs "
+                              f"(per-stitch colourwork, lettering, a second object, a cuff in "
+                              f"another stitch or another size)"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which the plain "
+                            f"two-panel stocking does not make")}
+        if re.search(_MULTIPLE_WORDS, lowered_s):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished stocking, each listed on its own",
+                    "why": "the title promises more than one stocking; one draft is one stocking"}
+        return {"family": STOCKING, "needs": "",
+                "why": "a stocking is two L-shaped panels worked flat and seamed around"}
     if re.search(_EGG_COSY_WORDS, (title or "").lower()):
         rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
         extra = re.search(_COSY_NOT_PLAIN, rest)
@@ -276,6 +296,121 @@ def triangle(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
             f"A triangle about {wingspan:.0f} cm along the top edge and {depth:.0f} cm from "
             f"the top edge to the point, at the stated gauge. Computed, not yet measured on a "
             f"worked sample."),
+        provenance=provenance,
+    )
+
+
+# A stocking: two identical L-shaped panels worked flat from the cuff down, held wrong sides
+# together and whipstitched around the leg, heel, sole and toe, open at the cuff, with a
+# chain hanging loop sewn inside the heel-side top corner. The foot extends by a chain at the
+# end of the heel row (the compiler counts a chain into open air as new fabric), and the sole
+# rounds off by a decrease at each end of the last rows. One design size; the listing states
+# the computed dimensions, never a measured one.
+_STOCKING_WORDS = r"\bstockings?\b"
+_STOCKING_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|mosaic|fair[- ]?isle|tapestry|colou?rwork|"
+                       r"intarsia|graphghan|personali[sz]ed|monogram(?:med)?|name|initials?|"
+                       r"cable[sd]?|bobble[sd]?|lace|lacy|pom[- ]?poms?|fur|faux|cuffed|"
+                       r"appliqu[eé]|mini|tiny|small|large|giant|jumbo|xl|oversized?)\b)")
+STOCKING_PRIMITIVES = ("creative.fallback_constructions.stocking",)
+STOCKING_LEG_W_CM = 14.0
+STOCKING_LEG_L_CM = 26.0
+STOCKING_FOOT_L_CM = 22.0
+STOCKING_FOOT_H_CM = 10.0
+STOCKING_SOLE_ROWS = 4
+STOCKING_LOOP_CHAINS = 15
+
+
+def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A Christmas stocking: two L-shaped panels from the cuff down, seamed, with a loop."""
+    import dataclasses
+
+    from ..cir.model import Seam
+    from ..creative.prototype import gauge_for
+
+    gauge = gauge_for(concept.yarn_weight)
+    palette = list(concept.colors)
+    if not palette:
+        raise ValueError(f"{concept.slug}: a stocking needs at least one colour")
+    per_cm = gauge.stitches_per_10cm / 10.0
+    rows_per_cm = gauge.rows_per_10cm / 10.0
+    leg_w = max(10, int(round(STOCKING_LEG_W_CM * per_cm)))
+    foot_w = max(leg_w + 6, int(round(STOCKING_FOOT_L_CM * per_cm)))
+    extend = foot_w - leg_w
+    leg_rows = max(10, int(round(STOCKING_LEG_L_CM * rows_per_cm)))
+    if leg_rows % 2:
+        leg_rows += 1                     # the heel chain ends an even row (the heel edge)
+    foot_rows = max(STOCKING_SOLE_ROWS + 4, int(round(STOCKING_FOOT_H_CM * rows_per_cm)))
+    main, accent = palette[0], palette[1 % len(palette)]
+    rows: list[Row] = []
+    index = 0
+
+    def colour_for(i: int) -> str:
+        return accent if i <= 4 else main          # a four-row cuff band, then the body
+
+    for i in range(1, leg_rows + 1):
+        index += 1
+        if i == leg_rows:
+            rows.append(Row(index=index, ops=[Op("sc", leg_w), Op("ch", extend)],
+                            declared_count=foot_w, turning_chain=1, color=colour_for(i),
+                            note="chain across for the foot"))
+        else:
+            rows.append(Row(index=index, ops=[Op("sc", leg_w)], declared_count=leg_w,
+                            turning_chain=1, color=colour_for(i)))
+    count = foot_w
+    plain_foot = foot_rows - STOCKING_SOLE_ROWS
+    for j in range(1, foot_rows + 1):
+        index += 1
+        if j == 1:
+            rows.append(Row(index=index, ops=[Op("sc", extend), Op("sc", leg_w)],
+                            declared_count=count, turning_chain=1, color=main,
+                            note="work into each chain, then across the leg"))
+        elif j <= plain_foot:
+            rows.append(Row(index=index, ops=[Op("sc", count)], declared_count=count,
+                            turning_chain=1, color=main))
+        else:
+            rows.append(Row(index=index, ops=[Op("dec"), Op("sc", count - 4), Op("dec")],
+                            declared_count=count - 2, turning_chain=1, color=main,
+                            note="round the heel and toe"))
+            count -= 2
+    panel = Component(
+        name="front", construction="flat_rows", rows=rows, foundation=leg_w,
+        foundation_kind="chain",
+        note=("Worked flat from the cuff down. The last leg row chains across for the foot; "
+              "the last rows decrease at both ends to round the heel and toe."))
+    back = dataclasses.replace(panel, name="back")
+    loop = Component(
+        name="hanging loop", construction="flat_rows", foundation=STOCKING_LOOP_CHAINS,
+        foundation_kind="chain",
+        rows=[Row(index=1, ops=[Op("sc", STOCKING_LOOP_CHAINS)],
+                  declared_count=STOCKING_LOOP_CHAINS, color=accent)],
+        note="A short strip folded in half into a loop.")
+    assembly = [
+        Seam("whipstitch", "front", "back", edge_a="perimeter", edge_b="perimeter",
+             at_round=1, spans_rounds=len(rows),
+             note=("Hold the panels wrong sides together and whipstitch around the leg, heel, "
+                   "sole and toe, leaving the cuff (the foundation edges) open.")),
+        Seam("whipstitch", "hanging loop", "back", edge_a="bottom", edge_b="top",
+             at_round=1, spans_rounds=1,
+             note="Fold the loop in half and sew both ends inside the heel-side top corner."),
+    ]
+    width_cm = foot_w / per_cm
+    leg_cm = leg_rows / rows_per_cm
+    foot_cm = foot_rows / rows_per_cm
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version, construction="flat_rows",
+        risk_class=concept.risk_class, colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=p)
+                   for p in dict.fromkeys([main, accent])],
+        components=[panel, back, loop], assembly=assembly,
+        designer_notes=(f"{concept.category} concept drafted as a two-panel stocking: a "
+                        f"{leg_w}-st leg of {leg_rows} rows with a four-row cuff band, a "
+                        f"{extend}-ch heel extension to a {foot_w}-st foot of {foot_rows} rows, "
+                        f"the last {STOCKING_SOLE_ROWS} rounding the sole"),
+        finished_size_note=(
+            f"A stocking about {leg_w / per_cm:.0f} cm wide at the cuff, "
+            f"{leg_cm + foot_cm:.0f} cm from cuff to sole and {width_cm:.0f} cm from heel to "
+            f"toe, at the stated gauge. Computed, not yet measured on a worked sample."),
         provenance=provenance,
     )
 
