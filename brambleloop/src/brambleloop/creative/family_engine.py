@@ -162,7 +162,9 @@ def family_report(db) -> dict:
             "family": key, "source": f["source"], "members": f["members"],
             "distinct_designs": distinct,
             # A bundle is derived, never asserted: two distinct certified designs (#111).
-            "bundle_ready": distinct >= 2,
+            # Review OPUS2I F-5: a culture family is one signal across product types, not a
+            # checked shared visual identity, so it is never derived as a set.
+            "bundle_ready": distinct >= 2 and not key.startswith(CULTURE_FAMILY_PREFIX),
             "recolour_duplicates": recolours,
             "next_members": next_members[:5],
             "orders": n_orders,
