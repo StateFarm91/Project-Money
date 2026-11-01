@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-01T09:35Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-01T10:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -38,18 +38,24 @@ worktrees, not this file.
 7. Construction breadth. The next item comes from handoff §30 or from the knowledge-gap counts;
    per-stitch colour needs Main Opus's decision, so propose it on PR #3.
 
-## In flight (09:35Z)
-- PR #6 worktree: EF2-6, EF2-8 and B-5 (partial unique index, deferred migrate, dedupe script)
-  are written and 11/11; the 115-suite regression is running (/tmp/claude-0/oq4_results.txt).
-- PR #3 worktree: EF2-1 (`launch0.finished_objects`), EF2-2, EF2-3 and EF2-3b are written; the
-  104-suite regression is running (/tmp/claude-0/ef2_results.txt).
-- `opus2/p1-culture-sweep-timeout` (/home/user/opus2-culture): the fix and tests (3/3) are
-  written; the claim is in COORDINATION on that branch; culture suites are running.
-- If the container was reset, rerun those regressions from the uncommitted worktrees, or, if
-  the worktrees are gone, re-apply from the PR comments.
-- Gap register: `P0_GAP_REGISTER.json` on this branch.
+## In flight (10:00Z)
+- PR #6 `/home/user/opus2-race` (uncommitted): EF2-6, EF2-8 and B-5, 11/11. The 115-suite
+  regression is running (`/tmp/claude-0/oq4_results.txt`); the handoff text is drafted in
+  `/tmp/claude-0/oq_handoff_add.md`.
+- PR #3 `/home/user/opus2-p0` (uncommitted): EF2-1/2/3/3b. The 104-suite regression is running
+  (`/tmp/claude-0/ef2_results.txt`).
+- `opus2/p0-cir-colourwork` `/home/user/opus2-colour` (uncommitted): `Op.color` through the
+  model, compiler, twin, writer and reverse compiler; 6/6; no Launch-0 digest moves. The 84-suite
+  regression is running (`/tmp/claude-0/cw2_results.txt`). The proposal is on PR #3; the
+  integrator decides.
+- `opus2/p0-family-membership` `/home/user/opus2-family` (uncommitted; claim in its
+  COORDINATION): `family_of` reads the culture signal; culture next members; 2/2. Its suites are
+  running (task output b383ivf3a).
+- Next once these land: EF2-7 `owner_queue.ensure` helper; a stocking heel/toe rule; mosaic
+  vessel drafting via `Op.color` (after the integrator decides).
 
 ## Done log
+- 2026-11-01T09:50Z: P1-CULTURE-SWEEP-TIMEOUT pushed in `ec97a79e`, PR #7 opened.
 - 2026-11-01T09:10Z: EF2-4 + EF2-5 pushed in `e93b16ed` (PR #5, commented).
 - 2026-11-01: review E fixes pushed in `0e941757`, F-A in `b42f4245`, F-B in `007f5d1c`;
   OPUS2EF2 re-review returned CHANGES REQUIRED (06:50Z).
