@@ -65,6 +65,22 @@ this guard can stay as the backstop.
 Postgres. The Postgres branch is the same advisory lock the two existing writers already take
 in production.
 
+## Review OPUS2F fixes (2026-11-01)
+
+| Finding | Fix | Test |
+|---|---|---|
+| B-1 MED: the loser was expunged, leaving the caller a None id | the newcomer is merged onto the open row (action, reason, cost, minutes, consequence, blocks restated) and takes its id; a keeper inserted in the same flush hands its id over after the flush | `test_review_opus2f_b1_*` |
+| B-2 LOW: re-keying a row onto an open key | the re-key is reverted to the previous key | `test_review_opus2f_b2_b3_*` |
+| B-3 LOW: reopening a closed row beside an open one | the reopen is reverted (done stays True) | `test_review_opus2f_b2_b3_*` |
+| B-4 LOW: Core inserts bypass the guard | stated in the module docstring; no current site uses one | — |
+| B-5 recommendation: DB partial unique index | **proposed, not built**: it needs a data migration that first closes existing duplicates, which `core.migrate` deliberately refuses ("they need a human looking at them") | — |
+| B-6 LOW: Postgres lock order | stated in the docstring: an inversion is broken by the deadlock detector (one job errors and retries), it does not hang | — |
+
+`tests/test_opus2_owner_queue_races.py` 7/7. Regression on 115 suites: exit 0 except the three
+base-owned failures above plus `test_v11_accounting_controller` and `test_w4_b2gate2`, which fail
+identically on the base 8ea9e43b (month-end close / Etsy re-read timing on 2026-11-01).
+`test_w4_wraptest` and `test_web_security` were cut off by a container restart and pass on rerun.
+
 ## Completion state
 
 Implemented: yes. Independently reviewed, integrated, certified, deployed, production verified:

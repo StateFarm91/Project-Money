@@ -154,6 +154,53 @@ def test_closed_rows_keyless_rows_and_two_new_rows_in_one_flush():
     assert len(_open(db)) == 1          # two new rows for one key in one flush: one is kept
 
 
+def test_review_opus2f_b1_the_loser_is_merged_and_keeps_a_real_id():
+    db = _db()
+    _read_then_insert(db)
+    with db.session() as s:
+        first_id = s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == KEY))
+    with db.session() as s:
+        late = OwnerAction(requirement_key=KEY, action="restated text", reason="newer reason")
+        s.add(late)
+        s.flush()
+        assert late.id == first_id, (late.id, first_id)   # int(row.id) works for the caller
+    rows = _open(db)
+    assert len(rows) == 1 and rows[0].action == "restated text" and rows[0].reason == \
+        "newer reason"
+    # Two newcomers in one flush: one is inserted, the other takes its id.
+    with db.session() as s:
+        a = OwnerAction(requirement_key="pair-key", action="a", reason="r")
+        b = OwnerAction(requirement_key="pair-key", action="b", reason="r")
+        s.add_all([a, b])
+        s.flush()
+        assert a.id is not None and a.id == b.id
+    assert len(_open(db, "pair-key")) == 1
+
+
+def test_review_opus2f_b2_b3_rekeying_or_reopening_never_opens_a_second_row():
+    db = _db()
+    _read_then_insert(db)
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="", action="legacy keyless", reason="r"))
+        s.add(OwnerAction(requirement_key=KEY, action="old", reason="r", done=True))
+    with db.session() as s:                                 # B-2: re-key onto an open key
+        legacy = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ""))
+        legacy.requirement_key = KEY
+    with db.session() as s:                                 # B-3: reopen beside an open row
+        old = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == KEY,
+                                                 OwnerAction.done == True))  # noqa: E712
+        old.done = False
+    assert len(_open(db)) == 1
+    with db.session() as s:
+        assert s.scalar(select(OwnerAction).where(OwnerAction.action == "legacy keyless")
+                        ).requirement_key == ""
+    # A re-key onto a key with no open row is untouched.
+    with db.session() as s:
+        legacy = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ""))
+        legacy.requirement_key = "fresh-key"
+    assert len(_open(db, "fresh-key")) == 1
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

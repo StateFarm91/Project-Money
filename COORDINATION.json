@@ -159,14 +159,14 @@
       "operator": "opus2",
       "branch": "opus2/p1-owner-queue-races",
       "head": "ccb3e8e4",
-      "state": "fixing_review",
+      "state": "ready_for_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
       "area": "P1-OWNER-QUEUE-RACES",
       "from": "P1-OWNER-QUEUE-RACES (offered on PR #3, 2026-10-31T19:17Z)",
       "scope": "central before_flush guard (ops/owner_queue_guard.py) takes the owner-queue lock for every open OwnerAction insert and re-checks open keys; no per-site edits",
       "note": "touches one line per writer in files owned by others; each edit is the lock call only",
-      "evidence": "tests/test_opus2_owner_queue_races.py 5/5 incl. guard-removed control; 115-suite regression exit 0 except 3 base-owned; handoff brambleloop/research/final_build/w5/OPUS2_OWNER_QUEUE_RACES_HANDOFF.md",
-      "review": "OPUS2F CHANGES REQUIRED (B-1 MED; B-2/B-3 LOW; B-5 recommendation)"
+      "evidence": "tests/test_opus2_owner_queue_races.py 7/7 incl. guard-removed control; 115-suite regression exit 0 except base-owned failures; handoff brambleloop/research/final_build/w5/OPUS2_OWNER_QUEUE_RACES_HANDOFF.md",
+      "review": "OPUS2F CHANGES REQUIRED -> B-1..B-3 fixed, B-4/B-6 documented, B-5 proposed to the integrator (needs a data migration) 2026-11-01; awaiting re-review"
     }
   ],
   "unowned": [
