@@ -46,6 +46,10 @@ class ColourPlan:
     # Per colour, the rows it is worked in, in working order -- what the round-worked wording
     # below reads its "cut after", "rests" and "pick up again" rounds from.
     rows_by_colour: dict[str, list[int]] = field(default_factory=dict)
+    # Review J7-1/J7-2: every row a yarn is WORKED in -- as the row's main colour or as a
+    # tapestry contrast inside it. Cutting ("not used again") and resting are decided on this,
+    # never on the main colour alone.
+    rows_used: dict[str, list[int]] = field(default_factory=dict)
     last_row: int | None = None
     tapestry_rows: list[int] = field(default_factory=list)
     tapestry_cuts: int = 0
@@ -83,6 +87,7 @@ def plan_component(comp) -> ColourPlan:
             colours_seen.add(r.color)
             current = r.color
         plan.rows_by_colour.setdefault(r.color, []).append(r.index)
+        plan.rows_used.setdefault(r.color, []).append(r.index)
         plan.last_row = r.index
         end = (1 - start) if plan.turned else start
         resting[r.color] = end
@@ -103,6 +108,9 @@ def plan_component(comp) -> ColourPlan:
                     plan.first_tapestry_cut_row = r.index
             resting[colour] = end
             plan.events.append((r.index, colour, IN_ROW))
+            used = plan.rows_used.setdefault(colour, [])
+            if not used or used[-1] != r.index:
+                used.append(r.index)
             if r.index not in plan.tapestry_rows:
                 plan.tapestry_rows.append(r.index)
         previous_in_row = set(in_row)
@@ -154,7 +162,7 @@ def rounds_instruction(plan: ColourPlan, *, piece: str = "piece", make: int = 1,
            f"the new colour."]
     where = "up the inside of the join" if upright else "on the wrong side at the join"
     for colour in sorted(plan.rows_by_colour, key=lambda c: plan.rows_by_colour[c][0]):
-        rows = plan.rows_by_colour[colour]
+        rows = plan.rows_used.get(colour) or plan.rows_by_colour[colour]
         rests = _rests(rows)
         if rests:
             spans = " and ".join(_span(a, b, "Rnd") for a, b in rests)

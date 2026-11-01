@@ -121,6 +121,60 @@ def test_a_joined_round_tapestry_piece_prints_its_colourwork_in_the_pattern():
     text = writer.write_pattern(cir, compile_cir(cir))
     assert "Colourwork round 3" in text, "the written pattern omits the tapestry instruction"
 
+
+def _rounds_cir(rows_spec, *, make=1):
+    """A joined-round piece: rows_spec = [(main colour, ops, declared count), ...]."""
+    from brambleloop.cir.model import CIR, Component, Gauge, Row
+
+    rows = [Row(i, ops, declared_count=n, color=colour)
+            for i, (colour, ops, n) in enumerate(rows_spec, start=1)]
+    return CIR(slug="j7-rounds", title="J7 Rounds", version="1.0.0",
+               construction="joined_rounds", gauge=Gauge(18, 20),
+               colors={"natural": "#EFE6D2", "rust": "#A4502C"},
+               components=[Component("body", "joined_rounds", foundation=0,
+                                     foundation_kind="magic_ring", rows=rows, make=make)])
+
+
+def test_a_yarn_worked_again_as_a_contrast_is_never_cut_or_rested():
+    """Review J7-1 (MED) / J7-2: the rounds wording decided "Cut X ... not used again" and
+    "X rests" from main colours only, so a yarn that returns as a tapestry contrast was told
+    to be cut (contradicting "Do not cut" and the ends count) or to rest while being worked.
+    Also pins J7-3 mutants: the tapestry sentence when a main colour changes too (M2), its
+    place before the ends line (M8), "on each <piece>" (M5) and the rounds routing (M4)."""
+    from brambleloop.cir import writer
+    from brambleloop.cir.colour_changes import analyse, rounds_instruction
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.model import Op, Repeat
+
+    tap = [Repeat([Op("sc", 2), Op("sc", 2, color="natural")], times=3)]
+    # Case C: natural rounds 1-2, rust 3-5, natural back as a contrast in rust round 4.
+    case_c = _rounds_cir([("natural", [Op("sc", 6)], 6), ("natural", [Op("inc", 6)], 12),
+                          ("rust", [Op("sc", 12)], 12), ("rust", tap, 12),
+                          ("rust", [Op("sc", 12)], 12)])
+    plan = analyse(case_c)["body"]
+    assert plan.changes == 1 and plan.tapestry_rows == [4], plan
+    line = rounds_instruction(plan)
+    assert "Cut natural after Rnd 2" not in line, line            # J7-1: it returns in Rnd 4
+    assert "Cut natural after Rnd 4" in line, line                # its real last use
+    assert "pick it up again for Rnd 4" in line, line
+    assert "Colourwork round 4" in line, line                     # M2: changes > 0 keeps it
+    assert line.index("Colourwork round 4") < line.index("Ends to weave in"), line  # M8
+    assert f"Ends to weave in: about {plan.ends}." in line and plan.ends == 4, line
+    text = writer.write_pattern(case_c, compile_cir(case_c))
+    assert "falls at the join" in text and "Colourwork round 4" in text   # M4: rounds path
+    assert "Cut natural after Rnd 2" not in text
+    # Case D: natural is worked as a contrast in round 3, so it does not "rest" there.
+    case_d = _rounds_cir([("natural", [Op("sc", 6)], 6), ("natural", [Op("inc", 6)], 12),
+                          ("rust", [Repeat([Op("sc", 2), Op("sc", 2, color="natural")],
+                                           times=3)], 12),
+                          ("natural", [Op("sc", 12)], 12)])
+    assert "rests (Rnd 3)" not in rounds_instruction(analyse(case_d)["body"])   # J7-2
+    # M5: a piece made several times says the ends are per piece.
+    multi = _rounds_cir([("natural", [Op("sc", 6)], 6), ("natural", [Op("inc", 6)], 12),
+                         ("natural", [Repeat([Op("sc", 2), Op("sc", 2, color="rust")],
+                                             times=3)], 12)], make=2)
+    assert "on each body" in rounds_instruction(analyse(multi)["body"], piece="body", make=2)
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]
