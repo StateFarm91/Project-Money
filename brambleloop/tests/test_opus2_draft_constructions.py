@@ -242,8 +242,13 @@ def test_review_opus2c_n31_n32_several_sizes_and_shaped_categories_are_refused()
     assert F.plan(category="basket", title="Storage Basket")["family"] == F.VESSEL
     # N3.2: shaped or charted categories and titles never take the flat route.
     for category, title in (("ornament", "Star Ornament"), ("flower", "Daisy"),
-                            ("blanket", "Hexagon Granny Blanket"), ("pet", "Cat Bed")):
+                            ("blanket", "Hexagon Granny Blanket")):
         assert F.plan(category=category, title=title)["family"] == F.REFUSED, title
+    # A cat bed was refused here only because no bed construction existed; it is now drafted
+    # as the wide, low vessel (tests/test_opus2_pet_bed.py), which still never takes the flat
+    # route N3.2 forbids.
+    bed = F.plan(category="pet", title="Cat Bed")["family"]
+    assert bed == F.VESSEL and bed != F.FLAT_PANEL
     assert F.plan(category="blanket", title="Everyday Throw")["family"] == F.FLAT_PANEL
 
 
