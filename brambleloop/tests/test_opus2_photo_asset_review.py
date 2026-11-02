@@ -493,6 +493,193 @@ def test_review_opus2s_s4_each_order_and_claim_rule_is_load_bearing():
                for v in checks.values()), checks
 
 
+
+def _qualify_by_a_later_full_make(db, cir, fid):
+    """The photo was filed before any full make passed; a full make passes later and is
+    linked to it. No attestation call runs, so `lead_with_if_qualifying` is never triggered."""
+    from brambleloop.core.models import PhysicalPhoto
+
+    test_id = T._passed_full_make(db, cir)
+    with db.session() as s:
+        pid = s.get(ListingAsset, fid).claims["physical_photo_id"]
+        s.get(PhysicalPhoto, pid).physical_test_id = test_id
+    q = sample_photo.qualifying_photos(db, cir.slug, cir.version)
+    assert any(e.get("photo_id") == pid for e in q.get("qualifying") or []), q
+    return pid
+
+
+def test_review_a3d1_a_photo_that_qualifies_later_without_an_attestation_leads_and_approves():
+    """A3D-1 (MED liveness) and A3D-4 (K9, K12): a held frame whose photo qualifies through a
+    later full make -- not `attest_unedited` -- is re-opened, promoted to lead, approved, and
+    its stale "not qualifying" reason is gone; the set includes it again."""
+    db, cir, _release, _p = _setup(full_make=False)
+    fid = _photo_frame(db, cir)
+    assert par.review_frame(db, fid, reissue=False)["not_qualifying"]
+    assert fid not in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+    _qualify_by_a_later_full_make(db, cir, fid)
+    assert par.awaiting_frames(db) == [fid]
+    swept = par.sweep(db)
+    assert swept["approved"] == 1, swept
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert f.approved is True and f.blocked_reasons == [], f.blocked_reasons
+        assert f.position == 1 and f.claims.get("leads_gallery") is True
+    assert fid in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+    assert par.awaiting_frames(db) == []                  # nothing left to churn
+    assert par.sweep(db)["reviewed"] == 0
+
+
+def test_review_a3d1_a_qualifying_photo_that_fails_another_check_is_never_left_stale():
+    """A3D-1: when a held photo qualifies but still fails a non-qualifying check (here a claim
+    it may not make), its "not qualifying" reason is replaced by the awaiting reason: it rejoins
+    the set and blocks it by name, instead of staying excluded with a false reason."""
+    db, cir, _release, _p = _setup(full_make=False)
+    fid = _photo_frame(db, cir)
+    assert par.review_frame(db, fid, reissue=False)["not_qualifying"]
+    _qualify_by_a_later_full_make(db, cir, fid)
+    # reviewed directly, as A3D-1 traced it: filed last, it fails only frame_order_valid
+    out = par.review_frame(db, fid, reissue=False)
+    assert out["approved"] is False and out["failed"] == ["frame_order_valid"], out
+    assert out.get("reopened_awaiting") == ["frame_order_valid"], out
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert f.approved is False and f.blocked_reasons == [par.AWAITING], f.blocked_reasons
+    assert fid in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+
+
+
+def test_review_a3d4_k9_k12_a_held_supplement_that_qualifies_later_is_approved_clean():
+    """A3D-4 (K9, K12): the set already leads with an approved photograph; a second photo
+    filed before its full make passed is held as not qualifying. Once its full make is linked,
+    the sweep re-opens it, nothing is promoted (a photograph leads), the review approves it as
+    a supplement and no "not qualifying" reason survives the approval."""
+    db, cir, _release, _p = _setup()
+    lead = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    _second_attested_photo(db, cir, None)
+    with db.session() as s:
+        second = [f.id for f in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug,
+            ListingAsset.asset_class == par.PHOTO_CLASS)) if f.id != lead][0]
+    assert par.review_frame(db, second, reissue=False)["not_qualifying"]
+    _qualify_by_a_later_full_make(db, cir, second)
+    assert par.awaiting_frames(db) == [second]
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as s:
+        f, first = s.get(ListingAsset, second), s.get(ListingAsset, lead)
+        assert f.approved is True and f.blocked_reasons == [], f.blocked_reasons
+        assert f.claims.get("leads_gallery") is False and f.position > 1
+        assert first.position == 1 and first.claims.get("leads_gallery") is True
+    assert second in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+
+
+def test_review_a3d3_a_frame_holding_other_bytes_is_not_reopened_every_sweep():
+    """A3D-3: the photo qualifies, but the frame holds other bytes. It is not re-opened, so
+    no hourly re-review, audit row or re-certification repeats for it."""
+    from sqlalchemy import func
+
+    db, cir, _release, _p = _setup(full_make=False)
+    fid = _photo_frame(db, cir)
+    par.review_frame(db, fid, reissue=False)
+    _qualify_by_a_later_full_make(db, cir, fid)
+    with db.session() as s:
+        s.get(ListingAsset, fid).sha256 = "0" * 64
+    assert par.awaiting_frames(db) == []
+    with db.session() as s:
+        before = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == par.ACTION))
+    for _ in range(3):
+        assert par.sweep(db)["reviewed"] == 0
+    with db.session() as s:
+        assert s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == par.ACTION)) == before
+
+
+def test_review_a3d4_k7_an_unreadable_record_is_never_made_terminal():
+    """A3D-4 (K7): when the qualifying record cannot be read, the frame stays awaiting review
+    (and so in the set, blocking it); it is never marked terminal and dropped from the set."""
+    db, cir, _release, _p = _setup()
+    fid = _photo_frame(db, cir)
+    real = sample_photo.qualifying_photos
+
+    def unreadable(*_a, **_k):
+        raise RuntimeError("store unreadable")
+    sample_photo.qualifying_photos = unreadable
+    try:
+        out = par.review_frame(db, fid, reissue=False)
+    finally:
+        sample_photo.qualifying_photos = real
+    assert out["approved"] is False and not out.get("not_qualifying"), out
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert f.blocked_reasons == [par.AWAITING], f.blocked_reasons
+    assert fid in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+
+
+def test_review_a3d2_the_leading_writer_waits_for_the_review_lock():
+    """A3D-2: a review holds the lock and approves the frame; `lead_with_if_qualifying` runs
+    meanwhile. It takes the same lock before it reads, so it reads the approval and writes
+    approved=False with the awaiting reason -- never approved=True beside an awaiting reason
+    (the stale-copy write SQLAlchemy would send without approved)."""
+    import threading
+    import time
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from brambleloop.core.models import PhysicalPhoto
+    from brambleloop.publish import physical_upgrade as pu
+
+    db, cir, _release, _p = _setup(attest=False)
+    fid = _photo_frame(db, cir)
+    with db.session() as s:
+        pid = s.get(ListingAsset, fid).claims["physical_photo_id"]
+        p = s.get(PhysicalPhoto, pid)          # attested, but not yet moved to the front
+        p.detail = {**(p.detail or {}), "owner_attestation": {
+            "sha256": p.sha256, "by": T.OWNER, "confirmed": pu.UNEDITED_CONFIRMATION}}
+        flag_modified(p, "detail")
+    held = threading.Event()
+
+    def a_review_holding_the_lock():
+        with db.session() as s:
+            par._lock(s, db)
+            f = s.get(ListingAsset, fid)
+            f.approved, f.blocked_reasons = True, []
+            s.flush()
+            held.set()
+            time.sleep(1.0)
+
+    t = threading.Thread(target=a_review_holding_the_lock)
+    t.start()
+    held.wait(5)
+    assert pu.lead_with_if_qualifying(db, pid) is True
+    t.join()
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert f.blocked_reasons == [par.AWAITING] and f.approved is False, (
+            f.approved, f.blocked_reasons)
+
+
+def test_review_a3d5_a_lock_that_cannot_be_taken_refuses_one_frame_and_the_sweep_goes_on():
+    """A3D-5: a write lock held past the busy timeout is a refusal for that frame, not an
+    exception that stops the sweep; nothing is written."""
+    from sqlalchemy.exc import OperationalError
+
+    db, cir, _release, _p = _setup()
+    fid = _photo_frame(db, cir)
+    real = par._lock
+
+    def locked(s, db_):
+        raise OperationalError("BEGIN IMMEDIATE", {}, Exception("database is locked"))
+    par._lock = locked
+    try:
+        out = par.sweep(db)
+    finally:
+        par._lock = real
+    assert out["approved"] == 0 and out["reviewed"] == 1, out
+    assert "UNKNOWN" in out["refused"][0]["failed"][0], out
+    with db.session() as s:
+        assert s.get(ListingAsset, fid).blocked_reasons == [par.AWAITING]
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

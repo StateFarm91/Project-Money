@@ -144,7 +144,21 @@ def _reviewable(reasons) -> bool:
 def review_frame(db, frame_id: int, *, reissue: bool = True) -> dict:
     """Review one photo frame under the write lock; approve it only when every check is
     exactly True. A frame that does not qualify gets a terminal named reason instead of
-    staying awaiting (I-A3-NONQUALIFYING-PHOTO); the listing-set certificate excludes it."""
+    staying awaiting (I-A3-NONQUALIFYING-PHOTO); the listing-set certificate excludes it.
+
+    A3D-5: a lock that cannot be taken (another writer past the busy timeout) is a refusal for
+    this frame, not an exception that stops the sweep; nothing is written and the next sweep
+    reviews it again."""
+    from sqlalchemy.exc import OperationalError
+
+    try:
+        return _review_frame(db, frame_id, reissue=reissue)
+    except OperationalError as exc:
+        return {"frame_id": frame_id, "approved": False,
+                "failed": [f"UNKNOWN: write lock not taken ({type(exc).__name__})"]}
+
+
+def _review_frame(db, frame_id: int, *, reissue: bool) -> dict:
     from sqlalchemy import select
 
     from ..core.models import AuditLog, ListingAsset
@@ -189,6 +203,14 @@ def review_frame(db, frame_id: int, *, reissue: bool = True) -> dict:
                 frame.blocked_reasons = [f"{NOT_QUALIFYING}{', '.join(failed)}"] + others
                 frame.approved = False
                 out["not_qualifying"] = failed
+            elif any(str(r).startswith(NOT_QUALIFYING) for r in frame.blocked_reasons or []):
+                # A3D-1: the photo qualifies now, but another check fails (its order, a claim,
+                # an UNKNOWN). The "not qualifying" reason is no longer true: it goes back to
+                # awaiting review, rejoins the set and blocks it by name -- never a stale
+                # reason that keeps a qualifying photo out of the set for good.
+                frame.blocked_reasons = [AWAITING] + others
+                frame.approved = False
+                out["reopened_awaiting"] = failed
         s.add(AuditLog(actor="asset_truth", action=ACTION,
                        artifact=f"{ctx.get('slug')}@{ctx.get('version')}",
                        detail={k: v for k, v in out.items() if k != "certificate"}))
@@ -218,22 +240,61 @@ def awaiting_frames(db) -> list[int]:
     out: list[int] = []
     with db.session() as s:
         rows = [(f.id, f.product_slug, f.version, list(f.blocked_reasons or []),
-                 dict(f.claims or {}).get("physical_photo_id"))
+                 dict(f.claims or {}).get("physical_photo_id"), f.sha256)
                 for f in s.scalars(select(ListingAsset).where(
                     ListingAsset.asset_class == PHOTO_CLASS).order_by(ListingAsset.id))]
-    for fid, slug, version, reasons, pid in rows:
+    for fid, slug, version, reasons, pid, sha in rows:
         if AWAITING in reasons:
             out.append(fid)
         elif any(str(r).startswith(NOT_QUALIFYING) for r in reasons):
-            q = sample_photo.qualifying_photos(db, slug, version)
-            if any(e.get("photo_id") == pid for e in q.get("qualifying") or []):
+            try:
+                q = sample_photo.qualifying_photos(db, slug, version)
+            except Exception:  # noqa: BLE001 - unreadable: stays held, re-read next sweep
+                continue
+            # A3D-3: only a frame whose own bytes are the qualifying photo's is re-opened; a
+            # frame holding other bytes would fail the hash check again on every sweep.
+            if any(e.get("photo_id") == pid and sha and e.get("sha256") == sha
+                   for e in q.get("qualifying") or []):
                 out.append(fid)
     return out
 
 
+def _promote_if_leaderless(db, frame_id: int) -> bool:
+    """A3D-1: a held photo that qualifies now, in a set no photograph leads, is moved to lead
+    through the same `lead_with_if_qualifying` an attestation uses -- whatever made it qualify
+    (a later full make, a rights record, restored bytes). A set already led by a photograph is
+    left as it is; this one is reviewed as a supplement."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+    from .physical_upgrade import lead_with_if_qualifying
+
+    with db.session() as s:
+        frame = s.get(ListingAsset, int(frame_id))
+        if frame is None:
+            return False
+        pid = dict(frame.claims or {}).get("physical_photo_id")
+        reasons = list(frame.blocked_reasons or [])
+        photo_leads = any(
+            f.asset_class == PHOTO_CLASS and (f.claims or {}).get("leads_gallery") is True
+            for f in s.scalars(select(ListingAsset).where(
+                ListingAsset.product_slug == frame.product_slug,
+                ListingAsset.version == frame.version)))
+    if photo_leads or not isinstance(pid, int) or not any(
+            str(r).startswith(NOT_QUALIFYING) for r in reasons):
+        return False
+    return bool(lead_with_if_qualifying(db, pid))
+
+
 def sweep(db) -> dict:
     """Review every awaiting (or newly qualifying) photo frame. CA$0, never publishes."""
-    results = [review_frame(db, fid) for fid in awaiting_frames(db)]
+    results = []
+    for fid in awaiting_frames(db):
+        try:
+            _promote_if_leaderless(db, fid)
+        except Exception:  # noqa: BLE001 - not promoted: the review below still names why
+            pass
+        results.append(review_frame(db, fid))
     return {"reviewed": len(results), "approved": sum(1 for r in results if r["approved"]),
             "not_qualifying": [r.get("frame_id") for r in results if r.get("not_qualifying")],
             "refused": [{"frame_id": r.get("frame_id"), "failed": r["failed"]}
