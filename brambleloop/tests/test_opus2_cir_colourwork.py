@@ -375,6 +375,23 @@ def test_review_opus2j_j8b_every_motif_row_needs_the_minimum_run():
     assert _truth(one_run_two_dots, "Tapestry Panel")[0]["backed"] is False
 
 
+def test_review_opus2k_k5_k6_every_spelling_is_folded_and_held_double_is_not_stranded():
+    plain = _band({})
+    variants = ("Fair\u2013Isle", "Fair\u2014Isle", "Fair\u2011Isle", "Fair/Isle", "Fair.Isle",
+                "Fair\u00b7Isle", "Colour\u2011Work", "Colour/Work", "Graphgan", "Two-Tone",
+                "Bicolour", "Multicolour", "Three-Colour", "Tri-Colour", "Two-Coloured",
+                "Two Colours", "2-Colour", "Duplicate-Stitched", "C2C", "Corner to Corner",
+                "Mosaics", "Colourworked")
+    assert variants
+    for word in variants:
+        truth, findings = _truth(plain, f"{word} Basket")
+        assert truth["backed"] is False and findings, word
+        assert _truth(plain, "Plain Basket", tags=(word,))[1], word       # as a tag too
+    for title in ("Double-Stranded Basket", "Held Double Stranded Basket"):
+        truth, findings = _truth(plain, title)
+        assert truth["backed"] is True and findings == [], (title, findings)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

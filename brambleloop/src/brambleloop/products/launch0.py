@@ -367,19 +367,38 @@ _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwo
 # ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
 # matching, and each variant maps to the technique whose rule judges it.
 _CLAIM_VARIANTS: dict[str, str] = {
-    "colour work": "colourwork", "color work": "colourwork",
-    "stranded": "fair isle", "jacquard": "fair isle",
-    "two colour": "colourwork", "two color": "colourwork",
-    "duplicate stitch": "intarsia",     # embroidered blocks: not modelled, refused like intarsia
+    # variant regex (on folded text) -> the technique whose rule judges it
+    r"colou?r work": "colourwork",
+    r"(?:two|three|four|multi|bi|tri|2|3|4) ?colou?r(?:s|ed)?": "colourwork",
+    r"two ?tone[d]?": "colourwork",
+    # "Double-Stranded" / "held double" is a yarn-holding construction, not stranded
+    # colourwork (OPUS2K K-6a), so it is not a claim.
+    r"(?<!double )(?<!held )stranded|jacquard": "fair isle",
+    r"graph ?gh?an": "graphghan",
+    r"c2c|corner to corner": "graphghan",          # a charted picture blanket: graphghan rule
+    r"duplicate stitch(?:ed)?": "intarsia",        # embroidered blocks: not modelled, refused
 }
 
 
+def _fold(text: str) -> str:
+    """NFKC, lowercase, every non-alphanumeric run to one space (OPUS2K K-5: dashes of every
+    kind, slashes, dots and middle dots are separators, so "Fair–Isle" is "fair isle")."""
+    import unicodedata
+
+    t = unicodedata.normalize("NFKC", str(text or "")).lower()
+    return " " + re.sub(r"[^0-9a-z]+", " ", t).strip() + " "
+
+
 def colourwork_claims(text: str) -> tuple[str, ...]:
-    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6)."""
-    folded = " " + re.sub(r"[\s_\-]+", " ", str(text or "").lower()) + " "
-    found: list[str] = [c for c in COLOURWORK_CLAIMS if c in folded]
+    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6,
+    OPUS2K K-5)."""
+    folded = _fold(text)
+    # A prefix match from a word start, as the old substring match was ("Mosaics",
+    # "Colourworked" are still claims), never inside another word.
+    found: list[str] = [c for c in COLOURWORK_CLAIMS
+                        if re.search(rf"\b{re.escape(_fold(c).strip())}", folded)]
     found += [canon for variant, canon in _CLAIM_VARIANTS.items()
-              if re.search(rf"\b{re.escape(variant)}\b", folded)]
+              if re.search(rf"\b(?:{variant})\b", folded)]
     return tuple(dict.fromkeys(found))
 
 
