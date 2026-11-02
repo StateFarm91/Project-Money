@@ -3,7 +3,7 @@
 Owner directive 2026-11-02: "Provider credentials must never automatically authorize paid
 image generation. ... The presence of an API key must not activate paid calls."
 
-Production (0967c3ee) had `BRAMBLELOOP_IMAGE_KEY_BFL` set and contacted api.bfl.ai on the
+Production (0967c3ee) had `BRAMBLELOOP_IMAGE_KEY_BFL` set and contacted the BFL image API on the
 six-hourly capability-probe cadence with no owner activation: `images.probe_if_due` rendered a
 paid image because a key existed, a successful probe opened the `image_generation` gate, and
 the gate opened paid generation everywhere downstream. The vision probe spent the same way.

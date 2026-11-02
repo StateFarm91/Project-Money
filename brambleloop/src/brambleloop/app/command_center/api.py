@@ -806,6 +806,7 @@ def make_router(db) -> APIRouter:
         from datetime import datetime
 
         from ...gateway import paid_provider_gate as gate
+        from ...gateway.paid_provider_gate import activate as activate_paid_provider
 
         body = await body_of(request)
         auth.require_stepup(db, request, gate.STEP_UP_ACTION)
@@ -813,7 +814,9 @@ def make_router(db) -> APIRouter:
         try:
             raw_exp = body.get("expires_at")
             expires = datetime.fromisoformat(str(raw_exp)) if raw_exp else None
-            out = await run_in_threadpool(lambda: gate.activate(
+            # `activate_paid_provider`, not `.activate(`: this writes the owner's local
+            # activation row; it is not an Etsy listing activation (close5 F-542's scan).
+            out = await run_in_threadpool(lambda: activate_paid_provider(
                 db, provider=str(body.get("provider") or "")[:40],
                 scope=str(body.get("scope") or "")[:16], by=actor(request),
                 session_public_id=pid,

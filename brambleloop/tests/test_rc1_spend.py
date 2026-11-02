@@ -28,6 +28,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 
 for _k in list(os.environ):
@@ -36,6 +37,8 @@ for _k in list(os.environ):
 
 from sqlalchemy import func, select  # noqa: E402
 
+import _paid_activation as _paid  # noqa: E402
+from brambleloop.gateway import paid_provider_gate as _paid_gate  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
@@ -63,6 +66,10 @@ def _db(file: bool = True):
     db = Database(url)
     db.create_all()
     Registry(db).seed_defaults()
+    # V0: these tests are about spend accounting AFTER the owner activated the image
+    # providers; a refusal here must be the ceiling's or the provider's, not "not activated".
+    for provider in _paid_gate.image_providers():
+        _paid.activate(db, provider)
     return db
 
 
@@ -194,8 +201,10 @@ def test_b2_every_render_writes_an_image_cost_row_and_the_ceiling_counts_it():
     db = _db()
     wd = tempfile.mkdtemp(dir=_TMP)
     with _PatchPost(_ok_post):
-        got = [images.generate("x", env=ENV, db=db, work_dir=wd, provider_key=IMAGE_KEY)
-               for _ in range(3)]
+        # V0: three DIFFERENT renders (the gate refuses to buy an identical request twice
+        # in a day; that is its idempotency, tested in test_w5_v0_paid_provider_gate).
+        got = [images.generate(f"x{i}", env=ENV, db=db, work_dir=wd, provider_key=IMAGE_KEY)
+               for i in range(3)]
     assert _count(db, kind=routing.IMAGE_COST_KIND) == 3
     assert all(g["cost_entry_id"] for g in got)
     assert abs(gw.spent_this_month_cad(db) - 3 * RENDER_CAD) < 1e-6

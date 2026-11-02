@@ -37,3 +37,39 @@ def activate(db, provider: str, *scopes: str, daily: float = 5.0, monthly: float
                               session_public_id=owner_session(db), daily_ceiling_cad=daily,
                               monthly_ceiling_cad=monthly, per_gallery_cad=per_gallery))
     return out
+
+
+def scoped_store(*providers: str):
+    """A real accounting store with each provider activated (all its scopes) and a job scope
+    open around the caller's paid calls, so `paid_provider_gate.enforce` can reserve, check
+    and settle. For tests of transport behaviour AFTER activation; refusal tests never use it.
+
+        with scoped_store("anthropic-vision") as db:
+            provider.see(...)
+    """
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _cm():
+        from brambleloop.agents.registry import Registry
+        from brambleloop.core.db import Database
+        from brambleloop.gateway import paid_calls
+        from brambleloop.queue.durable import JobQueue
+
+        db = Database("sqlite://")
+        db.create_all()
+        Registry(db).seed_defaults()
+        for p in providers:
+            activate(db, p)
+        job = JobQueue(db).enqueue("market_radar", "intel.gallery_analysis", {},
+                                   idempotency_key=f"paid-scope:{secrets.token_hex(4)}")
+        with paid_calls.job_scope(db, job):
+            # the company-budget reservation the model gateway takes before every paid call
+            from brambleloop.gateway import anthropic as gw
+            from brambleloop.gateway import paid_provider_gate as G
+
+            decided = gw.check_budget_cad(db, estimate_cad=0.05, holder="test",
+                                          purpose="test.paid_scope")
+            G.note_budget(db, decided)
+            yield db
+    return _cm()
