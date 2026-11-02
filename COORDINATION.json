@@ -1069,7 +1069,7 @@
       },
       {
         "id": "CODEX3-QUEUED",
-        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus)",
+        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus) + 24b70df, 2b6688a; executor answer #28 6589146793 (in-process exec of pinned brambleloop/research/bench2/product_truth.py sha256 dec34b0b...: safety rests on reviewing that exact source + SHA integrity, not on restricted globals)",
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
         "started": null,
         "note": "starts when CODEX2 reports (one Codex review at a time)"
