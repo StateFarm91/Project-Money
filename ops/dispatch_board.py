@@ -32,6 +32,8 @@ TAG = re.compile(r"^\s*\[(MAIN|SECONDARY|CODEX)\]\s*([A-Z-]+)?", re.M)
 NEEDS_REPLY = {"ASSIGN", "QUESTION", "BLOCKED", "REVIEW-REQUEST", "VERDICT", "NEXT"}
 REPLY_SLA = timedelta(minutes=15)
 BOARD_MARK = "<!-- dispatch-board -->"
+TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}   # review F1: public issue; ignore anyone else
+BOT = "github-actions[bot]"
 
 
 def api(url: str, token: str | None, method: str = "GET", body: dict | None = None):
@@ -59,6 +61,8 @@ def messages(cs: list[dict]) -> list[dict]:
     out = []
     for c in cs:
         m = TAG.match(c.get("body") or "")
+        if c.get("author_association") not in TRUSTED:
+            continue
         if m and BOARD_MARK not in (c.get("body") or ""):
             out.append({"id": c["id"], "who": m.group(1), "kind": (m.group(2) or "").strip(),
                         "at": A.parse(c["created_at"]), "url": c["html_url"]})
@@ -83,12 +87,17 @@ def board(repo: str, issue: int, token: str | None, root: Path = A.ROOT,
     late = unanswered(msgs, t)
     stale = [r for r in A.status(root, t) if r["overdue"]]
     last_main = max((m["at"] for m in msgs if m["who"] == "MAIN"), default=None)
-    reviews = [r for r in A.load_coord(root).get("reviews", [])
-               if last_main and (A.parse(r.get("recorded")) or t) > last_main]
+    reviews = []
+    for r in A.load_coord(root).get("reviews", []):
+        when = A.parse(r.get("recorded") or r.get("at"))
+        if last_main and when and when > last_main:       # review F3: undated entries skipped
+            reviews.append((r.get("subject") or r.get("sha") or r.get("pr") or "review", A.iso(when)))
     seen = {}
     for m in msgs:
         seen[m["who"]] = m["at"]
-    lines = [BOARD_MARK, f"**Dispatch board**, computed {A.iso(t)}. Read-only; it never assigns or reassigns.", ""]
+    # review F4: no timestamp in the body, so an unchanged board is not re-edited every run
+    lines = [BOARD_MARK, "**Dispatch board** (read-only; never assigns or reassigns). Counts only "
+             "messages from the repository owner or collaborators.", ""]
     lines.append("Last message: " + ", ".join(f"{k} {A.iso(v)}" for k, v in sorted(seen.items())) if seen else "No tagged messages yet.")
     lines.append("")
     lines.append(f"**Unanswered more than {int(REPLY_SLA.total_seconds() // 60)} min ({len(late)})**")
@@ -96,13 +105,13 @@ def board(repo: str, issue: int, token: str | None, root: Path = A.ROOT,
     lines.append(f"**Overdue assignments ({len(stale)})**")
     lines += [f"- {r['id']} ({r['owner']}, {r['stage']}): " + "; ".join(r["overdue"]) for r in stale] or ["- none"]
     lines.append(f"**Reviews recorded since Main's last message ({len(reviews)})**")
-    lines += [f"- {r.get('subject')} {r.get('recorded')}" for r in reviews] or ["- none"]
+    lines += [f"- {s} {w}" for s, w in reviews] or ["- none"]
     return "\n".join(lines)
 
 
 def post(repo: str, issue: int, token: str, text: str) -> None:
     for c in comments(repo, issue, token):
-        if BOARD_MARK in (c.get("body") or ""):
+        if BOARD_MARK in (c.get("body") or "") and (c.get("user") or {}).get("login") == BOT:
             if c["body"] != text:
                 api(c["url"], token, "PATCH", {"body": text})
             return
