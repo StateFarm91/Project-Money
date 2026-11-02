@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T11:41:53.787312+00:00",
+ "generated_at": "2026-11-02T20:23:42.881387+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 137,
-  "handlers": 169,
+  "cadences": 138,
+  "handlers": 170,
   "agents": 34,
-  "follow_on_edges": 83
+  "follow_on_edges": 84
  },
  "departments": [
   {
@@ -375,6 +375,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "culture_ideate",
+      "agent": "market_radar",
+      "job_type": "culture.ideate",
+      "period_seconds": 86400
+     },
+     {
       "name": "gallery_analysis",
       "agent": "market_radar",
       "job_type": "intel.gallery_analysis",
@@ -439,6 +445,7 @@
      "plan.cycle",
      "portfolio.review",
      "radar.scan",
+     "radar/ideation.py:open_briefs",
      "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
     ]
@@ -475,12 +482,14 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.culture_ideation_ops",
      "brambleloop.runtime.evidence_ops",
      "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
+     "culture.ideate",
      "culture.sweep",
      "etsy.probe",
      "intel.acceptance",

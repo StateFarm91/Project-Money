@@ -897,6 +897,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # hour is not one; courtesy to a free source is also part of the justification for
     # using it.
     ("culture_sweep", "market_radar", "culture.sweep", 24 * 60 * 60),
+    # OPUS2 A8 (P0-CULTURE-TO-IDEATION): rising signals open ideation briefs. Daily, CA$0.
+    ("culture_ideate", "market_radar", "culture.ideate", 24 * 60 * 60),
     # Two-hourly. Drains the gallery-observation backlog once a vision probe has actually
     # succeeded, and refuses to run before that.
     #
