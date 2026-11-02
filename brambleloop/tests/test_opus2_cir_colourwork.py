@@ -355,6 +355,30 @@ def test_review_opus2i_i6_a_coloured_chain_is_stated():
     assert "COLOUR_ON_CHAIN" in codes, codes
 
 
+def test_review_opus2j_j6_spelling_variants_are_the_same_claim():
+    plain = _band({})                                   # one colour per row: backs nothing
+    variants = ("Fair-Isle Basket", "Colour Work Basket", "Color-Work Basket", "Stranded Basket",
+                "Jacquard Basket", "Two-Colour Basket", "Duplicate Stitch Basket")
+    assert variants
+    for title in variants:
+        truth, findings = _truth(plain, title)
+        assert truth["backed"] is False and findings, title
+    truth, findings = _truth(plain, "Plain Basket", tags=("fair-isle", "stranded"))
+    assert len(findings) == 2, findings
+    band = _tapestry()
+    for title in ("Fair-Isle Basket", "Stranded Basket", "Colour Work Basket"):
+        assert _truth(band, title)[0]["backed"] is True, title     # a real motif still backs
+    assert _truth(band, "Duplicate Stitch Basket")[0]["backed"] is False
+
+
+def test_review_opus2j_j8b_every_motif_row_needs_the_minimum_run():
+    two = [Op("sc", 5), Op("sc", 2, color="rust"), Op("sc", 5)]
+    dot = [Op("sc", 4), Op("sc", 1, color="rust"), Op("sc", 3), Op("sc", 1, color="rust"),
+           Op("sc", 3)]                                   # 2/12 = 16.7%: fails only the run
+    one_run_two_dots = _flat_band(12, {2: two, 3: dot, 4: dot})
+    assert _truth(one_run_two_dots, "Tapestry Panel")[0]["backed"] is False
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

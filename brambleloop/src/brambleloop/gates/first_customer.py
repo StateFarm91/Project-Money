@@ -451,7 +451,7 @@ def colourwork_findings(cir, twin, *, title: str, tags=()) -> list[str]:
     out = []
     for where, text in [("title", title)] + [(f"tag {t!r}", t) for t in (tags or ())]:
         low = str(text or "").lower()
-        for hit in (c for c in l0.COLOURWORK_CLAIMS if c in low):
+        for hit in l0.colourwork_claims(low):
             ok, why = l0.technique_backed(hit, motif)
             if ok:
                 continue
