@@ -601,6 +601,16 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
       "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
       "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2M",
+      "sha": "ba815300",
+      "verdicts": {
+        "6769e696": "CHANGES_REQUIRED (OPUS2M-1 MED, -7 LOW; better than c3074241; 651b1580 faithful)",
+        "e0be7c4d": "SHIP (integrated a8ce0072); -5 LOW, -6 LOW pre-existing",
+        "d4486b8c": "CHANGES_REQUIRED (OPUS2M-2 MED regression, -3 MED, -4/-8 LOW)"
+      },
+      "recorded": "2026-11-02T04:33Z"
     }
   ],
   "integration": {
@@ -727,21 +737,24 @@
     {
       "observed": "2026-11-02T03:36Z",
       "what": "Transient: one /api/verify read returned ok=False with 12/13 checks and weekly_jobs_completing false; the next five reads (03:36-03:37Z) were ok=True, 13/13. The failing check name was not captured. A 2-minute acceptance sampler now records failing check names (integrator scratch log, summarized into the acceptance verdict). Not classified clean."
+    },
+    {
+      "observed": "2026-11-02T04:30Z",
+      "what": "Acceptance sampler (every 2 min since 03:37Z) on 0967c3ee: worker_is_alive FALSE at 03:45:40Z and 03:47:44Z (also 03:31Z cold start and the 03:36Z blip); runner.worker_alive is false when the worker has not ticked for 120 s, i.e. one job held the worker about 4 min. From 03:53:57Z onward no_unexpected_dead_letters_in_24h is FALSE (/api/verify 503, ok=False) and weekly_jobs_completing turned false. The dead job is not identifiable without operator access (application logs carry only access lines; jobs table needs SQL or the readback token). Severity per ops/rollback_decision.py: dead letters P1 (fix forward); worker alive is P0 but has read true continuously since 03:49:49Z, so no rollback. Production is NOT healthy; the 24 h acceptance is currently failing. Owner action: BRAMBLELOOP_READBACK_TOKEN, or run read-only: SELECT id, job_type, attempts, left(last_error,300), finished_at FROM jobs WHERE status='DEAD' AND finished_at > now() - interval '24 hours';"
     }
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2M",
+        "id": "OPUS2N",
         "subjects": [
-          "opus2/p0-revenue-workforce 6769e696",
-          "opus2/p1-culture-sweep-timeout e0be7c4d",
-          "opus2/p0-cir-colourwork d4486b8c"
+          "opus2/p0-pet-bed 940f70e6 (diff 7d220e01..)",
+          "opus2/p0-tapestry 67b67015 (diff 2d2d9446..)"
         ],
-        "session": "session_015ZfGXofGcgjnmA4gFe6ZwJ",
-        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2M.md on claude/w5-SECREVIEW-OPUS2M",
-        "launched": "2026-11-02T03:30Z"
+        "session": "session_015ZfGXp8LnkUKYgGqbH3u5B",
+        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2N.md on claude/w5-SECREVIEW-OPUS2N",
+        "launched": "2026-11-02T04:32Z"
       }
     ]
   }
