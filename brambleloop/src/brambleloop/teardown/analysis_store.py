@@ -12,8 +12,8 @@ import re
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from ..core.models import BenchmarkAnalysis, BenchmarkProduct
-from . import library, reader, size_family
+from ..core.models import BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct
+from . import enforce, library, reader, size_family
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
@@ -93,3 +93,52 @@ def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
             if existing is None:
                 raise
             return {"id": existing.id, "created": False}
+
+
+def reconcile_state(db, benchmark_id: int) -> dict:
+    """Recompute analysis progress from the current manifest and durable rows.
+
+    This is safe to repeat after a crash and never treats a missing analysis or
+    a missing licence as a completed read. Review remains a separate decision.
+    """
+    with db.session() as s:
+        product = s.scalar(select(BenchmarkProduct).where(BenchmarkProduct.id == benchmark_id)
+                           .with_for_update())
+        if product is None:
+            raise AnalysisRefused("purchase not found")
+        if product.teardown_state not in ("queued", "awaiting_analyst", "needs_analyst", "analysed"):
+            return {"state": product.teardown_state, "changed": False}
+        pdfs = [f for f in (product.files or [])
+                if str(f.get("name") or "").lower().endswith(".pdf")]
+        if not pdfs:
+            return {"state": product.teardown_state, "changed": False, "reason": "no_pdf"}
+        lic = s.scalar(select(BenchmarkLicence).where(BenchmarkLicence.source_ref == product.ref))
+        if lic is None or "private_analysis" not in (lic.allowed_uses or []) \
+                or "private_analysis" in (lic.prohibited_uses or []):
+            new_state, reason = "needs_analyst", "licence_not_permitted"
+        elif any(not isinstance(f.get("sha256"), str) or not _SHA.fullmatch(f["sha256"])
+                 for f in pdfs):
+            new_state, reason = "needs_analyst", "manifest_hash_unknown"
+        else:
+            expected = {f["sha256"] for f in pdfs}
+            rows = list(s.scalars(select(BenchmarkAnalysis).where(
+                BenchmarkAnalysis.benchmark_id == benchmark_id,
+                BenchmarkAnalysis.file_sha256.in_(expected))))
+            by_hash = {r.file_sha256: r for r in rows}
+            low_confidence = False
+            for row in rows:
+                data = row.observations or {}
+                total, readable = data.get("pages"), data.get("pages_with_text")
+                if (type(total) is not int or type(readable) is not int or total <= 0
+                        or readable < 0 or readable > total
+                        or readable / total < enforce.MIN_BINDING_CONFIDENCE):
+                    low_confidence = True
+            if low_confidence:
+                new_state, reason = "needs_analyst", "low_confidence"
+            elif expected - set(by_hash):
+                new_state, reason = "queued", "analysis_pending"
+            else:
+                new_state, reason = "analysed", "analysis_complete"
+        changed = product.teardown_state != new_state
+        product.teardown_state = new_state
+        return {"state": new_state, "changed": changed, "reason": reason}

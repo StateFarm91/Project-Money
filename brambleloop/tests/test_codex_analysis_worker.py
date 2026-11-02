@@ -106,6 +106,39 @@ class AnalysisWorkerTests(unittest.TestCase):
                 self.assertEqual(queued[0].status, JobStatus.DONE, queued[0].last_error)
                 self.assertIsNotNone(s.scalar(select(BenchmarkAnalysis).where(
                     BenchmarkAnalysis.benchmark_id == first["product_id"])))
+                self.assertEqual(s.get(BenchmarkProduct, first["product_id"]).teardown_state,
+                                 "analysed")
+
+    def test_unreadable_document_requires_analyst_and_proposes_no_rule(self):
+        from reportlab.pdfgen import canvas
+
+        with TemporaryDirectory() as tmp:
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.showPage()
+            pdf.save()
+            data = stream.getvalue()
+            root = Path(tmp) / "private"
+            folder = root / "unreadable"
+            folder.mkdir(parents=True)
+            (folder / "pattern.pdf").write_bytes(data)
+            sha = hashlib.sha256(data).hexdigest()
+            db = Database(f"sqlite:///{tmp}/unreadable.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                row = BenchmarkProduct(ref="unreadable", seller="test", teardown_state="queued",
+                    files=[{"name": "pattern.pdf", "sha256": sha}])
+                s.add(row)
+                s.flush()
+                benchmark_id = row.id
+            licence.capture_purchase(db, "unreadable")
+            jobs.enqueue_purchase(db, benchmark_id)
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="reader", job_types=["teardown.analyse"]).run_once())
+            with db.session() as s:
+                self.assertEqual(s.get(BenchmarkProduct, benchmark_id).teardown_state, "needs_analyst")
+                self.assertEqual(list(s.scalars(select(DesignRule))), [])
 
     def test_real_worker_runs_deduplicated_job_on_reopened_database(self):
         with TemporaryDirectory() as tmp:
@@ -141,6 +174,13 @@ class AnalysisWorkerTests(unittest.TestCase):
                     BenchmarkAnalysis.benchmark_id == benchmark_id))
                 self.assertIsNotNone(analysis)
                 self.assertEqual(analysis.file_sha256, sha)
+                # Simulate a crash after persistence but before progress was reconciled.
+                s.get(BenchmarkProduct, benchmark_id).teardown_state = "queued"
+            JobQueue(reopened).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                       idempotency_key="recovery:sweep")
+            self.assertTrue(Worker(reopened, name="recovery", job_types=["teardown.analyse_sweep"]).run_once())
+            with reopened.session() as s:
+                self.assertEqual(s.get(BenchmarkProduct, benchmark_id).teardown_state, "analysed")
 
     def test_failed_read_retries_after_file_is_restored(self):
         with TemporaryDirectory() as tmp:
