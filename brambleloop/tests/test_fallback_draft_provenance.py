@@ -128,8 +128,8 @@ class FallbackProvenance(unittest.TestCase):
 
     def test_raw_geometry_without_seed_stays_unqualified(self):
         ctx, result, emitted, _ = self.draft({
-            # A2: the title names its object; the flat-panel route refuses an unknown head.
-            "slug": "raw-local-geometry", "title": "Raw Blanket", "category": "blanket",
+            # A2: the title names its object and a plain modifier; the flat-panel route refuses others.
+            "slug": "raw-local-geometry", "title": "Everyday Blanket", "category": "blanket",
             "stitch_repeat": [["sc", 4]], "width_stitches": 20, "rows": 12,
             "colors": {"cream": "#ffffff"}})
         cir = self.compiled_cir(ctx, emitted)
