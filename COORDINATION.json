@@ -765,6 +765,15 @@
         "50937469..5ba84bf7": "SHIP for certification; INTEG5G-1 MED ('two colour' backed by any >=2 colours) fixed after the candidate; -2 LOW (teardown reader hides join-as-you-go phrasing in competitor patterns), -3 LOW (plural/2-Colour/Two-Tone/Bicolour not recognised as colour claims), -4 INFO"
       },
       "recorded": "2026-11-02T17:15Z"
+    },
+    {
+      "subject": "CODEX1",
+      "sha": "claude/w5-SECREVIEW-CODEX1",
+      "verdicts": {
+        "codex/p0-learning-reference 623fc26c": "DO NOT SHIP: CODEX1-1 HIGH (library guard refuses the default /app path; uncaught LibraryRefused in image requests and intake), -2 HIGH (teardown.analyse* missing from JOB_CLASS), -3 MED (review rule bypassable via lessons), -4 scope (most of the WO not yet built); IP isolation, idempotency, additive DB tables sound"
+      },
+      "feedback_channel": "brambleloop/research/final_build/w5/CODEX_REVIEW_FEEDBACK.md",
+      "recorded": "2026-11-02T17:45Z"
     }
   ],
   "integration": {
@@ -989,15 +998,6 @@
         ],
         "session": "integrator subagent",
         "report": "scratchpad INDEPENDENT_SECREVIEW_A1.md",
-        "launched": "2026-11-02T17:20Z"
-      },
-      {
-        "id": "CODEX1",
-        "subjects": [
-          "codex/p0-learning-reference be92bfe1..623fc26c (P0-LEARNING-REFERENCE first push)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_CODEX1.md",
         "launched": "2026-11-02T17:20Z"
       }
     ]
