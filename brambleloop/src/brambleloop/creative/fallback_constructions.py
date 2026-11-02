@@ -197,29 +197,91 @@ FAMILY_HEADS: dict[str, frozenset[str]] = {
 # OPUS2V-1: the words a plain basket or tote title may carry before its head noun. A size word
 # is admitted only where the builder honours it (bread/market for the radar basket; the tote's
 # own size words), so the name never promises a size the pattern is not.
+_STYLE_WORDS = frozenset({"crochet", "crocheted", "simple", "classic", "everyday", "plain",
+                          "modern", "minimalist", "rustic", "farmhouse", "cosy", "cozy", "soft",
+                          "basic", "nordic", "scandi", "scandinavian", "boho", "cottage",
+                          "handmade", "textured", "heirloom",
+                          # the shop's own design-line name (a catalogue line, not a claim)
+                          "cloudline"})
+_SEASON_WORDS = frozenset({"winter", "spring", "summer", "autumn", "fall", "christmas",
+                           "holiday", "festive", "seasonal", "easter", "valentine", "valentines",
+                           "wedding", "harvest"})
 FAMILY_MODIFIERS: dict[str, frozenset[str]] = {
-    VESSEL: frozenset({"crochet", "crocheted", "storage", "simple", "classic", "everyday",
-                       "plain", "round", "bread", "market", "modern", "minimalist", "rustic",
-                       "farmhouse", "cosy", "cozy", "sturdy", "soft", "catch", "all", "catchall",
-                       "handy", "basic", "nordic", "scandi", "scandinavian", "boho", "cottage"}),
+    # A2-5: what a basket is for ("Toy", "Laundry", "Fruit", "Yarn Basket") and the measured
+    # size words the radar basket honours (`_basket_size`).
+    VESSEL: _STYLE_WORDS | frozenset({"storage", "round", "bread", "market", "sturdy", "catch",
+                                      "all", "catchall", "handy", "toy", "laundry", "fruit",
+                                      "yarn", "bathroom", "kitchen", "nursery", "bedside",
+                                      "shelf", "small", "medium", "large"}),
     TOTE: frozenset({"tote", "everyday", "market", "simple", "classic", "plain", "crochet",
                      "crocheted", "shopping", "grocery", "beach", "book", "reusable", "sturdy",
                      "basic", "small", "mini", "tiny", "petite", "medium", "large", "big"}),
+    # A2-4: every family has one. Themed words the assignment accepts ("Polar Bear Blanket",
+    # "Bear Paw Blanket", "Bear Pillow") are listed; construction and size words are not.
+    FLAT_PANEL: _STYLE_WORDS | _SEASON_WORDS | frozenset({
+        "baby", "lap", "sofa", "couch", "bed", "travel", "picnic", "table", "kitchen", "bath",
+        "dish", "wash", "hand", "tea", "polar", "bear", "paw", "basket", "weave", "stripe",
+        "striped", "ribbed", "wall", "door", "village", "pet", "snuggle"}),
+    PANEL_PAIR: _STYLE_WORDS | _SEASON_WORDS | frozenset({
+        "ring", "throw", "accent", "decorative", "square", "sofa", "bear"}),
+    TRIANGLE: _STYLE_WORDS | _SEASON_WORDS | frozenset({"triangle", "lightweight", "light"}),
+    COSY: _STYLE_WORDS | _SEASON_WORDS | frozenset({"egg", "eggs"}),
 }
 
 
-def title_core(title: str | None) -> str:
-    """The title with its trailing filler removed: a parenthesis, a dash or colon clause, a
-    for/in/by/from phrase, version tags and filler words (OPUS2T-2)."""
+# A2-3: what may be stripped without being read: a palette colour in parentheses and filler.
+_COLOUR_WORDS = frozenset({
+    "cream", "ivory", "white", "black", "grey", "gray", "red", "blue", "green", "pink",
+    "yellow", "orange", "purple", "brown", "beige", "navy", "sage", "mustard", "rust", "teal",
+    "natural", "oatmeal", "charcoal", "cranberry", "gold", "neutral", "taupe", "lilac", "mint"})
+_STRIPPABLE = _TRAILING_FILLER | _COLOUR_WORDS | {"edition", "version", "beginners",
+                                                  "beginner", "everyone", "all", "you"}
+
+
+def _split_title(title: str | None) -> tuple[str, list[str]]:
+    """(the main clause, every other word the title carries). A parenthesis, a dash or colon
+    clause or a for/in/by/from phrase is removed from the main clause; its words are dropped
+    only when every one is strippable (a palette colour, filler), and otherwise returned to be
+    read by the allowlist and feature checks (A2-3: "Basket (with Lid)", "Basket - Giant",
+    "Storage Basket for Giant Dogs")."""
     folded = fold_title(title)
-    folded = re.sub(r"[\(\[\{].*?[\)\]\}]", " ", folded)
-    folded = re.split(r"\s[-:|]\s|:", folded)[0]
-    folded = re.split(_BENIGN_PHRASES, folded)[0]
-    words = [w for w in re.findall(r"[a-z0-9]+(?:'[a-z]+)?|[&+]", folded)
+    extras: list[str] = []
+
+    def keep(text: str) -> None:
+        words = [w for w in re.findall(r"[a-z0-9]+(?:'[a-z]+)?|[&+]", text)
+                 if not re.fullmatch(r"v\d*", w)]
+        if not all(w in _STRIPPABLE for w in words):
+            extras.extend(words)
+
+    def paren(m) -> str:
+        keep(m.group(1))
+        return " "
+
+    folded = re.sub(r"[\(\[\{](.*?)[\)\]\}]", paren, folded)
+    parts = re.split(r"\s-\s|\s-|-\s|:|\s\|\s", folded)
+    for clause in parts[1:]:
+        keep(clause)
+    main = parts[0]
+    phrase = re.split(_BENIGN_PHRASES, main, maxsplit=1)
+    if len(phrase) > 1:
+        main = phrase[0]
+        keep(phrase[1])
+    return main, extras
+
+
+def title_core(title: str | None) -> str:
+    """The main clause with its trailing filler removed (OPUS2T-2); see _split_title."""
+    main, _extras = _split_title(title)
+    words = [w for w in re.findall(r"[a-z0-9]+(?:'[a-z]+)?|[&+]", main)
              if not re.fullmatch(r"v\d*", w)]
     while words and words[-1] in _TRAILING_FILLER:
         words.pop()
     return " ".join(words)
+
+
+def title_extras(title: str | None) -> list[str]:
+    """Every word outside the main clause that is not strippable (A2-3)."""
+    return _split_title(title)[1]
 
 
 def title_head(title: str | None) -> str:
@@ -235,12 +297,14 @@ def name_object_contract(family: str, title: str | None) -> dict | None:
     if heads is None:
         return None
     core = title_core(title)
-    feature = re.search(_FEATURE_PHRASE, core)
+    extras = title_extras(title)
+    # A2-3: a feature phrase inside a parenthesis, a dash clause or a for-phrase is read too
+    feature = re.search(_FEATURE_PHRASE, " ".join([core] + extras))
     if feature:
         return {"family": REFUSED,
                 "needs": f"the construction {feature.group(0)!r} names, as its own pieces",
-                "why": (f"the title adds {core[feature.start():].strip()!r}, a second object "
-                        f"or feature the plain {family} rule does not make")}
+                "why": (f"the title adds {feature.group(0)!r}, a second object or feature the "
+                        f"plain {family} rule does not make")}
     head = title_head(title)
     # OPUS2N-1 (total): text no rule reads -- an emoji, another script -- is refused; ASCII
     # punctuation the core strip already handled is not.
@@ -260,9 +324,10 @@ def name_object_contract(family: str, title: str | None) -> dict | None:
         # A motif or colourwork word is judged by a publish-time truth gate (motif_promise,
         # fabric_truth: both in eligibility.name_truth), so it passes the route and is refused
         # there unless the pattern makes it. A word no gate measures must be on the allowlist.
-        measured = [w for w in re.findall(r"[a-z]+", core)
+        measured = [w for w in re.findall(r"[a-z]+", " ".join([core] + extras))
                     if w in MOTIF_WORDS or colourwork_claims(w)]
         unknown = [w for w in modifiers_outside(core, rf"\b{re.escape(head)}$", allowed)
+                   + [w for w in extras if w not in allowed and w not in heads]
                    if w not in measured]
         if unknown:
             return {"family": REFUSED,
@@ -731,7 +796,9 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 
 # A basket's finished size, chosen from its title, never from the panel width table: the
 # panel width is a flat dimension and a basket's is a diameter.
-_SIZE_WORDS = (("bread", "small"), ("market", "large"))
+_SIZE_WORDS = (("bread", "small"), ("market", "large"),
+               # A2-5: a title's own size word is the size drafted, never silently medium
+               ("small", "small"), ("medium", "medium"), ("large", "large"))
 
 
 # OPUS2: a pet basket bed is the same hexagon vessel, wide and low: one design size, stated in

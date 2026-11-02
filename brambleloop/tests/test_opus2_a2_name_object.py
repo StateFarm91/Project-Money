@@ -38,7 +38,19 @@ REPROS = ("Teddy Bear", "Teddy Bear Pattern", "Teddy Bear Crochet Pattern",
           "Poly Pack", "Blanket with Fringe", "Tote Bag with Zip Pocket and Lining",
           # a feature phrase before a valid head, and text no rule reads
           "Blanket and Throw", "Throw & Blanket", "Everyday Blanket \U0001f9fa",
-          "\u041a\u043e\u0440\u0437\u0438\u043d\u0430 Blanket")
+          "\u041a\u043e\u0440\u0437\u0438\u043d\u0430 Blanket",
+          # A2-3: words inside a parenthesis, a dash or colon clause or a for-phrase are read
+          "Storage Basket (Lidded)", "Basket (with Lid)", "Basket [Lidded]", "Basket {XL}",
+          "Storage Basket - Giant", "Basket \u2014 Giant", "Basket \u2013 with Lid",
+          "Storage Basket: with Lid", "Storage Basket (Teddy Bear)", "Basket - Teddy Bear",
+          "Basket: Teddy Bear Edition", "Storage Basket for Giant Dogs",
+          # A2-4: every family has a modifier allowlist
+          "Hooded Blanket", "Giant Blanket", "Zippered Cushion", "Zippered Pillow",
+          "Sleepy Fox Pillow", "Teddy Bear Blanket", "Teddy Bear Hanging", "Teddy Bear Cover",
+          "Teddy Bear Square", "Teddy Bear Mat", "Fox Wrap",
+          # A2-6: the repros the first test did not pin
+          "XL Basket", "Sunflower Basket", "Owl Basket", "Fox Basket", "Striped Basket",
+          "Fox Tote", "\uff34eddy \uff22ear", "\U0001d413eddy Bear")
 
 LEGITIMATE = (("basket", "Crochet Storage Basket", F.VESSEL),
               ("basket", "Nordic Forest Mosaic Storage Basket", F.VESSEL),
@@ -46,6 +58,11 @@ LEGITIMATE = (("basket", "Crochet Storage Basket", F.VESSEL),
               ("basket", "Storage Basket Pattern", F.VESSEL),
               ("basket", "Basket (Large) - Easy", F.VESSEL),
               ("basket", "Storage Basket - Cream Edition", F.VESSEL),
+              # A2-5: what a basket is for, and the size it is drafted at
+              ("basket", "Toy Basket", F.VESSEL), ("basket", "Laundry Basket", F.VESSEL),
+              ("basket", "Fruit Basket", F.VESSEL), ("basket", "Yarn Basket", F.VESSEL),
+              ("basket", "Small Basket", F.VESSEL), ("basket", "Large Basket", F.VESSEL),
+              ("basket", "Storage Basket (Cream)", F.VESSEL),
               ("basket", "Diamond Tapestry Basket", F.TAPESTRY),
               ("bag", "Everyday Market Tote", F.TOTE), ("bag", "Small Tote", F.TOTE),
               ("bag", "Tote Bag", F.TOTE), ("bag", "Drawstring Pouch", F.POUCH),
@@ -64,7 +81,7 @@ LEGITIMATE = (("basket", "Crochet Storage Basket", F.VESSEL),
 
 
 def test_every_review_repro_is_refused_in_every_category():
-    assert len(REPROS) == 48 and CATEGORIES
+    assert len(REPROS) == 79 and CATEGORIES
     drafted = [(c, t, F.plan(category=c, title=t)["family"])
                for t in REPROS for c in CATEGORIES
                if F.plan(category=c, title=t)["family"] != F.REFUSED]
@@ -72,10 +89,20 @@ def test_every_review_repro_is_refused_in_every_category():
 
 
 def test_legitimate_titles_still_draft():
-    assert len(LEGITIMATE) == 24
+    assert len(LEGITIMATE) == 31
     for category, title, family in LEGITIMATE:
         got = F.plan(category=category, title=title)
         assert got["family"] == family, (category, title, got)
+    # A2-5: a size word in the title is the size drafted, never silently medium
+    seed = pipeline._seed_for("nordic-forest-basket")
+    geo = pipeline.concept_geometry(seed)
+
+    def base(title):
+        cir = F.vessel(pipeline.Concept(slug="a2-size", title=title, category="basket",
+                                        stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                                        width_stitches=10, rows=4, colors=geo["colors"]))
+        return max(r.declared_count for r in cir.components[0].rows)
+    assert base("Small Basket") < base("Storage Basket") < base("Large Basket")
 
 
 def test_a_generated_head_x_modifier_x_category_grid():
@@ -96,9 +123,9 @@ def test_a_generated_head_x_modifier_x_category_grid():
                 # rule) is still never drafted as something else
                 assert "head noun" not in got["why"], (ok_title, got)
             checked += 1
-            for word, tail in itertools.product(unmeasured, ("", " with Handles")):
-                if family in (F.FLAT_PANEL, F.PANEL_PAIR, F.TRIANGLE) and not tail:
-                    continue                    # their modifiers are judged at publish
+            # A2-4: every family judges its modifiers (not only the basket and tote)
+            for word, tail in itertools.product(unmeasured, ("", " with Handles",
+                                                             " (Giant)", " - Lidded")):
                 title = f"{word.title()} {head.title()}{tail}"
                 assert F.plan(category=category, title=title)["family"] == F.REFUSED, title
                 refused += 1
@@ -126,20 +153,33 @@ def test_motif_promise_is_in_name_truth_for_every_non_catalogue_product():
         assert F.plan(category="basket", title=title)["family"] == F.VESSEL, title
         assert any(f.startswith("motif:") for f in name_truth(basket(title))), title
     assert name_truth(basket("Crochet Storage Basket")) == []
-    # scoped to rule-drafted CIRs: the same name on an engineered design (which declares its
-    # own motif) is judged by that design's product_truth gate, not here
+    # A2-1: the gate reads the title as the route does -- a full-width or mathematical-letter
+    # motif word is the word it renders as
+    for title in ("\uff28eart Basket", "\U0001d407eart Basket", "\U0001d412nowflake Basket"):
+        assert F.plan(category="basket", title=title)["family"] == F.VESSEL, title
+        assert any(f.startswith("motif:") for f in name_truth(basket(title))), title
+    # A2-2: fail-closed -- every CIR that is not an engineered design is held to it, whatever
+    # its provenance says (the radar fallback with known lineage records concept_to_cir)
     import dataclasses
 
     from brambleloop.creative.prototype import source_provenance
 
     heart = basket("Heart Basket")
-    for prims, flagged in ((("creative.fallback_constructions.vessel",), True),
-                           (("creative.construction_registry.build",), True),
-                           (("products.moment_candidates._disc",), False)):
-        prov = source_provenance("a2-probe", {"provenance": "research:a2"}, {}, prims)
-        found = any(f.startswith("motif:")
-                    for f in name_truth(dataclasses.replace(heart, provenance=prov)))
-        assert found is flagged, (prims, found)
+    for prims in (("creative.fallback_constructions.vessel",),
+                  ("creative.construction_registry.build",),
+                  ("runtime.pipeline.concept_to_cir", "creative.prototype.gauge_for:worsted"),
+                  ("products.moment_candidates._disc",), ()):
+        prov = source_provenance("a2-probe", {"provenance": "research:a2"}, {}, prims) \
+            if prims else None
+        assert any(f.startswith("motif:") for f in name_truth(
+            dataclasses.replace(heart, provenance=prov))), prims
+    # an engineered proposal under its own slug is judged by its own gate, not here
+    from brambleloop.publish import eligibility
+
+    engineered = eligibility._engineered_designs()
+    assert "heart-relief-table-runner" in engineered
+    assert not eligibility._drafted_by_a_rule(dataclasses.replace(
+        heart, slug="heart-relief-table-runner"))
     # the engineered catalogue keeps its own gates (an integrator decision is recorded): a
     # catalogue title motif_promise does not back is not newly failed by name_truth
     from brambleloop.products import launch0
@@ -153,7 +193,12 @@ def test_motif_promise_is_in_name_truth_for_every_non_catalogue_product():
 def test_every_radar_seed_routes_as_before():
     from brambleloop.radar.opportunity import POOL
 
-    before = {"nordic-forest-basket": F.VESSEL}
+    # A2-4: two seeds now refuse, fail-closed: "Bobble Floor Pillow" (a bobble texture and a
+    # floor size the plain panel pair does not make) and "Chunky Ribbed Scarf" (a yarn-weight
+    # claim no gate measures). Every other seed routes as at INTEG1.
+    before = {"nordic-forest-basket": F.VESSEL, "bobble-floor-pillow": F.REFUSED,
+              "chunky-ribbed-scarf": F.REFUSED, "heirloom-cable-blanket": F.FLAT_PANEL,
+              "cloudline-baby-blanket": F.FLAT_PANEL, "pet-snuggle-mat": F.FLAT_PANEL}
     assert POOL
     for seed in POOL:
         family = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle,
