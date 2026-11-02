@@ -151,6 +151,29 @@ def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict
             "incomplete_reason": "full benchmark and Product Truth evaluation is incomplete"}
 
 
+def _preview_checklist(text: str) -> str:
+    from ..cir.writer import FINISHING_HEADING
+
+    head, separator, finishing = text.partition(FINISHING_HEADING)
+    if not separator:
+        raise DesignEvaluationRefused("writer did not produce a finishing section")
+    return head + separator + "\n" + "\n".join(
+        "- " + line if line else line for line in finishing.strip().splitlines()) + "\n"
+
+
+def _benchmark_checks() -> dict:
+    """Run existing offline benchmark gates; retain statuses only, never source text."""
+    from . import benchmark_e2e
+
+    benchmark = benchmark_e2e.run(build_reference=False)
+    stages = {name: stage.get("status", "UNKNOWN")
+              for name, stage in benchmark.get("stages", {}).items()}
+    return {"bench1_seam_compatible": benchmarks.reconcile("XS")["seam_compatible"],
+            "bench2_stages": stages,
+            "stitch_families": {name: stitch_benchmarks.promotion_gate(name)["state"]
+                                for name in sorted(stitch_benchmarks.FAMILIES)}}
+
+
 def preview_registered_rule(db, rule_id: int) -> dict:
     """Measure a registered proposal against the frozen launch cases.
 
@@ -161,7 +184,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     from sqlalchemy import select
 
     from ..cir.compiler import compile_cir
-    from ..cir.writer import FINISHING_HEADING, write_pattern
+    from ..cir.writer import write_pattern
     from ..core.models import AuditLog, DesignRule
     from ..improve.design_knowledge import _TOKEN
 
@@ -188,11 +211,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
             continue
         cir = launch0.cir_for(case["build"])
         baseline = write_pattern(cir, compile_cir(cir))
-        head, separator, finishing = baseline.partition(FINISHING_HEADING)
-        if not separator:
-            raise DesignEvaluationRefused("writer did not produce a finishing section")
-        candidate = head + separator + "\n" + "\n".join(
-            "- " + line if line else line for line in finishing.strip().splitlines()) + "\n"
+        candidate = _preview_checklist(baseline)
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
@@ -200,6 +219,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
               "case_set_sha256": frozen["sha256"], "cases": case_results,
+              "benchmark_checks": _benchmark_checks(),
               "state": "insufficient_evidence", "approval_evidence_complete": False,
               "why": "preview renderer is not the production writer; benchmark and full "
                      "Product Truth evidence is incomplete"}

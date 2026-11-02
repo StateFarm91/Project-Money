@@ -37,10 +37,15 @@ class FrozenCaseTests(unittest.TestCase):
                                     for case in audit.detail["cases"]))
                 self.assertTrue(all(case["before"]["twin_failures"] == 0
                                     for case in audit.detail["cases"]))
+                self.assertEqual(audit.detail["benchmark_checks"]["bench2_stages"]["pattern"],
+                                 "PASS")
+                self.assertEqual(audit.detail["benchmark_checks"]["bench2_stages"]["reference"],
+                                 "UNKNOWN")
                 self.assertNotIn("Fasten off", str(audit.detail))
                 self.assertEqual(s.get(DesignRule, rule_id).state, "proposed")
             second = design_eval.preview_registered_rule(reopened, rule_id)
             self.assertEqual(first["cases"], second["cases"])
+            self.assertEqual(first["benchmark_checks"], second["benchmark_checks"])
             self.assertEqual(first["rule_sha256"], second["rule_sha256"])
 
     def test_actual_output_metrics_find_missing_finishing_and_do_not_authorize(self):
