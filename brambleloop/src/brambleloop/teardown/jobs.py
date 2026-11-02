@@ -21,7 +21,10 @@ def enqueue_purchase(db, benchmark_id: int) -> dict:
     # starts only after the purchase's licence has actually been recorded.
     if recorded is None:
         return {"queued": 0, "existing": 0, "reason": "licence_not_recorded"}
-    licence.refuse_unless_permitted(db, ref, "private_analysis")
+    try:
+        licence.refuse_unless_permitted(db, ref, "private_analysis")
+    except licence.LicenceRefused:
+        return {"queued": 0, "existing": 0, "reason": "licence_refused"}
     queue = JobQueue(db)
     queued = existing = 0
     for item in files:

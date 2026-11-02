@@ -32,6 +32,8 @@ def handle_teardown_analyse_sweep(ctx):
         except licence.LicenceRefused:
             refused += 1
             continue
+        if result.get("reason") == "licence_refused":
+            refused += 1
         queued += result["queued"]
         existing += result["existing"]
     return {"purchases": len(ids), "queued": queued, "existing": existing,

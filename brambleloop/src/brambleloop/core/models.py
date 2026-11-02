@@ -1224,6 +1224,7 @@ class BenchmarkProduct(Base):
     on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
     why_selected: Mapped[str] = mapped_column(Text, default="")
     listing_promises: Mapped[dict] = mapped_column(JSON, default=dict)
+    purchase_provenance: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Filenames, sizes and hashes only. The contents stay in the quarantined library.
     files: Mapped[list] = mapped_column(JSON, default=list)
     dimensions: Mapped[list] = mapped_column(JSON, default=list)

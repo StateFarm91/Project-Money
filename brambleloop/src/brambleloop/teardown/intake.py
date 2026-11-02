@@ -40,6 +40,10 @@ The only thing that ever reads a benchmark's contents is an analyst going throug
 from __future__ import annotations
 
 import io
+import hashlib
+import json
+import math
+import re
 import zipfile
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -79,6 +83,71 @@ AWAITING_ANALYST = "awaiting_analyst"
 
 class IntakeRefused(Exception):
     """An upload that must not be written, or a pick that is not in the catalogue."""
+
+
+def validate_purchase_record(purchase: dict) -> dict:
+    """Validate owner-recorded provenance before writing a file or database row."""
+    from urllib.parse import urlsplit
+
+    if not isinstance(purchase, dict):
+        raise IntakeRefused("purchase record must be an object")
+    fields = {"platform", "source_url", "seller", "pattern_title", "paid_amount",
+              "paid_currency", "paid_cad", "rate", "rate_date", "purchased_on",
+              "licence_terms"}
+    if set(purchase) != fields:
+        raise IntakeRefused("purchase record must include all required provenance fields")
+    out = dict(purchase)
+    if out["platform"] not in ("etsy", "ravelry", "designer_site", "other"):
+        raise IntakeRefused("unsupported purchase platform")
+    for key, limit in (("source_url", 1000), ("seller", 120), ("pattern_title", 300)):
+        value = out[key]
+        if not isinstance(value, str) or not value.strip() or len(value) > limit:
+            raise IntakeRefused(f"{key} is required")
+        try:
+            library.check_derived(value)
+        except library.ContentRefused as exc:
+            raise IntakeRefused(str(exc)) from exc
+        out[key] = value.strip()
+    terms = out["licence_terms"]
+    if (not isinstance(terms, dict) or not isinstance(terms.get("notes"), str)
+            or not terms["notes"].strip() or len(terms["notes"]) > 2000
+            or not isinstance(terms.get("allowed_uses"), list)
+            or not isinstance(terms.get("prohibited_uses"), list)):
+        raise IntakeRefused("licence terms must state the terms and explicit allowed and prohibited uses")
+    try:
+        from .licence import validate_purchase_terms
+
+        validate_purchase_terms(terms)
+        for value in terms.values():
+            for text in value if isinstance(value, list) else [value]:
+                if isinstance(text, str):
+                    library.check_derived(text)
+    except (ValueError, library.ContentRefused) as exc:
+        raise IntakeRefused(f"licence terms refused: {exc}") from exc
+    parsed = urlsplit(out["source_url"])
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise IntakeRefused("source_url must be an HTTPS URL without credentials")
+    currency = out["paid_currency"]
+    if not isinstance(currency, str) or not re.fullmatch(r"[A-Z]{3}", currency):
+        raise IntakeRefused("paid_currency must be a three-letter currency code")
+    for key in ("paid_amount", "paid_cad", "rate"):
+        try:
+            if isinstance(out[key], bool):
+                raise ValueError
+            value = float(out[key])
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise IntakeRefused(f"{key} must be a positive recorded amount") from exc
+        out[key] = value
+    for key in ("rate_date", "purchased_on"):
+        try:
+            value = date.fromisoformat(out[key])
+            if value.isoformat() != out[key]:
+                raise ValueError
+        except (TypeError, ValueError) as exc:
+            raise IntakeRefused(f"{key} must be an ISO date") from exc
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +403,7 @@ def mirror(db, ref: str, files: list[library.IntakeFile], folder: Path,
 def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             env: dict[str, str] | None = None, paid_cad: float | None = None,
             purchased_on: str | None = None, mirror_files: bool = True,
-            licence_terms: dict | None = None) -> dict:
+            licence_terms: dict | None = None, purchase_record: dict | None = None) -> dict:
     """Write one purchase into the quarantine and generate everything derivable from it.
 
     `uploads` is what the form sent: (filename, bytes). Everything else is looked up.
@@ -342,7 +411,37 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
     from ..agents.registry import Registry
     from ..intel import benchmarks
 
-    row = _catalogue_row(db, listing_ref)
+    purchase = validate_purchase_record(purchase_record) if purchase_record is not None else None
+    if purchase is not None:
+        if paid_cad is not None and float(paid_cad) != purchase["paid_cad"]:
+            raise IntakeRefused("paid_cad conflicts with the owner purchase record")
+        if purchased_on is not None and purchased_on != purchase["purchased_on"]:
+            raise IntakeRefused("purchase date conflicts with the owner purchase record")
+        if licence_terms is not None:
+            raise IntakeRefused("use the licence terms in the purchase record")
+        from .licence import PUBLISHING_USES
+
+        # The source record remains verbatim. Effective permissions are no
+        # broader than the owner's explicit grant and never grant publishing.
+        licence_terms = dict(purchase["licence_terms"])
+        licence_terms["allowed_uses"] = [u for u in licence_terms["allowed_uses"]
+                                        if u not in PUBLISHING_USES]
+        licence_terms["prohibited_uses"] = sorted(set(licence_terms["prohibited_uses"])
+                                                   | set(PUBLISHING_USES))
+        identity = {key: purchase[key] for key in ("platform", "source_url", "seller",
+                                                    "pattern_title", "purchased_on")}
+        digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:24]
+        ref = f"purchase-{digest}"
+        listing_ref = ref
+        seller = purchase["seller"]
+        row = {"title": purchase["pattern_title"], "pod": "", "product_type": "",
+               "price_cad": purchase["paid_cad"], "on_sale": False,
+               "url": purchase["source_url"], "detail": {}}
+        paid_cad, purchased_on = purchase["paid_cad"], purchase["purchased_on"]
+    else:
+        row = _catalogue_row(db, listing_ref)
+        ref = f"mjs-{str(listing_ref).strip()}"
+        seller = benchmarks.MJS_SHOP
     if row is None:
         raise IntakeRefused(
             f"listing {listing_ref!r} is not in the observed MJs catalogue. Intake fills the "
@@ -365,7 +464,6 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             f"{len(expanded)} files is past the {MAX_FILES_PER_PURCHASE} a purchase is "
             f"expected to contain")
 
-    ref = f"mjs-{str(listing_ref).strip()}"
     root = library.library_root(env)
     folder = (root / ref).resolve()
     if root not in folder.parents:
@@ -381,18 +479,29 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             replaced += 1
         target_path.write_bytes(payload)
 
-    promises = promises_from_listing(row)
+    promises = (promises_from_listing(row) if purchase is None else
+                {"format": None, "has_video": None, "has_chart": None,
+                 "has_print_edition": None, "pattern_count": None,
+                 "observed_price_cad": None, "media_count": None,
+                 "source": "owner purchase record; listing promises unobserved"})
     price = float(paid_cad) if paid_cad is not None else float(row["price_cad"])
-    scan = library.scan(folder, ref=ref, seller=benchmarks.MJS_SHOP,
+    scan = library.scan(folder, ref=ref, seller=seller,
                         listing_ref=str(listing_ref), paid_cad=price)
-    why = _why_selected(db, str(listing_ref)) or (
-        f"selected into the approved {SET_SIZE}-pattern benchmark set")
+    why = (_why_selected(db, str(listing_ref)) or
+           f"selected into the approved {SET_SIZE}-pattern benchmark set") if purchase is None \
+        else "owner-recorded reference purchase"
 
     product_id = library.register(
         db, scan, category=row["product_type"] or row["pod"], pod=row["pod"],
         listing_ref=str(listing_ref), paid_cad=price, on_sale=bool(row["on_sale"]),
         why_selected=why, listing_promises=promises,
         purchased_on=purchased_on or date.today().isoformat())
+
+    if purchase is not None:
+        from ..core.models import BenchmarkProduct
+
+        with db.session() as s:
+            s.get(BenchmarkProduct, product_id).purchase_provenance = purchase
 
     _set_state(db, ref, AWAITING_ANALYST, title=row["title"])
 
@@ -404,7 +513,7 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
 
     licence_record = licence_terms_mod.capture_purchase(
         db, ref, terms=licence_terms, source_url=str(row.get("url") or ""),
-        attribution=f"{benchmarks.MJS_SHOP} (seller)")
+        attribution=f"{seller} (seller)")
     licence_terms_mod.seed_known(db)
 
     # Actual uploaded documents, never proof_run synthetic demonstrations, produce
@@ -466,7 +575,8 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
         "wording_readings": readings,
         "inferred": scan.inferred,
         "paid_cad": round(price, 2),
-        "paid_source": ("supplied at upload" if paid_cad is not None
+        "paid_source": ("owner purchase record" if purchase is not None else
+                        "supplied at upload" if paid_cad is not None
                         else "the observed listing price, not a receipt"),
         "promise_audit": audit,
         "promise_alignment": alignment,

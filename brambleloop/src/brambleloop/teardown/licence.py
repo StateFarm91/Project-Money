@@ -196,8 +196,8 @@ def capture_purchase(db, ref: str, *, terms: dict | None = None, source_url: str
     if terms:
         lic = Licence(source_ref=ref, source_kind="purchased",
                       terms_source=str(terms.get("terms_source") or "owner-supplied at intake"),
-                      allowed_uses=tuple(terms.get("allowed_uses") or PRIVATE_RESEARCH_USES),
-                      prohibited_uses=tuple(terms.get("prohibited_uses") or PUBLISHING_USES),
+                      allowed_uses=tuple(terms.get("allowed_uses", PRIVATE_RESEARCH_USES)),
+                      prohibited_uses=tuple(terms.get("prohibited_uses", PUBLISHING_USES)),
                       attribution=str(terms.get("attribution") or attribution),
                       finished_item_rights=str(terms.get("finished_item_rights") or "unknown"),
                       pattern_rights=str(terms.get("pattern_rights") or "personal_use"),
@@ -250,8 +250,8 @@ def validate_purchase_terms(terms) -> dict:
             raise ValueError(f"{key} must be a list of use names")
     Licence(source_ref="validation", source_kind="purchased",
             terms_source=str(terms.get("terms_source") or "owner-supplied at intake"),
-            allowed_uses=tuple(terms.get("allowed_uses") or PRIVATE_RESEARCH_USES),
-            prohibited_uses=tuple(terms.get("prohibited_uses") or PUBLISHING_USES),
+            allowed_uses=tuple(terms.get("allowed_uses", PRIVATE_RESEARCH_USES)),
+            prohibited_uses=tuple(terms.get("prohibited_uses", PUBLISHING_USES)),
             finished_item_rights=str(terms.get("finished_item_rights") or "unknown"),
             pattern_rights=str(terms.get("pattern_rights") or "personal_use"))
     return terms
