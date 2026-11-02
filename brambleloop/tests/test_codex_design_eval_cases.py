@@ -33,6 +33,10 @@ class FrozenCaseTests(unittest.TestCase):
                 self.assertEqual(len(audit.detail["cases"]), 8)
                 self.assertEqual(audit.detail["state"], "insufficient_evidence")
                 self.assertFalse(audit.detail["approval_evidence_complete"])
+                self.assertTrue(any(case["before"]["originality_unmeasured"] > 0
+                                    for case in audit.detail["cases"]))
+                self.assertTrue(all(case["before"]["twin_failures"] == 0
+                                    for case in audit.detail["cases"]))
                 self.assertNotIn("Fasten off", str(audit.detail))
                 self.assertEqual(s.get(DesignRule, rule_id).state, "proposed")
             second = design_eval.preview_registered_rule(reopened, rule_id)

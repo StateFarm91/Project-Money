@@ -80,7 +80,7 @@ def load_cases(*, challenger_cases=None) -> dict:
     return {"cases": live, "sha256": frozen["sha256"]}
 
 
-def measure_written_case(cir, text: str) -> dict:
+def measure_written_case(cir, text: str, *, db=None) -> dict:
     """Measure actual output without storing the output or reference instructions.
 
     This is a diagnostic, not a release certificate or an approval decision. In
@@ -88,7 +88,10 @@ def measure_written_case(cir, text: str) -> dict:
     """
     from ..cir.compiler import compile_cir
     from ..cir.reverse import compare
+    from ..cir.twin import build_twin
     from ..cir.writer import FINISHING_HEADING, finishing_lines
+    from ..gates.asset_truth import check_technique_claims
+    from ..gates.originality import similarity_review
     from ..gates.policy import check_text
 
     compiled = compile_cir(cir)
@@ -100,22 +103,41 @@ def measure_written_case(cir, text: str) -> dict:
         section = []
     # Count independently generated complete actions, not merely a heading.
     normalized = {line.removeprefix('- ').strip() for line in section}
-    return {"compile_errors": len(compiled.errors),
+    twin_failures = 0
+    truth_findings = 0
+    for component in cir.components:
+        try:
+            twin = build_twin(cir, compiled, component=component.name)
+            truth_findings += len(check_technique_claims(text, cir, twin, "pattern"))
+        except (ValueError, KeyError):
+            twin_failures += 1
+    similarity = similarity_review(cir, pattern_text=text, db=db) if db is not None else None
+    return {"compile_errors": len(compiled.errors), "twin_failures": twin_failures,
             "reverse_findings": len(compare(cir, text)),
             "policy_findings": len(check_text(text, "pattern")),
+            "truth_findings": truth_findings if not twin_failures else None,
+            "originality_escalations": len(similarity["escalated"]) if similarity else None,
+            "originality_unmeasured": len(similarity["unmeasured"]) if similarity else None,
             "finishing_actions_expected": len(expected),
             "finishing_actions_present": sum(line in normalized for line in expected),
             "finishing_actions_listed": sum(('- ' + line) in section for line in expected)}
 
 
-def compare_written_case(cir, baseline: str, candidate: str) -> dict:
+def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict:
     """Compare two actual renderings, exposing regressions without persisting text."""
     from ..gates.originality import shingles
 
-    before = measure_written_case(cir, baseline)
-    after = measure_written_case(cir, candidate)
-    regressions = [key for key in ("compile_errors", "reverse_findings", "policy_findings")
-                   if after[key] > before[key]]
+    before = measure_written_case(cir, baseline, db=db)
+    after = measure_written_case(cir, candidate, db=db)
+    regressions = [key for key in ("compile_errors", "twin_failures", "reverse_findings",
+                                  "policy_findings", "truth_findings", "originality_escalations")
+                   if before[key] is not None and after[key] is not None
+                   and after[key] > before[key]]
+    if before["truth_findings"] is not None and after["truth_findings"] is None:
+        regressions.append("truth_unmeasured")
+    if before["originality_unmeasured"] is not None and after["originality_unmeasured"] is not None \
+            and after["originality_unmeasured"] > before["originality_unmeasured"]:
+        regressions.append("originality_unmeasured")
     if after["finishing_actions_present"] < before["finishing_actions_present"]:
         regressions.append("finishing_actions_present")
     # The shingles are not a substitute for a comparison with purchased sources.
@@ -126,7 +148,7 @@ def compare_written_case(cir, baseline: str, candidate: str) -> dict:
     return {"before": before, "after": after, "regressions": regressions,
             "same_word_shingles": same_shingles,
             "approval_evidence_complete": False,
-            "incomplete_reason": "benchmark originality and Product Truth evaluation not measured"}
+            "incomplete_reason": "full benchmark and Product Truth evaluation is incomplete"}
 
 
 def preview_registered_rule(db, rule_id: int) -> dict:
@@ -141,6 +163,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     from ..cir.compiler import compile_cir
     from ..cir.writer import FINISHING_HEADING, write_pattern
     from ..core.models import AuditLog, DesignRule
+    from ..improve.design_knowledge import _TOKEN
 
     if type(rule_id) is not int or rule_id <= 0:
         raise DesignEvaluationRefused("invalid rule id")
@@ -149,6 +172,8 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         rule = s.get(DesignRule, rule_id)
         if rule is None or rule.state != "proposed":
             raise DesignEvaluationRefused("a proposed rule is required")
+        if not isinstance(rule.key, str) or not _TOKEN.fullmatch(rule.key):
+            raise DesignEvaluationRefused("invalid rule key")
         if rule.statement != {"rule": "include_finishing_checklist", "parameters": {}} \
                 or rule.scope != {"writer_section": "finishing"}:
             raise DesignEvaluationRefused("unsupported rule or scope")
@@ -168,15 +193,16 @@ def preview_registered_rule(db, rule_id: int) -> dict:
             raise DesignEvaluationRefused("writer did not produce a finishing section")
         candidate = head + separator + "\n" + "\n".join(
             "- " + line if line else line for line in finishing.strip().splitlines()) + "\n"
-        case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate)})
+        case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
+                                                                          db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
         raise DesignEvaluationRefused("not all frozen launch cases were measured")
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
               "case_set_sha256": frozen["sha256"], "cases": case_results,
               "state": "insufficient_evidence", "approval_evidence_complete": False,
-              "why": "preview renderer is not the production writer; benchmark originality "
-                     "and Product Truth are not yet measured"}
+              "why": "preview renderer is not the production writer; benchmark and full "
+                     "Product Truth evidence is incomplete"}
     with db.session() as s:
         current = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
         if current is None or current.state != "proposed" or _digest({
