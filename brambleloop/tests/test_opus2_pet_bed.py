@@ -72,12 +72,45 @@ def test_review_opus2j_j9_j10_j12_only_a_titled_cat_bed_becomes_a_basket():
         assert route["family"] == F.REFUSED and route["needs"], (title, route)
 
 
+def test_review_opus2k_k7_k8_only_plain_cat_and_pet_words_may_precede_the_bed():
+    drafted = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Round Cat Bed", "Pet Basket",
+               "Crochet Cat Bed", "Snug Kitty Bed")
+    refused = ("German Shepherd Bed", "Golden Retriever Bed", "Lab Bed", "Corgi Bed",
+               "Doggy Bed", "Pooch Bed", "Canine Bed", "Guinea-Pig Bed", "Gerbil Bed",
+               "Rats Nest", "Birds Nest", "Owl Nest", "Maine Coon Bed", "Little Cat Bed",
+               "Huge Cat Bed", "King Size Cat Bed", "Self-Warming Cat Bed", "Thermal Cat Bed",
+               "Memory Foam Cat Bed", "Plush Cat Bed", "Cat Sofa Bed", "Cat Hideaway Bed",
+               "Cat Carrier Basket", "Cat Litter Basket", "Treat Basket", "Pet Food Basket",
+               "Leash Basket", "Doll Bed", "Teddy Bed", "Hen Nest", "Easter Nest", "Egg Basket")
+    assert drafted and refused
+    for title in drafted:
+        assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
+    for title in refused:
+        route = F.plan(category="pet", title=title)
+        assert route["family"] == F.REFUSED and route["needs"], (title, route)
+    # K-8: a non-bed head with no denylist word is never the vessel (pins the `$` anchor).
+    for title in ("Cat Bed Runner", "Cat Basket Lid"):
+        assert F.plan(category="pet", title=title)["family"] != F.VESSEL, title
+
+
 def test_review_opus2j_j11_the_size_is_sourced_and_lives_in_products_vessels():
     from brambleloop.products import vessels
 
     assert vessels.PET_BED_SIZE.across_cm == 48.0 and vessels.PET_BED_SIZE.tall_cm == 10.0
     assert "40-50 cm" in vessels.PET_BED_SIZE_SOURCE and "retrieved 2026-11-01" in \
-        vessels.PET_BED_SIZE_SOURCE
+        vessels.PET_BED_SIZE_SOURCE and "https://" in vessels.PET_BED_SIZE_SOURCE
+    assert "thesize" not in vessels.PET_BED_SIZE_SOURCE      # OPUS2K K-9: unverified, dropped
+    # OPUS2K K-9: the vessel reads PET_BED_SIZE (not an inlined copy).
+    import dataclasses
+
+    real = vessels.PET_BED_SIZE
+    vessels.PET_BED_SIZE = dataclasses.replace(real, across_cm=30.0)
+    try:
+        small = F.vessel(_concept("Cat Basket Bed"))
+    finally:
+        vessels.PET_BED_SIZE = real
+    assert max(r.declared_count for r in small.components[0].rows) < \
+        max(r.declared_count for r in F.vessel(_concept("Cat Basket Bed")).components[0].rows)
     cir = F.vessel(_concept("Cat Basket Bed"))
     assert "published cat-bed sizing guidance" in cir.finished_size_note
     points, flats = vessels.hexagon_spans_cm(max(r.declared_count for r in cir.components[0].rows),

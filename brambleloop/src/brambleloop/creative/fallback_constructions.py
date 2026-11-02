@@ -149,6 +149,18 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
             return {"family": REFUSED,
                     "needs": "a second sourced bed size; the fallback has one",
                     "why": f"the title names a size ({sized.group(0)!r}) the one design size is not"}
+        # OPUS2K K-7 (the second half of J-9): an allowlist, not a denylist. Every word before
+        # the head noun must be a plain cat/pet word, so another animal, a size, a feature or a
+        # different object is refused whatever it is called.
+        head = re.search(_PET_BED_HEAD, lowered_p.strip())
+        before = re.findall(r"[a-z0-9]+", lowered_p.strip()[:head.start()]) if head else []
+        unknown = [w for w in before if w not in _PET_BED_ALLOWED_WORDS]
+        if unknown:
+            return {"family": REFUSED,
+                    "needs": (f"the construction or sourced size {' '.join(unknown)!r} names; "
+                              f"only a plain cat or pet basket bed is drafted"),
+                    "why": (f"the title names {' '.join(unknown)!r}, which the plain cat-sized "
+                            f"basket bed does not make")}
         shaped = re.search(_PET_BED_NOT_PLAIN, lowered_p)
         if shaped:
             return {"family": REFUSED,
@@ -327,6 +339,10 @@ _PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pill
                       r"stuffed|donut|doughnut|cave|igloo|hood(?:ed)?|tent|cuddler|liner|"
                       r"blanket|mat|cover|pad|topper|hammock|toy|heated|waterproof|"
                       r"orthop(?:a)?edic|window|raised|weave|woven|elevated|bunk|canopy)\b)")
+_PET_BED_ALLOWED_WORDS = frozenset({
+    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "round", "snug", "basket",
+    "crochet", "crocheted", "simple", "classic", "everyday", "soft", "nest", "cat's",
+})
 _PET_BED_OTHER_ANIMALS = (r"\b(?:dog|dogs|puppy|puppies|pup|hound|great dane|labrador|"
                           r"hamster|rabbit|bunny|guinea pig|ferret|bird|parrot|rat|mouse|"
                           r"chinchilla|hedgehog|reptile|tortoise)\b")
