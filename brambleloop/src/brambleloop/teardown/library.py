@@ -69,7 +69,7 @@ def library_root(env: dict[str, str] | None = None) -> Path:
     application = Path(__file__).resolve().parents[3]
     forbidden = [application]
     forbidden.extend(p for p in application.parents if (p / ".git").exists())
-    if any(root == tree or tree in root.parents for tree in forbidden):
+    if any(root == tree or tree in root.parents or root in tree.parents for tree in forbidden):
         raise LibraryRefused(
             f"benchmark library must be outside the repository and application tree; "
             f"set {LIBRARY_ENV} to a private external directory")

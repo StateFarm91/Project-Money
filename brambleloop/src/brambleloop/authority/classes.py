@@ -104,7 +104,8 @@ JOB_CLASS: dict[str, ActionClass] = {
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
     "swarm.allocate": _B, "swarm.backlog": _B, "swarm.orphans": _B,
-    "teardown.enforce": _B, "visual.portrait_repair": _B,
+    "teardown.enforce": _B, "teardown.analyse": _B, "teardown.analyse_sweep": _B,
+    "visual.portrait_repair": _B,
     "visual.image_production": _B,
     # test: validation, certification, sandbox trials, probes
     "cir.compile": _T, "cir.reverse": _T, "cir.twin": _T, "gate.asset_truth": _T,

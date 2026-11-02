@@ -903,7 +903,7 @@ def refuse_benchmark_reference(reference: str, *, env: dict[str, str] | None = N
     library's quarantine; its path or name marks it as seller/designer/competitor photography
     or a benchmark reconstruction; its bytes hash to a file recorded in a purchase manifest.
     """
-    from ..teardown.library import library_root
+    from ..teardown.library import LibraryRefused, library_root
 
     ref = str(reference or "")
     path = Path(ref)
@@ -911,7 +911,10 @@ def refuse_benchmark_reference(reference: str, *, env: dict[str, str] | None = N
         resolved = path.resolve()
     except (OSError, RuntimeError):
         resolved = path
-    root = library_root(env)
+    try:
+        root = library_root(env)
+    except LibraryRefused as exc:
+        raise ReferenceRefused("benchmark library configuration is unsafe; reference refused") from exc
     if resolved == root or root in resolved.parents:
         raise ReferenceRefused(
             f"{ref!r} is inside the benchmark library. A purchased pattern's images are for "

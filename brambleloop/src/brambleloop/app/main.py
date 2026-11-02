@@ -6845,6 +6845,7 @@ async def api_teardown_intake(request: Request,
         return JSONResponse({"error": "operator credential required"}, status_code=401)
 
     from ..teardown.intake import IntakeRefused, receive
+    from ..teardown.library import LibraryRefused
 
     try:
         form = await request.form()
@@ -6898,6 +6899,8 @@ async def api_teardown_intake(request: Request,
                          licence_terms=licence_terms, purchase_record=purchase_record)
     except (IntakeRefused, ValueError) as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    except LibraryRefused as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     Registry(db).audit("orchestrator", "teardown.intake_received",
                        detail={"ref": result["ref"], "files": result["file_count"],

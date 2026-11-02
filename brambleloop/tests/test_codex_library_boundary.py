@@ -2,6 +2,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from brambleloop.teardown.library import LIBRARY_ENV, LibraryRefused, library_root
 
@@ -24,6 +25,22 @@ class LibraryBoundaryTests(unittest.TestCase):
     def test_default_does_not_depend_on_checkout_working_directory(self):
         self.assertTrue(library_root({}).is_absolute())
         self.assertNotIn(Path(__file__).resolve().parents[1], library_root({}).parents)
+
+    def test_library_cannot_contain_the_application_or_checkout(self):
+        app = Path(__file__).resolve().parents[1]
+        for root in (Path("/"), app.parent, app):
+            with self.assertRaises(LibraryRefused):
+                library_root({LIBRARY_ENV: str(root)})
+
+    def test_invalid_root_is_a_named_fail_closed_image_refusal(self):
+        from brambleloop.gateway import images
+        from brambleloop.gates import originality
+
+        with self.assertRaises(originality.ReferenceRefused):
+            originality.refuse_benchmark_reference("/tmp/example.png", env={LIBRARY_ENV: "/"})
+        with patch.dict("os.environ", {LIBRARY_ENV: "/"}):
+            with self.assertRaises(images.ImagesRefused):
+                images.refuse_benchmark_references(["/tmp/example.png"])
 
 
 if __name__ == "__main__":
