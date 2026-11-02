@@ -132,8 +132,26 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
-    if category in PET_CATEGORIES and re.search(_PET_BED_WORDS, (title or "").lower()):
+    if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, (title or "").lower().strip()):
         lowered_p = (title or "").lower()
+        # OPUS2J J-12: one release is one bed.
+        if re.search(_MULTIPLE_WORDS, lowered_p) or re.search(r"\b(?:beds|baskets|nests)\b",
+                                                                lowered_p):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished bed, each listed on its own",
+                    "why": "the title promises more than one bed; one draft is one bed"}
+        # OPUS2J J-10: the one sourced size is a cat's (products.vessels.PET_BED_SIZE).
+        other = re.search(_PET_BED_OTHER_ANIMALS, lowered_p)
+        if other:
+            return {"family": REFUSED,
+                    "needs": (f"a sourced bed size for {other.group(0)!r}: only an adult cat's "
+                              f"is sourced (products.vessels.PET_BED_SIZE_SOURCE)"),
+                    "why": f"the title names {other.group(0)!r}, which the cat-sized bed does not fit"}
+        sized = re.search(_PET_BED_SIZE_WORDS, lowered_p)
+        if sized:
+            return {"family": REFUSED,
+                    "needs": "a second sourced bed size; the fallback has one",
+                    "why": f"the title names a size ({sized.group(0)!r}) the one design size is not"}
         shaped = re.search(_PET_BED_NOT_PLAIN, lowered_p)
         if shaped:
             return {"family": REFUSED,
@@ -462,16 +480,28 @@ _SIZE_WORDS = (("bread", "small"), ("market", "large"))
 # the listing as the compiled diameter (never a pet's size). Padded, bolstered, hooded or
 # large-dog beds are a different construction and are refused by name in `plan`.
 PET_CATEGORIES = frozenset({"pet"})
-_PET_BED_WORDS = r"\b(?:bed|beds|basket|nest)\b"
+# OPUS2J J-9: the bed word must be the head noun (the title's last word), so a "Pet Bed Liner"
+# or a "Basket Weave Pet Mat" is never drafted as a basket; and the other objects and features
+# a bed title can name are refused by name.
+_PET_BED_HEAD = r"\b(?:bed|beds|basket|baskets|nest|nests)$"
 _PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pillow|padded|"
-                      r"stuffed|donut|doughnut|cave|igloo|hood(?:ed)?|tent|cuddler|large|"
-                      r"giant|xl|xxl|extra[- ]large|big)\b)")
+                      r"stuffed|donut|doughnut|cave|igloo|hood(?:ed)?|tent|cuddler|liner|"
+                      r"blanket|mat|cover|pad|topper|hammock|toy|heated|waterproof|"
+                      r"orthop(?:a)?edic|window|raised|weave|woven|elevated|bunk|canopy)\b)")
+_PET_BED_OTHER_ANIMALS = (r"\b(?:dog|dogs|puppy|puppies|pup|hound|great dane|labrador|"
+                          r"hamster|rabbit|bunny|guinea pig|ferret|bird|parrot|rat|mouse|"
+                          r"chinchilla|hedgehog|reptile|tortoise)\b")
+_PET_BED_SIZE_WORDS = (r"\b(?:tiny|mini|small|medium|large|giant|big|xl|xxl|extra[- ]large|"
+                       r"jumbo|oversized?|petite)\b")
+
+
+PET_BED_SOURCE_NOTE = "published cat-bed sizing guidance (an adult cat, about 40-50 cm inside)"
 
 
 def _pet_bed_size():
-    from ..products.vessels import BasketSize
+    from ..products.vessels import PET_BED_SIZE
 
-    return BasketSize("pet_bed", "pet basket bed", across_cm=45.0, tall_cm=10.0)
+    return PET_BED_SIZE
 
 
 def _basket_size(title: str):
@@ -543,7 +573,8 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
         finished_size_note=(
             f"A hexagonal {thing} about {points:.1f} cm across the points and {flats:.1f} cm "
             f"across the flats, walls about {wall_rounds * row_cm:.0f} cm tall, at the stated "
-            f"gauge. Computed, not yet measured on a worked sample."),
+            f"gauge. Computed, not yet measured on a worked sample."
+            + (f" Sized to {PET_BED_SOURCE_NOTE}." if pet_bed else "")),
         provenance=provenance,
     )
 

@@ -31,7 +31,7 @@ def _concept(title, category="pet"):
 
 
 def test_a_titled_pet_bed_routes_to_the_vessel_and_a_mat_stays_flat():
-    beds = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Dog Basket")
+    beds = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Round Cat Bed", "Pet Basket")
     assert beds
     for title in beds:
         assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
@@ -49,6 +49,40 @@ def test_padded_shaped_large_or_combined_beds_are_refused_by_name():
     for title in refused:
         route = F.plan(category="pet", title=title)
         assert route["family"] == F.REFUSED and route["needs"], title
+
+
+def test_review_opus2j_j9_j10_j12_only_a_titled_cat_bed_becomes_a_basket():
+    # J-9: the bed word must be the head noun; other objects and features are refused.
+    not_beds = ("Pet Bed Liner", "Pet Bed Blanket", "Pet Bed Mat", "Pet Bed Cover",
+                "Pet Bed Pad", "Dog Bed Topper", "Cat Bed Hammock", "Basket Weave Pet Mat",
+                "Basket Weave Pet Blanket", "Nest Toy", "Cat Basket Toy")
+    featured = ("Heated Cat Bed", "Waterproof Cat Bed", "Orthopedic Cat Bed", "Window Cat Bed",
+                "Raised Edge Cat Bed", "Basket Weave Cat Bed")
+    # J-10: no other animal's size is sourced; one design size only.
+    animals = ("Dog Bed", "Puppy Bed", "Great Dane Bed", "Hamster Bed", "Bird Nest",
+               "Rabbit Basket", "Dog Basket")
+    sizes = ("Small Cat Bed", "Medium Cat Bed", "Tiny Kitten Bed", "Mini Cat Bed")
+    # J-12: one release is one bed.
+    plurals = ("Pet Beds", "Two Cat Beds", "Cat Bed Pair")
+    assert not_beds and featured and animals and sizes and plurals
+    for title in not_beds:
+        assert F.plan(category="pet", title=title)["family"] != F.VESSEL, title
+    for title in featured + animals + sizes + plurals:
+        route = F.plan(category="pet", title=title)
+        assert route["family"] == F.REFUSED and route["needs"], (title, route)
+
+
+def test_review_opus2j_j11_the_size_is_sourced_and_lives_in_products_vessels():
+    from brambleloop.products import vessels
+
+    assert vessels.PET_BED_SIZE.across_cm == 48.0 and vessels.PET_BED_SIZE.tall_cm == 10.0
+    assert "40-50 cm" in vessels.PET_BED_SIZE_SOURCE and "retrieved 2026-11-01" in \
+        vessels.PET_BED_SIZE_SOURCE
+    cir = F.vessel(_concept("Cat Basket Bed"))
+    assert "published cat-bed sizing guidance" in cir.finished_size_note
+    points, flats = vessels.hexagon_spans_cm(max(r.declared_count for r in cir.components[0].rows),
+                                             cir.gauge)
+    assert flats >= 40.0, flats                 # even the flats give the sourced interior
 
 
 def test_the_bed_compiles_wide_and_low_and_states_its_computed_size():
