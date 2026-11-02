@@ -1076,6 +1076,9 @@ def pouch_route(title: str | None) -> dict:
                         f"pouch; only a drawstring pouch or bag is drafted")}
     before = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded[:head.start()])
     unknown = [w for w in before if w not in _POUCH_ALLOWED_WORDS]
+    leftover = re.sub(r"[a-z0-9'\s\-]", "", folded[:head.start()])     # OPUS2N-1: total
+    if leftover:
+        unknown.append(leftover)
     if unknown:
         return {"family": REFUSED,
                 "needs": (f"the construction, size or feature {' '.join(unknown)!r} names; "
