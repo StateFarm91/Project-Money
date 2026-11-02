@@ -235,6 +235,18 @@ def declared_motifs(cir: CIR) -> list[str]:
             or u.endswith(".MOTIF")]
 
 
+def _motif_fold(text) -> str:
+    """A2-1: a motif word is read as it renders -- NFKC (full-width and mathematical letters),
+    format and invisible characters removed, marks dropped -- the fold the drafting route reads
+    a title with, so a word the route lets through to this gate is a word this gate sees."""
+    import unicodedata
+
+    t = unicodedata.normalize("NFKC", str(text or ""))
+    t = "".join(c for c in unicodedata.normalize("NFKD", t)
+                if unicodedata.category(c) not in ("Cf", "Cn", "Mn", "Me"))
+    return unicodedata.normalize("NFKC", t).lower()
+
+
 def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
                   tags: dict[str, list[str]] | None = None) -> dict:
     """Whether every motif word in the title and copy is backed by the CIR's declared motif.
@@ -255,18 +267,18 @@ def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
             relief = relief or dec["medium"] == RELIEF
     problems = []
     for where, text in texts.items():
-        found = [w for w in re.findall(r"[a-z]+", str(text or "").lower()) if w in MOTIF_WORDS]
+        found = [w for w in re.findall(r"[a-z]+", _motif_fold(text)) if w in MOTIF_WORDS]
         for w in sorted(set(found) - backs):
             problems.append(f"{where}: {w!r} is a motif word the CIR's declared motif "
                             f"{declared or 'none'} does not back")
         backed_here = sorted(set(found) & backs)
-        if backed_here and relief and not (set(re.findall(r"[a-z]+", str(text).lower()))
+        if backed_here and relief and not (set(re.findall(r"[a-z]+", _motif_fold(text)))
                                            & RELIEF_QUALIFIERS):
             problems.append(f"{where}: {backed_here} exist only as raised stitches, and the "
                             f"text does not say so (raised / relief / texture)")
     for where, phrases in (tags or {}).items():
         for ph in phrases:
-            for w in sorted({w for w in re.findall(r"[a-z]+", ph.lower()) if w in MOTIF_WORDS}
+            for w in sorted({w for w in re.findall(r"[a-z]+", _motif_fold(ph)) if w in MOTIF_WORDS}
                             - backs):
                 problems.append(f"{where}: {ph!r} names {w!r}, which the CIR does not back")
     return {"declared": declared, "backs": sorted(backs), "relief": relief,

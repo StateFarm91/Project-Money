@@ -633,9 +633,49 @@ NAME_OUTRUNS_PATTERN = "NAME_OUTRUNS_PATTERN"
 _RULE_DRAFTED = ("creative.fallback_constructions.", "creative.construction_registry.")
 
 
+def _engineered_designs() -> set[str]:
+    """The slugs of the engineered designs: the catalogue universe, every launch0 builder,
+    proposal and candidate variant, and the pipeline board's proposals. Each declares its own motif and keeps its own
+    product_truth gate."""
+    from ..products import inventory
+    from ..products import launch0 as l0
+
+    out = set(inventory.universe())
+    for name in ("BUILDERS", "PROPOSED_BUILDERS"):
+        for key in getattr(l0, name, {}) or {}:
+            try:
+                out.add(l0.cir_for(key).slug)
+            except Exception:  # noqa: BLE001 - a builder that cannot build declares nothing
+                continue
+    for cand in getattr(l0, "CANDIDATES", ()):
+        for v in cand.variants:
+            try:
+                out.add(l0.cir_for(v.build).slug)
+            except Exception:  # noqa: BLE001
+                continue
+    # the pipeline board's engineered proposals (the relief runners, dishcloths, scarves)
+    from ..products import pipeline_board
+
+    out |= {p.slug for p in pipeline_board.PROPOSALS}
+    # the creative moment candidates engineered in products.moment_candidates (ENGINEERED)
+    from ..products import moment_candidates
+
+    out |= set(getattr(moment_candidates, "ENGINEERED", {}) or {})
+    # the curated creative concepts the moment engine designs (creative.emotional_brief)
+    from ..creative import emotional_brief
+
+    try:
+        out |= {c.key for c in emotional_brief.candidate_concepts()[0]}
+    except Exception:  # noqa: BLE001 - an unreadable registry exempts nothing (fail-closed)
+        pass
+    return out
+
+
 def _drafted_by_a_rule(cir) -> bool:
-    prims = tuple(getattr(getattr(cir, "provenance", None), "primitives_used", None) or ())
-    return not prims or any(p.startswith(_RULE_DRAFTED) for p in prims if isinstance(p, str))
+    """A2-2: fail-closed. Every CIR is held to the motif check unless it is one of the
+    engineered designs; any rule-drafting producer -- the radar fallback with or without known
+    lineage (runtime.pipeline.concept_to_cir), the registry, or one not yet written -- is in."""
+    return cir.slug not in _engineered_designs()
 
 
 def name_truth(cir, listing: dict | None = None) -> list[str]:
@@ -657,15 +697,13 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
                          ("assembly", l0.assembly_promise(cir))):
         if not verdict.get("backed"):
             out.append(f"{key}: {verdict.get('why')}")
-    # A2 (OPUS2V-2): a motif word in the name must be a motif the pattern makes. Held to every
-    # product drafted by rule from a title -- the radar fallback and the registry (or one with
-    # no recorded provenance) -- which is where "Heart Basket" on a plain vessel comes from. The engineered catalogue keeps
-    # its own Launch-0 product_truth / manual_adoption gate: nine of its titles are unbacked by
-    # motif_promise today (heart-row, fir-and-star, cable and relief words without a
-    # declaration), and changing their publish state is an integrator decision.
-    from ..products import inventory
-
-    if cir.slug not in set(inventory.universe()) and _drafted_by_a_rule(cir):
+    # A2 (OPUS2V-2, A2-2): a motif word in the name must be a motif the pattern makes. Held to
+    # every product that is not an engineered design (fail-closed: any rule-drafted CIR), which
+    # is where "Heart Basket" on a plain vessel comes from. The engineered designs keep their
+    # own product_truth / manual_adoption gate: nine catalogue titles are unbacked by
+    # motif_promise today (undeclared heart-row, fir-and-star, cable; relief words without
+    # 'raised'), and changing their publish state is an integrator decision.
+    if _drafted_by_a_rule(cir):
         motif = l0.motif_promise(cir)
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
