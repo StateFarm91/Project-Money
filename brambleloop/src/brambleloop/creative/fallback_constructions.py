@@ -29,12 +29,56 @@ import re
 
 from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 
+def fold_title(title: str | None) -> str:
+    """A title as the routing rules read it (review OPUS2L-4): NFKC (fullwidth letters,
+    compatibility forms), every Unicode dash (category Pd: U+2010..U+2015, U+2212 and the
+    like) as an ASCII hyphen, lower case, whitespace collapsed and stripped. A smart-copy
+    "Fair\u2011Isle" is the same claim as "Fair-Isle"."""
+    import unicodedata
+
+    text = unicodedata.normalize("NFKC", title or "").replace("\u2019", "'")
+    text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
+                   for c in text)
+    return re.sub(r"\s+", " ", text.lower()).strip()
+
+
+def words_before_head(folded: str, head_re: str) -> list[str] | None:
+    """The modifier words before a title's head noun, or None when the head noun is not the
+    title's last word. The shared construction-intent rule (reviews OPUS2K-7, OPUS2L-1): a
+    route that drafts one plain object drafts it only when every modifier is in that route's
+    allowlist, so another product, a size, an audience, a motif, an embellishment or a claim
+    is refused whatever it is called -- never matched against a denylist that cannot be
+    complete."""
+    head = re.search(head_re, folded)
+    if not head:
+        return None
+    return re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded[:head.start()])
+
+
+def modifiers_outside(folded: str, head_re: str, allowed: frozenset) -> list[str]:
+    """The modifiers before the head noun that the route's allowlist does not hold.
+
+    Review OPUS2N-1: total, not token-wise. Anything before the head noun that is not an
+    ASCII word -- an emoji, a word in another script, a symbol -- yields no token, so it is
+    returned as what is left over, never passed as "no unknown word"."""
+    head = re.search(head_re, folded)
+    if not head:
+        return []
+    prefix = folded[:head.start()]
+    unknown = [w for w in (words_before_head(folded, head_re) or []) if w not in allowed]
+    leftover = re.sub(r"[a-z0-9'\s\-]", "", prefix)
+    if leftover:
+        unknown.append(leftover)
+    return unknown
+
+
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
 TOTE = "tote"
 COSY = "cosy"
 TRIANGLE = "triangle"
+STOCKING = "stocking"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -45,7 +89,9 @@ NEEDS: dict[str, str] = {
     "hat": ("a hat height and negative ease from a published standard: the CYC head "
             "circumference chart (HEAD_CIRCUMFERENCE_CM) publishes circumference only"),
     "garment": "a graded garment design (creative.garment_design)",
-    "stocking": "a closed tube with a heel and toe",
+    # A stocking whose title the plain two-panel rule cannot back (colourwork, a name, a
+    # second object, another size) is refused in `plan` with its own reason.
+    "stocking": "a stocking construction the two-panel rule does not make",
     "nursery": "several shaped pieces assembled on a hanger",
     "toy": "shaped pieces worked in the round, stuffed and joined",
     # Review OPUS2E E1: a bag that is not a tote (drawstring, backpack, clutch, crossbody,
@@ -123,12 +169,105 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
                         f"is one release of one size")}
     titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
-    if category in NEEDS and not (category == "bag" and titled_tote):
+    if category in NEEDS and not (category == "bag" and titled_tote) and category != "stocking":
         return {"family": REFUSED, "needs": NEEDS[category],
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
+    if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, fold_title(title)):
+        lowered_p = fold_title(title)       # OPUS2L-4: Unicode dashes and forms folded
+        # OPUS2J J-12: one release is one bed.
+        if re.search(_MULTIPLE_WORDS, lowered_p) or re.search(r"\b(?:beds|baskets|nests)\b",
+                                                                lowered_p):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished bed, each listed on its own",
+                    "why": "the title promises more than one bed; one draft is one bed"}
+        # OPUS2J J-10: the one sourced size is a cat's (products.vessels.PET_BED_SIZE).
+        other = re.search(_PET_BED_OTHER_ANIMALS, lowered_p)
+        if other:
+            return {"family": REFUSED,
+                    "needs": (f"a sourced bed size for {other.group(0)!r}: only an adult cat's "
+                              f"is sourced (products.vessels.PET_BED_SIZE_SOURCE)"),
+                    "why": f"the title names {other.group(0)!r}, which the cat-sized bed does not fit"}
+        sized = re.search(_PET_BED_SIZE_WORDS, lowered_p)
+        if sized:
+            return {"family": REFUSED,
+                    "needs": "a second sourced bed size; the fallback has one",
+                    "why": f"the title names a size ({sized.group(0)!r}) the one design size is not"}
+        # OPUS2K K-7 (the second half of J-9): an allowlist, not a denylist. Every word before
+        # the head noun must be a plain cat/pet word, so another animal, a size, a feature or a
+        # different object is refused whatever it is called.
+        # The shared construction-intent rule (fold_title / modifiers_outside).
+        unknown = modifiers_outside(lowered_p, _PET_BED_HEAD, _PET_BED_ALLOWED_WORDS)
+        if unknown:
+            return {"family": REFUSED,
+                    "needs": (f"the construction or sourced size {' '.join(unknown)!r} names; "
+                              f"only a plain cat or pet basket bed is drafted"),
+                    "why": (f"the title names {' '.join(unknown)!r}, which the plain cat-sized "
+                            f"basket bed does not make")}
+        shaped = re.search(_PET_BED_NOT_PLAIN, lowered_p)
+        if shaped:
+            return {"family": REFUSED,
+                    "needs": (f"the construction a {shaped.group(0).strip()!r} bed needs (a "
+                              f"stuffed bolster, a padded base, a hood or a larger measured "
+                              f"size), worked and joined as its own pieces"),
+                    "why": (f"the title names {shaped.group(0).strip()!r}, which the plain "
+                            f"low-walled basket bed does not make")}
+        return {"family": VESSEL, "needs": "",
+                "why": "a pet basket bed is a wide vessel with a low wall, worked in the round"}
+    lowered_s = fold_title(title)
+    stocking_head = re.search(_STOCKING_HEAD, lowered_s)
+    if category == "stocking" and not stocking_head:
+        # OPUS2J J-13: the category alone never makes a stocking out of another product.
+        return {"family": REFUSED,
+                "needs": "a stocking title, or the construction the title names",
+                "why": (f"category 'stocking' but the title {title!r} names another product; "
+                        f"the stocking rule drafts only a stocking")}
+    if stocking_head:
+        rest = re.sub(_STOCKING_WORDS, "", lowered_s)
+        # OPUS2J J-14: one release is one stocking; a motif word the plain stocking does not
+        # carry is refused (the fallback declares no motif, so name_truth cannot back it).
+        if re.search(r"\bstockings\b", lowered_s):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished stocking, each listed on its own",
+                    "why": "the title promises more than one stocking; one draft is one stocking"}
+        from ..products.launch0 import MOTIF_WORDS
+
+        motif = next((w for w in re.findall(r"[a-z]+", rest) if w in MOTIF_WORDS), None)
+        if motif:
+            return {"family": REFUSED,
+                    "needs": f"a charted {motif!r} motif on the stocking (a declared motif)",
+                    "why": (f"the title names the motif {motif!r}, which the plain stocking "
+                            f"does not carry")}
+        extra = re.search(_STOCKING_NOT_PLAIN, rest)
+        if extra:
+            return {"family": REFUSED,
+                    "needs": (f"the construction a {extra.group(0).strip()!r} stocking needs "
+                              f"(per-stitch colourwork, lettering, a second object, a cuff in "
+                              f"another stitch or another size)"),
+                    "why": (f"the title names {extra.group(0).strip()!r}, which the plain "
+                            f"two-panel stocking does not make")}
+        if re.search(_MULTIPLE_WORDS, lowered_s):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished stocking, each listed on its own",
+                    "why": "the title promises more than one stocking; one draft is one stocking"}
+        # Review OPUS2L-1/-2/-3/-5: an allowlist, not a denylist. Every word before "stocking"
+        # must be a plain Christmas-stocking word; another product ("Wine Bottle Stocking"),
+        # hosiery or a medical claim ("Compression Stocking"), a size or audience ("Baby
+        # Stocking"), a motif, an embellishment or a count is refused whatever it is called.
+        # The one contrast band the stocking does make is the four-row cuff (accent colour),
+        # so "Stripe Cuff" / "Contrast Cuff" names it truly; a striped body does not exist.
+        banded = re.sub(r"\b(?:stripe|striped|contrast|contrasting) cuff\b", "cuff", lowered_s)
+        unknown = modifiers_outside(banded, _STOCKING_HEAD, _STOCKING_ALLOWED_WORDS)
+        if unknown:
+            return {"family": REFUSED,
+                    "needs": (f"the construction, size or sourced claim {' '.join(unknown)!r} "
+                              f"names; only a plain Christmas stocking is drafted"),
+                    "why": (f"the title names {' '.join(unknown)!r}, which the one plain "
+                            f"two-panel stocking does not make")}
+        return {"family": STOCKING, "needs": "",
+                "why": "a stocking is two L-shaped panels worked flat and seamed around"}
     if re.search(_EGG_COSY_WORDS, (title or "").lower()):
         rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
         extra = re.search(_COSY_NOT_PLAIN, rest)
@@ -280,9 +419,180 @@ def triangle(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     )
 
 
+# A stocking: two identical L-shaped panels worked flat from the cuff down, held wrong sides
+# together and whipstitched around the leg, heel, sole and toe, open at the cuff, with a
+# chain hanging loop sewn inside the heel-side top corner. The foot extends by a chain at the
+# end of the heel row (the compiler counts a chain into open air as new fabric), and the sole
+# rounds off by a decrease at each end of the last rows. One design size; the listing states
+# the computed dimensions, never a measured one.
+_STOCKING_WORDS = r"\bstockings?\b"
+# OPUS2J J-13: "stocking" must be the head noun (the title's last word), so "Stocking Stitch
+# Blanket", "Stocking Garland", "Stocking Holder", "Stocking Cap" and "Stocking Tote" are never
+# drafted as a stocking.
+_STOCKING_HEAD = r"\bstockings?$"
+# Review OPUS2L-1: the only words a plain stocking title may carry before "stocking". Style
+# and occasion words only; no size, audience, colour pattern, motif, material or count.
+_STOCKING_ALLOWED_WORDS = frozenset({
+    "christmas", "xmas", "holiday", "festive", "classic", "traditional", "fireside", "cosy",
+    "cozy", "plain", "simple", "crochet", "crocheted", "everyday", "hanging", "modern",
+    "minimalist", "solid", "seasonal", "winter", "cuff",
+})
+_STOCKING_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|mosaic|fair[- ]?isle|tapestry|colou?rwork|"
+                       r"intarsia|graphghan|personali[sz]ed|monogram(?:med)?|name|initials?|"
+                       r"cable[sd]?|bobble[sd]?|lace|lacy|pom[- ]?poms?|fur|faux|cuffed|"
+                       r"appliqu[eé]|mini|tiny|small|medium|large|giant|jumbo|xl|oversized?)\b)")
+STOCKING_PRIMITIVES = ("creative.fallback_constructions.stocking",)
+# Review OPUS2L-7: the size is a stated design choice, not a sourced standard. No published
+# standard was found (2026-11-02): retail stockings range widely, e.g. Northlight's 20-inch
+# stocking is 20 x 9 in (https://www.homedepot.ca/product/northlight-20-traditional-red-with-
+# white-cuff-hanging-christmas-stocking/1001820543). This one is smaller (about 14 in cuff to
+# sole) and the listing states the computed size, never a measured or standard one.
+STOCKING_SIZE_SOURCE = ("design choice; no published standard stocking size found. Retail "
+                        "example for scale: Northlight 20-inch stocking, 20 x 9 in (Home Depot "
+                        "Canada listing 1001820543)")
+STOCKING_LEG_W_CM = 14.0
+STOCKING_LEG_L_CM = 26.0
+STOCKING_FOOT_L_CM = 22.0
+STOCKING_FOOT_H_CM = 10.0
+STOCKING_SOLE_ROWS = 4
+STOCKING_LOOP_CHAINS = 15
+
+
+def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A Christmas stocking: two L-shaped panels from the cuff down, seamed, with a loop."""
+    import dataclasses
+
+    from ..cir.model import Seam
+    from ..creative.prototype import gauge_for
+
+    gauge = gauge_for(concept.yarn_weight)
+    palette = list(concept.colors)
+    if not palette:
+        raise ValueError(f"{concept.slug}: a stocking needs at least one colour")
+    per_cm = gauge.stitches_per_10cm / 10.0
+    rows_per_cm = gauge.rows_per_10cm / 10.0
+    leg_w = max(10, int(round(STOCKING_LEG_W_CM * per_cm)))
+    foot_w = max(leg_w + 6, int(round(STOCKING_FOOT_L_CM * per_cm)))
+    extend = foot_w - leg_w
+    leg_rows = max(10, int(round(STOCKING_LEG_L_CM * rows_per_cm)))
+    if leg_rows % 2:
+        leg_rows += 1                     # the heel chain ends an even row (the heel edge)
+    foot_rows = max(STOCKING_SOLE_ROWS + 4, int(round(STOCKING_FOOT_H_CM * rows_per_cm)))
+    main, accent = palette[0], palette[1 % len(palette)]
+    rows: list[Row] = []
+    index = 0
+
+    def colour_for(i: int) -> str:
+        return accent if i <= 4 else main          # a four-row cuff band, then the body
+
+    for i in range(1, leg_rows + 1):
+        index += 1
+        if i == leg_rows:
+            rows.append(Row(index=index, ops=[Op("sc", leg_w), Op("ch", extend)],
+                            declared_count=foot_w, turning_chain=1, color=colour_for(i),
+                            note="chain across for the foot"))
+        else:
+            rows.append(Row(index=index, ops=[Op("sc", leg_w)], declared_count=leg_w,
+                            turning_chain=1, color=colour_for(i)))
+    count = foot_w
+    plain_foot = foot_rows - STOCKING_SOLE_ROWS
+    for j in range(1, foot_rows + 1):
+        index += 1
+        if j == 1:
+            rows.append(Row(index=index, ops=[Op("sc", extend), Op("sc", leg_w)],
+                            declared_count=count, turning_chain=1, color=main,
+                            note="work into each chain, then across the leg"))
+        elif j <= plain_foot:
+            rows.append(Row(index=index, ops=[Op("sc", count)], declared_count=count,
+                            turning_chain=1, color=main))
+        else:
+            rows.append(Row(index=index, ops=[Op("dec"), Op("sc", count - 4), Op("dec")],
+                            declared_count=count - 2, turning_chain=1, color=main,
+                            note="round the heel and toe"))
+            count -= 2
+    panel = Component(
+        name="front", construction="flat_rows", rows=rows, foundation=leg_w,
+        foundation_kind="chain",
+        note=("Worked flat from the cuff down. The last leg row chains across for the foot; "
+              "the last rows decrease at both ends to round the heel and toe."))
+    back = dataclasses.replace(panel, name="back")
+    loop = Component(
+        name="hanging loop", construction="flat_rows", foundation=STOCKING_LOOP_CHAINS,
+        foundation_kind="chain",
+        rows=[Row(index=1, ops=[Op("sc", STOCKING_LOOP_CHAINS)],
+                  declared_count=STOCKING_LOOP_CHAINS, color=accent)],
+        note="A short strip folded in half into a loop.")
+    assembly = [
+        Seam("whipstitch", "front", "back", edge_a="perimeter", edge_b="perimeter",
+             at_round=1, spans_rounds=len(rows),
+             note=("Place the back on the front with the same side facing up, so the feet point "
+                   "the same way and the edges match, and whipstitch around the leg, heel, "
+                   "sole and toe, leaving the cuff (the foundation edges) open. Because both "
+                   "panels face the same way, the back panel's wrong side shows on the "
+                   "outside; in single crochet worked in turned rows the two sides look "
+                   "nearly alike.")),
+        Seam("whipstitch", "hanging loop", "back", edge_a="bottom", edge_b="top",
+             at_round=1, spans_rounds=1,
+             note="Fold the loop in half and sew both ends inside the heel-side top corner."),
+    ]
+    width_cm = foot_w / per_cm
+    leg_cm = leg_rows / rows_per_cm
+    foot_cm = foot_rows / rows_per_cm
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version, construction="flat_rows",
+        risk_class=concept.risk_class, colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=p)
+                   for p in dict.fromkeys([main, accent])],
+        components=[panel, back, loop], assembly=assembly,
+        designer_notes=(f"{concept.category} concept drafted as a two-panel stocking: a "
+                        f"{leg_w}-st leg of {leg_rows} rows with a four-row cuff band, a "
+                        f"{extend}-ch heel extension to a {foot_w}-st foot of {foot_rows} rows, "
+                        f"the last {STOCKING_SOLE_ROWS} rounding the sole"),
+        finished_size_note=(
+            f"A stocking about {leg_w / per_cm:.0f} cm wide at the cuff, "
+            f"{leg_cm + foot_cm:.0f} cm from cuff to sole and {width_cm:.0f} cm from heel to "
+            f"toe, at the stated gauge. Computed, not yet measured on a worked sample."),
+        provenance=provenance,
+    )
+
+
 # A basket's finished size, chosen from its title, never from the panel width table: the
 # panel width is a flat dimension and a basket's is a diameter.
 _SIZE_WORDS = (("bread", "small"), ("market", "large"))
+
+
+# OPUS2: a pet basket bed is the same hexagon vessel, wide and low: one design size, stated in
+# the listing as the compiled diameter (never a pet's size). Padded, bolstered, hooded or
+# large-dog beds are a different construction and are refused by name in `plan`.
+PET_CATEGORIES = frozenset({"pet"})
+# OPUS2J J-9: the bed word must be the head noun (the title's last word), so a "Pet Bed Liner"
+# or a "Basket Weave Pet Mat" is never drafted as a basket; and the other objects and features
+# a bed title can name are refused by name.
+_PET_BED_HEAD = r"\b(?:bed|beds|basket|baskets|nest|nests)$"
+_PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pillow|padded|"
+                      r"stuffed|donut|doughnut|cave|igloo|hood(?:ed)?|tent|cuddler|liner|"
+                      r"blanket|mat|cover|pad|topper|hammock|toy|heated|waterproof|"
+                      r"orthop(?:a)?edic|window|raised|weave|woven|elevated|bunk|canopy)\b)")
+_PET_BED_ALLOWED_WORDS = frozenset({
+    # OPUS2N-2: no "round": the bed is a hexagon (its size note says so).
+    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "snug", "basket",
+    "crochet", "crocheted", "simple", "classic", "everyday", "soft", "nest", "cat's",
+})
+_PET_BED_OTHER_ANIMALS = (r"\b(?:dog|dogs|puppy|puppies|pup|hound|great dane|labrador|"
+                          r"hamster|rabbit|bunny|guinea pig|ferret|bird|parrot|rat|mouse|"
+                          r"chinchilla|hedgehog|reptile|tortoise)\b")
+_PET_BED_SIZE_WORDS = (r"\b(?:tiny|mini|small|medium|large|giant|big|xl|xxl|extra[- ]large|"
+                       r"jumbo|oversized?|petite)\b")
+
+
+PET_BED_SOURCE_NOTE = "published cat-bed sizing guidance (an adult cat, about 40-50 cm inside)"
+
+
+def _pet_bed_size():
+    from ..products.vessels import PET_BED_SIZE
+
+    return PET_BED_SIZE
 
 
 def _basket_size(title: str):
@@ -300,8 +610,11 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
                                     hexagon_spans_cm)
 
     gauge = gauge_for(concept.yarn_weight)
-    spec = (next(s for s in BASKET_SIZES if s.key == size) if size
+    pet_bed = size == "pet_bed" or (size is None and concept.category in PET_CATEGORIES)
+    spec = (_pet_bed_size() if pet_bed
+            else next(s for s in BASKET_SIZES if s.key == size) if size
             else _basket_size(concept.title))
+    thing = "pet basket bed" if pet_bed else "basket"
     repeat = [(str(code), int(n)) for code, n in concept.stitch_repeat]
     unit = sum(n for _, n in repeat)
     if unit <= 0:
@@ -339,7 +652,8 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
         materials=[Material(name=f"{concept.yarn_weight} acrylic",
                             yarn_weight=concept.yarn_weight, color_id=p) for p in palette],
         components=[Component(
-            name="basket", construction="joined_rounds", rows=rows, foundation=0,
+            name="bed" if pet_bed else "basket", construction="joined_rounds", rows=rows,
+            foundation=0,
             foundation_kind="magic_ring",
             note=("Worked in one piece from the centre of the base. Work each increase into "
                   "the second stitch of the previous round's increase, so the increases stack "
@@ -348,9 +662,10 @@ def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None
                         f"{base_count} sts, {wall_rounds} wall rounds alternating plain "
                         f"single crochet and the concept's {unit}-st repeat"),
         finished_size_note=(
-            f"A hexagonal basket about {points:.1f} cm across the points and {flats:.1f} cm "
+            f"A hexagonal {thing} about {points:.1f} cm across the points and {flats:.1f} cm "
             f"across the flats, walls about {wall_rounds * row_cm:.0f} cm tall, at the stated "
-            f"gauge. Computed, not yet measured on a worked sample."),
+            f"gauge. Computed, not yet measured on a worked sample."
+            + (f" Sized to {PET_BED_SOURCE_NOTE}." if pet_bed else "")),
         provenance=provenance,
     )
 

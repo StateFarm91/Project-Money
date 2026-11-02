@@ -67,11 +67,27 @@ class BasketSize:
     tall_cm: float
 
 
+# OPUS2 (reviews OPUS2J J-11, OPUS2K K-9): the one pet basket bed size, from published cat-bed
+# sizing guidance: "internal diameter of roughly 16-20 inches (40-50 cm) for round beds" for an
+# average adult domestic cat (https://thetoolstrunk.com/how-big-should-a-cat-bed-be/, retrieved
+# 2026-11-01, re-fetched by review OPUS2K 2026-11-02). Secondary guidance from one blog, not a
+# measured standard or a worked sample. 48 cm is the requested OUTSIDE size; the compiled bed
+# rounds up to a whole number of wedges and measures about 51.2 cm across the points and 44.3 cm
+# across the flats (OPUS2N-5), so the flats sit inside the cited 40-50 cm and the points a little
+# over it. The listing prints the computed figures, never 48. A cat size only;
+# no dog or other animal size is sourced, so those stay refused.
+PET_BED_SIZE_SOURCE = ("published cat-bed sizing guidance (secondary, one source), retrieved "
+                       "2026-11-01: an average adult cat's round bed has an internal diameter of "
+                       "about 40-50 cm -- https://thetoolstrunk.com/how-big-should-a-cat-bed-be/")
+
 BASKET_SIZES = (
     BasketSize("small", "bread basket", across_cm=15.0, tall_cm=9.0),
     BasketSize("medium", "storage basket", across_cm=20.0, tall_cm=16.0),
     BasketSize("large", "market basket", across_cm=25.0, tall_cm=23.0),
 )
+
+
+PET_BED_SIZE = BasketSize("pet_bed", "cat basket bed", across_cm=48.0, tall_cm=10.0)
 
 
 def diameter_cm(stitches: int, gauge: Gauge) -> float:
