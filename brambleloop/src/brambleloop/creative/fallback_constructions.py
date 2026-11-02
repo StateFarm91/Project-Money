@@ -37,6 +37,7 @@ COSY = "cosy"
 TRIANGLE = "triangle"
 TAPESTRY = "tapestry"
 AMIGURUMI = "amigurumi"
+POUCH = "pouch"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -139,6 +140,10 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         # bear or bunny is drafted as shaped rounds, stuffed and joined; any other animal,
         # character, size, count or feature is refused by name.
         return amigurumi_route(title)
+    if category in POUCH_CATEGORIES and re.search(r"\bdrawstring\b", fold_title(title)):
+        # P0 construction breadth (bags and accessories): a plain drawstring pouch is a small
+        # round vessel with an eyelet round and a threaded chain cord.
+        return pouch_route(title)
     titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
     if category in NEEDS and not (category == "bag" and titled_tote):
         return {"family": REFUSED, "needs": NEEDS[category],
@@ -870,5 +875,113 @@ def amigurumi(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
             f"The body is about {around:.0f} cm around its widest round at the stated gauge. "
             f"Computed from the stitch counts, not yet measured on a worked sample; its "
             f"height depends on the stuffing and is measured on the sample."),
+        provenance=provenance,
+    )
+
+
+# ---------------------------------------------------------------------------------------
+# A drawstring pouch (P0 construction breadth: bags and accessories).
+#
+# A round base (staggered increases, so a circle), straight walls in sc joined rounds, one
+# eyelet round of "sc, ch 2, sk 2" a few rounds below the rim, and a chain cord with a slip
+# stitch in each chain, threaded in and out of the eyelets. `cir.assembly` measures the
+# thread join: the cord's girth against one eyelet's inside (THREAD_ROOM), so a cord that
+# cannot pass is a mismatch, not a photograph. One design size, computed from the gauge.
+POUCH_CATEGORIES = frozenset({"bag", "accessory", "accessories"})
+POUCH_ACROSS_CM = 12.0
+POUCH_TALL_CM = 15.0
+POUCH_EYELET_REPEAT = (4, 2)       # sc, then a ch-2 bridging 2 skipped sts
+POUCH_RIM_ROUNDS = 2               # plain rounds above the eyelet round
+POUCH_TIE_CM = 20.0                # free cord at each end, for the bow
+_POUCH_HEAD = r"\b(?:pouch|bag)$"
+_POUCH_ALLOWED_WORDS = frozenset({"drawstring", "crochet", "crocheted", "simple", "classic",
+                                  "everyday", "round", "project", "gift", "cosy", "cozy"})
+POUCH_PRIMITIVES = ("creative.fallback_constructions.pouch",
+                    "products.moment_candidates._disc", "cir.assembly._thread_join")
+
+
+def pouch_route(title: str | None) -> dict:
+    folded = fold_title(title)
+    if re.search(_MULTIPLE_WORDS, folded) or re.search(r"\b(?:pouches)\b", folded):
+        return {"family": REFUSED, "needs": "one certified release per pouch, each listed alone",
+                "why": "the title promises more than one pouch; one draft is one pouch"}
+    head = re.search(_POUCH_HEAD, folded)
+    if not head:
+        return {"family": REFUSED, "needs": NEEDS["bag"],
+                "why": (f"the title {title!r} names a drawstring form other than a plain "
+                        f"pouch; only a drawstring pouch or bag is drafted")}
+    before = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded[:head.start()])
+    unknown = [w for w in before if w not in _POUCH_ALLOWED_WORDS]
+    if unknown:
+        return {"family": REFUSED,
+                "needs": (f"the construction, size or feature {' '.join(unknown)!r} names; "
+                          f"only a plain drawstring pouch is drafted"),
+                "why": f"the title names {' '.join(unknown)!r}, which the plain pouch does not make"}
+    return {"family": POUCH, "needs": "",
+            "why": "a drawstring pouch is a round vessel with an eyelet round and a cord"}
+
+
+def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    from ..cir.model import Seam
+    from ..creative.prototype import gauge_for
+    from ..products.moment_candidates import _disc, _Rows
+
+    palette = list(dict.fromkeys(concept.colors))
+    if not palette:
+        raise ValueError(f"{concept.slug}: a pouch needs at least one colour")
+    main = palette[0]
+    cord_colour = palette[1] if len(palette) > 1 else main
+    gauge = gauge_for(concept.yarn_weight)
+    sc_n, gap = POUCH_EYELET_REPEAT
+    unit = sc_n + gap
+    step = 6 * unit // math.gcd(6, unit)
+    around = math.pi * POUCH_ACROSS_CM * gauge.stitches_per_10cm / 10.0
+    n = max(step * 2, int(round(around / step)) * step)
+    rows = _Rows()
+    _disc(rows, n, main)
+    base_end = rows.last
+    row_cm = 10.0 / gauge.rows_per_10cm
+    walls = max(POUCH_RIM_ROUNDS + 4, int(round(POUCH_TALL_CM / row_cm)))
+    for _ in range(walls - POUCH_RIM_ROUNDS - 1):
+        rows.add([Op("sc", n)], n, main)
+    eyelets = n // unit
+    rows.add([Repeat([Op("sc", sc_n), Op("ch", gap, spans=gap), Op("sk", gap)],
+                     times=eyelets)], n, main,
+             note=f"{eyelets} eyelets; work the next round's sts into each ch-{gap} space")
+    eyelet_round = rows.last
+    for _ in range(POUCH_RIM_ROUNDS):
+        rows.add([Op("sc", n)], n, main)
+    circumference = n / gauge.stitches_per_10cm * 10.0
+    cord_cm = circumference + 2 * POUCH_TIE_CM
+    cord_n = int(round(cord_cm * gauge.stitches_per_10cm / 10.0))
+    cord = Component(name="cord", construction="flat_rows", foundation=cord_n,
+                     foundation_kind="chain",
+                     rows=[Row(index=1, ops=[Op("slst", cord_n)], declared_count=cord_n,
+                               color=cord_colour, turning_chain=1)],
+                     note=f"A chain of {cord_n} with a slip stitch in each: the cord.")
+    body = Component(name="pouch", construction="joined_rounds", rows=rows.rows, foundation=0,
+                     foundation_kind="magic_ring",
+                     note=(f"Rounds 1-{base_end} are the base; the walls rise straight from "
+                           f"round {base_end + 1}."))
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version,
+        construction="joined_rounds", risk_class=concept.risk_class,
+        colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=c)
+                   for c in dict.fromkeys([main, cord_colour])],
+        components=[body, cord],
+        assembly=[Seam("thread", "cord", "pouch", edge_a="left", edge_b="opening",
+                       at_round=eyelet_round, spans_rounds=1,
+                       note=(f"Weave the cord in and out of the {eyelets} eyelets of round "
+                             f"{eyelet_round}, starting and ending at the same eyelet, and "
+                             f"knot each end; pull both ends to close the pouch."))],
+        designer_notes=(f"{concept.category} concept drafted as a drawstring pouch: a {n}-st "
+                        f"round base, {walls} wall rounds with {eyelets} eyelets in round "
+                        f"{eyelet_round}, and a {cord_n}-ch cord"),
+        finished_size_note=(
+            f"A round pouch about {n / gauge.stitches_per_10cm * 10.0 / math.pi:.0f} cm across "
+            f"and {walls * row_cm:.0f} cm tall at the stated gauge, with a cord about "
+            f"{cord_cm:.0f} cm long. Computed, not yet measured on a worked sample."),
         provenance=provenance,
     )
