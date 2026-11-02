@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T20:21Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T20:37Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -29,7 +29,18 @@ Do NOT touch A4(a), A5, A7 or A9 (Main's workers). No new product-specific gener
 | A6 learning into design | opus2/a6-learning-to-design, /home/user/opus2-a6 (from handed WIP 7c9306e3 on INTEG1) | ebead3dd pushed (no PR yet) | test_w5_a6_learning_to_design 6/6, 11 mutants killed; 38-suite focused regression running | open PR to claude/w5-INTEG1 when green; PR #3 comment |
 | A8 culture to ideation | not started (COORDINATION: depends_on A4a, owned by Main's worker) | - | - | check A4a branch claude/w5-A4a-research-to-concept for the concept_intake path; build A8 on it or on INTEG1 without duplicating A4a |
 
-Blockers: none needing the owner. A8 depends on A4a's concept-intake path (Main's worker).
+| A4a research to concept | opus2/a4a-research-to-concept, /home/user/opus2-a4a (from claude/w5-A4a 993cc0cd) | 3dc3e68c pushed | 9/9 (test through compile + certify: granted) | REVIEW-REQUEST posted on #28 |
+| A9 package event | opus2/a9-package-event, /home/user/opus2-a9 (from 6ee81c19) | unchanged | handoff suites queued (/tmp/claude-0/queue_a9_a7.sh, a9_results.txt) | checkpoint + review when green |
+| A7 supply stall | opus2/a7-supply-stall, /home/user/opus2-a7 (from 83fe31d2) | unchanged | handoff suites queued after A9 (a7_results.txt) | checkpoint + review when green |
+| A5 correction loop | claude/w5-A5-correction-loop @ 717c7925 | not taken yet | run test_cert_rebuild_chain, test_cert_parity_copy, test_disclosed_render_runtime, test_cert_design_pipeline | then review |
+| V1 visual correctness | claude/w5-V1-visual-correctness @ f349c755 | not taken yet | re-run test_w4_visnext + V1 test, shadow, swarm, launch0 | owner must re-authorise the re-pinned Cloudline experiment |
+| V0 | SHA pending from Main | - | - | - |
+
+CHANNEL: GitHub Issue #28 is the official Main <-> Secondary channel ([SECONDARY] ACK posted 20:30Z).
+Events: `python3 ops/assignments.py event opus2 <ID> <kind> [--sha] --push` from /home/user/opus2-dispatch
+(detached at origin/claude/w4-INTEG8-next; writes only dispatch/events/opus2.jsonl).
+Wake: trigger trig_01CVgKQwWxy9oSXMgTYAjUzf hourly at :28 (platform minimum 1h; */5 rejected).
+Blockers: none.
 
 ## Worktrees
 - `/home/user/opus2-p0`: `opus2/p0-revenue-workforce` (PR #3; review fixes only)
