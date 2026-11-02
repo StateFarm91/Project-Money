@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T18:27Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T20:21Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -17,6 +17,20 @@ worktrees, not this file.
    the claim.
 6. Continue with the next item in the same turn while capacity lasts.
 
+## State at 2026-11-02T20:21Z -- owner directive "IMMEDIATE P0 EXECUTION AND COORDINATION"
+Priority (owner): A1-R + A2 push and delta reviews -> A4b published -> A3D-1 -> A6 -> A8.
+Do NOT touch A4(a), A5, A7 or A9 (Main's workers). No new product-specific generators.
+| Item | Branch / worktree | Head | Tests | State / next action |
+|---|---|---|---|---|
+| A1-R children's safety core | opus2/p0-child-safety-core, /home/user/opus2-a1r (base INTEG1 7c42e706) | 1dd257be (local) | part1 29/29, part2 29/29; test_product_run running alone | push + open PR to claude/w5-INTEG1 + PR #3 delta-review request when product_run passes |
+| A2 v2 name/object | opus2/a2-name-object (PR #26), /home/user/opus2-a2 | c93f9c53 (local; PR has 3be8262f) | 45-suite run in progress; test_fallback_draft_provenance fixed (c93f9c53); test_opus2_draft_constructions asserts "Bobble Cushion" -> PANEL_PAIR, now deliberately REFUSED (bobble texture not made) -- update that assertion after the run | push + PR #26/#3 comment |
+| A4b enrichment | opus2/a4b-enrichment (PR #27), /home/user/opus2-a4b | 230b7d8d pushed | focused green; 8 mutants killed | request review on PR #3 |
+| A3D fixes | opus2/p0-photo-asset-review (PR #23), /home/user/opus2-photo | c2174947 (local; 637e011f SHARED physical_upgrade lock) | test_opus2_photo_asset_review 23/23, 8 mutants killed incl. K7/K9/K12; focused regression (12 suites) running | push + PR #3 comment |
+| A6 learning into design | opus2/a6-learning-to-design, /home/user/opus2-a6 (from handed WIP 7c9306e3 on INTEG1) | ebead3dd pushed (no PR yet) | test_w5_a6_learning_to_design 6/6, 11 mutants killed; 38-suite focused regression running | open PR to claude/w5-INTEG1 when green; PR #3 comment |
+| A8 culture to ideation | not started (COORDINATION: depends_on A4a, owned by Main's worker) | - | - | check A4a branch claude/w5-A4a-research-to-concept for the concept_intake path; build A8 on it or on INTEG1 without duplicating A4a |
+
+Blockers: none needing the owner. A8 depends on A4a's concept-intake path (Main's worker).
+
 ## Worktrees
 - `/home/user/opus2-p0`: `opus2/p0-revenue-workforce` (PR #3; review fixes only)
 - `/home/user/opus2-ami`: `opus2/p0-amigurumi` (PR #18, base claude/w5-INTEG1)
@@ -25,6 +39,10 @@ worktrees, not this file.
 - `/home/user/opus2-pouch`: `opus2/p0-pouch` (PR #25, base claude/w5-INTEG1; Q16 split)
 - `/home/user/opus2-colour`: `opus2/p0-cir-colourwork` (PR #9)
 - `/home/user/opus2-stock`: `opus2/p0-stocking` (PR #11)
+- `/home/user/opus2-a1r`: `opus2/p0-child-safety-core` (A1-R)
+- `/home/user/opus2-a2`: `opus2/a2-name-object` (PR #26)
+- `/home/user/opus2-a4b`: `opus2/a4b-enrichment` (PR #27)
+- `/home/user/opus2-a6`: `opus2/a6-learning-to-design` (A6)
 - `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
 
 ## State at 2026-11-02T15:55Z -- integrator assignments A1-A9 (COORDINATION c25c6f1a; PR #3 status 6579974579)
