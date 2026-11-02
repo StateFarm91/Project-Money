@@ -9764,7 +9764,30 @@ def handle_assets_build_with_successor(ctx: JobContext) -> dict:
 
         out = _successor(lambda: chain_successors.images_blocked(
             ctx, dict(ctx.job.inputs), out["blocking_image_problems"]), ctx, out)
+        # W5-A5 P0-CORRECTION-LOOP: Asset Truth errors (`ERROR <CODE>: ...`) go through the
+        # correction router: revised as a correcting version when a deterministic rule
+        # answers them, otherwise the dead-end incident above is the named hold.
+        truth = [p for p in out["blocking_image_problems"] if str(p).startswith("ERROR ")]
+        if truth:
+            try:
+                corr = _correct_assets(ctx, truth)
+            except Exception as exc:  # noqa: BLE001 - the stage's verdict stands either way
+                corr = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+            out = {**out, "correction": corr}
     return out
+
+
+def _correct_assets(ctx: JobContext, truth: list) -> dict:
+    from . import chain_successors
+    from .engineering_ops import route_failure
+
+    i = dict(ctx.job.inputs)
+    slug, version = str(i["slug"]), str(i["version"])
+    cir = _load_cir(ctx, slug, version)
+    return route_failure(
+        ctx, cir, stage="assets", problems=truth, bump_version=True,
+        correction={"of_release_hashes": [i["release"]] if i.get("release") else []},
+        existing_hold=chain_successors.signature(chain_successors.ASSETS, slug, version))
 
 
 def handle_pricing_position_with_successor(ctx: JobContext) -> dict:

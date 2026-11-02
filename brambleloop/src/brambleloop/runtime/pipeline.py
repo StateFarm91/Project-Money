@@ -1006,23 +1006,24 @@ def handle_cir_compile(ctx: JobContext) -> dict:
     if not result.ok:
         # A failing compile is a real outcome, not an exception. W4-AGENTS batch 3: it is
         # handed to the Crochet Engineer once (`cir.revise`, deterministic repair rules); a
-        # revision that does not compile, or a second failure, ends the concept here.
-        revise_job = None
-        from .engineering_ops import MAX_REVISIONS
+        # revision that does not compile, or a second failure, ends the concept here -- on a
+        # named hold (W5-A5 P0-CORRECTION-LOOP, `engineering_ops.route_failure`).
+        from .engineering_ops import route_failure
 
         prior = max(0, int(ctx.job.inputs.get("revision") or 0))   # I-3: never negative
-        if prior < MAX_REVISIONS:
-            revise_job = ctx.enqueue(
-                "crochet_engineer", "cir.revise",
-                {"cir": ctx.job.inputs["cir"],
-                 "revision": prior},
-                idempotency_key=f"revise:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        routed = route_failure(ctx, cir, stage="compile",
+                               codes={f.code for f in result.errors},
+                               problems=[str(f) for f in result.errors], revision=prior)
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
                 "errors": [str(f) for f in result.errors],
-                "revise_job": getattr(revise_job, "id", None)}
+                "revise_job": routed.get("revise_job"),
+                "correction": routed}
     certify_inputs = {"cir": ctx.job.inputs["cir"]}
     if isinstance(ctx.job.inputs.get("correction"), dict):
         certify_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
+    if ctx.job.inputs.get("revision"):
+        # W5-A5: the lineage counter rides to certification, so the bound holds across stages.
+        certify_inputs["revision"] = max(0, int(ctx.job.inputs.get("revision") or 0))
     ctx.enqueue("quality_director", "gate.certify", certify_inputs,
                 idempotency_key=(f"certify:{cir.slug}:{cir.version}:{cir.fingerprint}"
                                  f":d{DOC_VERSION}"))
@@ -1196,6 +1197,14 @@ def handle_certify(ctx: JobContext) -> dict:
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        # W5-A5: a correction hold on this exact version closes once it certifies.
+        from ..ops import incident_lifecycle as _lifecycle
+        from .engineering_ops import hold_signature
+
+        with ctx.db.session() as _s:
+            _lifecycle.resolve_signatures(
+                _s, [hold_signature(cir.slug, cir.version)],
+                resolution=f"{cir.slug}@{cir.version} has since certified")
         # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
         # the version map written at sale time, and prepares their notice. Sending it is the
         # owner's (an owner action is raised); nothing is sent from here.
@@ -1277,6 +1286,18 @@ def handle_certify(ctx: JobContext) -> dict:
                                               cert.release_hash or ""))
     else:
         _withdraw_listing(ctx, cir)
+        # W5-A5 P0-CORRECTION-LOOP: a refused certificate is revised once when a deterministic
+        # rule answers its findings (back through cir.compile -> gate.certify), and otherwise
+        # stops on a named hold. Missing physical evidence is not a design defect: it waits.
+        from .engineering_ops import route_failure
+
+        correction = route_failure(
+            ctx, cir, stage="certify", codes={f.code for f in cert.errors},
+            problems=cert.blocking_reasons,
+            revision=max(0, int(ctx.job.inputs.get("revision") or 0)))
+        return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
+                "release_hash": cert.release_hash,
+                "reasons": cert.blocking_reasons[:5], "correction": correction}
 
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,

@@ -236,6 +236,11 @@ REMEDIATION: dict[str, tuple[str, str]] = {
                                          "never re-sent automatically (F-339)"),
     "effect.reconcile": ("operator", "reconcile the external effect's outcome; automatic "
                                      "repeat is refused"),
+    # W5-A5 P0-CORRECTION-LOOP: a CIR the deterministic revision rules could not bring through
+    # compile/certification within the revision cap (`runtime.engineering_ops`).
+    "correction-hold": ("product_design (crochet_engineer)",
+                        "a new design version, or a new deterministic repair rule that "
+                        "answers the named codes; resolves when this version certifies"),
 }
 
 

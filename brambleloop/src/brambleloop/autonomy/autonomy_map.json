@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T11:41:53.787312+00:00",
+ "generated_at": "2026-11-02T19:10:34.174063+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -724,7 +724,6 @@
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
     "follow_on_from": [
      "chain.rebuild",
-     "cir.compile",
      "cir.draft",
      "creative/intake.py:intake",
      "creative/intake.py:regate_held",
@@ -733,6 +732,7 @@
      "owner/API route api_seasonal_recompute",
      "products/pipeline_board.py:handle_product_pipeline",
      "radar.score",
+     "runtime/engineering_ops.py:route_failure",
      "runtime/release.py:enqueue_member_collections",
      "runtime/release_recovery.py:seed_launch0",
      "seasonal.engine"
@@ -1003,10 +1003,6 @@
     "learn"
    ],
    "follow_on": [
-    {
-     "from": "cir.compile",
-     "to": "cir.revise"
-    },
     {
      "from": "gate.certify",
      "to": "listing.draft"
