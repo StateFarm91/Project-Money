@@ -184,13 +184,15 @@
       "id": "P0-PHOTO-ASSET-REVIEW",
       "priority": "P0",
       "recorded": "2026-11-01T10:55Z",
-      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification."
+      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification.",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
     },
     {
       "id": "P0-NAME-OBJECT-MISMATCH",
       "priority": "P0",
       "recorded": "2026-11-02T07:45Z",
-      "summary": "OPUS2P-13a: category=basket drafts 'Teddy Bear', 'Drawstring Pouch', 'Drawstring Bag' as a plain basket; category=blanket/accessory drafts 'Teddy Bear' as a flat panel; name_truth passes. The title names an object the CIR is not. Assigned to opus2 on PR #3 (07:45Z)."
+      "summary": "OPUS2P-13a: category=basket drafts 'Teddy Bear', 'Drawstring Pouch', 'Drawstring Bag' as a plain basket; category=blanket/accessory drafts 'Teddy Bear' as a flat panel; name_truth passes. The title names an object the CIR is not. Assigned to opus2 on PR #3 (07:45Z).",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
     }
   ],
   "reviews": [
@@ -850,6 +852,27 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "OPUS2S",
+        "subjects": [
+          "opus2/p0-photo-asset-review c056028d, 5a47cd8e (P0-PHOTO-ASSET-REVIEW)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2S.md",
+        "launched": "2026-11-02T10:32Z"
+      },
+      {
+        "id": "OPUS2T",
+        "subjects": [
+          "opus2/p0-revenue-workforce fed859b7 (P0-NAME-OBJECT-MISMATCH)",
+          "opus2/p0-amigurumi c5671087 (OPUS2P fixes incl. P-1 HIGH)",
+          "opus2/p0-construction-registry 66378ebf (toy hold)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2T.md",
+        "launched": "2026-11-02T10:32Z"
+      }
+    ]
   }
 }

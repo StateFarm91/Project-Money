@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T09:00Z. Certification target: W5-INTEG1 4af3418f.
+Last updated: 2026-11-02T10:33Z. Certification: run 20261102T101632Z-4284 on W5-INTEG1 4af3418f (running).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -24,7 +24,7 @@ Last updated: 2026-11-02T09:00Z. Certification target: W5-INTEG1 4af3418f.
 |---|---|---|---|---|---|---|---|---|
 | Q1 | opus2/p1-culture-sweep-timeout, PR #7 | 3468fe73 | ACCEPT (OPUS2K) | none | **integrated** (W5-INTEG1 812f63d7, pushed 03:46Z; 13/13 suites green) | test_opus2_culture_sweep_timeout, test_culture, test_culture_feed, test_cost_governance_wave2 | none: done | — |
 | Q2 | opus2/p0-cir-colourwork, PR #9 | 424d69a9 | ACCEPT (OPUS2K); J-7 SHIP (J7B) | W5-INTEG1 2d2d9446 | **integrated** (W5-INTEG1 812f63d7) | test_opus2_cir_colourwork, test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_w5_integfix, test_compiler, test_reverse, test_twin | none: done | — |
-| Q3 | opus2/p0-revenue-workforce, PR #3 (J-1 chain) | 558e7ca9..b185b528 | b185b528 CHANGES_REQUIRED (OPUS2Q-1 MED: false positives on ordinary words) | none in target | no: **blocked** on the OPUS2Q-1 fix | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | delta review of the fix | opus2 |
+| Q3 | opus2/p0-revenue-workforce, PR #3 | 558e7ca9..b185b528, fed859b7 | b185b528 CHANGES_REQUIRED (OPUS2Q-1 MED); fed859b7 (P0-NAME-OBJECT-MISMATCH) **in review OPUS2T** | none in target | no: blocked on OPUS2Q-1 | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | delta review of the Q-1 fix | opus2 |
 | Q4 | opus2/p1-culture-sweep-timeout, PR #7 | e0be7c4d (tests only) | SHIP (OPUS2M) | Q1 | **integrated** (W5-INTEG1 a8ce0072, suites green) | test_opus2_culture_sweep_timeout | none; OPUS2M-5 and -6 LOW follow-ups for opus2 | — |
 | Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c, 5889cc37, 2f9c413d | 2f9c413d CHANGES_REQUIRED (OPUS2Q-2 MED regression) | Q2 | no: **blocked** on the OPUS2Q-2 fix | as Q2 | delta review of the fix | opus2 |
 | Q6 | opus2/p0-pet-bed, PR #10 | d0a7685f, 7d220e01, 940f70e6, 09122165 | SHIP (OPUS2O) | none (split from PR #3: I-B5-SPLIT-PET-STOCKING) | **integrated** W5-INTEG1 52f9f4b5 (suites running, push on green) | test_opus2_pet_bed, test_opus2_draft_constructions, test_fallback_draft_provenance | push; Batch 6 | integrator |
@@ -36,8 +36,8 @@ Last updated: 2026-11-02T09:00Z. Certification target: W5-INTEG1 4af3418f.
 | Q12 | codex/p0-learning-reference | 57c176a9 (claim only) | n/a: no code yet | — | no: **not started** | — | owner starts Codex; review its first push | Codex |
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
 | Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D SHIP (11272e4b) | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
-| Q16 | opus2/p0-amigurumi | a9fac088, e80a0be0, b4ea6795, c7a8d31e, 3b0a8867 | amigurumi DO NOT SHIP (OPUS2P-1 HIGH child safety, P-2/P-3 MED); stuffed finishing + pouch SHIP | Q14 | no: **blocked** — Secondary asked to split pouch + finishing to opus2/p0-pouch | named suites | integrate the split branch when it exists | opus2 |
-| Q15 | opus2 new work: P0-PHOTO-ASSET-REVIEW | not started | — | none | — | — | assigned on PR #3 | opus2 |
+| Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | c5671087 (OPUS2P fixes incl. P-1 HIGH) **in review OPUS2T** | Q14 | no: awaiting OPUS2T | named suites + childrens/pdf | integrate on SHIP | integrator |
+| Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | **in review OPUS2S** | none known (merge-tree in review) | no: awaiting OPUS2S | photo/gallery/publish-gate suites | integrate on SHIP | integrator |
 | Q17 | opus2/p0-construction-registry | 83194fb7, d1ebb27f, 3a11d59a, 8b4076a9, 21d4ceaf (stacked on Q16) | DO NOT SHIP (OPUS2R-1 HIGH: builds bypass FC.plan allowlists; -2/-3 MED) | Q16 | no: **blocked** on OPUS2R-1 and the split from amigurumi | test_opus2_research_to_development + tapestry/draft/knowledge_gaps | delta review of the fix | opus2 |
 
 Not integration items:
