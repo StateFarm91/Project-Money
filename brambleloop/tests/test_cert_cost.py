@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from sqlalchemy import select  # noqa: E402
 
@@ -25,6 +26,7 @@ from brambleloop.core.resilience import TransientError  # noqa: E402
 from brambleloop.finance import reservations, spend_policy, spend_report  # noqa: E402
 from brambleloop.gateway import anthropic as gw  # noqa: E402
 from brambleloop.gateway import images  # noqa: E402
+import _paid_activation as _paid  # noqa: E402
 from brambleloop.gateway.model_gateway import ModelGateway, ModelResponse  # noqa: E402
 
 CHEAP = "claude-haiku-4-5"
@@ -201,6 +203,7 @@ def test_a_failing_model_provider_releases_without_billing():
 
 def test_a_failing_image_provider_releases_without_billing():
     db = _db()
+    _paid.activate(db, "flux-2-pro", "generation")   # V0: the owner switched FLUX on
     with _Post(fail=True) as post, tempfile.TemporaryDirectory() as work:
         _raises(lambda: images.generate("p", env=IMG_ENV, work_dir=work, db=db), Exception)
     (row,) = _reservations(db)
@@ -209,6 +212,7 @@ def test_a_failing_image_provider_releases_without_billing():
 
 def test_a_successful_image_render_releases_with_its_price():
     db = _db()
+    _paid.activate(db, "flux-2-pro", "generation")   # V0: the owner switched FLUX on
     with _Post() as post, tempfile.TemporaryDirectory() as work:
         out = images.generate("p", env=IMG_ENV, work_dir=work, db=db)
     (row,) = _reservations(db)
