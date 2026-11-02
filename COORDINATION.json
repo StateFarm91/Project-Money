@@ -1114,6 +1114,18 @@
         "report": "scratchpad/INDEPENDENT_REVIEW_A7_83fe31d2.md",
         "started": "2026-11-02T23:04:02Z",
         "requested_by": "dispatch event opus2 review_requested 2026-11-02T22:54:26Z"
+      },
+      {
+        "id": "SECRET-REVIEW-QUEUED",
+        "subject": "claude/w6-secret-leak-escalate 1c4c9211 (full; author is a Main worker, reviewer must be independent)",
+        "started": null,
+        "note": "queued for capacity"
+      },
+      {
+        "id": "SUPPORT-REVIEW-QUEUED",
+        "subject": "claude/w6-support-defect-incident 26bac0e9 (full; author is a Main worker, reviewer must be independent)",
+        "started": null,
+        "note": "queued for capacity"
       }
     ]
   },

@@ -3,3 +3,7 @@
 {"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SECRET-LEAK-ESCALATE", "event": "start", "note": "supervised worker; tests gated on Batch 5 certification finishing"}
 {"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "ack"}
 {"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "start", "note": "supervised worker; tests gated on Batch 5 certification finishing"}
+{"at": "2026-11-02T23:06:54Z", "worker": "mainopus", "assignment": "P0-SECRET-LEAK-ESCALATE", "event": "checkpoint", "sha": "1c4c9211de83376db71314d88a0a2eb14f16295e", "note": "claude/w6-secret-leak-escalate; own test 4/4 + 6 suites green"}
+{"at": "2026-11-02T23:06:54Z", "worker": "mainopus", "assignment": "P0-SECRET-LEAK-ESCALATE", "event": "review_requested", "sha": "1c4c9211de83376db71314d88a0a2eb14f16295e"}
+{"at": "2026-11-02T23:06:54Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "checkpoint", "sha": "26bac0e9bd010b05e90e321def31406853decfa1", "note": "claude/w6-support-defect-incident; own test 3/3 + 10 suites green"}
+{"at": "2026-11-02T23:06:54Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "review_requested", "sha": "26bac0e9bd010b05e90e321def31406853decfa1"}
