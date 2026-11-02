@@ -2491,6 +2491,8 @@ DURABLE_KEYS: tuple[str, ...] = ("artifact", "artifact_id", "created_ids", "writ
 # `UNMEASURED` labels, per-run reading ids) is context, not work. An empty tuple declares a
 # job type that never counts as useful work on its own (pure liveness).
 WORK_KEYS: dict[str, tuple[str, ...]] = {
+    "teardown.analyse": ("work_done",),
+    "teardown.analyse_sweep": ("work_done",),
     # W4-AGENTS cadences and generatable types: each handler reports a measured `work_done`
     # (rows recorded, checks run, jobs queued), which `did_no_work` reads first; declared
     # here so the useful-work judge knows the key rather than falling back to the counters.

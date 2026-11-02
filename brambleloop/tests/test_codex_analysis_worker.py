@@ -79,6 +79,9 @@ class AnalysisWorkerTests(unittest.TestCase):
                     self.assertEqual(len(rules), 1)
                     self.assertEqual(rules[0].state, "proposed")
                     self.assertEqual(rules[0].provenance, [{"kind": "analysis", "id": analysis_id}])
+                    sweeps = list(s.scalars(select(Job).where(
+                        Job.job_type == "teardown.analyse_sweep").order_by(Job.id)))
+                    self.assertEqual([job.outputs["work_done"] for job in sweeps], [0, 1, 0])
 
     def test_real_intake_queues_once_and_worker_persists_analysis(self):
         with TemporaryDirectory() as tmp:

@@ -19,7 +19,7 @@ def handle_teardown_analyse(ctx):
               "file_sha256": inputs["file_sha256"], "analysis_id": result["id"]})
     # Analysis is not review or approval: the observation remains proposed.
     return {"analysis_id": result["id"], "created": result["created"],
-            "analysis_state": progress["state"], "work_done": 1}
+            "analysis_state": progress["state"], "work_done": int(result["created"])}
 
 
 @handlers.register("teardown.analyse_sweep")
@@ -53,4 +53,4 @@ def handle_teardown_analyse_sweep(ctx):
         proposed += int(result["proposed"])
     return {"purchases": len(ids), "queued": queued, "existing": existing,
             "licence_refused": refused, "knowledge_proposed": proposed,
-            "knowledge_blocked": blocked}
+            "knowledge_blocked": blocked, "work_done": queued + proposed}
