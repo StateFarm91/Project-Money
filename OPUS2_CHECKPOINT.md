@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T13:39Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T14:43Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -27,21 +27,27 @@ worktrees, not this file.
 - `/home/user/opus2-stock`: `opus2/p0-stocking` (PR #11)
 - `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
 
-## State at 2026-11-02T13:39Z (owner directive 2026-11-02 "P0 CRITICAL PATH")
-- Items 1-3 (OPUS2T/OPUS2S): fixed.
-  - PR #3 143af186 + 286cd044 (T-1/-2/-3, b4merge fcd361a6) PUSHED, 17/17.
-  - PR #23 a14c71d7 (shared physical_upgrade) + d1f65b61 (S-1/2/3/4/5) PUSHED, 33/33.
-  - PR #18 6ab946ff (T-4 HIGH construction-keyed children's gate + T-5 small parts) committed;
-    45-suite run /tmp/claude-0/t4_results.txt. Push + comment when green, then merge
-    amigurumi into opus2-reg and run the registry regression.
-- Item 5: research-enrichment consumer committed on opus2-reg 823a82dd (claim
-  OPUS2-ENRICHMENT-CONSUMER); ownership proposal posted on PR #22 for Main + W-CONCEPT.
-- Item 6: department flow test b0c66556 (real research run, durable draft, restart, refused
-  draft does not block, next-product seeding). Tapestry/toy cannot come from a real research
-  run yet: research's silhouette gate (#108) refuses basket/pouch winners; no toy arena.
-- Not pushed yet on opus2-reg: 823a82dd, b0c66556 (push after the amigurumi merge + regression).
-- Open for decision: non-qualifying photo frames still block a listing set (PR #23);
-  "Cosy Baby Blanket" pre-existing shaped-word refusal (PR #3); T-8/T-9 LOWs.
+## State at 2026-11-02T14:43Z -- integrator assignments A1-A9 (COORDINATION c25c6f1a; PR #3 status 6579974579)
+Rule for A-items: branch from newest claude/w5-INTEG1; tests on a real SQLite file + DurableQueue +
+Worker + registered handlers (worker.tick()/run_once()), no mocks.
+- A1 (children): opus2/p0-amigurumi 6ab946ff committed; 45-suite run /tmp/claude-0/t4_results.txt
+  (slow: test_product_run). TODO before push: add durable-DB proof (enqueue cir.draft for the
+  amigurumi seed with titles 'Ｂear','𝐁ear','Cosy Ｒabbit', run Worker.run_once, then
+  build_pattern_pdf / assets.build refuses; plain basket unaffected). Then merge into opus2-reg.
+- A2: /home/user/opus2-a2 branch opus2/a2-name-object (from INTEG1 db463142): 5eb5d338 (shared
+  eligibility: motif_promise in name_truth for non-catalogue) + 1fc30ac9 (contract). 44-suite run
+  /tmp/claude-0/a2_results.txt. Push + open PR (base claude/w5-INTEG1) when green.
+- A3: PR #23 pushed d1f65b61.
+- A4: enrichment consumer + department flow on opus2-reg (unpushed 823a82dd, b0c66556).
+  A4(a) design (not started): (1) _score_coverage_handoff unanswered branch opens a research task
+  (research_agent.request_research) carrying an ideation brief {gap, pod, arena}, idempotent per
+  gap; (2) new deterministic step after research.investigate: answer a gap task from recorded
+  competitor observations (dated listing counts/prices = fact-grade with dated sources, confidence
+  recorded) and attach_proposal a flat_rows concept (intake only compiles flat_rows) whose title
+  comes from the pod noun + a non-competitor descriptor; (3) radar.concept_intake approves ->
+  radar.score -> cir.draft (radar.intake provenance); second run enqueues nothing. Check originality
+  vs observed listings. A4(b): re-draft key draft:<slug>:<fingerprint> on enrichment.
+- Decisions open: catalogue motif_promise (9 titles), non-qualifying photo frames, Cosy Baby Blanket.
 
 ## Dependencies (exact)
 See P0_GAP_REGISTER.json `opus2_open_engineering`.
