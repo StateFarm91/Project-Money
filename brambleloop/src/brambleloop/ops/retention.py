@@ -568,6 +568,15 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "culture.probe": ("lifetime_total",
         "culture.feeds.state: read with no window or row limit (counted or listed over "
         "all rows)"),
+    # OPUS2 A8: culture.ideation_bridge reads these by name only to record a signal once.
+    # A pruned row costs one repeated audit line for that signal, never a second gap or
+    # brief (the coverage gap's unique key and A4(a)'s per-gap record dedupe those).
+    "culture.ideation_gap": ("lifetime_total",
+        "culture.ideation_bridge.run: existence check per signal, so a signal's gap is "
+        "announced once"),
+    "culture.ideation_unplaced": ("lifetime_total",
+        "culture.ideation_bridge.run: existence check per signal, so an unplaceable topic "
+        "is named once"),
     "culture.sweep": ("lifetime_total",
         "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
         "days, longer than the retention horizon"),
