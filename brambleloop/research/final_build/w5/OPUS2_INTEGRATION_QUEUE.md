@@ -40,6 +40,8 @@ Last updated: 2026-11-02T17:50Z. Certification target: W5-INTEG1 50937469 (INTEG
 | Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | DO NOT SHIP (OPUS2S-1/-2/-3 MED; no HIGH) | none (4 mechanical conflicts) | no: **blocked** on the MED fixes | test_opus2_photo_asset_review, photo/gallery/publish-gate suites, test_swarm_runtime | delta review of fixes | opus2 |
 | Q17 | opus2/p0-construction-registry | ..a7b34050 | DO NOT SHIP (OPUS2V-1 HIGH, -3 HIGH child safety, -2/-4 MED) | Q16 (carries the toy) | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
 | Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a..1ea3079e | SHIP (OPUS2P, OPUS2V) | none | **integrated** W5-INTEG1 50937469 (12 suites green; INTEG5F SHIP) | test_opus2_drawstring_pouch, test_opus2_stuffed_finishing + draft/tapestry suites | push on green; certify | integrator |
+| Q19 | opus2/a2-name-object (A2, P0-NAME-OBJECT) | db463142..3be8262f | DO NOT SHIP (A2-REVIEW: A2-1/-2/-3 HIGH, -4/-5/-6 MED) | none (merge with INTEG1 7c42e706 clean) | no: **blocked** on A2 fixes | test_opus2_a2_name_object + 28 draft/routing suites (green on merged tree) | opus2 fixes; delta review | opus2 |
+| Q20 | opus2/p0-child-safety-core (A1-R) | not pushed | n/a | none | no: **not started** | A1-R acceptance suites | opus2 builds; delta review | opus2 |
 
 Not integration items:
 - #4: reference only, do not merge.

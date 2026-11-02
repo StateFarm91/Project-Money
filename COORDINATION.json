@@ -783,6 +783,14 @@
         "toy (amigurumi)": "toy delta acceptable, but waits for a fixed A1"
       },
       "recorded": "2026-11-02T17:58Z"
+    },
+    {
+      "subject": "A2-REVIEW",
+      "sha": "claude/w5-SECREVIEW-A2",
+      "verdicts": {
+        "opus2/a2-name-object db463142..3be8262f": "DO NOT SHIP: A2-1 HIGH motif_promise reads the raw title (fullwidth/math-bold motif words draft a plain basket); A2-2 HIGH motif check scoped to fallback/registry provenance only, so radar flat-panel and creative.prototype CIRs named for an absent motif pass name_truth; A2-3 HIGH trailing-descriptor strip drops any bracket/clause ('Storage Basket (Teddy Bear)'); A2-4 MED modifier allowlist only for basket/tote; A2-5 MED 'Toy Basket' wrongly refused; A2-6 MED mutants M11/M13/M14/M16/M18 survive; A2-7 LOW registry route unverified. Core repros all refused, catalogue byte-identical, merge with INTEG1 7c42e706 clean, 29 suites green"
+      },
+      "recorded": "2026-11-02T18:20Z"
     }
   ],
   "integration": {
@@ -989,17 +997,7 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "A2-REVIEW",
-        "subjects": [
-          "opus2/a2-name-object 5eb5d338,1fc30ac9,3be8262f (from W5-INTEG1 db463142)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_A2.md",
-        "launched": "2026-11-02T17:20Z"
-      }
-    ]
+    "items": []
   },
   "assignments": [
     {
