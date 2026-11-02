@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T11:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T11:32Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -31,8 +31,8 @@ worktrees, not this file.
 - Pushed this loop: PR #3 8ed2dd15 (OPUS2Q-1 MED, Q-6, Q-7) + b4merge 493b76cf; PR #9 e6e6fb94
   (OPUS2Q-2 MED, Q-3, Q-6); PR #11 7493c723 (OPUS2Q-4/5/6); PR #25 opened (Q16 pouch split,
   1ea3079e); PR #18 c5671087 (OPUS2P); PR #22 66378ebf.
-- In flight: PR #22 OPUS2R fixes committed locally (ffb74996 shared eligibility.py, a7b34050);
-  38-suite run writes /tmp/claude-0/r4_results.txt. Push + comment on #22 when green.
+- 2026-11-02T11:32Z: PR #22 a7b34050 pushed (OPUS2R, 38/38 suites); comment posted.
+- Stop reason: every review finding is pushed; remaining work waits on review/integrator decisions (PR #3 list), W-CONCEPT (concept.enrich owner, toy arena), Codex, owner. Next unblocked: construction breadth (task 27).
 - Next: construction breadth (task 27) or new review findings; integrator decisions on PR #3.
 - Done log: OPUS2M, OPUS2N, OPUS2O, OPUS2P, OPUS2Q (all subjects), OPUS2R (pending push), Q16 split.
 
