@@ -522,7 +522,8 @@ def observe(spec_key: str, benchmark_ref: str, answers: dict, *,
                  unmatched_strengths=unmatched)
 
 
-def record(db, audit: Audit, *, confidence=None, raw_notes: str = "") -> dict:
+def record(db, audit: Audit, *, confidence=None, raw_notes: str = "",
+           recorded_by: str = "teardown_analyst") -> dict:
     """Persist the audit as scorecard findings, with the element detail kept alongside.
 
     The findings land in the same table the twelve-dimension scorecard and the composite
@@ -543,7 +544,7 @@ def record(db, audit: Audit, *, confidence=None, raw_notes: str = "") -> dict:
             row = TeardownFinding(
                 benchmark_ref=f.benchmark_ref, dimension=f.dimension, score=float(f.score),
                 mechanism=f.mechanism, improvement=f.improvement,
-                confidence=stated, raw_notes=notes,
+                confidence=stated, raw_notes=notes, recorded_by=recorded_by,
                 detail={"audit": audit.spec.key, "requirement": audit.spec.requirement,
                         "element": o.element, "element_score": o.score,
                         "advantage": o.advantage, "source": o.source})

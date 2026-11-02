@@ -33,6 +33,7 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "activation.revoke": (False, "revoke an activation grant (tightens)"),
     "improvement.approve": (True, "record the owner's approval of a gate-tier improvement"),
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
+    "teardown.review_finding": (True, "review one reference finding independently"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
     "owner_action.defer": (False, "note that a decision is deferred (the gate stays computed)"),
     # W4-B2GATES: two owner gates read a record that no door in the running system could
@@ -647,6 +648,15 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 if not reason:
                     raise ActionRefused("owner decision reason required")
                 result = sfa.rebase(db, actor=actor, reason=reason, stepped_up=True)
+        elif action == "teardown.review_finding":
+            from ...teardown import review
+
+            try:
+                result = review.review_finding(db, _int(body, "finding_id"),
+                    reviewer=f"owner:{actor}"[:64], decision=str(body.get("decision") or ""),
+                    reason=reason)
+            except (review.ReviewRefused, ValueError) as exc:
+                raise ActionRefused(str(exc)[:400]) from None
         elif action == "improvement.approve":
             from ...improve import cells
 

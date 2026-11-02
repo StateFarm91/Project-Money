@@ -335,6 +335,22 @@ def reject(db, improvement_id: int, *, why: str, evidence: dict | None = None) -
     return REJECTED
 
 
+def _require_reviewed_teardown(session, row) -> None:
+    """A proposed hypothesis may exist; its source must be reviewed before approval."""
+    from ..core.models import TeardownFinding
+
+    ref = row.rollback_ref or ""
+    prefix = "teardown-finding:"
+    if not ref.startswith(prefix):
+        return
+    ident = ref[len(prefix):]
+    if not ident.isdigit():
+        raise ImprovementRefused("teardown finding reference is invalid")
+    finding = session.get(TeardownFinding, int(ident))
+    if finding is None or finding.review_state != "reviewed":
+        raise ImprovementRefused("teardown finding requires independent review")
+
+
 def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict:
     """An independent judge's approval of a tested change. Never the proposer's own (#85, #179).
 
@@ -357,6 +373,7 @@ def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict
         row = s.get(Improvement, improvement_id)
         if row is None:
             raise ImprovementRefused(f"no improvement {improvement_id}")
+        _require_reviewed_teardown(s, row)
         if row.state != TESTING:
             raise ImprovementRefused(
                 f"improvement {improvement_id} is {row.state!r}; only a change that beat its "
@@ -393,6 +410,7 @@ def promote(db, improvement_id: int, *,
         row = s.get(Improvement, improvement_id)
         if row is None:
             raise ImprovementRefused(f"no improvement {improvement_id}")
+        _require_reviewed_teardown(s, row)
         if row.state != TESTING:
             raise ImprovementRefused(
                 f"improvement {improvement_id} is {row.state!r}. Only a change that beat a "

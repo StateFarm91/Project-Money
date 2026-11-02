@@ -1266,6 +1266,10 @@ class TeardownFinding(Base):
     # NULL rather than a default, because an unstated confidence is not a high one.
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     raw_notes: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ---------------------------------------------------------------------------

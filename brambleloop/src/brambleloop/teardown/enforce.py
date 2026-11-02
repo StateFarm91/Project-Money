@@ -137,13 +137,14 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
 
     with db.session() as s:
         rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
-                if not r.benchmark_ref.startswith(SELF_PREFIX)]
-    by_key: dict[str, list] = {}
+                if not r.benchmark_ref.startswith(SELF_PREFIX) and r.review_state != "rejected"]
+    by_key: dict[tuple[str, str], list] = {}
     for r in rows:
-        by_key.setdefault(_key(r)[0], []).append(r)
+        # Unreviewed scores cannot influence an independently reviewed group.
+        by_key.setdefault((_key(r)[0], r.review_state or "proposed"), []).append(r)
 
     out: list[dict] = []
-    for key, group in sorted(by_key.items()):
+    for (key, review_state), group in sorted(by_key.items()):
         _k, audit, element, dimension = _key(group[0])
         consumers = _consumers(audit, dimension)
         if consumer and consumer not in consumers:
@@ -160,7 +161,8 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
         base = {"key": key, "audit": audit or None, "element": element or None,
                 "dimension": dimension, "consumers": list(consumers),
                 "benchmarks": sorted({r.benchmark_ref for r in group}),
-                "findings": [r.id for r in group], "adopted_floor": floor}
+                "findings": [r.id for r in group], "adopted_floor": floor,
+                "review_state": review_state}
         kinds = []
         if max(scores) >= STRONG:
             kinds.append(("exceed", best, _score(best)))
@@ -170,7 +172,7 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
             kinds.append(("clarify", best, max(scores)))
         for kind, source, score in kinds:
             conf = source.confidence
-            binding = conf is None or conf >= MIN_BINDING_CONFIDENCE
+            binding = review_state == "reviewed" and (conf is None or conf >= MIN_BINDING_CONFIDENCE)
             out.append({**base, "kind": kind, "benchmark_score": score,
                         "from_benchmark": source.benchmark_ref, "finding": source.id,
                         "requirement": source.improvement, "mechanism": source.mechanism,
@@ -405,6 +407,12 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
         if verdict in ("unmet", "unmeasured") and r["binding"]:
             reasons.append(f"teardown requirement {r['key']} ({r['kind']}, "
                            f"{'/'.join(r['consumers'])}): {verdict} -- {why}")
+        elif (r["review_state"] != "reviewed" and
+              (r["confidence"] is None or r["confidence"] >= MIN_BINDING_CONFIDENCE)):
+            # Do not turn an existing publish constraint into an implicit pass
+            # while migrating findings whose recorder/reviewer is unknown. The
+            # constraint itself remains provisional; this is a review hold.
+            reasons.append(f"teardown finding for {r['key']} requires independent review")
     return {"product": slug, "requirements": len(reqs),
             "release": release,
             "met": sum(1 for r in rows if r["verdict"] == "met"),
@@ -455,6 +463,8 @@ def adopt_floor(db, finding_id: int, *, floor: float, improvement_id: int) -> di
         row = s.get(TeardownFinding, finding_id)
         if row is None:
             return {"adopted": False, "why": f"no finding {finding_id}"}
+        if row.review_state != "reviewed":
+            return {"adopted": False, "why": "finding requires independent review"}
         row.detail = {**(row.detail or {}), "adopted": {
             "floor": float(floor), "improvement": improvement_id,
             "at": datetime.now(timezone.utc).isoformat()}}

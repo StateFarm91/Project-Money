@@ -117,14 +117,14 @@ def finding(benchmark_ref: str, dimension: str, score: int, mechanism: str,
                    confidence=check_confidence(confidence), raw_notes=notes)
 
 
-def record(db, f: Finding) -> int:
+def record(db, f: Finding, *, recorded_by: str = "teardown_analyst") -> int:
     from ..core.models import TeardownFinding
 
     with db.session() as s:
         row = TeardownFinding(benchmark_ref=f.benchmark_ref, dimension=f.dimension,
                               score=float(f.score), mechanism=f.mechanism,
                               improvement=f.improvement, confidence=f.confidence,
-                              raw_notes=f.raw_notes)
+                              raw_notes=f.raw_notes, recorded_by=recorded_by)
         s.add(row)
         s.flush()
         return row.id
