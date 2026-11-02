@@ -651,6 +651,11 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-COMPLETION-METRICS",
       "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
+    },
+    {
+      "received": "2026-11-02T03:45Z",
+      "title": "Permanent continuous integration directive + Batch 4 deployment authorization (restated)",
+      "summary": "No completed accepted engineering sits idle without a documented dependency. Maintain an automatic integration queue with verdict, dependencies, merge readiness, target, regression suites, next action and operator for every completed branch; process eligible items at every wake before status reports; split PRs into independent units; never hold unrelated work behind product-specific fixes; never re-review unchanged code; integration is not deployment; reviews, regression, full certification, backup and rollback evidence remain mandatory; once a SHA is approved, deploy it without waiting for a check-in. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Batch 4 0967c3ee was already deployed at ~03:30Z under the first approval."
     }
   ],
   "integrator_decisions": [
@@ -718,6 +723,10 @@
       "readback": "First read FAIL embedded worker alive (cold start; BRAMBLELOOP_RUNNER_START_DELAY), re-read after 30 s PASS. Six operator rows NEEDS_OPERATOR (BRAMBLELOOP_READBACK_TOKEN not set in Railway: owner action). rollback_decision FIX_FORWARD (P1 only); deploy.sh exit 5. Evidence: brambleloop/research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json",
       "verify": "/api/verify ok=True, 13/13 checks. NEW evidence_checks (first exposed by this release, absent on ee35a493): publishing_halt_clear FALSE, stale_artefacts_rebuilding FALSE, no_repeated_paid_call_in_24h FALSE, weekly_jobs_completing true. Their evidence is operator/readback-token gated; diagnosis blocked on the readback token. Production is NOT classified fully healthy while these are false.",
       "acceptance": "24-hour production acceptance started 2026-11-02T03:31Z, ends 2026-11-03T03:31Z."
+    },
+    {
+      "observed": "2026-11-02T03:36Z",
+      "what": "Transient: one /api/verify read returned ok=False with 12/13 checks and weekly_jobs_completing false; the next five reads (03:36-03:37Z) were ok=True, 13/13. The failing check name was not captured. A 2-minute acceptance sampler now records failing check names (integrator scratch log, summarized into the acceptance verdict). Not classified clean."
     }
   ],
   "reviews_in_flight": {
