@@ -100,8 +100,11 @@ def _checks(db, frame_id: int) -> tuple[dict, dict]:
     else:
         # OPUS2S-3: a second qualifying photo of the release, behind the one that leads: a
         # supplement, valid when exactly one other frame leads, at position 1.
+        # OPUS2W-4: and the frame that leads is itself a photograph.
+        lead_cls = {fid: cls for _pos, fid, cls, _c in siblings}
         checks["frame_order_valid"] = (contiguous and ctx["position"] > 1
-                                       and len(leaders) == 1 and leaders[0][0] == 1)
+                                       and len(leaders) == 1 and leaders[0][0] == 1
+                                       and lead_cls.get(leaders[0][1]) == PHOTO_CLASS)
     synthetic = sample_photo._synthetic_shas(db, [frame_sha]) if frame_sha else {}
     checks["no_disclosure_free_claim"] = (
         set(claims) <= ALLOWED_CLAIMS and claims.get("provenance") == "camera"
@@ -113,51 +116,84 @@ def _checks(db, frame_id: int) -> tuple[dict, dict]:
     return checks, ctx
 
 
+NOT_QUALIFYING = "photo not qualifying: "          # I-A3-NONQUALIFYING-PHOTO (terminal state)
+# The checks a photo that does not (yet) qualify fails: the attestation of this release and the
+# attested sample's bytes. Any other failure (order, claims, UNKNOWN) stays awaiting review.
+_QUALIFYING_CHECKS = ("attestation_binds_release", "hash_matches_attested_sample")
+_LOCK_KEY = 0x0B2A3F07                              # Postgres advisory lock for photo review
+
+
+def _lock(s, db) -> None:
+    """OPUS2W-1: hold the write lock for the whole review -- the checks and the write -- so no
+    writer can commit between them (Postgres: an advisory xact lock; SQLite: BEGIN IMMEDIATE,
+    the codebase's pattern in release._serialise_owner_queue). Readers are not blocked."""
+    from sqlalchemy import text
+
+    from ..core.db import is_postgres
+
+    if is_postgres(db.engine):
+        s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _LOCK_KEY})
+    else:
+        s.execute(text("BEGIN IMMEDIATE"))
+
+
+def _reviewable(reasons) -> bool:
+    return AWAITING in reasons or any(str(r).startswith(NOT_QUALIFYING) for r in reasons)
+
+
 def review_frame(db, frame_id: int, *, reissue: bool = True) -> dict:
-    """Review one photo frame; approve it only when every check is exactly True."""
+    """Review one photo frame under the write lock; approve it only when every check is
+    exactly True. A frame that does not qualify gets a terminal named reason instead of
+    staying awaiting (I-A3-NONQUALIFYING-PHOTO); the listing-set certificate excludes it."""
+    from sqlalchemy import select
+
     from ..core.models import AuditLog, ListingAsset
 
-    try:
-        checks, ctx = _checks(db, frame_id)
-    except Exception as exc:  # noqa: BLE001 - an unreadable record approves nothing
-        checks, ctx = {c: f"UNKNOWN: {type(exc).__name__}" for c in CHECKS}, {
-            "frame_id": frame_id}
-    approved = all(checks.get(c) is True for c in CHECKS)
-    failed = [c for c in CHECKS if checks.get(c) is not True]
-    out = {k: v for k, v in {**ctx, "checks": checks, "approved": approved,
-                             "failed": failed}.items()
-           if k not in ("claims", "blocked_reasons", "asset_class")}
     with db.session() as s:
-        from sqlalchemy import select
-
-        # OPUS2S-2: the frame is locked and re-read in the write; if anything the checks read
-        # changed since (a concurrent upgrade moved it, re-marked it, or replaced its bytes),
-        # nothing is approved and the next sweep reviews it afresh.
+        _lock(s, db)
         frame = s.scalars(select(ListingAsset).where(ListingAsset.id == int(frame_id))
                           .with_for_update()).first()
-        if frame is not None and approved:
-            now = {"position": frame.position, "sha256": frame.sha256,
-                   "asset_class": frame.asset_class, "claims": dict(frame.claims or {}),
-                   "blocked_reasons": list(frame.blocked_reasons or [])}
-            changed = sorted(k for k, v in now.items() if ctx.get(k) != v)
-            # OPUS2S-1: only a frame still awaiting this review is approved. A withdrawn
-            # frame (approved=False with no reason) is not this review's to approve.
-            if AWAITING not in now["blocked_reasons"]:
-                changed.append("not awaiting asset-truth review")
-            if changed:
-                approved = False
-                out.update(approved=False, failed=["unchanged_since_checked"],
-                           changed=changed)
-        if frame is not None and approved:
-            remaining = [r for r in (frame.blocked_reasons or []) if r != AWAITING]
-            frame.blocked_reasons = remaining
-            frame.approved = not remaining
-            out["frame_approved"] = frame.approved
-            out["other_reasons"] = remaining
+        try:
+            checks, ctx = _checks(db, frame_id)       # read while no writer can commit
+        except Exception as exc:  # noqa: BLE001 - an unreadable record approves nothing
+            checks, ctx = {c: f"UNKNOWN: {type(exc).__name__}" for c in CHECKS}, {
+                "frame_id": frame_id}
+        approved = all(checks.get(c) is True for c in CHECKS)
+        failed = [c for c in CHECKS if checks.get(c) is not True]
+        out = {k: v for k, v in {**ctx, "checks": checks, "approved": approved,
+                                 "failed": failed}.items()
+               if k not in ("claims", "blocked_reasons", "asset_class")}
+        if frame is None:
+            # OPUS2W-5: a frame that is gone is never reported approved.
+            out.update(approved=False, failed=["frame_gone"])
+            approved = False
+        elif not _reviewable(list(frame.blocked_reasons or [])):
+            # OPUS2S-1: only a frame awaiting this review (or held as not qualifying) is
+            # reviewed; a withdrawn frame (approved=False with no reason) is not this review's.
+            approved = False
+            out.update(approved=False,
+                       failed=failed or ["not awaiting asset-truth review"])
+        else:
+            others = [r for r in (frame.blocked_reasons or [])
+                      if r != AWAITING and not str(r).startswith(NOT_QUALIFYING)]
+            if approved:
+                frame.blocked_reasons = others
+                frame.approved = not others
+                out["frame_approved"] = frame.approved
+                out["other_reasons"] = others
+            elif set(failed) & set(_QUALIFYING_CHECKS) and not any(
+                    isinstance(checks.get(c), str) for c in failed):
+                # (a photo that does not qualify cannot lead, so its order check fails with it)
+                # I-A3-NONQUALIFYING-PHOTO: terminal and named, never holding the set hostage;
+                # the sweep re-opens it once a later attestation or full make qualifies it.
+                frame.blocked_reasons = [f"{NOT_QUALIFYING}{', '.join(failed)}"] + others
+                frame.approved = False
+                out["not_qualifying"] = failed
         s.add(AuditLog(actor="asset_truth", action=ACTION,
                        artifact=f"{ctx.get('slug')}@{ctx.get('version')}",
                        detail={k: v for k, v in out.items() if k != "certificate"}))
-    if approved and reissue and out.get("frame_approved"):
+    if (approved and reissue and out.get("frame_approved")) or (
+            reissue and out.get("not_qualifying")):
         from . import release_gates
 
         try:
@@ -172,21 +208,34 @@ def review_frame(db, frame_id: int, *, reissue: bool = True) -> dict:
 
 
 def awaiting_frames(db) -> list[int]:
-    """Every photo frame still carrying the awaiting-review reason."""
+    """Every photo frame awaiting review, and every one held as not qualifying whose photo
+    qualifies now (a later attestation or passed full make re-opens it)."""
     from sqlalchemy import select
 
     from ..core.models import ListingAsset
+    from . import sample_photo
 
+    out: list[int] = []
     with db.session() as s:
-        return [f.id for f in s.scalars(select(ListingAsset).where(
-            ListingAsset.asset_class == PHOTO_CLASS).order_by(ListingAsset.id))
-            if AWAITING in (f.blocked_reasons or [])]
+        rows = [(f.id, f.product_slug, f.version, list(f.blocked_reasons or []),
+                 dict(f.claims or {}).get("physical_photo_id"))
+                for f in s.scalars(select(ListingAsset).where(
+                    ListingAsset.asset_class == PHOTO_CLASS).order_by(ListingAsset.id))]
+    for fid, slug, version, reasons, pid in rows:
+        if AWAITING in reasons:
+            out.append(fid)
+        elif any(str(r).startswith(NOT_QUALIFYING) for r in reasons):
+            q = sample_photo.qualifying_photos(db, slug, version)
+            if any(e.get("photo_id") == pid for e in q.get("qualifying") or []):
+                out.append(fid)
+    return out
 
 
 def sweep(db) -> dict:
-    """Review every awaiting photo frame. CA$0, deterministic, never publishes."""
+    """Review every awaiting (or newly qualifying) photo frame. CA$0, never publishes."""
     results = [review_frame(db, fid) for fid in awaiting_frames(db)]
     return {"reviewed": len(results), "approved": sum(1 for r in results if r["approved"]),
+            "not_qualifying": [r.get("frame_id") for r in results if r.get("not_qualifying")],
             "refused": [{"frame_id": r.get("frame_id"), "failed": r["failed"]}
                         for r in results if not r["approved"]],
             "work_done": sum(1 for r in results if r["approved"])}

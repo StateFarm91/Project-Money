@@ -774,8 +774,27 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
                for m in _re_par.findall(r"sample_photo\W+(\w+)", line)}
     assert reached == {"qualifying_photos", "_synthetic_shas"}, reached
     assert "getattr(sample_photo" not in par_src.replace(" ", "")
-    assert len(_re_par.findall(r"\bsample_photo\b", par_src)) == len(
-        _re_par.findall(r"sample_photo\.(?:qualifying_photos|_synthetic_shas)\(", par_src)) + 1
+    # OPUS2W-6: no alias anywhere (also after a comma on a multi-name import), and every
+    # mention in code -- docstrings and comments stripped -- is one of the two calls or the
+    # single import.
+    assert not _re_par.search(r"sample_photo\s+as\b", par_src)
+    import ast as _ast_par
+    import io as _io_par
+    import tokenize as _tok_par
+
+    code_only = []
+    for tok in _tok_par.generate_tokens(_io_par.StringIO(par_src).readline):
+        if tok.type in (_tok_par.COMMENT, _tok_par.STRING):
+            continue
+        code_only.append(tok.string)
+    names = [s for s in code_only if s == "sample_photo"]
+    tree = _ast_par.parse(par_src)
+    calls = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.Attribute)
+             and isinstance(n.value, _ast_par.Name) and n.value.id == "sample_photo"]
+    assert {c.attr for c in calls} == {"qualifying_photos", "_synthetic_shas"}, calls
+    imports = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.ImportFrom)
+               for a in n.names if a.name == "sample_photo" and a.asname is None]
+    assert imports and len(names) == len(calls) + len(imports), (len(names), len(calls))
     import re as _re
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))

@@ -168,7 +168,14 @@ def test_every_check_fails_closed():
         assert expected <= set(out["failed"]), (name, out["failed"])
         with db.session() as s:
             frame = s.get(ListingAsset, fid)
-            assert frame.approved is False and par.AWAITING in frame.blocked_reasons, name
+            assert frame.approved is False, name
+            # I-A3-NONQUALIFYING-PHOTO: a photo that does not qualify is held by a terminal
+            # named reason (and out of the set); any other failure stays awaiting review.
+            if set(out["failed"]) & {"attestation_binds_release", "hash_matches_attested_sample"}:
+                assert par.AWAITING not in frame.blocked_reasons, name
+                assert any(r.startswith(par.NOT_QUALIFYING) for r in frame.blocked_reasons), name
+            else:
+                assert par.AWAITING in frame.blocked_reasons, name
             assert s.scalar(select(AuditLog).where(AuditLog.action == par.ACTION)) is not None
 
 
@@ -232,51 +239,181 @@ def _second_attested_photo(db, cir, test_id, body=b"a second unedited camera fil
 
 def test_review_opus2s_s1_a_withdrawn_frame_is_never_approved():
     """OPUS2S-1: a frame with approved=False and no reason has been withdrawn; the review
-    approves only a frame still awaiting it, read in the write session."""
+    approves only a frame still awaiting it, read under the write lock."""
     db, cir, _r, _p = _setup()
     fid = _photo_frame(db, cir)
     with db.session() as s:
         f = s.get(ListingAsset, fid)
         f.approved, f.blocked_reasons = False, []
     out = par.review_frame(db, fid, reissue=False)
-    assert out["approved"] is False and "not awaiting" in " ".join(out["changed"]), out
+    assert out["approved"] is False and out["failed"] == ["not awaiting asset-truth review"], out
     with db.session() as s:
         assert s.get(ListingAsset, fid).approved is False
 
 
-def test_review_opus2s_s2_a_frame_changed_after_its_checks_is_not_approved():
-    """OPUS2S-2: the checks are read in one session and the approval written in another; a
-    frame moved, re-hashed or re-marked in between is re-read under a lock and refused."""
-    for change in ("position", "sha256", "claims", "blocked_reasons"):
-        db, cir, _r, _p = _setup()
-        fid = _photo_frame(db, cir)
-        real = par._checks
+def test_review_opus2w_w1_a_writer_cannot_commit_between_the_checks_and_the_write():
+    """OPUS2W-1: the checks run inside the review's write lock. A concurrent writer that moves
+    the frame and re-marks it while the checks run waits for the review to commit, so its
+    change lands after the approval and is not overwritten by it; with the old unlocked read,
+    the writer committed inside the window and the review approved the moved frame and cleared
+    the writer's reasons."""
+    import threading
 
-        def racing(db_, frame_id, change=change):
-            checks, ctx = real(db_, frame_id)
-            with db_.session() as s:
-                f = s.get(ListingAsset, frame_id)
-                if change == "position":
-                    f.position = 999
-                elif change == "sha256":
-                    f.sha256 = "0" * 64
-                elif change == "claims":
-                    f.claims = {**(f.claims or {}), "leads_gallery": False}
-                else:
-                    f.blocked_reasons = [par.AWAITING, "re-marked by a concurrent upgrade"]
-            return checks, ctx
+    db, cir, _r, _p = _setup()
+    fid = _photo_frame(db, cir)
+    real = par._checks
+    done = {}
 
-        par._checks = racing
-        try:
-            out = par.review_frame(db, fid, reissue=False)
-        finally:
-            par._checks = real
-        assert out["approved"] is False and out["failed"] == ["unchanged_since_checked"], \
-            (change, out)
-        assert change in out["changed"], (change, out)
+    def writer():
         with db.session() as s:
-            frame = s.get(ListingAsset, fid)
-            assert frame.approved is False and par.AWAITING in frame.blocked_reasons, change
+            f = s.get(ListingAsset, fid)
+            f.position = 999
+            f.blocked_reasons = [par.AWAITING, "re-marked by a concurrent upgrade"]
+        done["at"] = True
+
+    def racing(db_, frame_id):
+        t = threading.Thread(target=writer)
+        t.start()
+        t.join(timeout=0.5)                 # the writer is held by the review's lock
+        done["waited"] = t.is_alive()
+        done["thread"] = t
+        return real(db_, frame_id)
+
+    par._checks = racing
+    try:
+        out = par.review_frame(db, fid, reissue=False)
+    finally:
+        par._checks = real
+    done["thread"].join(timeout=30)
+    assert done["waited"] is True, "the writer committed inside the review's window"
+    assert out["approved"] is True and done.get("at"), out
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        # the writer's change landed after the review and was not overwritten by it
+        assert f.position == 999, f.position
+        assert f.blocked_reasons == [par.AWAITING, "re-marked by a concurrent upgrade"], \
+            f.blocked_reasons
+
+
+def test_review_opus2w_w2_a_photo_that_does_not_qualify_never_holds_the_set_hostage():
+    """OPUS2W-2 / I-A3-NONQUALIFYING-PHOTO: a frame whose photo is not attested gets a
+    terminal named reason, the listing set excludes it, and a later attestation re-opens it."""
+    from brambleloop.publish import physical_upgrade as pu
+
+    db, cir, release, _p = _setup(attest=False)
+    fid = _photo_frame(db, cir)
+    out = par.review_frame(db, fid, reissue=False)
+    assert out["approved"] is False and out["not_qualifying"], out
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert f.approved is False and par.AWAITING not in f.blocked_reasons
+        assert any(r.startswith(par.NOT_QUALIFYING) for r in f.blocked_reasons), f.blocked_reasons
+        pid = (f.claims or {}).get("physical_photo_id")
+    assert fid not in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+    assert par.awaiting_frames(db) == []                  # not re-reviewed while unqualified
+    pu.attest_unedited(db, pid, actor=T.OWNER, confirm=pu.UNEDITED_CONFIRMATION)
+    assert fid in par.awaiting_frames(db)                 # a later attestation re-opens it
+    par.sweep(db)
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        assert not any(str(r).startswith(par.NOT_QUALIFYING) for r in f.blocked_reasons or [])
+
+
+def test_review_opus2w_w3_w4_w5_supplement_conditions_leader_class_and_a_gone_frame():
+    """OPUS2W-3: each condition of the supplement rule; OPUS2W-4: the leader must be a photo;
+    OPUS2W-5: a frame deleted before the write is never reported approved."""
+    db = T._db()
+    cir, _release = T._certified_basket(db)
+    T._render_gallery(db, cir)
+    test_id = T._passed_full_make(db, cir)
+    T._upgrade(db, cir, test_id)
+    first = _photo_frame(db, cir)
+    assert par.review_frame(db, first, reissue=False)["approved"] is True
+    _second_attested_photo(db, cir, test_id)
+    with db.session() as s:
+        rows = {f.id: f for f in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug))}
+        leader = next(f for f in rows.values() if (f.claims or {}).get("leads_gallery"))
+        lead_id = leader.id
+        render_id = next(f.id for f in rows.values() if f.asset_class != par.PHOTO_CLASS)
+
+    def supplement_ok(mutate):
+        with db.session() as s:
+            mutate(s)
+            f = s.get(ListingAsset, first)
+            f.approved, f.blocked_reasons = False, [par.AWAITING]
+        return par.review_frame(db, first, reissue=False)["approved"]
+
+    assert supplement_ok(lambda s: None) is True
+    # two leaders (N6)
+    def two(s):
+        f = s.get(ListingAsset, render_id)
+        f.claims = {**(f.claims or {}), "leads_gallery": True}
+    assert supplement_ok(two) is False
+    def undo_two(s):
+        f = s.get(ListingAsset, render_id)
+        f.claims = {k: v for k, v in (f.claims or {}).items() if k != "leads_gallery"}
+    supplement_ok(undo_two)
+    # the leader not at position 1 (N7): swap the leader with the last frame
+    def demote(s):
+        frames = sorted(rows_now(s), key=lambda f: f.position)
+        lead, last = s.get(ListingAsset, lead_id), frames[-1]
+        lp, xp = lead.position, last.position
+        lead.position = 10_000
+        s.flush()
+        last.position = lp
+        s.flush()
+        lead.position = xp
+    def rows_now(s):
+        return list(s.scalars(select(ListingAsset).where(ListingAsset.product_slug == cir.slug)))
+    assert supplement_ok(demote) is False
+    db2 = T._db()                                    # a fresh set for the gap and class cases
+    cir2, _ = T._certified_basket(db2)
+    T._render_gallery(db2, cir2)
+    t2 = T._passed_full_make(db2, cir2)
+    T._upgrade(db2, cir2, t2)
+    f1 = _photo_frame(db2, cir2)
+    par.review_frame(db2, f1, reissue=False)
+    _second_attested_photo(db2, cir2, t2)
+    with db2.session() as s:                          # a gap in the positions (N9)
+        last = max(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir2.slug)), key=lambda f: f.position)
+        last.position += 7
+        f = s.get(ListingAsset, f1)
+        f.approved, f.blocked_reasons = False, [par.AWAITING]
+    assert par.review_frame(db2, f1, reissue=False)["approved"] is False
+    with db2.session() as s:                          # a render claims to lead (W-4)
+        last.position -= 7
+        for f in s.scalars(select(ListingAsset).where(ListingAsset.product_slug == cir2.slug)):
+            if f.id == last.id:
+                f.position -= 7
+            if (f.claims or {}).get("leads_gallery"):
+                f.claims = {**(f.claims or {}), "leads_gallery": False}
+        rend = next(f for f in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir2.slug, ListingAsset.position == 1)))
+        rend_pos1_is_photo = rend.asset_class == par.PHOTO_CLASS
+        rend.claims = {**(rend.claims or {}), "leads_gallery": True}
+        rend.asset_class = "DIGITAL_TWIN_RENDER"
+        f = s.get(ListingAsset, f1)
+        f.approved, f.blocked_reasons = False, [par.AWAITING]
+    assert rend_pos1_is_photo is True
+    assert par.review_frame(db2, f1, reissue=False)["approved"] is False
+    # W-5: the frame is gone before the write
+    real = par._checks
+
+    def gone(db_, frame_id):
+        checks, ctx = real(db_, frame_id)
+        return {c: True for c in par.CHECKS}, ctx
+    db3, cir3, _r3, _p3 = _setup()
+    fid3 = _photo_frame(db3, cir3)
+    with db3.session() as s:
+        s.delete(s.get(ListingAsset, fid3))
+    par._checks = gone
+    try:
+        out = par.review_frame(db3, fid3, reissue=False)
+    finally:
+        par._checks = real
+    assert out["approved"] is False and out["failed"] == ["frame_gone"], out
 
 
 def test_review_opus2s_s3_a_second_qualifying_photo_does_not_deadlock_the_set():
