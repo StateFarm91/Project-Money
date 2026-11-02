@@ -8,6 +8,37 @@ from brambleloop.quality import design_eval
 
 
 class FrozenCaseTests(unittest.TestCase):
+    def test_persistent_preview_measures_every_case_but_cannot_approve(self):
+        from sqlalchemy import select
+        from brambleloop.core.db import Database
+        from brambleloop.core.models import AuditLog, DesignRule
+
+        with TemporaryDirectory() as tmp:
+            url = f"sqlite:///{tmp}/evaluation.db"
+            db = Database(url, scratch=True)
+            db.create_all()
+            with db.session() as s:
+                row = DesignRule(key="finishing", version=1,
+                    statement={"rule": "include_finishing_checklist", "parameters": {}},
+                    scope={"writer_section": "finishing"}, state="proposed",
+                    provenance=[{"kind": "analysis", "id": 1}], producer="analyst")
+                s.add(row)
+                s.flush()
+                rule_id = row.id
+            first = design_eval.preview_registered_rule(db, rule_id)
+            reopened = Database(url, scratch=True)
+            with reopened.session() as s:
+                audit = s.scalar(select(AuditLog).where(AuditLog.id == first["audit_id"]))
+                self.assertEqual(audit.action, "design_eval.preview")
+                self.assertEqual(len(audit.detail["cases"]), 8)
+                self.assertEqual(audit.detail["state"], "insufficient_evidence")
+                self.assertFalse(audit.detail["approval_evidence_complete"])
+                self.assertNotIn("Fasten off", str(audit.detail))
+                self.assertEqual(s.get(DesignRule, rule_id).state, "proposed")
+            second = design_eval.preview_registered_rule(reopened, rule_id)
+            self.assertEqual(first["cases"], second["cases"])
+            self.assertEqual(first["rule_sha256"], second["rule_sha256"])
+
     def test_actual_output_metrics_find_missing_finishing_and_do_not_authorize(self):
         from brambleloop.cir.compiler import compile_cir
         from brambleloop.cir.writer import FINISHING_HEADING, write_pattern

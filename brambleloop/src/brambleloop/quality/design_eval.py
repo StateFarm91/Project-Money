@@ -127,3 +127,66 @@ def compare_written_case(cir, baseline: str, candidate: str) -> dict:
             "same_word_shingles": same_shingles,
             "approval_evidence_complete": False,
             "incomplete_reason": "benchmark originality and Product Truth evaluation not measured"}
+
+
+def preview_registered_rule(db, rule_id: int) -> dict:
+    """Measure a registered proposal against the frozen launch cases.
+
+    This preview deliberately cannot approve a rule: the production writer and
+    the complete benchmark/originality stages must first be bound to the same
+    evaluated implementation. No customer or reference instructions are saved.
+    """
+    from sqlalchemy import select
+
+    from ..cir.compiler import compile_cir
+    from ..cir.writer import FINISHING_HEADING, write_pattern
+    from ..core.models import AuditLog, DesignRule
+
+    if type(rule_id) is not int or rule_id <= 0:
+        raise DesignEvaluationRefused("invalid rule id")
+    frozen = load_cases()
+    with db.session() as s:
+        rule = s.get(DesignRule, rule_id)
+        if rule is None or rule.state != "proposed":
+            raise DesignEvaluationRefused("a proposed rule is required")
+        if rule.statement != {"rule": "include_finishing_checklist", "parameters": {}} \
+                or rule.scope != {"writer_section": "finishing"}:
+            raise DesignEvaluationRefused("unsupported rule or scope")
+        if s.scalar(select(DesignRule.id).where(DesignRule.state == "approved")) is not None:
+            raise DesignEvaluationRefused("incumbent knowledge is not yet supported")
+        identity = {"id": rule.id, "key": rule.key, "version": rule.version,
+                    "statement": rule.statement, "scope": rule.scope,
+                    "provenance": rule.provenance, "producer": rule.producer}
+    case_results = []
+    for case in frozen["cases"]:
+        if case["kind"] != "launch0":
+            continue
+        cir = launch0.cir_for(case["build"])
+        baseline = write_pattern(cir, compile_cir(cir))
+        head, separator, finishing = baseline.partition(FINISHING_HEADING)
+        if not separator:
+            raise DesignEvaluationRefused("writer did not produce a finishing section")
+        candidate = head + separator + "\n" + "\n".join(
+            "- " + line if line else line for line in finishing.strip().splitlines()) + "\n"
+        case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate)})
+    if len(case_results) != len(_LAUNCH_CASES):
+        raise DesignEvaluationRefused("not all frozen launch cases were measured")
+    report = {"rule_id": rule_id, "rule_key": identity["key"],
+              "rule_version": identity["version"], "rule_sha256": _digest(identity),
+              "case_set_sha256": frozen["sha256"], "cases": case_results,
+              "state": "insufficient_evidence", "approval_evidence_complete": False,
+              "why": "preview renderer is not the production writer; benchmark originality "
+                     "and Product Truth are not yet measured"}
+    with db.session() as s:
+        current = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
+        if current is None or current.state != "proposed" or _digest({
+                "id": current.id, "key": current.key, "version": current.version,
+                "statement": current.statement, "scope": current.scope,
+                "provenance": current.provenance, "producer": current.producer}) != report["rule_sha256"]:
+            raise DesignEvaluationRefused("proposal changed during evaluation")
+        row = AuditLog(actor="design_evaluator", action="design_eval.preview",
+                       artifact=f"design-rule:{rule_id}", detail=report)
+        s.add(row)
+        s.flush()
+        report = {**report, "audit_id": row.id}
+    return report
