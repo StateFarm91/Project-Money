@@ -145,8 +145,20 @@ def openings_cm(component, gauge) -> tuple[float, ...]:
     answer to within the difference between the two gauges rather than a guess.
     """
     out: list[float] = []
+
+    def flat_ops(ops):
+        # OPUS2 (drawstring pouch): a bridged chain inside a repeat ("[sc 4, ch 2, sk 2] x 8",
+        # an eyelet round) is an opening like one at the top level; each repetition is one.
+        for node in ops:
+            inner = getattr(node, "ops", None)
+            if inner is not None and not hasattr(node, "stitch"):
+                for _ in range(getattr(node, "times", None) or 1):
+                    yield from flat_ops(inner)
+            else:
+                yield node
+
     for row in component.rows:
-        for op in row.ops:
+        for op in flat_ops(row.ops):
             spans = getattr(op, "spans", 0)
             if getattr(op, "stitch", None) != "ch" or not spans:
                 continue
