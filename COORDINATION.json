@@ -1042,7 +1042,8 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
-      "state": "pushed opus2/a2-name-object 3be8262f; in review A2-REVIEW"
+      "state": "superseded",
+      "superseded_by": "A2-FIX"
     },
     {
       "owner": "opus2",
@@ -1114,7 +1115,12 @@
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
       },
-      "branch": "claude/w5-A5-correction-loop"
+      "branch": "claude/w5-A5-correction-loop",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "owner": "opus2",
@@ -1129,7 +1135,12 @@
         "wiring #4"
       ],
       "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
-      "state": "assigned"
+      "state": "assigned",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T19:57:34Z"
+      }
     },
     {
       "owner": "mainopus-worker",
@@ -1151,7 +1162,12 @@
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
       },
-      "branch": "claude/w5-A7-supply-stall"
+      "branch": "claude/w5-A7-supply-stall",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "owner": "opus2",
@@ -1166,7 +1182,12 @@
         "wiring #6"
       ],
       "acceptance": "a rising culture signal opens a research task that reaches concept_intake",
-      "state": "assigned"
+      "state": "assigned",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T19:57:34Z"
+      }
     },
     {
       "owner": "mainopus-worker",
@@ -1188,7 +1209,12 @@
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
       },
-      "branch": "claude/w5-A9-package-event"
+      "branch": "claude/w5-A9-package-event",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "owner": "opus2",
@@ -1219,7 +1245,12 @@
       ],
       "ownership_boundary": "shared safety code only (launch0 children's gate, child_words_in/fold, renderer children's block, risk_matrix, small-parts check); the amigurumi toy rebases onto A1-R afterwards and is not part of this branch",
       "next": "push, then request delta review on PR #3; integrator integrates on SHIP independently of the toy",
-      "priority": "1 (with A2); then A4, A5, A6 ahead of any new construction or product generator (I-OPUS2-FREEZE-GENERATORS stands)"
+      "priority": "1 (with A2); then A4, A5, A6 ahead of any new construction or product generator (I-OPUS2-FREEZE-GENERATORS stands)",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1239,7 +1270,12 @@
         "P1-b stripes/corners/rim stated in the FLUX prompt",
         "P2-b 'approved product photograph' label",
         "P1-c(brief) SIZE brief names Laura on a product-only frame"
-      ]
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1268,7 +1304,12 @@
       "priority": 1,
       "branch": "claude/w5-V0-paid-provider-gate",
       "requirement": "P0-PAID-PROVIDER-OWNER-GATE (owner directive 2026-11-02, financial control)",
-      "acceptance": "default-OFF, audited, step-up owner activation per paid image/vision provider; one gateway enforcement point for every paid call incl. probes; independently enforces owner authorization, provider day/month ceilings, per-gallery limit, monthly company budget, paid-call idempotency, retry ceiling; fails closed without approval or accounting evidence; a key or historical probe never opens image_generation/image_vision"
+      "acceptance": "default-OFF, audited, step-up owner activation per paid image/vision provider; one gateway enforcement point for every paid call incl. probes; independently enforces owner authorization, provider day/month ceilings, per-gallery limit, monthly company budget, paid-call idempotency, retry ceiling; fails closed without approval or accounting evidence; a key or historical probe never opens image_generation/image_vision",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1434,6 +1475,66 @@
       "id": "P0-PROVIDER-BILLING-RECON",
       "priority": 5,
       "requirement": "reconcile provider bills to the ledger (needs owner billing keys)"
+    },
+    {
+      "id": "A2-FIX",
+      "owner": "opus2",
+      "priority": 1,
+      "branch": "opus2/a2-name-object",
+      "requirement": "A2-1..A2-7 from A2-REVIEW (PR #3 comment 6584854646)",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
+    },
+    {
+      "id": "A4b",
+      "owner": "opus2",
+      "priority": 2,
+      "branch": "opus2/a4b-enrichment",
+      "requirement": "held/refused draft -> enrichment -> re-draft; push existing 823a82dd, b0c66556 rebased on newest claude/w5-INTEG1",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
+    },
+    {
+      "id": "A3-FIX",
+      "owner": "opus2",
+      "priority": 2,
+      "branch": "opus2/p0-photo-asset-review",
+      "requirement": "A3D-1 MED (+ LOWs) from A3D (PR #3 comment 6586315764)",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
+    },
+    {
+      "id": "CODEX1-FIX",
+      "owner": "codex",
+      "priority": 1,
+      "branch": "codex/p0-learning-reference",
+      "requirement": "CODEX1-2 HIGH JOB_CLASS; confirm CODEX1-1; then approved-rule reader for A6 (CODEX_REVIEW_FEEDBACK.md)",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
     }
   ],
   "decisions": [
@@ -1466,6 +1567,13 @@
       "at": "2026-11-02T19:06Z",
       "decision": "The authoritative workforce inventory is P0_WIRING_50937469.md (departments 1-16, 25 handoffs) plus WORKFORCE_INVENTORY_EXT_5ba84bf7.md (departments 17-31, all 171 job types). 159 LIVE, 8 MANUAL, 2 ORPHAN, 2 UNHANDLED; production evidence UNKNOWN for every job type until readback. No competing plan.",
       "source": "owner directive I-P0-ABSOLUTE-WORKFORCE item 1"
+    },
+    {
+      "id": "I-DISPATCH-PROTOCOL",
+      "at": "2026-11-02T19:57:34Z",
+      "source": "owner directive 2026-11-02 'Restore reliable Main <-> Secondary coordination'",
+      "decision": "All engineering assignments are dispatched through COORDINATION.json assignments + dispatch/events/<worker>.jsonl via ops/assignments.py. Workers must record ack on the first wake after an assignment is posted (deadline ack_due_by, 3 h), start/heartbeat/checkpoint(sha)/review_requested(sha)/blocked as they go. Delivery is polling only. The integrator polls every check-in, detects overdue items with `ops/assignments.py stale`, and reassigns only work that is safe to move (no checkpoint under review), recorded in ownership_history; claim-check prevents the former owner from continuing. Posting a PR comment is not evidence of receipt; an ack event is.",
+      "why_not_direct": "The cross-session tools (create_session, send_later, fire_trigger, get_session, update_trigger) stopped being provided to the integrator session at about 2026-11-02T08:12Z; no connector exposes them and they cannot be restored from inside the session. GitHub Actions has no Claude workflow in this repository."
     }
   ],
   "owner_actions_pending": [
