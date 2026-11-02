@@ -31,3 +31,5 @@
 {"at": "2026-11-02T20:34:08Z", "worker": "opus2", "assignment": "A4a", "event": "review_requested", "sha": "3dc3e68c"}
 {"at": "2026-11-02T20:51:35Z", "worker": "opus2", "assignment": "A3-FIX", "event": "checkpoint", "sha": "c2174947", "note": "PR #23; A3D-1..5; 23/23, 8 mutants; 12 focused suites green"}
 {"at": "2026-11-02T20:51:35Z", "worker": "opus2", "assignment": "A3-FIX", "event": "review_requested", "sha": "c2174947"}
+{"at": "2026-11-02T21:02:32Z", "worker": "opus2", "assignment": "A1-R", "event": "checkpoint", "sha": "1dd257be", "note": "opus2/p0-child-safety-core; 59 suites green incl test_product_run 36/36; 12 mutants"}
+{"at": "2026-11-02T21:02:32Z", "worker": "opus2", "assignment": "A1-R", "event": "review_requested", "sha": "1dd257be"}
