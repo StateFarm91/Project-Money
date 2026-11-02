@@ -36,6 +36,7 @@ TOTE = "tote"
 COSY = "cosy"
 TRIANGLE = "triangle"
 TAPESTRY = "tapestry"
+AMIGURUMI = "amigurumi"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -133,6 +134,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                          "BASKET_SIZES), each listed on its own",
                 "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
                         f"is one release of one size")}
+    if category == "amigurumi":
+        # P0 construction breadth (owner directive 2026-11-01 section 3C): a plain ball-body
+        # bear or bunny is drafted as shaped rounds, stuffed and joined; any other animal,
+        # character, size, count or feature is refused by name.
+        return amigurumi_route(title)
     titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
     if category in NEEDS and not (category == "bag" and titled_tote):
         return {"family": REFUSED, "needs": NEEDS[category],
@@ -711,5 +717,158 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
             f"A hexagonal tapestry basket about {points:.1f} cm across the points and "
             f"{flats:.1f} cm across the flats, walls about {wall_rounds * row_cm:.0f} cm tall, "
             f"at the stated gauge. Computed, not yet measured on a worked sample."),
+        provenance=provenance,
+    )
+
+
+# ---------------------------------------------------------------------------------------
+# Amigurumi: a ball-body animal (P0 construction breadth, owner directive 2026-11-01 3C).
+#
+# A body, a base and two ears. The body is worked from the top of the head down in single
+# crochet in joined rounds: staggered increases to a circle of AMI_BODY_STITCHES (never
+# stacked, so it is round, not a hexagon), plain rounds, then staggered decreases to an
+# AMI_BASE_STITCHES opening, which a flat base disc of the same count closes after stuffing
+# (a stitch-for-stitch join, so the toy sits). Each ear is a small piece
+# in rounds, flattened and sewn across a stated number of stitches of a stated body round,
+# so `cir.assembly` measures every join. Eyes and nose are embroidered with yarn; the pattern
+# makes no toy-safety claim of any kind -- that is the children's-products decision
+# (`launch0.childrens_decision`), not a drafting rule. A stuffed closed form is risk class C
+# (`gates.risk_matrix`): its finished shape is known only from a full physical make, so the
+# size note states the circumference the stitch counts make and refuses a height.
+AMI_BODY_STITCHES = 36
+AMI_PLAIN_ROUNDS = 7
+AMI_BASE_STITCHES = 18            # the open bottom, closed by a flat base disc so it sits
+AMI_EAR_ROUND = 5                 # the body round the ears are sewn to (30 sts)
+AMI_ANIMALS: dict[str, dict] = {
+    # ear: (stitches in the ring, rounds of increase, plain rounds after) and the flat width
+    "bear": {"ring": 6, "inc_rounds": 1, "plain": 2, "flat_sts": 6,
+             "note": "a round ear: flatten the cup so its opening closes into a straight edge"},
+    "bunny": {"ring": 4, "inc_rounds": 1, "plain": 8, "flat_sts": 4,
+              "note": "a long ear: flatten the tube so its opening closes into a straight edge"},
+}
+_AMI_SYNONYMS = {"teddy": "bear", "rabbit": "bunny", "bunny": "bunny", "bear": "bear"}
+_AMI_ALLOWED_WORDS = frozenset({"amigurumi", "crochet", "crocheted", "ball", "round",
+                                "simple", "classic", "cosy", "cozy", "plush", "teddy"})
+AMIGURUMI_PRIMITIVES = ("creative.fallback_constructions.amigurumi",
+                        "products.moment_candidates._disc",
+                        "products.moment_candidates._decrease_to",
+                        "cir.assembly._placed_on_round_cm")
+
+
+def amigurumi_route(title: str | None) -> dict:
+    folded = fold_title(title)
+    if re.search(_MULTIPLE_WORDS, folded) or re.search(
+            r"\b(?:bears|bunnies|rabbits|teddies|animals|friends)\b", folded):
+        return {"family": REFUSED, "needs": "one certified release per toy, each listed alone",
+                "why": "the title promises more than one toy; one draft is one toy"}
+    words = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded)
+    animals = [w for w in words if w in _AMI_SYNONYMS and w != "teddy"]
+    if not animals or words[-1] not in (*_AMI_SYNONYMS, "amigurumi", "plush"):
+        return {"family": REFUSED, "needs": NEEDS["amigurumi"] + " (a ball-body bear or bunny "
+                                                                "is the one fallback form)",
+                "why": (f"the title {title!r} names a shape the fallback does not make; only a "
+                        f"plain ball-body {' or '.join(sorted(AMI_ANIMALS))} is drafted")}
+    unknown = [w for w in words if w not in _AMI_ALLOWED_WORDS and w not in _AMI_SYNONYMS]
+    kinds = {_AMI_SYNONYMS[w] for w in animals}
+    if unknown or len(kinds) > 1 or ("teddy" in words and kinds != {"bear"}):
+        named = " ".join(unknown) or " and ".join(sorted(kinds))
+        return {"family": REFUSED,
+                "needs": (f"the shape, feature or size {named!r} names (its own pieces, "
+                          f"placements and a physical sample); only a plain ball-body bear or "
+                          f"bunny is drafted"),
+                "why": f"the title names {named!r}, which the ball-body toy does not make"}
+    return {"family": AMIGURUMI, "needs": "", "kind": kinds.pop(),
+            "why": "a ball-body toy is shaped rounds, stuffed and closed, with sewn ears"}
+
+
+def amigurumi(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A stuffed ball-body bear or bunny: one body in rounds and two placed ears."""
+    from ..cir.model import Seam
+    from ..creative.prototype import gauge_for
+    from ..products.moment_candidates import _decrease_to, _disc, _Rows
+
+    route = amigurumi_route(concept.title)
+    if route["family"] != AMIGURUMI:
+        raise ValueError(f"{concept.slug}: {route['why']}")
+    kind = route["kind"]
+    ear_spec = AMI_ANIMALS[kind]
+    palette = list(dict.fromkeys(concept.colors))
+    if not palette:
+        raise ValueError(f"{concept.slug}: a toy needs at least one colour")
+    main = palette[0]
+    gauge = gauge_for(concept.yarn_weight)
+
+    body = _Rows()
+    _disc(body, AMI_BODY_STITCHES, main)
+    widest = body.last
+    for _ in range(AMI_PLAIN_ROUNDS):
+        body.add([Op("sc", AMI_BODY_STITCHES)], AMI_BODY_STITCHES, main)
+    _decrease_to(body, AMI_BODY_STITCHES, AMI_BASE_STITCHES, main)
+    body.rows[0].note = "work tightly, so the stuffing will not show between stitches"
+    last = body.last
+    base = _Rows()
+    _disc(base, AMI_BASE_STITCHES, main)
+    ear_round_count = next(r.declared_count for r in body.rows if r.index == AMI_EAR_ROUND)
+    flat = ear_spec["flat_sts"]
+    gap = flat
+    back = ear_round_count - 2 * flat - gap
+
+    ear = _Rows()
+    ring = ear_spec["ring"]
+    ear.add([Op("sc", ring)], ring, main)
+    count = ring
+    for _ in range(ear_spec["inc_rounds"]):
+        body_ops = [Op("sc", 1), Op("inc")] if count // ring == 2 else [Op("inc")]
+        count += ring
+        ear.add([Repeat(body_ops, times=ring)], count, main)
+    for _ in range(ear_spec["plain"]):
+        ear.add([Op("sc", count)], count, main)
+    if count != 2 * flat:
+        raise ValueError(f"{kind} ear: {count} sts does not flatten to {flat} across")
+
+    components = [
+        Component(name="body", construction="joined_rounds", rows=body.rows, foundation=0,
+                  foundation_kind="magic_ring",
+                  note="Worked from the top of the head down, open at the bottom."),
+        Component(name="base", construction="joined_rounds", rows=base.rows, foundation=0,
+                  foundation_kind="magic_ring",
+                  note="A flat disc that closes the bottom, so the toy sits up."),
+        Component(name="ear", construction="joined_rounds", rows=ear.rows, foundation=0,
+                  foundation_kind="magic_ring", make=2,
+                  note=f"Make 2. Unstuffed: {ear_spec['note']}."),
+    ]
+    embroidery = ("Embroider the eyes and nose with a scrap of dark yarn on rounds "
+                  f"{widest + 2}-{widest + 4}, centred under the gap between the ears.")
+    assembly = [
+        Seam("whipstitch", "base", "body", edge_a="top", edge_b="bottom",
+             stuff_before_closing=True, at_round=last, spans_rounds=1,
+             note=(f"Stuff the body firmly with fibrefill, then whipstitch the base's last "
+                   f"round to the body's last round stitch for stitch ({AMI_BASE_STITCHES} "
+                   f"sts each), topping up the stuffing before the last few stitches")),
+        Seam("whipstitch", "ear", "body", edge_a="top", edge_b="top",
+             at_round=AMI_EAR_ROUND, spans_rounds=1, stitches_from_centre=flat // 2,
+             note=(f"Sew each flattened ear across {flat} sts of round {AMI_EAR_ROUND} "
+                   f"({ear_round_count} sts): ear {flat} sts, {gap} sts between the ears at "
+                   f"the front, ear {flat} sts, then {back} sts at the back. "
+                   + embroidery)),
+    ]
+    around = AMI_BODY_STITCHES / gauge.stitches_per_10cm * 10.0
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version,
+        construction="joined_rounds", risk_class="C",
+        colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=main),
+                   Material(name="polyester fibrefill"),
+                   Material(name="dark yarn scrap for the embroidered eyes and nose")],
+        components=components, assembly=assembly,
+        designer_notes=(f"{concept.category} concept drafted as a ball-body {kind}: a "
+                        f"{AMI_BODY_STITCHES}-st body in rounds, stuffed and closed by a "
+                        f"{AMI_BASE_STITCHES}-st base, two "
+                        f"{kind} ears sewn to round {AMI_EAR_ROUND}. {embroidery}"),
+        finished_size_note=(
+            f"The body is about {around:.0f} cm around its widest round at the stated gauge. "
+            f"Computed from the stitch counts, not yet measured on a worked sample; its "
+            f"height depends on the stuffing and is measured on the sample."),
         provenance=provenance,
     )

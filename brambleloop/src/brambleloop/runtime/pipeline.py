@@ -842,6 +842,18 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.tapestry_basket(concept, provenance=provenance)
+        elif route["family"] == FC.AMIGURUMI:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.AMIGURUMI_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.amigurumi(concept, provenance=provenance)
         elif route["family"] == FC.TRIANGLE:
             provenance = None
             if lineage["known"]:
