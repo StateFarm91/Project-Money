@@ -270,6 +270,15 @@
       "scope": "additive Op.color: model (omitted from to_dict when None, so no digest moves), compiler UNKNOWN_COLOR / STITCH_COLOUR_WITHOUT_ROW_COLOUR, ResolvedOp.color, twin cell colour + per-yarn yardage, writer 'with <colour>', reverse parse and structural compare; launch0.per_stitch_colour_expressible flips True on its own so fabric_truth backs a real two-colour claim",
       "not_touching": "radar fallback drafting (opus2/p0-revenue-workforce), W-LISTING rules, any Launch-0 CIR",
       "evidence": "tests/test_opus2_cir_colourwork.py 6/6; all 11 Launch-0 CIR digests unchanged; 84-suite regression exit 0 (vacuity re-run after its fix)"
+    },
+    {
+      "id": "OPUS2-ENRICHMENT-CONSUMER",
+      "operator": "opus2",
+      "branch": "opus2/p0-construction-registry",
+      "state": "claimed",
+      "area": "OPUS2R-7 research_enrichment consumer (owner directive 2026-11-02 item 5)",
+      "claimed": "2026-11-02T14:10Z",
+      "scope": "Product Development side only: creative/enrichment_requests.py, runtime/enrichment_ops.py, job research.enrichment_sweep. Research side (producing an enriched brief via answer()) proposed for W-CONCEPT on PR #22; creative/intake.py untouched."
     }
   ],
   "unowned": [

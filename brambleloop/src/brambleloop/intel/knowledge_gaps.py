@@ -94,6 +94,13 @@ LINES: tuple[Line, ...] = (
 )
 
 LINE_BY_CATEGORY: dict[str, str] = {c: ln.key for ln in LINES for c in ln.categories}
+# A research brief's form (creative.concept.FORMS) as the catalogue category its line reads.
+FORM_CATEGORY: dict[str, str] = {
+    "basket": "basket", "toy": "amigurumi", "sphere": "amigurumi", "bag": "bag",
+    "pouch": "bag", "stocking": "stocking", "ornament": "ornament", "pillow": "pillow",
+    "runner": "runner", "coaster": "coaster", "rectangle_throw": "blanket",
+    "fitted_garment": "garment", "draped_garment": "shawl", "scarf": "scarf",
+}
 
 
 def category_of(slug: str) -> str:
@@ -134,6 +141,11 @@ def evidence(db, *, today: date) -> dict:
         refusals = [(r.artifact, dict(r.detail or {})) for r in s.scalars(
             select(AuditLog).where(AuditLog.action == "cir.draft_refused",
                                    AuditLog.at >= since))]
+        # OPUS2 (research -> Product Development): a research brief held because no engine
+        # can make what it asks (`construction_registry`, resolved_by "engine_decision") is
+        # missing technical capability, counted as a construction refusal of its form's line.
+        held = [(r.artifact, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "cir.draft_held", AuditLog.at >= since))]
         failures = [r.artifact for r in s.scalars(
             select(AuditLog).where(AuditLog.action == "cir.compiled", AuditLog.at >= since))
             if (r.detail or {}).get("ok") is False]
@@ -153,6 +165,22 @@ def evidence(db, *, today: date) -> dict:
             if slug not in per[line]["refused"]:
                 per[line]["refused"].append(slug)
             need = str(detail.get("needs") or "")
+            if need and need not in per[line]["needs"]:
+                per[line]["needs"].append(need)
+    for artifact, detail in held:
+        req = detail.get("request") or {}
+        line = LINE_BY_CATEGORY.get(FORM_CATEGORY.get(str(req.get("form") or ""), ""))
+        engine = [u for u in detail.get("unresolved") or []
+                  if u.get("resolved_by") == "engine_decision"]
+        if not line or not engine:
+            continue
+        slug = _slug_of(artifact)
+        # OPUS2R-7: a brief held again (a re-run of the same draft job) is one gap, not two.
+        if slug not in per[line]["refused"]:
+            per[line]["construction_refusals"] += 1
+            per[line]["refused"].append(slug)
+        for u in engine:
+            need = str(u.get("why") or "")
             if need and need not in per[line]["needs"]:
                 per[line]["needs"].append(need)
     for artifact in failures:
