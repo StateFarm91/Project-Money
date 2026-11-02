@@ -730,6 +730,20 @@ def package_missing(cir: CIR, prose: str | list[str]) -> tuple[str, ...]:
                  if not any(line == h or line.startswith(h + " (") for line in lines))
 
 
+from ..core.resilience import PermanentError as _PermanentError
+
+
+class ChildrensDecisionRequired(_PermanentError, ValueError):
+    """A1R-4: a product held for a children's-safety decision. Permanent (never retried: a
+    retry cannot make the decision) and named, so `assets.build` records an owner-visible
+    hold instead of spending attempts toward a dead letter. A ValueError too, so every
+    existing caller that refuses on ValueError still refuses."""
+
+    def __init__(self, slug: str, reason: str, message: str):
+        super().__init__(message)
+        self.slug, self.reason = slug, reason
+
+
 def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     """A pattern whose own title says "child" cannot be rendered on nobody's decision.
 
@@ -756,9 +770,10 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     if childrens is not None:
         # Assigned to a child: a sewn-on piece that fits, or may fit, the small-parts cylinder
         # holds it until physical evidence is recorded (UNKNOWN is never a pass).
-        blocks = small_parts.blocking(cir) if stuffed else []
+        # A1R-5: every assigned product, stuffed or not; unmeasurable is UNKNOWN and blocks.
+        blocks = small_parts.blocking(cir)
         if blocks:
-            raise ValueError(
+            raise ChildrensDecisionRequired(cir.slug, "small_parts",
                 f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "
                 f"{small_parts.CYLINDER_MM:g} mm small-parts cylinder: {'; '.join(blocks)}. "
                 f"Held until a measured physical sample is recorded "
@@ -772,7 +787,7 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
         return
     reads = (f"reads as a children's product ({', '.join(words)})" if words else
              "is not marked for children, but its construction is a closed stuffed form")
-    raise ValueError(
+    raise ChildrensDecisionRequired(cir.slug, "undecided",
         f"{cir.slug}: the title {cir.title!r} {reads}, and nothing has decided whether it is "
         f"one. Held pending an explicit owner decision: refusing to render a document that "
         f"would carry no safety statements on nobody's decision. Assign it in "

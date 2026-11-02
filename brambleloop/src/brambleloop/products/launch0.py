@@ -1377,6 +1377,16 @@ NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {
                               "merchandised, sized or described for a child"),
 }
 
+# A1R-6: the record behind each written exemption -- who decided, when, and the decision log
+# entry. Recorded by opus2 under the owner's A1-R directive of 2026-11-02; the owner's own
+# ratification is an open owner decision, said here rather than implied.
+NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
+    slug: {"decided_by": "opus2 (A1-R), under the owner's 2026-11-02 directive; "
+                         "owner ratification pending",
+           "decided_on": "2026-11-02", "decision_log": "D-A1R-STUFFED-EXEMPTIONS",
+           "reason": why}
+    for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
+
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
 NOT_FOR_CHILDREN = "not_for_children"
@@ -1423,17 +1433,80 @@ def _decided_not_for_children() -> dict[str, str]:
 # A1-R: what makes a closed stuffed form. A stuffed seam (the risk matrix's closed_3d_form),
 # or a stuffing material in a CIR whose pieces are closed by any seam. Never a title word and
 # never an optional placement field.
-STUFFING_MATERIAL = re.compile(r"\b(?:fibre ?fill|fiber ?fill|stuffing|poly[- ]?fil+|"
-                               r"polyfill|toy filling|wadding|batting)\b", re.I)
+# A1R-1: the stuffing vocabulary, read through the one fold (so "Fiber-Fill", "fibre-fill",
+# "fiberfil" and look-alike spellings are the same word). A vocabulary of what goes INSIDE a
+# closed piece -- not a narrow product regex -- and any non-yarn material counts as well.
+STUFFING_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bfill(?:ing|er)?\b|"
+    r"\bstuff(?:ing|ed)?\b|kapok|pellets?\b|\bbeans?\b|roving|wadding|batting|\bfoam\b|"
+    r"\binsert\b|pillow\s+form|cushion\s+pad|\bpad\b|buckwheat|hulls?\b|beads?\b|"
+    r"\bfluff\b|filler|down\s+feather|feathers?\b)", re.I)
+# Only these words count when they appear in free text (designer or seam notes): the words a
+# maker writes when a piece is stuffed. "insert"/"pad" alone in a note are too common
+# ("insert the dowel") to read as stuffing; in a material name they count.
+STUFFING_NOTE_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
+    r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+# A rounds piece whose last round is at most this many stitches after decreasing from a
+# wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
+CLOSURE_MAX_STITCHES = 12
+ROUNDS = ("joined_rounds", "spiral_rounds")
+
+
+def _folded(text) -> str:
+    from .text_fold import fold
+
+    return fold(str(text or ""))
+
+
+def _closes_on_itself(component) -> bool:
+    """A rounds piece that widens and then decreases back to a small closing round."""
+    if getattr(component, "construction", None) not in ROUNDS:
+        return False
+    counts = [r.declared_count for r in (component.rows or []) if r.declared_count]
+    if len(counts) < 3:
+        return False
+    return counts[-1] < max(counts) and counts[-1] <= CLOSURE_MAX_STITCHES
+
+
+def stuffed_form_reasons(cir) -> list[str]:
+    """Why this CIR is (or must be treated as) a closed stuffed form; [] when it is not.
+
+    A1R-1, fail closed. A closed construction -- any seam, or a rounds piece that closes on
+    itself -- together with ANY of: a seam stuffed before closing, a stuffing word in a
+    material name, a material that is not a yarn (no yarn weight), or a stuffing word in the
+    designer or seam notes. A seam stuffed before closing is enough on its own. Whatever
+    cannot be read is a reason, so it holds."""
+    try:
+        seams = list(getattr(cir, "assembly", None) or [])
+        out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
+               for s in seams if getattr(s, "stuff_before_closing", False)]
+        closing = [c.name for c in (cir.components or []) if _closes_on_itself(c)]
+        closed = bool(seams) or bool(closing)
+        if not closed:
+            return out
+        how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
+               else f"{', '.join(closing)} closes on itself")
+        for m in getattr(cir, "materials", None) or []:
+            name = _folded(getattr(m, "name", ""))
+            if STUFFING_WORDS.search(name):
+                out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
+            elif not getattr(m, "yarn_weight", None):
+                out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
+                           f"(UNKNOWN filling: held)")
+        notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
+                         + [str(getattr(s, "note", "") or "") for s in seams])
+        if STUFFING_NOTE_WORDS.search(_folded(notes)):
+            out.append(f"{how}, and the notes say it is stuffed")
+        return out
+    except Exception as exc:  # noqa: BLE001 - unreadable construction is UNKNOWN: held
+        return [f"construction unreadable ({type(exc).__name__}): UNKNOWN, held"]
 
 
 def closed_stuffed_form(cir) -> bool:
-    seams = list(getattr(cir, "assembly", None) or [])
-    if any(getattr(s, "stuff_before_closing", False) for s in seams):
-        return True
-    stuffed = any(STUFFING_MATERIAL.search(getattr(m, "name", "") or "")
-                  for m in (getattr(cir, "materials", None) or []))
-    return bool(stuffed and seams)
+    """A1-R / A1R-1: the construction, not the title, decides; UNKNOWN reads as True."""
+    return bool(stuffed_form_reasons(cir))
 
 
 def childrens_decision_for(cir) -> tuple[str, object]:

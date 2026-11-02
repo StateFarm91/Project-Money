@@ -67,7 +67,13 @@ def test_every_closed_stuffed_form_is_held_whatever_its_title_or_placement():
     blank = dataclasses.replace(ball, slug="design-96cff5a5", title="")
     assert _refused(blank)
     # not stuffed: a flat panel with no stuffing and no stuffed seam is not a closed form
-    flat = dataclasses.replace(quilted, materials=[Material(name="worsted acrylic")])
+    # (A1R-1: the seam notes are free text the classifier now reads, and the kneeler's say
+    # to stuff it -- so the control clears them too: no stuffing anywhere.)
+    flat = dataclasses.replace(quilted, materials=[Material(name="worsted acrylic",
+                                                            yarn_weight="worsted")],
+                               designer_notes=None,
+                               assembly=[dataclasses.replace(x, note=None)
+                                         for x in quilted.assembly])
     assert not L.closed_stuffed_form(flat) and _refused(flat) is None
 
 
@@ -176,6 +182,241 @@ def _assets_build(cir) -> tuple[str, str]:
         return str(job.status), str(job.last_error or "")
 
 
+def _assets_build_full(cir, db=None, path=None) -> dict:
+    """A1R-7: assets.build through the Worker, reporting status, outputs, attempts, the hold
+    rows and the open owner decision items -- not a substring of an error."""
+    from sqlalchemy import select
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, Job, OwnerAction, PatternVersion, Product
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    if db is None:
+        db, path = _store()
+    with db.session() as s:
+        p = s.scalar(select(Product).where(Product.slug == cir.slug))
+        if p is None:
+            p = Product(slug=cir.slug, title=cir.title)
+            s.add(p)
+            s.flush()
+        s.add(PatternVersion(product_id=p.id, version=cir.version, cir_json=cir.to_dict(),
+                             certified=True))
+    job = JobQueue(db).enqueue("publishing", "assets.build",
+                               {"slug": cir.slug, "version": cir.version}, priority=0)
+    fresh = Database(f"sqlite:///{path}")
+    w = Worker(fresh, "a1r", job_types=["assets.build"])
+    while w.run_once():
+        pass
+    with fresh.session() as s:
+        row = s.get(Job, job.id)
+        holds = [a.detail for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "childrens.decision_required")) if (a.detail or {}).get(
+                "slug") == cir.slug]
+        actions = [a.requirement_key for a in s.scalars(select(OwnerAction).where(
+            OwnerAction.done == False))  # noqa: E712
+            if a.requirement_key == f"childrens-decision:{cir.slug}"]
+        return {"status": row.status, "outputs": dict(row.outputs or {}),
+                "attempts": row.attempts, "error": str(row.last_error or ""),
+                "holds": holds, "actions": actions, "db": fresh, "path": path}
+
+
+def _held(out) -> bool:
+    from brambleloop.core.models import JobStatus
+
+    return (out["status"] == JobStatus.DONE and out["outputs"].get("held") is True
+            and out["outputs"].get("gate") == "childrens_decision"
+            and len(out["holds"]) >= 1 and len(out["actions"]) == 1)
+
+
+def _rendered(out) -> bool:
+    from brambleloop.core.models import JobStatus
+
+    return out["status"] == JobStatus.DONE and not out["outputs"].get("held") \
+        and not out["holds"] and not out["actions"]
+
+
+def _one_piece_ball(title="Juniper Friend", filling="polyester fibrefill"):
+    """A1R-1 (i): ONE magic-ring piece that widens and decreases back to close, stuffed, no
+    seams -- the literal stuffed ball (the ring pillow is two pieces and a stuffed seam)."""
+    from brambleloop.cir.model import CIR, Component, Material, Op, Row
+
+    pillow = inventory._engineered("heart-row-ring-pillow")
+    counts = [6, 12, 18, 24, 24, 24, 24, 18, 12, 6]
+    rows = []
+    for i, n in enumerate(counts):
+        prev = counts[i - 1] if i else 0
+        if i == 0:
+            ops = [Op("sc", 6)]
+        elif n > prev:
+            ops = [Op("inc", n - prev)] + ([Op("sc", 2 * prev - n)] if 2 * prev > n else [])
+        elif n < prev:
+            ops = [Op("dec", prev - n)] + ([Op("sc", 2 * n - prev)] if 2 * n > prev else [])
+        else:
+            ops = [Op("sc", n)]
+        rows.append(Row(index=i + 1, ops=ops, declared_count=n, turning_chain=0))
+    yarn = [m for m in pillow.materials if m.yarn_weight][:1]
+    return CIR(slug="juniper-friend-b411", title=title, version="1.0.0",
+               construction="joined_rounds", risk_class="C", colors=dict(pillow.colors),
+               gauge=pillow.gauge, materials=yarn + [Material(name=filling)],
+               components=[Component(name="body", construction="joined_rounds", rows=rows,
+                                     foundation=6, foundation_kind="magic_ring")])
+
+
+def _unflagged_pillow(filling):
+    """A1R-1 (ii): seams but no stuff_before_closing flag; the filling named another way."""
+    pillow = inventory._engineered("heart-row-ring-pillow")
+    yarn = [m for m in pillow.materials if m.yarn_weight]
+    return dataclasses.replace(
+        pillow, slug="juniper-cushion-b411", title="Juniper Friend",
+        assembly=[dataclasses.replace(x, stuff_before_closing=False, note="Whipstitch closed.")
+                  for x in pillow.assembly],
+        materials=yarn + [Material(name=filling)])
+
+
+def test_a1r1_a_one_piece_ball_and_every_filling_spelling_is_a_closed_stuffed_form():
+    """A1R-1 HIGH: classify from the construction -- a piece that closes on itself, or a seam
+    -- with a stuffing VOCABULARY, any non-yarn material and the notes. Through the Worker
+    the one-piece ball and an unflagged 'Fiber-Fill' cushion are named holds."""
+    ball = _one_piece_ball()
+    assert L.closed_stuffed_form(ball), L.stuffed_form_reasons(ball)
+    assert any("closes on itself" in r for r in L.stuffed_form_reasons(ball))
+    for filling in ("Fiber-Fill", "fibre-fill", "polyester filling", "toy fill", "fiberfil",
+                    "kapok", "poly pellets", "wool roving", "foam insert", "Fіbrefill",
+                    "an unnamed notion"):
+        assert L.closed_stuffed_form(_unflagged_pillow(filling)), filling
+    # a stuffing material that DOES carry a yarn weight (roving, a bulky "fill" yarn): the
+    # vocabulary, not the missing weight, is what reads it
+    for filling in ("wool roving", "chunky fibre-fill"):
+        pill = _unflagged_pillow("x")
+        weighted = dataclasses.replace(pill, materials=[m for m in pill.materials
+                                                        if m.yarn_weight]
+                                       + [Material(name=filling, yarn_weight="bulky")])
+        assert L.closed_stuffed_form(weighted), filling
+    notes_only = dataclasses.replace(
+        _unflagged_pillow("x"), materials=[m for m in _unflagged_pillow("x").materials
+                                           if m.yarn_weight],
+        designer_notes="Stuff firmly with toy filling before closing the last round.")
+    assert L.closed_stuffed_form(notes_only)
+    # not stuffed: flat pieces, and an open vessel worked in rounds
+    for slug in ("market-basket-small", "autumn-oak-mosaic-throw", "harvest-table-runner",
+                 "cottage-wall-hanging", "snowfall-advent-garland"):
+        assert not L.closed_stuffed_form(inventory._engineered(slug)), slug
+    from brambleloop.cir.compiler import compile_cir
+
+    assert compile_cir(ball).ok
+    assert _held(_assets_build_full(ball))
+    assert _held(_assets_build_full(_unflagged_pillow("Fiber-Fill")))
+
+
+def test_a1r2_greek_cherokee_and_cyrillic_capitals_fold_before_case_through_the_worker():
+    """A1R-2 MED: look-alike capitals are mapped before case folding. On a NON-stuffed
+    basket the word layer is the only layer: each title is a named hold."""
+    from brambleloop.products.text_fold import fold
+
+    for t, want in (("Βaby Basket", "baby basket"), ("ΒΑΒΥ", "baby"),
+                    ("Νursery", "nursery"), ("Ᏼaby", "baby"), ("Үoung", "young"),
+                    ("Ьaby", "baby"), ("Μommy", "mommy"), ("Ηat", "hat"), ("Κid", "kid")):
+        assert fold(t) == want, (t, fold(t))
+    basket = inventory._engineered("market-basket-small")
+    assert not L.closed_stuffed_form(basket)
+    for title in ("Βaby Basket", "Ᏼaby Basket", "ΝURSERY Basket"):
+        out = _assets_build_full(dataclasses.replace(basket, slug="nb-4c2a", title=title))
+        assert _held(out), (title, out["status"], out["outputs"], out["error"])
+    assert _rendered(_assets_build_full(dataclasses.replace(basket, slug="nb-4c2b",
+                                                            title="Market Basket")))
+
+
+def test_a1r3_one_fold_reads_drafting_rendering_survey_and_motifs():
+    """A1R-3 MED: the drafting routes' fold_title is the shared fold (plus dash folding)."""
+    from brambleloop.creative import fallback_constructions as FC
+    from brambleloop.products.text_fold import fold
+
+    for t in ("Βaby Basket", "Bаby\u200b Basket", "Ｂaby Basket", "Café Basket"):
+        assert FC.fold_title(t) == fold(t), (t, FC.fold_title(t), fold(t))
+    assert FC.fold_title("Fair\u2011Isle Basket") == "fair-isle basket"
+
+
+def test_a1r4_a_hold_is_named_permanent_owner_visible_and_blocks_no_other_product():
+    """A1R-4 MED: the hold is a ChildrensDecisionRequired (permanent), the job is DONE on its
+    first attempt with held output, an audited hold row and ONE owner decision item; a
+    second run adds no second item; a plain product in the same store renders."""
+    from brambleloop.publish.pdf import ChildrensDecisionRequired
+    from brambleloop.core.resilience import PermanentError
+
+    assert issubclass(ChildrensDecisionRequired, PermanentError)
+    first = _assets_build_full(_one_piece_ball())
+    assert _held(first) and first["attempts"] == 1, first
+    again = _assets_build_full(dataclasses.replace(_one_piece_ball(), version="1.0.1"),
+                               db=first["db"], path=first["path"])
+    assert _held(again) and len(again["holds"]) == 2 and again["actions"] == first["actions"]
+    other = _assets_build_full(inventory._engineered("market-basket-small"),
+                               db=first["db"], path=first["path"])
+    assert other["status"].value == "done" and not other["outputs"].get("held")
+
+
+def test_a1r5_small_parts_for_every_assigned_product_and_unknown_blocks():
+    """A1R-5: a NON-stuffed assigned product with a sewn-on piece that fits is held; a piece
+    in the UNKNOWN band is held (mutant M10); a missing gauge is UNKNOWN, never clear."""
+    from brambleloop.gates import small_parts as SP
+
+    basket = inventory._engineered("market-basket-small")
+    disc = _one_piece_ball().components[0]
+    small = dataclasses.replace(disc, name="tab", rows=disc.rows[:2])      # 12 sts disc
+    seam = dataclasses.replace(inventory._engineered("heart-row-ring-pillow").assembly[0],
+                               piece_a="tab", piece_b="basket", stuff_before_closing=False,
+                               note=None, at_round=None, stitches_from_centre=None)
+    with_tab = dataclasses.replace(basket, components=list(basket.components) + [small],
+                                   assembly=[seam])
+    assert not L.closed_stuffed_form(dataclasses.replace(with_tab, assembly=[]))
+    blocks = SP.blocking(with_tab)
+    assert blocks and "tab" in blocks[0], blocks
+    try:
+        pdf._refuse_an_undecided_childrens_title(with_tab, ("toys", "fixture assignment"))
+    except pdf.ChildrensDecisionRequired as exc:
+        assert exc.reason == "small_parts"
+    else:
+        raise AssertionError("an assigned non-stuffed product with a fitting piece rendered")
+    # UNKNOWN band (M10): a piece whose narrow side is within tolerance above the cylinder
+    width_sts = None
+    for n in range(1, 400):
+        d = n * (100.0 / basket.gauge.stitches_per_10cm) / 3.141592653589793
+        if SP.verdict(d, d) == SP.UNKNOWN:
+            width_sts = n
+            break
+    assert width_sts, "no stitch count lands in the UNKNOWN band at this gauge"
+    band = dataclasses.replace(disc, name="tab", rows=[
+        dataclasses.replace(r, declared_count=min(r.declared_count, width_sts))
+        for r in disc.rows[:2]] + [dataclasses.replace(disc.rows[1], index=3,
+                                                       declared_count=width_sts)])
+    unknown = dataclasses.replace(with_tab, components=list(basket.components) + [band])
+    assert any(SP.UNKNOWN in b for b in SP.blocking(unknown)), SP.blocking(unknown)
+    # no gauge: every sewn-on piece is UNKNOWN
+    nogauge = dataclasses.replace(with_tab, gauge=None)
+    assert SP.blocking(nogauge) and SP.UNKNOWN in SP.blocking(nogauge)[0]
+
+
+def test_a1r6_decisions_carry_who_and_when_and_the_listing_reads_the_held_decision():
+    from brambleloop.publish import listing_package as LP
+
+    assert set(L.NOT_MERCHANDISED_DECISIONS) == set(L.NOT_MERCHANDISED_TO_A_CHILD)
+    for rec in L.NOT_MERCHANDISED_DECISIONS.values():
+        assert rec["decided_by"] and rec["decided_on"] and rec["decision_log"] \
+            and rec["reason"]
+    log = (ROOT / "DECISION_LOG.md").read_text()
+    assert "D-A1R-STUFFED-EXEMPTIONS" in log
+    ball = _one_piece_ball()
+    ident = LP._identity(ball.slug, ball.to_dict())
+    assert ident["childrens_decision"][0] == L.UNDECIDED, ident
+    # a slug whose RAW decision is the implicit candidate exemption, drafted as a stuffed
+    # form: the listing must report what the renderer holds on (UNDECIDED), not the raw one
+    slug = "market-basket-small"
+    assert L.childrens_decision(slug)[0] == L.NOT_FOR_CHILDREN
+    stuffed = dataclasses.replace(ball, slug=slug)
+    ident = LP._identity(slug, stuffed.to_dict())
+    assert ident["childrens_decision"][0] == L.UNDECIDED, ident
+
+
 def test_assets_build_through_the_worker_holds_stuffed_forms_and_renders_the_catalogue():
     cases = {"neutral stuffed ball": _stuffed_ball(),
              "placement cleared": dataclasses.replace(_stuffed_ball(), assembly=[
@@ -187,10 +428,11 @@ def test_assets_build_through_the_worker_holds_stuffed_forms_and_renders_the_cat
              "zero width": dataclasses.replace(_stuffed_ball(), title="Ba​by Friend")}
     assert len(cases) == 6
     for name, cir in cases.items():
-        status, error = _assets_build(cir)
-        assert "children" in error or "closed stuffed form" in error, (name, status, error)
-    status, error = _assets_build(inventory._engineered("spring-garden-kneeler"))
-    assert "children" not in error and "stuffed" not in error, (status, error)
+        out = _assets_build_full(cir)
+        assert _held(out), (name, out["status"], out["outputs"], out["error"])
+    # A1R-7: the controls RENDER (DONE, no hold), not merely "fail for another reason"
+    assert _rendered(_assets_build_full(inventory._engineered("spring-garden-kneeler")))
+    assert _rendered(_assets_build_full(inventory._engineered("market-basket-small")))
 
 
 def test_handle_cir_draft_drafts_a_cushion_that_is_then_held_until_decided():
