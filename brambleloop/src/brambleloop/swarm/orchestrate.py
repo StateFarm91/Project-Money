@@ -756,6 +756,8 @@ JOB_BANDS: dict[str, str] = {
     "marketing.schedule": "seasonal_deadline",
     # The release chain of a certified product: known demand, known economics.
     "cir.draft": "proven_winner",
+    # OPUS2 (research-enrichment consumer): the same chain, a held brief's way back.
+    "research.enrichment_sweep": "proven_winner",
     "cir.revise": "proven_winner",
     "cir.reengineer": "proven_winner",          # W4-C07 F-114 worthy legacy rescue
     "cir.compile": "proven_winner",
