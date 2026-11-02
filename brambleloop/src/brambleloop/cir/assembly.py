@@ -145,8 +145,20 @@ def openings_cm(component, gauge) -> tuple[float, ...]:
     answer to within the difference between the two gauges rather than a guess.
     """
     out: list[float] = []
+
+    def flat_ops(ops):
+        # OPUS2 (drawstring pouch): a bridged chain inside a repeat ("[sc 4, ch 2, sk 2] x 8",
+        # an eyelet round) is an opening like one at the top level; each repetition is one.
+        for node in ops:
+            inner = getattr(node, "ops", None)
+            if inner is not None and not hasattr(node, "stitch"):
+                for _ in range(getattr(node, "times", None) or 1):
+                    yield from flat_ops(inner)
+            else:
+                yield node
+
     for row in component.rows:
-        for op in row.ops:
+        for op in flat_ops(row.ops):
             spans = getattr(op, "spans", 0)
             if getattr(op, "stitch", None) != "ch" or not spans:
                 continue
@@ -231,6 +243,54 @@ def first_round_cm(twin, gauge) -> float | None:
     return twin.row_widths[min(twin.row_widths)] * 10.0 / gauge.stitches_per_10cm
 
 
+def _counted_round(cir, comp, twin) -> bool:
+    """A round piece with no finished size whose every join can be counted (OPUS2P-2)."""
+    if comp.construction == "flat_rows" or not twin.row_widths:
+        return False
+    joins = [s for s in cir.assembly if comp.name in (s.piece_a, s.piece_b)]
+    return bool(joins)
+
+
+def _round_count(twin, edge: str | None, at_round: int | None = None) -> int | None:
+    widths = twin.row_widths or {}
+    if not widths:
+        return None
+    if at_round is not None:
+        return widths.get(at_round)
+    return widths[max(widths)] if edge == "top" else widths[min(widths)] if edge == "bottom" \
+        else None
+
+
+def _count_join(cir, seam, twins) -> tuple[float, float] | None:
+    """(edge a, edge b) in cm, measured by stitch count, or None when it cannot be.
+
+    Edge a is the joining piece's last ("top") or first ("bottom") round. Edge b is the round
+    of piece b the seam is placed on (`at_round`), or the span it is sewn across
+    (`2 x stitches_from_centre`). A round edge sewn across a span lies flattened, both layers
+    together, so it is half its round's count."""
+    comps = {c.name: c for c in cir.components}
+    a, b = comps.get(seam.piece_a), comps.get(seam.piece_b)
+    if a is None or b is None or a.construction == "flat_rows" or not cir.gauge:
+        return None
+    ta, tb = twins.get(seam.piece_a), twins.get(seam.piece_b)
+    if ta is None or tb is None:
+        return None
+    na = _round_count(ta, seam.edge_a)
+    if na is None:
+        return None
+    if seam.stitches_from_centre is not None:
+        nb = 2 * seam.stitches_from_centre
+        na = na / 2.0
+    elif seam.at_round is not None and b.construction != "flat_rows":
+        nb = _round_count(tb, None, seam.at_round)
+    else:
+        return None
+    if nb is None:
+        return None
+    per = 10.0 / cir.gauge.stitches_per_10cm
+    return na * per, nb * per
+
+
 def _picked_up_only(cir, comp) -> bool:
     """A round piece begun inside another (foundation 'none') and joined only by pick-up: its
     finished shape may be refused (a closed tip is shaped by tension), but its first round is
@@ -255,6 +315,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
         except ValueError as exc:
             if _picked_up_only(cir, comp) and first_round_cm(t, cir.gauge):
                 continue        # measured by its first round in the join below
+            if _counted_round(cir, comp, t):
+                continue        # OPUS2P-2: a shaped round piece is measured by stitch count
             geo.verdict, geo.why = "unmeasurable", str(exc)
             return geo
 
@@ -278,6 +340,11 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             # length that meets it, whatever the finished piece's own span.
             _measure(cir, seam, join, first_round_cm(twins[seam.piece_a], cir.gauge),
                      fb.edge_cm(seam.edge_b))
+        elif (fa is None or fb is None) and _count_join(cir, seam, twins) is not None:
+            # OPUS2P-2: a stuffed, shaped piece has no finished size, but its rounds have
+            # counts: the joining edge is compared stitch for stitch with what it is sewn to.
+            la, lb = _count_join(cir, seam, twins)
+            _measure(cir, seam, join, la, lb)
         elif fa is None or fb is None:
             join.why = "one of the pieces has no measured footprint"
         else:
