@@ -1075,7 +1075,23 @@
         "wiring #2 refused/held draft -> enrichment -> re-draft"
       ],
       "acceptance": "(a) a CoverageGap -> research -> concept_intake -> radar.score gives a non-POOL RadarConcept and a cir.draft (radar.intake provenance), idempotent; (b) a refused construction -> enrichment task -> new fingerprint -> new cir.draft reaching compile; (c) at least 5 briefs -> at least 3 materially different constructions, with named holds; (d) A2 title rule enforced",
-      "state": "assigned (after A1, A2)"
+      "state": "split",
+      "split": {
+        "at": "2026-11-02T19:05Z",
+        "source": "owner directive 'Prevent P0 autonomy starvation'",
+        "A4a": {
+          "scope": "research brief / coverage gap -> new concept outside the 34 POOL concepts -> automatic cir.draft; durable next-product continuation",
+          "owner": "mainopus-worker",
+          "branch": "claude/w5-A4a-research-to-concept",
+          "state": "in_progress"
+        },
+        "A4b": {
+          "scope": "held/refused draft -> enrichment -> re-draft (draft:<slug>:<fingerprint>), cir.draft_refused consumer",
+          "owner": "opus2",
+          "branch": "opus2/a4b-enrichment (push the existing unpushed 823a82dd, b0c66556 rebased on newest claude/w5-INTEG1)",
+          "state": "assigned"
+        }
+      }
     },
     {
       "owner": "mainopus-worker",
