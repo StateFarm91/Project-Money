@@ -9,9 +9,13 @@ invisible characters is the word it renders as, and the readers cannot disagree.
        spaces and joiners, soft hyphens, variation selectors, Hangul fillers, the blank
        braille pattern)
     -> NFKD, combining marks dropped, NFKC ("Bébé" -> "bebe")
-    -> look-alike letters from other scripts read as the Latin letter they imitate
-       ("Bаby" with Cyrillic а)
-    -> lower case.
+    -> look-alike CAPITALS from other scripts read as the Latin capital they imitate
+       (Greek "Β", Cherokee "Ᏼ"), BEFORE case folding (A1R-2)
+    -> lower case
+    -> look-alike small letters read as the Latin letter they imitate ("Bаby", Cyrillic а).
+
+It is the ONE fold (A1R-3): `creative.fallback_constructions.fold_title` (drafting routes)
+and A2's motif reader call it, as do the renderer and the survey (`launch0.child_words_in`).
 
 The look-alike table is explicit, not a full UTS #39 skeleton; every entry is a letter that
 renders as the Latin one. A word in another script entirely is not a Latin word and is left
@@ -24,10 +28,30 @@ import unicodedata
 INVISIBLE = frozenset({0x00AD, 0x034F, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x2800, 0x3164,
                        0xFFA0} | set(range(0x180B, 0x1810)) | set(range(0x200B, 0x2010))
                       | set(range(0x2060, 0x2070)) | set(range(0xFE00, 0xFE10)) | {0xFEFF})
+# A1R-2: capitals are read BEFORE case folding. Lower-casing first turned Greek and Cherokee
+# capitals into small letters of a different shape (Β -> β, Ν -> ν read as "v", Η -> η read
+# as "n"), so "Βaby" escaped. Each entry is a capital that renders as the Latin capital.
+CAPITAL_LOOKALIKES = str.maketrans({
+    # Greek capitals
+    "Α": "A", "Β": "B", "Ε": "E", "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M",
+    "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T", "Υ": "Y", "Χ": "X", "Ϲ": "C", "Ϳ": "J",
+    # Cyrillic capitals
+    "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P",
+    "С": "C", "Т": "T", "У": "Y", "Х": "X", "Ү": "Y", "Ь": "B", "Ѕ": "S", "І": "I",
+    "Ј": "J", "Ԁ": "D", "Ԛ": "Q", "Ԝ": "W", "Һ": "H", "Ӏ": "I", "З": "3",
+    # Cherokee capitals that render as Latin capitals
+    "Ꭺ": "A", "Ᏼ": "B", "Ꮯ": "C", "Ꭼ": "E", "Ꮐ": "G", "Ꮋ": "H", "Ꭵ": "I", "Ꭻ": "J",
+    "Ꮶ": "K", "Ꮮ": "L", "Ꮇ": "M", "Ꮑ": "N", "Ꮎ": "O", "Ꮲ": "P", "Ꮢ": "R", "Ꮪ": "S",
+    "Ꭲ": "T", "Ꮩ": "V", "Ꮃ": "W", "Ꮓ": "Z", "Ᏻ": "G", "Ꮤ": "W",
+    # Armenian and Coptic capitals
+    "Օ": "O", "Ս": "U", "Ⲟ": "O", "Ⲣ": "P", "Ⲥ": "C",
+    # Latin letters that look like others
+    "Ɩ": "l", "Ɪ": "I",
+})
 LOOKALIKES = str.maketrans({
     # Cyrillic
     "а": "a", "е": "e", "о": "o", "р": "p", "с": "c",
-    "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s",
+    "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "ү": "y", "ь": "b",
     "т": "t", "м": "m", "к": "k", "в": "b", "н": "h",
     "һ": "h", "ԁ": "d", "ԛ": "q", "ԝ": "w", "ӏ": "i", "Ӏ": "i",
     # Greek
@@ -52,5 +76,5 @@ def fold(text: str | None) -> str:
     t = unicodedata.normalize("NFKD", t)
     t = "".join(c for c in t if unicodedata.category(c) not in ("Mn", "Me"))
     t = unicodedata.normalize("NFKC", t)
-    # .lower() first, so a Greek or Cyrillic capital becomes the small letter the map reads
-    return t.lower().translate(LOOKALIKES)
+    # A1R-2: capitals first, then case folding, then the small look-alikes.
+    return t.translate(CAPITAL_LOOKALIKES).lower().translate(LOOKALIKES)

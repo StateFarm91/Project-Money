@@ -36,7 +36,11 @@ def fold_title(title: str | None) -> str:
     "Fair\u2011Isle" is the same claim as "Fair-Isle"."""
     import unicodedata
 
-    text = unicodedata.normalize("NFKC", title or "").replace("\u2019", "'")
+    from ..products.text_fold import fold
+
+    # A1R-3: the one shared fold first (NFKC, invisibles, marks, look-alikes, lower case), so
+    # the drafting routes read exactly the words the renderer and the survey read.
+    text = unicodedata.normalize("NFKC", fold(title or "")).replace("\u2019", "'")
     text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
                    for c in text)
     return re.sub(r"\s+", " ", text.lower()).strip()
