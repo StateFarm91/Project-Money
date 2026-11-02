@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T14:43Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T15:55Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -27,17 +27,14 @@ worktrees, not this file.
 - `/home/user/opus2-stock`: `opus2/p0-stocking` (PR #11)
 - `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
 
-## State at 2026-11-02T14:43Z -- integrator assignments A1-A9 (COORDINATION c25c6f1a; PR #3 status 6579974579)
+## State at 2026-11-02T15:55Z -- integrator assignments A1-A9 (COORDINATION c25c6f1a; PR #3 status 6579974579)
 Rule for A-items: branch from newest claude/w5-INTEG1; tests on a real SQLite file + DurableQueue +
-Worker + registered handlers (worker.tick()/run_once()), no mocks.
-- A1 (children): opus2/p0-amigurumi 6ab946ff committed; 45-suite run /tmp/claude-0/t4_results.txt
-  (slow: test_product_run). TODO before push: add durable-DB proof (enqueue cir.draft for the
-  amigurumi seed with titles 'Ｂear','𝐁ear','Cosy Ｒabbit', run Worker.run_once, then
-  build_pattern_pdf / assets.build refuses; plain basket unaffected). Then merge into opus2-reg.
-- A2: /home/user/opus2-a2 branch opus2/a2-name-object (from INTEG1 db463142): 5eb5d338 (shared
-  eligibility: motif_promise in name_truth for non-catalogue) + 1fc30ac9 (contract). 44-suite run
-  /tmp/claude-0/a2_results.txt. Push + open PR (base claude/w5-INTEG1) when green.
-- A3: PR #23 pushed d1f65b61.
+Worker + registered handlers, no mocks.
+- A1 DONE/pushed: PR #18 98d216b0 (6ab946ff gate + T-5; 98d216b0 durable proof), 46 suites green.
+- A2 DONE/pushed: PR #26 opus2/a2-name-object 3be8262f (base INTEG1), 43/44 (listready fails on base too).
+- A3 DONE/pushed: PR #23 d1f65b61.
+- Registry branch: amigurumi merged (c7086dc4); 41-suite run /tmp/claude-0/r5_results.txt; then push
+  823a82dd (enrichment consumer) + b0c66556 (department flow) and comment on PR #22.
 - A4: enrichment consumer + department flow on opus2-reg (unpushed 823a82dd, b0c66556).
   A4(a) design (not started): (1) _score_coverage_handoff unanswered branch opens a research task
   (research_agent.request_research) carrying an ideation brief {gap, pod, arena}, idempotent per
