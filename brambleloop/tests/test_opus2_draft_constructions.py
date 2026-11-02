@@ -586,6 +586,39 @@ def test_review_opus2m_m1_m7_one_multiplicity_reader_and_every_list_entry_is_pin
     assert F.plan(category="bag", title="Sunset Market Tote")["family"] == F.TOTE
 
 
+def test_review_opus2o_o1_counts_are_read_by_morphology_not_by_a_word_list():
+    """OPUS2O-1: a numeric root + a collective suffix, a number word + -some/-pack, any pack,
+    multi-/poly-, roman numerals, large numbers and family nouns are counts or markers.
+    OPUS2O-2/-3/-10: -es and -d/-ed inflections, "lot", the typographic apostrophe and
+    "triple strand" (a yarn-holding, not a count)."""
+    from brambleloop.products import launch0 as L
+
+    counted = {"Tote Quintuplets": 5, "Tote Sextuplets": 6, "Tote Octuple": 8,
+               "Quintuple Tote": 5, "Tote Fivesome": 5, "Tote Sixsome": 6, "Tote Dyad": 2,
+               "Tote Tetrad": 4, "Tote Pentad": 5, "Tote Hexad": 6, "Tote Sestet": 6,
+               "Tote Nonet": 9, "Tote Decet": 10, "Tote Quintette": 5, "Tote Tripack": 3,
+               "Tote Quadpack": 4, "Tote Twopack": 2, "Thousand Tote": 1000,
+               "Million Tote": 1000000, "Tote Triplicate": 3, "Tote Trifecta": 3,
+               "Tote Duplicate": 2, "Tote II": 2, "Tote \u2162": 3, "Tote \u2462": 3,
+               "Tote Doubled": 2, "Tote Tripled": 3, "Tote Sixes": 6}
+    marked = ("Tote Tri-Pack", "Tote Bi-Pack", "Tote Pack", "Multi-Tote", "Tote Multiset",
+              "Sisters Tote", "Brothers Tote", "Tote Siblings", "Father Son Tote",
+              "Mommy Tote", "Tote Lot", "Poly Tote")
+    assert counted and marked
+    for title, n in counted.items():
+        assert L.multiplicity(title)["claimed"] == n, (title, L.multiplicity(title))
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    for title in marked:
+        assert L.multiplicity(title)["plural_markers"], title
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    # Ordinary words that merely start like a root are not counts.
+    for title in ("Sunset Market Tote", "Bias Tote", "Tribal Tote", "Octopus Tote",
+                  "Decor Tote", "Second Tote", "Triple Strand Tote",
+                  "Mother\u2019s Day Tote"):
+        got = L.multiplicity(title)
+        assert got["claimed"] is None and not got["plural_markers"], (title, got)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
