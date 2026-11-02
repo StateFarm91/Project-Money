@@ -793,6 +793,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("benchmark_refresh", "market_radar", "intel.benchmark_refresh", 7 * 24 * 60 * 60),
     # C-60 (#64): physical-proof upgrades measured daily; UNMEASURED until listings are live.
     ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): an attested sample photo frame is reviewed by code and,
+    # when every check passes, approved and the listing set re-certified. Hourly, CA$0.
+    ("photo_review", "asset_truth", "assets.photo_review", 60 * 60),
     # C-60 (#201): the canonical identity checked as a series across batches, daily.
     ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
     # C-60 (#86): the creativity benchmark memory, daily and free; UNMEASURED until a judged
