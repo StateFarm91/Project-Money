@@ -1097,6 +1097,14 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
         "started": "2026-11-02T22:06:54Z",
         "requested_by": "#28 6589619849"
+      },
+      {
+        "id": "A9-REVIEW-QUEUED",
+        "subject": "A9 package event 6ee81c19 (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A9_6ee81c19.md",
+        "started": null,
+        "requested_by": "#28 6590109328",
+        "note": "queued: machine saturated (load ~9, 7 reviews running); starts when a review slot frees"
       }
     ]
   },
@@ -2064,6 +2072,12 @@
       "source": "Codex question #28 6589370771",
       "decision": "There is no canonical consent or revocation record for customer support content. Absent consent is NOT permission: private support case text never feeds Learning (lessons, LearnGap evidence, design knowledge). Allowed: aggregate, non-identifying defect counts per release row (as used by P0-SUPPORT-DEFECT-INCIDENT for Product Truth withholding and re-verification), which carry no customer text. Any future use of support text needs an owner-approved consent policy, a consent field at SupportCase intake, and a revocation path that retracts derived evidence; until then Codex and Secondary do not wire support text into Learning.",
       "owner_item": "OA-SUPPORT-CONSENT-POLICY (later, not blocking): decide whether customer support content may ever inform learning, under what consent wording (CASL/privacy)"
+    },
+    {
+      "id": "I-A6-ONE-AUTHORITY",
+      "at": "2026-11-02T22:32:38Z",
+      "source": "Secondary #28 6590109328",
+      "decision": "A6's lesson.design_approved production route is retired in the Codex-contract delta; Codex's evaluated DesignRule plus a verified pin is the only way learned knowledge changes a draft. The current A6 approval path is treated as superseded by reviewers."
     }
   ],
   "owner_actions_pending": [
