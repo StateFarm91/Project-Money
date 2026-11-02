@@ -601,9 +601,11 @@ def test_review_opus2o_o1_counts_are_read_by_morphology_not_by_a_word_list():
                "Million Tote": 1000000, "Tote Triplicate": 3, "Tote Trifecta": 3,
                "Tote Duplicate": 2, "Tote II": 2, "Tote \u2162": 3, "Tote \u2462": 3,
                "Tote Doubled": 2, "Tote Tripled": 3, "Tote Sixes": 6}
-    marked = ("Tote Tri-Pack", "Tote Bi-Pack", "Tote Pack", "Multi-Tote", "Tote Multiset",
+    # OPUS2Q-1: a bare "Pack" and a bare "Poly" are one object ("Fanny Pack", a polyester
+    # tote); they moved to the one-piece pins in test_review_opus2q_q1_*.
+    marked = ("Tote Tri-Pack", "Tote Bi-Pack", "Tote Packs", "Multi-Tote", "Tote Multiset",
               "Sisters Tote", "Brothers Tote", "Tote Siblings", "Father Son Tote",
-              "Mommy Tote", "Tote Lot", "Poly Tote")
+              "Mommy Tote", "Tote Lot", "Polyptych Tote", "Tote Variety Pack")
     assert counted and marked
     for title, n in counted.items():
         assert L.multiplicity(title)["claimed"] == n, (title, L.multiplicity(title))
@@ -617,6 +619,81 @@ def test_review_opus2o_o1_counts_are_read_by_morphology_not_by_a_word_list():
                   "Mother\u2019s Day Tote"):
         got = L.multiplicity(title)
         assert got["claimed"] is None and not got["plural_markers"], (title, got)
+
+
+def test_review_opus2q_q1_ordinary_words_are_not_counts():
+    """OPUS2Q-1: multi-/poly- as a bare prefix, a short root with a -t/-et ending, a single
+    "pack", -d/-ed on a word that is not a count, and "son" read ordinary one-piece titles as
+    several. Each is one object for the reader, the publish gate and the tote route."""
+    import dataclasses
+
+    from brambleloop.products import launch0 as L
+
+    one_piece = ("Multicolour Stripe Baby Blanket", "Multicolored Granny Blanket",
+                 "Multi-Season Throw", "Multipurpose Basket", "Multi-Use Tote",
+                 "Polyester Blend Blanket", "Polymer Clay Tote", "Poly Tote",
+                 "Tent Stitch Wall Hanging", "Fanny Pack", "Hip Pack", "Sling Pack",
+                 "Ice Pack Cover", "Tote Pack", "Twined Cord Basket", "Tiny Bits Blanket",
+                 "Diet Coke Coaster", "Son Shine Baby Blanket", "Tend The Garden Tote",
+                 "Tenet Tote", "Kited Tote", "Twit Tote", "Twinkle Tote", "Vivid Tote")
+    assert len(one_piece) == 24
+    for title in one_piece:
+        got = L.multiplicity(title)
+        assert got["claimed"] is None and not got["plural_markers"], (title, got)
+    for title in ("Multicolour Market Tote", "Tent Stitch Tote", "Hip Pack Tote",
+                  "Tiny Bits Tote", "Son Shine Tote"):
+        assert F.plan(category="bag", title=title)["family"] == F.TOTE, title
+    # title_promise (the publish and first-customer gate) backs them on a one-piece tote.
+    geo = pipeline.concept_geometry(pipeline._seed_for("nordic-forest-basket"))
+    one = F.tote(pipeline.Concept(slug="t", title="Sunset Market Tote", category="bag",
+                                  stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]],
+                                  width_stitches=10, rows=4, colors=geo["colors"]))
+    for title in ("Multicolour Stripe Tote", "Tent Stitch Tote", "Fanny Pack Tote",
+                  "Son Shine Tote"):
+        verdict = L.title_promise(dataclasses.replace(one, title=title))
+        assert verdict["backed"] is True, (title, verdict)
+
+
+def test_review_opus2q_q6_q7_every_root_and_suffix_is_read_and_the_class_is_closed():
+    """OPUS2Q-6: a root x suffix product, so no root or suffix can be dropped unnoticed.
+    OPUS2Q-7: the class beyond the brief's list (above ten, -logy, -ptych, twinset, tercet,
+    inflected and larger numbers, roman numerals above XII)."""
+    from brambleloop.products import launch0 as L
+
+    suffixes = ("ples", "pled", "plets", "plicate", "ad", "ads", "et", "ets", "ette",
+                "some", "pack", "set", "sets", "fecta", "logy", "ptych", "cet")
+    checked = 0
+    # The expected roots, written out here so dropping one from launch0 is caught.
+    roots = {"bi": 2, "di": 2, "du": 2, "duo": 2, "dy": 2, "twi": 2, "two": 2, "twin": 2,
+             "tri": 3, "ter": 3, "three": 3, "quad": 4, "quadr": 4, "quadru": 4, "tetr": 4,
+             "tetra": 4, "four": 4, "quint": 5, "quintu": 5, "pent": 5, "penta": 5, "five": 5,
+             "sext": 6, "sextu": 6, "sest": 6, "hex": 6, "hexa": 6, "six": 6, "sept": 7,
+             "septu": 7, "hept": 7, "hepta": 7, "seven": 7, "oct": 8, "octu": 8, "octa": 8,
+             "octo": 8, "eight": 8, "non": 9, "nona": 9, "nine": 9, "dec": 10, "deca": 10,
+             "deci": 10, "ten": 10, "eleven": 11, "twelve": 12, "dozen": 12}
+    assert roots == L._COUNT_ROOTS and suffixes
+    for root, n in roots.items():
+        for suffix in suffixes:
+            if root in L._SHORT_ROOTS and L._SHORT_EXCLUDED.fullmatch(suffix):
+                assert L._morphological_count(root + suffix) != n or \
+                    L._inflected(root + suffix, L._COUNT_WORDS), root + suffix
+                continue
+            token = root + suffix
+            got = L._morphological_count(token)
+            # a longer root may claim the token first, and it names the same count
+            assert got == n, (token, got, n)
+            checked += 1
+    assert checked > 500, checked
+    for title, n in {"Tote Elevensome": 11, "Tote Twelvepack": 12, "Tote Dozensome": 12,
+                     "Tote Thousands": 1000, "Tote Millions": 1000000, "Tote Billion": 10 ** 9,
+                     "Tote XIII": 13, "Tote XX": 20, "Tote XXIV": 24, "Tote Duology": 2,
+                     "Tote Tetralogy": 4, "Tote Pentalogy": 5, "Triptych Tote": 3,
+                     "Diptych Tote": 2, "Tote Twinset": 2, "Tote Tercet": 3,
+                     "Tote Quintupled": 5, "Tote Paired": 2, "Tote Coupled": 2}.items():
+        assert L.multiplicity(title)["claimed"] == n, (title, L.multiplicity(title))
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    for title in ("Tote I", "Tote V", "Tote X", "Mix Tote", "Dix Tote"):
+        assert L.multiplicity(title)["claimed"] is None, title
 
 
 def test_p0_name_object_mismatch_the_head_noun_must_be_the_object_drafted():
