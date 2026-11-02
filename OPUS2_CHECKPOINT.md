@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T15:55Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T18:27Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -32,9 +32,10 @@ Rule for A-items: branch from newest claude/w5-INTEG1; tests on a real SQLite fi
 Worker + registered handlers, no mocks.
 - A1 DONE/pushed: PR #18 98d216b0 (6ab946ff gate + T-5; 98d216b0 durable proof), 46 suites green.
 - A2 DONE/pushed: PR #26 opus2/a2-name-object 3be8262f (base INTEG1), 43/44 (listready fails on base too).
-- A3 DONE/pushed: PR #23 d1f65b61.
-- Registry branch: amigurumi merged (c7086dc4); 41-suite run /tmp/claude-0/r5_results.txt; then push
-  823a82dd (enrichment consumer) + b0c66556 (department flow) and comment on PR #22.
+- A3: OPUS2W (DO NOT SHIP, 2 MED) fixed + pushed PR #23 8d98bf4c (INTEG1 merged 6316d5c4; decision
+  I-A3-NONQUALIFYING-PHOTO implemented: terminal reason, excluded from set e6a1ef82, re-opened on qualify).
+- Registry PR #22 pushed da4f331a (enrichment consumer, department flow, amigurumi merge, OPUS2V-5/6/7).
+- NEXT: A4(a) per the design below, on a fresh branch from newest INTEG1.
 - A4: enrichment consumer + department flow on opus2-reg (unpushed 823a82dd, b0c66556).
   A4(a) design (not started): (1) _score_coverage_handoff unanswered branch opens a research task
   (research_agent.request_research) carrying an ideation brief {gap, pod, arena}, idempotent per
