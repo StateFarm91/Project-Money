@@ -1085,7 +1085,7 @@
         "source": "owner directive 'Prevent P0 autonomy starvation'",
         "A4a": {
           "scope": "research brief / coverage gap -> new concept outside the 34 POOL concepts -> automatic cir.draft; durable next-product continuation",
-          "owner": "mainopus-worker",
+          "owner": "opus2",
           "branch": "claude/w5-A4a-research-to-concept",
           "state": "in_progress"
         },
@@ -1098,7 +1098,7 @@
       }
     },
     {
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1110,7 +1110,7 @@
         "wiring #3"
       ],
       "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "reassigned": {
         "at": "2026-11-02T18:52Z",
         "from": "opus2",
@@ -1122,10 +1122,19 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     },
     {
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1137,7 +1146,7 @@
         "wiring #4"
       ],
       "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "dispatch": {
         "posted_at": "2026-11-02T20:00:53Z",
         "ack_due_by": "2026-11-02T23:00:53Z",
@@ -1151,12 +1160,19 @@
           "reason": "owner directive 2026-11-02 'Main must take full operational control': queued opus2 work not started (opus2 checkpoint 18:27Z lists it after A4); moved to a supervised worker to end the serial bottleneck",
           "stage_at_transfer": "posted",
           "checkpoint_sha": null
+        },
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
         }
       ],
       "branch": "claude/w5-A6-learning-to-design"
     },
     {
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1168,7 +1184,7 @@
         "wiring #5"
       ],
       "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "reassigned": {
         "at": "2026-11-02T18:52Z",
         "from": "opus2",
@@ -1180,10 +1196,19 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     },
     {
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1212,12 +1237,19 @@
           "reason": "same directive; queued behind A4a (shares the concept-intake path), not started by opus2",
           "stage_at_transfer": "posted",
           "checkpoint_sha": null
+        },
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
         }
       ],
       "branch": "claude/w5-A8-culture-ideation"
     },
     {
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1229,7 +1261,7 @@
         "wiring #7"
       ],
       "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "reassigned": {
         "at": "2026-11-02T18:52Z",
         "from": "opus2",
@@ -1241,7 +1273,16 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     },
     {
       "owner": "opus2",
@@ -1285,9 +1326,9 @@
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
       "id": "V1",
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:00Z",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "branch": "claude/w5-V1-visual-correctness",
       "priority": 1,
       "requirement": "P0-VISUAL-CORRECTNESS (CA$0, deterministic)",
@@ -1302,7 +1343,16 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1310,7 +1360,7 @@
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
       "id": "V2",
-      "owner": "UNASSIGNED (next free worker after V1)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:00Z",
       "state": "queued",
       "priority": 2,
@@ -1325,9 +1375,9 @@
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "id": "V0",
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:05Z",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "priority": 1,
       "branch": "claude/w5-V0-paid-provider-gate",
       "requirement": "P0-PAID-PROVIDER-OWNER-GATE (owner directive 2026-11-02, financial control)",
@@ -1336,13 +1386,22 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "id": "V3",
-      "owner": "UNASSIGNED (after V2)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:05Z",
       "state": "queued",
       "priority": 2,
@@ -1353,7 +1412,7 @@
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "id": "V4",
-      "owner": "UNASSIGNED (after V2)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:05Z",
       "state": "queued",
       "priority": 2,
@@ -1364,7 +1423,7 @@
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "id": "V5",
-      "owner": "UNASSIGNED (after V2)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:05Z",
       "state": "queued",
       "priority": 2,
@@ -1375,7 +1434,7 @@
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "claude/w5-INTEG1 7c42e706",
       "id": "V6",
-      "owner": "UNASSIGNED (after V2)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:05Z",
       "state": "queued",
       "priority": 2,
@@ -1387,7 +1446,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-SUPPORT-DEFECT-INCIDENT",
       "priority": 1,
@@ -1398,7 +1457,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-SECRET-LEAK-ESCALATE",
       "priority": 1,
@@ -1409,7 +1468,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FLOW-STALL-ACT",
       "priority": 2,
@@ -1420,7 +1479,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-OWNER-DECISION-DISPATCH",
       "priority": 2,
@@ -1431,7 +1490,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-JOBTYPE-CLOSURE",
       "priority": 2,
@@ -1442,7 +1501,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FAILOVER-DRILL",
       "priority": 2,
@@ -1453,7 +1512,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-PHYSICAL-TEST-REQUEST",
       "priority": 2,
@@ -1464,7 +1523,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-PORTFOLIO-ACT",
       "priority": 2,
@@ -1475,7 +1534,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FINANCE-CHALLENGE-IDEM",
       "priority": 5,
@@ -1486,7 +1545,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-STOREFRONT-ASSET-FIX",
       "priority": 5,
@@ -1497,7 +1556,7 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "owner": "opus2",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-PROVIDER-BILLING-RECON",
       "priority": 5,
@@ -1565,18 +1624,27 @@
     },
     {
       "id": "A4a",
-      "owner": "mainopus-worker",
+      "owner": "opus2",
       "priority": 2,
       "branch": "claude/w5-A4a-research-to-concept",
       "requirement": "research brief / coverage gap -> new concept outside the 34 -> cir.draft; durable continuation",
-      "state": "in_progress",
+      "state": "handoff_pending",
       "integration_target": "claude/w5-INTEG1",
       "assigned": "2026-11-02T19:02:00Z",
       "dispatch": {
         "posted_at": "2026-11-02T19:57:48Z",
         "ack_due_by": "2026-11-02T22:57:48Z",
         "checkpoint_due_by": "2026-11-03T03:57:48Z"
-      }
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ]
     }
   ],
   "decisions": [
@@ -1616,6 +1684,12 @@
       "source": "owner directive 2026-11-02 'Restore reliable Main <-> Secondary coordination'",
       "decision": "All engineering assignments are dispatched through COORDINATION.json assignments + dispatch/events/<worker>.jsonl via ops/assignments.py. Workers must record ack on the first wake after an assignment is posted (deadline ack_due_by, 3 h), start/heartbeat/checkpoint(sha)/review_requested(sha)/blocked as they go. Delivery is polling only. The integrator polls every check-in, detects overdue items with `ops/assignments.py stale`, and reassigns only work that is safe to move (no checkpoint under review), recorded in ownership_history; claim-check prevents the former owner from continuing. Posting a PR comment is not evidence of receipt; an ack event is.",
       "why_not_direct": "The cross-session tools (create_session, send_later, fire_trigger, get_session, update_trigger) stopped being provided to the integrator session at about 2026-11-02T08:12Z; no connector exposes them and they cannot be restored from inside the session. GitHub Actions has no Claude workflow in this repository."
+    },
+    {
+      "id": "I-THREE-OPERATOR-STRUCTURE",
+      "at": "2026-11-02T20:05:21Z",
+      "source": "owner correction 2026-11-02 (supersedes the reassignment parts of I-P0-ABSOLUTE-WORKFORCE, the A4 split owner, and the reassignment rule in I-DISPATCH-PROTOCOL)",
+      "decision": "Three operators. Secondary Opus (opus2) owns all P0 autonomous-workforce engineering: A1-A9, V0-V6 and the remaining safe unowned P0 capabilities (WORKFORCE_INVENTORY_EXT gaps). Codex owns P0-LEARNING-REFERENCE. Main Opus directs priorities through the GitHub dispatch channel, verifies acknowledgement and progress, reviews, integrates, certifies, deploys, verifies production autonomy and continues Build 2 / Final Master. The integrator never reassigns Secondary's work without the owner's authorization: a missed ack or checkpoint is reported to the owner with the specific limitation, not silently transferred. Integrator-supervised workers stopped at a clean point; their pushed commits are handed to opus2 with exact SHAs."
     }
   ],
   "owner_actions_pending": [

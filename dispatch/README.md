@@ -35,4 +35,4 @@ On each check-in the integrator:
 - records verdicts and integration in `COORDINATION.json`;
 - posts the next assignment.
 
-An assignment with no ack by `ack_due_by`, no checkpoint by `checkpoint_due_by`, or no progress for 4 h is safe to move. The integrator reassigns it and records the transfer in `ownership_history`. After that, `claim-check` refuses the former owner, so two workers never build the same thing. Work with a checkpoint under review is never moved automatically.
+An overdue assignment (no ack by `ack_due_by`, no checkpoint by `checkpoint_due_by`, or no progress for 4 h) is REPORTED to the owner with the specific limitation. It is never moved without the owner's authorization (I-THREE-OPERATOR-STRUCTURE). If the owner authorizes a transfer, it is recorded in `ownership_history`, and `claim-check` then refuses the former owner.

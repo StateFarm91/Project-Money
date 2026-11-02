@@ -78,11 +78,16 @@ t_dead = T0 + timedelta(hours=4, minutes=12)
 r = row(d2, "X1", t_dead)
 check(r["overdue"] and r["safe_to_reassign"], "silent after start for >4 h: stale and safe to reassign")
 try:
-    A.reassign("X1", "mainopus-worker", "too early", d2, T0 + timedelta(hours=1))
+    A.reassign("X1", "mainopus-worker", "stale", d2, t_dead)
+    check(False, "reassignment without owner authorization refused")
+except SystemExit as e:
+    check("authorization" in str(e), "reassignment without owner authorization refused")
+try:
+    A.reassign("X1", "mainopus-worker", "too early", d2, T0 + timedelta(hours=1), owner_approved="test")
     check(False, "premature reassignment refused")
 except SystemExit as e:
     check("REFUSED" in str(e), "premature reassignment refused")
-A.reassign("X1", "mainopus-worker", "opus2 silent 4 h after start", d2, t_dead)
+A.reassign("X1", "mainopus-worker", "opus2 silent 4 h after start", d2, t_dead, owner_approved="owner msg")
 coord = A.load_coord(d2)["assignments"][0]
 check(coord["owner"] == "mainopus-worker" and coord["ownership_history"][-1]["from"] == "opus2",
       "reassignment recorded with history")

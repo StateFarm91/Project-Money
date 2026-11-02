@@ -28,16 +28,16 @@ and each worker polls this file and PR #3 on its own wake.
   * `stale` lists overdue work and exits 1 if any exists.
   * `claim-check` refuses a worker that does not own the assignment, which prevents duplicate
     execution. `start`, `checkpoint` and `review_requested` run it automatically.
-  * `reassign` moves only work that is safe to move: a missed ack deadline, a missed
-    checkpoint deadline, or no progress for STALE_PROGRESS. It refuses once a checkpoint is
-    under review, unless forced.
+  * `reassign` requires the owner's authorization (I-THREE-OPERATOR-STRUCTURE). Overdue work
+    is REPORTED to the owner with the specific limitation; it is never moved silently. Even with
+    authorization, it refuses unsafe moves (a checkpoint under review) unless forced.
 
   python3 ops/assignments.py status [--json]
   python3 ops/assignments.py stale
   python3 ops/assignments.py event <worker> <assignment|-> <kind> [--sha SHA] [--note TEXT] [--push]
   python3 ops/assignments.py claim-check <assignment> <worker>
   python3 ops/assignments.py post <assignment> [--ack-hours 3] [--checkpoint-hours 8]   # integrator
-  python3 ops/assignments.py reassign <assignment> <new_owner> --reason TEXT            # integrator
+  python3 ops/assignments.py reassign <assignment> <new_owner> --reason TEXT --owner-approved REF   # integrator, owner-authorized only
 """
 from __future__ import annotations
 
@@ -206,8 +206,15 @@ def post(aid: str, ack_h: float = 3, cp_h: float = 8, root: Path = ROOT,
 
 
 def reassign(aid: str, new_owner: str, reason: str, root: Path = ROOT,
-             t: datetime | None = None, force: bool = False) -> dict:
+             t: datetime | None = None, force: bool = False,
+             owner_approved: str | None = None) -> dict:
+    """Moves work only with the owner's authorization (I-THREE-OPERATOR-STRUCTURE). `stale`
+    tells the integrator what to REPORT, not what to take. `owner_approved` names the owner
+    message or decision that authorizes this transfer, and is recorded with it."""
     t = t or now()
+    if not owner_approved:
+        raise SystemExit("REFUSED: reassignment needs the owner's authorization "
+                         "(--owner-approved <decision or message>); report the stall instead")
     d = load_coord(root)
     events = load_events(root)
     for a in d["assignments"]:
@@ -218,7 +225,8 @@ def reassign(aid: str, new_owner: str, reason: str, root: Path = ROOT,
                                  f"(stage {s['stage']}, overdue {s['overdue']})")
             a.setdefault("ownership_history", []).append(
                 {"at": iso(t), "from": _owner(a), "to": new_owner, "reason": reason,
-                 "stage_at_transfer": s["stage"], "checkpoint_sha": s["checkpoint_sha"]})
+                 "stage_at_transfer": s["stage"], "checkpoint_sha": s["checkpoint_sha"],
+                 "owner_approved": owner_approved})
             a["owner"] = new_owner
             a["state"] = "in_progress"
             a["dispatch"] = {"posted_at": iso(t), "ack_due_by": iso(t + DEFAULT_ACK),
@@ -258,6 +266,7 @@ def main(argv: list[str] | None = None) -> int:
     po.add_argument("--checkpoint-hours", type=float, default=8)
     r = sub.add_parser("reassign"); r.add_argument("assignment"); r.add_argument("new_owner")
     r.add_argument("--reason", required=True); r.add_argument("--force", action="store_true")
+    r.add_argument("--owner-approved", default=None)
     a = p.parse_args(argv)
     if a.cmd == "status":
         rows = status()
@@ -290,7 +299,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(post(a.assignment, a.ack_hours, a.checkpoint_hours)["dispatch"]))
         return 0
     if a.cmd == "reassign":
-        rec = reassign(a.assignment, a.new_owner, a.reason, force=a.force)
+        rec = reassign(a.assignment, a.new_owner, a.reason, force=a.force,
+                       owner_approved=a.owner_approved)
         print(json.dumps(rec["ownership_history"][-1]))
         return 0
     return 2
