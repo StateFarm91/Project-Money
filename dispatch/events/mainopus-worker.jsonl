@@ -10,3 +10,6 @@
 {"at": "2026-11-02T19:02:00Z", "worker": "mainopus-worker", "assignment": "A4a", "event": "start"}
 {"at": "2026-11-02T19:06:00Z", "worker": "mainopus-worker", "assignment": "V0", "event": "ack", "note": "integrator-supervised subagent launched with this brief"}
 {"at": "2026-11-02T19:06:00Z", "worker": "mainopus-worker", "assignment": "V0", "event": "start"}
+{"at": "2026-11-02T20:00:53Z", "worker": "mainopus-worker", "assignment": "A4a", "event": "checkpoint", "sha": "fee061e5f47ef1ed5cce937833f111df744488f2", "note": "first slice pushed to claude/w5-A4a-research-to-concept (observed on origin 20:00Z)"}
+{"at": "2026-11-02T20:00:53Z", "worker": "mainopus-worker", "assignment": "A6", "event": "ack", "note": "supervised subagent launched"}
+{"at": "2026-11-02T20:00:53Z", "worker": "mainopus-worker", "assignment": "A6", "event": "start"}

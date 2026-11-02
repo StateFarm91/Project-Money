@@ -1125,7 +1125,7 @@
       }
     },
     {
-      "owner": "opus2",
+      "owner": "mainopus-worker",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1137,12 +1137,23 @@
         "wiring #4"
       ],
       "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
-      "state": "assigned",
+      "state": "in_progress",
       "dispatch": {
-        "posted_at": "2026-11-02T19:57:34Z",
-        "ack_due_by": "2026-11-02T22:57:34Z",
-        "checkpoint_due_by": "2026-11-03T19:57:34Z"
-      }
+        "posted_at": "2026-11-02T20:00:53Z",
+        "ack_due_by": "2026-11-02T23:00:53Z",
+        "checkpoint_due_by": "2026-11-03T04:00:53Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:00:53Z",
+          "from": "opus2",
+          "to": "mainopus-worker",
+          "reason": "owner directive 2026-11-02 'Main must take full operational control': queued opus2 work not started (opus2 checkpoint 18:27Z lists it after A4); moved to a supervised worker to end the serial bottleneck",
+          "stage_at_transfer": "posted",
+          "checkpoint_sha": null
+        }
+      ],
+      "branch": "claude/w5-A6-learning-to-design"
     },
     {
       "owner": "mainopus-worker",
@@ -1172,7 +1183,7 @@
       }
     },
     {
-      "owner": "opus2",
+      "owner": "mainopus-worker",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
@@ -1184,12 +1195,26 @@
         "wiring #6"
       ],
       "acceptance": "a rising culture signal opens a research task that reaches concept_intake",
-      "state": "assigned",
+      "state": "queued",
       "dispatch": {
-        "posted_at": "2026-11-02T19:57:34Z",
-        "ack_due_by": "2026-11-02T22:57:34Z",
-        "checkpoint_due_by": "2026-11-03T19:57:34Z"
-      }
+        "posted_at": "2026-11-02T20:00:53Z",
+        "ack_due_by": "2026-11-02T23:00:53Z",
+        "checkpoint_due_by": "2026-11-03T04:00:53Z"
+      },
+      "depends_on": [
+        "A4a"
+      ],
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:00:53Z",
+          "from": "opus2",
+          "to": "mainopus-worker",
+          "reason": "same directive; queued behind A4a (shares the concept-intake path), not started by opus2",
+          "stage_at_transfer": "posted",
+          "checkpoint_sha": null
+        }
+      ],
+      "branch": "claude/w5-A8-culture-ideation"
     },
     {
       "owner": "mainopus-worker",
