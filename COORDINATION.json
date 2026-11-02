@@ -774,6 +774,15 @@
       },
       "feedback_channel": "brambleloop/research/final_build/w5/CODEX_REVIEW_FEEDBACK.md",
       "recorded": "2026-11-02T17:45Z"
+    },
+    {
+      "subject": "A1-REVIEW",
+      "sha": "claude/w5-SECREVIEW-A1",
+      "verdicts": {
+        "opus2/p0-amigurumi 98d216b0 (A1 children's refusal)": "DO NOT SHIP: A1-1 HIGH gate keyed on stuffed AND span-placed seam, not closed stuffed form (stuff_before_closing / closed_3d_form); A1-2 MED no confusable/invisible fold in child_words_in; A1-3 MED A1 not splittable (its test needs the toy route; guard mutants survive on INTEG1+A1); A1-4 MED any non-undecided decision accepted; A1-5 MED toy small-parts margins thin (bunny ear worsted 32.0mm vs 31.7mm cylinder = UNKNOWN)",
+        "toy (amigurumi)": "toy delta acceptable, but waits for a fixed A1"
+      },
+      "recorded": "2026-11-02T18:40Z"
     }
   ],
   "integration": {
@@ -988,16 +997,6 @@
         ],
         "session": "integrator subagent",
         "report": "scratchpad INDEPENDENT_SECREVIEW_A2.md",
-        "launched": "2026-11-02T17:20Z"
-      },
-      {
-        "id": "A1-REVIEW",
-        "subjects": [
-          "opus2/p0-amigurumi 6ab946ff,98d216b0 (+ registry da4f331a)",
-          "split analysis for the children's refusal"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_A1.md",
         "launched": "2026-11-02T17:20Z"
       }
     ]
