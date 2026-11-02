@@ -126,6 +126,20 @@ def test_motif_promise_is_in_name_truth_for_every_non_catalogue_product():
         assert F.plan(category="basket", title=title)["family"] == F.VESSEL, title
         assert any(f.startswith("motif:") for f in name_truth(basket(title))), title
     assert name_truth(basket("Crochet Storage Basket")) == []
+    # scoped to rule-drafted CIRs: the same name on an engineered design (which declares its
+    # own motif) is judged by that design's product_truth gate, not here
+    import dataclasses
+
+    from brambleloop.creative.prototype import source_provenance
+
+    heart = basket("Heart Basket")
+    for prims, flagged in ((("creative.fallback_constructions.vessel",), True),
+                           (("creative.construction_registry.build",), True),
+                           (("products.moment_candidates._disc",), False)):
+        prov = source_provenance("a2-probe", {"provenance": "research:a2"}, {}, prims)
+        found = any(f.startswith("motif:")
+                    for f in name_truth(dataclasses.replace(heart, provenance=prov)))
+        assert found is flagged, (prims, found)
     # the engineered catalogue keeps its own gates (an integrator decision is recorded): a
     # catalogue title motif_promise does not back is not newly failed by name_truth
     from brambleloop.products import launch0

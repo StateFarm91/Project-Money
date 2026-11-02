@@ -627,6 +627,17 @@ RETIRED_DUPLICATE = "RETIRED_DUPLICATE"
 NAME_OUTRUNS_PATTERN = "NAME_OUTRUNS_PATTERN"
 
 
+# A2: the builders that draft a pattern from a title by rule (the radar fallback and the
+# research -> Product Development registry). Their names are where a motif word can outrun
+# the pattern; an engineered design declares its motif in its own CIR.
+_RULE_DRAFTED = ("creative.fallback_constructions.", "creative.construction_registry.")
+
+
+def _drafted_by_a_rule(cir) -> bool:
+    prims = tuple(getattr(getattr(cir, "provenance", None), "primitives_used", None) or ())
+    return not prims or any(p.startswith(_RULE_DRAFTED) for p in prims if isinstance(p, str))
+
+
 def name_truth(cir, listing: dict | None = None) -> list[str]:
     """W4-PIPE: what the product's name promises that its CIR does not make.
 
@@ -647,14 +658,14 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
         if not verdict.get("backed"):
             out.append(f"{key}: {verdict.get('why')}")
     # A2 (OPUS2V-2): a motif word in the name must be a motif the pattern makes. Held to every
-    # product the catalogue does not engineer -- every fallback, registry and research draft,
-    # which is where "Heart Basket" on a plain vessel comes from. The engineered catalogue keeps
+    # product drafted by rule from a title -- the radar fallback and the registry (or one with
+    # no recorded provenance) -- which is where "Heart Basket" on a plain vessel comes from. The engineered catalogue keeps
     # its own Launch-0 product_truth / manual_adoption gate: nine of its titles are unbacked by
     # motif_promise today (heart-row, fir-and-star, cable and relief words without a
     # declaration), and changing their publish state is an integrator decision.
     from ..products import inventory
 
-    if cir.slug not in set(inventory.universe()):
+    if cir.slug not in set(inventory.universe()) and _drafted_by_a_rule(cir):
         motif = l0.motif_promise(cir)
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
