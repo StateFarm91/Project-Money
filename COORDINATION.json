@@ -782,7 +782,7 @@
         "opus2/p0-amigurumi 98d216b0 (A1 children's refusal)": "DO NOT SHIP: A1-1 HIGH gate keyed on stuffed AND span-placed seam, not closed stuffed form (stuff_before_closing / closed_3d_form); A1-2 MED no confusable/invisible fold in child_words_in; A1-3 MED A1 not splittable (its test needs the toy route; guard mutants survive on INTEG1+A1); A1-4 MED any non-undecided decision accepted; A1-5 MED toy small-parts margins thin (bunny ear worsted 32.0mm vs 31.7mm cylinder = UNKNOWN)",
         "toy (amigurumi)": "toy delta acceptable, but waits for a fixed A1"
       },
-      "recorded": "2026-11-02T18:40Z"
+      "recorded": "2026-11-02T17:58Z"
     }
   ],
   "integration": {
@@ -1149,7 +1149,7 @@
     },
     {
       "owner": "opus2",
-      "assigned": "2026-11-02T18:55Z",
+      "assigned": "2026-11-02T18:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "owner directive 2026-11-02 'A1 child-safety correction'; A1-REVIEW (claude/w5-SECREVIEW-A1); PR #3 comments",
       "id": "A1-R",
@@ -1182,7 +1182,7 @@
   "decisions": [
     {
       "id": "I-A1R-ARCHITECTURAL",
-      "at": "2026-11-02T18:55Z",
+      "at": "2026-11-02T18:05Z",
       "decision": "Children's safety is a construction-classification gate with an audited-decision requirement, not title patches. A1 is split from the toy into opus2/p0-child-safety-core; the toy (opus2/p0-amigurumi) stays out of Batch 5 and rebases onto A1-R. Batch 5 certification of 5ba84bf7 is not delayed (the toy is not in it).",
       "source": "owner directive 2026-11-02"
     }
