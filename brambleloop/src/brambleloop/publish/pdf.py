@@ -746,22 +746,39 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     `EXTRA_CHILDRENS_ASSIGNMENTS`, or an exemption with a reason in
     `NOT_MERCHANDISED_TO_A_CHILD`.
     """
-    if childrens is not None:
-        return
+    from ..gates import small_parts
     from ..products import launch0
 
-    words = launch0.child_words_in(cir.title, cir.slug)
-    if not words:
+    # A1-R (owner directive 2026-11-02): the construction is the primary trigger. A closed
+    # stuffed form is a children's-safety question whatever its title says; title words are
+    # the second layer, read through one fold (look-alike and invisible characters).
+    stuffed = launch0.closed_stuffed_form(cir)
+    if childrens is not None:
+        # Assigned to a child: a sewn-on piece that fits, or may fit, the small-parts cylinder
+        # holds it until physical evidence is recorded (UNKNOWN is never a pass).
+        blocks = small_parts.blocking(cir) if stuffed else []
+        if blocks:
+            raise ValueError(
+                f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "
+                f"{small_parts.CYLINDER_MM:g} mm small-parts cylinder: {'; '.join(blocks)}. "
+                f"Held until a measured physical sample is recorded "
+                f"(gates.small_parts.SMALL_PARTS_EVIDENCE)")
         return
-    state, _why = launch0.childrens_decision(cir.slug)
+    words = launch0.child_words_in(cir.title, cir.slug)
+    if not words and not stuffed:
+        return
+    state, _why = launch0.childrens_decision_for(cir)
     if state != launch0.UNDECIDED:
         return
+    reads = (f"reads as a children's product ({', '.join(words)})" if words else
+             "is not marked for children, but its construction is a closed stuffed form")
     raise ValueError(
-        f"{cir.slug}: the title {cir.title!r} reads as a children's product ({', '.join(words)}) "
-        f"and nothing has decided whether it is one. Refusing to render a document that would "
-        f"carry no safety statements on nobody's decision. Assign it in "
+        f"{cir.slug}: the title {cir.title!r} {reads}, and nothing has decided whether it is "
+        f"one. Held pending an explicit owner decision: refusing to render a document that "
+        f"would carry no safety statements on nobody's decision. Assign it in "
         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
-        f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD")
+        f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD (the implicit candidate exemption is "
+        f"not a decision for a closed stuffed form)")
 
 
 def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:

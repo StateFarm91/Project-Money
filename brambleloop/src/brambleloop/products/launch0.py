@@ -1366,7 +1366,16 @@ EXTRA_CHILDRENS_ASSIGNMENTS: dict[str, tuple[str, str]] = {
 # child, each with the reason. Empty today, and it is meant to stay small: the point is that
 # an exemption has to be written down by somebody, because the alternative reading of silence
 # is "nobody looked".
-NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {}
+NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {
+    # A1-R (owner directive 2026-11-02): every closed stuffed form needs a written decision;
+    # the implicit "the candidate declares no sub-category" is not one. These two are the
+    # catalogue's stuffed pieces, decided here with their reasons.
+    "heart-row-ring-pillow": ("a wedding ring-bearer pillow: wedding decor that holds the "
+                              "rings, not a plaything; it is not merchandised, sized or "
+                              "described for a child"),
+    "spring-garden-kneeler": ("a garden kneeling pad: an adult gardening accessory, not "
+                              "merchandised, sized or described for a child"),
+}
 
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
@@ -1411,6 +1420,36 @@ def _decided_not_for_children() -> dict[str, str]:
     return out
 
 
+# A1-R: what makes a closed stuffed form. A stuffed seam (the risk matrix's closed_3d_form),
+# or a stuffing material in a CIR whose pieces are closed by any seam. Never a title word and
+# never an optional placement field.
+STUFFING_MATERIAL = re.compile(r"\b(?:fibre ?fill|fiber ?fill|stuffing|poly[- ]?fil+|"
+                               r"polyfill|toy filling|wadding|batting)\b", re.I)
+
+
+def closed_stuffed_form(cir) -> bool:
+    seams = list(getattr(cir, "assembly", None) or [])
+    if any(getattr(s, "stuff_before_closing", False) for s in seams):
+        return True
+    stuffed = any(STUFFING_MATERIAL.search(getattr(m, "name", "") or "")
+                  for m in (getattr(cir, "materials", None) or []))
+    return bool(stuffed and seams)
+
+
+def childrens_decision_for(cir) -> tuple[str, object]:
+    """`childrens_decision` for this CIR, read with its construction (A1-R).
+
+    For a closed stuffed form only an explicit decision counts: an assignment, or a written,
+    reasoned entry in NOT_MERCHANDISED_TO_A_CHILD. The implicit exemption a candidate gets for
+    declaring no children's sub-category is not accepted for one -- nobody wrote that decision
+    for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
+    state, why = childrens_decision(cir.slug)
+    if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
+            and cir.slug not in NOT_MERCHANDISED_TO_A_CHILD:
+        return (UNDECIDED, None)
+    return (state, why)
+
+
 def childrens_decision(cir_slug: str) -> tuple[str, object]:
     """Whether this product is merchandised to a child, or whether nobody has said.
 
@@ -1439,7 +1478,10 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     Shared by the survey and by the renderer's refusal, so a word added here cannot start
     being reported without also starting to block.
     """
-    words = set(re.findall(r"[a-z]+", " ".join(texts).lower()))
+    from .text_fold import fold
+
+    # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
+    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
     return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
 
 
@@ -1489,13 +1531,23 @@ def childrens_titles_without_an_assignment() -> list[dict]:
     for size in ("small", "medium", "large"):
         makers[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
     makers["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+    # A1-7: every engineered catalogue CIR too (the kneeler and ring pillow are moment
+    # candidates, not flat or vessel builds), so the survey covers what the renderer holds.
+    from . import inventory
+
+    for slug in inventory.universe():
+        if slug not in makers:
+            makers[slug] = (lambda s=slug: inventory._engineered(s))
 
     out = []
     for key in sorted(makers):
         cir = makers[key]()                               # type: ignore[operator]
+        if cir is None:
+            continue
         hits = child_words_in(cir.title, cir.slug)
-        state, _why = childrens_decision(cir.slug)
-        if hits and state == UNDECIDED:
+        state, _why = childrens_decision_for(cir)
+        # A1-7: the survey reads what the renderer refuses on -- words or the construction.
+        if (hits or closed_stuffed_form(cir)) and state == UNDECIDED:
             out.append({"slug": cir.slug, "title": cir.title, "words": hits,
                         "why": ("the title reads as a children's product and nothing has "
                                 "decided either way -- not an assignment and not an "
