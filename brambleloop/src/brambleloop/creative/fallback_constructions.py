@@ -435,21 +435,19 @@ _STOCKING_HEAD = r"\bstockings?$"
 _STOCKING_ALLOWED_WORDS = frozenset({
     "christmas", "xmas", "holiday", "festive", "classic", "traditional", "fireside", "cosy",
     "cozy", "plain", "simple", "crochet", "crocheted", "everyday", "hanging", "modern",
-    "minimalist", "solid", "seasonal", "winter", "cuff",
+    # OPUS2O-6: no "solid": a two-colour stocking always has a contrast cuff.
+    "minimalist", "seasonal", "winter", "cuff",
 })
 _STOCKING_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|mosaic|fair[- ]?isle|tapestry|colou?rwork|"
                        r"intarsia|graphghan|personali[sz]ed|monogram(?:med)?|name|initials?|"
                        r"cable[sd]?|bobble[sd]?|lace|lacy|pom[- ]?poms?|fur|faux|cuffed|"
                        r"appliqu[eé]|mini|tiny|small|medium|large|giant|jumbo|xl|oversized?)\b)")
 STOCKING_PRIMITIVES = ("creative.fallback_constructions.stocking",)
-# Review OPUS2L-7: the size is a stated design choice, not a sourced standard. No published
-# standard was found (2026-11-02): retail stockings range widely, e.g. Northlight's 20-inch
-# stocking is 20 x 9 in (https://www.homedepot.ca/product/northlight-20-traditional-red-with-
-# white-cuff-hanging-christmas-stocking/1001820543). This one is smaller (about 14 in cuff to
-# sole) and the listing states the computed size, never a measured or standard one.
-STOCKING_SIZE_SOURCE = ("design choice; no published standard stocking size found. Retail "
-                        "example for scale: Northlight 20-inch stocking, 20 x 9 in (Home Depot "
-                        "Canada listing 1001820543)")
+# Review OPUS2L-7 / OPUS2O-9: the size is a stated design choice, not a sourced standard. No
+# published standard stocking size was found (2026-11-02), and the retail listing once cited
+# for scale no longer resolves, so no figure is quoted. The listing states the computed size,
+# never a measured or standard one.
+STOCKING_SIZE_SOURCE = "design choice; no published standard stocking size found"
 STOCKING_LEG_W_CM = 14.0
 STOCKING_LEG_L_CM = 26.0
 STOCKING_FOOT_L_CM = 22.0
@@ -469,6 +467,11 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     palette = list(concept.colors)
     if not palette:
         raise ValueError(f"{concept.slug}: a stocking needs at least one colour")
+    # OPUS2O-6: a "Contrast/Stripe Cuff" title is true only when the cuff is a second colour.
+    if re.search(r"\b(?:stripe|striped|contrast|contrasting) cuff\b", fold_title(concept.title)) \
+            and len({concept.colors[c] for c in palette[:2]}) < 2:
+        raise ValueError(f"{concept.slug}: the title promises a contrast cuff and the palette "
+                         f"has one colour, so the cuff would be the body colour")
     per_cm = gauge.stitches_per_10cm / 10.0
     rows_per_cm = gauge.rows_per_10cm / 10.0
     leg_w = max(10, int(round(STOCKING_LEG_W_CM * per_cm)))
