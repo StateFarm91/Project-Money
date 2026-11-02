@@ -27,3 +27,5 @@
 {"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A6", "event": "checkpoint", "sha": "ebead3dd", "note": "opus2/a6-learning-to-design; 6/6, 11 mutants; 38-suite regression running"}
 {"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A8", "event": "checkpoint", "sha": "87ebdb3e", "note": "opus2/a8-culture-ideation on A4a 993cc0cd; 4/4, 6 mutants; regression queued"}
 {"at": "2026-11-02T20:29:51Z", "worker": "opus2", "assignment": null, "event": "heartbeat", "note": "awake; hourly trigger (platform minimum 1h; */5 rejected)"}
+{"at": "2026-11-02T20:34:08Z", "worker": "opus2", "assignment": "A4a", "event": "checkpoint", "sha": "3dc3e68c", "note": "opus2/a4a-research-to-concept: test extended through compile+certify (granted); 9/9; code unchanged from fee061e5"}
+{"at": "2026-11-02T20:34:08Z", "worker": "opus2", "assignment": "A4a", "event": "review_requested", "sha": "3dc3e68c"}
