@@ -723,6 +723,54 @@ def test_p0_name_object_mismatch_the_head_noun_must_be_the_object_drafted():
                     and F._names_another_object(seed.title)), seed.slug
 
 
+
+def test_review_opus2t_t1_t2_t3_every_route_drafts_only_its_own_head_noun():
+    """OPUS2T-1: the object check ran after the cushion and shawl branches, so "Teddy Bear"
+    drafted as a cushion or a shawl. OPUS2T-2: the head noun was the last word, so a trailing
+    "Pattern", "(Cream)" or "for Beginners" hid it. OPUS2T-3: the object table was a denylist.
+    Each route now drafts only the heads it makes (FAMILY_HEADS), read after trailing filler."""
+    refused = (("pillow", "Teddy Bear"), ("wedding", "Teddy Bear"), ("shawl", "Teddy Bear"),
+               ("shawl", "Bunny"), ("shawl", "Cat Bed"), ("shawl", "Christmas Stocking"),
+               ("shawl", "Drawstring Pouch"), ("basket", "Teddy Bear Pattern"),
+               ("basket", "Crochet Teddy Bear Pattern"), ("blanket", "Teddy Bear (Cream)"),
+               ("home_decor", "Teddy Bear for Beginners"), ("basket", "Teddy Bear in Cream"),
+               ("basket", "Teddy Bear - Easy"), ("basket", "Teddy Bear v2"),
+               ("basket", "Bear Cub"), ("basket", "Drawstring Pouch Pattern"),
+               ("basket", "Sleepy Fox"), ("basket", "Little Elephant"), ("basket", "Cat"),
+               ("basket", "Teddies"), ("basket", "Bear Lovey"), ("basket", "Blanket"),
+               ("basket", "Cowl"), ("basket", "Pencil Case"), ("basket", "Cat Cave"),
+               ("blanket", "Cat"), ("blanket", "Sleepy Fox"), ("blanket", "Cowl"),
+               ("blanket", "Slippers"), ("blanket", "Toy Basket"))
+    drafted = (("basket", "Crochet Storage Basket", F.VESSEL),
+               ("basket", "Nordic Forest Mosaic Storage Basket", F.VESSEL),
+               ("basket", "Toy Basket", F.VESSEL), ("basket", "Bear Basket", F.VESSEL),
+               ("basket", "Storage Basket Pattern", F.VESSEL),
+               ("basket", "Basket (Large) - Easy", F.VESSEL),
+               ("basket", "Storage Basket - Cream Edition", F.VESSEL),
+               ("blanket", "Polar Bear Blanket", F.FLAT_PANEL),
+               ("blanket", "Bear Paw Blanket", F.FLAT_PANEL),
+               ("blanket", "Basket Weave Blanket", F.FLAT_PANEL),
+               ("blanket", "Everyday Throw for Beginners", F.FLAT_PANEL),
+               ("pillow", "Bear Pillow", F.PANEL_PAIR),
+               ("wedding", "Wedding Ring Cushion", F.PANEL_PAIR),
+               ("shawl", "Everyday Triangle Shawl", F.TRIANGLE))
+    assert len(refused) == 30 and len(drafted) == 14
+    for category, title in refused:
+        got = F.plan(category=category, title=title)
+        assert got["family"] == F.REFUSED and got["needs"], (category, title, got)
+    for category, title, family in drafted:
+        assert F.plan(category=category, title=title)["family"] == family, (category, title)
+    assert F.title_head("Crochet Teddy Bear Pattern v2 (Cream) - Easy") == "bear"
+    assert F.title_head("\uff34eddy \uff22ear") == "bear"
+    # every radar seed routes as before
+    assert FALLBACK
+    for seed in FALLBACK:
+        family = F.plan(category=seed.category, title=seed.title,
+                        is_bundle=seed.is_bundle)["family"]
+        allowed = F.FAMILY_HEADS.get(family)
+        assert allowed is None or F.title_head(seed.title) in allowed, seed.slug
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
