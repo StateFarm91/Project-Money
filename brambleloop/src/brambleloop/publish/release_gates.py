@@ -218,7 +218,12 @@ def _frames(db, slug: str, version: str) -> list:
             .order_by(ListingAsset.position)))
         for r in rows:
             s.expunge(r)
-    return rows
+    # I-A3-NONQUALIFYING-PHOTO (opus2): a photo frame the asset-truth review holds as not
+    # qualifying is out of the listing set; it never blocks the set it was appended to.
+    from .photo_asset_review import NOT_QUALIFYING
+
+    return [r for r in rows
+            if not any(str(x).startswith(NOT_QUALIFYING) for x in (r.blocked_reasons or []))]
 
 
 def _listing(db, slug: str, version: str):
