@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
 import sys
+from datetime import datetime, timedelta, timezone
 import tempfile
 from pathlib import Path
 
@@ -91,7 +92,7 @@ def test_a_retry_that_meets_the_unresolved_intent_files_nothing_without_resendin
     assert out["filed"] == {} and "no known outcome" in out["reason"]
 
 
-def _worker_sweep(failure):
+def _worker_sweep(failure, *, attempts=1, extra=None):
     """The real culture.sweep job, through the real worker and paid-call guard. Only the
     network is faked: `AnthropicProvider._send` (the transport) and the culture feeds."""
     import os
@@ -124,12 +125,18 @@ def _worker_sweep(failure):
         "source": feeds.SOURCE_KEY, "channel": feeds.CHANNEL, "recorded": 0,
         "attempted": len(articles), "readings": [], "failures": [], "measures": "",
         "lag_days": feeds.PIPELINE_LAG_DAYS}
+    restore = extra() if extra is not None else (lambda: None)
     try:
         job = JobQueue(db).enqueue("market_radar", "culture.sweep", {},
                                    idempotency_key="sweep-fixture", priority=0)
-        Worker(db, "w-sweep", phase=Phase.SHADOW, job_types=["culture.sweep"],
-               lease_seconds=900).run_once()
+        for _ in range(attempts):
+            with db.session() as s:                      # retries become due immediately
+                row = s.get(Job, job.id)
+                row.run_after = datetime.now(timezone.utc) - timedelta(seconds=1)
+            Worker(db, "w-sweep", phase=Phase.SHADOW, job_types=["culture.sweep"],
+                   lease_seconds=900).run_once()
     finally:
+        restore()
         (AnthropicProvider._send, feeds.discover, feeds.sweep, feeds.default_articles,
          feeds.env_override) = saved
     with db.session() as s:
@@ -191,6 +198,43 @@ def test_review_opus2i_c4_a_pre_send_failure_re_raises_and_bills_nothing():
         C.prompt = real_prompt
     with db.session() as s:
         assert list(s.scalars(select(CostEntry))) == []
+
+
+def test_review_opus2j_j3_a_pending_record_is_billed_once_across_attempts():
+    """M7n: the guard wrote PENDING and then failed to claim the intent. classify must not bill
+    it (it is not UNCERTAIN); the guard's orphan rule bills it exactly once on the retry."""
+    from brambleloop.queue import effects
+
+    def claim_fails():
+        real = effects.claim
+        calls = []
+
+        def broken(*a, **k):
+            if not calls:
+                calls.append(1)
+                raise RuntimeError("intent claim failed after the write-ahead record")
+            return real(*a, **k)
+        effects.claim = broken
+        return lambda: setattr(effects, "claim", real)
+
+    done, attempts, err, sent, outcomes, costs = _worker_sweep(
+        TimeoutError("unused"), attempts=2, extra=claim_fails)
+    billed = [c for c in costs if c[0] > 0]
+    assert len(billed) == 1, costs                  # once, never twice
+    assert sent == []                               # nothing was ever sent
+
+
+def test_review_opus2j_j3_m7p_a_prompt_bug_with_no_budget_check_still_raises():
+    real_prompt = C.prompt
+    C.prompt = lambda topics: (_ for _ in ()).throw(RuntimeError("prompt bug"))
+    try:
+        try:
+            C.classify(["A_topic"], provider=_Provider(), db=None)
+            raise AssertionError("a prompt bug was swallowed")
+        except RuntimeError:
+            pass
+    finally:
+        C.prompt = real_prompt
 
 
 if __name__ == "__main__":
