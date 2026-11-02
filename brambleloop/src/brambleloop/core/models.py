@@ -1231,6 +1231,20 @@ class BenchmarkProduct(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BenchmarkAnalysis(Base):
+    """Closed-vocabulary analysis of one exact quarantined file."""
+
+    __tablename__ = "benchmark_analyses"
+    __table_args__ = (UniqueConstraint("benchmark_id", "file_sha256",
+                                       name="uq_benchmark_analysis_file"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_id: Mapped[int] = mapped_column(ForeignKey("benchmark_products.id"), index=True)
+    file_sha256: Mapped[str] = mapped_column(String(64))
+    observations: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TeardownFinding(Base):
     """One scored observation about a purchased benchmark (#153-#161)."""
 
