@@ -619,6 +619,33 @@ def test_review_opus2o_o1_counts_are_read_by_morphology_not_by_a_word_list():
         assert got["claimed"] is None and not got["plural_markers"], (title, got)
 
 
+def test_p0_name_object_mismatch_the_head_noun_must_be_the_object_drafted():
+    """P0-NAME-OBJECT-MISMATCH (OPUS2P-13a): a basket or a flat panel is never drafted under a
+    head noun that names another object; a motif word before the head noun is not an object."""
+    refused = (("basket", "Teddy Bear"), ("basket", "Drawstring Pouch"),
+               ("basket", "Drawstring Bag"), ("blanket", "Teddy Bear"),
+               ("accessory", "Teddy Bear"), ("basket", "Bunny Plush"),
+               ("blanket", "Cosy Stocking"), ("basket", "Cat Bed"), ("runner", "Winter Beanie"),
+               ("blanket", "Holly Garland"), ("basket", "Market Tote Bag"),
+               ("scarf", "Stripe Mittens"))
+    drafted = (("blanket", "Polar Bear Blanket", F.FLAT_PANEL), ("basket", "Bear Basket", F.VESSEL),
+               ("basket", "Storage Basket", F.VESSEL), ("pillow", "Bear Pillow", F.PANEL_PAIR),
+               ("blanket", "Everyday Throw", F.FLAT_PANEL))
+    assert refused and drafted
+    for category, title in refused:
+        got = F.plan(category=category, title=title)
+        assert got["family"] == F.REFUSED and got["needs"], (category, title, got)
+    for category, title, family in drafted:
+        assert F.plan(category=category, title=title)["family"] == family, (category, title)
+    # Every radar seed routes as before (none names another object by its head noun).
+    assert FALLBACK
+    for seed in FALLBACK:
+        family = F.plan(category=seed.category, title=seed.title,
+                        is_bundle=seed.is_bundle)["family"]
+        assert not (family in (F.VESSEL, F.FLAT_PANEL)
+                    and F._names_another_object(seed.title)), seed.slug
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

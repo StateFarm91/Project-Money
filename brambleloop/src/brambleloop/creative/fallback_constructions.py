@@ -95,6 +95,43 @@ def _shaped_title(title: str) -> str | None:
     return None
 
 
+# P0-NAME-OBJECT-MISMATCH (OPUS2P-13a): the head noun -- the title's last word -- names the
+# finished object. A basket or a flat panel drafted under a head noun that names a different
+# object ("Teddy Bear", "Drawstring Pouch", "Drawstring Bag" as a basket; "Teddy Bear" as a
+# blanket panel) is the name promising an object the CIR is not. Read by position, not by
+# presence: "Polar Bear Blanket" names a blanket (a bear motif), "Teddy Bear" names a bear.
+_OBJECT_HEADS: dict[str, str] = {
+    **{w: "a stuffed toy" for w in ("teddy", "bear", "bears", "bunny", "bunnies", "rabbit",
+                                    "rabbits", "toy", "toys", "plush", "plushie", "doll",
+                                    "dolls", "amigurumi", "softie", "stuffie")},
+    **{w: "a bag" for w in ("bag", "bags", "pouch", "pouches", "tote", "totes", "backpack",
+                            "purse", "clutch", "satchel", "sack")},
+    **{w: "a stocking" for w in ("stocking", "stockings")},
+    **{w: "a bed" for w in ("bed", "beds")},
+    **{w: "a hat" for w in ("hat", "hats", "beanie", "beanies", "bonnet", "cap")},
+    **{w: "a garment" for w in ("cardigan", "sweater", "jumper", "tee", "top", "vest",
+                                "pullover", "mitten", "mittens", "sock", "socks", "glove",
+                                "gloves")},
+    **{w: "a hanging decoration" for w in ("ornament", "ornaments", "garland", "garlands",
+                                           "mobile", "wreath")},
+}
+
+
+def _names_another_object(title: str) -> dict | None:
+    """A refusal when the title's head noun names an object this route does not make."""
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKC", title or "").lower()
+    words = re.findall(r"[a-z]+", folded)
+    head = words[-1] if words else ""
+    what = _OBJECT_HEADS.get(head)
+    if what is None:
+        return None
+    return {"family": REFUSED, "needs": f"the construction {what} is made in",
+            "why": (f"the title's object is {head!r} ({what}); the basket and flat-panel rules "
+                    f"would draft a different object under its name")}
+
+
 def _several_sizes(*texts: str) -> str | None:
     """The first size promise in a concept's slug, title or rationale (gates.size_claims)."""
     from ..gates import size_claims
@@ -128,6 +165,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
+        other = _names_another_object(title)
+        if other:
+            return other
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     if re.search(_EGG_COSY_WORDS, (title or "").lower()):
         rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
@@ -198,6 +238,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
             and not _shaped_title(re.sub(_PANEL_PAIR_WORDS, "", lowered)):
         return {"family": PANEL_PAIR, "needs": "",
                 "why": "a cushion is a front and a back panel seamed around a pad"}
+    other = _names_another_object(title)
+    if other:
+        return other
     word = _shaped_title(title)
     if word:
         return {"family": REFUSED, "needs": f"the construction a {word} is made in",
