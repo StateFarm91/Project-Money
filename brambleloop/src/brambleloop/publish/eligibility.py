@@ -663,7 +663,9 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
     # checked too: outside Launch-0 its words come from the slug and radar seed, which can
     # still say "village" or "flower" after the CIR was retitled to what it makes.
-    motif = next((p.split(":", 1)[1] for p in
+    # OPUS2R-5: a library motif worked as tapestry is declared "products.motifs:<slug>:tapestry";
+    # its imagery is the slug's, so the technique suffix is not part of the lookup key.
+    motif = next((p.split(":")[1] for p in
                   (getattr(cir.provenance, "primitives_used", None) or ())
                   if isinstance(p, str) and p.startswith("products.motifs:")), None)
     if motif:
