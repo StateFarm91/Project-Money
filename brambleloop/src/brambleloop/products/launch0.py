@@ -170,16 +170,22 @@ def _plural_marker_pattern(word: str) -> str:
     return rf"\b{re.escape(word)}(?:s|es|d|ed)?\b"
 
 
+# OPUS2O-3 / OPUS2Q-1(d): the count words that take -d/-ed ("Doubled", "Tripled", "Paired").
+# No other word does: "Tend" is not ten, "Twined" is not twin, "Kited" is not a kit.
+_TAKES_ED = frozenset({"double", "triple", "couple", "quadruple", "quintuple", "pair"})
+
+
 def _inflected(token: str, words) -> str | None:
     """The word in `words` that `token` is, or an inflection of: -s, -es, -ies (OPUS2M-1:
-    "Trilogies", "Combos", "Assortments", "Mothers")."""
+    "Trilogies", "Combos", "Assortments", "Mothers"), and -d/-ed for `_TAKES_ED`."""
     for cand in (token, token[:-1] if token.endswith("s") else None,
                  token[:-2] if token.endswith("es") else None,
-                 token[:-3] + "y" if token.endswith("ies") else None,
-                 # OPUS2O-3: "Doubled", "Tripled", "Coupled" are the count too.
-                 token[:-1] if token.endswith("d") else None,
-                 token[:-2] if token.endswith("ed") else None):
+                 token[:-3] + "y" if token.endswith("ies") else None):
         if cand and cand in words:
+            return cand
+    for cand in (token[:-1] if token.endswith("d") else None,
+                 token[:-2] if token.endswith("ed") else None):
+        if cand and cand in words and cand in _TAKES_ED:
             return cand
     return None
 
@@ -187,7 +193,8 @@ def _inflected(token: str, words) -> str | None:
 # OPUS2M-1: single words that promise several pieces, read with their inflections.
 _PLURAL_WORDS = frozenset({"multipack", "assortment", "combo", "matching", "family",
                            # OPUS2O-1: family nouns besides mother/daughter/family.
-                           "sister", "brother", "sibling", "son", "father", "mommy",
+                           # OPUS2Q-1: not "son" ("Son Shine Baby Blanket" is one).
+                           "sister", "brother", "sibling", "father", "mommy",
                            "mother", "daughter", "kit", "lot"})
 
 
@@ -195,7 +202,7 @@ _PLURAL_WORDS = frozenset({"multipack", "assortment", "combo", "matching", "fami
 # collective suffix ("Quintuplets", "Tetrad", "Sestet", "Tripack", "Duplicate") is a count;
 # a number word followed by -some or -pack ("Fivesome", "Twopack") is too.
 _COUNT_ROOTS: dict[str, int] = {
-    "bi": 2, "di": 2, "du": 2, "duo": 2, "dy": 2, "twi": 2, "two": 2,
+    "bi": 2, "di": 2, "du": 2, "duo": 2, "dy": 2, "twi": 2, "two": 2, "twin": 2,
     "tri": 3, "ter": 3, "three": 3,
     "quad": 4, "quadr": 4, "quadru": 4, "tetr": 4, "tetra": 4, "four": 4,
     "quint": 5, "quintu": 5, "pent": 5, "penta": 5, "five": 5,
@@ -204,21 +211,45 @@ _COUNT_ROOTS: dict[str, int] = {
     "oct": 8, "octu": 8, "octa": 8, "octo": 8, "eight": 8,
     "non": 9, "nona": 9, "nine": 9,
     "dec": 10, "deca": 10, "deci": 10, "ten": 10,
+    # OPUS2Q-7: number words above ten take -some and -pack too ("Elevensome", "Twelvepack").
+    "eleven": 11, "twelve": 12, "dozen": 12,
 }
+# OPUS2Q-1(b): a root this short is the start of ordinary words with a -t/-et ending ("Bit",
+# "Diet", "Tent", "Tenet", "Twit"), so it does not take that ending ("duet" is a count word).
+_SHORT_ROOTS = frozenset({"bi", "di", "du", "dy", "twi", "ten", "ter"})
+_SHORT_EXCLUDED = re.compile(r"e?ts?")
 _COUNT_SUFFIX = re.compile(r"(?:ples?|pled|plets?|plicates?|ads?|e?ts?|ettes?|somes?|packs?|"
-                           r"sets?|fecta)")
-_ROMAN = re.compile(r"(?:ii|iii|iv|vi|vii|viii|ix|xi|xii)")
-_LARGE_NUMBERS = {"hundred": 100, "thousand": 1000, "million": 1000000}
+                           # OPUS2Q-7: the -logy series, -ptych panels, the tercet.
+                           r"sets?|fecta|logy|logies|ptychs?|cets?)")
+_ROMAN = re.compile(r"x{0,2}(?:ix|iv|v?i{0,3})")
+_LARGE_NUMBERS = {"hundred": 100, "thousand": 1000, "million": 1000000, "billion": 10 ** 9}
+
+
+def _roman(token: str) -> int | None:
+    """II..XXXIX as a count. "I", "V" and "X" alone are letters in a title, not counts."""
+    if len(token) < 2 or not _ROMAN.fullmatch(token):
+        return None
+    values = {"i": 1, "v": 5, "x": 10}
+    total = 0
+    for i, ch in enumerate(token):
+        v = values[ch]
+        total += -v if i + 1 < len(token) and values[token[i + 1]] > v else v
+    return total
 
 
 def _morphological_count(token: str) -> int | None:
     for root in sorted(_COUNT_ROOTS, key=len, reverse=True):
-        if token.startswith(root) and _COUNT_SUFFIX.fullmatch(token[len(root):] or "#"):
-            return _COUNT_ROOTS[root]
-    if _ROMAN.fullmatch(token):
-        return {"ii": 2, "iii": 3, "iv": 4, "vi": 6, "vii": 7, "viii": 8, "ix": 9, "xi": 11,
-                "xii": 12}[token]
-    return _LARGE_NUMBERS.get(token)
+        rest = token[len(root):]
+        if not token.startswith(root) or not _COUNT_SUFFIX.fullmatch(rest or "#"):
+            continue
+        if root in _SHORT_ROOTS and _SHORT_EXCLUDED.fullmatch(rest):
+            continue
+        return _COUNT_ROOTS[root]
+    roman = _roman(token)
+    if roman is not None:
+        return roman
+    large = _inflected(token, _LARGE_NUMBERS)      # OPUS2Q-7: "Thousands", "Millions"
+    return _LARGE_NUMBERS[large] if large else None
 
 
 def multiplicity(title: str) -> dict:
@@ -244,9 +275,19 @@ def multiplicity(title: str) -> dict:
             claimed = max(claimed or 0, _COUNT_WORDS[stem])
         elif morph is not None:
             claimed = max(claimed or 0, morph)
-        elif _inflected(token, _PLURAL_WORDS) or token.startswith(("multi", "poly")) or \
-                re.fullmatch(r"packs?", token):
+        elif _inflected(token, _PLURAL_WORDS):
             plural.append(token)
+    # OPUS2Q-1(a)/(c): multi-/poly- and "pack" are counts only where they name several
+    # pieces: before a count or object noun ("Multi-Tote", "Multiset", "Polyptych"), or in a
+    # pack phrase ("Variety Pack", plural "Packs"). "Multicolour", "Polyester", "Fanny Pack",
+    # "Hip Pack" and "Ice Pack Cover" are one object.
+    plural += [m.group(0) for m in re.finditer(
+        r"\bmulti[- ]?(?:pack|set|piece|pc|tote|bag|basket|item|unit|ornament|coaster)s?\b"
+        r"|\bpoly(?:ptych|ad)s?\b|\bpacks\b"
+        r"|\b(?:variety|value|bulk|party|gift|starter|combo|sampler|bundle)[- ]?packs?\b"
+        # a count before the pack, hyphenated or spaced ("Tri-Pack", "Bi Pack")
+        r"|\b(?:" + "|".join(sorted(_COUNT_ROOTS, key=len, reverse=True)) + r")[- ]packs?\b",
+        counted)]
     # OPUS2H H1-3 / OPUS2I I-1: markers as whole words with their inflections.
     plural += [w for w in PLURAL_MARKERS if re.search(_plural_marker_pattern(w), counted)]
     plural += [m.group(0) for m in re.finditer(_PLURAL_OBJECT_NOUNS, counted)]
