@@ -114,7 +114,15 @@ After the runs, `git status --porcelain` printed 0 lines in all four mutation wo
 
 ## Suites (from `brambleloop/`, `PYTHONPATH=src:tests PYTHONDONTWRITEBYTECODE=1 python3 tests/<f>.py`, one at a time, after `pip install -r requirements.txt`)
 
-(Being filled in: the suite runs are still in progress at this commit.)
+Every suite exited 0 with 0 failures ("ok" counts the suite's OK/PASS lines).
+
+| Head | Suites (ok) |
+|---|---|
+| 8cf4a458 (1) | test_opus2_draft_constructions (20), test_launch0 (52), test_w4_pipe_board (70), test_opus2_size_claims (13), test_first_customer_gate (12 passing), test_compiler (9), test_twin (8), test_reverse (18), test_vacuity (8), test_w4_listready (31), test_opus2_knowledge_gaps (9), test_fallback_draft_provenance (1), test_shadow (10), test_products (16), test_products_adversarial (15) |
+| 80f4b073 (1m) | test_opus2_draft_constructions (20), test_first_customer_gate (12 passing), test_launch0 (52), test_compiler (9) |
+| 5889cc37 (2) | test_opus2_cir_colourwork (19), test_compiler (9), test_twin (8), test_reverse (18), test_vacuity (8), test_pattern_truth (11), test_launch0 (52), test_leadtime (21), test_first_customer_gate (12 passing), test_physfix (46/46), test_w4_seo_packages (6), test_search_truth (32 passing), test_w4_pipe_board (70) |
+| 09122165 (3) | test_opus2_pet_bed (7), test_opus2_draft_constructions (18), test_fallback_draft_provenance (1), test_vacuity (8), test_shadow (10), test_products (16), test_products_adversarial (15), test_launch0 (52), test_geometry (44), test_w4_c03_fallback (6 passed) |
+| a859f6fe (4) | test_opus2_stocking (7), test_opus2_pet_bed (7), test_opus2_draft_constructions (18), test_fallback_draft_provenance (1), test_vacuity (8), test_shadow (10), test_products (16), test_products_adversarial (15), test_launch0 (52), test_geometry (44), test_w4_c03_fallback (6 passed), test_physfix (46/46), test_physical (18), test_compiler (9), test_reverse (18), test_twin (8), test_cert_parity_copy (20 passing), test_deliverable_qa (61), test_schematic (PASS), test_search_truth (32 passing) |
 
 ## Commands
 
