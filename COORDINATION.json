@@ -1131,7 +1131,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-C/D: bounded automatic correction after certify/quality/asset failures",
+        "handoff_or_defect": "no uniform revise->recompile->recertify loop or named hold (wiring #3)",
+        "component": "runtime/engineering_ops cir.revise successors",
+        "upstream": "gate.certify / gate.quality / assets.build failures",
+        "downstream": "cir.compile -> gate.certify; owner queue holds",
+        "acceptance": "fixable block corrected automatically; cap then named hold; others unaffected",
+        "path_to_production": "review -> W6-INTEG"
+      }
     },
     {
       "owner": "opus2",
@@ -1169,7 +1178,16 @@
           "stage_at_transfer": "handoff"
         }
       ],
-      "branch": "claude/w5-A6-learning-to-design"
+      "branch": "claude/w5-A6-learning-to-design",
+      "justification": {
+        "capability": "P0-C Learning: approved knowledge changes later designs",
+        "handoff_or_defect": "lessons only nudge scores (wiring #4)",
+        "component": "improve/consume design directives, pipeline draft hook",
+        "upstream": "improve lessons, Codex approved design rules",
+        "downstream": "cir.draft / cir.revise",
+        "acceptance": "approved lesson changes next draft deterministically; unapproved changes nothing; passes gates",
+        "path_to_production": "tests -> review -> W6-INTEG"
+      }
     },
     {
       "owner": "opus2",
@@ -1205,7 +1223,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-D: supply exhaustion is visible instead of silent",
+        "handoff_or_defect": "POOL exhaustion unread (wiring #5)",
+        "component": "radar.scan supply reading, flow_health",
+        "upstream": "radar.scan / pool_with_intake",
+        "downstream": "Command Center, readback evidence",
+        "acceptance": "one reading per period; no duplicate cir.draft",
+        "path_to_production": "regressions -> review -> W6-INTEG"
+      }
     },
     {
       "owner": "opus2",
@@ -1246,7 +1273,16 @@
           "stage_at_transfer": "handoff"
         }
       ],
-      "branch": "claude/w5-A8-culture-ideation"
+      "branch": "claude/w5-A8-culture-ideation",
+      "justification": {
+        "capability": "P0-B: culture signals become concepts",
+        "handoff_or_defect": "culture findings only write learning notes (wiring #6)",
+        "component": "culture.radar.route_findings -> ideation intake",
+        "upstream": "culture.sweep",
+        "downstream": "radar.concept_intake (A4a path)",
+        "acceptance": "culture finding produces an approved concept through the same gates",
+        "path_to_production": "after A4a -> review"
+      }
     },
     {
       "owner": "opus2",
@@ -1282,7 +1318,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-C: listing package raised on completion, not every 6 h",
+        "handoff_or_defect": "6-hourly poll only (wiring #7)",
+        "component": "launch.plan successor, listing_package.for_release",
+        "upstream": "launch.plan",
+        "downstream": "listing.package -> owner review request",
+        "acceptance": "package after certify without clock advance; no duplicates with sweep",
+        "path_to_production": "regressions -> review -> W6-INTEG"
+      }
     },
     {
       "owner": "opus2",
@@ -1318,6 +1363,15 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-A safety: no closed stuffed form is merchandised to children without an audited decision",
+        "handoff_or_defect": "children's gate keyed on title/optional seam field (A1-1..-5)",
+        "component": "products/launch0 children's gate, child_words_in fold, PDF renderer, risk_matrix",
+        "upstream": "cir.draft (every producer)",
+        "downstream": "assets.build, listing package, publish gates",
+        "acceptance": "real Worker+SQLite: stuffed ball / at_round ears / panel_pair / neutral & disguised titles held; Launch-0 unchanged",
+        "path_to_production": "review -> W6-INTEG -> Batch 6 cert -> deploy"
       }
     },
     {
@@ -1352,7 +1406,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-C visual truth: prompts derive from the certified CIR; no wasted paid repairs",
+        "handoff_or_defect": "structural repair loop, ribbing misfire, indirect stripes, photo label",
+        "component": "visual/image_production, creative/pattern_refs, flux_prompt, shot_plans",
+        "upstream": "certified CIR",
+        "downstream": "visual review, gallery",
+        "acceptance": "basket prompt names corners/stripes/rim; 1 call then named block",
+        "path_to_production": "re-run visnext -> review -> W6-INTEG"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1395,7 +1458,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-A financial control: paid image/vision calls need owner activation",
+        "handoff_or_defect": "key or probe opens image_generation automatically (PF-PAID-PROBE-NO-ACTIVATION)",
+        "component": "gateway enforcement point, activation record",
+        "upstream": "capability probes, image_production, vision judges",
+        "downstream": "provider calls",
+        "acceptance": "zero network calls without activation; each ceiling independently refuses",
+        "path_to_production": "review -> W6-INTEG -> cert -> deploy"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1464,6 +1536,15 @@
         "posted_at": "2026-11-02T20:17:44Z",
         "ack_due_by": "2026-11-02T21:17:44Z",
         "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      },
+      "justification": {
+        "capability": "P0-A Product Truth: repeated customer defects withhold and re-verify the release",
+        "handoff_or_defect": "3+ cases only write an audit row",
+        "component": "support defect handling, incidents, verification, withholding",
+        "upstream": "support cases",
+        "downstream": "re-verification job, withholding",
+        "acceptance": "3 cases -> incident + re-verify + withhold that release only",
+        "path_to_production": "review -> W6-INTEG"
       }
     },
     {
@@ -1489,6 +1570,15 @@
         "posted_at": "2026-11-02T20:17:44Z",
         "ack_due_by": "2026-11-02T21:17:44Z",
         "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      },
+      "justification": {
+        "capability": "P0-A security: a leaked secret becomes an incident and a rotation request",
+        "handoff_or_defect": "log_secret_guard.summary has no consumer",
+        "component": "ops/log_secret_guard, incidents, owner_queue",
+        "upstream": "log guard",
+        "downstream": "incident + owner action",
+        "acceptance": "one incident + one rotation action; value absent everywhere",
+        "path_to_production": "review -> W6-INTEG"
       }
     },
     {
@@ -1657,6 +1747,15 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-A Product Truth: every producer's title names the object it builds",
+        "handoff_or_defect": "raw-title motif gate, provenance-scoped exemption, descriptor strip (A2-1..-6)",
+        "component": "shared title fold + name_truth/motif_promise",
+        "upstream": "concept intake (POOL, research, culture, registry)",
+        "downstream": "cir.draft, listing copy",
+        "acceptance": "Unicode/bracket/radar-seed/prototype repros refused; catalogue byte-identical",
+        "path_to_production": "review -> W6-INTEG -> cert -> deploy"
       }
     },
     {
@@ -1672,6 +1771,15 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-B: held/refused drafts are enriched and re-drafted",
+        "handoff_or_defect": "draft:<slug> key permanent; refusals consumed by nobody (wiring #2)",
+        "component": "pipeline draft keys, enrichment consumer",
+        "upstream": "cir.draft_refused, knowledge gaps",
+        "downstream": "cir.draft (re-draft)",
+        "acceptance": "refused draft enriched and re-drafted once; idempotent",
+        "path_to_production": "review -> W6-INTEG"
       }
     },
     {
@@ -1687,6 +1795,15 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-C gallery: attested photos re-qualify and lead automatically",
+        "handoff_or_defect": "re-opened photo never promoted (A3D-1)",
+        "component": "publish/photo_asset_review, release_gates.listing_set",
+        "upstream": "physical.photo / attestation",
+        "downstream": "listing set certificate, listing package",
+        "acceptance": "re-open-from-terminal path tested; mutants K7/K9/K12 killed",
+        "path_to_production": "review -> W6-INTEG"
       }
     },
     {
@@ -1726,7 +1843,16 @@
           "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
           "stage_at_transfer": "handoff"
         }
-      ]
+      ],
+      "justification": {
+        "capability": "P0-B continuous supply: research creates original concepts beyond the 34",
+        "handoff_or_defect": "attach_proposal had no production caller (wiring #1)",
+        "component": "radar/ideation, pipeline coverage handoff, intel_ops research routing",
+        "upstream": "radar.scan coverage gaps, competitor observations",
+        "downstream": "radar.concept_intake -> radar.score -> cir.draft",
+        "acceptance": "new slug drafted automatically; no-evidence/originality refusals; continuation; extend through certify",
+        "path_to_production": "review -> W6-INTEG"
+      }
     },
     {
       "id": "E2E-ACCEPTANCE",
@@ -1736,7 +1862,16 @@
       "assigned": "2026-11-02T20:17:44Z",
       "integration_target": "claude/w5-INTEG1",
       "branch": "claude/w6-E2E-acceptance",
-      "requirement": "end-to-end workforce demonstration harness: one durable DB, real handlers via Worker, from radar/culture signal through research -> concept -> CIR -> certify -> PDF/assets -> gallery -> listing package -> owner review request -> outcomes -> learning -> next product; reports each department's verdict; the 16-point demonstration and the basis for the 24 h Railway acceptance"
+      "requirement": "end-to-end workforce demonstration harness: one durable DB, real handlers via Worker, from radar/culture signal through research -> concept -> CIR -> certify -> PDF/assets -> gallery -> listing package -> owner review request -> outcomes -> learning -> next product; reports each department's verdict; the 16-point demonstration and the basis for the 24 h Railway acceptance",
+      "justification": {
+        "capability": "P0-E: prove every department works together on one durable DB",
+        "handoff_or_defect": "no end-to-end demonstration exists",
+        "component": "acceptance harness over real handlers",
+        "upstream": "all departments",
+        "downstream": "owner evidence; 24 h Railway acceptance",
+        "acceptance": "signal -> concept -> CIR -> certify -> PDF -> images -> gallery -> package -> owner request -> outcomes -> learning -> next product",
+        "path_to_production": "after W6 integration"
+      }
     }
   ],
   "decisions": [
@@ -1796,6 +1931,13 @@
       "source": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce'",
       "decision": "Main and Secondary build the workforce together, split by module and branch. Secondary (opus2) keeps its full P0 mission: A1-R, A2-FIX, A3-FIX, A4a (handed over), A4b, A5, A6, A7, A8, A9, V0-V6, P0-PHYSICAL-TEST-REQUEST, P0-PORTFOLIO-ACT and P0-STOREFRONT-ASSET-FIX. Main (mainopus) takes cross-department infrastructure: P0-JOBTYPE-CLOSURE, P0-FLOW-STALL-ACT, P0-OWNER-DECISION-DISPATCH, P0-SECRET-LEAK-ESCALATE, P0-SUPPORT-DEFECT-INCIDENT, P0-FAILOVER-DRILL, P0-FINANCE-CHALLENGE-IDEM, P0-PROVIDER-BILLING-RECON and E2E-ACCEPTANCE, plus integration, certification and release. Codex keeps P0-LEARNING-REFERENCE. Main's engineering runs as parallel capacity now, with tests gated on Batch 5 certification finishing, and becomes Main's primary activity once the Batch 5 deployment decision is handled.",
       "boundaries": "P0-FLOW-STALL-ACT builds on ops/flow_health.py, which A7 (opus2) extends. Main works only the stall/loop act path and rebases on A7 once it is integrated."
+    },
+    {
+      "id": "D-OWNER-EXECUTION-CONTRACT",
+      "at": "2026-11-02T20:20:41Z",
+      "source": "owner 'Final owner execution contract' 2026-11-02 (binding)",
+      "decision": "Priority order P0-A safety/Product Truth, P0-B continuous product supply, P0-C complete autonomous production, P0-D reliable orchestration, P0-E production proof; non-critical enhancements never displace these. Every assignment carries an autonomy justification (assignments[*].justification: capability, handoff_or_defect, component, upstream, downstream, acceptance, path_to_production). Product-specific work only to close shared correctness/safety/readiness defects. Progress is reported only as the delivery ladder BUILT -> REVIEWED -> INTEGRATED -> CERTIFIED -> DEPLOYED -> PRODUCTION-VERIFIED -> E2E-ACCEPTED (`ops/assignments.py status`), never as counts of commits, PRs or tests. Accepted work integrates promptly into the Batch 6 branch, kept separate from the certified Batch 5 candidate.",
+      "integration_branch": "claude/w6-INTEG1 (from claude/w5-INTEG1 7c42e706; created at the first accepted Batch 6 item)"
     }
   ],
   "owner_actions_pending": [

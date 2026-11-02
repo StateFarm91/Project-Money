@@ -150,7 +150,34 @@ def assess(a: dict, events: list[dict], t: datetime) -> dict:
             "worker_last_seen": iso(seen) if seen else None,
             "checkpoint_sha": next((e.get("sha") for e in reversed(evs) if e.get("sha")), None),
             "overdue": overdue,
+            "delivery": delivery(a, evs),
+            "justification_missing": [k for k in JUSTIFICATION if not (a.get("justification") or {}).get(k)],
             "safe_to_reassign": bool(overdue) and s in ("posted", "acknowledged", "started")}
+
+
+LADDER = ("not_built", "built", "reviewed", "integrated", "certified", "deployed",
+          "production_verified", "e2e_accepted")
+JUSTIFICATION = ("capability", "handoff_or_defect", "component", "upstream", "downstream",
+                 "acceptance", "path_to_production")
+
+
+def delivery(a: dict, evs: list[dict]) -> str:
+    """Owner contract 2026-11-02 s.8: BUILT -> REVIEWED -> INTEGRATED -> CERTIFIED -> DEPLOYED ->
+    PRODUCTION-VERIFIED -> END-TO-END ACCEPTED. Each rung needs recorded evidence; the integrator
+    writes the `delivery` fields (review_verdict SHIP, integrated_in, certified_run, deployed_sha,
+    production_evidence, e2e_evidence). A worker's checkpoint event counts as BUILT."""
+    dv = a.get("delivery") or {}
+    rung = "built" if any(e["event"] == "checkpoint" for e in evs) else "not_built"
+    if str(a.get("review_verdict", "")).upper().startswith(("SHIP", "ACCEPT")):
+        rung = "reviewed"
+    for key, name in (("integrated_in", "integrated"), ("certified_run", "certified"),
+                      ("deployed_sha", "deployed"), ("production_evidence", "production_verified"),
+                      ("e2e_evidence", "e2e_accepted")):
+        if dv.get(key):
+            rung = name
+        else:
+            break
+    return rung
 
 
 def status(root: Path = ROOT, t: datetime | None = None) -> list[dict]:
@@ -275,8 +302,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             for x in rows:
                 flag = "  OVERDUE: " + "; ".join(x["overdue"]) if x["overdue"] else ""
-                print(f"{x['id']:<27} {x['owner'][:22]:<22} P{x['priority'] or '-'} "
-                      f"{x['stage']:<17} seen={x['worker_last_seen'] or '-'}{flag}")
+                print(f"{x['id']:<27} {x['owner'][:16]:<16} P{x['priority'] or '-'} "
+                      f"{x['stage']:<17} {x['delivery']:<19} seen={x['worker_last_seen'] or '-'}{flag}")
         return 0
     if a.cmd == "stale":
         rows = [x for x in status() if x["overdue"]]

@@ -100,6 +100,14 @@ A.append_event("mainopus-worker", "X1", "checkpoint", sha="def456", root=d2, t=t
 r = row(d2, "X1", t_dead + timedelta(hours=1))
 check(r["stage"] == "checkpoint_pushed" and not r["overdue"], "recovered under the new owner")
 
+# delivery ladder needs evidence for every rung, in order
+a = A.load_coord(d2)["assignments"][0]
+check(row(d2, "X1", t_dead + timedelta(hours=1))["delivery"] == "built", "checkpoint counts as BUILT")
+a["review_verdict"] = "SHIP (R1)"; a["delivery"] = {"integrated_in": "w6@abc", "deployed_sha": "x"}
+coord = A.load_coord(d2); coord["assignments"][0] = a; A.save_coord(coord, d2)
+check(row(d2, "X1", t_dead + timedelta(hours=1))["delivery"] == "integrated",
+      "a rung with no certification evidence stops the ladder (deployed without certified is not counted)")
+
 for x in (d, d2):
     shutil.rmtree(x)
 print(f"\n{'FAILED ' + str(len(FAILS)) if FAILS else 'ALL PASSED'}")
