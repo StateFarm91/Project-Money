@@ -36,7 +36,7 @@ def fold_title(title: str | None) -> str:
     "Fair\u2011Isle" is the same claim as "Fair-Isle"."""
     import unicodedata
 
-    text = unicodedata.normalize("NFKC", title or "")
+    text = unicodedata.normalize("NFKC", title or "").replace("\u2019", "'")
     text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
                    for c in text)
     return re.sub(r"\s+", " ", text.lower()).strip()
@@ -56,8 +56,20 @@ def words_before_head(folded: str, head_re: str) -> list[str] | None:
 
 
 def modifiers_outside(folded: str, head_re: str, allowed: frozenset) -> list[str]:
-    """The modifiers before the head noun that the route's allowlist does not hold."""
-    return [w for w in (words_before_head(folded, head_re) or []) if w not in allowed]
+    """The modifiers before the head noun that the route's allowlist does not hold.
+
+    Review OPUS2N-1: total, not token-wise. Anything before the head noun that is not an
+    ASCII word -- an emoji, a word in another script, a symbol -- yields no token, so it is
+    returned as what is left over, never passed as "no unknown word"."""
+    head = re.search(head_re, folded)
+    if not head:
+        return []
+    prefix = folded[:head.start()]
+    unknown = [w for w in (words_before_head(folded, head_re) or []) if w not in allowed]
+    leftover = re.sub(r"[a-z0-9'\s\-]", "", prefix)
+    if leftover:
+        unknown.append(leftover)
+    return unknown
 
 
 FLAT_PANEL = "flat_panel"
@@ -563,7 +575,8 @@ _PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pill
                       r"blanket|mat|cover|pad|topper|hammock|toy|heated|waterproof|"
                       r"orthop(?:a)?edic|window|raised|weave|woven|elevated|bunk|canopy)\b)")
 _PET_BED_ALLOWED_WORDS = frozenset({
-    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "round", "snug", "basket",
+    # OPUS2N-2: no "round": the bed is a hexagon (its size note says so).
+    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "snug", "basket",
     "crochet", "crocheted", "simple", "classic", "everyday", "soft", "nest", "cat's",
 })
 _PET_BED_OTHER_ANIMALS = (r"\b(?:dog|dogs|puppy|puppies|pup|hound|great dane|labrador|"

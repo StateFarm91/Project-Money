@@ -119,7 +119,10 @@ def test_review_opus2l_only_allowlisted_words_come_before_stocking():
                      "Seven Stocking", "Dozen Stocking", "Both Stocking",
                      "Fair\u2011Isle Stocking", "Fair\u2013Isle Stocking",
                      "Pom\u2011Pom Stocking", "Pom\u2013Pom Stocking",
-                     "\uff33nowflake Stocking"],
+                     "\uff33nowflake Stocking",
+                     # OPUS2N-1: an emoji or another script is not a free pass.
+                     "\U0001f385 Stocking", "\u0421\u0430\u043d\u0442\u0430 Stocking",
+                     "\u2603 Stocking", "Christmas \u2605 Stocking"],
         "blanket": ["Blanket Stocking", "Blanket Stitch Stocking"],
         "bag": ["Tote Bag Stocking"],
         "home_decor": ["Nylon Stocking", "Compression Stocking", "Fishnet Stocking",
@@ -144,7 +147,7 @@ def test_review_opus2l_only_allowlisted_words_come_before_stocking():
     for category, title in drafted:
         assert F.plan(category=category, title=title)["family"] == F.STOCKING, (category, title)
     # The pet route reads the same fold: a plain cat bed still drafts as the vessel.
-    for title in ("Cosy Cat Bed", "Cat's Snug Bed", "Round\u00a0Pet  Basket"):
+    for title in ("Cosy Cat Bed", "Cat's Snug Bed", "Snug\u00a0Pet  Basket", "Cat\u2019s Bed"):
         assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
     # The rule is shared: a fold, then the modifiers before the head noun.
     assert F.fold_title("Fair\u2011Isle  \uff33tocking ") == "fair-isle stocking"

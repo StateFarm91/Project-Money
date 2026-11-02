@@ -31,7 +31,7 @@ def _concept(title, category="pet"):
 
 
 def test_a_titled_pet_bed_routes_to_the_vessel_and_a_mat_stays_flat():
-    beds = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Round Cat Bed", "Pet Basket")
+    beds = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Snug Cat Bed", "Pet Basket")
     assert beds
     for title in beds:
         assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
@@ -73,8 +73,8 @@ def test_review_opus2j_j9_j10_j12_only_a_titled_cat_bed_becomes_a_basket():
 
 
 def test_review_opus2k_k7_k8_only_plain_cat_and_pet_words_may_precede_the_bed():
-    drafted = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Round Cat Bed", "Pet Basket",
-               "Crochet Cat Bed", "Snug Kitty Bed")
+    drafted = ("Cat Basket Bed", "Cosy Pet Bed", "Kitten Nest", "Pet Basket",
+               "Crochet Cat Bed", "Snug Kitty Bed", "Cat's Bed", "Cat\u2019s Bed")
     refused = ("German Shepherd Bed", "Golden Retriever Bed", "Lab Bed", "Corgi Bed",
                "Doggy Bed", "Pooch Bed", "Canine Bed", "Guinea-Pig Bed", "Gerbil Bed",
                "Rats Nest", "Birds Nest", "Owl Nest", "Maine Coon Bed", "Little Cat Bed",
@@ -136,6 +136,19 @@ def test_the_bed_compiles_wide_and_low_and_states_its_computed_size():
     assert 8.0 <= wall_cm <= 12.0, wall_cm               # low: a pet steps in over it
     basket = F.vessel(_concept("Storage Basket", category="basket"))
     assert max(r.declared_count for r in basket.components[0].rows) < base   # and wider
+
+
+def test_review_opus2n_the_allowlist_is_total_and_the_bed_is_not_called_round():
+    """OPUS2N-1: a word with no ASCII letters (an emoji, another script, a symbol) is not a
+    free pass. OPUS2N-2: the bed is a hexagon, so "Round" is not allowlisted."""
+    refused = ("\U0001f436 Bed", "\U0001f415 Basket", "\u72ac Bed", "\u041a\u043e\u0442 Bed",
+               "\u041a\u043e\u0448\u0430\u0447\u044c\u044f Bed", "\u2161 Cat Bed",
+               "Cat \u2665 Bed", "Round Cat Bed", "Round Pet Basket")
+    assert refused
+    for title in refused:
+        route = F.plan(category="pet", title=title)
+        assert route["family"] == F.REFUSED and route["needs"], (title, route)
+    assert F.plan(category="pet", title="Cosy Cat Bed")["family"] == F.VESSEL
 
 
 if __name__ == "__main__":
