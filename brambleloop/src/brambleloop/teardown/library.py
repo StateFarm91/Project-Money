@@ -62,7 +62,18 @@ class ContentRefused(Exception):
 
 def library_root(env: dict[str, str] | None = None) -> Path:
     e = env if env is not None else os.environ
-    return Path(e.get(LIBRARY_ENV) or DEFAULT_LIBRARY).resolve()
+    root = Path(e.get(LIBRARY_ENV) or DEFAULT_LIBRARY).resolve()
+    # The application tree is present in an image even when .git is not. Also
+    # reject the enclosing checkout when running from source, resolving symlinks
+    # before comparing paths.
+    application = Path(__file__).resolve().parents[3]
+    forbidden = [application]
+    forbidden.extend(p for p in application.parents if (p / ".git").exists())
+    if any(root == tree or tree in root.parents for tree in forbidden):
+        raise LibraryRefused(
+            f"benchmark library must be outside the repository and application tree; "
+            f"set {LIBRARY_ENV} to a private external directory")
+    return root
 
 
 def retrieve(relative_path: str, role: str, env: dict[str, str] | None = None, *,
