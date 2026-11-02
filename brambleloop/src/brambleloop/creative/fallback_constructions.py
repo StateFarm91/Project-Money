@@ -29,6 +29,37 @@ import re
 
 from ..cir.model import CIR, Component, Material, Op, Repeat, Row
 
+def fold_title(title: str | None) -> str:
+    """A title as the routing rules read it (review OPUS2L-4): NFKC (fullwidth letters,
+    compatibility forms), every Unicode dash (category Pd: U+2010..U+2015, U+2212 and the
+    like) as an ASCII hyphen, lower case, whitespace collapsed and stripped. A smart-copy
+    "Fair\u2011Isle" is the same claim as "Fair-Isle"."""
+    import unicodedata
+
+    text = unicodedata.normalize("NFKC", title or "")
+    text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
+                   for c in text)
+    return re.sub(r"\s+", " ", text.lower()).strip()
+
+
+def words_before_head(folded: str, head_re: str) -> list[str] | None:
+    """The modifier words before a title's head noun, or None when the head noun is not the
+    title's last word. The shared construction-intent rule (reviews OPUS2K-7, OPUS2L-1): a
+    route that drafts one plain object drafts it only when every modifier is in that route's
+    allowlist, so another product, a size, an audience, a motif, an embellishment or a claim
+    is refused whatever it is called -- never matched against a denylist that cannot be
+    complete."""
+    head = re.search(head_re, folded)
+    if not head:
+        return None
+    return re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded[:head.start()])
+
+
+def modifiers_outside(folded: str, head_re: str, allowed: frozenset) -> list[str]:
+    """The modifiers before the head noun that the route's allowlist does not hold."""
+    return [w for w in (words_before_head(folded, head_re) or []) if w not in allowed]
+
+
 FLAT_PANEL = "flat_panel"
 VESSEL = "vessel"
 PANEL_PAIR = "panel_pair"
@@ -132,8 +163,8 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
-    if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, (title or "").lower().strip()):
-        lowered_p = (title or "").lower()
+    if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, fold_title(title)):
+        lowered_p = fold_title(title)       # OPUS2L-4: Unicode dashes and forms folded
         # OPUS2J J-12: one release is one bed.
         if re.search(_MULTIPLE_WORDS, lowered_p) or re.search(r"\b(?:beds|baskets|nests)\b",
                                                                 lowered_p):
@@ -155,9 +186,8 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         # OPUS2K K-7 (the second half of J-9): an allowlist, not a denylist. Every word before
         # the head noun must be a plain cat/pet word, so another animal, a size, a feature or a
         # different object is refused whatever it is called.
-        head = re.search(_PET_BED_HEAD, lowered_p.strip())
-        before = re.findall(r"[a-z0-9]+", lowered_p.strip()[:head.start()]) if head else []
-        unknown = [w for w in before if w not in _PET_BED_ALLOWED_WORDS]
+        # The shared construction-intent rule (fold_title / modifiers_outside).
+        unknown = modifiers_outside(lowered_p, _PET_BED_HEAD, _PET_BED_ALLOWED_WORDS)
         if unknown:
             return {"family": REFUSED,
                     "needs": (f"the construction or sourced size {' '.join(unknown)!r} names; "
@@ -174,7 +204,7 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                             f"low-walled basket bed does not make")}
         return {"family": VESSEL, "needs": "",
                 "why": "a pet basket bed is a wide vessel with a low wall, worked in the round"}
-    lowered_s = (title or "").lower().strip()
+    lowered_s = fold_title(title)
     stocking_head = re.search(_STOCKING_HEAD, lowered_s)
     if category == "stocking" and not stocking_head:
         # OPUS2J J-13: the category alone never makes a stocking out of another product.
@@ -210,6 +240,20 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
             return {"family": REFUSED,
                     "needs": "one certified release per finished stocking, each listed on its own",
                     "why": "the title promises more than one stocking; one draft is one stocking"}
+        # Review OPUS2L-1/-2/-3/-5: an allowlist, not a denylist. Every word before "stocking"
+        # must be a plain Christmas-stocking word; another product ("Wine Bottle Stocking"),
+        # hosiery or a medical claim ("Compression Stocking"), a size or audience ("Baby
+        # Stocking"), a motif, an embellishment or a count is refused whatever it is called.
+        # The one contrast band the stocking does make is the four-row cuff (accent colour),
+        # so "Stripe Cuff" / "Contrast Cuff" names it truly; a striped body does not exist.
+        banded = re.sub(r"\b(?:stripe|striped|contrast|contrasting) cuff\b", "cuff", lowered_s)
+        unknown = modifiers_outside(banded, _STOCKING_HEAD, _STOCKING_ALLOWED_WORDS)
+        if unknown:
+            return {"family": REFUSED,
+                    "needs": (f"the construction, size or sourced claim {' '.join(unknown)!r} "
+                              f"names; only a plain Christmas stocking is drafted"),
+                    "why": (f"the title names {' '.join(unknown)!r}, which the one plain "
+                            f"two-panel stocking does not make")}
         return {"family": STOCKING, "needs": "",
                 "why": "a stocking is two L-shaped panels worked flat and seamed around"}
     if re.search(_EGG_COSY_WORDS, (title or "").lower()):
@@ -374,11 +418,26 @@ _STOCKING_WORDS = r"\bstockings?\b"
 # Blanket", "Stocking Garland", "Stocking Holder", "Stocking Cap" and "Stocking Tote" are never
 # drafted as a stocking.
 _STOCKING_HEAD = r"\bstockings?$"
+# Review OPUS2L-1: the only words a plain stocking title may carry before "stocking". Style
+# and occasion words only; no size, audience, colour pattern, motif, material or count.
+_STOCKING_ALLOWED_WORDS = frozenset({
+    "christmas", "xmas", "holiday", "festive", "classic", "traditional", "fireside", "cosy",
+    "cozy", "plain", "simple", "crochet", "crocheted", "everyday", "hanging", "modern",
+    "minimalist", "solid", "seasonal", "winter", "cuff",
+})
 _STOCKING_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|mosaic|fair[- ]?isle|tapestry|colou?rwork|"
                        r"intarsia|graphghan|personali[sz]ed|monogram(?:med)?|name|initials?|"
                        r"cable[sd]?|bobble[sd]?|lace|lacy|pom[- ]?poms?|fur|faux|cuffed|"
                        r"appliqu[eé]|mini|tiny|small|medium|large|giant|jumbo|xl|oversized?)\b)")
 STOCKING_PRIMITIVES = ("creative.fallback_constructions.stocking",)
+# Review OPUS2L-7: the size is a stated design choice, not a sourced standard. No published
+# standard was found (2026-11-02): retail stockings range widely, e.g. Northlight's 20-inch
+# stocking is 20 x 9 in (https://www.homedepot.ca/product/northlight-20-traditional-red-with-
+# white-cuff-hanging-christmas-stocking/1001820543). This one is smaller (about 14 in cuff to
+# sole) and the listing states the computed size, never a measured or standard one.
+STOCKING_SIZE_SOURCE = ("design choice; no published standard stocking size found. Retail "
+                        "example for scale: Northlight 20-inch stocking, 20 x 9 in (Home Depot "
+                        "Canada listing 1001820543)")
 STOCKING_LEG_W_CM = 14.0
 STOCKING_LEG_L_CM = 26.0
 STOCKING_FOOT_L_CM = 22.0
@@ -456,7 +515,10 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
              at_round=1, spans_rounds=len(rows),
              note=("Place the back on the front with the same side facing up, so the feet point "
                    "the same way and the edges match, and whipstitch around the leg, heel, "
-                   "sole and toe, leaving the cuff (the foundation edges) open.")),
+                   "sole and toe, leaving the cuff (the foundation edges) open. Because both "
+                   "panels face the same way, the back panel's wrong side shows on the "
+                   "outside; in single crochet worked in turned rows the two sides look "
+                   "nearly alike.")),
         Seam("whipstitch", "hanging loop", "back", edge_a="bottom", edge_b="top",
              at_round=1, spans_rounds=1,
              note="Fold the loop in half and sew both ends inside the heel-side top corner."),

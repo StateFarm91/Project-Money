@@ -103,6 +103,63 @@ def test_review_opus2j_j15_j16_assembly_matches_two_identical_panels_and_size_is
             in cir.finished_size_note), cir.finished_size_note
 
 
+def test_review_opus2l_only_allowlisted_words_come_before_stocking():
+    """OPUS2L-1..-5, -8, -9: the shared construction-intent rule. Another product, hosiery or
+    a medical claim, a size or audience, a motif, an embellishment, a count or a Unicode-dash
+    spelling of a refused word is refused in every category; plain titles still draft."""
+    refused = {
+        "stocking": ["Pillow Stocking", "Garland Stocking", "Wine Bottle Stocking",
+                     "Gift Card Stocking", "Ornament Stocking", "Advent Calendar Stocking",
+                     "Big Stocking", "XXL Stocking", "Kids Stocking", "Baby Stocking",
+                     "Baby's First Stocking", "Doll Stocking", "Chunky Stocking",
+                     "Santa Stocking", "Snowman Stocking", "Striped Stocking",
+                     "Plaid Stocking", "Argyle Stocking", "Striped Cuff Striped Stocking",
+                     "Stripe Stocking", "Granny Square Stocking",
+                     "Embroidered Stocking", "Custom Stocking", "Ribbed Cuff Stocking",
+                     "Seven Stocking", "Dozen Stocking", "Both Stocking",
+                     "Fair\u2011Isle Stocking", "Fair\u2013Isle Stocking",
+                     "Pom\u2011Pom Stocking", "Pom\u2013Pom Stocking",
+                     "\uff33nowflake Stocking"],
+        "blanket": ["Blanket Stocking", "Blanket Stitch Stocking"],
+        "bag": ["Tote Bag Stocking"],
+        "home_decor": ["Nylon Stocking", "Compression Stocking", "Fishnet Stocking",
+                       "Knee High Stocking", "Thigh-High Stocking"],
+        "seasonal": ["Compression Stocking", "Silk Stocking"],
+        "pet": ["Dog Stocking", "German Shepherd Stocking", "Stocking Bed",
+                "Stocking Basket", "Self\u2011Warming Cat Bed", "Maine\u2013Coon Bed"],
+    }
+    checked = 0
+    for category, titles in refused.items():
+        for title in titles:
+            got = F.plan(category=category, title=title)
+            assert got["family"] == F.REFUSED, (category, title, got)
+            assert got["needs"] and got["why"], (category, title, got)
+            checked += 1
+    assert checked == sum(len(v) for v in refused.values()) and checked > 40, checked
+    drafted = [("stocking", "Christmas Stocking"), ("stocking", "Classic Christmas Stocking"),
+               ("seasonal", "Cosy Fireside Stocking"), ("stocking", "Christmas Stocking  "),
+               ("stocking", "  Plain  Holiday   Stocking"), ("home_decor", "Xmas Stocking"),
+               ("stocking", "Contrast Cuff Christmas Stocking")]
+    assert drafted
+    for category, title in drafted:
+        assert F.plan(category=category, title=title)["family"] == F.STOCKING, (category, title)
+    # The pet route reads the same fold: a plain cat bed still drafts as the vessel.
+    for title in ("Cosy Cat Bed", "Cat's Snug Bed", "Round\u00a0Pet  Basket"):
+        assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
+    # The rule is shared: a fold, then the modifiers before the head noun.
+    assert F.fold_title("Fair\u2011Isle  \uff33tocking ") == "fair-isle stocking"
+    assert F.words_before_head("cosy christmas stocking", F._STOCKING_HEAD) == ["cosy", "christmas"]
+    assert F.words_before_head("stocking cap", F._STOCKING_HEAD) is None
+
+
+def test_review_opus2l6_the_note_says_which_side_shows():
+    cir = F.stocking(_concept())
+    note = cir.assembly[0].note
+    assert "same side facing up" in note and "wrong side shows on the outside" in note, note
+    assert F.STOCKING_SIZE_SOURCE.startswith("design choice"), F.STOCKING_SIZE_SOURCE
+    assert "Computed, not yet measured" in cir.finished_size_note, cir.finished_size_note
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
