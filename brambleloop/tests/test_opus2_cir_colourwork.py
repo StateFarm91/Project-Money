@@ -392,6 +392,40 @@ def test_review_opus2k_k5_k6_every_spelling_is_folded_and_held_double_is_not_str
         assert truth["backed"] is True and findings == [], (title, findings)
 
 
+def test_review_opus2m_compounds_inflections_counts_and_unicode_are_claims():
+    """OPUS2M-2 (the K-5 anchor loosened the gate), -3, -4, -8: every one of these is a
+    colourwork claim, refused on all-plain fabric as a title and as a tag."""
+    plain = _band({})
+    claims = (
+        # M-2: a claim word inside a compound is still a claim (substring, as before K-5)
+        "Minimosaic", "Microtapestry", "Minitapestry", "Superfairisle", "Multicolourwork",
+        "Pseudointarsia",
+        # M-3: inflections, any colour count, and the missing spellings
+        "Tapestries", "Graphgans", "Jacquards", "Duplicate Stitching", "Colour Works",
+        "Color Works", "Two-Tones", "Five-Colour", "5 Colour", "Ten Colour", "C-2-C", "C 2 C",
+        "Corner-2-Corner", "Dual Colour", "Duo-Tone", "Duotone", "Colour Block",
+        "Colorblock", "Pixel Crochet", "Four Colour",
+        # M-4: invisible characters, accents, dotted capital I, look-alike letters
+        "Tape\u200bstry", "Mo\u00adsaic", "Mo\u200dsaic", "F\u00e1ir \u00cdsle",
+        "T\u00e1pestry", "Mos\u00e4ic", "Colourw\u00f6rk", "FA\u0130R ISLE",
+        "\u0422\u0430pestry", "Fair\u200bIsle",
+        # M-8: full-width forms are folded
+        "\uff26\uff41\uff49\uff52 \uff29\uff53\uff4c\uff45",
+    )
+    assert claims
+    checked = 0
+    for word in claims:
+        truth, findings = _truth(plain, f"{word} Basket")
+        assert truth["backed"] is False and findings, word
+        assert _truth(plain, "Plain Basket", tags=(word,))[1], word
+        checked += 1
+    assert checked == len(claims)
+    # Still not claims: yarn held double, and a plain title (OPUS2M-8 We: "held" alone).
+    for title in ("Held Stranded Basket", "Double-Stranded Basket", "Plain Basket"):
+        truth, findings = _truth(plain, title)
+        assert truth["backed"] is True and findings == [], (title, findings)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

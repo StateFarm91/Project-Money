@@ -367,38 +367,60 @@ _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwo
 # ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
 # matching, and each variant maps to the technique whose rule judges it.
 _CLAIM_VARIANTS: dict[str, str] = {
-    # variant regex (on folded text) -> the technique whose rule judges it
-    r"colou?r work": "colourwork",
-    r"(?:two|three|four|multi|bi|tri|2|3|4) ?colou?r(?:s|ed)?": "colourwork",
-    r"two ?tone[d]?": "colourwork",
+    # variant regex (on folded text) -> the technique whose rule judges it. Every variant is
+    # matched from a word start and may run on into an inflection (OPUS2M-3: "Tapestries",
+    # "Jacquards", "Colour Works", "Two-Tones" are the same claims).
+    r"colou?r ?works?": "colourwork",
+    r"tapestri": "tapestry",                       # "Tapestries": the y-to-ies plural
+    # OPUS2M-3: any count of colours or tones, digits included ("Five-Colour", "5 Colour",
+    # "Dual Colour", "Duotone").
+    (r"(?:\d+|two|three|four|five|six|seven|eight|nine|ten|multi|bi|tri|dual|duo) ?"
+     r"(?:colou?r|tone)"): "colourwork",
+    r"colou?r ?block": "colourwork",
     # "Double-Stranded" / "held double" is a yarn-holding construction, not stranded
     # colourwork (OPUS2K K-6a), so it is not a claim.
     r"(?<!double )(?<!held )stranded|jacquard": "fair isle",
-    r"graph ?gh?an": "graphghan",
-    r"c2c|corner to corner": "graphghan",          # a charted picture blanket: graphghan rule
-    r"duplicate stitch(?:ed)?": "intarsia",        # embroidered blocks: not modelled, refused
+    r"fair ?isle": "fair isle",
+    r"graph ?gh?an|pixel crochet": "graphghan",
+    # a charted picture blanket: graphghan rule (OPUS2M-3: "C-2-C", "Corner-2-Corner")
+    r"c ?2 ?c|corner (?:to|2) corner": "graphghan",
+    r"duplicate stitch": "intarsia",               # embroidered blocks: not modelled, refused
 }
+
+# OPUS2M-4: letters that look Latin but are not (Cyrillic / Greek), read as the Latin letter
+# they imitate. Small and explicit; not a general confusables table.
+_LOOKALIKES = str.maketrans({
+    "\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p", "\u0441": "c",
+    "\u0443": "y", "\u0445": "x", "\u0456": "i", "\u0442": "t", "\u043c": "m",
+    "\u043a": "k", "\u0432": "b", "\u043d": "h", "\u03bf": "o", "\u03b1": "a",
+    "\u03b9": "i", "\u03c4": "t", "\u03ba": "k", "\u03bd": "v", "\u03c1": "p",
+})
 
 
 def _fold(text: str) -> str:
-    """NFKC, lowercase, every non-alphanumeric run to one space (OPUS2K K-5: dashes of every
-    kind, slashes, dots and middle dots are separators, so "Fair–Isle" is "fair isle")."""
+    """The text as the claim reader sees it (OPUS2K K-5, OPUS2M-4): invisible format
+    characters (zero-width space, soft hyphen, joiners) removed; compatibility forms and
+    accents folded (NFKD, combining marks dropped: "Fáir Ísle", "FAİR ISLE"); look-alike
+    Cyrillic and Greek letters read as Latin; lower case; every non-alphanumeric run (dashes
+    of every kind, slashes, dots, middle dots) one space."""
     import unicodedata
 
-    t = unicodedata.normalize("NFKC", str(text or "")).lower()
+    t = "".join(c for c in str(text or "") if unicodedata.category(c) != "Cf")
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    t = unicodedata.normalize("NFKC", t).lower().translate(_LOOKALIKES)
     return " " + re.sub(r"[^0-9a-z]+", " ", t).strip() + " "
 
 
 def colourwork_claims(text: str) -> tuple[str, ...]:
     """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6,
-    OPUS2K K-5)."""
+    OPUS2K K-5, OPUS2M-2/-3/-4)."""
     folded = _fold(text)
-    # A prefix match from a word start, as the old substring match was ("Mosaics",
-    # "Colourworked" are still claims), never inside another word.
-    found: list[str] = [c for c in COLOURWORK_CLAIMS
-                        if re.search(rf"\b{re.escape(_fold(c).strip())}", folded)]
+    # OPUS2M-2: the base claims are a substring test, as they were before K-5: a claim word
+    # inside a compound ("Minimosaic", "Microtapestry", "Multicolourwork") is still a claim.
+    found: list[str] = [c for c in COLOURWORK_CLAIMS if _fold(c).strip() in folded]
     found += [canon for variant, canon in _CLAIM_VARIANTS.items()
-              if re.search(rf"\b(?:{variant})\b", folded)]
+              if re.search(rf"\b(?:{variant})", folded)]
     return tuple(dict.fromkeys(found))
 
 
