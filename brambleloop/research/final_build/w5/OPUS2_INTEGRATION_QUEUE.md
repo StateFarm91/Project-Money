@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T05:31Z.
+Last updated: 2026-11-02T05:43Z.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -46,7 +46,7 @@ Not integration items:
 - claude/w5-LEARNREF-parked-mainopus: parked; Codex owns that work.
 
 ## Integration review
-INTEG5B (6d402593): SHIP for certification on W5-INTEG1 a8ce0072, provisional on its second regression batch (integrator re-running it, 05:29Z). Later additions need only a delta integration review.
+INTEG5B (6d402593): SHIP for certification on W5-INTEG1 a8ce0072; its second regression batch re-run by the integrator on a8ce0072: 13/13 green (05:42Z). **Batch 5 certification run 20261102T054208Z-6424 on a8ce0072 started 05:42:08Z** (full, 864 suites, clean tree, dedicated worktree). Later additions need only a delta integration review.
 
 ## Batch 5 certification path
 1. Q1 and Q2 pushed, then Q3, Q4 and Q5 on OPUS2M SHIP; Q11 and Q13 records alongside.

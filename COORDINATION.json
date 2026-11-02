@@ -645,7 +645,17 @@
       ],
       "status": "not ready for commissioning approval"
     },
-    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite.",
+    "batch5_certification": {
+      "run_id": "20261102T054208Z-6424",
+      "sha": "a8ce0072d5d47ffeaa65c7107fe8a54a1845e86e",
+      "started": "2026-11-02T05:42:08Z",
+      "scope": "full (864 suites)",
+      "tree": "clean",
+      "worktree": "/home/user/bl-runs/wt-b5cert (dedicated; W5-INTEG1 keeps integrating in wt-b5)",
+      "basis": "INTEG5B SHIP (6d402593) + its second regression batch re-run by the integrator on a8ce0072: 13/13 suites rc=0 (05:42Z)",
+      "rule": "uninterrupted; a resumed run never certifies; fail -> root-cause, fix, fresh run"
+    }
   },
   "owner_directives": [
     {
