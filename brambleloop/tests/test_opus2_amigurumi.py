@@ -154,6 +154,79 @@ def test_the_handler_drafts_the_toy_with_its_provenance():
     assert set(F.AMIGURUMI_PRIMITIVES) <= set(cir.provenance.primitives_used)
 
 
+def test_review_opus2p_p1_every_drafted_toy_needs_a_childrens_decision_to_render():
+    """OPUS2P-1 (HIGH): the PDF renderer refuses an undecided children's product only when a
+    child word is in the title or slug. Every title the route drafts now carries one, so a
+    drafted toy cannot render a pattern with no children's safety block on nobody's decision."""
+    from brambleloop.publish import pdf
+
+    drafted = ("Ball Bear Amigurumi", "Teddy Bear", "Bunny Amigurumi", "Cosy Rabbit",
+               "Simple Crochet Bear", "Amigurumi Bunny", "Round\u2011Ball Bunny Plush")
+    assert drafted
+    refused = 0
+    for title in drafted:
+        assert F.plan(category="amigurumi", title=title)["family"] == F.AMIGURUMI, title
+        concept = _concept(title)
+        concept.slug = "neutral-slug-x"                   # nothing child-like in the slug
+        cir = F.amigurumi(concept)
+        assert L.child_words_in(cir.title, cir.slug), title
+        assert L.childrens_decision(cir.slug)[0] == L.UNDECIDED
+        try:
+            pdf.build_pattern_pdf(cir)
+        except Exception as exc:  # noqa: BLE001 - the renderer's refusal is the outcome
+            assert "child" in str(exc).lower(), (title, exc)
+            refused += 1
+        else:
+            raise AssertionError(f"{title!r} rendered with no children's decision")
+    assert refused == len(drafted)
+
+
+def test_review_opus2p_joins_are_counted_size_has_a_floor_and_words_do_not_repeat():
+    """OPUS2P-2: the toy's joins are measured by stitch count, so a wrong base is a mismatch,
+    not an UNKNOWN warning. OPUS2P-3: the body has a stated size floor. OPUS2P-4: a repeated
+    word, two kinds and a misplaced head noun are refused. OPUS2P-7: each ear leaves a tail.
+    OPUS2P-8: a stuffed piece is not told to check the band "before blocking"."""
+    import dataclasses
+
+    from brambleloop.cir import assembly
+    from brambleloop.gates.certificate import assembly_findings
+
+    cir = F.amigurumi(_concept())
+    result = compile_cir(cir)
+    twins = {c.name: build_twin(cir, result, component=c.name) for c in cir.components}
+    geo = assembly.assemble(cir, twins)
+    assert geo.verdict == "assembles" and len(geo.joins) == 2, (geo.verdict, geo.why)
+    assert all(j.verdict == "sound" for j in geo.joins), [j.why for j in geo.joins]
+    # A 30-st base sewn onto the 18-st opening does not sew together.
+    from brambleloop.products.moment_candidates import _disc, _Rows
+
+    wrong = _Rows()
+    _disc(wrong, 30, cir.components[1].rows[0].color)
+    bad = dataclasses.replace(cir, components=[cir.components[0], dataclasses.replace(
+        cir.components[1], rows=wrong.rows), cir.components[2]])
+    r2 = compile_cir(bad)
+    geo2 = assembly.assemble(bad, {c.name: build_twin(bad, r2, component=c.name)
+                                   for c in bad.components})
+    assert geo2.verdict == "does_not_assemble", (geo2.verdict, geo2.why)
+    assert [f.code for f in assembly_findings(bad, geo2)] == ["ASSEMBLY_MISMATCH"]
+    # Size floor: a lace toy is refused; worsted is drafted.
+    lace = _concept()
+    lace.yarn_weight = "lace"
+    try:
+        F.amigurumi(lace)
+    except ValueError as exc:
+        assert "floor" in str(exc)
+    else:
+        raise AssertionError("a lace-weight toy under the size floor was drafted")
+    # Words.
+    for title in ("Bear Bear", "Bunny Bunny Bunny", "Teddy Teddy Bear", "Cosy Cosy Bear",
+                  "Bear Bunny", "Rabbit Bunny", "Bear Crochet", "Bunny Simple", "Bear Ball"):
+        assert F.plan(category="amigurumi", title=title)["family"] == F.REFUSED, title
+    text = writer.write_pattern(cir, result, "US")
+    assert "leaving a 25 cm tail for sewing the ear on" in text
+    assert "before blocking" not in text
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

@@ -712,6 +712,13 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         else:
             ops = [Op("sc", base_count)]
         rows.append(Row(index=index, ops=ops, declared_count=base_count, color=main))
+    # OPUS2P-9: the join and the cut are said where the maker reaches them, not only in
+    # Finishing.
+    by_index = {r.index: r for r in rows}
+    if band_rows:
+        by_index[band_rows[0]].note = f"join {contrast} at the start of this round"
+        if band_rows[-1] < rows[-1].index:
+            by_index[band_rows[-1]].note = f"cut {contrast} after this round and fasten it off"
     points, flats = hexagon_spans_cm(base_count, gauge)
     return CIR(
         slug=concept.slug, title=concept.title, version=version,
@@ -751,7 +758,8 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 # AMI_BASE_STITCHES opening, which a flat base disc of the same count closes after stuffing
 # (a stitch-for-stitch join, so the toy sits). Each ear is a small piece
 # in rounds, flattened and sewn across a stated number of stitches of a stated body round,
-# so `cir.assembly` measures every join. Eyes and nose are embroidered with yarn; the pattern
+# so `cir.assembly` measures every join -- by stitch count, since a stuffed piece has no
+# finished size (OPUS2P-2). Eyes and nose are embroidered with yarn; the pattern
 # makes no toy-safety claim of any kind -- that is the children's-products decision
 # (`launch0.childrens_decision`), not a drafting rule. A stuffed closed form is risk class C
 # (`gates.risk_matrix`): its finished shape is known only from a full physical make, so the
@@ -760,6 +768,7 @@ AMI_BODY_STITCHES = 36
 AMI_PLAIN_ROUNDS = 7
 AMI_BASE_STITCHES = 18            # the open bottom, closed by a flat base disc so it sits
 AMI_EAR_ROUND = 5                 # the body round the ears are sewn to (30 sts)
+AMI_MIN_BODY_CM = 6.0             # OPUS2P-3: a stated design floor, not a safety standard
 AMI_ANIMALS: dict[str, dict] = {
     # ear: (stitches in the ring, rounds of increase, plain rounds after) and the flat width
     "bear": {"ring": 6, "inc_rounds": 1, "plain": 2, "flat_sts": 6,
@@ -791,6 +800,10 @@ def amigurumi_route(title: str | None) -> dict:
                 "needs": "a plain ball-body bear or bunny title, in words",
                 "why": f"the title names {leftover!r}, which the ball-body toy does not make"}
     animals = [w for w in words if w in _AMI_SYNONYMS and w != "teddy"]
+    # OPUS2P-4: a repeated word ("Bear Bear", "Cosy Cosy Bear") reads as more than one.
+    if len(set(words)) < len(words) or len(animals) > 1:
+        return {"family": REFUSED, "needs": "one certified release per toy, each listed alone",
+                "why": "the title repeats a word, which reads as more than one toy"}
     if not animals or words[-1] not in (*_AMI_SYNONYMS, "amigurumi", "plush"):
         return {"family": REFUSED, "needs": NEEDS["amigurumi"] + " (a ball-body bear or bunny "
                                                                 "is the one fallback form)",
@@ -836,6 +849,13 @@ def amigurumi(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     last = body.last
     base = _Rows()
     _disc(base, AMI_BASE_STITCHES, main)
+    # OPUS2P-3: the body is a fixed stitch count, so its size follows the yarn. Below a stated
+    # floor the toy and its ears approach small-parts size, which nothing here can judge.
+    body_across = AMI_BODY_STITCHES / gauge.stitches_per_10cm * 10.0 / math.pi
+    if body_across < AMI_MIN_BODY_CM:
+        raise ValueError(f"{concept.slug}: at {concept.yarn_weight} gauge the body is about "
+                         f"{body_across:.1f} cm across, under the {AMI_MIN_BODY_CM:g} cm floor; "
+                         f"a toy this small needs a small-parts assessment this route cannot make")
     ear_round_count = next(r.declared_count for r in body.rows if r.index == AMI_EAR_ROUND)
     flat = ear_spec["flat_sts"]
     gap = flat
@@ -851,6 +871,7 @@ def amigurumi(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         ear.add([Repeat(body_ops, times=ring)], count, main)
     for _ in range(ear_spec["plain"]):
         ear.add([Op("sc", count)], count, main)
+    ear.rows[-1].note = "fasten off, leaving a 25 cm tail for sewing the ear on"
     if count != 2 * flat:
         raise ValueError(f"{kind} ear: {count} sts does not flatten to {flat} across")
 
@@ -916,6 +937,7 @@ POUCH_TALL_CM = 15.0
 POUCH_EYELET_REPEAT = (4, 2)       # sc, then a ch-2 bridging 2 skipped sts
 POUCH_RIM_ROUNDS = 2               # plain rounds above the eyelet round
 POUCH_TIE_CM = 20.0                # free cord at each end, for the bow
+POUCH_MIN_EYELETS = 6              # OPUS2P-5: fewer and a drawstring does not gather
 _POUCH_HEAD = r"\b(?:pouch|bag)$"
 _POUCH_ALLOWED_WORDS = frozenset({"drawstring", "crochet", "crocheted", "simple", "classic",
                                   "everyday", "round", "project", "gift", "cosy", "cozy"})
@@ -960,9 +982,15 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     gauge = gauge_for(concept.yarn_weight)
     sc_n, gap = POUCH_EYELET_REPEAT
     unit = sc_n + gap
-    step = 6 * unit // math.gcd(6, unit)
+    # OPUS2P-5: an even number of eyelets (both cord ends then come out of two neighbouring
+    # eyelets on the outside) and at least POUCH_MIN_EYELETS, so the pouch gathers.
+    step = 6 * (2 * unit) // math.gcd(6, 2 * unit)
     around = math.pi * POUCH_ACROSS_CM * gauge.stitches_per_10cm / 10.0
-    n = max(step * 2, int(round(around / step)) * step)
+    n = max(step, int(round(around / step)) * step)
+    if n // unit < POUCH_MIN_EYELETS:
+        raise ValueError(f"{concept.slug}: at {concept.yarn_weight} gauge the pouch has "
+                         f"{n // unit} eyelets, fewer than the {POUCH_MIN_EYELETS} a drawstring "
+                         f"needs to gather")
     rows = _Rows()
     _disc(rows, n, main)
     base_end = rows.last
@@ -973,7 +1001,8 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     eyelets = n // unit
     rows.add([Repeat([Op("sc", sc_n), Op("ch", gap, spans=gap), Op("sk", gap)],
                      times=eyelets)], n, main,
-             note=f"{eyelets} eyelets; work the next round's sts into each ch-{gap} space")
+             note=(f"{eyelets} eyelets; on the next round work {gap} sc into each ch-{gap} "
+                   f"space"))
     eyelet_round = rows.last
     for _ in range(POUCH_RIM_ROUNDS):
         rows.add([Op("sc", n)], n, main)
@@ -993,15 +1022,18 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         slug=concept.slug, title=concept.title, version=version,
         construction="joined_rounds", risk_class=concept.risk_class,
         colors=dict(concept.colors), gauge=gauge,
-        materials=[Material(name=f"{concept.yarn_weight} acrylic",
-                            yarn_weight=concept.yarn_weight, color_id=c)
-                   for c in dict.fromkeys([main, cord_colour])],
+        materials=([Material(name=f"{concept.yarn_weight} acrylic ({main}) for the pouch",
+                             yarn_weight=concept.yarn_weight, color_id=main)]
+                   + ([Material(name=f"{concept.yarn_weight} acrylic ({cord_colour}) for the cord",
+                                yarn_weight=concept.yarn_weight, color_id=cord_colour)]
+                      if cord_colour != main else [])),
         components=[body, cord],
         assembly=[Seam("thread", "cord", "pouch", edge_a="left", edge_b="opening",
                        at_round=eyelet_round, spans_rounds=1,
                        note=(f"Weave the cord in and out of the {eyelets} eyelets of round "
-                             f"{eyelet_round}, starting and ending at the same eyelet, and "
-                             f"knot each end; pull both ends to close the pouch."))],
+                             f"{eyelet_round}, starting from the outside, so both ends come out "
+                             f"of two neighbouring eyelets on the outside; knot each end and "
+                             f"pull both to close the pouch."))],
         designer_notes=(f"{concept.category} concept drafted as a drawstring pouch: a {n}-st "
                         f"round base, {walls} wall rounds with {eyelets} eyelets in round "
                         f"{eyelet_round}, and a {cord_n}-ch cord"),

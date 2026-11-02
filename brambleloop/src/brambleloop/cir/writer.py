@@ -343,8 +343,10 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
         out.append("Block the finished piece: pin it out damp, easing rather than "
                    "stretching, and leave it to dry flat.")
 
-    out.append("Check the ball band before blocking with heat or water. Fibres behave "
-               "differently and yours is the one in your hands.")
+    if not stuffed:
+        # OPUS2P-8: a stuffed piece is not blocked, so no "before blocking" line follows.
+        out.append("Check the ball band before blocking with heat or water. Fibres behave "
+                   "differently and yours is the one in your hands.")
     return out
 
 
