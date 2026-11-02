@@ -172,7 +172,7 @@ def title_promise(cir: CIR) -> dict:
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     claimed: int | None = None
     for token in re.findall(r"[a-z]+|\d+", lowered):
         if token.isdigit():
@@ -235,6 +235,16 @@ def declared_motifs(cir: CIR) -> list[str]:
             or u.endswith(".MOTIF")]
 
 
+def _motif_fold(text) -> str:
+    """A2-1 / A1R-3: a motif word is read as it renders, through the ONE shared fold
+    (`products.text_fold.fold`: NFKC, invisibles, marks, look-alike capitals and letters,
+    lower case) -- the fold the drafting routes, the renderer and the survey read with, so a
+    word the route lets through to this gate is a word this gate sees."""
+    from .text_fold import fold
+
+    return fold(text)
+
+
 def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
                   tags: dict[str, list[str]] | None = None) -> dict:
     """Whether every motif word in the title and copy is backed by the CIR's declared motif.
@@ -255,18 +265,18 @@ def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
             relief = relief or dec["medium"] == RELIEF
     problems = []
     for where, text in texts.items():
-        found = [w for w in re.findall(r"[a-z]+", str(text or "").lower()) if w in MOTIF_WORDS]
+        found = [w for w in re.findall(r"[a-z]+", _motif_fold(text)) if w in MOTIF_WORDS]
         for w in sorted(set(found) - backs):
             problems.append(f"{where}: {w!r} is a motif word the CIR's declared motif "
                             f"{declared or 'none'} does not back")
         backed_here = sorted(set(found) & backs)
-        if backed_here and relief and not (set(re.findall(r"[a-z]+", str(text).lower()))
+        if backed_here and relief and not (set(re.findall(r"[a-z]+", _motif_fold(text)))
                                            & RELIEF_QUALIFIERS):
             problems.append(f"{where}: {backed_here} exist only as raised stitches, and the "
                             f"text does not say so (raised / relief / texture)")
     for where, phrases in (tags or {}).items():
         for ph in phrases:
-            for w in sorted({w for w in re.findall(r"[a-z]+", ph.lower()) if w in MOTIF_WORDS}
+            for w in sorted({w for w in re.findall(r"[a-z]+", _motif_fold(ph)) if w in MOTIF_WORDS}
                             - backs):
                 problems.append(f"{where}: {ph!r} names {w!r}, which the CIR does not back")
     return {"declared": declared, "backs": sorted(backs), "relief": relief,
@@ -299,7 +309,7 @@ def assembly_promise(cir: CIR) -> dict:
     Why: a garland is pennants joined to a cord. A CIR with one panel and no seams is a panel,
     and the buyer who paid for a garland has to invent the part that makes it one.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     named = [f for f in ASSEMBLED_FORMS if f in lowered]
     seams = len(cir.assembly or [])
     pieces = sum(c.make for c in cir.components)
@@ -508,7 +518,7 @@ def fabric_truth(cir: CIR, twin) -> dict:
     heights = twin.stitch_types_used
     mixed_heights = len(heights) > 1
 
-    text = f"{cir.title} {cir.designer_notes or ''}".lower()
+    text = _motif_fold(f"{cir.title} {cir.designer_notes or ''}")  # A2F-2: one fold
     claims = colourwork_claims(text)
     motif = colourwork_motif(grid)
     verdicts = {c: technique_backed(c, motif) for c in claims}
@@ -1366,7 +1376,26 @@ EXTRA_CHILDRENS_ASSIGNMENTS: dict[str, tuple[str, str]] = {
 # child, each with the reason. Empty today, and it is meant to stay small: the point is that
 # an exemption has to be written down by somebody, because the alternative reading of silence
 # is "nobody looked".
-NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {}
+NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {
+    # A1-R (owner directive 2026-11-02): every closed stuffed form needs a written decision;
+    # the implicit "the candidate declares no sub-category" is not one. These two are the
+    # catalogue's stuffed pieces, decided here with their reasons.
+    "heart-row-ring-pillow": ("a wedding ring-bearer pillow: wedding decor that holds the "
+                              "rings, not a plaything; it is not merchandised, sized or "
+                              "described for a child"),
+    "spring-garden-kneeler": ("a garden kneeling pad: an adult gardening accessory, not "
+                              "merchandised, sized or described for a child"),
+}
+
+# A1R-6: the record behind each written exemption -- who decided, when, and the decision log
+# entry. Recorded by opus2 under the owner's A1-R directive of 2026-11-02; the owner's own
+# ratification is an open owner decision, said here rather than implied.
+NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
+    slug: {"decided_by": "opus2 (A1-R), under the owner's 2026-11-02 directive; "
+                         "owner ratification pending",
+           "decided_on": "2026-11-02", "decision_log": "D-A1R-STUFFED-EXEMPTIONS",
+           "reason": why}
+    for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
 
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
@@ -1411,6 +1440,99 @@ def _decided_not_for_children() -> dict[str, str]:
     return out
 
 
+# A1-R: what makes a closed stuffed form. A stuffed seam (the risk matrix's closed_3d_form),
+# or a stuffing material in a CIR whose pieces are closed by any seam. Never a title word and
+# never an optional placement field.
+# A1R-1: the stuffing vocabulary, read through the one fold (so "Fiber-Fill", "fibre-fill",
+# "fiberfil" and look-alike spellings are the same word). A vocabulary of what goes INSIDE a
+# closed piece -- not a narrow product regex -- and any non-yarn material counts as well.
+STUFFING_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bfill(?:ing|er)?\b|"
+    r"\bstuff(?:ing|ed)?\b|kapok|pellets?\b|\bbeans?\b|roving|wadding|batting|\bfoam\b|"
+    r"\binsert\b|pillow\s+form|cushion\s+pad|\bpad\b|buckwheat|hulls?\b|beads?\b|"
+    r"\bfluff\b|filler|down\s+feather|feathers?\b)", re.I)
+# Only these words count when they appear in free text (designer or seam notes): the words a
+# maker writes when a piece is stuffed. "insert"/"pad" alone in a note are too common
+# ("insert the dowel") to read as stuffing; in a material name they count.
+STUFFING_NOTE_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
+    r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+# A rounds piece whose last round is at most this many stitches after decreasing from a
+# wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
+CLOSURE_MAX_STITCHES = 12
+ROUNDS = ("joined_rounds", "spiral_rounds")
+
+
+def _folded(text) -> str:
+    from .text_fold import fold
+
+    return fold(str(text or ""))
+
+
+def _closes_on_itself(component) -> bool:
+    """A rounds piece that widens and then decreases back to a small closing round."""
+    if getattr(component, "construction", None) not in ROUNDS:
+        return False
+    counts = [r.declared_count for r in (component.rows or []) if r.declared_count]
+    if len(counts) < 3:
+        return False
+    return counts[-1] < max(counts) and counts[-1] <= CLOSURE_MAX_STITCHES
+
+
+def stuffed_form_reasons(cir) -> list[str]:
+    """Why this CIR is (or must be treated as) a closed stuffed form; [] when it is not.
+
+    A1R-1, fail closed. A closed construction -- any seam, or a rounds piece that closes on
+    itself -- together with ANY of: a seam stuffed before closing, a stuffing word in a
+    material name, a material that is not a yarn (no yarn weight), or a stuffing word in the
+    designer or seam notes. A seam stuffed before closing is enough on its own. Whatever
+    cannot be read is a reason, so it holds."""
+    try:
+        seams = list(getattr(cir, "assembly", None) or [])
+        out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
+               for s in seams if getattr(s, "stuff_before_closing", False)]
+        closing = [c.name for c in (cir.components or []) if _closes_on_itself(c)]
+        closed = bool(seams) or bool(closing)
+        if not closed:
+            return out
+        how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
+               else f"{', '.join(closing)} closes on itself")
+        for m in getattr(cir, "materials", None) or []:
+            name = _folded(getattr(m, "name", ""))
+            if STUFFING_WORDS.search(name):
+                out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
+            elif not getattr(m, "yarn_weight", None):
+                out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
+                           f"(UNKNOWN filling: held)")
+        notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
+                         + [str(getattr(s, "note", "") or "") for s in seams])
+        if STUFFING_NOTE_WORDS.search(_folded(notes)):
+            out.append(f"{how}, and the notes say it is stuffed")
+        return out
+    except Exception as exc:  # noqa: BLE001 - unreadable construction is UNKNOWN: held
+        return [f"construction unreadable ({type(exc).__name__}): UNKNOWN, held"]
+
+
+def closed_stuffed_form(cir) -> bool:
+    """A1-R / A1R-1: the construction, not the title, decides; UNKNOWN reads as True."""
+    return bool(stuffed_form_reasons(cir))
+
+
+def childrens_decision_for(cir) -> tuple[str, object]:
+    """`childrens_decision` for this CIR, read with its construction (A1-R).
+
+    For a closed stuffed form only an explicit decision counts: an assignment, or a written,
+    reasoned entry in NOT_MERCHANDISED_TO_A_CHILD. The implicit exemption a candidate gets for
+    declaring no children's sub-category is not accepted for one -- nobody wrote that decision
+    for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
+    state, why = childrens_decision(cir.slug)
+    if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
+            and cir.slug not in NOT_MERCHANDISED_TO_A_CHILD:
+        return (UNDECIDED, None)
+    return (state, why)
+
+
 def childrens_decision(cir_slug: str) -> tuple[str, object]:
     """Whether this product is merchandised to a child, or whether nobody has said.
 
@@ -1439,7 +1561,10 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     Shared by the survey and by the renderer's refusal, so a word added here cannot start
     being reported without also starting to block.
     """
-    words = set(re.findall(r"[a-z]+", " ".join(texts).lower()))
+    from .text_fold import fold
+
+    # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
+    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
     return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
 
 
@@ -1489,13 +1614,23 @@ def childrens_titles_without_an_assignment() -> list[dict]:
     for size in ("small", "medium", "large"):
         makers[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
     makers["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+    # A1-7: every engineered catalogue CIR too (the kneeler and ring pillow are moment
+    # candidates, not flat or vessel builds), so the survey covers what the renderer holds.
+    from . import inventory
+
+    for slug in inventory.universe():
+        if slug not in makers:
+            makers[slug] = (lambda s=slug: inventory._engineered(s))
 
     out = []
     for key in sorted(makers):
         cir = makers[key]()                               # type: ignore[operator]
+        if cir is None:
+            continue
         hits = child_words_in(cir.title, cir.slug)
-        state, _why = childrens_decision(cir.slug)
-        if hits and state == UNDECIDED:
+        state, _why = childrens_decision_for(cir)
+        # A1-7: the survey reads what the renderer refuses on -- words or the construction.
+        if (hits or closed_stuffed_form(cir)) and state == UNDECIDED:
             out.append({"slug": cir.slug, "title": cir.title, "words": hits,
                         "why": ("the title reads as a children's product and nothing has "
                                 "decided either way -- not an assignment and not an "

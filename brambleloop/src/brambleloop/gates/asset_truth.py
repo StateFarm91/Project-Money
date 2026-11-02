@@ -369,7 +369,9 @@ def check_shape_claims(text: str, cir: CIR, twin: TwinModel,
                        where: str = "product.title") -> list[Finding]:
     """Does the object the name describes match the object the pattern makes?"""
     out: list[Finding] = []
-    low = " ".join(text.lower().split())
+    from ..products.text_fold import fold
+
+    low = " ".join(fold(text).split())       # A2F-2: the one shared fold
     if not low:
         return out
 
@@ -475,7 +477,9 @@ def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
                            where: str = "product.title") -> list[Finding]:
     """Does the fabric do what the name says it does?"""
     out: list[Finding] = []
-    low = " ".join(text.lower().split())
+    from ..products.text_fold import fold
+
+    low = " ".join(fold(text).split())       # A2F-2: the one shared fold
     if not low:
         return out
 
