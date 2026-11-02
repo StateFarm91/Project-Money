@@ -208,10 +208,12 @@ def test_part2_briefs_lacking_what_their_construction_needs_are_held_by_name():
     cases = {
         "construction": _brief("brief-mosaic", "basket", "mosaic_overlay", "diamond"),
         "motif": _brief("brief-fox-toy", "toy", "amigurumi_shaping", "fox"),
+        "title": _brief("brief-juniper-friend", "toy", "amigurumi_shaping", "bear",
+                        title="Juniper Friend"),
         "size": _brief("brief-giant", "basket", "in_the_round", "ridged"),
     }
     briefs = {"size": {"size": "giant"}}
-    assert len(cases) == 3
+    assert len(cases) == 4
     all_held = []
     for field, concept in cases.items():
         ctx, emitted, audits = _ctx(db, concept, briefs.get(field))

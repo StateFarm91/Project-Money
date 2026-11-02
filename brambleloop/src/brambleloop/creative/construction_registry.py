@@ -110,6 +110,15 @@ def _amigurumi(req: ConstructionRequest) -> None:
                            f"ball-body toy makes (have: {sorted(set(AMIGURUMI_KINDS.values()))})"))
         return
     req.params["kind"] = kinds.pop()
+    # OPUS2P-1 (child safety): a stuffed toy is a children's-product decision, and the PDF
+    # renderer forces that decision only when a child-audience word is in the title or key.
+    # A toy brief whose title names none is held, so no drafted toy is invisible to the gate.
+    from ..products.launch0 import child_words_in
+
+    if not child_words_in(req.title, req.key):
+        req.hold("title", ("a toy brief's title names no child-audience word (toy, teddy, bear, "
+                           "bunny, plush, amigurumi ...), so the children's-decision gate could "
+                           "not see the drafted toy"))
 
 
 def _plain(req: ConstructionRequest) -> None:
