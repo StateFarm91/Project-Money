@@ -29,6 +29,11 @@ _LAUNCH_CASES = (
     ("housewarming-key-basket", "key_basket"),
 )
 _MANIFEST = Path(__file__).with_name("design_eval_cases.json")
+_INTEG1_MANIFEST = Path(__file__).with_name("design_eval_cases_integ1.json")
+_TRUSTED_CASE_HASHES = {
+    "design_eval_cases.json": "d6ccb9c7953ae0b0228a2c76f64e2c3f989ba8a809aa42ecfefd657379f57464",
+    "design_eval_cases_integ1.json": "10d923dfedccfb58d59802a06ac79021a34697f6aad1bd29edf3c398ed7ef469",
+}
 _BENCH2 = Path(__file__).resolve().parents[3] / "research" / "bench2" / "out" / "product_truth.json"
 _BENCH2_REF = "benchmark-2-mini-star-stitch-cardigan"
 _BENCH2_TRUTH_SHA = "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1"
@@ -148,18 +153,20 @@ def load_cases(*, challenger_cases=None, db=None) -> dict:
     """Return only the pinned shared set; a challenger cannot supply its own cases."""
     if challenger_cases is not None:
         raise DesignEvaluationRefused("a challenger may not supply evaluation cases")
-    if not _MANIFEST.is_file():
-        raise DesignEvaluationRefused("held-out case manifest is unavailable")
     try:
-        frozen = json.loads(_MANIFEST.read_text(encoding="utf-8"))
         live = materialize_cases(db)
+        available = [path for path in (_MANIFEST, _INTEG1_MANIFEST) if path.is_file()]
+        if not available:
+            raise DesignEvaluationRefused("held-out case manifest is unavailable")
+        for path in available:
+            frozen = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(frozen, dict) or frozen.get("sha256") != _TRUSTED_CASE_HASHES[path.name]:
+                raise DesignEvaluationRefused("held-out case manifest is invalid")
+            if frozen.get("cases") == live and frozen["sha256"] == _digest(live):
+                return {"cases": live, "sha256": frozen["sha256"]}
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise DesignEvaluationRefused("held-out cases cannot be read") from exc
-    if not isinstance(frozen, dict):
-        raise DesignEvaluationRefused("held-out case manifest is invalid")
-    if frozen.get("cases") != live or frozen.get("sha256") != _digest(live):
-        raise DesignEvaluationRefused("held-out cases differ from the frozen manifest")
-    return {"cases": live, "sha256": frozen["sha256"]}
+    raise DesignEvaluationRefused("held-out cases differ from the frozen manifest")
 
 
 def measure_written_case(cir, text: str, *, db=None) -> dict:
