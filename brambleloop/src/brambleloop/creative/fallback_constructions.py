@@ -767,6 +767,13 @@ def amigurumi_route(title: str | None) -> dict:
         return {"family": REFUSED, "needs": "one certified release per toy, each listed alone",
                 "why": "the title promises more than one toy; one draft is one toy"}
     words = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded)
+    # OPUS2N-1: total. An emoji, another script or a symbol yields no ASCII token; it is
+    # refused as what is left over, never passed as "no unknown word".
+    leftover = re.sub(r"[a-z0-9'\s\-]", "", folded)
+    if leftover:
+        return {"family": REFUSED,
+                "needs": "a plain ball-body bear or bunny title, in words",
+                "why": f"the title names {leftover!r}, which the ball-body toy does not make"}
     animals = [w for w in words if w in _AMI_SYNONYMS and w != "teddy"]
     if not animals or words[-1] not in (*_AMI_SYNONYMS, "amigurumi", "plush"):
         return {"family": REFUSED, "needs": NEEDS["amigurumi"] + " (a ball-body bear or bunny "
@@ -912,6 +919,9 @@ def pouch_route(title: str | None) -> dict:
                         f"pouch; only a drawstring pouch or bag is drafted")}
     before = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", folded[:head.start()])
     unknown = [w for w in before if w not in _POUCH_ALLOWED_WORDS]
+    leftover = re.sub(r"[a-z0-9'\s\-]", "", folded[:head.start()])     # OPUS2N-1: total
+    if leftover:
+        unknown.append(leftover)
     if unknown:
         return {"family": REFUSED,
                 "needs": (f"the construction, size or feature {' '.join(unknown)!r} names; "

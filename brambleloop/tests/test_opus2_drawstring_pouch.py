@@ -39,7 +39,8 @@ def test_only_a_plain_drawstring_pouch_routes():
                ("accessory", "Simple Drawstring Gift Pouch"), ("bag", "Drawstring‑Bag")]
     refused = ["Drawstring Backpack", "Two Drawstring Pouches", "Lined Drawstring Pouch",
                "Large Drawstring Bag", "Drawstring Pouch Set", "Drawstring Pouch with Pocket",
-               "Mosaic Drawstring Bag", "Drawstring Bucket Bag", "Pair of Drawstring Pouch"]
+               "Mosaic Drawstring Bag", "Drawstring Bucket Bag", "Pair of Drawstring Pouch",
+               "\U0001f381 Drawstring Pouch", "\u041f\u043e\u0434\u0430\u0440\u043e\u043a Drawstring Pouch"]
     assert drafted and refused
     for category, title in drafted:
         assert F.plan(category=category, title=title)["family"] == F.POUCH, title
