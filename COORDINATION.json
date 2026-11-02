@@ -1446,66 +1446,130 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-SUPPORT-DEFECT-INCIDENT",
       "priority": 1,
-      "requirement": "support row hotspot -> correlated incident, release re-verification and withholding (runtime/release.py:2608)"
+      "requirement": "support row hotspot -> correlated incident, release re-verification and withholding (runtime/release.py:2608)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T20:17:44Z",
+        "ack_due_by": "2026-11-02T21:17:44Z",
+        "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-SECRET-LEAK-ESCALATE",
       "priority": 1,
-      "requirement": "caught secret -> durable incident + rotation owner action (ops/log_secret_guard.py:143)"
+      "requirement": "caught secret -> durable incident + rotation owner action (ops/log_secret_guard.py:143)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T20:17:44Z",
+        "ack_due_by": "2026-11-02T21:17:44Z",
+        "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      }
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FLOW-STALL-ACT",
       "priority": 2,
-      "requirement": "stalled/looping products in flow_health -> incident, re-drive or named hold; visible to Laura/COO"
+      "requirement": "stalled/looping products in flow_health -> incident, re-drive or named hold; visible to Laura/COO",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-OWNER-DECISION-DISPATCH",
       "priority": 2,
-      "requirement": "decided owner cards dispatch back into work; cir.reengineer card decidable (runtime/engineering_ops.py:251-316)"
+      "requirement": "decided owner cards dispatch back into work; cir.reengineer card decidable (runtime/engineering_ops.py:251-316)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-JOBTYPE-CLOSURE",
       "priority": 2,
-      "requirement": "resolve UNHANDLED assets.render, pricing.experiment and ORPHAN cir.reengineer, research.flag_architecture; test that every banded type has a handler and a producer or an explicit manual allowlist"
+      "requirement": "resolve UNHANDLED assets.render, pricing.experiment and ORPHAN cir.reengineer, research.flag_architecture; test that every banded type has a handler and a producer or an explicit manual allowlist",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FAILOVER-DRILL",
       "priority": 2,
-      "requirement": "scheduled, budgeted model failover drill writing contract-eval rows (second provider may need owner approval)"
+      "requirement": "scheduled, budgeted model failover drill writing contract-eval rows (second provider may need owner approval)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1534,11 +1598,20 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-FINANCE-CHALLENGE-IDEM",
       "priority": 5,
-      "requirement": "finance.challenge enqueued without idempotency key (runtime/pipeline.py:3202)"
+      "requirement": "finance.challenge enqueued without idempotency key (runtime/pipeline.py:3202)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "integration_target": "claude/w5-INTEG1",
@@ -1556,11 +1629,20 @@
       "branch_from": "newest claude/w5-INTEG1",
       "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
       "state": "queued",
-      "owner": "opus2",
+      "owner": "mainopus",
       "assigned": "2026-11-02T19:06Z",
       "id": "P0-PROVIDER-BILLING-RECON",
       "priority": 5,
-      "requirement": "reconcile provider bills to the ledger (needs owner billing keys)"
+      "requirement": "reconcile provider bills to the ledger (needs owner billing keys)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
     },
     {
       "id": "A2-FIX",
@@ -1645,6 +1727,16 @@
           "stage_at_transfer": "handoff"
         }
       ]
+    },
+    {
+      "id": "E2E-ACCEPTANCE",
+      "owner": "mainopus",
+      "priority": 2,
+      "state": "queued",
+      "assigned": "2026-11-02T20:17:44Z",
+      "integration_target": "claude/w5-INTEG1",
+      "branch": "claude/w6-E2E-acceptance",
+      "requirement": "end-to-end workforce demonstration harness: one durable DB, real handlers via Worker, from radar/culture signal through research -> concept -> CIR -> certify -> PDF/assets -> gallery -> listing package -> owner review request -> outcomes -> learning -> next product; reports each department's verdict; the 16-point demonstration and the basis for the 24 h Railway acceptance"
     }
   ],
   "decisions": [
@@ -1697,6 +1789,13 @@
       "source": "owner 'GitHub dispatch decision' 2026-11-02",
       "decision": "Issue #28 is the official Main <-> Secondary channel. .github/workflows/dispatch.yml ships in the next approved Batch 5 release after independent review; it must stay read-only/coordination-only (contents: read, issues: write), expose no secrets and run no paid model. The repository default branch is not changed. Batch 5 certification and the production acceptance are not interrupted. Main's 5-minute watcher continues meanwhile. Five-minute two-way communication is not claimed until Secondary operates at that interval. Secondary's mission is not reassigned without owner authorization.",
       "release_mechanics": "deploy_guard fingerprints only deployable layout paths (source_tree_sha256) and accepts a candidate descending from the certified SHA; .github/ is outside the deployable layout, so adding the workflow to the release commit on top of the certified SHA does not require recertification. To be confirmed by `ops/deploy_guard.py check` on the actual release commit before the owner's exact-SHA approval is requested."
+    },
+    {
+      "id": "D-OWNER-TAG-TEAM",
+      "at": "2026-11-02T20:17:44Z",
+      "source": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce'",
+      "decision": "Main and Secondary build the workforce together, split by module and branch. Secondary (opus2) keeps its full P0 mission: A1-R, A2-FIX, A3-FIX, A4a (handed over), A4b, A5, A6, A7, A8, A9, V0-V6, P0-PHYSICAL-TEST-REQUEST, P0-PORTFOLIO-ACT and P0-STOREFRONT-ASSET-FIX. Main (mainopus) takes cross-department infrastructure: P0-JOBTYPE-CLOSURE, P0-FLOW-STALL-ACT, P0-OWNER-DECISION-DISPATCH, P0-SECRET-LEAK-ESCALATE, P0-SUPPORT-DEFECT-INCIDENT, P0-FAILOVER-DRILL, P0-FINANCE-CHALLENGE-IDEM, P0-PROVIDER-BILLING-RECON and E2E-ACCEPTANCE, plus integration, certification and release. Codex keeps P0-LEARNING-REFERENCE. Main's engineering runs as parallel capacity now, with tests gated on Batch 5 certification finishing, and becomes Main's primary activity once the Batch 5 deployment decision is handled.",
+      "boundaries": "P0-FLOW-STALL-ACT builds on ops/flow_health.py, which A7 (opus2) extends. Main works only the stall/loop act path and rebases on A7 once it is integrated."
     }
   ],
   "owner_actions_pending": [

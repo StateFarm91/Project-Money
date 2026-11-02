@@ -1,1 +1,5 @@
 {"at": "2026-11-02T19:57:34Z", "worker": "mainopus", "assignment": null, "event": "heartbeat", "note": "integrator alive; dispatch protocol posted"}
+{"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SECRET-LEAK-ESCALATE", "event": "ack"}
+{"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SECRET-LEAK-ESCALATE", "event": "start", "note": "supervised worker; tests gated on Batch 5 certification finishing"}
+{"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "ack"}
+{"at": "2026-11-02T20:17:44Z", "worker": "mainopus", "assignment": "P0-SUPPORT-DEFECT-INCIDENT", "event": "start", "note": "supervised worker; tests gated on Batch 5 certification finishing"}
