@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-01T16:35Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T08:58Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -18,6 +18,30 @@ worktrees, not this file.
 6. Continue with the next item in the same turn while capacity lasts.
 
 ## Worktrees
+- `/home/user/opus2-p0`: `opus2/p0-revenue-workforce` (PR #3; review fixes only)
+- `/home/user/opus2-ami`: `opus2/p0-amigurumi` (PR #18, base claude/w5-INTEG1)
+- `/home/user/opus2-reg`: `opus2/p0-construction-registry` (PR #22, base opus2/p0-amigurumi)
+- `/home/user/opus2-photo`: `opus2/p0-photo-asset-review` (PR #23, base claude/w4-INTEG8-next)
+- `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
+
+## State at 2026-11-02T08:58Z
+- Pushed: PR #3 fed859b7 (P0-NAME-OBJECT-MISMATCH) and its b4merge mirror 04277d26; PR #23 5a47cd8e;
+  PR #22 21d4ceaf; PR #7 eba6fb3c; PR #9 2f9c413d; PR #10 09122165; PR #11 d3a485a1; PR #15 merged.
+- In flight: the OPUS2P commit on opus2/p0-amigurumi (P-1 HIGH child words, count joins, size
+  floor, P-4..P-9) is committed locally; its 28-suite run writes /tmp/claude-0/amip_results.txt.
+  Do not edit /home/user/opus2-ami until it finishes.
+- Next: push #18 and comment P-1..P-9; merge amigurumi into the registry branch; commit the staged
+  registry change (toy brief held when the title names no child word, 4th held case); run its
+  regression; push; comment on #22.
+- Then: construction breadth not blocked by a decision (task 27, blanket/throw breadth), or the
+  next review findings, whichever comes first.
+
+## Dependencies (exact)
+See P0_GAP_REGISTER.json `opus2_open_engineering`.
+
+## Log (older entries)
+## Old worktrees and queue (superseded)
+
 - `/home/user/opus2-p0`: `opus2/p0-revenue-workforce` (PR #3; frozen except review fixes)
 - `/home/user/opus2-pkg`: `opus2/p0-listing-package` (PR #5)
 - `/home/user/opus2-race`: `opus2/p1-owner-queue-races` (PR #6)
