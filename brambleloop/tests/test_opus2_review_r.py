@@ -119,6 +119,24 @@ def test_r2_the_brief_size_and_the_title_size_agree_and_only_sized_families_take
     assert cir.components[0].rows[-1].declared_count > big.components[0].rows[-1].declared_count
 
 
+def test_review_opus2v_v6_v7_two_sizes_and_the_pouch_size_check_are_pinned():
+    """OPUS2V-6: two size words in a title, and a pouch title promising several sizes, are
+    held. OPUS2V-7: 'tulip' is a motif word, so a plain 'Tulip Basket' is not backed."""
+    from brambleloop.products import launch0 as L
+
+    for title, form, cons, motif in (("Small Large Heart Tapestry Basket", "basket", "tapestry",
+                                      "heart"),
+                                     ("Small Large Ridged Basket", "basket", "in_the_round", ""),
+                                     ("Mini Big Basket", "basket", "in_the_round", "")):
+        req = R.request_for(_c(title, form, cons, motif))
+        assert req.unresolved, title
+    # the size promise is only in the key: the pouch route alone would accept the title
+    assert FC.pouch_route("Drawstring Pouch")["family"] == FC.POUCH
+    assert R.title_route("pouch", "Drawstring Pouch",
+                         "drawstring-pouch-in-3-sizes")["family"] == FC.REFUSED
+    assert "tulip" in L.MOTIF_WORDS and "tulips" in L.MOTIF_WORDS
+
+
 def test_r3_a_tapestry_wall_is_within_five_percent_of_its_base_or_not_drafted():
     charts = FC.tapestry_charts()
     assert len(charts) >= 8
@@ -152,6 +170,11 @@ def test_r3_a_tapestry_wall_is_within_five_percent_of_its_base_or_not_drafted():
             base, wall = FC.tapestry_counts(len(charts[name][0]), size, "worsted",
                                             len(charts[name]))
             assert base == wall, (name, size)
+    # OPUS2V-5: the bound itself is 5%, and the case it exists for (fir-and-star at small,
+    # 60 -> 48) is refused at worsted.
+    assert FC.TAPESTRY_WALL_TOLERANCE <= 0.05
+    fir = charts["fir-and-star"]
+    assert FC.tapestry_counts(len(fir[0]), "small", "worsted") is None
     held = R.request_for(_c("Fir Tapestry Basket", "basket", "tapestry", "fir"),
                          {"size": "small"})
     assert _fields(held) == ["size"] and "fits:" in held.unresolved[0]["why"], held

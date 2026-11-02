@@ -208,6 +208,8 @@ MOTIF_WORDS: frozenset[str] = frozenset({
     "snowflake", "snowflakes", "snow", "snowfall", "star", "stars", "diamond", "diamonds",
     "lattice", "fir", "firs", "tree", "trees", "forest", "heart", "hearts", "pumpkin",
     "pumpkins", "chevron", "chevrons", "basketweave", "cable", "cables", "flower", "flowers",
+    # OPUS2V-7: the words the tulip-trellis declaration backs are motif words too.
+    "tulip", "tulips",
     "floral", "leaf", "leaves", "oak", "acorn", "acorns", "village", "house", "houses",
     "deer", "reindeer", "bird", "birds", "cloud", "clouds", "ghost", "ghosts", "bat", "bats",
 })
