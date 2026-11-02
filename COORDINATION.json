@@ -673,6 +673,17 @@
         "f8bf2782..f7466c06": "SHIP for certification (LOW/INFO only)"
       },
       "recorded": "2026-11-02T08:35Z"
+    },
+    {
+      "subject": "OPUS2Q",
+      "sha": "(claude/w5-SECREVIEW-OPUS2Q)",
+      "verdicts": {
+        "b185b528": "CHANGES_REQUIRED (OPUS2Q-1 MED false positives on ordinary words; -6/-7 LOW)",
+        "f4bf34bb": "faithful merge",
+        "2f9c413d": "CHANGES_REQUIRED (OPUS2Q-2 MED regression trailing \\b; -3 LOW confusables)",
+        "d3a485a1": "SHIP (integrated 4af3418f; -4/-5 LOW)"
+      },
+      "recorded": "2026-11-02T08:45Z"
     }
   ],
   "integration": {
@@ -826,17 +837,6 @@
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2Q",
-        "subjects": [
-          "opus2/p0-revenue-workforce b185b528",
-          "opus2/p0-cir-colourwork 2f9c413d",
-          "opus2/p0-stocking d3a485a1"
-        ],
-        "session": "session_015ZfGXp8BceyoSUDmnK2MQA",
-        "report": "INDEPENDENT_SECREVIEW_OPUS2Q.md on claude/w5-SECREVIEW-OPUS2Q",
-        "launched": "2026-11-02T07:37Z"
-      },
-      {
         "id": "OPUS2R",
         "subjects": [
           "opus2/p0-construction-registry 83194fb7, d1ebb27f, 3a11d59a, 8b4076a9, 21d4ceaf"
@@ -844,6 +844,15 @@
         "session": "integrator subagent (create_session unavailable 08:3xZ)",
         "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2R.md (to be committed on claude/w5-SECREVIEW-OPUS2R)",
         "launched": "2026-11-02T08:36Z"
+      },
+      {
+        "id": "INTEG5E",
+        "subjects": [
+          "claude/w5-INTEG1 f7466c06..4af3418f"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_INTEG5E.md",
+        "launched": "2026-11-02T08:46Z"
       }
     ]
   }
