@@ -31,7 +31,7 @@ def handle_teardown_analyse_sweep(ctx):
             BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst")))))
         reviewed = list(s.scalars(select(BenchmarkAnalysis.id).where(
             BenchmarkAnalysis.review_state == "reviewed")))
-    queued = existing = refused = 0
+    queued = existing = refused = requeued = 0
     for benchmark_id in ids:
         ctx.assert_lease()
         try:
@@ -43,6 +43,7 @@ def handle_teardown_analyse_sweep(ctx):
             refused += 1
         queued += result["queued"]
         existing += result["existing"]
+        requeued += result.get("requeued", 0)
         analysis_store.reconcile_state(ctx.db, benchmark_id)
     proposed = blocked = 0
     for analysis_id in reviewed:
@@ -53,19 +54,23 @@ def handle_teardown_analyse_sweep(ctx):
             blocked += 1
             continue
         proposed += int(result["proposed"])
-    return {"purchases": len(ids), "queued": queued, "existing": existing,
+    return {"purchases": len(ids), "queued": queued, "existing": existing, "requeued": requeued,
             "licence_refused": refused, "knowledge_proposed": proposed,
-            "knowledge_blocked": blocked, "work_done": queued + proposed}
+            "knowledge_blocked": blocked, "work_done": queued + requeued + proposed}
 
 
 @handlers.register("design_eval.evaluate")
 def handle_design_eval(ctx):
     ctx.assert_lease()
+    with ctx.db.session() as s:
+        rule = s.get(DesignRule, (ctx.job.inputs or {}).get("rule_id"))
+        if rule is None or rule.state != "proposed":
+            return {"state": "no_longer_proposed", "work_done": 0}
     try:
         result = design_eval.evaluate(ctx.db, (ctx.job.inputs or {}).get("rule_id"),
                                       expected_key=(ctx.job.inputs or {}).get("run_key"))
-    except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
-        return {"state": "stale_or_unavailable", "work_done": 0}
+    except design_eval.StaleEvaluation:
+        return {"state": "stale", "work_done": 0}
     ctx.assert_lease()
     return {"state": result["state"], "audit_id": result["audit_id"],
             "work_done": int(result["created"])}
@@ -78,7 +83,7 @@ def handle_design_eval_sweep(ctx):
         ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "proposed")))
     if active is not None:
         return {"state": "incumbent_evaluation_unavailable", "work_done": 0}
-    queued = existing = unknown = 0
+    queued = existing = unknown = requeued = 0
     for rule_id in ids:
         ctx.assert_lease()
         try:
@@ -86,8 +91,12 @@ def handle_design_eval_sweep(ctx):
             JobQueue(ctx.db).enqueue("orchestrator", "design_eval.evaluate",
                 {"rule_id": rule_id, "run_key": key}, idempotency_key=key)
             queued += 1
-        except DuplicateJob:
+        except DuplicateJob as exc:
             existing += 1
+            result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
+                                                   ids=[exc.existing_id])
+            requeued += len(result["requeued"])
         except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
             unknown += 1
-    return {"queued": queued, "existing": existing, "unavailable": unknown, "work_done": queued}
+    return {"queued": queued, "existing": existing, "requeued": requeued,
+            "unavailable": unknown, "work_done": queued + requeued}

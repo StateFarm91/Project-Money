@@ -23,6 +23,51 @@ from brambleloop.teardown import intake, jobs, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_sweep_redrives_dead_analysis_after_source_is_restored(self):
+        from reportlab.pdfgen import canvas
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            folder = root / "recovery-purchase"
+            folder.mkdir(parents=True)
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Synthetic materials and gauge for this test fixture.")
+            pdf.save()
+            data = stream.getvalue()
+            db = Database(f"sqlite:///{tmp}/recovery.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="recovery-purchase", seller="test", files=[
+                    {"name": "pattern.pdf", "sha256": hashlib.sha256(data).hexdigest()}])
+                s.add(product)
+                s.flush()
+                product_id = product.id
+            licence.capture_purchase(db, "recovery-purchase")
+            jobs.enqueue_purchase(db, product_id)
+            with db.session() as s:
+                job = s.scalar(select(Job).where(Job.job_type == "teardown.analyse"))
+                job.max_attempts = 1
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="fails", job_types=["teardown.analyse"]).run_once())
+                with db.session() as s:
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "teardown.analyse")).status, JobStatus.DEAD)
+                (folder / "pattern.pdf").write_bytes(data)
+                JobQueue(db).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                     idempotency_key="retry-dead-sweep")
+                self.assertTrue(Worker(db, name="sweep", job_types=["teardown.analyse_sweep"])
+                                .run_once())
+                with db.session() as s:
+                    sweep = s.scalar(select(Job).where(Job.job_type == "teardown.analyse_sweep"))
+                    self.assertEqual(sweep.outputs["requeued"], 1)
+                self.assertTrue(Worker(db, name="recovered", job_types=["teardown.analyse"]).run_once())
+            with db.session() as s:
+                self.assertEqual(s.scalar(select(Job).where(
+                    Job.job_type == "teardown.analyse")).status, JobStatus.DONE)
+                self.assertEqual(len(list(s.scalars(select(BenchmarkAnalysis)))), 1)
+
     def test_licence_revoked_during_read_cannot_persist_analysis(self):
         from reportlab.pdfgen import canvas
         from brambleloop.teardown import analysis_store
@@ -133,6 +178,22 @@ class AnalysisWorkerTests(unittest.TestCase):
                 queue.enqueue("orchestrator", "design_eval.sweep", {}, idempotency_key="eval:sweep")
                 self.assertTrue(Worker(reopened, name="eval-sweep", job_types=["design_eval.sweep"])
                                 .run_once())
+                with reopened.session() as s:
+                    queued_eval = s.scalar(select(Job).where(Job.job_type == "design_eval.evaluate"))
+                    queued_eval.max_attempts = 1
+                with mock.patch("brambleloop.quality.design_eval.evaluate",
+                                side_effect=OSError("temporary unavailable fixture")):
+                    self.assertTrue(Worker(reopened, name="eval-fails",
+                                           job_types=["design_eval.evaluate"]).run_once())
+                with reopened.session() as s:
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "design_eval.evaluate")).status, JobStatus.DEAD)
+                queue.enqueue("orchestrator", "design_eval.sweep", {}, idempotency_key="eval:retry")
+                self.assertTrue(Worker(reopened, name="eval-recovery", job_types=["design_eval.sweep"])
+                                .run_once())
+                with reopened.session() as s:
+                    recovered = s.scalar(select(Job).where(Job.idempotency_key == "eval:retry"))
+                    self.assertEqual(recovered.outputs["requeued"], 1)
                 self.assertTrue(Worker(reopened, name="evaluator", job_types=["design_eval.evaluate"])
                                 .run_once())
                 with reopened.session() as s:

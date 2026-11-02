@@ -35,6 +35,10 @@ class DesignEvaluationRefused(ValueError):
     """The fixed held-out set is unavailable, altered, or challenger-supplied."""
 
 
+class StaleEvaluation(DesignEvaluationRefused):
+    """The queued inputs were superseded; the sweep will enqueue the new version."""
+
+
 def _digest(value) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
                          default=str).encode("utf-8")
@@ -379,7 +383,7 @@ def evaluate(db, rule_id: int, *, expected_key: str | None = None) -> dict:
 
     run_key = evaluation_key(db, rule_id)
     if expected_key is not None and expected_key != run_key:
-        raise DesignEvaluationRefused("evaluation inputs changed before execution")
+        raise StaleEvaluation("evaluation inputs changed before execution")
     with db.session() as s:
         existing = s.scalar(select(DesignEvaluationRun).where(DesignEvaluationRun.run_key == run_key))
         if existing is not None:

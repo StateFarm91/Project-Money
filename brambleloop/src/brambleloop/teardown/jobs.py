@@ -26,7 +26,7 @@ def enqueue_purchase(db, benchmark_id: int) -> dict:
     except licence.LicenceRefused:
         return {"queued": 0, "existing": 0, "reason": "licence_refused"}
     queue = JobQueue(db)
-    queued = existing = 0
+    queued = existing = requeued = 0
     for item in files:
         sha = item.get("sha256") or ""
         if not str(item.get("name") or "").lower().endswith(".pdf"):
@@ -38,6 +38,8 @@ def enqueue_purchase(db, benchmark_id: int) -> dict:
                           {"benchmark_id": benchmark_id, "file_sha256": sha},
                           idempotency_key=f"teardown:{benchmark_id}:{sha}")
             queued += 1
-        except DuplicateJob:
+        except DuplicateJob as exc:
             existing += 1
-    return {"queued": queued, "existing": existing}
+            result = queue.requeue_dead(job_types=["teardown.analyse"], ids=[exc.existing_id])
+            requeued += len(result["requeued"])
+    return {"queued": queued, "existing": existing, "requeued": requeued}
