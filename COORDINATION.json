@@ -1023,7 +1023,8 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "via handle_cir_draft and assets.build, on a durable DB: 'Ｂear', '𝐁ear', 'Cosy Ｒabbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
-      "state": "pushed on opus2/p0-amigurumi 98d216b0 (not split as asked); in review A1-REVIEW"
+      "state": "superseded",
+      "superseded_by": "A1-R"
     },
     {
       "owner": "opus2",
@@ -1061,7 +1062,8 @@
       ],
       "branch_from": "opus2/p0-photo-asset-review rebased on W5-INTEG1 50937469",
       "acceptance": "repros A, C, D and E behave correctly; a forced race never approves a moved frame; two photos for one release end in a certified set or a named refusal",
-      "state": "review OPUS2W DO NOT SHIP (2 MED); fixes requested 16:05Z"
+      "state": "superseded",
+      "superseded_by": "A3-FIX"
     },
     {
       "owner": "opus2",
@@ -1245,7 +1247,7 @@
       ],
       "ownership_boundary": "shared safety code only (launch0 children's gate, child_words_in/fold, renderer children's block, risk_matrix, small-parts check); the amigurumi toy rebases onto A1-R afterwards and is not part of this branch",
       "next": "push, then request delta review on PR #3; integrator integrates on SHIP independently of the toy",
-      "priority": "1 (with A2); then A4, A5, A6 ahead of any new construction or product generator (I-OPUS2-FREEZE-GENERATORS stands)",
+      "priority": 1,
       "dispatch": {
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
@@ -1534,6 +1536,21 @@
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      }
+    },
+    {
+      "id": "A4a",
+      "owner": "mainopus-worker",
+      "priority": 2,
+      "branch": "claude/w5-A4a-research-to-concept",
+      "requirement": "research brief / coverage gap -> new concept outside the 34 -> cir.draft; durable continuation",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:02:00Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:48Z",
+        "ack_due_by": "2026-11-02T22:57:48Z",
+        "checkpoint_due_by": "2026-11-03T03:57:48Z"
       }
     }
   ],
