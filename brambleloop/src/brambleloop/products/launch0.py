@@ -416,6 +416,18 @@ def colourwork_claims(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))
 
 
+TWO_COLOUR_MIN_SHARE = 0.10   # INTEG5G-1: the minority colour's share of all worked stitches
+
+
+def _colour_shares(rows) -> dict:
+    total = sum(len(r) for r in rows)
+    counts: dict[str, int] = {}
+    for row in rows:
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+    return {c: round(n / total, 4) for c, n in sorted(counts.items())} if total else {}
+
+
 def colourwork_motif(grid) -> dict:
     """How much of the fabric is two-colour, measured from the twin's colour grid."""
     rows = [[c for c in row if c] for row in grid]
@@ -436,6 +448,8 @@ def colourwork_motif(grid) -> dict:
             runs.append(longest)
     return {"rows": len(rows), "two_colour_rows": len(multi),
             "colours_used": len({c for row in rows for c in row}),
+            # INTEG5G-1: each colour's share of all worked stitches, for the two-colour claim.
+            "colour_shares": _colour_shares(rows),
             "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
             "min_minority_share": round(min(multi), 3) if multi else 0.0,
             "min_contrast_run": min(runs) if runs else 0}
@@ -451,9 +465,16 @@ def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
     if claim in _NEEDS_BOBBINS:
         return False, "needs separate colour blocks with no carried strand, not modelled"
     if claim == "two colours":
-        used = motif.get("colours_used", 0)
-        return used >= 2, (f"the fabric uses {used} colour(s) (a two-colour claim needs at "
-                           f"least 2 actually worked, in any rows)")
+        # INTEG5G-1: exactly two colours worked, and the minority colour is a real part of the
+        # fabric (>= TWO_COLOUR_MIN_SHARE of all stitches) -- not one contrast stitch, one trim
+        # row, or a third colour hidden under the word "two".
+        shares = motif.get("colour_shares") or {}
+        used = len(shares) or motif.get("colours_used", 0)
+        minority = min(shares.values()) if shares else 0.0
+        ok = used == 2 and minority >= TWO_COLOUR_MIN_SHARE
+        return ok, (f"the fabric works {used} colour(s), the minority colour is "
+                    f"{minority:.0%} of stitches (a two-colour claim needs exactly 2, the "
+                    f"minority >= {TWO_COLOUR_MIN_SHARE:.0%})")
     if claim in _MOTIF_TECHNIQUES:
         ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
               and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
