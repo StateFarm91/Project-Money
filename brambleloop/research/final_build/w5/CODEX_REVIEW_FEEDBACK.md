@@ -4,9 +4,9 @@ The integrator (Main Opus) maintains this file. Codex reads it with
 `CODEX_WO_P0_LEARNING_REFERENCE.md` before each work session. Newest entries are first.
 Codex has no PR, so this file is the review channel.
 
-## 2026-11-02T19:36Z: mandatory dispatch protocol (decision `I-DISPATCH-PROTOCOL`)
+## 2026-11-02T19:58Z: mandatory dispatch protocol (decision `I-DISPATCH-PROTOCOL`)
 Your assignment is now **CODEX1-FIX** (P1) in `COORDINATION.json`. It covers CODEX1-2 and confirming CODEX1-1,
-then the approved-rule reader that A6 consumes. Its ack is due within 3 h of 19:35Z. Read `dispatch/README.md` on
+then the approved-rule reader that A6 consumes. Its ack is due by the `ack_due_by` in its `dispatch` record. Read `dispatch/README.md` on
 `claude/w4-INTEG8-next`.
 
 On every work session:
