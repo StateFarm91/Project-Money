@@ -628,6 +628,17 @@
         "claude/w5-INTEG1 a8ce0072": "SHIP for certification (provisional on its second regression batch; integrator re-running it 05:29Z); LOW INTEG5B-1..-4 (owner-queue index on rollback, index-creation race, certificate write race)"
       },
       "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "OPUS2O",
+      "sha": "3f2949cd",
+      "verdicts": {
+        "8cf4a458": "CHANGES_REQUIRED (OPUS2O-1 MED count reader still a list; -2/-3 LOW); 80f4b073 faithful",
+        "5889cc37": "CHANGES_REQUIRED (OPUS2O-4 MED C2C/colour-count classes; -5 LOW)",
+        "09122165": "SHIP",
+        "a859f6fe": "SHIP (LOW -6 contrast cuff palette, -7 pin, -9 stocking size citation UNKNOWN)"
+      },
+      "recorded": "2026-11-02T06:40Z"
     }
   ],
   "integration": {
@@ -711,6 +722,11 @@
       "id": "I-B5-OPUS2-INTEGRATION-QUEUE",
       "recorded": "2026-11-02T03:35Z",
       "decision": "Per owner directive 2026-11-02: accepted opus2 heads merge into claude/w5-INTEG1 as soon as an independent review says SHIP; pet bed (PR #10) and stocking (PR #11) do not hold other accepted work, and if not SHIP when the rest is integrated, Batch 5 certifies without them. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Records from 2026-11-01..02 held during the deploy freeze: brambleloop/research/final_build/w5/INTEGRATOR_HELD_RECORDS_20261101.md."
+    },
+    {
+      "id": "I-B5-SPLIT-PET-STOCKING",
+      "recorded": "2026-11-02T06:40Z",
+      "decision": "PR #10 + #11 integrated into W5-INTEG1 as one split unit 52f9f4b5 = opus2 55450fc3..a859f6fe (product commits d0a7685f 5c7b984a 7d220e01 563c0436 940f70e6 e07157dc 09122165), applied 3-way, without Secondary's PR #3 base resolution f96d7bd2 (W5-INTEG1 resolved it; 13d67502 already in as d3688000). So the pet bed does NOT depend on the PR #3 J-1 chain. Every touched file equals a859f6fe content plus W5-INTEG1's own prior differences. Rides Batch 6 (Batch 5 certification is on a8ce0072)."
     }
   ],
   "production_observations": [
@@ -774,16 +790,14 @@
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2O",
+        "id": "OPUS2P",
         "subjects": [
-          "opus2/p0-revenue-workforce 8cf4a458 (+b4merge 80f4b073)",
-          "opus2/p0-cir-colourwork 5889cc37",
-          "opus2/p0-pet-bed 09122165",
-          "opus2/p0-stocking a859f6fe (first-parent 0ef8a716..)"
+          "opus2/p0-tapestry 71e26e6f (diff 67b67015..)",
+          "opus2/p0-amigurumi a9fac088..3b0a8867 (amigurumi bear/bunny, drawstring pouch, openings_cm)"
         ],
-        "session": "session_015ZfGXo2PabBK5TPj8PjFHW",
-        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2O.md on claude/w5-SECREVIEW-OPUS2O",
-        "launched": "2026-11-02T05:29Z"
+        "session": "session_015ZfGXofSHABuuJMK5qNuBh",
+        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2P.md on claude/w5-SECREVIEW-OPUS2P",
+        "launched": "2026-11-02T06:31Z"
       }
     ]
   }

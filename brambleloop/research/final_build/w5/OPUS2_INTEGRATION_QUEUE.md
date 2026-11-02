@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T05:43Z.
+Last updated: 2026-11-02T06:41Z.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -24,18 +24,19 @@ Last updated: 2026-11-02T05:43Z.
 |---|---|---|---|---|---|---|---|---|
 | Q1 | opus2/p1-culture-sweep-timeout, PR #7 | 3468fe73 | ACCEPT (OPUS2K) | none | **integrated** (W5-INTEG1 812f63d7, pushed 03:46Z; 13/13 suites green) | test_opus2_culture_sweep_timeout, test_culture, test_culture_feed, test_cost_governance_wave2 | none: done | — |
 | Q2 | opus2/p0-cir-colourwork, PR #9 | 424d69a9 | ACCEPT (OPUS2K); J-7 SHIP (J7B) | W5-INTEG1 2d2d9446 | **integrated** (W5-INTEG1 812f63d7) | test_opus2_cir_colourwork, test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_w5_integfix, test_compiler, test_reverse, test_twin | none: done | — |
-| Q3 | opus2/p0-revenue-workforce, PR #3 (J-1 chain) | 558e7ca9, 6d6d83d9, 771e1e1a, c3074241, 6769e696, 8cf4a458 | 8cf4a458 **in review OPUS2O** (fix for OPUS2M-1) | none in target | no: awaiting OPUS2O | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | merge the chain on SHIP | integrator |
+| Q3 | opus2/p0-revenue-workforce, PR #3 (J-1 chain) | 558e7ca9..8cf4a458 | 8cf4a458 CHANGES_REQUIRED (OPUS2O-1 MED) | none in target | no: **blocked** on the OPUS2O-1 fix (Secondary working it, 06:31Z) | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | delta review of the fix | opus2 |
 | Q4 | opus2/p1-culture-sweep-timeout, PR #7 | e0be7c4d (tests only) | SHIP (OPUS2M) | Q1 | **integrated** (W5-INTEG1 a8ce0072, suites green) | test_opus2_culture_sweep_timeout | none; OPUS2M-5 and -6 LOW follow-ups for opus2 | — |
-| Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c, 5889cc37 | 5889cc37 **in review OPUS2O** (fix for OPUS2M-2 regression) | Q2 | no: awaiting OPUS2O | as Q2 | merge both on SHIP | integrator |
-| Q6 | opus2/p0-pet-bed, PR #10 | d0a7685f, 7d220e01, 940f70e6, 09122165 | 940f70e6 DO NOT SHIP (OPUS2N-1); 09122165 **in review OPUS2O** | Q3 | no: awaiting OPUS2O and Q3 | test_opus2_pet_bed, test_opus2_draft_constructions, test_fallback_draft_provenance | merge after Q3 | integrator |
-| Q7 | opus2/p0-stocking, PR #11 | 5c7b984a, be12b47b, 563c0436, 0ef8a716, bd3399eb, e07157dc, a859f6fe | e07157dc/a859f6fe **in review OPUS2O** (fix for OPUS2L) | Q6 | no: awaiting OPUS2O and Q6 | test_opus2_stocking + Q6 suites | merge after Q6 | integrator |
+| Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c, 5889cc37 | 5889cc37 CHANGES_REQUIRED (OPUS2O-4 MED) | Q2 | no: **blocked** on the OPUS2O-4 fix | as Q2 | delta review of the fix | opus2 |
+| Q6 | opus2/p0-pet-bed, PR #10 | d0a7685f, 7d220e01, 940f70e6, 09122165 | SHIP (OPUS2O) | none (split from PR #3: I-B5-SPLIT-PET-STOCKING) | **integrated** W5-INTEG1 52f9f4b5 (suites running, push on green) | test_opus2_pet_bed, test_opus2_draft_constructions, test_fallback_draft_provenance | push; Batch 6 | integrator |
+| Q7 | opus2/p0-stocking, PR #11 | 5c7b984a, 563c0436, e07157dc (+merges to a859f6fe) | SHIP (OPUS2O); LOW -6/-7/-9 follow-ups | Q6 | **integrated** with Q6 in 52f9f4b5 | test_opus2_stocking + Q6 suites | push; Batch 6 | integrator |
 | Q8 | opus2/p0-listing-package, PR #5 | be96a598 | ACCEPT | none | **merged** (earlier) | test_opus2_listing_package | none: done | — |
 | Q9 | opus2/p1-owner-queue-races, PR #6 | 23935b58 | ACCEPT | none | **merged** (earlier) | test_opus2_owner_queue_races | none: done | — |
 | Q10 | opus2/p0-family-membership, PR #8 | d8d80301 | ACCEPT | none | **merged** (earlier) | test_opus2_family_membership | none: done | — |
 | Q11 | claude/w4-INTEG8-next records | 42db54ae, 51e39992 and this file (docs/records only) | n/a (no code) | none | **integrated** (812f63d7; records suites 7/7 green) | none (no code) | re-merge at each records change | integrator |
 | Q12 | codex/p0-learning-reference | 57c176a9 (claim only) | n/a: no code yet | — | no: **not started** | — | owner starts Codex; review its first push | Codex |
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
-| Q14 | opus2/p0-tapestry (new) | 67b67015 | DO NOT SHIP (OPUS2N-1; N-2..N-4, N-6 LOW) | Q5 | no: **blocked** on the N-1 fix (Secondary working it, 05:29Z) | test_opus2_cir_colourwork, test_launch0*, the tapestry suite | delta review when the fix lands | opus2 |
+| Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | 71e26e6f **in review OPUS2P** | Q5 (claim reader), unless proven independent | no: awaiting OPUS2P | test_opus2_cir_colourwork, test_launch0*, the tapestry suite | integrate on SHIP if independent of Q5 | integrator |
+| Q16 | opus2/p0-amigurumi (new) | a9fac088, e80a0be0, b4ea6795, c7a8d31e, 3b0a8867 (stacked on 67b67015) | **in review OPUS2P** (child safety a focus) | Q14 | no: awaiting OPUS2P | its named suites + test_launch0 childrens | integrate on SHIP as a split unit | integrator |
 | Q15 | opus2 new work: P0-PHOTO-ASSET-REVIEW | not started | — | none | — | — | assigned on PR #3 | opus2 |
 
 Not integration items:
