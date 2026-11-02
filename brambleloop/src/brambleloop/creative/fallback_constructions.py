@@ -79,6 +79,7 @@ TOTE = "tote"
 COSY = "cosy"
 TRIANGLE = "triangle"
 STOCKING = "stocking"
+TAPESTRY = "tapestry"
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -153,6 +154,16 @@ def _several_sizes(*texts: str) -> str | None:
     return None
 
 
+def _colour_count_free(text: str) -> str:
+    """'Two-Colour Basket' names two colours, not two baskets: the size-claim count reads a
+    number word before a vessel noun, so the colour count is renamed before that check. Only
+    when no plural vessel noun is present -- "Two Colour Baskets" is still two baskets."""
+    t = text or ""
+    if re.search(r"\b(?:baskets|bowls|bins|totes|bags|pots|buckets|trays)\b", t, re.I):
+        return t
+    return re.sub(r"\btwo[- _]?(?:colou?r(?:ed)?|tone[d]?)\b", "bicolour", t, flags=re.I)
+
+
 def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
          rationale: str = "") -> dict:
     """The construction family a fallback concept is drafted in, and why."""
@@ -161,7 +172,7 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": "a bundle is a collection of other designs, not a design to draft"}
     # Review OPUS2C N3.1: one draft is one release is one size. A concept whose slug, title
     # or premise promises several (a trio, three sizes) is refused, never drafted as one.
-    promise = _several_sizes(slug, title, rationale)
+    promise = _several_sizes(_colour_count_free(slug), _colour_count_free(title), rationale)
     if promise:
         return {"family": REFUSED,
                 "needs": "one certified release per size (products.vessels.build_basket per "
@@ -174,6 +185,12 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
                         f"flat panels and baskets only")}
     if category in VESSEL_CATEGORIES:
+        # P0 construction breadth (colourwork products): a basket whose title claims a
+        # colourwork technique is drafted as that technique or refused by name -- never the
+        # plain striped vessel under a colourwork name.
+        coloured = tapestry_route(title)
+        if coloured is not None:
+            return coloured
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, fold_title(title)):
         lowered_p = fold_title(title)       # OPUS2L-4: Unicode dashes and forms folded
@@ -818,3 +835,212 @@ def cosy(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 
 VESSEL_PRIMITIVES = ("creative.fallback_constructions.vessel", "products.vessels._disc_rounds",
                      "products.vessels.base_stitches_for")
+
+
+# ---------------------------------------------------------------------------------------
+# Tapestry crochet baskets (P0 construction breadth, owner directive 2026-11-01 section 3A).
+#
+# Tapestry crochet: single crochet worked in joined rounds, the colour not in use laid along
+# the top of the previous round and worked over, so every stitch is one colour and the
+# carried strand is hidden inside the fabric. The CIR expresses it with `Op.color` (P0-CIR-
+# COLOURWORK): each op names the yarn it is worked in; the twin paints the chart, charges the
+# carried strand to yardage (`twin.CARRY_FACTOR`) and `launch0.fabric_truth` judges the name
+# by `technique_backed("tapestry", ...)`. The charts below are original geometric repeats,
+# six stitches wide so they tile any base count the hexagon base makes (a multiple of six).
+# Only tapestry is drafted. Mosaic and graphghan need stitches that reach past the previous
+# round, intarsia needs bobbins with no carried strand, and fair isle / stranded / jacquard
+# name a floated technique; none is what this fabric is, so each is refused by name.
+
+def fold_title(title: str | None) -> str:
+    """A title as the routing rules read it: NFKC, every Unicode dash (category Pd) as an
+    ASCII hyphen, lower case, whitespace collapsed and stripped."""
+    import unicodedata
+
+    text = unicodedata.normalize("NFKC", title or "")
+    text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
+                   for c in text)
+    return re.sub(r"\s+", " ", text.lower()).strip()
+
+
+TAPESTRY_CHARTS: dict[str, tuple[str, ...]] = {
+    # "X" is the contrast colour, "." the main; read right to left like every round.
+    "diamond": ("..XX..", ".XXXX.", "XX..XX", "XX..XX", ".XXXX.", "..XX.."),
+    "check": ("XXX...", "XXX...", "XXX...", "...XXX", "...XXX", "...XXX"),
+}
+TAPESTRY_DEFAULT_CHART = "diamond"
+_TAPESTRY_CHART_WORDS = {"diamond": "diamond", "diamonds": "diamond", "argyle": None,
+                         "check": "check", "checked": "check", "checker": "check",
+                         "checkerboard": "check", "chequer": "check", "chequered": "check",
+                         "chequerboard": "check"}
+_TAPESTRY_HEAD = r"\bbasket$"
+_TAPESTRY_CLAIM = (r"\b(?:tapestry|colou?r ?work|two[- ]?(?:colou?r(?:ed)?|tone[d]?)|"
+                   r"bi[- ]?colou?r(?:ed)?)\b")
+_COLOURWORK_NOT_TAPESTRY = (
+    (r"\b(?:mosaic|overlay)\b", "stitches that reach past the previous round (overlay "
+                                 "mosaic), which no CIR expresses yet"),
+    (r"\b(?:graph ?gh?an|c2c|corner[- ]to[- ]corner)\b", "a charted picture worked as a "
+                                                       "graphghan, not a basket wall"),
+    (r"\b(?:intarsia|duplicate[- ]stitch(?:ed)?)\b", "separate colour blocks with no "
+                                                   "carried strand (bobbins), not modelled"),
+    (r"\b(?:fair[- ]?isle|stranded|jacquard)\b", "a floated stranded technique; this "
+                                                     "fabric carries the strand inside the "
+                                                     "stitches, which is tapestry"),
+    (r"\b(?:three|four|multi|tri)[- ]?colou?r(?:ed)?\b", "more than two colours in a round; "
+                                                       "the charts are two-colour"),
+)
+_TAPESTRY_ALLOWED_WORDS = frozenset({
+    "tapestry", "colourwork", "colorwork", "colour", "color", "work", "two", "tone", "toned",
+    "two-colour", "two-color", "two-coloured", "two-colored", "two-tone", "two-toned",
+    "bicolour", "bicolor", "bi-colour", "bi-color", "crochet", "crocheted", "storage",
+    # OPUS2N-2: no "round": the base is a hexagon, as the size note says.
+    "hexagon", "hexagonal", "geometric", "modern", "classic", "simple", "everyday",
+    "cosy", "cozy", "small", "medium", "large", "catch-all", "catchall", "shelf",
+    *[w for w, chart in _TAPESTRY_CHART_WORDS.items() if chart],
+})
+_TAPESTRY_SIZE_WORDS = (("small", "small"), ("medium", "medium"), ("large", "large"))
+TAPESTRY_PLAIN_BELOW = 2        # plain main-colour rounds below the chart band
+TAPESTRY_PLAIN_RIM = 2          # plain main-colour rounds at the rim
+TAPESTRY_PRIMITIVES = ("creative.fallback_constructions.tapestry_basket",
+                       "products.vessels._disc_rounds", "products.vessels.base_stitches_for")
+
+
+def tapestry_route(title: str | None) -> dict | None:
+    """The route for a basket title that claims colourwork: None when it claims none."""
+    folded = fold_title(title)
+    # Only a tapestry / two-colour claim changes the route. Any other colourwork name keeps
+    # the existing flow: drafted as the plain vessel, and refused at publication by
+    # `launch0.fabric_truth` / `first_customer.colourwork_findings`, which the draft records
+    # (test_opus2_draft_constructions pins that for "Nordic Forest Mosaic Storage Basket").
+    if not re.search(_TAPESTRY_CLAIM, folded):
+        return None
+    for rx, needs in _COLOURWORK_NOT_TAPESTRY:
+        hit = re.search(rx, folded)
+        if hit:
+            return {"family": REFUSED, "needs": needs,
+                    "why": (f"the title claims {hit.group(0)!r}; the fallback drafts tapestry "
+                            f"crochet only, and {hit.group(0)!r} is not that fabric")}
+    counted = re.sub(r"\btwo[- ]?(?:colou?r(?:ed)?|tone[d]?)\b", " ", folded)
+    if re.search(r"\bbaskets\b", folded) or re.search(_MULTIPLE_WORDS, counted):
+        return {"family": REFUSED,
+                "needs": "one certified release per basket, each listed on its own",
+                "why": "the title promises more than one basket; one draft is one basket"}
+    head = re.search(_TAPESTRY_HEAD, folded)
+    if not head:
+        return {"family": REFUSED, "needs": "a tapestry basket title, or the construction the "
+                                            "title names",
+                "why": (f"the title {title!r} claims colourwork but its head noun is not "
+                        f"'basket'; only a tapestry basket is drafted")}
+    prefix = folded[:head.start()]
+    before = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", prefix)
+    unknown = [w for w in before if w not in _TAPESTRY_ALLOWED_WORDS]
+    # OPUS2N-1: the allowlist is total. An emoji, a word in another script or a symbol yields
+    # no ASCII token; it is refused by what is left over, never passed as "nothing unknown".
+    leftover = re.sub(r"[a-z0-9\s\-]", "", prefix)
+    if leftover:
+        unknown.append(leftover)
+    if unknown:
+        return {"family": REFUSED,
+                "needs": (f"the motif, size or construction {' '.join(unknown)!r} names; only "
+                          f"a charted two-colour tapestry basket "
+                          f"({', '.join(sorted(TAPESTRY_CHARTS))}) is drafted"),
+                "why": (f"the title names {' '.join(unknown)!r}, which the tapestry basket "
+                        f"charts do not make")}
+    # OPUS2N-4: one chart and one size per release; a second is never silently dropped.
+    charts = {_TAPESTRY_CHART_WORDS[w] for w in before if _TAPESTRY_CHART_WORDS.get(w)}
+    sizes = {k for w, k in _TAPESTRY_SIZE_WORDS if w in before}
+    if len(charts) > 1 or len(sizes) > 1:
+        named = sorted(charts) if len(charts) > 1 else sorted(sizes)
+        return {"family": REFUSED,
+                "needs": "one certified release per chart and per size, each listed on its own",
+                "why": (f"the title names {' and '.join(named)}; one tapestry basket carries "
+                        f"one chart at one size")}
+    return {"family": TAPESTRY, "needs": "",
+            "why": "a tapestry basket is single crochet in joined rounds, two colours carried"}
+
+
+def _tapestry_chart(title: str) -> str:
+    words = re.findall(r"[a-z]+", fold_title(title))
+    chosen = [_TAPESTRY_CHART_WORDS[w] for w in words if _TAPESTRY_CHART_WORDS.get(w)]
+    return chosen[0] if chosen else TAPESTRY_DEFAULT_CHART
+
+
+def _chart_ops(line: str, contrast: str, repeats: int) -> list:
+    runs: list = []
+    for cell in line:
+        colour = contrast if cell == "X" else None
+        if runs and runs[-1][0] == colour:
+            runs[-1][1] += 1
+        else:
+            runs.append([colour, 1])
+    return [Repeat([Op("sc", n, color=c) if c else Op("sc", n) for c, n in runs],
+                   times=repeats)]
+
+
+def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
+    """A hexagon-based basket whose wall is a charted two-colour tapestry band."""
+    from ..creative.prototype import gauge_for
+    from ..products.vessels import (BASKET_SIZES, _disc_rounds, base_stitches_for,
+                                    hexagon_spans_cm)
+
+    colours = list(dict.fromkeys(concept.colors))
+    if len(colours) < 2 or len({concept.colors[c] for c in colours[:2]}) < 2:
+        raise ValueError(f"{concept.slug}: tapestry needs two distinct colours, the concept "
+                         f"declares {len(colours)}")
+    main, contrast = colours[0], colours[1]
+    folded = fold_title(concept.title)
+    key = next((k for word, k in _TAPESTRY_SIZE_WORDS if re.search(rf"\b{word}\b", folded)),
+               "medium")
+    spec = next(s for s in BASKET_SIZES if s.key == key)
+    gauge = gauge_for(concept.yarn_weight)
+    chart_name = _tapestry_chart(concept.title)
+    chart = TAPESTRY_CHARTS[chart_name]
+    width = len(chart[0])
+    wanted = base_stitches_for(spec.across_cm, gauge)
+    base_count = max(width * 4, int(round(wanted / width)) * width)
+    base_count -= base_count % 6                        # six stacked increases
+    rows = _disc_rounds(base_count, main)
+    row_cm = 10.0 / gauge.rows_per_10cm
+    wall_rounds = max(TAPESTRY_PLAIN_BELOW + TAPESTRY_PLAIN_RIM + len(chart),
+                      int(round(spec.tall_cm / row_cm)))
+    band = wall_rounds - TAPESTRY_PLAIN_BELOW - TAPESTRY_PLAIN_RIM
+    band -= band % len(chart)                           # whole chart repeats only
+    below = (wall_rounds - band - TAPESTRY_PLAIN_RIM)
+    index = rows[-1].index
+    band_rows: list[int] = []
+    for w in range(wall_rounds):
+        index += 1
+        if below <= w < below + band:
+            line = chart[(w - below) % len(chart)]
+            ops = _chart_ops(line, contrast, base_count // width)
+            band_rows.append(index)
+        else:
+            ops = [Op("sc", base_count)]
+        rows.append(Row(index=index, ops=ops, declared_count=base_count, color=main))
+    points, flats = hexagon_spans_cm(base_count, gauge)
+    return CIR(
+        slug=concept.slug, title=concept.title, version=version,
+        construction="joined_rounds", risk_class=concept.risk_class,
+        colors=dict(concept.colors), gauge=gauge,
+        materials=[Material(name=f"{concept.yarn_weight} acrylic",
+                            yarn_weight=concept.yarn_weight, color_id=c)
+                   for c in (main, contrast)],
+        components=[Component(
+            name="basket", construction="joined_rounds", rows=rows, foundation=0,
+            foundation_kind="magic_ring",
+            note=(f"Worked in one piece from the centre of the base. Work each increase into "
+                  f"the second stitch of the previous round's increase, so the base is a "
+                  f"hexagon. Rounds {band_rows[0]}-{band_rows[-1]} are tapestry crochet: "
+                  f"lay the colour not in use along the top of the round and work over it, "
+                  f"and change colour in the last yarn-over of the stitch before. Tapestry "
+                  f"single crochet in rounds leans slightly in the working direction, so the "
+                  f"chart's columns spiral a little; that is the fabric, not an error."))],
+        designer_notes=(f"{concept.category} concept drafted as a tapestry crochet basket: "
+                        f"hexagon base of {base_count} sts, {wall_rounds} wall rounds, of "
+                        f"which rounds {band_rows[0]}-{band_rows[-1]} carry the {width}-st "
+                        f"{chart_name} chart in {main} and {contrast}"),
+        finished_size_note=(
+            f"A hexagonal tapestry basket about {points:.1f} cm across the points and "
+            f"{flats:.1f} cm across the flats, walls about {wall_rounds * row_cm:.0f} cm tall, "
+            f"at the stated gauge. Computed, not yet measured on a worked sample."),
+        provenance=provenance,
+    )

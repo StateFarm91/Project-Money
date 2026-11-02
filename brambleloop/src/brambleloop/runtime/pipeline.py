@@ -834,6 +834,26 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.stocking(concept, provenance=provenance)
+        elif route["family"] == FC.TAPESTRY:
+            if len(set((concept.colors or {}).values())) < 2:
+                ctx.audit("cir.draft_refused", artifact=slug,
+                          detail={"reason": "tapestry needs two distinct colours",
+                                  "gate": "construction", "category": concept.category,
+                                  "needs": "a second, distinct colour in the palette"})
+                return {"artifact": slug, "drafted": False, "gate": "construction",
+                        "construction": FC.REFUSED,
+                        "reasons": ["tapestry needs two distinct colours"]}
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TAPESTRY_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.tapestry_basket(concept, provenance=provenance)
         elif route["family"] == FC.TRIANGLE:
             provenance = None
             if lineage["known"]:
