@@ -60,8 +60,10 @@ class BasketSize:
 # sizing guidance: "internal diameter of roughly 16-20 inches (40-50 cm) for round beds" for an
 # average adult domestic cat (https://thetoolstrunk.com/how-big-should-a-cat-bed-be/, retrieved
 # 2026-11-01, re-fetched by review OPUS2K 2026-11-02). Secondary guidance from one blog, not a
-# measured standard or a worked sample. 48 cm is the OUTSIDE measurement across the points (the
-# flats are about 41.6 cm), so the interior sits near the low end of that range. A cat size only;
+# measured standard or a worked sample. 48 cm is the requested OUTSIDE size; the compiled bed
+# rounds up to a whole number of wedges and measures about 51.2 cm across the points and 44.3 cm
+# across the flats (OPUS2N-5), so the flats sit inside the cited 40-50 cm and the points a little
+# over it. The listing prints the computed figures, never 48. A cat size only;
 # no dog or other animal size is sourced, so those stay refused.
 PET_BED_SIZE_SOURCE = ("published cat-bed sizing guidance (secondary, one source), retrieved "
                        "2026-11-01: an average adult cat's round bed has an internal diameter of "

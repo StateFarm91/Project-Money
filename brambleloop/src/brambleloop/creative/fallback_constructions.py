@@ -130,7 +130,7 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
     if category in VESSEL_CATEGORIES:
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, (title or "").lower().strip()):
-        lowered_p = (title or "").lower()
+        lowered_p = (title or "").lower().replace("\u2019", "'")   # a typographic apostrophe
         # OPUS2J J-12: one release is one bed.
         if re.search(_MULTIPLE_WORDS, lowered_p) or re.search(r"\b(?:beds|baskets|nests)\b",
                                                                 lowered_p):
@@ -153,8 +153,15 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         # the head noun must be a plain cat/pet word, so another animal, a size, a feature or a
         # different object is refused whatever it is called.
         head = re.search(_PET_BED_HEAD, lowered_p.strip())
-        before = re.findall(r"[a-z0-9]+", lowered_p.strip()[:head.start()]) if head else []
+        prefix = lowered_p.strip()[:head.start()] if head else ""
+        before = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", prefix)
         unknown = [w for w in before if w not in _PET_BED_ALLOWED_WORDS]
+        # OPUS2N-1: the allowlist is total. Anything before the head noun that is not an
+        # allowlisted word -- an emoji, a word in another script, a symbol -- yields no ASCII
+        # token, so it is refused by what is left over, never passed as "no unknown word".
+        leftover = re.sub(r"[a-z0-9'\s\-]", "", prefix)
+        if leftover:
+            unknown.append(leftover)
         if unknown:
             return {"family": REFUSED,
                     "needs": (f"the construction or sourced size {' '.join(unknown)!r} names; "
@@ -340,7 +347,8 @@ _PET_BED_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|bolster(?:ed)?|cushion(?:ed)?|pill
                       r"blanket|mat|cover|pad|topper|hammock|toy|heated|waterproof|"
                       r"orthop(?:a)?edic|window|raised|weave|woven|elevated|bunk|canopy)\b)")
 _PET_BED_ALLOWED_WORDS = frozenset({
-    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "round", "snug", "basket",
+    # OPUS2N-2: no "round": the bed is a hexagon (its size note says so).
+    "cat", "cats", "kitten", "kitty", "pet", "cosy", "cozy", "snug", "basket",
     "crochet", "crocheted", "simple", "classic", "everyday", "soft", "nest", "cat's",
 })
 _PET_BED_OTHER_ANIMALS = (r"\b(?:dog|dogs|puppy|puppies|pup|hound|great dane|labrador|"
