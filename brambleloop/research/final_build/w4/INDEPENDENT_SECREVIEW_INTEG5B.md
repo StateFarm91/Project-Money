@@ -13,7 +13,7 @@ Reviewer: an independent Claude Code session (branch `claude/w5-SECREVIEW-INTEG5
 
 ## Verdict
 
-**SHIP for certification (PROVISIONAL until the second regression batch below is recorded green).** a8ce0072 may go to the one uninterrupted full suite
+**SHIP for certification.** a8ce0072 may go to the one uninterrupted full suite
 (REQUIRE_CLEAN=1). This verdict is not a deploy approval.
 
 - Every merge resolution is faithful. No hunk was lost, no registration was duplicated, and no
@@ -194,7 +194,25 @@ Run from `brambleloop/`, with dependencies from `requirements.lock` and
 | test_opus2_family_membership | 5 / 0 | 4 s |
 | test_opus2_culture_sweep_timeout | 8 / 0 | 8 s |
 
-**Second batch: RUNNING at commit time, results not yet recorded (UNKNOWN, not PASS):** test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_compiler, test_reverse, test_twin, test_w4_auditfix_migrate, test_culture, test_culture_feed, test_cost_governance_wave2, test_opus2_draft_constructions, test_opus2_chain_deadends, test_physfix_photo_first. This report is updated when they finish.
+Second batch, also run one suite at a time:
+
+| Suite | Result | Time |
+|---|---|---|
+| test_first_customer_gate | 12 / 0 | 157 s |
+| test_launch0 | 52 / 0 | 47 s |
+| test_launch0_listing_truth | 14 / 0 | 459 s |
+| test_compiler | 9 / 0 | 0 s |
+| test_reverse | 18 / 0 | 1 s |
+| test_twin | 8 / 0 | 0 s |
+| test_w4_auditfix_migrate | 2 / 0 | 2 s |
+| test_culture | 26 / 0 | 8 s |
+| test_culture_feed | 24 / 0 | 3 s |
+| test_cost_governance_wave2 | 39 / 0 | 23 s |
+| test_opus2_draft_constructions | 18 / 0 | 10 s |
+| test_opus2_chain_deadends | 11 / 0 | 7 s |
+| test_physfix_photo_first | 8 / 0 | 8 s |
+
+All 24 suites exited 0, and no log contains a traceback: 383 passing, 0 failing.
 
 Other commands:
 ```
