@@ -181,6 +181,90 @@ def test_review_opus2p_p1_every_drafted_toy_needs_a_childrens_decision_to_render
     assert refused == len(drafted)
 
 
+def test_review_opus2t_t4_the_construction_triggers_the_childrens_gate():
+    """OPUS2T-4 (HIGH): the gate read title words without the route's fold, so a toy titled
+    in full-width or mathematical letters rendered with no children's safety block. The
+    construction now triggers it (a stuffed figure), and child words are read NFKC-folded."""
+    import dataclasses
+
+    from brambleloop.publish import pdf
+
+    unicode_titles = ("\uff22ear", "\uff34eddy \uff22ear", "Cosy \uff32abbit",
+                      "\U0001d401ear", "\uff22unny", "Ball \uff22ear")
+    assert unicode_titles
+    rendered_refused = 0
+    for title in unicode_titles:
+        assert F.plan(category="amigurumi", title=title)["family"] == F.AMIGURUMI, title
+        concept = _concept(title)
+        concept.slug = "neutral-slug-x"
+        cir = F.amigurumi(concept)
+        assert L.stuffed_figure(cir) and L.child_words_in(cir.title, cir.slug), title
+        try:
+            pdf.build_pattern_pdf(cir)
+        except Exception as exc:  # noqa: BLE001
+            assert "child" in str(exc).lower(), (title, exc)
+            rendered_refused += 1
+        else:
+            raise AssertionError(f"{title!r} rendered with no children's decision")
+    assert rendered_refused == len(unicode_titles)
+    # A toy whose title names no child word at all (a research brief's "Juniper Friend", an
+    # empty title) is refused by its construction alone.
+    toy = F.amigurumi(_concept())
+    for title, slug in (("Juniper Friend", "juniper-friend-80c61c2e"), ("", "design-96cff5a5"),
+                        ("Woodland Keepsake", "woodland-keepsake-1")):
+        renamed = dataclasses.replace(toy, title=title, slug=slug)
+        assert not L.child_words_in(renamed.title, renamed.slug) and L.stuffed_figure(renamed)
+        try:
+            pdf.build_pattern_pdf(renamed)
+        except Exception as exc:  # noqa: BLE001
+            assert "stuffed figure" in str(exc), (title, exc)
+        else:
+            raise AssertionError(f"{title!r} rendered with no children's decision")
+    # Both halves of the shape are needed: the same pieces unstuffed are not a figure.
+    hollow = dataclasses.replace(toy, assembly=[dataclasses.replace(s, stuff_before_closing=False)
+                                                for s in toy.assembly])
+    assert not L.stuffed_figure(hollow) and L.stuffed_figure(toy)
+    # The catalogue's stuffed pieces are not figures (nothing is sewn onto them), so their
+    # rendering is unchanged.
+    from brambleloop.products import inventory
+
+    stuffed = [s for s in inventory.universe()
+               if (c := inventory._engineered(s)) is not None
+               and any(x.stuff_before_closing for x in (c.assembly or []))]
+    assert stuffed and not any(L.stuffed_figure(inventory._engineered(s)) for s in stuffed)
+
+
+def test_review_opus2t_t5_no_sewn_on_piece_fits_the_small_parts_cylinder():
+    """OPUS2T-5: the floor bounded the body, not the pieces. Every piece that is sewn on (the
+    ears, the base) is computed from the gauge, and a yarn weight at which one could fit inside
+    the 31.7 mm small-parts cylinder (16 CFR 1501.4; SOR/2011-17 s.7) is refused by name."""
+    refused = {("bear", "sport"), ("bunny", "sport"), ("bear", "dk")}
+    drafted = {("bear", "worsted"), ("bunny", "worsted"), ("bunny", "dk"), ("bear", "bulky"),
+               ("bunny", "bulky")}
+    assert refused and drafted
+    for kind, weight in sorted(refused):
+        concept = _concept("Teddy Bear" if kind == "bear" else "Bunny Amigurumi")
+        concept.yarn_weight = weight
+        try:
+            F.amigurumi(concept)
+        except ValueError as exc:
+            assert "small-parts" in str(exc) and "ear" in str(exc), exc
+        else:
+            raise AssertionError(f"{kind} at {weight} drafted with a small part")
+    for kind, weight in sorted(drafted):
+        concept = _concept("Teddy Bear" if kind == "bear" else "Bunny Amigurumi")
+        concept.yarn_weight = weight
+        assert F.amigurumi(concept)
+        for name, narrow, long in F.ami_separable_pieces(kind, weight):
+            assert narrow > F.SMALL_PARTS_CYLINDER_MM or long > F.SMALL_PARTS_DEPTH_MM, \
+                (kind, weight, name, narrow, long)
+    # every sewn-on piece is measured: both ears share one shape, and the base disc is there
+    assert [p[0] for p in F.ami_separable_pieces("bear", "worsted")] == ["ear", "base"]
+    # the bear's ear at worsted clears the cylinder's width (it was about 48 x 29 mm)
+    ear = next(p for p in F.ami_separable_pieces("bear", "worsted") if p[0] == "ear")
+    assert ear[1] > F.SMALL_PARTS_CYLINDER_MM, ear
+
+
 def test_review_opus2p_joins_are_counted_size_has_a_floor_and_words_do_not_repeat():
     """OPUS2P-2: the toy's joins are measured by stitch count, so a wrong base is a mismatch,
     not an UNKNOWN warning. OPUS2P-3: the body has a stated size floor. OPUS2P-4: a repeated

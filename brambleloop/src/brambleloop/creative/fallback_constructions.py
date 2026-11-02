@@ -913,9 +913,37 @@ AMI_PLAIN_ROUNDS = 7
 AMI_BASE_STITCHES = 18            # the open bottom, closed by a flat base disc so it sits
 AMI_EAR_ROUND = 5                 # the body round the ears are sewn to (30 sts)
 AMI_MIN_BODY_CM = 6.0             # OPUS2P-3: a stated design floor, not a safety standard
+# OPUS2T-5: the small-parts test fixture (16 CFR 1501.4; Canada SOR/2011-17 s.7): a cylinder
+# 31.7 mm across whose slanted floor is 25.4-57.1 mm deep. A piece that could separate (an ear,
+# the base) and fit inside it is a small part. This is geometry from the stitch counts, not a
+# use-and-abuse test, which only a physical sample can pass.
+SMALL_PARTS_CYLINDER_MM = 31.7
+SMALL_PARTS_DEPTH_MM = 57.1
+
+
+def ami_separable_pieces(kind: str, yarn_weight: str) -> list[tuple[str, float, float]]:
+    """(piece, narrow mm, long mm) for every piece of the toy that is sewn on, flat."""
+    from ..creative.prototype import gauge_for
+
+    gauge = gauge_for(yarn_weight)
+    st_mm = 100.0 / gauge.stitches_per_10cm
+    row_mm = 100.0 / gauge.rows_per_10cm
+    spec = AMI_ANIMALS[kind]
+    ear = (spec["flat_sts"] * st_mm, (1 + spec["inc_rounds"] + spec["plain"]) * row_mm)
+    base = AMI_BASE_STITCHES * st_mm / math.pi
+    return [("ear", min(ear), max(ear)), ("base", base, base)]
+
+
+def ami_small_parts(kind: str, yarn_weight: str) -> list[str]:
+    """Every separable piece that could fit inside the small-parts cylinder."""
+    return [f"the {name} (about {narrow:.0f} x {long:.0f} mm flat)"
+            for name, narrow, long in ami_separable_pieces(kind, yarn_weight)
+            if narrow <= SMALL_PARTS_CYLINDER_MM and long <= SMALL_PARTS_DEPTH_MM]
 AMI_ANIMALS: dict[str, dict] = {
     # ear: (stitches in the ring, rounds of increase, plain rounds after) and the flat width
-    "bear": {"ring": 6, "inc_rounds": 1, "plain": 2, "flat_sts": 6,
+    # OPUS2T-5: the bear's ear has a third plain round, so at worsted it is deeper than the
+    # small-parts cylinder is wide (about 48 x 36 mm flat, not 48 x 29).
+    "bear": {"ring": 6, "inc_rounds": 1, "plain": 3, "flat_sts": 6,
              "note": "a round ear: flatten the cup so its opening closes into a straight edge"},
     "bunny": {"ring": 4, "inc_rounds": 1, "plain": 8, "flat_sts": 4,
               "note": "a long ear: flatten the tube so its opening closes into a straight edge"},
@@ -1007,6 +1035,12 @@ def amigurumi(concept, *, version: str = "1.0.0", provenance=None,
         raise ValueError(f"{concept.slug}: at {concept.yarn_weight} gauge the body is about "
                          f"{body_across:.1f} cm across, under the {AMI_MIN_BODY_CM:g} cm floor; "
                          f"a toy this small needs a small-parts assessment this route cannot make")
+    small = ami_small_parts(kind, concept.yarn_weight)
+    if small:
+        raise ValueError(f"{concept.slug}: at {concept.yarn_weight} gauge {', '.join(small)} "
+                         f"could fit inside the {SMALL_PARTS_CYLINDER_MM:g} mm small-parts "
+                         f"cylinder if it came away; this route drafts a toy only where every "
+                         f"sewn-on piece is larger")
     ear_round_count = next(r.declared_count for r in body.rows if r.index == AMI_EAR_ROUND)
     flat = ear_spec["flat_sts"]
     gap = flat
