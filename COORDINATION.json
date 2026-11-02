@@ -812,7 +812,16 @@
         ],
         "next": "apply the reviewed root-cause fixes, run a delta integration review, then ONE fresh uninterrupted full run"
       },
-      "fixed_since": "9e1e1b27: 4 PDF1-merge failures (teardown real regression; listready/launch_review/visnext2 pins; tester kits regenerated). 11 of 13 fixed; cert_publish_gates + cert_orders under root-cause."
+      "fixed_since": "9e1e1b27: 4 PDF1-merge failures (teardown real regression; listready/launch_review/visnext2 pins; tester kits regenerated). 11 of 13 fixed; cert_publish_gates + cert_orders under root-cause.",
+      "current_run": {
+        "run_id": "20261102T164117Z-1487",
+        "sha": "5ba84bf7c291cc971b899dfac7d8b5b4bce95aa1",
+        "started": "2026-11-02T16:41:17Z",
+        "scope": "full (869 suites)",
+        "tree": "clean",
+        "condition": "counts toward release only if delta integration review INTEG5G (50937469..5ba84bf7, launched 16:40Z) says SHIP; otherwise discarded and rerun"
+      },
+      "all_13_failures_fixed": "30b04b35, db463142, 9e1e1b27, 5ba84bf7 (root causes in each commit message)"
     },
     "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
@@ -951,7 +960,17 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "INTEG5G",
+        "subjects": [
+          "claude/w5-INTEG1 50937469..5ba84bf7 (integrator certification fixes)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_INTEG5G.md",
+        "launched": "2026-11-02T16:40Z"
+      }
+    ]
   },
   "assignments": [
     {
