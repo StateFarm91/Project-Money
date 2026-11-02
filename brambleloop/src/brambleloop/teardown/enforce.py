@@ -145,7 +145,8 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
         if independent_decision(r, "rejected"):
             continue
         # Unreviewed scores cannot influence an independently reviewed group.
-        state = "reviewed" if independently_reviewed(r) else "proposed"
+        state = ("reviewed" if independently_reviewed(r) else "legacy"
+                 if not r.recorded_by or r.review_state is None else "proposed")
         sufficient = r.confidence is None or r.confidence >= MIN_BINDING_CONFIDENCE
         by_key.setdefault((_key(r)[0], state, sufficient), []).append(r)
 
@@ -413,11 +414,11 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
         if verdict in ("unmet", "unmeasured") and r["binding"]:
             reasons.append(f"teardown requirement {r['key']} ({r['kind']}, "
                            f"{'/'.join(r['consumers'])}): {verdict} -- {why}")
-        elif (r["review_state"] != "reviewed" and
+        elif (verdict in ("unmet", "unmeasured") and r["review_state"] == "proposed" and
               (r["confidence"] is None or r["confidence"] >= MIN_BINDING_CONFIDENCE)):
-            # Do not turn an existing publish constraint into an implicit pass
-            # while migrating findings whose recorder/reviewer is unknown. The
-            # constraint itself remains provisional; this is a review hold.
+            # A new, attributable provisional concern needs review. Legacy
+            # rows with unknown recorders stay visible and non-binding, rather
+            # than creating a hold no independent reviewer can clear.
             reasons.append(f"teardown finding for {r['key']} requires independent review")
     return {"product": slug, "requirements": len(reqs),
             "release": release,
