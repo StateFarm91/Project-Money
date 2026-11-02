@@ -749,6 +749,14 @@
         "4af3418f..50937469": "SHIP for certification (INFO only; Launch-0 text byte-identical)"
       },
       "recorded": "2026-11-02T12:45Z"
+    },
+    {
+      "subject": "OPUS2W",
+      "sha": "838adbe8 (claude/w5-SECREVIEW-OPUS2W)",
+      "verdicts": {
+        "A3 a14c71d7+d1f65b61": "DO NOT SHIP: OPUS2W-1 MED (no real lock/re-check on SQLite; repro F race approves a moved frame); -2 MED (non-qualifying photo blocks the set forever); LOW -3..-6"
+      },
+      "recorded": "2026-11-02T16:05Z"
     }
   ],
   "integration": {
@@ -803,7 +811,8 @@
           "test_teardown_proof_run"
         ],
         "next": "apply the reviewed root-cause fixes, run a delta integration review, then ONE fresh uninterrupted full run"
-      }
+      },
+      "fixed_since": "9e1e1b27: 4 PDF1-merge failures (teardown real regression; listready/launch_review/visnext2 pins; tester kits regenerated). 11 of 13 fixed; cert_publish_gates + cert_orders under root-cause."
     },
     "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
@@ -876,6 +885,11 @@
       "id": "I-OPUS2-FREEZE-GENERATORS",
       "recorded": "2026-11-02T13:30Z",
       "decision": "No new per-product generators, construction routes or title-word patches until A1-A4 are accepted; new construction diversity comes only through the reusable Research->PD contract (A4). Existing PRs only receive fixes for their review findings."
+    },
+    {
+      "id": "I-A3-NONQUALIFYING-PHOTO",
+      "recorded": "2026-11-02T16:05Z",
+      "decision": "A photo frame that does not qualify (not attested to this release, or no passed full make) never holds a listing set hostage: the review gives it a terminal named state (approved=False, reason 'photo not qualifying: <check>', owner-visible audit), the listing-set certificate excludes it, and a later attestation or passed make re-opens it for review."
     }
   ],
   "production_observations": [
@@ -955,7 +969,7 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "via handle_cir_draft and assets.build, on a durable DB: 'Ｂear', '𝐁ear', 'Cosy Ｒabbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
-      "state": "assigned"
+      "state": "committed locally by opus2 (checkpoint 14:43Z); push requested"
     },
     {
       "owner": "opus2",
@@ -974,7 +988,7 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
-      "state": "assigned"
+      "state": "committed locally by opus2 (checkpoint 14:43Z); push requested"
     },
     {
       "owner": "opus2",
@@ -992,7 +1006,7 @@
       ],
       "branch_from": "opus2/p0-photo-asset-review rebased on W5-INTEG1 50937469",
       "acceptance": "repros A, C, D and E behave correctly; a forced race never approves a moved frame; two photos for one release end in a certified set or a named refusal",
-      "state": "assigned"
+      "state": "review OPUS2W DO NOT SHIP (2 MED); fixes requested 16:05Z"
     },
     {
       "owner": "opus2",
