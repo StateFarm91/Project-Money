@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T08:08Z.
+Last updated: 2026-11-02T08:36Z.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -35,9 +35,10 @@ Last updated: 2026-11-02T08:08Z.
 | Q11 | claude/w4-INTEG8-next records | 42db54ae, 51e39992 and this file (docs/records only) | n/a (no code) | none | **integrated** (812f63d7; records suites 7/7 green) | none (no code) | re-merge at each records change | integrator |
 | Q12 | codex/p0-learning-reference | 57c176a9 (claim only) | n/a: no code yet | — | no: **not started** | — | owner starts Codex; review its first push | Codex |
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
-| Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D running | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
+| Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D SHIP (11272e4b) | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
 | Q16 | opus2/p0-amigurumi | a9fac088, e80a0be0, b4ea6795, c7a8d31e, 3b0a8867 | amigurumi DO NOT SHIP (OPUS2P-1 HIGH child safety, P-2/P-3 MED); stuffed finishing + pouch SHIP | Q14 | no: **blocked** — Secondary asked to split pouch + finishing to opus2/p0-pouch | named suites | integrate the split branch when it exists | opus2 |
 | Q15 | opus2 new work: P0-PHOTO-ASSET-REVIEW | not started | — | none | — | — | assigned on PR #3 | opus2 |
+| Q17 | opus2/p0-construction-registry (new; research -> Product Development contract) | 83194fb7, d1ebb27f, 3a11d59a, 8b4076a9, 21d4ceaf (stacked on Q16 amigurumi) | **in review OPUS2R** | Q16 (blocked: amigurumi OPUS2P-1 HIGH) | no | test_opus2_research_to_development + tapestry/draft/knowledge_gaps | integrate after Q16 or once split off amigurumi | opus2 / integrator |
 
 Not integration items:
 - #4: reference only, do not merge.

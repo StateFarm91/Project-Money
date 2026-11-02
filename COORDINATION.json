@@ -665,6 +665,14 @@
         "a8ce0072..f8bf2782": "SHIP for certification"
       },
       "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5D",
+      "sha": "11272e4b",
+      "verdicts": {
+        "f8bf2782..f7466c06": "SHIP for certification (LOW/INFO only)"
+      },
+      "recorded": "2026-11-02T08:35Z"
     }
   ],
   "integration": {
@@ -692,7 +700,8 @@
       "worktree": "/home/user/bl-runs/wt-b5cert (dedicated; W5-INTEG1 keeps integrating in wt-b5)",
       "basis": "INTEG5B SHIP (6d402593) + its second regression batch re-run by the integrator on a8ce0072: 13/13 suites rc=0 (05:42Z)",
       "rule": "uninterrupted; a resumed run never certifies; fail -> root-cause, fix, fresh run",
-      "expected": "FAIL test_w4_launchfix (pre-existing guard false positive at a8ce0072; fixed f8bf2782). Next certification on the newest fully reviewed head (target f7466c06 after INTEG5D)."
+      "expected": "FAIL test_w4_launchfix (pre-existing guard false positive at a8ce0072; fixed f8bf2782). Next certification on the newest fully reviewed head (target f7466c06 after INTEG5D).",
+      "next": "f7466c06 is fully reviewed (INTEG5B+5C+5D SHIP). One fresh full run on f7466c06 starts when run 20261102T054208Z-6424 on a8ce0072 ends (one full suite at a time)."
     }
   },
   "owner_directives": [
@@ -828,13 +837,13 @@
         "launched": "2026-11-02T07:37Z"
       },
       {
-        "id": "INTEG5D",
+        "id": "OPUS2R",
         "subjects": [
-          "claude/w5-INTEG1 f8bf2782..f7466c06"
+          "opus2/p0-construction-registry 83194fb7, d1ebb27f, 3a11d59a, 8b4076a9, 21d4ceaf"
         ],
-        "session": "session_015ZfGXnLcRU4uK5GQL9AukX",
-        "report": "INDEPENDENT_SECREVIEW_INTEG5D.md on claude/w5-SECREVIEW-INTEG5D",
-        "launched": "2026-11-02T08:07Z"
+        "session": "integrator subagent (create_session unavailable 08:3xZ)",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2R.md (to be committed on claude/w5-SECREVIEW-OPUS2R)",
+        "launched": "2026-11-02T08:36Z"
       }
     ]
   }
