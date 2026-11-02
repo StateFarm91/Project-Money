@@ -769,7 +769,6 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
-    lineage = _fallback_lineage(seed, dict(i), concept)
     from ..creative import fallback_constructions as FC
     from ..creative.prototype import PrototypeRefused, source_provenance
 
@@ -785,6 +784,19 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                           "category": concept.category, "needs": route["needs"][:200]})
         return {"artifact": slug, "drafted": False, "gate": "construction",
                 "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
+    # P0-LEARNING-TO-DESIGN (A6): approved Pattern Engineering learning shapes this draft --
+    # only through declared parameters, and only with an independent approval on file.
+    learning = _design_learning(
+        ctx, slug=concept.slug, construction=route["family"], yarn_weight=concept.yarn_weight,
+        text=_design_text(concept.slug, concept.title, concept.category, seed))
+    if learning.get("held"):
+        return learning["held"]
+    if learning.get("yarn_weight"):
+        concept.yarn_weight = learning["yarn_weight"]
+    lineage = _fallback_lineage(seed, dict(i), concept)
+    if learning.get("primitives") and lineage["known"]:
+        lineage = {**lineage, "primitives": tuple(lineage["primitives"])
+                   + learning["primitives"]}
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
@@ -919,11 +931,82 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
-                                               if cir.provenance is not None else None)})
+                                               if cir.provenance is not None else None),
+                      **({"learning": learning["summary"]} if learning.get("summary")
+                         else {})})
+    out = {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
+           "construction": route["family"], "rows": len(cir.components[0].rows)}
+    if learning.get("applied"):
+        # A lesson-shaped draft is a different design from the no-lesson one, so its compile
+        # is keyed by fingerprint; the no-lesson key is unchanged (Launch-0 digests hold).
+        ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                    idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        _record_design_learning(ctx, learning, cir)
+        out["learning"] = learning["summary"]
+        return out
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
-    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "construction": route["family"], "rows": len(cir.components[0].rows)}
+    return out
+
+
+def _design_text(slug: str, title: str = "", category: str = "", seed=None) -> str:
+    """The words a design decision is about, for `consume.matching` (A6)."""
+    parts = [slug.replace("-", " "), title, category]
+    if seed is not None:
+        parts += [seed.title, seed.category, seed.season or "", seed.rationale]
+    return " ".join(str(x) for x in parts if x)
+
+
+def _design_learning(ctx: JobContext, *, slug: str, text: str, construction: str,
+                     yarn_weight: str) -> dict:
+    """Apply approved Pattern Engineering learning to a draft (P0-LEARNING-TO-DESIGN, A6).
+
+    Returns {} when no lesson matches -- the draft is then byte-identical to the no-lesson
+    draft. A hold on this `construction` refuses the draft by name (gate `learning.hold`,
+    recorded now); an approved yarn weight is returned as `yarn_weight`, from which the
+    drafter derives the gauge. The caller records that application once the CIR exists.
+    """
+    from ..improve import consume
+
+    found = consume.design_directives(ctx.db, text, constructions=(construction,))
+    if not (found["hold"] or found["yarn_weight"] or found["unapproved"]
+            or found["conflicts"]):
+        return {}
+    summary = {"unapproved_ignored": found["unapproved"], "conflicts": found["conflicts"]}
+    if found["hold"]:
+        ids = [int(l["id"]) for l in found["hold"]]
+        why = (f"approved learning (lesson {', '.join(map(str, ids))}) holds the "
+               f"{construction} construction for {slug}: it failed testing; not drafted")
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": why, "gate": "learning.hold",
+                          "construction": construction, "lessons": ids})
+        consume.record_application(ctx.db, found["hold"], subject=slug,
+                                   change={"parameter": "hold_construction",
+                                           "from": construction, "to": "held"},
+                                   how=f"cir.draft of {slug} held ({construction})")
+        return {"held": {"artifact": slug, "drafted": False, "gate": "learning.hold",
+                         "construction": construction, "lessons": ids,
+                         "reasons": [why[:300]]}}
+    if found["yarn_weight"] and found["yarn_weight"] != yarn_weight:
+        ids = [int(l["id"]) for l in found["yarn_lessons"]]
+        summary.update({"applied": ids, "parameter": "yarn_weight", "from": yarn_weight,
+                        "to": found["yarn_weight"]})
+        return {"applied": found["yarn_lessons"], "summary": summary,
+                "yarn_weight": found["yarn_weight"],
+                "change": {"parameter": "yarn_weight", "from": yarn_weight,
+                           "to": found["yarn_weight"]},
+                "primitives": tuple(f"improve.consume.design_directives:lesson-{n}"
+                                    for n in ids)}
+    return {"summary": summary}
+
+
+def _record_design_learning(ctx: JobContext, learning: dict, cir) -> None:
+    from ..improve import consume
+
+    consume.record_application(
+        ctx.db, learning["applied"], subject=cir.slug, change=learning["change"],
+        how=(f"cir.draft of {cir.slug} drafted in {learning['change']['to']} yarn "
+             f"(was {learning['change']['from']}); fingerprint {cir.fingerprint[:12]}"))
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -975,12 +1058,24 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
     from ..creative.concept import Concept as CreativeConcept
     from ..creative.prototype import PrototypeRefused, author
 
+    from ..creative.prototype import DEFAULT_WEIGHT
+
     raw = dict(ctx.job.inputs["concept"])
     concept = CreativeConcept(**{k: v for k, v in raw.items()
                                  if k in CreativeConcept.__dataclass_fields__})
+    # P0-LEARNING-TO-DESIGN (A6): approved learning holds this construction or picks the
+    # declared yarn `author` derives the gauge from; nothing else about the design moves.
+    learning = _design_learning(
+        ctx, slug=slug, construction=concept.construction, yarn_weight=DEFAULT_WEIGHT,
+        text=_design_text(slug, concept.title, concept.form,
+                          None) + " " + " ".join(str(x) for x in (
+                              concept.premise, concept.motif, concept.construction)))
+    if learning.get("held"):
+        return learning["held"]
     try:
         cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
-                     brief=ctx.job.inputs.get("brief"))
+                     brief=ctx.job.inputs.get("brief"),
+                     yarn_weight=learning.get("yarn_weight") or DEFAULT_WEIGHT)
     except PrototypeRefused as exc:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "engine"})
@@ -990,9 +1085,13 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
               detail={"source": "tournament winner", "form": concept.form,
                       "construction": cir.construction, "pod": concept.pod,
                       "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
-                      "rows": sum(len(c.rows) for c in cir.components)})
+                      "rows": sum(len(c.rows) for c in cir.components),
+                      **({"learning": learning["summary"]} if learning.get("summary")
+                         else {})})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+    if learning.get("applied"):
+        _record_design_learning(ctx, learning, cir)
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
             "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
 

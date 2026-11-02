@@ -110,6 +110,14 @@ def handle_cir_revise(ctx: JobContext) -> dict:
         return {"ran": False, "why": "the CIR compiles; nothing to revise"}
     codes = sorted({f.code for f in result.errors})
     artifact = f"{cir.slug}@{cir.version}"
+    # P0-LEARNING-TO-DESIGN (A6) consume hook: approved learning that holds this construction
+    # stops the revision by name. Nothing a lesson says changes a repair rule.
+    from .pipeline import _design_learning, _design_text
+
+    learning = _design_learning(ctx, slug=cir.slug, construction=cir.construction,
+                                yarn_weight="", text=_design_text(cir.slug, cir.title))
+    if learning.get("held"):
+        return {**learning["held"], "artifact": artifact, "revised": False, "work_done": 1}
     for name, answers, rule in RULES:
         if not set(codes) & set(answers):
             continue
