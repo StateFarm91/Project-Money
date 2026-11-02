@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T20:37Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T23:31Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -35,6 +35,24 @@ Do NOT touch A4(a), A5, A7 or A9 (Main's workers). No new product-specific gener
 | A5 correction loop | claude/w5-A5-correction-loop @ 717c7925 | not taken yet | run test_cert_rebuild_chain, test_cert_parity_copy, test_disclosed_render_runtime, test_cert_design_pipeline | then review |
 | V1 visual correctness | claude/w5-V1-visual-correctness @ f349c755 | not taken yet | re-run test_w4_visnext + V1 test, shadow, swarm, launch0 | owner must re-authorise the re-pinned Cloudline experiment |
 | V0 | SHA pending from Main | - | - | - |
+
+## STATE 2026-11-02T23:31Z (supersedes the tables above; channel = Issue #28)
+| Item | Branch @ head | Review state | Next |
+|---|---|---|---|
+| A1-R | opus2/p0-child-safety-core @ c3a7b93a (48bc30c0 SHARED one fold) | A1R review DO NOT SHIP -> all 7 findings fixed; 18/18; 13 mutants killed, 1 equivalent | 75-suite regression running (/tmp/claude-0/a1r_reg.sh -> a1r3_results.txt; may hit 2h cap: resume the rest) -> REVIEW-REQUEST |
+| A2-FIX | opus2/a2-name-object @ 77c3c824 (merged A1-R: _motif_fold = text_fold.fold) | A2F review in flight on 51f87859 | regression queued (a2m_reg.sh); integrate AFTER A1-R |
+| A3-FIX | opus2/p0-photo-asset-review @ c2174947 | A3F review in flight | wait |
+| A4a | opus2/a4a-research-to-concept @ 3dc3e68c | A4A-REVIEW in flight | wait |
+| A4b | opus2/a4b-enrichment @ e230545c | review in flight (incl. retention fix) | wait |
+| A5 | opus2/a5-correction-loop @ 717c7925 (unchanged) | review in flight | wait |
+| A6 | opus2/a6-learning-to-design @ 8c131f10 | review in flight | - |
+| A6 codex contract | opus2/a6-codex-contract @ 594d5e38 (WIP) | BLOCKED on CODEX2-3 (held-out manifest vs INTEG1) | merge Codex re-freeze, run tests/test_w5_a6_frozen_knowledge.py |
+| A7 | opus2/a7-supply-stall @ 83fe31d2 (unchanged) | review requested | wait |
+| A8 | opus2/a8-culture-ideation @ 4f99bd8f (on A4a) | queued behind A4a review | wait |
+| A9 | opus2/a9-package-event @ 6ee81c19 (unchanged) | review requested | wait |
+| V0 | opus2/v0-paid-provider-gate @ 76fc0f3d | 9 + 6 failing suites fixed via tests/_paid_activation.py | 25-suite re-run (v0b_results.txt) -> REVIEW-REQUEST; flagged same-day identical-request refusal to Main |
+| V1 | claude/w5-V1-visual-correctness @ f349c755 | not taken yet | re-run test_w4_visnext + V1 test, shadow, swarm, launch0 |
+Worktrees: opus2-a1r, opus2-a2, opus2-photo, opus2-a4a, opus2-a4b, opus2-a5, opus2-a6, opus2-a6c, opus2-a7, opus2-a8, opus2-a9, opus2-v0, opus2-dispatch, opus2-ckpt.
 
 CHANNEL: GitHub Issue #28 is the official Main <-> Secondary channel ([SECONDARY] ACK posted 20:30Z).
 Events: `python3 ops/assignments.py event opus2 <ID> <kind> [--sha] --push` from /home/user/opus2-dispatch
