@@ -4,11 +4,47 @@ import unittest
 from fastapi.testclient import TestClient
 
 import test_v11_cc_actions as harness
-from brambleloop.core.models import BenchmarkAnalysis, BenchmarkProduct, TeardownFinding
+from brambleloop.core.models import AuditLog, BenchmarkAnalysis, BenchmarkProduct, DesignRule, TeardownFinding
 from brambleloop.teardown import licence
 
 
 class ReviewCommandCenterTests(unittest.TestCase):
+    def test_rule_review_requires_owner_and_cannot_approve_without_evidence(self):
+        from sqlalchemy import select
+
+        with harness.DB.session() as s:
+            rule = DesignRule(key="review_action_fixture", version=1,
+                statement={"rule": "include_finishing_checklist", "parameters": {}},
+                scope={"writer_section": "finishing"}, provenance=[],
+                state="proposed", producer="analyst")
+            s.add(rule)
+            s.flush()
+            rule_id = rule.id
+        action = "/api/cc/actions/design_knowledge.review_rule"
+        body = {"rule_id": rule_id, "decision": "reject", "reason": "independent review"}
+        no_session = TestClient(harness.main.app, base_url="https://testserver")
+        response = no_session.post(action, json=body,
+                                   headers={"Authorization": f"Bearer {harness.OPS}"})
+        self.assertIn(response.status_code, (401, 403))
+        no_session.close()
+        client, csrf = harness.session()
+        harness.expire_stepup(client)
+        self.assertEqual(harness.post(client, csrf, action, body).status_code, 403)
+        self.assertEqual(harness.post(client, csrf, "/api/cc/auth/step-up",
+                                      {"passphrase": harness.PASS}).status_code, 200)
+        refused = harness.post(client, csrf, action, {**body, "decision": "approve"})
+        self.assertNotEqual(refused.status_code, 200, refused.text)
+        result = harness.post(client, csrf, action, body)
+        self.assertEqual(result.status_code, 200, result.text)
+        self.assertEqual(result.json()["result"]["decision"], "rejected")
+        with harness.DB.session() as s:
+            self.assertEqual(s.get(DesignRule, rule_id).state, "retired")
+            audit = s.scalar(select(AuditLog).where(
+                AuditLog.action == "design_knowledge.rule_reviewed",
+                AuditLog.artifact == f"design-rule:{rule_id}"))
+            self.assertEqual(audit.detail["decision"], "rejected")
+        client.close()
+
     def test_analysis_review_requires_owner_step_up(self):
         sha = "b" * 64
         with harness.DB.session() as s:

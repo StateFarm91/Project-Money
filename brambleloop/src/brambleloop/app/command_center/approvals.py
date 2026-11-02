@@ -35,6 +35,7 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
     "teardown.review_finding": (True, "review one reference finding independently"),
     "teardown.review_analysis": (True, "review structured reference observations independently"),
+    "design_knowledge.review_rule": (True, "independently review a proposed design rule"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
     "owner_action.defer": (False, "note that a decision is deferred (the gate stays computed)"),
     # W4-B2GATES: two owner gates read a record that no door in the running system could
@@ -658,6 +659,16 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 result = fn(db, _int(body, ident), reviewer=f"owner:{actor}"[:64],
                             decision=str(body.get("decision") or ""), reason=reason)
             except (review.ReviewRefused, ValueError) as exc:
+                raise ActionRefused(str(exc)[:400]) from None
+        elif action == "design_knowledge.review_rule":
+            from ...improve import design_knowledge
+            from ...teardown.library import ContentRefused, LibraryRefused
+
+            try:
+                result = design_knowledge.review_rule(
+                    db, _int(body, "rule_id"), reviewer=f"owner:{actor}"[:120],
+                    decision=str(body.get("decision") or ""), reason=reason)
+            except (design_knowledge.DesignKnowledgeRefused, ContentRefused, LibraryRefused) as exc:
                 raise ActionRefused(str(exc)[:400]) from None
         elif action == "improvement.approve":
             from ...improve import cells

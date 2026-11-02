@@ -6,11 +6,34 @@ from brambleloop.core.db import Database
 from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkProduct, DesignRule, Incident,
                                      TeardownFinding, utcnow)
 from brambleloop.improve.design_knowledge import (DesignKnowledgeRefused, propose,
-                                                  propose_from_analysis)
+                                                  propose_from_analysis, review_rule)
 from brambleloop.teardown import licence
 
 
 class DesignProposals(unittest.TestCase):
+    def test_rule_rejection_requires_independence_and_approval_is_fail_closed(self):
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/review.db", scratch=True)
+            db.create_all()
+            with db.session() as s:
+                incident = Incident(signature="review-fixture", severity="P1", summary="count",
+                                    detail={"source_findings": []})
+                s.add(incident)
+                s.flush()
+                ident = incident.id
+            rule = propose(db, key="review_fixture", statement={
+                "rule": "include_finishing_checklist", "parameters": {}},
+                scope={"writer_section": "finishing"},
+                provenance=[{"kind": "incident", "id": ident}], producer="analyst")
+            with self.assertRaises(DesignKnowledgeRefused):
+                review_rule(db, rule["id"], reviewer="ANALYST", decision="reject", reason="no")
+            with self.assertRaises(DesignKnowledgeRefused):
+                review_rule(db, rule["id"], reviewer="owner", decision="approve", reason="no")
+            result = review_rule(db, rule["id"], reviewer="owner", decision="reject", reason="no")
+            self.assertEqual(result["decision"], "rejected")
+            with self.assertRaises(DesignKnowledgeRefused):
+                review_rule(db, rule["id"], reviewer="owner", decision="reject", reason="again")
+
     def test_reviewed_analysis_cannot_propose_after_licence_or_manifest_changes(self):
         with TemporaryDirectory() as tmp:
             db = Database(f"sqlite:///{tmp}/knowledge.db", scratch=True)

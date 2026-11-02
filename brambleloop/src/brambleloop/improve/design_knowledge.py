@@ -10,7 +10,7 @@ import hashlib
 import math
 import re
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from ..core.models import (AuditLog, BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct,
                            DesignRule, Incident, Lesson, SupportCase, TeardownFinding)
@@ -249,3 +249,40 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
             if existing is None:
                 raise
             return {"proposed": False, "reason": "already_proposed", "id": existing.id}
+
+
+def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str) -> dict:
+    """Independently reject a proposal; approval remains closed without full evidence."""
+    from ..core.models import utcnow
+    from ..teardown.library import check_derived
+
+    if type(rule_id) is not int or rule_id <= 0:
+        raise DesignKnowledgeRefused("invalid rule id")
+    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
+        raise DesignKnowledgeRefused("reviewer identity required")
+    if decision not in ("approve", "reject"):
+        raise DesignKnowledgeRefused("decision must be approve or reject")
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+        raise DesignKnowledgeRefused("review reason required")
+    check_derived(reviewer)
+    check_derived(reason)
+    reviewer = reviewer.strip()
+    with db.session() as s:
+        rule = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
+        if rule is None or rule.state != "proposed":
+            raise DesignKnowledgeRefused("a proposed rule is required")
+        if not rule.producer or rule.producer.strip().casefold() == reviewer.casefold():
+            raise DesignKnowledgeRefused("independent reviewer required")
+        if decision == "approve":
+            raise DesignKnowledgeRefused("no complete held-out evaluation is available")
+        changed = s.execute(update(DesignRule).where(
+            DesignRule.id == rule_id, DesignRule.state == "proposed",
+            DesignRule.producer == rule.producer).values(state="retired"))
+        if changed.rowcount != 1:
+            raise DesignKnowledgeRefused("rule changed during review")
+        s.add(AuditLog(actor=reviewer, action="design_knowledge.rule_reviewed",
+                       artifact=f"design-rule:{rule_id}",
+                       detail={"rule_id": rule_id, "version": rule.version,
+                               "decision": "rejected", "reason": reason.strip(),
+                               "reviewed_at": utcnow().isoformat()}))
+        return {"rule_id": rule_id, "state": "retired", "decision": "rejected"}
