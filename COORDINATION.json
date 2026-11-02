@@ -1026,6 +1026,13 @@
         "report": "scratchpad/INDEPENDENT_REVIEW_A4A_3dc3e68c.md",
         "started": "2026-11-02T20:37:05Z",
         "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6587808069 (20:34:19Z)"
+      },
+      {
+        "id": "A3F-REVIEW",
+        "subject": "opus2/p0-photo-asset-review delta 8d98bf4c..c2174947 (+ SHARED 637e011f)",
+        "report": "scratchpad/INDEPENDENT_SECREVIEW_A3F.md",
+        "started": "2026-11-02T20:53:29Z",
+        "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6588158334 (20:51:48Z)"
       }
     ]
   },
