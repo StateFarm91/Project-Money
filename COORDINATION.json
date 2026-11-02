@@ -1052,6 +1052,20 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_A3F.md",
         "started": "2026-11-02T20:53:29Z",
         "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6588158334 (20:51:48Z)"
+      },
+      {
+        "id": "A1R-REVIEW",
+        "subject": "opus2/p0-child-safety-core 1dd257be (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A1R_1dd257be.md",
+        "started": "2026-11-02T21:13:50Z",
+        "requested_by": "#28 6588378731"
+      },
+      {
+        "id": "A2F-REVIEW",
+        "subject": "opus2/a2-name-object 3be8262f..51f87859 (delta)",
+        "report": "scratchpad/INDEPENDENT_SECREVIEW_A2F.md",
+        "started": "2026-11-02T21:13:50Z",
+        "requested_by": "#28 6588404114"
       }
     ]
   },
@@ -2005,6 +2019,12 @@
       "source": "owner 'Final owner execution contract' 2026-11-02 (binding)",
       "decision": "Priority order P0-A safety/Product Truth, P0-B continuous product supply, P0-C complete autonomous production, P0-D reliable orchestration, P0-E production proof; non-critical enhancements never displace these. Every assignment carries an autonomy justification (assignments[*].justification: capability, handoff_or_defect, component, upstream, downstream, acceptance, path_to_production). Product-specific work only to close shared correctness/safety/readiness defects. Progress is reported only as the delivery ladder BUILT -> REVIEWED -> INTEGRATED -> CERTIFIED -> DEPLOYED -> PRODUCTION-VERIFIED -> E2E-ACCEPTED (`ops/assignments.py status`), never as counts of commits, PRs or tests. Accepted work integrates promptly into the Batch 6 branch, kept separate from the certified Batch 5 candidate.",
       "integration_branch": "claude/w6-INTEG1 (from claude/w5-INTEG1 7c42e706; created at the first accepted Batch 6 item)"
+    },
+    {
+      "id": "I-A6-FROZEN-KNOWLEDGE-CONTRACT",
+      "at": "2026-11-02T21:13:50Z",
+      "source": "Codex question #28 6588471124",
+      "decision": "Approved design knowledge used by a design is pinned in CIR provenance as {rule_id, rule_version, rule_digest, evaluation_digest}. Codex provides the approved-only reader and a verify_pins(db, pins) function that revalidates pins against the durable approved store (never activates an unapproved, revoked or unevaluated rule). Secondary's A6 carries the pin record in CIR provenance and calls verify_pins in certificate, release and quality paths. The PDF writer renders deterministically from the pinned closed-vocabulary record and REFUSES (fails closed) a CIR that carries a pin which is missing from the store or unverified; CIRs with no pins are unaffected. Any CIR shape change bumps core.contracts 'cir' (v3) in the same commit with the pin tests. Deployed images lacking research/bench2 report benchmark evaluation UNKNOWN; raw reference-derived research material is never shipped in the image."
     }
   ],
   "owner_actions_pending": [
