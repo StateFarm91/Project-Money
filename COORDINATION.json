@@ -1078,11 +1078,11 @@
       "state": "assigned (after A1, A2)"
     },
     {
-      "owner": "opus2",
+      "owner": "mainopus-worker",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
-      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
       "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
       "id": "A5",
       "requirement": "P0-CORRECTION-LOOP",
@@ -1090,7 +1090,14 @@
         "wiring #3"
       ],
       "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
-      "state": "assigned"
+      "state": "in_progress",
+      "reassigned": {
+        "at": "2026-11-02T19:10Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A5-correction-loop"
     },
     {
       "owner": "opus2",
@@ -1108,11 +1115,11 @@
       "state": "assigned"
     },
     {
-      "owner": "opus2",
+      "owner": "mainopus-worker",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
-      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
       "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
       "id": "A7",
       "requirement": "P0-SUPPLY-STALL",
@@ -1120,7 +1127,14 @@
         "wiring #5"
       ],
       "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
-      "state": "assigned"
+      "state": "in_progress",
+      "reassigned": {
+        "at": "2026-11-02T19:10Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A7-supply-stall"
     },
     {
       "owner": "opus2",
@@ -1138,11 +1152,11 @@
       "state": "assigned"
     },
     {
-      "owner": "opus2",
+      "owner": "mainopus-worker",
       "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
       "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
-      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
       "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
       "id": "A9",
       "requirement": "P0-PACKAGE-EVENT",
@@ -1150,7 +1164,14 @@
         "wiring #7"
       ],
       "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
-      "state": "assigned"
+      "state": "in_progress",
+      "reassigned": {
+        "at": "2026-11-02T19:10Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A9-package-event"
     },
     {
       "owner": "opus2",
@@ -1190,6 +1211,18 @@
       "at": "2026-11-02T18:05Z",
       "decision": "Children's safety is a construction-classification gate with an audited-decision requirement, not title patches. A1 is split from the toy into opus2/p0-child-safety-core; the toy (opus2/p0-amigurumi) stays out of Batch 5 and rebases onto A1-R. Batch 5 certification of 5ba84bf7 is not delayed (the toy is not in it).",
       "source": "owner directive 2026-11-02"
+    },
+    {
+      "id": "I-P0-ABSOLUTE-WORKFORCE",
+      "at": "2026-11-02T19:10Z",
+      "source": "owner directive 2026-11-02 'ABSOLUTE OWNER PRIORITY: COMPLETE AUTONOMOUS WORKFORCE' (permanent; binds Main Opus, Secondary Opus, Codex and every worker)",
+      "decision": "Completing and activating the entire autonomous workforce is the company's highest priority. It overrides product enhancements, individual construction generators, visual refinements, dashboard polish and non-critical Build 2 / Final Master work. Priority order: (1) critical safety/correctness defects affecting the workforce; (2) every missing autonomous connection and operational dependency; (3) end-to-end integration, certification and deployment; (4) sustained 24 h production acceptance and recovery verification; (5) remaining Build 2 / Final Master enhancements. Built code, merged PRs or isolated tests are not operational completion. Owner/physical/provider/account holds never stop unrelated eligible work. The authoritative inventory is P0_WIRING_50937469.md (department x criterion matrix) as extended by the integrator; no competing master plan.",
+      "consequences": [
+        "no new construction generator or product template work by any worker until priorities 1-3 are clear (I-OPUS2-FREEZE-GENERATORS stands)",
+        "visual production is one required department, sequenced with the others",
+        "A5, A7, A9 reassigned from opus2 to integrator-supervised workers to run in parallel; opus2 keeps A1-R, A2 fixes, A4, A6, A8",
+        "Codex keeps P0-LEARNING-REFERENCE; its priority inside that scope is the CODEX1 HIGH fixes, then the approved-rule reader that A6 consumes"
+      ]
     }
   ]
 }

@@ -4,6 +4,27 @@ The integrator (Main Opus) maintains this file. Codex reads it with
 `CODEX_WO_P0_LEARNING_REFERENCE.md` before each work session. Newest entries are first.
 Codex has no PR, so this file is the review channel.
 
+## 2026-11-02T19:10Z: owner directive, binding: complete autonomous workforce first
+
+The owner has made completing and activating the whole autonomous workforce the company's top priority. The decision is
+`I-P0-ABSOLUTE-WORKFORCE` in `COORDINATION.json`. You keep the Learning Department (P0-LEARNING-REFERENCE). Work in this order:
+
+1. **CODEX1-2 HIGH is still open at `d0e80fe3`.** `teardown.analyse` and `teardown.analyse_sweep` are not in
+   `authority/classes.JOB_CLASS`, and `test_w3_k11_authority` fails. Fix this first.
+2. **CODEX1-1 HIGH.** `f4feaaa0` looks like the fix. Confirm that `LibraryRefused` is caught wherever
+   `ReferenceRefused` is caught, and that a root containing the app tree is refused. Run `test_image_reference_hash_failclosed`,
+   `test_originality` and `test_w3_k11_authority`.
+3. **CODEX1-3 MED.** `bd215b08` addresses it. It will be checked in the delta review.
+4. **Then the approved-rule reader.** Learning has to reach design. Expose only **approved** design rules where
+   `improve/consume.matching(..., "pattern_engineering", ...)` can read them, with `consume.act` recording.
+   opus2's A6 consumes this, and nothing else in the department matters more.
+5. **After that:** the review state and audited approval, the held-out evaluation, and the gap-detection
+   items from CODEX1-4.
+
+When 1 and 2 are pushed, add a dated line to this file asking for a delta review. The integrator reviews only commits
+after 623fc26c. Push small, reviewable commits, and branch from or merge the newest `claude/w5-INTEG1`.
+Do not start optional enhancements.
+
 ## 2026-11-02T17:45Z: review CODEX1 of `codex/p0-learning-reference` 623fc26c: DO NOT SHIP
 
 **Full report:** `brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_CODEX1.md` on branch

@@ -125,3 +125,18 @@ Contact: hand off through your branch and a handoff document. The integrator rev
   - opus2 owns `creative/fallback_constructions.py`, `creative/construction_registry.py`, the children's functions in `products/launch0.py`, the children's refusal in `publish/pdf.py`, and `publish/photo_asset_review.py`.
   - The integrator owns `claude/w5-INTEG1`, the merge resolutions, `swarm/orchestrate.py` JOB_BANDS conflicts, and the records.
   - Codex keeps P0-LEARNING-REFERENCE; nobody else implements it.
+
+## 2026-11-02T19:10Z: I-P0-ABSOLUTE-WORKFORCE (owner, permanent)
+The complete autonomous workforce is the top priority for every worker. The order is:
+1. safety and correctness defects;
+2. missing autonomous connections;
+3. integration, certification and deployment;
+4. 24-hour production acceptance;
+5. Build 2 and Final Master enhancements.
+
+Ownership now:
+- **opus2:** A1-R (`opus2/p0-child-safety-core`), the A2 fixes (`opus2/a2-name-object`), A4, A6 and A8.
+- **mainopus-worker:** A5 (`claude/w5-A5-correction-loop`), A7 (`claude/w5-A7-supply-stall`) and A9 (`claude/w5-A9-package-event`).
+- **Codex:** P0-LEARNING-REFERENCE. It does the CODEX1 HIGH fixes first, then the approved-rule reader that A6 consumes.
+
+No worker builds new constructions or product templates until priorities 1 to 3 are clear.
