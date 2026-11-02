@@ -1,0 +1,42 @@
+{
+  "sha256": "b33add50076b26bdc2deb556f0d78cb3e86a40a8bc986d22947d683683c7c2e6",
+  "cases": [
+    {
+      "kind": "launch0",
+      "id": "hexagonal-bread-basket",
+      "build": "basket_small",
+      "cir_sha256": "f616e0c73e8711b06796d8d801f77848ede85257169307b111399a3a4c8c4aa4",
+      "brief_sha256": "1067517fac23e10ec7ce2e81f4069c4fe74ff86c6db7a7f8efb3f79e90ae5aea"
+    },
+    {
+      "kind": "launch0",
+      "id": "cloudline-baby-blanket",
+      "build": "cloudline_blanket",
+      "cir_sha256": "06edf77343fa3836f99cbf3ca2679c69737963856372a61697fcef93088b03d5",
+      "brief_sha256": "ae591df2d0751f63a9445a30c29f67a08874d1af30b5c92aa4efe0e8b4c08ad1"
+    },
+    {
+      "kind": "launch0",
+      "id": "nordic-star-ornaments",
+      "build": "snowflake_ornaments",
+      "cir_sha256": "b9b8ee50f2bc517d300d42354297b5bb2dbe6bbdcc5a48db0610282a47f45274",
+      "brief_sha256": "a648688533563c93db8a3cefb7ea73e8249a1d2a4eadd9bfb206d2dda3d09867"
+    },
+    {
+      "kind": "benchmark_truth",
+      "id": "bench1_xs",
+      "cir_sha256": "4132ac47a1b697c10ca5fba96cfff687c3a3fb8b0d5782528180f0c13a51c7be",
+      "truth_sha256": "8d64d4bab1c2026e8ba5a69bfb32802ccb1789e3e51b9a18a44e5a7ad7426c25"
+    },
+    {
+      "kind": "benchmark_truth",
+      "id": "bench2",
+      "truth_sha256": "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1"
+    },
+    {
+      "kind": "stitch_family",
+      "id": "star",
+      "validator_sha256": "fd09519039615441526320e43c18fbb965ac4378c5e078c58318d96b214bc9bd"
+    }
+  ]
+}
