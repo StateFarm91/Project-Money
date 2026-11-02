@@ -807,6 +807,14 @@
       "verdicts": {
         "codex/p0-learning-reference 623fc26c..6f0fe7aa": "DO NOT SHIP (not even as partial integration): CODEX2-1 HIGH every pre-existing teardown finding (recorded_by NULL) gets an unclearable 'requires independent review' hold that blocks release gates even when the requirement is met; CODEX2-2 HIGH test_w4_fmbatch1_retention_guard fails (_lesson_roots reads audit_log by computed action name; still at 25c7e802); CODEX2-3 MED frozen eval set hash breaks on merge with INTEG1 (hexagonal-bread-basket CIR changed) and research/ absent in image; CODEX2-4 MED owner can independently 'review' a finding they entered (recorded_by stamped teardown_analyst). Fixed: CODEX1-1, -2, -3, -6, -9. Open: CODEX1-4, -5, -7, -8. IP isolation, held-out isolation, idempotency, additive rollback-safe migration verified."
       }
+    },
+    {
+      "subject": "A1R",
+      "sha": "claude/w5-SECREVIEW-A1R",
+      "recorded": "2026-11-02T22:28:00Z",
+      "verdicts": {
+        "opus2/p0-child-safety-core 1dd257be": "DO NOT SHIP: A1R-1 HIGH closed_stuffed_form misses one-piece stuffed forms (no seams), stuffing spellings (Fiber-Fill, kapok, polyester filling, toy fill, ...) and notes-only stuffing -- one-piece 'Juniper Friend' ball finishes assets.build DONE through the Worker; A1R-2 MED fold lower-cases before confusable map (Greek capitals, Cherokee, some Cyrillic escape; 'Βaby Basket' DONE); A1R-3 MED three folds, drafting does not use text_fold; A1R-4 MED hold is a generic ValueError toward dead letter, not a named owner-visible hold; A1R-5 small-parts only for stuffed forms, missing gauge reads clear, mutant M10 survives; A1R-6 decision constants lack audit fields, listing_package reads raw decision; A1R-7 real-path asserts too weak. Launch-0 PDFs byte-identical; no test weakened."
+      }
     }
   ],
   "integration": {
@@ -1053,13 +1061,6 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_A3F.md",
         "started": "2026-11-02T20:53:29Z",
         "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6588158334 (20:51:48Z)"
-      },
-      {
-        "id": "A1R-REVIEW",
-        "subject": "opus2/p0-child-safety-core 1dd257be (full)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_A1R_1dd257be.md",
-        "started": "2026-11-02T21:13:50Z",
-        "requested_by": "#28 6588378731"
       },
       {
         "id": "A2F-REVIEW",
@@ -1475,7 +1476,8 @@
         "downstream": "assets.build, listing package, publish gates",
         "acceptance": "real Worker+SQLite: stuffed ball / at_round ears / panel_pair / neutral & disguised titles held; Launch-0 unchanged",
         "path_to_production": "review -> W6-INTEG -> Batch 6 cert -> deploy"
-      }
+      },
+      "review_verdict": "DO NOT SHIP (A1R)"
     },
     {
       "integration_target": "claude/w5-INTEG1",
