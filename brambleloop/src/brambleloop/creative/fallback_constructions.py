@@ -369,7 +369,12 @@ TOTE_CATEGORIES = frozenset({"bag"})     # the category alone never routes to a 
 _TOTE_WORDS = r"\b(?:tote|market bag|shopper)s?\b"
 _MULTIPLE_WORDS = (r"\b(?:\d+|two|three|four|five|six|pair|trio|set|duo|totes|bags|"
                    r"shoppers|x\s*\d+|bundle|collection|double|family|mother|daughter|twins?|"
-                   r"matching)\b")
+                   r"matching|"
+                   # OPUS2K K-1: collective nouns and larger numbers, as title_promise reads them.
+                   r"duets?|twosomes?|couples?|triplets?|trilogy|quartets?|quartettes?|"
+                   r"quintets?|sextets?|septets?|octets?|multi-?packs?|assortment|combo|"
+                   r"seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
+                   r"seventeen|eighteen|nineteen|twenty|dozen)\b")
 # Review OPUS2EF2 EF2-1: a second object or a construction feature the plain tote does not
 # have (a pocket, a zip, a lining, a reversible body) is refused, never dropped silently.
 _TOTE_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|pockets?|zip|zips|zipper|zippered|zipped|lined|"

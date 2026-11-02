@@ -812,3 +812,31 @@ eligibility, first_customer_gate, size_claims, draft_constructions and vacuity a
   throws, runners, stockings, cosies, bowls, trivets, pot holders, dishcloths, washcloths,
   scrunchies) as a multiplicity marker, so "Market Totes" on a single tote is unbacked. No
   catalogue verdict changes (26 products, 11 Launch-0 builders).
+
+## 36. Review OPUS2J (6d6d83d9): J-1 fixed (2026-11-01)
+
+- J-1 MED, the "Totes" half: plural object nouns were already markers in `771e1e1a`, which
+  postdates the reviewed head.
+- J-1 MED, the number half: `_COUNT_WORDS` gains two to twelve, twin and dozen, matched with
+  their inflections ("Quartets", "Twins"). Colour and construction phrases ("two-tone",
+  "three-ply", "two-colour") are not counts.
+
+"Totes", "Two Market Totes", "Three Totes", "Twin Totes" and "Tote Quartets" are unbacked on one
+tote; "Two-Tone Market Tote" is not a count. No catalogue `title_promise` verdict changes.
+
+## 37. Review OPUS2K (c3074241): K-1, K-2, K-3 and K-10 fixed (2026-11-02)
+
+- K-1 MED: `title_promise` counts collective nouns (duet, twosome, couple, triplet(s), trilogy,
+  quartette, quintet, sextet, septet, octet), the numbers thirteen to twenty, and "double".
+  Multipack, assortment, combo, matching, family, mother and daughter are plural markers.
+  `plan()`'s `_MULTIPLE_WORDS` refuses the same words at drafting. Stitch and construction
+  phrases ("double crochet", "double-stranded", "two-tone", "three-ply") are not counts.
+  Fail-closed side effect: `plan()` already refused "double", so "Double Crochet Market Tote" is
+  still refused at drafting.
+- K-2 MED: a numeral never silences a plural marker or noun ("Totes 1", "Tote Set 1" unbacked).
+- K-3 LOW: number-word titles with no plural noun are pinned ("Two Market Tote", "Twin Tote",
+  "Three Tote Carryall").
+- K-10 LOW: plural object nouns gain beds, nests, mats, hats, pouches, rugs, garlands, squares,
+  hearts, cosys, totebags and shoppers.
+
+No catalogue `title_promise` verdict changes (26 products, 11 Launch-0 builders).

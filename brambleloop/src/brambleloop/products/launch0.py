@@ -131,12 +131,30 @@ PLURAL_MARKERS: tuple[str, ...] = (
     "set", "pair", "trio", "duo", "library", "collection", "bundle",
 )
 
-_COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
+_COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4,
+                                # OPUS2J J-1: number words and "twin" count too.
+                                "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+                                "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+                                "twelve": 12, "twin": 2, "dozen": 12,
+                                # OPUS2K K-1: collective nouns and larger numbers.
+                                "duet": 2, "twosome": 2, "couple": 2, "triplet": 3,
+                                "trilogy": 3, "quartette": 4, "quintet": 5, "sextet": 6,
+                                "septet": 7, "octet": 8, "thirteen": 13, "fourteen": 14,
+                                "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+                                "nineteen": 19, "twenty": 20, "double": 2}
+# Number words that describe a colour, a stitch or a construction, never a count of pieces.
+_NOT_A_COUNT = re.compile(
+    r"\b(?:(?:two|three)[- ](?:tone|toned|colou?r(?:ed)?|ply|way|strand(?:ed)?)"
+    r"|double[- ](?:crochet|treble|stranded|strand|knit|sided|layer(?:ed)?|thick|brim|wide)"
+    r"|(?:triple|double)[- ]?(?:dc|tr|sc))\b")
 
 
-_PLURAL_OBJECT_NOUNS = (r"\b(?:totes|bags|baskets|coasters|placemats|ornaments|cushions|"
-                        r"pillows|blankets|throws|runners|stockings|cosies|cozies|bowls|"
-                        r"trivets|pot ?holders|dishcloths|washcloths|scrunchies)\b")
+_PLURAL_OBJECT_NOUNS = (r"\b(?:totes|totebags|bags|baskets|coasters|placemats|ornaments|"
+                        r"cushions|pillows|blankets|throws|runners|stockings|cosies|cozies|cosys|"
+                        r"bowls|trivets|pot ?holders|dishcloths|washcloths|scrunchies|beds|nests|"
+                        r"mats|hats|pouches|rugs|garlands|squares|hearts|shoppers|"
+                        # OPUS2K K-1: words that promise several pieces without a number.
+                        r"multipack|multi-pack|assortment|combo|matching|family|mother|daughter)\b")
 
 
 def _plural_marker_pattern(word: str) -> str:
@@ -186,11 +204,16 @@ def title_promise(cir: CIR) -> dict:
     """
     lowered = cir.title.lower()
     claimed: int | None = None
-    for token in re.findall(r"[a-z]+|\d+", lowered):
+    counted = _NOT_A_COUNT.sub(" ", lowered)
+    for token in re.findall(r"[a-z]+|\d+", counted):
         if token.isdigit():
             claimed = max(claimed or 0, int(token))
-        elif token in _COUNT_WORDS:
-            claimed = max(claimed or 0, _COUNT_WORDS[token])
+        else:
+            # OPUS2J J-1: count words with their inflections ("Quartets", "Twins", "Pairs").
+            stem = token if token in _COUNT_WORDS else token[:-1] if token[:-1] in _COUNT_WORDS \
+                else None
+            if stem is not None:
+                claimed = max(claimed or 0, _COUNT_WORDS[stem])
     # OPUS2H H1-3: whole words, so "Sunset", "Closet" and "Asset" do not read as "set".
     # OPUS2I I-1: with their inflections ("Sets", "Pairs", "Bundled", "Libraries"), so a
     # plural marker is never dropped by the whole-word rule.
@@ -201,7 +224,8 @@ def title_promise(cir: CIR) -> dict:
     makes = finished_objects(cir)
 
     if claimed is not None:
-        backed = makes >= claimed
+        # OPUS2K K-2: a numeral never silences a plural marker ("Totes 1", "Tote Set 1").
+        backed = makes >= claimed and (not plural or makes > 1)
         why = f"the title claims {claimed} pieces and the CIR makes {makes}"
     elif plural:
         backed = makes > 1
