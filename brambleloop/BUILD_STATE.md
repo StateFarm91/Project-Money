@@ -1,3 +1,22 @@
+> **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
+> - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
+> - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256
+>   `9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814`; `BK restore_ok`, 144 tables, 262,123 rows; drift only
+>   on `ops_runtime_samples` (live, +2 rows). Volume 1.3 GB free of 4.6 GB: room for about two more dumps (owner action soon:
+>   prune the October dumps or grow the volume).
+> - `ops/deploy.sh --deployed ee35a493`: guard ALLOW (cert run 20261101T080736Z-18171, 10,122 passing, 0 failing), rollback
+>   rehearsal ALLOW; pushed `ee35a493..0967c3ee`; `/health` reported 0967c3ee after 63.6 s.
+> - Readback: worker alive FAIL on the first read (cold start inside `BRAMBLELOOP_RUNNER_START_DELAY`), PASS on the re-read;
+>   release identity, boot guard (enforced, ok), shadow, nothing published, refusals recorded, no unexpected dead letters,
+>   cost ceilings, smoke matrix, launch gate, catalogue and launch-packet route all PASS. Six operator-only rows are
+>   NEEDS_OPERATOR because `BRAMBLELOOP_READBACK_TOKEN` is not set in Railway (owner action, not done). Decision FIX_FORWARD
+>   (P1 only); deploy.sh exit 5. Evidence: `research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json`.
+> - **Production is NOT fully healthy.** `/api/verify` ok=True (13/13), but this release is the first to expose
+>   `evidence_checks`, and three are false: `publishing_halt_clear`, `stale_artefacts_rebuilding`,
+>   `no_repeated_paid_call_in_24h` (`weekly_jobs_completing` true). Their evidence is behind the readback token, so the cause is
+>   not yet diagnosed. These are readings of state that existed before the deploy, not a regression introduced by it.
+> - Stages: Batch 4 deployed and in acceptance. Batch 5 integrating on `claude/w5-INTEG1`
+>   (queue: `research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md`).
 > **2026-11-01 — Batch 5 integration (`claude/w5-INTEG1`, NOT certified, NOT deployed).** Merged on the certified Batch 4 base:
 > INVENTORY, CONCEPT, opus2 fb52cb9e, PDF1 (premium PDF engine, basket small 1.3.0), PHYSFIX R40-R42 (review SHIP) and opus2 PR #5
 > (review ACCEPT). Integrator fixes for branch interactions (size-claim false positive on "Rnd 10 the basket", narrowed after
