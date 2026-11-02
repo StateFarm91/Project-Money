@@ -742,15 +742,26 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # The photo gate refuses only inside for_publish at activation; the other src users of
     # sample_photo only choose the truthful disclosure sentence. Internal callers of
     # for_publish (e.g. products.inventory) use the default draft stage.
+    import re as _re_par
+
     users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
                    if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
     # W-PHYSFIX-PHOTO: physical_upgrade reads the gate's own qualifying predicate to decide
     # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
     # gate) and never passes a stage.
     assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/photo_asset_review.py",
                      "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
                      "brambleloop/runtime/release.py"], users
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): the deterministic photo-frame review reads the gate's own
+    # qualifying predicate and its synthetic-digest list, and nothing else of sample_photo.
+    par_src = (ROOT / "src/brambleloop/publish/photo_asset_review.py").read_text()
+    assert set(_re_par.findall(r"sample_photo\.(\w+)\(", par_src)) == {
+        "qualifying_photos", "_synthetic_shas"}
+    assert not _re_par.search(r"from\s+[.\w]*sample_photo\s+import", par_src)
+    assert not _re_par.search(r"import\s+[.\w]*sample_photo\s+as\s", par_src)
+    assert "requirement(" not in par_src and "stage=" not in par_src
     import re as _re
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))
