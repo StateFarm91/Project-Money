@@ -851,17 +851,6 @@ VESSEL_PRIMITIVES = ("creative.fallback_constructions.vessel", "products.vessels
 # round, intarsia needs bobbins with no carried strand, and fair isle / stranded / jacquard
 # name a floated technique; none is what this fabric is, so each is refused by name.
 
-def fold_title(title: str | None) -> str:
-    """A title as the routing rules read it: NFKC, every Unicode dash (category Pd) as an
-    ASCII hyphen, lower case, whitespace collapsed and stripped."""
-    import unicodedata
-
-    text = unicodedata.normalize("NFKC", title or "")
-    text = "".join("-" if (unicodedata.category(c) == "Pd" or c == "\u2212") else c
-                   for c in text)
-    return re.sub(r"\s+", " ", text.lower()).strip()
-
-
 TAPESTRY_CHARTS: dict[str, tuple[str, ...]] = {
     # "X" is the contrast colour, "." the main; read right to left like every round.
     "diamond": ("..XX..", ".XXXX.", "XX..XX", "XX..XX", ".XXXX.", "..XX.."),
