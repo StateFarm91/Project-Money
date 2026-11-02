@@ -1256,6 +1256,62 @@
         "P1-d cross-image product consistency in the gallery certificate",
         "P2-a capability-only blocked runs re-driven once when the gate opens"
       ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V0",
+      "owner": "mainopus-worker",
+      "assigned": "2026-11-02T19:10Z",
+      "state": "in_progress",
+      "priority": 1,
+      "branch": "claude/w5-V0-paid-provider-gate",
+      "requirement": "P0-PAID-PROVIDER-OWNER-GATE (owner directive 2026-11-02, financial control)",
+      "acceptance": "default-OFF, audited, step-up owner activation per paid image/vision provider; one gateway enforcement point for every paid call incl. probes; independently enforces owner authorization, provider day/month ceilings, per-gallery limit, monthly company budget, paid-call idempotency, retry ceiling; fails closed without approval or accounting evidence; a key or historical probe never opens image_generation/image_vision"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V3",
+      "owner": "UNASSIGNED (after V2)",
+      "assigned": "2026-11-02T19:10Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "qualified automatic Laura identity verification (qualified face-embedding model) and two independent vision judgments where required; production use needs owner funding via V0 activation",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V4",
+      "owner": "UNASSIGNED (after V2)",
+      "assigned": "2026-11-02T19:10Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "consistent home/scene references: owner-approved room reference images recorded with provenance and passed as scene_reference, plus a same-room consistency check",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V5",
+      "owner": "UNASSIGNED (after V2)",
+      "assigned": "2026-11-02T19:10Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "product scale verification against the CIR's finished dimensions using known-size scene anchors",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V6",
+      "owner": "UNASSIGNED (after V2)",
+      "assigned": "2026-11-02T19:10Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "automatic correction and gallery completion end to end: certified autonomous gallery produced through real handlers and handed to listing.package (demonstration required before Visual Production counts as operational)",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
     }
   ],
   "decisions": [
@@ -1276,6 +1332,12 @@
         "A5, A7, A9 reassigned from opus2 to integrator-supervised workers to run in parallel; opus2 keeps A1-R, A2 fixes, A4, A6, A8",
         "Codex keeps P0-LEARNING-REFERENCE; its priority inside that scope is the CODEX1 HIGH fixes, then the approved-rule reader that A6 consumes"
       ]
+    },
+    {
+      "id": "I-VISUAL-NOT-OPERATIONAL-UNTIL-DEMO",
+      "at": "2026-11-02T19:10Z",
+      "decision": "Visual Production is not operational until an accurate, certified, autonomous gallery is produced through real handlers and handed to listing.package. Paid providers stay off until owner activation under V0.",
+      "source": "owner directive 2026-11-02"
     }
   ],
   "owner_actions_pending": [
@@ -1290,6 +1352,25 @@
         "physical basket sample and photo"
       ],
       "blocks": "generated frames reaching a publishable gallery; does not block V1/V2 or any other work"
+    },
+    {
+      "id": "OA-PAID-KEYS",
+      "at": "2026-11-02T19:10Z",
+      "action": "Decide immediate containment until V0 deploys: remove BRAMBLELOOP_IMAGE_KEY_BFL, _GOOGLE and _OPENAI from the brambleloop-os Railway variables (keep copies in your password manager), then let them take effect on the next deploy; or accept the small automatic probe spend until V0 ships",
+      "why": "keys currently allow automatic paid FLUX probes and, after a successful probe, paid generation, without owner activation",
+      "max_cost": "CA$0",
+      "minutes": "3",
+      "consequence_of_waiting": "automatic BFL probe calls continue (observed about every 6 h); amount UNKNOWN"
+    }
+  ],
+  "production_findings": [
+    {
+      "id": "PF-PAID-PROBE-NO-ACTIVATION",
+      "at": "2026-11-02T19:10Z",
+      "release": "0967c3ee",
+      "fact": "BRAMBLELOOP_IMAGE_KEY_BFL (and _GOOGLE, _OPENAI) are set in production. Railway DNS log shows api.bfl.ai resolved at 2026-11-02T00:01:10Z and 06:01:39Z (no OpenAI or Google image host lookups since 2026-11-01T19:00Z). The capability-probe cadence calls images.probe_if_due, which makes a paid FLUX generation without any owner activation; a successful probe opens the image_generation gate.",
+      "unknown": "whether those calls were billed or succeeded, and whether visual.image_production made paid generations (needs the DB: paid_call_records, audit_log ops.capability_probes); PROD_DIAG_READONLY.sql Q5 covers paid calls",
+      "fix": "V0 (code, Batch 6). Immediate containment is an owner decision (OA-PAID-KEYS)."
     }
   ]
 }
