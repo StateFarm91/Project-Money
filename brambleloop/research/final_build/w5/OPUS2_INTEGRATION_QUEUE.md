@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T12:45Z. Certification target: W5-INTEG1 50937469 (INTEG5F SHIP). Running now: 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime). Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
+Last updated: 2026-11-02T17:50Z. Certification target: W5-INTEG1 50937469 (INTEG5F SHIP). Running now: 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime). Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -33,7 +33,7 @@ Last updated: 2026-11-02T12:45Z. Certification target: W5-INTEG1 50937469 (INTEG
 | Q9 | opus2/p1-owner-queue-races, PR #6 | 23935b58 | ACCEPT | none | **merged** (earlier) | test_opus2_owner_queue_races | none: done | — |
 | Q10 | opus2/p0-family-membership, PR #8 | d8d80301 | ACCEPT | none | **merged** (earlier) | test_opus2_family_membership | none: done | — |
 | Q11 | claude/w4-INTEG8-next records | 42db54ae, 51e39992 and this file (docs/records only) | n/a (no code) | none | **integrated** (812f63d7; records suites 7/7 green) | none (no code) | re-merge at each records change | integrator |
-| Q12 | codex/p0-learning-reference | 57c176a9 (claim only) | n/a: no code yet | — | no: **not started** | — | owner starts Codex; review its first push | Codex |
+| Q12 | codex/p0-learning-reference | 623fc26c | DO NOT SHIP (CODEX1: -1 HIGH library guard refuses default /app path, -2 HIGH JOB_CLASS missing, -3 MED review bypass via lessons) | none (3 mechanical conflicts) | no: **blocked** on CODEX1 fixes | test_image_reference_hash_failclosed, test_originality, test_w3_k11_authority + Codex's own suites | Codex fixes per CODEX_REVIEW_FEEDBACK.md; delta review | Codex |
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
 | Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D SHIP (11272e4b) | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
 | Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | DO NOT SHIP (OPUS2T-4 HIGH child safety; -5 MED) | Q14 | no: **blocked** on a construction-keyed children's refusal | named suites + childrens/pdf | delta review of the fix | opus2 |
