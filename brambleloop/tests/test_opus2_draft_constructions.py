@@ -500,7 +500,20 @@ def test_review_opus2h_h12_h13_conflicting_sizes_refused_and_set_is_a_whole_word
     for title in ("Totes", "Two Market Totes", "Three Totes", "Twin Totes", "Tote Quartets",
                   "Twelve Tote Dozen"):
         assert L.title_promise(dataclasses.replace(sunset, title=title))["backed"] is False, title
-    for title in ("Two-Tone Market Tote", "Three-Ply Cotton Tote"):
+    # OPUS2K K-1: collective nouns, larger numbers and multiplicity words; K-2: a numeral never
+    # silences a plural; K-3: number words with no plural noun; K-10: more plural nouns.
+    for title in ("Tote Duet", "Tote Quintet", "Tote Sextet", "Tote Twosome", "Tote Triplets",
+                  "Tote Trilogy", "Tote Couple", "Tote Multipack", "Tote Quartette",
+                  "Double Tote", "Market Shoppers", "Mother and Daughter Tote", "Thirteen Tote",
+                  "Fifteen Tote", "Totes 1", "Market Totes No. 1", "Tote Set 1",
+                  "Two Market Tote", "Twin Tote", "Three Tote Carryall", "Pet Beds",
+                  "Cat Nests", "Bath Mats", "Matching Tote"):
+        assert L.title_promise(dataclasses.replace(sunset, title=title))["backed"] is False, title
+    for title in ("Tote Duet", "Tote Quintet", "Tote Couple", "Tote Multipack", "Tote Quartets",
+                  "Thirteen Tote", "Twelve Tote Dozen"):
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title   # K-1, draft path
+    for title in ("Double Crochet Market Tote", "Double-Stranded Tote", "Two-Tone Market Tote",
+                  "Three-Ply Cotton Tote"):
         promise = L.title_promise(dataclasses.replace(sunset, title=title))
         assert promise["claimed"] is None and promise["backed"] is True, (title, promise)
     for title in ("Market Tote", "Tote Bag", "Bags of Charm Tote"):

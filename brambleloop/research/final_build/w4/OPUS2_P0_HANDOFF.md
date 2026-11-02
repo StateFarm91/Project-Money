@@ -823,3 +823,20 @@ eligibility, first_customer_gate, size_claims, draft_constructions and vacuity a
 
 "Totes", "Two Market Totes", "Three Totes", "Twin Totes" and "Tote Quartets" are unbacked on one
 tote; "Two-Tone Market Tote" is not a count. No catalogue `title_promise` verdict changes.
+
+## 37. Review OPUS2K (c3074241): K-1, K-2, K-3 and K-10 fixed (2026-11-02)
+
+- K-1 MED: `title_promise` counts collective nouns (duet, twosome, couple, triplet(s), trilogy,
+  quartette, quintet, sextet, septet, octet), the numbers thirteen to twenty, and "double".
+  Multipack, assortment, combo, matching, family, mother and daughter are plural markers.
+  `plan()`'s `_MULTIPLE_WORDS` refuses the same words at drafting. Stitch and construction
+  phrases ("double crochet", "double-stranded", "two-tone", "three-ply") are not counts.
+  Fail-closed side effect: `plan()` already refused "double", so "Double Crochet Market Tote" is
+  still refused at drafting.
+- K-2 MED: a numeral never silences a plural marker or noun ("Totes 1", "Tote Set 1" unbacked).
+- K-3 LOW: number-word titles with no plural noun are pinned ("Two Market Tote", "Twin Tote",
+  "Three Tote Carryall").
+- K-10 LOW: plural object nouns gain beds, nests, mats, hats, pouches, rugs, garlands, squares,
+  hearts, cosys, totebags and shoppers.
+
+No catalogue `title_promise` verdict changes (26 products, 11 Launch-0 builders).
