@@ -162,6 +162,16 @@
       "state": "in_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
       "area": "P1-OWNER-QUEUE-RACES"
+    },
+    {
+      "id": "OPUS2-FAMILY-MEMBERSHIP",
+      "operator": "opus2",
+      "branch": "opus2/p0-family-membership",
+      "state": "ready_for_review",
+      "area": "P0 product-family development for products discovered after the opening pool",
+      "scope": "creative.family_engine.family_of reads a declared family from culture_concepts (the cultural signal a concept was translated from, matched by product_slug or slug) when the radar POOL has none; a culture family's next members are the signal's other live concepts. Never inferred from category or palette.",
+      "not_touching": "culture engine, W-CONCEPT concept generation, radar POOL",
+      "evidence": "tests/test_opus2_family_membership.py 2/2; 10 suites reading family_engine/children/cross_sell/amplify exit 0"
     }
   ],
   "unowned": [
@@ -1004,7 +1014,7 @@
     }
   ],
   "reviews_in_flight": {
-    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": []
   },
   "assignments": [
