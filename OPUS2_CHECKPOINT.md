@@ -141,3 +141,5 @@ worktrees, not this file.
 - 2026-11-01T09:10Z: EF2-4 + EF2-5 pushed in `e93b16ed` (PR #5, commented).
 - 2026-11-01: review E fixes pushed in `0e941757`, F-A in `b42f4245`, F-B in `007f5d1c`;
   OPUS2EF2 re-review returned CHANGES REQUIRED (06:50Z).
+
+- 2026-11-02T02:42Z — K-4 pushed on opus2/p1-culture-sweep-timeout (e0be7c4d), PR #7 commented. Pending: K-5/K-6a (#9) and K-7/K-8/K-9 (#10) regressions running; then stocking merge (#11).
