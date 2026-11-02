@@ -426,6 +426,31 @@ def test_review_opus2m_compounds_inflections_counts_and_unicode_are_claims():
         assert truth["backed"] is True and findings == [], (title, findings)
 
 
+def test_review_opus2o_c2c_counts_marks_and_lookalikes_are_read_as_classes():
+    """OPUS2O-4: C2C spellings and any colour count (one number-word list, quad/poly/many,
+    shade/hue). OPUS2O-5: every mark and invisible filler is dropped and more look-alikes are
+    folded. OPUS2O-2 (B13, B14): the Cyrillic p and six-nine are pinned."""
+    plain = _band({})
+    claims = ("Corner2Corner", "Cornertocorner", "C to C", "C-to-C", "Ctoc", "Eleven Colour",
+              "Twelve-Colour", "Dozen Colour", "Quad Colour", "Five Shade", "Two-Shade",
+              "Two Hue", "Polychrome", "Six Colour", "Seven Colour", "Eight Colour",
+              "Nine Colour", "Tape\u034fstry", "Tape\ufe0fstry", "Mo\u17b4saic",
+              "Mo\u115fsaic", "Tape\u3164stry", "Tape\u2800stry", "Fa\u0131r Isle",
+              "Mosa\u0131c", "Col\u00f8urwork", "Mo\u0455aic", "Mosai\u03f2",
+              "Mos\u1d00ic", "Mos\u0251ic", "Fair \u04c0sle", "Ta\u0440estry")
+    assert claims
+    checked = 0
+    for word in claims:
+        truth, findings = _truth(plain, f"{word} Basket")
+        assert truth["backed"] is False and findings, word
+        assert _truth(plain, "Plain Basket", tags=(word,))[1], word
+        checked += 1
+    assert checked == len(claims)
+    for title in ("Doctor Basket", "Victoria Basket", "Accent Basket", "Plain Basket"):
+        truth, findings = _truth(plain, title)
+        assert truth["backed"] is True and findings == [], (title, findings)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -366,6 +366,12 @@ _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwo
 # Review OPUS2J J-6: spelling variants and synonyms are the same claim. Text is folded
 # ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
 # matching, and each variant maps to the technique whose rule judges it.
+_COLOUR_COUNT_WORDS: tuple[str, ...] = (
+    # Not "one": "one colour per round" is how a single-colour fabric is described.
+    "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+    "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+    "nineteen", "twenty", "dozen", "multi", "bi", "tri", "dual", "duo", "quad", "poly", "many",
+)
 _CLAIM_VARIANTS: dict[str, str] = {
     # variant regex (on folded text) -> the technique whose rule judges it. Every variant is
     # matched from a word start and may run on into an inflection (OPUS2M-3: "Tapestries",
@@ -374,8 +380,10 @@ _CLAIM_VARIANTS: dict[str, str] = {
     r"tapestri": "tapestry",                       # "Tapestries": the y-to-ies plural
     # OPUS2M-3: any count of colours or tones, digits included ("Five-Colour", "5 Colour",
     # "Dual Colour", "Duotone").
-    (r"(?:\d+|two|three|four|five|six|seven|eight|nine|ten|multi|bi|tri|dual|duo) ?"
-     r"(?:colou?r|tone)"): "colourwork",
+    # OPUS2O-4: driven from one number-word list, plus quad/poly/many/dozen, and shade/hue.
+    (r"(?:\d+|" + "|".join(sorted(_COLOUR_COUNT_WORDS, key=len, reverse=True)) + r") ?"
+     r"(?:colou?r|tone|shade|hue)"): "colourwork",
+    r"polychrom": "colourwork",
     r"colou?r ?block": "colourwork",
     # "Double-Stranded" / "held double" is a yarn-holding construction, not stranded
     # colourwork (OPUS2K K-6a), so it is not a claim.
@@ -383,7 +391,7 @@ _CLAIM_VARIANTS: dict[str, str] = {
     r"fair ?isle": "fair isle",
     r"graph ?gh?an|pixel crochet": "graphghan",
     # a charted picture blanket: graphghan rule (OPUS2M-3: "C-2-C", "Corner-2-Corner")
-    r"c ?2 ?c|corner (?:to|2) corner": "graphghan",
+    r"c ?(?:2|to) ?c\b|corner ?(?:2|to) ?corner": "graphghan",
     r"duplicate stitch": "intarsia",               # embroidered blocks: not modelled, refused
 }
 
@@ -394,7 +402,16 @@ _LOOKALIKES = str.maketrans({
     "\u0443": "y", "\u0445": "x", "\u0456": "i", "\u0442": "t", "\u043c": "m",
     "\u043a": "k", "\u0432": "b", "\u043d": "h", "\u03bf": "o", "\u03b1": "a",
     "\u03b9": "i", "\u03c4": "t", "\u03ba": "k", "\u03bd": "v", "\u03c1": "p",
+    # OPUS2O-5: letters that do not decompose to their Latin look-alike.
+    "\u0131": "i", "\u00f8": "o", "\u0455": "s", "\u0458": "j", "\u03f2": "c",
+    "\u03c2": "c",                                # lunate sigma decomposes to final sigma
+    "\u0585": "o", "\u1d00": "a", "\u0251": "a", "\u04c0": "i", "\u04cf": "i",
+    "\u0261": "g", "\u0432": "b",
 })
+# OPUS2O-5: invisible fillers that are neither category Cf nor a mark (Hangul fillers, the
+# blank braille pattern, Mongolian free variation selectors): dropped like Cf. Marks
+# (Mn/Me, which include the grapheme joiner and variation selectors) are dropped after NFKD.
+_INVISIBLE = frozenset({0x115F, 0x1160, 0x2800, 0x3164, 0xFFA0} | set(range(0x180B, 0x1810)))
 
 
 def _fold(text: str) -> str:
@@ -405,9 +422,12 @@ def _fold(text: str) -> str:
     of every kind, slashes, dots, middle dots) one space."""
     import unicodedata
 
-    t = "".join(c for c in str(text or "") if unicodedata.category(c) != "Cf")
+    t = "".join(c for c in str(text or "")
+                if unicodedata.category(c) != "Cf" and ord(c) not in _INVISIBLE)
     t = unicodedata.normalize("NFKD", t)
-    t = "".join(c for c in t if not unicodedata.combining(c))
+    # Every mark (Mn/Me), not only those with a combining class: a grapheme joiner or a
+    # variation selector has class 0 and would otherwise split a word (OPUS2O-5).
+    t = "".join(c for c in t if unicodedata.category(c) not in ("Mn", "Me"))
     t = unicodedata.normalize("NFKC", t).lower().translate(_LOOKALIKES)
     return " " + re.sub(r"[^0-9a-z]+", " ", t).strip() + " "
 
