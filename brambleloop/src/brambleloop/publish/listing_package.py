@@ -354,20 +354,40 @@ def certified_releases(db) -> list[tuple[str, str]]:
     return sorted(set(out))
 
 
-def sweep(db) -> dict:
-    """Assemble and record the package of every certified release that has a drafted listing."""
-    results = []
-    for slug, version in certified_releases(db):
-        package, err = _try(assemble, db, slug, version)
-        if err is not None or package is None:
-            results.append({"key": f"{slug}@{version}", "error": err or "not certified"})
-            continue
-        recorded, rerr = _try(record, db, package)
-        results.append(recorded if rerr is None else
-                       {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]})
+def _package_one(db, slug: str, version: str) -> dict:
+    package, err = _try(assemble, db, slug, version)
+    if err is not None or package is None:
+        return {"key": f"{slug}@{version}", "error": err or "not certified"}
+    recorded, rerr = _try(record, db, package)
+    return (recorded if rerr is None else
+            {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]})
+
+
+def _summary(results: list[dict]) -> dict:
     return {"releases": len(results), "results": results,
             "ready": sum(1 for r in results if r.get("state") == READY),
             "changed": sum(1 for r in results if r.get("changed"))}
+
+
+def sweep(db) -> dict:
+    """Assemble and record the package of every certified release that has a drafted listing."""
+    return _summary([_package_one(db, slug, version)
+                     for slug, version in certified_releases(db)])
+
+
+def for_release(db, slug: str, version: str) -> dict:
+    """W5-A9 (P0-PACKAGE-EVENT): the package of ONE release, as the sweep would make it.
+
+    The event path: `launch.plan` enqueues this as soon as the chain has stored everything the
+    package reads, so the owner's review request does not wait up to six hours for the sweep.
+    Eligibility is exactly the sweep's (`certified_releases`), and the work is the sweep's own
+    per-release step, so the event and the sweep write the same `slug@version` reading and the
+    same fingerprinted owner request -- whichever runs second finds it unchanged and writes
+    nothing. A release that is not (or no longer) eligible is reported and left to the sweep.
+    """
+    if (slug, version) not in set(certified_releases(db)):
+        return {**_summary([]), "eligible": False}
+    return {**_summary([_package_one(db, slug, version)]), "eligible": True}
 
 
 def latest(db, slug: str, version: str) -> dict | None:
