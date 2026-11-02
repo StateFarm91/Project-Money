@@ -420,6 +420,25 @@ def classify_evaluation(report: dict) -> str:
         return "insufficient_evidence"
 
 
+def _incumbent_pins(db) -> list[dict]:
+    """A claimed incumbent must itself still pass the full pin verifier."""
+    from sqlalchemy import select
+    from ..core.models import DesignRule
+    from ..improve import design_knowledge
+
+    with db.session() as s:
+        rows = list(s.scalars(select(DesignRule).where(DesignRule.state == "approved")))
+        ids = [row.id for row in rows]
+    if not ids:
+        return []
+    if len(ids) != 1:
+        raise DesignEvaluationRefused("incumbent knowledge set is unsupported")
+    records = design_knowledge.applicable(db, {"writer_section": "finishing"})
+    if len(records) != 1 or records[0]["pin"]["rule_id"] != ids[0]:
+        raise DesignEvaluationRefused("incumbent knowledge cannot be verified")
+    return [records[0]["pin"]]
+
+
 def evaluation_key(db, rule_id: int) -> str:
     from ..core.models import DesignRule
     from ..improve.design_knowledge import lineage_digest, rule_digest
@@ -430,9 +449,13 @@ def evaluation_key(db, rule_id: int) -> str:
             raise DesignEvaluationRefused("a proposed rule is required")
         rule_sha = rule_digest(row)
         lineage_sha = lineage_digest(s, row)
+        supersedes = row.supersedes
+    incumbent = _incumbent_pins(db)
+    if incumbent and supersedes != incumbent[0]["rule_id"]:
+        raise DesignEvaluationRefused("candidate must supersede the current incumbent")
     identity = {"rule": rule_sha, "cases": load_cases(db=db)["sha256"],
                 "lineage": lineage_sha, "implementation": implementation_digest(db),
-                "corpus": corpus_digest(db)}
+                "corpus": corpus_digest(db), "incumbent": incumbent}
     return f"design-eval:{rule_id}:{_digest(identity)}"
 
 
@@ -475,7 +498,9 @@ def evaluate(db, rule_id: int, *, expected_key: str | None = None) -> dict:
             row = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
             if row is None or row.state != "proposed" or rule_digest(row) != result["rule_sha256"]:
                 raise DesignEvaluationRefused("proposal changed during evaluation")
-            if s.scalar(select(DesignRule.id).where(DesignRule.state == "approved")) is not None:
+            current = list(s.scalars(select(DesignRule.id).where(
+                DesignRule.state == "approved").with_for_update()))
+            if current != [pin["rule_id"] for pin in result["incumbent_pins"]]:
                 raise DesignEvaluationRefused("incumbent knowledge changed during evaluation")
             audit = AuditLog(actor="design_evaluator", action="design_eval.completed",
                              artifact=f"design-rule:{rule_id}", detail=result)
@@ -515,6 +540,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     if type(rule_id) is not int or rule_id <= 0:
         raise DesignEvaluationRefused("invalid rule id")
     frozen = load_cases(db=db)
+    incumbent = _incumbent_pins(db)
     with db.session() as s:
         rule = s.get(DesignRule, rule_id)
         if rule is None or rule.state != "proposed":
@@ -524,8 +550,8 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         if rule.statement != {"rule": "include_finishing_checklist", "parameters": {}} \
                 or rule.scope != {"writer_section": "finishing"}:
             raise DesignEvaluationRefused("unsupported rule or scope")
-        if s.scalar(select(DesignRule.id).where(DesignRule.state == "approved")) is not None:
-            raise DesignEvaluationRefused("incumbent knowledge is not yet supported")
+        if incumbent and rule.supersedes != incumbent[0]["rule_id"]:
+            raise DesignEvaluationRefused("candidate must supersede the current incumbent")
         identity = {"id": rule.id, "key": rule.key, "version": rule.version,
                     "statement": rule.statement, "scope": rule.scope,
                     "provenance": rule.provenance, "producer": rule.producer,
@@ -535,7 +561,11 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         if case["kind"] != "launch0":
             continue
         cir = launch0.cir_for(case["build"])
-        baseline = write_pattern(cir, compile_cir(cir))
+        compiled = compile_cir(cir)
+        plain = write_pattern(cir, compiled)
+        baseline = write_pattern(cir, compiled, knowledge_pins=incumbent, db=db)
+        if incumbent and baseline != _preview_checklist(plain):
+            raise DesignEvaluationRefused("incumbent writer output could not be verified")
         candidate = _preview_checklist(baseline)
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
@@ -543,7 +573,8 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         raise DesignEvaluationRefused("not all frozen launch cases were measured")
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
-              "case_set_sha256": frozen["sha256"], "cases": case_results,
+              "case_set_sha256": frozen["sha256"], "incumbent_pins": incumbent,
+              "cases": case_results,
               "benchmark_checks": _benchmark_checks(db),
               "state": "insufficient_evidence", "approval_evidence_complete": False,
               "why": "preview renderer is not the production writer; benchmark and full "

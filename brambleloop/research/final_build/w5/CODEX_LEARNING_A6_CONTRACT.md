@@ -27,9 +27,10 @@ otherwise the writer's safe baseline fallback could produce a different release
 body than the one certified. CIRs without pins keep their current behavior.
 Record a learning action only after a consumer actually changes its decision.
 
-The first evaluator compares the empty incumbent with a single candidate. It
-refuses a new evaluation while an approved rule is active; multi-rule and
-successor-version comparisons still need implementation. The frozen bench2
+The evaluator compares either the empty incumbent or a verified active rule
+with a proposed successor. A repeated rule yields `no_improvement`. Only one
+rule can be active; multi-rule baselines and atomic approval of an improved
+successor still need implementation. The frozen bench2
 inputs are not in the image. A worker can read the pinned `product_truth.json`,
 `bench2_manifest.json`, and `product_truth.py` from
 `$BRAMBLELOOP_BENCHMARK_LIBRARY/benchmark-2-mini-star-stitch-cardigan/evaluation/`.

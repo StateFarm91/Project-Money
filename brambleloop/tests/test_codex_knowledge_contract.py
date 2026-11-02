@@ -78,6 +78,23 @@ class KnowledgeContractTests(unittest.TestCase):
             self.assertNotEqual(result, baseline)
             self.assertIn("\n- Fasten off", result)
             self.assertEqual(compare(cir, result), [])
+            successor = knowledge.propose(reopened, key=rule["key"], statement={
+                "rule": "include_finishing_checklist", "parameters": {}},
+                scope={"writer_section": "finishing"},
+                provenance=[{"kind": "analysis", "id": source_id}], producer="analyst2",
+                supersedes=rule["id"])
+            repeated_rule = design_eval.evaluate(reopened, successor["id"])
+            self.assertEqual(repeated_rule["incumbent_pins"], [pin])
+            self.assertEqual(repeated_rule["state"], "no_improvement")
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                knowledge.review_rule(reopened, successor["id"], reviewer="owner", decision="approve",
+                                      reason="independent review", evaluation_id=repeated_rule["audit_id"])
+            unrelated = knowledge.propose(reopened, key="unrelated", statement={
+                "rule": "include_finishing_checklist", "parameters": {}},
+                scope={"writer_section": "finishing"},
+                provenance=[{"kind": "analysis", "id": source_id}], producer="analyst2")
+            with self.assertRaises(design_eval.DesignEvaluationRefused):
+                design_eval.evaluate(reopened, unrelated["id"])
             licence.capture_purchase(reopened, "fixture-purchase", terms={
                 "allowed_uses": [], "prohibited_uses": ["private_analysis"]})
             with self.assertRaises(knowledge.DesignKnowledgeRefused):

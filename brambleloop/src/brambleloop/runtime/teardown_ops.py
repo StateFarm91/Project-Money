@@ -87,10 +87,7 @@ def handle_design_eval(ctx):
 @handlers.register("design_eval.sweep")
 def handle_design_eval_sweep(ctx):
     with ctx.db.session() as s:
-        active = s.scalar(select(DesignRule.id).where(DesignRule.state == "approved"))
         ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "proposed")))
-    if active is not None:
-        return {"state": "incumbent_evaluation_unavailable", "work_done": 0}
     queued = existing = unknown = requeued = 0
     for rule_id in ids:
         ctx.assert_lease()

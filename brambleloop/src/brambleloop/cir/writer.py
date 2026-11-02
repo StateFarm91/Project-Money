@@ -382,7 +382,8 @@ def finishing_checklist(text: str) -> str:
     if not separator:
         raise ValueError("finishing section is absent")
     return head + separator + "\n" + "\n".join(
-        "- " + line if line else line for line in finishing.strip().splitlines()) + "\n"
+        "- " + line if line and not line.startswith("- ") else line
+        for line in finishing.strip().splitlines()) + "\n"
 
 
 def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
