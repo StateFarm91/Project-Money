@@ -684,6 +684,14 @@
         "d3a485a1": "SHIP (integrated 4af3418f; -4/-5 LOW)"
       },
       "recorded": "2026-11-02T08:45Z"
+    },
+    {
+      "subject": "INTEG5E",
+      "sha": "0d0e238d (claude/w5-SECREVIEW-INTEG5E)",
+      "verdicts": {
+        "f7466c06..4af3418f": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T08:52Z"
     }
   ],
   "integration": {
@@ -712,7 +720,7 @@
       "basis": "INTEG5B SHIP (6d402593) + its second regression batch re-run by the integrator on a8ce0072: 13/13 suites rc=0 (05:42Z)",
       "rule": "uninterrupted; a resumed run never certifies; fail -> root-cause, fix, fresh run",
       "expected": "FAIL test_w4_launchfix (pre-existing guard false positive at a8ce0072; fixed f8bf2782). Next certification on the newest fully reviewed head (target f7466c06 after INTEG5D).",
-      "next": "f7466c06 is fully reviewed (INTEG5B+5C+5D SHIP). One fresh full run on f7466c06 starts when run 20261102T054208Z-6424 on a8ce0072 ends (one full suite at a time)."
+      "next": "4af3418f is fully integration-reviewed (INTEG5B+5C+5D+5E SHIP). ONE fresh full run on 4af3418f starts when run 20261102T054208Z-6424 (a8ce0072) ends."
     }
   },
   "owner_directives": [
@@ -844,15 +852,6 @@
         "session": "integrator subagent (create_session unavailable 08:3xZ)",
         "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2R.md (to be committed on claude/w5-SECREVIEW-OPUS2R)",
         "launched": "2026-11-02T08:36Z"
-      },
-      {
-        "id": "INTEG5E",
-        "subjects": [
-          "claude/w5-INTEG1 f7466c06..4af3418f"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_INTEG5E.md",
-        "launched": "2026-11-02T08:46Z"
       }
     ]
   }

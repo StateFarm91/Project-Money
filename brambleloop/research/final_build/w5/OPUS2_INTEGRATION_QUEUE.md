@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T08:46Z.
+Last updated: 2026-11-02T08:52Z. Certification target: W5-INTEG1 4af3418f.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -28,7 +28,7 @@ Last updated: 2026-11-02T08:46Z.
 | Q4 | opus2/p1-culture-sweep-timeout, PR #7 | e0be7c4d (tests only) | SHIP (OPUS2M) | Q1 | **integrated** (W5-INTEG1 a8ce0072, suites green) | test_opus2_culture_sweep_timeout | none; OPUS2M-5 and -6 LOW follow-ups for opus2 | — |
 | Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c, 5889cc37, 2f9c413d | 2f9c413d CHANGES_REQUIRED (OPUS2Q-2 MED regression) | Q2 | no: **blocked** on the OPUS2Q-2 fix | as Q2 | delta review of the fix | opus2 |
 | Q6 | opus2/p0-pet-bed, PR #10 | d0a7685f, 7d220e01, 940f70e6, 09122165 | SHIP (OPUS2O) | none (split from PR #3: I-B5-SPLIT-PET-STOCKING) | **integrated** W5-INTEG1 52f9f4b5 (suites running, push on green) | test_opus2_pet_bed, test_opus2_draft_constructions, test_fallback_draft_provenance | push; Batch 6 | integrator |
-| Q7 | opus2/p0-stocking, PR #11 | ..a859f6fe, d3a485a1 | SHIP (OPUS2O, OPUS2Q) | Q6 | **integrated** 52f9f4b5 + 4af3418f (follow-ups); integration check INTEG5E running | test_opus2_stocking + Q6 suites | certify | integrator |
+| Q7 | opus2/p0-stocking, PR #11 | ..a859f6fe, d3a485a1 | SHIP (OPUS2O, OPUS2Q) | Q6 | **integrated** 52f9f4b5 + 4af3418f (follow-ups); integration check INTEG5E SHIP (0d0e238d) | test_opus2_stocking + Q6 suites | certify | integrator |
 | Q8 | opus2/p0-listing-package, PR #5 | be96a598 | ACCEPT | none | **merged** (earlier) | test_opus2_listing_package | none: done | — |
 | Q9 | opus2/p1-owner-queue-races, PR #6 | 23935b58 | ACCEPT | none | **merged** (earlier) | test_opus2_owner_queue_races | none: done | — |
 | Q10 | opus2/p0-family-membership, PR #8 | d8d80301 | ACCEPT | none | **merged** (earlier) | test_opus2_family_membership | none: done | — |
