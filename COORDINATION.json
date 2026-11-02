@@ -855,6 +855,14 @@
       "verdicts": {
         "opus2/a4b-enrichment 230b7d8d / e230545c": "DO NOT SHIP: A4B-1 HIGH retention RetentionRefused at 230b7d8d fixed in e230545c; A4B-2 HIGH answer()/open_requests() have no production caller -- nothing ever re-drafts (wiring #2 still open); MED A4B-3 any payload counts as enrichment (no evidence, seed fields unpinned: fox amigurumi re-drafted as basket), A4B-4 never-draftable concept ends 'resolved' with no job (should be exhausted), A4B-5 concurrent answers both draft (no per-round key); LOW A4B-6 unbounded request-row churn, A4B-7 mutants M5/M6 (round cap, answered guard) survive. Gates never bypassed; 15 suites pass; test_cert_wiring UNKNOWN (drain timeout under load)."
       }
+    },
+    {
+      "subject": "A5",
+      "sha": "claude/w5-SECREVIEW-A5",
+      "recorded": "2026-11-02T23:19:17Z",
+      "verdicts": {
+        "A5 correction loop 717c7925": "DO NOT SHIP: A5-1 HIGH GAUGE_FROM_YARN_BAND checks gauge with physically_evidenced=False, so a design certified on a tester's measured gauge has it replaced on any unrelated refusal (PROVENANCE_MISSING enqueues a gauge revision); MED A5-2 correction does not fix the refusing defect (re-verification failed CLAIM_CONSTRUCTION_UNSUPPORTED, loop changed gauge 30->12.5 and certified 1.3.0 as 'correction'; same for COLOR_NOT_IN_PATTERN) and the test asserts it; A5-3 gauge_for replaces hook (3.5->5.0mm), row gauge, chain calibration, audit records only stitch gauge; A5-4 certify refusal of an already-certified version revises without a version bump -> version_immutable, cap spent, no terminal state; LOW per-version cap fresh per minor, stale holds on superseded versions, code regex over-match, re-run audit rows, concurrent revise race. Loop bounded, holds isolated, evidence waits correct, retention protected, all mutants killed, 14 suites pass; conflict with A6 in handle_cir_revise."
+      }
     }
   ],
   "integration": {
@@ -1082,13 +1090,6 @@
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "A5-REVIEW",
-        "subject": "A5 correction loop 717c7925 (full)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
-        "started": "2026-11-02T21:39:14Z",
-        "requested_by": "#28 6589003363"
-      },
-      {
         "id": "A6-REVIEW",
         "subject": "opus2/a6-learning-to-design 8c131f10 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A6_8c131f10.md",
@@ -1262,7 +1263,8 @@
       "handoff": {
         "branch": "claude/w5-A5-correction-loop",
         "sha": "717c79258b1f7b8e09d6680c5bd238552ff446f0"
-      }
+      },
+      "review_verdict": "DO NOT SHIP (A5)"
     },
     {
       "owner": "opus2",
