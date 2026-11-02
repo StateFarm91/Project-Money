@@ -130,7 +130,7 @@
     },
     {
       "id": "P0-LEARNING-REFERENCE",
-      "operator": "main-opus worker (owner-directed execution of the Codex work order)",
+      "operator": "codex",
       "branch": "codex/p0-learning-reference",
       "state": "in_progress",
       "area": "purchased reference-pattern intake, provenance/licence, private storage, structured analysis, versioned approved design knowledge, downstream readers, before/after evaluation. Extends existing modules (see map in research/final_build/w5/LEARNING_MAP.md when published); never a competing Learning Department",
