@@ -391,7 +391,13 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
 
     if not _leads_gallery(db, photo_id):
         return False
+    from .photo_asset_review import _lock
+
     with db.session() as s:
+        # A3D-2: take the photo review's write lock before reading the frames, so this write is
+        # never computed from a copy read while a review held the lock (a stale approved=True
+        # beside an awaiting reason).
+        _lock(s, db)
         photo = s.get(PhysicalPhoto, photo_id)
         slug, version = _photo_release(s, photo)
         frames = sorted(s.scalars(select(ListingAsset).where(
