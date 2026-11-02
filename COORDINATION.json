@@ -162,6 +162,16 @@
       "state": "in_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
       "area": "P1-OWNER-QUEUE-RACES"
+    },
+    {
+      "id": "OPUS2-CULTURE-SWEEP-TIMEOUT",
+      "operator": "opus2",
+      "branch": "opus2/p1-culture-sweep-timeout",
+      "state": "ready_for_review",
+      "area": "P1-CULTURE-SWEEP-TIMEOUT (unowned item recorded by the integrator 2026-11-01T07:05Z)",
+      "scope": "culture/classify.py catches the classifier TimeoutError: files nothing, counts the unknown spend once at the reservation estimate (never zero), releases the reservation, never re-sends (F-307/F-339 unchanged)",
+      "not_touching": "gateway/paid_calls.py, gateway/anthropic.py (the anti-double-spend protocol), runtime/release.py",
+      "evidence": "tests/test_opus2_culture_sweep_timeout.py 3/3 (2 fail on the unfixed code with the production TimeoutError); culture, spend-governance, provider-boundary, resume-runner, vacuity suites (10) exit 0"
     }
   ],
   "unowned": [
@@ -177,8 +187,10 @@
         "src/brambleloop/culture/classify.py",
         "src/brambleloop/runtime/release.py (handle_culture_sweep)"
       ],
-      "state": "unowned",
-      "recorded": "2026-11-01T07:05Z"
+      "state": "claimed",
+      "recorded": "2026-11-01T07:05Z",
+      "claimed_by": "opus2",
+      "claimed_at": "2026-11-01T09:20Z"
     }
   ],
   "reviews": [
@@ -703,7 +715,7 @@
     }
   ],
   "reviews_in_flight": {
-    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": []
   }
 }
