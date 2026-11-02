@@ -1,6 +1,6 @@
 {
  "kind": "opus2 P0 requirement gap register",
- "updated": "2026-11-02T08:58Z",
+ "updated": "2026-11-02T13:39Z",
  "maintained_by": "opus2 engineering loop (rewritten with OPUS2_CHECKPOINT.md each work unit)",
  "legend": {
   "impl": "who implemented it: base = existing Build 1/2 code on claude/w4-INTEG8-next; opus2/W-*/codex = that worker's branch",
@@ -40,7 +40,7 @@
    "reviewed": "ACCEPT (CONCEPT d2, opus2 B2/D)",
    "integrated": "batch5_trial",
    "deployed": "no",
-   "gap": "Registry contract built (PR #22: request_for/ROUTES/build, cir.draft_held, knowledge-gap routing). Awaiting review + integrator approval of the _draft_creative hook. W-CONCEPT owes: a toy arena (NoArenasContradictsEvidence), explicit dimensions_cm/yarn_weight in briefs, ownership of concept.enrich"
+   "gap": "PD side built: registry (PR #22) + research_enrichment consumer 823a82dd. Research side of enrichment (answer()) proposed for W-CONCEPT on PR #22. Real research winners for basket/pouch blocked by research silhouette gate (#108); no toy arena."
   },
   {
    "id": "original_pattern_development",

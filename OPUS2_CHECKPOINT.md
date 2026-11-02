@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T11:32Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T13:39Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -27,14 +27,21 @@ worktrees, not this file.
 - `/home/user/opus2-stock`: `opus2/p0-stocking` (PR #11)
 - `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
 
-## State at 2026-11-02T11:30Z
-- Pushed this loop: PR #3 8ed2dd15 (OPUS2Q-1 MED, Q-6, Q-7) + b4merge 493b76cf; PR #9 e6e6fb94
-  (OPUS2Q-2 MED, Q-3, Q-6); PR #11 7493c723 (OPUS2Q-4/5/6); PR #25 opened (Q16 pouch split,
-  1ea3079e); PR #18 c5671087 (OPUS2P); PR #22 66378ebf.
-- 2026-11-02T11:32Z: PR #22 a7b34050 pushed (OPUS2R, 38/38 suites); comment posted.
-- Stop reason: every review finding is pushed; remaining work waits on review/integrator decisions (PR #3 list), W-CONCEPT (concept.enrich owner, toy arena), Codex, owner. Next unblocked: construction breadth (task 27).
-- Next: construction breadth (task 27) or new review findings; integrator decisions on PR #3.
-- Done log: OPUS2M, OPUS2N, OPUS2O, OPUS2P, OPUS2Q (all subjects), OPUS2R (pending push), Q16 split.
+## State at 2026-11-02T13:39Z (owner directive 2026-11-02 "P0 CRITICAL PATH")
+- Items 1-3 (OPUS2T/OPUS2S): fixed.
+  - PR #3 143af186 + 286cd044 (T-1/-2/-3, b4merge fcd361a6) PUSHED, 17/17.
+  - PR #23 a14c71d7 (shared physical_upgrade) + d1f65b61 (S-1/2/3/4/5) PUSHED, 33/33.
+  - PR #18 6ab946ff (T-4 HIGH construction-keyed children's gate + T-5 small parts) committed;
+    45-suite run /tmp/claude-0/t4_results.txt. Push + comment when green, then merge
+    amigurumi into opus2-reg and run the registry regression.
+- Item 5: research-enrichment consumer committed on opus2-reg 823a82dd (claim
+  OPUS2-ENRICHMENT-CONSUMER); ownership proposal posted on PR #22 for Main + W-CONCEPT.
+- Item 6: department flow test b0c66556 (real research run, durable draft, restart, refused
+  draft does not block, next-product seeding). Tapestry/toy cannot come from a real research
+  run yet: research's silhouette gate (#108) refuses basket/pouch winners; no toy arena.
+- Not pushed yet on opus2-reg: 823a82dd, b0c66556 (push after the amigurumi merge + regression).
+- Open for decision: non-qualifying photo frames still block a listing set (PR #23);
+  "Cosy Baby Blanket" pre-existing shaped-word refusal (PR #3); T-8/T-9 LOWs.
 
 ## Dependencies (exact)
 See P0_GAP_REGISTER.json `opus2_open_engineering`.
