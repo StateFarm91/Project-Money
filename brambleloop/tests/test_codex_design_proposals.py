@@ -3,11 +3,48 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from brambleloop.core.db import Database
-from brambleloop.core.models import DesignRule, Incident, TeardownFinding
-from brambleloop.improve.design_knowledge import DesignKnowledgeRefused, propose
+from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkProduct, DesignRule, Incident,
+                                     TeardownFinding, utcnow)
+from brambleloop.improve.design_knowledge import (DesignKnowledgeRefused, propose,
+                                                  propose_from_analysis)
+from brambleloop.teardown import licence
 
 
 class DesignProposals(unittest.TestCase):
+    def test_reviewed_analysis_cannot_propose_after_licence_or_manifest_changes(self):
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/knowledge.db", scratch=True)
+            db.create_all()
+            sha = "a" * 64
+            with db.session() as s:
+                product = BenchmarkProduct(ref="purchase", seller="test",
+                    files=[{"name": "pattern.pdf", "sha256": sha}])
+                s.add(product)
+                s.flush()
+                analysis = BenchmarkAnalysis(benchmark_id=product.id, file_sha256=sha,
+                    review_state="reviewed", recorded_by="teardown_analyst", reviewed_by="owner",
+                    reviewed_at=utcnow(), observations={"fully_readable": True,
+                    "dimensions": {"finishing": "absent"}})
+                s.add(analysis)
+                forged = BenchmarkAnalysis(benchmark_id=product.id, file_sha256="b" * 64,
+                    review_state="reviewed", recorded_by="analyst", reviewed_by="analyst",
+                    reviewed_at=utcnow(), observations={"fully_readable": True,
+                    "dimensions": {"finishing": "absent"}})
+                s.add(forged)
+                s.flush()
+                ident, product_id, forged_id = analysis.id, product.id, forged.id
+            self.assertEqual(propose_from_analysis(db, forged_id)["reason"], "not_reviewed")
+            licence.capture_purchase(db, "purchase", terms={"allowed_uses": [],
+                "prohibited_uses": ["private_analysis"]})
+            with self.assertRaises(DesignKnowledgeRefused):
+                propose_from_analysis(db, ident)
+            licence.capture_purchase(db, "purchase", terms={"allowed_uses": ["private_analysis"],
+                "prohibited_uses": []})
+            with db.session() as s:
+                s.get(BenchmarkProduct, product_id).files = []
+            with self.assertRaises(DesignKnowledgeRefused):
+                propose_from_analysis(db, ident)
+
     def test_versioned_proposals_persist_and_bad_evidence_is_refused(self):
         with TemporaryDirectory() as tmp:
             url = f"sqlite:///{tmp}/knowledge.db"

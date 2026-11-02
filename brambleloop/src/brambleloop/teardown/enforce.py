@@ -137,11 +137,16 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
 
     with db.session() as s:
         rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
-                if not r.benchmark_ref.startswith(SELF_PREFIX) and r.review_state != "rejected"]
+                if not r.benchmark_ref.startswith(SELF_PREFIX)]
     by_key: dict[tuple[str, str], list] = {}
+    from .review import independent_decision, independently_reviewed
+
     for r in rows:
+        if independent_decision(r, "rejected"):
+            continue
         # Unreviewed scores cannot influence an independently reviewed group.
-        by_key.setdefault((_key(r)[0], r.review_state or "proposed"), []).append(r)
+        state = "reviewed" if independently_reviewed(r) else "proposed"
+        by_key.setdefault((_key(r)[0], state), []).append(r)
 
     out: list[dict] = []
     for (key, review_state), group in sorted(by_key.items()):
@@ -463,7 +468,9 @@ def adopt_floor(db, finding_id: int, *, floor: float, improvement_id: int) -> di
         row = s.get(TeardownFinding, finding_id)
         if row is None:
             return {"adopted": False, "why": f"no finding {finding_id}"}
-        if row.review_state != "reviewed":
+        from .review import independently_reviewed
+
+        if not independently_reviewed(row):
             return {"adopted": False, "why": "finding requires independent review"}
         row.detail = {**(row.detail or {}), "adopted": {
             "floor": float(floor), "improvement": improvement_id,

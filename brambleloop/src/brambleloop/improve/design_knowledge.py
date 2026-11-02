@@ -10,7 +10,8 @@ import re
 
 from sqlalchemy import func, select
 
-from ..core.models import DesignRule, Incident, Lesson, TeardownFinding
+from ..core.models import (BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct, DesignRule,
+                           Incident, Lesson, TeardownFinding)
 
 
 class DesignKnowledgeRefused(ValueError):
@@ -23,7 +24,8 @@ RULES = {"include_finishing_checklist": frozenset()}
 # Expand only alongside a consumer that understands the new scope.
 SCOPE_VALUES = {"writer_section": frozenset({"finishing"})}
 _TOKEN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
-_SOURCES = {"lesson": Lesson, "finding": TeardownFinding, "incident": Incident}
+_SOURCES = {"lesson": Lesson, "finding": TeardownFinding, "incident": Incident,
+            "analysis": BenchmarkAnalysis}
 
 
 def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
@@ -60,10 +62,21 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
             source = session.get(_SOURCES[item["kind"]], item["id"])
             if source is None:
                 raise DesignKnowledgeRefused("evidence does not exist")
-            # Existing findings have no review state yet; do not silently treat
-            # them as reviewed while that independent-review path is being built.
-            if item["kind"] == "finding" and getattr(source, "review_state", None) != "reviewed":
-                raise DesignKnowledgeRefused("finding has not been independently reviewed")
+            if item["kind"] in ("finding", "analysis"):
+                from ..teardown.review import independently_reviewed
+
+                if not independently_reviewed(source):
+                    raise DesignKnowledgeRefused("reference evidence has not been independently reviewed")
+            if item["kind"] == "analysis":
+                product = session.get(BenchmarkProduct, source.benchmark_id)
+                if product is None or not any(f.get("sha256") == source.file_sha256
+                                               for f in (product.files or [])):
+                    raise DesignKnowledgeRefused("analysis source is no longer in the manifest")
+                lic = session.scalar(select(BenchmarkLicence).where(
+                    BenchmarkLicence.source_ref == product.ref))
+                if lic is None or "private_analysis" not in (lic.allowed_uses or []) \
+                        or "private_analysis" in (lic.prohibited_uses or []):
+                    raise DesignKnowledgeRefused("analysis licence no longer permits private use")
             if item in evidence:
                 raise DesignKnowledgeRefused("duplicate evidence")
             evidence.append(dict(item))
@@ -78,3 +91,55 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
         session.add(row)
         session.flush()
         return {"id": row.id, "key": row.key, "version": row.version, "state": row.state}
+
+
+def propose_from_analysis(db, analysis_id: int) -> dict:
+    """Propose a bounded rule for a reviewed, fully read missing section.
+
+    This records a hypothesis, not evidence of improved quality. The proposal is
+    idempotent per source; approval must still require a held-out evaluation.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    if type(analysis_id) is not int or analysis_id <= 0:
+        raise DesignKnowledgeRefused("invalid analysis")
+    key = f"finishing_from_analysis_{analysis_id}"
+    try:
+        with db.session() as s:
+            source = s.scalar(select(BenchmarkAnalysis).where(BenchmarkAnalysis.id == analysis_id)
+                              .with_for_update())
+            from ..teardown.review import independently_reviewed
+
+            if source is None or not independently_reviewed(source):
+                return {"proposed": False, "reason": "not_reviewed"}
+            data = source.observations or {}
+            if data.get("fully_readable") is not True or \
+                    (data.get("dimensions") or {}).get("finishing") != "absent":
+                return {"proposed": False, "reason": "no_observed_gap"}
+            existing = s.scalar(select(DesignRule).where(DesignRule.key == key))
+            if existing is not None:
+                return {"proposed": False, "reason": "already_proposed", "id": existing.id}
+            product = s.scalar(select(BenchmarkProduct).where(
+                BenchmarkProduct.id == source.benchmark_id).with_for_update())
+            if product is None or not any(f.get("sha256") == source.file_sha256
+                                           for f in (product.files or [])):
+                raise DesignKnowledgeRefused("analysis source is no longer in the manifest")
+            lic = s.scalar(select(BenchmarkLicence).where(
+                BenchmarkLicence.source_ref == product.ref).with_for_update())
+            if lic is None or "private_analysis" not in (lic.allowed_uses or []) \
+                    or "private_analysis" in (lic.prohibited_uses or []):
+                raise DesignKnowledgeRefused("analysis licence no longer permits private use")
+            row = DesignRule(key=key, version=1, statement={"rule": "include_finishing_checklist",
+                "parameters": {}}, scope={"writer_section": "finishing"},
+                provenance=[{"kind": "analysis", "id": analysis_id}],
+                producer="teardown_analyst", state="proposed")
+            s.add(row)
+            s.flush()
+            return {"proposed": True, "id": row.id, "key": key, "version": 1,
+                    "state": "proposed"}
+    except IntegrityError:
+        with db.session() as s:
+            existing = s.scalar(select(DesignRule).where(DesignRule.key == key))
+            if existing is None:
+                raise
+            return {"proposed": False, "reason": "already_proposed", "id": existing.id}

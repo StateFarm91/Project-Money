@@ -1243,6 +1243,10 @@ class BenchmarkAnalysis(Base):
     benchmark_id: Mapped[int] = mapped_column(ForeignKey("benchmark_products.id"), index=True)
     file_sha256: Mapped[str] = mapped_column(String(64))
     observations: Mapped[dict] = mapped_column(JSON)
+    recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

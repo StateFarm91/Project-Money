@@ -1,5 +1,6 @@
 """A real worker consumes one durable, deduplicated reference-analysis job."""
 import hashlib
+import io
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,16 +12,74 @@ from sqlalchemy import select
 from brambleloop.agents.registry import Registry
 from brambleloop.core.db import Database
 from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
-                                     Job, JobStatus, utcnow)
+                                     DesignRule, Job, JobStatus, utcnow)
 from brambleloop.intel import benchmarks
 from brambleloop.products.builder import for_slug
 from brambleloop.publish.pdf import build_pattern_pdf
 from brambleloop.runtime import pipeline  # noqa: F401 -- registers actual handlers
 from brambleloop.runtime.worker import Worker
-from brambleloop.teardown import intake, jobs, library, licence
+from brambleloop.queue.durable import JobQueue
+from brambleloop.teardown import intake, jobs, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_reviewed_observation_proposes_only_one_unapproved_rule(self):
+        from reportlab.pdfgen import canvas
+
+        with TemporaryDirectory() as tmp:
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Materials")
+            pdf.drawString(72, 730, "A synthetic fixture with enough text to read.")
+            pdf.drawString(72, 710, "Gauge and sizing are written in this invented example.")
+            pdf.save()
+            data = stream.getvalue()
+            root = Path(tmp) / "private"
+            folder = root / "test-purchase"
+            folder.mkdir(parents=True)
+            (folder / "pattern.pdf").write_bytes(data)
+            sha = hashlib.sha256(data).hexdigest()
+            url = f"sqlite:///{tmp}/end-to-end.db"
+            db = Database(url, scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                row = BenchmarkProduct(ref="test-purchase", seller="test", teardown_state="queued",
+                    files=[{"name": "pattern.pdf", "sha256": sha}])
+                s.add(row)
+                s.flush()
+                benchmark_id = row.id
+            licence.capture_purchase(db, "test-purchase")
+            jobs.enqueue_purchase(db, benchmark_id)
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="reader", job_types=["teardown.analyse"]).run_once())
+                with db.session() as s:
+                    analysis = s.scalar(select(BenchmarkAnalysis))
+                    analysis_id = analysis.id
+                    self.assertEqual(analysis.observations["dimensions"]["finishing"], "absent")
+                queue = JobQueue(db)
+                queue.enqueue("orchestrator", "teardown.analyse_sweep", {}, idempotency_key="sweep:1")
+                self.assertTrue(Worker(db, name="sweep1", job_types=["teardown.analyse_sweep"]).run_once())
+                with db.session() as s:
+                    self.assertEqual(list(s.scalars(select(DesignRule))), [])
+                with self.assertRaises(review.ReviewRefused):
+                    review.review_analysis(db, analysis_id, reviewer="teardown_analyst",
+                                           decision="reviewed", reason="self review")
+                review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
+                                       reason="independent observation review")
+                reopened = Database(url, scratch=True)
+                queue = JobQueue(reopened)
+                for n in (2, 3):
+                    queue.enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                  idempotency_key=f"sweep:{n}")
+                    self.assertTrue(Worker(reopened, name=f"sweep{n}",
+                                           job_types=["teardown.analyse_sweep"]).run_once())
+                with reopened.session() as s:
+                    rules = list(s.scalars(select(DesignRule)))
+                    self.assertEqual(len(rules), 1)
+                    self.assertEqual(rules[0].state, "proposed")
+                    self.assertEqual(rules[0].provenance, [{"kind": "analysis", "id": analysis_id}])
+
     def test_real_intake_queues_once_and_worker_persists_analysis(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "private"

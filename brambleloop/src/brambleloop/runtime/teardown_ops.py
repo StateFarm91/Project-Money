@@ -1,7 +1,8 @@
 """Worker handlers for the existing quarantined reference library."""
 from sqlalchemy import select
 
-from ..core.models import BenchmarkProduct
+from ..core.models import BenchmarkAnalysis, BenchmarkProduct
+from ..improve import design_knowledge
 from ..teardown import analysis_store, jobs, licence
 from .worker import handlers
 
@@ -24,6 +25,8 @@ def handle_teardown_analyse_sweep(ctx):
     with ctx.db.session() as s:
         ids = list(s.scalars(select(BenchmarkProduct.id).where(
             BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst")))))
+        reviewed = list(s.scalars(select(BenchmarkAnalysis.id).where(
+            BenchmarkAnalysis.review_state == "reviewed")))
     queued = existing = refused = 0
     for benchmark_id in ids:
         ctx.assert_lease()
@@ -36,5 +39,15 @@ def handle_teardown_analyse_sweep(ctx):
             refused += 1
         queued += result["queued"]
         existing += result["existing"]
+    proposed = blocked = 0
+    for analysis_id in reviewed:
+        ctx.assert_lease()
+        try:
+            result = design_knowledge.propose_from_analysis(ctx.db, analysis_id)
+        except design_knowledge.DesignKnowledgeRefused:
+            blocked += 1
+            continue
+        proposed += int(result["proposed"])
     return {"purchases": len(ids), "queued": queued, "existing": existing,
-            "licence_refused": refused}
+            "licence_refused": refused, "knowledge_proposed": proposed,
+            "knowledge_blocked": blocked}

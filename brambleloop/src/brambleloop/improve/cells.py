@@ -338,6 +338,7 @@ def reject(db, improvement_id: int, *, why: str, evidence: dict | None = None) -
 def _require_reviewed_teardown(session, row) -> None:
     """A proposed hypothesis may exist; its source must be reviewed before approval."""
     from ..core.models import TeardownFinding
+    from ..teardown.review import independently_reviewed
 
     ref = row.rollback_ref or ""
     prefix = "teardown-finding:"
@@ -347,7 +348,7 @@ def _require_reviewed_teardown(session, row) -> None:
     if not ident.isdigit():
         raise ImprovementRefused("teardown finding reference is invalid")
     finding = session.get(TeardownFinding, int(ident))
-    if finding is None or finding.review_state != "reviewed":
+    if finding is None or not independently_reviewed(finding):
         raise ImprovementRefused("teardown finding requires independent review")
 
 
