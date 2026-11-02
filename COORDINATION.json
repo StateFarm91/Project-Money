@@ -1146,6 +1146,45 @@
       ],
       "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
       "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T18:55Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "owner directive 2026-11-02 'A1 child-safety correction'; A1-REVIEW (claude/w5-SECREVIEW-A1); PR #3 comments",
+      "id": "A1-R",
+      "requirement": "P0-SAFETY-CHILDREN (architectural correction)",
+      "closes": [
+        "A1-1",
+        "A1-2",
+        "A1-3",
+        "A1-4",
+        "A1-5",
+        "A1-6",
+        "A1-7"
+      ],
+      "branch": "opus2/p0-child-safety-core (NEW, separate from opus2/p0-amigurumi)",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "acceptance": [
+        "children's-safety assessment is triggered by the construction classification: any closed stuffed form (stuff_before_closing OR risk_matrix.closed_3d_form OR fibrefill/stuffing material with a closed seam), independent of optional seam placement fields and of title wording",
+        "where classification or suitability cannot be established, the product is HELD pending an explicit, audited owner decision; the automatic default 'not for children' is never accepted as a decision for a closed stuffed form; existing Launch-0 cushions/kneelers get explicit reasoned NOT_MERCHANDISED_TO_A_CHILD entries recorded as decisions",
+        "title/text matching is a secondary layer only; it folds NFKC + confusables + zero-width/invisible characters consistently in every place children's words are read (draft, renderer, survey)",
+        "small-parts: a measurement within a stated tolerance of the 31.7 mm cylinder (diameter or depth) is UNKNOWN, never PASS; UNKNOWN blocks any children's assignment until physical evidence is recorded",
+        "self-contained guard tests that do not import or require the amigurumi route: hand-built stuffed CIRs; kill mutants gate-always-false, no-fold, renderer-reads-words-only, default-decision-accepted",
+        "real path tests: handle_cir_draft and assets.build through the real Worker on a durable SQLite file, with a stuffed ball, ears placed by at_round only, a panel_pair cushion, neutral titles ('Juniper Friend'), Cyrillic/fullwidth/math-alphanumeric/zero-width spellings; each held or refused with a named reason; Launch-0 catalogue renders unchanged",
+        "no existing child-safety or Product Truth test is removed or weakened; test_childrens, test_launch0, test_launch0_listing_truth, test_pdf_premium, test_opus2_stuffed_finishing, test_first_customer_gate, test_vacuity pass"
+      ],
+      "ownership_boundary": "shared safety code only (launch0 children's gate, child_words_in/fold, renderer children's block, risk_matrix, small-parts check); the amigurumi toy rebases onto A1-R afterwards and is not part of this branch",
+      "next": "push, then request delta review on PR #3; integrator integrates on SHIP independently of the toy",
+      "priority": "1 (with A2); then A4, A5, A6 ahead of any new construction or product generator (I-OPUS2-FREEZE-GENERATORS stands)"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "I-A1R-ARCHITECTURAL",
+      "at": "2026-11-02T18:55Z",
+      "decision": "Children's safety is a construction-classification gate with an audited-decision requirement, not title patches. A1 is split from the toy into opus2/p0-child-safety-core; the toy (opus2/p0-amigurumi) stays out of Batch 5 and rebases onto A1-R. Batch 5 certification of 5ba84bf7 is not delayed (the toy is not in it).",
+      "source": "owner directive 2026-11-02"
     }
   ]
 }
