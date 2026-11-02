@@ -179,6 +179,12 @@
       ],
       "state": "unowned",
       "recorded": "2026-11-01T07:05Z"
+    },
+    {
+      "id": "P0-PHOTO-ASSET-REVIEW",
+      "priority": "P0",
+      "recorded": "2026-11-01T10:55Z",
+      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification."
     }
   ],
   "reviews": [
@@ -658,6 +664,11 @@
       "recorded": "2026-11-01T08:05Z",
       "decision": "Batch 4 is certified and deployed without the R40-R42 follow-up (claude/w4-PHYSFIX-R40 43021c1e). R40 is Low, fail-open, and unreachable in production until an owner-commissioned independent tester's passing make allows an owner size-halt lift; the fix is not yet tested or reviewed. It goes through tests + independent review into Batch 5 and is disclosed in the Batch 4 deploy-approval request. Not waived.",
       "reason": "Owner directive 2026-11-01 section 3: investigate by severity and release requirements; do not silently waive a fail-open issue. Adding it now would add a review cycle to Batch 4 for no production effect."
+    },
+    {
+      "id": "I-B5-OPUS2-INTEGRATION-QUEUE",
+      "recorded": "2026-11-02T03:35Z",
+      "decision": "Per owner directive 2026-11-02: accepted opus2 heads merge into claude/w5-INTEG1 as soon as an independent review says SHIP; pet bed (PR #10) and stocking (PR #11) do not hold other accepted work, and if not SHIP when the rest is integrated, Batch 5 certifies without them. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Records from 2026-11-01..02 held during the deploy freeze: brambleloop/research/final_build/w5/INTEGRATOR_HELD_RECORDS_20261101.md."
     }
   ],
   "production_observations": [
@@ -700,10 +711,29 @@
       "fixed_by_batch4": "No. queue/effects.py, gateway/paid_calls.py, gateway/anthropic.py timeout and culture/classify.py are unchanged between production ee35a493 and e43eeafe.",
       "next": "Batch 5 work item P1-CULTURE-SWEEP-TIMEOUT (unowned, below). Production stays NOT fully healthy while the check is red.",
       "owner_action": "No longer needed to identify the job. Optional: in the Command Center incidents view, the P1 'effect.reconcile' / paid-call reconciliation incidents for jobs 34246 and 41979 can be resolved once the provider console shows whether those two calls were billed (at most two cheap-tier calls)."
+    },
+    {
+      "observed": "2026-11-02T03:31Z",
+      "what": "Batch 4 DEPLOYED on owner approval 'APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5' (2026-11-02). Backup first: db-backup deployment d201d4f1, /backup/brambleloop_prod_20261102T032745Z.dump, 497732160 bytes, sha256 9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814, restore_ok, 144 tables, 262123 rows, drift ops_runtime_samples only (live, +2 rows); volume 1.3G free of 4.6G. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW, pushed ee35a493..0967c3ee at ~03:30Z, verify_deploy DEPLOYED in 63.6 s.",
+      "readback": "First read FAIL embedded worker alive (cold start; BRAMBLELOOP_RUNNER_START_DELAY), re-read after 30 s PASS. Six operator rows NEEDS_OPERATOR (BRAMBLELOOP_READBACK_TOKEN not set in Railway: owner action). rollback_decision FIX_FORWARD (P1 only); deploy.sh exit 5. Evidence: brambleloop/research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json",
+      "verify": "/api/verify ok=True, 13/13 checks. NEW evidence_checks (first exposed by this release, absent on ee35a493): publishing_halt_clear FALSE, stale_artefacts_rebuilding FALSE, no_repeated_paid_call_in_24h FALSE, weekly_jobs_completing true. Their evidence is operator/readback-token gated; diagnosis blocked on the readback token. Production is NOT classified fully healthy while these are false.",
+      "acceptance": "24-hour production acceptance started 2026-11-02T03:31Z, ends 2026-11-03T03:31Z."
     }
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "OPUS2M",
+        "subjects": [
+          "opus2/p0-revenue-workforce 6769e696",
+          "opus2/p1-culture-sweep-timeout e0be7c4d",
+          "opus2/p0-cir-colourwork d4486b8c"
+        ],
+        "session": "session_015ZfGXofGcgjnmA4gFe6ZwJ",
+        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2M.md on claude/w5-SECREVIEW-OPUS2M",
+        "launched": "2026-11-02T03:30Z"
+      }
+    ]
   }
 }
