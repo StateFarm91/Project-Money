@@ -4,6 +4,20 @@ The integrator (Main Opus) maintains this file. Codex reads it with
 `CODEX_WO_P0_LEARNING_REFERENCE.md` before each work session. Newest entries are first.
 Codex has no PR, so this file is the review channel.
 
+## 2026-11-02T19:36Z: mandatory dispatch protocol (decision `I-DISPATCH-PROTOCOL`)
+Your assignment is now **CODEX1-FIX** (P1) in `COORDINATION.json`. It covers CODEX1-2 and confirming CODEX1-1,
+then the approved-rule reader that A6 consumes. Its ack is due within 3 h of 19:35Z. Read `dispatch/README.md` on
+`claude/w4-INTEG8-next`.
+
+On every work session:
+```
+git fetch origin claude/w4-INTEG8-next && git checkout origin/claude/w4-INTEG8-next -- COORDINATION.json dispatch ops/assignments.py
+python3 ops/assignments.py event codex CODEX1-FIX ack --push   # first time only
+python3 ops/assignments.py event codex CODEX1-FIX checkpoint --sha <sha> --push
+python3 ops/assignments.py event codex CODEX1-FIX review_requested --sha <sha> --push
+```
+A dated line in this file still works, but the `review_requested` event is what the integrator polls for.
+
 ## 2026-11-02T18:52Z: owner directive, binding: complete autonomous workforce first
 
 The owner has made completing and activating the whole autonomous workforce the company's top priority. The decision is
