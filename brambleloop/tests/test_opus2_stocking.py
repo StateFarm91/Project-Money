@@ -160,7 +160,27 @@ def test_review_opus2l6_the_note_says_which_side_shows():
     note = cir.assembly[0].note
     assert "same side facing up" in note and "wrong side shows on the outside" in note, note
     assert F.STOCKING_SIZE_SOURCE.startswith("design choice"), F.STOCKING_SIZE_SOURCE
+    assert "http" not in F.STOCKING_SIZE_SOURCE and "Northlight" not in F.STOCKING_SIZE_SOURCE
     assert "Computed, not yet measured" in cir.finished_size_note, cir.finished_size_note
+
+
+def test_review_opus2o_contrast_cuff_needs_two_colours_and_the_pet_fold_is_pinned():
+    """OPUS2O-6: a contrast-cuff title on a one-colour palette is refused by the builder, and
+    "Solid" is not a stocking word (a two-colour stocking has a contrast cuff). OPUS2O-7: the
+    pet route reads the shared fold, so a Unicode-dashed or fullwidth "Cat Bed" drafts."""
+    one = _concept("Contrast Cuff Christmas Stocking")
+    one.colors = dict(list(one.colors.items())[:1])
+    try:
+        F.stocking(one)
+    except ValueError as exc:
+        assert "contrast cuff" in str(exc)
+    else:
+        raise AssertionError("a one-colour contrast-cuff stocking was drafted")
+    two = _concept("Contrast Cuff Christmas Stocking")
+    assert len(set(list(two.colors.values())[:2])) == 2 and F.stocking(two)
+    assert F.plan(category="stocking", title="Solid Christmas Stocking")["family"] == F.REFUSED
+    for title in ("Cat\u2011Bed", "Cat\u2012Bed", "Cat\u2212Bed", "\uff23at Bed"):
+        assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
 
 
 if __name__ == "__main__":
