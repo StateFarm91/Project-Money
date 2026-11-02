@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T11:21Z. Certification: run 20261102T101632Z-4284 on 4af3418f will FAIL test_swarm_runtime (fixed in W5-INTEG1 30b04b35); it runs to completion for the full failure list, then one fresh run on the fixed head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH (disclose in the deploy request).
+Last updated: 2026-11-02T12:36Z. Certification: run 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime, fixed 30b04b35); next fresh run on the newest integration-checked head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -24,11 +24,11 @@ Last updated: 2026-11-02T11:21Z. Certification: run 20261102T101632Z-4284 on 4af
 |---|---|---|---|---|---|---|---|---|
 | Q1 | opus2/p1-culture-sweep-timeout, PR #7 | 3468fe73 | ACCEPT (OPUS2K) | none | **integrated** (W5-INTEG1 812f63d7, pushed 03:46Z; 13/13 suites green) | test_opus2_culture_sweep_timeout, test_culture, test_culture_feed, test_cost_governance_wave2 | none: done | — |
 | Q2 | opus2/p0-cir-colourwork, PR #9 | 424d69a9 | ACCEPT (OPUS2K); J-7 SHIP (J7B) | W5-INTEG1 2d2d9446 | **integrated** (W5-INTEG1 812f63d7) | test_opus2_cir_colourwork, test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_w5_integfix, test_compiler, test_reverse, test_twin | none: done | — |
-| Q3 | opus2/p0-revenue-workforce, PR #3 | 558e7ca9..b185b528, fed859b7 | b185b528 CHANGES_REQUIRED (OPUS2Q-1); fed859b7 partial (OPUS2T-1/-2 HIGH, -3 MED) | none in target | no: **blocked** | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | delta review of fixes | opus2 |
+| Q3 | opus2/p0-revenue-workforce, PR #3 | 558e7ca9..fed859b7, 8ed2dd15 | DO NOT SHIP (OPUS2U-1 MED; OPUS2T-1/-2/-3 HIGH open) | none in target | no: **blocked** | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | delta review of fixes | opus2 |
 | Q4 | opus2/p1-culture-sweep-timeout, PR #7 | e0be7c4d (tests only) | SHIP (OPUS2M) | Q1 | **integrated** (W5-INTEG1 a8ce0072, suites green) | test_opus2_culture_sweep_timeout | none; OPUS2M-5 and -6 LOW follow-ups for opus2 | — |
-| Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c, 5889cc37, 2f9c413d | 2f9c413d CHANGES_REQUIRED (OPUS2Q-2 MED regression) | Q2 | no: **blocked** on the OPUS2Q-2 fix | as Q2 | delta review of the fix | opus2 |
+| Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c..e6e6fb94 | DO NOT SHIP (OPUS2U-3 MED regressions) | Q2 | no: **blocked** | as Q2 | delta review of the fix | opus2 |
 | Q6 | opus2/p0-pet-bed, PR #10 | d0a7685f, 7d220e01, 940f70e6, 09122165 | SHIP (OPUS2O) | none (split from PR #3: I-B5-SPLIT-PET-STOCKING) | **integrated** W5-INTEG1 52f9f4b5 (suites running, push on green) | test_opus2_pet_bed, test_opus2_draft_constructions, test_fallback_draft_provenance | push; Batch 6 | integrator |
-| Q7 | opus2/p0-stocking, PR #11 | ..a859f6fe, d3a485a1 | SHIP (OPUS2O, OPUS2Q) | Q6 | **integrated** 52f9f4b5 + 4af3418f (follow-ups); integration check INTEG5E SHIP (0d0e238d) | test_opus2_stocking + Q6 suites | certify | integrator |
+| Q7 | opus2/p0-stocking, PR #11 | ..a859f6fe, d3a485a1, 7493c723 | SHIP (OPUS2O, OPUS2Q, OPUS2U) | Q6 | **integrated** 52f9f4b5, 4af3418f, 45977d4c | test_opus2_stocking + Q6 suites | certify | integrator |
 | Q8 | opus2/p0-listing-package, PR #5 | be96a598 | ACCEPT | none | **merged** (earlier) | test_opus2_listing_package | none: done | — |
 | Q9 | opus2/p1-owner-queue-races, PR #6 | 23935b58 | ACCEPT | none | **merged** (earlier) | test_opus2_owner_queue_races | none: done | — |
 | Q10 | opus2/p0-family-membership, PR #8 | d8d80301 | ACCEPT | none | **merged** (earlier) | test_opus2_family_membership | none: done | — |
@@ -39,6 +39,7 @@ Last updated: 2026-11-02T11:21Z. Certification: run 20261102T101632Z-4284 on 4af
 | Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | DO NOT SHIP (OPUS2T-4 HIGH child safety; -5 MED) | Q14 | no: **blocked** on a construction-keyed children's refusal | named suites + childrens/pdf | delta review of the fix | opus2 |
 | Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | DO NOT SHIP (OPUS2S-1/-2/-3 MED; no HIGH) | none (4 mechanical conflicts) | no: **blocked** on the MED fixes | test_opus2_photo_asset_review, photo/gallery/publish-gate suites, test_swarm_runtime | delta review of fixes | opus2 |
 | Q17 | opus2/p0-construction-registry | 83194fb7..21d4ceaf, 66378ebf | DO NOT SHIP (OPUS2R-1 / OPUS2T-7 HIGH; OPUS2T-6 HIGH child safety) | Q16 | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
+| Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a, 62998a6d, 934d97d1, d232b6bf, b2e8b491, 1ea3079e (on W5-INTEG1 4af3418f) | **in review OPUS2V** | none | no: awaiting OPUS2V | test_opus2_drawstring_pouch, draft/tapestry suites | integrate on SHIP | integrator |
 
 Not integration items:
 - #4: reference only, do not merge.

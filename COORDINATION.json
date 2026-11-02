@@ -721,6 +721,17 @@
       },
       "integration_finding": "test_swarm_runtime fails on W5-INTEG1 4af3418f (5 opus2 job types unbanded) -> fixed 30b04b35",
       "recorded": "2026-11-02T11:20Z"
+    },
+    {
+      "subject": "OPUS2U",
+      "sha": "73647d5c (claude/w5-SECREVIEW-OPUS2U)",
+      "verdicts": {
+        "8ed2dd15 (PR #3)": "DO NOT SHIP: OPUS2U-1 MED overcorrection ('Coaster Pack' etc backed); OPUS2T-1/-2/-3 HIGH still open",
+        "493b76cf": "faithful",
+        "e6e6fb94 (PR #9)": "DO NOT SHIP: OPUS2U-3 MED regressions (spaced C2C, thin-space joins words)",
+        "7493c723 (PR #11)": "SHIP (integrated 45977d4c)"
+      },
+      "recorded": "2026-11-02T12:35Z"
     }
   ],
   "integration": {
@@ -876,6 +887,17 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "OPUS2V",
+        "subjects": [
+          "opus2/p0-pouch 1ea3079e (split of pouch + stuffed finishing, on W5-INTEG1 4af3418f)",
+          "opus2/p0-construction-registry ffb74996, a7b34050 (OPUS2R fixes)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2V.md",
+        "launched": "2026-11-02T12:13Z"
+      }
+    ]
   }
 }
