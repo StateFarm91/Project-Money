@@ -68,23 +68,18 @@ class AnalysisWorkerTests(unittest.TestCase):
             pdf.save()
             data = stream.getvalue()
             root = Path(tmp) / "private"
-            folder = root / "test-purchase"
-            folder.mkdir(parents=True)
-            (folder / "pattern.pdf").write_bytes(data)
-            sha = hashlib.sha256(data).hexdigest()
             url = f"sqlite:///{tmp}/end-to-end.db"
             db = Database(url, scratch=True)
             db.create_all()
             Registry(db).seed_defaults()
             with db.session() as s:
-                row = BenchmarkProduct(ref="test-purchase", seller="test", teardown_state="queued",
-                    files=[{"name": "pattern.pdf", "sha256": sha}])
-                s.add(row)
-                s.flush()
-                benchmark_id = row.id
-            licence.capture_purchase(db, "test-purchase")
-            jobs.enqueue_purchase(db, benchmark_id)
+                s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref="1234",
+                    title="Fixture", pod="blankets", product_type="pattern", price_cad=8.5,
+                    media_count=0, url="https://example.com/1234", detail={}))
             with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                received = intake.receive(db, "1234", [("pattern.pdf", data)],
+                    env={library.LIBRARY_ENV: str(root)}, mirror_files=False, paid_cad=8.5)
+                benchmark_id = received["product_id"]
                 self.assertTrue(Worker(db, name="reader", job_types=["teardown.analyse"]).run_once())
                 with db.session() as s:
                     analysis = s.scalar(select(BenchmarkAnalysis))
@@ -115,9 +110,47 @@ class AnalysisWorkerTests(unittest.TestCase):
                     sweeps = list(s.scalars(select(Job).where(
                         Job.job_type == "teardown.analyse_sweep").order_by(Job.id)))
                     self.assertEqual([job.outputs["work_done"] for job in sweeps], [0, 1, 0])
+                    rule_id = rules[0].id
+                    purchase_ref = s.get(BenchmarkProduct, benchmark_id).ref
+
+                from brambleloop.gates.originality import code_benchmarks, record_fingerprint
+                from brambleloop.improve import design_knowledge
+                from brambleloop.cir.compiler import compile_cir
+                from brambleloop.cir.writer import write_pattern
+                from brambleloop.products import launch0
+
+                for benchmark in code_benchmarks():
+                    record_fingerprint(reopened, benchmark.ref, text=(
+                        "synthetic quasar nebula lantern velvet meadow cobalt river telescope "
+                        "compass marigold dolphin rainforest juniper quartz"))
+                record_fingerprint(reopened, purchase_ref, text=(
+                    "Materials A synthetic fixture with enough text to read. "
+                    "Gauge and sizing are written in this invented example."))
+                cir = launch0.cir_for("basket_small")
+                baseline = write_pattern(cir, compile_cir(cir))
+                self.assertEqual(design_knowledge.applicable(reopened,
+                                 {"writer_section": "finishing"}), [])
+                queue.enqueue("orchestrator", "design_eval.sweep", {}, idempotency_key="eval:sweep")
+                self.assertTrue(Worker(reopened, name="eval-sweep", job_types=["design_eval.sweep"])
+                                .run_once())
+                self.assertTrue(Worker(reopened, name="evaluator", job_types=["design_eval.evaluate"])
+                                .run_once())
+                with reopened.session() as s:
+                    evaluation_job = s.scalar(select(Job).where(Job.job_type == "design_eval.evaluate"))
+                    self.assertEqual(evaluation_job.status, JobStatus.DONE, evaluation_job.last_error)
+                    self.assertEqual(evaluation_job.outputs["state"], "passed")
+                    evaluation_id = evaluation_job.outputs["audit_id"]
+                approved = design_knowledge.review_rule(reopened, rule_id, reviewer="owner",
+                    decision="approve", reason="independent review", evaluation_id=evaluation_id)
+                pin = approved["pin"]
+                written = write_pattern(cir, compile_cir(cir), knowledge_pins=[pin], db=reopened)
+                self.assertNotEqual(written, baseline)
+                self.assertIn("\n- Fasten off", written)
+                with reopened.session() as s:
                     source = s.get(BenchmarkAnalysis, analysis_id)
                     source.observations = {**source.observations, "pages": 999}
-                from brambleloop.improve import design_knowledge
+                with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+                    design_knowledge.verify_pins(reopened, [pin])
                 self.assertEqual(design_knowledge.propose_from_analysis(reopened, analysis_id)
                                  ["reason"], "not_reviewed")
 

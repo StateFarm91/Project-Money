@@ -105,6 +105,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
     "swarm.allocate": _B, "swarm.backlog": _B, "swarm.orphans": _B,
     "teardown.enforce": _B, "teardown.analyse": _B, "teardown.analyse_sweep": _B,
+    "design_eval.sweep": _B, "design_eval.evaluate": _B,
     "visual.portrait_repair": _B,
     "visual.image_production": _B,
     # test: validation, certification, sandbox trials, probes

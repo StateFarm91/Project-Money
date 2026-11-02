@@ -667,7 +667,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             try:
                 result = design_knowledge.review_rule(
                     db, _int(body, "rule_id"), reviewer=f"owner:{actor}"[:120],
-                    decision=str(body.get("decision") or ""), reason=reason)
+                    decision=str(body.get("decision") or ""), reason=reason,
+                    evaluation_id=body.get("evaluation_id"))
             except (design_knowledge.DesignKnowledgeRefused, ContentRefused, LibraryRefused) as exc:
                 raise ActionRefused(str(exc)[:400]) from None
         elif action == "improvement.approve":

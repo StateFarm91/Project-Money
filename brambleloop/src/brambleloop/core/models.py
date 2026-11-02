@@ -1191,7 +1191,8 @@ class DesignRule(Base):
     """A versioned design-knowledge proposal with explicit provenance."""
 
     __tablename__ = "design_rules"
-    __table_args__ = (UniqueConstraint("key", "version", name="uq_design_rule_version"),)
+    __table_args__ = (UniqueConstraint("key", "version", name="uq_design_rule_version"),
+                      Index("uq_design_rule_active_slot", "active_slot", unique=True))
 
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(80), index=True)
@@ -1204,6 +1205,20 @@ class DesignRule(Base):
     approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     supersedes: Mapped[int | None] = mapped_column(ForeignKey("design_rules.id"), nullable=True)
+    # At most one approved knowledge version until multi-rule baselines are implemented.
+    active_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DesignEvaluationRun(Base):
+    """Deduplicate a completed evaluation across worker retries and restarts."""
+
+    __tablename__ = "design_evaluation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("design_rules.id"), index=True)
+    audit_id: Mapped[int] = mapped_column(ForeignKey("audit_log.id"), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

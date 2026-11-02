@@ -1,8 +1,10 @@
 """Worker handlers for the existing quarantined reference library."""
 from sqlalchemy import select
 
-from ..core.models import BenchmarkAnalysis, BenchmarkProduct
+from ..core.models import BenchmarkAnalysis, BenchmarkProduct, DesignRule
 from ..improve import design_knowledge
+from ..quality import design_eval
+from ..queue.durable import DuplicateJob, JobQueue
 from ..teardown import analysis_store, jobs, licence
 from .worker import handlers
 
@@ -54,3 +56,38 @@ def handle_teardown_analyse_sweep(ctx):
     return {"purchases": len(ids), "queued": queued, "existing": existing,
             "licence_refused": refused, "knowledge_proposed": proposed,
             "knowledge_blocked": blocked, "work_done": queued + proposed}
+
+
+@handlers.register("design_eval.evaluate")
+def handle_design_eval(ctx):
+    ctx.assert_lease()
+    try:
+        result = design_eval.evaluate(ctx.db, (ctx.job.inputs or {}).get("rule_id"),
+                                      expected_key=(ctx.job.inputs or {}).get("run_key"))
+    except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
+        return {"state": "stale_or_unavailable", "work_done": 0}
+    ctx.assert_lease()
+    return {"state": result["state"], "audit_id": result["audit_id"],
+            "work_done": int(result["created"])}
+
+
+@handlers.register("design_eval.sweep")
+def handle_design_eval_sweep(ctx):
+    with ctx.db.session() as s:
+        active = s.scalar(select(DesignRule.id).where(DesignRule.state == "approved"))
+        ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "proposed")))
+    if active is not None:
+        return {"state": "incumbent_evaluation_unavailable", "work_done": 0}
+    queued = existing = unknown = 0
+    for rule_id in ids:
+        ctx.assert_lease()
+        try:
+            key = design_eval.evaluation_key(ctx.db, rule_id)
+            JobQueue(ctx.db).enqueue("orchestrator", "design_eval.evaluate",
+                {"rule_id": rule_id, "run_key": key}, idempotency_key=key)
+            queued += 1
+        except DuplicateJob:
+            existing += 1
+        except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
+            unknown += 1
+    return {"queued": queued, "existing": existing, "unavailable": unknown, "work_done": queued}

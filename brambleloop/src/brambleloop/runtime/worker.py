@@ -924,6 +924,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # #153-#161: teardown findings checked as enforced requirements and routed to consumers.
     ("teardown_enforce", "orchestrator", "teardown.enforce", 24 * 60 * 60),
     ("teardown_analyse_sweep", "orchestrator", "teardown.analyse_sweep", 24 * 60 * 60),
+    ("design_eval_sweep", "orchestrator", "design_eval.sweep", 24 * 60 * 60),
     # FB-1 cluster B. Daily reads of our own shop, through scopes already granted; none of
     # them writes to Etsy. F-540: the stored OAuth credential is openable, fully scoped and
     # still refreshing (one getMe, which rotates and persists the refresh token). F-515 /

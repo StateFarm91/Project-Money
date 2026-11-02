@@ -2493,6 +2493,8 @@ DURABLE_KEYS: tuple[str, ...] = ("artifact", "artifact_id", "created_ids", "writ
 WORK_KEYS: dict[str, tuple[str, ...]] = {
     "teardown.analyse": ("work_done",),
     "teardown.analyse_sweep": ("work_done",),
+    "design_eval.sweep": ("work_done",),
+    "design_eval.evaluate": ("work_done",),
     # W4-AGENTS cadences and generatable types: each handler reports a measured `work_done`
     # (rows recorded, checks run, jobs queued), which `did_no_work` reads first; declared
     # here so the useful-work judge knows the key rather than falling back to the counters.

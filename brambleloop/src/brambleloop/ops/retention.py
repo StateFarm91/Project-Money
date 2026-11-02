@@ -113,6 +113,8 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    "design_eval.completed": ("lifetime_total", "design knowledge verifies its evaluation by id"),
+    "design_knowledge.rule_approved": ("lifetime_total", "design knowledge verifies approval lineage"),
     "cir.revise_unrepairable": ("lifetime_total",
         "improve.mine reads unrepaired revisions for failure lessons"),
     # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers

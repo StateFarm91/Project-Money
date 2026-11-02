@@ -42,10 +42,8 @@ class FrozenCaseTests(unittest.TestCase):
                 audit = s.scalar(select(AuditLog).where(AuditLog.id == first["audit_id"]))
                 self.assertEqual(audit.action, "design_eval.preview")
                 self.assertEqual(len(audit.detail["cases"]), 8)
-                self.assertEqual({case["case"] for case in audit.detail["truth_cases"]},
-                                 {"bench1_xs", "bench2"})
-                self.assertTrue(all(case["before"]["reverse_findings"] == 0
-                                    for case in audit.detail["truth_cases"]))
+                self.assertTrue(audit.detail["benchmark_checks"]["bench1_compiles"])
+                self.assertTrue(audit.detail["benchmark_checks"]["bench1_twins"])
                 self.assertEqual(audit.detail["state"], "insufficient_evidence")
                 self.assertFalse(audit.detail["approval_evidence_complete"])
                 self.assertTrue(any(case["before"]["originality_unmeasured"] > 0
@@ -60,7 +58,6 @@ class FrozenCaseTests(unittest.TestCase):
                 self.assertEqual(s.get(DesignRule, rule_id).state, "proposed")
             second = design_eval.preview_registered_rule(reopened, rule_id)
             self.assertEqual(first["cases"], second["cases"])
-            self.assertEqual(first["truth_cases"], second["truth_cases"])
             self.assertEqual(first["benchmark_checks"], second["benchmark_checks"])
             self.assertEqual(first["rule_sha256"], second["rule_sha256"])
 

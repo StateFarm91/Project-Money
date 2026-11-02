@@ -99,6 +99,46 @@ class ReviewCommandCenterTests(unittest.TestCase):
         self.assertEqual(response.json()["result"]["review_state"], "reviewed")
         client.close()
 
+    def test_owner_can_approve_only_a_completed_evaluation(self):
+        from sqlalchemy import select
+        from brambleloop.gates.originality import code_benchmarks, record_fingerprint
+        from brambleloop.improve import design_knowledge
+        from brambleloop.quality import design_eval
+
+        sha = "c" * 64
+        with harness.DB.session() as s:
+            product = BenchmarkProduct(ref="owner-rule-fixture", seller="test",
+                files=[{"name": "pattern.pdf", "sha256": sha}])
+            s.add(product)
+            s.flush()
+            source = BenchmarkAnalysis(benchmark_id=product.id, file_sha256=sha,
+                observations={"fully_readable": True, "dimensions": {"finishing": "absent"}})
+            s.add(source)
+            s.flush()
+            source_id = source.id
+        licence.capture_purchase(harness.DB, "owner-rule-fixture")
+        client, csrf = harness.session()
+        result = harness.post(client, csrf, "/api/cc/actions/teardown.review_analysis",
+            {"analysis_id": source_id, "decision": "reviewed", "reason": "independent review"})
+        self.assertEqual(result.status_code, 200, result.text)
+        rule = design_knowledge.propose_from_analysis(harness.DB, source_id)
+        with harness.DB.session() as s:
+            refs = list(s.scalars(select(BenchmarkProduct.ref)))
+        refs += [benchmark.ref for benchmark in code_benchmarks()]
+        for ref in set(refs):
+            record_fingerprint(harness.DB, ref, text=(
+                "synthetic quasar nebula lantern velvet meadow cobalt river telescope "
+                "compass marigold dolphin rainforest juniper quartz"))
+        evaluation = design_eval.evaluate(harness.DB, rule["id"])
+        self.assertEqual(evaluation["state"], "passed")
+        result = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule",
+            {"rule_id": rule["id"], "decision": "approve", "reason": "reviewed evidence",
+             "evaluation_id": evaluation["audit_id"]})
+        self.assertEqual(result.status_code, 200, result.text)
+        pin = result.json()["result"]["pin"]
+        self.assertEqual(design_knowledge.verify_pins(harness.DB, [pin])[0]["pin"], pin)
+        client.close()
+
 
 if __name__ == "__main__":
     unittest.main()
