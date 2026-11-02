@@ -74,7 +74,8 @@ def route_for(subject: str) -> tuple[str, ...]:
 
 
 def publish(db, *, origin_cell: str, subject: str, statement: str,
-            evidence_ref: str = "", confidence: str = "observed") -> int:
+            evidence_ref: str = "", confidence: str = "observed",
+            source_findings: list[int] | None = None) -> int:
     """Record a lesson and route it to every cell the subject concerns.
 
     Idempotent on `evidence_ref` + `subject`: the same evidence produces one lesson, however
@@ -91,6 +92,12 @@ def publish(db, *, origin_cell: str, subject: str, statement: str,
     if len(statement.split()) < 6:
         raise LessonRefused(
             "a lesson states what was learned and what follows from it; this is a label")
+    if source_findings is not None and (not isinstance(source_findings, list) or
+            any(type(i) is not int or i <= 0 for i in source_findings) or
+            len(source_findings) != len(set(source_findings))):
+        raise LessonRefused("source findings must be distinct positive IDs")
+    if evidence_ref.startswith("teardown_requirement:") and not source_findings:
+        raise LessonRefused("a teardown lesson must name its source findings")
 
     audience = [c for c in route_for(subject) if c != origin_cell]
     with db.session() as s:
@@ -105,6 +112,7 @@ def publish(db, *, origin_cell: str, subject: str, statement: str,
                 return existing.id
         row = Lesson(origin_cell=origin_cell, subject=subject, statement=statement,
                      evidence_ref=evidence_ref, confidence=confidence,
+                     source_findings=sorted(source_findings) if source_findings is not None else None,
                      routed_to=audience, acted_on_by=[])
         s.add(row)
         s.flush()

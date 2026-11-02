@@ -51,7 +51,8 @@ class DesignProposals(unittest.TestCase):
             db = Database(url, scratch=True)
             db.create_all()
             with db.session() as s:
-                incident = Incident(signature="count-defect", severity="P1", summary="count")
+                incident = Incident(signature="count-defect", severity="P1", summary="count",
+                                    detail={"source_findings": []})
                 s.add(incident)
                 finding = TeardownFinding(benchmark_ref="benchmark", dimension="instruction_clarity",
                                           score=4, mechanism="clarity", improvement="clarity")

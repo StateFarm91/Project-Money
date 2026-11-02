@@ -138,7 +138,7 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
     with db.session() as s:
         rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
                 if not r.benchmark_ref.startswith(SELF_PREFIX)]
-    by_key: dict[tuple[str, str], list] = {}
+    by_key: dict[tuple[str, str, bool], list] = {}
     from .review import independent_decision, independently_reviewed
 
     for r in rows:
@@ -146,10 +146,11 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
             continue
         # Unreviewed scores cannot influence an independently reviewed group.
         state = "reviewed" if independently_reviewed(r) else "proposed"
-        by_key.setdefault((_key(r)[0], state), []).append(r)
+        sufficient = r.confidence is None or r.confidence >= MIN_BINDING_CONFIDENCE
+        by_key.setdefault((_key(r)[0], state, sufficient), []).append(r)
 
     out: list[dict] = []
-    for (key, review_state), group in sorted(by_key.items()):
+    for (key, review_state, sufficient), group in sorted(by_key.items()):
         _k, audit, element, dimension = _key(group[0])
         consumers = _consumers(audit, dimension)
         if consumer and consumer not in consumers:
@@ -177,7 +178,7 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
             kinds.append(("clarify", best, max(scores)))
         for kind, source, score in kinds:
             conf = source.confidence
-            binding = review_state == "reviewed" and (conf is None or conf >= MIN_BINDING_CONFIDENCE)
+            binding = review_state == "reviewed" and sufficient
             out.append({**base, "kind": kind, "benchmark_score": score,
                         "from_benchmark": source.benchmark_ref, "finding": source.id,
                         "requirement": source.improvement, "mechanism": source.mechanism,

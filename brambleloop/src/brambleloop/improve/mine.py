@@ -349,7 +349,8 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         lesson_id = bus.publish(
             db, origin_cell=g["origin"], subject=g["subject"], statement=_statement(g),
             evidence_ref=g["evidence_ref"],
-            confidence="measured" if g["reports"] > 1 else "observed")
+            confidence="measured" if g["reports"] > 1 else "observed",
+            source_findings=[] if g["kind"] == "engineering_failure" else None)
         entry = {"lesson": lesson_id, "kind": g["kind"], "code": g["code"],
                  "evidence_ref": g["evidence_ref"], "members": len(g["members"]),
                  "reports": g["reports"], "routed_to": list(bus.route_for(g["subject"])),

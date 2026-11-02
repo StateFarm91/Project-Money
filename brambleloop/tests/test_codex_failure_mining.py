@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from brambleloop.core.db import Database
 from brambleloop.core.models import AuditLog, Lesson
-from brambleloop.improve import mine
+from brambleloop.improve import design_knowledge, mine
 
 
 class EngineeringFailureMining(unittest.TestCase):
@@ -34,8 +34,17 @@ class EngineeringFailureMining(unittest.TestCase):
             with db.session() as s:
                 lessons = list(s.scalars(select(Lesson).where(Lesson.subject == "defect")))
                 refs = [row.evidence_ref for row in lessons]
+                compile_lesson = next(row for row in lessons
+                                      if row.evidence_ref == "cir.compiled:compile_failed")
+                self.assertEqual(compile_lesson.source_findings, [])
+                lesson_id = compile_lesson.id
             self.assertEqual(refs.count("cir.compiled:compile_failed"), 1)
             self.assertEqual(refs.count("cir.revise_unrepairable:unrepairable"), 1)
+            proposal = design_knowledge.propose(db, key="compile_defect", producer="engineer",
+                statement={"rule": "include_finishing_checklist", "parameters": {}},
+                scope={"writer_section": "finishing"},
+                provenance=[{"kind": "lesson", "id": lesson_id}])
+            self.assertEqual(proposal["state"], "proposed")
 
 
 if __name__ == "__main__":

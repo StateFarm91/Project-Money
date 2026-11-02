@@ -5,8 +5,8 @@ import unittest
 from sqlalchemy import select
 
 from brambleloop.core.db import Database
-from brambleloop.core.models import AuditLog, Improvement, TeardownFinding
-from brambleloop.teardown import enforce, review
+from brambleloop.core.models import AuditLog, BenchmarkProduct, Improvement, TeardownFinding
+from brambleloop.teardown import enforce, licence, review
 from brambleloop.improve import design_knowledge
 from brambleloop.improve import cells
 
@@ -18,10 +18,12 @@ class FindingReviewTests(unittest.TestCase):
             db = Database(url, scratch=True)
             db.create_all()
             with db.session() as s:
+                s.add(BenchmarkProduct(ref="purchase", seller="test",
+                    files=[{"name": "pattern.pdf", "sha256": "a" * 64}]))
                 a = TeardownFinding(benchmark_ref="purchase", dimension="instruction_clarity",
-                                    score=4, recorded_by="analyst")
+                                    score=4, recorded_by="analyst", confidence=0.9)
                 b = TeardownFinding(benchmark_ref="purchase", dimension="instruction_clarity",
-                                    score=4, recorded_by=None)
+                                    score=4, recorded_by=None, confidence=0.9)
                 s.add_all([a, b])
                 s.flush()
                 a_id, b_id = a.id, b.id
@@ -31,6 +33,7 @@ class FindingReviewTests(unittest.TestCase):
                 s.add(improvement)
                 s.flush()
                 improvement_id = improvement.id
+            licence.capture_purchase(db, "purchase")
             with self.assertRaises(review.ReviewRefused):
                 review.review_finding(db, a_id, reviewer="ANALYST", decision="reviewed",
                                       reason="independent check")
