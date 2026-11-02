@@ -791,6 +791,14 @@
         "opus2/a2-name-object db463142..3be8262f": "DO NOT SHIP: A2-1 HIGH motif_promise reads the raw title (fullwidth/math-bold motif words draft a plain basket); A2-2 HIGH motif check scoped to fallback/registry provenance only, so radar flat-panel and creative.prototype CIRs named for an absent motif pass name_truth; A2-3 HIGH trailing-descriptor strip drops any bracket/clause ('Storage Basket (Teddy Bear)'); A2-4 MED modifier allowlist only for basket/tote; A2-5 MED 'Toy Basket' wrongly refused; A2-6 MED mutants M11/M13/M14/M16/M18 survive; A2-7 LOW registry route unverified. Core repros all refused, catalogue byte-identical, merge with INTEG1 7c42e706 clean, 29 suites green"
       },
       "recorded": "2026-11-02T18:20Z"
+    },
+    {
+      "subject": "A3D",
+      "sha": "claude/w5-SECREVIEW-A3D",
+      "verdicts": {
+        "opus2/p0-photo-asset-review 8d98bf4c": "DO NOT SHIP: A3D-1 MED liveness (a photo that qualifies later other than via attest_unedited is re-opened but never promoted or reset, stays excluded with a stale reason, listing activation fails forever); LOW A3D-2 stale approved flag, -3 hourly churn, -4 mutants K7/K9/K12 survive (re-open branch untested), -5 lock outside try. OPUS2W-1 fixed on SQLite (Postgres UNKNOWN), W-2..W-7 fixed; 9 suites green; fast-forwards onto INTEG1 7c42e706"
+      },
+      "recorded": "2026-11-02T19:23Z"
     }
   ],
   "integration": {
@@ -997,14 +1005,7 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "A3D",
-        "subject": "opus2/p0-photo-asset-review delta d1f65b61..8d98bf4c (OPUS2W fixes)",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_A3D.md",
-        "started": "2026-11-02T18:40Z"
-      }
-    ]
+    "items": []
   },
   "assignments": [
     {
