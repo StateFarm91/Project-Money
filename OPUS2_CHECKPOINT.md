@@ -143,3 +143,4 @@ worktrees, not this file.
   OPUS2EF2 re-review returned CHANGES REQUIRED (06:50Z).
 
 - 2026-11-02T02:42Z — K-4 pushed on opus2/p1-culture-sweep-timeout (e0be7c4d), PR #7 commented. Pending: K-5/K-6a (#9) and K-7/K-8/K-9 (#10) regressions running; then stocking merge (#11).
+- 2026-11-02T02:50Z — K-5/K-6a pushed on opus2/p0-cir-colourwork (d4486b8c), 21 suites clean, PR #9 commented. Pet bed regression still running.
