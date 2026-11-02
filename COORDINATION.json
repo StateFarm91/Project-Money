@@ -732,6 +732,15 @@
         "7493c723 (PR #11)": "SHIP (integrated 45977d4c)"
       },
       "recorded": "2026-11-02T12:35Z"
+    },
+    {
+      "subject": "OPUS2V",
+      "sha": "5ba94797 (claude/w5-SECREVIEW-OPUS2V)",
+      "verdicts": {
+        "opus2/p0-pouch 1ea3079e": "SHIP (merged 50937469); LOW -8/-9",
+        "registry ffb74996+a7b34050": "DO NOT SHIP: OPUS2V-1 HIGH plan() admits unknown words for vessel/tote (also Batch 5 radar path); -2 MED motif_promise not in publish name_truth (also Batch 5); -3 HIGH child safety (toy on branch); -4 MED hold must read CIR slug/title"
+      },
+      "recorded": "2026-11-02T12:55Z"
     }
   ],
   "integration": {
@@ -761,8 +770,10 @@
       "previous_run": "20261102T054208Z-6424 on a8ce0072 DIED ~08:12Z without a terminal record (status still 'running'; no output after 08:12; coincides with the session tool disconnect/reconnect, i.e. container processes killed). Not a result; it can never certify. Its expected test_w4_launchfix failure was already fixed in f8bf2782.",
       "rule": "uninterrupted; a resumed run never certifies",
       "known_open_in_candidate": [
-        "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a; OPUS2T-1/-2/-3): the radar fallback draft path in 4af3418f can draft a title naming another object (e.g. 'Teddy Bear' under basket/pillow/shawl) as a basket/cushion/shawl with name_truth passing. Drafts only; publication still requires owner review and is blocked in SHADOW. Fix pending with opus2 (fed859b7 partial). MUST be disclosed in the Batch 5 deploy request; owner decides.",
-        "Amigurumi/registry child-safety findings (OPUS2T-4/-6) are NOT in 4af3418f (those branches are not integrated)."
+        "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a / OPUS2T-1,-2,-3 / OPUS2V-1): the radar fallback draft path can draft a title naming another object or a feature it does not make ('Teddy Bear' as basket/cushion/shawl; 'Lidded Basket', 'Basket with Handles', 'Sleepy Fox', 'XL Basket' at medium, 'Sunflower Tote') and name_truth passes.",
+        "OPUS2V-2: motif_promise is not part of publish-time name_truth, so 'Diamond/Heart/Snowflake/Pumpkin Basket' drafted as a plain vessel would not be refused at publication.",
+        "Both affect drafts and the publish-time name check only; nothing publishes in SHADOW, and publication requires owner review. MUST be disclosed in the Batch 5 deploy request; fixes assigned to opus2 on a branch from W5-INTEG1.",
+        "Amigurumi child-safety findings are NOT in the candidate (branch not integrated)."
       ],
       "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head."
     }
@@ -887,17 +898,6 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "OPUS2V",
-        "subjects": [
-          "opus2/p0-pouch 1ea3079e (split of pouch + stuffed finishing, on W5-INTEG1 4af3418f)",
-          "opus2/p0-construction-registry ffb74996, a7b34050 (OPUS2R fixes)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2V.md",
-        "launched": "2026-11-02T12:13Z"
-      }
-    ]
+    "items": []
   }
 }

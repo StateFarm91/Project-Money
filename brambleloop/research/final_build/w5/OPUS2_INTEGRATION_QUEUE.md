@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T12:36Z. Certification: run 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime, fixed 30b04b35); next fresh run on the newest integration-checked head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH.
+Last updated: 2026-11-02T12:56Z. Certification: run 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime, fixed 30b04b35); next fresh run on the newest integration-checked head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -38,8 +38,8 @@ Last updated: 2026-11-02T12:36Z. Certification: run 20261102T101632Z-4284 on 4af
 | Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D SHIP (11272e4b) | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
 | Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | DO NOT SHIP (OPUS2T-4 HIGH child safety; -5 MED) | Q14 | no: **blocked** on a construction-keyed children's refusal | named suites + childrens/pdf | delta review of the fix | opus2 |
 | Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | DO NOT SHIP (OPUS2S-1/-2/-3 MED; no HIGH) | none (4 mechanical conflicts) | no: **blocked** on the MED fixes | test_opus2_photo_asset_review, photo/gallery/publish-gate suites, test_swarm_runtime | delta review of fixes | opus2 |
-| Q17 | opus2/p0-construction-registry | 83194fb7..21d4ceaf, 66378ebf | DO NOT SHIP (OPUS2R-1 / OPUS2T-7 HIGH; OPUS2T-6 HIGH child safety) | Q16 | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
-| Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a, 62998a6d, 934d97d1, d232b6bf, b2e8b491, 1ea3079e (on W5-INTEG1 4af3418f) | **in review OPUS2V** | none | no: awaiting OPUS2V | test_opus2_drawstring_pouch, draft/tapestry suites | integrate on SHIP | integrator |
+| Q17 | opus2/p0-construction-registry | ..a7b34050 | DO NOT SHIP (OPUS2V-1 HIGH, -3 HIGH child safety, -2/-4 MED) | Q16 (carries the toy) | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
+| Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a..1ea3079e | SHIP (OPUS2P, OPUS2V) | none | **merged** W5-INTEG1 50937469 (suites running) | test_opus2_drawstring_pouch, test_opus2_stuffed_finishing + draft/tapestry suites | push on green; certify | integrator |
 
 Not integration items:
 - #4: reference only, do not merge.
