@@ -117,6 +117,8 @@ worktrees, not this file.
 
 - 23:30Z: colourwork J-6/J-8b pushed in `424d69a9`; pet bed J-9..J-12 in `7d220e01`; both commented. The stocking J-13..J-16 fixes are committed locally (`563c0436`) with the pet merge `a4a61433`, NOT pushed. The 45-suite run on the combined tree writes /tmp/claude-0/st2_results.txt (ends ST2DONE; not task-tracked, so read the file). If it is clean: push opus2/p0-stocking and comment on #11. If the container was reset: rerun those suites from the committed worktree /home/user/opus2-stock.
 
+- 2026-11-02T00:29Z (from date -u; earlier in-flight notes on this date used approximate times): the integrator's 21:48Z queue is done except item 2. The stocking (J-13..J-16, committed `563c0436` + merge `a4a61433`, unpushed) is rerunning as tracked task bjibisyae; its first launch at 23:30Z never started (an untracked process substitution). From now on every checkpoint time comes from date -u.
+
 ## Done log
 - 2026-11-01T20:45Z: integrator 17:23Z queue done; PR #3 plural object nouns in `771e1e1a` (-b4merge `8f798b0a`); summary posted on PR #3. Stop reason: every queue item is pushed; waiting on re-reviews (#3, #7, #8, #9), first reviews (#10, #11), decisions (P0-NEXT-PRODUCT, motif joins, D-5) and C-1 data.
 - 2026-11-01T20:00Z: #9 OPUS2I I-2/I-4/I-5/I-6/I-7/I-8 pushed in `fa02cb49`, commented; re-review requested. Every review I finding is addressed. The queue waits on: re-reviews (#3 I-1, #7 C-4, #8 F-5, #9); first reviews (#10, #11); integrator decisions (P0-NEXT-PRODUCT, motif joins, D-5); C-1 (jobs.last_error).
