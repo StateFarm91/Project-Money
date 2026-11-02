@@ -175,7 +175,10 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise",
                             # W4-C07 F-114: legacy rescue through the release chain.
-                            "cir.reengineer"], authority=Authority.GREEN,
+                            "cir.reengineer",
+                            # OPUS2 (research-enrichment consumer): held briefs go back to
+                            # Research with what they lack.
+                            "research.enrichment_sweep"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),
     dict(name="validator", description="Deterministic compile, twin, reverse compile",
          allowed_job_types=["cir.compile", "cir.twin", "cir.reverse"], authority=Authority.GREEN,
