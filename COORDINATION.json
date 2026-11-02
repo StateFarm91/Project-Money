@@ -971,7 +971,36 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "A2-REVIEW",
+        "subjects": [
+          "opus2/a2-name-object 5eb5d338,1fc30ac9,3be8262f (from W5-INTEG1 db463142)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_A2.md",
+        "launched": "2026-11-02T17:20Z"
+      },
+      {
+        "id": "A1-REVIEW",
+        "subjects": [
+          "opus2/p0-amigurumi 6ab946ff,98d216b0 (+ registry da4f331a)",
+          "split analysis for the children's refusal"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_A1.md",
+        "launched": "2026-11-02T17:20Z"
+      },
+      {
+        "id": "CODEX1",
+        "subjects": [
+          "codex/p0-learning-reference be92bfe1..623fc26c (P0-LEARNING-REFERENCE first push)"
+        ],
+        "session": "integrator subagent",
+        "report": "scratchpad INDEPENDENT_SECREVIEW_CODEX1.md",
+        "launched": "2026-11-02T17:20Z"
+      }
+    ]
   },
   "assignments": [
     {
@@ -989,7 +1018,7 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "via handle_cir_draft and assets.build, on a durable DB: 'Ｂear', '𝐁ear', 'Cosy Ｒabbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
-      "state": "committed locally by opus2 (checkpoint 14:43Z); push requested"
+      "state": "pushed on opus2/p0-amigurumi 98d216b0 (not split as asked); in review A1-REVIEW"
     },
     {
       "owner": "opus2",
@@ -1008,7 +1037,7 @@
       ],
       "branch_from": "claude/w5-INTEG1 50937469",
       "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
-      "state": "committed locally by opus2 (checkpoint 14:43Z); push requested"
+      "state": "pushed opus2/a2-name-object 3be8262f; in review A2-REVIEW"
     },
     {
       "owner": "opus2",
