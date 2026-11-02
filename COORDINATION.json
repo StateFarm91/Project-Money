@@ -1027,7 +1027,7 @@
     "items": [
       {
         "id": "A4B-REVIEW",
-        "subject": "opus2/a4b-enrichment 230b7d8d (PR #27), full review",
+        "subject": "opus2/a4b-enrichment 230b7d8d (PR #27), full review extended to e230545c (retention fix)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A4B_230b7d8d.md",
         "started": "2026-11-02T20:31:13Z",
         "requested_by": "[SECONDARY] REVIEW-REQUEST in issue #28 comment 6587725737 (20:30:14Z)"
@@ -1069,10 +1069,17 @@
       },
       {
         "id": "CODEX3-QUEUED",
-        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707",
+        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus)",
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
         "started": null,
         "note": "starts when CODEX2 reports (one Codex review at a time)"
+      },
+      {
+        "id": "A5-REVIEW",
+        "subject": "A5 correction loop 717c7925 (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
+        "started": "2026-11-02T21:39:14Z",
+        "requested_by": "#28 6589003363"
       }
     ]
   },
@@ -2055,6 +2062,14 @@
       "max_cost": "CA$0",
       "minutes": "3",
       "consequence_of_waiting": "automatic BFL probe calls continue (observed about every 6 h); amount UNKNOWN"
+    },
+    {
+      "id": "OA-BENCH-LIBRARY-VOLUME",
+      "at": "2026-11-02T21:39:14Z",
+      "action": "later, at Learning deployment: provision a private Railway volume for BRAMBLELOOP_BENCHMARK_LIBRARY holding the licensed benchmark files",
+      "why": "Codex's bench2 evaluator reads licensed, SHA-pinned reference files from a private library; without it evaluation and pin verification fail closed (safe, but no approved knowledge can activate)",
+      "max_cost": "UNKNOWN until sized (small volume)",
+      "blocks": "approved design knowledge in production only; nothing else"
     }
   ],
   "production_findings": [
