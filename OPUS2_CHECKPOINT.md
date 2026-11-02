@@ -145,3 +145,4 @@ worktrees, not this file.
 - 2026-11-02T02:42Z — K-4 pushed on opus2/p1-culture-sweep-timeout (e0be7c4d), PR #7 commented. Pending: K-5/K-6a (#9) and K-7/K-8/K-9 (#10) regressions running; then stocking merge (#11).
 - 2026-11-02T02:50Z — K-5/K-6a pushed on opus2/p0-cir-colourwork (d4486b8c), 21 suites clean, PR #9 commented. Pet bed regression still running.
 - 2026-11-02T04:05Z — tapestry baskets pushed (opus2/p0-tapestry 67b67015, PR #15; 15/16 suites, launchfix fails identically on clean INTEG1). Decisions posted on PR #3. Amigurumi+pouch (opus2/p0-amigurumi, local c7a8d31e) in 105-suite regression; stocking OPUS2L fixes local, waiting on pet regression.
+- 2026-11-02T04:10Z — pet bed K-7/K-8/K-9 pushed (940f70e6, PR #10 commented, 44/44 suites). Stocking OPUS2L fixes committed locally (e07157dc, merged pet), 45-suite regression running; push + PR #11 comment after.
