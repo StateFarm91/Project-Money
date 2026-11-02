@@ -224,6 +224,16 @@ def _seed_for(slug: str, db=None):
         # D-W5-7: a Launch-0 product the radar scored under a retired alias.
         alias = products_launch0.radar_concept_for(slug)
         seed = next((s for s in POOL if s.slug == alias), None) if alias else None
+    if seed is None:
+        # W5-INTEG1 RC1: F5 named the baby size as the only catalogue product the prefix
+        # match served; the flagship's other released sizes (`nordic_forest.build(size)`,
+        # pinned in tests/data/release_fingerprints.tsv: nordic-forest-mosaic-throw-throw and
+        # -large) relied on it too, and pricing.position refused them as UNKNOWN_PRODUCT.
+        # Resolved exactly, by the builder's own declared size slugs -- no prefix inheritance.
+        from ..products import nordic_forest
+
+        if slug in {nordic_forest.size_slug(size) for size in nordic_forest.SIZES}:
+            seed = next((s for s in POOL if s.slug == nordic_forest.CONCEPT_SLUG), None)
     if seed is None and db is not None:
         # W5-CONCEPT: an approved intake concept (exact slug only; POOL always wins).
         from ..radar import intake

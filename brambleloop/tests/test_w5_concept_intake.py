@@ -732,6 +732,15 @@ def test_f5_a_pool_prefixed_slug_is_refused_and_release_matches_exactly():
     # The one catalogue product the old prefix match served resolves by its declared alias.
     assert release._seed_for("nordic-forest-mosaic-throw-baby").slug == \
         "nordic-forest-mosaic-throw"
+    # W5-INTEG1 RC1: so do the flagship's other released sizes, by their declared size slugs
+    # (the cert chain's `nf.build()` is "-throw-throw"), and only those: an undeclared size
+    # suffix still inherits nothing.
+    from brambleloop.products import nordic_forest
+
+    for size in nordic_forest.SIZES:
+        assert release._seed_for(nordic_forest.build(size).slug).slug == \
+            "nordic-forest-mosaic-throw", size
+    assert release._seed_for("nordic-forest-mosaic-throw-giant") is None
 
 
 def test_f6_every_seed_reader_given_db_sees_an_intake_concept():
