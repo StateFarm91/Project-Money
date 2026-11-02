@@ -1551,6 +1551,26 @@ STAGE_ACTIVATION = "activation"
 STAGES = (STAGE_DRAFT, STAGE_ACTIVATION)
 
 
+def _knowledge_reasons(db, slug: str, version: str) -> list[str]:
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+    from ..improve import knowledge_gate
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == slug, PatternVersion.version == version))
+            data = dict(row.cir_json or {}) if row is not None else {}
+        if not data:
+            return []
+        why = knowledge_gate.refusal(db, CIR.from_dict(data))
+    except Exception as exc:  # noqa: BLE001 - an unreadable design refuses, never passes
+        why = f"frozen design knowledge could not be read ({type(exc).__name__})"
+    return [why] if why else []
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None,
                 read_only: bool = False, stage: str = STAGE_DRAFT) -> dict:
@@ -1610,6 +1630,8 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     # #153-#160, #220, #228: the standards this company holds itself to, read at the gate.
     standards = standards_gate(db, slug=slug, version=version)
     reasons.extend(standards["reasons"])
+    # A6 x I-A6-FROZEN-KNOWLEDGE-CONTRACT: publication re-verifies frozen design knowledge.
+    reasons.extend(_knowledge_reasons(db, slug, version))
     # C-67 / M10: the standards' verdicts are written to the release's one withholding
     # record, kind by kind, and the record's other reasons -- the teardown QA's withhold
     # (#163), which nothing above computes -- refuse here too.

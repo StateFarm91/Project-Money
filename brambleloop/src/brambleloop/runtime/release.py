@@ -321,6 +321,15 @@ def handle_assets_build(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs["version"]
     cir = _load_cir(ctx, slug, version)
+    # A6 x I-A6-FROZEN-KNOWLEDGE-CONTRACT: the PDF of a pinned design is refused when its
+    # pins do not verify -- never rendered as the baseline under the certified identity.
+    from ..improve import knowledge_gate
+
+    _kg_refused = knowledge_gate.refusal(ctx.db, cir)
+    if _kg_refused:
+        ctx.audit(knowledge_gate.REFUSED, artifact=f"{slug}@{version}",
+                  detail={"boundary": "assets.build", "why": _kg_refused})
+        return {"ok": False, "refused": "design_knowledge", "why": _kg_refused}
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
 

@@ -76,7 +76,7 @@ def _evidence_shape():
 
 #: name -> (current version, shape function, what it is)
 CONTRACTS: dict[str, tuple[int, object, str]] = {
-    "cir": (2, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
+    "cir": (3, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
     "etsy_write_schemas": (1, _etsy_write_shape,
                            "what may be sent to Etsy (draft payload, updateListing, updateShop)"),
     "shop_policy_sections": (1, _policy_shape, "the shop's policy sections and text fields"),
@@ -92,7 +92,15 @@ CHANGELOG: dict[str, dict[int, str]] = {
             2: "2026-11-02: Op.color (str | None, default None) added by P0-CIR-COLOURWORK "
                "(opus2 fa02cb49, reviews OPUS2H/J/K); additive; to_dict omits it when None so "
                "every existing CIR serialises byte-identically; consumers quality_ops and "
-               "engineering_ops read no Op fields and are re-pinned (W5-INTEG1)"},
+               "engineering_ops read no Op fields and are re-pinned (W5-INTEG1)",
+            3: "2026-11-02: I-A6-FROZEN-KNOWLEDGE-CONTRACT (opus2 A6 x Codex): "
+               "Provenance.primitives_used may carry learning_rule:<rule>:<id>:<version>:"
+               "<rule_digest>:<evaluation_digest> markers (cir.knowledge). Shape unchanged; "
+               "semantics: a CIR carrying them is accepted only when "
+               "design_knowledge.verify_cir_pins passes -- gate.certify, the quality "
+               "re-verification, assets.build (PDF) and release_gates.for_publish refuse "
+               "otherwise (improve.knowledge_gate). quality_ops and engineering_ops re-pinned "
+               "(engineering reads no provenance; quality verifies pins)"},
     "etsy_write_schemas": {1: "2026-10-26: first pinned version, incl. updateShop + sections"},
     "shop_policy_sections": {1: "2026-10-26: first pinned version"},
     "storefront_proposal": {1: "2026-10-26: first pinned version"},

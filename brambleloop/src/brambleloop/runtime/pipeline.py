@@ -934,6 +934,7 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                                                if cir.provenance is not None else None),
                       **({"learning": learning["summary"]} if learning.get("summary")
                          else {})})
+    cir = _freeze_knowledge(ctx, cir)
     out = {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
            "construction": route["family"], "rows": len(cir.components[0].rows)}
     if learning.get("applied"):
@@ -944,8 +945,13 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         _record_design_learning(ctx, learning, cir)
         out["learning"] = learning["summary"]
         return out
+    from ..improve import knowledge_gate as _kg
+
+    # A pinned design is a different design from the no-knowledge one: its compile is keyed by
+    # fingerprint, so a baseline already compiled never swallows it.
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
-                idempotency_key=f"compile:{cir.slug}:{cir.version}")
+                idempotency_key=(f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}"
+                                 if _kg.has_pins(cir) else f"compile:{cir.slug}:{cir.version}"))
     return out
 
 
@@ -1157,6 +1163,7 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
                   detail={"reason": str(exc)[:400], "gate": "engine"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
     cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+    cir = _freeze_knowledge(ctx, cir)
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "tournament winner", "form": concept.form,
                       "construction": cir.construction, "pod": concept.pod,
@@ -1173,6 +1180,20 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
            "rows": sum(len(c.rows) for c in cir.components)}
     if learning.get("summary"):
         out["learning"] = learning["summary"]
+    return out
+
+
+def _freeze_knowledge(ctx: JobContext, cir):
+    """A6 x I-A6-FROZEN-KNOWLEDGE-CONTRACT: freeze the approved design knowledge (Codex's
+    DesignRule store) into this draft; record the action only when something was frozen."""
+    from ..improve import knowledge_gate
+
+    out, records = knowledge_gate.freeze_applicable(ctx.db, cir)
+    if records:
+        ctx.audit(knowledge_gate.FROZEN, artifact=f"{out.slug}@{out.version}",
+                  detail={"pins": [r["pin"] for r in records],
+                          "rules": [r["statement"]["rule"] for r in records],
+                          "scopes": [r["scope"] for r in records]})
     return out
 
 
@@ -1302,6 +1323,16 @@ def handle_certify(ctx: JobContext) -> dict:
                   detail={"reason": "open P0/P1 incident"})
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
                 "halted_by_incident": True}
+    # A6 x I-A6-FROZEN-KNOWLEDGE-CONTRACT: a design that carries frozen knowledge certifies
+    # only while every pin verifies against the approved store.
+    from ..improve import knowledge_gate as _kg
+
+    _kg_refused = _kg.refusal(ctx.db, cir)
+    if _kg_refused:
+        ctx.audit(_kg.REFUSED, artifact=f"{cir.slug}@{cir.version}",
+                  detail={"boundary": "gate.certify", "why": _kg_refused})
+        return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
+                "refused": "design_knowledge", "reasons": [_kg_refused]}
 
     # W4-LISTREADY (review F5): a halted certification's retry and the normal chain can each
     # queue a certify for the same slug@version. Whichever runs second finds the identical

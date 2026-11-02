@@ -78,6 +78,13 @@ def reverify(db, check: str, slug: str, version: str) -> dict:
     cir = _cir(db, slug, version)
     if cir is None:
         return {"check": check, "ok": None, "why": f"{slug}@{version} is not certified"}
+    # A6 x I-A6-FROZEN-KNOWLEDGE-CONTRACT: a certified design whose frozen knowledge no
+    # longer verifies (rule revoked, store changed) fails re-verification by name.
+    from ..improve import knowledge_gate
+
+    kg = knowledge_gate.refusal(db, cir)
+    if kg:
+        return {"check": check, "ok": False, "problems": [kg]}
     result = compile_cir(cir)
     problems = _errors(result.findings) if not result.ok else []
     if check == "cir.twin":
@@ -332,4 +339,4 @@ def handle_model_ledger(ctx: JobContext) -> dict:
 # without this module migrating fails here, at import, instead of drifting silently.
 from ..core import contracts as _contracts  # noqa: E402
 
-_contracts.require("cir", 2)
+_contracts.require("cir", 3)
