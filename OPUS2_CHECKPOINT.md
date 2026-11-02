@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T10:09Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-02T11:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -22,15 +22,19 @@ worktrees, not this file.
 - `/home/user/opus2-ami`: `opus2/p0-amigurumi` (PR #18, base claude/w5-INTEG1)
 - `/home/user/opus2-reg`: `opus2/p0-construction-registry` (PR #22, base opus2/p0-amigurumi)
 - `/home/user/opus2-photo`: `opus2/p0-photo-asset-review` (PR #23, base claude/w4-INTEG8-next)
+- `/home/user/opus2-pouch`: `opus2/p0-pouch` (PR #25, base claude/w5-INTEG1; Q16 split)
+- `/home/user/opus2-colour`: `opus2/p0-cir-colourwork` (PR #9)
+- `/home/user/opus2-stock`: `opus2/p0-stocking` (PR #11)
 - `/home/user/opus2-ckpt`: `opus2/checkpoint` (this file)
 
-## State at 2026-11-02T08:58Z
-- Pushed: PR #3 fed859b7 (P0-NAME-OBJECT-MISMATCH) and its b4merge mirror 04277d26; PR #23 5a47cd8e;
-  PR #22 21d4ceaf; PR #7 eba6fb3c; PR #9 2f9c413d; PR #10 09122165; PR #11 d3a485a1; PR #15 merged.
-- 2026-11-02T10:09Z: pushed PR #18 c5671087 (OPUS2P P-1..P-9, 28/28 suites) and PR #22 66378ebf
-  (merge bb664ce0 + registry toy-title hold, 24/24 suites). Comments posted on both.
-- Then: construction breadth not blocked by a decision (task 27, blanket/throw breadth), or the
-  next review findings, whichever comes first.
+## State at 2026-11-02T11:30Z
+- Pushed this loop: PR #3 8ed2dd15 (OPUS2Q-1 MED, Q-6, Q-7) + b4merge 493b76cf; PR #9 e6e6fb94
+  (OPUS2Q-2 MED, Q-3, Q-6); PR #11 7493c723 (OPUS2Q-4/5/6); PR #25 opened (Q16 pouch split,
+  1ea3079e); PR #18 c5671087 (OPUS2P); PR #22 66378ebf.
+- In flight: PR #22 OPUS2R fixes committed locally (ffb74996 shared eligibility.py, a7b34050);
+  38-suite run writes /tmp/claude-0/r4_results.txt. Push + comment on #22 when green.
+- Next: construction breadth (task 27) or new review findings; integrator decisions on PR #3.
+- Done log: OPUS2M, OPUS2N, OPUS2O, OPUS2P, OPUS2Q (all subjects), OPUS2R (pending push), Q16 split.
 
 ## Dependencies (exact)
 See P0_GAP_REGISTER.json `opus2_open_engineering`.
