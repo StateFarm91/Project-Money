@@ -132,6 +132,65 @@ def applicable(db, scope: dict) -> list[dict]:
         return []
 
 
+def verify_cir_pins(db, cir) -> list[dict]:
+    """Verify the frozen CIR directives, including their rule-to-pin mapping."""
+    from ..cir import knowledge
+
+    try:
+        entries = knowledge.markers(cir)
+    except ValueError as exc:
+        raise DesignKnowledgeRefused(str(exc)) from exc
+    verified = verify_pins(db, [entry["pin"] for entry in entries])
+    if any(entry["rule"] != record["statement"]["rule"]
+           for entry, record in zip(entries, verified)):
+        raise DesignKnowledgeRefused("frozen directive does not match its approved rule")
+    return verified
+
+
+def freeze_pins(db, cir, pins: list[dict]):
+    """Return a new CIR carrying only the verified closed-vocabulary directives."""
+    import copy
+    from ..cir import knowledge
+
+    records = verify_pins(db, pins)
+    try:
+        prior = knowledge.markers(cir)
+    except ValueError as exc:
+        raise DesignKnowledgeRefused(str(exc)) from exc
+    wanted = [knowledge.marker(record["statement"]["rule"], record["pin"]) for record in records]
+    existing = [knowledge.marker(entry["rule"], entry["pin"]) for entry in prior]
+    if existing and existing != wanted:
+        raise DesignKnowledgeRefused("a frozen knowledge record cannot be replaced")
+    out = copy.deepcopy(cir)
+    if wanted and getattr(out, "provenance", None) is None:
+        raise DesignKnowledgeRefused("CIR provenance is required for frozen knowledge")
+    if wanted and not existing:
+        out.provenance.primitives_used = (*out.provenance.primitives_used, *wanted)
+    return out
+
+
+def write_with_verified_knowledge(db, cir, result, terminology: str = "US", **layout) -> str:
+    """Render verified knowledge or the exact no-knowledge baseline on read failure.
+
+    Certification and PDF callers must separately refuse invalid pins: this
+    fallback is for non-release consumers, never authority to publish.
+    """
+    import copy
+    from ..cir import knowledge, writer
+
+    try:
+        verify_cir_pins(db, cir)
+        return writer.write_pattern(cir, result, terminology, **layout)
+    except Exception:
+        _log.exception("design knowledge unavailable; using baseline")
+        plain = copy.deepcopy(cir)
+        if getattr(plain, "provenance", None) is not None:
+            plain.provenance.primitives_used = tuple(
+                item for item in plain.provenance.primitives_used
+                if not (isinstance(item, str) and item.startswith(knowledge.PREFIX)))
+        return writer.write_pattern(plain, result, terminology, **layout)
+
+
 def _finding_source(session, finding_id: int):
     from ..teardown.enforce import MIN_BINDING_CONFIDENCE
     from ..teardown.review import independently_reviewed

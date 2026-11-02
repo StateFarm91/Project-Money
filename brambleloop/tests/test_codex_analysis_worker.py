@@ -209,7 +209,9 @@ class AnalysisWorkerTests(unittest.TestCase):
                 approved = design_knowledge.review_rule(reopened, rule_id, reviewer="owner",
                     decision="approve", reason="independent review", evaluation_id=evaluation_id)
                 pin = approved["pin"]
-                written = write_pattern(cir, compile_cir(cir), knowledge_pins=[pin], db=reopened)
+                pinned = design_knowledge.freeze_pins(reopened, cir, [pin])
+                self.assertEqual(design_knowledge.verify_cir_pins(reopened, pinned)[0]["pin"], pin)
+                written = write_pattern(pinned, compile_cir(pinned))
                 self.assertNotEqual(written, baseline)
                 self.assertIn("\n- Fasten off", written)
                 queue.enqueue("orchestrator", "teardown.analyse_sweep", {},

@@ -74,7 +74,9 @@ class KnowledgeContractTests(unittest.TestCase):
             reopened = Database(url, scratch=True)
             self.assertEqual(knowledge.applicable(reopened, {"writer_section": "finishing"})[0]
                              ["pin"], pin)
-            result = write_pattern(cir, compile_cir(cir), knowledge_pins=[pin], db=reopened)
+            pinned = knowledge.freeze_pins(reopened, cir, [pin])
+            self.assertEqual(knowledge.verify_cir_pins(reopened, pinned)[0]["pin"], pin)
+            result = write_pattern(pinned, compile_cir(pinned))
             self.assertNotEqual(result, baseline)
             self.assertIn("\n- Fasten off", result)
             self.assertEqual(compare(cir, result), [])
@@ -104,11 +106,18 @@ class KnowledgeContractTests(unittest.TestCase):
             self.assertEqual(retired["decision"], "retired")
             with self.assertRaises(knowledge.DesignKnowledgeRefused):
                 knowledge.verify_pins(reopened, [pin])
-            with self.assertLogs("brambleloop.cir.writer", level="ERROR"):
-                self.assertEqual(write_pattern(cir, compile_cir(cir), knowledge_pins=[pin],
-                                               db=reopened), baseline)
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                knowledge.verify_cir_pins(reopened, pinned)
+            with self.assertLogs(knowledge.__name__, level="ERROR"):
+                self.assertEqual(knowledge.write_with_verified_knowledge(
+                    reopened, pinned, compile_cir(pinned)), baseline)
 
     def test_forged_approval_and_preview_cannot_activate_a_pin(self):
+        from brambleloop.cir import knowledge as cir_knowledge
+        from brambleloop.cir.compiler import compile_cir
+        from brambleloop.cir.writer import write_pattern
+        from brambleloop.products import launch0
+
         with TemporaryDirectory() as tmp:
             db = Database(f"sqlite:///{tmp}/knowledge.db", scratch=True)
             db.create_all()
@@ -124,6 +133,15 @@ class KnowledgeContractTests(unittest.TestCase):
             self.assertEqual(knowledge.applicable(db, {"writer_section": "finishing"}), [])
             with self.assertRaises(knowledge.DesignKnowledgeRefused):
                 knowledge.verify_pins(db, [pin])
+            cir = launch0.cir_for("basket_small")
+            baseline = write_pattern(cir, compile_cir(cir))
+            cir.provenance.primitives_used += (cir_knowledge.marker(
+                "include_finishing_checklist", pin),)
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                knowledge.verify_cir_pins(db, cir)
+            with self.assertLogs(knowledge.__name__, level="ERROR"):
+                self.assertEqual(knowledge.write_with_verified_knowledge(
+                    db, cir, compile_cir(cir)), baseline)
             with self.assertRaises(knowledge.DesignKnowledgeRefused):
                 knowledge.verify_pins(db, [pin, pin])
             with self.assertRaises(knowledge.DesignKnowledgeRefused):

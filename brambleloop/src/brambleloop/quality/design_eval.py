@@ -80,14 +80,14 @@ def implementation_digest(db=None) -> str:
     """Bind evidence to the writer and deterministic checks that produced it."""
     import sys
     import numpy
-    from ..cir import assembly, compiler, reverse, specification, topology, twin
+    from ..cir import assembly, compiler, knowledge, reverse, specification, topology, twin
     from ..cir import writer
     from ..gates import asset_truth, certificate, originality, policy, risk_matrix
     from ..improve import design_knowledge
     from ..teardown import analysis_store, licence, reader, review, size_family
     from . import benchmark_e2e
 
-    modules = (sys.modules[__name__], writer, compiler, reverse, twin, assembly, specification,
+    modules = (sys.modules[__name__], writer, knowledge, compiler, reverse, twin, assembly, specification,
                topology, asset_truth, certificate, originality, policy, risk_matrix, benchmarks,
                benchmark_e2e, stitch_benchmarks, design_knowledge, analysis_store,
                licence, reader, review, size_family)
@@ -563,7 +563,13 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         cir = launch0.cir_for(case["build"])
         compiled = compile_cir(cir)
         plain = write_pattern(cir, compiled)
-        baseline = write_pattern(cir, compiled, knowledge_pins=incumbent, db=db)
+        if incumbent:
+            from ..improve.design_knowledge import freeze_pins
+
+            incumbent_cir = freeze_pins(db, cir, incumbent)
+            baseline = write_pattern(incumbent_cir, compile_cir(incumbent_cir))
+        else:
+            baseline = plain
         if incumbent and baseline != _preview_checklist(plain):
             raise DesignEvaluationRefused("incumbent writer output could not be verified")
         candidate = _preview_checklist(baseline)

@@ -12,16 +12,23 @@ The consumer contract follows Main's `I-A6-FROZEN-KNOWLEDGE-CONTRACT`.
   record shape, or raises `DesignKnowledgeRefused` for an invalid, stale,
   revoked, unreviewed or unevaluated pin. An unavailable database may raise
   its underlying error. The empty list returns an empty list.
-* The currently implemented statement is the closed vocabulary
-  `{"rule": "include_finishing_checklist", "parameters": {}}`. It formats
-  the original writer's finishing actions as a list without changing their
-  words. `cir.writer.write_pattern(..., knowledge_pins=pins, db=db)` applies
-  it only after `verify_pins`. On a verification failure the standalone writer
-  logs and returns its byte-identical baseline.
+* `freeze_pins(db, cir, pins)` verifies pins and returns a new CIR with the
+  closed-vocabulary rule and four pin fields encoded in `primitives_used` as
+  `learning_rule:<rule>:<id>:<version>:<rule_digest>:<evaluation_digest>`.
+  It refuses missing provenance and refuses to replace existing frozen pins.
+  `verify_cir_pins(db, cir)` verifies the encoded pins and their mapping to the
+  approved rule; it raises if any reference is forged, stale or malformed.
+* The current rule is `include_finishing_checklist` with no parameters. The
+  pure `cir.writer.write_pattern(cir, result, ...)` reads the frozen CIR only
+  and formats its own finishing actions as a list without changing their words.
+  It does not read the database, library or benchmark material. For non-release
+  callers, `write_with_verified_knowledge(db, cir, result, ...)` verifies first
+  and logs and returns the byte-identical no-knowledge baseline on failure.
 
-Secondary's A6 must freeze pins in CIR provenance, bump the CIR contract to v3
-with its pin tests, and pass those pins and the database into the writer. The
-certificate, release and quality paths must verify the frozen pins before
+Secondary's A6 must freeze pins in CIR provenance and bump the CIR contract to
+v3 with its pin tests. If v3 also stores structured pins, it must check that
+those pins exactly match the encoded directives. The certificate, release and
+quality paths must call `verify_cir_pins` before
 accepting a result. The PDF hook must refuse a CIR with unverifiable pins;
 otherwise the writer's safe baseline fallback could produce a different release
 body than the one certified. CIRs without pins keep their current behavior.

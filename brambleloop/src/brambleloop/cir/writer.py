@@ -9,9 +9,8 @@ shared it, a round-trip would prove nothing.
 """
 from __future__ import annotations
 
-import logging
-
 from .. cir import stitches
+from . import knowledge
 from .compiler import CompileResult
 from .rowcycle import describe, detect_cycle
 from .model import CIR, Component, Op, OpNode, Repeat, Row
@@ -387,8 +386,7 @@ def finishing_checklist(text: str) -> str:
 
 
 def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
-                  width_cm: float | None = None, height_cm: float | None = None,
-                  knowledge_pins: list[dict] | None = None, db=None) -> str:
+                  width_cm: float | None = None, height_cm: float | None = None) -> str:
     """Render the full customer-facing pattern body."""
     out: list[str] = [f"{cir.title}", f"Version {cir.version}", ""]
     if cir.gauge:
@@ -443,16 +441,6 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
     out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm, result=result))
 
     baseline = "\n".join(out).rstrip() + "\n"
-    if knowledge_pins:
-        try:
-            from ..improve.design_knowledge import verify_pins
-
-            verified = verify_pins(db, knowledge_pins)
-            if any(entry["statement"]["rule"] == "include_finishing_checklist"
-                   for entry in verified):
-                return finishing_checklist(baseline)
-        except Exception:
-            # Release/PDF callers must separately verify pins and refuse invalid
-            # ones; a standalone writer preserves its byte-identical baseline.
-            logging.getLogger(__name__).exception("design knowledge unavailable; using baseline")
+    if any(item["rule"] == "include_finishing_checklist" for item in knowledge.markers(cir)):
+        return finishing_checklist(baseline)
     return baseline
