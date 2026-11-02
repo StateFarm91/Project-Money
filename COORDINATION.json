@@ -757,6 +757,14 @@
         "A3 a14c71d7+d1f65b61": "DO NOT SHIP: OPUS2W-1 MED (no real lock/re-check on SQLite; repro F race approves a moved frame); -2 MED (non-qualifying photo blocks the set forever); LOW -3..-6"
       },
       "recorded": "2026-11-02T16:05Z"
+    },
+    {
+      "subject": "INTEG5G",
+      "sha": "claude/w5-SECREVIEW-INTEG5G",
+      "verdicts": {
+        "50937469..5ba84bf7": "SHIP for certification; INTEG5G-1 MED ('two colour' backed by any >=2 colours) fixed after the candidate; -2 LOW (teardown reader hides join-as-you-go phrasing in competitor patterns), -3 LOW (plural/2-Colour/Two-Tone/Bicolour not recognised as colour claims), -4 INFO"
+      },
+      "recorded": "2026-11-02T17:15Z"
     }
   ],
   "integration": {
@@ -819,9 +827,12 @@
         "started": "2026-11-02T16:41:17Z",
         "scope": "full (869 suites)",
         "tree": "clean",
-        "condition": "counts toward release only if delta integration review INTEG5G (50937469..5ba84bf7, launched 16:40Z) says SHIP; otherwise discarded and rerun"
+        "condition": "INTEG5G SHIP (17:15Z): this run counts toward release if it passes"
       },
-      "all_13_failures_fixed": "30b04b35, db463142, 9e1e1b27, 5ba84bf7 (root causes in each commit message)"
+      "all_13_failures_fixed": "30b04b35, db463142, 9e1e1b27, 5ba84bf7 (root causes in each commit message)",
+      "after_candidate": [
+        "two-colour rule tightened (INTEG5G-1) -- next batch; disclosed in the Batch 5 deploy request"
+      ]
     },
     "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
@@ -960,17 +971,7 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "INTEG5G",
-        "subjects": [
-          "claude/w5-INTEG1 50937469..5ba84bf7 (integrator certification fixes)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_INTEG5G.md",
-        "launched": "2026-11-02T16:40Z"
-      }
-    ]
+    "items": []
   },
   "assignments": [
     {
