@@ -1069,13 +1069,6 @@
         "requested_by": "#28 6588404114"
       },
       {
-        "id": "CODEX3-QUEUED",
-        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus) + 24b70df, 2b6688a; executor answer #28 6589146793 (in-process exec of pinned brambleloop/research/bench2/product_truth.py sha256 dec34b0b...: safety rests on reviewing that exact source + SHA integrity, not on restricted globals) + c7bda4e (corrected A6 contract; writer pure again)",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
-        "started": null,
-        "note": "starts on Codex's next REVIEW-REQUEST after CODEX2-1/-2 fixes; scope 6f0fe7aa..head"
-      },
-      {
         "id": "A5-REVIEW",
         "subject": "A5 correction loop 717c7925 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
@@ -1096,6 +1089,13 @@
         "started": null,
         "note": "starts after the A4a verdict (A8 depends on A4a) and machine capacity",
         "requested_by": "#28 6589288273"
+      },
+      {
+        "id": "CODEX3",
+        "subject": "codex/p0-learning-reference 6f0fe7aa..20e0b3a incl. bench2 executor and A6 contract",
+        "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
+        "started": "2026-11-02T22:06:54Z",
+        "requested_by": "#28 6589619849"
       }
     ]
   },
