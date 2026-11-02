@@ -191,7 +191,9 @@ DEFAULT_AGENTS: list[dict] = [
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="asset_truth", description="Blocks imagery that misrepresents the pattern",
-         allowed_job_types=["gate.asset_truth"], authority=Authority.GREEN,
+         allowed_job_types=["gate.asset_truth",
+                            # OPUS2 (P0-PHOTO-ASSET-REVIEW): deterministic photo-frame review.
+                            "assets.photo_review"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="policy", description="Platform policy and compliance checks; can veto",
          allowed_job_types=["gate.policy"], authority=Authority.GREEN,

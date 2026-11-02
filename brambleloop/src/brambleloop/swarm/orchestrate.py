@@ -763,6 +763,8 @@ JOB_BANDS: dict[str, str] = {
     "cir.reverse": "proven_winner",
     "assets.build": "proven_winner",
     "assets.physical_upgrade": "proven_winner",
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): the next step of the same release chain.
+    "assets.photo_review": "proven_winner",
     "physical.photo": "truth_defect",
     "physical.upgrade_impact": "exploration",
     "visual.identity_drift": "truth_defect",
