@@ -165,8 +165,127 @@ def _colour_count_free(text: str) -> str:
     return re.sub(r"\btwo[- _]?(?:colou?r(?:ed)?|tone[d]?)\b", "bicolour", t, flags=re.I)
 
 
+# ---------------------------------------------------------------------------------------
+# A2 (P0-NAME-OBJECT; OPUS2T-1/-2/-3, OPUS2U-1, OPUS2V-1): one shared, fail-closed
+# name/object contract applied after routing, whatever branch chose the family. The title's
+# head noun -- read after trailing filler -- must be an object that family makes, a feature
+# phrase ("with ...", "and", "&") is refused, and for the basket and tote routes every word
+# before the head must be on the route's allowlist (the tapestry, stocking, pouch and pet-bed
+# routes already apply their own total allowlists, so the contract leaves them to it).
+_TRAILING_FILLER = frozenset({"pattern", "patterns", "crochet", "crocheted", "easy", "simple",
+                              "beginner", "beginners", "pdf", "tutorial", "diy", "design",
+                              "digital", "download", "instant", "printable", "free", "new",
+                              "chart", "written",
+                              # a count after the object names how many, not what; the count
+                              # itself is judged by the multiplicity gates
+                              "pair", "pairs", "set", "sets", "duo", "trio", "bundle"})
+_BENIGN_PHRASES = r"\b(?:for|in|by|from)\b"
+_FEATURE_PHRASE = r"(?:[&+]|\b(?:with|and|plus)\b)"
+FAMILY_HEADS: dict[str, frozenset[str]] = {
+    VESSEL: frozenset({"basket", "bin", "bowl", "caddy", "hamper", "planter", "pot", "bucket",
+                       "tray", "organiser", "organizer", "holder", "storage", "trug"}),
+    TOTE: frozenset({"tote", "bag", "shopper"}),
+    TRIANGLE: frozenset({"shawl", "shawlette", "scarf", "kerchief", "wrap"}),
+    PANEL_PAIR: frozenset({"cushion", "pillow", "cover", "pillowcase"}),
+    COSY: frozenset({"cosy", "cozy", "cosies", "cozies", "cosys"}),
+    FLAT_PANEL: frozenset({"blanket", "throw", "afghan", "graphghan", "runner", "mat",
+                           "placemat", "coaster", "dishcloth", "washcloth", "cloth", "scarf",
+                           "square", "panel", "potholder", "trivet", "bookmark", "wrap", "stole",
+                           "rug", "hanging", "banner", "bunting", "garland", "napkin", "doily",
+                           "towel", "swatch"}),
+}
+# OPUS2V-1: the words a plain basket or tote title may carry before its head noun. A size word
+# is admitted only where the builder honours it (bread/market for the radar basket; the tote's
+# own size words), so the name never promises a size the pattern is not.
+FAMILY_MODIFIERS: dict[str, frozenset[str]] = {
+    VESSEL: frozenset({"crochet", "crocheted", "storage", "simple", "classic", "everyday",
+                       "plain", "round", "bread", "market", "modern", "minimalist", "rustic",
+                       "farmhouse", "cosy", "cozy", "sturdy", "soft", "catch", "all", "catchall",
+                       "handy", "basic", "nordic", "scandi", "scandinavian", "boho", "cottage"}),
+    TOTE: frozenset({"tote", "everyday", "market", "simple", "classic", "plain", "crochet",
+                     "crocheted", "shopping", "grocery", "beach", "book", "reusable", "sturdy",
+                     "basic", "small", "mini", "tiny", "petite", "medium", "large", "big"}),
+}
+
+
+def title_core(title: str | None) -> str:
+    """The title with its trailing filler removed: a parenthesis, a dash or colon clause, a
+    for/in/by/from phrase, version tags and filler words (OPUS2T-2)."""
+    folded = fold_title(title)
+    folded = re.sub(r"[\(\[\{].*?[\)\]\}]", " ", folded)
+    folded = re.split(r"\s[-:|]\s|:", folded)[0]
+    folded = re.split(_BENIGN_PHRASES, folded)[0]
+    words = [w for w in re.findall(r"[a-z0-9]+(?:'[a-z]+)?|[&+]", folded)
+             if not re.fullmatch(r"v\d*", w)]
+    while words and words[-1] in _TRAILING_FILLER:
+        words.pop()
+    return " ".join(words)
+
+
+def title_head(title: str | None) -> str:
+    core = title_core(title)
+    words = re.findall(r"[a-z0-9]+(?:'[a-z]+)?", core)
+    return words[-1] if words else ""
+
+
+def name_object_contract(family: str, title: str | None) -> dict | None:
+    """A refusal when the title names an object, a feature or a modifier the family's rule
+    does not make; None when the name is the object drafted."""
+    heads = FAMILY_HEADS.get(family)
+    if heads is None:
+        return None
+    core = title_core(title)
+    feature = re.search(_FEATURE_PHRASE, core)
+    if feature:
+        return {"family": REFUSED,
+                "needs": f"the construction {feature.group(0)!r} names, as its own pieces",
+                "why": (f"the title adds {core[feature.start():].strip()!r}, a second object "
+                        f"or feature the plain {family} rule does not make")}
+    head = title_head(title)
+    # OPUS2N-1 (total): text no rule reads -- an emoji, another script -- is refused; ASCII
+    # punctuation the core strip already handled is not.
+    leftover = re.sub(r"[\x00-\x7f]", "", fold_title(title))
+    if leftover:
+        return {"family": REFUSED, "needs": f"a {family} title in words",
+                "why": f"the title carries {leftover!r}, which no {family} rule reads"}
+    if head not in heads:
+        return {"family": REFUSED,
+                "needs": f"a title whose object is one the {family} rule makes",
+                "why": (f"the title's head noun is {head!r}, which the {family} rule does not "
+                        f"make ({', '.join(sorted(heads))})")}
+    allowed = FAMILY_MODIFIERS.get(family)
+    if allowed is not None:
+        from ..products.launch0 import MOTIF_WORDS, colourwork_claims
+
+        # A motif or colourwork word is judged by a publish-time truth gate (motif_promise,
+        # fabric_truth: both in eligibility.name_truth), so it passes the route and is refused
+        # there unless the pattern makes it. A word no gate measures must be on the allowlist.
+        measured = [w for w in re.findall(r"[a-z]+", core)
+                    if w in MOTIF_WORDS or colourwork_claims(w)]
+        unknown = [w for w in modifiers_outside(core, rf"\b{re.escape(head)}$", allowed)
+                   if w not in measured]
+        if unknown:
+            return {"family": REFUSED,
+                    "needs": (f"the construction, size or motif {' '.join(unknown)!r} names; "
+                              f"only a plain {family} is drafted"),
+                    "why": (f"the title names {' '.join(unknown)!r}, which the plain {family} "
+                            f"rule does not make")}
+    return None
+
+
 def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
          rationale: str = "") -> dict:
+    """The construction family a fallback concept is drafted in, and why; the shared
+    name/object contract (A2) applied to whatever family the routing chose."""
+    route = _route(category=category, title=title, is_bundle=is_bundle, slug=slug,
+                   rationale=rationale)
+    if route.get("route") == "pet_bed":
+        return route
+    return name_object_contract(route.get("family"), title) or route
+
+
+def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
+           rationale: str = "") -> dict:
     """The construction family a fallback concept is drafted in, and why."""
     if is_bundle:
         return {"family": REFUSED, "needs": "the member releases it collects",
@@ -237,7 +356,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                     "why": (f"the title names {shaped.group(0).strip()!r}, which the plain "
                             f"low-walled basket bed does not make")}
         return {"family": VESSEL, "needs": "",
-                "why": "a pet basket bed is a wide vessel with a low wall, worked in the round"}
+                "why": "a pet basket bed is a wide vessel with a low wall, worked in the round",
+                # its own total allowlist ran above; the shared name/object contract skips it
+                "route": "pet_bed"}
     lowered_s = fold_title(title)
     stocking_head = re.search(_STOCKING_HEAD, lowered_s)
     if category == "stocking" and not stocking_head:
