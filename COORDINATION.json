@@ -1140,6 +1140,10 @@
         "downstream": "cir.compile -> gate.certify; owner queue holds",
         "acceptance": "fixable block corrected automatically; cap then named hold; others unaffected",
         "path_to_production": "review -> W6-INTEG"
+      },
+      "handoff": {
+        "branch": "claude/w5-A5-correction-loop",
+        "sha": "717c79258b1f7b8e09d6680c5bd238552ff446f0"
       }
     },
     {
@@ -1827,13 +1831,14 @@
       "branch": "codex/p0-learning-reference",
       "requirement": "CODEX1-2 HIGH JOB_CLASS; confirm CODEX1-1; then approved-rule reader for A6 (CODEX_REVIEW_FEEDBACK.md)",
       "state": "in_progress",
-      "integration_target": "claude/w5-INTEG1",
+      "integration_target": "claude/w6-INTEG1",
       "assigned": "2026-11-02T19:57:34Z",
       "dispatch": {
         "posted_at": "2026-11-02T19:57:34Z",
         "ack_due_by": "2026-11-02T22:57:34Z",
         "checkpoint_due_by": "2026-11-03T03:57:34Z"
-      }
+      },
+      "event_channel": "issue #28 [CODEX] comments, relayed into dispatch/events/codex.jsonl by mainopus"
     },
     {
       "id": "A4a",
