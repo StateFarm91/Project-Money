@@ -10,6 +10,37 @@ from brambleloop.improve import design_knowledge as knowledge
 
 
 class KnowledgeContractTests(unittest.TestCase):
+    def test_two_files_from_one_seller_do_not_count_as_independent_sources(self):
+        from brambleloop.quality import design_eval
+        from brambleloop.teardown import licence, review
+
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/independence.db", scratch=True)
+            db.create_all()
+            identifiers = []
+            for index in (1, 2):
+                ref = f"same-seller-{index}"
+                sha = str(index) * 64
+                with db.session() as s:
+                    product = BenchmarkProduct(ref=ref, seller="same seller", files=[
+                        {"name": "fixture.pdf", "sha256": sha}])
+                    s.add(product)
+                    s.flush()
+                    source = BenchmarkAnalysis(benchmark_id=product.id, file_sha256=sha,
+                        observations={"fully_readable": True, "dimensions": {"finishing": "absent"}})
+                    s.add(source)
+                    s.flush()
+                    identifiers.append(source.id)
+                licence.capture_purchase(db, ref)
+                review.review_analysis(db, identifiers[-1], reviewer="owner", decision="reviewed",
+                                       reason="independent review")
+            rule = knowledge.propose(db, key="same_seller", statement={
+                "rule": "include_checklist_and_end_check", "parameters": {}},
+                scope={"writer_section": "finishing"}, producer="analyst",
+                provenance=[{"kind": "analysis", "id": ident} for ident in identifiers])
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                design_eval.evaluate(db, rule["id"])
+
     def test_evaluated_independent_approval_changes_written_output_and_revalidates(self):
         from brambleloop.cir.compiler import compile_cir
         from brambleloop.cir.reverse import compare
@@ -18,11 +49,16 @@ class KnowledgeContractTests(unittest.TestCase):
         from brambleloop.products import launch0
         from brambleloop.quality import design_eval
         from brambleloop.teardown import licence, review
+        from brambleloop.agents.registry import Registry
+        from brambleloop.queue.durable import JobQueue
+        from brambleloop.runtime import pipeline  # noqa: F401
+        from brambleloop.runtime.worker import Worker
 
         with TemporaryDirectory() as tmp:
             url = f"sqlite:///{tmp}/knowledge.db"
             db = Database(url, scratch=True)
             db.create_all()
+            Registry(db).seed_defaults()
             sha = "b" * 64
             with db.session() as s:
                 product = BenchmarkProduct(ref="fixture-purchase", seller="fixture",
@@ -38,6 +74,12 @@ class KnowledgeContractTests(unittest.TestCase):
             review.review_analysis(db, source_id, reviewer="independent-reviewer",
                                    decision="reviewed", reason="reviewed observation")
             rule = knowledge.propose_from_analysis(db, source_id)
+            unsupported = knowledge.propose(db, key="one_source_end_check", statement={
+                "rule": "include_checklist_and_end_check", "parameters": {}},
+                scope={"writer_section": "finishing"},
+                provenance=[{"kind": "analysis", "id": source_id}], producer="analyst")
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                design_eval.evaluate(db, unsupported["id"])
             cir = launch0.cir_for("basket_small")
             baseline = write_pattern(cir, compile_cir(cir))
             self.assertEqual(knowledge.applicable(db, {"writer_section": "finishing"}), [])
@@ -108,11 +150,78 @@ class KnowledgeContractTests(unittest.TestCase):
                 provenance=[{"kind": "analysis", "id": source_id}], producer="analyst2")
             with self.assertRaises(design_eval.DesignEvaluationRefused):
                 design_eval.evaluate(reopened, unrelated["id"])
+            knowledge.review_rule(reopened, successor["id"], reviewer="owner", decision="reject",
+                                  reason="no measured improvement")
+            with reopened.session() as s:
+                duplicate = BenchmarkProduct(ref="duplicate-fixture", seller="another-seller",
+                    files=[{"name": "same.pdf", "sha256": sha}])
+                s.add(duplicate)
+                s.flush()
+                duplicate_source = BenchmarkAnalysis(benchmark_id=duplicate.id, file_sha256=sha,
+                    observations={"fully_readable": True, "dimensions": {"finishing": "absent"}})
+                s.add(duplicate_source)
+                s.flush()
+                duplicate_id = duplicate_source.id
+            licence.capture_purchase(reopened, "duplicate-fixture")
+            review.review_analysis(reopened, duplicate_id, reviewer="independent-reviewer",
+                                   decision="reviewed", reason="reviewed duplicate evidence")
+            self.assertEqual(knowledge.propose_from_analysis(reopened, duplicate_id)["reason"],
+                             "source_not_independent")
+            record_fingerprint(reopened, "duplicate-fixture", text=(
+                "xylophone quasar nebula orbit lantern velvet meadow cobalt river "
+                "telescope compass marigold dolphin rainforest juniper quartz"))
+            with reopened.session() as s:
+                second_product = BenchmarkProduct(ref="second-fixture", seller="other-seller",
+                    files=[{"name": "reference.pdf", "sha256": "c" * 64}])
+                s.add(second_product)
+                s.flush()
+                second_source = BenchmarkAnalysis(benchmark_id=second_product.id, file_sha256="c" * 64,
+                    observations={"fully_readable": True, "dimensions": {"finishing": "absent"}})
+                s.add(second_source)
+                s.flush()
+                second_id = second_source.id
+            licence.capture_purchase(reopened, "second-fixture")
+            review.review_analysis(reopened, second_id, reviewer="another-independent-reviewer",
+                                   decision="reviewed", reason="reviewed second observation")
+            record_fingerprint(reopened, "second-fixture", text=(
+                "synthetic azalea orbit meadow silver cloud lantern marble violet sunflower"))
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                knowledge.verify_pins(reopened, [pin])  # corpus changed: production use holds
+            improved = knowledge.propose_from_analysis(reopened, second_id)
+            self.assertTrue(improved["proposed"])
+            JobQueue(reopened).enqueue("orchestrator", "design_eval.sweep", {},
+                                       idempotency_key="successor-eval-sweep")
+            self.assertTrue(Worker(reopened, name="successor-sweep", job_types=["design_eval.sweep"])
+                            .run_once())
+            self.assertTrue(Worker(reopened, name="successor-evaluator",
+                                   job_types=["design_eval.evaluate"]).run_once())
+            improved_eval = design_eval.evaluate(reopened, improved["id"])
+            self.assertFalse(improved_eval["created"])
+            self.assertEqual(improved_eval["incumbent_pins"], [pin])
+            self.assertEqual(improved_eval["state"], "passed", improved_eval)
+            upgraded = knowledge.review_rule(reopened, improved["id"], reviewer="owner",
+                decision="approve", reason="reviewed improvement", evaluation_id=improved_eval["audit_id"])
+            new_pin = upgraded["pin"]
+            new_cir = knowledge.freeze_pins(reopened, cir, [new_pin])
+            enhanced = write_pattern(new_cir, compile_cir(new_cir))
+            self.assertIn("Gently tug each woven end", enhanced)
+            self.assertNotEqual(enhanced, result)
+            self.assertEqual(compare(cir, enhanced), [])
+            self.assertEqual(knowledge.verify_cir_pins(reopened, new_cir)[0]["pin"], new_pin)
+            for slug in launch0.LAUNCH0_SLUGS:
+                item = launch0.cir_for(launch0.candidate(slug).variants[0].build)
+                item_plain = write_pattern(item, compile_cir(item))
+                item_pinned = knowledge.freeze_pins(reopened, item, [new_pin])
+                actual = write_pattern(item_pinned, compile_cir(item_pinned))
+                self.assertEqual(actual, finishing_checklist(item_plain, check_ends=True))
+                self.assertEqual(compare(item, actual), [])
+            with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                knowledge.verify_pins(reopened, [pin])
             licence.capture_purchase(reopened, "fixture-purchase", terms={
                 "allowed_uses": [], "prohibited_uses": ["private_analysis"]})
             with self.assertRaises(knowledge.DesignKnowledgeRefused):
-                knowledge.verify_pins(reopened, [pin])
-            retired = knowledge.review_rule(reopened, rule["id"], reviewer="owner",
+                knowledge.verify_pins(reopened, [new_pin])
+            retired = knowledge.review_rule(reopened, improved["id"], reviewer="owner",
                                             decision="retire", reason="retire the rule")
             self.assertEqual(retired["decision"], "retired")
             with self.assertRaises(knowledge.DesignKnowledgeRefused):

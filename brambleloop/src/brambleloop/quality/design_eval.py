@@ -12,6 +12,7 @@ import ast
 import hashlib
 import inspect
 import json
+import re
 from pathlib import Path
 
 from ..cir import benchmarks
@@ -196,6 +197,10 @@ def measure_written_case(cir, text: str, *, db=None) -> dict:
         section = []
     # Count independently generated complete actions, not merely a heading.
     normalized = {line.removeprefix('- ').strip() for line in section}
+    end_check = int(any(re.search(r"\b(?:tug|check|test)\b", line, re.I)
+                        and re.search(r"\bends?\b", line, re.I)
+                        and re.search(r"\b(?:loose|secure)\b", line, re.I)
+                        for line in section))
     twin_failures = 0
     truth_codes = []
     twins = {}
@@ -261,7 +266,8 @@ def measure_written_case(cir, text: str, *, db=None) -> dict:
                                        else unknown_ip if db is not None else None),
             "finishing_actions_expected": len(expected),
             "finishing_actions_present": sum(line in normalized for line in expected),
-            "finishing_actions_listed": sum(('- ' + line) in section for line in expected)}
+            "finishing_actions_listed": sum(('- ' + line) in section for line in expected),
+            "end_check_present": end_check}
 
 
 def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict:
@@ -289,19 +295,17 @@ def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict
     # The shingles are not a substitute for a comparison with purchased sources.
     # They do detect changed word sequences for this formatting-only experiment.
     same_shingles = shingles(baseline) == shingles(candidate)
-    if not same_shingles:
-        regressions.append("word_shingles_changed")
     return {"before": before, "after": after, "regressions": regressions,
             "same_word_shingles": same_shingles,
             "approval_evidence_complete": False,
             "incomplete_reason": "full benchmark and Product Truth evaluation is incomplete"}
 
 
-def _preview_checklist(text: str) -> str:
+def _preview_checklist(text: str, *, rule_name: str = "include_finishing_checklist") -> str:
     from ..cir.writer import finishing_checklist
 
     try:
-        return finishing_checklist(text)
+        return finishing_checklist(text, check_ends=rule_name == "include_checklist_and_end_check")
     except ValueError as exc:
         raise DesignEvaluationRefused(str(exc)) from exc
 
@@ -369,6 +373,8 @@ def classify_evaluation(report: dict) -> str:
     try:
         cases = report["cases"]
         checks = report["benchmark_checks"]
+        if report["rule_name"] not in ("include_finishing_checklist", "include_checklist_and_end_check"):
+            return "insufficient_evidence"
         if ({c["case"] for c in cases} != {slug for slug, _ in _LAUNCH_CASES}
                 or len(cases) != len(_LAUNCH_CASES)):
             return "insufficient_evidence"
@@ -384,14 +390,17 @@ def classify_evaluation(report: dict) -> str:
             before, after = case["before"], case["after"]
             for metric in ("compile_errors", "twin_failures", "reverse_findings",
                            "policy_findings", "truth_findings", "finishing_actions_present",
-                           "finishing_actions_listed"):
+                           "finishing_actions_listed", "end_check_present"):
                 if type(before[metric]) is not int or type(after[metric]) is not int:
                     return "insufficient_evidence"
                 if before[metric] < 0 or after[metric] < 0:
                     return "insufficient_evidence"
+            if before["end_check_present"] not in (0, 1) or after["end_check_present"] not in (0, 1):
+                return "insufficient_evidence"
             if case["regressions"] or after["truth_findings"] != 0:
                 return "regression"
-            if case["same_word_shingles"] is not True:
+            if report["rule_name"] == "include_finishing_checklist" \
+                    and case["same_word_shingles"] is not True:
                 return "regression"
             for metric in ("reverse_codes", "policy_codes", "truth_codes"):
                 if not isinstance(before[metric], list) or not isinstance(after[metric], list):
@@ -407,7 +416,10 @@ def classify_evaluation(report: dict) -> str:
                 return "regression"
             if after["finishing_actions_present"] < before["finishing_actions_present"]:
                 return "regression"
+            if after["end_check_present"] < before["end_check_present"]:
+                return "regression"
             improvement |= after["finishing_actions_listed"] > before["finishing_actions_listed"]
+            improvement |= after["end_check_present"] > before["end_check_present"]
         for case in cases:
             for phase in ("before", "after"):
                 if case[phase]["originality_unmeasured"] != 0:
@@ -428,22 +440,13 @@ def classify_evaluation(report: dict) -> str:
 
 
 def _incumbent_pins(db) -> list[dict]:
-    """A claimed incumbent must itself still pass the full pin verifier."""
-    from sqlalchemy import select
-    from ..core.models import DesignRule
+    """Authenticate the old decision for a fresh comparison against the current corpus."""
     from ..improve import design_knowledge
 
-    with db.session() as s:
-        rows = list(s.scalars(select(DesignRule).where(DesignRule.state == "approved")))
-        ids = [row.id for row in rows]
-    if not ids:
-        return []
-    if len(ids) != 1:
-        raise DesignEvaluationRefused("incumbent knowledge set is unsupported")
-    records = design_knowledge.applicable(db, {"writer_section": "finishing"})
-    if len(records) != 1 or records[0]["pin"]["rule_id"] != ids[0]:
-        raise DesignEvaluationRefused("incumbent knowledge cannot be verified")
-    return [records[0]["pin"]]
+    try:
+        return [record["pin"] for record in design_knowledge.incumbent_for_evaluation(db)]
+    except (design_knowledge.DesignKnowledgeRefused, ValueError) as exc:
+        raise DesignEvaluationRefused("incumbent knowledge cannot be verified") from exc
 
 
 def evaluation_key(db, rule_id: int) -> str:
@@ -554,8 +557,11 @@ def preview_registered_rule(db, rule_id: int) -> dict:
             raise DesignEvaluationRefused("a proposed rule is required")
         if not isinstance(rule.key, str) or not _TOKEN.fullmatch(rule.key):
             raise DesignEvaluationRefused("invalid rule key")
-        if rule.statement != {"rule": "include_finishing_checklist", "parameters": {}} \
-                or rule.scope != {"writer_section": "finishing"}:
+        if (not isinstance(rule.statement, dict) or set(rule.statement) != {"rule", "parameters"}
+                or rule.statement.get("rule") not in ("include_finishing_checklist",
+                                                       "include_checklist_and_end_check")
+                or rule.statement.get("parameters") != {}
+                or rule.scope != {"writer_section": "finishing"}):
             raise DesignEvaluationRefused("unsupported rule or scope")
         if incumbent and rule.supersedes != incumbent[0]["rule_id"]:
             raise DesignEvaluationRefused("candidate must supersede the current incumbent")
@@ -571,21 +577,30 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         compiled = compile_cir(cir)
         plain = write_pattern(cir, compiled)
         if incumbent:
-            from ..improve.design_knowledge import freeze_pins
+            import copy
+            from ..cir import knowledge
+            from ..improve.design_knowledge import incumbent_for_evaluation
 
-            incumbent_cir = freeze_pins(db, cir, incumbent)
+            records = incumbent_for_evaluation(db)
+            if [record["pin"] for record in records] != incumbent or cir.provenance is None:
+                raise DesignEvaluationRefused("incumbent changed during evaluation")
+            incumbent_cir = copy.deepcopy(cir)
+            incumbent_rule = records[0]["statement"]["rule"]
+            incumbent_cir.provenance.primitives_used += (
+                knowledge.marker(incumbent_rule, incumbent[0]),)
             baseline = write_pattern(incumbent_cir, compile_cir(incumbent_cir))
         else:
             baseline = plain
-        if incumbent and baseline != _preview_checklist(plain):
+        if incumbent and baseline != _preview_checklist(plain, rule_name=incumbent_rule):
             raise DesignEvaluationRefused("incumbent writer output could not be verified")
-        candidate = _preview_checklist(baseline)
+        candidate = _preview_checklist(baseline, rule_name=identity["statement"]["rule"])
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
         raise DesignEvaluationRefused("not all frozen launch cases were measured")
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
+              "rule_name": identity["statement"]["rule"],
               "case_set_sha256": frozen["sha256"], "incumbent_pins": incumbent,
               "cases": case_results,
               "benchmark_checks": _benchmark_checks(db),

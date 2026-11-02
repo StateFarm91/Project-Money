@@ -18,9 +18,11 @@ The consumer contract follows Main's `I-A6-FROZEN-KNOWLEDGE-CONTRACT`.
   It refuses missing provenance and refuses to replace existing frozen pins.
   `verify_cir_pins(db, cir)` verifies the encoded pins and their mapping to the
   approved rule; it raises if any reference is forged, stale or malformed.
-* The current rule is `include_finishing_checklist` with no parameters. The
-  pure `cir.writer.write_pattern(cir, result, ...)` reads the frozen CIR only
-  and formats its own finishing actions as a list without changing their words.
+* The registered rules are `include_finishing_checklist` and
+  `include_checklist_and_end_check`, both with no parameters. The successor
+  requires reviewed evidence from two distinct purchases and adds an original
+  instruction to check the security of woven ends. The pure
+  `cir.writer.write_pattern(cir, result, ...)` reads the frozen CIR only.
   It does not read the database, library or benchmark material. For non-release
   callers, `write_with_verified_knowledge(db, cir, result, ...)` verifies first
   and logs and returns the byte-identical no-knowledge baseline on failure.
@@ -34,10 +36,14 @@ otherwise the writer's safe baseline fallback could produce a different release
 body than the one certified. CIRs without pins keep their current behavior.
 Record a learning action only after a consumer actually changes its decision.
 
-The evaluator compares either the empty incumbent or a verified active rule
-with a proposed successor. A repeated rule yields `no_improvement`. Only one
-rule can be active; multi-rule baselines and atomic approval of an improved
-successor still need implementation. The frozen bench2
+The evaluator compares either the empty incumbent or the prior independently
+approved rule with a proposed successor against the current corpus. A repeated
+rule yields `no_improvement`; an improved successor can replace its incumbent
+atomically. Only one composite rule version can be active. A corpus change
+blocks production use of the old pin until a current evaluation is approved;
+the evaluator can still use the authenticated historical incumbent privately
+for comparison. Existing CIRs pinned to a retired version fail verification
+and must be handled by Main's release process. The frozen bench2
 inputs are not in the image. A worker can read the pinned `product_truth.json`,
 `bench2_manifest.json`, and `product_truth.py` from
 `$BRAMBLELOOP_BENCHMARK_LIBRARY/benchmark-2-mini-star-stitch-cardigan/evaluation/`.
@@ -48,3 +54,8 @@ stored by evaluation. Missing, modified or unlicensed evidence blocks
 evaluation and pin verification. Provisioning that private volume belongs to
 Main's deployment process; no raw reference-derived material is added to the
 image. This is not a deployment or production-readiness claim.
+
+The benchmark reference-image, ad-image and real-outcome comparison stages
+remain `UNKNOWN`. The evaluator supports only the two registered finishing
+rules; it must refuse any rule that changes construction or imagery until the
+corresponding benchmark stages are measured and pass. UNKNOWN is not PASS.

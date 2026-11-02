@@ -17,6 +17,14 @@ The implemented rule changes finishing instructions to a checklist. Worker
 and persistent-database tests exercise the intake-to-writer path, retries,
 recovery and source invalidation.
 
+Legacy and shared-token findings whose recorder is not established remain
+visible and non-binding, but unmet or unmeasured requirements retain a release
+hold. The owner can attest a legacy recorder through a
+step-up action; that attestation is an assertion, not cryptographic proof of a
+third party's identity. All owner sessions are the same principal and cannot
+review the owner's own finding. An owner-authored unmet finding remains a hold
+until the concern is met or an independently authenticated reviewer is available.
+
 The A6 interface and the required certificate, release, quality and PDF hooks
 are specified in `CODEX_LEARNING_A6_CONTRACT.md`. The pure writer is not an
 authorization boundary: A6 must verify frozen pins and their mapping before
@@ -30,9 +38,11 @@ Outstanding before a completion claim:
 * A6 must integrate the frozen pin contract at draft, revision, certificate,
   release, quality and PDF boundaries and demonstrate a real construction
   change authorized by a passing evaluation.
-* The current evaluator compares a single verified incumbent with a proposed
-  successor, but cannot atomically approve an improved successor while an
-  incumbent is active and does not support multiple active rules.
+* The current store supports one composite active rule version. Independent
+  reviewed sources can generate and evaluate an improved successor and the
+  owner can approve an atomic replacement. Multiple independently scoped active
+  rules are not implemented; existing CIRs pinned to retired versions fail
+  verification and need an integration policy.
 * The remaining support/community producer wiring and complete audit-prefill
   path need to be completed without inventing consent or treating unknown
   observations as negative findings.

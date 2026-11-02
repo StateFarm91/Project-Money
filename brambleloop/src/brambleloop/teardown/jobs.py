@@ -7,6 +7,8 @@ from ..core.models import BenchmarkLicence, BenchmarkProduct
 from ..queue.durable import DuplicateJob, JobQueue
 from . import licence
 
+MAX_AUTOMATIC_REDRIVES = 2
+
 
 def enqueue_purchase(db, benchmark_id: int) -> dict:
     with db.session() as s:
@@ -40,6 +42,7 @@ def enqueue_purchase(db, benchmark_id: int) -> dict:
             queued += 1
         except DuplicateJob as exc:
             existing += 1
-            result = queue.requeue_dead(job_types=["teardown.analyse"], ids=[exc.existing_id])
+            result = queue.requeue_dead(job_types=["teardown.analyse"], ids=[exc.existing_id],
+                                        max_automatic_redrives=MAX_AUTOMATIC_REDRIVES)
             requeued += len(result["requeued"])
     return {"queued": queued, "existing": existing, "requeued": requeued}

@@ -64,7 +64,7 @@ def handle_teardown_analyse_sweep(ctx):
     return {"purchases": len(ids), "queued": queued, "existing": existing, "requeued": requeued,
             "licence_refused": refused, "knowledge_proposed": proposed,
             "knowledge_blocked": blocked, "gap_changes": gap_changes,
-            "work_done": queued + requeued + proposed + gap_changes}
+            "work_done": queued + proposed + gap_changes}
 
 
 @handlers.register("design_eval.evaluate")
@@ -99,9 +99,10 @@ def handle_design_eval_sweep(ctx):
         except DuplicateJob as exc:
             existing += 1
             result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
-                                                   ids=[exc.existing_id])
+                                                   ids=[exc.existing_id],
+                                                   max_automatic_redrives=jobs.MAX_AUTOMATIC_REDRIVES)
             requeued += len(result["requeued"])
         except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
             unknown += 1
     return {"queued": queued, "existing": existing, "requeued": requeued,
-            "unavailable": unknown, "work_done": queued + requeued}
+            "unavailable": unknown, "work_done": queued}

@@ -22,9 +22,13 @@ def observe_analysis(db, analysis_id: int) -> dict:
         readable = observations.get("fully_readable") is True
         reviewed = independently_reviewed(source)
         rejected = independent_decision(source, "rejected")
-        rule = s.scalar(select(DesignRule).where(
-            DesignRule.key == f"finishing_from_analysis_{analysis_id}").order_by(
-                DesignRule.version.desc()))
+        rules = list(s.scalars(select(DesignRule).order_by(DesignRule.version.desc(),
+                                                          DesignRule.id.desc())))
+        matching = [item for item in rules if {"kind": "analysis", "id": analysis_id}
+                    in (item.provenance or [])]
+        rule = (next((item for item in matching if item.state == "approved"), None)
+                or next((item for item in matching if item.state == "proposed"), None)
+                or (matching[0] if matching else None))
         rule_id = rule.id if rule else None
         rule_state = rule.state if rule else None
     if rejected:

@@ -23,6 +23,43 @@ from brambleloop.teardown import intake, jobs, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_automatic_dead_redrives_are_bounded_and_not_counted_as_work(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            (root / "missing-purchase").mkdir(parents=True)
+            db = Database(f"sqlite:///{tmp}/bounded.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="missing-purchase", seller="fixture", files=[
+                    {"name": "pattern.pdf", "sha256": "a" * 64}])
+                s.add(product)
+                s.flush()
+                ident = product.id
+            licence.capture_purchase(db, "missing-purchase")
+            jobs.enqueue_purchase(db, ident)
+            with db.session() as s:
+                s.scalar(select(Job).where(Job.job_type == "teardown.analyse")).max_attempts = 1
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="initial", job_types=["teardown.analyse"]).run_once())
+                for turn in range(3):
+                    key = f"bounded-sweep:{turn}"
+                    JobQueue(db).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                         idempotency_key=key)
+                    self.assertTrue(Worker(db, name=f"sweep-{turn}",
+                                           job_types=["teardown.analyse_sweep"]).run_once())
+                    with db.session() as s:
+                        sweep = s.scalar(select(Job).where(Job.idempotency_key == key))
+                        self.assertEqual(sweep.outputs["requeued"], 1 if turn < 2 else 0)
+                        self.assertEqual(sweep.outputs["work_done"], 0)
+                    if turn < 2:
+                        self.assertTrue(Worker(db, name=f"retry-{turn}",
+                                               job_types=["teardown.analyse"]).run_once())
+            with db.session() as s:
+                job = s.scalar(select(Job).where(Job.job_type == "teardown.analyse"))
+                self.assertEqual(job.status, JobStatus.DEAD)
+                self.assertEqual(job.automatic_redrives, 2)
+
     def test_sweep_redrives_dead_analysis_after_source_is_restored(self):
         from reportlab.pdfgen import canvas
 
@@ -62,6 +99,7 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with db.session() as s:
                     sweep = s.scalar(select(Job).where(Job.job_type == "teardown.analyse_sweep"))
                     self.assertEqual(sweep.outputs["requeued"], 1)
+                    self.assertEqual(sweep.outputs["work_done"], 0)
                 self.assertTrue(Worker(db, name="recovered", job_types=["teardown.analyse"]).run_once())
             with db.session() as s:
                 self.assertEqual(s.scalar(select(Job).where(
@@ -199,6 +237,7 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with reopened.session() as s:
                     recovered = s.scalar(select(Job).where(Job.idempotency_key == "eval:retry"))
                     self.assertEqual(recovered.outputs["requeued"], 1)
+                    self.assertEqual(recovered.outputs["work_done"], 0)
                 self.assertTrue(Worker(reopened, name="evaluator", job_types=["design_eval.evaluate"])
                                 .run_once())
                 with reopened.session() as s:
