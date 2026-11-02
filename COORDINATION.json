@@ -1178,7 +1178,7 @@
           "stage_at_transfer": "handoff"
         }
       ],
-      "branch": "claude/w5-A6-learning-to-design",
+      "branch": "opus2/a6-learning-to-design",
       "justification": {
         "capability": "P0-C Learning: approved knowledge changes later designs",
         "handoff_or_defect": "lessons only nudge scores (wiring #4)",
@@ -1187,7 +1187,14 @@
         "downstream": "cir.draft / cir.revise",
         "acceptance": "approved lesson changes next draft deterministically; unapproved changes nothing; passes gates",
         "path_to_production": "tests -> review -> W6-INTEG"
-      }
+      },
+      "observed": [
+        {
+          "at": "2026-11-02T20:25:08Z",
+          "by": "integrator",
+          "evidence": "opus2 pushed opus2/a6-learning-to-design ebead3dd (2026-11-02T20:21:01Z) on top of handed WIP 7c9306e3; opus2 checkpoint d85103aa (20:21Z): test_w5_a6_learning_to_design 6/6, 11 mutants killed, 38-suite regression running. Not yet an opus2 dispatch event or #28 reply."
+        }
+      ]
     },
     {
       "owner": "opus2",
@@ -1756,7 +1763,14 @@
         "downstream": "cir.draft, listing copy",
         "acceptance": "Unicode/bracket/radar-seed/prototype repros refused; catalogue byte-identical",
         "path_to_production": "review -> W6-INTEG -> cert -> deploy"
-      }
+      },
+      "observed": [
+        {
+          "at": "2026-11-02T20:25:08Z",
+          "by": "integrator",
+          "evidence": "opus2 checkpoint 20:21Z: A2 v2 local c93f9c53, 45-suite run in progress (not pushed)"
+        }
+      ]
     },
     {
       "id": "A4b",
