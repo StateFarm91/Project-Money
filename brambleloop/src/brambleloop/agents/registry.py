@@ -82,7 +82,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "ops.retention",
                             # #95 #180 #187: deterministic job replay (the league's runs);
                             # #153-#161: teardown requirements enforced and routed.
-                            "improve.replay", "teardown.enforce",
+                            "improve.replay", "teardown.enforce", "teardown.analyse",
+                            "teardown.analyse_sweep",
                             # v1.1 lane I (F-924): SLO evaluation and slo.* incidents.
                             "ops.slo"],
          authority=Authority.GREEN,

@@ -3134,6 +3134,7 @@ from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance r
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
+from . import teardown_ops  # noqa: E402,F401  (licensed benchmark analysis)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

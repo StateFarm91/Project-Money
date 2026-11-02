@@ -493,6 +493,9 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
     manifest = lab.write_manifest(db, env=env)
     result["manifest"] = {k: manifest[k] for k in ("path", "bytes", "sha256",
                                                     "teardown_queue")}
+    from .jobs import enqueue_purchase
+
+    enqueue_purchase(db, product_id)
     return result
 
 
