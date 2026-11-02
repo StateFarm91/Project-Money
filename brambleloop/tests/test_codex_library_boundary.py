@@ -21,6 +21,10 @@ class LibraryBoundaryTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             self.assertEqual(library_root({LIBRARY_ENV: tmp}), Path(tmp).resolve())
 
+    def test_default_does_not_depend_on_checkout_working_directory(self):
+        self.assertTrue(library_root({}).is_absolute())
+        self.assertNotIn(Path(__file__).resolve().parents[1], library_root({}).parents)
+
 
 if __name__ == "__main__":
     unittest.main()

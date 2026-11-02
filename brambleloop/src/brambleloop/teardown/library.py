@@ -34,7 +34,7 @@ from pathlib import Path
 # Outside the repository tree on purpose, and in `.gitignore` as belt and braces. An ignore
 # rule only stops the accident it happens to match; this path is also checked in code.
 LIBRARY_ENV = "BRAMBLELOOP_BENCHMARK_LIBRARY"
-DEFAULT_LIBRARY = "benchmark_library"
+DEFAULT_LIBRARY = "/var/lib/brambleloop/benchmark_library"
 
 # Who may open a benchmark file. Deliberately short, and deliberately not "orchestrator":
 # the analyst role exists so that reaching into the library is a visible, separate act.
