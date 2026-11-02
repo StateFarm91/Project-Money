@@ -574,8 +574,9 @@ LIBRARY_CHART_WORDS: dict[str, str] = {
     "stars": "fir-and-star", "lattice": "diamond-lattice", "chevron": "chevron-band",
     "chevrons": "chevron-band", "basketweave": "basketweave", "heart": "heart-row",
     "hearts": "heart-row", "pumpkin": "pumpkin-row", "pumpkins": "pumpkin-row",
-    "tulip": "tulip-trellis", "tulips": "tulip-trellis", "flower": "tulip-trellis",
-    "flowers": "tulip-trellis", "floral": "tulip-trellis",
+    # OPUS2R-5: the trellis is backed by the words its chart draws ("tulip"); "flower" and
+    # "floral" are not chart words, so the imagery check and the declaration agree.
+    "tulip": "tulip-trellis", "tulips": "tulip-trellis",
 }
 _TAPESTRY_CHART_WORDS = {"diamond": "diamond", "diamonds": "diamond", "argyle": None,
                          "check": "check", "checked": "check", "checker": "check",
@@ -712,9 +713,53 @@ def _tapestry_chart(title: str, slug: str = "") -> str:
     return chosen[0] if chosen else TAPESTRY_DEFAULT_CHART
 
 
+TAPESTRY_WALL_TOLERANCE = 0.05     # OPUS2R-3: the wall may differ from the base by 5% at most
+
+
+def tapestry_counts(chart_width: int, size: str, yarn_weight: str,
+                    chart_rows: int = 0) -> tuple[int, int] | None:
+    """(base, wall) stitch counts for a chart at a size, or None when the chart does not fit.
+
+    The base is six stacked increases near the size's measured width; the wall is whole chart
+    repeats. A wall more than TAPESTRY_WALL_TOLERANCE away from the base would pull in or flare
+    in one round and the size note (the base) would not describe the opening (OPUS2R-3). The
+    wall is the size's measured height: a chart taller than the rounds it leaves between the
+    plain rounds below and at the rim does not fit either, rather than growing the basket
+    past the size its name gives (OPUS2R-8)."""
+    from ..creative.prototype import gauge_for
+    from ..products.vessels import BASKET_SIZES, base_stitches_for
+
+    spec = next(s for s in BASKET_SIZES if s.key == size)
+    gauge = gauge_for(yarn_weight)
+    wanted = base_stitches_for(spec.across_cm, gauge)
+    base = max(12, int(round(wanted / 6)) * 6)
+    wall = max(chart_width * 2, int(round(base / chart_width)) * chart_width)
+    if abs(wall / base - 1) > TAPESTRY_WALL_TOLERANCE:
+        return None
+    room = int(round(spec.tall_cm * gauge.rows_per_10cm / 10.0)) - TAPESTRY_PLAIN_BELOW \
+        - TAPESTRY_PLAIN_RIM
+    if chart_rows > room:
+        return None
+    return base, wall
+
+
 def tapestry_motif_primitive(chart_name: str) -> str | None:
     """The provenance primitive that declares a library motif worked as tapestry."""
     return None if chart_name in TAPESTRY_CHARTS else f"products.motifs:{chart_name}:tapestry"
+
+
+def tapestry_chart_primitives(chart_name: str) -> tuple[str, ...]:
+    """Everything a CIR worked from a library chart declares: the motif (which the truth
+    gates read, `launch0.MOTIF_DECLARATIONS`) and, OPUS2R-6, the grid's own hash and the
+    widening transform, so a later edit of the grid shows in every CIR drafted from it. The
+    hash has its own prefix, so the `products.motifs:` declaration lookup is unchanged."""
+    prim = tapestry_motif_primitive(chart_name)
+    if not prim:
+        return ()
+    from ..products import motifs
+
+    sha = motifs.get(chart_name).sha256[:12]
+    return (prim, f"products.motifs.grid:{chart_name}@{sha}:widened-x2")
 
 
 def _adjust_round(from_count: int, to_count: int) -> list:
@@ -762,8 +807,7 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None,
 
     `chart` and `size` come from a construction request; without them the title decides."""
     from ..creative.prototype import gauge_for
-    from ..products.vessels import (BASKET_SIZES, _disc_rounds, base_stitches_for,
-                                    hexagon_spans_cm)
+    from ..products.vessels import BASKET_SIZES, _disc_rounds, hexagon_spans_cm
 
     colours = list(dict.fromkeys(concept.colors))
     if len(colours) < 2 or len({concept.colors[c] for c in colours[:2]}) < 2:
@@ -782,21 +826,24 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None,
                          f"chart")
     chart = charts[chart_name]
     width = len(chart[0])
-    wanted = base_stitches_for(spec.across_cm, gauge)
-    base_count = max(12, int(round(wanted / 6)) * 6)        # six stacked increases
-    wall_count = max(width * 2, int(round(base_count / width)) * width)
+    if tapestry_counts(width, key, concept.yarn_weight) is None:
+        raise ValueError(f"{concept.slug}: the {chart_name!r} chart's {width}-stitch repeat "
+                         f"does not fit the {key} base within "
+                         f"{TAPESTRY_WALL_TOLERANCE:.0%}; the wall would pull in or flare")
+    counts = tapestry_counts(width, key, concept.yarn_weight, len(chart))
+    if counts is None:
+        raise ValueError(f"{concept.slug}: the {chart_name!r} chart is {len(chart)} rounds "
+                         f"tall and the {key} wall has no room for it between its plain "
+                         f"rounds")
+    base_count, wall_count = counts
     rows = _disc_rounds(base_count, main)
     row_cm = 10.0 / gauge.rows_per_10cm
-    wall_rounds = max(TAPESTRY_PLAIN_BELOW + TAPESTRY_PLAIN_RIM + len(chart),
-                      int(round(spec.tall_cm / row_cm)))
+    wall_rounds = int(round(spec.tall_cm / row_cm))
     band = wall_rounds - TAPESTRY_PLAIN_BELOW - TAPESTRY_PLAIN_RIM
     band -= band % len(chart)                           # whole chart repeats only
     below = (wall_rounds - band - TAPESTRY_PLAIN_RIM)
     index = rows[-1].index
     band_rows: list[int] = []
-    if band < len(chart):
-        raise ValueError(f"{concept.slug}: the {chart_name!r} chart is {len(chart)} rounds "
-                         f"tall and the {key} wall has room for {band}")
     for w in range(wall_rounds):
         index += 1
         if w == 0:

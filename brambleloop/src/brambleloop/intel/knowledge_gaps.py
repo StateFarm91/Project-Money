@@ -175,8 +175,9 @@ def evidence(db, *, today: date) -> dict:
         if not line or not engine:
             continue
         slug = _slug_of(artifact)
-        per[line]["construction_refusals"] += 1
+        # OPUS2R-7: a brief held again (a re-run of the same draft job) is one gap, not two.
         if slug not in per[line]["refused"]:
+            per[line]["construction_refusals"] += 1
             per[line]["refused"].append(slug)
         for u in engine:
             need = str(u.get("why") or "")

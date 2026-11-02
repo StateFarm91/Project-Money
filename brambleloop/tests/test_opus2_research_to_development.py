@@ -131,10 +131,14 @@ def test_part1_a_generic_form_winner_needs_a_silhouette_qualifier_from_research(
     assert row["concept"]["form"] == "pouch" and row["funnel"]["carried"] is True, row
     assert row["decision"] == "refused" and "silhouette" in row["gate"]["failed"], row["gate"]
     assert not T._jobs(db, "cir.draft")
-    # Product Development would build this brief: the registry resolves it with nothing held.
+    # Product Development reads this brief's construction (a pouch in the round) and holds it
+    # by name (OPUS2R-1): its title, "<name> Soft Pouch", promises words the plain drawstring
+    # pouch does not make, so research is asked for a title the construction can back.
     req = R.request_for(Concept(**{k: v for k, v in row["concept"].items()
                                    if k in Concept.__dataclass_fields__}))
-    assert req is not None and req.family == "pouch" and not req.unresolved, req
+    assert req is not None and req.family == "pouch", req
+    assert [u["field"] for u in req.unresolved] == ["title"], req
+    assert req.unresolved[0]["resolved_by"] == R.ENRICH, req
 
 
 def _ctx(db, concept: dict, brief: dict | None = None):
@@ -160,12 +164,14 @@ def test_part2_one_code_path_makes_materially_different_constructions_from_brief
     db = T._db()
     briefs = {
         # joined rounds, per-stitch colour from a library chart, carried strand
-        "tapestry": _brief("brief-heart-basket", "basket", "tapestry", "heart"),
+        "tapestry": _brief("brief-heart-basket", "basket", "tapestry", "heart",
+                            title="Heart Tapestry Basket"),
         # spiral-shaped stuffed pieces, a base disc, placed ears: a closed 3-D form
         "amigurumi": _brief("brief-bear-toy", "toy", "amigurumi_shaping", "bear",
-                            palette="caramel"),
+                            palette="caramel", title="Bear Amigurumi"),
         # a round vessel with an eyelet round bridged by chains and a threaded cord
-        "pouch": _brief("brief-soft-pouch", "pouch", "in_the_round", "soft"),
+        "pouch": _brief("brief-soft-pouch", "pouch", "in_the_round", "soft",
+                         title="Drawstring Pouch"),
     }
     cirs = {}
     assert len(briefs) == 3

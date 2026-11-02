@@ -233,7 +233,7 @@ MOTIF_DECLARATIONS: dict[str, dict] = {
            "basketweave": frozenset({"basketweave"}),
            "heart-row": frozenset({"heart", "hearts"}),
            "pumpkin-row": frozenset({"pumpkin", "pumpkins"}),
-           "tulip-trellis": frozenset({"flower", "flowers", "floral"}),
+           "tulip-trellis": frozenset({"tulip", "tulips"}),
        }.items()},
     "products.nordic_forest.MOTIF": {"backs": frozenset({"fir", "firs", "star", "stars", "tree",
                                                          "trees", "forest"}),

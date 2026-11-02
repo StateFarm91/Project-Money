@@ -48,6 +48,14 @@ ENGINE_BLOCKED: dict[str, str] = {
     "cable_panel": "post-stitch cables are not a construction any builder makes",
 }
 
+# OPUS2R-2: the size a title's words promise, and the families whose builder takes a size.
+TITLE_SIZE_WORDS = {"small": "small", "mini": "small", "tiny": "small", "bread": "small",
+                    "medium": "medium", "large": "large", "big": "large", "market": "large"}
+SIZED_FAMILIES = frozenset({"vessel", "tapestry"})
+# The radar category whose title route serves each family (`fallback_constructions.plan`).
+FAMILY_CATEGORY = {"vessel": "basket", "tapestry": "basket", "amigurumi": "amigurumi",
+                   "tote": "bag"}
+
 # Brief motif words a construction can actually make, per construction.
 AMIGURUMI_KINDS = {"bear": "bear", "teddy": "bear", "bunny": "bunny", "rabbit": "bunny"}
 SIZE_WORDS = ("small", "medium", "large")
@@ -86,6 +94,7 @@ def _words(text: str) -> list[str]:
 
 
 def _tapestry(req: ConstructionRequest) -> None:
+    from . import fallback_constructions as FC
     from .fallback_constructions import _chart_word, tapestry_charts
 
     backed = tapestry_charts()
@@ -98,7 +107,17 @@ def _tapestry(req: ConstructionRequest) -> None:
         req.hold("palette", "tapestry needs two distinct colours; the palette story names "
                             f"{len(req.palette)}")
         return
-    req.params["chart"] = charts.pop()
+    chart = charts.pop()
+    size = req.size or "medium"
+    grid = backed[chart]
+    if FC.tapestry_counts(len(grid[0]), size, req.yarn_weight, len(grid)) is None:
+        fits = [s for s in SIZE_WORDS
+                if FC.tapestry_counts(len(grid[0]), s, req.yarn_weight, len(grid))]
+        req.hold("size", (f"the {chart!r} chart does not fit the {size} basket: its repeat is "
+                          f"not within {FC.TAPESTRY_WALL_TOLERANCE:.0%} of the base, or it is "
+                          f"taller than the wall (fits: {fits or 'none'})"))
+        return
+    req.params["chart"] = chart
     if req.size:
         req.params["size"] = req.size
 
@@ -119,6 +138,66 @@ def _amigurumi(req: ConstructionRequest) -> None:
         req.hold("title", ("a toy brief's title names no child-audience word (toy, teddy, bear, "
                            "bunny, plush, amigurumi ...), so the children's-decision gate could "
                            "not see the drafted toy"))
+
+
+def title_route(family: str, title: str, key: str = "") -> dict:
+    """The radar fallback's own title route for a family (OPUS2R-1): the same construction-
+    intent allowlists (`tapestry_route`, `amigurumi_route`, `pouch_route`, the tote rules,
+    `_several_sizes`) the radar path applies, so a brief's title can promise nothing the
+    construction does not make."""
+    from . import fallback_constructions as FC
+
+    if family == "pouch":
+        promise = FC._several_sizes(FC._colour_count_free(key), FC._colour_count_free(title))
+        if promise:
+            return {"family": FC.REFUSED, "why": f"the title promises several sizes ({promise!r})"}
+        return FC.pouch_route(title)
+    return FC.plan(category=FAMILY_CATEGORY[family], title=title, slug=key)
+
+
+def _title_agrees(req: ConstructionRequest) -> None:
+    """Hold a request whose title names something other than what its brief resolves to."""
+    from .fallback_constructions import _chart_word
+
+    route = title_route(req.family, req.title, req.key)
+    if route.get("family") == "refused":
+        req.hold("title", (f"the title {req.title!r} promises what the {req.family} "
+                           f"construction does not make: {route.get('why')}"))
+        return
+    if route.get("family") != req.family:
+        req.hold("title", (f"the title {req.title!r} reads as a {route.get('family')} "
+                           f"({route.get('why')}), not the {req.family} the brief asks for; "
+                           f"research must title it as what it is"))
+        return
+    if req.family == "amigurumi" and req.params.get("kind") \
+            and route.get("kind") != req.params["kind"]:
+        req.hold("title", (f"the title names a {route.get('kind')} and the brief's motif a "
+                           f"{req.params['kind']}"))
+    if req.family == "tapestry" and req.params.get("chart"):
+        named = {_chart_word(w) for w in _words(req.title) if _chart_word(w)}
+        if named and named != {req.params["chart"]}:
+            req.hold("title", (f"the title names the {sorted(named)} chart and the brief's "
+                               f"motif the {req.params['chart']!r} chart"))
+
+
+def _sizes(req: ConstructionRequest) -> None:
+    """OPUS2R-2: the brief's size and the title's size words must agree, and a size is given
+    only to a construction that takes one."""
+    said = {TITLE_SIZE_WORDS[w] for w in _words(req.title) if w in TITLE_SIZE_WORDS}
+    if req.size and req.family not in SIZED_FAMILIES:
+        req.hold("size", (f"the {req.family} construction is drafted at one size (a tote "
+                          f"reads its title); the brief's size {req.size!r} would be ignored"),
+                 ENGINE)
+        return
+    if req.family not in SIZED_FAMILIES:
+        return
+    if len(said) > 1:
+        req.hold("title", f"the title names more than one size ({sorted(said)})")
+    elif said and req.size and said != {req.size}:
+        req.hold("size", (f"the brief's size {req.size!r} and the title's "
+                          f"{next(iter(said))!r} disagree"))
+    elif said:
+        req.size = next(iter(said))
 
 
 def _plain(req: ConstructionRequest) -> None:
@@ -156,12 +235,15 @@ def request_for(concept, brief: dict | None = None) -> ConstructionRequest | Non
     existing authoring path (`prototype.author`) then applies, unchanged."""
     from .garment_design import colours_of
 
-    brief = dict(brief or {})
+    malformed = brief is not None and not isinstance(brief, dict)
+    brief = {} if malformed else dict(brief or {})
     palette = dict(colours_of(getattr(concept, "palette_story", "") or ""))
     req = ConstructionRequest(
         key=concept.key, title=concept.title or concept.key, form=concept.form,
         construction=concept.construction, motif=concept.motif or "",
         palette=palette, yarn_weight=str(brief.get("yarn_weight") or "worsted"))
+    if malformed:
+        req.hold("brief", "the brief is not a mapping of fields")
     size = str(brief.get("size") or "").lower() or None
     if size is not None and size not in SIZE_WORDS:
         req.hold("size", f"the brief's size {size!r} is not one this repository sizes "
@@ -179,7 +261,11 @@ def request_for(concept, brief: dict | None = None) -> ConstructionRequest | Non
     if route is None:
         return None
     req.family, resolve = route
-    resolve(req)
+    _sizes(req)
+    if not req.unresolved:
+        resolve(req)
+    if not req.unresolved:
+        _title_agrees(req)
     return req
 
 
@@ -202,12 +288,11 @@ def build(req: ConstructionRequest, *, version: str = "1.0.0", provenance=None):
 
 def declared_primitives(req: ConstructionRequest) -> tuple[str, ...]:
     """What the built CIR must declare so the truth gates can back the brief's words: the
-    library motif a tapestry chart works (launch0.MOTIF_DECLARATIONS)."""
-    from .fallback_constructions import tapestry_motif_primitive
+    library motif a tapestry chart works (launch0.MOTIF_DECLARATIONS) and its grid hash."""
+    from .fallback_constructions import tapestry_chart_primitives
 
     if req.family == "tapestry" and req.params.get("chart"):
-        prim = tapestry_motif_primitive(req.params["chart"])
-        return (prim,) if prim else ()
+        return tapestry_chart_primitives(req.params["chart"])
     return ()
 
 

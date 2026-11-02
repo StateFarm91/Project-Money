@@ -835,9 +835,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             if lineage["known"]:
                 concept.source_provenance = lineage["source"]
                 concept.source_brief = lineage["brief"]
-                motif_prim = FC.tapestry_motif_primitive(
-                    FC._tapestry_chart(concept.title, concept.slug))
-                primitives = (FC.TAPESTRY_PRIMITIVES + ((motif_prim,) if motif_prim else ())
+                primitives = (FC.TAPESTRY_PRIMITIVES + FC.tapestry_chart_primitives(
+                                  FC._tapestry_chart(concept.title, concept.slug))
                               + tuple(p for p in lineage["primitives"]
                                       if p != "runtime.pipeline.concept_to_cir"))
                 provenance = source_provenance(
@@ -995,13 +994,14 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
         return {"artifact": slug, "drafted": False, "held": True, "gate": "brief",
                 "unresolved": req.unresolved}
     if req is not None:
-        provenance = source_provenance(
-            concept.key, concept.to_dict(), ctx.job.inputs.get("brief"),
-            registry.PRIMITIVES + (f"creative.fallback_constructions.{req.family}",)
-            + registry.declared_primitives(req))
         try:
+            # OPUS2R-4: a malformed brief's lineage is a named refusal, never a crashed job.
+            provenance = source_provenance(
+                concept.key, concept.to_dict(), ctx.job.inputs.get("brief"),
+                registry.PRIMITIVES + (f"creative.fallback_constructions.{req.family}",)
+                + registry.declared_primitives(req))
             cir = registry.build(req, version=version, provenance=provenance)
-        except ValueError as exc:
+        except (ValueError, PrototypeRefused) as exc:
             ctx.audit("cir.draft_refused", artifact=slug,
                       detail={"reason": str(exc)[:400], "gate": "construction",
                               "request": req.to_dict()})
