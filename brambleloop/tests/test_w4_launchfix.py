@@ -742,8 +742,14 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # The photo gate refuses only inside for_publish at activation; the other src users of
     # sample_photo only choose the truthful disclosure sentence. Internal callers of
     # for_publish (e.g. products.inventory) use the default draft stage.
+    # W5-INTEG1: match the module name as a whole word. A substring test also matched PDF1's
+    # unrelated `sample_photo_placeholders` keyword in publish/pdf.py, which never touches the
+    # sample_photo module. `\bsample_photo\b` still catches every import, attribute access
+    # and mention of the module itself.
+    import re as _re0
     users = sorted(str(p.relative_to(ROOT / "src")) for p in (ROOT / "src").rglob("*.py")
-                   if "sample_photo" in p.read_text() and p.name != "sample_photo.py")
+                   if _re0.search(r"\bsample_photo\b", p.read_text())
+                   and p.name != "sample_photo.py")
     # W-PHYSFIX-PHOTO: physical_upgrade reads the gate's own qualifying predicate to decide
     # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
     # gate) and never passes a stage.
