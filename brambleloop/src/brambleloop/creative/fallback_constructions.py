@@ -257,8 +257,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         # hosiery or a medical claim ("Compression Stocking"), a size or audience ("Baby
         # Stocking"), a motif, an embellishment or a count is refused whatever it is called.
         # The one contrast band the stocking does make is the four-row cuff (accent colour),
-        # so "Stripe Cuff" / "Contrast Cuff" names it truly; a striped body does not exist.
-        banded = re.sub(r"\b(?:stripe|striped|contrast|contrasting) cuff\b", "cuff", lowered_s)
+        # so "Contrast Cuff" names it truly. OPUS2Q-5: it is one solid band, so "Stripe(d)
+        # Cuff" is not admitted (it names stripes the cuff does not have).
+        banded = re.sub(r"\b(?:contrast|contrasting) cuff\b", "cuff", lowered_s)
         unknown = modifiers_outside(banded, _STOCKING_HEAD, _STOCKING_ALLOWED_WORDS)
         if unknown:
             return {"family": REFUSED,
@@ -432,6 +433,27 @@ _STOCKING_WORDS = r"\bstockings?\b"
 _STOCKING_HEAD = r"\bstockings?$"
 # Review OPUS2L-1: the only words a plain stocking title may carry before "stocking". Style
 # and occasion words only; no size, audience, colour pattern, motif, material or count.
+CUFF_MIN_DELTA_E = 10.0           # OPUS2Q-4: CIE76; below it two colours read as one
+
+
+def _lab(hex_colour: str) -> tuple[float, float, float]:
+    """sRGB hex to CIE L*a*b* (D65)."""
+    h = hex_colour.lstrip("#")
+    rgb = [int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+    x = (0.4124 * lin[0] + 0.3576 * lin[1] + 0.1805 * lin[2]) / 0.95047
+    y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    z = (0.0193 * lin[0] + 0.1192 * lin[1] + 0.9505 * lin[2]) / 1.08883
+    f = [v ** (1 / 3) if v > 0.008856 else 7.787 * v + 16 / 116 for v in (x, y, z)]
+    return 116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])
+
+
+def delta_e(a: str, b: str) -> float:
+    """CIE76 colour difference between two hex colours."""
+    la, lb = _lab(a), _lab(b)
+    return sum((p - q) ** 2 for p, q in zip(la, lb)) ** 0.5
+
+
 _STOCKING_ALLOWED_WORDS = frozenset({
     "christmas", "xmas", "holiday", "festive", "classic", "traditional", "fireside", "cosy",
     "cozy", "plain", "simple", "crochet", "crocheted", "everyday", "hanging", "modern",
@@ -467,11 +489,15 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     palette = list(concept.colors)
     if not palette:
         raise ValueError(f"{concept.slug}: a stocking needs at least one colour")
-    # OPUS2O-6: a "Contrast/Stripe Cuff" title is true only when the cuff is a second colour.
-    if re.search(r"\b(?:stripe|striped|contrast|contrasting) cuff\b", fold_title(concept.title)) \
-            and len({concept.colors[c] for c in palette[:2]}) < 2:
-        raise ValueError(f"{concept.slug}: the title promises a contrast cuff and the palette "
-                         f"has one colour, so the cuff would be the body colour")
+    # OPUS2O-6 / OPUS2Q-4: a "Contrast Cuff" title is true only when the cuff is a second
+    # colour a buyer can see: at least CUFF_MIN_DELTA_E apart (which also reads one hex in two
+    # cases, or under two names, as one colour).
+    if re.search(r"\b(?:contrast|contrasting) cuff\b", fold_title(concept.title)):
+        hexes = [str(concept.colors[c]) for c in palette[:2]]
+        if len(hexes) < 2 or delta_e(hexes[0], hexes[1]) < CUFF_MIN_DELTA_E:
+            raise ValueError(f"{concept.slug}: the title promises a contrast cuff and the "
+                             f"palette's first two colours are not visibly different, so the "
+                             f"cuff would read as the body colour")
     per_cm = gauge.stitches_per_10cm / 10.0
     rows_per_cm = gauge.rows_per_10cm / 10.0
     leg_w = max(10, int(round(STOCKING_LEG_W_CM * per_cm)))

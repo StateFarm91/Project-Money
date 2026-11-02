@@ -34,8 +34,9 @@ def _concept(title="Classic Christmas Stocking", category="stocking"):
 
 
 def test_plain_stockings_route_and_unbacked_titles_are_refused_by_name():
+    # OPUS2Q-5: "Stripe Cuff" moved to the refused pins below (the cuff is one solid band).
     plain = (("stocking", "Classic Christmas Stocking"), ("seasonal", "Fireside Stocking"),
-             ("stocking", "Stripe Cuff Holiday Stocking"))
+             ("stocking", "Contrasting Cuff Holiday Stocking"))
     assert plain
     for category, title in plain:
         assert F.plan(category=category, title=title)["family"] == F.STOCKING, title
@@ -181,6 +182,33 @@ def test_review_opus2o_contrast_cuff_needs_two_colours_and_the_pet_fold_is_pinne
     assert F.plan(category="stocking", title="Solid Christmas Stocking")["family"] == F.REFUSED
     for title in ("Cat\u2011Bed", "Cat\u2012Bed", "Cat\u2212Bed", "\uff23at Bed"):
         assert F.plan(category="pet", title=title)["family"] == F.VESSEL, title
+
+
+
+def test_review_opus2q_a_contrast_cuff_is_visibly_two_colours_and_is_not_called_striped():
+    """OPUS2Q-4: one colour written in two cases, or two colours a buyer cannot tell apart, is
+    no contrast cuff. OPUS2Q-5: the cuff is one solid band, so "Stripe(d) Cuff" is refused.
+    OPUS2Q-6: the two-names-one-hex case and "striped" in the guard are pinned."""
+    def built(colours):
+        c = _concept("Contrast Cuff Christmas Stocking")
+        c.colors = colours
+        try:
+            F.stocking(c)
+        except ValueError as exc:
+            assert "contrast cuff" in str(exc), exc
+            return False
+        return True
+
+    for colours in ({"pine": "#244A3A", "pine2": "#244a3a"},      # one colour, two cases
+                    {"cream": "#EFE6D2", "ivory": "#EFE6D3"},      # delta E 0.5
+                    {"pine": "#244A3A", "forest": "#244A3A"}):     # two names, one hex
+        assert built(colours) is False, colours
+    assert built({"pine": "#244A3A", "berry": "#B23A3A"}) is True
+    assert F.delta_e("#244A3A", "#B23A3A") >= F.CUFF_MIN_DELTA_E > F.delta_e("#EFE6D2", "#EFE6D3")
+    for title in ("Striped Cuff Christmas Stocking", "Stripe Cuff Holiday Stocking"):
+        assert F.plan(category="stocking", title=title)["family"] == F.REFUSED, title
+    assert F.plan(category="stocking",
+                  title="Contrast Cuff Christmas Stocking")["family"] == F.STOCKING
 
 
 if __name__ == "__main__":
