@@ -1019,6 +1019,13 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX2.md",
         "started": "2026-11-02T20:32:06Z",
         "requested_by": "[CODEX] CHECKPOINT in issue #28 comment 6587751033"
+      },
+      {
+        "id": "A4A-REVIEW",
+        "subject": "opus2/a4a-research-to-concept 3dc3e68c (code fee061e5)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A4A_3dc3e68c.md",
+        "started": "2026-11-02T20:37:05Z",
+        "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6587808069 (20:34:19Z)"
       }
     ]
   },
@@ -1859,7 +1866,7 @@
       "id": "A4a",
       "owner": "opus2",
       "priority": 2,
-      "branch": "claude/w5-A4a-research-to-concept",
+      "branch": "opus2/a4a-research-to-concept",
       "requirement": "research brief / coverage gap -> new concept outside the 34 -> cir.draft; durable continuation",
       "state": "handoff_pending",
       "integration_target": "claude/w5-INTEG1",
