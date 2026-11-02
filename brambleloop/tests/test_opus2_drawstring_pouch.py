@@ -105,6 +105,36 @@ def test_openings_inside_a_repeat_are_measured_and_a_tight_cord_is_refused():
     assert assembly.assemble(cir, twins).joins[0].verdict == "mismatched"
 
 
+def test_review_opus2p_even_eyelets_and_clear_wording():
+    """OPUS2P-5: an even eyelet count (both ends exit neighbouring eyelets outside), at least
+    six; OPUS2P-6: the next round says 2 sc in each ch-2 space; each yarn says what it is for."""
+    for weight in ("dk", "worsted", "bulky"):
+        concept = _concept()
+        concept.yarn_weight = weight
+        try:
+            cir = F.pouch(concept)
+        except ValueError as exc:
+            assert "eyelets" in str(exc), (weight, exc)
+            continue
+        eyelet = next(r for r in cir.components[0].rows
+                      if any(isinstance(o, Repeat) and any(getattr(x, "spans", 0) for x in o.ops)
+                             for o in r.ops))
+        n = eyelet.ops[0].times
+        assert n % 2 == 0 and n >= F.POUCH_MIN_EYELETS, (weight, n)
+        assert "neighbouring eyelets on the outside" in cir.assembly[0].note
+        assert "2 sc into each ch-2 space" in eyelet.note, eyelet.note
+        names = [m.name for m in cir.materials]
+        assert len(set(names)) == len(names) and any("cord" in n for n in names), names
+    jumbo = _concept()
+    jumbo.yarn_weight = "jumbo"
+    try:
+        F.pouch(jumbo)
+    except ValueError as exc:
+        assert "eyelets" in str(exc)
+    else:
+        raise AssertionError("a pouch with too few eyelets to gather was drafted")
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

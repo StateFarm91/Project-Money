@@ -1429,6 +1429,11 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
     "kids", "crib", "cot", "lovey", "amigurumi",
+    # OPUS2P-1: a stuffed toy is a children's-product decision whatever its title calls it.
+    # The fallback amigurumi route drafts only titles naming one of these, so every toy it
+    # drafts reaches the renderer's undecided-children's refusal.
+    "toy", "toys", "plush", "plushie", "stuffie", "softie", "teddy", "bear", "bunny",
+    "rabbit",
 )
 
 
