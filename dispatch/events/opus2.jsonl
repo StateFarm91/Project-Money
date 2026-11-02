@@ -41,3 +41,4 @@
 {"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A4b", "event": "review_requested", "sha": "e230545c"}
 {"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A6", "event": "checkpoint", "sha": "8c131f10", "note": "retention decisions for lesson.design_approved/acted_on"}
 {"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A8", "event": "checkpoint", "sha": "4f99bd8f", "note": "retention decisions; cost_governance_wave2 green"}
+{"at": "2026-11-02T21:47:04Z", "worker": "opus2", "assignment": "A8", "event": "review_requested", "sha": "4f99bd8f"}
