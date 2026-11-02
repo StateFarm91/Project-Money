@@ -34,7 +34,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.0"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.1"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+# 3.1.1 (W5-V1): ribbing needs a repeating loop/post pattern (one back-loop crease round is not
+# ribbing); fabric facts add colour bands, the polygon side count and the final round/rim.
 # Texture before the symbolic chart: it has priority (owner directive after the reading-nook
 # test); the chart is kept for stitch placement.
 ROLES: tuple[str, ...] = ("layout", "texture", "detail", "rules")
@@ -158,9 +160,8 @@ def fabric_facts(cir, parts=None) -> dict:
     rows = _rows_of(twin)
     unit = "round" if is_round else "row"
     colours = dict(cir.colors)
-    loops = {getattr(c, "loop", "both") for c in twin.cells}
     used = {c.stitch for c in twin.cells}
-    ribbing = bool(loops - {"both"}) or {"fpdc", "bpdc"} <= used
+    ribbing = _ribbing(comp, rows, used)
     named = " ".join([c.name for c in cir.components]
                      + [str(a) for a in (cir.to_dict().get("assembly") or [])]).lower()
     edging = any(w in named for w in ("edging", "border", "trim", "fringe"))
@@ -202,10 +203,127 @@ def fabric_facts(cir, parts=None) -> dict:
                   "last_row": cable_rows[-1], "rows_with_crossings": len(cable_rows)}
     changes = [i + 1 for i in range(1, len(rows))
                if {c.color for c in rows[i]} != {c.color for c in rows[i - 1]}]
+    ground, colour_bands = _colour_bands(rows, colours, unit)
+    sides = getattr(twin, "sides", None) if is_round else None
     return {"component": comp.name, "unit": unit, "rows": len(rows), "craft": "crochet",
             "stitches": sorted(used), "ribbing_declared": ribbing,
             "edging_declared": edging, "end_bands": bands, "cables": cables,
-            "colour_change_rows": changes}
+            "colour_change_rows": changes,
+            "ground_colour": ground, "colour_bands": colour_bands,
+            "colour_layout": _colour_layout(rows, colour_bands, taxonomy),
+            "polygon": ({"sides": int(sides), "name": _POLYGON.get(int(sides),
+                                                                   f"{int(sides)}-sided polygon"),
+                         "basis": "cir.geometry.corners: every increase round stacks"}
+                        if sides and sides >= 3 else None),
+            "piece_shape": (twin.shape or twin.outline or None),
+            "final_round": _final_round(rows, colours, unit, edging)}
+
+
+_POLYGON = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 7: "heptagon",
+            8: "octagon"}
+# A row whose note says it is a crease or fold line is construction, not a fabric pattern.
+_FOLD_WORDS = ("fold", "crease")
+
+
+def _ribbing(comp, rows, used) -> bool:
+    """Whether the fabric is ribbed, from the cells (W5-V1, audit P0-d).
+
+    Ribbing is a *repeating* pattern: front and back post stitches worked together, or a
+    loop-only stitch (back or front loop) worked on a regular repeat of rows -- every row or
+    every other row -- across at least two rows. One loop-only round is not ribbing: the basket's
+    single back-loop round is the crease its base folds along, and a row whose note names a
+    fold or crease is construction, never counted."""
+    if {"fpdc", "bpdc"} <= used:
+        return True
+    notes = {int(r.index): str(getattr(r, "note", "") or "").lower()
+             for r in getattr(comp, "rows", []) or []}
+    loop_rows = []
+    for i, row in enumerate(rows):
+        if not any(getattr(c, "loop", "both") != "both" for c in row):
+            continue
+        idx = getattr(row[0], "row", i + 1)
+        if any(w in notes.get(int(idx), "") for w in _FOLD_WORDS):
+            continue
+        loop_rows.append(i + 1)
+    if len(loop_rows) < 2:
+        return False
+    gaps = {b - a for a, b in zip(loop_rows, loop_rows[1:])}
+    return len(gaps) == 1 and next(iter(gaps)) <= 2
+
+
+def _row_colour(row) -> str | None:
+    cols = {c.color for c in row}
+    return next(iter(cols)) if len(cols) == 1 else None
+
+
+def _colour_bands(rows, colours: dict, unit: str) -> tuple[str | None, list[dict] | None]:
+    """(ground colour, contrast bands) read from whole-row colours (W5-V1, audit P1-b).
+
+    A band is a maximal run of consecutive rows/rounds worked wholly in one colour other than
+    the ground, where the ground is the colour most rows are worked in (ties: palette order).
+    A row worked in more than one colour is colourwork, not a stripe: the layout is then
+    charted, and (None, None) is returned rather than a guess. One colour throughout gives
+    (that colour, [])."""
+    if rows and all(c.color is None for r in rows for c in r):
+        return None, []                      # no palette: one undeclared colour, no stripes
+    per = [_row_colour(r) for r in rows]
+    if not per or any(c is None for c in per):
+        return None, None
+    order = list(colours) + sorted({c for c in per if c not in colours})
+    counts = {c: per.count(c) for c in set(per)}
+    ground = max(counts, key=lambda c: (counts[c], -order.index(c)))
+    bands: list[dict] = []
+    for i, c in enumerate(per):
+        if c == ground:
+            continue
+        n = i + 1
+        if bands and bands[-1]["colour"] == c and bands[-1]["span"][1] == n - 1:
+            bands[-1]["span"][1] = n
+        else:
+            bands.append({"colour": c, "hex": colours.get(c), "span": [n, n]})
+    for b in bands:
+        b[f"{unit}s"] = list(b["span"])
+        b["count"] = b["span"][1] - b["span"][0] + 1
+    return ground, bands
+
+
+def _colour_layout(rows, colour_bands, taxonomy) -> str:
+    """How the colour reads on the surface, for the prompt (W5-V1):
+
+    * ``single_colour``: every row/round in one colour, no bands;
+    * ``stripes``: whole-row bands *and* every row worked at one stitch height, so a band is
+      seen as a stripe;
+    * ``charted``: anything else -- colourwork rows, or rows mixing stitch heights (mosaic and
+      relief fabrics drop taller stitches over the row below, so a row's yarn is not what the
+      surface shows). The colour layout is then the chart's, and no stripe is stated."""
+    if colour_bands is None:
+        return "charted"
+    if not colour_bands:
+        return "single_colour"
+    for row in rows:
+        heights = set()
+        for c in row:
+            try:
+                heights.add(taxonomy.get(c.stitch).row_height)
+            except Exception:  # noqa: BLE001 - an unknown stitch: say nothing about stripes
+                return "charted"
+        if len(heights) > 1:
+            return "charted"
+    return "stripes"
+
+
+def _final_round(rows, colours: dict, unit: str, edging: bool) -> dict | None:
+    """The last row/round as worked: its stitch, colour and whether it is plain (one stitch
+    type, one colour, both loops) with no edging declared -- a vessel's top rim."""
+    if not rows:
+        return None
+    last = rows[-1]
+    sts = {c.stitch for c in last}
+    col = _row_colour(last)
+    loops = {getattr(c, "loop", "both") for c in last}
+    plain = len(sts) == 1 and col is not None and loops == {"both"} and not edging
+    return {unit: len(rows), "stitch": next(iter(sts)) if len(sts) == 1 else None,
+            "colour": col, "hex": colours.get(col) if col else None, "plain": plain}
 
 
 def negatives(facts: dict) -> list[str]:

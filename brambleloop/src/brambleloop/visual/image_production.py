@@ -411,7 +411,22 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
             "listing": r.listing, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
             "laura_present": r.laura_present, "outfit_id": r.outfit_id or None,
-            "fidelity": _fidelity_summary(r.checks)}
+            "fidelity": _fidelity_summary(r.checks),
+            "structural": structural_failure(r.checks) if r.technical_status == "FAIL"
+            else None}
+
+
+def structural_failure(checks: dict | None) -> str | None:
+    """The named reason a FAILed candidate cannot be fixed by regenerating it, or None.
+
+    W5-V1 (audit P0-a): a LIFESTYLE candidate's `lifestyle_evidence` FAILs because its
+    references are pattern-derived (classed informational: a chart), and a regeneration uses
+    the same references, so it cannot pass. `candidate_gates.lifestyle_reading` names that as
+    `structural`; this reads it back from the stored checks."""
+    le = ((checks or {}).get("product_truth") or {}).get("lifestyle_evidence") or {}
+    if le.get("status") == "FAIL" and le.get("structural"):
+        return str(le["structural"])
+    return None
 
 
 def _fidelity_summary(checks: dict | None) -> dict:
@@ -979,6 +994,21 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                         reverify(db, b["candidate_id"], judges=judges, exp=exp)
             per = {r["role"]: _best(db, listing=run["listing"], role=r["role"], run=key)
                    for r in roles}
+            structural = {r["role"]: per[r["role"]]["structural"] for r in roles
+                          if (per[r["role"]] or {}).get("technical_status") == "FAIL"
+                          and (per[r["role"]] or {}).get("structural")
+                          and _repair_for(per[r["role"]]) is None}
+            if structural and exp is None:
+                # W5-V1 (audit P0-a): a failure no regeneration can change blocks the run
+                # here, named, instead of buying repairs that cannot pass. Experiments keep
+                # going to their owner card: they never repair it either (see below).
+                why = "; ".join(f"{role}: {reason}" for role, reason in sorted(
+                    structural.items()))
+                return block(f"{why} (structural: the references are pattern-derived, so a "
+                             f"regeneration cannot change this; a qualified photographic "
+                             f"reference or an owner policy decision is needed)",
+                             exhausted=True, record={"evidence": per,
+                                                     "structural": structural})
             failing = [r for r in roles if (per[r["role"]] or {}).get("technical_status")
                        == "FAIL" and _attempts(db, key, r["role"]) < max_att
                        and _repair_for(per[r["role"]]) is not None
@@ -1461,7 +1491,9 @@ def _repick_outfit(db, listing: str, current: str) -> dict:
 
 def _repair_for(best: dict | None) -> dict | None:
     """Targeted repair for a failed candidate, or None when it cannot be repaired by
-    regeneration (an unrouted code). Codes from the shared Product Truth set route to prompt
+    regeneration (an unrouted code, or a structural failure such as a LIFESTYLE
+    `lifestyle_evidence` FAIL on a chart reference with no routable code beside it: see
+    `structural_failure`). Codes from the shared Product Truth set route to prompt
     negatives or a reference change. Other failures (identity, outfit, body proportions,
     quality) are regenerated with the same canonical references, and nothing is waived."""
     from . import repair_routes
@@ -1471,6 +1503,11 @@ def _repair_for(best: dict | None) -> dict | None:
     codes = [c for c in cats if c in shared or c.isupper()]
     routed = repair_routes.route(codes)
     if routed["unrouted"]:
+        return None
+    if (best or {}).get("structural") and not routed["directives"]:
+        # W5-V1 (audit P0-a): the failure is structural and nothing routable is left, so the
+        # "repair" would be a blind re-roll of a candidate that cannot pass: never bought.
+        # A routable code on the same candidate (e.g. a wardrobe repair) is still repaired.
         return None
     return {"codes": codes, "directives": routed["directives"],
             "stays_unknown": routed["stays_unknown"],

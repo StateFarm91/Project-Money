@@ -20,7 +20,9 @@ from typing import Mapping, Sequence
 
 from ..gateway import prompts
 
-BUILDER_VERSION = "flux3-prompt-builder/2.0.0"
+# 2.1.0 (W5-V1): PRODUCT v3 states the CIR's shape (polygon side count), colour bands and final
+# round/rim explicitly; the AI flat lay is labelled as AI-generated, never a photograph.
+BUILDER_VERSION = "flux3-prompt-builder/2.1.0"
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -65,7 +67,7 @@ REFERENCE_CLOTHING = prompts.register(prompts.Prompt(
     name="image.flux3.reference_clothing", version="1", **_IMG, template=(
         "LAURA MUST NOT WEAR: {negatives}.")))
 
-PRODUCT = prompts.register(prompts.Prompt(
+PRODUCT_V2 = prompts.register(prompts.Prompt(
     name="image.flux3.product", version="2", **_IMG, template=(
         "PRODUCT: {title}, Brambleloop {slug} version {version} (release {release}), shown "
         "exactly as in {layout} (complete product: shape, colour placement, proportions and "
@@ -74,6 +76,22 @@ PRODUCT = prompts.register(prompts.Prompt(
         "technical rules are in {rules}. "
         "Construction: {construction}. Pieces: {pieces}. Size: {size}. Colours, exact and "
         "only these: {colours}. Stitches: {stitches}. {assembly}Never add: {prohibited}.")))
+
+# Version 3 (W5-V1, audit P1-b): the shape, the colour layout and the edge were only implied
+# (a size note, "colour changes anywhere except rounds ..."). They are now stated, each derived
+# from the certified CIR by `pattern_refs.fabric_facts`: the polygon side count from
+# `cir.geometry.corners`, whole-row colour bands, and the final round/row as worked. Version 2
+# stays registered and immutable.
+PRODUCT = prompts.register(prompts.Prompt(
+    name="image.flux3.product", version="3", **_IMG, template=(
+        "PRODUCT: {title}, Brambleloop {slug} version {version} (release {release}), shown "
+        "exactly as in {layout} (complete product: shape, colour placement, proportions and "
+        "pieces). The fabric looks exactly like {texture}: real crochet, its stitch posts, "
+        "top loops and crossings at true scale. Stitch placement is charted in {detail}; the "
+        "technical rules are in {rules}. "
+        "Construction: {construction}. Pieces: {pieces}. Size: {size}. Shape: {shape}. "
+        "Colours, exact and only these: {colours}. Colour layout: {colour_layout}. "
+        "Edge: {edge}. Stitches: {stitches}. {assembly}Never add: {prohibited}.")))
 
 # Category-aware prohibitions derived from the CIR (`pattern_refs.negatives`): always "crochet,
 # not knitting"; no ribbing or edging unless declared; end bands exactly as declared; exact
@@ -162,6 +180,71 @@ def _size(rules: dict) -> str:
     return "true to the layout reference's proportions"
 
 
+def _span(unit: str, a: int, b: int) -> str:
+    return f"{unit} {a}" if a == b else f"{unit}s {a}-{b}"
+
+
+def _colour_name(cid: str | None, hexval: str | None) -> str:
+    return f"{cid} {hexval}" if hexval else str(cid or "the yarn colour")
+
+
+def _shape(rules: Mapping) -> str:
+    """The piece's shape, from the CIR geometry (W5-V1). Nothing is said that the CIR does
+    not establish: a polygon only when every increase round stacks."""
+    f = rules.get("fabric") or {}
+    poly, kind = f.get("polygon"), f.get("piece_shape")
+    if poly:
+        n, name = poly["sides"], poly["name"]
+        if kind == "vessel":
+            return (f"a vessel with a flat {n}-sided ({name}) base: exactly {n} corners "
+                    f"where the increases stack, and walls rising from it")
+        return f"a flat {n}-sided {name} with exactly {n} corners where the increases stack"
+    if kind == "vessel":
+        return "a vessel: a flat base and walls rising from it, as in the layout reference"
+    if kind:
+        return f"{kind}, as in the layout reference"
+    return "as in the layout reference"
+
+
+def _colour_layout(rules: Mapping, detail: str) -> str:
+    """Stripes stated exactly, or the chart named when the surface is not stripes (W5-V1)."""
+    f = rules.get("fabric") or {}
+    layout, unit = f.get("colour_layout"), f.get("unit") or "row"
+    hexes = {c["id"]: c.get("hex") for c in rules.get("colours") or []}
+    ground = f.get("ground_colour")
+    if layout == "single_colour":
+        return (f"{_colour_name(ground, hexes.get(ground))} throughout"
+                if ground else "one colour throughout") + "; no stripes or colour blocks"
+    if layout != "stripes":
+        return f"exactly as charted in {detail}"
+    bands = f.get("colour_bands") or []
+    groups: dict[tuple, list] = {}
+    for b in bands:
+        groups.setdefault((b["colour"], b["count"]), []).append(b)
+    parts = []
+    for (col, cnt), bs in groups.items():
+        where = " and ".join(_span(unit, b["span"][0], b["span"][1]) for b in bs[:6])
+        more = f" and {len(bs) - 6} more" if len(bs) > 6 else ""
+        parts.append(f"{len(bs)} {col} stripe{'s' if len(bs) > 1 else ''} of {cnt} "
+                     f"{unit}{'s' if cnt > 1 else ''}{' each' if len(bs) > 1 else ''} "
+                     f"({where}{more})")
+    return (f"{_colour_name(ground, hexes.get(ground))} ground with " + "; ".join(parts)
+            + f"; {len(bands)} stripe{'s' if len(bands) != 1 else ''} in total, no others")
+
+
+def _edge(rules: Mapping) -> str:
+    """The final round/row as worked, named plainly when it is plain (W5-V1)."""
+    f = rules.get("fabric") or {}
+    last, unit = f.get("final_round") or {}, f.get("unit") or "row"
+    if not last or not last.get("plain") or f.get("edging_declared"):
+        return "exactly as charted"
+    where = ("the top rim is" if f.get("piece_shape") == "vessel" else "the outer edge is"
+             if unit == "round" else "the last row is")
+    hexes = {c["id"]: c.get("hex") for c in rules.get("colours") or []}
+    return (f"{where} the plain final {unit} ({unit} {last.get(unit)}) of {last['stitch']} in "
+            f"{_colour_name(last['colour'], hexes.get(last['colour']))}, with no edging")
+
+
 def _outfit_text(outfit: Mapping) -> str:
     g = dict(outfit.get("garments") or {})
     if g:
@@ -214,7 +297,8 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         "body", "product_layout": "certified product layout", "product_texture": "certified "
         "crochet stitch texture close-up", "product_detail": "certified stitch chart", "product_rules": "certified technical rules",
         "product_combined": "certified product sheet (layout, texture, chart and rules, top "
-        "to bottom)", "product_candidate": "approved product photograph of this exact product",
+        "to bottom)", "product_candidate": "AI-generated product-only flat lay of this exact "
+        "product (verified against the pattern)",
         "base": "the image to edit", "outfit": "the outfit", "supplementary": "supplementary "
         "context", "identity_anchor": "Laura in this listing's outfit (identity context only; "
         "the canonical images decide who she is)"}
@@ -250,7 +334,9 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         construction=f"{rules['construction']}, gauge {rules['gauge']['stitches_per_10cm']} "
                      f"sts x {rules['gauge']['rows_per_10cm']} rows per 10 cm in "
                      f"{rules['gauge']['stitch']}",
-        pieces=_pieces(rules), size=_size(rules), colours=colours,
+        pieces=_pieces(rules), size=_size(rules).rstrip(". "), colours=colours,
+        shape=_shape(rules), colour_layout=_colour_layout(rules, _img(pos["product_detail"])),
+        edge=_edge(rules),
         stitches=", ".join(rules.get("stitches") or []) or "as charted",
         assembly=assembly, prohibited="; ".join(rules["prohibited_additions"])))
     used.append(PRODUCT)

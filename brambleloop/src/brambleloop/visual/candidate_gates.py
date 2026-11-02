@@ -374,7 +374,7 @@ def _anchor_of(db, cand: dict, release: str):
 
 def lifestyle_reading(cand: dict, bind: dict) -> dict:
     """`compose.lifestyle_evidence` on what is known about a generated image."""
-    from .compose import lifestyle_evidence
+    from .compose import INFORMATIONAL_REFERENCES, lifestyle_evidence
 
     kinds = {r.get("kind") for r in cand.get("references") or []}
     rclass = ("physical_product_photo" if "physical_product_photo" in kinds else
@@ -383,7 +383,13 @@ def lifestyle_reading(cand: dict, bind: dict) -> dict:
                       "pdf_version": cand.get("version"), "pieces": bind.get("pieces"),
                       "cir_fingerprint": bind.get("cir_fingerprint")},
           "reference": {"class": rclass, "product_version": cand.get("version")}}
-    return lifestyle_evidence(ev)
+    out = lifestyle_evidence(ev)
+    # W5-V1 (audit P0-a): an informational reference class FAILs whatever the image shows, so
+    # no regeneration with the same references can change it. It is named as structural so
+    # the repair router never buys a regeneration for it. The policy itself is untouched.
+    if out.get("status") == FAIL and rclass in INFORMATIONAL_REFERENCES:
+        out = {**out, "structural": f"lifestyle_evidence: {rclass} reference"}
+    return out
 
 
 # ---- the one evaluation ------------------------------------------------------------------
