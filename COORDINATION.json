@@ -1066,6 +1066,13 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_A2F.md",
         "started": "2026-11-02T21:13:50Z",
         "requested_by": "#28 6588404114"
+      },
+      {
+        "id": "CODEX3-QUEUED",
+        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707",
+        "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
+        "started": null,
+        "note": "starts when CODEX2 reports (one Codex review at a time)"
       }
     ]
   },
