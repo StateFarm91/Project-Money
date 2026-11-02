@@ -110,7 +110,14 @@ def _identity(slug: str, cir: dict) -> dict:
 
     out = {"risk_class": cir.get("risk_class"), "title_in_pattern": cir.get("title"),
            "childrens_decision": None, "product_truth": None}
-    decision, err = _try(launch0.childrens_decision, slug)
+    # A1R-6: the construction-aware decision the renderer holds on, never the raw one, so a
+    # listing cannot say "not_for_children" for a stuffed form whose documents are held.
+    def _decision(slug_):
+        from ..cir.model import CIR
+
+        return (launch0.childrens_decision_for(CIR.from_dict(cir)) if cir
+                else launch0.childrens_decision(slug_))
+    decision, err = _try(_decision, slug)
     out["childrens_decision"] = (list(decision) if isinstance(decision, tuple)
                                  else (decision if err is None else f"UNKNOWN: {err}"))
     cand = next((c for c in launch0.CANDIDATES

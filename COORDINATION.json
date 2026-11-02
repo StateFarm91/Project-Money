@@ -288,6 +288,15 @@
       "area": "A2 P0-NAME-OBJECT",
       "claimed": "2026-11-02T15:40Z",
       "scope": "shared name/object contract in creative/fallback_constructions.plan (all routes), motif_promise in eligibility.name_truth for non-catalogue products"
+    },
+    {
+      "id": "OPUS2-A1R-CHILD-SAFETY-CORE",
+      "operator": "opus2",
+      "branch": "opus2/p0-child-safety-core",
+      "state": "ready_for_review",
+      "area": "A1-R P0-SAFETY-CHILDREN (architectural correction)",
+      "claimed": "2026-11-02T19:40Z",
+      "scope": "shared safety code only: launch0 children's gate (closed_stuffed_form, childrens_decision_for, NOT_MERCHANDISED entries, child_words_in fold, survey), products/text_fold, gates/small_parts, publish/pdf children's refusal"
     }
   ],
   "unowned": [
