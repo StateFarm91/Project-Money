@@ -144,9 +144,30 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                             f"low-walled basket bed does not make")}
         return {"family": VESSEL, "needs": "",
                 "why": "a pet basket bed is a wide vessel with a low wall, worked in the round"}
-    if category == "stocking" or re.search(_STOCKING_WORDS, (title or "").lower()):
-        lowered_s = (title or "").lower()
+    lowered_s = (title or "").lower().strip()
+    stocking_head = re.search(_STOCKING_HEAD, lowered_s)
+    if category == "stocking" and not stocking_head:
+        # OPUS2J J-13: the category alone never makes a stocking out of another product.
+        return {"family": REFUSED,
+                "needs": "a stocking title, or the construction the title names",
+                "why": (f"category 'stocking' but the title {title!r} names another product; "
+                        f"the stocking rule drafts only a stocking")}
+    if stocking_head:
         rest = re.sub(_STOCKING_WORDS, "", lowered_s)
+        # OPUS2J J-14: one release is one stocking; a motif word the plain stocking does not
+        # carry is refused (the fallback declares no motif, so name_truth cannot back it).
+        if re.search(r"\bstockings\b", lowered_s):
+            return {"family": REFUSED,
+                    "needs": "one certified release per finished stocking, each listed on its own",
+                    "why": "the title promises more than one stocking; one draft is one stocking"}
+        from ..products.launch0 import MOTIF_WORDS
+
+        motif = next((w for w in re.findall(r"[a-z]+", rest) if w in MOTIF_WORDS), None)
+        if motif:
+            return {"family": REFUSED,
+                    "needs": f"a charted {motif!r} motif on the stocking (a declared motif)",
+                    "why": (f"the title names the motif {motif!r}, which the plain stocking "
+                            f"does not carry")}
         extra = re.search(_STOCKING_NOT_PLAIN, rest)
         if extra:
             return {"family": REFUSED,
@@ -319,10 +340,14 @@ def triangle(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 # rounds off by a decrease at each end of the last rows. One design size; the listing states
 # the computed dimensions, never a measured one.
 _STOCKING_WORDS = r"\bstockings?\b"
+# OPUS2J J-13: "stocking" must be the head noun (the title's last word), so "Stocking Stitch
+# Blanket", "Stocking Garland", "Stocking Holder", "Stocking Cap" and "Stocking Tote" are never
+# drafted as a stocking.
+_STOCKING_HEAD = r"\bstockings?$"
 _STOCKING_NOT_PLAIN = (r"(?:[&+]|\b(?:and|with|mosaic|fair[- ]?isle|tapestry|colou?rwork|"
                        r"intarsia|graphghan|personali[sz]ed|monogram(?:med)?|name|initials?|"
                        r"cable[sd]?|bobble[sd]?|lace|lacy|pom[- ]?poms?|fur|faux|cuffed|"
-                       r"appliqu[eé]|mini|tiny|small|large|giant|jumbo|xl|oversized?)\b)")
+                       r"appliqu[eé]|mini|tiny|small|medium|large|giant|jumbo|xl|oversized?)\b)")
 STOCKING_PRIMITIVES = ("creative.fallback_constructions.stocking",)
 STOCKING_LEG_W_CM = 14.0
 STOCKING_LEG_L_CM = 26.0
@@ -399,7 +424,8 @@ def stocking(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     assembly = [
         Seam("whipstitch", "front", "back", edge_a="perimeter", edge_b="perimeter",
              at_round=1, spans_rounds=len(rows),
-             note=("Hold the panels wrong sides together and whipstitch around the leg, heel, "
+             note=("Place the back on the front with the same side facing up, so the feet point "
+                   "the same way and the edges match, and whipstitch around the leg, heel, "
                    "sole and toe, leaving the cuff (the foundation edges) open.")),
         Seam("whipstitch", "hanging loop", "back", edge_a="bottom", edge_b="top",
              at_round=1, spans_rounds=1,

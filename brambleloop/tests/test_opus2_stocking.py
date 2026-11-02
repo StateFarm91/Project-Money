@@ -73,6 +73,36 @@ def test_the_written_pattern_reads_back_and_the_name_is_backed():
     assert L.finished_objects(cir) == 1 and L.title_promise(cir)["backed"] is True
 
 
+def test_review_opus2j_j13_j14_only_a_titled_plain_stocking_is_drafted():
+    # J-13: "stocking" must be the head noun; the category alone makes nothing a stocking.
+    not_stockings = (("blanket", "Stocking Stitch Blanket"), ("blanket", "Stocking Stitch Throw"),
+                     ("home_decor", "Stocking Garland"), ("home_decor", "Stocking Holder"),
+                     ("home_decor", "Stocking Hanger"), ("home_decor", "Stocking Cuff"),
+                     ("home_decor", "Stocking Stuffer Coasters"), ("bag", "Stocking Tote"),
+                     ("accessory", "Stocking Cap"), ("stocking", "Snowflake Coaster"),
+                     ("stocking", "Holiday Ornament"), ("stocking", "Advent Garland"))
+    assert not_stockings
+    for category, title in not_stockings:
+        assert F.plan(category=category, title=title)["family"] != F.STOCKING, (category, title)
+    for title in ("Snowflake Coaster", "Holiday Ornament"):
+        assert F.plan(category="stocking", title=title)["family"] == F.REFUSED, title
+    # J-14: plurals, motifs and the remaining size word are refused.
+    for title in ("Fireplace Stockings", "Nylon Stockings", "Nordic Snowflake Stocking",
+                  "Reindeer Stocking", "Medium Stocking"):
+        route = F.plan(category="stocking", title=title)
+        assert route["family"] == F.REFUSED and route["needs"], (title, route)
+
+
+def test_review_opus2j_j15_j16_assembly_matches_two_identical_panels_and_size_is_pinned():
+    cir = F.stocking(_concept())
+    note = cir.assembly[0].note
+    assert "same side facing up" in note and "wrong sides together" not in note
+    assert (F.STOCKING_LEG_W_CM, F.STOCKING_LEG_L_CM, F.STOCKING_FOOT_L_CM,
+            F.STOCKING_FOOT_H_CM) == (14.0, 26.0, 22.0, 10.0)
+    assert ("about 14 cm wide at the cuff, 36 cm from cuff to sole and 22 cm from heel to toe"
+            in cir.finished_size_note), cir.finished_size_note
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
