@@ -784,7 +784,26 @@
         "Amigurumi child-safety findings are NOT in the candidate (branch not integrated)."
       ],
       "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head.",
-      "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends."
+      "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends.",
+      "result_20261102T101632Z-4284": {
+        "sha": "4af3418f",
+        "status": "FAILED",
+        "finished": "2026-11-02T13:43:54Z",
+        "suites_failing": 13,
+        "tests_failing": 21,
+        "tests_passing": 10340,
+        "environment_failures": 0,
+        "fixed_in_W5": "30b04b35 (swarm bands) + db463142: CIR contract v2 declared; final-segment declarations; provider boundary (culture/classify); adopt guard exception; 'two colour' judged as a colour-count claim (cloudline tag)",
+        "open_root_cause": [
+          "test_cert_publish_gates (8)",
+          "test_cert_orders (2)",
+          "test_w4_visnext2 (2, frozen fingerprint drift)",
+          "test_w4_listready (basket 1.2.0)",
+          "test_w4_launch_review",
+          "test_teardown_proof_run"
+        ],
+        "next": "apply the reviewed root-cause fixes, run a delta integration review, then ONE fresh uninterrupted full run"
+      }
     },
     "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
