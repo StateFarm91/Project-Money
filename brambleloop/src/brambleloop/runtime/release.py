@@ -7283,6 +7283,16 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             detail["provider_health"] = provider_health.reconcile(ctx.db, session)
     except Exception as exc:  # noqa: BLE001
         detail["provider_health"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W6 P0-SECRET-LEAK-ESCALATE: a secret the F-159 log guard caught in this process
+    # becomes one incident and one owner rotation action (names and fingerprints only,
+    # never a value). Guarded; it can never fail the health sweep.
+    from ..ops import secret_leak
+
+    try:
+        with ctx.db.session() as session:
+            detail["secret_leak"] = secret_leak.escalate(session)
+    except Exception as exc:  # noqa: BLE001
+        detail["secret_leak"] = {"state": "UNKNOWN", "error": type(exc).__name__}
     # W4-FMBATCH1 (F-720): stale ready work with an idle worker is diagnosed by cause.
     from ..ops import useful_work
 
