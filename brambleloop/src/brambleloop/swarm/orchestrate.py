@@ -763,6 +763,13 @@ JOB_BANDS: dict[str, str] = {
     "cir.reverse": "proven_winner",
     "assets.build": "proven_winner",
     "assets.physical_upgrade": "proven_winner",
+    # W5-INTEG1 (integration fix): opus2 job types merged in Batch 5 had no decided band
+    # (test_swarm_runtime). Each takes the band of the chain it belongs to.
+    "chain.successors": "proven_winner",          # advances a release to its next stage
+    "listing.package": "proven_winner",           # owner-review listing package (listing.draft's chain)
+    "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
+    "improve.commercial_lessons": "exploration",  # learning, like improve.*
+    "learning.knowledge_gaps": "exploration",     # learning gaps -> capped owner recommendations
     "physical.photo": "truth_defect",
     "physical.upgrade_impact": "exploration",
     "visual.identity_drift": "truth_defect",
