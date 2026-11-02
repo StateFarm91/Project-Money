@@ -1100,12 +1100,11 @@
         "requested_by": "#28 6589288273"
       },
       {
-        "id": "A9-REVIEW-QUEUED",
+        "id": "A9-REVIEW",
         "subject": "A9 package event 6ee81c19 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A9_6ee81c19.md",
-        "started": null,
-        "requested_by": "#28 6590109328",
-        "note": "queued: machine saturated (load ~9, 7 reviews running); starts when a review slot frees"
+        "started": "2026-11-02T22:49:44Z",
+        "requested_by": "#28 6590109328"
       }
     ]
   },
