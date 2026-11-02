@@ -209,7 +209,7 @@
   "outcomes": "PASS binds; PARTIAL (not flat, shape not held, a problem recorded) goes to the owner and binds nothing; FAIL binds nothing; a size outside 12% halts this release"
  },
  "files": {
-  "market-basket-small-1.3.0-TEST.pdf": "fcdded05f60501f1430ce37edac4d18a40c98880ca87b38f46d587887a51a499",
+  "market-basket-small-1.3.0-TEST.pdf": "2de71a958fe2923882d8da01f72b0f019e8c731fb2a60f1ce2834f5abda2dbe6",
   "market-basket-small-1.3.0-RECORD-SHEET.pdf": "83298112841736b9c1d441326aa24c52049b5612d3f79001573da84ce7723bc9",
   "OUTREACH.md": "bed9dbe29c837bdb499e6eba90747744bd08b08d5b3ddeeabf7c4f1488e47b3f"
  },

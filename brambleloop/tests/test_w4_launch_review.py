@@ -127,7 +127,7 @@ def test_activation_refuses_until_every_launch0_release_has_stored_frames():
         LR.open_batch(db, by="owner", stepped_up=True, now=T0)
         raise AssertionError("activated on a partial scope")
     except LR.LaunchReviewRefused as exc:
-        assert "market-basket-small@1.2.0" in str(exc)
+        assert "market-basket-small@1.3.0" in str(exc)            # RC2: PDF1's 1.3.0 basket
 
 
 # ---- reservation, caps, scope -----------------------------------------------------------------

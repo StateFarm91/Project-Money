@@ -175,6 +175,30 @@ def test_a_yarn_worked_again_as_a_contrast_is_never_cut_or_rested():
                                              times=3)], 12)], make=2)
     assert "on each body" in rounds_instruction(analyse(multi)["body"], piece="body", make=2)
 
+
+def test_a_two_colour_claim_needs_exactly_two_real_colours():
+    """Review INTEG5G-1: "two colour" is a colour-count claim. It is backed by fabric that works
+    exactly two colours with the minority >= 10% of stitches -- a striped two-colour blanket --
+    and refused for one colour, a single contrast stitch, a one-row trim, or three colours."""
+    from brambleloop.products import launch0 as L
+
+    def motif(rows):
+        return L.colourwork_motif(rows)
+
+    stripes = [["a"] * 20, ["b"] * 20] * 5                      # 50 / 50
+    ok, why = L.technique_backed("two colours", motif(stripes))
+    assert ok, why
+    for name, rows in (
+            ("one colour", [["a"] * 20] * 10),
+            ("one contrast stitch", [["a"] * 20] * 9 + [["a"] * 19 + ["b"]]),
+            ("one trim row in twenty", [["a"] * 20] * 19 + [["b"] * 20]),   # 5% < 10%
+            ("three colours", [["a"] * 20, ["b"] * 20, ["c"] * 20] * 4)):
+        ok, why = L.technique_backed("two colours", motif(rows))
+        assert not ok, (name, why)
+    assert L.colourwork_claims("two color crochet") == ("two colours",)
+    # technique words keep their own rule: stripes never back "colourwork"
+    assert not L.technique_backed("colourwork", motif(stripes))[0]
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]
