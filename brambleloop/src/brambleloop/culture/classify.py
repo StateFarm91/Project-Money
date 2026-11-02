@@ -109,8 +109,8 @@ def _outcome_unknown(exc: BaseException) -> bool:
 
     In a job scope: the guard's own record for the call is UNCERTAIN. Outside one (a probe, a
     test): the exception is one `gateway.anthropic._classify_failure` calls UNCERTAIN."""
-    from ..gateway import anthropic as an
     from ..gateway import paid_calls
+    from ..gateway import providers as gw   # F-091: the vendor-neutral boundary
 
     scope = paid_calls._SCOPE.get()
     if scope is not None:
@@ -120,7 +120,7 @@ def _outcome_unknown(exc: BaseException) -> bool:
         with scope.db.session() as s:
             row = s.get(paid_calls.PaidCallRecord, key)
             return row is not None and row.outcome == paid_calls.UNCERTAIN
-    return an._classify_failure(exc) == paid_calls.UNCERTAIN
+    return gw.classify_failure(exc) == paid_calls.UNCERTAIN
 
 
 def classify(topics: list[str], *, provider=None, db=None) -> dict:

@@ -399,7 +399,10 @@ _MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwo
 _CLAIM_VARIANTS: dict[str, str] = {
     "colour work": "colourwork", "color work": "colourwork",
     "stranded": "fair isle", "jacquard": "fair isle",
-    "two colour": "colourwork", "two color": "colourwork",
+    # W5-INTEG1: "two colour" is a colour-count claim, judged by the colours the fabric
+    # actually uses, not the in-row motif rule: a striped two-colour blanket is truthfully "two
+    # colour crochet" (cloudline-baby-blanket's tag), while one-colour fabric stays refused.
+    "two colour": "two colours", "two color": "two colours",
     "duplicate stitch": "intarsia",     # embroidered blocks: not modelled, refused like intarsia
 }
 
@@ -432,6 +435,7 @@ def colourwork_motif(grid) -> dict:
                 longest = max(longest, current)
             runs.append(longest)
     return {"rows": len(rows), "two_colour_rows": len(multi),
+            "colours_used": len({c for row in rows for c in row}),
             "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
             "min_minority_share": round(min(multi), 3) if multi else 0.0,
             "min_contrast_run": min(runs) if runs else 0}
@@ -446,6 +450,10 @@ def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
                        "express (per-stitch colour alone is not mosaic)")
     if claim in _NEEDS_BOBBINS:
         return False, "needs separate colour blocks with no carried strand, not modelled"
+    if claim == "two colours":
+        used = motif.get("colours_used", 0)
+        return used >= 2, (f"the fabric uses {used} colour(s) (a two-colour claim needs at "
+                           f"least 2 actually worked, in any rows)")
     if claim in _MOTIF_TECHNIQUES:
         ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
               and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE

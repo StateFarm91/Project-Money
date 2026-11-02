@@ -245,7 +245,7 @@ def handle_photo_principles(ctx: JobContext) -> dict:
 # without this module migrating fails here, at import, instead of drifting silently.
 from ..core import contracts as _contracts  # noqa: E402
 
-_contracts.require("cir", 1)
+_contracts.require("cir", 2)
 
 
 REENGINEER_CARD = "creative.reengineer:owner_choice"

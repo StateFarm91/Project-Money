@@ -76,7 +76,7 @@ def _evidence_shape():
 
 #: name -> (current version, shape function, what it is)
 CONTRACTS: dict[str, tuple[int, object, str]] = {
-    "cir": (1, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
+    "cir": (2, _cir_shape, "the CIR dataclasses every department builds, checks and renders"),
     "etsy_write_schemas": (1, _etsy_write_shape,
                            "what may be sent to Etsy (draft payload, updateListing, updateShop)"),
     "shop_policy_sections": (1, _policy_shape, "the shop's policy sections and text fields"),
@@ -88,7 +88,11 @@ CONTRACTS: dict[str, tuple[int, object, str]] = {
 #: name -> {version: "date: what changed and who migrated"}. A version without an entry is an
 #: undeclared change and fails `check()`.
 CHANGELOG: dict[str, dict[int, str]] = {
-    "cir": {1: "2026-10-26: first pinned version (W4-AGENTS F-456)"},
+    "cir": {1: "2026-10-26: first pinned version (W4-AGENTS F-456)",
+            2: "2026-11-02: Op.color (str | None, default None) added by P0-CIR-COLOURWORK "
+               "(opus2 fa02cb49, reviews OPUS2H/J/K); additive; to_dict omits it when None so "
+               "every existing CIR serialises byte-identically; consumers quality_ops and "
+               "engineering_ops read no Op fields and are re-pinned (W5-INTEG1)"},
     "etsy_write_schemas": {1: "2026-10-26: first pinned version, incl. updateShop + sections"},
     "shop_policy_sections": {1: "2026-10-26: first pinned version"},
     "storefront_proposal": {1: "2026-10-26: first pinned version"},
