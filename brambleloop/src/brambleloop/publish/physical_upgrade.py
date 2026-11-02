@@ -178,6 +178,8 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
         # labelled by the certificate). Any other photograph is appended last, as before.
         ordered = sorted(frames, key=lambda f: f.position)
         ordered = [new_frame] + ordered if leads else ordered + [new_frame]
+        if leads:
+            _demote_leaders(ordered[1:])
         _renumber(s, ordered)
         position = new_frame.position
         replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
@@ -235,6 +237,15 @@ def _leads_gallery(db, photo_id: int) -> bool:
     except Exception:  # noqa: BLE001 - an unreadable gate never puts a photo first
         return False
     return any(p.get("photo_id") == photo_id for p in q.get("qualifying") or [])
+
+
+def _demote_leaders(frames) -> None:
+    """OPUS2S-3 (opus2, shared W-PHYSFIX code): a photo frame moved behind a new leading photo
+    no longer claims to lead the gallery, so exactly one frame leads and the asset-truth
+    review can approve the moved one as a supplement instead of refusing both for good."""
+    for f in frames:
+        if (f.claims or {}).get("leads_gallery") is True:
+            f.claims = {**(f.claims or {}), "leads_gallery": False}
 
 
 def _renumber(s, ordered) -> None:
@@ -392,6 +403,7 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
             return bool(mine)
         frame = mine[0]
         _renumber(s, [frame] + [f for f in frames if f is not frame])
+        _demote_leaders([f for f in frames if f is not frame])
         frame.claims = {**(frame.claims or {}), "leads_gallery": True}
         frame.approved = False
         frame.blocked_reasons = ["awaiting asset-truth review and listing-set re-certification"]
