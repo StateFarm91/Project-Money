@@ -220,6 +220,42 @@ def test_a_gap_with_no_pool_concept_becomes_a_new_concept_and_a_cir_draft():
     assert rec["task"] == task.id and rec["outcome"] == "proposed" and rec["slug"] == slug
 
 
+def test_the_new_concept_continues_through_compile_to_certification():
+    """Handoff item (Main, #28): past cir.draft, the research concept goes through
+    deterministic validation and certification on the same worker -- compiled, then a
+    gate.certify job that ends DONE with a recorded verdict (granted, or refused with named
+    codes). Nothing is assumed granted; a refusal must be named."""
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    restore = _judge_intake_concepts()
+    try:
+        _drive(db, datetime.now(timezone.utc))
+        slug = _tasks(db)[0].detail["concept_proposals"][0]["slug"]
+        draft = [j for j in _jobs(db, "cir.draft") if j.idempotency_key == f"draft:{slug}"][0]
+        assert (draft.outputs or {}).get("drafted") is True, draft.outputs
+        w = Worker(db, "a4a-certify", job_types=["cir.compile", "gate.certify"])
+        while w.run_once():
+            pass
+    finally:
+        restore()
+    compiles = [j for j in _jobs(db, "cir.compile") if j.inputs["cir"]["slug"] == slug]
+    assert compiles and compiles[-1].status == JobStatus.DONE, compiles
+    assert (compiles[-1].outputs or {}).get("compiled") is True, compiles[-1].outputs
+    certs = [j for j in _jobs(db, "gate.certify")
+             if (j.inputs.get("cir") or {}).get("slug") == slug]
+    assert certs, "a compiled research concept was not sent to certification"
+    cert = certs[-1]
+    assert cert.status == JobStatus.DONE, (cert.status, cert.last_error)
+    out = dict(cert.outputs or {})
+    granted = out.get("granted", out.get("certified"))
+    assert granted is not None, out
+    if not granted:
+        named = out.get("errors") or out.get("codes") or out.get("reasons")
+        assert named, f"certification refused {slug} without naming why: {out}"
+    print(f"     certify {slug}: granted={granted} {str(out)[:200]}")
+
+
 def test_rerunning_and_redelivering_creates_no_duplicates():
     db = _db()
     gid = _gap(db, "kitchen_bath")
