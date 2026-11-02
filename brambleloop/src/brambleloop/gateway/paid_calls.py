@@ -288,6 +288,12 @@ def _count_orphan(db, row: PaidCallRecord) -> None:
     from ..finance import spend_report
 
     estimate = round(float(row.estimate_cad or 0.0), 8)
+    if _orphan_spend_recorded(db, row):
+        # OPUS2M-6: the spend row was written on an earlier replay but the flag write after it
+        # failed. Counted ONCE: only the flag is retried, never a second spend row.
+        _update(db, row.key, orphan_billed=True, outcome=UNCERTAIN,
+                error="worker lost during the call")
+        return
     spend_report.record(
         db, agent=row.agent or "gateway", amount_cad=estimate, estimated_cad=estimate,
         purpose=row.effect[:60], provider=row.provider, model=row.model,
@@ -304,6 +310,24 @@ def _count_orphan(db, row: PaidCallRecord) -> None:
         gw.release_reservation(db, row.reservation_id, actual_cad=estimate)
     _update(db, row.key, orphan_billed=True, outcome=UNCERTAIN,
             error="worker lost during the call")
+
+
+def _orphan_spend_recorded(db, row: PaidCallRecord) -> bool:
+    """Whether a spend row already bills this orphaned call (its paid-call key, the orphan
+    label). Scoped to the call's job, so the scan is a handful of rows."""
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    with db.session() as s:
+        q = select(CostEntry)
+        if row.job_id is not None:
+            q = q.where(CostEntry.job_id == row.job_id)
+        for entry in s.scalars(q):
+            d = entry.detail or {}
+            if d.get("paid_call_key") == row.key and d.get("billing") == ORPHAN_BILLING:
+                return True
+    return False
 
 
 # ---------------------------------------------------------------------------
