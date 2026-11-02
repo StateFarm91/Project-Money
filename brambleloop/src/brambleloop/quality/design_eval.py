@@ -7,6 +7,7 @@ instructions or source text are never copied into an evaluation record.
 from __future__ import annotations
 
 import dataclasses
+from collections import Counter
 import hashlib
 import inspect
 import json
@@ -104,19 +105,24 @@ def measure_written_case(cir, text: str, *, db=None) -> dict:
     # Count independently generated complete actions, not merely a heading.
     normalized = {line.removeprefix('- ').strip() for line in section}
     twin_failures = 0
-    truth_findings = 0
+    truth_codes = []
     for component in cir.components:
         try:
             twin = build_twin(cir, compiled, component=component.name)
-            truth_findings += len(check_technique_claims(text, cir, twin, "pattern"))
+            truth_codes.extend(f.code for f in check_technique_claims(text, cir, twin, "pattern"))
         except (ValueError, KeyError):
             twin_failures += 1
     similarity = similarity_review(cir, pattern_text=text, db=db) if db is not None else None
+    reverse_codes = sorted(f.code for f in compare(cir, text))
+    policy_codes = sorted(f.code for f in check_text(text, "pattern"))
     return {"compile_errors": len(compiled.errors), "twin_failures": twin_failures,
-            "reverse_findings": len(compare(cir, text)),
-            "policy_findings": len(check_text(text, "pattern")),
-            "truth_findings": truth_findings if not twin_failures else None,
+            "reverse_findings": len(reverse_codes), "reverse_codes": reverse_codes,
+            "policy_findings": len(policy_codes), "policy_codes": policy_codes,
+            "truth_findings": len(truth_codes) if not twin_failures else None,
+            "truth_codes": sorted(truth_codes) if not twin_failures else None,
             "originality_escalations": len(similarity["escalated"]) if similarity else None,
+            "originality_escalation_keys": sorted(_digest(item) for item in similarity["escalated"])
+            if similarity else None,
             "originality_unmeasured": len(similarity["unmeasured"]) if similarity else None,
             "finishing_actions_expected": len(expected),
             "finishing_actions_present": sum(line in normalized for line in expected),
@@ -133,6 +139,11 @@ def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict
                                   "policy_findings", "truth_findings", "originality_escalations")
                    if before[key] is not None and after[key] is not None
                    and after[key] > before[key]]
+    # Equal counts can still hide a new defect replacing an old one.
+    for key in ("reverse_codes", "policy_codes", "truth_codes", "originality_escalation_keys"):
+        if before[key] is not None and after[key] is not None \
+                and Counter(after[key]) - Counter(before[key]):
+            regressions.append(key)
     if before["truth_findings"] is not None and after["truth_findings"] is None:
         regressions.append("truth_unmeasured")
     if before["originality_unmeasured"] is not None and after["originality_unmeasured"] is not None \
@@ -172,6 +183,22 @@ def _benchmark_checks() -> dict:
             "bench2_stages": stages,
             "stitch_families": {name: stitch_benchmarks.promotion_gate(name)["state"]
                                 for name in sorted(stitch_benchmarks.FAMILIES)}}
+
+
+def _benchmark_cirs() -> dict:
+    """Materialize the two frozen truth cases locally, never returning their text."""
+    from . import benchmark_e2e
+
+    path = benchmark_e2e.DEFAULT_DIR / "out" / "product_truth.json"
+    if not path.is_file():
+        raise DesignEvaluationRefused("bench2 Product Truth is unavailable")
+    truth = json.loads(path.read_text(encoding="utf-8"))
+    facts = dict(truth["facts"])
+    facts["_derived_after"] = [row["sleeve_rows_after_neck_derived"]
+                               for row in truth["derived"]["per_size"]]
+    builder = benchmark_e2e._load(benchmark_e2e.DEFAULT_DIR, "product_truth")
+    return {"bench1_xs": benchmarks.cardigan("XS"),
+            "bench2": builder.build_cir(facts, "2-3T")}
 
 
 def preview_registered_rule(db, rule_id: int) -> dict:
@@ -216,9 +243,15 @@ def preview_registered_rule(db, rule_id: int) -> dict:
                                                                           db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
         raise DesignEvaluationRefused("not all frozen launch cases were measured")
+    truth_cases = []
+    for ident, cir in sorted(_benchmark_cirs().items()):
+        baseline = write_pattern(cir, compile_cir(cir))
+        truth_cases.append({"case": ident, **compare_written_case(
+            cir, baseline, _preview_checklist(baseline))})
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
               "case_set_sha256": frozen["sha256"], "cases": case_results,
+              "truth_cases": truth_cases,
               "benchmark_checks": _benchmark_checks(),
               "state": "insufficient_evidence", "approval_evidence_complete": False,
               "why": "preview renderer is not the production writer; benchmark and full "
