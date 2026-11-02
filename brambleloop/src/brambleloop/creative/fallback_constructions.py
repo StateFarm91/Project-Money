@@ -147,11 +147,19 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         rest = re.sub(r"\bbags?\b", "", re.sub(_TOTE_WORDS, "", lowered_t))
         # Review OPUS2E E1: one tote is one finished object. Its straps are parts, so no
         # count, plural or "set" may be backed by them: such a title is refused here.
-        many = re.search(_MULTIPLE_WORDS, lowered_t)
+        # OPUS2M-1: the same multiplicity reader title_promise uses, so everything it would
+        # refuse to back is refused here; _MULTIPLE_WORDS stays as the stricter union.
+        from ..products.launch0 import multiplicity
+
+        read = multiplicity(title)
+        hit = re.search(_MULTIPLE_WORDS, lowered_t)
+        many = (hit.group(0) if hit else None) or (
+            str(read["claimed"]) if (read["claimed"] or 0) > 1 else None) or (
+            read["plural_markers"][0] if read["plural_markers"] else None)
         if many:
             return {"family": REFUSED,
                     "needs": "one certified release per finished bag, each listed on its own",
-                    "why": (f"the title promises more than one bag ({many.group(0)!r}); one "
+                    "why": (f"the title promises more than one bag ({many!r}); one "
                             f"tote draft is one bag, and its straps are not pieces")}
         extra = re.search(_TOTE_NOT_PLAIN, rest)
         if extra:
