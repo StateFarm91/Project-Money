@@ -611,6 +611,23 @@
         "d4486b8c": "CHANGES_REQUIRED (OPUS2M-2 MED regression, -3 MED, -4/-8 LOW)"
       },
       "recorded": "2026-11-02T04:33Z"
+    },
+    {
+      "subject": "OPUS2N",
+      "sha": "4fc6611d",
+      "verdicts": {
+        "940f70e6": "DO NOT SHIP (OPUS2N-1 MED non-ASCII allowlist hole)",
+        "67b67015": "DO NOT SHIP (OPUS2N-1; N-2..N-4, N-6 LOW)"
+      },
+      "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "INTEG5B",
+      "sha": "6d402593",
+      "verdicts": {
+        "claude/w5-INTEG1 a8ce0072": "SHIP for certification (provisional on its second regression batch; integrator re-running it 05:29Z); LOW INTEG5B-1..-4 (owner-queue index on rollback, index-creation race, certificate write race)"
+      },
+      "recorded": "2026-11-02T05:30Z"
     }
   ],
   "integration": {
@@ -747,14 +764,16 @@
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2N",
+        "id": "OPUS2O",
         "subjects": [
-          "opus2/p0-pet-bed 940f70e6 (diff 7d220e01..)",
-          "opus2/p0-tapestry 67b67015 (diff 2d2d9446..)"
+          "opus2/p0-revenue-workforce 8cf4a458 (+b4merge 80f4b073)",
+          "opus2/p0-cir-colourwork 5889cc37",
+          "opus2/p0-pet-bed 09122165",
+          "opus2/p0-stocking a859f6fe (first-parent 0ef8a716..)"
         ],
-        "session": "session_015ZfGXp8LnkUKYgGqbH3u5B",
-        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2N.md on claude/w5-SECREVIEW-OPUS2N",
-        "launched": "2026-11-02T04:32Z"
+        "session": "session_015ZfGXo2PabBK5TPj8PjFHW",
+        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2O.md on claude/w5-SECREVIEW-OPUS2O",
+        "launched": "2026-11-02T05:29Z"
       }
     ]
   }
