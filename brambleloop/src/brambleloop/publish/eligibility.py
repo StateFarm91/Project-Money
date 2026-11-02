@@ -646,6 +646,18 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
                          ("assembly", l0.assembly_promise(cir))):
         if not verdict.get("backed"):
             out.append(f"{key}: {verdict.get('why')}")
+    # A2 (OPUS2V-2): a motif word in the name must be a motif the pattern makes. Held to every
+    # product the catalogue does not engineer -- every fallback, registry and research draft,
+    # which is where "Heart Basket" on a plain vessel comes from. The engineered catalogue keeps
+    # its own Launch-0 product_truth / manual_adoption gate: nine of its titles are unbacked by
+    # motif_promise today (heart-row, fir-and-star, cable and relief words without a
+    # declaration), and changing their publish state is an integrator decision.
+    from ..products import inventory
+
+    if cir.slug not in set(inventory.universe()):
+        motif = l0.motif_promise(cir)
+        if not motif.get("backed"):
+            out.append(f"motif: {motif.get('why')}")
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)
