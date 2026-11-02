@@ -348,6 +348,167 @@ def size_label_backed(label: str, width_cm: float | None, height_cm: float | Non
     return {"backed": not wrong, "wrong": wrong, "label": label}
 
 
+# Review OPUS2H H2-1: each colourwork claim is backed by its own technique, never by "some
+# row has two colours". Overlay mosaic is defined by stitches reaching past the previous row,
+# which per-stitch colour does not give; graphghan claims follow the mosaic rule; intarsia is
+# colour blocks with no carried strand, which the CIR does not model. Those stay refused
+# until the primitive exists. Tapestry, fair isle and colourwork need a motif of measurable
+# extent. The thresholds are a stated design rule (not a sourced standard), pinned by tests.
+COLOURWORK_MIN_ROWS = 3              # rows holding two or more colours
+COLOURWORK_MIN_ROW_SHARE = 0.20      # ...as a share of all rows
+COLOURWORK_MIN_MINORITY_SHARE = 0.10  # the minority colour's share of each such row
+COLOURWORK_MIN_RUN = 2               # OPUS2I I-7: adjacent contrast stitches, so dots are not a motif
+_NEEDS_REACH_DOWN = ("mosaic", "overlay", "graphghan")
+_NEEDS_BOBBINS = ("intarsia",)
+_MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
+
+
+# Review OPUS2J J-6: spelling variants and synonyms are the same claim. Text is folded
+# ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
+# matching, and each variant maps to the technique whose rule judges it.
+_COLOUR_COUNT_WORDS: tuple[str, ...] = (
+    # Not "one": "one colour per round" is how a single-colour fabric is described.
+    "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+    "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+    "nineteen", "twenty", "dozen", "multi", "bi", "tri", "dual", "duo", "quad", "poly", "many",
+)
+_CLAIM_VARIANTS: dict[str, str] = {
+    # variant regex (on folded text) -> the technique whose rule judges it. Every variant is
+    # matched from a word start and may run on into an inflection (OPUS2M-3: "Tapestries",
+    # "Jacquards", "Colour Works", "Two-Tones" are the same claims).
+    r"colou?r ?works?": "colourwork",
+    r"tapestri": "tapestry",                       # "Tapestries": the y-to-ies plural
+    # OPUS2M-3: any count of colours or tones, digits included ("Five-Colour", "5 Colour",
+    # "Dual Colour", "Duotone").
+    # OPUS2O-4: driven from one number-word list, plus quad/poly/many/dozen, and shade/hue.
+    (r"(?:\d+|" + "|".join(sorted(_COLOUR_COUNT_WORDS, key=len, reverse=True)) + r") ?"
+     r"(?:colou?r|tone|shade|hue)"): "colourwork",
+    r"polychrom": "colourwork",
+    r"colou?r ?block": "colourwork",
+    # "Double-Stranded" / "held double" is a yarn-holding construction, not stranded
+    # colourwork (OPUS2K K-6a), so it is not a claim.
+    r"(?<!double )(?<!held )stranded|jacquard": "fair isle",
+    r"fair ?isle": "fair isle",
+    r"graph ?gh?an|pixel crochet": "graphghan",
+    # a charted picture blanket: graphghan rule (OPUS2M-3: "C-2-C", "Corner-2-Corner").
+    # OPUS2Q-2: only the spelled "c to c" needs a word end; the digit form and the glued
+    # corner form are matched in `colourwork_claims` itself, glued or not ("C2CBlanket",
+    # "CrochetC2C", "crochetcornertocorner").
+    r"c ?to ?c\b": "graphghan",
+    r"duplicate stitch": "intarsia",               # embroidered blocks: not modelled, refused
+}
+
+# OPUS2M-4: letters that look Latin but are not (Cyrillic / Greek), read as the Latin letter
+# they imitate. Small and explicit; not a general confusables table.
+_LOOKALIKES = str.maketrans({
+    "\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p", "\u0441": "c",
+    "\u0443": "y", "\u0445": "x", "\u0456": "i", "\u0442": "t", "\u043c": "m",
+    "\u043a": "k", "\u0432": "b", "\u043d": "h", "\u03bf": "o", "\u03b1": "a",
+    "\u03b9": "i", "\u03c4": "t", "\u03ba": "k", "\u03bd": "v", "\u03c1": "p",
+    # OPUS2O-5: letters that do not decompose to their Latin look-alike.
+    "\u0131": "i", "\u00f8": "o", "\u0455": "s", "\u0458": "j", "\u03f2": "c",
+    "\u03c2": "c",                                # lunate sigma decomposes to final sigma
+    "\u0585": "o", "\u1d00": "a", "\u0251": "a", "\u04c0": "i", "\u04cf": "i",
+    "\u0261": "g", "\u0432": "b",
+    # OPUS2Q-3: Latin small capitals and the Cyrillic shha, which no fold reaches.
+    "\u1d0f": "o", "\ua731": "s", "\u026a": "i", "\u1d04": "c", "\u028f": "y",
+    "\u029f": "l", "\u04bb": "h", "\u1d07": "e", "\u1d1b": "t", "\u0280": "r",
+    "\u1d1c": "u", "\u0274": "n", "\u1d0d": "m",
+})
+# OPUS2O-5: invisible fillers that are neither category Cf nor a mark (Hangul fillers, the
+# blank braille pattern, Mongolian free variation selectors): dropped like Cf. Marks
+# (Mn/Me, which include the grapheme joiner and variation selectors) are dropped after NFKD.
+_INVISIBLE = frozenset({0x115F, 0x1160, 0x2800, 0x3164, 0xFFA0} | set(range(0x180B, 0x1810)))
+
+
+def _fold(text: str) -> str:
+    """The text as the claim reader sees it (OPUS2K K-5, OPUS2M-4): invisible format
+    characters (zero-width space, soft hyphen, joiners) removed; compatibility forms and
+    accents folded (NFKD, combining marks dropped: "Fáir Ísle", "FAİR ISLE"); look-alike
+    Cyrillic and Greek letters read as Latin; lower case; every non-alphanumeric run (dashes
+    of every kind, slashes, dots, middle dots) one space."""
+    import unicodedata
+
+    raw = str(text or "")
+    # OPUS2Q-3: unassigned code points (Cn, which include default-ignorables such as U+2065)
+    # are dropped like Cf, and a thin space between two letters (hair, thin, narrow, medium
+    # mathematical, ideographic) joins them: it renders as no gap inside a word.
+    raw = re.sub(r"(?<=[^\W\d_])[\u2009\u200a\u202f\u205f\u3000](?=[^\W\d_])", "", raw)
+    t = "".join(c for c in raw
+                if unicodedata.category(c) not in ("Cf", "Cn") and ord(c) not in _INVISIBLE)
+    t = unicodedata.normalize("NFKD", t)
+    # Every mark (Mn/Me), not only those with a combining class: a grapheme joiner or a
+    # variation selector has class 0 and would otherwise split a word (OPUS2O-5).
+    t = "".join(c for c in t if unicodedata.category(c) not in ("Mn", "Me"))
+    t = unicodedata.normalize("NFKC", t).lower().translate(_LOOKALIKES)
+    return " " + re.sub(r"[^0-9a-z]+", " ", t).strip() + " "
+
+
+def colourwork_claims(text: str) -> tuple[str, ...]:
+    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6,
+    OPUS2K K-5, OPUS2M-2/-3/-4)."""
+    folded = _fold(text)
+    # OPUS2M-2: the base claims are a substring test, as they were before K-5: a claim word
+    # inside a compound ("Minimosaic", "Microtapestry", "Multicolourwork") is still a claim.
+    found: list[str] = [c for c in COLOURWORK_CLAIMS if _fold(c).strip() in folded]
+    # OPUS2Q-2: a digit glued to a word hides nothing ("Basket5Colour", "Blanket2Tone").
+    split = re.sub(r"(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])", " ", folded)
+    found += [canon for variant, canon in _CLAIM_VARIANTS.items()
+              if re.search(rf"\b(?:{variant})", split)]
+    # The digit form of corner-to-corner glued or spaced, and the glued corner form, from
+    # any position ("C2Cs", "C2CBlanket", "CrochetC2C", "crochetcornertocorner").
+    if re.search(r"c2c|\bc 2 c|corner ?(?:2|to) ?corner", folded):
+        found.append("graphghan")
+    return tuple(dict.fromkeys(found))
+
+
+def colourwork_motif(grid) -> dict:
+    """How much of the fabric is two-colour, measured from the twin's colour grid."""
+    rows = [[c for c in row if c] for row in grid]
+    rows = [r for r in rows if r]
+    multi = []
+    runs = []
+    for row in rows:
+        counts: dict[str, int] = {}
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+        if len(counts) >= 2:
+            multi.append(min(counts.values()) / len(row))
+            main = max(counts, key=counts.get)
+            longest = current = 0
+            for c in row:
+                current = current + 1 if c != main else 0
+                longest = max(longest, current)
+            runs.append(longest)
+    return {"rows": len(rows), "two_colour_rows": len(multi),
+            "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
+            "min_minority_share": round(min(multi), 3) if multi else 0.0,
+            "min_contrast_run": min(runs) if runs else 0}
+
+
+def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
+    """(backed, why) for one colourwork technique claim against the measured motif."""
+    if claim in _NEEDS_REACH_DOWN:
+        if per_stitch_reach_down_expressible():
+            return False, "reach-down is expressible but no rule judges it yet"
+        return False, ("needs stitches that reach past the previous row, which no CIR can "
+                       "express (per-stitch colour alone is not mosaic)")
+    if claim in _NEEDS_BOBBINS:
+        return False, "needs separate colour blocks with no carried strand, not modelled"
+    if claim in _MOTIF_TECHNIQUES:
+        ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
+              and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
+              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE
+              and motif.get("min_contrast_run", 0) >= COLOURWORK_MIN_RUN)
+        return ok, (f"{motif['two_colour_rows']} of {motif['rows']} rows carry two colours "
+                    f"(needs >= {COLOURWORK_MIN_ROWS} and >= "
+                    f"{COLOURWORK_MIN_ROW_SHARE:.0%}), the scarcest colour is "
+                    f"{motif['min_minority_share']:.0%} of such a row (needs >= "
+                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%}), the shortest contrast run is "
+                    f"{motif.get('min_contrast_run', 0)} st (needs >= {COLOURWORK_MIN_RUN})")
+    return False, "an unrecognised colourwork claim backs nothing"
+
+
 def fabric_truth(cir: CIR, twin) -> dict:
     """What the fabric actually does, and whether the name's technique claim is expressible.
 
@@ -368,8 +529,10 @@ def fabric_truth(cir: CIR, twin) -> dict:
     mixed_heights = len(heights) > 1
 
     text = f"{cir.title} {cir.designer_notes or ''}".lower()
-    claims = tuple(c for c in COLOURWORK_CLAIMS if c in text)
-    backed = (not claims) or colours_per_row >= 2
+    claims = colourwork_claims(text)
+    motif = colourwork_motif(grid)
+    verdicts = {c: technique_backed(c, motif) for c in claims}
+    backed = (not claims) or all(ok for ok, _why in verdicts.values())
     return {
         "max_colours_in_one_row": colours_per_row,
         "colours_declared": sorted((cir.colors or {}).keys()),
@@ -380,8 +543,8 @@ def fabric_truth(cir: CIR, twin) -> dict:
         "backed": backed,
         "why": ("no colourwork technique is claimed, so the fabric is whatever the stitches "
                 "make" if not claims else
-                f"claims {claims[0]!r}; the fabric puts at most {colours_per_row} colour(s) in "
-                f"any one row, and a two-colour motif needs two"),
+                "; ".join(f"{c!r}: {why}" for c, (_ok, why) in verdicts.items())),
+        "colourwork_motif": motif,
         "cir_can_express_per_stitch_colour": per_stitch_colour_expressible(),
         "cir_can_express_per_stitch_reach_down": per_stitch_reach_down_expressible(),
     }

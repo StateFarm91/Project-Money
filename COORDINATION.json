@@ -162,6 +162,16 @@
       "state": "in_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
       "area": "P1-OWNER-QUEUE-RACES"
+    },
+    {
+      "id": "OPUS2-CIR-COLOURWORK",
+      "operator": "opus2",
+      "branch": "opus2/p0-cir-colourwork",
+      "state": "ready_for_review",
+      "area": "P0-CIR-COLOURWORK (proposal; the integrator decides whether the shared CIR takes it)",
+      "scope": "additive Op.color: model (omitted from to_dict when None, so no digest moves), compiler UNKNOWN_COLOR / STITCH_COLOUR_WITHOUT_ROW_COLOUR, ResolvedOp.color, twin cell colour + per-yarn yardage, writer 'with <colour>', reverse parse and structural compare; launch0.per_stitch_colour_expressible flips True on its own so fabric_truth backs a real two-colour claim",
+      "not_touching": "radar fallback drafting (opus2/p0-revenue-workforce), W-LISTING rules, any Launch-0 CIR",
+      "evidence": "tests/test_opus2_cir_colourwork.py 6/6; all 11 Launch-0 CIR digests unchanged; 84-suite regression exit 0 (vacuity re-run after its fix)"
     }
   ],
   "unowned": [
@@ -1004,7 +1014,7 @@
     }
   ],
   "reviews_in_flight": {
-    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": []
   },
   "assignments": [
