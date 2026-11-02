@@ -1,5 +1,7 @@
 """The held-out evidence set is fixed and cannot be chosen by a challenger."""
 from pathlib import Path
+import os
+import shutil
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import unittest
@@ -8,6 +10,66 @@ from brambleloop.quality import design_eval
 
 
 class FrozenCaseTests(unittest.TestCase):
+    def test_benchmark_evidence_can_be_read_from_licensed_private_storage(self):
+        from brambleloop.core.db import Database
+        from brambleloop.core.models import BenchmarkAnalysis, BenchmarkProduct
+        from brambleloop.gates.originality import code_benchmarks, record_fingerprint
+        from brambleloop.improve import design_knowledge
+        from brambleloop.teardown import library, licence
+        from brambleloop.teardown import review
+
+        local_truth = design_eval._BENCH2
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "library"
+            target = root / design_eval._BENCH2_REF / "evaluation"
+            target.mkdir(parents=True)
+            shutil.copyfile(local_truth, target / "product_truth.json")
+            shutil.copyfile(local_truth.parent / "bench2_manifest.json", target / "bench2_manifest.json")
+            shutil.copyfile(local_truth.parent.parent / "product_truth.py", target / "product_truth.py")
+            db = Database(f"sqlite:///{tmp}/private.db", scratch=True)
+            db.create_all()
+            licence.capture_purchase(db, design_eval._BENCH2_REF)
+            with db.session() as s:
+                product = BenchmarkProduct(ref="private-fixture", seller="test", files=[
+                    {"name": "fixture.pdf", "sha256": "d" * 64}])
+                s.add(product)
+                s.flush()
+                source = BenchmarkAnalysis(benchmark_id=product.id, file_sha256="d" * 64,
+                    observations={"fully_readable": True, "dimensions": {"finishing": "absent"}})
+                s.add(source)
+                s.flush()
+                source_id = source.id
+            licence.capture_purchase(db, "private-fixture")
+            review.review_analysis(db, source_id, reviewer="independent", decision="reviewed",
+                                   reason="reviewed synthetic evidence")
+            rule = design_knowledge.propose_from_analysis(db, source_id)
+            for ref in [*(b.ref for b in code_benchmarks()), "private-fixture"]:
+                record_fingerprint(db, ref, text=("synthetic quasar nebula lantern velvet meadow "
+                                                  "cobalt river telescope compass marigold quartz"))
+            with patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}), \
+                    patch.object(design_eval, "_BENCH2", Path(tmp) / "missing.json"):
+                self.assertEqual(design_eval.load_cases(db=db)["sha256"],
+                                 design_eval._digest(design_eval.materialize_cases(db)))
+                self.assertEqual(design_eval._bench2_stages(db)["cir"], "PASS")
+                evaluation = design_eval.evaluate(db, rule["id"])
+                self.assertEqual(evaluation["state"], "passed")
+                approval = design_knowledge.review_rule(db, rule["id"], reviewer="owner",
+                    decision="approve", reason="reviewed evidence", evaluation_id=evaluation["audit_id"])
+                self.assertEqual(design_knowledge.verify_pins(db, [approval["pin"]])[0]["pin"],
+                                 approval["pin"])
+                with self.assertRaises(design_eval.DesignEvaluationRefused):
+                    design_eval.load_cases()
+                (target / "product_truth.py").write_text("tampered")
+                with self.assertRaises(design_eval.DesignEvaluationRefused):
+                    design_eval.load_cases(db=db)
+                with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+                    design_knowledge.verify_pins(db, [approval["pin"]])
+                shutil.copyfile(local_truth.parent.parent / "product_truth.py", target / "product_truth.py")
+                licence.capture_purchase(db, design_eval._BENCH2_REF, terms={
+                    "allowed_uses": [], "prohibited_uses": ["private_analysis"]})
+                with self.assertRaises(design_eval.DesignEvaluationRefused):
+                    design_eval.load_cases(db=db)
+
     def test_new_finding_is_a_regression_even_if_an_old_one_disappears(self):
         before = {"compile_errors": 0, "twin_failures": 0, "reverse_findings": 1,
                   "reverse_codes": ["OLD"], "policy_findings": 0, "policy_codes": [],

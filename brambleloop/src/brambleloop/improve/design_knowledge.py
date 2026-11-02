@@ -316,9 +316,9 @@ def _assert_evaluation(db, session, rule, evaluation_id: int) -> str:
             and report.get("rule_version") == rule.version
             and report.get("rule_sha256") == rule_digest(rule)
             and report.get("lineage_sha256") == lineage_digest(session, rule)
-            and report.get("implementation_sha256") == design_eval.implementation_digest()
+            and report.get("implementation_sha256") == design_eval.implementation_digest(db)
             and report.get("corpus_sha256") == design_eval.corpus_digest(db)
-            and report.get("case_set_sha256") == design_eval.load_cases()["sha256"]
+            and report.get("case_set_sha256") == design_eval.load_cases(db=db)["sha256"]
             and design_eval.classify_evaluation(report) == "passed")
     except design_eval.DesignEvaluationRefused as exc:
         raise DesignKnowledgeRefused("evaluation evidence is unavailable") from exc

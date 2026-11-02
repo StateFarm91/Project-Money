@@ -29,8 +29,14 @@ Record a learning action only after a consumer actually changes its decision.
 
 The first evaluator compares the empty incumbent with a single candidate. It
 refuses a new evaluation while an approved rule is active; multi-rule and
-successor-version comparisons still need implementation. The current frozen
-bench2 research inputs are not in the image, so deployed evaluation and pin
-verification fail closed until a safe, licensed availability mechanism exists.
-No raw reference-derived research content should be added to the image. The
-current implementation is not a deployment or production-readiness claim.
+successor-version comparisons still need implementation. The frozen bench2
+inputs are not in the image. A worker can read the pinned `product_truth.json`,
+`bench2_manifest.json`, and `product_truth.py` from
+`$BRAMBLELOOP_BENCHMARK_LIBRARY/benchmark-2-mini-star-stitch-cardigan/evaluation/`.
+Each read uses the quarantined analyst path and current private-analysis
+licence; all three files are checked against their frozen hashes. Only the
+pinned builder function runs in memory; no benchmark pattern is rendered or
+stored by evaluation. Missing, modified or unlicensed evidence blocks
+evaluation and pin verification. Provisioning that private volume belongs to
+Main's deployment process; no raw reference-derived material is added to the
+image. This is not a deployment or production-readiness claim.

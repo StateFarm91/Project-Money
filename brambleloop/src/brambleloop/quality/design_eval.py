@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
+import ast
 import hashlib
 import inspect
 import json
@@ -29,6 +30,10 @@ _LAUNCH_CASES = (
 )
 _MANIFEST = Path(__file__).with_name("design_eval_cases.json")
 _BENCH2 = Path(__file__).resolve().parents[3] / "research" / "bench2" / "out" / "product_truth.json"
+_BENCH2_REF = "benchmark-2-mini-star-stitch-cardigan"
+_BENCH2_TRUTH_SHA = "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1"
+_BENCH2_BUILDER_SHA = "dec34b0b5cea211ef31399835952d2bc34679cdaa5bfe32a3b4a7330260f6a83"
+_BENCH2_MANIFEST_SHA = "bf5f8c6807413dba16ff9b4a2b620a6774e67a20531aa87a3fde6008bdf101ed"
 
 
 class DesignEvaluationRefused(ValueError):
@@ -45,7 +50,33 @@ def _digest(value) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def implementation_digest() -> str:
+def _bench2_files(db=None) -> tuple[bytes, bytes, bytes]:
+    """Read the pinned benchmark evidence privately, including on worker-only hosts."""
+    from ..teardown import library, licence
+
+    try:
+        licence.refuse_unless_permitted(db, _BENCH2_REF, "private_analysis")
+        if _BENCH2.is_file():
+            truth = _BENCH2.read_bytes()
+            manifest = (_BENCH2.parent / "bench2_manifest.json").read_bytes()
+            builder = (_BENCH2.parent.parent / "product_truth.py").read_bytes()
+        else:
+            if db is None:
+                raise DesignEvaluationRefused("bench2 private evidence requires a database")
+            prefix = f"{_BENCH2_REF}/evaluation"
+            truth = library.retrieve(f"{prefix}/product_truth.json", "teardown_analyst", db=db)
+            manifest = library.retrieve(f"{prefix}/bench2_manifest.json", "teardown_analyst", db=db)
+            builder = library.retrieve(f"{prefix}/product_truth.py", "teardown_analyst", db=db)
+    except (OSError, library.LibraryRefused, licence.LicenceRefused) as exc:
+        raise DesignEvaluationRefused("bench2 private evidence is unavailable or unlicensed") from exc
+    if (hashlib.sha256(truth).hexdigest() != _BENCH2_TRUTH_SHA
+            or hashlib.sha256(builder).hexdigest() != _BENCH2_BUILDER_SHA
+            or hashlib.sha256(manifest).hexdigest() != _BENCH2_MANIFEST_SHA):
+        raise DesignEvaluationRefused("bench2 implementation evidence differs from its freeze")
+    return truth, manifest, builder
+
+
+def implementation_digest(db=None) -> str:
     """Bind evidence to the writer and deterministic checks that produced it."""
     import sys
     import numpy
@@ -59,11 +90,9 @@ def implementation_digest() -> str:
     modules = (sys.modules[__name__], writer, compiler, reverse, twin, assembly, specification,
                topology, asset_truth, certificate, originality, policy, risk_matrix, benchmarks,
                benchmark_e2e, stitch_benchmarks, design_knowledge, licence, review)
-    paths = (_BENCH2.parent / "bench2_manifest.json", _BENCH2.parent.parent / "product_truth.py")
-    if any(not path.is_file() for path in paths):
-        raise DesignEvaluationRefused("benchmark implementation evidence is unavailable")
+    _, manifest, builder = _bench2_files(db)
     parts = [inspect.getsource(module) for module in modules]
-    parts.extend(hashlib.sha256(path.read_bytes()).hexdigest() for path in paths)
+    parts.extend(hashlib.sha256(data).hexdigest() for data in (manifest, builder))
     parts.append(numpy.__version__)
     try:
         import scipy
@@ -93,7 +122,7 @@ def corpus_digest(db) -> str:
                           for row in licences]})
 
 
-def materialize_cases() -> list[dict]:
+def materialize_cases(db=None) -> list[dict]:
     """Build the fixed case identities from current source, without returning source text."""
     cases = []
     for slug, build_key in _LAUNCH_CASES:
@@ -105,17 +134,16 @@ def materialize_cases() -> list[dict]:
     cases.append({"kind": "benchmark_truth", "id": "bench1_xs",
                   "cir_sha256": _digest(benchmarks.cardigan("XS").to_dict()),
                   "truth_sha256": _digest(benchmarks.reconcile("XS"))})
-    if not _BENCH2.is_file():
-        raise DesignEvaluationRefused("bench2 Product Truth is unavailable")
+    truth, _, _ = _bench2_files(db)
     cases.append({"kind": "benchmark_truth", "id": "bench2",
-                  "truth_sha256": hashlib.sha256(_BENCH2.read_bytes()).hexdigest()})
+                  "truth_sha256": hashlib.sha256(truth).hexdigest()})
     for name, fn in sorted(stitch_benchmarks.FAMILIES.items()):
         cases.append({"kind": "stitch_family", "id": name,
                       "validator_sha256": hashlib.sha256(inspect.getsource(fn).encode()).hexdigest()})
     return cases
 
 
-def load_cases(*, challenger_cases=None) -> dict:
+def load_cases(*, challenger_cases=None, db=None) -> dict:
     """Return only the pinned shared set; a challenger cannot supply its own cases."""
     if challenger_cases is not None:
         raise DesignEvaluationRefused("a challenger may not supply evaluation cases")
@@ -123,7 +151,7 @@ def load_cases(*, challenger_cases=None) -> dict:
         raise DesignEvaluationRefused("held-out case manifest is unavailable")
     try:
         frozen = json.loads(_MANIFEST.read_text(encoding="utf-8"))
-        live = materialize_cases()
+        live = materialize_cases(db)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise DesignEvaluationRefused("held-out cases cannot be read") from exc
     if not isinstance(frozen, dict):
@@ -270,11 +298,46 @@ def _preview_checklist(text: str) -> str:
         raise DesignEvaluationRefused(str(exc)) from exc
 
 
-def _benchmark_checks() -> dict:
+def _bench2_stages(db) -> dict:
+    """Replay only frozen private Product Truth; never render the benchmark pattern."""
+    from ..cir.compiler import compile_cir
+    from ..cir.model import CIR, Component, Gauge, Material, Op, Row, Seam
+
+    truth_bytes, manifest_bytes, builder_bytes = _bench2_files(db)
+    try:
+        truth = json.loads(truth_bytes)
+        manifest = json.loads(manifest_bytes)
+        checks = truth["derived"]["checks"]
+        pattern_ok = (len(checks) == 25 and all(c["status"] == "PASS"
+                      and len(c["per_size"]) == 10
+                      and all(value is True for value in c["per_size"]) for c in checks))
+        tree = ast.parse(builder_bytes, filename="<pinned-private-benchmark>")
+        builders = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                    and node.name == "build_cir"]
+        if len(builders) != 1:
+            raise ValueError("invalid pinned builder")
+        safe_globals = {"__builtins__": {"int": int, "range": range, "round": round},
+                        "CIR": CIR, "Component": Component, "Gauge": Gauge,
+                        "Material": Material, "Op": Op, "Row": Row, "Seam": Seam,
+                        "SIZES": ("0-3m", "3-6m", "6-12m", "12-18m", "2-3T",
+                                  "4", "6", "8", "10", "12")}
+        module = ast.fix_missing_locations(ast.Module(body=builders, type_ignores=[]))
+        exec(compile(module, "<pinned-private-benchmark>", "exec"), safe_globals)
+        facts = dict(truth["facts"])
+        facts["_derived_after"] = [row["sleeve_rows_after_neck_derived"]
+                                   for row in truth["derived"]["per_size"]]
+        cir = safe_globals["build_cir"](facts, "2-3T")
+        cir_ok = compile_cir(cir).ok and cir.fingerprint == manifest.get("cir_fingerprint")
+    except (KeyError, TypeError, ValueError, SyntaxError) as exc:
+        raise DesignEvaluationRefused("bench2 Product Truth cannot be validated") from exc
+    return {"pattern": "PASS" if pattern_ok else "FAIL", "cir": "PASS" if cir_ok else "FAIL",
+            "reference": "UNKNOWN", "ad_image": "UNKNOWN", "comparison": "UNKNOWN"}
+
+
+def _benchmark_checks(db) -> dict:
     """Run existing offline benchmark gates; retain statuses only, never source text."""
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
-    from . import benchmark_e2e
 
     cir = benchmarks.cardigan("XS")
     compiled = compile_cir(cir)
@@ -285,9 +348,7 @@ def _benchmark_checks() -> dict:
                 build_twin(cir, compiled, component=component.name)
             except (ValueError, KeyError):
                 twins_ok = False
-    benchmark = benchmark_e2e.run(build_reference=False)
-    stages = {name: stage.get("status", "UNKNOWN")
-              for name, stage in benchmark.get("stages", {}).items()}
+    stages = _bench2_stages(db)
     return {"bench1_seam_compatible": benchmarks.reconcile("XS")["seam_compatible"],
             "bench1_compiles": compiled.ok, "bench1_twins": twins_ok,
             "bench2_stages": stages,
@@ -368,8 +429,8 @@ def evaluation_key(db, rule_id: int) -> str:
             raise DesignEvaluationRefused("a proposed rule is required")
         rule_sha = rule_digest(row)
         lineage_sha = lineage_digest(s, row)
-    identity = {"rule": rule_sha, "cases": load_cases()["sha256"],
-                "lineage": lineage_sha, "implementation": implementation_digest(),
+    identity = {"rule": rule_sha, "cases": load_cases(db=db)["sha256"],
+                "lineage": lineage_sha, "implementation": implementation_digest(db),
                 "corpus": corpus_digest(db)}
     return f"design-eval:{rule_id}:{_digest(identity)}"
 
@@ -392,13 +453,13 @@ def evaluate(db, rule_id: int, *, expected_key: str | None = None) -> dict:
                 raise DesignEvaluationRefused("completed evaluation evidence is missing")
             return {**audit.detail, "audit_id": audit.id,
                     "evaluation_digest": _digest(audit.detail), "created": False}
-    implementation = implementation_digest()
+    implementation = implementation_digest(db)
     corpus = corpus_digest(db)
     with db.session() as s:
         lineage = lineage_digest(s, s.get(DesignRule, rule_id))
     result = dict(preview_registered_rule(db, rule_id))
     preview_id = result.pop("audit_id")
-    if implementation != implementation_digest() or corpus != corpus_digest(db):
+    if implementation != implementation_digest(db) or corpus != corpus_digest(db):
         raise DesignEvaluationRefused("evaluation environment changed during measurement")
     result.update({"implementation_sha256": implementation, "corpus_sha256": corpus,
                    "lineage_sha256": lineage,
@@ -452,7 +513,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
 
     if type(rule_id) is not int or rule_id <= 0:
         raise DesignEvaluationRefused("invalid rule id")
-    frozen = load_cases()
+    frozen = load_cases(db=db)
     with db.session() as s:
         rule = s.get(DesignRule, rule_id)
         if rule is None or rule.state != "proposed":
@@ -482,7 +543,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
               "case_set_sha256": frozen["sha256"], "cases": case_results,
-              "benchmark_checks": _benchmark_checks(),
+              "benchmark_checks": _benchmark_checks(db),
               "state": "insufficient_evidence", "approval_evidence_complete": False,
               "why": "preview renderer is not the production writer; benchmark and full "
                      "Product Truth evidence is incomplete"}
