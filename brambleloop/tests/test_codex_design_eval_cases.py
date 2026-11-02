@@ -41,6 +41,8 @@ class FrozenCaseTests(unittest.TestCase):
         self.assertFalse(report["approval_evidence_complete"])
 
     def test_case_hash_is_stable_and_includes_each_required_source(self):
+        from brambleloop.products import launch0
+
         first = design_eval.load_cases()
         self.assertEqual(first, design_eval.load_cases())
         self.assertEqual(len(first["sha256"]), 64)
@@ -48,6 +50,8 @@ class FrozenCaseTests(unittest.TestCase):
                          {"launch0", "benchmark_truth", "stitch_family"})
         self.assertEqual({c["id"] for c in first["cases"] if c["kind"] == "benchmark_truth"},
                          {"bench1_xs", "bench2"})
+        self.assertEqual({c["id"] for c in first["cases"] if c["kind"] == "launch0"},
+                         set(launch0.LAUNCH0_SLUGS))
 
     def test_challenger_cases_and_changed_truth_are_refused(self):
         with self.assertRaises(design_eval.DesignEvaluationRefused):

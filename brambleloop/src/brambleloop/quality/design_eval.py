@@ -19,7 +19,12 @@ from . import stitch_benchmarks
 _LAUNCH_CASES = (
     ("hexagonal-bread-basket", "basket_small"),
     ("cloudline-baby-blanket", "cloudline_blanket"),
+    ("hexagon-coaster-set", "hexagon_coasters"),
     ("nordic-star-ornaments", "snowflake_ornaments"),
+    ("winter-village-graphghan", "snowfall_throw"),
+    ("nordic-forest-mosaic-throw-baby", "nordic_forest_baby"),
+    ("mosaic-placemat-pair", "placemat_pair"),
+    ("housewarming-key-basket", "key_basket"),
 )
 _MANIFEST = Path(__file__).with_name("design_eval_cases.json")
 _BENCH2 = Path(__file__).resolve().parents[3] / "research" / "bench2" / "out" / "product_truth.json"
