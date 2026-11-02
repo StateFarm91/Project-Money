@@ -215,6 +215,147 @@ def test_another_recorded_reason_keeps_the_frame_blocked():
     assert fid not in par.awaiting_frames(db)
 
 
+
+def _second_attested_photo(db, cir, test_id, body=b"a second unedited camera file"):
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.publish import physical_upgrade as pu
+
+    sha = ArtifactStore().put("sample2.jpg", body, "image/jpeg").sha256
+    rec = pu.intake(db, slug=cir.slug, version=cir.version, source="tester", sha256=sha,
+                    rights_basis="tester_agreement", taken_by="tester-1",
+                    physical_test_id=test_id, unedited=True)
+    pu.attest_unedited(db, rec["photo_id"], actor=T.OWNER, confirm=pu.UNEDITED_CONFIRMATION)
+    plan = pu.plan_upgrade(db, rec["photo_id"])
+    assert plan["upgraded"], plan
+    return sha
+
+
+def test_review_opus2s_s1_a_withdrawn_frame_is_never_approved():
+    """OPUS2S-1: a frame with approved=False and no reason has been withdrawn; the review
+    approves only a frame still awaiting it, read in the write session."""
+    db, cir, _r, _p = _setup()
+    fid = _photo_frame(db, cir)
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        f.approved, f.blocked_reasons = False, []
+    out = par.review_frame(db, fid, reissue=False)
+    assert out["approved"] is False and "not awaiting" in " ".join(out["changed"]), out
+    with db.session() as s:
+        assert s.get(ListingAsset, fid).approved is False
+
+
+def test_review_opus2s_s2_a_frame_changed_after_its_checks_is_not_approved():
+    """OPUS2S-2: the checks are read in one session and the approval written in another; a
+    frame moved, re-hashed or re-marked in between is re-read under a lock and refused."""
+    for change in ("position", "sha256", "claims", "blocked_reasons"):
+        db, cir, _r, _p = _setup()
+        fid = _photo_frame(db, cir)
+        real = par._checks
+
+        def racing(db_, frame_id, change=change):
+            checks, ctx = real(db_, frame_id)
+            with db_.session() as s:
+                f = s.get(ListingAsset, frame_id)
+                if change == "position":
+                    f.position = 999
+                elif change == "sha256":
+                    f.sha256 = "0" * 64
+                elif change == "claims":
+                    f.claims = {**(f.claims or {}), "leads_gallery": False}
+                else:
+                    f.blocked_reasons = [par.AWAITING, "re-marked by a concurrent upgrade"]
+            return checks, ctx
+
+        par._checks = racing
+        try:
+            out = par.review_frame(db, fid, reissue=False)
+        finally:
+            par._checks = real
+        assert out["approved"] is False and out["failed"] == ["unchanged_since_checked"], \
+            (change, out)
+        assert change in out["changed"], (change, out)
+        with db.session() as s:
+            frame = s.get(ListingAsset, fid)
+            assert frame.approved is False and par.AWAITING in frame.blocked_reasons, change
+
+
+def test_review_opus2s_s3_a_second_qualifying_photo_does_not_deadlock_the_set():
+    """OPUS2S-3: a second qualifying photo of the same release goes first; the first, demoted,
+    no longer claims to lead. Both are approved (one leads, one supplements) and the set
+    certifies."""
+    db = T._db()
+    cir, release = T._certified_basket(db)
+    T._render_gallery(db, cir)
+    test_id = T._passed_full_make(db, cir)
+    T._upgrade(db, cir, test_id)
+    first = _photo_frame(db, cir)
+    assert par.review_frame(db, first, reissue=False)["approved"] is True
+    sha2 = _second_attested_photo(db, cir, test_id)
+    with db.session() as s:
+        photos = sorted((f.position, f.id, dict(f.claims or {}).get("leads_gallery"))
+                        for f in s.scalars(select(ListingAsset).where(
+                            ListingAsset.product_slug == cir.slug,
+                            ListingAsset.asset_class == par.PHOTO_CLASS)))
+    assert [lead for _p, _i, lead in photos] == [True, False], photos
+    assert photos[1][1] == first, photos
+    swept = par.sweep(db)
+    assert swept["refused"] == [], swept
+    with db.session() as s:
+        assert all(f.approved for f in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug,
+            ListingAsset.asset_class == par.PHOTO_CLASS)))
+    # the supplement was approved earlier as the leader; re-reviewed as a supplement it passes
+    with db.session() as s:
+        f = s.get(ListingAsset, first)
+        f.approved, f.blocked_reasons = False, [par.AWAITING]
+    assert par.review_frame(db, first, reissue=False)["approved"] is True
+    _frames, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    assert sample_photo.requirement(db, cir.slug, cir.version)["first_frame"]["sha256"] == sha2
+
+
+def test_review_opus2s_s4_each_order_and_claim_rule_is_load_bearing():
+    """OPUS2S-4: the sole-leader rule, positions 1..n, provenance 'camera', the generated-frame
+    clause and the photo-class guard each refuse on their own."""
+    def fresh():
+        db, cir, _r, _p = _setup()
+        return db, cir, _photo_frame(db, cir)
+
+    db, cir, fid = fresh()                            # a second frame also claims to lead
+    with db.session() as s:
+        other = s.scalar(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.id != fid))
+        other.claims = {**(other.claims or {}), "leads_gallery": True}
+    assert par.review_frame(db, fid, reissue=False)["failed"] == ["frame_order_valid"]
+    db, cir, fid = fresh()                            # a gap in the positions
+    with db.session() as s:
+        last = max(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug)), key=lambda f: f.position)
+        last.position += 5
+    assert par.review_frame(db, fid, reissue=False)["failed"] == ["frame_order_valid"]
+    db, cir, fid = fresh()                            # not a camera file
+    with db.session() as s:
+        f = s.get(ListingAsset, fid)
+        f.claims = {**(f.claims or {}), "provenance": "render"}
+    assert par.review_frame(db, fid, reissue=False)["failed"] == ["no_disclosure_free_claim"]
+    db, cir, fid = fresh()                            # a frame the system generated
+    from brambleloop.publish import release_gates as rg
+
+    real = rg.is_generated_frame
+    rg.is_generated_frame = lambda frame: True
+    try:
+        out = par.review_frame(db, fid, reissue=False)
+    finally:
+        rg.is_generated_frame = real
+    assert out["failed"] == ["no_disclosure_free_claim"], out
+    db, cir, fid = fresh()                            # the class guard on its own
+    with db.session() as s:
+        s.get(ListingAsset, fid).asset_class = "RENDER"
+    checks, _ctx = par._checks(db, fid)
+    assert all(isinstance(v, str) and "not a PHYSICAL_PRODUCT_PHOTO frame" in v
+               for v in checks.values()), checks
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

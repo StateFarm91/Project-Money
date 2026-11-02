@@ -57,7 +57,9 @@ def _checks(db, frame_id: int) -> tuple[dict, dict]:
         slug, version = frame.product_slug, frame.version
         claims = dict(frame.claims or {})
         ctx = {"frame_id": frame.id, "slug": slug, "version": version,
-               "position": frame.position, "sha256": frame.sha256}
+               "position": frame.position, "sha256": frame.sha256,
+               "asset_class": frame.asset_class, "claims": claims,
+               "blocked_reasons": list(frame.blocked_reasons or [])}
         if frame.asset_class != PHOTO_CLASS:
             return ({c: f"not a {PHOTO_CLASS} frame ({frame.asset_class})" for c in CHECKS},
                     ctx)
@@ -89,11 +91,17 @@ def _checks(db, frame_id: int) -> tuple[dict, dict]:
         and entry is not None and entry.get("sha256") == frame_sha
         and bytes_on_file(db, frame_sha))
     positions = [pos for pos, *_ in siblings]
-    leaders = [fid for _pos, fid, _cls, c in siblings if c.get("leads_gallery") is True]
-    checks["frame_order_valid"] = (
-        positions == list(range(1, len(positions) + 1))
-        and ctx["position"] == 1 and claims.get("leads_gallery") is True
-        and leaders == [ctx["frame_id"]])
+    leaders = [(pos, fid) for pos, fid, _cls, c in siblings if c.get("leads_gallery") is True]
+    contiguous = positions == list(range(1, len(positions) + 1))
+    if claims.get("leads_gallery") is True:
+        # the leading photo: at position 1 and the only frame that leads
+        checks["frame_order_valid"] = (contiguous and ctx["position"] == 1
+                                       and leaders == [(1, ctx["frame_id"])])
+    else:
+        # OPUS2S-3: a second qualifying photo of the release, behind the one that leads: a
+        # supplement, valid when exactly one other frame leads, at position 1.
+        checks["frame_order_valid"] = (contiguous and ctx["position"] > 1
+                                       and len(leaders) == 1 and leaders[0][0] == 1)
     synthetic = sample_photo._synthetic_shas(db, [frame_sha]) if frame_sha else {}
     checks["no_disclosure_free_claim"] = (
         set(claims) <= ALLOWED_CLAIMS and claims.get("provenance") == "camera"
@@ -116,9 +124,30 @@ def review_frame(db, frame_id: int, *, reissue: bool = True) -> dict:
             "frame_id": frame_id}
     approved = all(checks.get(c) is True for c in CHECKS)
     failed = [c for c in CHECKS if checks.get(c) is not True]
-    out = {**ctx, "checks": checks, "approved": approved, "failed": failed}
+    out = {k: v for k, v in {**ctx, "checks": checks, "approved": approved,
+                             "failed": failed}.items()
+           if k not in ("claims", "blocked_reasons", "asset_class")}
     with db.session() as s:
-        frame = s.get(ListingAsset, int(frame_id))
+        from sqlalchemy import select
+
+        # OPUS2S-2: the frame is locked and re-read in the write; if anything the checks read
+        # changed since (a concurrent upgrade moved it, re-marked it, or replaced its bytes),
+        # nothing is approved and the next sweep reviews it afresh.
+        frame = s.scalars(select(ListingAsset).where(ListingAsset.id == int(frame_id))
+                          .with_for_update()).first()
+        if frame is not None and approved:
+            now = {"position": frame.position, "sha256": frame.sha256,
+                   "asset_class": frame.asset_class, "claims": dict(frame.claims or {}),
+                   "blocked_reasons": list(frame.blocked_reasons or [])}
+            changed = sorted(k for k, v in now.items() if ctx.get(k) != v)
+            # OPUS2S-1: only a frame still awaiting this review is approved. A withdrawn
+            # frame (approved=False with no reason) is not this review's to approve.
+            if AWAITING not in now["blocked_reasons"]:
+                changed.append("not awaiting asset-truth review")
+            if changed:
+                approved = False
+                out.update(approved=False, failed=["unchanged_since_checked"],
+                           changed=changed)
         if frame is not None and approved:
             remaining = [r for r in (frame.blocked_reasons or []) if r != AWAITING]
             frame.blocked_reasons = remaining

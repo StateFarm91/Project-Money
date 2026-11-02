@@ -762,6 +762,14 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     assert not _re_par.search(r"from\s+[.\w]*sample_photo\s+import", par_src)
     assert not _re_par.search(r"import\s+[.\w]*sample_photo\s+as\s", par_src)
     assert "requirement(" not in par_src and "stage=" not in par_src
+    # OPUS2S-5: any reach into sample_photo (a getattr, a call) names only those two, as the
+    # physical_upgrade guard reads it; no other binding of the module exists.
+    reached = {m for line in par_src.splitlines() if "import" not in line
+               for m in _re_par.findall(r"sample_photo\W+(\w+)", line)}
+    assert reached == {"qualifying_photos", "_synthetic_shas"}, reached
+    assert "getattr(sample_photo" not in par_src.replace(" ", "")
+    assert len(_re_par.findall(r"\bsample_photo\b", par_src)) == len(
+        _re_par.findall(r"sample_photo\.(?:qualifying_photos|_synthetic_shas)\(", par_src)) + 1
     import re as _re
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))
