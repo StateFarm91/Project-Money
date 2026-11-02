@@ -13,7 +13,7 @@ class KnowledgeContractTests(unittest.TestCase):
     def test_evaluated_independent_approval_changes_written_output_and_revalidates(self):
         from brambleloop.cir.compiler import compile_cir
         from brambleloop.cir.reverse import compare
-        from brambleloop.cir.writer import write_pattern
+        from brambleloop.cir.writer import finishing_checklist, write_pattern
         from brambleloop.gates.originality import code_benchmarks, record_fingerprint
         from brambleloop.products import launch0
         from brambleloop.quality import design_eval
@@ -80,6 +80,17 @@ class KnowledgeContractTests(unittest.TestCase):
             self.assertNotEqual(result, baseline)
             self.assertIn("\n- Fasten off", result)
             self.assertEqual(compare(cir, result), [])
+            for slug in launch0.LAUNCH0_SLUGS:
+                item = launch0.cir_for(launch0.candidate(slug).variants[0].build)
+                item_plain = write_pattern(item, compile_cir(item))
+                item_pinned = knowledge.freeze_pins(reopened, item, [pin])
+                self.assertEqual(write_pattern(item_pinned, compile_cir(item_pinned)),
+                                 finishing_checklist(item_plain))
+            unavailable = Mock()
+            unavailable.session.side_effect = RuntimeError("database offline")
+            with self.assertLogs(knowledge.__name__, level="ERROR"):
+                self.assertEqual(knowledge.write_with_verified_knowledge(
+                    unavailable, pinned, compile_cir(pinned)), baseline)
             successor = knowledge.propose(reopened, key=rule["key"], statement={
                 "rule": "include_finishing_checklist", "parameters": {}},
                 scope={"writer_section": "finishing"},

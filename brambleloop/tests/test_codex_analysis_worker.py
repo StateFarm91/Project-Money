@@ -297,6 +297,11 @@ class AnalysisWorkerTests(unittest.TestCase):
             with db.session() as s:
                 self.assertEqual(s.get(BenchmarkProduct, benchmark_id).teardown_state, "needs_analyst")
                 self.assertEqual(list(s.scalars(select(DesignRule))), [])
+                analysis = s.scalar(select(BenchmarkAnalysis))
+                gap = s.scalar(select(Incident).where(
+                    Incident.signature == f"learning.knowledge_gap:analysis:{analysis.id}"))
+                self.assertFalse(gap.resolved)
+                self.assertEqual(gap.detail["state"], "analysis_unknown")
 
     def test_real_worker_runs_deduplicated_job_on_reopened_database(self):
         with TemporaryDirectory() as tmp:

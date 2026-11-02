@@ -141,7 +141,7 @@ def verify_cir_pins(db, cir) -> list[dict]:
     except ValueError as exc:
         raise DesignKnowledgeRefused(str(exc)) from exc
     verified = verify_pins(db, [entry["pin"] for entry in entries])
-    if any(entry["rule"] != record["statement"]["rule"]
+    if len(entries) != len(verified) or any(entry["rule"] != record["statement"]["rule"]
            for entry, record in zip(entries, verified)):
         raise DesignKnowledgeRefused("frozen directive does not match its approved rule")
     return verified

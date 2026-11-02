@@ -18,8 +18,8 @@ def observe_analysis(db, analysis_id: int) -> dict:
             return {"state": "missing", "changed": False}
         observations = source.observations if isinstance(source.observations, dict) else {}
         dimensions = observations.get("dimensions")
-        gap_observed = (observations.get("fully_readable") is True and isinstance(dimensions, dict)
-                        and dimensions.get("finishing") == "absent")
+        verdict = dimensions.get("finishing") if isinstance(dimensions, dict) else None
+        readable = observations.get("fully_readable") is True
         reviewed = independently_reviewed(source)
         rejected = independent_decision(source, "rejected")
         rule = s.scalar(select(DesignRule).where(
@@ -27,10 +27,15 @@ def observe_analysis(db, analysis_id: int) -> dict:
                 DesignRule.version.desc()))
         rule_id = rule.id if rule else None
         rule_state = rule.state if rule else None
-    state = "not_observed"
-    if gap_observed and not rejected:
-        state = "review_required" if not reviewed else "awaiting_approved_rule"
-        if reviewed and rule_state == "approved":
+    if rejected:
+        state = "review_rejected"
+    elif not readable or verdict not in ("observed", "absent"):
+        state = "analysis_unknown"
+    elif not reviewed:
+        state = "review_required"
+    elif verdict == "absent":
+        state = "awaiting_approved_rule"
+        if rule_state == "approved":
             try:
                 records = design_knowledge.applicable(db, {"writer_section": "finishing"})
                 if any(record["pin"]["rule_id"] == rule_id for record in records):
@@ -38,8 +43,10 @@ def observe_analysis(db, analysis_id: int) -> dict:
             except Exception:
                 # Missing evidence never closes the gap.
                 state = "awaiting_approved_rule"
+    else:
+        state = "not_observed"
     with db.session() as s:
-        if state in ("review_required", "awaiting_approved_rule"):
+        if state in ("analysis_unknown", "review_rejected", "review_required", "awaiting_approved_rule"):
             _, opened = incident_lifecycle.open_or_restate(
                 s, signature=signature, severity="P2", halts_publication=False,
                 summary="Reference observation needs reviewed design knowledge",
