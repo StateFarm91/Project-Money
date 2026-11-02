@@ -1069,7 +1069,7 @@
       },
       {
         "id": "CODEX3-QUEUED",
-        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus) + 24b70df, 2b6688a; executor answer #28 6589146793 (in-process exec of pinned brambleloop/research/bench2/product_truth.py sha256 dec34b0b...: safety rests on reviewing that exact source + SHA integrity, not on restricted globals)",
+        "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus) + 24b70df, 2b6688a; executor answer #28 6589146793 (in-process exec of pinned brambleloop/research/bench2/product_truth.py sha256 dec34b0b...: safety rests on reviewing that exact source + SHA integrity, not on restricted globals) + c7bda4e (corrected A6 contract; writer pure again)",
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
         "started": null,
         "note": "starts when CODEX2 reports (one Codex review at a time)"
@@ -1080,6 +1080,21 @@
         "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
         "started": "2026-11-02T21:39:14Z",
         "requested_by": "#28 6589003363"
+      },
+      {
+        "id": "A6-REVIEW",
+        "subject": "opus2/a6-learning-to-design 8c131f10 (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A6_8c131f10.md",
+        "started": "2026-11-02T21:50:33Z",
+        "requested_by": "#28 6589331944"
+      },
+      {
+        "id": "A8-REVIEW-QUEUED",
+        "subject": "opus2/a8-culture-ideation 4f99bd8f (on A4a 993cc0cd)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A8_4f99bd8f.md",
+        "started": null,
+        "note": "starts after the A4a verdict (A8 depends on A4a) and machine capacity",
+        "requested_by": "#28 6589288273"
       }
     ]
   },
