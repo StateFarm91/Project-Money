@@ -233,3 +233,4 @@ tests/test_opus2_owner_queue_races.py
 tests/test_opus2_culture_sweep_timeout.py
 tests/test_w5_concept_intake.py
 tests/test_w5_inventory.py
+tests/test_w5_a4a_research_to_concept.py
