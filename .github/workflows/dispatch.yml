@@ -1,0 +1,38 @@
+# Engineering dispatch board, MAIN <-> SECONDARY (issue #28).
+# The board itself is read-only: it never assigns, reassigns, merges or deploys anything, uses
+# no paid API, and its only write is one board comment on issue #28, edited in place.
+# It runs ONLY when this file is on the repository's default branch (a GitHub rule).
+# GitHub may delay scheduled runs; 5 minutes is the minimum interval, not a guarantee.
+name: dispatch-board
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  issue_comment:
+    types: [created]
+  push:
+    branches: ["opus2/**", "codex/**", "claude/w5-**", "claude/w4-INTEG8-next"]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: dispatch-board
+  cancel-in-progress: true
+jobs:
+  board:
+    if: github.event_name != 'issue_comment' || (github.event.issue.number == 28 && !contains(github.event.comment.body, '<!-- dispatch-board -->'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/w4-INTEG8-next
+          sparse-checkout: |
+            COORDINATION.json
+            dispatch
+            ops/assignments.py
+            ops/dispatch_board.py
+          sparse-checkout-cone-mode: false
+      - run: python3 ops/dispatch_board.py --repo "${{ github.repository }}" --issue 28 --post
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

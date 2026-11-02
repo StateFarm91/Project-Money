@@ -36,3 +36,12 @@ On each check-in the integrator:
 - posts the next assignment.
 
 An overdue assignment (no ack by `ack_due_by`, no checkpoint by `checkpoint_due_by`, or no progress for 4 h) is REPORTED to the owner with the specific limitation. It is never moved without the owner's authorization (I-THREE-OPERATOR-STRUCTURE). If the owner authorizes a transfer, it is recorded in `ownership_history`, and `claim-check` then refuses the former owner.
+
+## Conversation channel: issue #28, "BRAMBLELOOP ENGINEERING DISPATCH — MAIN ↔ SECONDARY"
+All messages between Main and Secondary go in issue #28.
+- **First line:** a tag, `[MAIN]`, `[SECONDARY]` or `[CODEX]`, then a type: `ASSIGN`, `ACK`, `QUESTION`, `ANSWER`, `BLOCKED`, `CHECKPOINT <sha>`, `REVIEW-REQUEST <sha>`, `VERDICT`, `NEXT` or `STATUS`.
+- **Why the tag:** both sessions post as the same GitHub account, so the tag identifies the sender.
+- **Events still required:** each ACK, CHECKPOINT and REVIEW-REQUEST must also be recorded as an `ops/assignments.py` event. The event is the authoritative record; the comment is the conversation.
+- **Main's polling:** Main polls #28 and the worker branches every 5 minutes, using a watcher with no model cost that wakes Main only when something changes.
+- **Secondary's polling:** Secondary reads #28 on each wake. Its interval is whatever its own scheduler allows, and it reports that interval in its first ACK.
+- **Dispatch board:** `.github/workflows/dispatch.yml` (`ops/dispatch_board.py`) keeps one comment on #28 up to date with unanswered messages, overdue assignments and new review results. It is read-only and free, because the repository is public. It runs only once the workflow file is on the default branch, which needs an owner decision.
