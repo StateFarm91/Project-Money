@@ -199,6 +199,26 @@ def _tapestry_sentence(plan: ColourPlan) -> str | None:
                      f"rejoin it at the start of the next colourwork {unit}, leaving a 10 cm tail.")
     else:
         sentence += " Do not cut at these changes."
+    # OPUS2N-3 (J7B-2): a yarn used only as a contrast, never as a round's main colour, is
+    # told when to join and when to cut -- the maker is not left to infer either step.
+    if not plan.turned:
+        mains = set(getattr(plan, "rows_by_colour", {}) or {})
+        used: dict[str, list[int]] = {}
+        for row, colour, kind in plan.events:
+            if kind == IN_ROW and colour not in mains:
+                used.setdefault(colour, [])
+                if row not in used[colour]:
+                    used[colour].append(row)
+        last_row = getattr(plan, "last_row", None)
+        for colour, rows_c in sorted(used.items(), key=lambda kv: min(kv[1])):
+            rows_c.sort()
+            first, last = rows_c[0], rows_c[-1]
+            sentence += (f" Join {colour} at the start of Rnd {first} and work it over in "
+                         f"Rnd{'s' if len(rows_c) > 1 else ''} {_row_list(rows_c)}")
+            if last_row is not None and last < last_row:
+                sentence += f"; cut {colour} after Rnd {last} and fasten it off."
+            else:
+                sentence += "."
     return sentence
 
 

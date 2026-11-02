@@ -577,7 +577,8 @@ _TAPESTRY_ALLOWED_WORDS = frozenset({
     "tapestry", "colourwork", "colorwork", "colour", "color", "work", "two", "tone", "toned",
     "two-colour", "two-color", "two-coloured", "two-colored", "two-tone", "two-toned",
     "bicolour", "bicolor", "bi-colour", "bi-color", "crochet", "crocheted", "storage",
-    "round", "hexagon", "hexagonal", "geometric", "modern", "classic", "simple", "everyday",
+    # OPUS2N-2: no "round": the base is a hexagon, as the size note says.
+    "hexagon", "hexagonal", "geometric", "modern", "classic", "simple", "everyday",
     "cosy", "cozy", "small", "medium", "large", "catch-all", "catchall", "shelf",
     *[w for w, chart in _TAPESTRY_CHART_WORDS.items() if chart],
 })
@@ -614,8 +615,14 @@ def tapestry_route(title: str | None) -> dict | None:
                                             "title names",
                 "why": (f"the title {title!r} claims colourwork but its head noun is not "
                         f"'basket'; only a tapestry basket is drafted")}
-    before = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", folded[:head.start()])
+    prefix = folded[:head.start()]
+    before = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", prefix)
     unknown = [w for w in before if w not in _TAPESTRY_ALLOWED_WORDS]
+    # OPUS2N-1: the allowlist is total. An emoji, a word in another script or a symbol yields
+    # no ASCII token; it is refused by what is left over, never passed as "nothing unknown".
+    leftover = re.sub(r"[a-z0-9\s\-]", "", prefix)
+    if leftover:
+        unknown.append(leftover)
     if unknown:
         return {"family": REFUSED,
                 "needs": (f"the motif, size or construction {' '.join(unknown)!r} names; only "
@@ -623,6 +630,15 @@ def tapestry_route(title: str | None) -> dict | None:
                           f"({', '.join(sorted(TAPESTRY_CHARTS))}) is drafted"),
                 "why": (f"the title names {' '.join(unknown)!r}, which the tapestry basket "
                         f"charts do not make")}
+    # OPUS2N-4: one chart and one size per release; a second is never silently dropped.
+    charts = {_TAPESTRY_CHART_WORDS[w] for w in before if _TAPESTRY_CHART_WORDS.get(w)}
+    sizes = {k for w, k in _TAPESTRY_SIZE_WORDS if w in before}
+    if len(charts) > 1 or len(sizes) > 1:
+        named = sorted(charts) if len(charts) > 1 else sorted(sizes)
+        return {"family": REFUSED,
+                "needs": "one certified release per chart and per size, each listed on its own",
+                "why": (f"the title names {' and '.join(named)}; one tapestry basket carries "
+                        f"one chart at one size")}
     return {"family": TAPESTRY, "needs": "",
             "why": "a tapestry basket is single crochet in joined rounds, two colours carried"}
 
