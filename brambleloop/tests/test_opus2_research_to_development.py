@@ -168,6 +168,7 @@ def test_part2_one_code_path_makes_materially_different_constructions_from_brief
         "pouch": _brief("brief-soft-pouch", "pouch", "in_the_round", "soft"),
     }
     cirs = {}
+    assert len(briefs) == 3
     for family, concept in briefs.items():
         ctx, emitted, audits = _ctx(db, concept)
         out = pipeline._draft_creative(ctx, concept["key"])
@@ -210,6 +211,8 @@ def test_part2_briefs_lacking_what_their_construction_needs_are_held_by_name():
         "size": _brief("brief-giant", "basket", "in_the_round", "ridged"),
     }
     briefs = {"size": {"size": "giant"}}
+    assert len(cases) == 3
+    all_held = []
     for field, concept in cases.items():
         ctx, emitted, audits = _ctx(db, concept, briefs.get(field))
         out = pipeline._draft_creative(ctx, concept["key"])
@@ -217,6 +220,19 @@ def test_part2_briefs_lacking_what_their_construction_needs_are_held_by_name():
         assert field in {u["field"] for u in out["unresolved"]}, (field, out)
         held = [kw for a, kw in audits if a == R.HELD_ACTION]
         assert held and held[0]["detail"]["unresolved"] == out["unresolved"], held
+        all_held += held
+    # The engine-blocked hold reaches the Learning gap system as missing capability.
+    from datetime import date
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.intel import knowledge_gaps as kg
+
+    with db.session() as s:
+        for kw in all_held:
+            s.add(AuditLog(actor="crochet_engineer", action=R.HELD_ACTION,
+                           artifact=kw.get("artifact"), detail=kw.get("detail")))
+    ev = kg.evidence(db, today=date.today())["baskets_storage"]
+    assert "brief-mosaic" in ev["refused"] and any("reach" in n for n in ev["needs"]), ev
     # A held construction names the engine decision; a held motif names research enrichment.
     mosaic = R.request_for(Concept(**cases["construction"]))
     assert mosaic.unresolved[0]["resolved_by"] == R.ENGINE

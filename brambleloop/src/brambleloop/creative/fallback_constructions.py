@@ -682,19 +682,12 @@ def tapestry_charts() -> dict[str, tuple[str, ...]]:
 
 
 def _tapestry_chart(title: str, slug: str = "") -> str:
-    """The chart a brief names, or -- when it names none -- one chosen deterministically from
-    the backed charts by the concept's own key, so different briefs get different designs."""
+    """The chart a title names; with none named, the one default chart. Never a chart picked
+    by rotation or hash: a motif is a design decision the brief makes (owner directive
+    2026-11-02), and the construction registry holds a research brief that names none."""
     words = re.findall(r"[a-z]+", fold_title(title))
     chosen = [_chart_word(w) for w in words if _chart_word(w)]
-    if chosen:
-        return chosen[0]
-    if not slug:
-        return TAPESTRY_DEFAULT_CHART
-    import hashlib
-
-    plain = sorted(c for c in tapestry_charts() if c in TAPESTRY_CHARTS or c in {
-        "basketweave", "chevron-band", "diamond-lattice"})        # no figurative motif unasked
-    return plain[int(hashlib.sha256(slug.encode()).hexdigest(), 16) % len(plain)]
+    return chosen[0] if chosen else TAPESTRY_DEFAULT_CHART
 
 
 def tapestry_motif_primitive(chart_name: str) -> str | None:
