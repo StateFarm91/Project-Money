@@ -193,7 +193,7 @@ def test_a_concept_whose_maths_fails_dies_at_compile():
     JobQueue(db).enqueue("crochet_engineer", "cir.draft", {
         # A2: the title names its object (a flat route refuses an unknown head before the
         # compiler is reached); the maths is what this test fails.
-        "slug": "bad-concept", "title": "Bad Concept Blanket", "category": "mosaic_blanket",
+        "slug": "bad-concept", "title": "Everyday Blanket", "category": "mosaic_blanket",
         "stitch_repeat": [["sc", 5], ["dc", 1]], "width_stitches": 40, "rows": 4,
         "colors": {"forest": "#244A3A"},
     })
