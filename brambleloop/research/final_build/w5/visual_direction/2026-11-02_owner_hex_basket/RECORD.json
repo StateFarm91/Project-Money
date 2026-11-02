@@ -3,7 +3,7 @@
   "received": "2026-11-02T18:45Z",
   "received_from": "owner, chat upload to the integrator (Main Opus) session",
   "subject": "Hexagonal Bread Basket lifestyle and gallery direction; Laura identity references; one competitor benchmark",
-  "status": "VISUAL_DIRECTION_ONLY",
+  "status": "VISUAL_DIRECTION_ONLY (quality/environment/styling/realism target; not geometry, not identity, not physical evidence)",
   "owner_instruction": "The example images are visual direction, not automatic certification of product geometry or Laura identity. Do not replace Laura's canonical references or modify approved identity rules without authorization.",
   "laura_identity_images": {
     "result": "byte-identical to the approved canonical pack laura-r2-a42aeac7, which conditioning/laura-r2-a42aeac7/flux-3-image.json already transmits; not duplicated here; canonical identity unchanged",
@@ -36,7 +36,7 @@
         1152
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -47,7 +47,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "nursery setting: visual inspiration only for future products classified for nursery use; NOT the merchandising direction for the Hexagonal Bread Basket"
     },
     {
       "file": "02_basket_dresser_closeup.png",
@@ -59,7 +68,7 @@
         1152
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -70,7 +79,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "nursery setting: visual inspiration only for future products classified for nursery use; NOT the merchandising direction for the Hexagonal Bread Basket"
     },
     {
       "file": "03_basket_dresser_wide.png",
@@ -82,7 +100,7 @@
         1152
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -93,7 +111,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "nursery setting: visual inspiration only for future products classified for nursery use; NOT the merchandising direction for the Hexagonal Bread Basket"
     },
     {
       "file": "04_basket_filled_nursery_items.png",
@@ -105,7 +132,7 @@
         1132
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -116,7 +143,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "nursery setting: visual inspiration only for future products classified for nursery use; NOT the merchandising direction for the Hexagonal Bread Basket"
     },
     {
       "file": "05_basket_studio_packshot.png",
@@ -128,7 +164,7 @@
         1024
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -139,7 +175,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "clean pack-shot quality reference"
     },
     {
       "file": "09_basket_dresser_wide_variant.png",
@@ -151,7 +196,7 @@
         1152
       ],
       "role": "owner_visual_direction",
-      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "generator": "UNKNOWN",
       "allowed_uses": [
         "human visual direction",
         "review-rubric examples"
@@ -162,7 +207,16 @@
         "listing or gallery use",
         "evidence of product geometry",
         "physical-sample evidence"
-      ]
+      ],
+      "provenance": {
+        "generator": "UNKNOWN",
+        "model": "UNKNOWN",
+        "prompt": "UNKNOWN",
+        "seed": "UNKNOWN",
+        "conditioning_references": "UNKNOWN",
+        "stated_by": "owner 2026-11-02: not currently available; record as UNKNOWN, do not infer"
+      },
+      "direction_scope": "nursery setting: visual inspiration only for future products classified for nursery use; NOT the merchandising direction for the Hexagonal Bread Basket"
     },
     {
       "file": "10_competitor_etsy_listing_screenshot.jpg",
@@ -185,5 +239,15 @@
       ]
     }
   ],
-  "pipeline_status": "Deliberately not available to the production image pipeline: nothing under research/ is read by generation, review or gallery code. Promoting any image into a generation input requires an owner-approved decision naming its sha256 and role."
+  "pipeline_status": "Deliberately not available to the production image pipeline: nothing under research/ is read by generation, review or gallery code. Promoting any image into a generation input requires an owner-approved decision naming its sha256 and role.",
+  "owner_clarification": {
+    "at": "2026-11-02T19:00Z",
+    "text": [
+      "The six basket images represent the target visual quality, consistent environment, styling and photographic realism for the autonomous image agents.",
+      "They are NOT authoritative construction specifications or physical-sample evidence.",
+      "The certified crochet pattern is the source of truth for geometry, stitches, rim construction, dimensions, colours and assembly. A certified pattern is never altered to match a generated image.",
+      "Hexagonal Bread Basket merchandising direction is kitchen and home, not nursery. The nursery examples are preserved only as inspiration for appropriately classified future products.",
+      "Generator, seed, prompt and conditioning references are UNKNOWN."
+    ]
+  }
 }
