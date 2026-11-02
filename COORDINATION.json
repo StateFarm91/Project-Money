@@ -1312,6 +1312,127 @@
       "priority": 2,
       "requirement": "automatic correction and gallery completion end to end: certified autonomous gallery produced through real handlers and handed to listing.package (demonstration required before Visual Production counts as operational)",
       "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-SUPPORT-DEFECT-INCIDENT",
+      "priority": 1,
+      "requirement": "support row hotspot -> correlated incident, release re-verification and withholding (runtime/release.py:2608)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-SECRET-LEAK-ESCALATE",
+      "priority": 1,
+      "requirement": "caught secret -> durable incident + rotation owner action (ops/log_secret_guard.py:143)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FLOW-STALL-ACT",
+      "priority": 2,
+      "requirement": "stalled/looping products in flow_health -> incident, re-drive or named hold; visible to Laura/COO"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-OWNER-DECISION-DISPATCH",
+      "priority": 2,
+      "requirement": "decided owner cards dispatch back into work; cir.reengineer card decidable (runtime/engineering_ops.py:251-316)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-JOBTYPE-CLOSURE",
+      "priority": 2,
+      "requirement": "resolve UNHANDLED assets.render, pricing.experiment and ORPHAN cir.reengineer, research.flag_architecture; test that every banded type has a handler and a producer or an explicit manual allowlist"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FAILOVER-DRILL",
+      "priority": 2,
+      "requirement": "scheduled, budgeted model failover drill writing contract-eval rows (second provider may need owner approval)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PHYSICAL-TEST-REQUEST",
+      "priority": 2,
+      "requirement": "per-product tester request when a certificate requires a physical test; tester kit not hard-wired to basket_small"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PORTFOLIO-ACT",
+      "priority": 2,
+      "requirement": "portfolio classifications -> bounded jobs"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FINANCE-CHALLENGE-IDEM",
+      "priority": 5,
+      "requirement": "finance.challenge enqueued without idempotency key (runtime/pipeline.py:3202)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-STOREFRONT-ASSET-FIX",
+      "priority": 5,
+      "requirement": "storefront asset-health findings -> jobs"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "UNASSIGNED (next free worker, in priority order)",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PROVIDER-BILLING-RECON",
+      "priority": 5,
+      "requirement": "reconcile provider bills to the ledger (needs owner billing keys)"
     }
   ],
   "decisions": [
@@ -1338,6 +1459,12 @@
       "at": "2026-11-02T19:05Z",
       "decision": "Visual Production is not operational until an accurate, certified, autonomous gallery is produced through real handlers and handed to listing.package. Paid providers stay off until owner activation under V0.",
       "source": "owner directive 2026-11-02"
+    },
+    {
+      "id": "I-INVENTORY-AUTHORITATIVE",
+      "at": "2026-11-02T19:06Z",
+      "decision": "The authoritative workforce inventory is P0_WIRING_50937469.md (departments 1-16, 25 handoffs) plus WORKFORCE_INVENTORY_EXT_5ba84bf7.md (departments 17-31, all 171 job types). 159 LIVE, 8 MANUAL, 2 ORPHAN, 2 UNHANDLED; production evidence UNKNOWN for every job type until readback. No competing plan.",
+      "source": "owner directive I-P0-ABSOLUTE-WORKFORCE item 1"
     }
   ],
   "owner_actions_pending": [
