@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T03:50Z.
+Last updated: 2026-11-02T04:05Z.
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -22,8 +22,8 @@ Last updated: 2026-11-02T03:50Z.
 
 | ID | Branch / PR | Exact SHA(s) | Verdict | Depends on | Merge-ready | Regression suites | Next action | Operator |
 |---|---|---|---|---|---|---|---|---|
-| Q1 | opus2/p1-culture-sweep-timeout, PR #7 | 3468fe73 | ACCEPT (OPUS2K) | none | **merged** 03:29Z | test_opus2_culture_sweep_timeout, test_culture, test_culture_feed, test_cost_governance_wave2 | push W5-INTEG1 when the b5m2 batch is green | integrator |
-| Q2 | opus2/p0-cir-colourwork, PR #9 | 424d69a9 | ACCEPT (OPUS2K); J-7 SHIP (J7B) | W5-INTEG1 2d2d9446 | **merged** 03:29Z | test_opus2_cir_colourwork, test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_w5_integfix, test_compiler, test_reverse, test_twin | same as Q1 | integrator |
+| Q1 | opus2/p1-culture-sweep-timeout, PR #7 | 3468fe73 | ACCEPT (OPUS2K) | none | **integrated** (W5-INTEG1 812f63d7, pushed 03:46Z; 13/13 suites green) | test_opus2_culture_sweep_timeout, test_culture, test_culture_feed, test_cost_governance_wave2 | none: done | — |
+| Q2 | opus2/p0-cir-colourwork, PR #9 | 424d69a9 | ACCEPT (OPUS2K); J-7 SHIP (J7B) | W5-INTEG1 2d2d9446 | **integrated** (W5-INTEG1 812f63d7) | test_opus2_cir_colourwork, test_first_customer_gate, test_launch0, test_launch0_listing_truth, test_w5_integfix, test_compiler, test_reverse, test_twin | none: done | — |
 | Q3 | opus2/p0-revenue-workforce, PR #3 (J-1 chain) | 558e7ca9, 6d6d83d9, 771e1e1a, c3074241, 6769e696 | 558e7ca9/6d6d83d9 reviewed (OPUS2H/I); J-1 DO NOT SHIP at c3074241 (OPUS2K); 6769e696 **in review OPUS2M** | Q1 not required; touches launch0 title_promise | no: awaiting OPUS2M | test_opus2_size_claims, test_launch0*, test_opus2_draft_constructions, test_vacuity | merge the whole chain on OPUS2M SHIP | integrator / opus2 fixes |
 | Q4 | opus2/p1-culture-sweep-timeout, PR #7 | e0be7c4d (tests only) | **in review OPUS2M** | Q1 | no: awaiting OPUS2M | test_opus2_culture_sweep_timeout | merge on SHIP | integrator |
 | Q5 | opus2/p0-cir-colourwork, PR #9 | d4486b8c | **in review OPUS2M** | Q2 | no: awaiting OPUS2M | as Q2 | merge on SHIP | integrator |
@@ -32,7 +32,7 @@ Last updated: 2026-11-02T03:50Z.
 | Q8 | opus2/p0-listing-package, PR #5 | be96a598 | ACCEPT | none | **merged** (earlier) | test_opus2_listing_package | none: done | — |
 | Q9 | opus2/p1-owner-queue-races, PR #6 | 23935b58 | ACCEPT | none | **merged** (earlier) | test_opus2_owner_queue_races | none: done | — |
 | Q10 | opus2/p0-family-membership, PR #8 | d8d80301 | ACCEPT | none | **merged** (earlier) | test_opus2_family_membership | none: done | — |
-| Q11 | claude/w4-INTEG8-next records | 42db54ae, 51e39992 and this file (docs/records only) | n/a (no code) | none | yes | none (no code) | merge into W5-INTEG1 with the Q1/Q2 push | integrator |
+| Q11 | claude/w4-INTEG8-next records | 42db54ae, 51e39992 and this file (docs/records only) | n/a (no code) | none | **integrated** (812f63d7; records suites 7/7 green) | none (no code) | re-merge at each records change | integrator |
 | Q12 | codex/p0-learning-reference | 57c176a9 (claim only) | n/a: no code yet | — | no: **not started** | — | owner starts Codex; review its first push | Codex |
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
 | Q14 | opus2 new work: P0-PHOTO-ASSET-REVIEW, mosaic vessel drafting | not started | — | Q2 (mosaic) | — | — | assigned on PR #3, 03:40Z | opus2 |
