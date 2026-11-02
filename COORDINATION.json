@@ -1203,6 +1203,43 @@
       "ownership_boundary": "shared safety code only (launch0 children's gate, child_words_in/fold, renderer children's block, risk_matrix, small-parts check); the amigurumi toy rebases onto A1-R afterwards and is not part of this branch",
       "next": "push, then request delta review on PR #3; integrator integrates on SHIP independently of the toy",
       "priority": "1 (with A2); then A4, A5, A6 ahead of any new construction or product generator (I-OPUS2-FREEZE-GENERATORS stands)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "source": "VISUAL_WIRING_AUDIT_5ba84bf7.md (2026-11-02); owner visual direction 2026-11-02",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
+      "id": "V1",
+      "owner": "mainopus-worker",
+      "assigned": "2026-11-02T19:00Z",
+      "state": "in_progress",
+      "branch": "claude/w5-V1-visual-correctness",
+      "priority": 1,
+      "requirement": "P0-VISUAL-CORRECTNESS (CA$0, deterministic)",
+      "closes": [
+        "P0-a wasted paid lifestyle repair loop",
+        "P0-d basket ribbing_declared misfire",
+        "P1-b stripes/corners/rim stated in the FLUX prompt",
+        "P2-b 'approved product photograph' label",
+        "P1-c(brief) SIZE brief names Laura on a product-only frame"
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "source": "VISUAL_WIRING_AUDIT_5ba84bf7.md (2026-11-02); owner visual direction 2026-11-02",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
+      "id": "V2",
+      "owner": "UNASSIGNED (next free worker after V1)",
+      "assigned": "2026-11-02T19:00Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "P0-VISUAL-VESSEL-FIDELITY",
+      "closes": [
+        "P0-c vessel verifier (corner count, stripe bands, rim; feasible flat-lay brief for vessels)",
+        "P1-d cross-image product consistency in the gallery certificate",
+        "P2-a capability-only blocked runs re-driven once when the gate opens"
+      ]
     }
   ],
   "decisions": [
@@ -1223,6 +1260,20 @@
         "A5, A7, A9 reassigned from opus2 to integrator-supervised workers to run in parallel; opus2 keeps A1-R, A2 fixes, A4, A6, A8",
         "Codex keeps P0-LEARNING-REFERENCE; its priority inside that scope is the CODEX1 HIGH fixes, then the approved-rule reader that A6 consumes"
       ]
+    }
+  ],
+  "owner_actions_pending": [
+    {
+      "id": "OA-VISUAL-1",
+      "at": "2026-11-02T19:00Z",
+      "items": [
+        "F-852/F-853 scope for generated LIFESTYLE/SCALE/COLOUR_CONTEXT frames",
+        "Etsy image-policy reading (UNKNOWN)",
+        "fund a second vision judge and a face-embedding model for automatic identity (P0-b)",
+        "approve room reference images for the consistent home (P1-a)",
+        "physical basket sample and photo"
+      ],
+      "blocks": "generated frames reaching a publishable gallery; does not block V1/V2 or any other work"
     }
   ]
 }
