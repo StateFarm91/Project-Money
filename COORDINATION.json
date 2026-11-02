@@ -831,6 +831,14 @@
       "verdicts": {
         "opus2/a2-name-object 51f87859": "DO NOT SHIP: A2F-1 HIGH motif check exempted by slug (_engineered_designs) incl. 9 slugs with no engineered CIR -> rule-drafted 'Heart Table Runner' under heart-relief-table-runner passes; test pins the loophole; A2F-2 HIGH four title readers, none is text_fold.fold; _motif_fold misses Cyrillic/Greek lookalikes; manual_adoption runs motif_promise on live Etsy text unrouted; fullwidth 'Ribbed Scarf' drafts plain panel; A2F-3 HIGH size word order inverts size ('Small Market Basket' drafts large); A2F-4 MED allowlists admit unmade textures (ribbed, basket weave); A2F-5 MED mutants M14, M11d, M21, M26, M32 survive. Catalogue 40/40 byte-identical; no assertion weakened; Bobble/Ribbed seed refusals correct; 11 suites pass."
       }
+    },
+    {
+      "subject": "A3F",
+      "sha": "claude/w5-SECREVIEW-A3F",
+      "recorded": "2026-11-02T23:04:02Z",
+      "verdicts": {
+        "opus2/p0-photo-asset-review c2174947": "DO NOT SHIP (1 MED): A3F-1 an excluded non-qualifying leader still counts as 'led by a photograph', so a qualifying photo is never promoted (no_hero, SAMPLE_PHOTO_REQUIRED never clears); A3F-2 LOW photo at position 1 without leads_gallery loops hourly; A3F-3 LOW two other writers (release_gates._recheck_listing_certificates, runtime.release asset writer) still read without the lock. A3D-1..-5 fixed; 12/13 mutants killed; 7 suites pass; test_shadow UNKNOWN (timeout under load)."
+      }
     }
   ],
   "integration": {
@@ -1072,13 +1080,6 @@
         "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6587808069 (20:34:19Z)"
       },
       {
-        "id": "A3F-REVIEW",
-        "subject": "opus2/p0-photo-asset-review delta 8d98bf4c..c2174947 (+ SHARED 637e011f)",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_A3F.md",
-        "started": "2026-11-02T20:53:29Z",
-        "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6588158334 (20:51:48Z)"
-      },
-      {
         "id": "A5-REVIEW",
         "subject": "A5 correction loop 717c7925 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
@@ -1108,12 +1109,11 @@
         "requested_by": "#28 6590109328"
       },
       {
-        "id": "A7-REVIEW-QUEUED",
+        "id": "A7-REVIEW",
         "subject": "A7 supply stall 83fe31d2 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A7_83fe31d2.md",
-        "started": null,
-        "requested_by": "dispatch event opus2 review_requested 2026-11-02T22:54:26Z",
-        "note": "queued for capacity; next free slot"
+        "started": "2026-11-02T23:04:02Z",
+        "requested_by": "dispatch event opus2 review_requested 2026-11-02T22:54:26Z"
       }
     ]
   },
@@ -1934,7 +1934,8 @@
         "downstream": "listing set certificate, listing package",
         "acceptance": "re-open-from-terminal path tested; mutants K7/K9/K12 killed",
         "path_to_production": "review -> W6-INTEG"
-      }
+      },
+      "review_verdict": "DO NOT SHIP (A3F)"
     },
     {
       "id": "CODEX1-FIX",
