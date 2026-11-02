@@ -568,6 +568,15 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "culture.probe": ("lifetime_total",
         "culture.feeds.state: read with no window or row limit (counted or listed over "
         "all rows)"),
+    # OPUS2 A6: the design side of learning. An approval is what lets a lesson change a
+    # design; a pruned approval would silently stop applying it, and a pruned application
+    # record would let the same change be recorded twice.
+    "lesson.design_approved": ("lifetime_total",
+        "improve.consume._design_approval / approve_for_design: the approvals on file for a "
+        "lesson, read over all rows"),
+    "lesson.acted_on": ("lifetime_total",
+        "improve.consume.record_application: one record per (lesson, product, change), "
+        "deduplicated over all rows"),
     "culture.sweep": ("lifetime_total",
         "seasonal.compression.preparation_started: the seasonal evidence window is 365 "
         "days, longer than the retention horizon"),
