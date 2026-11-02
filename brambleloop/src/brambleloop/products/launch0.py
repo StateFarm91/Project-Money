@@ -1390,8 +1390,25 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     Shared by the survey and by the renderer's refusal, so a word added here cannot start
     being reported without also starting to block.
     """
-    words = set(re.findall(r"[a-z]+", " ".join(texts).lower()))
+    import unicodedata
+
+    # OPUS2T-4: read the text as the drafting routes do (NFKC), so a full-width or
+    # mathematical-letter title ("\uff22ear", "\U0001d401ear") is the word it renders as.
+    folded = unicodedata.normalize("NFKC", " ".join(t or "" for t in texts)).lower()
+    words = set(re.findall(r"[a-z]+", folded))
     return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+
+
+def stuffed_figure(cir) -> bool:
+    """OPUS2T-4: whether the CIR's own construction is a stuffed figure -- a stuffed, closed
+    body with a piece sewn onto it at a stated place (ears, limbs). That is the shape of a toy
+    whatever its title says, so the children's-decision gate reads it, not only title words.
+    A stuffed cushion or kneeler (panels or a disc closing a stuffed shape, nothing placed on
+    it) is not one."""
+    seams = list(getattr(cir, "assembly", None) or [])
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in seams)
+    placed = any(getattr(s, "stitches_from_centre", None) is not None for s in seams)
+    return stuffed and placed
 
 
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:

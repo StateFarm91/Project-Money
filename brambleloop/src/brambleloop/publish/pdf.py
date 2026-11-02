@@ -751,13 +751,19 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     from ..products import launch0
 
     words = launch0.child_words_in(cir.title, cir.slug)
-    if not words:
+    # OPUS2T-4: the construction triggers the gate too. A stuffed figure is a toy whatever its
+    # title says ("Juniper Friend", or letters no word list reads), so it is refused on
+    # nobody's decision exactly like a title that says "child".
+    figure = launch0.stuffed_figure(cir)
+    if not words and not figure:
         return
     state, _why = launch0.childrens_decision(cir.slug)
     if state != launch0.UNDECIDED:
         return
+    reads = (f"reads as a children's product ({', '.join(words)})" if words else
+             "is a stuffed figure (a stuffed, closed body with pieces sewn onto it)")
     raise ValueError(
-        f"{cir.slug}: the title {cir.title!r} reads as a children's product ({', '.join(words)}) "
+        f"{cir.slug}: the title {cir.title!r} {reads} "
         f"and nothing has decided whether it is one. Refusing to render a document that would "
         f"carry no safety statements on nobody's decision. Assign it in "
         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
