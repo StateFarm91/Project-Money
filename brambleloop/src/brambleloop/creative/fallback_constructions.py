@@ -117,13 +117,48 @@ _OBJECT_HEADS: dict[str, str] = {
 }
 
 
-def _names_another_object(title: str) -> dict | None:
-    """A refusal when the title's head noun names an object this route does not make."""
+# OPUS2T-2: words a marketplace title puts after its object ("... Pattern", "(Cream)",
+# "for Beginners", "- Easy", "v2"); the head noun is the last word before them.
+_TRAILING_FILLER = frozenset({"pattern", "patterns", "crochet", "crocheted", "easy", "simple",
+                              "beginner", "beginners", "pdf", "tutorial", "diy", "design",
+                              "digital", "download", "instant", "printable", "free", "new",
+                              "chart", "written",
+                              # a count after the object names how many, not what: the count
+                              # is judged by launch0.multiplicity ("Mosaic Placemat Pair")
+                              "pair", "pairs", "set", "sets", "duo", "trio", "bundle"})
+# OPUS2T-3: the heads each route makes -- an allowlist, so an unknown head is refused rather
+# than drafted ("Sleepy Fox", "Cat", "Cowl" are not baskets or flat panels).
+FAMILY_HEADS: dict[str, frozenset[str]] = {
+    VESSEL: frozenset({"basket", "bin", "bowl", "caddy", "hamper", "planter", "pot", "bucket",
+                       "tray", "organiser", "organizer", "holder", "storage", "trug"}),
+    TRIANGLE: frozenset({"shawl", "shawlette", "scarf", "kerchief", "wrap"}),
+    PANEL_PAIR: frozenset({"cushion", "pillow", "cover", "pillowcase"}),
+    FLAT_PANEL: frozenset({"blanket", "throw", "afghan", "graphghan", "runner", "mat", "placemat", "coaster",
+                           "dishcloth", "washcloth", "cloth", "scarf", "square", "panel",
+                           "potholder", "trivet", "bookmark", "wrap", "stole", "rug",
+                           "hanging", "banner", "bunting", "garland", "napkin", "doily",
+                           "towel", "swatch"}),
+}
+
+
+def title_head(title: str | None) -> str:
+    """The title's head noun: the last word before any trailing filler, a parenthesis, a
+    dash or colon clause, or a for/in/with/by/from phrase (OPUS2T-2)."""
     import unicodedata
 
-    folded = unicodedata.normalize("NFKC", title or "").lower()
-    words = re.findall(r"[a-z]+", folded)
-    head = words[-1] if words else ""
+    folded = unicodedata.normalize("NFKC", title or "").lower().replace("\u2019", "'")
+    folded = re.sub(r"[\(\[\{].*?[\)\]\}]", " ", folded)
+    folded = re.split(r"\s[-\u2013\u2014:|]\s|:", folded)[0]
+    folded = re.split(r"\b(?:for|in|with|by|from)\b", folded)[0]
+    words = [w for w in re.findall(r"[a-z]+", folded) if not re.fullmatch(r"v\d*", w)]
+    while words and words[-1] in _TRAILING_FILLER:
+        words.pop()
+    return words[-1] if words else ""
+
+
+def _names_another_object(title: str) -> dict | None:
+    """A refusal when the title's head noun names an object this route does not make."""
+    head = title_head(title)
     what = _OBJECT_HEADS.get(head)
     if what is None:
         return None
@@ -146,7 +181,30 @@ def _several_sizes(*texts: str) -> str | None:
 
 def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
          rationale: str = "") -> dict:
-    """The construction family a fallback concept is drafted in, and why."""
+    """The construction family a fallback concept is drafted in, and why.
+
+    OPUS2T-1/-3: whatever branch chose the family, the title's head noun must be an object
+    that family makes (`FAMILY_HEADS`), so no category -- pillow, wedding, shawl -- drafts a
+    "Teddy Bear" as a cushion or a shawl, and an unknown head is refused, not drafted."""
+    route = _route(category=category, title=title, is_bundle=is_bundle, slug=slug,
+                   rationale=rationale)
+    allowed = FAMILY_HEADS.get(route.get("family"))
+    if allowed is None:
+        return route
+    head = title_head(title)
+    if head in allowed:
+        return route
+    other = _names_another_object(title)
+    if other:
+        return other
+    return {"family": REFUSED,
+            "needs": f"a title whose object is one the {route['family']} rule makes",
+            "why": (f"the title's head noun is {head!r}, which the {route['family']} rule does "
+                    f"not make ({', '.join(sorted(allowed))})")}
+
+
+def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
+           rationale: str = "") -> dict:
     if is_bundle:
         return {"family": REFUSED, "needs": "the member releases it collects",
                 "why": "a bundle is a collection of other designs, not a design to draft"}
