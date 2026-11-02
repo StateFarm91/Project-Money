@@ -310,7 +310,16 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
             rev.shape for rev in _geom.measure_all(cir, result).values()
             if rev.shape != _geom.DISC}))
 
-    if upright:
+    # OPUS2 (amigurumi): a stuffed, closed piece is never blocked. "Damp-finish it standing
+    # up, stuffed lightly with a towel" is vessel advice; on a toy or a stuffed pillow it
+    # tells the maker to soak a finished, stuffed object. Branches on the assembly's own
+    # stuff_before_closing, never on a title.
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in (cir.assembly or []))
+    if stuffed:
+        out.append("This piece is stuffed and closed, so it is not blocked: do not soak, pin "
+                   "or press it. Ease its shape and any sewn-on pieces into place with your "
+                   "fingers.")
+    elif upright:
         # No pinning measurement is offered: the stated size of a vessel is a diameter and a
         # height, and pinning to a width would be pinning it flat by another name.
         out.append("Do not block this piece flat. It is worked in the round and pressing it "
