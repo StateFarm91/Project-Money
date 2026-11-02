@@ -65,12 +65,17 @@ def preview_label() -> str:
     return PREVIEW_LABEL
 
 
-def alt_text(title: str) -> str:
-    """The certified alt text: the preview label first, then what the frame shows."""
-    from ..publish.disclosed_listing import ALT_TEXT_MAX
+def alt_text(title: str, slug: str | None = None) -> str:
+    """The certified alt text: the preview label first, then what the frame shows. The pages
+    include the cover render, so a soft-cornered product's preview carries the rim estimate
+    (SECREVIEW-RENDER-363a467 R4)."""
+    from ..publish.disclosed_listing import compose_alt
+    from . import render_contract as K
 
-    return (f"{preview_label()}. {title}: the first pages of the PDF pattern you download, "
-            f"shown at reduced size.")[:ALT_TEXT_MAX]
+    # N5: the pages include the cover render, so the contract's notes for the hero apply.
+    return compose_alt(f"{preview_label()}. ", title,
+                       ": the first pages of the PDF pattern you download, shown at reduced "
+                       "size.", K.estimate_notes(slug, "hero"))
 
 
 # --------------------------------------------------------------------------- the PDF

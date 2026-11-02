@@ -125,12 +125,12 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                   "sweep (freshness judged by its age)"),
     "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
                                           "refresh"),
-    "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
-                                       "last 24 h"),
     # W-ADOPT: commerce.orders_ingest matches orders against every adoption ever recorded.
     "listing.adopted_manual": ("lifetime_total",
                                "commerce.orders_ingest matches every adopted listing; "
                                "manual_adoption links a hand-made listing to its release"),
+    "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
+                                       "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.
@@ -210,6 +210,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # "uncalendared"): a product planned once stays planned, so pruning would un-plan it.
     "launch.planned": ("lifetime_total", "launch.demand/readiness: ever planned per product"),
     "launch.held": ("lifetime_total", "launch.demand: ever held per product"),
+    # W5-INVENTORY: products.production_inventory reads the newest pricing refusal after a
+    # product's visual package as a policy HOLD annotation only; no state is derived from it,
+    # so pruning an older refusal changes no product's state.
+    "pricing.refused": ("latest", "products.production_inventory: newest refusal annotates "
+                                  "a policy hold; never sets a state"),
     # K8: the customer workspace lists the newest 50 defect candidates only, so pruning rows
     # older than the horizon cannot change what it shows.
     "support.defect_candidate": ("windowed",
@@ -534,6 +539,9 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "cc.check.run": ("lifetime_total",
         "ops.on_demand._last_run: the newest row per artifact, which the global "
         "keep-per-action does not protect"),
+    # OPUS2-P0 (P0-LEARNING-GAPS): a 30-day count of construction refusals per product line.
+    "cir.draft_refused": ("windowed",
+        "intel.knowledge_gaps.evidence counts construction refusals over WINDOW_DAYS (30)"),
     "cir.compiled": ("lifetime_total",
         "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
         "days, longer than the retention horizon"),
@@ -1070,6 +1078,9 @@ def plan(db, *, now: datetime | None = None) -> dict:
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
         "reservations_kept_hours": reservations.KEEP_RELEASED_HOURS,
         "oauth_handshakes": oauth_store.prune_handshakes(db, now=now, dry_run=True),
+        # W5-CONCEPT: decided, non-approved intake rows past radar.intake.RETENTION_DAYS,
+        # keeping the newest row per (source, slug) -- its fingerprint is the idempotency key.
+        "radar_concepts": _radar_concepts(db, now=now, dry_run=True),
         "never_touched": {
             "cost_entries": ("every ceiling in the company is computed from these and the "
                              "ledger reconciles against them. About 1,200 rows a month"),
@@ -1114,9 +1125,11 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     # and a spent one is kept long enough that a replay is still answerable as a replay.
     # `oauth_credentials` is not in this function at all and must never be.
     handshakes = oauth_store.prune_handshakes(db, now=now, dry_run=bool(dry_run))
+    concepts = _radar_concepts(db, now=now, dry_run=bool(dry_run))
 
     removed = {"audit_log": 0, "jobs": 0, "dead_letters": 0,
-               "oauth_handshakes": handshakes["deletable" if dry_run else "removed"]}
+               "oauth_handshakes": handshakes["deletable" if dry_run else "removed"],
+               "radar_concepts": concepts["deletable" if dry_run else "removed"]}
     if not dry_run:
         with db.session() as s:
             for row_id in audit["deletable_ids"]:
@@ -1141,6 +1154,13 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
         "jobs": {k: v for k, v in jobs.items() if k != "deletable_ids"},
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
     }
+
+
+def _radar_concepts(db, *, now: datetime, dry_run: bool) -> dict:
+    """Imported lazily, like the OAuth handshakes: `radar.intake` owns its own rule."""
+    from ..radar import intake
+
+    return intake.prune(db, now=now, dry_run=dry_run)
 
 
 def _replay_memory_days() -> int:

@@ -414,10 +414,12 @@ def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_jo
         assert len(out["seeded"]) == 1 and out["seeded"][0] not in seeded
         assert len(out["already_seeded"]) == run and len(out["pending"]) == 6 - run
         seeded += out["seeded"]
-    for rel in ("market-basket-small@1.2.0", "hexagon-coaster-set@1.2.0",
+    # RC2: the code versions Batch 5 releases -- the small basket 1.3.0 (owner decision
+    # D-W4-OWNER-BASKET-1.3.0, PDF1) and the coaster 1.2.1 (PDF1 text-only release).
+    for rel in ("market-basket-small@1.3.0", "hexagon-coaster-set@1.2.1",
                 "nordic-forest-mosaic-throw-baby@1.3.0", "housewarming-key-basket@0.1.0"):
         assert rel in seeded, rel
-    assert seeded[0] == "market-basket-small@1.2.0"           # listing order
+    assert seeded[0] == "market-basket-small@1.3.0"           # listing order
     again = RR.seed_launch0(holder)
     assert again["seeded"] == [] and len(again["already_seeded"]) == 7
     assert not [r for r in seeded if r.startswith(("market-basket-medium", "market-basket-large"))]
@@ -429,7 +431,7 @@ def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_jo
     # the compiler, whose gates are unchanged
     basket = next(j for j in drafts if j.inputs["slug"] == "market-basket-small")
     got = pipeline.handle_cir_draft(_ctx(db, basket))
-    assert got["drafted"] is True and got["artifact"] == "market-basket-small@1.2.0"
+    assert got["drafted"] is True and got["artifact"] == "market-basket-small@1.3.0"
     with db.session() as s:
         assert s.scalar(select(Job).where(Job.job_type == "cir.compile")) is not None
 

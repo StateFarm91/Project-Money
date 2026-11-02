@@ -57,6 +57,12 @@ class Op:
     # `spans=0` means "this chain adds its own width", which is the honest default: a chain
     # that bridges nothing is a chain that makes fabric.
     spans: int = 0
+    # OPUS2 P0-CIR-COLOURWORK (proposal): the yarn this op is worked in, when it is not the
+    # row's. `Row.color` stays the row's main colour and every existing reader keeps its
+    # meaning; an op that names its own colour is how tapestry, two-colour rounds and
+    # per-stitch mosaic are expressed. Count-neutral: the compiler's arithmetic never reads
+    # it. None (the default) is omitted from `to_dict`, so no existing CIR's digest moves.
+    color: str | None = None
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -114,6 +120,28 @@ class Repeat:
 
 class UnresolvedRepeat(RuntimeError):
     pass
+
+
+def _drop_null_op_colour(nodes: list) -> None:
+    """`to_dict` omits `Op.color` when it is None (see `Op.color`), at every repeat depth."""
+    for node in nodes:
+        if "stitch" in node:
+            if node.get("color") is None:
+                node.pop("color", None)
+        else:
+            _drop_null_op_colour(node.get("ops", []))
+
+
+def op_colours(nodes: list) -> set[str]:
+    """Every colour an op in these nodes names for itself (repeats included)."""
+    out: set[str] = set()
+    for node in nodes:
+        if isinstance(node, Op):
+            if node.color:
+                out.add(node.color)
+        else:
+            out |= op_colours(node.ops)
+    return out
 
 
 OpNode = Op | Repeat
@@ -714,6 +742,8 @@ class CIR:
             for optional in ("gauge", "work_direction", "feature"):
                 if comp.get(optional) is None:
                     comp.pop(optional, None)
+            for row in comp.get("rows", []):
+                _drop_null_op_colour(row.get("ops", []))
         return out
 
     def to_json(self, **kw: Any) -> str:
@@ -731,7 +761,8 @@ class CIR:
         def node(x: dict[str, Any]) -> OpNode:
             if "stitch" in x:
                 return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
-                          loop=x.get("loop", "both"), spans=x.get("spans", 0))
+                          loop=x.get("loop", "both"), spans=x.get("spans", 0),
+                          color=x.get("color"))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )

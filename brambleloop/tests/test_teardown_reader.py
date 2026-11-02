@@ -202,6 +202,25 @@ def test_pieces_come_from_headings_rather_than_from_prose():
     assert "sleeve" in reader._pieces_in("## Sleeve (make 2)\nRow 1: ch 20.\n")
 
 
+def test_joining_a_round_is_not_assembly_and_joining_pieces_still_is():
+    """RC2: "Joining a round" and "the joining sl st" close a round of one piece; they join no
+    pieces. They made a one-piece basket read as assembled. Real assembly words still count."""
+    cues = reader.SECTION_CUES["assembly"]
+
+    def is_assembly(text: str) -> bool:
+        return any(cue in reader._cue_text("assembly", text.lower()) for cue in cues)
+
+    for not_assembly in ("Joining a round", "that is the joining slip stitch.",
+                         "make the joining sl st at the end of the round",
+                         "Join each round with a sl st to the first stitch",
+                         "join the round with a ss"):
+        assert not is_assembly(not_assembly), not_assembly
+    for assembly in ("Assembly", "Joining", "Joining the squares", "Seaming",
+                     "join the motifs with a whip stitch", "Putting it together",
+                     "Joining the rounds of squares is a mistake; join the squares"):
+        assert is_assembly(assembly), assembly
+
+
 def test_the_self_test_is_the_proof_and_it_runs_the_whole_path():
     out = reader.self_test()
     assert out["ran"] is True and out["ready"] is True

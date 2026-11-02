@@ -89,6 +89,15 @@ def release_reservation(db, reservation_id, **kw):
     return anthropic.release_reservation(db, reservation_id, **kw)
 
 
+def classify_failure(exc: BaseException) -> str:
+    """Vendor-neutral: whether a failed model call's billing is DECLINED or UNCERTAIN (the split
+    `ModelGateway._billing` bills on). Business modules ask here, never the vendor module
+    (F-091 boundary; W5-INTEG1, for culture.classify's OPUS2I C-4 fallback)."""
+    from . import anthropic
+
+    return anthropic._classify_failure(exc)
+
+
 # Vendor-neutral names that still live in the Anthropic module (the ceiling ledger, its
 # refusals and its estimators). Callers read them from here so migrating a caller is an
 # import change; moving the ledger itself out of the vendor module is the follow-up.

@@ -14,6 +14,7 @@ from __future__ import annotations
 import functools
 import math
 import os
+from pathlib import Path
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
@@ -58,6 +59,23 @@ def _legible_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int
 
 # Every use of MUTED in this module is small type on the chart's cream ground.
 MUTED = _legible_on(bible.rgb255("muted"), CREAM)
+
+# WCAG 2.1 SC 1.4.11: a graphical object a reader needs in order to understand the content
+# must reach 3:1 against what it sits on. The cell and wedge outlines are exactly that -- a
+# round chart's caption tells the maker to *count the wedges in a ring* -- and they were drawn
+# in the brand's `line` at 1.3:1 on cream, so on the printed basket chart the rings could not be
+# counted at all. The brand colour is kept as the starting point and darkened only as far as
+# the floor requires, by the same rule the text uses.
+GRAPHIC_CONTRAST = 3.0
+
+
+def _graphic_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int, int, int]:
+    r, g, b = bible.legible(tuple(c / 255 for c in fg), tuple(c / 255 for c in bg),
+                            minimum=GRAPHIC_CONTRAST)
+    return (round(r * 255), round(g * 255), round(b * 255))
+
+
+GRID = _graphic_on(LINE, CREAM)
 
 # Stitch glyphs. Deliberately ASCII-safe: a chart that depends on an exotic font renders as
 # empty boxes on someone else's machine, and we cannot see that happen.
@@ -195,7 +213,16 @@ def _font(size: int) -> ImageFont.ImageFont:
     # Local verification hosts may keep the same font outside Linux's system paths.
     # This selects bytes, never overrides the downstream legibility/fallback gate.
     configured = os.environ.get("BRAMBLELOOP_FONT_PATH", "").strip()
-    for path in ((configured,) if configured else ()) + ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    # F5 (2026-10-31): the brand's own proportional face, bundled with the package and pinned
+    # (`brand.pdf_fonts`), so the chart inside the customer's PDF is set in the same family as
+    # the page around it rather than a system monospace.
+    # L2 (SECREVIEW-PDF1): loaded through the same sha pin as the PDF path; a swapped file
+    # raises `FontIntegrityError` rather than quietly changing the chart's pixels.
+    from ..brand.pdf_fonts import verified_path
+
+    brand = str(verified_path("WorkSans-Medium.ttf"))
+    for path in ((configured,) if configured else ()) + (brand,
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                  "/usr/share/fonts/truetype/DejaVuSansMono.ttf"):
         try:
@@ -697,7 +724,7 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
             x = left + c_idx * cell
             color_id = row_colors[c_idx] if c_idx < len(row_colors) else None
             bg = _hex_to_rgb(cir.colors.get(color_id) if color_id else None)
-            d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=LINE)
+            d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=GRID)
             ink = _readable_on(bg)
             cue = cues.get(color_id or "")
             if spec.show_glyphs and cell >= 10:
@@ -786,6 +813,17 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     # A whole disc is the sector nobody cropped: 360 degrees, starting where it always did.
     span = 360.0 / wedges if sector else 360.0
     arc0 = -90.0 - span / 2.0 if sector else -90.0
+    # F5 (2026-10-31): a piece whose increases stack is a polygon (`twin.sides`), and its
+    # chart is drawn as one -- concentric hexagons for a hexagon -- rather than as circles.
+    # The polygon is turned so the middle of its top side sits at twelve o'clock: the round
+    # numbers run up that spoke, and the stacked increase marks sit at the corners, away from
+    # them, so a number and a mark never share a cell.
+    sides = (int(getattr(twin, "sides", 0) or 0)
+             if not sector and not plain else 0)
+    if sides < 3:
+        sides = 0
+    if sides:
+        arc0 = -90.0 - 180.0 / sides
 
     type_px = round_type_px(ring_px)
     label_font = _font(type_px["label"])
@@ -869,6 +907,29 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     # Outermost ring first. Each ring is drawn as a full pie and then has its centre filled
     # back in, so a ring drawn later must be *inside* the one before it -- going inward-out
     # would erase everything already drawn.
+    # The grid line scales with the drawing, so a chart rendered at print resolution keeps the
+    # line weight the measured rung was drawn with.
+    line_w = max(1, round(ring_px / 22))
+
+    def poly_pt(rho: float, t: float) -> tuple[float, float]:
+        t = t % 1.0
+        j = int(t * sides) % sides
+        f = t * sides - int(t * sides)
+        a0 = math.radians(arc0 + 360.0 * j / sides)
+        a1 = math.radians(arc0 + 360.0 * (j + 1) / sides)
+        x0, y0 = math.cos(a0), math.sin(a0)
+        x1, y1 = math.cos(a1), math.sin(a1)
+        return (cx + rho * (x0 + (x1 - x0) * f), cy + rho * (y0 + (y1 - y0) * f))
+
+    def poly_path(rho: float, t0: float, t1: float) -> list[tuple[float, float]]:
+        pts = [poly_pt(rho, t0)]
+        k = math.floor(t0 * sides) + 1
+        while k / sides < t1 - 1e-12:
+            pts.append(poly_pt(rho, k / sides))
+            k += 1
+        pts.append(poly_pt(rho, t1))
+        return pts
+
     for depth, r_index in reversed(list(enumerate(rows))):
         inner = hub + depth * ring_px
         edge = inner + ring_px
@@ -878,6 +939,28 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         # a complete statement of the round, because it only reports a period the whole
         # round actually satisfies.
         drawn = len(cells) // wedges if sector else len(cells)
+        if sides:
+            n = len(cells)
+            for position in range(n):
+                cell = cells[position]
+                t0, t1 = position / n, (position + 1) / n
+                band = poly_path(edge, t0, t1) + list(reversed(poly_path(inner, t0, t1)))
+                d.polygon(band, fill=_hex_to_rgb(cir.colors.get(cell.color)), outline=GRID,
+                          width=line_w)
+            if depth == 0:
+                d.polygon(poly_path(inner, 0.0, 1.0), fill=CREAM, outline=GRID, width=line_w)
+            if ring_px >= 12:
+                for position in range(n):
+                    cell = cells[position]
+                    if cell.stitch not in ROUND_MARKED_CODES:
+                        continue
+                    # M1 (SECREVIEW-PDF1): the mark takes the colour that reads on *this*
+                    # cell -- ink on cream was 1.3:1 on the coaster's wine Rnd 6.
+                    d.text(poly_pt(inner + ring_px * 0.5, (position + 0.5) / n),
+                           GLYPHS.get(cell.stitch, "V"), font=glyph_font,
+                           fill=_readable_on(_hex_to_rgb(cir.colors.get(cell.color))),
+                           anchor="mm")
+            continue
         for position in range(drawn):
             cell = cells[position]
             start = arc0 + position * step
@@ -885,13 +968,13 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
             # A wedge is the ring band between two radii; drawing the outer pie and then the
             # inner one in the background colour is the cheap, dependency-free way to get it.
             d.pieslice([cx - edge, cy - edge, cx + edge, cy + edge],
-                       start=start, end=start + step, fill=bg, outline=LINE)
+                       start=start, end=start + step, fill=bg, outline=GRID)
         if sector:
             d.pieslice([cx - inner, cy - inner, cx + inner, cy + inner],
-                       start=arc0, end=arc0 + span, fill=CREAM, outline=LINE)
+                       start=arc0, end=arc0 + span, fill=CREAM, outline=GRID)
         else:
             d.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
-                      fill=CREAM, outline=LINE)
+                      fill=CREAM, outline=GRID)
 
         # Mark the shaping where it falls, which is the only thing a round chart really has
         # to show: six stacked marks are a hexagon, six that drift are a circle.
@@ -904,7 +987,8 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                 radius = inner + ring_px * 0.5
                 d.text((cx + radius * math.cos(angle),
                         cy + radius * math.sin(angle)),
-                       GLYPHS.get(cell.stitch, "V"), font=glyph_font, fill=INK, anchor="mm")
+                       GLYPHS.get(cell.stitch, "V"), font=glyph_font,
+                       fill=_readable_on(_hex_to_rgb(cir.colors.get(cell.color))), anchor="mm")
 
     if plain:
         # `plain` is the fabric view: the object as the twin knows it, seen from above, with
@@ -918,9 +1002,25 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     for depth, r_index in enumerate(rows):
         if r_index % step_labels and r_index not in (rows[0], rows[-1]):
             continue
-        y = cy - (hub + depth * ring_px + ring_px * 0.5)
         cue = cue_labels.get(r_index, "")
         label = f"{r_index}{cue}" if cue else str(r_index)
+        if sides:
+            # In the top side's plain (unmarked) cell nearest the mid-side spoke, so a number
+            # never sits on an increase mark; on the spoke itself only for a round with no
+            # plain cell (every stitch an increase). No box to hide a cell: a cream halo, so
+            # the number reads on any yarn colour.
+            cells = cells_by_round[r_index]
+            n = len(cells)
+            mid = 1.0 / (2 * sides)
+            plain_cells = [i for i in range(max(1, n // sides))
+                           if cells[i].stitch not in ROUND_MARKED_CODES]
+            t = (min(((i + 0.5) / n for i in plain_cells), key=lambda c: abs(c - mid))
+                 if plain_cells else mid)
+            d.text(poly_pt(hub + depth * ring_px + ring_px * 0.5, t), label, font=label_font,
+                   fill=INK, anchor="mm", stroke_width=max(1, ring_px // 12),
+                   stroke_fill=CREAM)
+            continue
+        y = cy - (hub + depth * ring_px + ring_px * 0.5)
         half = probe.textlength(label, font=label_font) / 2 + 2
         d.rectangle([cx - half, y - ring_px * 0.4, cx + half, y + ring_px * 0.4],
                     fill=CREAM)
@@ -954,22 +1054,36 @@ def render_any_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     return render_chart(cir, twin, spec, caption=caption)
 
 
-def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> Image.Image:
+def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None, *,
+                  terminology: str | None = None, marks: list[str] | None = None,
+                  colours: list[str] | None = None,
+                  lettered: bool | None = None) -> Image.Image:
     """A legend covering exactly the stitches and colours the chart actually uses.
 
     Listing every stitch in the taxonomy would be padding; listing fewer than the chart uses
     would be a defect. Both are derived from the twin so neither can happen.
+
+    `terminology` set: each stitch is keyed by the token and name the document in that
+    terminology uses (`publish.abbreviations`), so a UK pattern's legend says `dc inc` where its
+    instructions do, instead of the canonical US code with a UK gloss beside it. Unset (the
+    standalone chart asset), the bilingual US-code form is kept.
     """
     spec = spec or ChartSpec()
     row_h = 34
-    stitches = sorted(twin.stitch_types_used)
-    used_colors = sorted(c for c in twin.colors_used if c)
+    # F4 / N2 (2026-10-31): the document passes what the chart it printed actually draws --
+    # the marks on it, the colours of its charted rounds, and whether its numbers carry a
+    # letter -- so the key lists no symbol the chart lacks (a round chart draws no mark for a
+    # plain sc), no yarn no charted round uses, and no "each number carries a letter" note
+    # under a chart whose numbers carry none. Unset, the whole-twin key is kept.
+    stitches = sorted(marks) if marks is not None else sorted(twin.stitch_types_used)
+    used_colors = (sorted(c for c in colours if c) if colours is not None
+                   else sorted(c for c in twin.colors_used if c))
     entries = len(stitches) + len(used_colors) + 2
     width, height = 720, 40 + entries * row_h
     head, body = _font(LEGEND_TYPE_PX["head"]), _font(LEGEND_TYPE_PX["body"])
     footer_lines = []
     footer_step = LEGEND_TYPE_PX["body"] + 6
-    if len(used_colors) > 1:
+    if len(used_colors) > 1 and lettered is not False:
         probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
         footer_lines = _wrap(probe, COLOUR_CUE_NOTE_ROUND if is_round(cir, twin)
                              else COLOUR_CUE_NOTE_FLAT, body, width - 48)
@@ -986,12 +1100,19 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     for code in stitches:
         d.rectangle([24, y, 24 + 24, y + 24], fill=CREAM, outline=LINE)
         d.text((36, y + 12), GLYPHS.get(code, code[:1]), font=body, fill=INK, anchor="mm")
-        try:
-            st = taxonomy.get(code)
-            name = f"{st.name_us}  (UK {st.name_uk})"
-        except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
-            name = code
-        d.text((64, y + 12), f"{code}   {name}", font=body, fill=INK, anchor="lm")
+        if terminology:
+            from . import abbreviations
+
+            label = (f"{abbreviations.token(code, terminology)}   "
+                     f"{abbreviations.meaning(code, terminology)}")
+        else:
+            try:
+                st = taxonomy.get(code)
+                name = f"{st.name_us}  (UK {st.name_uk})"
+            except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
+                name = code
+            label = f"{code}   {name}"
+        d.text((64, y + 12), label, font=body, fill=INK, anchor="lm")
         y += row_h
 
     y += 8
@@ -1000,7 +1121,7 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     # The letter is what makes the key usable without colour vision: a swatch identified
     # only by its hue tells a colour-blind maker nothing, and in mosaic work the colour is
     # the motif rather than a decoration they can ignore.
-    cues = color_letters(cir) if len(used_colors) > 1 else {}
+    cues = color_letters(cir) if len(used_colors) > 1 and lettered is not False else {}
     for name in used_colors:
         bg = _hex_to_rgb(cir.colors.get(name))
         d.rectangle([24, y, 24 + 24, y + 24], fill=bg, outline=LINE)

@@ -17,6 +17,13 @@
 >   not yet diagnosed. These are readings of state that existed before the deploy, not a regression introduced by it.
 > - Stages: Batch 4 deployed and in acceptance. Batch 5 integrating on `claude/w5-INTEG1`
 >   (queue: `research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md`).
+> **2026-11-01 — Batch 5 integration (`claude/w5-INTEG1`, NOT certified, NOT deployed).** Merged on the certified Batch 4 base:
+> INVENTORY, CONCEPT, opus2 fb52cb9e, PDF1 (premium PDF engine, basket small 1.3.0), PHYSFIX R40-R42 (review SHIP) and opus2 PR #5
+> (review ACCEPT). Integrator fixes for branch interactions (size-claim false positive on "Rnd 10 the basket", narrowed after
+> review INTEG5FIX F1 HIGH; PHYSFIX tests re-pointed to basket 1.3.0; one CA$66.00 kit figure; owner packet kit 1.3.0; a
+> re-certification test proving both withholding carries). **Open P0 gap (honest status): P0-PHOTO-ASSET-REVIEW** -- no
+> production path re-approves a sample-photo frame after the owner's attestation, so a photo-led listing set cannot certify
+> yet (fails closed). The basket 1.3.0 tester kit is provisional: no tester commissioned, nothing spent.
 
 > **2026-11-01 — Batch 4 re-certification (`claude/w4-INTEG8-next`, NOT deployed; production ee35a493 SHADOW).**
 > - **Certification run 20261101T053634Z-559 on e43eeafe FAILED** (clean tree, uninterrupted, 845 suites; 10,076 tests passing,

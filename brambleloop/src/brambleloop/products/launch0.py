@@ -134,10 +134,40 @@ PLURAL_MARKERS: tuple[str, ...] = (
 _COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
 
 
+def finished_objects(cir: CIR) -> int:
+    """How many finished objects the CIR makes: not how many pieces it works.
+
+    Review OPUS2EF2 EF2-1 (the root of review E's E1 and OPUS2C N3.1): summing
+    `Component.make` counts a tote's two straps as two more bags, so "Tote Bag Bundle" read as
+    backed. Pieces joined by `cir.assembly` are one object: components connected by any seam
+    form a group, and a group yields as many objects as its scarcest piece is worked (two
+    straps on one body is one bag; four straps on two bodies is two). An unjoined component
+    is its own group, so a set of six coasters is still six.
+    """
+    names = [c.name for c in cir.components]
+    parent = {n: n for n in names}
+
+    def root(n):
+        while parent[n] != n:
+            parent[n] = parent[parent[n]]
+            n = parent[n]
+        return n
+
+    for seam in cir.assembly or []:
+        if seam.piece_a in parent and seam.piece_b in parent:
+            parent[root(seam.piece_a)] = root(seam.piece_b)
+    groups: dict[str, int] = {}
+    for c in cir.components:
+        r = root(c.name)
+        groups[r] = min(groups.get(r, c.make), c.make)
+    return sum(groups.values())
+
+
 def title_promise(cir: CIR) -> dict:
     """How many finished pieces the name claims, against how many the CIR makes.
 
-    Measures: a numeral or counting word in the title against the sum of `Component.make`.
+    Measures: a numeral or counting word in the title against `finished_objects` (pieces
+    joined by `cir.assembly` count once; EF2-1), with the worked-piece sum reported beside it.
     Why: `Component.make` is how the CIR says "work four of these", `vessels.py` uses it, and
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
@@ -150,7 +180,7 @@ def title_promise(cir: CIR) -> dict:
         elif token in _COUNT_WORDS:
             claimed = max(claimed or 0, _COUNT_WORDS[token])
     plural = [w for w in PLURAL_MARKERS if w in lowered]
-    makes = sum(c.make for c in cir.components)
+    makes = finished_objects(cir)
 
     if claimed is not None:
         backed = makes >= claimed
@@ -163,7 +193,7 @@ def title_promise(cir: CIR) -> dict:
         backed = True
         why = "the title makes no multiplicity claim, so there is nothing to contradict"
     return {"claimed": claimed, "plural_markers": tuple(plural), "makes": makes,
-            "backed": backed, "why": why}
+            "pieces": sum(c.make for c in cir.components), "backed": backed, "why": why}
 
 
 # ---- motif words (owner directive 2026-10-19, W4-PRODREADY) -------------------------------
@@ -348,6 +378,117 @@ def size_label_backed(label: str, width_cm: float | None, height_cm: float | Non
     return {"backed": not wrong, "wrong": wrong, "label": label}
 
 
+# Review OPUS2H H2-1: each colourwork claim is backed by its own technique, never by "some
+# row has two colours". Overlay mosaic is defined by stitches reaching past the previous row,
+# which per-stitch colour does not give; graphghan claims follow the mosaic rule; intarsia is
+# colour blocks with no carried strand, which the CIR does not model. Those stay refused
+# until the primitive exists. Tapestry, fair isle and colourwork need a motif of measurable
+# extent. The thresholds are a stated design rule (not a sourced standard), pinned by tests.
+COLOURWORK_MIN_ROWS = 3              # rows holding two or more colours
+COLOURWORK_MIN_ROW_SHARE = 0.20      # ...as a share of all rows
+COLOURWORK_MIN_MINORITY_SHARE = 0.10  # the minority colour's share of each such row
+COLOURWORK_MIN_RUN = 2               # OPUS2I I-7: adjacent contrast stitches, so dots are not a motif
+_NEEDS_REACH_DOWN = ("mosaic", "overlay", "graphghan")
+_NEEDS_BOBBINS = ("intarsia",)
+_MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
+
+
+# Review OPUS2J J-6: spelling variants and synonyms are the same claim. Text is folded
+# ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
+# matching, and each variant maps to the technique whose rule judges it.
+_CLAIM_VARIANTS: dict[str, str] = {
+    "colour work": "colourwork", "color work": "colourwork",
+    "stranded": "fair isle", "jacquard": "fair isle",
+    # W5-INTEG1: "two colour" is a colour-count claim, judged by the colours the fabric
+    # actually uses, not the in-row motif rule: a striped two-colour blanket is truthfully "two
+    # colour crochet" (cloudline-baby-blanket's tag), while one-colour fabric stays refused.
+    "two colour": "two colours", "two color": "two colours",
+    "duplicate stitch": "intarsia",     # embroidered blocks: not modelled, refused like intarsia
+}
+
+
+def colourwork_claims(text: str) -> tuple[str, ...]:
+    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6)."""
+    folded = " " + re.sub(r"[\s_\-]+", " ", str(text or "").lower()) + " "
+    found: list[str] = [c for c in COLOURWORK_CLAIMS if c in folded]
+    found += [canon for variant, canon in _CLAIM_VARIANTS.items()
+              if re.search(rf"\b{re.escape(variant)}\b", folded)]
+    return tuple(dict.fromkeys(found))
+
+
+TWO_COLOUR_MIN_SHARE = 0.10   # INTEG5G-1: the minority colour's share of all worked stitches
+
+
+def _colour_shares(rows) -> dict:
+    total = sum(len(r) for r in rows)
+    counts: dict[str, int] = {}
+    for row in rows:
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+    return {c: round(n / total, 4) for c, n in sorted(counts.items())} if total else {}
+
+
+def colourwork_motif(grid) -> dict:
+    """How much of the fabric is two-colour, measured from the twin's colour grid."""
+    rows = [[c for c in row if c] for row in grid]
+    rows = [r for r in rows if r]
+    multi = []
+    runs = []
+    for row in rows:
+        counts: dict[str, int] = {}
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+        if len(counts) >= 2:
+            multi.append(min(counts.values()) / len(row))
+            main = max(counts, key=counts.get)
+            longest = current = 0
+            for c in row:
+                current = current + 1 if c != main else 0
+                longest = max(longest, current)
+            runs.append(longest)
+    return {"rows": len(rows), "two_colour_rows": len(multi),
+            "colours_used": len({c for row in rows for c in row}),
+            # INTEG5G-1: each colour's share of all worked stitches, for the two-colour claim.
+            "colour_shares": _colour_shares(rows),
+            "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
+            "min_minority_share": round(min(multi), 3) if multi else 0.0,
+            "min_contrast_run": min(runs) if runs else 0}
+
+
+def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
+    """(backed, why) for one colourwork technique claim against the measured motif."""
+    if claim in _NEEDS_REACH_DOWN:
+        if per_stitch_reach_down_expressible():
+            return False, "reach-down is expressible but no rule judges it yet"
+        return False, ("needs stitches that reach past the previous row, which no CIR can "
+                       "express (per-stitch colour alone is not mosaic)")
+    if claim in _NEEDS_BOBBINS:
+        return False, "needs separate colour blocks with no carried strand, not modelled"
+    if claim == "two colours":
+        # INTEG5G-1: exactly two colours worked, and the minority colour is a real part of the
+        # fabric (>= TWO_COLOUR_MIN_SHARE of all stitches) -- not one contrast stitch, one trim
+        # row, or a third colour hidden under the word "two".
+        shares = motif.get("colour_shares") or {}
+        used = len(shares) or motif.get("colours_used", 0)
+        minority = min(shares.values()) if shares else 0.0
+        ok = used == 2 and minority >= TWO_COLOUR_MIN_SHARE
+        return ok, (f"the fabric works {used} colour(s), the minority colour is "
+                    f"{minority:.0%} of stitches (a two-colour claim needs exactly 2, the "
+                    f"minority >= {TWO_COLOUR_MIN_SHARE:.0%})")
+    if claim in _MOTIF_TECHNIQUES:
+        ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
+              and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
+              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE
+              and motif.get("min_contrast_run", 0) >= COLOURWORK_MIN_RUN)
+        return ok, (f"{motif['two_colour_rows']} of {motif['rows']} rows carry two colours "
+                    f"(needs >= {COLOURWORK_MIN_ROWS} and >= "
+                    f"{COLOURWORK_MIN_ROW_SHARE:.0%}), the scarcest colour is "
+                    f"{motif['min_minority_share']:.0%} of such a row (needs >= "
+                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%}), the shortest contrast run is "
+                    f"{motif.get('min_contrast_run', 0)} st (needs >= {COLOURWORK_MIN_RUN})")
+    return False, "an unrecognised colourwork claim backs nothing"
+
+
 def fabric_truth(cir: CIR, twin) -> dict:
     """What the fabric actually does, and whether the name's technique claim is expressible.
 
@@ -368,8 +509,10 @@ def fabric_truth(cir: CIR, twin) -> dict:
     mixed_heights = len(heights) > 1
 
     text = f"{cir.title} {cir.designer_notes or ''}".lower()
-    claims = tuple(c for c in COLOURWORK_CLAIMS if c in text)
-    backed = (not claims) or colours_per_row >= 2
+    claims = colourwork_claims(text)
+    motif = colourwork_motif(grid)
+    verdicts = {c: technique_backed(c, motif) for c in claims}
+    backed = (not claims) or all(ok for ok, _why in verdicts.values())
     return {
         "max_colours_in_one_row": colours_per_row,
         "colours_declared": sorted((cir.colors or {}).keys()),
@@ -380,8 +523,8 @@ def fabric_truth(cir: CIR, twin) -> dict:
         "backed": backed,
         "why": ("no colourwork technique is claimed, so the fabric is whatever the stitches "
                 "make" if not claims else
-                f"claims {claims[0]!r}; the fabric puts at most {colours_per_row} colour(s) in "
-                f"any one row, and a two-colour motif needs two"),
+                "; ".join(f"{c!r}: {why}" for c, (_ok, why) in verdicts.items())),
+        "colourwork_motif": motif,
         "cir_can_express_per_stitch_colour": per_stitch_colour_expressible(),
         "cir_can_express_per_stitch_reach_down": per_stitch_reach_down_expressible(),
     }

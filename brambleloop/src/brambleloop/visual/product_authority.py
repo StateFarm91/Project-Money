@@ -17,7 +17,11 @@ import hashlib
 # `render_verification._verify_assembled` (W4-VISUAL2), which measures its hero/scale.
 # W4-PRODREADY: contract 3 (legible lettering) replaces contract 2; a 2.x render letters its
 # disclosure at 6.6 px in a phone gallery and no longer qualifies.
-QUALIFIED_RENDERERS = frozenset({"disclosed-render/3.0.0", "disclosed-render-assembled/2.0.0"})
+# 3.1.0 (W4-PDF1): soft wall corners for the products `render_contract.SOFT_CORNER_SLUGS`
+# names, verified by `render_verification` 3.1; byte-identical to 3.0.0 for every other
+# product, so 3.0.0 frames of those products stay qualified.
+QUALIFIED_RENDERERS = frozenset({"disclosed-render/3.0.0", "disclosed-render/3.1.0",
+                                 "disclosed-render-assembled/2.0.0"})
 
 
 def redraw_refusal(slug):
@@ -46,6 +50,15 @@ def disclosed_render_floor(frame):
                                             'the disclosed-render branch'}
     if manifest.get('renderer_version') not in QUALIFIED_RENDERERS:
         return {'status': 'UNKNOWN', 'why': f"renderer {manifest.get('renderer_version')!r} is not qualified"}
+    from . import render_contract as K
+    if (frame.get('slug') in K.SOFT_CORNER_SLUGS or manifest.get('slug') in K.SOFT_CORNER_SLUGS) \
+            and not K.renderer_at_least(manifest.get('renderer_version'),
+                                        K.SOFT_CORNER_MIN_RENDERER):
+        # R2: for a soft-cornered product an older stamp names a different drawing.
+        return {'status': 'UNKNOWN',
+                'why': f"renderer {manifest.get('renderer_version')!r} is not qualified for "
+                       f"{frame.get('slug') or manifest.get('slug')}: it predates the contract's "
+                       f"soft wall corners ({K.SOFT_CORNER_MIN_RENDERER} required)"}
     image = frame.get('image') or {}
     actual = image.get('sha256') if isinstance(image, dict) else None
     if not actual or actual != manifest.get('image_sha256'):

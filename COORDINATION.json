@@ -109,13 +109,19 @@
       "id": "OPUS2-SIZECLAIMS",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "gates/size_claims.py"
+      "scope": "gates/size_claims.py",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)",
+      "state": "ready_for_review",
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md §32; awaiting re-review"
     },
     {
       "id": "OPUS2-LAURAHOME",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
-      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script"
+      "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
     },
     {
       "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
@@ -126,7 +132,9 @@
       "review_branches": [
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
-      ]
+      ],
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
     },
     {
       "id": "P0-LEARNING-REFERENCE",
@@ -143,25 +151,134 @@
       "branch": "opus2/p0-revenue-workforce",
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
-      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part."
+      "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part.",
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+    },
+    {
+      "id": "OPUS2-GALLERY-PHOTO-LED",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-GALLERY-ASSEMBLY (photo-led / mixed disclosed certificate)",
+      "files": [
+        "src/brambleloop/publish/listing_set.py (certify_photo_led, photo_lead_frame, _with_supplements)",
+        "src/brambleloop/publish/release_gates.py (sample_photo_lead; disclosed_listing_set chooses the certificate)",
+        "src/brambleloop/runtime/etsy_ops.py (certified_images keeps the photo's alt text)"
+      ],
+      "claimed_at": "2026-10-31T03:40Z",
+      "state": "ready_for_review",
+      "depends_on": [
+        "claude/w4-PHYSFIX (risk_matrix.physical_class_of, intake unedited attestation)",
+        "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
+        "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
+      ],
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+    },
+    {
+      "id": "OPUS2-REVERIFY-WITHHOLD",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "unowned_id": "P0-REVERIFY-WITHHOLD",
+      "files": [
+        "src/brambleloop/runtime/quality_ops.py",
+        "tests/test_opus2_reverify_withhold.py"
+      ],
+      "claimed_at": "2026-10-31T07:20Z",
+      "state": "ready_for_review",
+      "evidence": "tests/test_opus2_reverify_withhold.py 4/4; 23-suite withholding/quality/for_publish/guard regression all exit 0 (2026-10-31)",
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+    },
+    {
+      "id": "OPUS2-DRAFT-CONSTRUCTIONS",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "pr": 3,
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff §22; triangle shawl added (stitch-pattern titles refused), handoff §23; tote blocked on a stated chain gauge; tote with sewn straps + cir/assembly._placed_on_round_cm (additive), handoff §26; egg cosy (one-piece cup) handoff §27; name_truth cosy rule is W-LISTING-owned (proposal in §27); hats refused naming unsourced hat height + negative ease (CYC head chart sourced) §29; backlog record §30",
+      "state": "ready_for_review",
+      "evidence": "tests/test_opus2_draft_constructions.py 12/12; drafting regression exit 0 (2026-10-31)",
+      "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
+      "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)",
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md §32; awaiting re-review"
+    },
+    {
+      "id": "OPUS2-NEXT-PRODUCT-FINDING",
+      "operator": "opus2",
+      "branch": "opus2/p0-revenue-workforce",
+      "pr": 3,
+      "state": "no_build_needed",
+      "from_unowned": "P0-NEXT-PRODUCT",
+      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md §21."
     },
     {
       "id": "OPUS2-LISTING-PACKAGE-JOB",
       "operator": "opus2",
       "branch": "opus2/p0-listing-package",
       "head": "f779fac2",
-      "state": "in_review",
+      "state": "ready_for_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)"
+      "area": "INTEG-LISTING-JOB (taken over from integrator with claim)",
+      "from": "INTEG-LISTING-JOB (offered by the integrator on PR #3, 2026-10-31T19:17Z)",
+      "scope": "automatic listing-package assembly job: for each certified release at the end of the SHADOW chain, assemble the owner-review listing package (identity, title, description, tags, price, certified gallery order, PDFs, product truth, risk class, children's decision, publication blockers) from the chain's own stored outputs; durable, idempotent per release hash; never publishes",
+      "not_touching": "publish/pdf.py (W-PDF), products/production_inventory.py (W-INVENTORY), the manual LISTING_PACKAGE.md files (W-LISTING)",
+      "evidence": "tests/test_opus2_listing_package.py 11/11; 76-suite regression exit 0; handoff brambleloop/research/final_build/w5/OPUS2_LISTING_PACKAGE_HANDOFF.md",
+      "review": "OPUS2F CHANGES REQUIRED -> all A-1..A-8 fixed 2026-11-01; awaiting re-review"
     },
     {
       "id": "OPUS2-OWNER-QUEUE-RACES",
       "operator": "opus2",
       "branch": "opus2/p1-owner-queue-races",
       "head": "ccb3e8e4",
-      "state": "in_review",
+      "state": "ready_for_review",
       "review_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "area": "P1-OWNER-QUEUE-RACES"
+      "area": "P1-OWNER-QUEUE-RACES",
+      "from": "P1-OWNER-QUEUE-RACES (offered on PR #3, 2026-10-31T19:17Z)",
+      "scope": "central before_flush guard (ops/owner_queue_guard.py) takes the owner-queue lock for every open OwnerAction insert and re-checks open keys; no per-site edits",
+      "note": "touches one line per writer in files owned by others; each edit is the lock call only",
+      "evidence": "tests/test_opus2_owner_queue_races.py 11/11; 115-suite regression exit 0 except 5 base-owned",
+      "review": "OPUS2EF2 CHANGES REQUIRED -> EF2-6 + EF2-8 fixed, B-5 built (partial unique index + deferred migrate + dedupe script), EF2-7 documented; awaiting re-review"
+    },
+    {
+      "id": "OPUS2-CULTURE-SWEEP-TIMEOUT",
+      "operator": "opus2",
+      "branch": "opus2/p1-culture-sweep-timeout",
+      "state": "ready_for_review",
+      "area": "P1-CULTURE-SWEEP-TIMEOUT (unowned item recorded by the integrator 2026-11-01T07:05Z)",
+      "scope": "culture/classify.py catches the classifier TimeoutError: files nothing, counts the unknown spend once at the reservation estimate (never zero), releases the reservation, never re-sends (F-307/F-339 unchanged)",
+      "not_touching": "gateway/paid_calls.py, gateway/anthropic.py (the anti-double-spend protocol), runtime/release.py",
+      "evidence": "tests/test_opus2_culture_sweep_timeout.py 3/3 (2 fail on the unfixed code with the production TimeoutError); culture, spend-governance, provider-boundary, resume-runner, vacuity suites (10) exit 0"
+    },
+    {
+      "id": "OPUS2-FAMILY-MEMBERSHIP",
+      "operator": "opus2",
+      "branch": "opus2/p0-family-membership",
+      "state": "ready_for_review",
+      "area": "P0 product-family development for products discovered after the opening pool",
+      "scope": "creative.family_engine.family_of reads a declared family from culture_concepts (the cultural signal a concept was translated from, matched by product_slug or slug) when the radar POOL has none; a culture family's next members are the signal's other live concepts. Never inferred from category or palette.",
+      "not_touching": "culture engine, W-CONCEPT concept generation, radar POOL",
+      "evidence": "tests/test_opus2_family_membership.py 2/2; 10 suites reading family_engine/children/cross_sell/amplify exit 0"
+    },
+    {
+      "id": "OPUS2-CIR-COLOURWORK",
+      "operator": "opus2",
+      "branch": "opus2/p0-cir-colourwork",
+      "state": "ready_for_review",
+      "area": "P0-CIR-COLOURWORK (proposal; the integrator decides whether the shared CIR takes it)",
+      "scope": "additive Op.color: model (omitted from to_dict when None, so no digest moves), compiler UNKNOWN_COLOR / STITCH_COLOUR_WITHOUT_ROW_COLOUR, ResolvedOp.color, twin cell colour + per-yarn yardage, writer 'with <colour>', reverse parse and structural compare; launch0.per_stitch_colour_expressible flips True on its own so fabric_truth backs a real two-colour claim",
+      "not_touching": "radar fallback drafting (opus2/p0-revenue-workforce), W-LISTING rules, any Launch-0 CIR",
+      "evidence": "tests/test_opus2_cir_colourwork.py 6/6; all 11 Launch-0 CIR digests unchanged; 84-suite regression exit 0 (vacuity re-run after its fix)"
+    },
+    {
+      "id": "OPUS2-POUCH-SPLIT",
+      "operator": "opus2",
+      "branch": "opus2/p0-pouch",
+      "state": "ready_for_integration",
+      "area": "queue Q16 split",
+      "claimed": "2026-11-02T11:20Z",
+      "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
     },
     {
       "id": "OPUS2-PHOTO-ASSET-REVIEW",
@@ -187,13 +304,22 @@
         "src/brambleloop/runtime/release.py (handle_culture_sweep)"
       ],
       "state": "unowned",
-      "recorded": "2026-11-01T07:05Z"
+      "recorded": "2026-11-01T07:05Z",
+      "claimed_by": "opus2",
+      "claimed_at": "2026-11-01T09:20Z"
     },
     {
       "id": "P0-PHOTO-ASSET-REVIEW",
       "priority": "P0",
       "recorded": "2026-11-01T10:55Z",
-      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification."
+      "summary": "No production code path re-approves a PHYSICAL_PRODUCT_PHOTO listing frame. physical_upgrade.upgrade_on_receipt creates it approved=False and lead_with_if_qualifying resets it to approved=False ('awaiting asset-truth review and listing-set re-certification') after the owner's attestation moves it to position 1; only visual/gallery_persist approves (render frames, by position). So a photo-led listing set can never certify in production. Fails closed (liveness, not safety).",
+      "needed": "An asset-truth review of the photo frame that sets approved with a durable audit row: either an owner-session Command Center action (step-up, reason, audited, bound to the frame sha256 and the owner attestation) or a deterministic review job, followed by listing-set re-certification. Must not approve a photo without the qualifying_photos verdict; tests for refusal on edited/unattested/foreign bytes.",
+      "evidence": "Review INTEG5FIX F2 (claude/w5-SECREVIEW-INTEG5FIX cbc96c95): mutation M4 (no fixture approval) fails both photo-led tests.",
+      "files": [
+        "src/brambleloop/publish/physical_upgrade.py",
+        "src/brambleloop/app/command_center/approvals.py (new action)",
+        "src/brambleloop/publish/release_gates.py (sample_photo_lead reads it)"
+      ]
     }
   ],
   "reviews": [
@@ -610,16 +736,6 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
       "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
       "recorded": "2026-11-01T06:50Z"
-    },
-    {
-      "subject": "OPUS2M",
-      "sha": "ba815300",
-      "verdicts": {
-        "6769e696": "CHANGES_REQUIRED (OPUS2M-1 MED, -7 LOW; better than c3074241; 651b1580 faithful)",
-        "e0be7c4d": "SHIP (integrated a8ce0072); -5 LOW, -6 LOW pre-existing",
-        "d4486b8c": "CHANGES_REQUIRED (OPUS2M-2 MED regression, -3 MED, -4/-8 LOW)"
-      },
-      "recorded": "2026-11-02T04:33Z"
     }
   ],
   "integration": {
@@ -746,24 +862,21 @@
     {
       "observed": "2026-11-02T03:36Z",
       "what": "Transient: one /api/verify read returned ok=False with 12/13 checks and weekly_jobs_completing false; the next five reads (03:36-03:37Z) were ok=True, 13/13. The failing check name was not captured. A 2-minute acceptance sampler now records failing check names (integrator scratch log, summarized into the acceptance verdict). Not classified clean."
-    },
-    {
-      "observed": "2026-11-02T04:30Z",
-      "what": "Acceptance sampler (every 2 min since 03:37Z) on 0967c3ee: worker_is_alive FALSE at 03:45:40Z and 03:47:44Z (also 03:31Z cold start and the 03:36Z blip); runner.worker_alive is false when the worker has not ticked for 120 s, i.e. one job held the worker about 4 min. From 03:53:57Z onward no_unexpected_dead_letters_in_24h is FALSE (/api/verify 503, ok=False) and weekly_jobs_completing turned false. The dead job is not identifiable without operator access (application logs carry only access lines; jobs table needs SQL or the readback token). Severity per ops/rollback_decision.py: dead letters P1 (fix forward); worker alive is P0 but has read true continuously since 03:49:49Z, so no rollback. Production is NOT healthy; the 24 h acceptance is currently failing. Owner action: BRAMBLELOOP_READBACK_TOKEN, or run read-only: SELECT id, job_type, attempts, left(last_error,300), finished_at FROM jobs WHERE status='DEAD' AND finished_at > now() - interval '24 hours';"
     }
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2N",
+        "id": "OPUS2M",
         "subjects": [
-          "opus2/p0-pet-bed 940f70e6 (diff 7d220e01..)",
-          "opus2/p0-tapestry 67b67015 (diff 2d2d9446..)"
+          "opus2/p0-revenue-workforce 6769e696",
+          "opus2/p1-culture-sweep-timeout e0be7c4d",
+          "opus2/p0-cir-colourwork d4486b8c"
         ],
-        "session": "session_015ZfGXp8LnkUKYgGqbH3u5B",
-        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2N.md on claude/w5-SECREVIEW-OPUS2N",
-        "launched": "2026-11-02T04:32Z"
+        "session": "session_015ZfGXofGcgjnmA4gFe6ZwJ",
+        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2M.md on claude/w5-SECREVIEW-OPUS2M",
+        "launched": "2026-11-02T03:30Z"
       }
     ]
   }

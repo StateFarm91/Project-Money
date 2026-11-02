@@ -104,6 +104,25 @@ def parse(text: str, topics: list[str]) -> dict:
     return out
 
 
+def _outcome_unknown(exc: BaseException) -> bool:
+    """Whether this failed call's billing is UNKNOWN (OPUS2I C-4).
+
+    In a job scope: the guard's own record for the call is UNCERTAIN. Outside one (a probe, a
+    test): the exception is one `gateway.anthropic._classify_failure` calls UNCERTAIN."""
+    from ..gateway import paid_calls
+    from ..gateway import providers as gw   # F-091: the vendor-neutral boundary
+
+    scope = paid_calls._SCOPE.get()
+    if scope is not None:
+        key = (scope.last_call or {}).get("paid_call_key")
+        if not key:
+            return False                          # the guard never reached the provider
+        with scope.db.session() as s:
+            row = s.get(paid_calls.PaidCallRecord, key)
+            return row is not None and row.outcome == paid_calls.UNCERTAIN
+    return gw.classify_failure(exc) == paid_calls.UNCERTAIN
+
+
 def classify(topics: list[str], *, provider=None, db=None) -> dict:
     """File a batch of topics, and say plainly when nothing could be filed.
 
@@ -125,21 +144,61 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     # 2026-09-25 that agent's CA$4.00/day was checked by nothing on this path.
     reservation = None
 
+    sent = False
     try:
+        user = prompt(topics)           # built before the call: a bug here is never "sent"
         if db is not None:
             budget = gw.check_budget(
-                db, model=provider.model, input_tokens=len(prompt(topics)) // 4,
+                db, model=provider.model, input_tokens=len(user) // 4,
                 max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
             estimate = budget["estimate_cad"]
             reservation = budget["reservation_id"]
-        response = provider.complete(CLASSIFY_SYSTEM, prompt(topics),
-                                     max_tokens=CLASSIFY_MAX_TOKENS)
+        sent = True                     # from here on the request may have reached the provider
+        response = provider.complete(CLASSIFY_SYSTEM, user, max_tokens=CLASSIFY_MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
         if db is not None:
             gw.release_reservation(db, reservation)
         return {"filed": {}, "sensitive": flagged, "reason": str(exc)[:300],
                 "note": ("nothing was filed and the reason is above. An unfiled topic list "
                          "is not an empty culture")}
+    except Exception as exc:  # noqa: BLE001 - classified by outcome below, never swallowed blind
+        # P1-CULTURE-SWEEP-TIMEOUT, widened by review OPUS2G C-2: once the request was sent, a
+        # failure that is not a provider refusal (handled above) is UNCERTAIN -- a timeout, an
+        # unreadable 200 (ValueError), a reset or incomplete read -- exactly the set
+        # `gateway.anthropic._classify_failure` calls UNCERTAIN. Whether it billed is UNKNOWN,
+        # and UNKNOWN is never zero: it is counted once at the reservation's estimate, as
+        # `ModelGateway._billing` counts it. The paid-call intent stays UNCERTAIN (F-307/F-339)
+        # so nothing is re-sent; the attempt files nothing and the sweep goes on. A failure
+        # before anything was sent (the budget check, a bug) is not billed and is re-raised.
+        # Review OPUS2I C-4: "sent" alone is not proof. Inside a job the paid-call guard is the
+        # authority -- it writes UNCERTAIN only for a call it actually made -- so the spend is
+        # billed only when that record says so; a write-ahead DB error or a provider-side bug
+        # before the send has no UNCERTAIN record and is re-raised, visible, unbilled.
+        if not sent or not _outcome_unknown(exc):
+            if db is not None:
+                gw.release_reservation(db, reservation)
+            raise
+        if db is not None:
+            from ..finance import spend_report
+            from ..gateway import paid_calls
+
+            gw.release_reservation(db, reservation, actual_cad=estimate)
+            spend_report.record(
+                db, agent="market_radar", amount_cad=estimate, estimated_cad=estimate,
+                purpose=TASK, provider="anthropic", model=provider.model,
+                department="culture",
+                detail={"topics": len(topics), "price_basis": "assumed",
+                        "billing": "unknown_counted_at_estimate",
+                        "cost_basis_note": ("the classifier call failed after it was sent "
+                                            f"({type(exc).__name__}); whether it billed is "
+                                            "UNKNOWN and counted at the reservation "
+                                            "estimate, never as zero"),
+                        **paid_calls.ledger_note()})
+        return {"filed": {}, "sensitive": flagged, "unresolved": True,
+                "reason": f"classifier call outcome unknown ({type(exc).__name__}): {exc}"[:300],
+                "note": ("nothing was filed: the call's outcome is unknown, so it is counted "
+                         "at its estimate and not re-sent. An unfiled topic list is not an "
+                         "empty culture")}
 
     if db is not None:
         from ..finance import spend_report

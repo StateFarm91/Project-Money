@@ -56,6 +56,10 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     # ideas do not survive the grid, and Search which premises read as generic.
     "creative_rejection": ("product_creativity", "market_radar", "creative_assets",
                            "seo_search"),
+    # OPUS2-P0 (owner P0 §16): measured own-listing performance by category reaches the cells
+    # that choose and design the next product, and Growth, which presents it.
+    "commercial_demand": ("market_radar", "product_creativity", "growth"),
+    "commercial_underperformance": ("market_radar", "product_creativity", "growth"),
 }
 
 CONFIDENCE = ("observed", "measured", "confirmed")

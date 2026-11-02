@@ -459,7 +459,7 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
             excluded.append({"slug": slug, "version": l.version,
                              "why": f"legacy filler: {legacy['why']}"})
             continue
-        seed = _seed_for(slug)
+        seed = _seed_for(slug, db)
         if orders.get(slug):
             basis, value = MEASURED_STRENGTH, float(orders[slug])
         elif seed is not None:

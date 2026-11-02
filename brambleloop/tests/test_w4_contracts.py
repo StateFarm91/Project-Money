@@ -75,7 +75,8 @@ def test_a_removed_or_unpinned_contract_is_reported():
 def test_require_passes_the_current_version_and_refuses_a_stale_pin():
     for name, (version, _fn, _w) in C.CONTRACTS.items():
         C.require(name, version)
-    for bad in (("cir", 0), ("cir", 2), ("no_such_contract", 1)):
+    cir_v = C.CONTRACTS["cir"][0]   # W5-INTEG1: relative to the current version (CIR v2)
+    for bad in (("cir", cir_v - 1), ("cir", cir_v + 1), ("cir", 0), ("no_such_contract", 1)):
         try:
             C.require(*bad)
             raise AssertionError(f"require{bad} passed")

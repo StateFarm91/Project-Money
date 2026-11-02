@@ -180,23 +180,31 @@ def concept_geometry(seed: ConceptSeed) -> dict:
     }
 
 
-def _seed_for(slug: str) -> ConceptSeed | None:
-    return next((s for s in POOL if s.slug == slug), None)
+def _seed_for(slug: str, db=None) -> ConceptSeed | None:
+    """The radar concept `slug` names: the static POOL first (unchanged), then -- when a
+    database is given -- a concept `radar.intake` approved from recorded evidence (W5-CONCEPT).
+    """
+    seed = next((s for s in POOL if s.slug == slug), None)
+    if seed is None and db is not None:
+        from ..radar import intake
+
+        seed = intake.seed_for(db, slug)
+    return seed
 
 
-def product_seed(slug: str) -> ConceptSeed | None:
+def product_seed(slug: str, db=None) -> ConceptSeed | None:
     """The radar concept a PRODUCT slug was scored as: its own, or its retired alias (D-W5-7).
 
     For readers keyed on a certified product (teardown class, benchmark challenge, storefront
     strength). `_seed_for` stays exact for the drafting path, where a seed decides whether a
     payload is a new concept for the pre-engineering gate.
     """
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, db)      # F6: an approved intake concept answers too
     if seed is None:
         from ..products import launch0 as l0
 
         alias = l0.radar_concept_for(slug)
-        seed = _seed_for(alias) if alias else None
+        seed = _seed_for(alias, db) if alias else None
     return seed
 
 
@@ -216,10 +224,13 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     target = int(ctx.job.inputs.get("target", 10))
     # C-60 (#2): the observed market scores -- the nine-dimension arbitrage card and its
     # weakness hunt -- steer the pool before selection, so the hunt decides what gets made.
-    from ..radar import arbitrage
+    from ..radar import arbitrage, intake
     from ..radar.opportunity import score_pool
 
-    steered, steering = arbitrage.steer_concepts(ctx.db, score_pool(today=today))
+    # W5-CONCEPT: POOL plus the concepts `radar.intake` approved from recorded evidence,
+    # scored by the same `score_concept`. With no approved row this is exactly POOL.
+    steered, steering = arbitrage.steer_concepts(
+        ctx.db, score_pool(intake.pool_with_intake(ctx.db), today=today))
     portfolio = select_portfolio(steered, target=target, today=today)
 
     ctx.audit("radar.scanned", detail={
@@ -305,9 +316,11 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
 
     from ..core.models import CoverageGap
     from ..intel import pods
+    from ..radar import intake
 
     today = _scan_date(ctx)
     handoff = inputs.get("handoff") or {}
+    pool = intake.pool_with_intake(ctx.db)
     with ctx.db.session() as s:
         gaps = list(s.execute(select(CoverageGap.id, CoverageGap.pod, CoverageGap.arena,
                                      CoverageGap.product_slug)
@@ -317,12 +330,12 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
     matched: dict[str, list[int]] = {}
     unanswered: list[dict] = []
     for gap_id, pod_key, arena, product_slug in gaps:
-        named = _seed_for(product_slug) if product_slug else None
+        named = _seed_for(product_slug, ctx.db) if product_slug else None
         if named is not None:
             seeds = [named]
         else:
             pod = pods.BY_KEY.get(pod_key)
-            seeds = [sd for sd in POOL
+            seeds = [sd for sd in pool
                      if pod is not None and pod.matches(sd.slug.replace("-", " "))]
         if not seeds:
             unanswered.append({"gap": gap_id, "pod": pod_key, "arena": arena})
@@ -332,7 +345,7 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
     queued: list[str] = []
     already: list[str] = []
     for slug in sorted(matched):
-        payload = score_concept(_seed_for(slug), today).to_dict()
+        payload = score_concept(_seed_for(slug, ctx.db), today).to_dict()
         payload["coverage_gaps"] = matched[slug]
         job = ctx.enqueue("market_radar", "radar.score", payload,
                           idempotency_key=f"score:{slug}:{today.isoformat()}")
@@ -366,10 +379,19 @@ def handle_radar_score(ctx: JobContext) -> dict:
         # and Laura's follow-on proposals do the same. This read `c["slug"]` and production
         # 7bbbe72 dead-lettered two (KeyError 'slug', 2026-10-12T18:06Z) -- #195's window.
         return _score_coverage_handoff(ctx, c)
-    seed = _seed_for(c["slug"])
+    seed = _seed_for(c["slug"], ctx.db)
     if seed is None:
         ctx.audit("radar.unknown_concept", artifact=c.get("slug"))
         return {"slug": c.get("slug"), "promoted": False, "reason": "not in the pool"}
+    intake_fields: dict = {}
+    if seed.origin:
+        # W5-CONCEPT: an intake concept is judged on the concept and brief its database row
+        # holds (and the vision judge's record, if any) -- read here, never from the job.
+        from ..radar import intake
+
+        # F2 (review 933bf74): the job's own concept/brief/taste fields are dropped, not merged.
+        intake_fields = intake.gate_inputs(ctx.db, seed.slug, {})
+        c = intake.gate_inputs(ctx.db, seed.slug, c)
 
     today = _scan_date(ctx)
     rescored = score_concept(seed, today)
@@ -440,6 +462,7 @@ def handle_radar_score(ctx: JobContext) -> dict:
     })
     if promote:
         payload = rescored.to_dict()
+        payload.update(intake_fields)
         payload.update(concept_geometry(seed))
         if gate is not None:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
@@ -652,7 +675,27 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     # Bundle" whose PDF was a twelve-row striped panel -- a product that would have been sold
     # as three patterns and delivered as one invented swatch. Bundles route to collection
     # assembly instead, which builds the listing out of its members' real releases.
-    seed = _seed_for(slug)
+    seed = _seed_for(slug, ctx.db)
+    if seed is None:
+        # G1 (review bb680ec): a draft queued for an intake concept that has since been
+        # withdrawn (or never approved) is refused at execution time. Without this it fell
+        # through to the raw-geometry fallback below with no pre-engineering gate. Checked
+        # from the database and the job's declared provenance; an established design is a
+        # rebuild and is never blocked by an intake row that happens to share its slug.
+        from ..creative import preengineering as _pe
+        from ..radar import intake as _intake
+
+        declared = str(ctx.job.inputs.get("provenance") or "")
+        if (not _pe.established(ctx.db, slug)
+                and (declared.startswith("radar.intake:") or _intake.has_rows(ctx.db, slug))):
+            state = _intake.latest_state(ctx.db, slug)
+            ctx.audit("cir.draft_refused", artifact=slug, detail={
+                "gate": "radar.intake", "state": state or "no row",
+                "reason": (f"intake concept {slug!r} is not currently approved "
+                           f"({state or 'no row'}); a queued draft does not outlive its "
+                           f"approval")})
+            return {"artifact": slug, "drafted": False, "gate": "radar.intake",
+                    "reasons": [f"intake concept not currently approved ({state or 'no row'})"]}
     if seed is not None and seed.is_bundle:
         ctx.audit("cir.skipped_bundle", artifact=slug,
                   detail={"reason": "a bundle has no pattern of its own; it is its members"})
@@ -672,7 +715,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
 
     if (not preengineering.established(ctx.db, slug)
             and (seed is not None or isinstance(ctx.job.inputs.get("concept"), dict))):
-        gate = preengineering.gate_concept(ctx.db, dict(ctx.job.inputs))
+        gate_inputs = dict(ctx.job.inputs)
+        if seed is not None and seed.origin:
+            # F2: an intake concept is gated on its database row and the vision judge's
+            # record here too, so a directly enqueued cir.draft cannot carry its own taste.
+            from ..radar import intake as _intake
+
+            gate_inputs = _intake.gate_inputs(ctx.db, slug, gate_inputs)
+        gate = preengineering.gate_concept(ctx.db, gate_inputs)
         if not gate["engineer"]:
             effects = preengineering.record(ctx, gate, source="cir.draft")
             return {"artifact": slug, "drafted": False, "gate": gate["decision"],
@@ -720,22 +770,152 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
     lineage = _fallback_lineage(seed, dict(i), concept)
-    from ..creative.prototype import PrototypeRefused
+    from ..creative import fallback_constructions as FC
+    from ..creative.prototype import PrototypeRefused, source_provenance
 
+    # OPUS2-P0 (P0-DRAFT-CONSTRUCTIONS): the shape the concept's stitches are worked into is
+    # decided before any CIR exists. A shaped form no fallback rule makes is refused by name
+    # rather than drafted as a flat panel under that name.
+    route = FC.plan(category=concept.category, title=concept.title,
+                    is_bundle=bool(seed.is_bundle) if seed is not None else False,
+                    slug=concept.slug, rationale=seed.rationale if seed is not None else "")
+    if route["family"] == FC.REFUSED:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": route["why"][:400], "gate": "construction",
+                          "category": concept.category, "needs": route["needs"][:200]})
+        return {"artifact": slug, "drafted": False, "gate": "construction",
+                "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
     try:
-        if lineage["known"]:
+        if route["family"] == FC.VESSEL:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.VESSEL_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.vessel(concept, provenance=provenance)
+        elif route["family"] == FC.COSY:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.COSY_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.cosy(concept, provenance=provenance)
+        elif route["family"] == FC.TOTE:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TOTE_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.tote(concept, provenance=provenance)
+        elif route["family"] == FC.STOCKING:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.STOCKING_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.stocking(concept, provenance=provenance)
+        elif route["family"] == FC.TAPESTRY:
+            if len(set((concept.colors or {}).values())) < 2:
+                ctx.audit("cir.draft_refused", artifact=slug,
+                          detail={"reason": "tapestry needs two distinct colours",
+                                  "gate": "construction", "category": concept.category,
+                                  "needs": "a second, distinct colour in the palette"})
+                return {"artifact": slug, "drafted": False, "gate": "construction",
+                        "construction": FC.REFUSED,
+                        "reasons": ["tapestry needs two distinct colours"]}
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TAPESTRY_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.tapestry_basket(concept, provenance=provenance)
+        elif route["family"] == FC.POUCH:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.POUCH_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.pouch(concept, provenance=provenance)
+        elif route["family"] == FC.TRIANGLE:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.TRIANGLE_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.triangle(concept, provenance=provenance)
+        elif lineage["known"]:
             concept.source_provenance = lineage["source"]
             concept.source_brief = lineage["brief"]
-            cir = concept_to_cir(concept, primitives=lineage["primitives"])
+            extra = FC.PANEL_PAIR_PRIMITIVES if route["family"] == FC.PANEL_PAIR else ()
+            cir = concept_to_cir(concept, primitives=tuple(lineage["primitives"]) + extra)
         else:
             cir = concept_to_cir(concept)
+        if route["family"] == FC.PANEL_PAIR:
+            cir = FC.panel_pair(cir)
     except PrototypeRefused as exc:
         # Malformed benchmark identities are unknown lineage, never stringified into a record.
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "provenance"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    except (ValueError, KeyError) as exc:
+        # Review OPUS2C N3.3: a construction that cannot be built from these inputs (an empty
+        # repeat, no colours, a stitch outside the taxonomy) is a named refusal, not a crash.
+        why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": why[:400], "gate": "construction",
+                          "category": concept.category,
+                          "needs": f"inputs the {route['family']} construction can work"})
+        return {"artifact": slug, "drafted": False, "gate": "construction",
+                "construction": route["family"], "reasons": [why[:300]]}
+    # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
+    # this fallback now makes. Recorded, never a refusal here: publication refuses it
+    # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.
+    name_problems: list[str] = []
+    if route["family"] != FC.FLAT_PANEL:
+        try:
+            from ..publish.eligibility import name_truth
+
+            name_problems = [str(p)[:200] for p in name_truth(cir, None)]
+        except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
+            name_problems = [f"UNKNOWN: {type(exc).__name__}"]
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
-              detail={"source": "concept_to_cir fallback",
+              detail={"source": "concept_to_cir fallback", "construction": route["family"],
+                      "name_truth": name_problems,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
@@ -743,7 +923,7 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "rows": len(cir.components[0].rows)}
+            "construction": route["family"], "rows": len(cir.components[0].rows)}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -776,7 +956,8 @@ def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) 
     declared = str(inputs.get("provenance") or "").strip()
     # A declared benchmark lineage is carried (source_provenance appends it to the consulted
     # set); otherwise the design's source is the radar pool seed itself.
-    source = declared if declared.startswith("benchmark:") else f"radar.pool:{seed.slug}"
+    source = (declared if declared.startswith("benchmark:")
+              else seed.origin or f"radar.pool:{seed.slug}")
     return {"known": True, "source": source, "brief": brief or None, "why": "",
             "primitives": ("runtime.pipeline.concept_to_cir",
                            f"runtime.pipeline.concept_geometry:{seed.category}",
@@ -889,7 +1070,7 @@ def _certify_listing(ctx: JobContext, cir: CIR):
                                  "is not attested and publication refuses it"})
 
     identity = l0.listing_identity(cir.slug)
-    seed = _seed_for(cir.slug)
+    seed = _seed_for(cir.slug, ctx.db)
     if identity is not None:
         launch = l0.launch_price(cir.slug) or {}
         kind, price = identity.kind, launch.get("price_cad") or l0.candidate_for_cir(
@@ -897,7 +1078,7 @@ def _certify_listing(ctx: JobContext, cir: CIR):
         source = "products.launch0 listing identity"
     elif seed is not None:
         kind, price = seed.category.replace("_", " "), seed.price_cad
-        source = f"radar.pool:{seed.slug}"
+        source = seed.origin or f"radar.pool:{seed.slug}"
     else:
         return None, {"source": None, "stored_copy_refused": refused,
                       "why": "no stored listing and no product record: no copy examined"}
@@ -1056,7 +1237,7 @@ def handle_certify(ctx: JobContext) -> dict:
         # the reason audited, before anything downstream is built for it.
         from ..teardown import lab as teardown_lab
 
-        seed = product_seed(cir.slug)
+        seed = product_seed(cir.slug, ctx.db)
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))
@@ -1449,15 +1630,23 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             # writer no longer produces, while the PDF regenerates from the new one. The
             # record is replaced and the change is audited rather than left to be discovered.
             previous = existing.release_hash
+            # Review OPUS2B2 F2.1: a failed re-verification survives the replacement (fail
+            # closed) and the checks are queued now, so the new content clears it promptly.
+            from ..publish import withholding as _withholding
+
+            certificate, carried = _withholding.carry_reverification(
+                existing.certificate, certificate)
             existing.cir_json = cir.to_dict()
             existing.release_hash = release_hash
             # PHYSFIX: a permanent withholding (the version a sample measured at the wrong
             # size) survives the replaced certificate -- re-certifying never un-withholds it.
-            from ..publish import withholding as _withholding
-
             existing.certificate = _withholding.carry_permanent(existing.certificate,
                                                                 certificate)
             existing.certified = True
+            if carried:
+                ctx.enqueue("quality_director", "gate.quality", {},
+                            idempotency_key=f"reverify-after-recert:{cir.slug}@{cir.version}:"
+                                            f"{release_hash[:16]}")
             ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
                       detail={"previous_release_hash": previous,
                               "release_hash": release_hash,
@@ -1646,7 +1835,12 @@ def handle_store_publish(ctx: JobContext) -> dict:
     refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),
                          action="store.publish")
     parity_verdict = _listing_parity(ctx)
-    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
+    # P0-CHAIN-DEADENDS (3): the row names the release it judged, so a verdict for one
+    # version is never read as another's (W-INVENTORY found it bound to the slug alone).
+    # Review OPUS2B2 F1.2: the version defaults as the verdict's does.
+    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"),
+              detail={**parity_verdict, "version": ctx.job.inputs.get("version", "1.0.0"),
+                      "release": ctx.job.inputs.get("release", "")})
 
     # The release-chain publish gates (#58, #60, #65, #66, #70, #80, #172, #173, #297), on
     # the same split as parity: computed on every attempt from evidence on file, so Shadow
@@ -2500,12 +2694,21 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.salvage_review": ("work_done",),
     "gate.quality": ("work_done",),
     "intel.children_portfolio": ("work_done",),
+    # OPUS2-P0 (P0-CHAIN-DEADENDS): dead ends re-driven or resolved.
+    "chain.successors": ("work_done",),
+    # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
+    "intel.scan_evidence": ("work_done",),
+    # OPUS2-P0: lessons published or withdrawn from measured listing performance.
+    "improve.commercial_lessons": ("work_done",),
+    # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
+    "learning.knowledge_gaps": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
     # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
     "listing.search_visibility_aging": ("work_done",),
     "listing.window_captures": ("work_done",),
     "etsy.dashboard_harvest": ("work_done",),
     "radar.competitor_snapshot": ("work_done",),
+    "radar.concept_intake": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
     "intel.opportunity_review": ("work_done",),
@@ -2580,6 +2783,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.acceptance": ("passed",),
     "intel.benchmark_health": ("incidents_opened",),
     "intel.benchmark_refresh": ("triggers", "raised"),
+    # OPUS2 (INTEG-LISTING-JOB): a listing package assembled or changed.
+    "listing.package": ("work_done",),
     "intel.panel_discovery": ("joined", "scanned"),
     "intel.pod_learning": ("records", "judgements", "measured"),
     "laura.executive_tick": ("work_done",),  # W3-D (wired by W3-WIRE4)
@@ -3136,7 +3341,11 @@ from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance r
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
+from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
+from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
+from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

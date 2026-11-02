@@ -709,6 +709,10 @@ def test_no_code_compares_or_lists_the_published_literal_outside_the_helper():
         "ContentPiece.state": "content pieces (blog/social), not listings",
         '"improve.mine": ("published",': "job-output key names of improve.mine",
         '"posted", "matched", "pruned", "deleted", "published",': "verbs in job-output keys",
+        # W5-INTEG1 (INVENTORY x ADOPT): the inventory's stage *name*, recorded after the
+        # listing check on the previous line, which uses PUBLISHED_LISTING_STATES
+        # (published, active, published_manually).
+        'reach("published", listing_id=': "production_inventory stage name, not a state check",
     }
     offenders = []
     for path in src.rglob("*.py"):

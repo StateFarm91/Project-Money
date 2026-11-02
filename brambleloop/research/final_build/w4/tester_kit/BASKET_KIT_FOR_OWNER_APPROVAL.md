@@ -1,6 +1,9 @@
 # Small bread basket: physical tester kit for owner approval
 
-**Product:** `market-basket-small@1.2.0`, the Crochet Hexagonal Bread Basket.
+> **PROVISIONAL (2026-11-01, Batch 5 integration).** The 1.3.0 kit is now rebuilt on the Batch 4 physical-sample rules (W-PHYSFIX, certified in Batch 4): the record sheet carries the wall-height method, `base_edge`, `corners_at_rim` and `rim_across_points_cm`, plus the one-tester terms, and the test PDF prints the release date 2026-10-31 (design review D4). It is still provisional: the rebuilt kit needs its independent review and the owner's approval of the final kit and the CA$66 ceiling. Do not commission a tester from these files until then. The obsolete 1.2.1 basket kit is removed.
+
+
+**Product:** `market-basket-small@1.3.0`, the Crochet Hexagonal Bread Basket.
 - Positioning: a kitchen and home product.
 - Size: small only. This kit covers that one size and no other.
 
@@ -20,7 +23,65 @@ it, run `cd brambleloop && nice -n 19 python3 research/final_build/w4/tester_kit
 
 ---
 
-## The test PDF is now built on the corrected source
+## Rebuilt 2026-10-31 for release 1.3.0 (owner decision D-W4-OWNER-BASKET-1.3.0)
+
+The kit now binds to `market-basket-small@1.3.0`, content hash `c4aa14a0…`.
+- **The design change:** Rnd 11 is "sc in back loop of next 60 sts", marked "back loop only".
+  The unworked front loops make a defined edge where the base turns into the wall. This is the
+  fold that the twin and the renders draw.
+- **What did not change:** stitch counts (60 per wall round), the six-sided geometry, the size
+  (16.0 cm across the points, 13.9 cm across the flats, 8.7 cm tall) and the yarn (40.2 m cream,
+  11.9 m wine) were recomputed from the twin and are the same.
+- **What the PDF no longer says:** the 1.2.1 soft-fold wording ("turning upward over the first
+  few rounds", "about 8 to 9 cm") no longer applies and is gone.
+- **The renders now draw the pattern's shape:** a defined base fold, with corners crisp at the
+  base and softening toward a rounded rim; the flats stay at 13.9 cm. `render_verification`
+  checks this shape. How far the corners soften is an **estimate**, and every rim picture says
+  "Rim shape estimated until a sample is made." The test PDF's release date is still the
+  builder's hard-coded 2026-10-07 (design review D4); the fix is a one-line hook in W-PHYSFIX's
+  `quality/tester_kit.py`, to be applied at integration.
+
+**The CA$66 ceiling is provisional** until the final kit, carrying the W-PHYSFIX fields, is
+approved. A 1.2.x sample would not count as evidence for 1.3.0, because the content hash is
+different.
+
+---
+
+## Rebuilt 2026-10-31 for release 1.2.1 (text only; superseded by 1.3.0 above)
+
+The kit now binds to `market-basket-small@1.2.1`, content hash `9251c2ec…`. Release 1.2.1 changes
+only the written text, from the independent PDF audit:
+- the colour-change and ends wording: cut wine after Rnd 19; carry cream up the inside of the join;
+- "the ch 1 does not count as a stitch".
+
+The test PDF was rebuilt again the same day, after the independent construction review. The
+content hash is unchanged. The changes:
+- the wall is described as turning upward over the first few rounds, not "rising straight up";
+- the Rnd 11 checkpoint reads "the edge of the base beginning to turn up";
+- the height is given as "about 8 to 9 cm", because 8.7 cm is an upper bound;
+- every render is captioned as idealised.
+
+The review's suggested record-sheet fields (base edge, wall-height method, corners at the rim)
+are backlog. The record sheet is unchanged.
+
+Stitches, counts, geometry, yarn amounts and the CA$66 ceiling are unchanged. The test PDF is the
+premium customer edition at 13 pages. A 1.2.0 sample would not count as evidence for 1.2.1,
+because physical evidence binds to the exact content hash, so this kit replaces the 1.2.0 one.
+
+---
+
+## Resolved 2026-10-31: the nursery safety block is gone
+
+The kit was rebuilt by the same builder after the LISTING1 source correction (kitchen and home, small size only) was integrated.
+
+- The test PDF is now 7 pages, down from 9.
+- Text extraction finds "nursery", "baby", "child", "CPSIA", "nesting", "three sizes" and "under 3" zero times each.
+- At 1.2.0 the content hash was unchanged (`1ddde587…`). The 1.2.1 rebuild above has a new one.
+- The PDF was never edited by hand.
+
+---
+
+## Basket identity correction (LISTING1), carried into 1.3.0
 
 This kit was rebuilt on `claude/w4-PHYSFIX` after merging `claude/w4-INTEG8-next`, which carries
 LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
@@ -36,6 +97,14 @@ LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
 
 | Item | Value |
 |---|---|
+| Release | `market-basket-small@1.3.0`, one piece (`basket` × 1) |
+| Content hash (evidence binds to this) | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
+| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `48e54525d105687a5079189fca0764aee4eb2eee125503aef64afbbb12b344c6` |
+| Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
+| Manifest `KIT_MANIFEST.json` | `9794656d5c53f461c3ee75e3299d67648b293f6266b4ada975f6fc6daa10f009` |
+
+---
+
 | Release | `market-basket-small@1.2.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991` |
 | Test PDF `market-basket-small-1.2.0-TEST.pdf` (7 pages) | `e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57` |
@@ -225,7 +294,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **PASS:**
   - Conditions: the size is within 12%; the base sits flat and the basket holds its shape; no
     problem is recorded; the instructions were followed; the yarn factor is plausible.
-  - The sample binds to content `1ddde587…`.
+  - The sample binds to content `c4aa14a0…`.
   - It clears the first-customer `gauge_and_size_claims` area **for the small size only**. The
     evidence says so: "proven: small; not proven: medium, large".
   - Only a made basket whose measured size agreed counts. A gauge swatch alone never proves the
@@ -242,7 +311,7 @@ The code reaches each outcome; nobody assigns it by hand.
 - **Refused at intake (re-enter from the sheet):** "followed exactly?" left blank or not a plain
   yes or no, a missing shape answer, or a missing measurement.
   - **A size outside 12% halts publication of this release.** The halt is a P1 incident scoped
-    to `market-basket-small@1.2.0` at this content hash.
+    to `market-basket-small@1.3.0` at this content hash.
   - The halt is bound to the design, not the version number, so relabelling the same pattern
     as a new version stays halted.
   - A corrected design can be certified, but certification lifts nothing. The halt lifts only
@@ -261,4 +330,4 @@ The code reaches each outcome; nobody assigns it by hand.
 
 | Action | Why | Max cost | Minutes | Consequence of waiting |
 |---|---|---|---|---|
-| Approve commissioning **exactly one** independent tester to make `market-basket-small@1.2.0` from this kit, and approve posting `OUTREACH.md`. The ceiling is CA$66.00 all-inclusive: CA$65.90 to the tester by a fee-free transfer, plus processing fees of CA$0.10 or less. If the payment method charges more, approve the higher figure in §3 instead. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs a size-proving sample of this exact content | CA$66.00 all-inclusive (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |
+| Approve commissioning **exactly one** independent tester to make `market-basket-small@1.3.0` from this kit, once it is final (not provisional), and approve posting `OUTREACH.md`. The ceiling is CA$66.00 all-inclusive: CA$65.90 to the tester by a fee-free transfer, plus processing fees of CA$0.10 or less. If the payment method charges more, approve the higher figure in §3 instead. | Etsy requires an unedited photo of a made sample for a pattern listing, and the first-customer gate needs a size-proving sample of this exact content | CA$66.00 all-inclusive (ESTIMATED) | 25 | The basket cannot be listed compliantly, and its size and yardage claims stay estimates |

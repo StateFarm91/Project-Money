@@ -145,8 +145,20 @@ def openings_cm(component, gauge) -> tuple[float, ...]:
     answer to within the difference between the two gauges rather than a guess.
     """
     out: list[float] = []
+
+    def flat_ops(ops):
+        # OPUS2 (drawstring pouch): a bridged chain inside a repeat ("[sc 4, ch 2, sk 2] x 8",
+        # an eyelet round) is an opening like one at the top level; each repetition is one.
+        for node in ops:
+            inner = getattr(node, "ops", None)
+            if inner is not None and not hasattr(node, "stitch"):
+                for _ in range(getattr(node, "times", None) or 1):
+                    yield from flat_ops(inner)
+            else:
+                yield node
+
     for row in component.rows:
-        for op in row.ops:
+        for op in flat_ops(row.ops):
             spans = getattr(op, "spans", 0)
             if getattr(op, "stitch", None) != "ch" or not spans:
                 continue
@@ -155,6 +167,25 @@ def openings_cm(component, gauge) -> tuple[float, ...]:
             elif gauge:
                 out.append(spans / gauge.stitches_per_10cm * 10.0)
     return tuple(out)
+
+
+def _placed_on_round_cm(cir, seam) -> float | None:
+    """A join placed across `2 x stitches_from_centre` stitches of one round of a piece worked
+    in rounds (the writer's "across round R, N sts either side of centre"), in cm, or None.
+
+    OPUS2-P0: the written clause already places such a join; this measures it, so a strap end
+    sewn to a basket's rim is compared with the span it is sewn across, not the whole rim.
+    Only the top or bottom edge of a piece not worked in flat rows; anything else is None.
+    """
+    if seam.stitches_from_centre is None or seam.edge_b not in ("top", "bottom"):
+        return None
+    comp = next((c for c in cir.components if c.name == seam.piece_b), None)
+    if comp is None or comp.construction == "flat_rows":
+        return None
+    gauge = getattr(comp, "gauge", None) or cir.gauge
+    if gauge is None or not gauge.stitches_per_10cm:
+        return None
+    return 2 * seam.stitches_from_centre * 10.0 / gauge.stitches_per_10cm
 
 
 def footprint(component, twin, gauge=None) -> Footprint:
@@ -266,6 +297,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             # A join placed across particular rows of piece_b runs along those rows only.
             if seam.at_round is not None:
                 placed = fb.placed_edge_cm(seam.edge_b, seam.spans_rounds)
+                if placed is None:
+                    placed = _placed_on_round_cm(cir, seam)
                 if placed is not None:
                     lb = placed
             join.length_a_cm, join.length_b_cm = la, lb

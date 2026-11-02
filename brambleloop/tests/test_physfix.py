@@ -684,6 +684,67 @@ def test_a_lift_on_the_failed_geometry_needs_the_owner_to_confirm_it():
     assert _size_withheld(db, a), "the failed release is not withheld"
 
 
+def test_a_folded_duplicate_halt_still_has_its_releases_withheld_after_a_lift():
+    """SECREVIEW c99dde9 R40, the reviewer's probe as a test. Two concurrent first failures of
+    one design can insert two open incidents with one signature (PostgreSQL: the row lock
+    locks nothing when no row exists yet; R40 (b) now serialises that with an advisory lock).
+    `ops.health` hygiene folds the duplicate WITHOUT its measured releases. The lift on the
+    kept row must still withhold the duplicate's release (R40 (a)): every versioned release
+    any size halt of the product ever measured wrong is withheld, not only the kept row's."""
+    from brambleloop.gates.incidents import IncidentTracker
+    from brambleloop.ops import incident_lifecycle
+    from brambleloop.publish import withholding
+    from brambleloop.runtime import release as R
+
+    db = _db()
+    a = _basket_medium()
+    _certify(db, a)
+    a2 = _basket_medium()
+    a2.version = "1.2.9"
+    _certify(db, a2)
+    _run(db, "physical.record", _inputs(a, scope="full_make", holds_shape=True,
+                                        measured_width_cm=40.0))
+    with db.session() as s:
+        i1 = s.scalar(select(Incident).where(Incident.signature.like("physical-size:%")))
+        sig, det, i1_id = i1.signature, dict(i1.detail), i1.id
+        # The row the race inserts: A2's concurrent first failure, same design -> same
+        # signature, its own measured release.
+        e = dict(det["measured_releases"][0])
+        e.update(version=a2.version, content_hash=R._content_hash_of(a2))
+        s.add(Incident(severity="P1", signature=sig, summary="dup", product_slug=a.slug,
+                       halts_publication=True, detail={**det, "measured_releases": [e]}))
+    with db.session() as s:
+        folded = incident_lifecycle.hygiene(s)["duplicates"]
+    assert [d["duplicate_of"] for d in folded] == [i1_id], folded
+    with db.session() as s:
+        kept = s.get(Incident, i1_id)
+        assert [r["version"] for r in R.measured_releases(kept.detail)] == [a.version], \
+            "the fold merged the releases: the probe no longer reaches R40"
+    b = _geometry_changed_medium("1.3.1")
+    _certify(db, b)
+    job = _run(db, "physical.record", _inputs(b, scope="full_make", holds_shape=True,
+                                              tester_ref="tester-2",
+                                              content_hash=R._content_hash_of(b)))
+    out = R.lift_size_halt(db, incident_id=i1_id,
+                           physical_test_id=(job.outputs or {})["physical_test_id"],
+                           actor="owner:cc:s", stepped_up=True, reason="re-made")
+    assert sorted(out["withheld"]) == sorted([f"{a.slug}@{a.version}",
+                                              f"{a2.slug}@{a2.version}"]), out
+    assert [i.id for i in IncidentTracker(db).open_incidents(a.slug)
+            if i.signature.startswith("physical-size:")] == []
+    assert _size_withheld(db, a), "A may publish"
+    assert _size_withheld(db, a2), "the folded duplicate's release may publish"
+    assert withholding.reasons(db, a2.slug, a2.version)["reasons"].get(
+        withholding.PHYSICAL_SIZE_FAILED)
+    with db.session() as s:
+        rows = sorted(r.artifact for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == withholding.DURABLE_AUDIT)))
+    assert rows == sorted([f"{a.slug}@{a.version}", f"{a2.slug}@{a2.version}"]), rows
+    # R40 (b): the signature lock is PostgreSQL-only and a no-op here; its key is stable.
+    with db.session() as s:
+        R._lock_size_signature(s, db, sig)
+
+
 def test_the_texture_builders_never_share_their_gauge():
     """SECREVIEW b8d3dee R39: as R32, for `products.texture`."""
     from brambleloop.products import texture
@@ -696,6 +757,24 @@ def test_the_texture_builders_never_share_their_gauge():
         assert one.gauge is not two.gauge and one.gauge == two.gauge, build.__name__
         one.gauge.stitches_per_10cm += 5.0
         assert build().gauge == two.gauge, f"{build.__name__} leaked an edited gauge"
+
+
+def test_the_catalogue_builder_never_shares_its_seams():
+    """SECREVIEW c99dde9 R41: `products.builder.build` copies each catalogue Seam, so an
+    in-place edit of one built CIR's seam can never change CATALOGUE or a later build."""
+    from brambleloop.products import builder
+
+    seamed = [d for d in builder.CATALOGUE.values() if d.assembly]
+    assert seamed, "no catalogue design has a seam: the test proves nothing"
+    for design in seamed:
+        one, two = builder.build(design), builder.build(design)
+        assert one.assembly and one.assembly == two.assembly, design.slug
+        assert all(x is not y for x, y in zip(one.assembly, design.assembly)), design.slug
+        assert all(x is not y for x, y in zip(one.assembly, two.assembly)), design.slug
+        before = [vars(x).copy() for x in design.assembly]
+        one.assembly[0].edge_b = "edited in place"
+        assert [vars(x) for x in design.assembly] == before, f"{design.slug}: CATALOGUE edited"
+        assert builder.build(design).assembly == two.assembly, f"{design.slug}: leaked"
 
 
 def test_the_basket_builder_never_shares_its_gauge():
@@ -976,7 +1055,7 @@ def test_the_basket_kit_asks_for_the_unedited_hero_and_carries_no_nursery_wordin
     from brambleloop.quality import tester_kit
 
     spec = tester_kit.KITS["basket_small"]
-    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.2.0-RECORD-SHEET.pdf").split())
+    text = " ".join(_sheet_text(KIT_DIR / f"market-basket-small-{tester_kit.content_hash('basket_small')[0]}-RECORD-SHEET.pdf").split())
     manifest = (KIT_DIR / spec["manifest"]).read_text()
     for needle in ("UNEDITED", "listing's first photo", "sit flat", "hold its shape"):
         assert needle in text, needle
@@ -994,7 +1073,7 @@ def test_the_basket_records_the_construction_review_observations():
     apis = {a for _k, _l, a in spec["fields"]}
     assert apis >= {"inside_depth_cm", "base_edge", "wall_vertical_from_rnd", "corners_at_rim",
                     "rim_across_points_cm", "rnd11_height_cm"}, apis
-    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.2.0-RECORD-SHEET.pdf").split())
+    text = " ".join(_sheet_text(KIT_DIR / "market-basket-small-1.3.0-RECORD-SHEET.pdf").split())
     for needle in ("OUTSIDE: from the flat table to the top of the rim, at the middle of a flat "
                    "side", "crisp fold, or a rounded curve", "corners still visible at the rim"):
         assert needle in text, needle
@@ -1327,11 +1406,14 @@ def test_hold_free_products_are_unchanged_except_for_halts():
     on hold-free, seam-free products, and a product with no halt certifies as before."""
     import hashlib
 
-    pinned = {  # design_digest at 7282c47 and 8da830d
+    # design_digest at 7282c47 and 8da830d; basket_small re-pinned at Batch 5 for release
+    # 1.3.0 (D-W4-OWNER-BASKET-1.3.0: Rnd 11 back loop only is geometry, so a 1.2.x sample is
+    # not evidence for 1.3.0 -- the digest must differ, and does).
+    pinned = {
         "basket_medium_sport": (_basket_medium(),
                                 "0552640f6964c73e402bd58c2e46b004ae20bc843213a7c1632a2c7ef47ea8aa"),
         "basket_small": (_basket("basket_small"),
-                         "b65d57e9a6e07a0a05ae2b5627dfd75a06e9f89d058525d324a8b2ed549b6f81"),
+                         "54758cbffc2caa6cd30a7fe66f93d5d1a1c53e1fedf54041e11296b14382aabb"),
         "hexagon_coasters": (_coasters(),
                              "7c4d39e44569d0c7d2a15b6a3c55ed3d25afd3fe96bf5d44ca6ce00662a41b08"),
     }
@@ -1470,7 +1552,7 @@ def test_the_kit_ceiling_is_checked_from_above_and_no_stale_figure_remains():
                  ROOT / "src/brambleloop/app/command_center/snapshots/OWNER_ACTIONS.json",
                  w4 / "GATE_CLEARANCE_BUSINESS.md", w4 / "GATE_CLEARANCE_BUSINESS.json",
                  # SECREVIEW e3fd0b0 R21: the listing package offered the old figure.
-                 w4 / "manual_listings/market-basket-small-1.2.0/LISTING_PACKAGE.md"):
+                 w4 / "manual_listings/market-basket-small-1.3.0/LISTING_PACKAGE.md"):
         text = path.read_text()
         assert "185.0" not in text and "CA$185" not in text, path
         assert "59.65" not in text, path

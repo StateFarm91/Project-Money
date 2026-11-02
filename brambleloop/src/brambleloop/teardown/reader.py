@@ -99,6 +99,26 @@ SECTION_CUES: dict[str, tuple[str, ...]] = {
                    "follow", "ravelry", "pinterest"),
 }
 
+# Phrases that carry a section's cue word and are not that section. In crochet, joining a
+# *round* -- "join each round", "the joining sl st", "the joining slip stitch" -- closes a
+# round of one piece with a slip stitch and joins no pieces. The PDF's technique note
+# "Joining a round" and the colourwork wording "make the joining sl st at the end of the
+# round" made a one-piece basket worked in joined rounds read as having an assembly section.
+# These phrases are removed before that section's cues are matched, in headings and in
+# prose alike; "join the squares", "joining the motifs", "seaming" and "assembly" still count.
+SECTION_CUE_EXCLUSIONS: dict[str, re.Pattern[str]] = {
+    "assembly": re.compile(
+        r"\bjoin(?:ing)?\s+(?:(?:a|the|each|every)\s+)?(?:new\s+)?rounds?\b"
+        r"|\bjoining\s+(?:sl\s*st|slip\s+stitch|ss)\b"),
+}
+
+
+def _cue_text(key: str, text: str) -> str:
+    """`text` (already lowercased) with the phrases that only look like `key` removed."""
+    excluded = SECTION_CUE_EXCLUSIONS.get(key)
+    return excluded.sub(" ", text) if excluded else text
+
+
 # Elements of the PDF-architecture schedule a text reader cannot settle either way, listed
 # rather than guessed at. A cover is a design judgement about a first page and the row
 # instructions are found by shape below, not by a heading.
@@ -346,9 +366,9 @@ def inventory(data: bytes) -> Inventory:
 
         headings = _headings_in(text)
         for key, cues in SECTION_CUES.items():
-            if any(any(cue in h for cue in cues) for h in headings):
+            if any(any(cue in _cue_text(key, h) for cue in cues) for h in headings):
                 inv.sections.setdefault(key, []).append(number)
-            elif any(cue in low for cue in cues):
+            elif any(cue in _cue_text(key, low) for cue in cues):
                 inv.mentions.setdefault(key, []).append(number)
 
         inv.instruction_lines += len(_ROW_LINE.findall(text))

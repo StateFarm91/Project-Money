@@ -36,8 +36,13 @@ _STOP: frozenset[str] = frozenset({
 # construction customers prefer is a reason to pursue, a creative death is a reason not to.
 FAVOURS: frozenset[str] = frozenset({"construction_preference", "cultural_territory",
                                      "cultural_timing", "seasonal_timing", "search_language",
-                                     "pricing_response"})
-DISFAVOURS: frozenset[str] = frozenset({"creative_rejection", "defect"})
+                                     "pricing_response",
+                                     # OPUS2-P0: measured own-listing demand (improve.
+                                     # commercial_lessons) raises the concepts it names.
+                                     "commercial_demand"})
+DISFAVOURS: frozenset[str] = frozenset({"creative_rejection", "defect",
+                                        # OPUS2-P0: measured own-listing underperformance.
+                                        "commercial_underperformance"})
 
 
 def words(text: str) -> set[str]:

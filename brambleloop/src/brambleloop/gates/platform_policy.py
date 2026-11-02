@@ -127,6 +127,11 @@ DISCLOSURES: dict[str, str] = {
                          "drawn from the pattern itself at the stated gauge, with a centimetre "
                          "scale; no sample has been photographed, and your finished piece will "
                          "vary with yarn and tension."),
+    # SECREVIEW-RENDER F1 (W4-PDF1): a disclosed render whose drawn shape is partly estimated
+    # (render_contract.ESTIMATED_SHAPE: the basket's rounded rim) says so in the copy too.
+    "estimated_shape": ("About the shape: the rounded rim drawn in the images is estimated "
+                        "from how the pattern is built, not measured. Rim shape estimated "
+                        "until a sample is made."),
 }
 
 
@@ -548,11 +553,13 @@ class AssetClaim:
     deterministic_render: bool = False
     labelled: bool = False
     disclosed_render: bool = False
+    estimated_shape: bool = False
 
     def to_dict(self) -> dict:
         return {"ref": self.ref, "role": self.role, "generated": self.generated,
                 "deterministic_render": self.deterministic_render, "labelled": self.labelled,
-                "disclosed_render": self.disclosed_render}
+                "disclosed_render": self.disclosed_render,
+                **({"estimated_shape": True} if self.estimated_shape else {})}
 
 
 @dataclass
@@ -642,6 +649,8 @@ def classify(*, product_class: str, assets: list[AssetClaim],
         from ..publish.sample_photo import disclosure_copy
 
         disclosures.append(disclosure_copy(photographed_sample=photographed_sample))
+    if any(getattr(a, "estimated_shape", False) for a in assets):
+        disclosures.append(DISCLOSURES["estimated_shape"])
 
     if not assets:
         problems.append(
@@ -686,6 +695,16 @@ DISCLOSED_ROLE: dict[str, str] = {
 }
 
 
+def _owes_estimate(frame: dict) -> bool:
+    """Whether a disclosed frame shows a shape the render contract marks as estimated, from
+    the product and the contract rather than the frame's own manifest (R1)."""
+    from ..visual import render_contract as K
+
+    manifest = frame.get("disclosed_render") or {}
+    return bool(K.estimate_notes(frame.get("slug") or manifest.get("slug"),
+                                 manifest.get("view") or frame.get("view")))
+
+
 def release_assets(frames: list[dict], generated: list[dict] | None = None,
                    disclosed: list[dict] | None = None) -> list[AssetClaim]:
     """The asset claims a release's listing gallery makes, from the records on file.
@@ -722,7 +741,8 @@ def release_assets(frames: list[dict], generated: list[dict] | None = None,
         claims.append(AssetClaim(
             ref=str(frame.get("image_ref") or f"disclosed-{frame.get('position')}"), role=role,
             generated=False, deterministic_render=True, disclosed_render=True,
-            labelled=bool(disclosure.get("in_image") and disclosure.get("in_alt_text"))))
+            labelled=bool(disclosure.get("in_image") and disclosure.get("in_alt_text")),
+            estimated_shape=_owes_estimate(frame)))
     return claims
 
 

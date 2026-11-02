@@ -36,7 +36,18 @@ PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
 # conventions -- the stacked increases make a hexagon, so the name says so and the size is
 # quoted across the points AND across the flats of that hexagon, computed from the perimeter
 # the stitch count makes rather than from the circle formula (which is neither).
-RELEASE_VERSION = "1.2.0"
+# 1.2.1 (2026-10-31): text only -- the written pattern's colour-change and ends wording (F2),
+# "the ch 1 does not count as a stitch" (F3); stitches, counts and geometry unchanged. The
+# design itself is untouched (the base-to-wall change N4 is on hold for a construction review).
+RELEASE_VERSION = "1.2.1"
+# 1.3.0 (2026-10-31), SMALL basket only (owner decision D-W4-OWNER-BASKET-1.3.0): the first
+# wall round is worked in the back loop only, so the base turns into the wall at a defined
+# edge -- the fold the twin and the renders already draw -- instead of the soft curve a
+# both-loops round makes (CONSTRUCTION_REVIEW_basket_small_1.2.0 §4). Counts, geometry and
+# yarn are unchanged. The medium and large baskets are a held family outside that approval
+# and stay at RELEASE_VERSION with both-loops walls.
+SMALL_BASKET_VERSION = "1.3.0"
+DEFINED_EDGE_SIZES = ("small",)
 
 
 def hexagon_spans_cm(stitches: int, gauge: Gauge) -> tuple[float, float]:
@@ -56,11 +67,27 @@ class BasketSize:
     tall_cm: float
 
 
+# OPUS2 (reviews OPUS2J J-11, OPUS2K K-9): the one pet basket bed size, from published cat-bed
+# sizing guidance: "internal diameter of roughly 16-20 inches (40-50 cm) for round beds" for an
+# average adult domestic cat (https://thetoolstrunk.com/how-big-should-a-cat-bed-be/, retrieved
+# 2026-11-01, re-fetched by review OPUS2K 2026-11-02). Secondary guidance from one blog, not a
+# measured standard or a worked sample. 48 cm is the requested OUTSIDE size; the compiled bed
+# rounds up to a whole number of wedges and measures about 51.2 cm across the points and 44.3 cm
+# across the flats (OPUS2N-5), so the flats sit inside the cited 40-50 cm and the points a little
+# over it. The listing prints the computed figures, never 48. A cat size only;
+# no dog or other animal size is sourced, so those stay refused.
+PET_BED_SIZE_SOURCE = ("published cat-bed sizing guidance (secondary, one source), retrieved "
+                       "2026-11-01: an average adult cat's round bed has an internal diameter of "
+                       "about 40-50 cm -- https://thetoolstrunk.com/how-big-should-a-cat-bed-be/")
+
 BASKET_SIZES = (
     BasketSize("small", "bread basket", across_cm=15.0, tall_cm=9.0),
     BasketSize("medium", "storage basket", across_cm=20.0, tall_cm=16.0),
     BasketSize("large", "market basket", across_cm=25.0, tall_cm=23.0),
 )
+
+
+PET_BED_SIZE = BasketSize("pet_bed", "cat basket bed", across_cm=48.0, tall_cm=10.0)
 
 
 def diameter_cm(stitches: int, gauge: Gauge) -> float:
@@ -117,8 +144,10 @@ def _disc_rounds(base_count: int, color: str, wedges: int = 6,
     return rows
 
 
-def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
+def build_basket(size: str = "medium", version: str | None = None) -> CIR:
     """A basket: a flat disc base, then straight walls at the base's stitch count."""
+    if version is None:
+        version = SMALL_BASKET_VERSION if size in DEFINED_EDGE_SIZES else RELEASE_VERSION
     spec = next((s for s in BASKET_SIZES if s.key == size), None)
     if spec is None:
         raise KeyError(f"unknown basket size {size!r}; have "
@@ -139,8 +168,14 @@ def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
         # No per-round turning chain: the component's construction line already tells the
         # maker to ch 1 after joining, and saying it twice in two places is how the two end
         # up disagreeing.
-        rows.append(Row(index=index, ops=[Op("sc", base_count)], declared_count=base_count,
-                        color="wine" if w in band_rounds else "cream"))
+        # The first wall round of a defined-edge size goes into the back loop only: the
+        # unworked front loops make the crease the base folds along.
+        loop = "back" if (w == 1 and spec.key in DEFINED_EDGE_SIZES) else "both"
+        op = Op("sc", base_count, loop="back") if loop == "back" else Op("sc", base_count)
+        rows.append(Row(index=index, ops=[op], declared_count=base_count,
+                        color="wine" if w in band_rounds else "cream",
+                        note=("back loop only: the unworked front loops make the edge the "
+                              "base folds up along" if loop == "back" else None)))
 
     return CIR(
         slug=f"market-basket-{spec.key}",

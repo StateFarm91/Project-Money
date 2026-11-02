@@ -116,6 +116,16 @@ SIZES: dict[str, tuple[int, int]] = {
 }
 
 
+# The radar concept this design was scored as, and the slug each size is released under.
+# `runtime.release._seed_for` resolves exactly these size slugs to the concept's seed (W5-INTEG1
+# RC1): they are declared here, never matched by prefix (W5-CONCEPT F5).
+CONCEPT_SLUG = "nordic-forest-mosaic-throw"
+
+
+def size_slug(size: str) -> str:
+    return f"{CONCEPT_SLUG}-{size}"
+
+
 @dataclass(frozen=True)
 class SizeSpec:
     name: str
@@ -197,7 +207,7 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
                             turning_chain=1, color=color))
 
     return CIR(
-        slug=f"nordic-forest-mosaic-throw-{size}",
+        slug=size_slug(size),
         # The throw is the headline product, so it carries the plain name; the other sizes
         # qualify it. A title reading "... Throw (Throw)" is the kind of small wrongness that
         # makes a premium shop look automated.

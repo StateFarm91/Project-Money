@@ -190,12 +190,12 @@
         "decision": "one owner decision with tester_roster (owner_queue DECISIONS `tester_outreach`): confirm the outreach and approve the first agreed tester's paid make in one answer",
         "pattern": {
          "slug": "market-basket-small",
-         "version": "1.2.0",
+         "version": "1.3.0",
          "title": "Crochet Hexagonal Bread Basket",
          "risk_class": "B (dimensional_form)",
          "required": "partial_physical (a full make satisfies it and gives the #64 photograph)",
          "scope": "full_make",
-         "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+         "content_hash": "c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c",
          "finished_size_cm": {
           "across_points": 16.0,
           "across_flats": 13.9,
@@ -208,8 +208,8 @@
         },
         "why_this_pattern": "`market-basket-small` (Crochet Hexagonal Bread Basket) at its current\nrelease. Chosen by rule, not taste, from the Launch-0 products whose risk class requires\nphysical evidence before live sale (`gates.risk_matrix`):\n\n* hexagon-coaster-set is Class A -- clears on deterministic evidence; a make proves nothing\n  it needs;\n* the Launch-0 blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;\n* the three market baskets are Class B on `dimensional_form`, share one gauge, stitch and\n  yarn weight (sc, 12.5 sts/10 cm, 5.0 mm, worsted cotton), and the small one is the\n  cheapest make (~2.2 h, ~52 m). Its one approved figure is `KIT[\"max_cost_cad\"]`,\n  CA$66.00 all-inclusive (CA$65.90 to the tester); the risk matrix's per-metre rate is only\n  its floor.\n\nA full make of the small basket satisfies its partial-physical requirement (a full make\ncontains one, `risk_matrix.satisfies`), calibrates the sc/worsted-cotton yardage factor all\nthree baskets use, falsifies or confirms a closed 3-D form's stated size (the risk the class\nexists for), and yields the finished-object photograph #64's upgrade path is waiting for.",
         "kit_files": {
-         "market-basket-small-1.2.0-TEST.pdf": "e4bc8ad3b3f59ed92ceeb2cd7a6ce2c0b708fb54a0b09a8c9dca666ce9b12f57",
-         "market-basket-small-1.2.0-RECORD-SHEET.pdf": "59ea3c2703d827f2d1ddf05e43dd26aec84a9be37690a16fe43f40f166da0cf9",
+         "market-basket-small-1.3.0-TEST.pdf": "fcdded05f60501f1430ce37edac4d18a40c98880ca87b38f46d587887a51a499",
+         "market-basket-small-1.3.0-RECORD-SHEET.pdf": "83298112841736b9c1d441326aa24c52049b5612d3f79001573da84ce7723bc9",
          "OUTREACH.md": "bed9dbe29c837bdb499e6eba90747744bd08b08d5b3ddeeabf7c4f1488e47b3f"
         },
         "materials": [
