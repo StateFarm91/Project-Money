@@ -147,7 +147,7 @@ _COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4,
                                 "quad": 4, "quadruple": 4, "quadruplet": 4, "hundred": 100}
 # Number words that describe a colour, a stitch or a construction, never a count of pieces.
 _NOT_A_COUNT = re.compile(
-    r"\b(?:(?:two|three)[- ](?:tone|toned|colou?r(?:ed)?|ply|way|strand(?:ed)?)"
+    r"\b(?:(?:two|three|triple)[- ](?:tone|toned|colou?r(?:ed)?|ply|way|strand(?:ed)?)"
     r"|double[- ](?:crochet|treble|stranded|strand|knit|sided|layer(?:ed)?|thick|brim|wide)"
     r"|(?:triple|double)[- ]?(?:dc|tr|sc)|triple[- ](?:crochet|treble)"
     # OPUS2M-9: a feature or an occasion, never a count ("Double-Handled Tote" has the two
@@ -175,7 +175,10 @@ def _inflected(token: str, words) -> str | None:
     "Trilogies", "Combos", "Assortments", "Mothers")."""
     for cand in (token, token[:-1] if token.endswith("s") else None,
                  token[:-2] if token.endswith("es") else None,
-                 token[:-3] + "y" if token.endswith("ies") else None):
+                 token[:-3] + "y" if token.endswith("ies") else None,
+                 # OPUS2O-3: "Doubled", "Tripled", "Coupled" are the count too.
+                 token[:-1] if token.endswith("d") else None,
+                 token[:-2] if token.endswith("ed") else None):
         if cand and cand in words:
             return cand
     return None
@@ -183,14 +186,50 @@ def _inflected(token: str, words) -> str | None:
 
 # OPUS2M-1: single words that promise several pieces, read with their inflections.
 _PLURAL_WORDS = frozenset({"multipack", "assortment", "combo", "matching", "family",
+                           # OPUS2O-1: family nouns besides mother/daughter/family.
+                           "sister", "brother", "sibling", "son", "father", "mommy",
                            "mother", "daughter", "kit", "lot"})
+
+
+# OPUS2O-1: a count read by morphology, not membership. A numeric root followed by a
+# collective suffix ("Quintuplets", "Tetrad", "Sestet", "Tripack", "Duplicate") is a count;
+# a number word followed by -some or -pack ("Fivesome", "Twopack") is too.
+_COUNT_ROOTS: dict[str, int] = {
+    "bi": 2, "di": 2, "du": 2, "duo": 2, "dy": 2, "twi": 2, "two": 2,
+    "tri": 3, "ter": 3, "three": 3,
+    "quad": 4, "quadr": 4, "quadru": 4, "tetr": 4, "tetra": 4, "four": 4,
+    "quint": 5, "quintu": 5, "pent": 5, "penta": 5, "five": 5,
+    "sext": 6, "sextu": 6, "sest": 6, "hex": 6, "hexa": 6, "six": 6,
+    "sept": 7, "septu": 7, "hept": 7, "hepta": 7, "seven": 7,
+    "oct": 8, "octu": 8, "octa": 8, "octo": 8, "eight": 8,
+    "non": 9, "nona": 9, "nine": 9,
+    "dec": 10, "deca": 10, "deci": 10, "ten": 10,
+}
+_COUNT_SUFFIX = re.compile(r"(?:ples?|pled|plets?|plicates?|ads?|e?ts?|ettes?|somes?|packs?|"
+                           r"sets?|fecta)")
+_ROMAN = re.compile(r"(?:ii|iii|iv|vi|vii|viii|ix|xi|xii)")
+_LARGE_NUMBERS = {"hundred": 100, "thousand": 1000, "million": 1000000}
+
+
+def _morphological_count(token: str) -> int | None:
+    for root in sorted(_COUNT_ROOTS, key=len, reverse=True):
+        if token.startswith(root) and _COUNT_SUFFIX.fullmatch(token[len(root):] or "#"):
+            return _COUNT_ROOTS[root]
+    if _ROMAN.fullmatch(token):
+        return {"ii": 2, "iii": 3, "iv": 4, "vi": 6, "vii": 7, "viii": 8, "ix": 9, "xi": 11,
+                "xii": 12}[token]
+    return _LARGE_NUMBERS.get(token)
 
 
 def multiplicity(title: str) -> dict:
     """The one multiplicity reader (OPUS2M-1): the count a title claims (a numeral or a count
     word, inflected) and the words that promise several pieces without a number. Shared by
     `title_promise` and by the radar fallback's routing, so the two cannot disagree."""
-    lowered = (title or "").lower()
+    import unicodedata
+
+    # OPUS2O-1/-10: compatibility forms fold first ("Ⅲ" -> "iii", "③" -> "3"), and the
+    # typographic apostrophe is an apostrophe ("Mother’s Day").
+    lowered = unicodedata.normalize("NFKC", title or "").replace("\u2019", "'").lower()
     lowered = re.sub(r"\bmulti[- ]?packs?\b", "multipack", lowered)
     counted = _NOT_A_COUNT.sub(" ", lowered)
     claimed: int | None = None
@@ -200,9 +239,13 @@ def multiplicity(title: str) -> dict:
             claimed = max(claimed or 0, int(token))
             continue
         stem = _inflected(token, _COUNT_WORDS)
+        morph = _morphological_count(token)
         if stem is not None:
             claimed = max(claimed or 0, _COUNT_WORDS[stem])
-        elif _inflected(token, _PLURAL_WORDS):
+        elif morph is not None:
+            claimed = max(claimed or 0, morph)
+        elif _inflected(token, _PLURAL_WORDS) or token.startswith(("multi", "poly")) or \
+                re.fullmatch(r"packs?", token):
             plural.append(token)
     # OPUS2H H1-3 / OPUS2I I-1: markers as whole words with their inflections.
     plural += [w for w in PLURAL_MARKERS if re.search(_plural_marker_pattern(w), counted)]
