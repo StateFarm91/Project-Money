@@ -168,6 +168,31 @@
     {
       "id": "P0-NEXT-PRODUCT",
       "scope": "deterministic idle-capacity detection and automatic next-eligible-product selection"
+    },
+    {
+      "id": "P1-CULTURE-SWEEP-TIMEOUT",
+      "priority": "P1",
+      "summary": "culture.sweep dead-letters when its classifier call times out: culture/classify.py does not catch TimeoutError (escapes, reservation left to expire), and the UNCERTAIN paid-call intent then refuses every retry. Fix candidates: catch the timeout in classify (record UNCERTAIN spend at estimate, never zero, release nothing silently), pass an explicit longer per-call timeout for this call, and have the sweep re-enqueue as a NEW job key after an unresolved call so the night is not lost. Must not weaken F-307/F-339. Evidence: production_observations 2026-11-01T07:05Z.",
+      "files": [
+        "src/brambleloop/culture/classify.py",
+        "src/brambleloop/runtime/release.py (handle_culture_sweep)"
+      ],
+      "state": "unowned",
+      "recorded": "2026-11-01T07:05Z"
+    },
+    {
+      "id": "P0-PHOTO-ASSET-REVIEW",
+      "priority": "P0",
+      "recorded": "2026-11-01T10:55Z",
+      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification.",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
+    },
+    {
+      "id": "P0-NAME-OBJECT-MISMATCH",
+      "priority": "P0",
+      "recorded": "2026-11-02T07:45Z",
+      "summary": "OPUS2P-13a: category=basket drafts 'Teddy Bear', 'Drawstring Pouch', 'Drawstring Bag' as a plain basket; category=blanket/accessory drafts 'Teddy Bear' as a flat panel; name_truth passes. The title names an object the CIR is not. Assigned to opus2 on PR #3 (07:45Z).",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
     }
   ],
   "reviews": [
@@ -556,10 +581,174 @@
     {
       "subject": "OPUS2 F (listing job + owner-queue races)",
       "sha": "f779fac2 / ccb3e8e4",
-      "verdict": "PENDING",
+      "verdict": "CHANGES_REQUIRED",
       "report_branch": "claude/w5-SECREVIEW-OPUS2F",
-      "notes": "",
+      "notes": "review F findings A-1..A-8 / B-1..B-6; fixes re-reviewed as OPUS2EF2 (below)",
       "recorded": "2026-11-01T00:35Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review E fixes (draft constructions, size gate)",
+      "sha": "0e941757",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-1 MEDIUM (title_promise counts straps; tote second objects/features), EF2-2 test gap required; EF2-3/3b follow-up. PR #3 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part A fixes (listing-package job)",
+      "sha": "b42f4245",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-4 MEDIUM required (READY->BLOCKED->READY never re-asks the owner); EF2-5 follow-up. PR #5 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2EF2 delta: review F part B fixes (owner-queue races)",
+      "sha": "007f5d1c",
+      "verdict": "CHANGES_REQUIRED",
+      "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
+      "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
+      "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2M",
+      "sha": "ba815300",
+      "verdicts": {
+        "6769e696": "CHANGES_REQUIRED (OPUS2M-1 MED, -7 LOW; better than c3074241; 651b1580 faithful)",
+        "e0be7c4d": "SHIP (integrated a8ce0072); -5 LOW, -6 LOW pre-existing",
+        "d4486b8c": "CHANGES_REQUIRED (OPUS2M-2 MED regression, -3 MED, -4/-8 LOW)"
+      },
+      "recorded": "2026-11-02T04:33Z"
+    },
+    {
+      "subject": "OPUS2N",
+      "sha": "4fc6611d",
+      "verdicts": {
+        "940f70e6": "DO NOT SHIP (OPUS2N-1 MED non-ASCII allowlist hole)",
+        "67b67015": "DO NOT SHIP (OPUS2N-1; N-2..N-4, N-6 LOW)"
+      },
+      "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "INTEG5B",
+      "sha": "6d402593",
+      "verdicts": {
+        "claude/w5-INTEG1 a8ce0072": "SHIP for certification (provisional on its second regression batch; integrator re-running it 05:29Z); LOW INTEG5B-1..-4 (owner-queue index on rollback, index-creation race, certificate write race)"
+      },
+      "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "OPUS2O",
+      "sha": "3f2949cd",
+      "verdicts": {
+        "8cf4a458": "CHANGES_REQUIRED (OPUS2O-1 MED count reader still a list; -2/-3 LOW); 80f4b073 faithful",
+        "5889cc37": "CHANGES_REQUIRED (OPUS2O-4 MED C2C/colour-count classes; -5 LOW)",
+        "09122165": "SHIP",
+        "a859f6fe": "SHIP (LOW -6 contrast cuff palette, -7 pin, -9 stocking size citation UNKNOWN)"
+      },
+      "recorded": "2026-11-02T06:40Z"
+    },
+    {
+      "subject": "OPUS2P",
+      "sha": "f4516fbb",
+      "verdicts": {
+        "71e26e6f (tapestry)": "SHIP, integrated a0c6bfff (+ fold_title de-dup f7466c06)",
+        "a9fac088 (stuffed finishing)": "SHIP (on blocked branch; split requested)",
+        "b4ea6795/c7a8d31e (pouch)": "SHIP (on blocked branch; split requested)",
+        "e80a0be0/3b0a8867 (amigurumi)": "DO NOT SHIP: OPUS2P-1 HIGH child-safety gate keyed on title words; P-2 MED joins UNKNOWN; P-3 MED no small-parts lower bound"
+      },
+      "new_p0": "OPUS2P-13a: basket/blanket categories draft 'Teddy Bear'/'Drawstring Pouch' titles as a plain basket or flat panel and name_truth passes (pre-existing in W5-INTEG1); assigned to opus2",
+      "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5C",
+      "sha": "c32a88dd",
+      "verdicts": {
+        "a8ce0072..f8bf2782": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5D",
+      "sha": "11272e4b",
+      "verdicts": {
+        "f8bf2782..f7466c06": "SHIP for certification (LOW/INFO only)"
+      },
+      "recorded": "2026-11-02T08:35Z"
+    },
+    {
+      "subject": "OPUS2Q",
+      "sha": "(claude/w5-SECREVIEW-OPUS2Q)",
+      "verdicts": {
+        "b185b528": "CHANGES_REQUIRED (OPUS2Q-1 MED false positives on ordinary words; -6/-7 LOW)",
+        "f4bf34bb": "faithful merge",
+        "2f9c413d": "CHANGES_REQUIRED (OPUS2Q-2 MED regression trailing \\b; -3 LOW confusables)",
+        "d3a485a1": "SHIP (integrated 4af3418f; -4/-5 LOW)"
+      },
+      "recorded": "2026-11-02T08:45Z"
+    },
+    {
+      "subject": "INTEG5E",
+      "sha": "0d0e238d (claude/w5-SECREVIEW-INTEG5E)",
+      "verdicts": {
+        "f7466c06..4af3418f": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T08:52Z"
+    },
+    {
+      "subject": "OPUS2R",
+      "sha": "b95f1540 (claude/w5-SECREVIEW-OPUS2R)",
+      "verdicts": {
+        "83194fb7..21d4ceaf (construction registry)": "DO NOT SHIP: OPUS2R-1 HIGH registry builds bypass FC.plan title allowlists (and name_truth lacks motif_promise); -2 MED brief size vs title size; -3 MED tapestry wall-count jump; LOWs; 12/17 mutants survive"
+      },
+      "recorded": "2026-11-02T09:00Z"
+    },
+    {
+      "subject": "OPUS2T",
+      "sha": "50ac5426 (claude/w5-SECREVIEW-OPUS2T)",
+      "verdicts": {
+        "fed859b7": "DO NOT SHIP as P0 closure (OPUS2T-1 HIGH pillow/wedding/shawl branches run first; -2 HIGH head noun = last word; -3 MED denylist). Safe partial (only refuses more).",
+        "c5671087": "DO NOT SHIP: OPUS2T-4 HIGH child safety (child_words_in reads raw title; fullwidth/math-alnum toy titles render with no children's block); -5 MED small-parts check covers body only. P-2, P-4..P-9 fixed.",
+        "66378ebf": "DO NOT SHIP: OPUS2T-6 HIGH child safety (production keys contain 'toy' so the hold never fires); -7 HIGH OPUS2R-1 still open"
+      },
+      "recorded": "2026-11-02T11:05Z"
+    },
+    {
+      "subject": "OPUS2S",
+      "sha": "d4cd337c (claude/w5-SECREVIEW-OPUS2S)",
+      "verdicts": {
+        "c056028d+5a47cd8e (P0-PHOTO-ASSET-REVIEW)": "DO NOT SHIP: OPUS2S-1 MED approves frames without the awaiting reason; -2 MED check/write race; -3 MED second photo deadlock; LOWs. No HIGH; checks sound and fail-closed."
+      },
+      "integration_finding": "test_swarm_runtime fails on W5-INTEG1 4af3418f (5 opus2 job types unbanded) -> fixed 30b04b35",
+      "recorded": "2026-11-02T11:20Z"
+    },
+    {
+      "subject": "OPUS2U",
+      "sha": "73647d5c (claude/w5-SECREVIEW-OPUS2U)",
+      "verdicts": {
+        "8ed2dd15 (PR #3)": "DO NOT SHIP: OPUS2U-1 MED overcorrection ('Coaster Pack' etc backed); OPUS2T-1/-2/-3 HIGH still open",
+        "493b76cf": "faithful",
+        "e6e6fb94 (PR #9)": "DO NOT SHIP: OPUS2U-3 MED regressions (spaced C2C, thin-space joins words)",
+        "7493c723 (PR #11)": "SHIP (integrated 45977d4c)"
+      },
+      "recorded": "2026-11-02T12:35Z"
+    },
+    {
+      "subject": "OPUS2V",
+      "sha": "5ba94797 (claude/w5-SECREVIEW-OPUS2V)",
+      "verdicts": {
+        "opus2/p0-pouch 1ea3079e": "SHIP (merged 50937469); LOW -8/-9",
+        "registry ffb74996+a7b34050": "DO NOT SHIP: OPUS2V-1 HIGH plan() admits unknown words for vessel/tote (also Batch 5 radar path); -2 MED motif_promise not in publish name_truth (also Batch 5); -3 HIGH child safety (toy on branch); -4 MED hold must read CIR slug/title"
+      },
+      "recorded": "2026-11-02T12:55Z"
+    },
+    {
+      "subject": "INTEG5F",
+      "sha": "41d4fdcd (claude/w5-SECREVIEW-INTEG5F)",
+      "verdicts": {
+        "4af3418f..50937469": "SHIP for certification (INFO only; Launch-0 text byte-identical)"
+      },
+      "recorded": "2026-11-02T12:45Z"
     }
   ],
   "integration": {
@@ -577,7 +766,46 @@
       ],
       "status": "not ready for commissioning approval"
     },
-    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite.",
+    "batch5_certification": {
+      "run_id": "20261102T101632Z-4284",
+      "sha": "4af3418f8c666be3900f2a9781b5b81cd50a57f5",
+      "started": "2026-11-02T10:16:32Z",
+      "scope": "full (867 suites)",
+      "tree": "clean",
+      "worktree": "/home/user/bl-runs/wt-b5cert",
+      "basis": "INTEG5B+5C+5D+5E SHIP",
+      "previous_run": "20261102T054208Z-6424 on a8ce0072 DIED ~08:12Z without a terminal record (status still 'running'; no output after 08:12; coincides with the session tool disconnect/reconnect, i.e. container processes killed). Not a result; it can never certify. Its expected test_w4_launchfix failure was already fixed in f8bf2782.",
+      "rule": "uninterrupted; a resumed run never certifies",
+      "known_open_in_candidate": [
+        "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a / OPUS2T-1,-2,-3 / OPUS2V-1): the radar fallback draft path can draft a title naming another object or a feature it does not make ('Teddy Bear' as basket/cushion/shawl; 'Lidded Basket', 'Basket with Handles', 'Sleepy Fox', 'XL Basket' at medium, 'Sunflower Tote') and name_truth passes.",
+        "OPUS2V-2: motif_promise is not part of publish-time name_truth, so 'Diamond/Heart/Snowflake/Pumpkin Basket' drafted as a plain vessel would not be refused at publication.",
+        "Both affect drafts and the publish-time name check only; nothing publishes in SHADOW, and publication requires owner review. MUST be disclosed in the Batch 5 deploy request; fixes assigned to opus2 on a branch from W5-INTEG1.",
+        "Amigurumi child-safety findings are NOT in the candidate (branch not integrated)."
+      ],
+      "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head.",
+      "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends.",
+      "result_20261102T101632Z-4284": {
+        "sha": "4af3418f",
+        "status": "FAILED",
+        "finished": "2026-11-02T13:43:54Z",
+        "suites_failing": 13,
+        "tests_failing": 21,
+        "tests_passing": 10340,
+        "environment_failures": 0,
+        "fixed_in_W5": "30b04b35 (swarm bands) + db463142: CIR contract v2 declared; final-segment declarations; provider boundary (culture/classify); adopt guard exception; 'two colour' judged as a colour-count claim (cloudline tag)",
+        "open_root_cause": [
+          "test_cert_publish_gates (8)",
+          "test_cert_orders (2)",
+          "test_w4_visnext2 (2, frozen fingerprint drift)",
+          "test_w4_listready (basket 1.2.0)",
+          "test_w4_launch_review",
+          "test_teardown_proof_run"
+        ],
+        "next": "apply the reviewed root-cause fixes, run a delta integration review, then ONE fresh uninterrupted full run"
+      }
+    },
+    "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
   "owner_directives": [
     {
@@ -610,6 +838,16 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-COMPLETION-METRICS",
       "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
+    },
+    {
+      "received": "2026-11-02T03:45Z",
+      "title": "Permanent continuous integration directive + Batch 4 deployment authorization (restated)",
+      "summary": "No completed accepted engineering sits idle without a documented dependency. Maintain an automatic integration queue with verdict, dependencies, merge readiness, target, regression suites, next action and operator for every completed branch; process eligible items at every wake before status reports; split PRs into independent units; never hold unrelated work behind product-specific fixes; never re-review unchanged code; integration is not deployment; reviews, regression, full certification, backup and rollback evidence remain mandatory; once a SHA is approved, deploy it without waiting for a check-in. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Batch 4 0967c3ee was already deployed at ~03:30Z under the first approval."
+    },
+    {
+      "received": "2026-11-02T13:25Z",
+      "title": "Take command of P0 autonomous workforce delivery (permanent)",
+      "summary": "Main Opus is Secondary's engineering lead: maintain the authoritative P0 backlog, assign the highest-impact unowned engineering with acceptance criteria, reject isolated per-product templates, integrate promptly, verify every pipeline handoff (real handler, automatic trigger, contract, durable state, idempotent retry, holds, next job, runs without Claude), require an end-to-end demonstration of 15 points on real handlers and a durable DB, then sustained Railway acceptance. Priority: HIGH/MED security, child-safety and Product Truth first; then the Research->PD contract; then PD->validation->PDF->imagery->gallery->listing handoffs; then next-product selection and recovery; then construction diversity from demand and Learning; then the remaining P0 work. Codex keeps P0-LEARNING-REFERENCE."
     }
   ],
   "integrator_decisions": [
@@ -617,6 +855,27 @@
       "date": "2026-10-31",
       "id": "I-B4-SIZE-HALT-PRODUCT-WIDE",
       "summary": "After seven review rounds each found a new restatement that moves the design digest (version, notation, hold names, hold order, seams, quantity, gauge) and every one failed OPEN by scoping or lifting a size halt, the digest is no longer used to scope or lift any size halt. Every size halt is product-wide; it lifts only by an owner action (session + step-up, audited) with evidence of a passing full make of a recertified release by an independent tester whose measured size agrees. The digest is kept for evidence only. Digest-scoped halts may return only with a canonical design identity that passes adversarial review. Trades F-168 scoping for fail-closed safety; no real samples exist yet."
+    },
+    {
+      "id": "I-B4-R40-DEFER",
+      "recorded": "2026-11-01T08:05Z",
+      "decision": "Batch 4 is certified and deployed without the R40-R42 follow-up (claude/w4-PHYSFIX-R40 43021c1e). R40 is Low, fail-open, and unreachable in production until an owner-commissioned independent tester's passing make allows an owner size-halt lift; the fix is not yet tested or reviewed. It goes through tests + independent review into Batch 5 and is disclosed in the Batch 4 deploy-approval request. Not waived.",
+      "reason": "Owner directive 2026-11-01 section 3: investigate by severity and release requirements; do not silently waive a fail-open issue. Adding it now would add a review cycle to Batch 4 for no production effect."
+    },
+    {
+      "id": "I-B5-OPUS2-INTEGRATION-QUEUE",
+      "recorded": "2026-11-02T03:35Z",
+      "decision": "Per owner directive 2026-11-02: accepted opus2 heads merge into claude/w5-INTEG1 as soon as an independent review says SHIP; pet bed (PR #10) and stocking (PR #11) do not hold other accepted work, and if not SHIP when the rest is integrated, Batch 5 certifies without them. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Records from 2026-11-01..02 held during the deploy freeze: brambleloop/research/final_build/w5/INTEGRATOR_HELD_RECORDS_20261101.md."
+    },
+    {
+      "id": "I-B5-SPLIT-PET-STOCKING",
+      "recorded": "2026-11-02T06:40Z",
+      "decision": "PR #10 + #11 integrated into W5-INTEG1 as one split unit 52f9f4b5 = opus2 55450fc3..a859f6fe (product commits d0a7685f 5c7b984a 7d220e01 563c0436 940f70e6 e07157dc 09122165), applied 3-way, without Secondary's PR #3 base resolution f96d7bd2 (W5-INTEG1 resolved it; 13d67502 already in as d3688000). So the pet bed does NOT depend on the PR #3 J-1 chain. Every touched file equals a859f6fe content plus W5-INTEG1's own prior differences. Rides Batch 6 (Batch 5 certification is on a8ce0072)."
+    },
+    {
+      "id": "I-OPUS2-FREEZE-GENERATORS",
+      "recorded": "2026-11-02T13:30Z",
+      "decision": "No new per-product generators, construction routes or title-word patches until A1-A4 are accepted; new construction diversity comes only through the reusable Research->PD contract (A4). Existing PRs only receive fixes for their review findings."
     }
   ],
   "production_observations": [
@@ -628,6 +887,203 @@
         "no_unexpected_dead_letters_in_24h"
       ],
       "notes": "all other 12 checks pass (shadow, nothing published, worker alive, scheduler ticking). Dead-letter detail needs ops token or readback token; integrator does not read secrets. Same check failed 2026-10-27 and recovered by 2026-10-31."
+    },
+    {
+      "observed": "2026-11-01T06:50Z",
+      "what": "Batch 4 certification run 20261101T053634Z-559 on e43eeafe failed test_final_closure_matrix::test_the_committed_matrix_is_exactly_its_adjudication ('F-076','IMPLEMENTED','INTEGRATED'). Real regression in records, not timing: PHYSFIX 626afdf8 replaced the test F-076 cites. Fix claude/w4-INTEG8-certfix 5d435403 (evidence override + regenerated matrix). The run is left to finish for the full failure list; a fresh full run certifies (never a resumed one).",
+      "production_verify": "/api/verify ok=false: only no_unexpected_dead_letters_in_24h failing (unchanged); details need the owner action recorded earlier."
+    },
+    {
+      "observed": "2026-11-01T07:05Z",
+      "what": "Dead-letter diagnosis (owner directive 2026-11-01 section 8), read-only: Railway deploy logs of brambleloop-os and Postgres; no secret read, no SQL run.",
+      "job_type": "culture.sweep (cadence culture_sweep, agent market_radar, daily)",
+      "jobs": [
+        {
+          "job_id": 41979,
+          "window": "2026-11-01T00:13:53Z attempt 2, 00:14:06Z attempt 3",
+          "effect": "anthropic.messages",
+          "worker": "web-2"
+        },
+        {
+          "job_id": 34246,
+          "window": "2026-10-27T00:19Z attempts 2-3; requeued 17:02Z, attempts 1-3 refused again (same job id = same key)",
+          "effect": "anthropic.messages",
+          "worker": "web-2"
+        }
+      ],
+      "error_class": "paid_calls.PaidCallUnresolved (PermanentError) on retries: the Postgres 'duplicate key effect_intents_pkey' lines are the expected claim collision; the first attempt left the paid-call intent UNCERTAIN/PENDING, so the request is never re-sent automatically (F-307/F-339, anti-double-spend).",
+      "probable_trigger": "HYPOTHESIS, not verified against rows: attempt 1's call to the cheap-tier classifier hit the 60 s socket read timeout (AnthropicProvider.timeout_seconds) -> TimeoutError, classified UNCERTAIN; culture/classify.py catches only PermanentError/TransientError, so the TimeoutError escapes, fails the attempt and leaves its budget reservation to expire. Both incidents are at ~00:13-00:19Z, during heavy Postgres checkpoints (270 s write at 00:12Z).",
+      "still_active": "Recurring, not continuous: 2 of the last 7 nightly sweeps. /api/verify returned 200 at 2026-10-31T18:30Z and 503 from 00:15Z; it clears ~2026-11-02T00:14Z unless the next sweep fails the same way.",
+      "affects_autonomy": "Partially: that night's culture/market-radar readings are lost; other work is unaffected and the next nightly job has a new key. No double spend (the guard held). Requeue of such a dead letter cannot succeed by design; a new job is the path.",
+      "fixed_by_batch4": "No. queue/effects.py, gateway/paid_calls.py, gateway/anthropic.py timeout and culture/classify.py are unchanged between production ee35a493 and e43eeafe.",
+      "next": "Batch 5 work item P1-CULTURE-SWEEP-TIMEOUT (unowned, below). Production stays NOT fully healthy while the check is red.",
+      "owner_action": "No longer needed to identify the job. Optional: in the Command Center incidents view, the P1 'effect.reconcile' / paid-call reconciliation incidents for jobs 34246 and 41979 can be resolved once the provider console shows whether those two calls were billed (at most two cheap-tier calls)."
+    },
+    {
+      "observed": "2026-11-02T03:31Z",
+      "what": "Batch 4 DEPLOYED on owner approval 'APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5' (2026-11-02). Backup first: db-backup deployment d201d4f1, /backup/brambleloop_prod_20261102T032745Z.dump, 497732160 bytes, sha256 9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814, restore_ok, 144 tables, 262123 rows, drift ops_runtime_samples only (live, +2 rows); volume 1.3G free of 4.6G. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW, pushed ee35a493..0967c3ee at ~03:30Z, verify_deploy DEPLOYED in 63.6 s.",
+      "readback": "First read FAIL embedded worker alive (cold start; BRAMBLELOOP_RUNNER_START_DELAY), re-read after 30 s PASS. Six operator rows NEEDS_OPERATOR (BRAMBLELOOP_READBACK_TOKEN not set in Railway: owner action). rollback_decision FIX_FORWARD (P1 only); deploy.sh exit 5. Evidence: brambleloop/research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json",
+      "verify": "/api/verify ok=True, 13/13 checks. NEW evidence_checks (first exposed by this release, absent on ee35a493): publishing_halt_clear FALSE, stale_artefacts_rebuilding FALSE, no_repeated_paid_call_in_24h FALSE, weekly_jobs_completing true. Their evidence is operator/readback-token gated; diagnosis blocked on the readback token. Production is NOT classified fully healthy while these are false.",
+      "acceptance": "24-hour production acceptance started 2026-11-02T03:31Z, ends 2026-11-03T03:31Z."
+    },
+    {
+      "observed": "2026-11-02T03:36Z",
+      "what": "Transient: one /api/verify read returned ok=False with 12/13 checks and weekly_jobs_completing false; the next five reads (03:36-03:37Z) were ok=True, 13/13. The failing check name was not captured. A 2-minute acceptance sampler now records failing check names (integrator scratch log, summarized into the acceptance verdict). Not classified clean."
+    },
+    {
+      "observed": "2026-11-02T04:30Z",
+      "what": "Acceptance sampler (every 2 min since 03:37Z) on 0967c3ee: worker_is_alive FALSE at 03:45:40Z and 03:47:44Z (also 03:31Z cold start and the 03:36Z blip); runner.worker_alive is false when the worker has not ticked for 120 s, i.e. one job held the worker about 4 min. From 03:53:57Z onward no_unexpected_dead_letters_in_24h is FALSE (/api/verify 503, ok=False) and weekly_jobs_completing turned false. The dead job is not identifiable without operator access (application logs carry only access lines; jobs table needs SQL or the readback token). Severity per ops/rollback_decision.py: dead letters P1 (fix forward); worker alive is P0 but has read true continuously since 03:49:49Z, so no rollback. Production is NOT healthy; the 24 h acceptance is currently failing. Owner action: BRAMBLELOOP_READBACK_TOKEN, or run read-only: SELECT id, job_type, attempts, left(last_error,300), finished_at FROM jobs WHERE status='DEAD' AND finished_at > now() - interval '24 hours';"
+    }
+  ],
+  "reviews_in_flight": {
+    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "items": []
+  },
+  "assignments": [
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A1",
+      "requirement": "P0-SAFETY-CHILDREN",
+      "closes": [
+        "OPUS2T-4",
+        "OPUS2T-6",
+        "OPUS2V-3",
+        "OPUS2V-4"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "via handle_cir_draft and assets.build, on a durable DB: 'Ｂear', '𝐁ear', 'Cosy Ｒabbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A2",
+      "requirement": "P0-NAME-OBJECT",
+      "closes": [
+        "OPUS2T-1",
+        "OPUS2T-2",
+        "OPUS2T-3",
+        "OPUS2V-1",
+        "OPUS2V-2",
+        "OPUS2U-2"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A3",
+      "requirement": "P0-PHOTO-ASSET-REVIEW",
+      "closes": [
+        "OPUS2S-1",
+        "OPUS2S-2",
+        "OPUS2S-3",
+        "OPUS2S-4",
+        "OPUS2S-5"
+      ],
+      "branch_from": "opus2/p0-photo-asset-review rebased on W5-INTEG1 50937469",
+      "acceptance": "repros A, C, D and E behave correctly; a forced race never approves a moved frame; two photos for one release end in a certified set or a named refusal",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A4",
+      "requirement": "P0-RESEARCH-PD-CONTRACT",
+      "gaps": [
+        "wiring #1 research brief -> concept outside the 34",
+        "wiring #2 refused/held draft -> enrichment -> re-draft"
+      ],
+      "acceptance": "(a) a CoverageGap -> research -> concept_intake -> radar.score gives a non-POOL RadarConcept and a cir.draft (radar.intake provenance), idempotent; (b) a refused construction -> enrichment task -> new fingerprint -> new cir.draft reaching compile; (c) at least 5 briefs -> at least 3 materially different constructions, with named holds; (d) A2 title rule enforced",
+      "state": "assigned (after A1, A2)"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A5",
+      "requirement": "P0-CORRECTION-LOOP",
+      "gaps": [
+        "wiring #3"
+      ],
+      "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A6",
+      "requirement": "P0-LEARNING-INTO-DESIGN (consumer side; Codex owns the store)",
+      "gaps": [
+        "wiring #4"
+      ],
+      "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A7",
+      "requirement": "P0-SUPPLY-STALL",
+      "gaps": [
+        "wiring #5"
+      ],
+      "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A8",
+      "requirement": "P0-CULTURE-TO-IDEATION",
+      "gaps": [
+        "wiring #6"
+      ],
+      "acceptance": "a rising culture signal opens a research task that reaches concept_intake",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A9",
+      "requirement": "P0-PACKAGE-EVENT",
+      "gaps": [
+        "wiring #7"
+      ],
+      "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
+      "state": "assigned"
     }
   ]
 }

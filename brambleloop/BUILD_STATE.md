@@ -1,3 +1,45 @@
+> **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
+> - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
+> - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256
+>   `9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814`; `BK restore_ok`, 144 tables, 262,123 rows; drift only
+>   on `ops_runtime_samples` (live, +2 rows). Volume 1.3 GB free of 4.6 GB: room for about two more dumps (owner action soon:
+>   prune the October dumps or grow the volume).
+> - `ops/deploy.sh --deployed ee35a493`: guard ALLOW (cert run 20261101T080736Z-18171, 10,122 passing, 0 failing), rollback
+>   rehearsal ALLOW; pushed `ee35a493..0967c3ee`; `/health` reported 0967c3ee after 63.6 s.
+> - Readback: worker alive FAIL on the first read (cold start inside `BRAMBLELOOP_RUNNER_START_DELAY`), PASS on the re-read;
+>   release identity, boot guard (enforced, ok), shadow, nothing published, refusals recorded, no unexpected dead letters,
+>   cost ceilings, smoke matrix, launch gate, catalogue and launch-packet route all PASS. Six operator-only rows are
+>   NEEDS_OPERATOR because `BRAMBLELOOP_READBACK_TOKEN` is not set in Railway (owner action, not done). Decision FIX_FORWARD
+>   (P1 only); deploy.sh exit 5. Evidence: `research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json`.
+> - **Production is NOT fully healthy.** `/api/verify` ok=True (13/13), but this release is the first to expose
+>   `evidence_checks`, and three are false: `publishing_halt_clear`, `stale_artefacts_rebuilding`,
+>   `no_repeated_paid_call_in_24h` (`weekly_jobs_completing` true). Their evidence is behind the readback token, so the cause is
+>   not yet diagnosed. These are readings of state that existed before the deploy, not a regression introduced by it.
+> - Stages: Batch 4 deployed and in acceptance. Batch 5 integrating on `claude/w5-INTEG1`
+>   (queue: `research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md`).
+
+> **2026-11-01 — Batch 4 re-certification (`claude/w4-INTEG8-next`, NOT deployed; production ee35a493 SHADOW).**
+> - **Certification run 20261101T053634Z-559 on e43eeafe FAILED** (clean tree, uninterrupted, 845 suites; 10,076 tests passing,
+>   12 suites failing, 0 environment failures). Not certified. Every failure was root-caused and fixed on
+>   `claude/w4-INTEG8-certfix`, with no test weakened:
+>   - Calendar time bombs exposed on 2026-11-01: the synthetic finance dataset put "current month" events in the previous
+>     month on days 1-3 (r2_finance_close, accounting_controller); a fixed 2026-10-01 policy reading aged past 30 days (b2gate2).
+>   - Expectations made stale by Batch 4's own changes: F-076 cited a test PHYSFIX replaced (closure matrix, via the documented
+>     override); the More menu gained "policy" (pwa_browser, now pinned to the exact id list); the one-size basket identity
+>     (store_preview, now derived from the catalogue); READBACK's anonymous `evidence_checks` (provider_health, kept strict).
+>   - A "mockups" wording trip in `command_center/policy_readings.py` (cc_views guard unchanged).
+>   - Four suites printing lowercase `ok` counted as reporting no passes (fmbatch2 x2, intelrec x2).
+> - All 12 suites pass on the fix branch. A fresh, uninterrupted full run certifies (resumed runs never do).
+> - **R40-R42** (`claude/w4-PHYSFIX-R40` 43021c1e): Low, fail-open, unreachable until an owner-commissioned tester sample; NOT
+>   in Batch 4 (I-B4-R40-DEFER), tested and reviewed for Batch 5; disclosed in the deploy request. Not waived.
+> - **Production dead letter diagnosed** (read-only logs): `culture.sweep` jobs 41979 (2026-11-01 00:13Z) and 34246
+>   (2026-10-27) end in `PaidCallUnresolved` after an interrupted first paid call (probable 60 s timeout escaping
+>   `culture/classify.py`). The anti-double-spend guard held. Recurring (2 of 7 nights); NOT fixed by Batch 4; work item
+>   P1-CULTURE-SWEEP-TIMEOUT. Production is NOT fully healthy while `no_unexpected_dead_letters_in_24h` is red.
+> - Stages: Batch 4 built, reviewed, integrated; certification pending; not deployed. Batch 5 integration in progress on
+>   `claude/w5-INTEG1` (INVENTORY, CONCEPT, opus2 fb52cb9e merged; PDF1 merge in progress). opus2 PR #3/#5/#6 fixes:
+>   CHANGES_REQUIRED (OPUS2EF2).
+
 > **2026-10-21 — W4-LISTREADY (branch `claude/w4-LISTREADY`, NOT deployed; production b931d17 SHADOW).** Production has
 > certified nothing since 2026-10-11. A P0 `systemic-halt:publication`, built only from stale-artefact incidents, halts every
 > `gate.certify`. Fixed at the roots, no gate changed:

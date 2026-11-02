@@ -236,5 +236,12 @@
   ],
   "reason": "F-853 is unchanged by the owner amendment and is now enforced per role inside the exception route (D-W4-F852-AMEND item 6).",
   "accepted_by": "integrator W-INTEG4 2026-10-20 on owner decision D-W4-F852-AMEND (DECISION_LOG.md, owner-confirmed); proposal w4/OVERRIDES_PROPOSED_F852_AMEND.json by W-VISNEXT; dry run 0 problems; completion/maturity unchanged (both rows already COMPLETE/INTEGRATED), evidence/tests/reason recorded"
+ },
+ "F-076": {
+  "tests": [
+   "tests/test_physical.py::test_tester_notes_are_surfaced_and_routed_to_the_owner"
+  ],
+  "reason": "W-PHYSFIX 626afdf8 (SECREVIEW F5) replaced tests/test_physical.py::test_tester_notes_are_surfaced_without_blocking with test_tester_notes_are_surfaced_and_routed_to_the_owner, and tightened the behaviour: a tester's note is now a REVIEW finding that a person reads before the sample counts (the sample is PARTIAL and not usable for calibration until then), instead of being surfaced without blocking. The row's evidence is the replacement test; maturity stays as cap() adjudicates it (tests is an evidence field, applied before cap()). Found by certification run 20261101T053634Z-559 (test_final_closure_matrix).",
+  "accepted_by": "integrator 2026-11-01 (Batch 4 certification root cause; evidence citation follows a test rename, no maturity change)"
  }
 }

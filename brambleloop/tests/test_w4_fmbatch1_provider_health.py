@@ -108,7 +108,11 @@ def test_verify_reports_degraded_with_the_provider_named():
                            at=datetime.now(timezone.utc), detail={"ok": False,
                                                                   "reason": CREDIT}))
     anon = TestClient(main.app).get("/api/verify").json()     # INTEG7 (R-1): projected
-    assert set(anon) <= {"ok", "checks"} and SECRET not in json.dumps(anon)
+    # W4-READBACK added the anonymous-safe `evidence_checks` (name and verdict only; pinned
+    # in test_deploy and test_w4_readback_evidence). The projection stays exactly that.
+    assert set(anon) <= {"ok", "checks", "evidence_checks"} and SECRET not in json.dumps(anon)
+    assert all(set(c) == {"check", "ok"} for c in anon["checks"]), anon["checks"]
+    assert all(set(c) == {"check", "ok"} for c in anon.get("evidence_checks", [])), anon
     body = _opread.get(TestClient(main.app), "/api/verify").json()
     assert body["status"] in ("DEGRADED", "FAIL")
     ph = {c["check"]: c for c in body["provider_health"]}
