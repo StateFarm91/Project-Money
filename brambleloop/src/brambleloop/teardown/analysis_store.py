@@ -74,6 +74,11 @@ def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
             if current is None or not any(f.get("sha256") == file_sha256 and f.get("name") == name
                                           for f in (current.files or [])):
                 raise AnalysisRefused("purchase manifest changed during analysis")
+            terms = s.scalar(select(BenchmarkLicence).where(
+                BenchmarkLicence.source_ref == current.ref).with_for_update())
+            if (terms is None or "private_analysis" not in (terms.allowed_uses or [])
+                    or "private_analysis" in (terms.prohibited_uses or [])):
+                raise AnalysisRefused("licence changed during analysis")
             existing = s.scalar(select(BenchmarkAnalysis).where(
                 BenchmarkAnalysis.benchmark_id == benchmark_id,
                 BenchmarkAnalysis.file_sha256 == file_sha256))

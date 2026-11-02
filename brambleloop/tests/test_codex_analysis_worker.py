@@ -23,6 +23,39 @@ from brambleloop.teardown import intake, jobs, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_licence_revoked_during_read_cannot_persist_analysis(self):
+        from reportlab.pdfgen import canvas
+        from brambleloop.teardown import analysis_store
+
+        with TemporaryDirectory() as tmp:
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Synthetic test document with materials and gauge.")
+            pdf.save()
+            data = stream.getvalue()
+            sha = hashlib.sha256(data).hexdigest()
+            db = Database(f"sqlite:///{tmp}/revoked.db", scratch=True)
+            db.create_all()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="revoked", seller="test",
+                    files=[{"name": "pattern.pdf", "sha256": sha}])
+                s.add(product)
+                s.flush()
+                product_id = product.id
+            licence.capture_purchase(db, "revoked", terms={"allowed_uses": ["private_analysis"],
+                                     "prohibited_uses": []})
+
+            def revoke_during_read(*args, **kwargs):
+                licence.capture_purchase(db, "revoked", terms={"allowed_uses": [],
+                                         "prohibited_uses": ["private_analysis"]})
+                return data
+
+            with mock.patch.object(library, "retrieve", side_effect=revoke_during_read):
+                with self.assertRaises(analysis_store.AnalysisRefused):
+                    analysis_store.analyse_file(db, product_id, sha)
+            with db.session() as s:
+                self.assertIsNone(s.scalar(select(BenchmarkAnalysis)))
+
     def test_reviewed_observation_proposes_only_one_unapproved_rule(self):
         from reportlab.pdfgen import canvas
 
