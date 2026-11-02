@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T11:06Z. Certification: run 20261102T101632Z-4284 on W5-INTEG1 4af3418f (running). Known open in the candidate: P0-NAME-OBJECT-MISMATCH (to be disclosed in the deploy request).
+Last updated: 2026-11-02T11:21Z. Certification: run 20261102T101632Z-4284 on 4af3418f will FAIL test_swarm_runtime (fixed in W5-INTEG1 30b04b35); it runs to completion for the full failure list, then one fresh run on the fixed head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH (disclose in the deploy request).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -37,7 +37,7 @@ Last updated: 2026-11-02T11:06Z. Certification: run 20261102T101632Z-4284 on W5-
 | Q13 | review / design records: claude/w4-PDFAUDIT-*, w4-DESIGNREVIEW-basket-1.3.0, w4-CONSTRUCTREVIEW-basket | docs only | n/a | none | yes (records) | none | fold into W5-INTEG1 as records at the next merge | integrator |
 | Q14 | opus2/p0-tapestry | 67b67015, 71e26e6f | SHIP (OPUS2P) | none (independent of Q5: verified) | **integrated** W5-INTEG1 a0c6bfff + f7466c06 (fold_title de-dup), suites green incl. test_shadow; delta integration review INTEG5D SHIP (11272e4b) | test_opus2_tapestry_basket + pet/stocking/colourwork/launch0/shadow | certify | integrator |
 | Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | DO NOT SHIP (OPUS2T-4 HIGH child safety; -5 MED) | Q14 | no: **blocked** on a construction-keyed children's refusal | named suites + childrens/pdf | delta review of the fix | opus2 |
-| Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | **in review OPUS2S** | none known (merge-tree in review) | no: awaiting OPUS2S | photo/gallery/publish-gate suites | integrate on SHIP | integrator |
+| Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | DO NOT SHIP (OPUS2S-1/-2/-3 MED; no HIGH) | none (4 mechanical conflicts) | no: **blocked** on the MED fixes | test_opus2_photo_asset_review, photo/gallery/publish-gate suites, test_swarm_runtime | delta review of fixes | opus2 |
 | Q17 | opus2/p0-construction-registry | 83194fb7..21d4ceaf, 66378ebf | DO NOT SHIP (OPUS2R-1 / OPUS2T-7 HIGH; OPUS2T-6 HIGH child safety) | Q16 | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
 
 Not integration items:

@@ -712,6 +712,15 @@
         "66378ebf": "DO NOT SHIP: OPUS2T-6 HIGH child safety (production keys contain 'toy' so the hold never fires); -7 HIGH OPUS2R-1 still open"
       },
       "recorded": "2026-11-02T11:05Z"
+    },
+    {
+      "subject": "OPUS2S",
+      "sha": "d4cd337c (claude/w5-SECREVIEW-OPUS2S)",
+      "verdicts": {
+        "c056028d+5a47cd8e (P0-PHOTO-ASSET-REVIEW)": "DO NOT SHIP: OPUS2S-1 MED approves frames without the awaiting reason; -2 MED check/write race; -3 MED second photo deadlock; LOWs. No HIGH; checks sound and fail-closed."
+      },
+      "integration_finding": "test_swarm_runtime fails on W5-INTEG1 4af3418f (5 opus2 job types unbanded) -> fixed 30b04b35",
+      "recorded": "2026-11-02T11:20Z"
     }
   ],
   "integration": {
@@ -743,7 +752,8 @@
       "known_open_in_candidate": [
         "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a; OPUS2T-1/-2/-3): the radar fallback draft path in 4af3418f can draft a title naming another object (e.g. 'Teddy Bear' under basket/pillow/shawl) as a basket/cushion/shawl with name_truth passing. Drafts only; publication still requires owner review and is blocked in SHADOW. Fix pending with opus2 (fed859b7 partial). MUST be disclosed in the Batch 5 deploy request; owner decides.",
         "Amigurumi/registry child-safety findings (OPUS2T-4/-6) are NOT in 4af3418f (those branches are not integrated)."
-      ]
+      ],
+      "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head."
     }
   },
   "owner_directives": [
@@ -866,16 +876,6 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "OPUS2S",
-        "subjects": [
-          "opus2/p0-photo-asset-review c056028d, 5a47cd8e (P0-PHOTO-ASSET-REVIEW)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2S.md",
-        "launched": "2026-11-02T10:32Z"
-      }
-    ]
+    "items": []
   }
 }
