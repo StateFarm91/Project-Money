@@ -997,7 +997,14 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
+    "items": [
+      {
+        "id": "A3D",
+        "subject": "opus2/p0-photo-asset-review delta d1f65b61..8d98bf4c (OPUS2W fixes)",
+        "report": "scratchpad/INDEPENDENT_SECREVIEW_A3D.md",
+        "started": "2026-11-02T18:40Z"
+      }
+    ]
   },
   "assignments": [
     {
