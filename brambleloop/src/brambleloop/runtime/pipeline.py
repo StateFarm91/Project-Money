@@ -835,7 +835,9 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             if lineage["known"]:
                 concept.source_provenance = lineage["source"]
                 concept.source_brief = lineage["brief"]
-                primitives = (FC.TAPESTRY_PRIMITIVES
+                motif_prim = FC.tapestry_motif_primitive(
+                    FC._tapestry_chart(concept.title, concept.slug))
+                primitives = (FC.TAPESTRY_PRIMITIVES + ((motif_prim,) if motif_prim else ())
                               + tuple(p for p in lineage["primitives"]
                                       if p != "runtime.pipeline.concept_to_cir"))
                 provenance = source_provenance(
@@ -973,14 +975,51 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
     construction the engine has no rule for is refused by name.
     """
     from ..creative.concept import Concept as CreativeConcept
-    from ..creative.prototype import PrototypeRefused, author
+    from ..creative.prototype import PrototypeRefused, author, source_provenance
 
     raw = dict(ctx.job.inputs["concept"])
     concept = CreativeConcept(**{k: v for k, v in raw.items()
                                  if k in CreativeConcept.__dataclass_fields__})
+    version = str(ctx.job.inputs.get("version") or "1.0.0")
+    # OPUS2 (research -> Product Development contract): the brief's form, construction, motif
+    # and palette reach a reusable construction. A brief that lacks what its construction
+    # needs is held with each missing item named, never drafted from a guess. A (form,
+    # construction) no construction serves keeps the prototype path below, unchanged.
+    from ..creative import construction_registry as registry
+
+    req = registry.request_for(concept, ctx.job.inputs.get("brief"))
+    if req is not None and req.unresolved:
+        ctx.audit(registry.HELD_ACTION, artifact=slug,
+                  detail={"request": req.to_dict(), "unresolved": req.unresolved,
+                          "mjs_event_id": ctx.job.inputs.get("mjs_event_id")})
+        return {"artifact": slug, "drafted": False, "held": True, "gate": "brief",
+                "unresolved": req.unresolved}
+    if req is not None:
+        provenance = source_provenance(
+            concept.key, concept.to_dict(), ctx.job.inputs.get("brief"),
+            registry.PRIMITIVES + (f"creative.fallback_constructions.{req.family}",)
+            + registry.declared_primitives(req))
+        try:
+            cir = registry.build(req, version=version, provenance=provenance)
+        except ValueError as exc:
+            ctx.audit("cir.draft_refused", artifact=slug,
+                      detail={"reason": str(exc)[:400], "gate": "construction",
+                              "request": req.to_dict()})
+            return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+        cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+        ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"source": "tournament winner", "form": concept.form,
+                          "construction": req.family, "brief_construction":
+                          concept.construction, "params": req.params, "pod": concept.pod,
+                          "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
+                          "rows": sum(len(c.rows) for c in cir.components)})
+        ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                    idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
+                "form": concept.form, "construction": req.family,
+                "rows": sum(len(c.rows) for c in cir.components)}
     try:
-        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
-                     brief=ctx.job.inputs.get("brief"))
+        cir = author(concept, version=version, brief=ctx.job.inputs.get("brief"))
     except PrototypeRefused as exc:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "engine"})
