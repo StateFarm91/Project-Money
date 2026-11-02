@@ -552,6 +552,40 @@ def test_review_opus2e_e4_character_texture_and_second_object_cosies_are_refused
         assert route["family"] == F.REFUSED and route["needs"], title
 
 
+def test_review_opus2m_m1_m7_one_multiplicity_reader_and_every_list_entry_is_pinned():
+    """OPUS2M-1: the tote route and title_promise read multiplicity with one reader
+    (launch0.multiplicity), inflections included, so the two cannot disagree. OPUS2M-7: every
+    list entry the review found unpinned is pinned here."""
+    from brambleloop.products import launch0 as L
+
+    counts = {"Tote Foursome": 4, "Tote Threesome": 3, "Tote Quad": 4, "Tote Quadruplets": 4,
+              "Tote Triad": 3, "Tote Triple": 3, "Triple Tote": 3, "Tote Quadruple": 4,
+              "Hundred Tote": 100, "Tote Trilogies": 3, "Tote Doubles": 2, "Tote Septet": 7,
+              "Tote Octets": 8, "Tote Sextet": 6, "Seven Tote": 7, "Twelve Tote": 12,
+              "Seventeen Tote": 17, "Twenty Tote": 20}
+    markers = ("Tote Combos", "Tote Assortments", "Tote Multi Pack", "Tote Multipacks",
+               "Mothers Tote", "Families Tote", "Daughters Tote", "Tote Kit")
+    assert counts and markers
+    for title, n in counts.items():
+        assert L.multiplicity(title)["claimed"] == n, title
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    for title in markers:
+        assert L.multiplicity(title)["plural_markers"], title
+        assert F.plan(category="bag", title=title)["family"] == F.REFUSED, title
+    # Plural object nouns the review found unpinned (N11, N14, N15).
+    for noun in ("hats", "pouches", "rugs", "garlands", "squares", "hearts", "totebags",
+                 "cosys"):
+        assert L.multiplicity(f"Market {noun.title()}")["plural_markers"], noun
+    # Not counts: stitches and features (N8, N9, OPUS2M-9).
+    for title in ("Triple Crochet Tote", "Double Treble Tote", "Double Knit Tote",
+                  "Double Sided Tote", "Double Dc Tote", "Triple Tr Tote", "Double Sc Tote",
+                  "Double-Handled Tote", "Mother's Day Tote", "Sunset Market Tote"):
+        got = L.multiplicity(title)
+        assert got["claimed"] is None and not got["plural_markers"], (title, got)
+    # One tote is drafted and backed.
+    assert F.plan(category="bag", title="Sunset Market Tote")["family"] == F.TOTE
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

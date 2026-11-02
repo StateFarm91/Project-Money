@@ -141,12 +141,18 @@ _COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4,
                                 "trilogy": 3, "quartette": 4, "quintet": 5, "sextet": 6,
                                 "septet": 7, "octet": 8, "thirteen": 13, "fourteen": 14,
                                 "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
-                                "nineteen": 19, "twenty": 20, "double": 2}
+                                "nineteen": 19, "twenty": 20, "double": 2,
+                                # OPUS2M-1: the rest of the class, not only the listed words.
+                                "threesome": 3, "foursome": 4, "triad": 3, "triple": 3,
+                                "quad": 4, "quadruple": 4, "quadruplet": 4, "hundred": 100}
 # Number words that describe a colour, a stitch or a construction, never a count of pieces.
 _NOT_A_COUNT = re.compile(
     r"\b(?:(?:two|three)[- ](?:tone|toned|colou?r(?:ed)?|ply|way|strand(?:ed)?)"
     r"|double[- ](?:crochet|treble|stranded|strand|knit|sided|layer(?:ed)?|thick|brim|wide)"
-    r"|(?:triple|double)[- ]?(?:dc|tr|sc))\b")
+    r"|(?:triple|double)[- ]?(?:dc|tr|sc)|triple[- ](?:crochet|treble)"
+    # OPUS2M-9: a feature or an occasion, never a count ("Double-Handled Tote" has the two
+    # straps it says; "Mother's Day Tote" is one tote).
+    r"|double[- ](?:handle[ds]?|handled|straps?|strapped)|(?:mother|father)'?s day)\b")
 
 
 _PLURAL_OBJECT_NOUNS = (r"\b(?:totes|totebags|bags|baskets|coasters|placemats|ornaments|"
@@ -154,7 +160,7 @@ _PLURAL_OBJECT_NOUNS = (r"\b(?:totes|totebags|bags|baskets|coasters|placemats|or
                         r"bowls|trivets|pot ?holders|dishcloths|washcloths|scrunchies|beds|nests|"
                         r"mats|hats|pouches|rugs|garlands|squares|hearts|shoppers|"
                         # OPUS2K K-1: words that promise several pieces without a number.
-                        r"multipack|multi-pack|assortment|combo|matching|family|mother|daughter)\b")
+                        r"multipacks?|multi-packs?)\b")
 
 
 def _plural_marker_pattern(word: str) -> str:
@@ -162,6 +168,46 @@ def _plural_marker_pattern(word: str) -> str:
     if word.endswith("y"):                                  # library -> libraries
         return rf"\b{re.escape(word[:-1])}(?:y|ies)\b"
     return rf"\b{re.escape(word)}(?:s|es|d|ed)?\b"
+
+
+def _inflected(token: str, words) -> str | None:
+    """The word in `words` that `token` is, or an inflection of: -s, -es, -ies (OPUS2M-1:
+    "Trilogies", "Combos", "Assortments", "Mothers")."""
+    for cand in (token, token[:-1] if token.endswith("s") else None,
+                 token[:-2] if token.endswith("es") else None,
+                 token[:-3] + "y" if token.endswith("ies") else None):
+        if cand and cand in words:
+            return cand
+    return None
+
+
+# OPUS2M-1: single words that promise several pieces, read with their inflections.
+_PLURAL_WORDS = frozenset({"multipack", "assortment", "combo", "matching", "family",
+                           "mother", "daughter", "kit", "lot"})
+
+
+def multiplicity(title: str) -> dict:
+    """The one multiplicity reader (OPUS2M-1): the count a title claims (a numeral or a count
+    word, inflected) and the words that promise several pieces without a number. Shared by
+    `title_promise` and by the radar fallback's routing, so the two cannot disagree."""
+    lowered = (title or "").lower()
+    lowered = re.sub(r"\bmulti[- ]?packs?\b", "multipack", lowered)
+    counted = _NOT_A_COUNT.sub(" ", lowered)
+    claimed: int | None = None
+    plural: list[str] = []
+    for token in re.findall(r"[a-z]+|\d+", counted):
+        if token.isdigit():
+            claimed = max(claimed or 0, int(token))
+            continue
+        stem = _inflected(token, _COUNT_WORDS)
+        if stem is not None:
+            claimed = max(claimed or 0, _COUNT_WORDS[stem])
+        elif _inflected(token, _PLURAL_WORDS):
+            plural.append(token)
+    # OPUS2H H1-3 / OPUS2I I-1: markers as whole words with their inflections.
+    plural += [w for w in PLURAL_MARKERS if re.search(_plural_marker_pattern(w), counted)]
+    plural += [m.group(0) for m in re.finditer(_PLURAL_OBJECT_NOUNS, counted)]
+    return {"claimed": claimed, "plural_markers": tuple(dict.fromkeys(plural))}
 
 
 def finished_objects(cir: CIR) -> int:
@@ -202,25 +248,8 @@ def title_promise(cir: CIR) -> dict:
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
     """
-    lowered = cir.title.lower()
-    claimed: int | None = None
-    counted = _NOT_A_COUNT.sub(" ", lowered)
-    for token in re.findall(r"[a-z]+|\d+", counted):
-        if token.isdigit():
-            claimed = max(claimed or 0, int(token))
-        else:
-            # OPUS2J J-1: count words with their inflections ("Quartets", "Twins", "Pairs").
-            stem = token if token in _COUNT_WORDS else token[:-1] if token[:-1] in _COUNT_WORDS \
-                else None
-            if stem is not None:
-                claimed = max(claimed or 0, _COUNT_WORDS[stem])
-    # OPUS2H H1-3: whole words, so "Sunset", "Closet" and "Asset" do not read as "set".
-    # OPUS2I I-1: with their inflections ("Sets", "Pairs", "Bundled", "Libraries"), so a
-    # plural marker is never dropped by the whole-word rule.
-    plural = [w for w in PLURAL_MARKERS if re.search(_plural_marker_pattern(w), lowered)]
-    # OPUS2I (integrator follow-up): a finished-object noun in the plural ("Totes",
-    # "Baskets") promises more than one too.
-    plural += [m.group(0) for m in re.finditer(_PLURAL_OBJECT_NOUNS, lowered)]
+    read = multiplicity(cir.title)
+    claimed, plural = read["claimed"], list(read["plural_markers"])
     makes = finished_objects(cir)
 
     if claimed is not None:
