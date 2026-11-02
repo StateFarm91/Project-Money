@@ -702,6 +702,16 @@
         "83194fb7..21d4ceaf (construction registry)": "DO NOT SHIP: OPUS2R-1 HIGH registry builds bypass FC.plan title allowlists (and name_truth lacks motif_promise); -2 MED brief size vs title size; -3 MED tapestry wall-count jump; LOWs; 12/17 mutants survive"
       },
       "recorded": "2026-11-02T09:00Z"
+    },
+    {
+      "subject": "OPUS2T",
+      "sha": "50ac5426 (claude/w5-SECREVIEW-OPUS2T)",
+      "verdicts": {
+        "fed859b7": "DO NOT SHIP as P0 closure (OPUS2T-1 HIGH pillow/wedding/shawl branches run first; -2 HIGH head noun = last word; -3 MED denylist). Safe partial (only refuses more).",
+        "c5671087": "DO NOT SHIP: OPUS2T-4 HIGH child safety (child_words_in reads raw title; fullwidth/math-alnum toy titles render with no children's block); -5 MED small-parts check covers body only. P-2, P-4..P-9 fixed.",
+        "66378ebf": "DO NOT SHIP: OPUS2T-6 HIGH child safety (production keys contain 'toy' so the hold never fires); -7 HIGH OPUS2R-1 still open"
+      },
+      "recorded": "2026-11-02T11:05Z"
     }
   ],
   "integration": {
@@ -729,7 +739,11 @@
       "worktree": "/home/user/bl-runs/wt-b5cert",
       "basis": "INTEG5B+5C+5D+5E SHIP",
       "previous_run": "20261102T054208Z-6424 on a8ce0072 DIED ~08:12Z without a terminal record (status still 'running'; no output after 08:12; coincides with the session tool disconnect/reconnect, i.e. container processes killed). Not a result; it can never certify. Its expected test_w4_launchfix failure was already fixed in f8bf2782.",
-      "rule": "uninterrupted; a resumed run never certifies"
+      "rule": "uninterrupted; a resumed run never certifies",
+      "known_open_in_candidate": [
+        "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a; OPUS2T-1/-2/-3): the radar fallback draft path in 4af3418f can draft a title naming another object (e.g. 'Teddy Bear' under basket/pillow/shawl) as a basket/cushion/shawl with name_truth passing. Drafts only; publication still requires owner review and is blocked in SHADOW. Fix pending with opus2 (fed859b7 partial). MUST be disclosed in the Batch 5 deploy request; owner decides.",
+        "Amigurumi/registry child-safety findings (OPUS2T-4/-6) are NOT in 4af3418f (those branches are not integrated)."
+      ]
     }
   },
   "owner_directives": [
@@ -860,17 +874,6 @@
         ],
         "session": "integrator subagent",
         "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2S.md",
-        "launched": "2026-11-02T10:32Z"
-      },
-      {
-        "id": "OPUS2T",
-        "subjects": [
-          "opus2/p0-revenue-workforce fed859b7 (P0-NAME-OBJECT-MISMATCH)",
-          "opus2/p0-amigurumi c5671087 (OPUS2P fixes incl. P-1 HIGH)",
-          "opus2/p0-construction-registry 66378ebf (toy hold)"
-        ],
-        "session": "integrator subagent",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2T.md",
         "launched": "2026-11-02T10:32Z"
       }
     ]
