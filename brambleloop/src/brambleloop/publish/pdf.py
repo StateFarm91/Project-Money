@@ -2540,7 +2540,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     if finishing:
         doc.need(60 * mm)
-        doc.heading("Finishing", kicker="Assembly and finishing")
+        # The kicker names assembly only when the CIR has a join to assemble. A one-piece
+        # blanket labelled "Assembly" tells the maker there is a seam to sew that does not
+        # exist, and the teardown reader (rightly) reads the label as an assembly section.
+        doc.heading("Finishing", kicker=("Assembly and finishing" if cir.assembly
+                                         else "Final steps"))
         for ln in finishing:
             if not ln.strip():
                 continue

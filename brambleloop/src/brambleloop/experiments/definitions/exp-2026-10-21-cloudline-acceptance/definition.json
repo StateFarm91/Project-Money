@@ -1,6 +1,6 @@
 {
  "id": "exp-2026-10-21-cloudline-acceptance",
- "definition_version": 1,
+ "definition_version": 2,
  "kind": "pipeline",
  "purpose": "The first live acceptance test of autonomous image production on a CERTIFIED product (Cloudline Textured Baby Blanket 1.2.0): certified pattern, references, FLUX product-only flat lay, fidelity, Laura stage A identity anchor and lifestyle if eligible, gallery, approval card. Every image is labelled EXPERIMENT and never publishes.",
  "product": {
@@ -38,11 +38,11 @@
    },
    {
     "role": "detail",
-    "sha256": "7bb642473c3a7fe38c08c365b991b8cdd4becbfff094e0f5745fb8b18c0c460e"
+    "sha256": "dd721771fdd8ecb9d309ce59e2c6c8e1dce3d795eb66fd44e5a4a104ac831b63"
    },
    {
     "role": "rules",
-    "sha256": "b94b0102db98d849f7e9b657d889742a8fbc672966bbbe786d12bd1947dd993f"
+    "sha256": "74fb4bb5b52847116f455db9c60cfcfc1d26e59c2d3fd3ea723a184e267f759e"
    }
   ],
   "canonical_laura": [
@@ -84,5 +84,15 @@
   ],
   "how": "Command Center > Images > Controlled experiments > Authorize (owner session + step-up)"
  },
- "source": "W-VISNEXT2 Cloudline acceptance harness (research/final_build/w4/cloudline_acceptance)"
+ "source": "W-VISNEXT2 Cloudline acceptance harness (research/final_build/w4/cloudline_acceptance)",
+ "refrozen": [
+  {
+   "definition_version": 2,
+   "on": "2026-11-02",
+   "by": "W5-INTEG1 RC2",
+   "what": "pattern_references detail 7bb642473c3a -> dd721771fdd8 and rules b94b0102db98 -> 74fb4bb5b528; layout, texture, product, cir_hash, Laura, prompt builder and prompt sections unchanged",
+   "why": "Batch 5 merged W4-PDF1 (4f136bf7), whose reviewed chart changes re-render these two references from the same certified Cloudline 1.2.0 CIR: the chart grid darkened to the WCAG 3:1 graphic floor (47298dd1, charts.GRID) and the chart type set in the bundled, sha-pinned Work Sans Medium instead of system DejaVu Sans Mono (1a8336c9 F5, 187b02b4 SECREVIEW-PDF1 L2). The certified release and its content hash are unchanged.",
+   "how": "the new values are exactly controlled.verify_pipeline(...)['references'] on the certified release; no money was spent, nothing was authorized, and any earlier authorization (bound to the definition sha256) no longer matches, so the owner authorizes this version afresh"
+  }
+ ]
 }
