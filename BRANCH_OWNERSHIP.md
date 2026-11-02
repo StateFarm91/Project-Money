@@ -126,7 +126,7 @@ Contact: hand off through your branch and a handoff document. The integrator rev
   - The integrator owns `claude/w5-INTEG1`, the merge resolutions, `swarm/orchestrate.py` JOB_BANDS conflicts, and the records.
   - Codex keeps P0-LEARNING-REFERENCE; nobody else implements it.
 
-## 2026-11-02T19:10Z: I-P0-ABSOLUTE-WORKFORCE (owner, permanent)
+## 2026-11-02T18:52Z: I-P0-ABSOLUTE-WORKFORCE (owner, permanent)
 The complete autonomous workforce is the top priority for every worker. The order is:
 1. safety and correctness defects;
 2. missing autonomous connections;

@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T19:15Z. Owner decision I-P0-ABSOLUTE-WORKFORCE: priority 1 safety/correctness, 2 missing autonomous connections, 3 integration/certification/deploy, 4 24 h acceptance, 5 enhancements. Certification target: W5-INTEG1 50937469 (INTEG5F SHIP). Running now: 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime). Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
+Last updated: 2026-11-02T18:55Z. Owner decision I-P0-ABSOLUTE-WORKFORCE: priority 1 safety/correctness, 2 missing autonomous connections, 3 integration/certification/deploy, 4 24 h acceptance, 5 enhancements. Certification target: W5-INTEG1 50937469 (INTEG5F SHIP). Running now: 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime). Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -42,7 +42,7 @@ Last updated: 2026-11-02T19:15Z. Owner decision I-P0-ABSOLUTE-WORKFORCE: priorit
 | Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a..1ea3079e | SHIP (OPUS2P, OPUS2V) | none | **integrated** W5-INTEG1 50937469 (12 suites green; INTEG5F SHIP) | test_opus2_drawstring_pouch, test_opus2_stuffed_finishing + draft/tapestry suites | push on green; certify | integrator |
 | Q19 | opus2/a2-name-object (A2, P0-NAME-OBJECT) | db463142..3be8262f | DO NOT SHIP (A2-REVIEW: A2-1/-2/-3 HIGH, -4/-5/-6 MED) | none (merge with INTEG1 7c42e706 clean) | no: **blocked** on A2 fixes | test_opus2_a2_name_object + 28 draft/routing suites (green on merged tree) | opus2 fixes; delta review | opus2 |
 | Q20 | opus2/p0-child-safety-core (A1-R) | not pushed | n/a | none | no: **not started** | A1-R acceptance suites | opus2 builds; delta review | opus2 |
-| Q21 | claude/w5-A5-correction-loop (A5, P0-CORRECTION-LOOP) | building | n/a | none | no: **in build** (mainopus-worker, since 19:15Z) | test_w5_a5_correction_loop + swarm/authority/shadow/launch0/gate suites | independent review on push | mainopus-worker |
+| Q21 | claude/w5-A5-correction-loop (A5, P0-CORRECTION-LOOP) | building | n/a | none | no: **in build** (mainopus-worker, since 18:55Z) | test_w5_a5_correction_loop + swarm/authority/shadow/launch0/gate suites | independent review on push | mainopus-worker |
 | Q22 | claude/w5-A7-supply-stall (A7, P0-SUPPLY-STALL) | building | n/a | none | no: **in build** (mainopus-worker) | test_w5_a7_supply_stall + radar/swarm suites | independent review on push | mainopus-worker |
 | Q23 | claude/w5-A9-package-event (A9, P0-PACKAGE-EVENT) | building | n/a | none | no: **in build** (mainopus-worker) | test_w5_a9_package_event, test_opus2_listing_package | independent review on push | mainopus-worker |
 

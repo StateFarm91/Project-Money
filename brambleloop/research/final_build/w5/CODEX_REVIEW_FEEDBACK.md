@@ -4,7 +4,7 @@ The integrator (Main Opus) maintains this file. Codex reads it with
 `CODEX_WO_P0_LEARNING_REFERENCE.md` before each work session. Newest entries are first.
 Codex has no PR, so this file is the review channel.
 
-## 2026-11-02T19:10Z: owner directive, binding: complete autonomous workforce first
+## 2026-11-02T18:52Z: owner directive, binding: complete autonomous workforce first
 
 The owner has made completing and activating the whole autonomous workforce the company's top priority. The decision is
 `I-P0-ABSOLUTE-WORKFORCE` in `COORDINATION.json`. You keep the Learning Department (P0-LEARNING-REFERENCE). Work in this order:

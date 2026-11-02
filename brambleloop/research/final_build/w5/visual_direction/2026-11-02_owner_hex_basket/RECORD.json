@@ -241,7 +241,7 @@
   ],
   "pipeline_status": "Deliberately not available to the production image pipeline: nothing under research/ is read by generation, review or gallery code. Promoting any image into a generation input requires an owner-approved decision naming its sha256 and role.",
   "owner_clarification": {
-    "at": "2026-11-02T19:00Z",
+    "at": "2026-11-02T18:50Z",
     "text": [
       "The six basket images represent the target visual quality, consistent environment, styling and photographic realism for the autonomous image agents.",
       "They are NOT authoritative construction specifications or physical-sample evidence.",

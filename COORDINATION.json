@@ -1092,7 +1092,7 @@
       "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
       "state": "in_progress",
       "reassigned": {
-        "at": "2026-11-02T19:10Z",
+        "at": "2026-11-02T18:52Z",
         "from": "opus2",
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
@@ -1129,7 +1129,7 @@
       "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
       "state": "in_progress",
       "reassigned": {
-        "at": "2026-11-02T19:10Z",
+        "at": "2026-11-02T18:52Z",
         "from": "opus2",
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
@@ -1166,7 +1166,7 @@
       "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
       "state": "in_progress",
       "reassigned": {
-        "at": "2026-11-02T19:10Z",
+        "at": "2026-11-02T18:52Z",
         "from": "opus2",
         "to": "mainopus-worker",
         "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
@@ -1214,7 +1214,7 @@
     },
     {
       "id": "I-P0-ABSOLUTE-WORKFORCE",
-      "at": "2026-11-02T19:10Z",
+      "at": "2026-11-02T18:52Z",
       "source": "owner directive 2026-11-02 'ABSOLUTE OWNER PRIORITY: COMPLETE AUTONOMOUS WORKFORCE' (permanent; binds Main Opus, Secondary Opus, Codex and every worker)",
       "decision": "Completing and activating the entire autonomous workforce is the company's highest priority. It overrides product enhancements, individual construction generators, visual refinements, dashboard polish and non-critical Build 2 / Final Master work. Priority order: (1) critical safety/correctness defects affecting the workforce; (2) every missing autonomous connection and operational dependency; (3) end-to-end integration, certification and deployment; (4) sustained 24 h production acceptance and recovery verification; (5) remaining Build 2 / Final Master enhancements. Built code, merged PRs or isolated tests are not operational completion. Owner/physical/provider/account holds never stop unrelated eligible work. The authoritative inventory is P0_WIRING_50937469.md (department x criterion matrix) as extended by the integrator; no competing master plan.",
       "consequences": [
