@@ -270,6 +270,15 @@
       "scope": "additive Op.color: model (omitted from to_dict when None, so no digest moves), compiler UNKNOWN_COLOR / STITCH_COLOUR_WITHOUT_ROW_COLOUR, ResolvedOp.color, twin cell colour + per-yarn yardage, writer 'with <colour>', reverse parse and structural compare; launch0.per_stitch_colour_expressible flips True on its own so fabric_truth backs a real two-colour claim",
       "not_touching": "radar fallback drafting (opus2/p0-revenue-workforce), W-LISTING rules, any Launch-0 CIR",
       "evidence": "tests/test_opus2_cir_colourwork.py 6/6; all 11 Launch-0 CIR digests unchanged; 84-suite regression exit 0 (vacuity re-run after its fix)"
+    },
+    {
+      "id": "OPUS2-POUCH-SPLIT",
+      "operator": "opus2",
+      "branch": "opus2/p0-pouch",
+      "state": "ready_for_integration",
+      "area": "queue Q16 split",
+      "claimed": "2026-11-02T11:20Z",
+      "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
     }
   ],
   "unowned": [

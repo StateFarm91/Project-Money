@@ -136,6 +136,10 @@ def test_the_written_pattern_names_the_contrast_and_reads_back():
     band = [r.index for r in cir.components[0].rows if op_colours(r.ops) - {r.color}]
     assert f"Join {contrast} at the start of Rnd {band[0]}" in text, text[-900:]
     assert f"cut {contrast} after Rnd {band[-1]} and fasten it off" in text, text[-900:]
+    # OPUS2P-9: also said on the rounds where the maker reaches them.
+    rows = {r.index: r for r in cir.components[0].rows}
+    assert rows[band[0]].note == f"join {contrast} at the start of this round"
+    assert rows[band[-1]].note == f"cut {contrast} after this round and fasten it off"
     note = cir.components[0].note
     assert "work over it" in note and "leans" in note, note
     assert [f for f in reverse.compare(cir, text) if f.severity == "ERROR"] == []

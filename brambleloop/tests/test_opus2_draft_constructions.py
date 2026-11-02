@@ -393,7 +393,10 @@ def test_review_opus2e_e1_only_a_titled_single_tote_drafts_and_straps_back_no_co
     for category, title in (("bag", "Everyday Market Tote"), ("bag", "Tote Bag"),
                             ("bag", "Small Tote"), ("home_decor", "Market Shopper")):
         assert F.plan(category=category, title=title)["family"] == F.TOTE, title
-    refused = (("bag", "Drawstring Bag"), ("home_decor", "Plastic Bag Holder"),
+    # A drawstring bag is never a tote. It was refused until the drawstring pouch existed;
+    # it now drafts as that construction (test_opus2_drawstring_pouch).
+    assert F.plan(category="bag", title="Drawstring Bag")["family"] == F.POUCH
+    refused = (("home_decor", "Plastic Bag Holder"),
                ("bag", "Backpack"), ("bag", "Clutch"), ("bag", "Crossbody Phone Bag"),
                ("toy", "Bean Bag Toss"), ("home_decor", "Lavender Sachet Bag"),
                ("bag", "Baby Diaper Tote"), ("bag", "3 Tote Bags"), ("bag", "Tote Bags x2"),
