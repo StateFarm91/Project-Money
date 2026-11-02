@@ -1106,6 +1106,14 @@
         "report": "scratchpad/INDEPENDENT_REVIEW_A9_6ee81c19.md",
         "started": "2026-11-02T22:49:44Z",
         "requested_by": "#28 6590109328"
+      },
+      {
+        "id": "A7-REVIEW-QUEUED",
+        "subject": "A7 supply stall 83fe31d2 (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A7_83fe31d2.md",
+        "started": null,
+        "requested_by": "dispatch event opus2 review_requested 2026-11-02T22:54:26Z",
+        "note": "queued for capacity; next free slot"
       }
     ]
   },
