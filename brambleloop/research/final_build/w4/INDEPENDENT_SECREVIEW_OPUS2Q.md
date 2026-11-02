@@ -104,7 +104,7 @@ Subject 1 mutants ran against test_opus2_draft_constructions. Subject 2 mutants 
 Each suite ran from `brambleloop/`, one at a time, after `pip install -r requirements.txt`:
 `PYTHONPATH=src:tests PYTHONDONTWRITEBYTECODE=1 python3 tests/<f>.py`. "ok" counts the suite's OK/PASS lines.
 
-Every suite listed exited 0 with 0 failures, apart from the one marked UNKNOWN.
+Every suite listed exited 0 with 0 failures. The b185b528 test_shadow rerun is in the addendum after the table.
 
 | Head | Suites (ok) |
 |---|---|
@@ -112,6 +112,8 @@ Every suite listed exited 0 with 0 failures, apart from the one marked UNKNOWN.
 | f4bf34bb (1m) | test_opus2_draft_constructions (21), test_first_customer_gate (12 passing), test_launch0 (52), test_compiler (9) |
 | 2f9c413d (2) | test_opus2_cir_colourwork (20), test_compiler (9), test_twin (8), test_reverse (18), test_vacuity (8), test_pattern_truth (11), test_launch0 (52), test_first_customer_gate (12 passing), test_physfix (46/46), test_w4_seo_packages (6), test_search_truth (32 passing), test_w4_pipe_board (70) |
 | d3a485a1 (3) | test_opus2_stocking (8), test_opus2_pet_bed (7), test_opus2_draft_constructions (18), test_fallback_draft_provenance (1), test_vacuity (8), test_products (16), test_products_adversarial (15), test_launch0 (52), test_geometry (44), test_w4_c03_fallback (6 passed), test_compiler (9), test_reverse (18), test_twin (8), test_physical (18), test_deliverable_qa (61), test_shadow (10) |
+
+**Addendum (b185b528 test_shadow):** the rerun used `timeout 2400` and ran alone after the other suites finished. It exited 0 with 10 OK lines and 0 FAIL. The earlier rc 124 was a timeout under parallel load, not a failure. b185b528 test_shadow is **PASS**.
 
 ## Commands
 
