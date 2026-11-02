@@ -45,7 +45,7 @@ Last updated: 2026-11-02T18:55Z. Owner decision I-P0-ABSOLUTE-WORKFORCE: priorit
 | Q21 | claude/w5-A5-correction-loop (A5, P0-CORRECTION-LOOP) | building | n/a | none | no: **in build** (mainopus-worker, since 18:55Z) | test_w5_a5_correction_loop + swarm/authority/shadow/launch0/gate suites | independent review on push | mainopus-worker |
 | Q22 | claude/w5-A7-supply-stall (A7, P0-SUPPLY-STALL) | building | n/a | none | no: **in build** (mainopus-worker) | test_w5_a7_supply_stall + radar/swarm suites | independent review on push | mainopus-worker |
 | Q23 | claude/w5-A9-package-event (A9, P0-PACKAGE-EVENT) | building | n/a | none | no: **in build** (mainopus-worker) | test_w5_a9_package_event, test_opus2_listing_package | independent review on push | mainopus-worker |
-| Q24 | claude/w5-A4a-research-to-concept (A4a, P0-RESEARCH-TO-CONCEPT) | building | n/a | none | no: **in build** (mainopus-worker, since 19:05Z) | test_w5_a4a_research_to_concept + concept_intake/research/knowledge_gaps/originality suites | independent review on push | mainopus-worker |
+| Q24 | claude/w5-A4a-research-to-concept (A4a, P0-RESEARCH-TO-CONCEPT) | building | n/a | none | no: **in build** (mainopus-worker, since 19:02Z) | test_w5_a4a_research_to_concept + concept_intake/research/knowledge_gaps/originality suites | independent review on push | mainopus-worker |
 | Q25 | claude/w5-V1-visual-correctness (V1, P0-VISUAL-CORRECTNESS) | building | n/a | none | no: **in build** (mainopus-worker, since 19:00Z) | test_w5_v1_visual_correctness + image_production/flux suites | independent review on push | mainopus-worker |
 | Q26 | opus2/a4b-enrichment (A4b) | 823a82dd, b0c66556 (unpushed) | n/a | none | no: **not pushed** | A4 acceptance | opus2 pushes; delta review | opus2 |
 

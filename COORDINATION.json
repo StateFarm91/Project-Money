@@ -1077,7 +1077,7 @@
       "acceptance": "(a) a CoverageGap -> research -> concept_intake -> radar.score gives a non-POOL RadarConcept and a cir.draft (radar.intake provenance), idempotent; (b) a refused construction -> enrichment task -> new fingerprint -> new cir.draft reaching compile; (c) at least 5 briefs -> at least 3 materially different constructions, with named holds; (d) A2 title rule enforced",
       "state": "split",
       "split": {
-        "at": "2026-11-02T19:05Z",
+        "at": "2026-11-02T19:02Z",
         "source": "owner directive 'Prevent P0 autonomy starvation'",
         "A4a": {
           "scope": "research brief / coverage gap -> new concept outside the 34 POOL concepts -> automatic cir.draft; durable next-product continuation",
