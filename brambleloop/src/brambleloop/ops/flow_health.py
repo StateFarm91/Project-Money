@@ -337,3 +337,50 @@ def next_work(db, *, now: datetime | None = None, limit: int = 15) -> dict:
                          "run_after": inv_mod._iso(j.run_after), "product": j.slug,
                          "due": bool(j.run_after and j.run_after <= now)} for j in pending],
             "cadences": [c for c in next_cadences(db, now=now) if not c["suspended"]][:limit]}
+
+
+# ---- W5-A7 (P0-SUPPLY-STALL): next-product concept supply ------------------------------------
+
+# One reading per scan date: `radar.scan` writes it (runtime.pipeline._record_supply_stall)
+# when no concept it selected can still be drafted. Read here, read-only, for the Command
+# Center and the readback evidence.
+SUPPLY_STALL_KIND = "radar.supply_stall"
+SUPPLY_STALL_FRESH = timedelta(days=2)
+
+
+def drafted_slugs(db, slugs) -> set[str]:
+    """The slugs whose permanent `draft:<slug>` job exists (any status): `radar.score` can
+    never queue another `cir.draft` for them, so they are no new supply."""
+    from sqlalchemy import select
+
+    from ..core.models import Job
+
+    keys = {f"draft:{s}": s for s in slugs}
+    if not keys:
+        return set()
+    with db.session() as s:
+        found = set(s.scalars(select(Job.idempotency_key).where(
+            Job.idempotency_key.in_(list(keys)))))
+    return {keys[k] for k in found}
+
+
+def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
+    """The newest no-new-concept-supply reading if it is recent, else None."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == SUPPLY_STALL_KIND).order_by(OperatingReading.id.desc()))
+        if row is None:
+            return None
+        at = _aware(row.at)
+        if at is not None and now - at > SUPPLY_STALL_FRESH:
+            return None
+        p = dict(row.payload or {})
+    return {"period": row.period_key, "at": inv_mod._iso(at), "reason": p.get("reason"),
+            "pool": p.get("pool"), "drafted": p.get("drafted"),
+            "undrafted_pool": len(p.get("undrafted_pool") or []),
+            "selected": len(p.get("selected") or [])}
