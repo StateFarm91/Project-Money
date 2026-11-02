@@ -692,6 +692,14 @@
         "f7466c06..4af3418f": "SHIP for certification"
       },
       "recorded": "2026-11-02T08:52Z"
+    },
+    {
+      "subject": "OPUS2R",
+      "sha": "b95f1540 (claude/w5-SECREVIEW-OPUS2R)",
+      "verdicts": {
+        "83194fb7..21d4ceaf (construction registry)": "DO NOT SHIP: OPUS2R-1 HIGH registry builds bypass FC.plan title allowlists (and name_truth lacks motif_promise); -2 MED brief size vs title size; -3 MED tapestry wall-count jump; LOWs; 12/17 mutants survive"
+      },
+      "recorded": "2026-11-02T09:00Z"
     }
   ],
   "integration": {
@@ -843,16 +851,6 @@
   ],
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": [
-      {
-        "id": "OPUS2R",
-        "subjects": [
-          "opus2/p0-construction-registry 83194fb7, d1ebb27f, 3a11d59a, 8b4076a9, 21d4ceaf"
-        ],
-        "session": "integrator subagent (create_session unavailable 08:3xZ)",
-        "report": "scratchpad INDEPENDENT_SECREVIEW_OPUS2R.md (to be committed on claude/w5-SECREVIEW-OPUS2R)",
-        "launched": "2026-11-02T08:36Z"
-      }
-    ]
+    "items": []
   }
 }
