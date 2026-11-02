@@ -815,6 +815,14 @@
       "verdicts": {
         "opus2/p0-child-safety-core 1dd257be": "DO NOT SHIP: A1R-1 HIGH closed_stuffed_form misses one-piece stuffed forms (no seams), stuffing spellings (Fiber-Fill, kapok, polyester filling, toy fill, ...) and notes-only stuffing -- one-piece 'Juniper Friend' ball finishes assets.build DONE through the Worker; A1R-2 MED fold lower-cases before confusable map (Greek capitals, Cherokee, some Cyrillic escape; 'Βaby Basket' DONE); A1R-3 MED three folds, drafting does not use text_fold; A1R-4 MED hold is a generic ValueError toward dead letter, not a named owner-visible hold; A1R-5 small-parts only for stuffed forms, missing gauge reads clear, mutant M10 survives; A1R-6 decision constants lack audit fields, listing_package reads raw decision; A1R-7 real-path asserts too weak. Launch-0 PDFs byte-identical; no test weakened."
       }
+    },
+    {
+      "subject": "CODEX3",
+      "sha": "claude/w5-SECREVIEW-CODEX3",
+      "recorded": "2026-11-02T22:49:20Z",
+      "verdicts": {
+        "codex/p0-learning-reference 6f0fe7aa..20e0b3a7": "DO NOT SHIP: CODEX3-1 HIGH legacy (recorded_by/review_state NULL) unmet or unmeasured findings no longer block publication (0967c3ee blocks via release_gates.py:1653; head does not), cannot be reviewed back to binding; test_codex_legacy_findings asserts the relaxation, no DECISION_LOG. MED CODEX3-2 pure writer renders any well-formed learning_rule marker without verification (inert until A6 enforces verify_cir_pins). LOW -3 approved knowledge invalidated by ~23 module/numpy/scipy/volume/licence changes (A6 needs re-evaluation workflow + alert), -4 dead-job re-drive forever and masks no-work, -5 bench2 reference/ad_image/comparison stages always UNKNOWN. Executor security acceptable for the exact pinned source (line-by-line reviewed; same buffer hashed and compiled; not a sandbox; builder-pin changes are security-sensitive). CODEX2-2, CODEX1-5 fixed; CODEX2-3 (manifest drift grown), -4, -5, -6 open. Migration additive and rollback-safe on SQLite; all Codex suites + shadow green."
+      }
     }
   ],
   "integration": {
@@ -1090,13 +1098,6 @@
         "started": null,
         "note": "starts after the A4a verdict (A8 depends on A4a) and machine capacity",
         "requested_by": "#28 6589288273"
-      },
-      {
-        "id": "CODEX3",
-        "subject": "codex/p0-learning-reference 6f0fe7aa..20e0b3a incl. bench2 executor and A6 contract",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
-        "started": "2026-11-02T22:06:54Z",
-        "requested_by": "#28 6589619849"
       },
       {
         "id": "A9-REVIEW-QUEUED",
