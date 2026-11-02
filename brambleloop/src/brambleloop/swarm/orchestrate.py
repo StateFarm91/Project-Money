@@ -854,6 +854,8 @@ JOB_BANDS: dict[str, str] = {
     "teardown.enforce": "benchmark_change",
     "teardown.analyse": "benchmark_change",
     "teardown.analyse_sweep": "benchmark_change",
+    "design_eval.evaluate": "benchmark_change",
+    "design_eval.sweep": "benchmark_change",
     "creative.style_learning": "exploration",
     # Learning-centre scan: reads evidence, no committed value.
     "learn.scan": "exploration",

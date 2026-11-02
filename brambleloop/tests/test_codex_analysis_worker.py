@@ -12,7 +12,7 @@ from sqlalchemy import select
 from brambleloop.agents.registry import Registry
 from brambleloop.core.db import Database
 from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
-                                     DesignRule, Job, JobStatus, utcnow)
+                                     DesignRule, Incident, Job, JobStatus, utcnow)
 from brambleloop.intel import benchmarks
 from brambleloop.products.builder import for_slug
 from brambleloop.publish.pdf import build_pattern_pdf
@@ -130,6 +130,9 @@ class AnalysisWorkerTests(unittest.TestCase):
                     analysis = s.scalar(select(BenchmarkAnalysis))
                     analysis_id = analysis.id
                     self.assertEqual(analysis.observations["dimensions"]["finishing"], "absent")
+                    gap = s.scalar(select(Incident).where(
+                        Incident.signature == f"learning.knowledge_gap:analysis:{analysis_id}"))
+                    self.assertEqual(gap.detail["state"], "review_required")
                 queue = JobQueue(db)
                 queue.enqueue("orchestrator", "teardown.analyse_sweep", {}, idempotency_key="sweep:1")
                 self.assertTrue(Worker(db, name="sweep1", job_types=["teardown.analyse_sweep"]).run_once())
@@ -207,11 +210,27 @@ class AnalysisWorkerTests(unittest.TestCase):
                 written = write_pattern(cir, compile_cir(cir), knowledge_pins=[pin], db=reopened)
                 self.assertNotEqual(written, baseline)
                 self.assertIn("\n- Fasten off", written)
+                queue.enqueue("orchestrator", "teardown.analyse_sweep", {},
+                              idempotency_key="gap:resolved")
+                self.assertTrue(Worker(reopened, name="gap-resolve",
+                                       job_types=["teardown.analyse_sweep"]).run_once())
+                signature = f"learning.knowledge_gap:analysis:{analysis_id}"
+                with reopened.session() as s:
+                    gap = s.scalar(select(Incident).where(Incident.signature == signature))
+                    self.assertTrue(gap.resolved)
                 with reopened.session() as s:
                     source = s.get(BenchmarkAnalysis, analysis_id)
                     source.observations = {**source.observations, "pages": 999}
                 with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
                     design_knowledge.verify_pins(reopened, [pin])
+                queue.enqueue("orchestrator", "teardown.analyse_sweep", {},
+                              idempotency_key="gap:reopened")
+                self.assertTrue(Worker(reopened, name="gap-reopen",
+                                       job_types=["teardown.analyse_sweep"]).run_once())
+                with reopened.session() as s:
+                    gaps = list(s.scalars(select(Incident).where(Incident.signature == signature)))
+                    self.assertEqual(len(gaps), 2)
+                    self.assertEqual(sum(not gap.resolved for gap in gaps), 1)
                 self.assertEqual(design_knowledge.propose_from_analysis(reopened, analysis_id)
                                  ["reason"], "not_reviewed")
 
