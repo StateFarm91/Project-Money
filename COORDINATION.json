@@ -839,6 +839,14 @@
       "verdicts": {
         "opus2/p0-photo-asset-review c2174947": "DO NOT SHIP (1 MED): A3F-1 an excluded non-qualifying leader still counts as 'led by a photograph', so a qualifying photo is never promoted (no_hero, SAMPLE_PHOTO_REQUIRED never clears); A3F-2 LOW photo at position 1 without leads_gallery loops hourly; A3F-3 LOW two other writers (release_gates._recheck_listing_certificates, runtime.release asset writer) still read without the lock. A3D-1..-5 fixed; 12/13 mutants killed; 7 suites pass; test_shadow UNKNOWN (timeout under load)."
       }
+    },
+    {
+      "subject": "A4A",
+      "sha": "claude/w5-SECREVIEW-A4A",
+      "recorded": "2026-11-02T23:08:59Z",
+      "verdicts": {
+        "opus2/a4a-research-to-concept 3dc3e68c": "DO NOT SHIP: A4A-1 HIGH Product Truth: Dishcloth/Hot Pad drafted on placemat template -> certified twin 38.4x11.4 cm while premise says 'A square dishcloth'; gate.certify grants with no reasons; name_truth/first_customer families have no dishcloth/hot-pad size band; PDF would print 38x11 cm dishcloth. MED A4A-2 crash-after-answer redelivery builds a proposal below the evidence floor (1 listing/1 shop) or TypeError on priceless listings; MED A4A-3 ended gaps never reopen when evidence arrives; LOW title-variant originality misses, future-dated listings, pod-level evidence floor, 6/12 mutants survive. Idempotency, gates, terminations verified; 10 suites pass incl. test_shadow; merges clean with A6/A4b."
+      }
     }
   ],
   "integration": {
@@ -1073,13 +1081,6 @@
         "requested_by": "[SECONDARY] REVIEW-REQUEST in issue #28 comment 6587725737 (20:30:14Z)"
       },
       {
-        "id": "A4A-REVIEW",
-        "subject": "opus2/a4a-research-to-concept 3dc3e68c (code fee061e5)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_A4A_3dc3e68c.md",
-        "started": "2026-11-02T20:37:05Z",
-        "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6587808069 (20:34:19Z)"
-      },
-      {
         "id": "A5-REVIEW",
         "subject": "A5 correction loop 717c7925 (full)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A5_717c7925.md",
@@ -1098,7 +1099,7 @@
         "subject": "opus2/a8-culture-ideation 4f99bd8f (on A4a 993cc0cd)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A8_4f99bd8f.md",
         "started": null,
-        "note": "starts after the A4a verdict (A8 depends on A4a) and machine capacity",
+        "note": "waits for A4a's fix (A8 is built on A4a); review A8 on the fixed A4a base",
         "requested_by": "#28 6589288273"
       },
       {
@@ -1990,7 +1991,8 @@
         "downstream": "radar.concept_intake -> radar.score -> cir.draft",
         "acceptance": "new slug drafted automatically; no-evidence/originality refusals; continuation; extend through certify",
         "path_to_production": "review -> W6-INTEG"
-      }
+      },
+      "review_verdict": "DO NOT SHIP (A4A)"
     },
     {
       "id": "E2E-ACCEPTANCE",
