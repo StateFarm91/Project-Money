@@ -799,6 +799,14 @@
         "opus2/p0-photo-asset-review 8d98bf4c": "DO NOT SHIP: A3D-1 MED liveness (a photo that qualifies later other than via attest_unedited is re-opened but never promoted or reset, stays excluded with a stale reason, listing activation fails forever); LOW A3D-2 stale approved flag, -3 hourly churn, -4 mutants K7/K9/K12 survive (re-open branch untested), -5 lock outside try. OPUS2W-1 fixed on SQLite (Postgres UNKNOWN), W-2..W-7 fixed; 9 suites green; fast-forwards onto INTEG1 7c42e706"
       },
       "recorded": "2026-11-02T19:23Z"
+    },
+    {
+      "subject": "CODEX2",
+      "sha": "claude/w5-SECREVIEW-CODEX2",
+      "recorded": "2026-11-02T21:56:33Z",
+      "verdicts": {
+        "codex/p0-learning-reference 623fc26c..6f0fe7aa": "DO NOT SHIP (not even as partial integration): CODEX2-1 HIGH every pre-existing teardown finding (recorded_by NULL) gets an unclearable 'requires independent review' hold that blocks release gates even when the requirement is met; CODEX2-2 HIGH test_w4_fmbatch1_retention_guard fails (_lesson_roots reads audit_log by computed action name; still at 25c7e802); CODEX2-3 MED frozen eval set hash breaks on merge with INTEG1 (hexagonal-bread-basket CIR changed) and research/ absent in image; CODEX2-4 MED owner can independently 'review' a finding they entered (recorded_by stamped teardown_analyst). Fixed: CODEX1-1, -2, -3, -6, -9. Open: CODEX1-4, -5, -7, -8. IP isolation, held-out isolation, idempotency, additive rollback-safe migration verified."
+      }
     }
   ],
   "integration": {
@@ -1033,13 +1041,6 @@
         "requested_by": "[SECONDARY] REVIEW-REQUEST in issue #28 comment 6587725737 (20:30:14Z)"
       },
       {
-        "id": "CODEX2",
-        "subject": "codex/p0-learning-reference delta 623fc26c..26533977",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX2.md",
-        "started": "2026-11-02T20:32:06Z",
-        "requested_by": "[CODEX] CHECKPOINT in issue #28 comment 6587751033"
-      },
-      {
         "id": "A4A-REVIEW",
         "subject": "opus2/a4a-research-to-concept 3dc3e68c (code fee061e5)",
         "report": "scratchpad/INDEPENDENT_REVIEW_A4A_3dc3e68c.md",
@@ -1072,7 +1073,7 @@
         "subject": "codex/p0-learning-reference delta after the CODEX2 pin up to ae2b707 + bb6c558, 5e652f4 (incl. in-memory execution of a pinned benchmark builder: security focus) + 24b70df, 2b6688a; executor answer #28 6589146793 (in-process exec of pinned brambleloop/research/bench2/product_truth.py sha256 dec34b0b...: safety rests on reviewing that exact source + SHA integrity, not on restricted globals) + c7bda4e (corrected A6 contract; writer pure again)",
         "report": "scratchpad/INDEPENDENT_SECREVIEW_CODEX3.md",
         "started": null,
-        "note": "starts when CODEX2 reports (one Codex review at a time)"
+        "note": "starts on Codex's next REVIEW-REQUEST after CODEX2-1/-2 fixes; scope 6f0fe7aa..head"
       },
       {
         "id": "A5-REVIEW",
