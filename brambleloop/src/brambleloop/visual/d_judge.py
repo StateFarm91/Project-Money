@@ -148,8 +148,13 @@ def _authorise() -> float:
     return cap
 
 
-def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0) -> dict:
-    """One call: the image inline, the prompt, the raw answer and the usage, nothing decided."""
+def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0, db=None) -> dict:
+    """One call: the image inline, the prompt, the raw answer and the usage, nothing decided.
+
+    P0-PAID-PROVIDER-OWNER-GATE: the request passes `paid_provider_gate.enforce` as provider
+    `openai-vision` -- the owner's activation, its ceilings and a live company-budget
+    reservation (taken by the caller through `check_budget_cad`, or passed via `db`) -- on
+    top of this module's own process cap. Without them nothing is sent."""
     global _spent_usd
     _authorise()
     data = open(image_path, "rb").read()
@@ -172,8 +177,27 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0) -> dict:
         "https://api.openai.com/v1/chat/completions", data=json.dumps(body).encode(),
         headers={"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"})
     t0 = time.time()
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        out = json.loads(resp.read().decode())
+    from ..gateway import paid_calls, paid_provider_gate as gate
+
+    noted_db, held = gate.take_budget()
+    gate_db = db if db is not None else (noted_db if noted_db is not None
+                                         else paid_calls.current_db())
+    held = held or {}
+
+    def _send():
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
+    try:
+        out = gate.enforce(
+            gate_db, provider=gate.OPENAI_VISION, scope=gate.VISION,
+            estimate_cad=held.get("estimate_cad") or round(_worst_case_usd() * USD_TO_CAD, 6),
+            fingerprint=paid_calls.fingerprint("d_judge.see", model, sha),
+            reservation_id=held.get("reservation_id"), call=_send,
+            classify=lambda exc: (gate.UNCERTAIN if isinstance(exc, TimeoutError)
+                                  else gate.RELEASED),
+            purpose="d_judge.see")
+    except gate.PaidCallRefused as exc:
+        raise JudgeSpendRefused(f"refused before the call: {exc}") from None
     usage = out.get("usage", {})
     tin, tout = int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))
     cost_usd = tin * PRICE_USD_PER_M["input"] / 1e6 + tout * PRICE_USD_PER_M["output"] / 1e6
