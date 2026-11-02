@@ -149,10 +149,26 @@ DESIGN_CONSTRUCTIONS: frozenset[str] = frozenset({
     "flat_rows", "in_the_round", "motif_join", "top_down_yoke", "bottom_up", "side_to_side",
     "modular_panels", "amigurumi_shaping", "mosaic_overlay", "cable_panel", "granny_square",
     "corner_to_corner", "seamless_tube"})
+# `construction` (A6 acceptance): the construction a `construction_preference` lesson says
+# makers or buyers prefer. It is a value of the creative concept vocabulary, and it changes a
+# draft only where that construction can physically build the concept's form
+# (`creative.family.FORM_CONSTRUCTIONS`), the engine has a route for it, and the concept's own
+# words do not name the construction it already has (a "Granny Square Pillow" stays granny).
+PREFERABLE_CONSTRUCTIONS: frozenset[str] = frozenset({
+    "flat_rows", "in_the_round", "motif_join", "top_down_yoke", "bottom_up", "side_to_side",
+    "modular_panels", "amigurumi_shaping", "tapestry", "mosaic_overlay", "cable_panel",
+    "granny_square", "corner_to_corner", "seamless_tube"})
 DESIGN_PARAMETERS: dict[str, frozenset[str]] = {"yarn_weight": DESIGN_YARN_WEIGHTS,
-                                                "hold_construction": DESIGN_CONSTRUCTIONS}
+                                                "hold_construction": DESIGN_CONSTRUCTIONS,
+                                                "construction": PREFERABLE_CONSTRUCTIONS}
+# Which lesson subjects may carry which parameter: a preference is not a defect report.
+PARAMETER_SUBJECTS: dict[str, frozenset[str]] = {
+    "construction": frozenset({"construction_preference"}),
+}
 DESIGN_APPROVED = "lesson.design_approved"
-DESIGN_APPLIED = "lesson.design_applied"
+# The durable record that Pattern Engineering changed a design because of a lesson (the A6
+# acceptance's `lesson.acted_on` row), beside the lesson's own `acted_on_by` entry.
+DESIGN_APPLIED = "lesson.acted_on"
 
 
 class DesignApprovalRefused(ValueError):
@@ -197,6 +213,10 @@ def approve_for_design(db, lesson_id: int, *, parameter: str, value: str,
             raise DesignApprovalRefused(f"lesson {lesson_id} is superseded or withdrawn")
         if DESIGN_CELL not in (row.routed_to or []):
             raise DesignApprovalRefused(f"lesson {lesson_id} was not routed to {DESIGN_CELL}")
+        allowed = PARAMETER_SUBJECTS.get(parameter)
+        if allowed is not None and row.subject not in allowed:
+            raise DesignApprovalRefused(
+                f"a {row.subject!r} lesson may not set {parameter}: only {sorted(allowed)}")
         if who in (governance.normalise_actor(row.origin_cell), DESIGN_CELL):
             raise DesignApprovalRefused(
                 f"{who} may not approve lesson {lesson_id}: the origin of a lesson, or the "
@@ -227,10 +247,22 @@ def _design_approval(db, lesson_id: int) -> dict | None:
             d = dict(row.detail or {})
             if (d.get("parameter") in DESIGN_PARAMETERS
                     and d.get("value") in DESIGN_PARAMETERS[d["parameter"]]
-                    and row.actor in _design_approvers()):
+                    and row.actor in _design_approvers()
+                    and _subject_may_set(db, lesson_id, d["parameter"])):
                 return {"approval_id": row.id, "approved_by": row.actor,
                         "parameter": d["parameter"], "value": d["value"]}
     return None
+
+
+def _subject_may_set(db, lesson_id: int, parameter: str) -> bool:
+    allowed = PARAMETER_SUBJECTS.get(parameter)
+    if allowed is None:
+        return True
+    from ..core.models import Lesson
+
+    with db.session() as s:
+        row = s.get(Lesson, int(lesson_id))
+        return row is not None and row.subject in allowed
 
 
 def design_directives(db, text: str, *, constructions: tuple[str, ...] = ()) -> dict:
@@ -240,7 +272,7 @@ def design_directives(db, text: str, *, constructions: tuple[str, ...] = ()) -> 
     independent approval naming a declared parameter. Deterministic: a hold for one of
     `constructions` wins; conflicting yarn approvals cancel each other (applied: none).
     """
-    hold, yarn, unapproved, conflicts = [], [], [], []
+    hold, yarn, prefer, unapproved, conflicts = [], [], [], [], []
     for lesson in sorted(matching(db, DESIGN_CELL, text), key=lambda l: int(l["id"])):
         approval = _design_approval(db, int(lesson["id"]))
         if approval is None:
@@ -252,11 +284,19 @@ def design_directives(db, text: str, *, constructions: tuple[str, ...] = ()) -> 
                 hold.append(item)
         elif approval["parameter"] == "yarn_weight":
             yarn.append(item)
+        elif approval["parameter"] == "construction":
+            prefer.append(item)
     if len({l["approval"]["value"] for l in yarn}) > 1:
-        conflicts = [int(l["id"]) for l in yarn]
+        conflicts += [int(l["id"]) for l in yarn]
         yarn = []
+    if len({l["approval"]["value"] for l in prefer}) > 1:
+        conflicts += [int(l["id"]) for l in prefer]
+        prefer = []
     return {"hold": hold, "yarn_weight": (yarn[0]["approval"]["value"] if yarn else None),
-            "yarn_lessons": yarn, "unapproved": unapproved, "conflicts": conflicts}
+            "yarn_lessons": yarn,
+            "construction": (prefer[0]["approval"]["value"] if prefer else None),
+            "construction_lessons": prefer,
+            "unapproved": unapproved, "conflicts": conflicts}
 
 
 def record_application(db, lessons: list[dict], *, subject: str, change: dict,

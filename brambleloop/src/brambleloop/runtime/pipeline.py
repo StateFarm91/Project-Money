@@ -957,20 +957,64 @@ def _design_text(slug: str, title: str = "", category: str = "", seed=None) -> s
     return " ".join(str(x) for x in parts if x)
 
 
+# The words that name a construction in a concept's own copy. A concept that names its
+# construction ("Granny Square Pillow", "a mosaic runner") keeps it whatever a lesson prefers:
+# changing it would make the title promise one construction and the pattern work another.
+_CONSTRUCTION_WORDS: dict[str, tuple[str, ...]] = {
+    "granny_square": ("granny",), "tapestry": ("tapestry", "colourwork", "colorwork"),
+    "mosaic_overlay": ("mosaic",), "cable_panel": ("cable", "cabled"),
+    "corner_to_corner": ("c2c", "corner to corner", "corner-to-corner"),
+    "amigurumi_shaping": ("amigurumi",), "motif_join": ("motif join", "joined motif"),
+    "modular_panels": ("modular",), "seamless_tube": ("seamless",),
+    "side_to_side": ("side to side", "side-to-side"), "top_down_yoke": ("yoke", "top-down"),
+    "bottom_up": ("bottom-up", "bottom up"), "in_the_round": ("in the round",),
+    "flat_rows": (),
+}
+
+
+def _names_a_construction(words: str) -> bool:
+    low = " " + " ".join(str(words or "").lower().split()) + " "
+    return any(f" {w}" in low for ws in _CONSTRUCTION_WORDS.values() for w in ws)
+
+
+def _preferred_construction(found: dict, *, form: str | None, current: str,
+                            own_words: str) -> tuple[str | None, str]:
+    """(construction, why) an approved construction preference moves this concept to, or
+    (None, why not). Only a construction that can build the form, has an engine route, and
+    differs from the current one; never when the concept's own words name a construction."""
+    want = found.get("construction")
+    if not want or form is None:
+        return None, "no approved construction preference applies"
+    from ..creative.family import FORM_CONSTRUCTIONS
+    from ..creative.prospecting import ENGINE_ROUTE
+
+    if want == current:
+        return None, f"the concept is already {want}"
+    if want not in (FORM_CONSTRUCTIONS.get(form) or frozenset()):
+        return None, f"{want} cannot build a {form}"
+    if ENGINE_ROUTE.get(want) is None:
+        return None, f"{want} has no engine route yet"
+    if _names_a_construction(own_words):
+        return None, "the concept's own words name its construction"
+    return want, f"{current} -> {want}"
+
+
 def _design_learning(ctx: JobContext, *, slug: str, text: str, construction: str,
-                     yarn_weight: str) -> dict:
+                     yarn_weight: str, form: str | None = None,
+                     own_words: str = "") -> dict:
     """Apply approved Pattern Engineering learning to a draft (P0-LEARNING-TO-DESIGN, A6).
 
     Returns {} when no lesson matches -- the draft is then byte-identical to the no-lesson
     draft. A hold on this `construction` refuses the draft by name (gate `learning.hold`,
-    recorded now); an approved yarn weight is returned as `yarn_weight`, from which the
-    drafter derives the gauge. The caller records that application once the CIR exists.
+    recorded now). An approved yarn weight is returned as `yarn_weight` (the gauge is derived
+    from it); an approved construction preference, on the creative path (`form` given), as
+    `construction`. The caller records each applied change once the CIR exists.
     """
     from ..improve import consume
 
     found = consume.design_directives(ctx.db, text, constructions=(construction,))
-    if not (found["hold"] or found["yarn_weight"] or found["unapproved"]
-            or found["conflicts"]):
+    if not (found["hold"] or found["yarn_weight"] or found["construction"]
+            or found["unapproved"] or found["conflicts"]):
         return {}
     summary = {"unapproved_ignored": found["unapproved"], "conflicts": found["conflicts"]}
     if found["hold"]:
@@ -987,26 +1031,40 @@ def _design_learning(ctx: JobContext, *, slug: str, text: str, construction: str
         return {"held": {"artifact": slug, "drafted": False, "gate": "learning.hold",
                          "construction": construction, "lessons": ids,
                          "reasons": [why[:300]]}}
+    out: dict = {"summary": summary, "changes": []}
     if found["yarn_weight"] and found["yarn_weight"] != yarn_weight:
-        ids = [int(l["id"]) for l in found["yarn_lessons"]]
-        summary.update({"applied": ids, "parameter": "yarn_weight", "from": yarn_weight,
-                        "to": found["yarn_weight"]})
-        return {"applied": found["yarn_lessons"], "summary": summary,
-                "yarn_weight": found["yarn_weight"],
-                "change": {"parameter": "yarn_weight", "from": yarn_weight,
-                           "to": found["yarn_weight"]},
-                "primitives": tuple(f"improve.consume.design_directives:lesson-{n}"
-                                    for n in ids)}
-    return {"summary": summary}
+        out["yarn_weight"] = found["yarn_weight"]
+        out["changes"].append((found["yarn_lessons"], {
+            "parameter": "yarn_weight", "from": yarn_weight, "to": found["yarn_weight"]}))
+    if found["construction"]:
+        to, why = _preferred_construction(found, form=form, current=construction,
+                                          own_words=own_words)
+        summary["construction_preference"] = {
+            "lessons": [int(l["id"]) for l in found["construction_lessons"]],
+            "wanted": found["construction"], "applied": to is not None, "why": why}
+        if to is not None:
+            out["construction"] = to
+            out["changes"].append((found["construction_lessons"], {
+                "parameter": "construction", "from": construction, "to": to}))
+    if out["changes"]:
+        ids = sorted({int(l["id"]) for lessons, _c in out["changes"] for l in lessons})
+        summary["applied"] = ids
+        summary["changes"] = [c for _l, c in out["changes"]]
+        out["applied"] = True
+        out["primitives"] = tuple(f"improve.consume.design_directives:lesson-{n}"
+                                  for n in ids)
+    return out
 
 
 def _record_design_learning(ctx: JobContext, learning: dict, cir) -> None:
     from ..improve import consume
 
-    consume.record_application(
-        ctx.db, learning["applied"], subject=cir.slug, change=learning["change"],
-        how=(f"cir.draft of {cir.slug} drafted in {learning['change']['to']} yarn "
-             f"(was {learning['change']['from']}); fingerprint {cir.fingerprint[:12]}"))
+    for lessons, change in learning.get("changes") or []:
+        consume.record_application(
+            ctx.db, lessons, subject=cir.slug, change=change,
+            how=(f"cir.draft of {cir.slug}: {change['parameter']} {change['from']} -> "
+                 f"{change['to']} (CIR construction {cir.construction}); fingerprint "
+                 f"{cir.fingerprint[:12]}"))
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -1069,13 +1127,31 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
         ctx, slug=slug, construction=concept.construction, yarn_weight=DEFAULT_WEIGHT,
         text=_design_text(slug, concept.title, concept.form,
                           None) + " " + " ".join(str(x) for x in (
-                              concept.premise, concept.motif, concept.construction)))
+                              concept.premise, concept.motif, concept.construction)),
+        form=concept.form,
+        own_words=" ".join(str(x) for x in (concept.title, concept.premise, concept.motif)))
     if learning.get("held"):
         return learning["held"]
+    baseline = concept
+    if learning.get("construction"):
+        import dataclasses as _dc
+
+        concept = _dc.replace(concept, construction=learning["construction"])
     try:
-        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
-                     brief=ctx.job.inputs.get("brief"),
-                     yarn_weight=learning.get("yarn_weight") or DEFAULT_WEIGHT)
+        try:
+            cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
+                         brief=ctx.job.inputs.get("brief"),
+                         yarn_weight=learning.get("yarn_weight") or DEFAULT_WEIGHT)
+        except PrototypeRefused as exc:
+            if concept is baseline:
+                raise
+            # The preferred construction cannot be authored for this concept: draft the
+            # concept as the tournament carried it, and say the preference did not apply.
+            learning = _drop_construction_change(learning, str(exc))
+            concept = baseline
+            cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
+                         brief=ctx.job.inputs.get("brief"),
+                         yarn_weight=learning.get("yarn_weight") or DEFAULT_WEIGHT)
     except PrototypeRefused as exc:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "engine"})
@@ -1092,8 +1168,25 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
                 idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
     if learning.get("applied"):
         _record_design_learning(ctx, learning, cir)
-    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
-            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
+    out = {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
+           "form": concept.form, "construction": cir.construction,
+           "rows": sum(len(c.rows) for c in cir.components)}
+    if learning.get("summary"):
+        out["learning"] = learning["summary"]
+    return out
+
+
+def _drop_construction_change(learning: dict, why: str) -> dict:
+    changes = [(l, c) for l, c in learning.get("changes") or []
+               if c.get("parameter") != "construction"]
+    summary = dict(learning.get("summary") or {})
+    pref = dict(summary.get("construction_preference") or {})
+    pref.update(applied=False, why=f"not authorable: {why[:200]}")
+    summary["construction_preference"] = pref
+    summary["changes"] = [c for _l, c in changes]
+    summary["applied"] = sorted({int(x["id"]) for l, _c in changes for x in l})
+    return {**{k: v for k, v in learning.items() if k != "construction"},
+            "changes": changes, "summary": summary, "applied": bool(changes)}
 
 
 @handlers.register("cir.compile")
