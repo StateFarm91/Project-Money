@@ -632,6 +632,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps into capped owner-approval reference
     # recommendations. Weekly, CA$0, never buys.
     ("knowledge_gaps", "analyst", "learning.knowledge_gaps", 7 * 24 * 60 * 60),
+    # OPUS2 (research-enrichment consumer): a brief held for research enrichment becomes one
+    # precise, deduplicated request for Research. Hourly, CA$0, never drafts by itself.
+    ("enrichment_sweep", "crochet_engineer", "research.enrichment_sweep", 60 * 60),
     # Requirement 97. Six-hourly: failures mined into routed lessons, idempotent on evidence,
     # so a defect open for a month is one lesson a month old. Nightly is the minimum sweep.
     ("failure_mine", "orchestrator", "improve.mine", 6 * 60 * 60),

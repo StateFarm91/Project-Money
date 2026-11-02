@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-01T11:41:53.787312+00:00",
+ "generated_at": "2026-11-02T13:31:25.373512+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 137,
-  "handlers": 169,
+  "cadences": 138,
+  "handlers": 170,
   "agents": 34,
   "follow_on_edges": 83
  },
@@ -260,6 +260,7 @@
    "name": "Intelligence",
    "mission": "Observe demand, benchmarks, trends and seasonality from sanctioned sources and turn them into scored opportunities.",
    "agents": [
+    "crochet_engineer",
     "market_radar",
     "orchestrator",
     "research_agent"
@@ -307,6 +308,12 @@
       "agent": "market_radar",
       "job_type": "radar.scan",
       "period_seconds": 21600
+     },
+     {
+      "name": "enrichment_sweep",
+      "agent": "crochet_engineer",
+      "job_type": "research.enrichment_sweep",
+      "period_seconds": 3600
      },
      {
       "name": "intel_acceptance",
@@ -444,6 +451,7 @@
     ]
    },
    "cadence": [
+    3600,
     7200,
     21600,
     86400,
@@ -475,6 +483,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.runtime.enrichment_ops",
      "brambleloop.runtime.evidence_ops",
      "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
@@ -502,6 +511,7 @@
      "radar.concept_intake",
      "radar.scan",
      "radar.score",
+     "research.enrichment_sweep",
      "research.flag_architecture",
      "research.investigate",
      "research.sweep",

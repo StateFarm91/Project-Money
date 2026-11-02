@@ -2741,6 +2741,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "improve.commercial_lessons": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
     "learning.knowledge_gaps": ("work_done",),
+    "research.enrichment_sweep": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
     # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
     "listing.search_visibility_aging": ("work_done",),
@@ -3381,6 +3382,7 @@ from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
+from . import enrichment_ops  # noqa: E402,F401  (OPUS2: research.enrichment_sweep)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 
 
