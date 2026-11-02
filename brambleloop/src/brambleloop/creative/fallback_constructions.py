@@ -656,8 +656,11 @@ def _chart_ops(line: str, contrast: str, repeats: int) -> list:
                    times=repeats)]
 
 
-def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
-    """A hexagon-based basket whose wall is a charted two-colour tapestry band."""
+def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None,
+                    chart: str | None = None, size: str | None = None) -> CIR:
+    """A hexagon-based basket whose wall is a charted two-colour tapestry band.
+
+    `chart` and `size` come from a construction request; without them the title decides."""
     from ..creative.prototype import gauge_for
     from ..products.vessels import (BASKET_SIZES, _disc_rounds, base_stitches_for,
                                     hexagon_spans_cm)
@@ -668,11 +671,13 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
                          f"declares {len(colours)}")
     main, contrast = colours[0], colours[1]
     folded = fold_title(concept.title)
-    key = next((k for word, k in _TAPESTRY_SIZE_WORDS if re.search(rf"\b{word}\b", folded)),
-               "medium")
+    key = size or next((k for word, k in _TAPESTRY_SIZE_WORDS
+                        if re.search(rf"\b{word}\b", folded)), "medium")
     spec = next(s for s in BASKET_SIZES if s.key == key)
     gauge = gauge_for(concept.yarn_weight)
-    chart_name = _tapestry_chart(concept.title)
+    chart_name = chart or _tapestry_chart(concept.title)
+    if chart_name not in TAPESTRY_CHARTS:
+        raise ValueError(f"{concept.slug}: {chart_name!r} is not a tapestry chart")
     chart = TAPESTRY_CHARTS[chart_name]
     width = len(chart[0])
     wanted = base_stitches_for(spec.across_cm, gauge)
@@ -786,16 +791,23 @@ def amigurumi_route(title: str | None) -> dict:
             "why": "a ball-body toy is shaped rounds, stuffed and closed, with sewn ears"}
 
 
-def amigurumi(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
-    """A stuffed ball-body bear or bunny: one body in rounds and two placed ears."""
+def amigurumi(concept, *, version: str = "1.0.0", provenance=None,
+              kind: str | None = None) -> CIR:
+    """A stuffed ball-body bear or bunny: one body in rounds and two placed ears.
+
+    `kind` comes from a construction request (the brief's motif); without one the radar
+    title route decides it."""
     from ..cir.model import Seam
     from ..creative.prototype import gauge_for
     from ..products.moment_candidates import _decrease_to, _disc, _Rows
 
-    route = amigurumi_route(concept.title)
-    if route["family"] != AMIGURUMI:
-        raise ValueError(f"{concept.slug}: {route['why']}")
-    kind = route["kind"]
+    if kind is None:
+        route = amigurumi_route(concept.title)
+        if route["family"] != AMIGURUMI:
+            raise ValueError(f"{concept.slug}: {route['why']}")
+        kind = route["kind"]
+    if kind not in AMI_ANIMALS:
+        raise ValueError(f"{concept.slug}: no ball-body shape for {kind!r}")
     ear_spec = AMI_ANIMALS[kind]
     palette = list(dict.fromkeys(concept.colors))
     if not palette:
