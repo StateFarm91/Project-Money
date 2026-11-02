@@ -7,7 +7,7 @@ from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkProduct, Design
                                      TeardownFinding, utcnow)
 from brambleloop.improve.design_knowledge import (DesignKnowledgeRefused, propose,
                                                   propose_from_analysis, review_rule)
-from brambleloop.teardown import licence
+from brambleloop.teardown import licence, review
 
 
 class DesignProposals(unittest.TestCase):
@@ -55,6 +55,8 @@ class DesignProposals(unittest.TestCase):
                     "dimensions": {"finishing": "absent"}})
                 s.add(forged)
                 s.flush()
+                analysis.reviewed_sha256 = review.evidence_digest(analysis)
+                forged.reviewed_sha256 = review.evidence_digest(forged)
                 ident, product_id, forged_id = analysis.id, product.id, forged.id
             self.assertEqual(propose_from_analysis(db, forged_id)["reason"], "not_reviewed")
             licence.capture_purchase(db, "purchase", terms={"allowed_uses": [],

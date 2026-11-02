@@ -115,6 +115,11 @@ class AnalysisWorkerTests(unittest.TestCase):
                     sweeps = list(s.scalars(select(Job).where(
                         Job.job_type == "teardown.analyse_sweep").order_by(Job.id)))
                     self.assertEqual([job.outputs["work_done"] for job in sweeps], [0, 1, 0])
+                    source = s.get(BenchmarkAnalysis, analysis_id)
+                    source.observations = {**source.observations, "pages": 999}
+                from brambleloop.improve import design_knowledge
+                self.assertEqual(design_knowledge.propose_from_analysis(reopened, analysis_id)
+                                 ["reason"], "not_reviewed")
 
     def test_real_intake_queues_once_and_worker_persists_analysis(self):
         with TemporaryDirectory() as tmp:

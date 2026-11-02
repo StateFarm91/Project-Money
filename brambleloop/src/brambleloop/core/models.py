@@ -1247,6 +1247,7 @@ class BenchmarkAnalysis(Base):
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -1275,6 +1276,7 @@ class TeardownFinding(Base):
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 # ---------------------------------------------------------------------------

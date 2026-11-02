@@ -69,6 +69,14 @@ class FindingReviewTests(unittest.TestCase):
                 audits = list(s.scalars(select(AuditLog).where(
                     AuditLog.action == "teardown.finding_reviewed")))
                 self.assertEqual(len(audits), 1)
+                self.assertEqual(audits[0].detail["evidence_sha256"], row.reviewed_sha256)
+                row.score = 1
+            self.assertTrue(all(not row["binding"] for row in enforce.requirements(reopened)))
+            with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+                design_knowledge.propose(reopened, **{**proposal, "key": "changed_clarity"})
+            review.review_finding(reopened, a_id, reviewer="another", decision="reviewed",
+                                  reason="reviewed the changed evidence")
+            self.assertTrue(any(row["binding"] for row in enforce.requirements(reopened)))
 
 
 if __name__ == "__main__":
