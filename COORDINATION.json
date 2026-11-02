@@ -823,6 +823,11 @@
       "received": "2026-11-02T03:45Z",
       "title": "Permanent continuous integration directive + Batch 4 deployment authorization (restated)",
       "summary": "No completed accepted engineering sits idle without a documented dependency. Maintain an automatic integration queue with verdict, dependencies, merge readiness, target, regression suites, next action and operator for every completed branch; process eligible items at every wake before status reports; split PRs into independent units; never hold unrelated work behind product-specific fixes; never re-review unchanged code; integration is not deployment; reviews, regression, full certification, backup and rollback evidence remain mandatory; once a SHA is approved, deploy it without waiting for a check-in. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Batch 4 0967c3ee was already deployed at ~03:30Z under the first approval."
+    },
+    {
+      "received": "2026-11-02T13:25Z",
+      "title": "Take command of P0 autonomous workforce delivery (permanent)",
+      "summary": "Main Opus is Secondary's engineering lead: maintain the authoritative P0 backlog, assign the highest-impact unowned engineering with acceptance criteria, reject isolated per-product templates, integrate promptly, verify every pipeline handoff (real handler, automatic trigger, contract, durable state, idempotent retry, holds, next job, runs without Claude), require an end-to-end demonstration of 15 points on real handlers and a durable DB, then sustained Railway acceptance. Priority: HIGH/MED security, child-safety and Product Truth first; then the Research->PD contract; then PD->validation->PDF->imagery->gallery->listing handoffs; then next-product selection and recovery; then construction diversity from demand and Learning; then the remaining P0 work. Codex keeps P0-LEARNING-REFERENCE."
     }
   ],
   "integrator_decisions": [
@@ -846,6 +851,11 @@
       "id": "I-B5-SPLIT-PET-STOCKING",
       "recorded": "2026-11-02T06:40Z",
       "decision": "PR #10 + #11 integrated into W5-INTEG1 as one split unit 52f9f4b5 = opus2 55450fc3..a859f6fe (product commits d0a7685f 5c7b984a 7d220e01 563c0436 940f70e6 e07157dc 09122165), applied 3-way, without Secondary's PR #3 base resolution f96d7bd2 (W5-INTEG1 resolved it; 13d67502 already in as d3688000). So the pet bed does NOT depend on the PR #3 J-1 chain. Every touched file equals a859f6fe content plus W5-INTEG1's own prior differences. Rides Batch 6 (Batch 5 certification is on a8ce0072)."
+    },
+    {
+      "id": "I-OPUS2-FREEZE-GENERATORS",
+      "recorded": "2026-11-02T13:30Z",
+      "decision": "No new per-product generators, construction routes or title-word patches until A1-A4 are accepted; new construction diversity comes only through the reusable Research->PD contract (A4). Existing PRs only receive fixes for their review findings."
     }
   ],
   "production_observations": [
@@ -908,5 +918,70 @@
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": []
-  }
+  },
+  "assignments": [
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A1",
+      "requirement": "P0-SAFETY-CHILDREN",
+      "closes": [
+        "OPUS2T-4",
+        "OPUS2T-6",
+        "OPUS2V-3",
+        "OPUS2V-4"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "via handle_cir_draft and assets.build, on a durable DB: 'Ｂear', '𝐁ear', 'Cosy Ｒabbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A2",
+      "requirement": "P0-NAME-OBJECT",
+      "closes": [
+        "OPUS2T-1",
+        "OPUS2T-2",
+        "OPUS2T-3",
+        "OPUS2V-1",
+        "OPUS2V-2",
+        "OPUS2U-2"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A3",
+      "requirement": "P0-PHOTO-ASSET-REVIEW",
+      "closes": [
+        "OPUS2S-1",
+        "OPUS2S-2",
+        "OPUS2S-3",
+        "OPUS2S-4",
+        "OPUS2S-5"
+      ],
+      "branch_from": "opus2/p0-photo-asset-review rebased on W5-INTEG1 50937469",
+      "acceptance": "repros A, C, D and E behave correctly; a forced race never approves a moved frame; two photos for one release end in a certified set or a named refusal",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A4",
+      "requirement": "P0-RESEARCH-PD-CONTRACT",
+      "state": "to be defined after the integrator's wiring verification; do not start before A1 and A2 are pushed"
+    }
+  ]
 }
