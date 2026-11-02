@@ -655,7 +655,13 @@ def tapestry_route(title: str | None) -> dict | None:
                 "why": (f"the title names {' '.join(unknown)!r}, which the tapestry basket "
                         f"charts do not make")}
     # OPUS2N-4: one chart and one size per release; a second is never silently dropped.
-    charts = {_TAPESTRY_CHART_WORDS[w] for w in before if _TAPESTRY_CHART_WORDS.get(w)}
+    charts = {_chart_word(w) for w in before if _chart_word(w)}
+    unusable = sorted({c for c in charts if c not in tapestry_charts()})
+    if unusable:
+        return {"family": REFUSED,
+                "needs": (f"a tapestry chart of {unusable[0]!r} that the tapestry rule backs "
+                          f"(widened, it is not a motif of measurable extent)"),
+                "why": f"the title names {unusable[0]!r}, which no backed tapestry chart makes"}
     sizes = {k for w, k in _TAPESTRY_SIZE_WORDS if w in before}
     if len(charts) > 1 or len(sizes) > 1:
         named = sorted(charts) if len(charts) > 1 else sorted(sizes)
