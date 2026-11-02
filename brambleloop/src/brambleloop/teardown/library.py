@@ -34,7 +34,7 @@ from pathlib import Path
 # Outside the repository tree on purpose, and in `.gitignore` as belt and braces. An ignore
 # rule only stops the accident it happens to match; this path is also checked in code.
 LIBRARY_ENV = "BRAMBLELOOP_BENCHMARK_LIBRARY"
-DEFAULT_LIBRARY = "benchmark_library"
+DEFAULT_LIBRARY = "/var/lib/brambleloop/benchmark_library"
 
 # Who may open a benchmark file. Deliberately short, and deliberately not "orchestrator":
 # the analyst role exists so that reaching into the library is a visible, separate act.
@@ -62,7 +62,18 @@ class ContentRefused(Exception):
 
 def library_root(env: dict[str, str] | None = None) -> Path:
     e = env if env is not None else os.environ
-    return Path(e.get(LIBRARY_ENV) or DEFAULT_LIBRARY).resolve()
+    root = Path(e.get(LIBRARY_ENV) or DEFAULT_LIBRARY).resolve()
+    # The application tree is present in an image even when .git is not. Also
+    # reject the enclosing checkout when running from source, resolving symlinks
+    # before comparing paths.
+    application = Path(__file__).resolve().parents[3]
+    forbidden = [application]
+    forbidden.extend(p for p in application.parents if (p / ".git").exists())
+    if any(root == tree or tree in root.parents or root in tree.parents for tree in forbidden):
+        raise LibraryRefused(
+            f"benchmark library must be outside the repository and application tree; "
+            f"set {LIBRARY_ENV} to a private external directory")
+    return root
 
 
 def retrieve(relative_path: str, role: str, env: dict[str, str] | None = None, *,

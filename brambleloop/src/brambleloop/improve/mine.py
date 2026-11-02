@@ -37,6 +37,8 @@ _ASSET_BLOCKED = re.compile(r"^assets\.[a-z_]+_blocked$")
 # (the search certificate refused every Launch-0 product on a clean shadow run). Only audits
 # that block release are read.
 RELEASE_GATES = "store.release_gates"
+COMPILE_ACTION = "cir.compiled"
+UNREPAIRABLE_ACTION = "cir.revise_unrepairable"
 
 # Where each kind of failure enters the bus, and the subject that routes it. Subjects are the
 # existing routing table's, not new ones: a lesson whose audience is undefined stays where it
@@ -127,6 +129,8 @@ def _read(db, since: dict) -> dict:
                   for a in s.scalars(select(AuditLog).where(AuditLog.id > since["audit_id"])
                                      .order_by(AuditLog.id))
                   if a.action in GATE_ACTIONS or _ASSET_BLOCKED.match(a.action or "")
+                  or (a.action == COMPILE_ACTION and (a.detail or {}).get("ok") is False)
+                  or a.action == UNREPAIRABLE_ACTION
                   or (a.action == RELEASE_GATES and (a.detail or {}).get("blocks_release"))]
         # W4-LEARN: only DEFECT dead letters are failures. A shadow-mode refusal or a build
         # stand-aside is a gate working (`queue.durable.classify_dead_letter`, the single
@@ -181,11 +185,15 @@ def group(read: dict) -> list[dict]:
             g["severity"] = inc["severity"]
 
     for row in read["blocked"]:
-        code = _gate_code(row["detail"])
+        code = ("compile_failed" if row["action"] == COMPILE_ACTION else
+                "unrepairable" if row["action"] == UNREPAIRABLE_ACTION else
+                _gate_code(row["detail"]))
         is_asset = bool(_ASSET_BLOCKED.match(row["action"]))
         key = (row["action"], code)
         g = groups.setdefault(key, {
-            "kind": ("asset_block" if is_asset else "release_block"
+            "kind": ("engineering_failure" if row["action"] in
+                     (COMPILE_ACTION, UNREPAIRABLE_ACTION) else
+                     "asset_block" if is_asset else "release_block"
                      if row["action"] == RELEASE_GATES else "gate_block"), "code": code,
             "origin": ASSET_ORIGIN if is_asset else GATE_ORIGIN,
             "subject": ASSET_SUBJECT if is_asset else GATE_SUBJECT,
@@ -244,6 +252,9 @@ def _statement(g: dict) -> str:
         return (f"Listing assets were blocked {n} time(s){products} for {g['code']!r}. "
                 f"An asset refused at the same check repeatedly is a brief or render "
                 f"problem, and fixing it at the check would be weakening the check")
+    if g["kind"] == "engineering_failure":
+        return (f"Pattern engineering recorded {n} {g['code']} outcome(s){products}. "
+                "Correct the design upstream and retain the deterministic checks.")
     return (f"Jobs of type {g['code'].split(':', 1)[0]!r} exhausted their retries {n} "
             f"time(s) with {g['code'].split(':', 1)[-1]!r}. A dead letter repeated at one "
             f"error code is a code path failing the same way, not bad luck")
@@ -338,7 +349,8 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         lesson_id = bus.publish(
             db, origin_cell=g["origin"], subject=g["subject"], statement=_statement(g),
             evidence_ref=g["evidence_ref"],
-            confidence="measured" if g["reports"] > 1 else "observed")
+            confidence="measured" if g["reports"] > 1 else "observed",
+            source_findings=[] if g["kind"] == "engineering_failure" else None)
         entry = {"lesson": lesson_id, "kind": g["kind"], "code": g["code"],
                  "evidence_ref": g["evidence_ref"], "members": len(g["members"]),
                  "reports": g["reports"], "routed_to": list(bus.route_for(g["subject"])),

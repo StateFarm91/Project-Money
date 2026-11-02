@@ -7060,12 +7060,17 @@ def handle_teardown_enforce(ctx: JobContext) -> dict:
     for req in enforce.requirements(ctx.db):
         if not req["binding"]:
             continue
+        import hashlib
+
+        roots = sorted(req["findings"])
+        roots_digest = hashlib.sha256(",".join(str(i) for i in roots).encode()).hexdigest()[:16]
         subject = subjects.get(req["consumers"][0], "delivery_experience")
         lesson = bus.publish(
             ctx.db, origin_cell="quality", subject=subject,
             statement=(f"Teardown requirement {req['key']} ({req['kind']}) binds "
                        f"{'/'.join(req['consumers'])}: {req['requirement'][:220]}"),
-            evidence_ref=f"teardown_requirement:{req['key']}:{req['kind']}",
+            evidence_ref=f"teardown_requirement:{req['key']}:{req['kind']}:roots-{roots_digest}",
+            source_findings=roots,
             confidence="observed")
         published.append(lesson)
     out["lessons"] = sorted(set(published))

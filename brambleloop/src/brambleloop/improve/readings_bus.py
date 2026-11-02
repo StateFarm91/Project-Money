@@ -80,7 +80,7 @@ def _customer(db, now) -> list[int]:
                 confidence="measured",
                 statement=(f"{n} customers asked about {slug} in 30 days; the pattern's "
                            f"instructions are not answering what buyers need"),
-                evidence_ref=f"support_cases:{slug}:{newest}"))
+                evidence_ref=f"support_cases:{slug}:{newest}", source_findings=[]))
     return out
 
 

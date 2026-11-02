@@ -10,6 +10,7 @@ shared it, a round-trip would prove nothing.
 from __future__ import annotations
 
 from .. cir import stitches
+from . import knowledge
 from .compiler import CompileResult
 from .rowcycle import describe, detect_cycle
 from .model import CIR, Component, Op, OpNode, Repeat, Row
@@ -416,6 +417,16 @@ def collapses_rows(cir: CIR) -> bool:
     return any(detect_cycle(c.rows) is not None for c in cir.components)
 
 
+def finishing_checklist(text: str) -> str:
+    """Present the writer's own finishing actions as a checklist without changing words."""
+    head, separator, finishing = text.partition(FINISHING_HEADING)
+    if not separator:
+        raise ValueError("finishing section is absent")
+    return head + separator + "\n" + "\n".join(
+        "- " + line if line and not line.startswith("- ") else line
+        for line in finishing.strip().splitlines()) + "\n"
+
+
 def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
                   width_cm: float | None = None, height_cm: float | None = None) -> str:
     """Render the full customer-facing pattern body."""
@@ -471,4 +482,7 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
     out.append("")
     out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm, result=result))
 
-    return "\n".join(out).rstrip() + "\n"
+    baseline = "\n".join(out).rstrip() + "\n"
+    if any(item["rule"] == "include_finishing_checklist" for item in knowledge.markers(cir)):
+        return finishing_checklist(baseline)
+    return baseline

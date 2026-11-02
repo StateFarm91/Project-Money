@@ -2877,6 +2877,10 @@ DURABLE_KEYS: tuple[str, ...] = ("artifact", "artifact_id", "created_ids", "writ
 # `UNMEASURED` labels, per-run reading ids) is context, not work. An empty tuple declares a
 # job type that never counts as useful work on its own (pure liveness).
 WORK_KEYS: dict[str, tuple[str, ...]] = {
+    "teardown.analyse": ("work_done",),
+    "teardown.analyse_sweep": ("work_done",),
+    "design_eval.sweep": ("work_done",),
+    "design_eval.evaluate": ("work_done",),
     # W4-AGENTS cadences and generatable types: each handler reports a measured `work_done`
     # (rows recorded, checks run, jobs queued), which `did_no_work` reads first; declared
     # here so the useful-work judge knows the key rather than falling back to the counters.
@@ -3535,6 +3539,7 @@ from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captu
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
+from . import teardown_ops  # noqa: E402,F401  (licensed benchmark analysis)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

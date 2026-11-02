@@ -1,0 +1,77 @@
+{
+  "sha256": "d6ccb9c7953ae0b0228a2c76f64e2c3f989ba8a809aa42ecfefd657379f57464",
+  "cases": [
+    {
+      "kind": "launch0",
+      "id": "hexagonal-bread-basket",
+      "build": "basket_small",
+      "cir_sha256": "f616e0c73e8711b06796d8d801f77848ede85257169307b111399a3a4c8c4aa4",
+      "brief_sha256": "1067517fac23e10ec7ce2e81f4069c4fe74ff86c6db7a7f8efb3f79e90ae5aea"
+    },
+    {
+      "kind": "launch0",
+      "id": "cloudline-baby-blanket",
+      "build": "cloudline_blanket",
+      "cir_sha256": "06edf77343fa3836f99cbf3ca2679c69737963856372a61697fcef93088b03d5",
+      "brief_sha256": "ae591df2d0751f63a9445a30c29f67a08874d1af30b5c92aa4efe0e8b4c08ad1"
+    },
+    {
+      "kind": "launch0",
+      "id": "hexagon-coaster-set",
+      "build": "hexagon_coasters",
+      "cir_sha256": "ae25422bded2a7d0afa1c643c57a068f2424d5b1d855cb8638c74a54079a15ba",
+      "brief_sha256": "0773d8af0cfcda5f1ac4d126554bfc1773a7f2643186a867fd2552e79f3fee17"
+    },
+    {
+      "kind": "launch0",
+      "id": "nordic-star-ornaments",
+      "build": "snowflake_ornaments",
+      "cir_sha256": "b9b8ee50f2bc517d300d42354297b5bb2dbe6bbdcc5a48db0610282a47f45274",
+      "brief_sha256": "a648688533563c93db8a3cefb7ea73e8249a1d2a4eadd9bfb206d2dda3d09867"
+    },
+    {
+      "kind": "launch0",
+      "id": "winter-village-graphghan",
+      "build": "snowfall_throw",
+      "cir_sha256": "ca584b254929f980ba11859baaf68c5a5d7bf5f1ff3cd7cea1f5b8880011383b",
+      "brief_sha256": "eab77cd5c4960d2de08c848e3bb9b32917ec5469932c76ed0d29a47919500ccd"
+    },
+    {
+      "kind": "launch0",
+      "id": "nordic-forest-mosaic-throw-baby",
+      "build": "nordic_forest_baby",
+      "cir_sha256": "8f98e58d975613e2db613001b780d52a615ba23f50c7e479d979ad4779e12fc7",
+      "brief_sha256": "d6a4be7156a0e33c248f0cd258a6cd5092d6529dd2fb311d8e3ce32e87f705e8"
+    },
+    {
+      "kind": "launch0",
+      "id": "mosaic-placemat-pair",
+      "build": "placemat_pair",
+      "cir_sha256": "49a95de7d62f12910709c14378964fcb2c0187c582dacc88737b23cf17e6279b",
+      "brief_sha256": "1f6097c3025541d7c53903de7ef2e70960cf1bfa5bab5e1fe4d367078922a49d"
+    },
+    {
+      "kind": "launch0",
+      "id": "housewarming-key-basket",
+      "build": "key_basket",
+      "cir_sha256": "a2923148d72d9a1378d401d1ee92b64530fdd0353473243ec6d82d640797a5b1",
+      "brief_sha256": "c60b70f429312d0981f785b93cf553827e07d240ebff5c5a6f4b4c6ed7f71e85"
+    },
+    {
+      "kind": "benchmark_truth",
+      "id": "bench1_xs",
+      "cir_sha256": "4132ac47a1b697c10ca5fba96cfff687c3a3fb8b0d5782528180f0c13a51c7be",
+      "truth_sha256": "8d64d4bab1c2026e8ba5a69bfb32802ccb1789e3e51b9a18a44e5a7ad7426c25"
+    },
+    {
+      "kind": "benchmark_truth",
+      "id": "bench2",
+      "truth_sha256": "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1"
+    },
+    {
+      "kind": "stitch_family",
+      "id": "star",
+      "validator_sha256": "fd09519039615441526320e43c18fbb965ac4378c5e078c58318d96b214bc9bd"
+    }
+  ]
+}

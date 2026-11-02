@@ -6845,6 +6845,7 @@ async def api_teardown_intake(request: Request,
         return JSONResponse({"error": "operator credential required"}, status_code=401)
 
     from ..teardown.intake import IntakeRefused, receive
+    from ..teardown.library import LibraryRefused
 
     try:
         form = await request.form()
@@ -6852,7 +6853,18 @@ async def api_teardown_intake(request: Request,
         return JSONResponse({"error": f"could not read the upload: {exc}"}, status_code=400)
 
     listing_ref = str(form.get("listing_ref") or "").strip()
-    if not listing_ref:
+    purchase_record = None
+    raw_purchase = form.get("purchase_record")
+    if raw_purchase not in (None, ""):
+        import json as _json
+
+        if len(str(raw_purchase)) > 12000:
+            return JSONResponse({"error": "purchase record is too large"}, status_code=400)
+        try:
+            purchase_record = _json.loads(str(raw_purchase))
+        except (ValueError, TypeError):
+            return JSONResponse({"error": "purchase_record must be valid JSON"}, status_code=400)
+    if not listing_ref and purchase_record is None:
         return JSONResponse({"error": "which pick this is (listing_ref) is the one thing "
                                       "intake cannot infer"}, status_code=400)
 
@@ -6884,9 +6896,11 @@ async def api_teardown_intake(request: Request,
     try:
         result = receive(db, listing_ref, uploads,
                          paid_cad=float(paid) if paid not in (None, "") else None,
-                         licence_terms=licence_terms)
-    except IntakeRefused as exc:
+                         licence_terms=licence_terms, purchase_record=purchase_record)
+    except (IntakeRefused, ValueError) as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    except LibraryRefused as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     Registry(db).audit("orchestrator", "teardown.intake_received",
                        detail={"ref": result["ref"], "files": result["file_count"],

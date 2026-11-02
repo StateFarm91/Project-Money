@@ -1198,6 +1198,41 @@ class CoverageGap(Base):
 # quarantined directory, and `teardown/library.py` is the only thing that may look at them.
 
 
+class DesignRule(Base):
+    """A versioned design-knowledge proposal with explicit provenance."""
+
+    __tablename__ = "design_rules"
+    __table_args__ = (UniqueConstraint("key", "version", name="uq_design_rule_version"),
+                      Index("uq_design_rule_active_slot", "active_slot", unique=True))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    statement: Mapped[dict] = mapped_column(JSON)
+    scope: Mapped[dict] = mapped_column(JSON)
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    provenance: Mapped[list] = mapped_column(JSON, default=list)
+    producer: Mapped[str] = mapped_column(String(120))
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    supersedes: Mapped[int | None] = mapped_column(ForeignKey("design_rules.id"), nullable=True)
+    # At most one approved knowledge version until multi-rule baselines are implemented.
+    active_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DesignEvaluationRun(Base):
+    """Deduplicate a completed evaluation across worker retries and restarts."""
+
+    __tablename__ = "design_evaluation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    rule_id: Mapped[int] = mapped_column(ForeignKey("design_rules.id"), index=True)
+    audit_id: Mapped[int] = mapped_column(ForeignKey("audit_log.id"), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class BenchmarkProduct(Base):
     """One purchased competitor product, as a manifest entry (#150)."""
 
@@ -1215,10 +1250,30 @@ class BenchmarkProduct(Base):
     on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
     why_selected: Mapped[str] = mapped_column(Text, default="")
     listing_promises: Mapped[dict] = mapped_column(JSON, default=dict)
+    purchase_provenance: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Filenames, sizes and hashes only. The contents stay in the quarantined library.
     files: Mapped[list] = mapped_column(JSON, default=list)
     dimensions: Mapped[list] = mapped_column(JSON, default=list)
     teardown_state: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BenchmarkAnalysis(Base):
+    """Closed-vocabulary analysis of one exact quarantined file."""
+
+    __tablename__ = "benchmark_analyses"
+    __table_args__ = (UniqueConstraint("benchmark_id", "file_sha256",
+                                       name="uq_benchmark_analysis_file"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_id: Mapped[int] = mapped_column(ForeignKey("benchmark_products.id"), index=True)
+    file_sha256: Mapped[str] = mapped_column(String(64))
+    observations: Mapped[dict] = mapped_column(JSON)
+    recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -1243,6 +1298,11 @@ class TeardownFinding(Base):
     # NULL rather than a default, because an unstated confidence is not a high one.
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     raw_notes: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1373,6 +1433,7 @@ class Lesson(Base):
     subject: Mapped[str] = mapped_column(String(80), index=True)
     statement: Mapped[str] = mapped_column(Text)
     evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+    source_findings: Mapped[list | None] = mapped_column(JSON, nullable=True)
     confidence: Mapped[str] = mapped_column(String(20), default="observed")
     routed_to: Mapped[list] = mapped_column(JSON, default=list)
     acted_on_by: Mapped[list] = mapped_column(JSON, default=list)
