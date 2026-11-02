@@ -6919,6 +6919,16 @@ def _teardown_ops_refusal(authorization: str) -> JSONResponse | None:
     return None
 
 
+def _teardown_recorder(request: Request) -> tuple[str | None, bool]:
+    """A shared operator token does not establish who recorded a finding."""
+    from .command_center import auth
+
+    session, why, _ = auth.session_from_request(db, request)
+    if session is not None and why is None:
+        return "owner", True
+    return None, False
+
+
 async def _teardown_json_body(request: Request) -> dict | JSONResponse:
     try:
         body = await request.json()
@@ -6956,11 +6966,13 @@ async def api_teardown_audit(request: Request,
     from ..teardown import lab
 
     try:
+        recorder, verified = _teardown_recorder(request)
         result = lab.record_audit(db, str(body.get("benchmark_ref") or ""),
                                   str(body.get("audit") or ""),
                                   body.get("answers") or {},
                                   confidence=body.get("confidence"),
-                                  raw_notes=str(body.get("raw_notes") or ""))
+                                  raw_notes=str(body.get("raw_notes") or ""),
+                                  recorded_by=recorder, recorder_verified=verified)
     except _teardown_refusals() as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     return JSONResponse(result)
@@ -6979,11 +6991,13 @@ async def api_teardown_finding(request: Request,
     from ..teardown import lab
 
     try:
+        recorder, verified = _teardown_recorder(request)
         result = lab.record_finding(
             db, str(body.get("benchmark_ref") or ""), str(body.get("dimension") or ""),
             body.get("score"), str(body.get("mechanism") or ""),
             str(body.get("improvement") or ""), confidence=body.get("confidence"),
-            raw_notes=str(body.get("raw_notes") or ""))
+            raw_notes=str(body.get("raw_notes") or ""),
+            recorded_by=recorder, recorder_verified=verified)
     except (TypeError, ValueError) as exc:
         return JSONResponse({"error": f"score must be 0-5: {exc}"}, status_code=400)
     except _teardown_refusals() as exc:

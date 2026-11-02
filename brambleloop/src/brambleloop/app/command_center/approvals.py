@@ -35,6 +35,7 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
     "teardown.review_finding": (True, "review one reference finding independently"),
     "teardown.review_analysis": (True, "review structured reference observations independently"),
+    "teardown.attest_finding_recorder": (True, "attest the recorder of a legacy finding"),
     "design_knowledge.review_rule": (True, "independently review a proposed design rule"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
     "owner_action.defer": (False, "note that a decision is deferred (the gate stays computed)"),
@@ -650,13 +651,23 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 if not reason:
                     raise ActionRefused("owner decision reason required")
                 result = sfa.rebase(db, actor=actor, reason=reason, stepped_up=True)
+        elif action == "teardown.attest_finding_recorder":
+            from ...teardown import review
+            from ...teardown.library import ContentRefused, LibraryRefused
+
+            try:
+                result = review.attest_finding_recorder(
+                    db, _int(body, "finding_id"), recorder=body.get("recorder"),
+                    actor="owner", reason=reason)
+            except (review.ReviewRefused, ContentRefused, LibraryRefused) as exc:
+                raise ActionRefused(str(exc)[:400]) from None
         elif action in ("teardown.review_finding", "teardown.review_analysis"):
             from ...teardown import review
 
             try:
                 fn = review.review_finding if action.endswith("review_finding") else review.review_analysis
                 ident = "finding_id" if action.endswith("review_finding") else "analysis_id"
-                result = fn(db, _int(body, ident), reviewer=f"owner:{actor}"[:64],
+                result = fn(db, _int(body, ident), reviewer="owner",
                             decision=str(body.get("decision") or ""), reason=reason)
             except (review.ReviewRefused, ValueError) as exc:
                 raise ActionRefused(str(exc)[:400]) from None
@@ -666,7 +677,7 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
 
             try:
                 result = design_knowledge.review_rule(
-                    db, _int(body, "rule_id"), reviewer=f"owner:{actor}"[:120],
+                    db, _int(body, "rule_id"), reviewer="owner",
                     decision=str(body.get("decision") or ""), reason=reason,
                     evaluation_id=body.get("evaluation_id"))
             except (design_knowledge.DesignKnowledgeRefused, ContentRefused, LibraryRefused) as exc:

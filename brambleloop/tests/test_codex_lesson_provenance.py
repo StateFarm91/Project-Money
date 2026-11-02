@@ -38,9 +38,9 @@ class LessonProvenanceTests(unittest.TestCase):
             db.create_all()
             with db.session() as s:
                 high = TeardownFinding(benchmark_ref="a", dimension="instruction_clarity",
-                    score=5, confidence=0.9, recorded_by="analyst")
+                    score=5, confidence=0.9, recorded_by="analyst", recorder_verified=True)
                 low = TeardownFinding(benchmark_ref="b", dimension="instruction_clarity",
-                    score=1, confidence=0.2, recorded_by="analyst")
+                    score=1, confidence=0.2, recorded_by="analyst", recorder_verified=True)
                 s.add_all([high, low])
                 s.flush()
                 high_id, low_id = high.id, low.id
@@ -63,7 +63,8 @@ class LessonProvenanceTests(unittest.TestCase):
             licence.capture_purchase(db, "reference")
             finding_id = lab.record_finding(db, "reference", "instruction_clarity", 1,
                 "A synthetic observation describes confusing presentation.",
-                "Provide a clearer navigation aid for the original document.", confidence=0.9)["finding"]
+                "Provide a clearer navigation aid for the original document.", confidence=0.9,
+                recorded_by="agent:fixture", recorder_verified=True)["finding"]
             queue = JobQueue(db)
             queue.enqueue("orchestrator", "teardown.enforce", {}, idempotency_key="enforce:before")
             self.assertTrue(Worker(db, job_types=["teardown.enforce"]).run_once())
@@ -95,9 +96,9 @@ class LessonProvenanceTests(unittest.TestCase):
                 s.add(BenchmarkProduct(ref="reference", seller="test",
                     files=[{"name": "p.pdf", "sha256": "a" * 64}]))
                 a = TeardownFinding(benchmark_ref="reference", dimension="instruction_clarity",
-                    score=1, confidence=0.9, recorded_by="analyst")
+                    score=1, confidence=0.9, recorded_by="analyst", recorder_verified=True)
                 b = TeardownFinding(benchmark_ref="reference", dimension="instruction_clarity",
-                    score=1, confidence=0.8, recorded_by="analyst")
+                    score=1, confidence=0.8, recorded_by="analyst", recorder_verified=True)
                 legacy = Lesson(origin_cell="quality", subject="instruction_clarity",
                     statement="A legacy lesson cannot prove its original reference finding.",
                     evidence_ref="teardown_requirement:dimension:instruction_clarity:prevent")

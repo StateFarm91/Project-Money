@@ -49,6 +49,7 @@ def rule_digest(row) -> str:
 
 def verify_pins(db, pins: list[dict]) -> list[dict]:
     """Verify all frozen knowledge pins or refuse the entire set."""
+    from ..teardown.review import principal
     if not isinstance(pins, list):
         raise DesignKnowledgeRefused("knowledge pins must be a list")
     if not pins:
@@ -74,7 +75,7 @@ def verify_pins(db, pins: list[dict]) -> list[dict]:
                     or rule.active_slot != 1 or not rule.approved_at
                     or not isinstance(rule.approved_by, str) or not rule.approved_by.strip()
                     or not isinstance(rule.producer, str) or not rule.producer.strip()
-                    or rule.approved_by.strip().casefold() == rule.producer.strip().casefold()
+                    or principal(rule.approved_by) == principal(rule.producer)
                     or rule_digest(rule) != pin["rule_digest"]):
                 raise DesignKnowledgeRefused("knowledge pin is not an approved rule version")
             if (rule.statement != {"rule": "include_finishing_checklist", "parameters": {}}
@@ -533,6 +534,7 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
     """Independently review a proposal against its current held-out evidence."""
     from ..core.models import utcnow
     from ..teardown.library import check_derived
+    from ..teardown.review import principal
     from sqlalchemy.exc import IntegrityError
 
     if type(rule_id) is not int or rule_id <= 0:
@@ -550,7 +552,7 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
         rule = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
         if rule is None:
             raise DesignKnowledgeRefused("rule not found")
-        if not rule.producer or rule.producer.strip().casefold() == reviewer.casefold():
+        if not rule.producer or principal(rule.producer) == principal(reviewer):
             raise DesignKnowledgeRefused("independent reviewer required")
         if decision == "retire":
             if rule.state != "approved" or rule.active_slot != 1:

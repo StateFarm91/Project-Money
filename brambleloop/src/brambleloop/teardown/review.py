@@ -15,6 +15,12 @@ class ReviewRefused(ValueError):
     pass
 
 
+def principal(value: str) -> str:
+    """All owner sessions represent the same owner, not independent people."""
+    name = (value or "").strip().casefold()
+    return "owner" if name == "owner" or name.startswith("owner:") else name
+
+
 def evidence_digest(row) -> str:
     """Bind a review to the exact immutable evidence used by its consumers."""
     if isinstance(row, BenchmarkAnalysis):
@@ -27,7 +33,7 @@ def evidence_digest(row) -> str:
                 "score": row.score, "mechanism": row.mechanism, "improvement": row.improvement,
                 "confidence": row.confidence, "raw_notes": row.raw_notes,
                 "detail": {key: detail.get(key) for key in ("audit", "element", "element_score")},
-                "recorded_by": row.recorded_by}
+                "recorded_by": row.recorded_by, "recorder_verified": row.recorder_verified}
     else:
         raise ReviewRefused("unsupported review evidence")
     try:
@@ -46,8 +52,10 @@ def independent_decision(row, decision: str) -> bool:
             and getattr(row, "review_state", None) == decision
             and isinstance(recorder, str) and bool(recorder.strip())
             and isinstance(reviewer, str) and bool(reviewer.strip())
-            and recorder.strip().casefold() != reviewer.strip().casefold()
+            and principal(recorder) != principal(reviewer)
             and getattr(row, "reviewed_at", None) is not None)
+    if isinstance(row, TeardownFinding) and row.recorder_verified is not True:
+        return False
     if not independent:
         return False
     try:
@@ -65,6 +73,40 @@ def _reviewable(row) -> bool:
     state = getattr(row, "review_state", None)
     return state == "proposed" or (state in ("reviewed", "rejected")
                                    and not independent_decision(row, state))
+
+
+def attest_finding_recorder(db, finding_id: int, *, recorder: str, actor: str,
+                            reason: str) -> dict:
+    """Record an owner's explicit attestation for an unattributed legacy finding."""
+    if type(finding_id) is not int or finding_id <= 0 or principal(actor) != "owner":
+        raise ReviewRefused("owner attestation and valid finding required")
+    if not isinstance(recorder, str) or len(recorder) > 120:
+        raise ReviewRefused("recorder identity required")
+    recorder = recorder.strip()
+    if not (recorder == "owner" or recorder.startswith("external:")
+            or recorder.startswith("agent:")) or recorder.endswith(":"):
+        raise ReviewRefused("recorder must identify the owner, an external person, or an agent")
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+        raise ReviewRefused("attestation reason required")
+    check_derived(recorder)
+    check_derived(reason)
+    with db.session() as s:
+        row = s.scalar(select(TeardownFinding).where(TeardownFinding.id == finding_id).with_for_update())
+        if row is None or row.recorder_verified is True:
+            raise ReviewRefused("finding is missing or its recorder is already established")
+        prior = row.recorded_by
+        changed = s.execute(update(TeardownFinding).where(
+            TeardownFinding.id == finding_id, TeardownFinding.recorder_verified == row.recorder_verified,
+            TeardownFinding.recorded_by == prior).values(
+                recorded_by=recorder, recorder_verified=True, review_state="proposed",
+                reviewed_by=None, reviewed_at=None, reviewed_sha256=None))
+        if changed.rowcount != 1:
+            raise ReviewRefused("finding changed during attestation")
+        s.add(AuditLog(actor="owner", action="teardown.recorder_attested",
+                       artifact=f"teardown-finding:{finding_id}", detail={
+                           "finding": finding_id, "recorder": recorder,
+                           "reason": reason.strip(), "prior_recorder_known": bool(prior)}))
+        return {"finding": finding_id, "recorder": recorder, "review_state": "proposed"}
 
 
 def review_finding(db, finding_id: int, *, reviewer: str, decision: str, reason: str) -> dict:
@@ -87,9 +129,9 @@ def review_finding(db, finding_id: int, *, reviewer: str, decision: str, reason:
                        .with_for_update())
         if row is None:
             raise ReviewRefused("finding not found")
-        if not row.recorded_by:
+        if not row.recorded_by or row.recorder_verified is not True:
             raise ReviewRefused("recorder is unknown; independent review cannot be established")
-        if row.recorded_by.casefold() == reviewer.casefold():
+        if principal(row.recorded_by) == principal(reviewer):
             raise ReviewRefused("recorder cannot review their own finding")
         if not _reviewable(row):
             raise ReviewRefused("finding has already been reviewed")
@@ -130,7 +172,7 @@ def review_analysis(db, analysis_id: int, *, reviewer: str, decision: str, reaso
                        .with_for_update())
         if row is None:
             raise ReviewRefused("analysis not found")
-        if not row.recorded_by or row.recorded_by.casefold() == reviewer.casefold():
+        if not row.recorded_by or principal(row.recorded_by) == principal(reviewer):
             raise ReviewRefused("independent reviewer required")
         if not _reviewable(row):
             raise ReviewRefused("analysis has already been reviewed")

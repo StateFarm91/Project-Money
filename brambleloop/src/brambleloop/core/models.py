@@ -1288,6 +1288,8 @@ class TeardownFinding(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     raw_notes: Mapped[str] = mapped_column(Text, default="")
     recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # NULL/false means the original human or machine recorder was not established.
+    recorder_verified: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

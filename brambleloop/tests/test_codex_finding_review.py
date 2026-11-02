@@ -21,7 +21,8 @@ class FindingReviewTests(unittest.TestCase):
                 s.add(BenchmarkProduct(ref="purchase", seller="test",
                     files=[{"name": "pattern.pdf", "sha256": "a" * 64}]))
                 a = TeardownFinding(benchmark_ref="purchase", dimension="instruction_clarity",
-                                    score=4, recorded_by="analyst", confidence=0.9)
+                                    score=4, recorded_by="analyst", recorder_verified=True,
+                                    confidence=0.9)
                 b = TeardownFinding(benchmark_ref="purchase", dimension="instruction_clarity",
                                     score=4, recorded_by=None, confidence=0.9)
                 s.add_all([a, b])
@@ -40,6 +41,11 @@ class FindingReviewTests(unittest.TestCase):
             with self.assertRaises(review.ReviewRefused):
                 review.review_finding(db, b_id, reviewer="owner", decision="reviewed",
                                       reason="independent check")
+            review.attest_finding_recorder(db, b_id, recorder="owner", actor="owner:session-one",
+                                           reason="owner recorded this fixture")
+            with self.assertRaises(review.ReviewRefused):
+                review.review_finding(db, b_id, reviewer="owner:session-two", decision="reviewed",
+                                      reason="same owner is not independent")
             with self.assertRaises(review.ReviewRefused):
                 review.review_finding(db, a_id, reviewer="owner", decision="reviewed", reason="")
             before = enforce.requirements(db)

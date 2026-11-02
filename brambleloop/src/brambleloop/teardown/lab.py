@@ -116,11 +116,13 @@ def promote_finding(db, finding_id: int) -> dict:
 
 
 def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
-                 confidence=None, raw_notes: str = "") -> dict:
+                 confidence=None, raw_notes: str = "", recorded_by: str | None = None,
+                 recorder_verified: bool = False) -> dict:
     """One complete audit, recorded, promoted, and asked the delight question."""
     inferred = inferred_for(db, benchmark_ref)
     audit = audits.observe(spec_key, benchmark_ref, answers, inferred=inferred)
-    recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes)
+    recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes,
+                             recorded_by=recorded_by, recorder_verified=recorder_verified)
     _bind_if_ours(db, benchmark_ref, recorded["findings_recorded"])
     promotions = [promote_finding(db, fid) for fid in recorded["findings_recorded"]]
     delight = delight_for(db, benchmark_ref)
@@ -133,12 +135,14 @@ def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
 
 
 def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism: str,
-                   improvement: str, *, confidence=None, raw_notes: str = "") -> dict:
+                   improvement: str, *, confidence=None, raw_notes: str = "",
+                   recorded_by: str | None = None, recorder_verified: bool = False) -> dict:
     """One scorecard finding (#161), recorded and promoted (#164)."""
     inferred_for(db, benchmark_ref)
     f = scorecard.finding(benchmark_ref, dimension, int(score), mechanism, improvement,
                           confidence=confidence, raw_notes=raw_notes)
-    finding_id = scorecard.record(db, f)
+    finding_id = scorecard.record(db, f, recorded_by=recorded_by,
+                                  recorder_verified=recorder_verified)
     _bind_if_ours(db, benchmark_ref, [finding_id])
     promotion = promote_finding(db, finding_id)
     delight = delight_for(db, benchmark_ref)
