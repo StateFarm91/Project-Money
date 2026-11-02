@@ -221,6 +221,20 @@ MOTIF_DECLARATIONS: dict[str, dict] = {
     "products.motifs:chevron-band": {"backs": frozenset({"chevron", "chevrons"}),
                                      "medium": RELIEF},
     "products.motifs:basketweave": {"backs": frozenset({"basketweave"}), "medium": RELIEF},
+    # OPUS2 (tapestry design engine): a library motif worked as a two-colour tapestry chart
+    # (`creative.fallback_constructions.library_chart`). The same words, a colourwork medium:
+    # no relief qualifier is needed because the shape is drawn in colour, not raised.
+    **{f"products.motifs:{slug}:tapestry": {"backs": words, "medium": "colourwork"}
+       for slug, words in {
+           "fir-and-star": frozenset({"fir", "firs", "tree", "trees", "forest", "star",
+                                      "stars"}),
+           "diamond-lattice": frozenset({"diamond", "diamonds", "lattice"}),
+           "chevron-band": frozenset({"chevron", "chevrons"}),
+           "basketweave": frozenset({"basketweave"}),
+           "heart-row": frozenset({"heart", "hearts"}),
+           "pumpkin-row": frozenset({"pumpkin", "pumpkins"}),
+           "tulip-trellis": frozenset({"flower", "flowers", "floral"}),
+       }.items()},
     "products.nordic_forest.MOTIF": {"backs": frozenset({"fir", "firs", "star", "stars", "tree",
                                                          "trees", "forest"}),
                                      "medium": RELIEF},

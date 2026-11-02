@@ -564,6 +564,19 @@ TAPESTRY_CHARTS: dict[str, tuple[str, ...]] = {
     "check": ("XXX...", "XXX...", "XXX...", "...XXX", "...XXX", "...XXX"),
 }
 TAPESTRY_DEFAULT_CHART = "diamond"
+# The motif library (products.motifs, original validated grids) is a source of tapestry
+# charts too: each grid is widened to two stitches per cell (a one-stitch contrast is a dot,
+# not a motif: COLOURWORK_MIN_RUN) and admitted only if launch0's own tapestry rule backs the
+# widened chart. Words name the library motif they back (launch0.MOTIF_DECLARATIONS).
+LIBRARY_CHART_WORDS: dict[str, str] = {
+    "fir": "fir-and-star", "firs": "fir-and-star", "tree": "fir-and-star",
+    "trees": "fir-and-star", "forest": "fir-and-star", "star": "fir-and-star",
+    "stars": "fir-and-star", "lattice": "diamond-lattice", "chevron": "chevron-band",
+    "chevrons": "chevron-band", "basketweave": "basketweave", "heart": "heart-row",
+    "hearts": "heart-row", "pumpkin": "pumpkin-row", "pumpkins": "pumpkin-row",
+    "tulip": "tulip-trellis", "tulips": "tulip-trellis", "flower": "tulip-trellis",
+    "flowers": "tulip-trellis", "floral": "tulip-trellis",
+}
 _TAPESTRY_CHART_WORDS = {"diamond": "diamond", "diamonds": "diamond", "argyle": None,
                          "check": "check", "checked": "check", "checker": "check",
                          "checkerboard": "check", "chequer": "check", "chequered": "check",
@@ -590,7 +603,7 @@ _TAPESTRY_ALLOWED_WORDS = frozenset({
     "bicolour", "bicolor", "bi-colour", "bi-color", "crochet", "crocheted", "storage",
     "round", "hexagon", "hexagonal", "geometric", "modern", "classic", "simple", "everyday",
     "cosy", "cozy", "small", "medium", "large", "catch-all", "catchall", "shelf",
-    *[w for w, chart in _TAPESTRY_CHART_WORDS.items() if chart],
+    *[w for w, chart in _TAPESTRY_CHART_WORDS.items() if chart], *LIBRARY_CHART_WORDS,
 })
 _TAPESTRY_SIZE_WORDS = (("small", "small"), ("medium", "medium"), ("large", "large"))
 TAPESTRY_PLAIN_BELOW = 2        # plain main-colour rounds below the chart band
@@ -638,10 +651,82 @@ def tapestry_route(title: str | None) -> dict | None:
             "why": "a tapestry basket is single crochet in joined rounds, two colours carried"}
 
 
-def _tapestry_chart(title: str) -> str:
+def _chart_word(word: str) -> str | None:
+    return _TAPESTRY_CHART_WORDS.get(word) or LIBRARY_CHART_WORDS.get(word)
+
+
+def library_chart(slug: str) -> tuple[str, ...]:
+    """A library motif widened to two stitches per cell, as a tapestry chart ("X" contrast)."""
+    from ..products import motifs
+
+    m = motifs.get(slug)
+    return tuple("".join(("X" if c == "1" else ".") * 2 for c in row) for row in m.grid)
+
+
+def _chart_backed(chart: tuple[str, ...]) -> bool:
+    from ..products.launch0 import colourwork_motif, technique_backed
+
+    grid = [["c" if c == "X" else "m" for c in line * 3] for line in chart]
+    return technique_backed("tapestry", colourwork_motif(grid))[0]
+
+
+def tapestry_charts() -> dict[str, tuple[str, ...]]:
+    """Every chart a tapestry basket may carry: the built-ins and each library motif whose
+    widened chart the tapestry rule backs (computed, never assumed)."""
+    out = dict(TAPESTRY_CHARTS)
+    for slug in sorted(set(LIBRARY_CHART_WORDS.values())):
+        chart = library_chart(slug)
+        if _chart_backed(chart):
+            out[slug] = chart
+    return out
+
+
+def _tapestry_chart(title: str, slug: str = "") -> str:
+    """The chart a brief names, or -- when it names none -- one chosen deterministically from
+    the backed charts by the concept's own key, so different briefs get different designs."""
     words = re.findall(r"[a-z]+", fold_title(title))
-    chosen = [_TAPESTRY_CHART_WORDS[w] for w in words if _TAPESTRY_CHART_WORDS.get(w)]
-    return chosen[0] if chosen else TAPESTRY_DEFAULT_CHART
+    chosen = [_chart_word(w) for w in words if _chart_word(w)]
+    if chosen:
+        return chosen[0]
+    if not slug:
+        return TAPESTRY_DEFAULT_CHART
+    import hashlib
+
+    plain = sorted(c for c in tapestry_charts() if c in TAPESTRY_CHARTS or c in {
+        "basketweave", "chevron-band", "diamond-lattice"})        # no figurative motif unasked
+    return plain[int(hashlib.sha256(slug.encode()).hexdigest(), 16) % len(plain)]
+
+
+def tapestry_motif_primitive(chart_name: str) -> str | None:
+    """The provenance primitive that declares a library motif worked as tapestry."""
+    return None if chart_name in TAPESTRY_CHARTS else f"products.motifs:{chart_name}:tapestry"
+
+
+def _adjust_round(from_count: int, to_count: int) -> list:
+    """One round from `from_count` to `to_count` stitches, the increases (or decreases) spread
+    evenly round it by cir.shaping.distribute, so the wall takes a chart's whole repeats."""
+    from ..cir.shaping import distribute
+
+    if to_count == from_count:
+        return [Op("sc", from_count)]
+    ops: list = []
+    if to_count > from_count:
+        marks = distribute(to_count - from_count, from_count)       # incs per stitch
+        for m in marks:
+            ops.append(Op("inc") if m else Op("sc", 1))
+    else:
+        pairs = from_count - to_count                                # each dec eats 2 -> 1
+        singles = from_count - 2 * pairs
+        marks = distribute(pairs, pairs + singles)
+        for m in marks:
+            ops.append(Op("dec") if m else Op("sc", 1))
+    merged: list = []
+    for op in ops:
+        if merged and merged[-1].stitch == op.stitch == "sc":
+            merged[-1] = Op("sc", merged[-1].count + op.count)
+        else:
+            merged.append(op)
+    return merged
 
 
 def _chart_ops(line: str, contrast: str, repeats: int) -> list:
@@ -675,14 +760,16 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None,
                         if re.search(rf"\b{word}\b", folded)), "medium")
     spec = next(s for s in BASKET_SIZES if s.key == key)
     gauge = gauge_for(concept.yarn_weight)
-    chart_name = chart or _tapestry_chart(concept.title)
-    if chart_name not in TAPESTRY_CHARTS:
-        raise ValueError(f"{concept.slug}: {chart_name!r} is not a tapestry chart")
-    chart = TAPESTRY_CHARTS[chart_name]
+    chart_name = chart or _tapestry_chart(concept.title, concept.slug)
+    charts = tapestry_charts()
+    if chart_name not in charts:
+        raise ValueError(f"{concept.slug}: the {chart_name!r} chart is not a backed tapestry "
+                         f"chart")
+    chart = charts[chart_name]
     width = len(chart[0])
     wanted = base_stitches_for(spec.across_cm, gauge)
-    base_count = max(width * 4, int(round(wanted / width)) * width)
-    base_count -= base_count % 6                        # six stacked increases
+    base_count = max(12, int(round(wanted / 6)) * 6)        # six stacked increases
+    wall_count = max(width * 2, int(round(base_count / width)) * width)
     rows = _disc_rounds(base_count, main)
     row_cm = 10.0 / gauge.rows_per_10cm
     wall_rounds = max(TAPESTRY_PLAIN_BELOW + TAPESTRY_PLAIN_RIM + len(chart),
@@ -692,15 +779,21 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None,
     below = (wall_rounds - band - TAPESTRY_PLAIN_RIM)
     index = rows[-1].index
     band_rows: list[int] = []
+    if band < len(chart):
+        raise ValueError(f"{concept.slug}: the {chart_name!r} chart is {len(chart)} rounds "
+                         f"tall and the {key} wall has room for {band}")
     for w in range(wall_rounds):
         index += 1
-        if below <= w < below + band:
+        if w == 0:
+            # The first wall round takes the stitch count to whole chart repeats.
+            ops = _adjust_round(base_count, wall_count)
+        elif below <= w < below + band:
             line = chart[(w - below) % len(chart)]
-            ops = _chart_ops(line, contrast, base_count // width)
+            ops = _chart_ops(line, contrast, wall_count // width)
             band_rows.append(index)
         else:
-            ops = [Op("sc", base_count)]
-        rows.append(Row(index=index, ops=ops, declared_count=base_count, color=main))
+            ops = [Op("sc", wall_count)]
+        rows.append(Row(index=index, ops=ops, declared_count=wall_count, color=main))
     points, flats = hexagon_spans_cm(base_count, gauge)
     return CIR(
         slug=concept.slug, title=concept.title, version=version,

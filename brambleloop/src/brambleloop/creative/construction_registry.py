@@ -86,12 +86,13 @@ def _words(text: str) -> list[str]:
 
 
 def _tapestry(req: ConstructionRequest) -> None:
-    from .fallback_constructions import TAPESTRY_CHARTS, _TAPESTRY_CHART_WORDS
+    from .fallback_constructions import _chart_word, tapestry_charts
 
-    charts = {_TAPESTRY_CHART_WORDS[w] for w in _words(req.motif) if _TAPESTRY_CHART_WORDS.get(w)}
-    if len(charts) != 1:
+    backed = tapestry_charts()
+    charts = {_chart_word(w) for w in _words(req.motif) if _chart_word(w)}
+    if len(charts) != 1 or next(iter(charts)) not in backed:
         req.hold("motif", (f"the brief's motif {req.motif!r} names no single backed tapestry "
-                           f"chart (have: {sorted(TAPESTRY_CHARTS)})"))
+                           f"chart (have: {sorted(backed)})"))
         return
     if len(req.palette) < 2 or len(set(list(req.palette.values())[:2])) < 2:
         req.hold("palette", "tapestry needs two distinct colours; the palette story names "
@@ -114,8 +115,12 @@ def _amigurumi(req: ConstructionRequest) -> None:
 def _plain(req: ConstructionRequest) -> None:
     """A construction that carries no motif: a motif word in the brief would be unbacked."""
     from ..products.launch0 import MOTIF_WORDS
+    from .fallback_constructions import LIBRARY_CHART_WORDS, _TAPESTRY_CHART_WORDS
 
-    named = sorted({w for w in _words(f"{req.motif} {req.title}") if w in MOTIF_WORDS})
+    # A motif word, or a pattern word a chart would make ("checked", "chequered"), names a
+    # pattern this construction does not work: the name would promise what the fabric is not.
+    pattern_words = set(MOTIF_WORDS) | set(_TAPESTRY_CHART_WORDS) | set(LIBRARY_CHART_WORDS)
+    named = sorted({w for w in _words(f"{req.motif} {req.title}") if w in pattern_words})
     if named:
         req.hold("motif", (f"the brief names the motif {named} and this construction works "
                            f"no motif; it needs a construction that does"))
@@ -184,6 +189,17 @@ def build(req: ConstructionRequest, *, version: str = "1.0.0", provenance=None):
     builder = {"vessel": FC.vessel, "tapestry": FC.tapestry_basket, "amigurumi": FC.amigurumi,
                "pouch": FC.pouch, "tote": FC.tote}[req.family]
     return builder(concept, version=version, provenance=provenance, **req.params)
+
+
+def declared_primitives(req: ConstructionRequest) -> tuple[str, ...]:
+    """What the built CIR must declare so the truth gates can back the brief's words: the
+    library motif a tapestry chart works (launch0.MOTIF_DECLARATIONS)."""
+    from .fallback_constructions import tapestry_motif_primitive
+
+    if req.family == "tapestry" and req.params.get("chart"):
+        prim = tapestry_motif_primitive(req.params["chart"])
+        return (prim,) if prim else ()
+    return ()
 
 
 PRIMITIVES = ("creative.construction_registry.request_for",
