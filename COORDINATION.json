@@ -868,7 +868,26 @@
         "two-colour rule tightened (INTEG5G-1) -- next batch; disclosed in the Batch 5 deploy request"
       ]
     },
-    "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
+    "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational.",
+    "batch5_release": {
+      "at": "2026-11-02T21:01:50Z",
+      "certified_sha": "5ba84bf7c291cc971b899dfac7d8b5b4bce95aa1",
+      "cert_run": "20261102T164117Z-1487 passed: 869 suites, 10384 passing, 0 failing, release_eligible, finished 2026-11-02T20:59:28Z",
+      "release_branch": "claude/w5-INTEG1-release",
+      "release_sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+      "commits_on_top": [
+        "f5aea6f2 release record",
+        "287379e2 .github/workflows/dispatch.yml (reviewed, D-OWNER-GITHUB-DISPATCH)",
+        "705725a3 DEPLOYED_HISTORY entry for 0967c3ee (was missing)"
+      ],
+      "safeguards": {
+        "deploy_guard_check": "ALLOW vs 0967c3ee",
+        "rehearse_rollback": "ALLOW (rehearsal b3023bd9)",
+        "deploy_sh_dry_run": "ALLOW, nothing pushed",
+        "backup_readiness": "volume 4.6G, 1.3G free at 2026-11-02T03:28Z; one ~0.5G dump fits; pruning still owed"
+      },
+      "status": "awaiting owner exact-SHA approval"
+    }
   },
   "owner_directives": [
     {
