@@ -1187,6 +1187,26 @@ class CoverageGap(Base):
 # quarantined directory, and `teardown/library.py` is the only thing that may look at them.
 
 
+class DesignRule(Base):
+    """A versioned design-knowledge proposal with explicit provenance."""
+
+    __tablename__ = "design_rules"
+    __table_args__ = (UniqueConstraint("key", "version", name="uq_design_rule_version"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    statement: Mapped[dict] = mapped_column(JSON)
+    scope: Mapped[dict] = mapped_column(JSON)
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    provenance: Mapped[list] = mapped_column(JSON, default=list)
+    producer: Mapped[str] = mapped_column(String(120))
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    supersedes: Mapped[int | None] = mapped_column(ForeignKey("design_rules.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class BenchmarkProduct(Base):
     """One purchased competitor product, as a manifest entry (#150)."""
 
