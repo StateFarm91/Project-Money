@@ -130,6 +130,8 @@ class AnalysisWorkerTests(unittest.TestCase):
                     analysis = s.scalar(select(BenchmarkAnalysis))
                     analysis_id = analysis.id
                     self.assertEqual(analysis.observations["dimensions"]["finishing"], "absent")
+                    self.assertFalse(analysis.observations["architecture_complete"])
+                    self.assertTrue(analysis.observations["architecture_withheld"])
                     gap = s.scalar(select(Incident).where(
                         Incident.signature == f"learning.knowledge_gap:analysis:{analysis_id}"))
                     self.assertEqual(gap.detail["state"], "review_required")

@@ -60,6 +60,10 @@ def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
         "dimensions": {key: value["verdict"] for key, value in measured["dimensions"].items()},
         "architecture": {key: {"present": value["score"], "pages": value.get("pages", [])}
                          for key, value in architecture["answers"].items()},
+        # Unknowns must remain visible for the analyst; they are not false answers.
+        "architecture_withheld": architecture["withheld"],
+        "architecture_mentioned_not_headed": architecture["mentioned_but_not_a_heading"],
+        "architecture_complete": architecture["complete"],
         "construction": {"verdict": construction["verdict"],
                          "worked_in_rounds": construction["worked_in_rounds"],
                          "pieces": construction["pieces_named"]},
