@@ -140,7 +140,7 @@ _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "swe
 def _shaped_title(title: str) -> str | None:
     from ..products.launch0 import ASSEMBLED_FORMS
 
-    lowered = (title or "").lower()
+    lowered = fold_title(title)
     for word in tuple(ASSEMBLED_FORMS) + _SHAPED_WORDS:
         if re.search(rf"\b{re.escape(word)}s?\b", lowered):
             return word
@@ -204,12 +204,16 @@ FAMILY_HEADS: dict[str, frozenset[str]] = {
 _STYLE_WORDS = frozenset({"crochet", "crocheted", "simple", "classic", "everyday", "plain",
                           "modern", "minimalist", "rustic", "farmhouse", "cosy", "cozy", "soft",
                           "basic", "nordic", "scandi", "scandinavian", "boho", "cottage",
-                          "handmade", "textured", "heirloom",
+                          # A2F-4: no "textured" -- a texture the plain builders do not make
+                          "handmade", "heirloom",
                           # the shop's own design-line name (a catalogue line, not a claim)
                           "cloudline"})
 _SEASON_WORDS = frozenset({"winter", "spring", "summer", "autumn", "fall", "christmas",
                            "holiday", "festive", "seasonal", "easter", "valentine", "valentines",
                            "wedding", "harvest"})
+# A2F-4: no texture or construction word a plain builder does not make ("ribbed", "weave",
+# "basket weave", "textured") and no standalone figure ("bear", "paw", "polar"): the same
+# reason a "Bobble Cushion" is refused -- a name never promises a fabric nothing measures.
 FAMILY_MODIFIERS: dict[str, frozenset[str]] = {
     # A2-5: what a basket is for ("Toy", "Laundry", "Fruit", "Yarn Basket") and the measured
     # size words the radar basket honours (`_basket_size`).
@@ -224,10 +228,10 @@ FAMILY_MODIFIERS: dict[str, frozenset[str]] = {
     # "Bear Paw Blanket", "Bear Pillow") are listed; construction and size words are not.
     FLAT_PANEL: _STYLE_WORDS | _SEASON_WORDS | frozenset({
         "baby", "lap", "sofa", "couch", "bed", "travel", "picnic", "table", "kitchen", "bath",
-        "dish", "wash", "hand", "tea", "polar", "bear", "paw", "basket", "weave", "stripe",
-        "striped", "ribbed", "wall", "door", "village", "pet", "snuggle"}),
+        "dish", "wash", "hand", "tea", "stripe",
+        "striped", "wall", "door", "village", "pet", "snuggle"}),
     PANEL_PAIR: _STYLE_WORDS | _SEASON_WORDS | frozenset({
-        "ring", "throw", "accent", "decorative", "square", "sofa", "bear"}),
+        "ring", "throw", "accent", "decorative", "square", "sofa"}),
     TRIANGLE: _STYLE_WORDS | _SEASON_WORDS | frozenset({"triangle", "lightweight", "light"}),
     COSY: _STYLE_WORDS | _SEASON_WORDS | frozenset({"egg", "eggs"}),
 }
@@ -372,7 +376,7 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
         # P0 construction breadth (bags and accessories): a plain drawstring pouch is a small
         # round vessel with an eyelet round and a threaded chain cord.
         return pouch_route(title)
-    titled_tote = bool(re.search(_TOTE_WORDS, (title or "").lower()))
+    titled_tote = bool(re.search(_TOTE_WORDS, fold_title(title)))
     if category in NEEDS and not (category == "bag" and titled_tote) and category != "stocking":
         return {"family": REFUSED, "needs": NEEDS[category],
                 "why": (f"category {category!r} needs {NEEDS[category]}; the fallback drafts "
@@ -384,6 +388,11 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
         coloured = tapestry_route(title)
         if coloured is not None:
             return coloured
+        _size, conflict = basket_size_key(title)          # A2F-3
+        if conflict:
+            return {"family": REFUSED, "why": conflict,
+                    "needs": "one size in the title: small, medium or large (bread = small, "
+                             "market = large)"}
         return {"family": VESSEL, "needs": "", "why": "a basket is worked in the round"}
     if category in PET_CATEGORIES and re.search(_PET_BED_HEAD, fold_title(title)):
         lowered_p = fold_title(title)       # OPUS2L-4: Unicode dashes and forms folded
@@ -481,8 +490,8 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
                             f"two-panel stocking does not make")}
         return {"family": STOCKING, "needs": "",
                 "why": "a stocking is two L-shaped panels worked flat and seamed around"}
-    if re.search(_EGG_COSY_WORDS, (title or "").lower()):
-        rest = re.sub(_EGG_COSY_WORDS, "", (title or "").lower())
+    if re.search(_EGG_COSY_WORDS, fold_title(title)):
+        rest = re.sub(_EGG_COSY_WORDS, "", fold_title(title))
         extra = re.search(_COSY_NOT_PLAIN, rest)
         if extra:
             return {"family": REFUSED,
@@ -494,8 +503,8 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
         if not _shaped_title(rest):
             return {"family": COSY, "needs": "",
                     "why": "an egg cosy is a small cup worked from the crown down"}
-    if re.search(_TOTE_WORDS, (title or "").lower()):
-        lowered_t = (title or "").lower()
+    if re.search(_TOTE_WORDS, fold_title(title)):
+        lowered_t = fold_title(title)
         rest = re.sub(r"\bbags?\b", "", re.sub(_TOTE_WORDS, "", lowered_t))
         # Review OPUS2E E1: one tote is one finished object. Its straps are parts, so no
         # count, plural or "set" may be backed by them: such a title is refused here.
@@ -521,7 +530,7 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
         if not _shaped_title(rest):
             return {"family": TOTE, "needs": "",
                     "why": "a tote is a vessel worked in the round with two sewn straps"}
-    lowered = (title or "").lower()
+    lowered = fold_title(title)
     if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
         named = re.search(_STITCH_PATTERN_WORDS, lowered)
         if named:
@@ -838,12 +847,28 @@ def _pet_bed_size():
     return PET_BED_SIZE
 
 
+def basket_size_key(title: str | None) -> tuple[str | None, str | None]:
+    """A2F-3: (size key, None) or (None, why refused) from the title's folded WORDS.
+
+    Every size word in the title is read, not the first substring hit: one explicit size
+    ("small", "medium", "large") decides; "bread" means small and "market" large; two
+    different sizes -- "Small Market Basket", "Large Bread Basket", "Basket - Small - Large"
+    -- are a title promising two sizes, and are refused. No size word: None (medium)."""
+    words = re.findall(r"[a-z]+", fold_title(title))
+    sizes = {k for w in words for word, k in _SIZE_WORDS if w == word}
+    if len(sizes) > 1:
+        return None, (f"the title names conflicting sizes ({', '.join(sorted(sizes))}); a "
+                      f"basket is drafted at one size")
+    return (next(iter(sizes)) if sizes else None), None
+
+
 def _basket_size(title: str):
     from ..products.vessels import BASKET_SIZES
 
-    lowered = (title or "").lower()
-    key = next((k for word, k in _SIZE_WORDS if word in lowered), "medium")
-    return next(s for s in BASKET_SIZES if s.key == key)
+    key, why = basket_size_key(title)
+    if why:
+        raise ValueError(why)              # `plan` refuses these before a vessel is built
+    return next(s for s in BASKET_SIZES if s.key == (key or "medium"))
 
 
 def vessel(concept, *, version: str = "1.0.0", provenance=None, size: str | None = None) -> CIR:
@@ -944,7 +969,7 @@ def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
 
     from ..cir.model import Seam
 
-    lowered = (concept.title or "").lower()
+    lowered = fold_title(concept.title)
     size = next((key for word, key in _TOTE_SIZE_WORDS if re.search(rf"\b{word}\b", lowered)),
                 "large")
     body_cir = vessel(concept, version=version, provenance=provenance, size=size)
@@ -1034,7 +1059,7 @@ def cosy(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         index += 1
         rows.append(Row(index=index, ops=[Op("sc", count)], declared_count=count,
                         color=palette[((w - 1) // 2) % len(palette)]))
-    lowered = (concept.title or "").lower()
+    lowered = fold_title(concept.title)
     make = COSY_SET if (re.search(r"\bcos(?:ies)\b|\bcoz(?:ies)\b", lowered)
                         or any(re.search(rf"\b{m}\b", lowered) for m in PLURAL_MARKERS)) else 1
     around = count * 10.0 / gauge.stitches_per_10cm

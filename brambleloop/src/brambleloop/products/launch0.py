@@ -172,7 +172,7 @@ def title_promise(cir: CIR) -> dict:
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     claimed: int | None = None
     for token in re.findall(r"[a-z]+|\d+", lowered):
         if token.isdigit():
@@ -309,7 +309,7 @@ def assembly_promise(cir: CIR) -> dict:
     Why: a garland is pennants joined to a cord. A CIR with one panel and no seams is a panel,
     and the buyer who paid for a garland has to invent the part that makes it one.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     named = [f for f in ASSEMBLED_FORMS if f in lowered]
     seams = len(cir.assembly or [])
     pieces = sum(c.make for c in cir.components)
@@ -518,7 +518,7 @@ def fabric_truth(cir: CIR, twin) -> dict:
     heights = twin.stitch_types_used
     mixed_heights = len(heights) > 1
 
-    text = f"{cir.title} {cir.designer_notes or ''}".lower()
+    text = _motif_fold(f"{cir.title} {cir.designer_notes or ''}")  # A2F-2: one fold
     claims = colourwork_claims(text)
     motif = colourwork_motif(grid)
     verdicts = {c: technique_backed(c, motif) for c in claims}

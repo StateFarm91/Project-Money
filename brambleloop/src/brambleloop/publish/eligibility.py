@@ -633,49 +633,61 @@ NAME_OUTRUNS_PATTERN = "NAME_OUTRUNS_PATTERN"
 _RULE_DRAFTED = ("creative.fallback_constructions.", "creative.construction_registry.")
 
 
-def _engineered_designs() -> set[str]:
-    """The slugs of the engineered designs: the catalogue universe, every launch0 builder,
-    proposal and candidate variant, and the pipeline board's proposals. Each declares its own motif and keeps its own
-    product_truth gate."""
-    from ..products import inventory
+def _content_digest(cir) -> str:
+    """What a CIR IS, independent of the release number it carries."""
+    import hashlib
+    import json
+
+    d = dict(cir.to_dict())
+    d.pop("version", None)
+    return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
+
+
+_IDENTITIES: dict[str, frozenset[str]] | None = None
+
+
+def _engineered_identities() -> dict[str, frozenset[str]]:
+    """A2F-1: slug -> the content digests of the CIRs an engineered BUILDER produces for it.
+
+    Built from the builders themselves -- the catalogue universe, every Launch-0 builder,
+    proposal and candidate variant, the pipeline board's proposals and creative builders, and
+    the moment candidates -- never from a list of slugs. A slug with no builder has no
+    identity, so nothing drafted under it is exempt."""
+    global _IDENTITIES
+    if _IDENTITIES is not None:
+        return _IDENTITIES
+    from ..products import inventory, moment_candidates, pipeline_board
     from ..products import launch0 as l0
 
-    out = set(inventory.universe())
+    makers = [lambda s=s: inventory._engineered(s) for s in inventory.universe()]
     for name in ("BUILDERS", "PROPOSED_BUILDERS"):
-        for key in getattr(l0, name, {}) or {}:
-            try:
-                out.add(l0.cir_for(key).slug)
-            except Exception:  # noqa: BLE001 - a builder that cannot build declares nothing
-                continue
+        makers += [lambda k=k: l0.cir_for(k) for k in (getattr(l0, name, {}) or {})]
     for cand in getattr(l0, "CANDIDATES", ()):
-        for v in cand.variants:
-            try:
-                out.add(l0.cir_for(v.build).slug)
-            except Exception:  # noqa: BLE001
-                continue
-    # the pipeline board's engineered proposals (the relief runners, dishcloths, scarves)
-    from ..products import pipeline_board
-
-    out |= {p.slug for p in pipeline_board.PROPOSALS}
-    # the creative moment candidates engineered in products.moment_candidates (ENGINEERED)
-    from ..products import moment_candidates
-
-    out |= set(getattr(moment_candidates, "ENGINEERED", {}) or {})
-    # the curated creative concepts the moment engine designs (creative.emotional_brief)
-    from ..creative import emotional_brief
-
-    try:
-        out |= {c.key for c in emotional_brief.candidate_concepts()[0]}
-    except Exception:  # noqa: BLE001 - an unreadable registry exempts nothing (fail-closed)
-        pass
-    return out
+        makers += [lambda b=v.build: l0.cir_for(b) for v in cand.variants]
+    makers += [lambda p=p: pipeline_board.proposal_cir(p) for p in pipeline_board.PROPOSALS]
+    makers += list(pipeline_board.CREATIVE_ENGINEERED.values())
+    makers += list((getattr(moment_candidates, "ENGINEERED", {}) or {}).values())
+    out: dict[str, set[str]] = {}
+    for make in makers:
+        try:
+            cir = make()
+        except Exception:  # noqa: BLE001 - a builder that cannot build vouches for nothing
+            continue
+        if cir is not None:
+            out.setdefault(cir.slug, set()).add(_content_digest(cir))
+    _IDENTITIES = {k: frozenset(v) for k, v in out.items()}
+    return _IDENTITIES
 
 
 def _drafted_by_a_rule(cir) -> bool:
-    """A2-2: fail-closed. Every CIR is held to the motif check unless it is one of the
-    engineered designs; any rule-drafting producer -- the radar fallback with or without known
-    lineage (runtime.pipeline.concept_to_cir), the registry, or one not yet written -- is in."""
-    return cir.slug not in _engineered_designs()
+    """A2-2 / A2F-1: fail-closed. Every CIR is held to the motif check unless its CONTENT is
+    what an engineered builder produces for its slug (the release number aside). A slug is
+    not an identity: a rule-drafted CIR under an engineered slug -- the radar fallback, the
+    registry, the creative author, or a producer not yet written -- is held like any other."""
+    try:
+        return _content_digest(cir) not in _engineered_identities().get(cir.slug, frozenset())
+    except Exception:  # noqa: BLE001 - an unreadable identity exempts nothing
+        return True
 
 
 def name_truth(cir, listing: dict | None = None) -> list[str]:

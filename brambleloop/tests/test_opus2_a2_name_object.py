@@ -66,13 +66,9 @@ LEGITIMATE = (("basket", "Crochet Storage Basket", F.VESSEL),
               ("basket", "Diamond Tapestry Basket", F.TAPESTRY),
               ("bag", "Everyday Market Tote", F.TOTE), ("bag", "Small Tote", F.TOTE),
               ("bag", "Tote Bag", F.TOTE), ("bag", "Drawstring Pouch", F.POUCH),
-              ("blanket", "Polar Bear Blanket", F.FLAT_PANEL),
-              ("blanket", "Bear Paw Blanket", F.FLAT_PANEL),
-              ("blanket", "Basket Weave Blanket", F.FLAT_PANEL),
               ("blanket", "Everyday Throw for Beginners", F.FLAT_PANEL),
               ("blanket", "Winter Village Graphghan", F.FLAT_PANEL),
               ("placemat", "Mosaic Placemat Pair", F.FLAT_PANEL),
-              ("pillow", "Bear Pillow", F.PANEL_PAIR),
               ("wedding", "Wedding Ring Cushion", F.PANEL_PAIR),
               ("shawl", "Everyday Triangle Shawl", F.TRIANGLE),
               ("seasonal_decor", "Easter Egg Cosy Set", F.COSY),
@@ -89,7 +85,7 @@ def test_every_review_repro_is_refused_in_every_category():
 
 
 def test_legitimate_titles_still_draft():
-    assert len(LEGITIMATE) == 31
+    assert len(LEGITIMATE) == 27
     for category, title, family in LEGITIMATE:
         got = F.plan(category=category, title=title)
         assert got["family"] == family, (category, title, got)
@@ -173,13 +169,22 @@ def test_motif_promise_is_in_name_truth_for_every_non_catalogue_product():
             if prims else None
         assert any(f.startswith("motif:") for f in name_truth(
             dataclasses.replace(heart, provenance=prov))), prims
-    # an engineered proposal under its own slug is judged by its own gate, not here
+    # A2F-1: a SLUG is not an identity. A rule-drafted CIR under an engineered slug is held to
+    # the motif check like any other; only the engineered builder's exact output is exempt.
+    from brambleloop.products import pipeline_board
     from brambleloop.publish import eligibility
 
-    engineered = eligibility._engineered_designs()
-    assert "heart-relief-table-runner" in engineered
-    assert not eligibility._drafted_by_a_rule(dataclasses.replace(
-        heart, slug="heart-relief-table-runner"))
+    for slug in ("heart-relief-table-runner", "first-christmas-stocking",
+                 "teacher-chevron-pencil-roll"):
+        posing = dataclasses.replace(heart, slug=slug)
+        assert eligibility._drafted_by_a_rule(posing), slug
+        assert any(f.startswith("motif:") for f in name_truth(posing)), slug
+    runner = pipeline_board.proposal_cir(next(p for p in pipeline_board.PROPOSALS
+                                              if p.slug == "heart-relief-table-runner"))
+    assert not eligibility._drafted_by_a_rule(runner)
+    assert not eligibility._drafted_by_a_rule(dataclasses.replace(runner, version="9.9.9"))
+    assert eligibility._drafted_by_a_rule(dataclasses.replace(runner, title="Heart Blanket"))
+    assert not hasattr(eligibility, "_engineered_designs")
     # the engineered catalogue keeps its own gates (an integrator decision is recorded): a
     # catalogue title motif_promise does not back is not newly failed by name_truth
     from brambleloop.products import launch0
@@ -190,6 +195,65 @@ def test_motif_promise_is_in_name_truth_for_every_non_catalogue_product():
     assert not any(f.startswith("motif:") for f in name_truth(pillow))
 
 
+
+# A2F-4: a figure or texture the plain builders do not make is refused, not drafted plain.
+# (Moved from LEGITIMATE: "Polar Bear Blanket", "Bear Paw Blanket", "Basket Weave Blanket",
+# "Bear Pillow" -- no bear, paw or weave is made by a plain panel, and none is a measured motif.)
+UNMADE_TEXTURES = (("blanket", "Ribbed Blanket"), ("blanket", "Ribbed Throw"),
+                   ("scarf", "Ribbed Scarf"), ("scarf", "\uff32ibbed Scarf"),
+                   ("blanket", "\U0001d411ibbed Blanket"), ("blanket", "Basket Weave Blanket"),
+                   ("blanket", "Weave Blanket"), ("blanket", "Bear Blanket"),
+                   ("blanket", "Paw Blanket"), ("blanket", "Polar Blanket"),
+                   ("blanket", "Polar Bear Blanket"), ("blanket", "Bear Paw Blanket"),
+                   ("pillow", "Bear Cushion"), ("pillow", "Bear Pillow"),
+                   ("basket", "Textured Basket"), ("baby", "Textured Baby Blanket"))
+
+
+def test_a2f4_textures_and_figures_the_plain_builders_do_not_make_are_refused():
+    for category, title in UNMADE_TEXTURES:
+        assert F.plan(category=category, title=title)["family"] == F.REFUSED, (category, title)
+
+
+def test_a2f3_an_explicit_size_word_decides_and_conflicting_sizes_are_refused():
+    for title in ("Small Market Basket", "Large Bread Basket", "Medium Bread Basket",
+                  "Market Basket (Small)", "Basket - Small - Large", "Small Large Basket"):
+        assert F.plan(category="basket", title=title)["family"] == F.REFUSED, title
+    for title, size in (("Small Basket", "small"), ("Large Basket", "large"),
+                        ("\uff2carge Basket", "large"), ("Market Basket", "large"),
+                        ("Bread Basket", "small"), ("Medium Basket", "medium"),
+                        ("Storage Basket", None), ("Basket - Cream - Large", "large")):
+        assert F.plan(category="basket", title=title)["family"] == F.VESSEL, title
+        assert F.basket_size_key(title) == (size, None), (title, F.basket_size_key(title))
+
+
+def test_a2f5_other_objects_are_never_vessels_and_every_clause_is_read():
+    # M14: a blanket or a cushion is never drafted as a basket
+    for title in ("Blanket", "Cushion", "Storage Blanket", "Everyday Cushion", "Throw"):
+        assert F.plan(category="basket", title=title)["family"] == F.REFUSED, title
+    # M32: every dash clause is read, not only the first
+    for title in ("Basket - Cream - Giant", "Basket - Cream - Teddy Bear"):
+        assert F.plan(category="basket", title=title)["family"] == F.REFUSED, title
+    # M21: the motif reader drops zero-width and format characters (one shared fold)
+    from brambleloop.products import launch0 as L
+
+    assert L._motif_fold("He\u200bart") == "heart" and L._motif_fold("\u041dеart") == "heart"
+    assert L._motif_fold("\u0397eart") == "heart"
+
+
+def test_a2f2_every_title_reader_is_the_one_fold():
+    from brambleloop.gates import asset_truth
+    from brambleloop.products import launch0 as L
+    from brambleloop.products.text_fold import fold
+
+    for t in ("\u041dеart Runner", "\u0397eart Runner", "\uff32ibbed Scarf",
+              "He\u3164art Basket"):
+        assert F.fold_title(t) == " ".join(fold(t).split()), t
+        assert L._motif_fold(t) == fold(t), t
+    import inspect
+
+    for fn in (asset_truth.check_technique_claims, asset_truth.check_shape_claims):
+        assert "fold(text)" in inspect.getsource(fn), fn.__name__
+
 def test_every_radar_seed_routes_as_before():
     from brambleloop.radar.opportunity import POOL
 
@@ -198,7 +262,9 @@ def test_every_radar_seed_routes_as_before():
     # claim no gate measures). Every other seed routes as at INTEG1.
     before = {"nordic-forest-basket": F.VESSEL, "bobble-floor-pillow": F.REFUSED,
               "chunky-ribbed-scarf": F.REFUSED, "heirloom-cable-blanket": F.FLAT_PANEL,
-              "cloudline-baby-blanket": F.FLAT_PANEL, "pet-snuggle-mat": F.FLAT_PANEL}
+              # A2F-4: "Cloudline Textured Baby Blanket" has no engineered builder, so the
+              # fallback would draft it as a plain panel with no texture: refused.
+              "cloudline-baby-blanket": F.REFUSED, "pet-snuggle-mat": F.FLAT_PANEL}
     assert POOL
     for seed in POOL:
         family = F.plan(category=seed.category, title=seed.title, is_bundle=seed.is_bundle,
