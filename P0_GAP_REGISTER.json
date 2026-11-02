@@ -24,7 +24,7 @@
       "reviewed": "Build 2 audits",
       "integrated": "base",
       "deployed": "base_code",
-      "gap": "culture.sweep timeout fixed on PR #7 (awaiting review)"
+      "gap": "culture.sweep timeout fix PR #7 merged into INTEG1 at 7c3806fc; K-4 tests e0be7c4d awaiting re-review; C-1 needs production jobs.last_error"
     },
     {
       "id": "original_opportunity_discovery",
@@ -56,7 +56,7 @@
       "reviewed": "partly (E/EF2)",
       "integrated": "no",
       "deployed": "no",
-      "gap": "colourwork drafting (waits on the PR #9 decision); hats (no sourced height/ease); garments + amigurumi (W-CONCEPT); hexagon/granny motif blankets (the CIR cannot express joining copies of one motif side by side: model decision); lace/lattice charts on shaping",
+      "gap": "pet bed K-7..K-9 (PR #10) in regression; stocking OPUS2L-1 HIGH allowlist pending (PR #11); colourwork model PR #9 in INTEG1, colourwork drafting not built; hats need sourced height/ease; garments + amigurumi not built",
       "blocked_by": [
         "integrator: CIR per-stitch colour",
         "sourcing: hat height/ease (Codex reference intake or sample)"
@@ -124,18 +124,18 @@
     {
       "id": "listing_package_assembly",
       "impl": "opus2 PR #5",
-      "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-4/EF2-5 fixed in e93b16ed (awaiting re-review)",
-      "integrated": "no (batch5 if review accepts)",
+      "reviewed": "EF2/L5 fixes accepted; merged into INTEG1 (claude/w5-INTEG1)",
+      "integrated": "batch5 INTEG1",
       "deployed": "no",
       "gap": null
     },
     {
       "id": "owner_approval_workflow",
       "impl": "base owner queue + opus2 PR #6 race guard",
-      "reviewed": "F -> EF2 CHANGES_REQUIRED; EF2-6/EF2-8 + B-5 index fixed, pending push",
-      "integrated": "no",
+      "reviewed": "EF2/D fixes pushed; merged into INTEG1 (D-5 verify check awaits integrator)",
+      "integrated": "batch5 INTEG1",
       "deployed": "no",
-      "gap": "B-5 index + dedupe script built (PR #6, awaiting re-review); run the dedupe dry run before the first Postgres deploy"
+      "gap": "run the dedupe dry run before the first Postgres deploy; D-5 integrator decision"
     },
     {
       "id": "authorized_publication_controls",
@@ -157,9 +157,9 @@
       "id": "product_family_development",
       "impl": "base creative.family_engine + opus2 culture-signal families (PR #8)",
       "reviewed": "Build 2",
-      "integrated": "base",
+      "integrated": "base + PR #8 merged into INTEG1",
       "deployed": "base_code",
-      "gap": "PR #8 awaiting review"
+      "gap": "None"
     },
     {
       "id": "winner_amplification",
