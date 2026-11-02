@@ -1690,6 +1690,13 @@
       "at": "2026-11-02T20:05:21Z",
       "source": "owner correction 2026-11-02 (supersedes the reassignment parts of I-P0-ABSOLUTE-WORKFORCE, the A4 split owner, and the reassignment rule in I-DISPATCH-PROTOCOL)",
       "decision": "Three operators. Secondary Opus (opus2) owns all P0 autonomous-workforce engineering: A1-A9, V0-V6 and the remaining safe unowned P0 capabilities (WORKFORCE_INVENTORY_EXT gaps). Codex owns P0-LEARNING-REFERENCE. Main Opus directs priorities through the GitHub dispatch channel, verifies acknowledgement and progress, reviews, integrates, certifies, deploys, verifies production autonomy and continues Build 2 / Final Master. The integrator never reassigns Secondary's work without the owner's authorization: a missed ack or checkpoint is reported to the owner with the specific limitation, not silently transferred. Integrator-supervised workers stopped at a clean point; their pushed commits are handed to opus2 with exact SHAs."
+    },
+    {
+      "id": "D-OWNER-GITHUB-DISPATCH",
+      "at": "2026-11-02T20:12:54Z",
+      "source": "owner 'GitHub dispatch decision' 2026-11-02",
+      "decision": "Issue #28 is the official Main <-> Secondary channel. .github/workflows/dispatch.yml ships in the next approved Batch 5 release after independent review; it must stay read-only/coordination-only (contents: read, issues: write), expose no secrets and run no paid model. The repository default branch is not changed. Batch 5 certification and the production acceptance are not interrupted. Main's 5-minute watcher continues meanwhile. Five-minute two-way communication is not claimed until Secondary operates at that interval. Secondary's mission is not reassigned without owner authorization.",
+      "release_mechanics": "deploy_guard fingerprints only deployable layout paths (source_tree_sha256) and accepts a candidate descending from the certified SHA; .github/ is outside the deployable layout, so adding the workflow to the release commit on top of the certified SHA does not require recertification. To be confirmed by `ops/deploy_guard.py check` on the actual release commit before the owner's exact-SHA approval is requested."
     }
   ],
   "owner_actions_pending": [
