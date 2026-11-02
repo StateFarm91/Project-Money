@@ -823,6 +823,14 @@
       "verdicts": {
         "codex/p0-learning-reference 6f0fe7aa..20e0b3a7": "DO NOT SHIP: CODEX3-1 HIGH legacy (recorded_by/review_state NULL) unmet or unmeasured findings no longer block publication (0967c3ee blocks via release_gates.py:1653; head does not), cannot be reviewed back to binding; test_codex_legacy_findings asserts the relaxation, no DECISION_LOG. MED CODEX3-2 pure writer renders any well-formed learning_rule marker without verification (inert until A6 enforces verify_cir_pins). LOW -3 approved knowledge invalidated by ~23 module/numpy/scipy/volume/licence changes (A6 needs re-evaluation workflow + alert), -4 dead-job re-drive forever and masks no-work, -5 bench2 reference/ad_image/comparison stages always UNKNOWN. Executor security acceptable for the exact pinned source (line-by-line reviewed; same buffer hashed and compiled; not a sandbox; builder-pin changes are security-sensitive). CODEX2-2, CODEX1-5 fixed; CODEX2-3 (manifest drift grown), -4, -5, -6 open. Migration additive and rollback-safe on SQLite; all Codex suites + shadow green."
       }
+    },
+    {
+      "subject": "A2F",
+      "sha": "claude/w5-SECREVIEW-A2F",
+      "recorded": "2026-11-02T22:50:22Z",
+      "verdicts": {
+        "opus2/a2-name-object 51f87859": "DO NOT SHIP: A2F-1 HIGH motif check exempted by slug (_engineered_designs) incl. 9 slugs with no engineered CIR -> rule-drafted 'Heart Table Runner' under heart-relief-table-runner passes; test pins the loophole; A2F-2 HIGH four title readers, none is text_fold.fold; _motif_fold misses Cyrillic/Greek lookalikes; manual_adoption runs motif_promise on live Etsy text unrouted; fullwidth 'Ribbed Scarf' drafts plain panel; A2F-3 HIGH size word order inverts size ('Small Market Basket' drafts large); A2F-4 MED allowlists admit unmade textures (ribbed, basket weave); A2F-5 MED mutants M14, M11d, M21, M26, M32 survive. Catalogue 40/40 byte-identical; no assertion weakened; Bobble/Ribbed seed refusals correct; 11 suites pass."
+      }
     }
   ],
   "integration": {
@@ -1069,13 +1077,6 @@
         "report": "scratchpad/INDEPENDENT_SECREVIEW_A3F.md",
         "started": "2026-11-02T20:53:29Z",
         "requested_by": "[SECONDARY] REVIEW-REQUEST issue #28 comment 6588158334 (20:51:48Z)"
-      },
-      {
-        "id": "A2F-REVIEW",
-        "subject": "opus2/a2-name-object 3be8262f..51f87859 (delta)",
-        "report": "scratchpad/INDEPENDENT_SECREVIEW_A2F.md",
-        "started": "2026-11-02T21:13:50Z",
-        "requested_by": "#28 6588404114"
       },
       {
         "id": "A5-REVIEW",
@@ -1876,7 +1877,8 @@
           "by": "integrator",
           "evidence": "opus2 checkpoint 20:21Z: A2 v2 local c93f9c53, 45-suite run in progress (not pushed)"
         }
-      ]
+      ],
+      "review_verdict": "DO NOT SHIP (A2F)"
     },
     {
       "id": "A4b",
