@@ -785,7 +785,8 @@
       ],
       "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head.",
       "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends."
-    }
+    },
+    "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational."
   },
   "owner_directives": [
     {
@@ -976,12 +977,94 @@
     },
     {
       "owner": "opus2",
-      "assigned": "2026-11-02T13:30Z",
+      "assigned": "2026-11-02T14:05Z",
       "integration_target": "claude/w5-INTEG1",
-      "source": "PR #3 comment 6578467189",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
       "id": "A4",
       "requirement": "P0-RESEARCH-PD-CONTRACT",
-      "state": "to be defined after the integrator's wiring verification; do not start before A1 and A2 are pushed"
+      "gaps": [
+        "wiring #1 research brief -> concept outside the 34",
+        "wiring #2 refused/held draft -> enrichment -> re-draft"
+      ],
+      "acceptance": "(a) a CoverageGap -> research -> concept_intake -> radar.score gives a non-POOL RadarConcept and a cir.draft (radar.intake provenance), idempotent; (b) a refused construction -> enrichment task -> new fingerprint -> new cir.draft reaching compile; (c) at least 5 briefs -> at least 3 materially different constructions, with named holds; (d) A2 title rule enforced",
+      "state": "assigned (after A1, A2)"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A5",
+      "requirement": "P0-CORRECTION-LOOP",
+      "gaps": [
+        "wiring #3"
+      ],
+      "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A6",
+      "requirement": "P0-LEARNING-INTO-DESIGN (consumer side; Codex owns the store)",
+      "gaps": [
+        "wiring #4"
+      ],
+      "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A7",
+      "requirement": "P0-SUPPLY-STALL",
+      "gaps": [
+        "wiring #5"
+      ],
+      "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A8",
+      "requirement": "P0-CULTURE-TO-IDEATION",
+      "gaps": [
+        "wiring #6"
+      ],
+      "acceptance": "a rising culture signal opens a research task that reaches concept_intake",
+      "state": "assigned"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A9",
+      "requirement": "P0-PACKAGE-EVENT",
+      "gaps": [
+        "wiring #7"
+      ],
+      "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
+      "state": "assigned"
     }
   ]
 }
