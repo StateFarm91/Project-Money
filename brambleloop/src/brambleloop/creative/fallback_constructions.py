@@ -1013,6 +1013,13 @@ def tapestry_basket(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         else:
             ops = [Op("sc", base_count)]
         rows.append(Row(index=index, ops=ops, declared_count=base_count, color=main))
+    # OPUS2P-9: the join and the cut are said where the maker reaches them, not only in
+    # Finishing.
+    by_index = {r.index: r for r in rows}
+    if band_rows:
+        by_index[band_rows[0]].note = f"join {contrast} at the start of this round"
+        if band_rows[-1] < rows[-1].index:
+            by_index[band_rows[-1]].note = f"cut {contrast} after this round and fasten it off"
     points, flats = hexagon_spans_cm(base_count, gauge)
     return CIR(
         slug=concept.slug, title=concept.title, version=version,
@@ -1057,6 +1064,7 @@ POUCH_TALL_CM = 15.0
 POUCH_EYELET_REPEAT = (4, 2)       # sc, then a ch-2 bridging 2 skipped sts
 POUCH_RIM_ROUNDS = 2               # plain rounds above the eyelet round
 POUCH_TIE_CM = 20.0                # free cord at each end, for the bow
+POUCH_MIN_EYELETS = 6              # OPUS2P-5: fewer and a drawstring does not gather
 _POUCH_HEAD = r"\b(?:pouch|bag)$"
 _POUCH_ALLOWED_WORDS = frozenset({"drawstring", "crochet", "crocheted", "simple", "classic",
                                   "everyday", "round", "project", "gift", "cosy", "cozy"})
@@ -1101,9 +1109,15 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     gauge = gauge_for(concept.yarn_weight)
     sc_n, gap = POUCH_EYELET_REPEAT
     unit = sc_n + gap
-    step = 6 * unit // math.gcd(6, unit)
+    # OPUS2P-5: an even number of eyelets (both cord ends then come out of two neighbouring
+    # eyelets on the outside) and at least POUCH_MIN_EYELETS, so the pouch gathers.
+    step = 6 * (2 * unit) // math.gcd(6, 2 * unit)
     around = math.pi * POUCH_ACROSS_CM * gauge.stitches_per_10cm / 10.0
-    n = max(step * 2, int(round(around / step)) * step)
+    n = max(step, int(round(around / step)) * step)
+    if n // unit < POUCH_MIN_EYELETS:
+        raise ValueError(f"{concept.slug}: at {concept.yarn_weight} gauge the pouch has "
+                         f"{n // unit} eyelets, fewer than the {POUCH_MIN_EYELETS} a drawstring "
+                         f"needs to gather")
     rows = _Rows()
     _disc(rows, n, main)
     base_end = rows.last
@@ -1114,7 +1128,8 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     eyelets = n // unit
     rows.add([Repeat([Op("sc", sc_n), Op("ch", gap, spans=gap), Op("sk", gap)],
                      times=eyelets)], n, main,
-             note=f"{eyelets} eyelets; work the next round's sts into each ch-{gap} space")
+             note=(f"{eyelets} eyelets; on the next round work {gap} sc into each ch-{gap} "
+                   f"space"))
     eyelet_round = rows.last
     for _ in range(POUCH_RIM_ROUNDS):
         rows.add([Op("sc", n)], n, main)
@@ -1134,15 +1149,18 @@ def pouch(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
         slug=concept.slug, title=concept.title, version=version,
         construction="joined_rounds", risk_class=concept.risk_class,
         colors=dict(concept.colors), gauge=gauge,
-        materials=[Material(name=f"{concept.yarn_weight} acrylic",
-                            yarn_weight=concept.yarn_weight, color_id=c)
-                   for c in dict.fromkeys([main, cord_colour])],
+        materials=([Material(name=f"{concept.yarn_weight} acrylic ({main}) for the pouch",
+                             yarn_weight=concept.yarn_weight, color_id=main)]
+                   + ([Material(name=f"{concept.yarn_weight} acrylic ({cord_colour}) for the cord",
+                                yarn_weight=concept.yarn_weight, color_id=cord_colour)]
+                      if cord_colour != main else [])),
         components=[body, cord],
         assembly=[Seam("thread", "cord", "pouch", edge_a="left", edge_b="opening",
                        at_round=eyelet_round, spans_rounds=1,
                        note=(f"Weave the cord in and out of the {eyelets} eyelets of round "
-                             f"{eyelet_round}, starting and ending at the same eyelet, and "
-                             f"knot each end; pull both ends to close the pouch."))],
+                             f"{eyelet_round}, starting from the outside, so both ends come out "
+                             f"of two neighbouring eyelets on the outside; knot each end and "
+                             f"pull both to close the pouch."))],
         designer_notes=(f"{concept.category} concept drafted as a drawstring pouch: a {n}-st "
                         f"round base, {walls} wall rounds with {eyelets} eyelets in round "
                         f"{eyelet_round}, and a {cord_n}-ch cord"),
