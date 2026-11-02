@@ -847,6 +847,14 @@
       "verdicts": {
         "opus2/a4a-research-to-concept 3dc3e68c": "DO NOT SHIP: A4A-1 HIGH Product Truth: Dishcloth/Hot Pad drafted on placemat template -> certified twin 38.4x11.4 cm while premise says 'A square dishcloth'; gate.certify grants with no reasons; name_truth/first_customer families have no dishcloth/hot-pad size band; PDF would print 38x11 cm dishcloth. MED A4A-2 crash-after-answer redelivery builds a proposal below the evidence floor (1 listing/1 shop) or TypeError on priceless listings; MED A4A-3 ended gaps never reopen when evidence arrives; LOW title-variant originality misses, future-dated listings, pod-level evidence floor, 6/12 mutants survive. Idempotency, gates, terminations verified; 10 suites pass incl. test_shadow; merges clean with A6/A4b."
       }
+    },
+    {
+      "subject": "A4B",
+      "sha": "claude/w5-SECREVIEW-A4B",
+      "recorded": "2026-11-02T23:12:34Z",
+      "verdicts": {
+        "opus2/a4b-enrichment 230b7d8d / e230545c": "DO NOT SHIP: A4B-1 HIGH retention RetentionRefused at 230b7d8d fixed in e230545c; A4B-2 HIGH answer()/open_requests() have no production caller -- nothing ever re-drafts (wiring #2 still open); MED A4B-3 any payload counts as enrichment (no evidence, seed fields unpinned: fox amigurumi re-drafted as basket), A4B-4 never-draftable concept ends 'resolved' with no job (should be exhausted), A4B-5 concurrent answers both draft (no per-round key); LOW A4B-6 unbounded request-row churn, A4B-7 mutants M5/M6 (round cap, answered guard) survive. Gates never bypassed; 15 suites pass; test_cert_wiring UNKNOWN (drain timeout under load)."
+      }
     }
   ],
   "integration": {
@@ -1073,13 +1081,6 @@
   "reviews_in_flight": {
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
-      {
-        "id": "A4B-REVIEW",
-        "subject": "opus2/a4b-enrichment 230b7d8d (PR #27), full review extended to e230545c (retention fix)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_A4B_230b7d8d.md",
-        "started": "2026-11-02T20:31:13Z",
-        "requested_by": "[SECONDARY] REVIEW-REQUEST in issue #28 comment 6587725737 (20:30:14Z)"
-      },
       {
         "id": "A5-REVIEW",
         "subject": "A5 correction loop 717c7925 (full)",
@@ -1917,7 +1918,8 @@
         "downstream": "cir.draft (re-draft)",
         "acceptance": "refused draft enriched and re-drafted once; idempotent",
         "path_to_production": "review -> W6-INTEG"
-      }
+      },
+      "review_verdict": "DO NOT SHIP (A4B)"
     },
     {
       "id": "A3-FIX",
