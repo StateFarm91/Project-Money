@@ -1,0 +1,189 @@
+{
+  "record": "owner-visual-direction/1",
+  "received": "2026-11-02T18:45Z",
+  "received_from": "owner, chat upload to the integrator (Main Opus) session",
+  "subject": "Hexagonal Bread Basket lifestyle and gallery direction; Laura identity references; one competitor benchmark",
+  "status": "VISUAL_DIRECTION_ONLY",
+  "owner_instruction": "The example images are visual direction, not automatic certification of product geometry or Laura identity. Do not replace Laura's canonical references or modify approved identity rules without authorization.",
+  "laura_identity_images": {
+    "result": "byte-identical to the approved canonical pack laura-r2-a42aeac7, which conditioning/laura-r2-a42aeac7/flux-3-image.json already transmits; not duplicated here; canonical identity unchanged",
+    "items": [
+      {
+        "upload_name": "59af0186-image.jpg",
+        "matches": "visual/assets/canonical/laura-r2-a42aeac7/reference_pack/neutral_portrait.jpg",
+        "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+      },
+      {
+        "upload_name": "5eeea62b-image.png",
+        "matches": "visual/assets/canonical/laura-r2-a42aeac7/reference_pack/torso_fit_reference.png",
+        "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db"
+      },
+      {
+        "upload_name": "dabf2d93-image.png",
+        "matches": "visual/assets/canonical/laura-r2-a42aeac7/reference_pack/full_length_standing.png",
+        "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
+      }
+    ]
+  },
+  "items": [
+    {
+      "file": "01_laura_holding_basket_nursery.png",
+      "upload_name": "d317c46e-image.png",
+      "sha256": "881c178d66486e2bda058beb9fdec3bb71fe5bbd791ae69c2465564c1184cb48",
+      "bytes": 1651335,
+      "px": [
+        912,
+        1152
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "02_basket_dresser_closeup.png",
+      "upload_name": "73cb6ebf-image.png",
+      "sha256": "30778caedade04d0aa1be1c1c99f733a91001232e21f67a5b9758e67ae2d4065",
+      "bytes": 1704366,
+      "px": [
+        912,
+        1152
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "03_basket_dresser_wide.png",
+      "upload_name": "6136faf9-image.png",
+      "sha256": "d167c384b4c5784a0da6baccf8722365adb23da890b2b507410048f954349abd",
+      "bytes": 1435816,
+      "px": [
+        912,
+        1152
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "04_basket_filled_nursery_items.png",
+      "upload_name": "6caeaedf-image.png",
+      "sha256": "7fba90cd1f968a8ab0eae314bc77d1bf61f48584a4c1b9766d1763657da649e1",
+      "bytes": 1616812,
+      "px": [
+        896,
+        1132
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "05_basket_studio_packshot.png",
+      "upload_name": "c21b3f8a-image.png",
+      "sha256": "b2c968bbb599af3b62f114804d1219f670e1f74e49860422636e52e5821c8878",
+      "bytes": 1553932,
+      "px": [
+        1024,
+        1024
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "09_basket_dresser_wide_variant.png",
+      "upload_name": "85087649-image.png",
+      "sha256": "5fec052b5bbf36ecdf8cafba0526da73f8773b65ad11d03860d9b81bb5b3a268",
+      "bytes": 1661610,
+      "px": [
+        912,
+        1152
+      ],
+      "role": "owner_visual_direction",
+      "generator": "UNATTESTED (owner-supplied; generator, prompt, seed and references not recorded)",
+      "allowed_uses": [
+        "human visual direction",
+        "review-rubric examples"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "identity reference",
+        "listing or gallery use",
+        "evidence of product geometry",
+        "physical-sample evidence"
+      ]
+    },
+    {
+      "file": "10_competitor_etsy_listing_screenshot.jpg",
+      "upload_name": "c2fe70ec-image.jpg",
+      "sha256": "89ffc64664838f3600e3987d11679b3ff46567b80329cf6224eace755d32b1d8",
+      "bytes": 735928,
+      "px": [
+        1080,
+        2340
+      ],
+      "role": "competitor_benchmark_screenshot",
+      "generator": "third-party Etsy listing (not Brambleloop)",
+      "allowed_uses": [
+        "merchandising and gallery-structure intelligence only"
+      ],
+      "forbidden_uses": [
+        "generation conditioning",
+        "copying composition or photography",
+        "listing use"
+      ]
+    }
+  ],
+  "pipeline_status": "Deliberately not available to the production image pipeline: nothing under research/ is read by generation, review or gallery code. Promoting any image into a generation input requires an owner-approved decision naming its sha256 and role."
+}
