@@ -132,6 +132,10 @@ def test_the_written_pattern_names_the_contrast_and_reads_back():
     contrast = list(cir.colors)[1]
     assert f"with {contrast}" in text, text[:400]
     assert "work over the colour not in use" in text, text[-600:]
+    # OPUS2N-3: the contrast-only yarn is told when to join and when to cut.
+    band = [r.index for r in cir.components[0].rows if op_colours(r.ops) - {r.color}]
+    assert f"Join {contrast} at the start of Rnd {band[0]}" in text, text[-900:]
+    assert f"cut {contrast} after Rnd {band[-1]} and fasten it off" in text, text[-900:]
     note = cir.components[0].note
     assert "work over it" in note and "leans" in note, note
     assert [f for f in reverse.compare(cir, text) if f.severity == "ERROR"] == []
@@ -185,6 +189,25 @@ def test_the_handler_drafts_a_tapestry_basket_and_refuses_one_colour():
     result, emitted, audits = outcomes["one"]
     assert result["drafted"] is False and result["gate"] == "construction", result
     assert emitted == [] and any(a == "cir.draft_refused" for a, _ in audits)
+
+
+def test_review_opus2n_the_allowlist_is_total_and_one_chart_one_size():
+    """OPUS2N-1: an emoji or a word in another script is not a free pass. OPUS2N-2: the base
+    is a hexagon, so "Round" is refused. OPUS2N-4: two charts or two sizes are refused, not
+    reduced to one. OPUS2N-6 (T8): the colour-count rename keeps a plural vessel noun's count."""
+    refused = ("\U0001f98a Tapestry Basket", "\u041b\u0438\u0441\u0430 Tapestry Basket",
+               "\u72d0 Tapestry Basket", "Tapestry \u2605 Basket", "Round Tapestry Basket",
+               "Check Diamond Tapestry Basket", "Two-Colour Diamond Check Basket",
+               "Large Small Tapestry Basket", "Medium Large Tapestry Basket")
+    assert refused
+    for title in refused:
+        got = F.plan(category="basket", title=title)
+        assert got["family"] == F.REFUSED and got["needs"], (title, got)
+    assert F.plan(category="basket", title="Hexagonal Diamond Tapestry Basket")["family"] == \
+        F.TAPESTRY
+    for text in ("Two Colour Bowls", "Two-Tone Totes", "Two Colour Baskets"):
+        assert F._colour_count_free(text) == text, text
+    assert F._colour_count_free("Two-Colour Basket") == "bicolour Basket"
 
 
 if __name__ == "__main__":

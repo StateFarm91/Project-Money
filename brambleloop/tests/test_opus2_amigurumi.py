@@ -48,7 +48,10 @@ def test_only_a_plain_ball_body_bear_or_bunny_routes():
     refused = ["Woodland Fox Amigurumi", "No-Sew Reindeer Amigurumi", "Bear and Bunny",
                "Two Bears", "Bunny Set", "Bear Family", "Giant Bear", "Mini Bunny",
                "Bear with Scarf", "Sleepy Bear Amigurumi", "Bunny Rattle", "Teddy Bunny",
-               "Bear Keychain", "Panda Amigurumi", "Unicorn Bunny", "Amigurumi"]
+               "Bear Keychain", "Panda Amigurumi", "Unicorn Bunny", "Amigurumi",
+               # OPUS2N-1: an emoji or another script is not a free pass.
+               "\U0001f98a Bear", "\u041b\u0438\u0441\u0430 Bunny", "\u72d0 Bear Amigurumi",
+               "Bear \u2605"]
     assert drafted and refused
     for title, kind in drafted.items():
         got = F.plan(category="amigurumi", title=title)
