@@ -741,6 +741,14 @@
         "registry ffb74996+a7b34050": "DO NOT SHIP: OPUS2V-1 HIGH plan() admits unknown words for vessel/tote (also Batch 5 radar path); -2 MED motif_promise not in publish name_truth (also Batch 5); -3 HIGH child safety (toy on branch); -4 MED hold must read CIR slug/title"
       },
       "recorded": "2026-11-02T12:55Z"
+    },
+    {
+      "subject": "INTEG5F",
+      "sha": "41d4fdcd (claude/w5-SECREVIEW-INTEG5F)",
+      "verdicts": {
+        "4af3418f..50937469": "SHIP for certification (INFO only; Launch-0 text byte-identical)"
+      },
+      "recorded": "2026-11-02T12:45Z"
     }
   ],
   "integration": {
@@ -775,7 +783,8 @@
         "Both affect drafts and the publish-time name check only; nothing publishes in SHADOW, and publication requires owner review. MUST be disclosed in the Batch 5 deploy request; fixes assigned to opus2 on a branch from W5-INTEG1.",
         "Amigurumi child-safety findings are NOT in the candidate (branch not integrated)."
       ],
-      "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head."
+      "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head.",
+      "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends."
     }
   },
   "owner_directives": [

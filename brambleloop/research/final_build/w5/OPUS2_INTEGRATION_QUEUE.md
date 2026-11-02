@@ -3,7 +3,7 @@
 Owner directive 2026-11-02, "Permanent continuous integration". The integrator maintains this
 file and processes eligible items at every wake-up, before writing any status report.
 Target for all items: `claude/w5-INTEG1` (Batch 5). Integration is not deployment.
-Last updated: 2026-11-02T12:56Z. Certification: run 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime, fixed 30b04b35); next fresh run on the newest integration-checked head. Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
+Last updated: 2026-11-02T12:45Z. Certification target: W5-INTEG1 50937469 (INTEG5F SHIP). Running now: 20261102T101632Z-4284 on 4af3418f (expected FAIL test_swarm_runtime). Known open in the candidate: P0-NAME-OBJECT-MISMATCH and OPUS2V-2 (disclose).
 
 ## Rules
 - A head is merge-ready when three things hold: an independent review says SHIP or ACCEPT for
@@ -39,7 +39,7 @@ Last updated: 2026-11-02T12:56Z. Certification: run 20261102T101632Z-4284 on 4af
 | Q16 | opus2/p0-amigurumi | a9fac088..3b0a8867, c5671087 | DO NOT SHIP (OPUS2T-4 HIGH child safety; -5 MED) | Q14 | no: **blocked** on a construction-keyed children's refusal | named suites + childrens/pdf | delta review of the fix | opus2 |
 | Q15 | opus2/p0-photo-asset-review (P0-PHOTO-ASSET-REVIEW) | c056028d, 5a47cd8e | DO NOT SHIP (OPUS2S-1/-2/-3 MED; no HIGH) | none (4 mechanical conflicts) | no: **blocked** on the MED fixes | test_opus2_photo_asset_review, photo/gallery/publish-gate suites, test_swarm_runtime | delta review of fixes | opus2 |
 | Q17 | opus2/p0-construction-registry | ..a7b34050 | DO NOT SHIP (OPUS2V-1 HIGH, -3 HIGH child safety, -2/-4 MED) | Q16 (carries the toy) | no: **blocked** | registry/tapestry/draft suites | delta review of fixes | opus2 |
-| Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a..1ea3079e | SHIP (OPUS2P, OPUS2V) | none | **merged** W5-INTEG1 50937469 (suites running) | test_opus2_drawstring_pouch, test_opus2_stuffed_finishing + draft/tapestry suites | push on green; certify | integrator |
+| Q18 | opus2/p0-pouch (split of pouch + stuffed finishing) | 9e0c653a..1ea3079e | SHIP (OPUS2P, OPUS2V) | none | **integrated** W5-INTEG1 50937469 (12 suites green; INTEG5F SHIP) | test_opus2_drawstring_pouch, test_opus2_stuffed_finishing + draft/tapestry suites | push on green; certify | integrator |
 
 Not integration items:
 - #4: reference only, do not merge.
