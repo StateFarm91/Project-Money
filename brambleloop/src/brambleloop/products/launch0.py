@@ -390,8 +390,11 @@ _CLAIM_VARIANTS: dict[str, str] = {
     r"(?<!double )(?<!held )stranded|jacquard": "fair isle",
     r"fair ?isle": "fair isle",
     r"graph ?gh?an|pixel crochet": "graphghan",
-    # a charted picture blanket: graphghan rule (OPUS2M-3: "C-2-C", "Corner-2-Corner")
-    r"c ?(?:2|to) ?c\b|corner ?(?:2|to) ?corner": "graphghan",
+    # a charted picture blanket: graphghan rule (OPUS2M-3: "C-2-C", "Corner-2-Corner").
+    # OPUS2Q-2: only the spelled "c to c" needs a word end; the digit form and the glued
+    # corner form are matched in `colourwork_claims` itself, glued or not ("C2CBlanket",
+    # "CrochetC2C", "crochetcornertocorner").
+    r"c ?to ?c\b": "graphghan",
     r"duplicate stitch": "intarsia",               # embroidered blocks: not modelled, refused
 }
 
@@ -407,6 +410,10 @@ _LOOKALIKES = str.maketrans({
     "\u03c2": "c",                                # lunate sigma decomposes to final sigma
     "\u0585": "o", "\u1d00": "a", "\u0251": "a", "\u04c0": "i", "\u04cf": "i",
     "\u0261": "g", "\u0432": "b",
+    # OPUS2Q-3: Latin small capitals and the Cyrillic shha, which no fold reaches.
+    "\u1d0f": "o", "\ua731": "s", "\u026a": "i", "\u1d04": "c", "\u028f": "y",
+    "\u029f": "l", "\u04bb": "h", "\u1d07": "e", "\u1d1b": "t", "\u0280": "r",
+    "\u1d1c": "u", "\u0274": "n", "\u1d0d": "m",
 })
 # OPUS2O-5: invisible fillers that are neither category Cf nor a mark (Hangul fillers, the
 # blank braille pattern, Mongolian free variation selectors): dropped like Cf. Marks
@@ -422,8 +429,13 @@ def _fold(text: str) -> str:
     of every kind, slashes, dots, middle dots) one space."""
     import unicodedata
 
-    t = "".join(c for c in str(text or "")
-                if unicodedata.category(c) != "Cf" and ord(c) not in _INVISIBLE)
+    raw = str(text or "")
+    # OPUS2Q-3: unassigned code points (Cn, which include default-ignorables such as U+2065)
+    # are dropped like Cf, and a thin space between two letters (hair, thin, narrow, medium
+    # mathematical, ideographic) joins them: it renders as no gap inside a word.
+    raw = re.sub(r"(?<=[^\W\d_])[\u2009\u200a\u202f\u205f\u3000](?=[^\W\d_])", "", raw)
+    t = "".join(c for c in raw
+                if unicodedata.category(c) not in ("Cf", "Cn") and ord(c) not in _INVISIBLE)
     t = unicodedata.normalize("NFKD", t)
     # Every mark (Mn/Me), not only those with a combining class: a grapheme joiner or a
     # variation selector has class 0 and would otherwise split a word (OPUS2O-5).
@@ -439,8 +451,14 @@ def colourwork_claims(text: str) -> tuple[str, ...]:
     # OPUS2M-2: the base claims are a substring test, as they were before K-5: a claim word
     # inside a compound ("Minimosaic", "Microtapestry", "Multicolourwork") is still a claim.
     found: list[str] = [c for c in COLOURWORK_CLAIMS if _fold(c).strip() in folded]
+    # OPUS2Q-2: a digit glued to a word hides nothing ("Basket5Colour", "Blanket2Tone").
+    split = re.sub(r"(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])", " ", folded)
     found += [canon for variant, canon in _CLAIM_VARIANTS.items()
-              if re.search(rf"\b(?:{variant})", folded)]
+              if re.search(rf"\b(?:{variant})", split)]
+    # The digit form of corner-to-corner glued or spaced, and the glued corner form, from
+    # any position ("C2Cs", "C2CBlanket", "CrochetC2C", "crochetcornertocorner").
+    if re.search(r"c2c|\bc 2 c|corner ?(?:2|to) ?corner", folded):
+        found.append("graphghan")
     return tuple(dict.fromkeys(found))
 
 

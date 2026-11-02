@@ -451,6 +451,38 @@ def test_review_opus2o_c2c_counts_marks_and_lookalikes_are_read_as_classes():
         assert truth["backed"] is True and findings == [], (title, findings)
 
 
+
+def test_review_opus2q_glued_digits_c2c_thin_spaces_and_small_capitals_are_claims():
+    """OPUS2Q-2: a digit glued to a word hides no claim, and the C2C digit form needs no word
+    end ("C2CBlanket", "C2Cs", "CrochetC2C", "Basket5Colour"). OPUS2Q-3: unassigned code
+    points and thin spaces inside a word are dropped; Latin small capitals and the Cyrillic
+    shha are folded. OPUS2Q-6: the look-alikes and count words found unpinned."""
+    from brambleloop.products import launch0 as L
+
+    plain = _band({})
+    claims = ("C2CBlanket", "C2Cs", "C2Cgraph", "C2Cing", "CrochetC2C", "crochetc2c",
+              "learnc2c", "Basket5Colour", "Blanket2Tone", "crochet2colour",
+              "crochetcornertocorner", "M\u1d0fsaic", "Mo\ua731aic", "Mosa\u026ac",
+              "Mosai\u1d04", "Tapestr\u028f", "Fair Is\u029fe", "Fair I\ua731le",
+              "Graphg\u04bban", "Fa\u200air Isle", "Mo\u2009saic", "Tape\u202fstry",
+              "Mo\u205fsaic", "Mo\u3000saic", "Mo\u2065saic", "Mo\ufff0saic",
+              "Mo\U000e01f0saic", "Fair Isle \u0261raph", "Mosa\u0131c \u0458acquard",
+              "M\u0585saic", "Thirteen Colour", "Many Colour")
+    assert len(claims) == 32
+    for word in claims:
+        truth, findings = _truth(plain, f"{word} Basket")
+        assert truth["backed"] is False and findings, word
+        assert _truth(plain, "Plain Basket", tags=(word,))[1], word
+    assert L.colourwork_claims("Fair Isle \u0261raph") == L.colourwork_claims("Fair Isle")
+    assert "fair isle" in L.colourwork_claims("\u0458acquard"), L.colourwork_claims("\u0458acquard")
+    assert L.colourwork_claims("Graph\u0261han") == ("graphghan",)
+    # Spaced words that only look like the digit form are not claims.
+    for title in ("Basic 2 Cozy Basket", "Music 2 Cool Basket", "Picnic Basket",
+                  "Plain Basket 2", "Tote\u3000Bag Basket"):
+        truth, findings = _truth(plain, title)
+        assert truth["backed"] is True and findings == [], (title, findings)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
