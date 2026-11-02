@@ -185,6 +185,12 @@
       "priority": "P0",
       "recorded": "2026-11-01T10:55Z",
       "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification."
+    },
+    {
+      "id": "P0-NAME-OBJECT-MISMATCH",
+      "priority": "P0",
+      "recorded": "2026-11-02T07:45Z",
+      "summary": "OPUS2P-13a: category=basket drafts 'Teddy Bear', 'Drawstring Pouch', 'Drawstring Bag' as a plain basket; category=blanket/accessory drafts 'Teddy Bear' as a flat panel; name_truth passes. The title names an object the CIR is not. Assigned to opus2 on PR #3 (07:45Z)."
     }
   ],
   "reviews": [
@@ -639,6 +645,26 @@
         "a859f6fe": "SHIP (LOW -6 contrast cuff palette, -7 pin, -9 stocking size citation UNKNOWN)"
       },
       "recorded": "2026-11-02T06:40Z"
+    },
+    {
+      "subject": "OPUS2P",
+      "sha": "f4516fbb",
+      "verdicts": {
+        "71e26e6f (tapestry)": "SHIP, integrated a0c6bfff (+ fold_title de-dup f7466c06)",
+        "a9fac088 (stuffed finishing)": "SHIP (on blocked branch; split requested)",
+        "b4ea6795/c7a8d31e (pouch)": "SHIP (on blocked branch; split requested)",
+        "e80a0be0/3b0a8867 (amigurumi)": "DO NOT SHIP: OPUS2P-1 HIGH child-safety gate keyed on title words; P-2 MED joins UNKNOWN; P-3 MED no small-parts lower bound"
+      },
+      "new_p0": "OPUS2P-13a: basket/blanket categories draft 'Teddy Bear'/'Drawstring Pouch' titles as a plain basket or flat panel and name_truth passes (pre-existing in W5-INTEG1); assigned to opus2",
+      "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5C",
+      "sha": "c32a88dd",
+      "verdicts": {
+        "a8ce0072..f8bf2782": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T07:45Z"
     }
   ],
   "integration": {
@@ -665,7 +691,8 @@
       "tree": "clean",
       "worktree": "/home/user/bl-runs/wt-b5cert (dedicated; W5-INTEG1 keeps integrating in wt-b5)",
       "basis": "INTEG5B SHIP (6d402593) + its second regression batch re-run by the integrator on a8ce0072: 13/13 suites rc=0 (05:42Z)",
-      "rule": "uninterrupted; a resumed run never certifies; fail -> root-cause, fix, fresh run"
+      "rule": "uninterrupted; a resumed run never certifies; fail -> root-cause, fix, fresh run",
+      "expected": "FAIL test_w4_launchfix (pre-existing guard false positive at a8ce0072; fixed f8bf2782). Next certification on the newest fully reviewed head (target f7466c06 after INTEG5D)."
     }
   },
   "owner_directives": [
@@ -790,14 +817,24 @@
     "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
-        "id": "OPUS2P",
+        "id": "OPUS2Q",
         "subjects": [
-          "opus2/p0-tapestry 71e26e6f (diff 67b67015..)",
-          "opus2/p0-amigurumi a9fac088..3b0a8867 (amigurumi bear/bunny, drawstring pouch, openings_cm)"
+          "opus2/p0-revenue-workforce b185b528",
+          "opus2/p0-cir-colourwork 2f9c413d",
+          "opus2/p0-stocking d3a485a1"
         ],
-        "session": "session_015ZfGXofSHABuuJMK5qNuBh",
-        "report": "brambleloop/research/final_build/w4/INDEPENDENT_SECREVIEW_OPUS2P.md on claude/w5-SECREVIEW-OPUS2P",
-        "launched": "2026-11-02T06:31Z"
+        "session": "session_015ZfGXp8BceyoSUDmnK2MQA",
+        "report": "INDEPENDENT_SECREVIEW_OPUS2Q.md on claude/w5-SECREVIEW-OPUS2Q",
+        "launched": "2026-11-02T07:37Z"
+      },
+      {
+        "id": "INTEG5D",
+        "subjects": [
+          "claude/w5-INTEG1 f8bf2782..f7466c06"
+        ],
+        "session": "session_015ZfGXnLcRU4uK5GQL9AukX",
+        "report": "INDEPENDENT_SECREVIEW_INTEG5D.md on claude/w5-SECREVIEW-INTEG5D",
+        "launched": "2026-11-02T08:07Z"
       }
     ]
   }
