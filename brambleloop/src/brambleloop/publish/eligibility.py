@@ -691,7 +691,7 @@ def _drafted_by_a_rule(cir) -> bool:
 
 
 def _full_row_stripes_backed(cir, twin) -> bool:
-    """Prove colour bands from the twin; uncertain or nonuniform rows do not pass."""
+    """Prove distinct RGB bands in the twin; not physical visual contrast."""
     from PIL import ImageColor
 
     palette = cir.colors or {}
@@ -706,6 +706,9 @@ def _full_row_stripes_backed(cir, twin) -> bool:
             rgb = ImageColor.getrgb(colour.strip())
         except (TypeError, ValueError):
             return False  # unknown colour is not evidence of visible contrast
+        if len(rgb) not in (3, 4) or any(
+                type(channel) is not int or not 0 <= channel <= 255 for channel in rgb):
+            return False
         if len(rgb) == 4 and rgb[3] != 255:
             return False  # translucent values lack a proven background
         bands.append(tuple(rgb[:3]))
@@ -815,7 +818,7 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     if result.ok:
         twin = build_twin(cir, result)
         if _stripe_claimed(cir, listing) and not _full_row_stripes_backed(cir, twin):
-            out.append("fabric: stripe claim lacks visible alternating colour bands in the pattern")
+            out.append("fabric: stripe claim lacks alternating distinct RGB bands in the pattern")
         fabric = l0.fabric_truth(cir, twin)
         if not fabric.get("backed"):
             out.append(f"fabric: {fabric.get('why')}")
