@@ -150,7 +150,7 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
         assert CIR.from_dict(persisted.cir_json).fingerprint == release.fingerprint
     status, out, err = _run(db, path, "assets.build", {"slug": release.slug,
                                                        "version": release.version}, "publishing")
-    assert status == JobStatus.DONE and out.get("refused") != "design_knowledge", (out, err)
+    assert status == JobStatus.DONE and out.get("pdf_sha256"), (out, err)
     # the rule is retired: every boundary refuses the pinned design by name
     DK.review_rule(db, approved["rule_id"] if "rule_id" in approved else approved["id"],
                    reviewer="owner", decision="retire", reason="retire the rule")
