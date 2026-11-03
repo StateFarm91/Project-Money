@@ -258,7 +258,7 @@ def test_competing_package_records_never_reopen_a_stale_owner_request():
         session.add(product)
         session.flush()
         session.add(PatternVersion(product_id=product.id, version="1.0.0", cir_json={},
-                                   certified=True, release_hash="r" * 64))
+                                   certified=True, release_hash="r" * 64, certificate={"granted": True}))
         session.add(Listing(product_slug="race-product", version="1.0.0",
                             title="Original Product a", description="fixture", tags=[],
                             release_hash="r" * 64))
@@ -326,7 +326,7 @@ def test_ineligible_event_and_sweep_close_stale_owner_reviews():
             session.add(product)
             session.flush()
             session.add(PatternVersion(product_id=product.id, version=version, cir_json={},
-                                       certified=True, release_hash="a" * 64))
+                                       certified=True, release_hash="a" * 64, certificate={"granted": True}))
             session.add(Listing(product_slug=slug, version=version, title="Fixture Review",
                                 description="Fixture", tags=[], release_hash="a" * 64))
         copy = {"title": "Fixture Review", "description": "Fixture", "tags": []}

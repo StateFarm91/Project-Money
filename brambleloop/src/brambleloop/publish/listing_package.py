@@ -52,14 +52,15 @@ def _try(fn, *a, **k):
         return None, f"{type(exc).__name__}: {str(exc)[:300]}"
 
 
-def _release_source_digest(cir, listing) -> str | None:
+def _release_source_digest(cir, listing, certificate) -> str | None:
     """Fingerprint the stored release design and listing fields we read."""
-    if not isinstance(cir, dict) or listing is None:
+    if not isinstance(cir, dict) or not isinstance(certificate, dict) or listing is None:
         return None
     names = ("product_slug", "version", "title", "description", "tags", "price_cad",
              "state", "seo_score", "chain_version", "release_hash", "etsy_listing_id")
     try:
-        body = {"cir": cir, "listing": {name: getattr(listing, name) for name in names}}
+        body = {"cir": cir, "certificate": certificate,
+                "listing": {name: getattr(listing, name) for name in names}}
         return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
                                          separators=(",", ":"), allow_nan=False)
                               .encode("utf-8")).hexdigest()
@@ -85,7 +86,7 @@ def _release(db, slug: str, version: str) -> dict | None:
         listing = listings[0] if listings else None
         return {"release_hash": pv.release_hash or "", "cir": dict(pv.cir_json or {}),
                 "listing_state": listing.state if listing is not None else None,
-                "source_snapshot_sha256": _release_source_digest(pv.cir_json, listing),
+                "source_snapshot_sha256": _release_source_digest(pv.cir_json, listing, pv.certificate),
                 "listing_copy": ({"title": listing.title, "description": listing.description,
                                   "tags": listing.tags} if listing is not None else None),
                 "listing_release": (listing.release_hash or "") if listing is not None else ""}
@@ -386,13 +387,14 @@ def record(db, package: dict, *, now: datetime | None = None,
         # A BLOCKED package may report unavailable evidence; it grants no owner
         # review authority. READY requires every bound source to verify now.
         if package.get("state") == READY and (
-                pv is None or not pv.certified or not release_hash
+                pv is None or not pv.certified or not isinstance(pv.certificate, dict)
+                or pv.certificate.get("granted") is not True or not release_hash
                 or pv.release_hash != release_hash or listing is None
                 or listing.release_hash != release_hash or not digest
                 or digest != expected_digest
                 or listing_copy_digest(package.get("copy")) != digest
                 or not package.get("source_snapshot_sha256")
-                or _release_source_digest(pv.cir_json, listing) != package["source_snapshot_sha256"]):
+                or _release_source_digest(pv.cir_json, listing, pv.certificate) != package["source_snapshot_sha256"]):
             result = _invalidate_locked(s, package["slug"], package["version"],
                                         "listing or certified release changed or is unavailable")
             return {**result, "retry": True}

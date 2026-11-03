@@ -14,7 +14,7 @@ def fixture():
         s.add(p)
         s.flush()
         s.add(PatternVersion(product_id=p.id, version="1.0.0", cir_json={},
-                             certified=True, release_hash="a" * 64))
+                             certified=True, release_hash="a" * 64, certificate={"granted": True}))
         s.add(Listing(product_slug=p.slug, version="1.0.0", title="Adult Basket",
                       description="Fixture copy", tags=["basket"], release_hash="a" * 64))
     return db
@@ -65,6 +65,20 @@ def test_price_or_design_changes_invalidate_old_owner_request():
                 pv.cir_json = {"changed": True}
         out = lp.record(db, old, expected_fingerprint=old["fingerprint"])
         assert out["retry"] is True and not active(db), out
+        assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
+
+
+def test_changed_certificate_invalidates_old_owner_review():
+    for change in ({"granted": False}, {"granted": True, "withholding": {"new": True}}):
+        db = fixture()
+        old = package(db)
+        assert lp.record(db, old)["review_requested"]
+        with db.session() as session:
+            pv = session.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == old["slug"]))
+            pv.certificate = change
+        result = lp.record(db, old, expected_fingerprint=old["fingerprint"])
+        assert result["retry"] is True and not active(db), result
         assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
 
 
@@ -158,7 +172,7 @@ def test_owner_request_match_escapes_slug_wildcards():
             session.add(product)
             session.flush()
             session.add(PatternVersion(product_id=product.id, version="1.0.0", cir_json={},
-                                       certified=True, release_hash=release))
+                                       certified=True, release_hash=release, certificate={"granted": True}))
             session.add(Listing(product_slug=slug, version="1.0.0", title=slug,
                                 description="fixture", tags=[], release_hash=release))
         copy = {"title": slug, "description": "fixture", "tags": []}
@@ -198,7 +212,7 @@ def test_long_release_key_is_recorded_and_postgres_widen_is_planned():
         session.add(product)
         session.flush()
         session.add(PatternVersion(product_id=product.id, version=version, cir_json={},
-                                   certified=True, release_hash=release))
+                                   certified=True, release_hash=release, certificate={"granted": True}))
         session.add(Listing(product_slug=slug, version=version, title="Long fixture",
                             description="Fixture", tags=[], release_hash=release))
     copy = {"title": "Long fixture", "description": "Fixture", "tags": []}
@@ -279,6 +293,7 @@ def test_worker_rechecks_source_changed_after_assembly():
 if __name__ == "__main__":
     test_changed_listing_invalidates_old_owner_request()
     test_price_or_design_changes_invalidate_old_owner_request()
+    test_changed_certificate_invalidates_old_owner_review()
     test_revoked_certification_never_raises_a_review()
     test_storage_failure_closes_review_and_durable_artifact_is_retained()
     test_worker_rechecks_source_changed_after_assembly()
@@ -287,4 +302,4 @@ if __name__ == "__main__":
     test_worker_retries_after_durable_review_document_storage_recovers()
     test_record_failure_is_retried_without_claiming_a_ready_package()
     test_blocked_package_with_unavailable_copy_is_recorded_without_owner_authority()
-    print("10/10 passed")
+    print("11/11 passed")
