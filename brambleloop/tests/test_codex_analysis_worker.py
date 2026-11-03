@@ -23,6 +23,59 @@ from brambleloop.teardown import audits, intake, jobs, lab, library, licence, re
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_sweep_recovers_failure_after_purchase_marked_analysed(self):
+        from reportlab.pdfgen import canvas
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            folder = root / "interrupted-purchase"
+            folder.mkdir(parents=True)
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Synthetic materials and gauge for recovery.")
+            pdf.save()
+            data = stream.getvalue()
+            (folder / "pattern.pdf").write_bytes(data)
+            db = Database(f"sqlite:///{tmp}/interrupted.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="interrupted-purchase", seller="fixture", files=[
+                    {"name": "pattern.pdf", "sha256": hashlib.sha256(data).hexdigest()}])
+                s.add(product)
+                s.flush()
+                ident = product.id
+            licence.capture_purchase(db, "interrupted-purchase")
+            jobs.enqueue_purchase(db, ident)
+            with db.session() as s:
+                s.scalar(select(Job).where(Job.job_type == "teardown.analyse")).max_attempts = 1
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                with mock.patch("brambleloop.runtime.teardown_ops.knowledge_gaps.observe_analysis",
+                                side_effect=OSError("interrupted after state update")):
+                    self.assertTrue(Worker(db, name="interrupted", job_types=["teardown.analyse"])
+                                    .run_once())
+                with db.session() as s:
+                    self.assertEqual(s.get(BenchmarkProduct, ident).teardown_state, "analysed")
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "teardown.analyse")).status, JobStatus.DEAD)
+                    self.assertEqual(len(list(s.scalars(select(BenchmarkAnalysis)))), 1)
+                reopened = Database(f"sqlite:///{tmp}/interrupted.db", scratch=True)
+                JobQueue(reopened).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                           idempotency_key="recover-after-state")
+                self.assertTrue(Worker(reopened, name="sweep", job_types=["teardown.analyse_sweep"])
+                                .run_once())
+                with reopened.session() as s:
+                    sweep = s.scalar(select(Job).where(Job.idempotency_key == "recover-after-state"))
+                    self.assertEqual(sweep.outputs["requeued"], 1)
+                self.assertTrue(Worker(reopened, name="restarted", job_types=["teardown.analyse"])
+                                .run_once())
+                with reopened.session() as s:
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "teardown.analyse")).status, JobStatus.DONE)
+                    self.assertEqual(len(list(s.scalars(select(BenchmarkAnalysis)))), 1)
+                    self.assertEqual(len(list(s.scalars(select(AuditLog).where(
+                        AuditLog.action == "teardown.audit_prefilled")))), 1)
+
     def test_architecture_gap_requires_complete_reviewed_current_licensed_evidence(self):
         from brambleloop.improve import knowledge_gaps
 

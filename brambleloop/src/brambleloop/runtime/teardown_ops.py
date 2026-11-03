@@ -37,7 +37,8 @@ def handle_teardown_analyse(ctx):
 def handle_teardown_analyse_sweep(ctx):
     with ctx.db.session() as s:
         ids = list(s.scalars(select(BenchmarkProduct.id).where(
-            BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst")))))
+            BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst",
+                                                 "analysed")))))
         reviewed = list(s.scalars(select(BenchmarkAnalysis.id).where(
             BenchmarkAnalysis.review_state == "reviewed")))
         analyses = list(s.scalars(select(BenchmarkAnalysis.id)))
