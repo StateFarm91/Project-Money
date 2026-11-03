@@ -1037,29 +1037,11 @@ def _design_learning(ctx: JobContext, *, slug: str, text: str, construction: str
         return {"held": {"artifact": slug, "drafted": False, "gate": "learning.hold",
                          "construction": construction, "lessons": ids,
                          "reasons": [why[:300]]}}
-    out: dict = {"summary": summary, "changes": []}
-    if found["yarn_weight"] and found["yarn_weight"] != yarn_weight:
-        out["yarn_weight"] = found["yarn_weight"]
-        out["changes"].append((found["yarn_lessons"], {
-            "parameter": "yarn_weight", "from": yarn_weight, "to": found["yarn_weight"]}))
-    if found["construction"]:
-        to, why = _preferred_construction(found, form=form, current=construction,
-                                          own_words=own_words)
-        summary["construction_preference"] = {
-            "lessons": [int(l["id"]) for l in found["construction_lessons"]],
-            "wanted": found["construction"], "applied": to is not None, "why": why}
-        if to is not None:
-            out["construction"] = to
-            out["changes"].append((found["construction_lessons"], {
-                "parameter": "construction", "from": construction, "to": to}))
-    if out["changes"]:
-        ids = sorted({int(l["id"]) for lessons, _c in out["changes"] for l in lessons})
-        summary["applied"] = ids
-        summary["changes"] = [c for _l, c in out["changes"]]
-        out["applied"] = True
-        out["primitives"] = tuple(f"improve.consume.design_directives:lesson-{n}"
-                                  for n in ids)
-    return out
+    # Legacy lesson approvals lack the versioned held-out and downstream-evidence
+    # authority required to change construction or material. Safety holds remain
+    # effective, but preferences cannot change a production draft on their own.
+    summary["design_changes_held"] = bool(found["yarn_weight"] or found["construction"])
+    return {"summary": summary, "changes": [], "applied": False}
 
 
 def _record_design_learning(ctx: JobContext, learning: dict, cir) -> None:

@@ -105,6 +105,14 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     if revision > MAX_REVISIONS:
         return {"ran": False, "why": f"revision limit {MAX_REVISIONS} reached; the concept "
                                      f"stops here"}
+    from ..improve import knowledge_gate
+
+    refusal = knowledge_gate.refusal(ctx.db, cir)
+    if refusal:
+        ctx.audit(knowledge_gate.REFUSED, artifact=f"{cir.slug}@{cir.version}",
+                  detail={"boundary": "cir.revise", "why": refusal})
+        return {"artifact": f"{cir.slug}@{cir.version}", "revised": False,
+                "refused": "design_knowledge", "reasons": [refusal], "work_done": 1}
     result = compile_cir(cir)
     if result.ok:
         return {"ran": False, "why": "the CIR compiles; nothing to revise"}
@@ -131,6 +139,11 @@ def handle_cir_revise(ctx: JobContext) -> dict:
                           "to_fingerprint": revised.fingerprint, "revision": revision})
         if not check.ok:
             continue
+        # A fresh repair can acquire the approved scope; an existing pinned CIR
+        # keeps its exact reviewed pins and cannot silently repin.
+        if not knowledge_gate.has_pins(revised):
+            from .pipeline import _freeze_knowledge
+            revised = _freeze_knowledge(ctx, revised)
         # Back through the ordinary chain: compile, then certify. Literal job type so the
         # autonomy map sees the edge.
         ctx.enqueue("validator", "cir.compile",

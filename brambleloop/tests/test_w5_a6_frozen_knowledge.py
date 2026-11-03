@@ -47,7 +47,7 @@ def _store():
     return db, path
 
 
-def _approved_rule(db) -> dict:
+def _approved_rule(db, *, scope=None) -> dict:
     """The rule, the only way it can exist: reviewed analysis -> evaluated -> owner approval."""
     from brambleloop.gates.originality import code_benchmarks, record_fingerprint
     from brambleloop.quality import design_eval
@@ -67,7 +67,11 @@ def _approved_rule(db) -> dict:
     licence.capture_purchase(db, "fixture-purchase")
     review.review_analysis(db, source_id, reviewer="independent-reviewer", decision="reviewed",
                            reason="reviewed observation")
-    rule = DK.propose_from_analysis(db, source_id)
+    rule = (DK.propose_from_analysis(db, source_id) if scope is None else DK.propose(
+        db, key=f"scoped_{scope}", producer="analyst",
+        statement={"rule": "include_finishing_checklist", "parameters": {}},
+        scope={"writer_section": "finishing", "construction_family": scope},
+        provenance=[{"kind": "analysis", "id": source_id}]))
     for ref in [*(b.ref for b in code_benchmarks()), "fixture-purchase"]:
         record_fingerprint(db, ref, text=("xylophone quasar nebula orbit lantern velvet meadow "
                                           "cobalt river telescope compass marigold dolphin "
@@ -78,10 +82,10 @@ def _approved_rule(db) -> dict:
                           reason="independent review", evaluation_id=evaluation["audit_id"])
 
 
-def _draft(db, path) -> CIR:
+def _draft(db, path, seed_slug=SEED) -> CIR:
     import dataclasses as dc
 
-    seed = pipeline._seed_for(SEED)
+    seed = pipeline._seed_for(seed_slug)
     with db.session() as s:
         p = s.scalar(select(Product).where(Product.slug == seed.slug))
         if p is None:
@@ -112,59 +116,59 @@ def _run(db, path, job_type, inputs, agent):
         return row.status, dict(row.outputs or {}), str(row.last_error or "")
 
 
-def _certified(db, cir, version):
-    pinned = dataclasses.replace(cir, version=version)
-    with db.session() as s:
-        p = s.scalar(select(Product).where(Product.slug == pinned.slug))
-        s.add(PatternVersion(product_id=p.id, version=version, cir_json=pinned.to_dict(),
-                             certified=True))
-    return pinned
-
-
 def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifies_it():
     db, path = _store()
     baseline = _draft(db, path)
     assert not KG.has_pins(baseline)                       # no approved rule: untouched
     approved = _approved_rule(db)
     pin = approved["pin"]
-    # a fresh draft of the same concept now carries the frozen pin, recorded once
-    with db.session() as s:
-        for j in s.scalars(select(Job).where(Job.job_type.in_(("cir.draft", "cir.compile")))):
-            s.delete(j)
+    # Retain the first draft and its audited jobs; a pin changes the compile key.
     pinned = _draft(db, path)
     assert KG.has_pins(pinned), pinned.provenance.primitives_used
     assert [e["pin"] for e in K.markers(pinned)] == [pin]
     assert pinned.fingerprint != baseline.fingerprint
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.writer import write_pattern
+    baseline_text = write_pattern(baseline, compile_cir(baseline))
+    pinned_text = write_pattern(pinned, compile_cir(pinned))
+    assert pinned_text != baseline_text
+    assert "\n- " in pinned_text.partition("## Finishing")[2]
+    assert "\n- " not in baseline_text.partition("## Finishing")[2]
     with db.session() as s:
         frozen = [a.detail for a in s.scalars(select(AuditLog).where(
             AuditLog.action == KG.FROZEN))]
     assert frozen and frozen[-1]["pins"] == [pin], frozen
     assert KG.refusal(db, pinned) is None
     # certify and the PDF accept it while the pin verifies
-    status, out, err = _run(db, path, "gate.certify", {"cir": pinned.to_dict()}, "validator")
-    assert out.get("refused") != "design_knowledge", (status, out, err)
-    release = _certified(db, pinned, "2.0.0")
+    status, out, err = _run(db, path, "gate.certify", {"cir": pinned.to_dict()}, "quality_director")
+    assert status == JobStatus.DONE and out.get("granted") is True, (status, out, err)
+    release = pinned
+    with db.session() as s:
+        persisted = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == release.slug, PatternVersion.version == release.version))
+        assert persisted is not None and persisted.certified is True
+        assert CIR.from_dict(persisted.cir_json).fingerprint == release.fingerprint
     status, out, err = _run(db, path, "assets.build", {"slug": release.slug,
-                                                       "version": "2.0.0"}, "publishing")
+                                                       "version": release.version}, "publishing")
     assert status == JobStatus.DONE and out.get("refused") != "design_knowledge", (out, err)
     # the rule is retired: every boundary refuses the pinned design by name
     DK.review_rule(db, approved["rule_id"] if "rule_id" in approved else approved["id"],
                    reviewer="owner", decision="retire", reason="retire the rule")
     why = KG.refusal(db, pinned)
     assert why and "does not verify" in why
-    status, out, _err = _run(db, path, "gate.certify", {"cir": pinned.to_dict()}, "validator")
-    assert out.get("granted") is False and out.get("refused") == "design_knowledge", out
+    status, out, _err = _run(db, path, "gate.certify", {"cir": pinned.to_dict()}, "quality_director")
+    assert status == JobStatus.DONE and out.get("granted") is False and out.get("refused") == "design_knowledge", out
     status, out, _err = _run(db, path, "assets.build", {"slug": release.slug,
-                                                        "version": "2.0.0"}, "publishing")
+                                                        "version": release.version}, "publishing")
     assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", out
     from brambleloop.runtime import quality_ops
 
-    r = quality_ops.reverify(db, "cir.twin", release.slug, "2.0.0")
+    r = quality_ops.reverify(db, "cir.twin", release.slug, release.version)
     assert r["ok"] is False and "does not verify" in r["problems"][0], r
     from brambleloop.publish import release_gates
 
     assert any("does not verify" in x
-               for x in release_gates._knowledge_reasons(db, release.slug, "2.0.0"))
+               for x in release_gates._knowledge_reasons(db, release.slug, release.version))
     with db.session() as s:
         boundaries = {a.detail.get("boundary") for a in s.scalars(select(AuditLog).where(
             AuditLog.action == KG.REFUSED))}
@@ -172,6 +176,73 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
     # a design with no pins is never refused by the knowledge gate
     assert KG.refusal(db, baseline) is None
     assert release_gates._knowledge_reasons(db, release.slug, "9.9.9") == []
+
+
+def test_scoped_rule_changes_matching_draft_and_never_freezes_wrong_family():
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.writer import write_pattern
+    db, path = _store()
+    baseline = _draft(db, path)
+    assert baseline.construction == "joined_rounds"
+    approved = _approved_rule(db, scope="joined_rounds")
+    pinned = _draft(db, path)
+    assert [e["pin"] for e in K.markers(pinned)] == [approved["pin"]]
+    assert write_pattern(baseline, compile_cir(baseline)) != write_pattern(
+        pinned, compile_cir(pinned))
+    # A different family must receive no pin even though the rule is active.
+    wrong_family = dataclasses.replace(baseline, construction="flat_rows")
+    unchanged, records = KG.freeze_applicable(db, wrong_family)
+    assert records == [] and not KG.has_pins(unchanged)
+    try:
+        DK.freeze_pins(db, wrong_family, [approved["pin"]])
+    except DK.DesignKnowledgeRefused:
+        pass
+    else:
+        raise AssertionError("a joined-round pin was attached to a flat design")
+
+
+def test_revision_freezes_current_rule_and_refuses_a_retired_pin():
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.runtime import engineering_ops  # noqa: F401
+    db, path = _store()
+    approved = _approved_rule(db, scope="flat_rows")
+    broken = pipeline.concept_to_cir(pipeline.Concept(
+        slug="revision-fixture", title="Revision Fixture", category="runner",
+        stitch_repeat=[("sc", 3), ("dc", 1)], width_stitches=10, rows=4,
+        colors={"a": "#ffffff"}, source_provenance="fixture:original-design"))
+    assert not compile_cir(broken).ok
+    status, result, error = _run(db, path, "cir.revise", {"cir": broken.to_dict()},
+                                 "crochet_engineer")
+    assert status == JobStatus.DONE and result.get("revised"), (result, error)
+    with db.session() as session:
+        job = session.scalars(select(Job).where(Job.job_type == "cir.compile")
+                              .order_by(Job.id.desc())).first()
+        revised = CIR.from_dict(job.inputs["cir"])
+    assert [entry["pin"] for entry in K.markers(revised)] == [approved["pin"]]
+    assert compile_cir(revised).ok
+    stale_broken = DK.freeze_pins(db, broken, [approved["pin"]])
+    DK.review_rule(db, approved["rule_id"] if "rule_id" in approved else approved["id"],
+                   reviewer="owner", decision="retire", reason="fixture retirement")
+    status, result, error = _run(db, path, "cir.revise", {"cir": stale_broken.to_dict()},
+                                 "crochet_engineer")
+    assert status == JobStatus.DONE and result.get("refused") == "design_knowledge", (
+        result, error)
+
+
+def test_legacy_approved_construction_preference_cannot_bypass_design_evaluation():
+    import test_w5_a6_learning_to_design as old
+    from brambleloop.improve import consume
+    from brambleloop.creative.prospecting import ENGINE_ROUTE
+    db = old.D._db()
+    concept = old._winner(db)
+    wanted = old._other_construction(concept)
+    lesson_id = old._lesson(db, concept)
+    consume.approve_for_design(db, lesson_id, parameter="construction", value=wanted,
+                               approved_by="owner", why="legacy tests favour this construction for the form")
+    out, cir = old._draft(db)
+    assert cir.construction == ENGINE_ROUTE[concept["construction"]], out
+    assert out["learning"]["design_changes_held"] is True
+    assert not old.D._rows(db, consume.DESIGN_APPLIED)
 
 
 def test_a_forged_pin_is_refused_and_the_contract_is_v3():

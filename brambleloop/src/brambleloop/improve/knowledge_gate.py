@@ -18,7 +18,6 @@ from __future__ import annotations
 
 FROZEN = "design_knowledge.frozen"
 REFUSED = "design_knowledge.pins_refused"
-SCOPES = ({"writer_section": "finishing"},)
 
 
 def has_pins(cir) -> bool:
@@ -36,12 +35,10 @@ def freeze_applicable(db, cir):
 
     if getattr(cir, "provenance", None) is None:
         return cir, []                 # nothing to freeze into; the writer stays baseline
-    records = []
-    for scope in SCOPES:
-        try:
-            records += list(dk.applicable(db, scope))
-        except Exception:  # noqa: BLE001 - an unreadable store freezes nothing
-            return cir, []
+    try:
+        records = list(dk.applicable_to_cir(db, cir))
+    except Exception:  # noqa: BLE001 - an unreadable store freezes nothing
+        return cir, []
     if not records:
         return cir, []
     try:
