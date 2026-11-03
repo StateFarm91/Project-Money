@@ -52,6 +52,22 @@ def _try(fn, *a, **k):
         return None, f"{type(exc).__name__}: {str(exc)[:300]}"
 
 
+def _release_source_digest(cir, listing, certificate) -> str | None:
+    """Fingerprint the stored release design and listing fields we read."""
+    if not isinstance(cir, dict) or not isinstance(certificate, dict) or listing is None:
+        return None
+    names = ("product_slug", "version", "title", "description", "tags", "price_cad",
+             "state", "seo_score", "chain_version", "release_hash", "etsy_listing_id")
+    try:
+        body = {"cir": cir, "certificate": certificate,
+                "listing": {name: getattr(listing, name) for name in names}}
+        return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
+                                         separators=(",", ":"), allow_nan=False)
+                              .encode("utf-8")).hexdigest()
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def _release(db, slug: str, version: str) -> dict | None:
     from sqlalchemy import select
 
@@ -70,6 +86,9 @@ def _release(db, slug: str, version: str) -> dict | None:
         listing = listings[0] if listings else None
         return {"release_hash": pv.release_hash or "", "cir": dict(pv.cir_json or {}),
                 "listing_state": listing.state if listing is not None else None,
+                "source_snapshot_sha256": _release_source_digest(pv.cir_json, listing, pv.certificate),
+                "listing_copy": ({"title": listing.title, "description": listing.description,
+                                  "tags": listing.tags} if listing is not None else None),
                 "listing_release": (listing.release_hash or "") if listing is not None else ""}
 
 
@@ -105,12 +124,33 @@ def _files(db, slug: str, version: str, release: str) -> dict | None:
     return {"pdf_sha256_by_terminology": dict(hashes), **meta}
 
 
-def _identity(slug: str, cir: dict) -> dict:
+def listing_copy_digest(copy) -> str | None:
+    """Bind the precise listing text and tag order, or return None when uncheckable."""
+    if not isinstance(copy, dict):
+        return None
+    title, description, tags = copy.get("title"), copy.get("description"), copy.get("tags")
+    if (not isinstance(title, str) or not isinstance(description, str)
+            or not isinstance(tags, (list, tuple))
+            or any(not isinstance(tag, str) for tag in tags)):
+        return None
+    body = {"title": title, "description": description, "tags": list(tags)}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True).encode("utf-8")).hexdigest()
+
+
+def _identity(slug: str, cir: dict, listing=None) -> dict:
     from ..products import launch0
 
     out = {"risk_class": cir.get("risk_class"), "title_in_pattern": cir.get("title"),
            "childrens_decision": None, "product_truth": None}
-    decision, err = _try(launch0.childrens_decision, slug)
+    # A1R-6: the construction-aware decision the renderer holds on, never the raw one, so a
+    # listing cannot say "not_for_children" for a stuffed form whose documents are held.
+    def _decision(slug_):
+        from ..cir.model import CIR
+
+        return (launch0.childrens_decision_for(CIR.from_dict(cir), listing=listing) if cir
+                else launch0.childrens_decision(slug_))
+    decision, err = _try(_decision, slug)
     out["childrens_decision"] = (list(decision) if isinstance(decision, tuple)
                                  else (decision if err is None else f"UNKNOWN: {err}"))
     cand = next((c for c in launch0.CANDIDATES
@@ -184,11 +224,44 @@ def assemble(db, slug: str, version: str) -> dict | None:
             f"the certified {release[:12]}")})
 
 
+    snapshot = rel["listing_copy"]
+    snapshot_digest = listing_copy_digest(snapshot)
+    emitted_digest = listing_copy_digest(copy) if copy is not None else None
+    if snapshot is not None and snapshot_digest is None:
+        blockers.append({"source": "listing_snapshot", "why": "listing copy cannot be checked"})
+    if copy is not None and (emitted_digest is None or emitted_digest != snapshot_digest):
+        blockers.append({"source": "listing_snapshot", "why":
+                         "emitted listing copy differs from the stored listing snapshot"})
+    # Evaluate the exact emitted copy AND the initial snapshot. A concurrent change
+    # must neither escape the hold nor retain an adult-only package identity.
+    identity = _identity(slug, rel["cir"], copy if copy is not None else snapshot)
+    for observed in (snapshot, copy):
+        if observed is None:
+            continue
+        try:
+            from ..products import launch0
+
+            listing_words = launch0.child_words_in_listing(observed)
+            decision = _identity(slug, rel["cir"], observed).get("childrens_decision") or []
+            if listing_words and (not isinstance(decision, list) or not decision
+                                  or decision[0] != launch0.ASSIGNED):
+                identity["childrens_decision"] = [launch0.UNDECIDED, None]
+                blockers.append({"source": "childrens_decision", "why":
+                    "listing copy names a child audience without an explicit assignment"})
+                break
+        except (TypeError, ValueError):
+            identity["childrens_decision"] = ["undecided", None]
+            blockers.append({"source": "childrens_decision", "why":
+                             "listing child audience cannot be checked"})
+            break
+
     package = {
         "slug": slug, "version": version, "release_hash": release,
         "state": READY if not blockers else BLOCKED,
-        "identity": _identity(slug, rel["cir"]),
+        "identity": identity,
         "listing_state": rel["listing_state"],
+        "listing_snapshot_sha256": snapshot_digest,
+        "source_snapshot_sha256": rel["source_snapshot_sha256"],
         "copy": copy,
         "gallery": frames,
         "disclosures": sorted({f["honesty_label"] for f in frames if f.get("honesty_label")}),
@@ -272,13 +345,14 @@ def record(db, package: dict, *, now: datetime | None = None,
         changed = observed != package["fingerprint"]
     if expected_fingerprint is _UNSPECIFIED:
         expected_fingerprint = observed
-    md_sha = None
-    if changed:
-        stored, err = _try(ArtifactStore().put,
-                           f"listing_packages/{package['slug']}/{package['version']}/"
-                           f"{package['fingerprint'][:16]}.md",
-                           render(package).encode(), "text/markdown")
-        md_sha = stored.sha256 if stored is not None else None
+    # The owner must be able to retrieve the exact review document after a
+    # restart. Keep it in the durable store before requesting any review.
+    stored, err = _try(ArtifactStore().put,
+                       f"listing_packages/{package['slug']}/{package['version']}/"
+                       f"{package['fingerprint'][:16]}.md",
+                       render(package).encode(), "text/markdown", db=db,
+                       keep="owner review listing package")
+    md_sha = stored.sha256 if stored is not None and stored.durable else None
     from ..runtime.release import _serialise_owner_queue
 
     with db.session() as s:
@@ -293,6 +367,41 @@ def record(db, package: dict, *, now: datetime | None = None,
             # unsafe to replace its owner request with this older snapshot.
             return {"key": key, "state": "STALE", "changed": False,
                     "retry": True, "blockers": 0, "review_requested": False}
+        # Lock the actual evidence rows while checking and recording this
+        # review request. An older assembled copy cannot regain authority.
+        from ..core.models import Listing, PatternVersion, Product
+
+        product = s.scalar(select(Product).where(Product.slug == package["slug"]).with_for_update())
+        pv = (s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == package["version"]).with_for_update())
+              if product is not None else None)
+        listing = s.scalar(select(Listing).where(
+            Listing.product_slug == package["slug"],
+            Listing.version == package["version"]).with_for_update())
+        current_copy = ({"title": listing.title, "description": listing.description,
+                         "tags": listing.tags} if listing is not None else None)
+        digest = listing_copy_digest(current_copy)
+        expected_digest = package.get("listing_snapshot_sha256")
+        release_hash = package.get("release_hash")
+        # A BLOCKED package may report unavailable evidence; it grants no owner
+        # review authority. READY requires every bound source to verify now.
+        if package.get("state") == READY and (
+                pv is None or not pv.certified or not isinstance(pv.certificate, dict)
+                or pv.certificate.get("granted") is not True or not release_hash
+                or pv.release_hash != release_hash or listing is None
+                or listing.release_hash != release_hash or not digest
+                or digest != expected_digest
+                or listing_copy_digest(package.get("copy")) != digest
+                or not package.get("source_snapshot_sha256")
+                or _release_source_digest(pv.cir_json, listing, pv.certificate) != package["source_snapshot_sha256"]):
+            result = _invalidate_locked(s, package["slug"], package["version"],
+                                        "listing or certified release changed or is unavailable")
+            return {**result, "retry": True}
+        if md_sha is None:
+            result = _invalidate_locked(s, package["slug"], package["version"],
+                                        "review document could not be stored durably")
+            return {**result, "retry": True}
         if changed:
             body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
             if row is None:
@@ -306,8 +415,10 @@ def record(db, package: dict, *, now: datetime | None = None,
         # Review OPUS2EF2 EF2-5: the unfingerprinted key from the first version of this job
         # (exactly `action_key`) is matched too, so a request left under it is superseded
         # rather than orphaned beside the fingerprinted one.
+        escaped_action_key = (action_key.replace("\\", "\\\\")
+                              .replace("%", "\\%").replace("_", "\\_"))
         rows = list(s.scalars(select(OwnerAction).where(or_(
-            OwnerAction.requirement_key.like(f"{action_key}:%"),
+            OwnerAction.requirement_key.like(escaped_action_key + ":%", escape="\\"),
             OwnerAction.requirement_key == action_key))))
         raised = closed = False
         for stale in rows:
@@ -430,11 +541,19 @@ def _package_one(db, slug: str, version: str) -> dict:
         previous = latest(db, slug, version)
         expected = (previous or {}).get("fingerprint")
         package, err = _try(assemble, db, slug, version)
-        if err is not None or package is None:
-            return {"key": f"{slug}@{version}", "error": err or "not certified"}
+        if err is not None:
+            return {"key": f"{slug}@{version}", "error": err, "retry": True}
+        if package is None:
+            # Certification may have disappeared after the initial eligibility
+            # check. Reconcile any previous owner request, not just this job.
+            result = _reconcile_ineligible(db, slug, version)
+            if result.get("became_eligible"):
+                continue
+            return result
         recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
         if rerr is not None:
-            return {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]}
+            # No READY verdict exists until the record transaction commits.
+            return {"key": f"{slug}@{version}", "error": rerr, "retry": True}
         if not recorded.get("retry"):
             return recorded
     return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,

@@ -1639,7 +1639,10 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
         db, slug, version,
         listing=(None if row is None else
                  {"title": row.title, "description": row.description,
-                  "tags": list(row.tags or []), "price_cad": row.price_cad}))
+                  # Preserve malformed values so the audience gate can fail closed;
+                  # list("baby") would silently turn the word into four tags.
+                  "tags": row.tags if row.tags is not None else [],
+                  "price_cad": row.price_cad}))
     reasons.extend(f"{r['code']}: {r['why']}" for r in scope["reasons"])
     price_check = launch_price_check(slug, None if row is None else row.price_cad)
     if price_check["state"] == "DRIFT":

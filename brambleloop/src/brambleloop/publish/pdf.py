@@ -588,7 +588,11 @@ def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     """
     from ..products import launch0
 
-    return launch0.childrens_assignment(cir.slug) or graded_childrens_assignment(cir)
+    assigned = launch0.childrens_assignment(cir.slug)
+    if assigned is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        return assigned if decision == launch0.ASSIGNED else None
+    return graded_childrens_assignment(cir)
 
 
 def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
@@ -730,6 +734,20 @@ def package_missing(cir: CIR, prose: str | list[str]) -> tuple[str, ...]:
                  if not any(line == h or line.startswith(h + " (") for line in lines))
 
 
+from ..core.resilience import PermanentError as _PermanentError
+
+
+class ChildrensDecisionRequired(_PermanentError, ValueError):
+    """A1R-4: a product held for a children's-safety decision. Permanent (never retried: a
+    retry cannot make the decision) and named, so `assets.build` records an owner-visible
+    hold instead of spending attempts toward a dead letter. A ValueError too, so every
+    existing caller that refuses on ValueError still refuses."""
+
+    def __init__(self, slug: str, reason: str, message: str):
+        super().__init__(message)
+        self.slug, self.reason = slug, reason
+
+
 def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     """A pattern whose own title says "child" cannot be rendered on nobody's decision.
 
@@ -746,22 +764,47 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     `EXTRA_CHILDRENS_ASSIGNMENTS`, or an exemption with a reason in
     `NOT_MERCHANDISED_TO_A_CHILD`.
     """
-    if childrens is not None:
-        return
+    from ..gates import small_parts
     from ..products import launch0
 
-    words = launch0.child_words_in(cir.title, cir.slug)
-    if not words:
+    # A1-R (owner directive 2026-11-02): the construction is the primary trigger. A closed
+    # stuffed form is a children's-safety question whatever its title says; title words are
+    # the second layer, read through one fold (look-alike and invisible characters).
+    stuffed = launch0.closed_stuffed_form(cir)
+    # A slug-only child assignment cannot authorize a different or revised CIR.
+    if launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        if decision != launch0.ASSIGNED:
+            raise ChildrensDecisionRequired(cir.slug, "undecided",
+                f"{cir.slug}: the existing children's assignment does not bind this exact "
+                "design and version. Held pending an explicit authorized decision.")
+    if childrens is not None:
+        # Assigned to a child: a sewn-on piece that fits, or may fit, the small-parts cylinder
+        # holds it until physical evidence is recorded (UNKNOWN is never a pass).
+        # A1R-5: every assigned product, stuffed or not; unmeasurable is UNKNOWN and blocks.
+        blocks = small_parts.blocking(cir)
+        if blocks:
+            raise ChildrensDecisionRequired(cir.slug, "small_parts",
+                f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "
+                f"{small_parts.CYLINDER_MM:g} mm small-parts cylinder: {'; '.join(blocks)}. "
+                f"Held pending an approved content-bound physical-evidence authority.")
         return
-    state, _why = launch0.childrens_decision(cir.slug)
+    words = launch0.child_words_in(cir.title, cir.slug)
+    if not words and not stuffed:
+        return
+    state, _why = launch0.childrens_decision_for(cir)
     if state != launch0.UNDECIDED:
         return
-    raise ValueError(
-        f"{cir.slug}: the title {cir.title!r} reads as a children's product ({', '.join(words)}) "
-        f"and nothing has decided whether it is one. Refusing to render a document that would "
-        f"carry no safety statements on nobody's decision. Assign it in "
+    reads = (f"reads as a children's product ({', '.join(words)})" if words else
+             "is not marked for children, but its construction is a closed stuffed form")
+    raise ChildrensDecisionRequired(cir.slug, "undecided",
+        f"{cir.slug}: the title {cir.title!r} {reads}, and nothing has decided whether it is "
+        f"one. Held pending an explicit owner decision: refusing to render a document that "
+        f"would carry no safety statements on nobody's decision. Assign it in "
         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
-        f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD")
+        f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD (the implicit candidate exemption is "
+        f"not a decision for a closed stuffed form); an authorized decision bound to this "
+        f"exact design and version is also required, and reapproval is not yet implemented")
 
 
 def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
