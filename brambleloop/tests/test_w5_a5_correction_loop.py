@@ -645,6 +645,38 @@ def test_recertification_dedupe_does_not_roll_back_release_or_hide_wrong_job():
             assert len(_audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
 
 
+def test_recertification_does_not_accept_dead_or_stale_quality_intents():
+    from brambleloop.publish import withholding
+
+    for status in (JobStatus.DEAD, JobStatus.CANCELLED, JobStatus.DONE, JobStatus.RUNNING):
+        db = _db()
+        cir = launch0.cir_for("harvest_runner")
+        _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+        withholding.record_reverification(db, cir.slug, cir.version, check="pdf", problem="drift")
+        queue = JobQueue(db)
+        parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:terminal-recert")
+        key = f"reverify-after-recert:{cir.slug}@{cir.version}:{'f' * 16}"
+        job = queue.enqueue("quality_director", "gate.quality", {}, idempotency_key=key)
+        with db.session() as session:
+            session.get(Job, job.id).status = status
+        ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+        if status in (JobStatus.DEAD, JobStatus.CANCELLED):
+            try:
+                pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+                assert False, "exhausted or cancelled intents must stop recertification"
+            except RuntimeError as exc:
+                assert status.value in str(exc), str(exc)
+            assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+            assert len(_jobs(db, job_type="gate.quality")) == 1
+        else:
+            pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+            assert _certified(db, cir.slug, cir.version).release_hash == "f" * 64
+            jobs = _jobs(db, job_type="gate.quality")
+            assert len(jobs) == 2 and jobs[-1].status == JobStatus.PENDING, jobs
+            assert jobs[-1].idempotency_key.endswith(":recovery:1")
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()

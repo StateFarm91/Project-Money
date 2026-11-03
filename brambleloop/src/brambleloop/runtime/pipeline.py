@@ -1761,8 +1761,7 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
                 from ..queue.durable import fit_idempotency_key
                 from ..swarm.orchestrate import priority_for
 
-                key = fit_idempotency_key(
-                    f"reverify-after-recert:{cir.slug}@{cir.version}:{release_hash[:16]}")
+                raw_key = f"reverify-after-recert:{cir.slug}@{cir.version}:{release_hash[:16]}"
                 dialect = ctx.db.engine.dialect.name
                 if dialect == "postgresql":
                     from sqlalchemy.dialects.postgresql import insert
@@ -1774,15 +1773,30 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
                     priority = priority_for("gate.quality", {}, db=ctx.db)
                 except Exception:  # noqa: BLE001 - same priority fallback as JobQueue
                     priority = priority_for("gate.quality", {})
-                statement = insert(Job).values(
-                    agent="quality_director", job_type="gate.quality", inputs={},
-                    priority=priority, status=JobStatus.PENDING, idempotency_key=key,
-                    max_attempts=3).on_conflict_do_nothing(index_elements=["idempotency_key"])
-                s.execute(statement)
-                intended = s.scalar(select(Job).where(Job.idempotency_key == key))
-                if (intended is None or intended.agent != "quality_director"
-                        or intended.job_type != "gate.quality" or intended.inputs != {}):
-                    raise RuntimeError("reverification idempotency key has incompatible job")
+                for suffix in ("", ":recovery:1"):
+                    key = fit_idempotency_key(raw_key + suffix)
+                    statement = insert(Job).values(
+                        agent="quality_director", job_type="gate.quality", inputs={},
+                        priority=priority, status=JobStatus.PENDING, idempotency_key=key,
+                        max_attempts=3).on_conflict_do_nothing(index_elements=["idempotency_key"])
+                    s.execute(statement)
+                    # Prevent a pending job being claimed between this check and
+                    # the release commit, so it will read the carried withholding.
+                    intended = s.scalar(select(Job).where(Job.idempotency_key == key).with_for_update())
+                    if (intended is None or intended.agent != "quality_director"
+                            or intended.job_type != "gate.quality" or intended.inputs != {}):
+                        raise RuntimeError("reverification idempotency key has incompatible job")
+                    if intended.status in (JobStatus.PENDING, JobStatus.FAILED):
+                        break
+                    if intended.status in (JobStatus.DEAD, JobStatus.CANCELLED):
+                        # Do not bypass a deliberate refusal or exhausted retry.
+                        raise RuntimeError(f"reverification intent is {intended.status.value}; "
+                                           "resolve or redrive it before recertification")
+                    # A running job may already have read; a completed one may
+                    # predate this carry. One bounded new intent is required.
+                else:
+                    raise RuntimeError("reverification recovery intent unavailable; "
+                                       "resolve it before recertification")
             from ..core.models import AuditLog
 
             s.add(AuditLog(actor=ctx.job.agent, action="gate.recertified",
