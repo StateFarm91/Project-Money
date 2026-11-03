@@ -279,6 +279,20 @@
       "area": "queue Q16 split",
       "claimed": "2026-11-02T11:20Z",
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
+    },
+    {
+      "id": "CODEX-V1-POST-RIB-TRUTH",
+      "operator": "codex",
+      "branch": "codex/v1-visual-correctness",
+      "source_branch": "claude/w5-V1-visual-correctness",
+      "source_sha": "f349c755a17d3792241249a49d0884262c8fd60b",
+      "scope": "V1 false ribbing classification and visual prompt truth",
+      "files": [
+        "brambleloop/src/brambleloop/creative/pattern_refs.py",
+        "brambleloop/tests/test_w5_v1_visual_correctness.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

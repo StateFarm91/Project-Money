@@ -257,6 +257,73 @@ def test_a_genuinely_ribbed_fabric_still_reads_ribbed():
     assert P.fabric_facts(fold)["ribbing_declared"] is False      # fold rows are construction
 
 
+def test_separated_front_and_back_posts_are_not_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+
+    rows = [_row(i, "pine") for i in range(1, 22)]
+    rows[1].ops = [Op("fpdc", 12)]
+    rows[-1].ops = [Op("bpdc", 12)]
+    cir = _flat("separated-posts", rows, {"pine": "#244A3A"})
+    facts = P.fabric_facts(cir)
+    assert facts["ribbing_declared"] is None, facts
+    assert not any(n.startswith("ribbing anywhere") for n in _rules(cir)["negatives"])
+    assert "ribbing anywhere" not in _prompt(cir).text
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(cir)
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+
+
+def test_mixed_post_rib_requires_repetition_on_nearby_rows():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+
+    def make(slug, post_rows):
+        rows = [_row(i, "pine") for i in range(1, 22)]
+        for index in post_rows:
+            rows[index - 1].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+        return _flat(slug, rows, {"pine": "#244A3A"})
+
+    assert P.fabric_facts(make("one-mixed", [2]))["ribbing_declared"] is None
+    assert P.fabric_facts(make("two-separated", [2, 21]))["ribbing_declared"] is None
+    assert P.fabric_facts(make("two-adjacent", [2, 3]))["ribbing_declared"] is True
+
+
+def test_shifted_post_columns_remain_unknown():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    rows[1].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+    rows[2].ops = [Op("sc", 1), Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=2),
+                   Op("fpdc", 2), Op("bpdc", 1)]
+    assert P.fabric_facts(_flat("shifted-rib", rows, {"pine": "#244A3A"}))["ribbing_declared"] is None
+
+
+def test_post_blocks_and_fold_rows_do_not_prove_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    for i in (1, 2): rows[i].ops = [Op("fpdc", 6), Op("bpdc", 6)]
+    assert P.fabric_facts(_flat("post-blocks", rows, {"pine": "#244A3A"}))["ribbing_declared"] is None
+    for i in (1, 2): rows[i].note = "fold and crease line"
+    assert P.fabric_facts(_flat("post-folds", rows, {"pine": "#244A3A"}))["ribbing_declared"] is False
+
+
+def test_sparse_loop_only_stitches_do_not_prove_whole_row_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    for i in (1, 2): rows[i].ops = [Op("sc", 1, loop="back"), Op("sc", 11)]
+    cir = _flat("sparse-loop", rows, {"pine": "#244A3A"})
+    assert P.fabric_facts(cir)["ribbing_declared"] is None
+    from brambleloop.visual import fidelity
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+
+
 # ---- P1-b + P2-b ----------------------------------------------------------------------------
 
 def test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_rim():

@@ -242,7 +242,7 @@ class Expectation:
     palette_lin: np.ndarray
     pieces: list[PieceModel]
     edging_declared: bool
-    ribbing_declared: bool
+    ribbing_declared: bool | None
     craft: str
     expected_share: np.ndarray
 
@@ -389,7 +389,7 @@ def expectation(cir) -> Expectation:
     except Exception:  # noqa: BLE001
         fp = key[:16]
     exp = Expectation(cir.slug, cir.version, str(fp), ids, hexes, pal_lab, pal_lin, pieces,
-                      bool(facts["edging_declared"]), bool(facts["ribbing_declared"]),
+                      bool(facts["edging_declared"]), facts["ribbing_declared"],
                       facts.get("craft") or "crochet", shares)
     _CACHE[key] = exp
     return exp
@@ -948,7 +948,9 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
         problems.append(f"reads as {v['craft']}, the pattern is {exp.craft}")
     if v["cable_style"] == "knitted_rope":
         problems.append("knitted rope cables")
-    if not exp.ribbing_declared:
+    if exp.ribbing_declared is None:
+        unclear.append("pattern ribbing is not determined by the structural reader")
+    elif exp.ribbing_declared is False:
         if v["ribbing_visible"] in ("true", "yes"):
             problems.append("ribbing the pattern does not have")
         elif v["ribbing_visible"] not in ("false", "no"):
@@ -962,7 +964,7 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
                       code=FC.INVENTED_EDGING, reading=v)
     if unclear:
         return _check("craft_texture", UNKNOWN, "; ".join(unclear), reading=v)
-    return _check("craft_texture", PASS, f"reads as {exp.craft}, no ribbing or edging",
+    return _check("craft_texture", PASS, f"reads as {exp.craft} and matches known texture constraints",
                   reading=v)
 
 
