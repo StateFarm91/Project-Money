@@ -6,11 +6,31 @@ import unittest
 from sqlalchemy import select
 
 from brambleloop.core.db import Database
-from brambleloop.core.models import AuditLog, Lesson
+from brambleloop.core.models import AuditLog, Incident, Lesson
 from brambleloop.improve import design_knowledge, mine
 
 
 class EngineeringFailureMining(unittest.TestCase):
+    def test_unknown_learning_gap_is_not_mined_as_a_product_defect(self):
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/gap.db", scratch=True)
+            db.create_all()
+            with db.session() as s:
+                s.add_all([
+                    Incident(signature="learning.knowledge_gap:architecture:1", severity="P2",
+                             summary="Reference observations are unknown"),
+                    Incident(signature="compile_regression:1", severity="P2",
+                             summary="A real engineering incident"),
+                ])
+            mine.mine(db, fixture_dir=Path(tmp))
+            with db.session() as s:
+                refs = [row.evidence_ref for row in s.scalars(select(Lesson))]
+                self.assertTrue(any(ref.startswith("incident:compile_regression") for ref in refs))
+                self.assertFalse(any("learning.knowledge_gap" in ref for ref in refs))
+                self.assertIsNotNone(s.scalar(select(Incident).where(
+                    Incident.signature == "learning.knowledge_gap:architecture:1",
+                    Incident.resolved.is_(False))))
+
     def test_failed_compile_and_unrepairable_are_mined_once(self):
         with TemporaryDirectory() as tmp:
             db = Database(f"sqlite:///{tmp}/learning.db", scratch=True)
