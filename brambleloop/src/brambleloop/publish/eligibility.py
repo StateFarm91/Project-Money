@@ -760,21 +760,35 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
     # A later listing cannot reintroduce conflicting or unsupported tote sizes.
-    # This checks contradictions within each claim, not a single size against
-    # physically measured dimensions (which still needs separate evidence).
+    # Explicit listing sizes must also agree with the pattern's own title; this
+    # checks label consistency, not physical measurements or a false CIR title.
     if isinstance(listing, dict):
         import re
         from ..creative import fallback_constructions as FC
 
         tags = listing.get("tags") or []
         tags = tags if isinstance(tags, (list, tuple)) else []
+        base_title = FC.fold_title(cir.title)
+        base_is_tote = bool(re.search(FC._TOTE_WORDS, base_title))
+        size_words = {word for word, _size in FC._TOTE_SIZE_WORDS}
+        base_explicit = bool(set(re.findall(r"[a-z]+", base_title)) & size_words)
+        base_size, base_why = FC.tote_size_key(base_title)
         for where, text in [("title", listing.get("title")),
                             ("description", listing.get("description")),
                             *[("tag", tag) for tag in tags]]:
-            if isinstance(text, str) and re.search(FC._TOTE_WORDS, FC.fold_title(text)):
-                _size, why = FC.tote_size_key(text)
-                if why:
-                    out.append(f"size: listing {where}: {why}")
+            if not isinstance(text, str):
+                continue
+            folded = FC.fold_title(text)
+            names_tote = bool(re.search(FC._TOTE_WORDS, folded)) or (
+                base_is_tote and bool(re.search(r"\bbags?\b", folded)))
+            if not names_tote:
+                continue
+            size, why = FC.tote_size_key(folded)
+            explicit = bool(set(re.findall(r"[a-z]+", folded)) & size_words)
+            if why:
+                out.append(f"size: listing {where}: {why}")
+            elif base_is_tote and explicit and (base_why or not base_explicit or size != base_size):
+                out.append(f"size: listing {where}: size is not supported by the pattern title")
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)
