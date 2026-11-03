@@ -85,3 +85,14 @@ state update and recovery without duplicate analysis or audit. This proves the
 finishing-rule path, not an approved construction change. The current-head
 shadow suite remains incomplete: three cases passed before the run was paused
 to complete this acceptance test.
+
+At `7419ffa`, the intake-to-approval HTTP test, worker (10/10), knowledge
+contract (4/4), owner review actions (5/5), frozen evaluation cases (7/7),
+retention guard (5/5), and learning-loop regression (13/13) passed. Analysis
+review, proposal, pin verification and partial audit now require the source
+hash to remain manifested as a PDF. This change alters the evaluator's
+implementation digest: previous evaluation pins require re-evaluation.
+Unreviewed architecture evidence is tracked as a separate gap rather than a
+product defect. Recovery also covers a worker failure after a purchase was
+marked analysed. A complete independent review and full shadow regression are
+still required.
