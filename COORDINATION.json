@@ -293,7 +293,10 @@
         "brambleloop/src/brambleloop/finance/reservations.py",
         "brambleloop/src/brambleloop/gateway/images.py",
         "brambleloop/src/brambleloop/gateway/anthropic.py",
-        "brambleloop/src/brambleloop/visual/d_judge.py"
+        "brambleloop/src/brambleloop/visual/d_judge.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/src/brambleloop/gateway/routing.py",
+        "brambleloop/src/brambleloop/gateway/model_gateway.py"
       ],
       "claimed_at": "2026-11-03"
     }

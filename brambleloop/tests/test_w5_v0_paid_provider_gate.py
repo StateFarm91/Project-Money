@@ -611,6 +611,69 @@ def test_probe_only_reference_step_cannot_use_an_arbitrary_image():
         assert wire.calls == [], wire.calls
 
 
+def test_negative_company_ledger_amount_blocks_all_budget_readers():
+    from brambleloop.gateway import routing
+    db = _db()
+    registry = Registry(db)
+    # The direct legacy writer can persist a negative charge; it must not become
+    # a credit at either company reader or the agent permission check.
+    try:
+        registry.record_cost("orchestrator", -2.0)
+    except Exception:
+        pass
+    else:
+        raise AssertionError("negative direct ledger cost was treated as a valid charge")
+    for read in (lambda: gw.spent_this_month_cad(db), lambda: routing.spent_this_month(db),
+                 lambda: registry.spend_today("orchestrator")):
+        try:
+            read()
+        except (gw.BudgetExceeded, routing.CeilingReached, __import__(
+                "brambleloop.agents.registry", fromlist=["BudgetExceeded"]).BudgetExceeded):
+            pass
+        else:
+            raise AssertionError("invalid ledger credit did not hold a budget reader")
+
+
+def test_nonfinite_company_ledger_amount_fails_closed():
+    from brambleloop.core.models import CostEntry
+    from brambleloop.gateway import routing
+    db = _db()
+    with db.session() as session:
+        session.add(CostEntry(agent="orchestrator", kind="llm", amount_cad=float("inf")))
+    for reader, error in ((gw.spent_this_month_cad, gw.BudgetExceeded),
+                          (routing.spent_this_month, routing.CeilingReached)):
+        try:
+            reader(db)
+        except error:
+            pass
+        else:
+            raise AssertionError("nonfinite ledger cost did not hold the ceiling")
+
+
+def test_invalid_model_usage_is_recorded_at_estimate_not_as_a_credit():
+    import test_rc1_spend as cases
+    from brambleloop.gateway import model_gateway as mg, routing
+    from brambleloop.core.models import CostEntry
+
+    for inputs, outputs in ((-1000, 1), (0, 0), (2.5, 1)):
+        db, gateway, ref, values = cases._gateway(cases._Bad(in_tok=inputs, out_tok=outputs))
+        try:
+            gateway.complete_json(ref, agent="cfo", values=values, max_attempts_per_provider=1)
+        except mg.MalformedModelOutput:
+            pass
+        with db.session() as session:
+            rows = list(session.scalars(select(CostEntry)))
+            assert len(rows) == 1 and rows[0].amount_cad > 0, rows
+            assert rows[0].amount_cad == rows[0].estimated_cad
+            assert rows[0].detail["billing"] == "unknown_usage_counted_at_estimate"
+        assert gw.spent_this_month_cad(db) > 0
+    db = _db()
+    task_key = next(iter(routing.TASKS))
+    amount = routing.record(db, task_key, agent="orchestrator", tokens_in=-100, tokens_out=1)
+    assert amount == routing.estimate_cad(task_key) and amount > 0
+    assert gw.spent_this_month_cad(db) > 0
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):

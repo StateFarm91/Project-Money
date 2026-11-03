@@ -219,7 +219,13 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
         if (at.year, at.month) == (now.year, now.month):
-            total += row.amount_cad or 0.0
+            try:
+                amount = float(row.amount_cad)
+            except (TypeError, ValueError, OverflowError):
+                raise BudgetExceeded("company cost ledger has an invalid amount; reconciliation required") from None
+            if not math.isfinite(amount) or amount < 0:
+                raise BudgetExceeded("company cost ledger has an invalid or negative amount; reconciliation required")
+            total += amount
     return round(total, 6)
 
 

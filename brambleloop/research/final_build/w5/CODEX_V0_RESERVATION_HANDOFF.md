@@ -81,3 +81,18 @@ reference probing requires an active generation authorization and checks this
 before sending the first render. An arbitrary PNG under probe-only authority was
 refused with no fake transport call. This is an intentional availability hold;
 no new generation authorization is created. Independent review is still needed.
+
+The legacy company and agent budget readers now refuse negative or non-finite
+ledger amounts instead of letting them become spend credits. The persistent
+SQLite test uses the real `Registry.record_cost` writer and confirms both company
+readers and the agent reader hold. This is a reconciliation hold, not a repair
+of invalid records. Direct writers can still record malformed or unknown usage;
+a complete fix needs trustworthy positive estimate settlement and durable
+reconciliation for all provider and ledger paths. DO NOT INTEGRATE remains.
+
+A follow-up conservatively records invalid/missing model-response token counts at
+the pre-call estimate in `ModelGateway._billing`, and does the same for invalid
+non-cached usage at `routing.record`. Real gateway and durable-ledger tests
+cover negative, missing and fractional counts. This does not certify every
+provider's direct cost writer: independently audit the remaining paths and
+reconcile unknown or historical bad rows before integration.
