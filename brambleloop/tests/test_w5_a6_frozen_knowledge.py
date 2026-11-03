@@ -173,6 +173,31 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
         boundaries = {a.detail.get("boundary") for a in s.scalars(select(AuditLog).where(
             AuditLog.action == KG.REFUSED))}
     assert {"gate.certify", "assets.build"} <= boundaries, boundaries
+    # A queued visual stage and direct gallery actions must also re-check the
+    # current pin, before a generator, follow-on job, approval or asset write.
+    from brambleloop.visual import image_production as IP, gallery_persist as GP
+    from brambleloop.visual.image_records import ImageCandidate
+    visual_inputs = {"slug": release.slug, "version": release.version,
+                     "release": "fixture", "stage": "product_generation"}
+    status, out, err = _run(db, path, "visual.image_production", visual_inputs, "publishing")
+    assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
+    key = IP._ensure_run(db, release.slug, release.version, "fixture")
+    with db.session() as s:
+        run = IP._run(s, key)
+        run.status = "ready_for_owner_review"
+        candidate = ImageCandidate(sha256="d" * 64, run_key=key, method="autonomous",
+            provenance_kind="synthetic", slug=release.slug, version=release.version)
+        s.add(candidate)
+        s.flush()
+        candidate_id = candidate.id
+    approval = IP.approve(db, key, decided_by="owner")
+    assert approval.get("refused") == "design_knowledge", approval
+    with db.session() as s:
+        IP._run(s, key).status = "approved_for_publication"
+    persisted = GP.persist_approved(db, key)
+    assert persisted.get("refused") == "design_knowledge", persisted
+    checked = IP.reverify(db, candidate_id, judges=object())
+    assert checked.get("refused") == "design_knowledge", checked
     # a design with no pins is never refused by the knowledge gate
     assert KG.refusal(db, baseline) is None
     assert release_gates._knowledge_reasons(db, release.slug, "9.9.9") == []

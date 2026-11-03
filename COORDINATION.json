@@ -293,7 +293,9 @@
         "brambleloop/src/brambleloop/improve/knowledge_gate.py",
         "brambleloop/src/brambleloop/runtime/pipeline.py",
         "brambleloop/src/brambleloop/runtime/engineering_ops.py",
-        "brambleloop/tests/test_w5_a6_frozen_knowledge.py"
+        "brambleloop/tests/test_w5_a6_frozen_knowledge.py",
+        "brambleloop/src/brambleloop/visual/image_production.py",
+        "brambleloop/src/brambleloop/visual/gallery_persist.py"
       ],
       "claimed_at": "2026-11-03"
     }

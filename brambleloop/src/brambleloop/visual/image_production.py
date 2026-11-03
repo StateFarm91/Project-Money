@@ -630,6 +630,16 @@ def _next(stage: str) -> str | None:
 def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     """Run one stage and enqueue the next (see `_run_stage`). A controlled run (W-VISNEXT2)
     mirrors its end state onto its controlled-experiment record."""
+    # A previously certified run may resume after knowledge was revoked. Verify
+    # at every stage, before a generator, spend reservation or next job runs.
+    from ..publish.release_gates import _knowledge_reasons
+
+    slug, version = inputs.get("slug"), inputs.get("version")
+    if slug and version:
+        reasons = _knowledge_reasons(db, slug, version)
+        if reasons:
+            return {"status": "blocked", "refused": "design_knowledge",
+                    "stage": inputs.get("stage"), "why": reasons[0]}
     out = _run_stage(db, inputs, follow=follow, generator=generator, judges=judges)
     if inputs.get("controlled_run_id") and out.get("run_key"):
         from ..experiments import controlled as CX
@@ -1134,6 +1144,11 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                 "history": list(((row.checks or {}).get("_reverified") or {}).get(
                     "history") or [])}
         sha = row.sha256
+    from ..publish.release_gates import _knowledge_reasons
+
+    reasons = _knowledge_reasons(db, cand["slug"], cand["version"])
+    if reasons:
+        return {"reverified": False, "refused": "design_knowledge", "why": reasons[0]}
     try:
         data = ArtifactStore().get(sha, db=db)
     except Exception as exc:  # noqa: BLE001 - bytes gone: nothing can be re-read
@@ -1682,6 +1697,11 @@ def approve(db, key: str, *, decided_by: str) -> dict:
     run = get_run(db, key)
     if run is None:
         return {"approved": False, "why": "no such run"}
+    from ..publish.release_gates import _knowledge_reasons
+
+    reasons = _knowledge_reasons(db, run["slug"], run["version"])
+    if reasons:
+        return {"approved": False, "refused": "design_knowledge", "why": reasons[0]}
     from . import experiment as XP
 
     if (run.get("card") or {}).get("experiment"):

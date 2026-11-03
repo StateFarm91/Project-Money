@@ -14,3 +14,7 @@ The inherited draft hook does not automatically rewrite existing engineered cata
 ## Verification
 
 Python 3.11 with a private local benchmark fixture: `test_w5_a6_frozen_knowledge.py` 5/5; `test_codex_knowledge_contract.py` 4/4; `test_codex_learning_http_e2e.py` 1/1; `test_w4_agents.py` 14/14. `test_w5_a6_learning_to_design.py` 4/6: its unchanged positive-effect legacy construction and yarn tests fail because those unevaluated mutation paths are deliberately held. The negative/unapproved, named-construction, conflict and hold tests pass. The two failures remain open for an independently approved construction/material rule and a reviewed acceptance update; they must not be described as a passing suite.
+
+## Visual boundary follow-up
+
+Every `visual.image_production` stage re-checks a stored CIR's frozen knowledge before resolving a generator or scheduling the next stage. Owner gallery publication approval, gallery persistence, and candidate re-verification also refuse when the stored pin no longer verifies. Legacy releases with no pins retain their existing behavior; publication and experiment controls still apply. A real-worker regression retires an approved rule and verifies the queued visual job, gallery approval, gallery persistence and image re-verification all refuse before work. No paid generator is called. Python 3.11 visual regressions: `test_w4_visnext_frames.py` 7/7 and `test_w4_visnext.py` 21/21.

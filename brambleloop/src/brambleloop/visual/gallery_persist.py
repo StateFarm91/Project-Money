@@ -43,6 +43,11 @@ def persist_approved(db, key: str, *, judges=None, store_root=None) -> dict:
     run = IP.get_run(db, key)
     if run is None:
         return {"persisted": False, "why": "no such run"}
+    from ..publish.release_gates import _knowledge_reasons
+
+    reasons = _knowledge_reasons(db, run["slug"], run["version"])
+    if reasons:
+        return {"persisted": False, "refused": "design_knowledge", "why": reasons[0]}
     try:
         XP.refuse_if_experiment(db, run["slug"], run["version"], action="listing asset write")
     except XP.ExperimentRefused as exc:
