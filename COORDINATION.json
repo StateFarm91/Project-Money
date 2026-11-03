@@ -295,10 +295,12 @@
       "branch": "codex/a1-stuffing-continuation",
       "source_branch": "opus2/p0-child-safety-core",
       "source_sha": "c3a7b93a59af9b2df7a0656354ce09abba05753e",
-      "scope": "Fail closed on explicit stuffing evidence in rounds and component or row notes",
+      "scope": "Fail closed on explicit stuffing evidence in rounds and component or row notes; non-finite small-parts measurements",
       "files": [
         "brambleloop/src/brambleloop/products/launch0.py",
-        "brambleloop/tests/test_codex_a1_stuffing_evidence.py"
+        "brambleloop/tests/test_codex_a1_stuffing_evidence.py",
+        "brambleloop/src/brambleloop/gates/small_parts.py",
+        "brambleloop/tests/test_codex_a1_small_parts_finite.py"
       ],
       "claimed_at": "2026-11-03"
     }
