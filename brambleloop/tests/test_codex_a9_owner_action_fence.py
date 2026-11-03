@@ -57,3 +57,28 @@ def test_deferred_old_version_identity_is_withdrawn():
         pv.version = "2.0.0"
     assert not active(db)
     assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
+
+
+def test_product_rename_withdraws_original_review():
+    db = fixture()
+    old = package(db)
+    assert lp.record(db, old)["review_requested"]
+    with db.session() as s:
+        product = s.scalar(select(Product).options(load_only(Product.id)).where(
+            Product.slug == old["slug"]))
+        product.slug = "renamed-product"
+    assert not active(db)
+    assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
+
+
+def test_relationship_reassignment_withdraws_original_review():
+    db = fixture()
+    old = package(db)
+    assert lp.record(db, old)["review_requested"]
+    with db.session() as s:
+        other = Product(slug="other-product", title="Other")
+        s.add(other)
+        pv = s.scalar(select(PatternVersion).join(Product).where(Product.slug == old["slug"]))
+        pv.product = other
+    assert not active(db)
+    assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
