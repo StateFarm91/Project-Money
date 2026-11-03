@@ -126,11 +126,16 @@ def _record_analysis_prefill(db, benchmark_ref: str, spec_key: str, analysis_id:
     with db.session() as s:
         source = s.scalar(select(BenchmarkAnalysis).where(
             BenchmarkAnalysis.id == analysis_id).with_for_update())
-        product = s.get(BenchmarkProduct, source.benchmark_id) if source is not None else None
+        product = (s.scalar(select(BenchmarkProduct).where(
+            BenchmarkProduct.id == source.benchmark_id).with_for_update())
+            if source is not None else None)
         if product is None or product.ref != benchmark_ref or not any(
-                item.get("sha256") == source.file_sha256 for item in (product.files or [])):
+                isinstance(item, dict) and item.get("sha256") == source.file_sha256
+                and isinstance(item.get("name"), str) and item["name"].lower().endswith(".pdf")
+                for item in (product.files or [])):
             raise LabRefused("analysis source is not in the current purchase manifest")
-        terms = s.scalar(select(BenchmarkLicence).where(BenchmarkLicence.source_ref == product.ref))
+        terms = s.scalar(select(BenchmarkLicence).where(
+            BenchmarkLicence.source_ref == product.ref).with_for_update())
         if terms is None or "private_analysis" not in (terms.allowed_uses or []) \
                 or "private_analysis" in (terms.prohibited_uses or []):
             raise LabRefused("analysis licence does not permit private use")

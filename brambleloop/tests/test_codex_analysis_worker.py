@@ -307,6 +307,14 @@ class AnalysisWorkerTests(unittest.TestCase):
                 self.assertEqual(repeated["audit_id"], audit_id)
                 self.assertFalse(repeated["recorded"])
                 with db.session() as s:
+                    product = s.get(BenchmarkProduct, benchmark_id)
+                    original_files = list(product.files)
+                    product.files = [{**original_files[0], "name": "fixture.txt"}]
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                with db.session() as s:
+                    s.get(BenchmarkProduct, benchmark_id).files = original_files
                     self.assertEqual(len(list(s.scalars(select(AuditLog).where(
                         AuditLog.action == "teardown.audit_prefilled")))), 1)
                     source = s.get(BenchmarkAnalysis, analysis_id)
