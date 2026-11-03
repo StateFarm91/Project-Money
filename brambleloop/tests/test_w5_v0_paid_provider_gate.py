@@ -452,6 +452,129 @@ def test_probe_scope_cannot_authorize_arbitrary_generation_or_vision():
         assert wire.calls == [], wire.calls
 
 
+def test_uncovered_company_exposure_survives_release_and_restart():
+    from brambleloop.finance import reservations
+    from brambleloop.core.db import Database
+
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    _authorize(db, "orphan", estimate=0.4, reservation=held)
+    reservations.release(db, held["reservation_id"], now=NOW)
+    reopened = Database(str(db.engine.url))
+    with reopened.session() as session:
+        assert G.uncovered_company_exposure(session, now=NOW) == 0.4
+    saved = gw.monthly_ceiling_cad
+    try:
+        gw.monthly_ceiling_cad = lambda: 0.5
+        try:
+            _reserve(reopened, estimate=0.2)
+            raise AssertionError("orphaned paid attempt freed the company ceiling")
+        except gw.BudgetExceeded:
+            pass
+    finally:
+        gw.monthly_ceiling_cad = saved
+
+
+def test_uncovered_company_exposure_survives_expiry_and_rejects_bad_history():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "expired-orphan", estimate=0.4, reservation=held)
+    with db.session() as session:
+        assert G.uncovered_company_exposure(session, now=NOW) == 0.0
+        assert G.uncovered_company_exposure(session, now=NOW + timedelta(hours=1)) == 0.4
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        row.estimate_cad = -1
+    with db.session() as session:
+        try:
+            G.uncovered_company_exposure(session, now=NOW + timedelta(hours=1))
+            raise AssertionError("invalid historical estimate freed the company ceiling")
+        except ValueError:
+            pass
+
+
+def test_probe_only_vision_cannot_switch_to_a_more_expensive_model():
+    db = _db()
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.PROBE)
+    with _env(ANTHROPIC_API_KEY=KEY_VALUE), Wire() as wire:
+        provider = gw.AnthropicProvider(model="claude-opus-5")
+        with G.call_scope(G.PROBE):
+            _refused(lambda: provider.see("", gw.VISION_PROBE_PROMPT, ["https://example.invalid/x"],
+                                          max_tokens=gw.VISION_PROBE_MAX_TOKENS),
+                     code="probe_scope_mismatch", exc=gw.VisionGateRefused)
+        assert wire.calls == []
+
+
+def test_concurrent_release_does_not_free_company_headroom():
+    from brambleloop.finance import reservations
+    import threading
+
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    _authorize(db, "release-race", estimate=0.4, reservation=held)
+    ready = threading.Barrier(2)
+    result = []
+    saved = gw.monthly_ceiling_cad
+    def release():
+        ready.wait()
+        reservations.release(db, held["reservation_id"], now=NOW)
+    def reserve():
+        ready.wait()
+        try:
+            _reserve(db, estimate=0.2)
+            result.append("allowed")
+        except gw.BudgetExceeded:
+            result.append("refused")
+    try:
+        gw.monthly_ceiling_cad = lambda: 0.5
+        threads = [threading.Thread(target=release), threading.Thread(target=reserve)]
+        for thread in threads: thread.start()
+        for thread in threads: thread.join(timeout=15)
+        assert all(not thread.is_alive() for thread in threads)
+        assert result == ["refused"], result
+    finally:
+        gw.monthly_ceiling_cad = saved
+
+
+def test_legacy_attempts_cannot_share_cover_or_use_a_future_reservation():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "legacy-first", estimate=0.4, reservation=held)
+    with db.session() as session:
+        first = session.get(G.PaidProviderCall, ticket["call_id"])
+        session.add(G.PaidProviderCall(activation_id=first.activation_id, provider=first.provider,
+            scope=first.scope, gallery=first.gallery, run_key=first.run_key, idem_key="legacy-second",
+            fingerprint="legacy-second", purpose=first.purpose, estimate_cad=0.4,
+            status=G.RESERVED, reservation_id=first.reservation_id, at=first.at))
+    with db.session() as session:
+        assert G.uncovered_company_exposure(session, now=NOW) == 0.4
+        # A reservation whose ID was later reused cannot cover an earlier attempt.
+        from brambleloop.core.models import SpendReservation
+        session.get(SpendReservation, held["reservation_id"]).at = NOW + timedelta(seconds=1)
+    with db.session() as session:
+        assert G.uncovered_company_exposure(session, now=NOW + timedelta(seconds=2)) == 0.8
+
+
+def test_uncovered_attempt_stays_counted_when_it_settles_after_month_boundary():
+    from brambleloop.finance import reservations
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "month-boundary", estimate=0.4, reservation=held)
+    reservations.release(db, held["reservation_id"], now=NOW)
+    next_month = datetime(2026, 12, 1, 0, 1, tzinfo=timezone.utc)
+    with db.session() as session:
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        row.status = G.BILLED
+        row.actual_cad = 0.4
+        row.settled_at = next_month
+    with db.session() as session:
+        assert G.uncovered_company_exposure(session, now=next_month) == 0.4
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):

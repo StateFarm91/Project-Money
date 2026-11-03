@@ -558,6 +558,57 @@ def _sum(session, *where) -> float:
     return round(total, 6)
 
 
+def uncovered_company_exposure(session, *, now: datetime | None = None) -> float:
+    """Conservatively count paid attempts not covered by a live company reservation.
+
+    This intentionally does not subtract booked costs: until reconciliation can bind
+    an attempt to its exact ledger entry, double-counting is safer than losing a paid
+    call. RESERVED/UNCERTAIN attempts survive month boundaries; BILLED attempts are
+    included in their calendar month. Any malformed amount fails the budget closed.
+    """
+    from sqlalchemy import inspect
+    from ..core.models import SpendReservation
+
+    if not inspect(session.get_bind()).has_table(PaidProviderCall.__tablename__):
+        return 0.0
+    now = _now(now)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total = 0.0
+    covered_ids = set()
+    rows = session.scalars(select(PaidProviderCall).where(
+        PaidProviderCall.status.in_(COUNTED)).order_by(PaidProviderCall.id))
+    for row in rows:
+        at = _aware(row.at)
+        settled = _aware(row.settled_at)
+        # A previous-month call can settle in this month; do not free its
+        # headroom between settlement and the later ledger write.
+        if (row.status == BILLED and at is not None and at < month_start
+                and settled is not None and settled < month_start):
+            continue
+        estimate = float(row.estimate_cad or 0.0)
+        if not math.isfinite(estimate) or estimate <= 0:
+            raise ValueError("unresolved paid attempt has invalid estimate")
+        actual = row.actual_cad if row.status == BILLED else None
+        if actual is not None:
+            actual = float(actual)
+            if math.isfinite(actual) and actual > estimate:
+                estimate = actual
+        reservation = session.get(SpendReservation, row.reservation_id) if row.reservation_id else None
+        live = (reservation is not None and reservation.id not in covered_ids
+                and _aware(reservation.at) is not None and at is not None
+                and _aware(reservation.at) <= at and reservation.released_at is None
+                and _aware(reservation.expires_at) is not None
+                and _aware(reservation.expires_at) > now)
+        covered = 0.0
+        if live:
+            covered_ids.add(reservation.id)
+            covered = float(reservation.amount_cad or 0.0)
+            if not math.isfinite(covered) or covered < 0:
+                raise ValueError("paid attempt has invalid company reservation")
+        total += max(0.0, estimate - covered)
+    return round(total, 6)
+
+
 def _refuse(db, code: str, message: str, *, provider: str, scope: str, purpose: str,
             estimate: float, gallery: str = "") -> PaidCallRefused:
     """Record the refusal (best effort: an unreadable store cannot take a row) and return it."""
@@ -637,7 +688,8 @@ def authorize(db, *, provider: str, scope: str, estimate_cad: float, fingerprint
             if refusal is None:
                 ceiling = gw.monthly_ceiling_cad()
                 committed = round(gw.spent_this_month_cad(db, now=now)
-                                  + reservations.outstanding(db, now=now)["cad"], 6)
+                                  + reservations.outstanding(db, now=now)["cad"]
+                                  + uncovered_company_exposure(s, now=now), 6)
                 if not math.isfinite(ceiling) or ceiling <= 0 or committed > ceiling + 1e-9:
                     refusal = ("company_monthly_budget",
                                f"the company has CA${committed:.4f} billed or reserved this "

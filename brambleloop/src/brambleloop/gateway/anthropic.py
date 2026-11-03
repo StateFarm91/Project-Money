@@ -518,7 +518,12 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
     own_open = float(held.get("own_holder_cad") or 0.0)
     mine = round(max(0.0, float(uncommitted_cad or 0.0)) + own_open, 6)
     others = held
-    committed = round(spent + mine + others["cad"], 6)
+    # A crashed, released or expired image/vision attempt may still be billable.
+    # Until it can be reconciled to the ledger, retain its uncovered estimate even
+    # when that conservatively counts a booked call twice.
+    from .paid_provider_gate import uncovered_company_exposure
+    orphan_exposure = uncovered_company_exposure(locked_session, now=now)
+    committed = round(spent + mine + others["cad"] + orphan_exposure, 6)
     ceiling = monthly_ceiling_cad()
 
     def _refusal(exc_type, which: str, message: str, *, estimate: float, **extra) -> dict:
@@ -527,7 +532,7 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
                   "committed_cad": extra.pop("committed", committed),
                   "which": which, "why": message, "purpose": purpose,
                   "detail": {"model": model, "provider": provider, "job_id": job_id,
-                             **extra}}
+                             "uncovered_paid_exposure_cad": orphan_exposure, **extra}}
         return {"_refusal": (exc_type, record)}
 
     try:
@@ -569,7 +574,8 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
             f"CA${mine:.4f} spent or reserved by this caller and not yet billed "
             f"(CA${own_open:.4f} of it in this holder's own open reservations), "
             f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
-            f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+            f"caller(s), and CA${orphan_exposure:.4f} in uncovered paid attempts; "
+            f"some of these may also be booked) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
             f"than found on the invoice. The way past this is the owner raising the ceiling "
             f"with measured usage attached, not a cheaper model", estimate=estimate)
 
@@ -785,7 +791,8 @@ class AnthropicProvider:
         from . import paid_provider_gate as owner_gate
         if owner_gate.current_call_scope(owner_gate.VISION) == owner_gate.PROBE and (
                 system or prompt != VISION_PROBE_PROMPT or len(image_urls) != 1
-                or json_schema is not None or max_tokens != VISION_PROBE_MAX_TOKENS):
+                or self.model != VISION_PROBE_MODEL or json_schema is not None
+                or max_tokens != VISION_PROBE_MAX_TOKENS):
             raise VisionGateRefused("probe activation covers only the fixed diagnostic request",
                                     "probe_scope_mismatch")
         key = self.key()

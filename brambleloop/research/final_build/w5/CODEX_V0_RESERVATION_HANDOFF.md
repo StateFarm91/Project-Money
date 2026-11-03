@@ -46,3 +46,23 @@ The OpenAI research judge now counts invalid, missing or all-zero token usage at
 its documented worst-case estimate, rather than crediting its process cap or
 calling a paid response free. The test uses a fake HTTP response. The shared
 company-ledger reconciliation and orphan exposure described above are still open.
+
+## Conservative orphan-exposure guard (review required)
+
+The company monthly budget and the V0 authorization recheck now include paid
+attempts not covered by a live company reservation, under the same budget lock.
+An uncertain or still-reserved attempt continues across month boundaries;
+a billed attempt is included through its settlement month. An estimate not covered
+by its live reservation is added; a reservation covers at most one attempt,
+and a reservation created after an attempt cannot be its backing reservation.
+Invalid historical estimates cause refusal, not a credit. Released/expired
+reservation and persistent-SQLite concurrency/restart cases are tested.
+
+This deliberately does not subtract any ledger entry: already booked spend can
+be counted twice. It is a conservative safety hold, not completed financial
+reconciliation; paid work may pause after otherwise successful calls. A durable,
+reviewed binding between the attempt and exact CostEntry is still needed, as are
+PostgreSQL race tests and independent review. The DO NOT INTEGRATE / no paid
+production use decision remains. Probe-only Anthropic vision is also restricted to
+its fixed diagnostic model; it may still examine the supplied diagnostic image,
+so independent review of source selection and all provider paths is required.
