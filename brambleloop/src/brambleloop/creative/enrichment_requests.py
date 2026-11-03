@@ -91,6 +91,7 @@ def state(db) -> dict[str, dict]:
             out[slug]["rounds"] = max(out[slug].get("rounds", 0), int(detail.get("round", 0)))
             out[slug]["state"] = detail.get("state", out[slug].get("state"))
             out[slug]["answered_row"] = _id
+            out[slug]["answered_job"] = detail.get("job")
     for _id, slug, detail in _rows(db, REQUESTED):
         if slug in out and _id > out[slug].get("answered_row", 0) and \
                 out[slug].get("state") == RESOLVED and detail.get("state") == OPEN:
@@ -117,7 +118,15 @@ def sweep(db, *, audit) -> dict:
             continue
         if prior and prior.get("state") == RESOLVED:
             if rid <= prior.get("answered_row", 0):
-                continue
+                # The draft worker may run after enqueue but before ANSWERED is
+                # audited. Authenticate that earlier refusal by job ID, not by
+                # relative audit IDs; old unrelated refusals cannot reopen it.
+                from sqlalchemy import select
+                from ..core.models import AuditLog
+                with db.session() as session:
+                    refusal_job = session.scalar(select(AuditLog.job_id).where(AuditLog.id == rid))
+                if not prior.get("answered_job") or refusal_job != prior["answered_job"]:
+                    continue
             if int(prior.get("rounds", 0)) >= MAX_ROUNDS:
                 audit(ANSWERED, artifact=slug, detail={"round": MAX_ROUNDS,
                     "state": EXHAUSTED, "reason": "last redraft was refused"})
@@ -272,7 +281,7 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
         else:
             job_id = getattr(job, "id", None)
         audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": RESOLVED,
-                                                "fingerprint": fp})
+                                                "fingerprint": fp, "job": job_id})
         return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,
                 "fingerprint": fp, "job": job_id}
     final = EXHAUSTED if rounds >= MAX_ROUNDS else OPEN

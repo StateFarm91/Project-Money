@@ -257,6 +257,39 @@ def test_construction_precheck_matches_real_tapestry_palette_refusal():
     assert "two distinct colours" in str(jobs[0][2]), jobs
 
 
+def test_real_draft_refusal_before_answer_audit_reopens_by_job_identity():
+    db, path = _store()
+    slug = "nordic-forest-basket"
+    seed = pipeline._seed_for(slug)
+    _established(db, seed)
+    audit = _audit(db)
+    audit("cir.draft_refused", artifact=slug, detail={"gate": "construction",
+          "reason": "original", "category": seed.category})
+    E.sweep(db, audit=audit)
+    real_enqueue = _enqueue(db)
+    def enqueue_and_run(*args, **kwargs):
+        job = real_enqueue(*args, **kwargs)
+        # Adversarially alter the persisted input before the real worker claims
+        # it; the registered handler emits the refusal before ANSWERED exists.
+        with db.session() as session:
+            row = session.get(Job, job.id)
+            row.inputs = {**row.inputs, "category": "amigurumi"}
+        _run(db, "cir.draft")
+        return job
+    result = E.answer(db, slug, _payload(seed), audit=audit, enqueue=enqueue_and_run)
+    assert result["accepted"] and result["job"]
+    jobs = _jobs(db, "cir.draft")
+    assert len(jobs) == 1 and jobs[0][2].get("gate") == "construction", jobs
+    fresh = Database(f"sqlite:///{path}")
+    before = E.state(fresh)[slug]
+    assert before["state"] == E.RESOLVED
+    outcome = E.sweep(fresh, audit=_audit(fresh))
+    assert outcome["updated"] == [slug], outcome
+    assert E.state(fresh)[slug]["state"] == E.OPEN
+    assert E.state(fresh)[slug]["rounds"] == 1
+    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+
+
 def test_the_sweep_is_registered_scheduled_and_banded():
     from brambleloop.runtime.worker import CADENCES
     from brambleloop.swarm import orchestrate
