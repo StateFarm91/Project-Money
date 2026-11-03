@@ -22,7 +22,13 @@ def test_persistent_publication_checks_whether_stripes_are_really_written():
                                   colors={"a": "#fff", "b": "#245050"}))
         same_colour = concept_to_cir(dataclasses.replace(base, slug="codex-same-colour",
                                      colors={"a": "#fff", "b": "#ffffff"}))
-        for cir in (plain, striped, same_colour):
+        named_colour = concept_to_cir(dataclasses.replace(base, slug="codex-named-colour",
+                                     colors={"a": "red", "b": "#ff0000"}))
+        invalid_colour = concept_to_cir(dataclasses.replace(base, slug="codex-invalid-colour",
+                                       colors={"a": "nonsense", "b": "#xyzxyz"}))
+        translucent = concept_to_cir(dataclasses.replace(base, slug="codex-transparent",
+                                    colors={"a": "#ffffff", "b": "#fffffffe"}))
+        for cir in (plain, striped, same_colour, named_colour, invalid_colour, translucent):
             with db.session() as s:
                 p = Product(slug=cir.slug, title=cir.title, status="certified")
                 s.add(p)
@@ -31,7 +37,7 @@ def test_persistent_publication_checks_whether_stripes_are_really_written():
                     cir_json=cir.to_dict(), release_hash="a" * 64,
                     certificate={"granted": True, "gauge_standard": GAUGE_STANDARD}))
         reopened = Database(url, scratch=True)
-        for cir in (plain, same_colour):
+        for cir in (plain, same_colour, named_colour, invalid_colour, translucent):
             result = eligibility.product_publication(reopened, cir.slug, cir.version)
             assert not result["publishable"], result
             assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and "stripe" in r["why"]

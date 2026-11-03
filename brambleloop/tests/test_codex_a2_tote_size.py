@@ -102,6 +102,12 @@ def test_later_listing_cannot_add_contradictory_tote_sizes():
             assert not verdict["publishable"], verdict
             assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and
                        "size: listing" in r["why"] for r in verdict["reasons"]), verdict
+        for title in ("Large Purse", "Giant Pouch", "Big Backpack"):
+            verdict = eligibility.product_publication(reopened, cir.slug, cir.version,
+                                                       listing={"title": title})
+            assert not verdict["publishable"], (title, verdict)
+            assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and
+                       "object: listing title" in r["why"] for r in verdict["reasons"]), verdict
         truthful = eligibility.product_publication(reopened, cir.slug, cir.version,
                                                     listing={"title": "Small Tote"})
         assert not any("size: listing" in r["why"] for r in truthful["reasons"]), truthful

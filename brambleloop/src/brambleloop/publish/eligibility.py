@@ -692,7 +692,7 @@ def _drafted_by_a_rule(cir) -> bool:
 
 def _full_row_stripes_backed(cir, twin) -> bool:
     """Prove colour bands from the twin; uncertain or nonuniform rows do not pass."""
-    import re
+    from PIL import ImageColor
 
     palette = cir.colors or {}
     bands = []
@@ -702,10 +702,13 @@ def _full_row_stripes_backed(cir, twin) -> bool:
         colour = palette.get(row[0])
         if not isinstance(colour, str) or not colour.strip():
             return False
-        colour = colour.strip().casefold()
-        if re.fullmatch(r"#[0-9a-f]{3}", colour):
-            colour = "#" + "".join(c * 2 for c in colour[1:])
-        bands.append(colour)
+        try:
+            rgb = ImageColor.getrgb(colour.strip())
+        except (TypeError, ValueError):
+            return False  # unknown colour is not evidence of visible contrast
+        if len(rgb) == 4 and rgb[3] != 255:
+            return False  # translucent values lack a proven background
+        bands.append(tuple(rgb[:3]))
     return len(set(bands)) >= 2 and sum(a != b for a, b in zip(bands, bands[1:])) >= 2
 
 
@@ -776,6 +779,13 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
         tags = tags if isinstance(tags, (list, tuple)) else []
         base_title = FC.fold_title(cir.title)
         base_is_tote = bool(re.search(FC._TOTE_WORDS, base_title))
+        # The listing title must name the same supported object as the pattern;
+        # checking only size words lets a tote be marketed as a purse or backpack.
+        listing_title = listing.get("title")
+        if base_is_tote and isinstance(listing_title, str) and listing_title.strip():
+            conflict = FC.name_object_contract(FC.TOTE, listing_title)
+            if conflict:
+                out.append(f"object: listing title: {conflict.get('why')}")
         size_words = {word for word, _size in FC._TOTE_SIZE_WORDS}
         base_explicit = bool(set(re.findall(r"[a-z]+", base_title)) & size_words)
         base_size, base_why = FC.tote_size_key(base_title)
