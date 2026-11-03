@@ -33,3 +33,7 @@ aggregated conservatively: mixed/unknown pieces remain UNKNOWN and cannot cause
 a global "no ribbing" claim. Real-CIR small-ribbed-component and actual blind
 reading tests pass. V1 focused suite: 17/17 on Python 3.11. Independent review
 and the full fidelity regression remain open; this checkpoint is not accepted.
+
+The expected-ribbing check also leaves an obscured/unclear fabric view UNKNOWN:
+only a clear reading can establish that required ribbing is absent. Independent
+scoped review confirmed this distinction; the V1 suite passed 17/17 afterwards.

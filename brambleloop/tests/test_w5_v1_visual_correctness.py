@@ -332,6 +332,9 @@ def test_expected_ribbing_cannot_pass_when_not_visible():
     reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
                "ribbing_visible": "false", "border_or_edging_visible": "false"}
     assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
+    reading["fabric_visible_clearly"] = "false"
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["fabric_visible_clearly"] = "true"
     reading["ribbing_visible"] = "unclear"
     assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
     reading["ribbing_visible"] = "true"

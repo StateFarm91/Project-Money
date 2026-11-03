@@ -957,7 +957,10 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
             unclear.append("ribbing unclear")
     else:
         if v["ribbing_visible"] in ("false", "no"):
-            problems.append("the pattern's ribbing is not visible")
+            if v["fabric_visible_clearly"] in ("true", "yes"):
+                problems.append("the pattern's ribbing is not visible")
+            else:
+                unclear.append("pattern ribbing cannot be judged in an unclear view")
         elif v["ribbing_visible"] not in ("true", "yes"):
             unclear.append("pattern ribbing not clearly visible")
     edging = (not exp.edging_declared and v["border_or_edging_visible"] in ("true", "yes"))
