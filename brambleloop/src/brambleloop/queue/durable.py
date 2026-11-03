@@ -724,6 +724,10 @@ class JobQueue:
             q = select(Job).where(Job.status == JobStatus.DEAD,
                                   Job.job_type.in_(job_types))
             for job in s.scalars(q):
+                # Radar treats these keys as permanent admissions, even for refused or
+                # cancelled attempts. Deleting a key lets a later scan draft it again.
+                if (job.idempotency_key or "").startswith("draft:"):
+                    continue
                 if before is not None and (job.finished_at or job.created_at) >= before:
                     continue
                 if job.id in referenced:

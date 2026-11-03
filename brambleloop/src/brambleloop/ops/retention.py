@@ -951,17 +951,21 @@ def job_plan(db, *, now: datetime | None = None, days: int = JOB_RETENTION_DAYS,
                 job_id for (job_id,) in s.execute(
                     select(table.job_id).where(table.job_id.is_not(None))).all())
         rows = list(s.execute(
-            select(Job.id, Job.job_type, Job.status, Job.finished_at, Job.created_at)
+            select(Job.id, Job.job_type, Job.status, Job.finished_at, Job.created_at,
+                   Job.idempotency_key)
             .order_by(desc(Job.id))).all())
 
-    done_total = sum(1 for _i, _t, status, _f, _c in rows if status == JobStatus.DONE)
+    done_total = sum(1 for _i, _t, status, _f, _c, _key in rows if status == JobStatus.DONE)
     deletable: list[int] = []
     kept: dict[str, int] = {"referenced": 0, "recent_for_their_type": 0,
                             "inside_horizon": 0, "not_finished": 0,
-                            "protecting_the_done_floor": 0}
+                            "protecting_the_done_floor": 0, "permanent_draft_key": 0}
     seen_per_type: dict[str, int] = {}
     surviving_done = done_total
-    for job_id, job_type, status, finished_at, created_at in rows:
+    for job_id, job_type, status, finished_at, created_at, key in rows:
+        if (key or "").startswith("draft:"):
+            kept["permanent_draft_key"] += 1
+            continue
         seen = seen_per_type.get(job_type, 0)
         if seen < max(1, int(keep_per_type)):
             seen_per_type[job_type] = seen + 1
@@ -1031,12 +1035,17 @@ def dead_letter_plan(db, *, now: datetime | None = None,
                 job_id for (job_id,) in s.execute(
                     select(table.job_id).where(table.job_id.is_not(None))).all())
         rows = list(s.execute(
-            select(Job.id, Job.job_type, Job.last_error, Job.finished_at, Job.created_at)
+            select(Job.id, Job.job_type, Job.last_error, Job.finished_at, Job.created_at,
+                   Job.idempotency_key)
             .where(Job.status == JobStatus.DEAD)).all())
 
     deletable: list[int] = []
-    kept = {"is_a_defect": 0, "inside_horizon": 0, "referenced": 0}
-    for job_id, job_type, last_error, finished_at, created_at in rows:
+    kept = {"is_a_defect": 0, "inside_horizon": 0, "referenced": 0,
+            "permanent_draft_key": 0}
+    for job_id, job_type, last_error, finished_at, created_at, key in rows:
+        if (key or "").startswith("draft:"):
+            kept["permanent_draft_key"] += 1
+            continue
         if not deliberate_refusal(job_type, last_error or ""):
             kept["is_a_defect"] += 1
             continue
@@ -1139,7 +1148,7 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
                     removed["audit_log"] += 1
             for row_id in list(jobs["deletable_ids"]) + list(dead["deletable_ids"]):
                 row = s.get(Job, row_id)
-                if row is not None:
+                if row is not None and not (row.idempotency_key or "").startswith("draft:"):
                     s.delete(row)
                     removed["jobs" if row_id in set(jobs["deletable_ids"])
                             else "dead_letters"] += 1

@@ -292,6 +292,14 @@
         "brambleloop/tests/test_w5_a7_supply_stall.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A7-PERMANENT-DRAFT-KEYS",
+      "operator": "codex",
+      "branch": "codex/a7-draft-key-retention",
+      "scope": "Keep permanent draft admission keys through retention and dead-letter purge",
+      "state": "in_review",
+      "base": "4213b2ac0c736163232f2efb8ef7744105f4c260"
     }
   ],
   "unowned": [
