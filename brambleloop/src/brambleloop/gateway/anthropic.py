@@ -823,9 +823,9 @@ class AnthropicProvider:
         }).encode()
         return self._guarded(payload, key, "anthropic.vision",
                              timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS),
-                             gate=self._vision_gate(len(image_urls), max_tokens))
+                             gate=self._vision_gate(image_urls, max_tokens))
 
-    def _vision_gate(self, images_n: int, max_tokens: int):
+    def _vision_gate(self, image_urls: list[str], max_tokens: int):
         """P0-PAID-PROVIDER-OWNER-GATE: every paid vision request passes
         `paid_provider_gate.enforce` immediately before it is sent. The budget evidence is the
         reservation `check_budget_cad` noted in this context (consumed here: one reservation,
@@ -837,9 +837,17 @@ class AnthropicProvider:
             db = paid_calls.current_db()
         held = held or {}
         estimate = held.get("estimate_cad") or estimate_cad(
-            self.model, input_tokens=IMAGE_TOKENS_ESTIMATE * max(1, images_n),
+            self.model, input_tokens=IMAGE_TOKENS_ESTIMATE * max(1, len(image_urls)),
             output_tokens=max_tokens)
         scope = gate.current_call_scope(gate.VISION)
+        if scope == gate.PROBE:
+            try:
+                known = _a_known_image(db) if db is not None else ""
+            except Exception:  # noqa: BLE001 - an unreadable source is not authorized
+                known = ""
+            if not known or image_urls != [known]:
+                raise VisionGateRefused("probe requires the current audited diagnostic image",
+                                        "probe_scope_mismatch")
         provider = self
 
         def wrap(send, fp):

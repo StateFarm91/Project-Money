@@ -575,6 +575,26 @@ def test_uncovered_attempt_stays_counted_when_it_settles_after_month_boundary():
         assert G.uncovered_company_exposure(session, now=next_month) == 0.4
 
 
+def test_probe_only_vision_rejects_an_unobserved_image_source():
+    from brambleloop.core.models import BenchmarkListing
+    db = _db()
+    with db.session() as session:
+        session.add(BenchmarkListing(benchmark_key="fixture", listing_ref="known-image",
+            audit_state="audited", detail={"image_urls": ["https://example.invalid/known"]}))
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.PROBE)
+    with _env(ANTHROPIC_API_KEY=KEY_VALUE), Wire() as wire:
+        provider = gw.AnthropicProvider(model=gw.VISION_PROBE_MODEL)
+        gw.check_budget_cad(db, estimate_cad=0.1, agent="gateway", purpose="test.vision")
+        with G.call_scope(G.PROBE):
+            _refused(lambda: provider.see("", gw.VISION_PROBE_PROMPT, ["https://example.invalid/unobserved"],
+                                          max_tokens=gw.VISION_PROBE_MAX_TOKENS),
+                     code="probe_scope_mismatch", exc=gw.VisionGateRefused)
+        assert wire.calls == []
+        result = gw.vision_probe(db, image_url="https://example.invalid/known")
+        assert result["ok"] is True, result
+        assert len(wire.calls) == 1
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):
@@ -884,6 +904,10 @@ def test_vision_probe_and_vision_judge_calls_obey_the_gate():
                  code=G.NOT_ACTIVATED, exc=gw.VisionGateRefused)
         assert wire.calls == []
 
+        from brambleloop.core.models import BenchmarkListing
+        with db.session() as session:
+            session.add(BenchmarkListing(benchmark_key="fixture", listing_ref="probe-fixture",
+                audit_state="audited", detail={"image_urls": ["https://example.invalid/g.jpg"]}))
         act = _activate(db, G.ANTHROPIC_VISION, G.VISION)
         rec = gw.vision_probe(db, image_url="https://example.invalid/g.jpg")
         assert rec["ok"] is True and rec["activation_id"] == act["id"], rec

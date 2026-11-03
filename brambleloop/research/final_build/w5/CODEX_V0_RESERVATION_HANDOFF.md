@@ -64,8 +64,9 @@ reconciliation; paid work may pause after otherwise successful calls. A durable,
 reviewed binding between the attempt and exact CostEntry is still needed, as are
 PostgreSQL race tests and independent review. The DO NOT INTEGRATE / no paid
 production use decision remains. Probe-only Anthropic vision is also restricted to
-its fixed diagnostic model; it may still examine the supplied diagnostic image,
-so independent review of source selection and all provider paths is required.
+its fixed diagnostic model and the current audited diagnostic image selected from
+stored benchmark observations. Independent review of source selection, licence
+handling and all provider paths is required.
 
 A follow-up changes ambiguous exceptions after entering the image, Anthropic
 vision and OpenAI research-judge transports to UNCERTAIN. Wrapped resets,
