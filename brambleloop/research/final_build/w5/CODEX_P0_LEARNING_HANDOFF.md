@@ -74,3 +74,14 @@ older SQLite database copy migrated the new nullable audit link successfully.
 These focused results do not represent the complete integration certification;
 the work order's Python 3.11 environment and full remaining regression set must
 be verified by the integrator.
+
+After that checkpoint, `test_codex_learning_http_e2e.py` passed against a
+persistent SQLite database: the real intake HTTP route queued a synthetic PDF;
+the worker analysed it; owner-session HTTP actions reviewed the observation
+and approved a proposed rule after a durable held-out evaluation; the approved
+pin changed original finishing instructions; a mutated evaluation was detected
+as a regression. Separate worker tests cover interruption after the purchase
+state update and recovery without duplicate analysis or audit. This proves the
+finishing-rule path, not an approved construction change. The current-head
+shadow suite remains incomplete: three cases passed before the run was paused
+to complete this acceptance test.
