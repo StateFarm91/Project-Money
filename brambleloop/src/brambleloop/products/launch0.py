@@ -1631,9 +1631,17 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
             break
     spelled = ("zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
                "thirteen|fourteen|fifteen|sixteen|seventeen")
-    if re.search(rf"\b(?:age|ages|aged)\s+(?:{spelled})\b", text) or re.search(
+    if re.search(rf"\b(?:age|ages|aged)\b\s*:?\s*(?:{spelled})\b", text) or re.search(
             rf"\b(?:{spelled})\s+(?:years?|months?)\s+olds?\b", text):
         numeric = True
+    # Compact and hyphenated forms remain explicit ages (not arbitrary numbers).
+    for m in re.finditer(r"\b(\d{1,3})\s*(?:y\s*/?\s*o|[-–—]\s*years?"
+                         r"\s*[-–— ]\s*olds?)\b", text):
+        if int(m.group(1)) < 18:
+            numeric = True
+    for m in re.finditer(r"\b(?:for|age|ages|aged)\s*:?\s*(\d{1,3})\s*m\s*\+", text):
+        if int(m.group(1)) < 216:
+            numeric = True
     if numeric:
         found.append("age_under_18")
     if re.search(r"\byoung\s+ones\b", text):
