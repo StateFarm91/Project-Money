@@ -408,9 +408,14 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
         if not mine:
             return False
         frame = mine[0]
+        from .photo_asset_review import AWAITING, NOT_QUALIFYING, _reviewable
+
+        # An unapproved frame with no review state is explicitly withdrawn.
+        # Attestation or reordering must never turn that state into approval.
+        if not frame.approved and not _reviewable(list(frame.blocked_reasons or [])):
+            return False
         if frames[0] is frame and (frame.claims or {}).get("leads_gallery") is True:
             return True
-        from .photo_asset_review import AWAITING, NOT_QUALIFYING
 
         # Keep terminally excluded photos after every effective frame so the
         # listing-set positions remain contiguous after those photos are filtered.

@@ -735,6 +735,24 @@ def test_photo_promotion_never_clears_an_independent_owner_hold():
         assert "owner veto" in frame.blocked_reasons
 
 
+def test_withdrawn_photo_cannot_be_reopened_by_attestation_or_promotion():
+    from brambleloop.publish import physical_upgrade as pu
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        pid = f.claims["physical_photo_id"]
+        f.approved = False
+        f.blocked_reasons = []
+        f.claims = {**f.claims, "leads_gallery": False}
+    assert pu.lead_with_if_qualifying(db, pid) is False
+    pu.attest_unedited(db, pid, actor=T.OWNER, confirm=pu.UNEDITED_CONFIRMATION)
+    assert par.sweep(db)["approved"] == 0
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert not f.approved and not f.blocked_reasons
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):
