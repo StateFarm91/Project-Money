@@ -277,13 +277,44 @@ def _promote_if_leaderless(db, frame_id: int) -> bool:
         reasons = list(frame.blocked_reasons or [])
         photo_leads = any(
             f.asset_class == PHOTO_CLASS and (f.claims or {}).get("leads_gallery") is True
+            and not any(str(r).startswith(NOT_QUALIFYING) for r in (f.blocked_reasons or []))
             for f in s.scalars(select(ListingAsset).where(
                 ListingAsset.product_slug == frame.product_slug,
                 ListingAsset.version == frame.version)))
-    if photo_leads or not isinstance(pid, int) or not any(
-            str(r).startswith(NOT_QUALIFYING) for r in reasons):
+    if photo_leads or not isinstance(pid, int) or not _reviewable(reasons):
         return False
     return bool(lead_with_if_qualifying(db, pid))
+
+
+def _excluded_leader_recoveries(db) -> list[int]:
+    """Previously approved supplements can replace an excluded photo leader."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+    from . import sample_photo
+
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingAsset).order_by(ListingAsset.id)))
+        releases = {(f.product_slug, f.version) for f in rows
+                    if f.asset_class == PHOTO_CLASS and f.position == 1
+                    and any(str(r).startswith(NOT_QUALIFYING)
+                            for r in (f.blocked_reasons or []))}
+        candidates = [(f.id, f.product_slug, f.version, f.sha256,
+                       (f.claims or {}).get("physical_photo_id")) for f in rows
+                      if (f.product_slug, f.version) in releases and f.asset_class == PHOTO_CLASS
+                      and f.approved is True and not (f.blocked_reasons or [])]
+    selected = []
+    for slug, version in sorted(releases):
+        try:
+            qualifying = sample_photo.qualifying_photos(db, slug, version).get("qualifying") or []
+        except Exception:  # noqa: BLE001 - unknown evidence cannot promote
+            continue
+        for fid, cslug, cversion, sha, pid in candidates:
+            if (cslug, cversion) == (slug, version) and any(
+                    e.get("photo_id") == pid and sha and e.get("sha256") == sha
+                    for e in qualifying):
+                selected.append(fid)
+                break
+    return selected
 
 
 def sweep(db) -> dict:
@@ -295,6 +326,17 @@ def sweep(db) -> dict:
         except Exception:  # noqa: BLE001 - not promoted: the review below still names why
             pass
         results.append(review_frame(db, fid))
+    for fid in _excluded_leader_recoveries(db):
+        try:
+            from .physical_upgrade import lead_with_if_qualifying
+            from ..core.models import ListingAsset
+            with db.session() as s:
+                row = s.get(ListingAsset, fid)
+                pid = (row.claims or {}).get("physical_photo_id") if row else None
+            if isinstance(pid, int) and lead_with_if_qualifying(db, pid):
+                results.append(review_frame(db, fid))
+        except Exception:  # noqa: BLE001 - retain the hold and retry on next sweep
+            continue
     return {"reviewed": len(results), "approved": sum(1 for r in results if r["approved"]),
             "not_qualifying": [r.get("frame_id") for r in results if r.get("not_qualifying")],
             "refused": [{"frame_id": r.get("frame_id"), "failed": r["failed"]}
