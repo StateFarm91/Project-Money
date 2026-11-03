@@ -19,6 +19,7 @@
     }
   },
   "claims": [
+    {"id": "CODEX-B6-TRANSACTION-RETRY", "operator": "codex", "branch": "codex/batch6-evidence-contract", "scope": "isolated DB-only transaction retry building block; not evidence authorization or an integration candidate", "state": "review_requested"},
     {
       "id": "W-INVENTORY",
       "operator": "main-opus",
