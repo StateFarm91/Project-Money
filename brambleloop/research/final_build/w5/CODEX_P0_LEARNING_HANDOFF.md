@@ -77,8 +77,7 @@ merge is authorized by this handoff.
 
 ## Recent checkpoint verification
 
-On the code at `1bc6f47` (subsequent changes to this handoff are documentation
-only), the following ran individually using Python 3.12 and SQLite: worker
+On the code at `1bc6f47`, the following ran individually using Python 3.12 and SQLite: worker
 8/8, knowledge contract 4/4, retention guard 5/5, improve regression 24/24,
 autonomy timeline 6/6, design-evaluation cases 7/7, finding review Command
 Center 5/5, analysis store 1/1, purchase intake API 1/1, teardown reader
@@ -95,9 +94,7 @@ and approved a proposed rule after a durable held-out evaluation; the approved
 pin changed original finishing instructions; a mutated evaluation was detected
 as a regression. Separate worker tests cover interruption after the purchase
 state update and recovery without duplicate analysis or audit. This proves the
-finishing-rule path, not an approved construction change. The current-head
-shadow suite remains incomplete: three cases passed before the run was paused
-to complete this acceptance test.
+finishing-rule path, not an approved construction change.
 
 At `7419ffa`, the intake-to-approval HTTP test, worker (10/10), knowledge
 contract (4/4), owner review actions (5/5), frozen evaluation cases (7/7),
@@ -107,5 +104,13 @@ hash to remain manifested as a PDF. This change alters the evaluator's
 implementation digest: previous evaluation pins require re-evaluation.
 Unreviewed architecture evidence is tracked as a separate gap rather than a
 product defect. Recovery also covers a worker failure after a purchase was
-marked analysed. A complete independent review and full shadow regression are
-still required.
+marked analysed. A complete independent review is still required. The full
+shadow suite subsequently passed 10/10 on `b2d3de2`;
+the only later code change before `cf62f5d` hardened audit retry reuse and was
+covered by worker (10/10) and retention (5/5) tests.
+
+On `cf62f5d`, additional required regressions passed individually: vacuity 8/8,
+default-deny route authentication 8/8, route audit 6/6, contracts 5/5, gates
+44/44, culture/teardown 16/16, cost governance 39/39, CIR fibre 20/20, CIR
+roundtrip 6/6, graded truth 8/8 and row arithmetic 9/9. These ran on Python
+3.12; Python 3.11 integration certification remains outstanding.
