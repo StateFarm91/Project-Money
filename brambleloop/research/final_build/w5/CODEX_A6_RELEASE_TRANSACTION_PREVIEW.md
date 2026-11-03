@@ -66,3 +66,31 @@ the test-only changes and blanket refusal are not in this branch. Existing
 customer-delivery behavior was not changed. A safe solution needs authenticated
 lineage and action-time evidence fencing with an independently reviewed design
 for every affected consumer, including obligations to existing customers.
+
+## Owner authority and atomic-boundary prerequisites
+
+The existing Command Center registers `design_knowledge.review_rule` as a
+step-up action and calls the service with `reviewer="owner"`. That is a
+specific authenticated owner entry point; the underlying `review_rule` service
+itself accepts a reviewer string. A matching actor on an unsigned AuditLog row
+does not authenticate an arbitrary direct service invocation.
+
+`core.sealed_chain.GrantLedger` can verify existing sealed grant/revocation
+chains, but there is no Learning grant family bound to the exact rule,
+evaluation, provenance and review decision. Its append and refusal methods
+open their own sessions; its documented tail-truncation limitation also means
+the chain alone cannot prove current revocation state. Reuse requires an
+approved Learning authority model, a trusted current-state anchor, and
+same-transaction verification under a complete evidence fence. Existing
+unsigned approvals must not be silently upgraded or automatically authorized.
+
+`gate.certify` currently reads knowledge before its independent certificate
+transaction, can return early on the duplicate path, and records its granted
+audit before release persistence. A complete implementation must re-read the
+authenticated persisted CIR and all current approval, evaluation, licence and
+provenance evidence under the shared fence; handle duplicate certification;
+commit certificate, authority audit and durable follow-on atomically; and
+revalidate or invalidate later uses after retirement. The separate queue
+savepoint preview prevents one caller-transaction rollback hazard but does not
+establish those conditions. No new grant, signing key, owner authorization or
+production policy was created by this investigation.
