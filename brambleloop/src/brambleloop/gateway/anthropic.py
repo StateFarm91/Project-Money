@@ -930,11 +930,19 @@ class AnthropicProvider:
     def _read(self, body: dict, started: float) -> ModelResponse:
         text = "".join(block.get("text", "") for block in body.get("content", [])
                        if block.get("type") == "text")
-        usage = body.get("usage", {})
+        usage = body.get("usage")
+        if (not isinstance(usage, dict)
+                or type(usage.get("input_tokens")) is not int
+                or type(usage.get("output_tokens")) is not int
+                or usage["input_tokens"] < 0 or usage["output_tokens"] < 0
+                or usage["input_tokens"] + usage["output_tokens"] <= 0):
+            # The response arrived after transmission, but its cost is unknown.
+            # Do not coerce booleans, floats or strings into understated usage.
+            raise ValueError("anthropic response has invalid or missing usage")
         return ModelResponse(
             text=text, provider=self.name, model=body.get("model", self.model),
-            input_tokens=int(usage.get("input_tokens", 0)),
-            output_tokens=int(usage.get("output_tokens", 0)),
+            input_tokens=usage["input_tokens"],
+            output_tokens=usage["output_tokens"],
             latency_ms=round((time.time() - started) * 1000, 2),
             stop_reason=str(body.get("stop_reason") or ""))
 

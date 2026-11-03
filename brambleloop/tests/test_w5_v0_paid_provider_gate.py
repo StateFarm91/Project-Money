@@ -674,6 +674,25 @@ def test_invalid_model_usage_is_recorded_at_estimate_not_as_a_credit():
     assert gw.spent_this_month_cad(db) > 0
 
 
+def test_anthropic_raw_invalid_usage_is_unknown_after_response():
+    from brambleloop.gateway.model_gateway import ModelGateway
+    provider = gw.AnthropicProvider()
+    for usage in (None, {}, {"input_tokens": 1.9, "output_tokens": True},
+                  {"input_tokens": "1", "output_tokens": 1},
+                  {"input_tokens": -1, "output_tokens": 1},
+                  {"input_tokens": 0, "output_tokens": 0}):
+        try:
+            provider._read({"content": [], "usage": usage}, 0)
+        except ValueError as exc:
+            assert ModelGateway._billing(exc, None, {"estimate_cad": 0.25}) == (
+                0, 0, 0.25, "unknown_counted_at_estimate")
+        else:
+            raise AssertionError(f"invalid usage accepted: {usage!r}")
+    response = provider._read({"content": [], "usage": {
+        "input_tokens": 10, "output_tokens": 1}}, 0)
+    assert (response.input_tokens, response.output_tokens) == (10, 1)
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):
