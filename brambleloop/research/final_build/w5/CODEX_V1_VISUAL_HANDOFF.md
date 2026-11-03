@@ -37,3 +37,28 @@ and the full fidelity regression remain open; this checkpoint is not accepted.
 The expected-ribbing check also leaves an obscured/unclear fabric view UNKNOWN:
 only a clear reading can establish that required ribbing is absent. Independent
 scoped review confirmed this distinction; the V1 suite passed 17/17 afterwards.
+
+## Multi-piece and impossible-repair follow-up: BLOCKED for integration
+
+Independent review identified whole-product prompt claims incorrectly inferred
+from the largest component. The continuation directs multi-piece shape, edge and
+colour to each certified reference, suppresses global component-specific
+prohibitions, and qualifies motif prohibitions to forbid only motifs absent from
+the pattern. Real kneeler, garland, tea-cosy and ring-pillow CIRs are covered.
+Structural reference failures now hold even with an unrelated routable failure
+code; a durable SQLite fake-generator test shows only one lifestyle attempt.
+No-structural routable repair coverage is retained. Existing scarf ribbed edges
+are no longer forbidden. Reference and prompt builder versions advance to
+`pattern-refs/3.1.3` and `flux3-prompt-builder/2.1.1`; do not repin or authorize
+Cloudline's owner-controlled experiment without the owner.
+
+The binary edge reader cannot distinguish Cloudline's legitimate end bands
+from invented edging. This candidate returns UNKNOWN rather than a false
+FAIL or PASS, with no publisher bypass. Consequently the unchanged existing
+`test_positive_flat_lays_pass_under_photographic_perturbation` currently fails
+for Cloudline: its former PASS assumption requires richer edge evidence. Do not
+weaken that assertion. Per-piece edging is likewise held UNKNOWN when not proved.
+V1 focused suite 23/23, texture 9/9, rim negative 2/2 and FLUX generator 9/9
+passed in Python 3.11, all with fake providers. The full earlier fidelity suite
+passed 22/22 on 85ff2b8 before this delta, not on this new candidate. Independent
+review, per-edge evidence, full regression and integration are still required.

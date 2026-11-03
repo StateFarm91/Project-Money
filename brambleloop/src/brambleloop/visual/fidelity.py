@@ -241,7 +241,7 @@ class Expectation:
     palette_lab: np.ndarray
     palette_lin: np.ndarray
     pieces: list[PieceModel]
-    edging_declared: bool
+    edging_declared: bool | None
     ribbing_declared: bool | None
     craft: str
     expected_share: np.ndarray
@@ -389,7 +389,9 @@ def expectation(cir) -> Expectation:
     except Exception:  # noqa: BLE001
         fp = key[:16]
     exp = Expectation(cir.slug, cir.version, str(fp), ids, hexes, pal_lab, pal_lin, pieces,
-                      bool(facts["edging_declared"]), facts["ribbing_declared"],
+                      None if facts.get("multi_component") or facts.get("end_bands")
+                      else bool(facts["edging_declared"]),
+                      facts["ribbing_declared"],
                       facts.get("craft") or "crochet", shares)
     _CACHE[key] = exp
     return exp
@@ -963,7 +965,10 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
                 unclear.append("pattern ribbing cannot be judged in an unclear view")
         elif v["ribbing_visible"] not in ("true", "yes"):
             unclear.append("pattern ribbing not clearly visible")
-    edging = (not exp.edging_declared and v["border_or_edging_visible"] in ("true", "yes"))
+    if exp.edging_declared is None:
+        unclear.append("visible edge treatment cannot be distinguished from declared bands or components")
+    edging = (exp.edging_declared is False and
+              v["border_or_edging_visible"] in ("true", "yes"))
     if problems:
         return _check("craft_texture", FAIL, "; ".join(problems),
                       code=FC.WRONG_CRAFT_TEXTURE, reading=v, invented_edging_seen=edging)

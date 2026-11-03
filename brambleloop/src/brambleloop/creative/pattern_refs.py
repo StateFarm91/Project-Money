@@ -34,10 +34,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.2"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.3"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
 # 3.1.1 (W5-V1): ribbing needs a repeating loop/post pattern (one back-loop crease round is not
 # ribbing); fabric facts add colour bands, the polygon side count and the final round/rim.
 # 3.1.2: separated unpaired post stitches do not establish a repeating rib.
+# 3.1.3: component-specific fabric claims are never generalized to all pieces.
 # Texture before the symbolic chart: it has priority (owner directive after the reading-nook
 # test); the chart is kept for stitch placement.
 ROLES: tuple[str, ...] = ("layout", "texture", "detail", "rules")
@@ -50,7 +51,7 @@ BACKGROUND = (232, 232, 232)
 # What no render of a certified product may add. Applies to every product; a component, colour
 # or motif the CIR has is never in this list because the CIR is what is allowed.
 PROHIBITED_ADDITIONS: tuple[str, ...] = (
-    "colours not in the certified palette", "motifs, appliques or embroidery",
+    "colours not in the certified palette", "motifs, appliques or embroidery not in the certified pattern",
     "borders, edgings, fringe, tassels or pom-poms not in the pattern",
     "extra or missing pieces", "a different stitch, texture or construction",
     "knit, woven or printed fabric", "text, logos, labels or watermarks",
@@ -209,7 +210,8 @@ def fabric_facts(cir, parts=None) -> dict:
                if {c.color for c in rows[i]} != {c.color for c in rows[i - 1]}]
     ground, colour_bands = _colour_bands(rows, colours, unit)
     sides = getattr(twin, "sides", None) if is_round else None
-    return {"component": comp.name, "unit": unit, "rows": len(rows), "craft": "crochet",
+    return {"component": comp.name, "multi_component": len(parts) > 1,
+            "unit": unit, "rows": len(rows), "craft": "crochet",
             "stitches": sorted(used), "ribbing_declared": ribbing,
             "edging_declared": edging, "end_bands": bands, "cables": cables,
             "colour_change_rows": changes,
@@ -358,7 +360,15 @@ def negatives(facts: dict) -> list[str]:
            "purl ridges, no knitted rope cables)"]
     if facts["ribbing_declared"] is False:
         out.append("ribbing anywhere (the pattern has none)")
-    if not facts["edging_declared"]:
+    if facts.get("multi_component"):
+        # Remaining facts below describe only the largest component. They must
+        # not be turned into global prohibitions on different components.
+        out.append("any component differing from its own certified layout and stitch chart")
+        return out
+    if not facts["edging_declared"] and facts["ribbing_declared"] is not False:
+        out.append("any added edging, border, fringe or trim not in the pattern; "
+                   "keep the existing fabric and each edge exactly as charted")
+    elif not facts["edging_declared"]:
         out.append("an edging, border, rib, fringe or trim along any edge; "
                    + ("the outer edge is the last round exactly as charted, and a "
                       "vessel's top rim is that plain final round: no braided, rolled, "

@@ -1492,22 +1492,21 @@ def _repick_outfit(db, listing: str, current: str) -> dict:
 def _repair_for(best: dict | None) -> dict | None:
     """Targeted repair for a failed candidate, or None when it cannot be repaired by
     regeneration (an unrouted code, or a structural failure such as a LIFESTYLE
-    `lifestyle_evidence` FAIL on a chart reference with no routable code beside it: see
+    `lifestyle_evidence` FAIL on a chart reference: see
     `structural_failure`). Codes from the shared Product Truth set route to prompt
     negatives or a reference change. Other failures (identity, outfit, body proportions,
     quality) are regenerated with the same canonical references, and nothing is waived."""
     from . import repair_routes
 
+    # A prompt-only repair cannot resolve a structural reference failure, even
+    # when it could address another defect on the same candidate.
+    if (best or {}).get("structural"):
+        return None
     cats = list((best or {}).get("failure_categories") or [])
     shared = set(repair_routes.shared_codes()["codes"]) | set(repair_routes.ROUTES)
     codes = [c for c in cats if c in shared or c.isupper()]
     routed = repair_routes.route(codes)
     if routed["unrouted"]:
-        return None
-    if (best or {}).get("structural") and not routed["directives"]:
-        # W5-V1 (audit P0-a): the failure is structural and nothing routable is left, so the
-        # "repair" would be a blind re-roll of a candidate that cannot pass: never bought.
-        # A routable code on the same candidate (e.g. a wardrobe repair) is still repaired.
         return None
     return {"codes": codes, "directives": routed["directives"],
             "stays_unknown": routed["stays_unknown"],

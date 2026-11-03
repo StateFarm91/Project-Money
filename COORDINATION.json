@@ -290,7 +290,9 @@
       "files": [
         "brambleloop/src/brambleloop/creative/pattern_refs.py",
         "brambleloop/tests/test_w5_v1_visual_correctness.py",
-        "brambleloop/src/brambleloop/visual/fidelity.py"
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/creative/flux_prompt.py",
+        "brambleloop/src/brambleloop/visual/image_production.py"
       ],
       "claimed_at": "2026-11-03"
     }
