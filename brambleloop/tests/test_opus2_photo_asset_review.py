@@ -811,6 +811,27 @@ def test_approved_leader_with_new_unsupported_claim_is_held():
         assert not frame.approved and par.AWAITING in frame.blocked_reasons
 
 
+def test_revoked_approved_supplement_is_held_and_excluded_on_sweep():
+    from brambleloop.core.models import PhysicalPhoto
+    db, cir, _, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        supplement = session.get(ListingAsset, first)
+        assert supplement.approved and not supplement.claims.get("leads_gallery")
+        photo = session.get(PhysicalPhoto, supplement.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    par.sweep(db)
+    with db.session() as session:
+        frame = session.get(ListingAsset, first)
+        assert not frame.approved
+        assert any(str(r).startswith(par.NOT_QUALIFYING) for r in frame.blocked_reasons)
+    assert first not in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

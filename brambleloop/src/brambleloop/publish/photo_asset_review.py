@@ -286,14 +286,14 @@ def _promote_if_leaderless(db, frame_id: int) -> bool:
     return bool(lead_with_if_qualifying(db, pid))
 
 
-def _reopen_stale_approved_leaders(db) -> None:
-    """Re-review approved photo leaders whose qualifying evidence has lapsed."""
+def _reopen_stale_approved_photos(db) -> None:
+    """Re-review every approved physical photo whose evidence has lapsed."""
     from sqlalchemy import select
     from ..core.models import ListingAsset
 
     with db.session() as s:
         ids = list(s.scalars(select(ListingAsset.id).where(
-            ListingAsset.asset_class == PHOTO_CLASS, ListingAsset.position == 1,
+            ListingAsset.asset_class == PHOTO_CLASS,
             ListingAsset.approved == True)))  # noqa: E712
     for fid in ids:
         try:
@@ -301,7 +301,7 @@ def _reopen_stale_approved_leaders(db) -> None:
                 _lock(s, db)
                 frame = s.scalar(select(ListingAsset).where(
                     ListingAsset.id == fid).with_for_update())
-                if (frame is None or not frame.approved or frame.position != 1
+                if (frame is None or not frame.approved
                         or frame.asset_class != PHOTO_CLASS):
                     continue
                 try:
@@ -352,7 +352,7 @@ def _excluded_leader_recoveries(db) -> list[int]:
 def sweep(db) -> dict:
     """Review every awaiting (or newly qualifying) photo frame. CA$0, never publishes."""
     results = []
-    _reopen_stale_approved_leaders(db)
+    _reopen_stale_approved_photos(db)
     for fid in awaiting_frames(db):
         try:
             _promote_if_leaderless(db, fid)
