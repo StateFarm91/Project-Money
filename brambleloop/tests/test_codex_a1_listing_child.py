@@ -18,7 +18,8 @@ from brambleloop.runtime.worker import Worker
 def test_plural_child_audience_words_are_held_in_pdf_worker():
     adult = inventory._engineered("market-basket-small")
     for title in ("Basket for toddlers", "Basket for infants", "Basket for newborns",
-                  "Basket for nurseries", "Basket for kids"):
+                  "Basket for nurseries", "Basket for kids", "Basket for tots",
+                  "Basket for preschoolers", "Basket for preemies"):
         changed = dataclasses.replace(adult, title=title)
         assert launch0.child_words_in(title), title
         assert launch0.childrens_decision_for(changed)[0] == launch0.UNDECIDED, title

@@ -1634,7 +1634,8 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
     "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
-    "cot", "cots", "lovey", "loveys", "amigurumi",
+    "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
+    "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens",
 )
 
 
