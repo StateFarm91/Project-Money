@@ -40,6 +40,9 @@ the next eligible gap. No new scheduler.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import math
 import re
 import statistics
 from dataclasses import dataclass
@@ -97,31 +100,26 @@ class PodObject:
     design_hours: float
 
 
-# Only objects that ARE one flat panel worked in rows. The placemat template drafts a flat
-# panel (`runtime.pipeline._GEOMETRY['placemat']`); `creative.prototype` describes the same
-# flat_panel form as "a dishcloth or potholder". Coasters are not here: the fallback refuses
-# the coaster category (it needs a disc worked in rounds).
+# Objects need their own fitting geometry. Hot pads are unsupported: the current
+# acrylic draft has no evidence of heat protection.
 POD_OBJECTS: dict[str, tuple[PodObject, ...]] = {
     "kitchen_bath": (
         PodObject("dishcloth", ("dishcloth", "dish cloth", "washcloth", "wash cloth",
                                 "facecloth", "face cloth"),
-                  "Dishcloth", "placemat", "flat_panel", "a square dishcloth",
+                  "Dishcloth", "dishcloth", "flat_panel", "a square dishcloth",
                   "wipes dishes and counters at the sink", (1.0, 2.5), 3.0),
-        PodObject("hot_pad", ("potholder", "pot holder", "hot pad", "trivet"),
-                  "Hot Pad", "placemat", "flat_panel", "a flat hot pad",
-                  "rests a hot pot on the table without marking it", (1.5, 3.0), 3.0),
     ),
 }
 
 # The house descriptor vocabulary: Brambleloop's own words, never read from a competitor.
 # (descriptor, motif, palette story, feeling)
 HOUSE_DESCRIPTORS: tuple[tuple[str, str, str, str], ...] = (
-    ("Tideline Stripe", "tideline stripes", "sea glass green and oat", "serene"),
-    ("Oat Furrow", "furrowed oat rows", "oat and loam brown", "rugged"),
-    ("Harbour Band", "harbour bands", "harbour blue and cream", "serene"),
-    ("Kiln Brick", "kiln brick courses", "kiln red and clay", "rugged"),
-    ("Linen Ridge", "linen ridges", "flax and chalk", "quietly_luxurious"),
-    ("Orchard Row", "orchard rows", "apple green and cream", "cosy"),
+    ("Evergreen Creek", "alternating stripes", "forest green and cream", "serene"),
+    ("Woodland Cove", "alternating stripes", "forest green and cream", "rugged"),
+    ("Pine Harbor", "alternating stripes", "forest green and cream", "serene"),
+    ("Forest Path", "alternating stripes", "forest green and cream", "rugged"),
+    ("Grove Valley", "alternating stripes", "forest green and cream", "quietly_luxurious"),
+    ("Canopy Brook", "alternating stripes", "forest green and cream", "cosy"),
 )
 
 
@@ -315,16 +313,28 @@ def observe(db, pod: str, *, today: date) -> dict:
     flat_rows object the observed titles name most. Reads counts and prices, never content."""
     from ..core.models import BenchmarkListing
     from ..intel import pods
+    from ..intel.source_identity import marketplace_shop_id
 
     since = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(
         days=OBSERVATION_WINDOW_DAYS)
     with db.session() as s:
-        rows = [(r.benchmark_key, r.listing_ref, r.title or "", r.pod or "",
-                 float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen))
+        rows = [(r.benchmark_key, marketplace_shop_id(r.listing_ref), r.title or "", r.pod or "",
+                 float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen),
+                 marketplace_shop_id((r.detail or {}).get("source_shop_id")), r.audit_state)
                 for r in s.scalars(select(BenchmarkListing))]
     listings = [r for r in rows
-                if (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
-                and r[5] is not None and r[5] >= since]
+                if r[7] != "withdrawn"
+                and (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
+                and r[5] is not None and since <= r[5] <
+                datetime(today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)]
+    # A marketplace listing ID is global, whereas the database uniqueness key is
+    # per benchmark. Reject ambiguous IDs filed under multiple benchmark keys.
+    # No choice between conflicting records is treated as verified evidence.
+    occurrences = {}
+    for r in rows:
+        if r[1]:
+            occurrences[r[1]] = occurrences.get(r[1], 0) + 1
+    listings = [r for r in listings if r[1] and r[6] and occurrences.get(r[1]) == 1]
     objects = POD_OBJECTS.get(pod, ())
     counts = []
     for obj in objects:
@@ -335,8 +345,9 @@ def observe(db, pod: str, *, today: date) -> dict:
     obj = best[1] if best[0] > 0 else None
     mine = [r for r in listings if obj is not None and any(
         re.search(rf"\b{re.escape(k)}s?\b", r[2].lower()) for k in obj.keywords)]
-    priced = sorted(r[4] for r in (mine or listings) if r[4] > 0)
-    shops = {r[0] for r in listings}
+    priced = sorted(r[4] for r in (mine or listings) if math.isfinite(r[4]) and r[4] > 0)
+    shops = {r[6] for r in listings}
+    object_shops = {r[6] for r in mine}
     dates = sorted(r[5].date() for r in listings)
     reasons = []
     if not objects:
@@ -346,14 +357,22 @@ def observe(db, pod: str, *, today: date) -> dict:
                        f"{OBSERVATION_WINDOW_DAYS} days, below {MIN_LISTINGS}")
     if len(shops) < MIN_SHOPS:
         reasons.append(f"{len(shops)} observed shop(s), below {MIN_SHOPS}")
+    if obj is not None and (len(mine) < MIN_LISTINGS or len(object_shops) < MIN_SHOPS):
+        reasons.append(f"only {len(mine)} object-specific listings across "
+                       f"{len(object_shops)} shops; need {MIN_LISTINGS} and {MIN_SHOPS}")
     if listings and not priced:
         reasons.append("no observed listing carries a price")
     if objects and listings and obj is None:
         reasons.append("no observed title names an object a flat rows panel is")
-    confidence = ("high" if len(listings) >= HIGH_LISTINGS and len(shops) >= HIGH_SHOPS
+    confidence = ("high" if len(mine) >= HIGH_LISTINGS and len(object_shops) >= HIGH_SHOPS
                   else "medium")
-    return {"ok": not reasons, "reasons": reasons, "pod": pod, "listings": len(listings),
+    census_hash = hashlib.sha256(json.dumps(sorted(
+        (r[0], r[1], r[2], r[3], r[4], r[5].isoformat(), r[6]) for r in listings
+    ), ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
+    return {"census_sha256": census_hash,
+            "ok": not reasons, "reasons": reasons, "pod": pod, "listings": len(listings),
             "shops": len(shops), "object": obj, "object_listings": len(mine),
+            "object_shops": len(object_shops),
             "price_median_cad": round(statistics.median(priced), 2) if priced else None,
             "price_min_cad": priced[0] if priced else None,
             "price_max_cad": priced[-1] if priced else None,
@@ -376,16 +395,32 @@ def originality_reasons(title: str, descriptor: str, titles) -> list[str]:
     more of its specific words), or carrying our descriptor phrase are all refusals."""
     from .intake import _jaccard, _norm, _specific_tokens
 
+    from ..products.text_fold import fold
+
+    def comparable(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", fold(value))
+
+    def singular_words(value: str) -> set[str]:
+        words = _specific_tokens(fold(value))
+        return {w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words}
+
     t_norm, t_tok, d_norm = _norm(title), _specific_tokens(title), _norm(descriptor)
+    own_words = singular_words(title)
+    descriptor_compact = comparable(descriptor)
     out = []
     for ref, other in titles:
         o_norm = _norm(other)
+        other_words = singular_words(other)
         if o_norm == t_norm:
             out.append(f"title {title!r} equals observed listing {ref}'s title")
         elif t_tok and _jaccard(t_tok, _specific_tokens(other)) >= 0.5:
             out.append(f"title {title!r} overlaps observed listing {ref}'s title")
         elif d_norm and f" {d_norm} " in f" {o_norm} ":
             out.append(f"descriptor {descriptor!r} appears in observed listing {ref}'s title")
+        elif (comparable(title) == comparable(other)
+                or (descriptor_compact and descriptor_compact in comparable(other))
+                or (own_words and _jaccard(own_words, other_words) >= 0.5)):
+            out.append(f"title {title!r} overlaps observed listing {ref}'s title")
     return out
 
 
@@ -474,12 +509,26 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
     t = _task_state(db, task_id)
     refs = dict(t["detail"].get("ideation_refs") or {})
     if t["state"] == research.ANSWERED and t["proposals"]:
-        return {"task": task_id, "ran": False, "why": "already answered and proposed",
-                "work_done": 0}
+        proposals = [p for p in t["proposals"] if isinstance(p, dict) and p.get("slug")]
+        if len(proposals) != 1:
+            return {"task": task_id, "ran": False, "why": "ambiguous persisted proposals",
+                    "work_done": 0}
+        slug = proposals[0]["slug"]
+        rec = (_gap_record(db, gap_id) or {}).get("ideation") or {}
+        if rec.get("task") != task_id:
+            return {"task": task_id, "ran": False, "why": "gap task no longer matches",
+                    "work_done": 0}
+        changed = rec.get("outcome") != OUT_PROPOSED or rec.get("slug") != slug
+        if changed:
+            _record(db, gap_id, outcome=OUT_PROPOSED, slug=slug, why=[])
+        ctx.enqueue("market_radar", intake.JOB_TYPE, {"source": f"research_task:{task_id}"},
+                    idempotency_key=f"intake:ideation:{task_id}")
+        return {"task": task_id, "ran": changed, "why": "persisted proposal reconciled",
+                "work_done": int(changed)}
     if t["state"] not in (research.OPEN, research.ANSWERED):
         return {"task": task_id, "ran": False, "why": f"task is {t['state']}", "work_done": 0}
     obs = observe(db, str(brief.get("pod") or ""), today=today)
-    if not obs["ok"] and not (t["state"] == research.ANSWERED and refs):
+    if not obs["ok"]:
         outcome = OUT_NO_OBJECT if obs["no_object"] else OUT_INSUFFICIENT
         action = NO_OBJECT if obs["no_object"] else INSUFFICIENT
         _record(db, gap_id, outcome=outcome, why=obs["reasons"][:5], slug=None)
@@ -488,12 +537,26 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
             "listings": obs["listings"], "shops": obs["shops"]})
         return {"task": task_id, "ran": True, "proposed": False, "outcome": outcome,
                 "reasons": obs["reasons"], "work_done": 1}
+    # A recorded finding describes one specific census. Never attach a proposal
+    # based on a different census to those historical evidence references.
+    census = {k: obs[k] for k in ("pod", "listings", "shops", "object_listings", "object_shops",
+                                   "price_median_cad", "price_min_cad", "price_max_cad",
+                                   "oldest", "newest", "confidence", "census_sha256")}
+    census["object"] = obs["object"].key if obs["object"] else None
+    if refs and t["detail"].get("ideation_census") != census:
+        why = "recorded census differs from current observations; new evidence required"
+        _record(db, gap_id, outcome=OUT_INSUFFICIENT, why=[why], slug=None)
+        ctx.audit(INSUFFICIENT, artifact=f"research_task:{task_id}", detail={
+            "gap": gap_id, "pod": obs["pod"], "reasons": [why]})
+        return {"task": task_id, "ran": True, "proposed": False,
+                "outcome": OUT_INSUFFICIENT, "reasons": [why], "work_done": 1}
     if t["state"] == research.OPEN:
         if not refs:
             src = research.add_source(
                 db, task_id, source="benchmark_listings census (recorded market scans)",
                 citation=(f"db:benchmark_listings?pod={obs['pod']}&from={obs['oldest']}"
-                          f"&to={obs['newest']}&listings={obs['listings']}"),
+                          f"&to={obs['newest']}&listings={obs['listings']}"
+                          f"&census_sha256={obs['census_sha256']}"),
                 retrieval="internal", read_on=date.fromisoformat(obs["oldest"]))
             sref = f"S{src}"
             fref = research.add_finding(
@@ -503,7 +566,8 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
                            f"and {obs['newest']}; priced listings median "
                            f"CA${obs['price_median_cad']} (CA${obs['price_min_cad']}-"
                            f"CA${obs['price_max_cad']}); {obs['object_listings']} name a "
-                           f"{obs['object'].noun.lower()}"))
+                           f"{obs['object'].noun.lower()} across "
+                           f"{obs['object_shops']} resolved marketplace shops"))
             refs = {"finding": fref, "source": sref}
             with db.session() as s:
                 from sqlalchemy.orm.attributes import flag_modified
@@ -511,6 +575,7 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
                 row = s.get(research.ResearchTask, int(task_id))
                 d = dict(row.detail or {})
                 d["ideation_refs"] = refs
+                d["ideation_census"] = census
                 row.detail = d
                 flag_modified(row, "detail")
         research.answer(

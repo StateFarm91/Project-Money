@@ -90,8 +90,9 @@ class Reader:
                 "listing_active_count": len(CATALOGUES[name])}
 
     def catalogue(self, shop_id, **kw):
+        from brambleloop.intel.etsy_public import CatalogueResult
         name = next(n for n, i in SHOPS.items() if i == shop_id)
-        return list(CATALOGUES[name])
+        return CatalogueResult(CATALOGUES[name], complete=True)
 
     def images(self, ref):
         return [{"rank": i + 1, "url_fullxfull": f"https://fixture.invalid/{ref}/{i}.jpg"}
@@ -491,7 +492,8 @@ def test_parked_gaps_are_not_redecided_daily():
     d0 = date(2026, 10, 27)
     first = watchlist.review(db, enqueue=_enqueuer(db), today=d0)
     assert [d["last"] for d in first["decisions"] if d["gap"] == gid] == ["needs_original_design"]
-    assert gid not in watchlist.summary(db)["waiting"]
+    assert gid not in watchlist.summary(
+        db, now=datetime(2026, 10, 27, tzinfo=timezone.utc))["waiting"]
     nxt = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + timedelta(days=1))
     assert [d for d in nxt["decisions"] if d["gap"] == gid] == []
     week = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + watchlist.REDECIDE_AFTER)

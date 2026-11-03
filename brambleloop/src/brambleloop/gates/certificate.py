@@ -237,6 +237,13 @@ def certify(
     # 2a. Twin plausibility (F-117): compilation alone cannot certify. Every finished
     #     dimension the pattern states must sit inside tolerance of what the twin computes.
     findings.extend(_risk_matrix.plausibility_findings(cir, twins))
+    from .object_truth import dishcloth_dimension_findings, heat_protection_findings
+    object_texts = ([listing.title, listing.description, *(listing.tags or [])]
+                    if listing is not None else [])
+    findings.extend(Finding(ERROR, "DISHCLOTH_DIMENSIONS", message)
+                    for message in dishcloth_dimension_findings(cir, twin, texts=object_texts))
+    findings.extend(Finding(ERROR, "HEAT_PROTECTION_UNVERIFIED", message)
+                    for message in heat_protection_findings(cir, texts=object_texts))
     stages.append("twin")
 
     # 2b. Assembly: every piece placed and every join measured on both sides. A garment

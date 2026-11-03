@@ -99,6 +99,7 @@ SUPPORTED_FORMS: dict[str, tuple[str, ...]] = {
     "baby": ("rectangle_throw",),
     "runner": ("runner",),
     "placemat": ("flat_panel",),
+    "dishcloth": ("flat_panel",),
     "coaster": ("coaster", "flat_panel"),
     "pillow": ("pillow",),
     "wall_decor": ("wall_hanging",),
@@ -143,7 +144,7 @@ CONSTRUCTION_WHY: dict[str, str] = {
 # Variation vocabulary for family proposals: what each supported category is, for a buyer.
 _NOUN: dict[str, str] = {
     "blanket": "Throw", "baby": "Baby Blanket", "runner": "Table Runner",
-    "placemat": "Placemat Pair", "coaster": "Coaster Set", "pillow": "Cushion Cover",
+    "placemat": "Placemat Pair", "dishcloth": "Dishcloth", "coaster": "Coaster Set", "pillow": "Cushion Cover",
     "wall_decor": "Wall Hanging", "pet": "Pet Mat", "scarf": "Scarf",
 }
 _FUNCTION: dict[str, str] = {
@@ -151,6 +152,7 @@ _FUNCTION: dict[str, str] = {
     "baby": "wraps a new baby in the family's pattern",
     "runner": "dresses the table to match the set",
     "placemat": "lays a matching place at the table",
+    "dishcloth": "wipes dishes and counters",
     "coaster": "protects a table under mugs in the matching pattern",
     "pillow": "fronts a cushion that matches the set",
     "wall_decor": "hangs the family's motif on a wall",
@@ -159,7 +161,7 @@ _FUNCTION: dict[str, str] = {
 }
 _WHAT: dict[str, str] = {
     "blanket": "a sofa throw", "baby": "a pram-sized blanket", "runner": "a table runner",
-    "placemat": "a pair of placemats", "coaster": "a set of coasters",
+    "placemat": "a pair of placemats", "dishcloth": "a dishcloth", "coaster": "a set of coasters",
     "pillow": "a cushion front", "wall_decor": "a hung panel", "pet": "a pet mat",
     "scarf": "a wrapped scarf",
 }
