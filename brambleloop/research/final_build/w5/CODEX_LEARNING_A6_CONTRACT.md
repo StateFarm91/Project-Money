@@ -51,7 +51,11 @@ so an older single-slot binary cannot silently approve a conflicting global
 rule during rollback. Scoped evaluation measures effects on matching held-out
 cases and uses unmodified no-knowledge controls outside the scope; it does not
 claim those controls reproduce other scopes' current output. A scope with no
-matching held-out case is insufficient evidence. A corpus change
+matching held-out case is insufficient evidence. Once family scopes are
+active, the ordinary daily analysis sweep proposes independently supported
+successors for each active family; a repeated sweep does not duplicate them.
+A damaged scope guard blocks proposals while reference intake and analysis
+recovery continue. A corpus change
 blocks production use of the old pin until a current evaluation is approved;
 the evaluator can still use the authenticated historical incumbent privately
 for comparison. Existing CIRs pinned to a retired version fail verification

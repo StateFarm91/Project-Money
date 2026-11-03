@@ -42,6 +42,14 @@ def handle_teardown_analyse_sweep(ctx):
         except design_knowledge.DesignKnowledgeRefused:
             return {"work_done": 0, "reason": "invalid_construction_family"}
     with ctx.db.session() as s:
+        scope_problem = False
+        try:
+            design_knowledge._ensure_scope_integrity(s)
+        except design_knowledge.DesignKnowledgeRefused:
+            scope_problem = True
+        active_families = ([] if scope_problem else sorted({r.scope["construction_family"] for r in s.scalars(
+            select(DesignRule).where(DesignRule.state == "approved"))
+            if "construction_family" in r.scope}))
         ids = list(s.scalars(select(BenchmarkProduct.id).where(
             BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst",
                                                  "analysed")))))
@@ -63,22 +71,27 @@ def handle_teardown_analyse_sweep(ctx):
         requeued += result.get("requeued", 0)
         analysis_store.reconcile_state(ctx.db, benchmark_id)
     proposed = blocked = 0
+    families = [] if scope_problem else ([family] if family is not None else (active_families or [None]))
+    if scope_problem:
+        blocked += len(reviewed)
     for analysis_id in reviewed:
-        ctx.assert_lease()
-        try:
-            result = design_knowledge.propose_from_analysis(ctx.db, analysis_id,
-                                                            construction_family=family)
-        except design_knowledge.DesignKnowledgeRefused:
-            blocked += 1
-            continue
-        proposed += int(result["proposed"])
+        for desired_family in families:
+            ctx.assert_lease()
+            try:
+                result = design_knowledge.propose_from_analysis(
+                    ctx.db, analysis_id, construction_family=desired_family)
+            except design_knowledge.DesignKnowledgeRefused:
+                blocked += 1
+                continue
+            proposed += int(result["proposed"])
     gap_changes = 0
     for analysis_id in analyses:
         ctx.assert_lease()
         gap_changes += int(knowledge_gaps.observe_analysis(ctx.db, analysis_id)["changed"])
     return {"purchases": len(ids), "queued": queued, "existing": existing, "requeued": requeued,
             "licence_refused": refused, "knowledge_proposed": proposed,
-            "knowledge_blocked": blocked, "gap_changes": gap_changes,
+            "knowledge_blocked": blocked, "knowledge_scope_conflict": scope_problem,
+            "gap_changes": gap_changes,
             "work_done": queued + proposed + gap_changes}
 
 

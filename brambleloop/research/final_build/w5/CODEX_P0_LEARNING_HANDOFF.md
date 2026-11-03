@@ -64,6 +64,9 @@ Outstanding before a completion claim:
   construction. A6 must adopt `applicable_to_cir` and independently review
   the conflict and rollback behavior. Existing CIRs pinned to retired versions
   fail verification and need an integration policy.
+  The daily sweep proposes independently supported successors for every active
+  family without duplicating them, and scope corruption blocks proposals
+  without preventing reference analysis jobs from being queued.
 * A stale rule can now be re-evaluated against its authenticated historical
   baseline and previously approved metrics. Owner step-up is still required
   for reapproval, and a new release version must be explicitly repinned and
