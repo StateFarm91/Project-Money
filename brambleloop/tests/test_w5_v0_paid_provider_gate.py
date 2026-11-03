@@ -595,6 +595,22 @@ def test_probe_only_vision_rejects_an_unobserved_image_source():
         assert len(wire.calls) == 1
 
 
+def test_probe_only_reference_step_cannot_use_an_arbitrary_image():
+    db = _db()
+    _activate(db, scope=G.PROBE)
+    with _env(**ENV), Wire() as wire, tempfile.TemporaryDirectory(dir=_TMP) as wd:
+        other = Path(wd) / "other.png"
+        other.write_bytes(base64.b64decode(PNG))
+        _refused(lambda: images.generate(
+            "The same mug as the reference image, now on a wooden table.",
+            env=ENV, provider_key=FLUX, work_dir=wd, db=db,
+            purpose="image.reference_probe", reference_urls=[str(other)], gate_scope=G.PROBE),
+            code="probe_scope_mismatch", exc=images.ImagesGateRefused)
+        result = images.reference_probe(db, FLUX, env=ENV, work_dir=wd)
+        assert result["ok"] is False and "generation activation" in result["why"], result
+        assert wire.calls == [], wire.calls
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):

@@ -74,3 +74,10 @@ malformed 2xx bodies, and similar failures are not proof of a declined call.
 Fake-transport tests exercise all three against persistent database state.
 This can conservatively hold funds after a provider refusal. The lifecycle and
 reconciliation remain unresolved and the no-integration hold stays in force.
+
+Probe-only authorization no longer permits the reference-conditioning second
+request: until the first diagnostic output can be durably bound to that request,
+reference probing requires an active generation authorization and checks this
+before sending the first render. An arbitrary PNG under probe-only authority was
+refused with no fake transport call. This is an intentional availability hold;
+no new generation authorization is created. Independent review is still needed.

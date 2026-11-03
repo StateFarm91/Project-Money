@@ -1198,7 +1198,6 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
         allowed = {
             ("image.probe", "A plain grey fabric swatch on a white background, product photograph.", 0),
             ("image.reference_probe", "A plain ceramic mug on a white background, product photograph.", 0),
-            ("image.reference_probe", "The same mug as the reference image, now on a wooden table.", 1),
         }
         if ((purpose, prompt, len(reference_urls or [])) not in allowed
                 or size != "1024x1024" or extra_fields):
@@ -1579,6 +1578,13 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     # `ops.capability_probes` and passed no `work_dir`, so every run made one more.
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
+        # The conditioned step accepts an image reference. Until its same-run
+        # first-render identity is bound durably, probe-only authority must not
+        # authorize it. Check before the first render to avoid a wasted call.
+        from . import paid_provider_gate as gate
+        if not gate.activation_state(db, provider_key, gate.GENERATION)["active"]:
+            raise ImagesGateRefused("reference conditioning requires generation activation "
+                                    "until diagnostic inputs are bound", "probe_scope_mismatch")
         with workspace.work_dir(work_dir, prefix="generated-") as root:
             # `db` passed through so both renders are reserved and ledgered (B2) in the
             # database this probe audits into, attributed as shared platform spend.
@@ -1591,7 +1597,7 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
                               env=env, provider_key=provider_key,
                               reference_urls=[first["image_ref"]], work_dir=root, db=db,
                               purpose=REFERENCE_PROBE_ACTION,
-                              spend_detail=shared, gate_scope="probe")
+                              spend_detail=shared, gate_scope="generation")
             # `ok` means the conditioned render came back *and* the reference's bytes were
             # proven to be in the request that produced it (F-212). A render alone proves
             # only that the provider answered.
