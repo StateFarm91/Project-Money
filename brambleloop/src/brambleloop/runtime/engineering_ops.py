@@ -80,7 +80,8 @@ STAGES = ("compile", "certify", "quality", "assets")
 # and they have their own path (`pipeline._request_physical_retest`, the tester plan).
 EVIDENCE_WAIT = frozenset({"PHYSICAL_TEST_REQUIRED", "UNCALIBRATED_PRIMITIVE",
                            "RISK_CLASS_DOWNGRADE_UNJUSTIFIED"})
-_CODE = re.compile(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|[A-Z]{4,})\s*:")
+_CODE = re.compile(r"^\s*(?:(?:ERROR|WARNING|US|UK)\s+)*"
+                   r"([A-Z][A-Z0-9_]{3,})\s*:")
 
 
 def _unit(node) -> int | None:
@@ -188,7 +189,9 @@ def codes_of(problems) -> list[str]:
     """Finding codes named in refusal strings (`ERROR CODE: ...`, `US CODE: ...`)."""
     out: set[str] = set()
     for p in problems or ():
-        out.update(m.group(1) for m in _CODE.finditer(str(p)))
+        match = _CODE.match(str(p))
+        if match and match.group(1) not in {"ERROR", "WARNING", "NOTE"}:
+            out.add(match.group(1))
     return sorted(out)
 
 

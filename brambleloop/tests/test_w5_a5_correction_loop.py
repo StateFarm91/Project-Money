@@ -272,6 +272,23 @@ def test_an_unanswerable_block_goes_straight_to_the_named_hold():
     assert _done(_jobs(db, healthy.slug, "gate.certify"))[0].outputs["granted"] is True
 
 
+def test_evidence_refusal_ignores_unrelated_uppercase_prose():
+    codes = EO.codes_of(["ERROR PHYSICAL_TEST_REQUIRED: missing sample; NOTE: wait",
+                         "ERROR: plain failure", "US REPEAT: broken repeat"])
+    assert codes == ["PHYSICAL_TEST_REQUIRED", "REPEAT"], codes
+    db = _db()
+    cir = _off_band("harvest_runner")
+    job = JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:evidence-message")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db),
+                     phase=Phase.SHADOW)
+    out = EO.route_failure(ctx, cir, stage="certify",
+                           problems=["ERROR PHYSICAL_TEST_REQUIRED: no sample; NOTE: wait"])
+    assert out.get("waiting_on_evidence") == ["PHYSICAL_TEST_REQUIRED"], out
+    assert _jobs(db, cir.slug, "cir.revise") == []
+    assert not _holds(db, cir.slug, cir.version)
+
+
 def test_missing_physical_evidence_waits_and_is_not_held():
     db = _db()
     cir = launch0.cir_for("harvest_runner")
