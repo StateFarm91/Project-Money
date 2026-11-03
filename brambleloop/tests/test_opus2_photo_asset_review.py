@@ -887,6 +887,23 @@ def test_revocation_during_certificate_issue_cannot_create_stale_valid_set():
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
 
 
+def test_photo_led_certificate_can_bind_leader_without_including_supplement():
+    from types import SimpleNamespace
+    db, cir, _, _ = _setup()
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        photos = list(session.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.asset_class == par.PHOTO_CLASS)))
+        leader = next(f for f in photos if f.claims.get("leads_gallery"))
+        proposed = [SimpleNamespace(position=leader.position, sha256=leader.sha256,
+                                    medium=par.PHOTO_CLASS)]
+        par._lock(session, db)
+        assert par.photo_certificate_current(session, db, cir.slug, cir.version, proposed)
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

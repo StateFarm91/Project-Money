@@ -194,10 +194,13 @@ def photo_certificate_current(session, db, slug: str, version: str, certified_fr
         ListingAsset.asset_class == PHOTO_CLASS).with_for_update()))
     current = [f for f in current if not any(str(r).startswith(NOT_QUALIFYING)
                                              for r in (f.blocked_reasons or []))]
-    expected = sorted((f.position, f.sha256) for f in certified_frames if f.medium == PHOTO_CLASS)
-    if sorted((f.position, f.sha256) for f in current) != expected:
+    expected = [(f.position, f.sha256) for f in certified_frames if f.medium == PHOTO_CLASS]
+    # A photo-led disclosed certificate deliberately includes its leader only;
+    # other valid supplements may exist without being included in that certificate.
+    by_key = {(f.position, f.sha256): f for f in current}
+    if len(set(expected)) != len(expected) or any(key not in by_key for key in expected):
         return False
-    for frame in current:
+    for frame in (by_key[key] for key in expected):
         if not frame.approved or frame.blocked_reasons:
             return False
         try:
