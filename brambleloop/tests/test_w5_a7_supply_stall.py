@@ -139,8 +139,9 @@ def test_an_exhausted_pool_is_recorded_once_per_period_and_drafts_nothing_twice(
         scored = list(s.scalars(select(Job).where(Job.job_type == "radar.score")))
         assert scored and all(j.status is JobStatus.DONE for j in scored), \
             [(j.status, j.last_error) for j in scored if j.status is not JobStatus.DONE][:3]
-        # They promoted, so each one really did try to queue `draft:<slug>` -- and was refused.
-        assert any((j.outputs or {}).get("promoted") for j in scored)
+        # An already admitted slug is held, never reported as a newly promoted draft.
+        assert any((j.outputs or {}).get("draft_hold") for j in scored)
+        assert all(not (j.outputs or {}).get("promoted") for j in scored)
     assert _drafts(db) == before
 
     # A new period is a new reading, once.
@@ -175,7 +176,8 @@ def test_noncanonical_existing_drafts_are_not_new_supply_or_scored_again():
     assert _drafts(db) == before
     with db.session() as s:
         scores = list(s.scalars(select(Job).where(Job.job_type == "radar.score")))
-        assert any((j.outputs or {}).get("promoted") for j in scores)
+        assert any((j.outputs or {}).get("draft_hold") for j in scores)
+        assert all(not (j.outputs or {}).get("promoted") for j in scores)
 
 
 def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():

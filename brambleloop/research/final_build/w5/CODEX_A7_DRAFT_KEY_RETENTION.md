@@ -11,3 +11,5 @@ A persistent SQLite test uses actual `retention.apply`, queue purge and enqueue,
 An independent review found recovery and rebuild paths legitimately enqueue `cir.draft` under other keys. A follow-up preserves all draft jobs, counts their actual input slug when reporting supply, and makes the real `radar.score` handler hold a recorded admission. This is a conservative read-time mitigation: a competing producer can still admit between the read and enqueue. Those paths need a shared atomic admission authority that distinguishes approved rebuilds from new product admissions; neither this branch nor its tests prove global idempotency.
 
 Retaining entire job rows indefinitely also retains their inputs, outputs, and errors. This has storage and privacy implications and needs a reviewed minimal durable tombstone and data-retention policy before production use.
+
+Review also found that a held duplicate was still labelled `promoted` in the handler result and audit. Sequential holds now return `promoted: false` with `draft_hold`; this does not make the subsequent enqueue atomic against a concurrent producer.

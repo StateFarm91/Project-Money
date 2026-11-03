@@ -509,12 +509,22 @@ def handle_radar_score(ctx: JobContext) -> dict:
             preengineering.record(ctx, gate, source="radar.score")
             promote = gate["engineer"]
 
+    draft_hold = None
+    if promote:
+        from ..ops import flow_health
+
+        if seed.slug in flow_health.drafted_slugs(ctx.db, {seed.slug}):
+            draft_hold = "an existing draft job already names this slug"
+            promote = False
+            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
+                      detail={"reason": draft_hold})
+
     ctx.audit("radar.scored", artifact=seed.slug, detail={
         "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
         "evidence_discount": evidence["discount"], "components": rescored.components,
         "lesson_adjustment": lesson_adjustment,
         "lessons": [l["id"] for l in radar_lessons],
-        "promoted": promote,
+        "promoted": promote, "draft_hold": draft_hold,
         "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
     })
     if promote:
@@ -546,21 +556,13 @@ def handle_radar_score(ctx: JobContext) -> dict:
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        # Existing recovery or rebuild jobs may use a different key. They are not new
-        # supply and must not be admitted again merely because draft:<slug> is absent.
-        from ..ops import flow_health
-
-        if seed.slug in flow_health.drafted_slugs(ctx.db, {seed.slug}):
-            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
-                      detail={"reason": "an existing draft job already names this slug"})
-        else:
-            ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                        idempotency_key=f"draft:{seed.slug}")
+        ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                    idempotency_key=f"draft:{seed.slug}")
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
                                                       "mean_weight", "why")},
-            "promoted": promote,
+            "promoted": promote, "draft_hold": draft_hold,
             "lesson_adjustment": lesson_adjustment, "adjusted_score": adjusted,
             "components": rescored.components,
             "gate": (None if gate is None else
