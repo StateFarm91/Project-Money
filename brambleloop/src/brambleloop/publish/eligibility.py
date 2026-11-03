@@ -795,8 +795,14 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
             if not isinstance(text, str):
                 continue
             folded = FC.fold_title(text)
+            explicit_size_phrase = bool(re.search(
+                r"\bsize\s*[:=]?\s*(?:small|mini|tiny|petite|medium|large|big|"
+                r"jumbo|giant|huge|oversized?|xl|xxl)\b|"
+                r"\b(?:small|mini|tiny|petite|medium|large|big|jumbo|giant|huge|"
+                r"oversized?|xl|xxl)\s+size\b", folded))
             names_tote = bool(re.search(FC._TOTE_WORDS, folded)) or (
-                base_is_tote and bool(re.search(r"\bbags?\b", folded)))
+                base_is_tote and (bool(re.search(r"\bbags?\b", folded))
+                                  or explicit_size_phrase))
             if not names_tote:
                 continue
             size, why = FC.tote_size_key(folded)

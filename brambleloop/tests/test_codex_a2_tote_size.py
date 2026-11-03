@@ -97,7 +97,9 @@ def test_later_listing_cannot_add_contradictory_tote_sizes():
                         {"title": "Tote", "description": "A Mini Large Tote"},
                         {"title": "Tote", "tags": ["Jumbo Tote"]},
                         {"title": "Large Tote"},
-                        {"title": "Large Bag"}):
+                        {"title": "Large Bag"},
+                        {"title": "Small Tote", "description": "Size: large"},
+                        {"title": "Small Tote", "tags": ["large size"]}):
             verdict = eligibility.product_publication(reopened, cir.slug, cir.version, listing=listing)
             assert not verdict["publishable"], verdict
             assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and
@@ -111,6 +113,9 @@ def test_later_listing_cannot_add_contradictory_tote_sizes():
         truthful = eligibility.product_publication(reopened, cir.slug, cir.version,
                                                     listing={"title": "Small Tote"})
         assert not any("size: listing" in r["why"] for r in truthful["reasons"]), truthful
+        non_size = eligibility.product_publication(reopened, cir.slug, cir.version,
+            listing={"title": "Small Tote", "description": "Holds large books"})
+        assert not any("size: listing" in r["why"] for r in non_size["reasons"]), non_size
 
 
 if __name__ == "__main__":
