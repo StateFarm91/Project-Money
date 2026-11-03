@@ -90,8 +90,36 @@ def test_storage_failure_closes_review_and_durable_artifact_is_retained():
         assert s.get(DurableArtifact, out["markdown_sha256"]) is not None
     with patch.object(ArtifactStore, "put", side_effect=OSError("storage failed")):
         blocked = lp.record(db, item, expected_fingerprint=item["fingerprint"])
-    assert blocked["state"] == lp.BLOCKED and not active(db)
+    assert blocked["state"] == lp.BLOCKED and blocked["retry"] is True and not active(db)
     assert lp.latest(db, item["slug"], item["version"])["state"] == lp.BLOCKED
+
+
+def test_worker_retries_after_durable_review_document_storage_recovers():
+    from datetime import datetime, timedelta, timezone
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.core.models import Job, JobStatus, Phase
+    from brambleloop.runtime.worker import Worker
+
+    db = fixture()
+    item = package(db)
+    assert lp.record(db, item)["review_requested"]
+    with patch.object(lp, "assemble", return_value=item):
+        with patch.object(ArtifactStore, "put", side_effect=OSError("temporary storage outage")):
+            job = t._run(db, {"slug": item["slug"], "version": item["version"]},
+                         "source-storage-recovery")
+        assert job.status == JobStatus.FAILED, (job.status, job.last_error)
+        assert lp.latest(db, item["slug"], item["version"])["state"] == lp.BLOCKED
+        assert not active(db)
+        # Advance only this disposable test job's retry window; no production clock changes.
+        with db.session() as session:
+            session.get(Job, job.id).run_after = datetime.now(timezone.utc) - timedelta(seconds=1)
+        assert Worker(db, "storage-recovery", phase=Phase.SHADOW,
+                      job_types=["listing.package"]).run_once()
+    with db.session() as session:
+        recovered = session.get(Job, job.id)
+        assert recovered.status == JobStatus.DONE, recovered.last_error
+    assert lp.latest(db, item["slug"], item["version"])["state"] == lp.READY
+    assert len(active(db)) == 1
 
 
 def test_owner_request_match_escapes_slug_wildcards():
@@ -217,4 +245,5 @@ if __name__ == "__main__":
     test_worker_rechecks_source_changed_after_assembly()
     test_owner_request_match_escapes_slug_wildcards()
     test_long_release_key_is_recorded_and_postgres_widen_is_planned()
-    print("7/7 passed")
+    test_worker_retries_after_durable_review_document_storage_recovers()
+    print("8/8 passed")

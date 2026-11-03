@@ -394,8 +394,9 @@ def record(db, package: dict, *, now: datetime | None = None,
                                         "listing or certified release changed or is unavailable")
             return {**result, "retry": True}
         if md_sha is None:
-            return _invalidate_locked(s, package["slug"], package["version"],
-                                      "review document could not be stored durably")
+            result = _invalidate_locked(s, package["slug"], package["version"],
+                                        "review document could not be stored durably")
+            return {**result, "retry": True}
         if changed:
             body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
             if row is None:
