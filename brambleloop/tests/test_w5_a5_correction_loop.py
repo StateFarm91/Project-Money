@@ -677,6 +677,64 @@ def test_recertification_does_not_accept_dead_or_stale_quality_intents():
             assert jobs[-1].idempotency_key.endswith(":recovery:1")
 
 
+def test_corrected_release_cannot_reset_the_lineage_revision_cap():
+    db = _db()
+    original = _off_band("harvest_runner")
+    _legacy_release(db, original, "Harvest Table Runner Crochet Pattern")
+    queue = JobQueue(db)
+    queue.enqueue("quality_director", "gate.certify", {"cir": original.to_dict()},
+                  idempotency_key="t:lineage-first")
+    _drain(db)
+    corrected = _certified(db, original.slug, "1.3.0")
+    assert corrected is not None
+    from brambleloop.cir.model import CIR
+    current = CIR.from_dict(corrected.cir_json)
+    current = dataclasses.replace(current, gauge=dataclasses.replace(
+        current.gauge, stitches_per_10cm=30.0))
+    assert EO.revision_attempts(db, current.slug, current.version) == 1
+    queue.enqueue("quality_director", "gate.certify", {"cir": current.to_dict(), "revision": 0},
+                  idempotency_key="t:lineage-reset-attempt")
+    _drain(db)
+    assert len(_jobs(db, original.slug, "cir.revise")) == 1
+    assert _holds(db, current.slug, current.version)
+    out = _jobs(db, original.slug, "gate.certify")[-1].outputs["correction"]
+    assert out["held"] and "revision cap" in out["reason"], out
+
+
+def test_unattributed_or_ambiguous_lineage_is_held_not_trusted():
+    db = _db()
+    source = _off_band("harvest_runner")
+    with db.session() as session:
+        session.add(AuditLog(actor="crochet_engineer", action=EO.REVISED_AUDIT,
+                             artifact=f"{source.slug}@{source.version}", job_id=None,
+                             detail={"to_version": "1.3.0", "from_fingerprint": source.fingerprint}))
+    assert EO.revision_attempts(db, source.slug, "1.3.0") >= EO.MAX_REVISIONS
+    # Even a matching purported replay cannot use an unattributed audit as authority.
+    job = JobQueue(db).enqueue("crochet_engineer", "cir.revise", {"cir": source.to_dict()},
+                               idempotency_key="t:unattributed-replay")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db), phase=Phase.SHADOW)
+    claimed, replay = EO._claim_revision(ctx, f"{source.slug}@{source.version}",
+                                         source.fingerprint, {"to_version": "1.3.0"})
+    assert not claimed and not replay
+
+
+def test_multiple_authenticated_lineage_parents_fail_closed():
+    db = _db()
+    cir = _off_band("harvest_runner")
+    other = dataclasses.replace(cir, version="1.4.0")
+    queue = JobQueue(db)
+    for i, source in enumerate((cir, other)):
+        queue.enqueue("crochet_engineer", "cir.revise", {"cir": source.to_dict()},
+                      idempotency_key=f"t:ambiguous-parent:{i}")
+        claimed = queue.claim(f"parent-worker-{i}", ["cir.revise"])
+        assert claimed is not None and claimed.started_at is not None
+        with db.session() as session:
+            session.add(AuditLog(actor="crochet_engineer", action=EO.REVISED_AUDIT,
+                artifact=f"{source.slug}@{source.version}", job_id=claimed.id,
+                detail={"to_version": "1.3.0", "from_fingerprint": source.fingerprint}))
+    assert EO.revision_attempts(db, cir.slug, "1.3.0") >= EO.MAX_REVISIONS
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()

@@ -228,17 +228,72 @@ def open_hold(db, slug: str, version: str) -> dict | None:
                                          "detail": dict(row.detail or {})}
 
 
-def revision_attempts(db, slug: str, version: str) -> int:
-    """Durable count of deterministic revisions of slug@version: distinct revised fingerprints
-    in `cir.revised` rows, so a re-run after a lost lease never counts twice."""
+def _trusted_revision(audit, job, slug: str, version: str) -> bool:
+    """A review record must bind to the queued producer and exact source CIR."""
+    from ..cir.model import CIR
+
+    detail = audit.detail if isinstance(audit.detail, dict) else {}
+    if (job is None or audit.actor != "crochet_engineer" or job.agent != "crochet_engineer"
+            or job.job_type != "cir.revise" or job.started_at is None
+            or not isinstance(job.inputs, dict)):
+        return False
+    try:
+        cir = CIR.from_dict(job.inputs["cir"])
+        return (cir.slug == slug and cir.version == version
+                and cir.fingerprint == detail.get("from_fingerprint"))
+    except Exception:  # noqa: BLE001 - damaged provenance cannot establish a safe bound
+        return False
+
+
+def _lineage_attempts(session, slug: str, version: str) -> int:
+    """Count authenticated revisions in this version's ancestry; uncertainty holds."""
     from sqlalchemy import select
+    from ..core.models import AuditLog, Job
 
-    from ..core.models import AuditLog
+    prefix = f"{slug}@"
+    escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    records = list(session.execute(select(AuditLog, Job).outerjoin(
+        Job, Job.id == AuditLog.job_id).where(
+            AuditLog.action == REVISED_AUDIT,
+            AuditLog.artifact.like(escaped + "%", escape="\\"))))
+    parents: dict[str, list[tuple]] = {}
+    by_source: dict[str, list[tuple]] = {}
+    for audit, job in records:
+        source = (audit.artifact or "")[len(prefix):]
+        detail = audit.detail if isinstance(audit.detail, dict) else {}
+        target = detail.get("to_version")
+        row = (audit, job, source, detail)
+        by_source.setdefault(source, []).append(row)
+        if isinstance(target, str) and target and target != source:
+            parents.setdefault(target, []).append(row)
 
-    with db.session() as s:
-        rows = s.scalars(select(AuditLog.detail).where(
-            AuditLog.action == REVISED_AUDIT, AuditLog.artifact == f"{slug}@{version}"))
-        return len({(d or {}).get("from_fingerprint") for d in rows})
+    def trusted(row) -> bool:
+        return _trusted_revision(row[0], row[1], slug, row[2])
+
+    chain, cursor = set(), version
+    while True:
+        if cursor in chain:
+            return MAX_REVISIONS  # a cycle cannot establish a safe lineage
+        chain.add(cursor)
+        incoming = parents.get(cursor, [])
+        if not incoming:
+            break
+        if any(not trusted(row) for row in incoming):
+            return MAX_REVISIONS
+        sources = {row[2] for row in incoming}
+        if len(sources) != 1:
+            return MAX_REVISIONS
+        cursor = next(iter(sources))
+    relevant = [row for source in chain for row in by_source.get(source, [])]
+    if any(not trusted(row) for row in relevant):
+        return MAX_REVISIONS
+    return len({(row[2], row[3].get("from_fingerprint")) for row in relevant})
+
+
+def revision_attempts(db, slug: str, version: str) -> int:
+    """Count revisions across the authenticated source-version chain, not just its tip."""
+    with db.session() as session:
+        return _lineage_attempts(session, slug, version)
 
 
 # Serialize the final audit decision across all workers. A database transaction,
@@ -257,18 +312,22 @@ def _claim_revision(ctx, artifact: str, fingerprint: str, detail: dict) -> tuple
             session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _REVISION_LOCK})
         else:
             session.execute(text("BEGIN IMMEDIATE"))
-        prior = list(session.scalars(select(AuditLog.detail).where(
-            AuditLog.action == REVISED_AUDIT, AuditLog.artifact == artifact)))
-        fingerprints = {(entry or {}).get("from_fingerprint") for entry in prior}
-        if fingerprint in fingerprints:
-            # A redelivery may resume only the same deterministic result.
-            matching = [entry for entry in prior
-                        if (entry or {}).get("from_fingerprint") == fingerprint]
-            same = all(all(entry.get(k) == detail.get(k) for k in
-                           ("to_fingerprint", "to_version", "rules", "stage"))
-                       for entry in matching)
+        from ..core.models import Job
+
+        prior = list(session.execute(select(AuditLog, Job).outerjoin(
+            Job, Job.id == AuditLog.job_id).where(
+                AuditLog.action == REVISED_AUDIT, AuditLog.artifact == artifact)))
+        slug, version = artifact.rsplit("@", 1)
+        matching = [(audit, job) for audit, job in prior
+                    if (audit.detail or {}).get("from_fingerprint") == fingerprint]
+        if matching:
+            # A redelivery may resume only authenticated evidence for the same result.
+            same = all(_trusted_revision(audit, job, slug, version)
+                       and all((audit.detail or {}).get(k) == detail.get(k) for k in
+                               ("to_fingerprint", "to_version", "rules", "stage"))
+                       for audit, job in matching)
             return same, same
-        if len(fingerprints) >= MAX_REVISIONS:
+        if _lineage_attempts(session, slug, version) >= MAX_REVISIONS:
             return False, False
         session.add(AuditLog(actor=ctx.job.agent, action=REVISED_AUDIT, artifact=artifact,
                              job_id=ctx.job.id, phase=ctx.phase, detail=detail))
