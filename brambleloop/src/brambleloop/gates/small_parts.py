@@ -59,7 +59,8 @@ def separable_pieces(cir) -> list[tuple[str, float, float]]:
         return []          # blocking() reads every sewn-on piece missing here as UNKNOWN
     st_mm = 100.0 / gauge.stitches_per_10cm
     row_mm = 100.0 / gauge.rows_per_10cm
-    sewn_on = {s.piece_a for s in (cir.assembly or []) if s.piece_a != s.piece_b}
+    # Seam orientation is arbitrary: either endpoint can be a detachable small part.
+    sewn_on = set(_sewn_on(cir))
     out = []
     for comp in cir.components:
         if comp.name not in sewn_on or not comp.rows:
@@ -78,8 +79,8 @@ def separable_pieces(cir) -> list[tuple[str, float, float]]:
 
 
 def _sewn_on(cir) -> list[str]:
-    return sorted({s.piece_a for s in (getattr(cir, "assembly", None) or [])
-                   if s.piece_a != s.piece_b})
+    return sorted({piece for s in (getattr(cir, "assembly", None) or [])
+                   if s.piece_a != s.piece_b for piece in (s.piece_a, s.piece_b)})
 
 
 def blocking(cir) -> list[str]:

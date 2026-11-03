@@ -43,6 +43,24 @@ def test_invalid_measurements_and_gauges_are_unknown():
     assert small_parts.verdict(31, 50) == small_parts.FITS
 
 
+def test_either_seam_endpoint_can_be_a_small_part():
+    basket = inventory._engineered("market-basket-medium")
+    disc = harness._one_piece_ball().components[0]
+    tab = dataclasses.replace(disc, name="tab", rows=disc.rows[:2])
+    original = inventory._engineered("heart-row-ring-pillow").assembly[0]
+    for a, b in (("tab", "basket"), ("basket", "tab")):
+        seam = dataclasses.replace(original, piece_a=a, piece_b=b,
+            stuff_before_closing=False, note=None, at_round=None, stitches_from_centre=None)
+        product = dataclasses.replace(basket, components=list(basket.components) + [tab],
+                                      assembly=[seam])
+        blocks = small_parts.blocking(product)
+        assert any("tab" in item for item in blocks), (a, b, blocks)
+        result = harness._assets_build_full(product)
+        assert harness._held(result), (a, b, result)
+        assert result["outputs"]["reason"] == "small_parts", result
+
+
 if __name__ == "__main__":
     test_invalid_measurements_and_gauges_are_unknown()
+    test_either_seam_endpoint_can_be_a_small_part()
     print("PASS invalid child small-parts geometry is UNKNOWN and held")
