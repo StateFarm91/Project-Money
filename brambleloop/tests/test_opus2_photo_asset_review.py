@@ -832,6 +832,32 @@ def test_revoked_approved_supplement_is_held_and_excluded_on_sweep():
     assert first not in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
 
 
+def test_revoked_supplement_invalidates_certificate_even_if_reissue_fails():
+    from unittest.mock import patch
+    from brambleloop.core.models import PhysicalPhoto
+    from brambleloop.runtime import etsy_ops
+    db, cir, release, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    _, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    assert not etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    with db.session() as session:
+        frame = session.get(ListingAsset, first)
+        assert frame.approved and not frame.claims.get("leads_gallery")
+        photo = session.get(PhysicalPhoto, frame.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    with patch.object(release_gates, "listing_set", side_effect=OSError("interrupted")):
+        par.sweep(db)
+    # Even a crash or unavailable reissue cannot leave the old certificate valid.
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    assert par.sweep(db)["reviewed"] == 0
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

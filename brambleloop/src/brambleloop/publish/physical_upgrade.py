@@ -408,7 +408,8 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
         if not mine:
             return False
         frame = mine[0]
-        from .photo_asset_review import AWAITING, NOT_QUALIFYING, _reviewable
+        from .photo_asset_review import (AWAITING, NOT_QUALIFYING, _reviewable,
+                                         _invalidate_photo_certificates)
 
         # An unapproved frame with no review state is explicitly withdrawn.
         # Attestation or reordering must never turn that state into approval.
@@ -423,6 +424,7 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
         excluded = [f for f in others if any(str(r).startswith(NOT_QUALIFYING)
                                               for r in (f.blocked_reasons or []))]
         included = [f for f in others if f not in excluded]
+        _invalidate_photo_certificates(s, slug, version, "photo_frame_order_changed")
         _renumber(s, [frame] + included + excluded)
         _demote_leaders(others)
         frame.claims = {**(frame.claims or {}), "leads_gallery": True}

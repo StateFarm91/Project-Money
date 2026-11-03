@@ -137,6 +137,24 @@ def _lock(s, db) -> None:
         s.execute(text("BEGIN IMMEDIATE"))
 
 
+def _invalidate_photo_certificates(session, slug: str, version: str, reason: str) -> None:
+    """Invalidate listing-set certificates in the same transaction as a photo change."""
+    from sqlalchemy import select
+    from ..core.models import AuditLog, ListingSetCertificateRecord, utcnow
+
+    records = session.scalars(select(ListingSetCertificateRecord).where(
+        ListingSetCertificateRecord.product_slug == slug,
+        ListingSetCertificateRecord.version == version,
+        ListingSetCertificateRecord.state == "valid").with_for_update())
+    for record in records:
+        record.state = "invalidated"
+        record.invalidated_by = [reason]
+        record.invalidated_at = utcnow()
+        session.add(AuditLog(actor="asset_truth", action="gate.photo_certificate_invalidated",
+                             artifact=f"{slug}@{version}", detail={
+                                 "certificate_id": record.id, "reason": reason}))
+
+
 def _reviewable(reasons) -> bool:
     return AWAITING in reasons or any(str(r).startswith(NOT_QUALIFYING) for r in reasons)
 
@@ -211,6 +229,9 @@ def _review_frame(db, frame_id: int, *, reissue: bool) -> dict:
                 frame.blocked_reasons = [AWAITING] + others
                 frame.approved = False
                 out["reopened_awaiting"] = failed
+        if frame is not None and out.get("frame_approved") is not True:
+            _invalidate_photo_certificates(s, frame.product_slug, frame.version,
+                                           "photo_review_not_approved")
         s.add(AuditLog(actor="asset_truth", action=ACTION,
                        artifact=f"{ctx.get('slug')}@{ctx.get('version')}",
                        detail={k: v for k, v in out.items() if k != "certificate"}))
@@ -312,6 +333,8 @@ def _reopen_stale_approved_photos(db) -> None:
                     # Awaiting is durable if the process stops before the review.
                     # Never clear other holds; review_frame rechecks the evidence.
                     frame.approved = False
+                    _invalidate_photo_certificates(s, frame.product_slug, frame.version,
+                                                   "photo_evidence_changed")
                     frame.blocked_reasons = [AWAITING] + [r for r in
                         (frame.blocked_reasons or []) if r != AWAITING]
         except Exception:  # noqa: BLE001 - unknown evidence cannot cause approval
