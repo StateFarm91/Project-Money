@@ -1629,6 +1629,11 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
         if lower < (216 if m.group(3).startswith(("month", "mo")) else 18):
             numeric = True
             break
+    spelled = ("zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+               "thirteen|fourteen|fifteen|sixteen|seventeen")
+    if re.search(rf"\b(?:age|ages|aged)\s+(?:{spelled})\b", text) or re.search(
+            rf"\b(?:{spelled})\s+(?:years?|months?)\s+olds?\b", text):
+        numeric = True
     if numeric:
         found.append("age_under_18")
     if re.search(r"\byoung\s+ones\b", text):
@@ -1674,6 +1679,7 @@ CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
     "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
     "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
+    "boy", "boys", "girl", "girls", "teen", "teens", "teenager", "teenagers",
 )
 
 
