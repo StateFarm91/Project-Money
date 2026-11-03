@@ -782,6 +782,12 @@ class AnthropicProvider:
         the observation is stored and the picture is not, which is also what keeps this on
         the right side of "never copy a competitor's expression".
         """
+        from . import paid_provider_gate as owner_gate
+        if owner_gate.current_call_scope(owner_gate.VISION) == owner_gate.PROBE and (
+                system or prompt != VISION_PROBE_PROMPT or len(image_urls) != 1
+                or json_schema is not None or max_tokens != VISION_PROBE_MAX_TOKENS):
+            raise VisionGateRefused("probe activation covers only the fixed diagnostic request",
+                                    "probe_scope_mismatch")
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")

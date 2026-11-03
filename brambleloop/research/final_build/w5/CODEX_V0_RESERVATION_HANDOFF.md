@@ -35,3 +35,9 @@ that all company CostEntry writers do the same. Retention now preserves reservat
 rows referenced by provider attempts to avoid future SQLite ID reuse. Previously
 deleted or reused IDs are not automatically recoverable and require reconciliation.
 Neither change closes the company exposure or probe authority blockers.
+
+The probe-scope follow-up restricts image and vision requests marked as probes to
+their fixed diagnostic prompts and request shapes. Fake-transport tests refuse
+arbitrary generation and vision prompts under probe-only activation. This is
+implementation for independent security review, not an accepted authority model;
+other paid-provider entry points and post-check races must still be reviewed.

@@ -407,6 +407,18 @@ def test_invalid_or_missing_usage_never_credits_provider_budget():
                 assert row.status == G.UNCERTAIN
 
 
+def test_legacy_invalid_usage_never_credits_provider_budget():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=0.5, monthly_ceiling_cad=5, per_gallery_cad=2)
+    ticket = _authorize(db, "legacy-invalid", estimate=0.4)
+    with db.session() as session:
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        row.status = G.BILLED
+        row.actual_cad = -1
+    _refused(lambda: _authorize(db, "next-legacy", estimate=0.4),
+             code="provider_daily_ceiling")
+
+
 def test_retention_never_reuses_paid_reservation_identity():
     from brambleloop.finance import reservations
     from brambleloop.core.models import SpendReservation
@@ -423,6 +435,21 @@ def test_retention_never_reuses_paid_reservation_identity():
     fresh = _reserve(db, estimate=0.4)
     assert fresh["reservation_id"] != held["reservation_id"]
     assert _authorize(db, "new-id", estimate=0.4, reservation=fresh)
+
+
+def test_probe_scope_cannot_authorize_arbitrary_generation_or_vision():
+    db = _db()
+    _activate(db, scope=G.PROBE)
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.PROBE)
+    with _env(**ENV, ANTHROPIC_API_KEY=KEY_VALUE), Wire() as wire:
+        _refused(lambda: _render(db, "Commercial hero photo", gate_scope=G.PROBE),
+                 code="probe_scope_mismatch", exc=images.ImagesGateRefused)
+        provider = gw.AnthropicProvider()
+        with G.call_scope(G.PROBE):
+            _refused(lambda: provider.see("", "Describe the commercial product", ["https://example.test/a"],
+                                          max_tokens=gw.VISION_PROBE_MAX_TOKENS),
+                     code="probe_scope_mismatch", exc=gw.VisionGateRefused)
+        assert wire.calls == [], wire.calls
 
 
 # ---- 3. every limit refuses independently ---------------------------------------------------

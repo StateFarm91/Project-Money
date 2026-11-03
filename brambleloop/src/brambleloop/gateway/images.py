@@ -1192,6 +1192,20 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
     caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
+    if gate_scope == "probe":
+        # Probe authorization is narrower than generation: fixed diagnostic
+        # prompts only, without arbitrary caller-provided fields or sizing.
+        allowed = {
+            ("image.probe", "A plain grey fabric swatch on a white background, product photograph.", 0),
+            ("image.reference_probe", "A plain ceramic mug on a white background, product photograph.", 0),
+            ("image.reference_probe", "The same mug as the reference image, now on a wooden table.", 1),
+        }
+        if ((purpose, prompt, len(reference_urls or [])) not in allowed
+                or size != "1024x1024" or extra_fields):
+            raise ImagesGateRefused("probe activation covers only fixed diagnostic requests",
+                                    "probe_scope_mismatch")
+    elif gate_scope != "generation":
+        raise ImagesGateRefused("unknown image authorization scope", "probe_scope_mismatch")
     if not work_dir:
         raise ImagesRefused(
             "generate() needs a work_dir: the path it returns has to outlive the call, so "

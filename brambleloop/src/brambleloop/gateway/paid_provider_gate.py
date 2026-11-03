@@ -549,7 +549,12 @@ def _sum(session, *where) -> float:
             PaidProviderCall.status.in_(COUNTED), *where)):
         amount = row.actual_cad if row.status == BILLED and row.actual_cad is not None \
             else row.estimate_cad
-        total += float(amount or 0.0)
+        amount = float(amount or 0.0)
+        if not math.isfinite(amount) or amount <= 0:
+            amount = float(row.estimate_cad or 0.0)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError("paid attempt has no valid positive accounting estimate")
+        total += amount
     return round(total, 6)
 
 
