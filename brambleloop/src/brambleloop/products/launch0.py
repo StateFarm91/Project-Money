@@ -1471,7 +1471,8 @@ STUFFING_WORDS = re.compile(
 STUFFING_NOTE_WORDS = re.compile(
     r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
     r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
-    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b|"
+    r"\bfill\s+(?:the\s+)?(?:body|head|piece|form|toy|ball|cushion)\b)", re.I)
 # A rounds piece whose last round is at most this many stitches after decreasing from a
 # wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
 CLOSURE_MAX_STITCHES = 12

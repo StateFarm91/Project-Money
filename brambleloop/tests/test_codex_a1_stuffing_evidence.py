@@ -22,6 +22,13 @@ def test_unseamed_opening_and_component_note_hold_in_real_worker():
         components=[part], materials=[m for m in filled.materials if m.yarn_weight])
     assert launch0.closed_stuffed_form(note_only)
     assert harness._held(harness._assets_build_full(note_only))
+    # Action + object instruction without the literal word "stuffing" is still explicit.
+    action_part = dataclasses.replace(part, rows=part.rows[:-1] + [
+        dataclasses.replace(part.rows[-1], note=None)],
+        note="Fill the body and close the opening.")
+    action_only = dataclasses.replace(note_only, slug="codex-fill-body", components=[action_part])
+    assert launch0.closed_stuffed_form(action_only)
+    assert harness._held(harness._assets_build_full(action_only))
     # A plain basket is not held just because it has an unclosed round construction.
     basket = inventory._engineered("market-basket-small")
     assert not launch0.closed_stuffed_form(basket)
