@@ -23,6 +23,9 @@ def handle_listing_package(ctx: JobContext) -> dict:
     # as the safety net. Both run the same per-release step, so neither duplicates the other.
     single = bool(i.get("slug") and i.get("version"))
     out = (LP.for_release(ctx.db, i["slug"], i["version"]) if single else LP.sweep(ctx.db))
+    if any(result.get("retry") for result in out["results"]):
+        # Let the durable worker retry; do not report an unrecorded snapshot as done.
+        raise RuntimeError("listing package changed repeatedly; retry the job")
     ctx.audit(JOB_TYPE, artifact=(f"{i['slug']}@{i['version']}" if single else None),
               detail={"trigger": "event" if single else "sweep",
                       "eligible": out.get("eligible", True),

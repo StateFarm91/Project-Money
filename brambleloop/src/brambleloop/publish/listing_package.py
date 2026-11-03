@@ -247,7 +247,11 @@ def _owner_closed() -> frozenset:
     return frozenset({owner_queue.SATISFIED, owner_queue.WITHDRAWN})
 
 
-def record(db, package: dict, *, now: datetime | None = None) -> dict:
+_UNSPECIFIED = object()
+
+
+def record(db, package: dict, *, now: datetime | None = None,
+           expected_fingerprint=_UNSPECIFIED) -> dict:
     """Store the package durably (one reading per release, rewritten only when it changed) and
     keep the owner's review request in step with its state."""
     from sqlalchemy import or_, select
@@ -264,7 +268,10 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
     with db.session() as s:
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
                                                       OperatingReading.period_key == key))
-        changed = row is None or (row.payload or {}).get("fingerprint") != package["fingerprint"]
+        observed = (row.payload or {}).get("fingerprint") if row is not None else None
+        changed = observed != package["fingerprint"]
+    if expected_fingerprint is _UNSPECIFIED:
+        expected_fingerprint = observed
     md_sha = None
     if changed:
         stored, err = _try(ArtifactStore().put,
@@ -280,6 +287,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
         _serialise_owner_queue(s, db)
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
                                                       OperatingReading.period_key == key))
+        current_fingerprint = (row.payload or {}).get("fingerprint") if row is not None else None
+        if current_fingerprint != expected_fingerprint:
+            # Another event or the sweep won after this reading began. It is
+            # unsafe to replace its owner request with this older snapshot.
+            return {"key": key, "state": "STALE", "changed": False,
+                    "retry": True, "blockers": 0, "review_requested": False}
         if changed:
             body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
             if row is None:
@@ -338,6 +351,62 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
             "review_requested": raised, "review_withdrawn": closed}
 
 
+def _invalidate_locked(session, slug: str, version: str, reason: str) -> dict:
+    """Withdraw stale review authority in the owner-queue transaction."""
+    from sqlalchemy import or_, select
+    from ..core.models import OperatingReading, OwnerAction
+    from ..ops import owner_queue
+
+    key = f"{slug}@{version}"
+    reading = session.scalar(select(OperatingReading).where(
+        OperatingReading.kind == KIND, OperatingReading.period_key == key))
+    changed = False
+    if reading is not None:
+        body = dict(reading.payload or {})
+        old_reason = body.get("invalid_reason")
+        if body.get("state") != BLOCKED or old_reason != reason:
+            body.update({"state": BLOCKED, "invalid_reason": reason,
+                         "blockers": [{"source": "eligibility", "why": reason}],
+                         "markdown_sha256": None})
+            body.pop("fingerprint", None)
+            body["fingerprint"] = hashlib.sha256(json.dumps(
+                body, sort_keys=True, default=str).encode()).hexdigest()
+            reading.payload = body
+            changed = True
+    action_key = f"{ACTION_PREFIX}{key}"
+    escaped = action_key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    actions = session.scalars(select(OwnerAction).where(or_(
+        OwnerAction.requirement_key == action_key,
+        OwnerAction.requirement_key.like(escaped + ":%", escape="\\"))))
+    closed = False
+    for action in actions:
+        if not action.done and action.state != owner_queue.PARKED:
+            owner_queue.close(action, owner_queue.SUPERSEDED, reason[:400])
+            closed = True
+    return {"key": key, "state": BLOCKED, "changed": changed or closed,
+            "review_requested": False, "review_withdrawn": closed, "blockers": 1}
+
+
+def _reconcile_ineligible(db, slug: str, version: str) -> dict:
+    """Recheck eligibility under the same lock used to update owner actions."""
+    from sqlalchemy import select
+    from ..core.models import Listing, PatternVersion, Product
+    from ..runtime.release import _serialise_owner_queue
+
+    with db.session() as session:
+        _serialise_owner_queue(session, db)
+        product = session.scalar(select(Product).where(Product.slug == slug).with_for_update())
+        pv = (session.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.version == version)
+            .with_for_update()) if product is not None else None)
+        listing = session.scalar(select(Listing).where(
+            Listing.product_slug == slug, Listing.version == version).with_for_update())
+        if pv is not None and pv.certified and listing is not None:
+            return {"key": f"{slug}@{version}", "became_eligible": True}
+        return _invalidate_locked(session, slug, version,
+                                  "release is not certified or its listing is missing")
+
+
 def certified_releases(db) -> list[tuple[str, str]]:
     from sqlalchemy import select
 
@@ -355,12 +424,21 @@ def certified_releases(db) -> list[tuple[str, str]]:
 
 
 def _package_one(db, slug: str, version: str) -> dict:
-    package, err = _try(assemble, db, slug, version)
-    if err is not None or package is None:
-        return {"key": f"{slug}@{version}", "error": err or "not certified"}
-    recorded, rerr = _try(record, db, package)
-    return (recorded if rerr is None else
-            {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]})
+    # Snapshot the package generation before reading source evidence. Any
+    # competing event which commits during assembly makes this attempt stale.
+    for _ in range(3):
+        previous = latest(db, slug, version)
+        expected = (previous or {}).get("fingerprint")
+        package, err = _try(assemble, db, slug, version)
+        if err is not None or package is None:
+            return {"key": f"{slug}@{version}", "error": err or "not certified"}
+        recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
+        if rerr is not None:
+            return {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]}
+        if not recorded.get("retry"):
+            return recorded
+    return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,
+            "error": "package changed repeatedly while assembling"}
 
 
 def _summary(results: list[dict]) -> dict:
@@ -370,9 +448,24 @@ def _summary(results: list[dict]) -> dict:
 
 
 def sweep(db) -> dict:
-    """Assemble and record the package of every certified release that has a drafted listing."""
-    return _summary([_package_one(db, slug, version)
-                     for slug, version in certified_releases(db)])
+    """Package eligible releases and close stale reviews for ineligible releases."""
+    from sqlalchemy import select
+    from ..core.models import OperatingReading
+
+    eligible = set(certified_releases(db))
+    with db.session() as session:
+        keys = [r.period_key for r in session.scalars(
+            select(OperatingReading).where(OperatingReading.kind == KIND))]
+    results = [_package_one(db, slug, version) for slug, version in sorted(eligible)]
+    for key in keys:
+        if not isinstance(key, str) or "@" not in key:
+            continue
+        slug, version = key.rsplit("@", 1)
+        if (slug, version) in eligible:
+            continue
+        result = _reconcile_ineligible(db, slug, version)
+        results.append(_package_one(db, slug, version) if result.get("became_eligible") else result)
+    return _summary(results)
 
 
 def for_release(db, slug: str, version: str) -> dict:
@@ -386,7 +479,10 @@ def for_release(db, slug: str, version: str) -> dict:
     nothing. A release that is not (or no longer) eligible is reported and left to the sweep.
     """
     if (slug, version) not in set(certified_releases(db)):
-        return {**_summary([]), "eligible": False}
+        result = _reconcile_ineligible(db, slug, version)
+        if result.get("became_eligible"):
+            return {**_summary([_package_one(db, slug, version)]), "eligible": True}
+        return {**_summary([result] if result.get("changed") else []), "eligible": False}
     return {**_summary([_package_one(db, slug, version)]), "eligible": True}
 
 
