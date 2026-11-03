@@ -272,6 +272,23 @@ def test_an_unanswerable_block_goes_straight_to_the_named_hold():
     assert _done(_jobs(db, healthy.slug, "gate.certify"))[0].outputs["granted"] is True
 
 
+def test_evidence_refusal_ignores_unrelated_uppercase_prose():
+    codes = EO.codes_of(["ERROR PHYSICAL_TEST_REQUIRED: missing sample; NOTE: wait",
+                         "ERROR: plain failure", "US REPEAT: broken repeat"])
+    assert codes == ["PHYSICAL_TEST_REQUIRED", "REPEAT"], codes
+    db = _db()
+    cir = _off_band("harvest_runner")
+    job = JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:evidence-message")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db),
+                     phase=Phase.SHADOW)
+    out = EO.route_failure(ctx, cir, stage="certify",
+                           problems=["ERROR PHYSICAL_TEST_REQUIRED: no sample; NOTE: wait"])
+    assert out.get("waiting_on_evidence") == ["PHYSICAL_TEST_REQUIRED"], out
+    assert _jobs(db, cir.slug, "cir.revise") == []
+    assert not _holds(db, cir.slug, cir.version)
+
+
 def test_missing_physical_evidence_waits_and_is_not_held():
     db = _db()
     cir = launch0.cir_for("harvest_runner")
@@ -363,9 +380,9 @@ def _legacy_release(db, cir, listing_title: str):
                       description="Worked flat.", tags=["crochet pattern"], price_cad=9.0))
 
 
-def test_a_failed_reverification_is_corrected_as_a_new_version():
+def test_unrelated_reverification_does_not_rewrite_gauge():
     db = _db()
-    legacy = _off_band("harvest_runner")     # certified before the yarn-band gate existed
+    legacy = _off_band("harvest_runner")
     _legacy_release(db, legacy, "Harvest Market Basket Crochet Pattern")
     healthy = launch0.cir_for("placemat_pair")
     _enqueue_compile(db, healthy)
@@ -374,20 +391,381 @@ def test_a_failed_reverification_is_corrected_as_a_new_version():
                           "release_hash": "r" * 64}, idempotency_key="t:reverify")
     _drain(db, ["gate.asset_truth"] + LOOP)
     check = _jobs(db, legacy.slug, "gate.asset_truth")[0].outputs
-    assert check["ok"] is False and check["correction"]["revise_job"]
-    rev = _jobs(db, legacy.slug, "cir.revise")
-    assert len(rev) == 1 and rev[0].inputs["stage"] == "quality"
-    assert rev[0].outputs["to_version"] == "1.3.0" != legacy.version
-    cert = [c for c in _jobs(db, legacy.slug, "gate.certify")]
-    assert len(cert) == 1 and cert[0].outputs["granted"] is True
-    corr = cert[0].inputs["correction"]
-    assert corr["of_versions"] == [legacy.version] and corr["of_release_hashes"] == ["r" * 64]
-    assert _certified(db, legacy.slug, "1.3.0") is not None
-    # the certified release itself is untouched and stays withheld (its named hold)
+    assert check["ok"] is False and check["correction"]["held"] is True, check
+    assert _jobs(db, legacy.slug, "cir.revise") == []
     pv = _certified(db, legacy.slug, legacy.version)
     assert pv.cir_json["gauge"]["stitches_per_10cm"] == 30.0
     assert pv.certificate.get("withholding", {}).get("quality_reverify")
     assert _done(_jobs(db, healthy.slug, "gate.certify"))[0].outputs["granted"] is True
+
+
+def test_gauge_repair_preserves_hook_row_and_chain_measurements():
+    cir = _off_band("harvest_runner")
+    gauge = dataclasses.replace(cir.gauge, hook_mm=3.5, rows_per_10cm=24,
+                                chains_per_10cm=21, chain_gauge_uncertainty=0.05)
+    cir = dataclasses.replace(cir, gauge=gauge)
+    repaired, audit = EO.repair_gauge_band(cir)
+    assert repaired is not None, audit
+    assert repaired.gauge.stitches_per_10cm != gauge.stitches_per_10cm
+    for field in ("hook_mm", "rows_per_10cm", "chains_per_10cm", "chain_gauge_uncertainty",
+                  "stitch_type", "yarn_weight"):
+        assert getattr(repaired.gauge, field) == getattr(gauge, field), field
+    assert audit["gauge_from"] == gauge.stitches_per_10cm
+    assert audit["gauge_to"] == repaired.gauge.stitches_per_10cm
+
+
+def test_certified_version_is_revised_as_a_new_immutable_release():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recertify-legacy")
+    _drain(db)
+    revise = _jobs(db, legacy.slug, "cir.revise")
+    assert len(revise) == 1 and revise[0].status == JobStatus.DONE, revise
+    assert revise[0].inputs["bump_version"] is True
+    assert revise[0].outputs["to_version"] == "1.3.0", revise[0].outputs
+    assert _certified(db, legacy.slug, "1.3.0") is not None
+    old = _certified(db, legacy.slug, legacy.version)
+    assert old.cir_json["gauge"]["stitches_per_10cm"] == 30.0
+    certs = _jobs(db, legacy.slug, "gate.certify")
+    assert len(certs) == 2 and certs[-1].outputs["granted"] is True
+    assert certs[-1].inputs["correction"]["of_release_hashes"] == ["r" * 64]
+    with db.session() as session:
+        assert not session.scalar(select(Incident).where(
+            Incident.signature == f"release.version_immutable:{legacy.slug}@{legacy.version}"))
+
+
+def test_occupied_correction_version_is_held_before_any_revision():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+        session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                   cir_json=dataclasses.replace(legacy, version="1.3.0").to_dict(),
+                                   certified=True, release_hash="s" * 64,
+                                   certificate={"granted": True}))
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recertify-occupied")
+    _drain(db)
+    jobs = _jobs(db, legacy.slug, "cir.revise")
+    assert len(jobs) == 1 and jobs[0].status == JobStatus.DONE
+    assert jobs[0].outputs["held"] and not jobs[0].outputs["revised"], jobs[0].outputs
+    assert _holds(db, legacy.slug, legacy.version)
+    assert not _audits(db, EO.REVISED_AUDIT, f"{legacy.slug}@{legacy.version}")
+    assert not _jobs(db, legacy.slug, "cir.compile")
+    assert _certified(db, legacy.slug, "1.3.0").release_hash == "s" * 64
+
+
+def test_late_version_collision_gets_a_named_source_hold():
+    db = _db()
+    original = launch0.cir_for("harvest_runner")
+    candidate = dataclasses.replace(original, version="1.3.0")
+    existing = dataclasses.replace(candidate, title="Other Table Runner")
+    _legacy_release(db, existing, "Other Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify",
+                         {"cir": candidate.to_dict(),
+                          "correction": {"of_versions": [original.version]}},
+                         idempotency_key="t:late-version-collision")
+    _drain(db, ["gate.certify"])
+    result = _jobs(db, original.slug, "gate.certify")[0].outputs
+    assert result["refused"] == "version_immutable", result
+    assert _holds(db, original.slug, original.version)
+    assert _certified(db, original.slug, "1.3.0").cir_json["title"] == existing.title
+
+
+def test_uncertified_target_inserted_after_revision_is_never_overwritten():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recert-before-collision")
+    _drain(db, ["gate.certify"])
+    _drain(db, ["cir.revise"])
+    _drain(db, ["cir.compile"])
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+        session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                   cir_json={"sentinel": "other draft"}, certified=False,
+                                   release_hash=None, certificate={}))
+    _drain(db, ["gate.certify"])
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == legacy.slug, PatternVersion.version == "1.3.0"))
+        assert row.cir_json == {"sentinel": "other draft"} and not row.certified
+    assert _holds(db, legacy.slug, legacy.version)
+    final = _jobs(db, legacy.slug, "gate.certify")[-1]
+    assert final.outputs and final.outputs["refused"] == "version_immutable", (final.status, final.last_error, final.outputs)
+
+
+def test_certified_target_inserted_after_check_is_never_overwritten():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recert-before-check-race")
+    _drain(db, ["gate.certify"])
+    _drain(db, ["cir.revise"])
+    _drain(db, ["cir.compile"])
+    original = pipeline._version_conflict
+
+    def insert_after_check(ctx, cir, cert):
+        result = original(ctx, cir, cert)
+        assert result is None
+        with db.session() as session:
+            product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+            session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                       cir_json={"sentinel": "certified competitor"},
+                                       certified=True, release_hash="z" * 64,
+                                       certificate={"granted": True}))
+        return result
+
+    pipeline._version_conflict = insert_after_check
+    try:
+        queue = JobQueue(db)
+        claimed = queue.claim("collision-review", ["gate.certify"])
+        assert claimed is not None
+        result = handlers.get("gate.certify")(JobContext(
+            job=claimed, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW))
+    finally:
+        pipeline._version_conflict = original
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == legacy.slug, PatternVersion.version == "1.3.0"))
+        assert row.cir_json == {"sentinel": "certified competitor"}
+        assert row.release_hash == "z" * 64 and row.certified
+    assert _holds(db, legacy.slug, legacy.version)
+    assert result["refused"] == "version_immutable", result
+
+
+def test_concurrent_release_writers_never_overwrite_each_other():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db = _db()
+    base = launch0.cir_for("harvest_runner")
+    _legacy_release(db, base, "Harvest Table Runner Crochet Pattern")
+    first = dataclasses.replace(base, version="1.3.0", title="First Table Runner")
+    second = dataclasses.replace(base, version="1.3.0", title="Second Table Runner")
+    queue = JobQueue(db)
+    jobs = [queue.enqueue("quality_director", "gate.certify", payload,
+                          idempotency_key=f"t:concurrent-certify:{i}")
+            for i, payload in enumerate(({"cir": first.to_dict()},
+                                         {"cir": second.to_dict(),
+                                          "correction": {"of_versions": [base.version]}}))]
+    barrier = Barrier(2, timeout=20)
+
+    def persist(index, cir):
+        ctx = JobContext(job=jobs[index], db=db, queue=queue, registry=Registry(db),
+                         phase=Phase.SHADOW)
+        barrier.wait()
+        try:
+            pipeline._persist_release(ctx, cir, {"granted": True}, ("a" if index == 0 else "b") * 64)
+            return "stored"
+        except pipeline.ReleaseWriteConflict:
+            return "held"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda pair: persist(*pair), enumerate((first, second))))
+    assert sorted(outcomes) == ["held", "stored"], outcomes
+    with db.session() as session:
+        rows = list(session.scalars(select(PatternVersion).join(Product).where(
+            Product.slug == base.slug, PatternVersion.version == "1.3.0")))
+        assert len(rows) == 1
+        winner = outcomes.index("stored")
+        assert rows[0].cir_json["title"] == (first, second)[winner].title
+        assert rows[0].release_hash == ("a" if winner == 0 else "b") * 64
+
+
+def test_recertification_and_reverify_intent_commit_atomically_across_restart():
+    from unittest.mock import patch
+    from brambleloop.ops import artefacts
+    from brambleloop.publish import withholding
+
+    db = _db()
+    cir = launch0.cir_for("harvest_runner")
+    _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+    withholding.record_reverification(db, cir.slug, cir.version, check="pdf",
+                                      problem="fixture pdf hash drift")
+    queue = JobQueue(db)
+    parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                           idempotency_key="t:atomic-recert")
+    ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+    new_hash = "f" * 64
+    # Simulate process failure after the release update and queued intent, but before commit.
+    with patch.object(artefacts, "record_lineage", side_effect=RuntimeError("interrupted")):
+        try:
+            pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+            assert False, "the injected interruption must stop the transaction"
+        except RuntimeError as exc:
+            assert str(exc) == "interrupted"
+    assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+    assert not _jobs(db, job_type="gate.quality")
+    assert not _audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")
+    pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+    reopened = Database(str(db.engine.url))
+    assert _certified(reopened, cir.slug, cir.version).release_hash == new_hash
+    assert len(_jobs(reopened, job_type="gate.quality")) == 1
+    assert len(_audits(reopened, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+    # A retry after commit does not duplicate the durable intent or audit.
+    pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+    assert len(_jobs(reopened, job_type="gate.quality")) == 1
+    assert len(_audits(reopened, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_recertification_dedupe_does_not_roll_back_release_or_hide_wrong_job():
+    from brambleloop.publish import withholding
+
+    for incompatible in (False, True):
+        db = _db()
+        cir = launch0.cir_for("harvest_runner")
+        _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+        withholding.record_reverification(db, cir.slug, cir.version, check="pdf",
+                                          problem="fixture pdf hash drift")
+        queue = JobQueue(db)
+        parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:dedupe-recert")
+        key = f"reverify-after-recert:{cir.slug}@{cir.version}:{'f' * 16}"
+        queue.enqueue("quality_director", "gate.certify" if incompatible else "gate.quality",
+                      {}, idempotency_key=key)
+        ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+        if incompatible:
+            try:
+                pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+                assert False, "a foreign job must not masquerade as a reverify intent"
+            except RuntimeError as exc:
+                assert "incompatible job" in str(exc)
+            assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+            assert not _audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")
+        else:
+            pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+            assert _certified(db, cir.slug, cir.version).release_hash == "f" * 64
+            assert len(_jobs(db, job_type="gate.quality")) == 1
+            assert len(_audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_recertification_does_not_accept_dead_or_stale_quality_intents():
+    from brambleloop.publish import withholding
+
+    for status in (JobStatus.DEAD, JobStatus.CANCELLED, JobStatus.DONE, JobStatus.RUNNING):
+        db = _db()
+        cir = launch0.cir_for("harvest_runner")
+        _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+        withholding.record_reverification(db, cir.slug, cir.version, check="pdf", problem="drift")
+        queue = JobQueue(db)
+        parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:terminal-recert")
+        key = f"reverify-after-recert:{cir.slug}@{cir.version}:{'f' * 16}"
+        job = queue.enqueue("quality_director", "gate.quality", {}, idempotency_key=key)
+        with db.session() as session:
+            session.get(Job, job.id).status = status
+        ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+        if status in (JobStatus.DEAD, JobStatus.CANCELLED):
+            try:
+                pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+                assert False, "exhausted or cancelled intents must stop recertification"
+            except RuntimeError as exc:
+                assert status.value in str(exc), str(exc)
+            assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+            assert len(_jobs(db, job_type="gate.quality")) == 1
+        else:
+            pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+            assert _certified(db, cir.slug, cir.version).release_hash == "f" * 64
+            jobs = _jobs(db, job_type="gate.quality")
+            assert len(jobs) == 2 and jobs[-1].status == JobStatus.PENDING, jobs
+            assert jobs[-1].idempotency_key.endswith(":recovery:1")
+
+
+def test_corrected_release_cannot_reset_the_lineage_revision_cap():
+    db = _db()
+    original = _off_band("harvest_runner")
+    _legacy_release(db, original, "Harvest Table Runner Crochet Pattern")
+    queue = JobQueue(db)
+    queue.enqueue("quality_director", "gate.certify", {"cir": original.to_dict()},
+                  idempotency_key="t:lineage-first")
+    _drain(db)
+    corrected = _certified(db, original.slug, "1.3.0")
+    assert corrected is not None
+    from brambleloop.cir.model import CIR
+    current = CIR.from_dict(corrected.cir_json)
+    current = dataclasses.replace(current, gauge=dataclasses.replace(
+        current.gauge, stitches_per_10cm=30.0))
+    assert EO.revision_attempts(db, current.slug, current.version) == 1
+    queue.enqueue("quality_director", "gate.certify", {"cir": current.to_dict(), "revision": 0},
+                  idempotency_key="t:lineage-reset-attempt")
+    _drain(db)
+    assert len(_jobs(db, original.slug, "cir.revise")) == 1
+    assert _holds(db, current.slug, current.version)
+    out = _jobs(db, original.slug, "gate.certify")[-1].outputs["correction"]
+    assert out["held"] and "revision cap" in out["reason"], out
+
+
+def test_unattributed_or_ambiguous_lineage_is_held_not_trusted():
+    db = _db()
+    source = _off_band("harvest_runner")
+    with db.session() as session:
+        session.add(AuditLog(actor="crochet_engineer", action=EO.REVISED_AUDIT,
+                             artifact=f"{source.slug}@{source.version}", job_id=None,
+                             detail={"to_version": "1.3.0", "from_fingerprint": source.fingerprint}))
+    assert EO.revision_attempts(db, source.slug, "1.3.0") >= EO.MAX_REVISIONS
+    # Even a matching purported replay cannot use an unattributed audit as authority.
+    job = JobQueue(db).enqueue("crochet_engineer", "cir.revise", {"cir": source.to_dict()},
+                               idempotency_key="t:unattributed-replay")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db), phase=Phase.SHADOW)
+    claimed, replay = EO._claim_revision(ctx, f"{source.slug}@{source.version}",
+                                         source.fingerprint, {"to_version": "1.3.0"})
+    assert not claimed and not replay
+
+
+def test_multiple_claimed_lineage_parents_fail_closed():
+    db = _db()
+    cir = _off_band("harvest_runner")
+    other = dataclasses.replace(cir, version="1.4.0")
+    queue = JobQueue(db)
+    for i, source in enumerate((cir, other)):
+        queue.enqueue("crochet_engineer", "cir.revise", {"cir": source.to_dict()},
+                      idempotency_key=f"t:ambiguous-parent:{i}")
+        claimed = queue.claim(f"parent-worker-{i}", ["cir.revise"])
+        assert claimed is not None and claimed.started_at is not None
+        with db.session() as session:
+            session.add(AuditLog(actor="crochet_engineer", action=EO.REVISED_AUDIT,
+                artifact=f"{source.slug}@{source.version}", job_id=claimed.id,
+                detail={"to_version": "1.3.0", "from_fingerprint": source.fingerprint}))
+    assert EO.revision_attempts(db, cir.slug, "1.3.0") >= EO.MAX_REVISIONS
+
+
+def test_tampered_revision_destination_does_not_reset_lineage_cap():
+    db = _db()
+    original = _off_band("harvest_runner")
+    _legacy_release(db, original, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": original.to_dict()},
+                         idempotency_key="t:lineage-tamper")
+    _drain(db)
+    assert EO.revision_attempts(db, original.slug, "1.3.0") == 1
+    with db.session() as session:
+        audit = session.scalar(select(AuditLog).where(
+            AuditLog.action == EO.REVISED_AUDIT,
+            AuditLog.artifact == f"{original.slug}@{original.version}"))
+        detail = dict(audit.detail)
+        detail["to_version"] = "1.4.0"
+        audit.detail = detail
+    # An invalid edge is not allowed to disappear from the ancestry lookup.
+    assert EO.revision_attempts(db, original.slug, "1.3.0") >= EO.MAX_REVISIONS
+
+
+def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
+    from brambleloop.gates.certificate import gauge_findings
+    db = _db()
+    cir = _off_band("harvest_runner")
+    assert not any(f.is_error for f in gauge_findings(cir, physically_evidenced=True))
+    job = JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:physical-evidence-refusal")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db),
+                     phase=Phase.SHADOW)
+    out = EO.route_failure(ctx, cir, stage="certify", codes={"PROVENANCE_MISSING"})
+    assert out["held"] is True, out
+    assert _jobs(db, cir.slug, "cir.revise") == []
 
 
 def test_a_reverification_with_no_rule_stands_on_its_existing_hold():
@@ -428,7 +806,7 @@ def test_assets_truth_failure_routes_through_the_same_loop():
     assert out["held"] is True and out["hold"] == chain_successors.signature(
         chain_successors.ASSETS, cir.slug, cir.version)
     assert _jobs(db, job_type="cir.revise") == []
-    # the same design with a gauge defect is revised as a correcting version instead
+    # An unrelated asset defect never authorizes changing the gauge.
     db2 = _db()
     bad = _off_band("harvest_runner")
     _legacy_release(db2, bad, "Harvest Table Runner Crochet Pattern")
@@ -438,9 +816,48 @@ def test_assets_truth_failure_routes_through_the_same_loop():
     ctx2 = JobContext(job=job2, db=db2, queue=JobQueue(db2), registry=Registry(db2),
                       phase=Phase.SHADOW)
     out2 = _correct_assets(ctx2, ["ERROR COLOR_NOT_IN_PATTERN: frame 2 shows teal"])
-    assert out2["revise_job"] and out2["held"] is False
-    rev = _jobs(db2, bad.slug, "cir.revise")[0]
-    assert rev.inputs["stage"] == "assets" and rev.inputs["bump_version"] is True
+    assert out2["held"] is True, out2
+    assert _jobs(db2, bad.slug, "cir.revise") == []
+
+
+def test_concurrent_distinct_revisions_claim_only_one_source_version():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db = _db()
+    one = _off_band("harvest_runner", 30.0)
+    two = _off_band("harvest_runner", 31.0)
+    assert one.fingerprint != two.fingerprint and one.version == two.version
+    queue = JobQueue(db)
+    for i, cir in enumerate((one, two)):
+        queue.enqueue("crochet_engineer", "cir.revise",
+                      {"cir": cir.to_dict(), "stage": "certify",
+                       "codes": ["GAUGE_OUTSIDE_DECLARED_YARN_BAND"]},
+                      idempotency_key=f"t:concurrent-revision:{i}")
+    barrier = Barrier(2, timeout=20)
+    original = EO.RULES
+    rule = EO.repair_gauge_band
+
+    def overlap(cir):
+        result = rule(cir)
+        barrier.wait()
+        return result
+
+    EO.RULES = tuple((name, codes, overlap if name == "GAUGE_FROM_YARN_BAND" else fn)
+                     for name, codes, fn in original)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(Worker(db, f"parallel-{i}", job_types=["cir.revise"]).run_once)
+                       for i in range(2)]
+            assert all(f.result(timeout=45) for f in futures)
+    finally:
+        EO.RULES = original
+    revisions = _jobs(db, one.slug, "cir.revise")
+    assert all(job.status == JobStatus.DONE for job in revisions), [(j.status, j.last_error) for j in revisions]
+    assert sum(bool(job.outputs.get("revised")) for job in revisions) == 1, [j.outputs for j in revisions]
+    assert sum(bool(job.outputs.get("held")) for job in revisions) == 1, [j.outputs for j in revisions]
+    assert len(_audits(db, EO.REVISED_AUDIT, f"{one.slug}@{one.version}")) == 1
+    assert len(_jobs(db, one.slug, "cir.compile")) == 1
 
 
 def test_a_compile_failure_without_a_rule_is_held_not_revised():

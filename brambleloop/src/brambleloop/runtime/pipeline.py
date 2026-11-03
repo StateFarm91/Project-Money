@@ -1174,8 +1174,38 @@ def handle_certify(ctx: JobContext) -> dict:
     conflict = _version_conflict(ctx, cir, cert) if cert.granted else None
     if conflict is not None:
         _refuse_version_conflict(ctx, cir, conflict)
+        # A concurrent release may occupy a correcting version after revision
+        # checked it. Keep the original version on a named correction hold.
+        correction = ctx.job.inputs.get("correction") or {}
+        original = correction.get("of_versions") if isinstance(correction, dict) else None
+        if isinstance(original, list) and len(original) == 1 and isinstance(original[0], str):
+            from dataclasses import replace
+            from .engineering_ops import record_hold
+
+            record_hold(ctx, replace(cir, version=original[0]), stage="certify",
+                        codes={"VERSION_IMMUTABLE"}, reason=conflict["why"])
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
                 "refused": "version_immutable", "reasons": [conflict["why"]]}
+
+    if cert.granted:
+        previous_hash = _stored_release_hash(ctx, cir)
+        try:
+            _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        except ReleaseWriteConflict as exc:
+            conflict = {"kind": "content", "stored": "occupied", "offered": cir.fingerprint,
+                        "why": str(exc)}
+            _refuse_version_conflict(ctx, cir, conflict)
+            correction_input = ctx.job.inputs.get("correction") or {}
+            original = (correction_input.get("of_versions")
+                        if isinstance(correction_input, dict) else None)
+            if isinstance(original, list) and len(original) == 1 and isinstance(original[0], str):
+                from dataclasses import replace
+                from .engineering_ops import record_hold
+
+                record_hold(ctx, replace(cir, version=original[0]), stage="certify",
+                            codes={"VERSION_IMMUTABLE"}, reason=str(exc))
+            return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
+                    "refused": "version_immutable", "reasons": [str(exc)]}
 
     ctx.audit("gate.certified" if cert.granted else "gate.blocked",
               artifact=f"{cir.slug}@{cir.version}",
@@ -1195,8 +1225,6 @@ def handle_certify(ctx: JobContext) -> dict:
     _request_physical_retest(ctx, cir, cert)
 
     if cert.granted:
-        previous_hash = _stored_release_hash(ctx, cir)
-        _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
         # W5-A5: a correction hold on this exact version closes once it certifies.
         from ..ops import incident_lifecycle as _lifecycle
         from .engineering_ops import hold_signature
@@ -1291,10 +1319,16 @@ def handle_certify(ctx: JobContext) -> dict:
         # stops on a named hold. Missing physical evidence is not a design defect: it waits.
         from .engineering_ops import route_failure
 
+        # A previously certified version is immutable even when it is being
+        # re-certified under newer checks. Correct it as a new version.
+        previous_release = _certified_release(ctx.db, cir.slug, cir.version)
         correction = route_failure(
             ctx, cir, stage="certify", codes={f.code for f in cert.errors},
             problems=cert.blocking_reasons,
-            revision=max(0, int(ctx.job.inputs.get("revision") or 0)))
+            revision=max(0, int(ctx.job.inputs.get("revision") or 0)),
+            bump_version=bool(previous_release),
+            correction={"of_release_hashes": [previous_release]}
+            if previous_release and previous_release != "certified" else None)
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
                 "release_hash": cert.release_hash,
                 "reasons": cert.blocking_reasons[:5], "correction": correction}
@@ -1623,10 +1657,50 @@ def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:
         return (row.release_hash or "") if row is not None else ""
 
 
+class ReleaseWriteConflict(RuntimeError):
+    """A competing release occupies this immutable version."""
+
+
+_RELEASE_WRITE_LOCK = 734543627
+
+
 def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str) -> None:
     from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        return _persist_release_serialized(ctx, cir, certificate, release_hash)
+    except IntegrityError as exc:
+        # Classify only the version-identity constraint. Other DB failures must
+        # propagate to the durable worker instead of being reported as a clash.
+        detail = str(exc.orig)
+        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if (constraint != "uq_product_version" and
+                "UNIQUE constraint failed: pattern_versions.product_id, pattern_versions.version"
+                not in detail):
+            raise
+        # A writer outside this handler may race the insert; the unique key is
+        # the final guard. Never overwrite that row after the failed insert.
+        with ctx.db.session() as session:
+            occupied = session.scalar(select(PatternVersion.id).join(Product).where(
+                Product.slug == cir.slug, PatternVersion.version == cir.version))
+        if occupied is None:
+            raise
+        raise ReleaseWriteConflict(f"{cir.slug}@{cir.version} was occupied during certification") from exc
+
+
+def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
+                                release_hash: str) -> None:
+    from sqlalchemy import select, text
+    from ..core.db import is_postgres
+    from ..gates.certificate import claims_fingerprint
 
     with ctx.db.session() as s:
+        # All application release writers use this common transaction lock.
+        if is_postgres(ctx.db.engine):
+            s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _RELEASE_WRITE_LOCK})
+        else:
+            s.execute(text("BEGIN IMMEDIATE"))
         product = s.scalar(select(Product).where(Product.slug == cir.slug))
         if product is None:
             product = Product(slug=cir.slug, title=cir.title, status="certified",
@@ -1639,6 +1713,21 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             select(PatternVersion).where(PatternVersion.product_id == product.id,
                                          PatternVersion.version == cir.version)
         )
+        correction = (getattr(ctx.job, "inputs", None) or {}).get("correction")
+        if existing is not None:
+            try:
+                same_design = CIR.from_dict(existing.cir_json).fingerprint == cir.fingerprint
+            except Exception:  # noqa: BLE001 - unreadable content is never the same design
+                same_design = False
+            identical_release = (existing.certified and same_design
+                                 and existing.release_hash == release_hash)
+            if isinstance(correction, dict) and not identical_release:
+                raise ReleaseWriteConflict(f"{cir.slug}@{cir.version} is already occupied")
+            if existing.certified:
+                old_claims = claims_fingerprint((existing.certificate or {}).get("twin"))
+                new_claims = claims_fingerprint(certificate.get("twin"))
+                if not same_design or (old_claims and new_claims and old_claims != new_claims):
+                    raise ReleaseWriteConflict(f"{cir.slug}@{cir.version} already has different certified content")
         if existing is None:
             existing = PatternVersion(product_id=product.id, version=cir.version,
                                       cir_json=cir.to_dict(), release_hash=release_hash,
@@ -1665,13 +1754,56 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                                                                 certificate)
             existing.certified = True
             if carried:
-                ctx.enqueue("quality_director", "gate.quality", {},
-                            idempotency_key=f"reverify-after-recert:{cir.slug}@{cir.version}:"
-                                            f"{release_hash[:16]}")
-            ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
-                      detail={"previous_release_hash": previous,
-                              "release_hash": release_hash,
-                              "doc_version": DOC_VERSION})
+                # Insert the intent with the release. Do not use JobQueue.enqueue
+                # here: its duplicate handler calls Session.rollback(), which
+                # would also roll back this release on a concurrent collision.
+                from ..core.models import Job, JobStatus
+                from ..queue.durable import fit_idempotency_key
+                from ..swarm.orchestrate import priority_for
+
+                raw_key = f"reverify-after-recert:{cir.slug}@{cir.version}:{release_hash[:16]}"
+                dialect = ctx.db.engine.dialect.name
+                if dialect == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert
+                elif dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert
+                else:
+                    raise RuntimeError(f"unsupported release database dialect: {dialect}")
+                try:
+                    priority = priority_for("gate.quality", {}, db=ctx.db)
+                except Exception:  # noqa: BLE001 - same priority fallback as JobQueue
+                    priority = priority_for("gate.quality", {})
+                for suffix in ("", ":recovery:1"):
+                    key = fit_idempotency_key(raw_key + suffix)
+                    statement = insert(Job).values(
+                        agent="quality_director", job_type="gate.quality", inputs={},
+                        priority=priority, status=JobStatus.PENDING, idempotency_key=key,
+                        max_attempts=3).on_conflict_do_nothing(index_elements=["idempotency_key"])
+                    s.execute(statement)
+                    # Prevent a pending job being claimed between this check and
+                    # the release commit, so it will read the carried withholding.
+                    intended = s.scalar(select(Job).where(Job.idempotency_key == key).with_for_update())
+                    if (intended is None or intended.agent != "quality_director"
+                            or intended.job_type != "gate.quality" or intended.inputs != {}):
+                        raise RuntimeError("reverification idempotency key has incompatible job")
+                    if intended.status in (JobStatus.PENDING, JobStatus.FAILED):
+                        break
+                    if intended.status in (JobStatus.DEAD, JobStatus.CANCELLED):
+                        # Do not bypass a deliberate refusal or exhausted retry.
+                        raise RuntimeError(f"reverification intent is {intended.status.value}; "
+                                           "resolve or redrive it before recertification")
+                    # A running job may already have read; a completed one may
+                    # predate this carry. One bounded new intent is required.
+                else:
+                    raise RuntimeError("reverification recovery intent unavailable; "
+                                       "resolve it before recertification")
+            from ..core.models import AuditLog
+
+            s.add(AuditLog(actor=ctx.job.agent, action="gate.recertified",
+                           artifact=f"{cir.slug}@{cir.version}", job_id=ctx.job.id,
+                           phase=ctx.phase, detail={"previous_release_hash": previous,
+                                                    "release_hash": release_hash,
+                                                    "doc_version": DOC_VERSION}))
         s.flush()
 
         # The certificate is the first derived artefact of a release, and it is recorded
@@ -1726,6 +1858,7 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                 sha256=release_hash if len(release_hash or "") == 64 else "",
                 validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
+
 
 
 @handlers.register("listing.draft")

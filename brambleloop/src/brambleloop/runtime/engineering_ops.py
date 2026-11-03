@@ -80,7 +80,8 @@ STAGES = ("compile", "certify", "quality", "assets")
 # and they have their own path (`pipeline._request_physical_retest`, the tester plan).
 EVIDENCE_WAIT = frozenset({"PHYSICAL_TEST_REQUIRED", "UNCALIBRATED_PRIMITIVE",
                            "RISK_CLASS_DOWNGRADE_UNJUSTIFIED"})
-_CODE = re.compile(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|[A-Z]{4,})\s*:")
+_CODE = re.compile(r"^\s*(?:(?:ERROR|WARNING|US|UK)\s+)*"
+                   r"([A-Z][A-Z0-9_]{3,})\s*:")
 
 
 def _unit(node) -> int | None:
@@ -164,7 +165,9 @@ def repair_gauge_band(cir) -> tuple[object | None, dict]:
         new_gauge = gauge_for(weight or "")
     except PrototypeRefused as exc:
         return None, {"why": str(exc)[:200]}
-    revised = replace(cir, gauge=new_gauge)
+    # Preserve hook, row and chain gauges; the finding authorizes stitch gauge only.
+    revised = replace(cir, gauge=replace(
+        cir.gauge, stitches_per_10cm=new_gauge.stitches_per_10cm))
     if any(f.is_error for f in gauge_findings(revised)):
         return None, {"why": "the band's own gauge is still refused for this yarn"}
     return revised, {"rule": "GAUGE_FROM_YARN_BAND", "yarn_weight": new_gauge.yarn_weight,
@@ -186,7 +189,9 @@ def codes_of(problems) -> list[str]:
     """Finding codes named in refusal strings (`ERROR CODE: ...`, `US CODE: ...`)."""
     out: set[str] = set()
     for p in problems or ():
-        out.update(m.group(1) for m in _CODE.finditer(str(p)))
+        match = _CODE.match(str(p))
+        if match and match.group(1) not in {"ERROR", "WARNING", "NOTE"}:
+            out.add(match.group(1))
     return sorted(out)
 
 
@@ -223,17 +228,116 @@ def open_hold(db, slug: str, version: str) -> dict | None:
                                          "detail": dict(row.detail or {})}
 
 
-def revision_attempts(db, slug: str, version: str) -> int:
-    """Durable count of deterministic revisions of slug@version: distinct revised fingerprints
-    in `cir.revised` rows, so a re-run after a lost lease never counts twice."""
-    from sqlalchemy import select
+def _trusted_revision(audit, job, slug: str, version: str) -> bool:
+    """A review record must bind to the queued producer and exact source CIR."""
+    from ..cir.model import CIR
 
+    detail = audit.detail if isinstance(audit.detail, dict) else {}
+    if (job is None or audit.actor != "crochet_engineer" or job.agent != "crochet_engineer"
+            or job.job_type != "cir.revise" or job.started_at is None
+            or not isinstance(job.inputs, dict)):
+        return False
+    try:
+        cir = CIR.from_dict(job.inputs["cir"])
+        expected_target = _bump(version) if job.inputs.get("bump_version") else version
+        return (cir.slug == slug and cir.version == version
+                and cir.fingerprint == detail.get("from_fingerprint")
+                and detail.get("to_version") == expected_target)
+    except Exception:  # noqa: BLE001 - damaged provenance cannot establish a safe bound
+        return False
+
+
+def _lineage_attempts(session, slug: str, version: str) -> int:
+    """Count authenticated revisions in this version's ancestry; uncertainty holds."""
+    from sqlalchemy import select
+    from ..core.models import AuditLog, Job
+
+    prefix = f"{slug}@"
+    escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    records = list(session.execute(select(AuditLog, Job).outerjoin(
+        Job, Job.id == AuditLog.job_id).where(
+            AuditLog.action == REVISED_AUDIT,
+            AuditLog.artifact.like(escaped + "%", escape="\\"))))
+    parents: dict[str, list[tuple]] = {}
+    by_source: dict[str, list[tuple]] = {}
+    for audit, job in records:
+        source = (audit.artifact or "")[len(prefix):]
+        detail = audit.detail if isinstance(audit.detail, dict) else {}
+        target = detail.get("to_version")
+        row = (audit, job, source, detail)
+        by_source.setdefault(source, []).append(row)
+        if isinstance(target, str) and target and target != source:
+            parents.setdefault(target, []).append(row)
+
+    def trusted(row) -> bool:
+        return _trusted_revision(row[0], row[1], slug, row[2])
+
+    # A corrupted or forged edge could hide the very parent we are looking
+    # for. Every record for this product must be authentic before traversing.
+    if any(not trusted(row) for rows in by_source.values() for row in rows):
+        return MAX_REVISIONS
+    chain, cursor = set(), version
+    while True:
+        if cursor in chain:
+            return MAX_REVISIONS  # a cycle cannot establish a safe lineage
+        chain.add(cursor)
+        incoming = parents.get(cursor, [])
+        if not incoming:
+            break
+        if any(not trusted(row) for row in incoming):
+            return MAX_REVISIONS
+        sources = {row[2] for row in incoming}
+        if len(sources) != 1:
+            return MAX_REVISIONS
+        cursor = next(iter(sources))
+    relevant = [row for source in chain for row in by_source.get(source, [])]
+    if any(not trusted(row) for row in relevant):
+        return MAX_REVISIONS
+    return len({(row[2], row[3].get("from_fingerprint")) for row in relevant})
+
+
+def revision_attempts(db, slug: str, version: str) -> int:
+    """Count revisions across the authenticated source-version chain, not just its tip."""
+    with db.session() as session:
+        return _lineage_attempts(session, slug, version)
+
+
+# Serialize the final audit decision across all workers. A database transaction,
+# not an in-process mutex, enforces the cap when Railway has multiple replicas.
+_REVISION_LOCK = 734543626
+
+
+def _claim_revision(ctx, artifact: str, fingerprint: str, detail: dict) -> tuple[bool, bool]:
+    """Atomically claim one source version. Same-fingerprint replays may resume."""
+    from sqlalchemy import select, text
+    from ..core.db import is_postgres
     from ..core.models import AuditLog
 
-    with db.session() as s:
-        rows = s.scalars(select(AuditLog.detail).where(
-            AuditLog.action == REVISED_AUDIT, AuditLog.artifact == f"{slug}@{version}"))
-        return len({(d or {}).get("from_fingerprint") for d in rows})
+    with ctx.db.session() as session:
+        if is_postgres(ctx.db.engine):
+            session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _REVISION_LOCK})
+        else:
+            session.execute(text("BEGIN IMMEDIATE"))
+        from ..core.models import Job
+
+        prior = list(session.execute(select(AuditLog, Job).outerjoin(
+            Job, Job.id == AuditLog.job_id).where(
+                AuditLog.action == REVISED_AUDIT, AuditLog.artifact == artifact)))
+        slug, version = artifact.rsplit("@", 1)
+        matching = [(audit, job) for audit, job in prior
+                    if (audit.detail or {}).get("from_fingerprint") == fingerprint]
+        if matching:
+            # A redelivery may resume only authenticated evidence for the same result.
+            same = all(_trusted_revision(audit, job, slug, version)
+                       and all((audit.detail or {}).get(k) == detail.get(k) for k in
+                               ("to_fingerprint", "to_version", "rules", "stage"))
+                       for audit, job in matching)
+            return same, same
+        if _lineage_attempts(session, slug, version) >= MAX_REVISIONS:
+            return False, False
+        session.add(AuditLog(actor=ctx.job.agent, action=REVISED_AUDIT, artifact=artifact,
+                             job_id=ctx.job.id, phase=ctx.phase, detail=detail))
+        return True, False
 
 
 def _bump(version: str) -> str:
@@ -287,7 +391,6 @@ def route_failure(ctx: JobContext, cir, *, stage: str, codes=(), problems=(),
     defects = codes - EVIDENCE_WAIT
     if codes and not defects:
         return {"held": False, "waiting_on_evidence": sorted(codes)}
-    codes |= live_codes(cir)
     rules = answering_rules(codes)
     attempts = max(max(0, int(revision or 0)), revision_attempts(ctx.db, slug, version))
     if not rules:
@@ -356,8 +459,10 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     result = compile_cir(cir)
     if stage == "compile" and result.ok:
         return {"ran": False, "why": "the CIR compiles; nothing to revise"}
-    codes = sorted({f.code for f in result.errors} | set(i.get("codes") or ())
-                   | live_codes(cir))
+    # A rule may answer only the refusal that caused this revision. Compiler
+    # errors are authoritative only when this is a compiler refusal.
+    codes = sorted(set(i.get("codes") or ()) |
+                   ({f.code for f in result.errors} if stage == "compile" else set()))
     current, applied = cir, []
     for name, answers, rule in RULES:
         if not set(codes) & set(answers):
@@ -383,6 +488,20 @@ def handle_cir_revise(ctx: JobContext) -> dict:
         # A certified release is immutable (PT-03): its revision is a new minor version and
         # declares what it corrects, so buyers of the old one are found (CB2-O09).
         current = replace(current, version=_bump(cir.version))
+        # Never overwrite an occupied release, including an uncertified draft.
+        # The certification conflict path also records a hold if another writer
+        # occupies this version after this check.
+        from ..core.models import PatternVersion, Product
+        with ctx.db.session() as session:
+            occupied = session.scalar(select(PatternVersion.id).join(
+                Product, Product.id == PatternVersion.product_id).where(
+                    Product.slug == cir.slug, PatternVersion.version == current.version))
+        if occupied is not None:
+            hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=attempts,
+                               existing_hold=existing_hold,
+                               reason=f"correcting version {current.version} is already occupied")
+            return {"artifact": artifact, "revised": False, "held": True,
+                    "hold": hold["hold"], "work_done": 1}
         correction = {"of_versions": [cir.version],
                       "of_release_hashes": list((correction or {}).get("of_release_hashes")
                                                 or []),
@@ -393,12 +512,18 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     detail = {}
     for _n, what in applied:
         detail.update({k: v for k, v in what.items() if k != "rule"})
-    if not already:
-        ctx.audit(REVISED_AUDIT, artifact=artifact,
-                  detail={"rule": "+".join(names), "rules": names, "codes": codes, **detail,
-                          "compiles": check.ok, "from_fingerprint": fingerprint,
-                          "to_fingerprint": current.fingerprint, "revision": revision,
-                          "stage": stage, "to_version": current.version})
+    claimed, already = _claim_revision(
+        ctx, artifact, fingerprint,
+        {"rule": "+".join(names), "rules": names, "codes": codes, **detail,
+         "compiles": check.ok, "from_fingerprint": fingerprint,
+         "to_fingerprint": current.fingerprint, "revision": revision,
+         "stage": stage, "to_version": current.version})
+    if not claimed:
+        hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=MAX_REVISIONS,
+                           existing_hold=existing_hold,
+                           reason="another revision has already claimed this version")
+        return {"artifact": artifact, "revised": False, "held": True,
+                "hold": hold["hold"], "work_done": 1}
     if not check.ok:
         hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=attempts + 1,
                            problems=[str(f) for f in check.errors],

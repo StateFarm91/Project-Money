@@ -279,6 +279,21 @@
       "area": "queue Q16 split",
       "claimed": "2026-11-02T11:20Z",
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
+    },
+    {
+      "id": "CODEX-A5-REVIEW-FIX",
+      "operator": "codex",
+      "branch": "codex/a5-correction-review",
+      "source_branch": "claude/w5-A5-correction-loop",
+      "source_sha": "717c79258b1f7b8e09d6680c5bd238552ff446f0",
+      "scope": "A5-1..4 review fixes, preserve evidence, stage-specific corrective rules, immutable certified versions",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/engineering_ops.py",
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/tests/test_w5_a5_correction_loop.py",
+        "brambleloop/tests/test_w5_integfix.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [
