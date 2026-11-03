@@ -776,8 +776,7 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
             raise ChildrensDecisionRequired(cir.slug, "small_parts",
                 f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "
                 f"{small_parts.CYLINDER_MM:g} mm small-parts cylinder: {'; '.join(blocks)}. "
-                f"Held until a measured physical sample is recorded "
-                f"(gates.small_parts.SMALL_PARTS_EVIDENCE)")
+                f"Held pending an approved content-bound physical-evidence authority.")
         return
     words = launch0.child_words_in(cir.title, cir.slug)
     if not words and not stuffed:

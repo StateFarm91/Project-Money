@@ -137,9 +137,16 @@ def test_small_parts_near_the_cylinder_is_unknown_and_blocks_an_assignment():
         assert "small-parts" in str(exc)
     else:
         raise AssertionError("an assigned stuffed form with a small part rendered")
-    SP.SMALL_PARTS_EVIDENCE[tiny.slug] = "fixture: measured sample record"
+    # An unscoped string is not proof that this exact design was physically tested.
+    SP.SMALL_PARTS_EVIDENCE[tiny.slug] = "fixture: unscoped alleged sample"
     try:
-        pdf._refuse_an_undecided_childrens_title(tiny, ("toy", "under_3"))
+        assert SP.blocking(tiny), "slug-only evidence bypassed a fitting part"
+        try:
+            pdf._refuse_an_undecided_childrens_title(tiny, ("toy", "under_3"))
+        except pdf.ChildrensDecisionRequired as exc:
+            assert exc.reason == "small_parts"
+        else:
+            raise AssertionError("unscoped alleged sample cleared the hold")
     finally:
         SP.SMALL_PARTS_EVIDENCE.pop(tiny.slug)
 
@@ -391,6 +398,11 @@ def test_a1r5_small_parts_for_every_assigned_product_and_unknown_blocks():
                                                        declared_count=width_sts)])
     unknown = dataclasses.replace(with_tab, components=list(basket.components) + [band])
     assert any(SP.UNKNOWN in b for b in SP.blocking(unknown)), SP.blocking(unknown)
+    SP.SMALL_PARTS_EVIDENCE[unknown.slug] = "fixture: unscoped alleged sample"
+    try:
+        assert any(SP.UNKNOWN in b for b in SP.blocking(unknown)), SP.blocking(unknown)
+    finally:
+        SP.SMALL_PARTS_EVIDENCE.pop(unknown.slug)
     # no gauge: every sewn-on piece is UNKNOWN
     nogauge = dataclasses.replace(with_tab, gauge=None)
     assert SP.blocking(nogauge) and SP.UNKNOWN in SP.blocking(nogauge)[0]

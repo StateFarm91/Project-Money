@@ -1596,18 +1596,36 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     from .text_fold import fold
 
     # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
-    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
-    return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+    text = fold(" ".join(t or "" for t in texts))
+    words = set(re.findall(r"[a-z]+", text))
+    found = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    # Explicit ages are not an audience decision. Treat an under-18 lower
+    # bound as a child claim; this is conservative, not a general NLP classifier.
+    ages = (int(m.group(1)) for m in re.finditer(r"\b(?:age|ages|aged)\s*:?\s*(\d{1,3})\b", text))
+    numeric = any(age < 18 for age in ages)
+    for m in re.finditer(r"\b(\d{1,3})(?:\s*(?:-|–|—|to)\s*(\d{1,3}))?\s*"
+                         r"(months?|mos?|years?|yrs?)\b", text):
+        lower = min(int(m.group(1)), int(m.group(2)) if m.group(2) else int(m.group(1)))
+        if lower < (216 if m.group(3).startswith(("month", "mo")) else 18):
+            numeric = True
+            break
+    if numeric:
+        found.append("age_under_18")
+    if re.search(r"\byoung\s+ones\b", text):
+        found.append("young ones")
+    return tuple(found)
 
 
 def child_words_in_listing(listing) -> tuple[str, ...]:
     """Read customer-facing title, description and tags with the shared fold."""
     if not isinstance(listing, dict):
         raise ValueError("listing copy is not a mapping")
-    tags = listing.get("tags") or []
+    raw_tags = listing.get("tags")
+    tags = [] if raw_tags is None else raw_tags
     if not isinstance(tags, (list, tuple)) or any(not isinstance(t, str) for t in tags):
         raise ValueError("listing tags cannot be checked")
-    texts = [listing.get("title") or "", listing.get("description") or "", *tags]
+    texts = ["" if listing.get(key) is None else listing.get(key)
+             for key in ("title", "description")] + list(tags)
     if any(not isinstance(t, str) for t in texts):
         raise ValueError("listing copy cannot be checked")
     return child_words_in(*texts)
@@ -1634,7 +1652,8 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
     "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
-    "cot", "cots", "lovey", "loveys", "amigurumi",
+    "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
+    "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
 )
 
 
