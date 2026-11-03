@@ -349,6 +349,48 @@ def test_a_success_is_not_reused_once_its_activation_is_revoked():
     assert images.usable(db) is False
 
 
+def test_reservation_cannot_underfund_or_back_two_paid_attempts():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    tiny = _reserve(db, estimate=0.001)
+    _refused(lambda: _authorize(db, "underfunded", estimate=0.4, reservation=tiny),
+             code="reservation_underfunded")
+    assert not _calls_rows(db)
+    enough = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "first-attempt", estimate=0.4, reservation=enough)
+    _refused(lambda: _authorize(db, "other-attempt", estimate=0.4, reservation=enough),
+             code="reservation_already_used")
+    G.settle(db, ticket, G.RELEASED)
+    _refused(lambda: _authorize(db, "retry", estimate=0.4, reservation=enough),
+             code="reservation_already_used")
+    assert len(_calls_rows(db)) == 1
+
+
+def test_concurrent_calls_cannot_share_one_company_reservation():
+    import threading
+
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ready = threading.Barrier(2)
+    results = []
+    def attempt(fp):
+        ready.wait()
+        try:
+            results.append(("allowed", _authorize(db, fp, estimate=0.4, reservation=held)))
+        except G.PaidCallRefused as exc:
+            results.append(("refused", exc.code))
+    threads = [threading.Thread(target=attempt, args=(f"race-{i}",)) for i in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=15)
+    assert all(not thread.is_alive() for thread in threads)
+    assert sorted(v[0] for v in results) == ["allowed", "refused"], results
+    assert next(v[1] for v in results if v[0] == "refused") == "reservation_already_used"
+    assert len(_calls_rows(db)) == 1
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):

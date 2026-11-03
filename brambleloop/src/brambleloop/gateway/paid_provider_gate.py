@@ -619,6 +619,16 @@ def authorize(db, *, provider: str, scope: str, estimate_cad: float, fingerprint
                                f"no live company-budget reservation for this call (reservation "
                                f"{reservation_id!r}); the accounting evidence the month ceiling "
                                f"writes is missing, so the call is refused (fail closed)")
+                elif (not math.isfinite(float(res.amount_cad or 0.0))
+                      or float(res.amount_cad or 0.0) + 1e-9 < estimate):
+                    refusal = ("reservation_underfunded",
+                               "the company-budget reservation does not cover this call's estimate")
+                elif s.scalar(select(PaidProviderCall.id).where(
+                        PaidProviderCall.reservation_id == res.id).limit(1)) is not None:
+                    # One reservation accounts for one attempt, even if that attempt was
+                    # released: retrying must obtain a fresh company-budget decision.
+                    refusal = ("reservation_already_used",
+                               "the company-budget reservation already backed a paid attempt")
             if refusal is None:
                 ceiling = gw.monthly_ceiling_cad()
                 committed = round(gw.spent_this_month_cad(db, now=now)
