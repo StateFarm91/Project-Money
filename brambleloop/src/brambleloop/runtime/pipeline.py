@@ -1807,10 +1807,22 @@ def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:
         return (row.release_hash or "") if row is not None else ""
 
 
-def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str) -> None:
+def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str,
+                     *, session=None):
+    """Persist release; optional caller transaction returns deferred side-effect intents.
+
+    The caller must discard these intents on rollback. They are not a durable
+    outbox and do not themselves make certification atomic or retry-safe.
+    """
+    from contextlib import nullcontext
     from sqlalchemy import select
 
-    with ctx.db.session() as s:
+    if session is not None:
+        bind = session.get_bind()
+        if getattr(bind, "engine", bind) is not ctx.db.engine or not session.in_transaction():
+            raise ValueError("release session must be an active transaction on this database")
+    deferred = [] if session is not None else None
+    with (nullcontext(session) if session is not None else ctx.db.session()) as s:
         product = s.scalar(select(Product).where(Product.slug == cir.slug))
         if product is None:
             product = Product(slug=cir.slug, title=cir.title, status="certified",
@@ -1849,13 +1861,22 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                                                                 certificate)
             existing.certified = True
             if carried:
-                ctx.enqueue("quality_director", "gate.quality", {},
-                            idempotency_key=f"reverify-after-recert:{cir.slug}@{cir.version}:"
-                                            f"{release_hash[:16]}")
-            ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
-                      detail={"previous_release_hash": previous,
-                              "release_hash": release_hash,
-                              "doc_version": DOC_VERSION})
+                args = ("quality_director", "gate.quality", {})
+                kwargs = {"idempotency_key": f"reverify-after-recert:{cir.slug}@{cir.version}:"
+                                             f"{release_hash[:16]}"}
+                if deferred is None:
+                    ctx.enqueue(*args, **kwargs)
+                else:
+                    deferred.append(("enqueue", args, kwargs))
+            args = ("gate.recertified",)
+            kwargs = {"artifact": f"{cir.slug}@{cir.version}",
+                      "detail": {"previous_release_hash": previous,
+                                 "release_hash": release_hash,
+                                 "doc_version": DOC_VERSION}}
+            if deferred is None:
+                ctx.audit(*args, **kwargs)
+            else:
+                deferred.append(("audit", args, kwargs))
         s.flush()
 
         # The certificate is the first derived artefact of a release, and it is recorded
@@ -1910,6 +1931,7 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                 sha256=release_hash if len(release_hash or "") == 64 else "",
                 validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
+    return deferred
 
 
 @handlers.register("listing.draft")

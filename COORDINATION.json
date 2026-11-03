@@ -317,6 +317,18 @@
         "brambleloop/tests/test_codex_a6_session_reads_pg.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A6-RELEASE-TRANSACTION-PREVIEW",
+      "operator": "codex",
+      "branch": "codex/a6-release-transaction-preview",
+      "source_sha": "529978d5629a0f7a70b3fd818770024e576e7a51",
+      "scope": "Optional caller-owned release persistence with deferred in-memory side effects; no authority fence or durable outbox",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/tests/test_codex_a6_release_transaction.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [
