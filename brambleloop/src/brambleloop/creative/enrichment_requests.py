@@ -185,12 +185,31 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
         job = enqueue("crochet_engineer", "cir.draft", data,
                       idempotency_key=f"draft:{slug}:enrich:{rounds}")
         if job is None:
-            return {"slug": slug, "accepted": False, "state": OPEN, "round": rounds,
-                    "why": "draft was not queued; an identical draft may already exist"}
+            # A crash may occur after the durable queue insert but before the
+            # answer audit. Recover only the exact queued payload; a competing
+            # answer cannot take credit for another writer's round.
+            from sqlalchemy import select
+            from ..core.models import Job, JobStatus
+
+            key = f"draft:{slug}:enrich:{rounds}"
+            with db.session() as session:
+                old = session.scalar(select(Job).where(Job.idempotency_key == key))
+                matches = (old is not None and old.agent == "crochet_engineer"
+                           and old.job_type == "cir.draft" and old.inputs == data)
+                if not matches:
+                    return {"slug": slug, "accepted": False, "state": OPEN,
+                            "round": rounds, "why": "round already used or not queued"}
+                if old.status in (JobStatus.DEAD, JobStatus.CANCELLED) or (
+                        old.status == JobStatus.DONE and not (old.outputs or {}).get("drafted")):
+                    return {"slug": slug, "accepted": False, "state": OPEN,
+                            "round": rounds, "why": "existing draft was not completed successfully"}
+                job_id = old.id
+        else:
+            job_id = getattr(job, "id", None)
         audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": RESOLVED,
                                                 "fingerprint": fp})
         return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,
-                "fingerprint": fp, "job": getattr(job, "id", None)}
+                "fingerprint": fp, "job": job_id}
     final = EXHAUSTED if rounds >= MAX_ROUNDS else OPEN
     audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": final,
                                             "still_missing": still})

@@ -195,6 +195,30 @@ def test_last_refused_redraft_is_exhausted_and_duplicate_enqueue_is_not_success(
     assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
 
 
+def test_restart_recovers_exact_queued_draft_when_answer_audit_was_interrupted():
+    db, path = _store()
+    audit = _audit(db)
+    audit("cir.draft_refused", artifact=SEED, detail={"gate": "construction",
+          "reason": "shaped pieces needed", "category": "amigurumi"})
+    E.sweep(db, audit=audit)
+    good = _payload(pipeline._seed_for(SEED), category="basket", title="Storage Basket")
+    def interrupted(action, **kwargs):
+        if action == E.ANSWERED:
+            raise RuntimeError("simulated interruption after durable queue insert")
+        return audit(action, **kwargs)
+    try:
+        E.answer(db, SEED, good, audit=interrupted, enqueue=_enqueue(db))
+        assert False, "interruption did not occur"
+    except RuntimeError:
+        pass
+    fresh = Database(f"sqlite:///{path}")
+    assert E.state(fresh)[SEED]["state"] == E.OPEN
+    recovered = E.answer(fresh, SEED, good, audit=_audit(fresh), enqueue=_enqueue(fresh))
+    assert recovered["accepted"] is True and recovered["state"] == E.RESOLVED, recovered
+    assert len(_jobs(fresh, "cir.draft")) == 1
+    assert E.state(fresh)[SEED]["state"] == E.RESOLVED
+
+
 def test_concurrent_answers_cannot_queue_two_drafts_for_one_round():
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
