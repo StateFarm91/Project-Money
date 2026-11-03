@@ -156,7 +156,7 @@ class FakeJudge:
     def __init__(self, reading=None, same=True):
         self.reading = reading or {"craft": "crochet", "ribbing_visible": "false",
                                    "border_or_edging_visible": "false",
-                                   "cable_style": "crochet_post_stitch_crossings",
+                                   "cable_style": "none",
                                    "fabric_visible_clearly": "true"}
         self.same = same
         self.calls = 0
@@ -171,6 +171,15 @@ class FakeJudge:
 
 
 PASSING_JUDGE = FakeJudge()
+# The synthetic Cloudline/wrap flat lays contain declared end bands and an
+# unobscured boundary. This fixture describes that generated test image; it is
+# not a physical-product observation. Deterministic band checks still run.
+PASSING_BANDS_JUDGE = FakeJudge({"craft": "crochet", "ribbing_visible": "false",
+    "border_or_edging_visible": "true", "edge_placement": "ends_only",
+    "all_edges_visible": "true", "cable_style": "none",
+    "fabric_visible_clearly": "true"})
+PASSING_CABLE_BANDS_JUDGE = FakeJudge({**PASSING_BANDS_JUDGE.reading,
+                                      "cable_style": "crochet_post_stitch_crossings"})
 
 
 def codes(v):
@@ -291,7 +300,9 @@ def test_positive_flat_lays_pass_under_photographic_perturbation():
     for slug in (CLOUD, WRAP, COASTERS):
         cir = _cir(slug)
         for kw in PERTURBATIONS:
-            v = F.verify_anchor(flat_lay(cir, **kw), cir, judge=PASSING_JUDGE)
+            judge = (PASSING_CABLE_BANDS_JUDGE if slug == WRAP else
+                     PASSING_BANDS_JUDGE if slug == CLOUD else PASSING_JUDGE)
+            v = F.verify_anchor(flat_lay(cir, **kw), cir, judge=judge)
             assert v["status"] == "PASS", (slug, kw, v["failed"], v["unknown"], [
                 (c["check"], c["why"]) for c in v["checks"] if c["status"] != "PASS"])
             assert v["codes"] == [] and v["reads_generator_claims"] is False
@@ -544,7 +555,7 @@ def test_stage4_passes_a_faithful_anchor_with_a_vision_reading():
 
     db = O.make_db()
     run = _run(db, FlatLayGenerator(CLOUD, rotate=3, blur=1.0),
-               CG.RealJudges(db, vision=FakeJudge()))
+               CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
     assert "fidelity_gate" in run["stages"] and "load_laura_references" in run["stages"], run
     best = IP._best(db, listing="cloudline-baby-blanket", role=IP.ANCHOR_ROLE,
                     run=run["run_key"])
@@ -569,7 +580,7 @@ def test_stage4_regenerates_a_failing_anchor_with_a_targeted_repair_then_blocks(
 
     db = O.make_db()
     gen = FlatLayGenerator(CLOUD, piece_edit=stripe_in_top_band("#1A2B3C", (0.018, 0.026)))
-    run = _run(db, gen, CG.RealJudges(db, vision=FakeJudge()))
+    run = _run(db, gen, CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
     assert run["state"] == "blocked" and run["attempts_exhausted"], run
     assert gen.calls == IP.MAX_ATTEMPTS_PER_ROLE
     assert gen.repairs[0] is None and gen.repairs[1] and \
@@ -585,18 +596,18 @@ def test_publication_gates_are_not_relaxed():
     from brambleloop.visual import candidate_gates as CG
 
     db = O.make_db()
-    _run(db, FlatLayGenerator(CLOUD), CG.RealJudges(db, vision=FakeJudge()))   # anchor PASS
+    _run(db, FlatLayGenerator(CLOUD), CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))   # anchor PASS
     img = flat_lay(_cir(CLOUD))
     for role in ("lifestyle", "detail", "colour_context"):
         v = CG.evaluate(db, O.cand(data=img, role=role, release=O.RELEASE,
                                    product_region=(300, 200, 1750, 1850)),
-                        judges=CG.RealJudges(db, vision=FakeJudge()))
+                        judges=CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
         assert v["publishable"] is False and any("F-852" in b for b in
                                                  v["publication"]["blockers"]), role
         assert "fidelity" in v["checks"]["product_truth"]
     lif = CG.evaluate(db, O.cand(data=img, role="lifestyle", release=O.RELEASE,
                                  references=[{"sha256": "a" * 64, "kind": "pattern_derived"}]),
-                      judges=CG.RealJudges(db, vision=FakeJudge()))
+                      judges=CG.RealJudges(db, vision=PASSING_BANDS_JUDGE))
     assert lif["checks"]["product_truth"]["status"] == "FAIL"    # lifestyle_evidence kept
     # an anchor with no vision reading is never PASS through the gates
     pt = CG.RealJudges(db).product_truth({**O.cand(data=img), "role": "product_anchor"},

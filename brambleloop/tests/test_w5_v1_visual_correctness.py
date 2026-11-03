@@ -185,6 +185,30 @@ def test_lifestyle_reading_names_the_structural_reason_and_keeps_the_policy():
     assert ph["status"] != "PASS" and "structural" not in ph
 
 
+def test_structural_failure_with_routable_code_does_not_buy_repairs():
+    from brambleloop.visual import candidate_gates as CG, image_production as IP
+
+    db, cir, rel = _basket_db()
+    gen, judges = O.StubGenerator(), _judges(db)
+    saved = CG.fidelity_reading
+    def fidelity(db, cand, bind, **kw):
+        if cand.get("role") == "lifestyle":
+            return {"status": "FAIL", "why": "fixture edge", "codes": ["INVENTED_EDGING"],
+                    "failed": ["edge"], "unknown": []}
+        return {"status": "PASS", "why": "fixture", "codes": [], "failed": [], "unknown": []}
+    CG.fidelity_reading = fidelity
+    try:
+        follow, _ = O.drain(db, generator=gen, judges=judges)
+        assert IP.trigger(follow, slug=cir.slug, version=cir.version, release=rel)["enqueued"]
+        O.drain(db, generator=gen, judges=judges)
+        run = IP.get_run(db, IP.run_key(cir.slug, cir.version, rel))
+        assert len([r for r, _k, _o in gen.seen if r == "lifestyle"]) == 1, gen.seen
+        assert not any(gen.repairs), gen.repairs
+        assert run["state"] == "blocked" and "lifestyle_evidence" in run["blocked_reason"], run
+    finally:
+        CG.fidelity_reading = saved
+
+
 def test_router_still_repairs_routable_codes_and_refuses_unrouted_ones():
     from brambleloop.visual import image_production as IP
 
@@ -193,10 +217,10 @@ def test_router_still_repairs_routable_codes_and_refuses_unrouted_ones():
     assert IP._repair_for({"failure_categories": ["SOMETHING_NEW"]}) is None
     assert IP._repair_for({"failure_categories": ["product_fidelity"],
                            "structural": "lifestyle_evidence: chart reference"}) is None
-    # a routable code beside the structural failure is still repaired (wardrobe, edging)
+    # A routable code does not cure the separate impossible reference failure.
     both = IP._repair_for({"failure_categories": ["product_fidelity", "INVENTED_EDGING"],
                            "structural": "lifestyle_evidence: chart reference"})
-    assert both and both["directives"]
+    assert both is None
     assert IP.structural_failure({"product_truth": {"lifestyle_evidence": {
         "status": "FAIL", "structural": "lifestyle_evidence: chart reference"}}}) == \
         "lifestyle_evidence: chart reference"
@@ -257,6 +281,314 @@ def test_a_genuinely_ribbed_fabric_still_reads_ribbed():
     assert P.fabric_facts(fold)["ribbing_declared"] is False      # fold rows are construction
 
 
+def test_separated_front_and_back_posts_are_not_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+
+    rows = [_row(i, "pine") for i in range(1, 22)]
+    rows[1].ops = [Op("fpdc", 12)]
+    rows[-1].ops = [Op("bpdc", 12)]
+    cir = _flat("separated-posts", rows, {"pine": "#244A3A"})
+    facts = P.fabric_facts(cir)
+    assert facts["ribbing_declared"] is None, facts
+    assert not any(n.startswith("ribbing anywhere") for n in _rules(cir)["negatives"])
+    assert "ribbing anywhere" not in _prompt(cir).text
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(cir)
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+
+
+def test_mixed_post_rib_requires_repetition_on_nearby_rows():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+
+    def make(slug, post_rows):
+        rows = [_row(i, "pine") for i in range(1, 22)]
+        for index in post_rows:
+            rows[index - 1].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+        return _flat(slug, rows, {"pine": "#244A3A"})
+
+    assert P.fabric_facts(make("one-mixed", [2]))["ribbing_declared"] is None
+    assert P.fabric_facts(make("two-separated", [2, 21]))["ribbing_declared"] is None
+    assert P.fabric_facts(make("two-adjacent", [2, 3]))["ribbing_declared"] is True
+
+
+def test_shifted_post_columns_remain_unknown():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    rows[1].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+    rows[2].ops = [Op("sc", 1), Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=2),
+                   Op("fpdc", 2), Op("bpdc", 1)]
+    assert P.fabric_facts(_flat("shifted-rib", rows, {"pine": "#244A3A"}))["ribbing_declared"] is None
+
+
+def test_post_blocks_and_fold_rows_do_not_prove_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    for i in (1, 2): rows[i].ops = [Op("fpdc", 6), Op("bpdc", 6)]
+    assert P.fabric_facts(_flat("post-blocks", rows, {"pine": "#244A3A"}))["ribbing_declared"] is None
+    for i in (1, 2): rows[i].note = "fold and crease line"
+    assert P.fabric_facts(_flat("post-folds", rows, {"pine": "#244A3A"}))["ribbing_declared"] is False
+
+
+def test_sparse_loop_only_stitches_do_not_prove_whole_row_ribbing():
+    from brambleloop.cir.model import Op
+    from brambleloop.creative import pattern_refs as P
+    rows = [_row(i, "pine") for i in range(1, 6)]
+    for i in (1, 2): rows[i].ops = [Op("sc", 1, loop="back"), Op("sc", 11)]
+    cir = _flat("sparse-loop", rows, {"pine": "#244A3A"})
+    assert P.fabric_facts(cir)["ribbing_declared"] is None
+    from brambleloop.visual import fidelity
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+
+
+def test_expected_ribbing_cannot_pass_when_not_visible():
+    from brambleloop.products.texture import build_ribbed_scarf
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(build_ribbed_scarf())
+    assert exp.ribbing_declared is True
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
+    reading["fabric_visible_clearly"] = "false"
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["fabric_visible_clearly"] = "true"
+    reading["ribbing_visible"] = "unclear"
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["ribbing_visible"] = "true"
+    # The scarf's declared end band makes a generic edge reading ambiguous.
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    # A rib-only design with no ambiguous end band still reaches PASS.
+    from brambleloop.cir.model import Op, Repeat
+    rows = [_row(i, "pine") for i in range(1, 5)]
+    for row in rows:
+        row.ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+    rib_only = _flat("rib-only", rows, {"pine": "#244A3A"})
+    assert fidelity.compare_craft(reading, fidelity.expectation(rib_only))["status"] == "PASS"
+
+
+def test_ribbed_scarf_prompt_does_not_forbid_its_existing_ribbed_edges():
+    from brambleloop.products.texture import build_ribbed_scarf
+    text = _prompt(build_ribbed_scarf()).text
+    assert "an edging, border, rib, fringe or trim along any edge" not in text
+    assert "the edges are the plain ends of the rows" not in text
+    assert "any added edging, border, fringe or trim not in the pattern" in text
+
+
+def test_small_ribbed_component_prevents_global_no_ribbing_claim():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+    from brambleloop.visual import fidelity
+    pine = {"pine": "#244A3A"}
+    cir = _flat("large-plain-small-rib", [_row(i, "pine") for i in range(1, 22)], pine)
+    small_rows = [_row(i, "pine") for i in range(1, 5)]
+    for i in (1, 2):
+        small_rows[i].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+    small = _flat("small-rib", small_rows, pine).components[0]
+    small.name = "cuff"
+    cir.components.append(small)
+    facts = P.fabric_facts(cir)
+    assert facts["ribbing_declared"] is None, facts
+    assert not any(n.startswith("ribbing anywhere") for n in _rules(cir)["negatives"])
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+
+
+def test_multi_piece_prompt_does_not_generalize_the_largest_piece():
+    from brambleloop.products.moment_candidates import spring_garden_kneeler
+    cir = spring_garden_kneeler()
+    text = _product_section(_prompt(cir).text)
+    assert "pine #244A3A throughout; no stripes or colour blocks" not in text
+    assert "each piece exactly as charted" in text
+    assert "each piece as shown in the layout reference" in text
+    assert "motifs, appliques or embroidery not in the certified pattern" in text
+    rules = _rules(cir)
+    assert rules["fabric"]["multi_component"] is True
+    assert not any("colour changes anywhere except" in n for n in rules["negatives"])
+
+
+def test_multi_piece_unproven_edging_cannot_pass_fidelity():
+    from brambleloop.visual import fidelity
+    pine = {"pine": "#244A3A"}
+    cir = _flat("two-plain-pieces", [_row(i, "pine") for i in range(1, 6)], pine)
+    other = _flat("other-piece", [_row(i, "pine") for i in range(1, 4)], pine).components[0]
+    other.name = "other"
+    cir.components.append(other)
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+
+
+def test_declared_end_bands_are_not_proven_invented_edging():
+    from brambleloop.products.launch0 import cir_for
+    from brambleloop.visual import fidelity
+    cir = cir_for("cloudline_blanket")
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "true"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+    reading["craft"] = "knitting"
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "FAIL"
+
+
+def test_end_band_reading_requires_independent_measured_band_evidence():
+    from brambleloop.products.launch0 import cir_for
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(cir_for("cloudline_blanket"))
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "true",
+               "edge_placement": "ends_only", "all_edges_visible": "true"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "PASS"
+    reading["all_edges_visible"] = "false"
+    assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "UNKNOWN"
+    reading["all_edges_visible"] = "true"
+    reading["edge_placement"] = "around_or_sides"
+    assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "UNKNOWN"
+
+
+def test_separately_declared_edging_is_not_proven_by_end_bands():
+    from brambleloop.products.launch0 import cir_for
+    from brambleloop.visual import fidelity
+    cir = cir_for("cloudline_blanket")
+    cir.components[0].name = "border panel"
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "true",
+               "edge_placement": "ends_only", "all_edges_visible": "true"}
+    result = fidelity.compare_craft(reading, fidelity.expectation(cir), end_bands_verified=True)
+    assert result["status"] == "UNKNOWN", result
+
+
+def test_declared_edging_requires_visible_evidence():
+    from brambleloop.visual import fidelity
+    cir = _flat("declared-border", [_row(i, "pine") for i in range(1, 5)], {"pine": "#244A3A"})
+    cir.components[0].name = "border panel"
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    exp = fidelity.expectation(cir)
+    assert exp.edging_declared is True
+    assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
+    reading["fabric_visible_clearly"] = "false"
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+
+
+def test_undeclared_edging_requires_an_explicit_clear_absence():
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(build_basket("small"))
+    assert exp.edging_declared is False
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "unclear"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    del reading["border_or_edging_visible"]
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["border_or_edging_visible"] = "false"
+    assert fidelity.compare_craft(reading, exp)["status"] == "PASS"
+
+
+def test_cable_style_requires_valid_reading_and_known_cable_cannot_disappear():
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.products.moment_candidates import reading_nook_cable_wrap
+    from brambleloop.visual import fidelity
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    basket = fidelity.expectation(build_basket("small"))
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "unclear"
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "invented-value"
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "none"
+    assert fidelity.compare_craft(reading, basket)["status"] == "PASS"
+    reading["cable_style"] = "crochet_post_stitch_crossings"
+    inverse = fidelity.compare_craft(reading, basket)
+    assert inverse["status"] == "UNKNOWN" and "cable" in inverse["why"], inverse
+    reading["cable_style"] = "none"
+    wrap = fidelity.expectation(reading_nook_cable_wrap())
+    assert wrap.cables_declared is True
+    result = fidelity.compare_craft(reading, wrap)
+    assert result["status"] == "UNKNOWN" and "cable" in result["why"], result
+
+
+def test_real_cabled_wrap_cannot_pass_with_blind_no_cable_reading():
+    import test_w4_fidelity as fixtures
+    from brambleloop.products.moment_candidates import reading_nook_cable_wrap
+    from brambleloop.visual import fidelity
+    cir = reading_nook_cable_wrap()
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+        "cable_style": "none", "ribbing_visible": "false", "border_or_edging_visible": "true",
+        "edge_placement": "ends_only", "all_edges_visible": "true"})
+    result = fidelity.verify_anchor(fixtures.flat_lay(cir), cir, judge=judge)
+    assert result["status"] != "PASS", result
+    craft = next(c for c in result["checks"] if c["check"] == "craft_texture")
+    assert craft["status"] == "UNKNOWN" and "cable" in craft["why"], craft
+
+
+def test_real_cloudline_anchor_accepts_blind_end_only_reading_with_measured_bands():
+    import test_w4_fidelity as fixtures
+    from brambleloop.visual import fidelity
+    cir = fixtures._cir(fixtures.CLOUD)
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+                                "cable_style": "none", "ribbing_visible": "false",
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
+    result = fidelity.verify_anchor(fixtures.flat_lay(cir), cir, judge=judge)
+    assert result["status"] == "PASS", result
+
+
+def test_lifestyle_anchor_label_is_not_enough_for_band_evidence():
+    import hashlib
+    import test_w4_fidelity as fixtures
+    from brambleloop.creative.pattern_refs import release_hash_of
+    from brambleloop.visual import fidelity
+    cir = fixtures._cir(fixtures.CLOUD)
+    image = fixtures.flat_lay(cir)
+    release = release_hash_of(cir)
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+                                "cable_style": "none", "ribbing_visible": "false",
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
+    anchor = {"status": "PASS", "release_hash": release,
+              "sha256": hashlib.sha256(image).hexdigest()}
+    def verify(ref):
+        return fidelity.verify_lifestyle(image, cir, release_hash=release, anchor=ref,
+            anchor_data=image, product_region=(300, 200, 1750, 1850), judge=judge)
+    # A caller-provided PASS label is not authenticated anchor evidence.
+    assert verify(anchor)["status"] == "UNKNOWN"
+    assert verify({**anchor, "sha256": "f" * 64})["status"] == "UNKNOWN"
+    assert verify({**anchor, "release_hash": release[:12]})["status"] == "UNKNOWN"
+
+
+def test_wrong_band_or_added_border_does_not_pass_with_end_only_reading():
+    import test_w4_fidelity as fixtures
+    from brambleloop.visual import fidelity
+    cir = fixtures._cir(fixtures.CLOUD)
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+                                "cable_style": "none", "ribbing_visible": "false",
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
+    changed = fixtures.flat_lay(cir, piece_edit=fixtures.edging(fixtures._hexrgb("#FAF6EB"), 0.03))
+    assert fidelity.verify_anchor(changed, cir, judge=judge)["status"] != "PASS"
+
+
+def test_multi_piece_shapes_are_not_described_as_single_vessels():
+    from brambleloop.products import moment_candidates
+    for builder in (moment_candidates.snowfall_advent_garland,
+                    moment_candidates.mothers_day_heart_tea_cosy,
+                    moment_candidates.heart_row_ring_pillow):
+        text = _product_section(_prompt(builder()).text)
+        assert "a vessel: a flat base and walls rising from it" not in text, text
+        assert "the top rim is" not in text, text
+        assert "each piece as shown in the layout reference" in text
+        assert "each piece exactly as charted" in text
+
+
 # ---- P1-b + P2-b ----------------------------------------------------------------------------
 
 def test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_rim():
@@ -281,7 +613,7 @@ def test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_ri
     from brambleloop.creative import flux_prompt as FP
 
     assert built.receipt()["builder_version"] == FP.BUILDER_VERSION == \
-        "flux3-prompt-builder/2.1.0"
+        "flux3-prompt-builder/2.1.1"
     # derived, not hard-coded: the medium basket's own rounds and rim
     from brambleloop.products.vessels import build_basket
 

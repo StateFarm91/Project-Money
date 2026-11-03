@@ -22,7 +22,7 @@ from ..gateway import prompts
 
 # 2.1.0 (W5-V1): PRODUCT v3 states the CIR's shape (polygon side count), colour bands and final
 # round/rim explicitly; the AI flat lay is labelled as AI-generated, never a photograph.
-BUILDER_VERSION = "flux3-prompt-builder/2.1.0"
+BUILDER_VERSION = "flux3-prompt-builder/2.1.1"
 _IMG = dict(system="", output_schema=("image",), max_output_tokens=1)
 
 # The references, by position. The hierarchy is stated, not implied: identity comes from the
@@ -192,6 +192,8 @@ def _shape(rules: Mapping) -> str:
     """The piece's shape, from the CIR geometry (W5-V1). Nothing is said that the CIR does
     not establish: a polygon only when every increase round stacks."""
     f = rules.get("fabric") or {}
+    if f.get("multi_component"):
+        return "each piece as shown in the layout reference"
     poly, kind = f.get("polygon"), f.get("piece_shape")
     if poly:
         n, name = poly["sides"], poly["name"]
@@ -209,6 +211,8 @@ def _shape(rules: Mapping) -> str:
 def _colour_layout(rules: Mapping, detail: str) -> str:
     """Stripes stated exactly, or the chart named when the surface is not stripes (W5-V1)."""
     f = rules.get("fabric") or {}
+    if f.get("multi_component"):
+        return f"each piece exactly as charted in {detail}"
     layout, unit = f.get("colour_layout"), f.get("unit") or "row"
     hexes = {c["id"]: c.get("hex") for c in rules.get("colours") or []}
     ground = f.get("ground_colour")
@@ -235,6 +239,8 @@ def _colour_layout(rules: Mapping, detail: str) -> str:
 def _edge(rules: Mapping) -> str:
     """The final round/row as worked, named plainly when it is plain (W5-V1)."""
     f = rules.get("fabric") or {}
+    if f.get("multi_component"):
+        return "each piece exactly as charted"
     last, unit = f.get("final_round") or {}, f.get("unit") or "row"
     if not last or not last.get("plain") or f.get("edging_declared"):
         return "exactly as charted"
