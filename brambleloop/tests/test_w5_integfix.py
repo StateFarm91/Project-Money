@@ -87,7 +87,12 @@ def test_a_recertified_release_keeps_both_permanent_and_reverify_withholdings():
     assert {W.PHYSICAL_SIZE_FAILED, W.QUALITY_REVERIFY} <= set(before["reasons"]), before
 
     P._persist_release(ctx, cir, {"gates": "second"}, "b" * 64)   # a new release hash
-    assert any(a == "gate.recertified" for a, _ in ctx.audits), ctx.audits  # branch reached
+    from sqlalchemy import select
+    from brambleloop.core.models import AuditLog, Job
+
+    with db.session() as session:
+        assert session.scalar(select(AuditLog).where(AuditLog.action == "gate.recertified"))
+        assert session.scalar(select(Job).where(Job.job_type == "gate.quality"))
     after = W.reasons(db, cir.slug, cir.version)
     assert W.PHYSICAL_SIZE_FAILED in after["reasons"], after       # carry_permanent
     assert W.QUALITY_REVERIFY in after["reasons"], after           # carry_reverification

@@ -290,7 +290,8 @@
       "files": [
         "brambleloop/src/brambleloop/runtime/engineering_ops.py",
         "brambleloop/src/brambleloop/runtime/pipeline.py",
-        "brambleloop/tests/test_w5_a5_correction_loop.py"
+        "brambleloop/tests/test_w5_a5_correction_loop.py",
+        "brambleloop/tests/test_w5_integfix.py"
       ],
       "claimed_at": "2026-11-03"
     }

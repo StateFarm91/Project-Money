@@ -1671,6 +1671,14 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
     try:
         return _persist_release_serialized(ctx, cir, certificate, release_hash)
     except IntegrityError as exc:
+        # Classify only the version-identity constraint. Other DB failures must
+        # propagate to the durable worker instead of being reported as a clash.
+        detail = str(exc.orig)
+        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if (constraint != "uq_product_version" and
+                "UNIQUE constraint failed: pattern_versions.product_id, pattern_versions.version"
+                not in detail):
+            raise
         # A writer outside this handler may race the insert; the unique key is
         # the final guard. Never overwrite that row after the failed insert.
         with ctx.db.session() as session:
@@ -1687,8 +1695,6 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
     from ..core.db import is_postgres
     from ..gates.certificate import claims_fingerprint
 
-    carried_event = None
-    recertified_event = None
     with ctx.db.session() as s:
         # All application release writers use this common transaction lock.
         if is_postgres(ctx.db.engine):
@@ -1748,9 +1754,23 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
                                                                 certificate)
             existing.certified = True
             if carried:
-                carried_event = f"reverify-after-recert:{cir.slug}@{cir.version}:{release_hash[:16]}"
-            recertified_event = {"previous_release_hash": previous,
-                                 "release_hash": release_hash, "doc_version": DOC_VERSION}
+                # The reverify intent and release update commit or roll back together.
+                from ..queue.durable import DuplicateJob, JobQueue
+
+                try:
+                    JobQueue(ctx.db).enqueue(
+                        "quality_director", "gate.quality", {}, session=s,
+                        idempotency_key=(f"reverify-after-recert:{cir.slug}@{cir.version}:"
+                                         f"{release_hash[:16]}"))
+                except DuplicateJob:
+                    pass
+            from ..core.models import AuditLog
+
+            s.add(AuditLog(actor=ctx.job.agent, action="gate.recertified",
+                           artifact=f"{cir.slug}@{cir.version}", job_id=ctx.job.id,
+                           phase=ctx.phase, detail={"previous_release_hash": previous,
+                                                    "release_hash": release_hash,
+                                                    "doc_version": DOC_VERSION}))
         s.flush()
 
         # The certificate is the first derived artefact of a release, and it is recorded
@@ -1806,12 +1826,6 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
                 validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
 
-    # Follow-on writes use their own transactions and must follow the committed release.
-    if carried_event:
-        ctx.enqueue("quality_director", "gate.quality", {}, idempotency_key=carried_event)
-    if recertified_event:
-        ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
-                  detail=recertified_event)
 
 
 @handlers.register("listing.draft")

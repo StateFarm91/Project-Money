@@ -578,6 +578,42 @@ def test_concurrent_release_writers_never_overwrite_each_other():
         assert rows[0].release_hash == ("a" if winner == 0 else "b") * 64
 
 
+def test_recertification_and_reverify_intent_commit_atomically_across_restart():
+    from unittest.mock import patch
+    from brambleloop.ops import artefacts
+    from brambleloop.publish import withholding
+
+    db = _db()
+    cir = launch0.cir_for("harvest_runner")
+    _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+    withholding.record_reverification(db, cir.slug, cir.version, check="pdf",
+                                      problem="fixture pdf hash drift")
+    queue = JobQueue(db)
+    parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                           idempotency_key="t:atomic-recert")
+    ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+    new_hash = "f" * 64
+    # Simulate process failure after the release update and queued intent, but before commit.
+    with patch.object(artefacts, "record_lineage", side_effect=RuntimeError("interrupted")):
+        try:
+            pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+            assert False, "the injected interruption must stop the transaction"
+        except RuntimeError as exc:
+            assert str(exc) == "interrupted"
+    assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+    assert not _jobs(db, job_type="gate.quality")
+    assert not _audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")
+    pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+    reopened = Database(str(db.engine.url))
+    assert _certified(reopened, cir.slug, cir.version).release_hash == new_hash
+    assert len(_jobs(reopened, job_type="gate.quality")) == 1
+    assert len(_audits(reopened, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+    # A retry after commit does not duplicate the durable intent or audit.
+    pipeline._persist_release(ctx, cir, {"granted": True}, new_hash)
+    assert len(_jobs(reopened, job_type="gate.quality")) == 1
+    assert len(_audits(reopened, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()
