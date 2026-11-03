@@ -35,6 +35,7 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
     "teardown.review_finding": (True, "review one reference finding independently"),
     "teardown.review_analysis": (True, "review structured reference observations independently"),
+    "teardown.review_technique": (True, "review an additional reference technique observation"),
     "teardown.attest_finding_recorder": (True, "attest the recorder of a legacy finding"),
     "design_knowledge.review_rule": (True, "independently review a proposed design rule"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
@@ -367,6 +368,27 @@ def inbox(db) -> dict:
         reason = (reason + "; " if reason else "") + (
             f"policy changes unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
+    # Historical reference cues need an explicit independent owner decision.
+    try:
+        from ...teardown.review import pending_technique_observations
+
+        for cue in pending_technique_observations(db):
+            cards.append({
+                "card_id": f"technique:{cue['id']}", "kind": "technique_review",
+                "title": "Review reference technique observation",
+                "what": (f"Analysis {cue['analysis_id']}: {cue['kind']}; "
+                         f"pages {', '.join(str(p) for p in cue['pages']) or 'none'}. "
+                         "Confirm against the licensed source before deciding."),
+                "executable": True,
+                "actions": [{"action": "teardown.review_technique", "requires_step_up": True,
+                             "params": {"observation_id": cue["id"],
+                                        "decision": "<reviewed or rejected>",
+                                        "reason": "<independent review reason>"}}],
+                "sources": [f"benchmark-technique:{cue['id']}"]})
+    except Exception as exc:  # noqa: BLE001 - a missing review queue is not an empty queue
+        reason = (reason + "; " if reason else "") + (
+            f"technique reviews unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
     # W4-CCREL: the release approval card. The deploy decision (gate production_window)
     # carries the candidate SHA, suite result, security review and rollback target; with no
     # deploy decision open, a pending candidate gets its own read-only card.
@@ -661,12 +683,16 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                     actor="owner", reason=reason)
             except (review.ReviewRefused, ContentRefused, LibraryRefused) as exc:
                 raise ActionRefused(str(exc)[:400]) from None
-        elif action in ("teardown.review_finding", "teardown.review_analysis"):
+        elif action in ("teardown.review_finding", "teardown.review_analysis", "teardown.review_technique"):
             from ...teardown import review
 
             try:
-                fn = review.review_finding if action.endswith("review_finding") else review.review_analysis
-                ident = "finding_id" if action.endswith("review_finding") else "analysis_id"
+                if action.endswith("review_finding"):
+                    fn, ident = review.review_finding, "finding_id"
+                elif action.endswith("review_analysis"):
+                    fn, ident = review.review_analysis, "analysis_id"
+                else:
+                    fn, ident = review.review_technique_observation, "observation_id"
                 result = fn(db, _int(body, ident), reviewer="owner",
                             decision=str(body.get("decision") or ""), reason=reason)
             except (review.ReviewRefused, ValueError) as exc:

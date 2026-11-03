@@ -13,6 +13,16 @@ from .worker import handlers
 def handle_teardown_analyse(ctx):
     inputs = dict(ctx.job.inputs or {})
     ctx.assert_lease()
+    if inputs.get("mode") == "technique_supplement":
+        result = analysis_store.supplement_technique(ctx.db, inputs.get("analysis_id"),
+            expected_source_digest=inputs.get("source_digest"),
+            expected_extractor_sha256=inputs.get("extractor_sha256"))
+        ctx.assert_lease()
+        if result.get("id"):
+            ctx.audit("teardown.technique_proposed", detail={"analysis_id": inputs["analysis_id"],
+                "observation_id": result["id"], "created": result["created"]})
+        return {"observation_id": result.get("id"), "state": result["state"],
+                "work_done": int(result["created"])}
     result = analysis_store.analyse_file(ctx.db, inputs.get("benchmark_id"),
                                          inputs.get("file_sha256"))
     ctx.assert_lease()
@@ -84,15 +94,19 @@ def handle_teardown_analyse_sweep(ctx):
                 blocked += 1
                 continue
             proposed += int(result["proposed"])
-    gap_changes = 0
+    gap_changes = supplement_queued = supplement_requeued = 0
     for analysis_id in analyses:
         ctx.assert_lease()
+        supplement = jobs.enqueue_technique_supplement(ctx.db, analysis_id)
+        supplement_queued += supplement["queued"]
+        supplement_requeued += supplement.get("requeued", 0)
         gap_changes += int(knowledge_gaps.observe_analysis(ctx.db, analysis_id)["changed"])
     return {"purchases": len(ids), "queued": queued, "existing": existing, "requeued": requeued,
             "licence_refused": refused, "knowledge_proposed": proposed,
             "knowledge_blocked": blocked, "knowledge_scope_conflict": scope_problem,
-            "gap_changes": gap_changes,
-            "work_done": queued + proposed + gap_changes}
+            "gap_changes": gap_changes, "technique_queued": supplement_queued,
+            "technique_requeued": supplement_requeued,
+            "work_done": queued + proposed + gap_changes + supplement_queued}
 
 
 @handlers.register("design_eval.evaluate")

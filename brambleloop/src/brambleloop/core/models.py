@@ -1269,6 +1269,28 @@ class BenchmarkAnalysis(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BenchmarkTechniqueObservation(Base):
+    """An additive, independently reviewable extraction from an existing analysis."""
+
+    __tablename__ = "benchmark_technique_observations"
+    __table_args__ = (UniqueConstraint("analysis_id", "extractor_version", "extractor_sha256", "source_digest",
+                                       name="uq_technique_observation_source"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    analysis_id: Mapped[int] = mapped_column(ForeignKey("benchmark_analyses.id"), index=True)
+    extractor_version: Mapped[str] = mapped_column(String(40))
+    extractor_sha256: Mapped[str] = mapped_column(String(64))
+    source_digest: Mapped[str] = mapped_column(String(64))
+    file_sha256: Mapped[str] = mapped_column(String(64))
+    observation: Mapped[dict] = mapped_column(JSON)
+    recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class TeardownFinding(Base):
     """One scored observation about a purchased benchmark (#153-#161)."""
 

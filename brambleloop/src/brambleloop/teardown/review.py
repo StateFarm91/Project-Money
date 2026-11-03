@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from sqlalchemy import select, update
 
 from ..core.models import (AuditLog, BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct,
-                           TeardownFinding, utcnow)
+                           BenchmarkTechniqueObservation, TeardownFinding, utcnow)
 from .library import ContentRefused, check_derived
 
 
@@ -26,6 +27,12 @@ def evidence_digest(row) -> str:
     if isinstance(row, BenchmarkAnalysis):
         data = {"id": row.id, "benchmark_id": row.benchmark_id,
                 "file_sha256": row.file_sha256, "observations": row.observations,
+                "recorded_by": row.recorded_by}
+    elif isinstance(row, BenchmarkTechniqueObservation):
+        data = {"id": row.id, "analysis_id": row.analysis_id,
+                "extractor_version": row.extractor_version, "extractor_sha256": row.extractor_sha256,
+                "source_digest": row.source_digest,
+                "file_sha256": row.file_sha256, "observation": row.observation,
                 "recorded_by": row.recorded_by}
     elif isinstance(row, TeardownFinding):
         detail = row.detail if isinstance(row.detail, dict) else {}
@@ -66,6 +73,110 @@ def independent_decision(row, decision: str) -> bool:
 
 def independently_reviewed(row) -> bool:
     return independent_decision(row, "reviewed")
+
+
+_SUPPORTED_TECHNIQUE_EXTRACTORS = frozenset({"round_joining_v1"})
+
+
+def _technique_source_valid(session, row, *, lock=True) -> bool:
+    from .analysis_store import manifested_pdf
+
+    observation = row.observation
+    if (row.extractor_version not in _SUPPORTED_TECHNIQUE_EXTRACTORS
+            or not isinstance(row.extractor_sha256, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", row.extractor_sha256)
+            or not isinstance(observation, dict)
+            or set(observation) != {"kind", "pages"}
+            or observation.get("kind") not in ("unknown", "mixed_cues", "joined_rounds_cue", "spiral_rounds_cue")
+            or not isinstance(observation.get("pages"), list)
+            or any(type(p) is not int or p <= 0 for p in observation["pages"])
+            or observation["pages"] != sorted(set(observation["pages"]))
+            or (observation["kind"] == "unknown") != (not observation["pages"])):
+        return False
+    source_query = select(BenchmarkAnalysis).where(BenchmarkAnalysis.id == row.analysis_id)
+    source = session.scalar(source_query.with_for_update() if lock else source_query)
+    if source is None or source.file_sha256 != row.file_sha256 or evidence_digest(source) != row.source_digest:
+        return False
+    product_query = select(BenchmarkProduct).where(BenchmarkProduct.id == source.benchmark_id)
+    product = session.scalar(product_query.with_for_update() if lock else product_query)
+    if not manifested_pdf(product, row.file_sha256):
+        return False
+    licence_query = select(BenchmarkLicence).where(BenchmarkLicence.source_ref == product.ref)
+    licence = session.scalar(licence_query.with_for_update() if lock else licence_query)
+    return bool(licence is not None and "private_analysis" in (licence.allowed_uses or [])
+                and "private_analysis" not in (licence.prohibited_uses or []))
+
+
+def pending_technique_observations(db) -> list[dict]:
+    """Expose only validated, closed-vocabulary evidence in the owner inbox."""
+    with db.session() as s:
+        rows = s.scalars(select(BenchmarkTechniqueObservation).where(
+            BenchmarkTechniqueObservation.review_state == "proposed").order_by(
+            BenchmarkTechniqueObservation.id).limit(100))
+        result = []
+        for row in rows:
+            try:
+                valid = _technique_source_valid(s, row, lock=False)
+            except (ReviewRefused, TypeError, ValueError):
+                valid = False
+            if valid:
+                result.append({"id": row.id, "analysis_id": row.analysis_id,
+                               "kind": row.observation["kind"],
+                               "pages": list(row.observation["pages"])})
+        return result
+
+
+def independently_reviewed_technique(db, observation_id: int) -> bool:
+    """A review is usable only while its exact source and licence remain current."""
+    if type(observation_id) is not int or observation_id <= 0:
+        return False
+    with db.session() as s:
+        row = s.get(BenchmarkTechniqueObservation, observation_id)
+        try:
+            return bool(row is not None and independently_reviewed(row) and _technique_source_valid(s, row))
+        except ReviewRefused:
+            return False
+
+
+def review_technique_observation(db, observation_id: int, *, reviewer: str,
+                                 decision: str, reason: str) -> dict:
+    if type(observation_id) is not int or observation_id <= 0:
+        raise ReviewRefused("invalid technique observation")
+    if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 64:
+        raise ReviewRefused("reviewer identity required")
+    if decision not in ("reviewed", "rejected"):
+        raise ReviewRefused("decision must be reviewed or rejected")
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
+        raise ReviewRefused("reason required")
+    reviewer = reviewer.strip()
+    try:
+        check_derived(reason)
+        check_derived(reviewer)
+    except ContentRefused as exc:
+        raise ReviewRefused(str(exc)) from exc
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkTechniqueObservation).where(
+            BenchmarkTechniqueObservation.id == observation_id).with_for_update())
+        if row is None or not row.recorded_by or principal(row.recorded_by) == principal(reviewer):
+            raise ReviewRefused("independent reviewer required")
+        if not _reviewable(row):
+            raise ReviewRefused("technique observation has already been reviewed")
+        if not _technique_source_valid(s, row):
+            raise ReviewRefused("technique source or licence is no longer valid")
+        digest = evidence_digest(row)
+        changed = s.execute(update(BenchmarkTechniqueObservation).where(
+            BenchmarkTechniqueObservation.id == observation_id,
+            BenchmarkTechniqueObservation.review_state == row.review_state,
+            BenchmarkTechniqueObservation.recorded_by == row.recorded_by,
+            BenchmarkTechniqueObservation.reviewed_sha256 == row.reviewed_sha256).values(
+                review_state=decision, reviewed_by=reviewer, reviewed_at=utcnow(), reviewed_sha256=digest))
+        if changed.rowcount != 1:
+            raise ReviewRefused("technique observation changed while being reviewed")
+        s.add(AuditLog(actor=reviewer, action="teardown.technique_reviewed",
+                       artifact=f"benchmark-technique:{observation_id}", detail={
+                           "observation": observation_id, "decision": decision,
+                           "reason": reason.strip(), "evidence_sha256": digest}))
+        return {"observation": observation_id, "review_state": decision}
 
 
 def _reviewable(row) -> bool:
