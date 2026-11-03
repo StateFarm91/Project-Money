@@ -40,8 +40,24 @@ def _withdraw_changed_release_requests(session, _context, _instances):
             versions = {obj.version, *state.attrs.version.history.deleted}
             if isinstance(obj, Listing):
                 slugs = {obj.product_slug, *state.attrs.product_slug.history.deleted}
+                # Attribute history omits the previous value when it was deferred or
+                # expired at assignment. Read the persisted identity before flush.
+                if state.persistent:
+                    previous = session.execute(select(Listing.__table__.c.product_slug,
+                                                      Listing.__table__.c.version).where(
+                        Listing.__table__.c.id == state.identity[0])).first()
+                    if previous:
+                        slugs.add(previous.product_slug)
+                        versions.add(previous.version)
             else:
                 ids = {obj.product_id, *state.attrs.product_id.history.deleted} - {None}
+                if state.persistent:
+                    previous = session.execute(select(PatternVersion.__table__.c.product_id,
+                                                      PatternVersion.__table__.c.version).where(
+                        PatternVersion.__table__.c.id == state.identity[0])).first()
+                    if previous:
+                        ids.add(previous.product_id)
+                        versions.add(previous.version)
                 slugs = set(session.scalars(select(Product.slug).where(Product.id.in_(ids))))
             keys.update((slug, version) for slug in slugs for version in versions
                         if slug and version)
