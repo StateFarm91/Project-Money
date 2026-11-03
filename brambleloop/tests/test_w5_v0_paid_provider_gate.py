@@ -391,6 +391,40 @@ def test_concurrent_calls_cannot_share_one_company_reservation():
     assert len(_calls_rows(db)) == 1
 
 
+def test_invalid_or_missing_usage_never_credits_provider_budget():
+    for usage in (None, 0, -1, float("nan"), float("inf")):
+        db = _db()
+        _activate(db, at=NOW, daily_ceiling_cad=0.5, monthly_ceiling_cad=5, per_gallery_cad=2)
+        ticket = _authorize(db, f"usage-{usage}", estimate=0.4)
+        G.settle(db, ticket, G.BILLED, actual_cad=usage)
+        _refused(lambda: _authorize(db, "next", estimate=0.4),
+                 code="provider_daily_ceiling")
+        with db.session() as session:
+            row = session.get(G.PaidProviderCall, ticket["call_id"])
+            if usage is None or usage == 0:
+                assert row.status == G.BILLED and row.actual_cad == 0.4
+            else:
+                assert row.status == G.UNCERTAIN
+
+
+def test_retention_never_reuses_paid_reservation_identity():
+    from brambleloop.finance import reservations
+    from brambleloop.core.models import SpendReservation
+
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "first-id", estimate=0.4, reservation=held)
+    G.settle(db, ticket, G.RELEASED)
+    reservations.release(db, held["reservation_id"], now=NOW)
+    reservations.sweep(db, now=NOW + timedelta(days=3))
+    with db.session() as session:
+        assert session.get(SpendReservation, held["reservation_id"]) is not None
+    fresh = _reserve(db, estimate=0.4)
+    assert fresh["reservation_id"] != held["reservation_id"]
+    assert _authorize(db, "new-id", estimate=0.4, reservation=fresh)
+
+
 # ---- 3. every limit refuses independently ---------------------------------------------------
 
 def _reserve(db, estimate=FLUX_CAD, provider=FLUX, now=NOW):

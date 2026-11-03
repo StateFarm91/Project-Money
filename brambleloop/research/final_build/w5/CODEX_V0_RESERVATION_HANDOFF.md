@@ -20,3 +20,18 @@ Focused tests cover an underfunded reservation, sequential reuse including after
 release, concurrent reuse against one SQLite file, and normal owner-authorized
 flows. A PostgreSQL concurrency test and independent security review remain
 necessary; no integration, production certification or deployment is claimed.
+
+## Independent review: blocking findings
+
+Do not integrate or activate V0. A reservation can be released or expire after
+authorization while the paid attempt remains unresolved, and the company ceiling
+can forget that exposure; a pre-send recheck cannot close the race. Probe scope is
+caller controlled, so probe-only activation can authorize an arbitrary image
+prompt. Both require correction and independent review. See Issue #28.
+
+The subsequent partial hardening refuses negative/nonfinite settlement and counts
+missing or zero usage at the estimate in the provider ledger. It does not establish
+that all company CostEntry writers do the same. Retention now preserves reservation
+rows referenced by provider attempts to avoid future SQLite ID reuse. Previously
+deleted or reused IDs are not automatically recoverable and require reconciliation.
+Neither change closes the company exposure or probe authority blockers.

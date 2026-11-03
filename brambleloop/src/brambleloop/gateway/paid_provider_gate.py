@@ -723,10 +723,20 @@ def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
             row = s.get(PaidProviderCall, int(ticket["call_id"]))
             if row is None or row.status != RESERVED:
                 return
-            row.status = status
             if status == BILLED:
-                row.actual_cad = round(float(actual_cad if actual_cad is not None
-                                             else row.estimate_cad), 6)
+                # Missing/zero usage is not proof a provider call was free. Invalid
+                # usage must never become a negative credit against the owner's cap.
+                try:
+                    value = float(actual_cad) if actual_cad is not None else None
+                except (TypeError, ValueError, OverflowError):
+                    value = float("nan")
+                if value is not None and (not math.isfinite(value) or value < 0):
+                    status = UNCERTAIN
+                    error = "invalid provider usage; counted at the reserved estimate"
+                else:
+                    row.actual_cad = round(value if value and value > 0
+                                           else float(row.estimate_cad), 6)
+            row.status = status
             row.error = str(error or "")[:300]
             row.settled_at = utcnow()
     except Exception:  # noqa: BLE001 - unsettled means still counted, the safe direction
