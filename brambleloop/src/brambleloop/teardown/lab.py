@@ -115,10 +115,64 @@ def promote_finding(db, finding_id: int) -> dict:
 # #152-#161: recording
 
 
+def _record_analysis_prefill(db, benchmark_ref: str, spec_key: str, analysis_id: int) -> dict:
+    """Persist only defended presence answers; withheld answers remain unknown."""
+    from sqlalchemy import select
+    from ..core.models import AuditLog, BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct
+    from .review import evidence_digest
+
+    if spec_key != audits.PDF_ARCHITECTURE.key or type(analysis_id) is not int or analysis_id <= 0:
+        raise LabRefused("invalid architecture prefill")
+    with db.session() as s:
+        source = s.scalar(select(BenchmarkAnalysis).where(
+            BenchmarkAnalysis.id == analysis_id).with_for_update())
+        product = s.get(BenchmarkProduct, source.benchmark_id) if source is not None else None
+        if product is None or product.ref != benchmark_ref or not any(
+                item.get("sha256") == source.file_sha256 for item in (product.files or [])):
+            raise LabRefused("analysis source is not in the current purchase manifest")
+        terms = s.scalar(select(BenchmarkLicence).where(BenchmarkLicence.source_ref == product.ref))
+        if terms is None or "private_analysis" not in (terms.allowed_uses or []) \
+                or "private_analysis" in (terms.prohibited_uses or []):
+            raise LabRefused("analysis licence does not permit private use")
+        data = source.observations if isinstance(source.observations, dict) else {}
+        answers, withheld = data.get("architecture"), data.get("architecture_withheld")
+        if not isinstance(answers, dict) or not isinstance(withheld, list):
+            return {"recorded": False, "reason": "prefill_unavailable"}
+        valid = set(audits.PDF_ARCHITECTURE.element_keys)
+        if (not all(isinstance(k, str) and k in valid for k in answers)
+                or not all(isinstance(k, str) and k in valid for k in withheld)
+                or len(withheld) != len(set(withheld)) or set(answers) & set(withheld)
+                or set(answers) | set(withheld) != valid):
+            raise LabRefused("architecture prefill is invalid")
+        clean = {}
+        for key, value in answers.items():
+            if (not isinstance(value, dict) or set(value) != {"present", "pages"}
+                    or type(value["present"]) is not bool or not isinstance(value["pages"], list)
+                    or any(type(page) is not int or page <= 0 for page in value["pages"])):
+                raise LabRefused("architecture prefill is invalid")
+            clean[key] = {"present": value["present"], "pages": list(value["pages"])}
+        digest = evidence_digest(source)
+        previous = s.get(AuditLog, source.prefill_audit_id) if source.prefill_audit_id else None
+        if previous is not None and previous.action == "teardown.audit_prefilled" \
+                and (previous.detail or {}).get("evidence_sha256") == digest:
+            return {"recorded": False, "audit_id": previous.id, "reason": "already_recorded"}
+        event = AuditLog(actor="teardown_analyst", action="teardown.audit_prefilled",
+                         artifact=f"benchmark-analysis:{analysis_id}", detail={
+                             "analysis_id": analysis_id, "audit": spec_key,
+                             "evidence_sha256": digest, "answers": clean,
+                             "withheld": sorted(withheld), "complete": not withheld})
+        s.add(event)
+        s.flush()
+        source.prefill_audit_id = event.id
+        return {"recorded": True, "audit_id": event.id, "withheld": len(withheld)}
+
+
 def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
                  confidence=None, raw_notes: str = "", recorded_by: str | None = None,
-                 recorder_verified: bool = False) -> dict:
+                 recorder_verified: bool = False, prefill_analysis_id: int | None = None) -> dict:
     """One complete audit, recorded, promoted, and asked the delight question."""
+    if prefill_analysis_id is not None:
+        return _record_analysis_prefill(db, benchmark_ref, spec_key, prefill_analysis_id)
     inferred = inferred_for(db, benchmark_ref)
     audit = audits.observe(spec_key, benchmark_ref, answers, inferred=inferred)
     recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes,

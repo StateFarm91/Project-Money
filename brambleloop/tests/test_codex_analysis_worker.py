@@ -11,15 +11,15 @@ from sqlalchemy import select
 
 from brambleloop.agents.registry import Registry
 from brambleloop.core.db import Database
-from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
-                                     DesignRule, Incident, Job, JobStatus, utcnow)
+from brambleloop.core.models import (AuditLog, BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
+                                     DesignRule, Incident, Job, JobStatus, TeardownFinding, utcnow)
 from brambleloop.intel import benchmarks
 from brambleloop.products.builder import for_slug
 from brambleloop.publish.pdf import build_pattern_pdf
 from brambleloop.runtime import pipeline  # noqa: F401 -- registers actual handlers
 from brambleloop.runtime.worker import Worker
 from brambleloop.queue.durable import JobQueue
-from brambleloop.teardown import intake, jobs, library, licence, review
+from brambleloop.teardown import audits, intake, jobs, lab, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
@@ -170,9 +170,42 @@ class AnalysisWorkerTests(unittest.TestCase):
                     self.assertEqual(analysis.observations["dimensions"]["finishing"], "absent")
                     self.assertFalse(analysis.observations["architecture_complete"])
                     self.assertTrue(analysis.observations["architecture_withheld"])
+                    event = s.get(AuditLog, analysis.prefill_audit_id)
+                    self.assertEqual(event.action, "teardown.audit_prefilled")
+                    self.assertEqual(event.detail["withheld"], sorted(analysis.observations["architecture_withheld"]))
+                    self.assertFalse(event.detail["complete"])
+                    self.assertNotIn("synthetic fixture", str(event.detail))
+                    self.assertEqual(list(s.scalars(select(TeardownFinding))), [])
+                    audit_id = event.id
                     gap = s.scalar(select(Incident).where(
                         Incident.signature == f"learning.knowledge_gap:analysis:{analysis_id}"))
                     self.assertEqual(gap.detail["state"], "review_required")
+                with db.session() as s:
+                    ref = s.get(BenchmarkProduct, benchmark_id).ref
+                repeated = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertEqual(repeated["audit_id"], audit_id)
+                self.assertFalse(repeated["recorded"])
+                with db.session() as s:
+                    self.assertEqual(len(list(s.scalars(select(AuditLog).where(
+                        AuditLog.action == "teardown.audit_prefilled")))), 1)
+                    source = s.get(BenchmarkAnalysis, analysis_id)
+                    observations = dict(source.observations)
+                    bad = dict(observations)
+                    bad["architecture_withheld"] = list(bad["architecture_withheld"]) + ["unknown_key"]
+                    source.observations = bad
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                with db.session() as s:
+                    s.get(BenchmarkAnalysis, analysis_id).observations = observations
+                licence.capture_purchase(db, ref, terms={"allowed_uses": [],
+                                         "prohibited_uses": ["private_analysis"]})
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                licence.capture_purchase(db, ref, terms={"allowed_uses": list(licence.PRIVATE_RESEARCH_USES),
+                                         "prohibited_uses": list(licence.PUBLISHING_USES)})
                 queue = JobQueue(db)
                 queue.enqueue("orchestrator", "teardown.analyse_sweep", {}, idempotency_key="sweep:1")
                 self.assertTrue(Worker(db, name="sweep1", job_types=["teardown.analyse_sweep"]).run_once())

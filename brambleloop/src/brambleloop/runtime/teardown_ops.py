@@ -5,7 +5,7 @@ from ..core.models import BenchmarkAnalysis, BenchmarkProduct, DesignRule
 from ..improve import design_knowledge, knowledge_gaps
 from ..quality import design_eval
 from ..queue.durable import DuplicateJob, JobQueue
-from ..teardown import analysis_store, jobs, licence
+from ..teardown import analysis_store, audits, jobs, lab, licence
 from .worker import handlers
 
 
@@ -16,6 +16,12 @@ def handle_teardown_analyse(ctx):
     result = analysis_store.analyse_file(ctx.db, inputs.get("benchmark_id"),
                                          inputs.get("file_sha256"))
     ctx.assert_lease()
+    with ctx.db.session() as s:
+        product = s.get(BenchmarkProduct, inputs["benchmark_id"])
+        ref = product.ref if product is not None else ""
+    prefill = lab.record_audit(ctx.db, ref, audits.PDF_ARCHITECTURE.key, {},
+                               prefill_analysis_id=result["id"])
+    ctx.assert_lease()
     progress = analysis_store.reconcile_state(ctx.db, inputs["benchmark_id"])
     gap = knowledge_gaps.observe_analysis(ctx.db, result["id"])
     ctx.audit("teardown.analysis_recorded", detail={"benchmark_id": inputs["benchmark_id"],
@@ -23,7 +29,8 @@ def handle_teardown_analyse(ctx):
     # Analysis is not review or approval: the observation remains proposed.
     return {"analysis_id": result["id"], "created": result["created"],
             "analysis_state": progress["state"], "gap_state": gap["state"],
-            "work_done": int(result["created"] or gap["changed"])}
+            "prefill_audit_id": prefill.get("audit_id"),
+            "work_done": int(result["created"] or prefill.get("recorded") or gap["changed"])}
 
 
 @handlers.register("teardown.analyse_sweep")

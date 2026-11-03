@@ -1259,6 +1259,7 @@ class BenchmarkAnalysis(Base):
     benchmark_id: Mapped[int] = mapped_column(ForeignKey("benchmark_products.id"), index=True)
     file_sha256: Mapped[str] = mapped_column(String(64))
     observations: Mapped[dict] = mapped_column(JSON)
+    prefill_audit_id: Mapped[int | None] = mapped_column(ForeignKey("audit_log.id"), nullable=True)
     recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
