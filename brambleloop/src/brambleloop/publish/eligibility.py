@@ -690,6 +690,37 @@ def _drafted_by_a_rule(cir) -> bool:
         return True
 
 
+def _full_row_stripes_backed(cir, twin) -> bool:
+    """Prove colour bands from the twin; uncertain or nonuniform rows do not pass."""
+    import re
+
+    palette = cir.colors or {}
+    bands = []
+    for row in twin.color_grid():
+        if not row or None in row or len(set(row)) != 1:
+            return False
+        colour = palette.get(row[0])
+        if not isinstance(colour, str) or not colour.strip():
+            return False
+        colour = colour.strip().casefold()
+        if re.fullmatch(r"#[0-9a-f]{3}", colour):
+            colour = "#" + "".join(c * 2 for c in colour[1:])
+        bands.append(colour)
+    return len(set(bands)) >= 2 and sum(a != b for a, b in zip(bands, bands[1:])) >= 2
+
+
+def _stripe_claimed(cir, listing) -> bool:
+    import re
+    from ..products.text_fold import fold
+
+    data = listing if isinstance(listing, dict) else {}
+    tags = data.get("tags") or []
+    tags = tags if isinstance(tags, (tuple, list)) else []
+    text = " ".join(str(x or "") for x in [cir.title, data.get("title"),
+                     data.get("description"), *tags])
+    return bool(re.search(r"\bstrip(?:e|es|ed)\b", fold(text)))
+
+
 def name_truth(cir, listing: dict | None = None) -> list[str]:
     """W4-PIPE: what the product's name promises that its CIR does not make.
 
@@ -731,6 +762,8 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)
+        if _stripe_claimed(cir, listing) and not _full_row_stripes_backed(cir, twin):
+            out.append("fabric: stripe claim lacks visible alternating colour bands in the pattern")
         fabric = l0.fabric_truth(cir, twin)
         if not fabric.get("backed"):
             out.append(f"fabric: {fabric.get('why')}")
@@ -741,6 +774,8 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
 
             out.extend(f"listing: {f}" for f in colourwork_findings(
                 cir, twin, title=listing.get("title") or "", tags=listing.get("tags") or ()))
+    if not result.ok and _stripe_claimed(cir, listing):
+        out.append("fabric: stripe claim cannot be verified against an invalid pattern")
     # W4-PIPE: imagery the name promises that the motif does not depict (W4-CREATIVE's
     # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
     # checked too: outside Launch-0 its words come from the slug and radar seed, which can
