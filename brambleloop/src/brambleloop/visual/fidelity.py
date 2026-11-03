@@ -955,6 +955,11 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
             problems.append("ribbing the pattern does not have")
         elif v["ribbing_visible"] not in ("false", "no"):
             unclear.append("ribbing unclear")
+    else:
+        if v["ribbing_visible"] in ("false", "no"):
+            problems.append("the pattern's ribbing is not visible")
+        elif v["ribbing_visible"] not in ("true", "yes"):
+            unclear.append("pattern ribbing not clearly visible")
     edging = (not exp.edging_declared and v["border_or_edging_visible"] in ("true", "yes"))
     if problems:
         return _check("craft_texture", FAIL, "; ".join(problems),

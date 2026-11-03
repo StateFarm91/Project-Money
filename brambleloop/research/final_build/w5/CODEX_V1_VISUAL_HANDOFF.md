@@ -26,3 +26,10 @@ required. No image or physical fidelity claim is established.
 The parent V1 handoff already says its Cloudline experiment definition changed and
 requires fresh owner authorization. This continuation does not authorize it.
 Independent review, integration and production verification are still required.
+
+Review follow-up: a ribbed design cannot PASS craft fidelity when ribbing is
+reported absent (FAIL) or unclear (UNKNOWN). Component-level evidence is now
+aggregated conservatively: mixed/unknown pieces remain UNKNOWN and cannot cause
+a global "no ribbing" claim. Real-CIR small-ribbed-component and actual blind
+reading tests pass. V1 focused suite: 17/17 on Python 3.11. Independent review
+and the full fidelity regression remain open; this checkpoint is not accepted.

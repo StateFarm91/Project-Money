@@ -162,7 +162,10 @@ def fabric_facts(cir, parts=None) -> dict:
     unit = "round" if is_round else "row"
     colours = dict(cir.colors)
     used = {c.stitch for c in twin.cells}
-    ribbing = _ribbing(comp, rows, used)
+    # Mixed component evidence cannot justify a global texture claim.
+    rib_states = [_ribbing(part, _rows_of(part_twin), {c.stitch for c in part_twin.cells})
+                  for part, part_twin, _ in parts]
+    ribbing = rib_states[0] if rib_states and all(x is rib_states[0] for x in rib_states) else None
     named = " ".join([c.name for c in cir.components]
                      + [str(a) for a in (cir.to_dict().get("assembly") or [])]).lower()
     edging = any(w in named for w in ("edging", "border", "trim", "fringe"))

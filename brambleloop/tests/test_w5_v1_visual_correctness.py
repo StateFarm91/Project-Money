@@ -324,6 +324,40 @@ def test_sparse_loop_only_stitches_do_not_prove_whole_row_ribbing():
     assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
 
 
+def test_expected_ribbing_cannot_pass_when_not_visible():
+    from brambleloop.products.texture import build_ribbed_scarf
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(build_ribbed_scarf())
+    assert exp.ribbing_declared is True
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
+    reading["ribbing_visible"] = "unclear"
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["ribbing_visible"] = "true"
+    assert fidelity.compare_craft(reading, exp)["status"] == "PASS"
+
+
+def test_small_ribbed_component_prevents_global_no_ribbing_claim():
+    from brambleloop.cir.model import Op, Repeat
+    from brambleloop.creative import pattern_refs as P
+    from brambleloop.visual import fidelity
+    pine = {"pine": "#244A3A"}
+    cir = _flat("large-plain-small-rib", [_row(i, "pine") for i in range(1, 22)], pine)
+    small_rows = [_row(i, "pine") for i in range(1, 5)]
+    for i in (1, 2):
+        small_rows[i].ops = [Repeat([Op("fpdc", 2), Op("bpdc", 2)], times=3)]
+    small = _flat("small-rib", small_rows, pine).components[0]
+    small.name = "cuff"
+    cir.components.append(small)
+    facts = P.fabric_facts(cir)
+    assert facts["ribbing_declared"] is None, facts
+    assert not any(n.startswith("ribbing anywhere") for n in _rules(cir)["negatives"])
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    assert fidelity.compare_craft(reading, fidelity.expectation(cir))["status"] == "UNKNOWN"
+
+
 # ---- P1-b + P2-b ----------------------------------------------------------------------------
 
 def test_basket_prompt_names_six_corners_two_wine_stripes_and_the_plain_cream_rim():
