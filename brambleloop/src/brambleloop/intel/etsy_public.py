@@ -234,6 +234,14 @@ def health(env: dict[str, str] | None = None) -> dict:
     }
 
 
+class CatalogueResult(list):
+    """Catalogue rows with an explicit provider-reported pagination outcome."""
+
+    def __init__(self, items=(), *, complete=False):
+        super().__init__(items)
+        self.complete = complete is True
+
+
 class PublicReader:
     """Read public marketplace data. Cannot write, cannot authenticate as anybody."""
 
@@ -339,6 +347,9 @@ class PublicReader:
         """Every active listing, paginated. #207 asks for the complete catalogue, not a sample."""
         out: list[dict] = []
         offset = 0
+        complete = False
+        counts_consistent = True
+        initial_total = None
         for _ in range(max_pages):
             page = self.get("shop_listings", path={"shop_id": shop_id},
                             query={"limit": min(limit, PAGE_MAX), "offset": offset})
@@ -346,9 +357,26 @@ class PublicReader:
             out.extend(results)
             count = page.get("count")
             offset += len(results)
-            if not results or (count is not None and offset >= int(count)):
+            if type(count) is int and count >= 0:
+                total = count
+            elif isinstance(count, str) and count.isascii() and count.isdecimal() and len(count) <= 32:
+                total = int(count)
+            else:
+                total = None
+            if total is None:
+                counts_consistent = False
+            elif initial_total is None:
+                initial_total = total
+            elif total != initial_total:
+                counts_consistent = False
+            if not results:
+                # An empty page contradicting its own count is not a complete scan.
+                complete = counts_consistent and total is not None and offset == total
                 break
-        return out
+            if total is not None and offset >= total:
+                complete = counts_consistent and offset == total
+                break
+        return CatalogueResult(out, complete=complete)
 
     def shop(self, shop_id: int | str) -> dict:
         """One shop's public record (`getShop`): its name and its stated location (#219)."""

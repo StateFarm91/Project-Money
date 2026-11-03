@@ -145,6 +145,8 @@ _GEOMETRY: dict[str, dict] = {
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
     "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
     "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
+    # 28 sts / 27 mixed rows: approximately square at the declared worsted gauge.
+    "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 27},
     "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
     "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},
@@ -267,6 +269,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
 
+    # A4(a) continuation: every scan also works the coverage-gap queue (radar.score with no
+    # slug -> `_score_coverage_handoff`), so a gap whose ideation finished is followed by the
+    # next eligible gap on this cadence with no session. Only when an open gap exists; keyed
+    # per scan job, so a re-delivered scan queues nothing new.
+    if _open_gap_count(ctx.db):
+        ctx.enqueue("market_radar", "radar.score",
+                    {"handoff": {"source": "radar.scan", "scan_job": ctx.job.id},
+                     "as_of": today.isoformat()},
+                    idempotency_key=f"coverage-handoff:scan:{ctx.job.id}")
+
     # F-051: observed demand in a pod our catalogue does not cover becomes a coverage gap on
     # the queue radar.score's gap handoff already works -- expansion by new queries, never
     # by near-duplicate SKUs. A planner fault never costs the scan.
@@ -297,6 +309,16 @@ def _scan_date(ctx: JobContext) -> date:
 
 
 _OPEN_GAP_STATES = ("uncovered", "concepting")
+
+
+def _open_gap_count(db) -> int:
+    from sqlalchemy import func, select
+
+    from ..core.models import CoverageGap
+
+    with db.session() as s:
+        return int(s.scalar(select(func.count(CoverageGap.id))
+                            .where(CoverageGap.state.in_(_OPEN_GAP_STATES))) or 0)
 
 
 def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
@@ -350,14 +372,23 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
         job = ctx.enqueue("market_radar", "radar.score", payload,
                           idempotency_key=f"score:{slug}:{today.isoformat()}")
         (queued if job is not None else already).append(slug)
+    # A4(a) P0-RESEARCH-TO-CONCEPT: a gap no concept answers is an ideation need, and it now
+    # becomes one research task per gap carrying the ideation brief {gap, pod, arena}; the
+    # research step answers it from recorded observations and proposes a concept to intake.
+    # Bounded (radar.ideation.MAX_IN_FLIGHT) and idempotent per gap; never a guessed concept.
+    from ..radar import ideation
+
+    ideated = ideation.open_briefs(ctx, unanswered, today=today)
     ctx.audit("radar.gap_queue_scored", detail={
         "source": sorted(k for k in inputs if k != "slug") or ["no inputs"],
         "open_gaps": len(gaps), "queued": queued, "already_queued": already,
         "without_a_pool_concept": unanswered[:50], "handoff": handoff,
+        "ideation": {k: ideated[k] for k in ("opened", "already", "waiting", "completed")},
         "as_of": today.isoformat()})
     return {"slug": None, "score": None, "promoted": False, "mode": "coverage_handoff",
             "open_gaps": len(gaps), "queued": queued, "already_queued": already,
             "without_a_pool_concept": len(unanswered), "unanswered": unanswered[:50],
+            "ideation": ideated,
             "reason": ("coverage-gap queue: each open gap's pool concepts re-scored by slug"
                        if queued or already else
                        "no open coverage gap has a concept in the radar pool; nothing to "
