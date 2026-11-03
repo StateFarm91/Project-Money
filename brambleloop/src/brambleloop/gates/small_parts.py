@@ -29,6 +29,15 @@ SMALL_PARTS_EVIDENCE: dict[str, str] = {}
 
 def verdict(narrow_mm: float, long_mm: float, *, tolerance: float = SMALL_PARTS_TOLERANCE_MM
             ) -> str:
+    # NaN compares false against every threshold; treating it as clear would let
+    # unknown geometry pass a child-safety gate. Infinity, zero, and negatives
+    # likewise cannot describe a measured piece.
+    if any(isinstance(v, bool) or not isinstance(v, (int, float))
+           or not math.isfinite(v) or v <= 0 for v in (narrow_mm, long_mm)):
+        return UNKNOWN
+    if (isinstance(tolerance, bool) or not isinstance(tolerance, (int, float))
+            or not math.isfinite(tolerance) or tolerance < 0):
+        return UNKNOWN
     if narrow_mm <= CYLINDER_MM and long_mm <= DEPTH_MM:
         return FITS
     if narrow_mm <= CYLINDER_MM + tolerance and long_mm <= DEPTH_MM + tolerance:
@@ -42,8 +51,11 @@ def separable_pieces(cir) -> list[tuple[str, float, float]]:
     cup flattened to one): its diameter both ways. A tube in rounds flattens to half its
     circumference by its height; a flat piece is its width by its height."""
     gauge = getattr(cir, "gauge", None)
-    if gauge is None or not getattr(gauge, "stitches_per_10cm", 0) \
-            or not getattr(gauge, "rows_per_10cm", 0):
+    if gauge is None or any(
+            isinstance(v, bool) or not isinstance(v, (int, float))
+            or not math.isfinite(v) or v <= 0
+            for v in (getattr(gauge, "stitches_per_10cm", None),
+                      getattr(gauge, "rows_per_10cm", None))):
         return []          # blocking() reads every sewn-on piece missing here as UNKNOWN
     st_mm = 100.0 / gauge.stitches_per_10cm
     row_mm = 100.0 / gauge.rows_per_10cm
