@@ -107,6 +107,20 @@ def _files(db, slug: str, version: str, release: str) -> dict | None:
     return {"pdf_sha256_by_terminology": dict(hashes), **meta}
 
 
+def listing_copy_digest(copy) -> str | None:
+    """Bind the precise listing text and tag order, or return None when uncheckable."""
+    if not isinstance(copy, dict):
+        return None
+    title, description, tags = copy.get("title"), copy.get("description"), copy.get("tags")
+    if (not isinstance(title, str) or not isinstance(description, str)
+            or not isinstance(tags, (list, tuple))
+            or any(not isinstance(tag, str) for tag in tags)):
+        return None
+    body = {"title": title, "description": description, "tags": list(tags)}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True).encode("utf-8")).hexdigest()
+
+
 def _identity(slug: str, cir: dict, listing=None) -> dict:
     from ..products import launch0
 
@@ -193,26 +207,43 @@ def assemble(db, slug: str, version: str) -> dict | None:
             f"the certified {release[:12]}")})
 
 
-    identity = _identity(slug, rel["cir"], rel["listing_copy"])
-    if rel["listing_copy"] is not None:
+    snapshot = rel["listing_copy"]
+    snapshot_digest = listing_copy_digest(snapshot)
+    emitted_digest = listing_copy_digest(copy) if copy is not None else None
+    if snapshot is not None and snapshot_digest is None:
+        blockers.append({"source": "listing_snapshot", "why": "listing copy cannot be checked"})
+    if copy is not None and (emitted_digest is None or emitted_digest != snapshot_digest):
+        blockers.append({"source": "listing_snapshot", "why":
+                         "emitted listing copy differs from the stored listing snapshot"})
+    # Evaluate the exact emitted copy AND the initial snapshot. A concurrent change
+    # must neither escape the hold nor retain an adult-only package identity.
+    identity = _identity(slug, rel["cir"], copy if copy is not None else snapshot)
+    for observed in (snapshot, copy):
+        if observed is None:
+            continue
         try:
             from ..products import launch0
 
-            listing_words = launch0.child_words_in_listing(rel["listing_copy"])
-            decision = identity.get("childrens_decision") or []
+            listing_words = launch0.child_words_in_listing(observed)
+            decision = _identity(slug, rel["cir"], observed).get("childrens_decision") or []
             if listing_words and (not isinstance(decision, list) or not decision
                                   or decision[0] != launch0.ASSIGNED):
+                identity["childrens_decision"] = [launch0.UNDECIDED, None]
                 blockers.append({"source": "childrens_decision", "why":
                     "listing copy names a child audience without an explicit assignment"})
+                break
         except (TypeError, ValueError):
+            identity["childrens_decision"] = ["undecided", None]
             blockers.append({"source": "childrens_decision", "why":
                              "listing child audience cannot be checked"})
+            break
 
     package = {
         "slug": slug, "version": version, "release_hash": release,
         "state": READY if not blockers else BLOCKED,
         "identity": identity,
         "listing_state": rel["listing_state"],
+        "listing_snapshot_sha256": snapshot_digest,
         "copy": copy,
         "gallery": frames,
         "disclosures": sorted({f["honesty_label"] for f in frames if f.get("honesty_label")}),

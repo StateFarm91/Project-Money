@@ -304,7 +304,8 @@
         "brambleloop/tests/test_codex_a1_child_title.py",
         "brambleloop/src/brambleloop/publish/eligibility.py",
         "brambleloop/src/brambleloop/publish/listing_package.py",
-        "brambleloop/tests/test_codex_a1_listing_child.py"
+        "brambleloop/tests/test_codex_a1_listing_child.py",
+        "brambleloop/src/brambleloop/publish/release_gates.py"
       ],
       "claimed_at": "2026-11-03"
     }
