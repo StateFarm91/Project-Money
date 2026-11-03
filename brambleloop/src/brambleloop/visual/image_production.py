@@ -639,9 +639,12 @@ def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
         # Initial retrieval may legitimately report a missing certificate. Explicit
         # scratch experiments establish a separate binding in _run_stage.
         require_release = (inputs.get("stage") not in (None, "retrieve_release")
-                           and not inputs.get("experiment")
-                           and not inputs.get("controlled_run_id"))
-        why = stored_visual_refusal(db, slug, version, require_release=require_release)
+                           and not inputs.get("experiment"))
+        if require_release and not inputs.get("release"):
+            return {"status": "blocked", "refused": "design_knowledge",
+                    "stage": inputs.get("stage"), "why": "visual run release is missing"}
+        why = stored_visual_refusal(db, slug, version, require_release=require_release,
+                                     expected_release=inputs.get("release"))
         if why:
             return {"status": "blocked", "refused": "design_knowledge",
                     "stage": inputs.get("stage"), "why": why}
@@ -1152,7 +1155,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
     from ..improve.knowledge_gate import stored_visual_refusal
 
     why = stored_visual_refusal(db, cand["slug"], cand["version"],
-                                require_release=exp is None)
+                                require_release=exp is None, expected_release=cand.get("release"))
     if why:
         return {"reverified": False, "refused": "design_knowledge", "why": why}
     try:
@@ -1715,7 +1718,8 @@ def approve(db, key: str, *, decided_by: str) -> dict:
                                   action="listing approval")
     from ..improve.knowledge_gate import stored_visual_refusal
 
-    why = stored_visual_refusal(db, run["slug"], run["version"])
+    why = stored_visual_refusal(db, run["slug"], run["version"],
+                                expected_release=run.get("release"))
     if why:
         return {"approved": False, "refused": "design_knowledge", "why": why}
     if run["state"] != "ready_for_owner_review":

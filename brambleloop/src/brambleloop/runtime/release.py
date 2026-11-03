@@ -6130,6 +6130,30 @@ def handle_four_season(ctx: JobContext) -> dict:
             "holiday_independent_share": detail["holiday_independent_share"]}
 
 
+def _photography_release_refusal(db, slug: str, cir) -> str | None:
+    """Bind a legacy catalogue renderer to the current stored release and pins."""
+    from sqlalchemy import select
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    why = stored_visual_refusal(db, slug, cir.version)
+    if why:
+        return why
+    try:
+        with db.session() as session:
+            row = session.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == slug, PatternVersion.version == cir.version))
+            if row is None or not row.certified or not row.cir_json:
+                return "certified stored release unavailable for photography"
+            stored = CIR.from_dict(row.cir_json)
+        if stored.fingerprint != cir.fingerprint:
+            return "photography source differs from the certified stored design"
+    except Exception as exc:  # noqa: BLE001 - an unreadable design is never a render source
+        return f"photography release cannot be verified ({type(exc).__name__})"
+    return None
+
+
 @handlers.register("assets.model_photography")
 def handle_model_photography(ctx: JobContext) -> dict:
     """One model-bearing listing frame for a certified product that needs her (#72, #130).
@@ -6175,6 +6199,12 @@ def handle_model_photography(ctx: JobContext) -> dict:
 
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
+
+    why = _photography_release_refusal(ctx.db, slug, cir)
+    if why:
+        ctx.audit("design_knowledge.pins_refused", artifact=f"{slug}@{cir.version}",
+                  detail={"boundary": "assets.model_photography", "why": why})
+        return {"ran": False, "refused": "design_knowledge", "reason": why}
 
     next_move = model_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
     if not next_move["render"]:
@@ -8907,11 +8937,6 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     from ..products.builder import for_slug
     from ..publish import owned_photography
 
-    if not images.usable(ctx.db):
-        return {"ran": False, "reason": ("image generation has not been demonstrated in "
-                                         "this environment, so there is nothing to render "
-                                         "with. `ops.capability_probes` records it")}
-
     slug = ctx.job.inputs.get("slug") or _representative_slug(ctx.db)
     if not slug:
         return {"ran": False, "reason": "no certified product to photograph"}
@@ -8919,6 +8944,15 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     cir = for_slug(slug)
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
+    why = _photography_release_refusal(ctx.db, slug, cir)
+    if why:
+        ctx.audit("design_knowledge.pins_refused", artifact=f"{slug}@{cir.version}",
+                  detail={"boundary": "assets.owned_photography", "why": why})
+        return {"ran": False, "refused": "design_knowledge", "reason": why}
+    if not images.usable(ctx.db):
+        return {"ran": False, "reason": ("image generation has not been demonstrated in "
+                                         "this environment, so there is nothing to render "
+                                         "with. `ops.capability_probes` records it")}
 
     # C-80 defect 8 (Codex P11): a job enqueued as a #81 rung is a distinct strategy. It
     # reads the rung and the failed dimensions, has its own one-attempt budget, changes what

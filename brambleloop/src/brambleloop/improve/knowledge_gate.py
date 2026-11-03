@@ -60,7 +60,8 @@ def refusal(db, cir) -> str | None:
                 f"{str(exc)[:240]}); a pinned design is never accepted or rendered without it")
 
 
-def stored_visual_refusal(db, slug: str, version: str, *, require_release: bool = True) -> str | None:
+def stored_visual_refusal(db, slug: str, version: str, *, require_release: bool = True,
+                          expected_release: str | None = None) -> str | None:
     """Re-check stored design pins; never resume production visuals without their CIR."""
     from sqlalchemy import select
     from ..cir.model import CIR
@@ -71,8 +72,23 @@ def stored_visual_refusal(db, slug: str, version: str, *, require_release: bool 
             row = session.scalar(select(PatternVersion).join(Product).where(
                 Product.slug == slug, PatternVersion.version == version))
             data = dict(row.cir_json or {}) if row is not None else {}
-        if not data:
-            return "stored design unavailable for visual verification" if require_release else None
-        return refusal(db, CIR.from_dict(data))
+            certified = bool(row and row.certified)
+            release_hash = str(row.release_hash or "") if row is not None else ""
+        if not data or (require_release and not certified):
+            return "certified stored design unavailable for visual verification" if require_release else None
+        cir = CIR.from_dict(data)
+        why = refusal(db, cir)
+        if why:
+            return why
+        if require_release:
+            from ..runtime.release import _content_hash_of
+
+            if not release_hash or _content_hash_of(cir) != release_hash:
+                return "stored design content differs from its certified release hash"
+            if expected_release:
+                supplied = str(expected_release).strip().lower()
+                if len(supplied) < 12 or not release_hash.lower().startswith(supplied):
+                    return "visual run release differs from the certified release hash"
+        return None
     except Exception as exc:  # noqa: BLE001 - unreadable stored evidence cannot authorize a visual
         return f"stored design cannot be verified ({type(exc).__name__})"

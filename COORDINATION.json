@@ -295,7 +295,10 @@
         "brambleloop/src/brambleloop/runtime/engineering_ops.py",
         "brambleloop/tests/test_w5_a6_frozen_knowledge.py",
         "brambleloop/src/brambleloop/visual/image_production.py",
-        "brambleloop/src/brambleloop/visual/gallery_persist.py"
+        "brambleloop/src/brambleloop/visual/gallery_persist.py",
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_w4_fml_checkpoint_adoption.py",
+        "brambleloop/tests/test_w4_visnext2.py"
       ],
       "claimed_at": "2026-11-03"
     }

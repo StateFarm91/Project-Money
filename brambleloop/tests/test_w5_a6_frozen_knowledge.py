@@ -148,6 +148,30 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
             Product.slug == release.slug, PatternVersion.version == release.version))
         assert persisted is not None and persisted.certified is True
         assert CIR.from_dict(persisted.cir_json).fingerprint == release.fingerprint
+        release_hash = persisted.release_hash
+    wrong_release = {"slug": release.slug, "version": release.version, "release": "f" * 64,
+                     "stage": "product_generation"}
+    status, out, err = _run(db, path, "visual.image_production", wrong_release, "publishing")
+    assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
+    assert "differs" in out.get("why", ""), out
+    # Tampering a stored certified CIR to remove its pin changes the certified
+    # content hash; a resumed visual may not treat it as an ordinary design.
+    stripped = dataclasses.replace(release, provenance=dataclasses.replace(
+        release.provenance, primitives_used=tuple(p for p in release.provenance.primitives_used
+                                                  if not p.startswith(K.PREFIX))))
+    with db.session() as s:
+        stored = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == release.slug, PatternVersion.version == release.version))
+        stored.cir_json = stripped.to_dict()
+    visual = {"slug": release.slug, "version": release.version, "release": release_hash,
+              "stage": "product_generation"}
+    status, out, err = _run(db, path, "visual.image_production", visual, "publishing")
+    assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
+    assert "content differs" in out.get("why", ""), out
+    with db.session() as s:
+        stored = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == release.slug, PatternVersion.version == release.version))
+        stored.cir_json = release.to_dict()
     status, out, err = _run(db, path, "assets.build", {"slug": release.slug,
                                                        "version": release.version}, "publishing")
     assert status == JobStatus.DONE and out.get("pdf_sha256"), (out, err)
@@ -204,6 +228,10 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
             Product.slug == release.slug, PatternVersion.version == release.version))
         row.cir_json = {}
     status, out, err = _run(db, path, "visual.image_production", visual_inputs, "publishing")
+    assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
+    assert "unavailable" in out.get("why", ""), out
+    controlled = {**visual_inputs, "ns": "controlled:123", "controlled_run_id": 123}
+    status, out, err = _run(db, path, "visual.image_production", controlled, "publishing")
     assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
     assert "unavailable" in out.get("why", ""), out
     assert IP.approve(db, key, decided_by="owner").get("refused") == "design_knowledge"
@@ -278,6 +306,37 @@ def test_legacy_approved_construction_preference_cannot_bypass_design_evaluation
     assert cir.construction == ENGINE_ROUTE[concept["construction"]], out
     assert out["learning"]["design_changes_held"] is True
     assert not old.D._rows(db, consume.DESIGN_APPLIED)
+
+
+def test_legacy_photography_holds_when_certified_design_has_retired_pin():
+    from brambleloop.products.builder import for_slug
+    from brambleloop.runtime import release  # noqa: F401
+    db, path = _store()
+    approved = _approved_rule(db, scope="flat_rows")
+    original = for_slug("harvest-table-runner")
+    assert original is not None and original.construction == "flat_rows"
+    pinned = DK.freeze_pins(db, original, [approved["pin"]])
+    status, result, err = _run(db, path, "gate.certify", {"cir": pinned.to_dict()},
+                               "quality_director")
+    assert status == JobStatus.DONE and result.get("granted") is True, (result, err)
+    # Static catalogue renderer must not draw a different, unpinned source under
+    # the exact certified release, even before the approved rule is retired.
+    from unittest.mock import patch
+    # Simulate a usable provider; no generator is called before the hold.
+    with patch("brambleloop.gateway.images.usable", return_value=True):
+        for job_type in ("assets.model_photography", "assets.owned_photography"):
+            status, result, err = _run(db, path, job_type, {"slug": pinned.slug}, "publishing")
+            assert status == JobStatus.DONE and result.get("refused") == "design_knowledge", (
+                job_type, result, err)
+            assert "differs" in result.get("reason", ""), result
+    DK.review_rule(db, approved["rule_id"] if "rule_id" in approved else approved["id"],
+                   reviewer="owner", decision="retire", reason="fixture retirement")
+    with patch("brambleloop.gateway.images.usable", return_value=True):
+        for job_type in ("assets.model_photography", "assets.owned_photography"):
+            status, result, err = _run(db, path, job_type, {"slug": pinned.slug}, "publishing")
+            assert status == JobStatus.DONE and result.get("refused") == "design_knowledge", (
+                job_type, result, err)
+            assert "does not verify" in result.get("reason", ""), result
 
 
 def test_a_forged_pin_is_refused_and_the_contract_is_v3():
