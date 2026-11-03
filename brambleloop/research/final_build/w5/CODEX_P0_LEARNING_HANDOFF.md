@@ -49,6 +49,12 @@ evaluation and pin verification.
 
 Outstanding before a completion claim:
 
+* Analysis and evaluation run without an interactive session, but independent
+  observation review and rule approval currently require an owner session.
+  Main has been asked whether a separately implemented, capability-scoped
+  reviewer may review observations and what independent evidence it must use.
+  Rule approval remains owner-authorized; replaying the same parser under a
+  different role is not independent review.
 * A6 must integrate the frozen pin contract at draft, revision, certificate,
   release, quality and PDF boundaries and demonstrate a real construction
   change authorized by a passing evaluation.
