@@ -1547,6 +1547,10 @@ def childrens_decision_for(cir) -> tuple[str, object]:
     declaring no children's sub-category is not accepted for one -- nobody wrote that decision
     for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
     state, why = childrens_decision(cir.slug)
+    # A legacy no-subcategory decision says nothing about newly introduced child
+    # audience words on this design. A contradictory name requires a decision.
+    if state == NOT_FOR_CHILDREN and child_words_in(cir.title, cir.slug):
+        return (UNDECIDED, None)
     if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
             and (cir.slug not in NOT_MERCHANDISED_TO_A_CHILD
                  or not _stuffed_decision_matches(cir)):
