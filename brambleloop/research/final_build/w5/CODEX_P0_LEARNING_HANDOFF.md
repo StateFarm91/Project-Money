@@ -31,6 +31,13 @@ created automatically, and the event contains no source prose. The linked
 audit is protected from retention and reused on retry. Legacy analyses without
 architecture data cannot be prefilled.
 
+New reference analyses also record explicit joined-round or continuous-spiral
+cues as closed vocabulary and page numbers. Ambiguous, mixed, negated, optional
+or unreadable evidence remains unknown or mixed; it is not a construction rule
+or physical outcome. Existing historical analyses are not rewritten, because
+doing so would invalidate their reviewed evidence; they do not gain this cue
+without a future versioned-observation or re-review workflow.
+
 Legacy and shared-token findings whose recorder is not established remain
 visible and non-binding, but unmet or unmeasured requirements retain a release
 hold. The owner can attest a legacy recorder through a

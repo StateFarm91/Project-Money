@@ -1,19 +1,76 @@
 """Real PDF analysis persists only structured observations, once per file hash."""
 import hashlib
+import io
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest import mock
 
 from sqlalchemy import select
 
 from brambleloop.core.db import Database
-from brambleloop.core.models import BenchmarkAnalysis, BenchmarkFingerprintRecord, BenchmarkProduct
+from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkFingerprintRecord, BenchmarkProduct,
+                                     Job, JobStatus)
+from brambleloop.agents.registry import Registry
 from brambleloop.products.builder import for_slug
 from brambleloop.publish.pdf import build_pattern_pdf
-from brambleloop.teardown import analysis_store, library, licence
+from brambleloop.runtime import pipeline  # noqa: F401 -- register real worker handlers
+from brambleloop.runtime.worker import Worker
+from brambleloop.teardown import analysis_store, jobs, library, licence
 
 
 class AnalysisStoreTests(unittest.TestCase):
+    def test_round_joining_is_structured_page_cited_and_withheld_when_ambiguous(self):
+        from reportlab.pdfgen import canvas
+
+        self.assertEqual(analysis_store.round_joining_observation(
+            ["Join each round.", "Work in a continuous spiral."], fully_readable=True),
+            {"kind": "mixed_cues", "pages": [1, 2]})
+        self.assertEqual(analysis_store.round_joining_observation(
+            ["Join each round."], fully_readable=False), {"kind": "unknown", "pages": []})
+        self.assertEqual(analysis_store.round_joining_observation(
+            ["No explicit joining cue."], fully_readable=True), {"kind": "unknown", "pages": []})
+        for ambiguous in ("Do not join colours.", "Do not join each round.",
+                          "No need to join each round.", "You may join each round.",
+                          "Join each round if desired.",
+                          "This is not a continuous spiral.", ""):
+            self.assertEqual(analysis_store.round_joining_observation(
+                [ambiguous], fully_readable=True), {"kind": "unknown", "pages": []})
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            folder = root / "joining-fixture"
+            folder.mkdir(parents=True)
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Synthetic fixture: Join each round.")
+            pdf.save()
+            data = stream.getvalue()
+            (folder / "pattern.pdf").write_bytes(data)
+            sha = hashlib.sha256(data).hexdigest()
+            db = Database(f"sqlite:///{tmp}/joining.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="joining-fixture", seller="fixture", files=[
+                    {"name": "pattern.pdf", "sha256": sha}])
+                s.add(product)
+                s.flush()
+                product_id = product.id
+            licence.capture_purchase(db, "joining-fixture")
+            jobs.enqueue_purchase(db, product_id)
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="joining-analyst", job_types=["teardown.analyse"]).run_once())
+            with db.session() as s:
+                self.assertEqual(s.scalar(select(Job).where(
+                    Job.job_type == "teardown.analyse")).status, JobStatus.DONE)
+                analysis = s.scalar(select(BenchmarkAnalysis))
+                self.assertEqual(analysis.review_state, "proposed")
+                observation = analysis.observations
+                self.assertEqual(observation["construction"]["round_joining"],
+                                 {"kind": "joined_rounds_cue", "pages": [1]})
+                self.assertNotIn("Join each round", str(observation))
+
     def test_pdf_is_licensed_hashed_and_persisted_without_text_or_fingerprint_loss(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "private"

@@ -16,6 +16,14 @@ from ..core.models import BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct
 from . import enforce, library, reader, size_family
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
+_JOINED_CUE = re.compile(r"\bjoin\s+each\s+round\b", re.I)
+_SPIRAL_CUE = re.compile(r"\bcontinuous\s+spiral\b", re.I)
+_AMBIGUOUS_CUE = re.compile(
+    r"\b(?:not|no|never|avoid|without|don't|may|might|optional|if|unless|can|could)\b"
+    r"[^.\n;]{0,80}\b(?:join\s+each\s+round|continuous\s+spiral)\b", re.I)
+_AMBIGUOUS_AFTER_CUE = re.compile(
+    r"\b(?:join\s+each\s+round|continuous\s+spiral)\b[^.\n;]{0,80}"
+    r"\b(?:not|never|optional|if|unless|may|might)\b", re.I)
 
 
 class AnalysisRefused(ValueError):
@@ -28,6 +36,31 @@ def manifested_pdf(product, sha256: str) -> bool:
         isinstance(item, dict) and item.get("sha256") == sha256
         and isinstance(item.get("name"), str) and item["name"].lower().endswith(".pdf")
         for item in (product.files or []))
+
+
+def round_joining_observation(pages: list[str], *, fully_readable: bool) -> dict:
+    """Record explicit joined/spiral cues as vocabulary and page numbers only.
+
+    Mixed cues can describe different pieces, so they are not a conflict or a
+    single construction rule. Missing or unreadable pages remain unknown.
+    """
+    if fully_readable is not True or not isinstance(pages, list) or not pages:
+        return {"kind": "unknown", "pages": []}
+    kinds, cited = set(), []
+    for number, page in enumerate(pages, start=1):
+        if (not isinstance(page, str) or not page.strip() or _AMBIGUOUS_CUE.search(page)
+                or _AMBIGUOUS_AFTER_CUE.search(page)):
+            return {"kind": "unknown", "pages": []}
+        found = set()
+        if _JOINED_CUE.search(page):
+            found.add("joined_rounds_cue")
+        if _SPIRAL_CUE.search(page):
+            found.add("spiral_rounds_cue")
+        if found:
+            kinds.update(found)
+            cited.append(number)
+    kind = "mixed_cues" if len(kinds) > 1 else next(iter(kinds)) if kinds else "unknown"
+    return {"kind": kind, "pages": cited}
 
 
 def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
@@ -62,6 +95,7 @@ def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
     construction = reader.construction_correspondence(inventory)
     pages, _images, _encrypted = reader._pages(data)
     sizes = size_family.numeric_summary(size_family.all_size_parse(pages))
+    joining = round_joining_observation(pages, fully_readable=inventory["fully_readable"])
     observations = {
         "pages": inventory["pages"], "pages_with_text": inventory["pages_with_text"],
         "fully_readable": inventory["fully_readable"],
@@ -74,7 +108,7 @@ def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
         "architecture_complete": architecture["complete"],
         "construction": {"verdict": construction["verdict"],
                          "worked_in_rounds": construction["worked_in_rounds"],
-                         "pieces": construction["pieces_named"]},
+                         "pieces": construction["pieces_named"], "round_joining": joining},
         "size_family": sizes,
         # Empty inputs to schematic_cross_check return AGREE, which is not evidence.
         "schematic_state": "UNKNOWN",

@@ -75,6 +75,9 @@ The benchmark reference-image, ad-image and real-outcome comparison stages
 remain `UNKNOWN`. The evaluator supports only the two registered finishing
 rules; it must refuse any rule that changes construction or imagery until the
 corresponding benchmark stages are measured and pass. UNKNOWN is not PASS.
+The analyst's `construction.round_joining` cue is proposed reference evidence,
+not an approved design rule or permission to change a CIR. It must not be used
+as a production directive.
 
 ## Stale approval revalidation (pending independent review)
 
