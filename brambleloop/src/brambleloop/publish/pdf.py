@@ -803,7 +803,8 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
         f"would carry no safety statements on nobody's decision. Assign it in "
         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
         f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD (the implicit candidate exemption is "
-        f"not a decision for a closed stuffed form)")
+        f"not a decision for a closed stuffed form); an authorized decision bound to this "
+        f"exact design and version is also required, and reapproval is not yet implemented")
 
 
 def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:

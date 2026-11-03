@@ -9819,7 +9819,9 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
                          "until that authority is implemented") if reason == "small_parts" else
                         (f"Decide whether {slug} is merchandised to a child: assign it in "
                          f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
-                         f"exemption in NOT_MERCHANDISED_TO_A_CHILD")),
+                         f"exemption in NOT_MERCHANDISED_TO_A_CHILD; an authorized decision "
+                         f"bound to this exact design/version is also required, and a "
+                         f"reapproval workflow is not yet implemented")),
                 reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
                 blocks=f"{slug} documents and listing",
                 consequence_of_delay=(f"{slug} stays held; every other product continues")))
