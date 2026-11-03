@@ -1206,7 +1206,8 @@ class DesignRule(Base):
     approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     supersedes: Mapped[int | None] = mapped_column(ForeignKey("design_rules.id"), nullable=True)
-    # At most one approved knowledge version until multi-rule baselines are implemented.
+    # Stable scope slot: 1 is the legacy global scope or its retired rollback
+    # guard; 2-4 are disjoint construction-family scopes. Unique per slot.
     active_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

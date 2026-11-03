@@ -214,6 +214,22 @@ class ReviewCommandCenterTests(unittest.TestCase):
             design_knowledge.verify_pins(harness.DB, [pin])
         self.assertEqual(design_knowledge.verify_pins(harness.DB,
             [renewed.json()["result"]["pin"]])[0]["pin"], renewed.json()["result"]["pin"])
+        retired = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", {
+            "rule_id": rule["id"], "decision": "retire", "reason": "switch scope"})
+        self.assertEqual(retired.status_code, 200, retired.text)
+        scoped_pins = []
+        for family in ("flat_rows", "joined_rounds"):
+            proposal = design_knowledge.propose_from_analysis(harness.DB, source_id,
+                                                               construction_family=family)
+            self.assertTrue(proposal["proposed"], proposal)
+            measured = design_eval.evaluate(harness.DB, proposal["id"])
+            self.assertEqual(measured["state"], "passed", measured)
+            decision = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", {
+                "rule_id": proposal["id"], "decision": "approve", "reason": "reviewed scoped rule",
+                "evaluation_id": measured["audit_id"]})
+            self.assertEqual(decision.status_code, 200, decision.text)
+            scoped_pins.append(decision.json()["result"]["pin"])
+        self.assertEqual(len(design_knowledge.verify_pins(harness.DB, scoped_pins)), 2)
         client.close()
 
 

@@ -371,8 +371,18 @@ def _benchmark_checks(db) -> dict:
 def classify_evaluation(report: dict) -> str:
     """Require measured, non-regressing cases and a measurable writer improvement."""
     try:
+        from ..improve import design_knowledge
         cases = report["cases"]
         checks = report["benchmark_checks"]
+        scope = report.get("scope", {"writer_section": "finishing"})
+        design_knowledge.scope_slot(scope)
+        if ("construction_family" in scope and report.get("out_of_scope_controls") !=
+                "unmodified_no_knowledge"):
+            return "insufficient_evidence"
+        matches = {slug: design_knowledge.scope_matches(scope, launch0.cir_for(build))
+                   for slug, build in _LAUNCH_CASES}
+        if not any(matches.values()):
+            return "insufficient_evidence"
         if report["rule_name"] not in ("include_finishing_checklist", "include_checklist_and_end_check"):
             return "insufficient_evidence"
         if ({c["case"] for c in cases} != {slug for slug, _ in _LAUNCH_CASES}
@@ -388,6 +398,8 @@ def classify_evaluation(report: dict) -> str:
         improvement = False
         for case in cases:
             before, after = case["before"], case["after"]
+            if not matches[case["case"]] and before != after:
+                return "regression"
             for metric in ("compile_errors", "twin_failures", "reverse_findings",
                            "policy_findings", "truth_findings", "finishing_actions_present",
                            "finishing_actions_listed", "end_check_present"):
@@ -418,8 +430,9 @@ def classify_evaluation(report: dict) -> str:
                 return "regression"
             if after["end_check_present"] < before["end_check_present"]:
                 return "regression"
-            improvement |= after["finishing_actions_listed"] > before["finishing_actions_listed"]
-            improvement |= after["end_check_present"] > before["end_check_present"]
+            if matches[case["case"]]:
+                improvement |= after["finishing_actions_listed"] > before["finishing_actions_listed"]
+                improvement |= after["end_check_present"] > before["end_check_present"]
         for case in cases:
             for phase in ("before", "after"):
                 if case[phase]["originality_unmeasured"] != 0:
@@ -439,12 +452,12 @@ def classify_evaluation(report: dict) -> str:
         return "insufficient_evidence"
 
 
-def _incumbent_pins(db) -> list[dict]:
+def _incumbent_pins(db, scope: dict | None = None) -> list[dict]:
     """Authenticate the old decision for a fresh comparison against the current corpus."""
     from ..improve import design_knowledge
 
     try:
-        return [record["pin"] for record in design_knowledge.incumbent_for_evaluation(db)]
+        return [record["pin"] for record in design_knowledge.incumbent_for_evaluation(db, scope)]
     except (design_knowledge.DesignKnowledgeRefused, ValueError) as exc:
         raise DesignEvaluationRefused("incumbent knowledge cannot be verified") from exc
 
@@ -460,7 +473,8 @@ def evaluation_key(db, rule_id: int) -> str:
         rule_sha = rule_digest(row)
         lineage_sha = lineage_digest(s, row)
         supersedes = row.supersedes
-    incumbent = _incumbent_pins(db)
+        scope = dict(row.scope)
+    incumbent = _incumbent_pins(db, scope)
     if incumbent and supersedes != incumbent[0]["rule_id"]:
         raise DesignEvaluationRefused("candidate must supersede the current incumbent")
     identity = {"rule": rule_sha, "cases": load_cases(db=db)["sha256"],
@@ -508,8 +522,8 @@ def evaluate(db, rule_id: int, *, expected_key: str | None = None) -> dict:
             row = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
             if row is None or row.state != "proposed" or rule_digest(row) != result["rule_sha256"]:
                 raise DesignEvaluationRefused("proposal changed during evaluation")
-            current = list(s.scalars(select(DesignRule.id).where(
-                DesignRule.state == "approved").with_for_update()))
+            current = [r.id for r in s.scalars(select(DesignRule).where(
+                DesignRule.state == "approved").with_for_update()) if r.scope == row.scope]
             if current != [pin["rule_id"] for pin in result["incumbent_pins"]]:
                 raise DesignEvaluationRefused("incumbent knowledge changed during evaluation")
             audit = AuditLog(actor="design_evaluator", action="design_eval.completed",
@@ -547,12 +561,11 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     from ..cir import knowledge
     from ..cir.writer import write_pattern
     from ..core.models import AuditLog, DesignRule
-    from ..improve.design_knowledge import _TOKEN
+    from ..improve.design_knowledge import _TOKEN, scope_matches, scope_slot
 
     if type(rule_id) is not int or rule_id <= 0:
         raise DesignEvaluationRefused("invalid rule id")
     frozen = load_cases(db=db)
-    incumbent = _incumbent_pins(db)
     with db.session() as s:
         rule = s.get(DesignRule, rule_id)
         if rule is None or rule.state != "proposed":
@@ -562,9 +575,13 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         if (not isinstance(rule.statement, dict) or set(rule.statement) != {"rule", "parameters"}
                 or rule.statement.get("rule") not in ("include_finishing_checklist",
                                                        "include_checklist_and_end_check")
-                or rule.statement.get("parameters") != {}
-                or rule.scope != {"writer_section": "finishing"}):
+                or rule.statement.get("parameters") != {}):
             raise DesignEvaluationRefused("unsupported rule or scope")
+        try:
+            scope_slot(rule.scope)
+        except ValueError as exc:
+            raise DesignEvaluationRefused("unsupported rule or scope") from exc
+        incumbent = _incumbent_pins(db, rule.scope)
         if incumbent and rule.supersedes != incumbent[0]["rule_id"]:
             raise DesignEvaluationRefused("candidate must supersede the current incumbent")
         identity = {"id": rule.id, "key": rule.key, "version": rule.version,
@@ -576,12 +593,13 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         if case["kind"] != "launch0":
             continue
         cir = launch0.cir_for(case["build"])
+        matches_scope = scope_matches(identity["scope"], cir)
         compiled = compile_cir(cir)
         plain = write_pattern(cir, compiled)
-        if incumbent:
+        if incumbent and matches_scope:
             from ..improve.design_knowledge import incumbent_for_evaluation
 
-            records = incumbent_for_evaluation(db)
+            records = incumbent_for_evaluation(db, identity["scope"])
             if [record["pin"] for record in records] != incumbent or cir.provenance is None:
                 raise DesignEvaluationRefused("incumbent changed during evaluation")
             incumbent_cir = copy.deepcopy(cir)
@@ -591,7 +609,7 @@ def preview_registered_rule(db, rule_id: int) -> dict:
             baseline = write_pattern(incumbent_cir, compile_cir(incumbent_cir))
         else:
             baseline = plain
-        if incumbent and baseline != _preview_checklist(plain, rule_name=incumbent_rule):
+        if incumbent and matches_scope and baseline != _preview_checklist(plain, rule_name=incumbent_rule):
             raise DesignEvaluationRefused("incumbent writer output could not be verified")
         # A hypothetical marker is confined to this held-out run; it has no
         # approval authority. Exercise the actual writer rather than approving
@@ -601,10 +619,13 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         candidate_cir = copy.deepcopy(cir)
         hypothetical_pin = {"rule_id": identity["id"], "rule_version": identity["version"],
                             "rule_digest": _digest(identity), "evaluation_digest": "0" * 64}
-        candidate_cir.provenance.primitives_used += (
-            knowledge.marker(identity["statement"]["rule"], hypothetical_pin),)
+        if matches_scope:
+            candidate_cir.provenance.primitives_used += (
+                knowledge.marker(identity["statement"]["rule"], hypothetical_pin),)
         candidate = write_pattern(candidate_cir, compile_cir(candidate_cir))
-        if candidate != _preview_checklist(baseline, rule_name=identity["statement"]["rule"]):
+        expected = (_preview_checklist(baseline, rule_name=identity["statement"]["rule"])
+                    if matches_scope else baseline)
+        if candidate != expected:
             raise DesignEvaluationRefused("candidate writer output differs from evaluated preview")
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
@@ -613,6 +634,8 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
               "rule_name": identity["statement"]["rule"],
+              "scope": identity["scope"],
+              "out_of_scope_controls": "unmodified_no_knowledge",
               "case_set_sha256": frozen["sha256"], "incumbent_pins": incumbent,
               "cases": case_results,
               "benchmark_checks": _benchmark_checks(db),

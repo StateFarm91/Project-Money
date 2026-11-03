@@ -35,6 +35,12 @@ def handle_teardown_analyse(ctx):
 
 @handlers.register("teardown.analyse_sweep")
 def handle_teardown_analyse_sweep(ctx):
+    family = (ctx.job.inputs or {}).get("construction_family")
+    if family is not None:
+        try:
+            design_knowledge.scope_slot({"writer_section": "finishing", "construction_family": family})
+        except design_knowledge.DesignKnowledgeRefused:
+            return {"work_done": 0, "reason": "invalid_construction_family"}
     with ctx.db.session() as s:
         ids = list(s.scalars(select(BenchmarkProduct.id).where(
             BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst",
@@ -60,7 +66,8 @@ def handle_teardown_analyse_sweep(ctx):
     for analysis_id in reviewed:
         ctx.assert_lease()
         try:
-            result = design_knowledge.propose_from_analysis(ctx.db, analysis_id)
+            result = design_knowledge.propose_from_analysis(ctx.db, analysis_id,
+                                                            construction_family=family)
         except design_knowledge.DesignKnowledgeRefused:
             blocked += 1
             continue

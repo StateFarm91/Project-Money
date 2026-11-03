@@ -28,11 +28,53 @@ class DesignKnowledgeRefused(ValueError):
 RULES = {"include_finishing_checklist": frozenset(),
          "include_checklist_and_end_check": frozenset()}
 # Expand only alongside a consumer that understands the new scope.
-SCOPE_VALUES = {"writer_section": frozenset({"finishing"})}
+SCOPE_VALUES = {"writer_section": frozenset({"finishing"}),
+                "construction_family": frozenset({"flat_rows", "joined_rounds", "spiral_rounds"})}
+_SCOPE_SLOTS = {None: 1, "flat_rows": 2, "joined_rounds": 3, "spiral_rounds": 4}
+_SCOPE_GUARD_KEY = "system_design_scope_guard"
 _TOKEN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _SOURCES = {"lesson": Lesson, "finding": TeardownFinding, "incident": Incident,
             "analysis": BenchmarkAnalysis}
 _log = logging.getLogger(__name__)
+
+
+def scope_slot(scope: dict) -> int:
+    """A closed, stable scope maps to its database conflict slot."""
+    if (not isinstance(scope, dict) or set(scope) not in
+            ({"writer_section"}, {"writer_section", "construction_family"})
+            or scope.get("writer_section") != "finishing"
+            or ("construction_family" in scope and
+                (not isinstance(scope["construction_family"], str) or
+                 scope["construction_family"] not in SCOPE_VALUES["construction_family"]))):
+        raise DesignKnowledgeRefused("invalid structured scope")
+    return _SCOPE_SLOTS[scope.get("construction_family")]
+
+
+def scope_matches(scope: dict, cir) -> bool:
+    scope_slot(scope)
+    family = scope.get("construction_family")
+    return family is None or family == getattr(cir, "construction", None)
+
+
+def scope_overlaps(left: dict, right: dict) -> bool:
+    scope_slot(left)
+    scope_slot(right)
+    return (left.get("construction_family") is None or right.get("construction_family") is None
+            or left["construction_family"] == right["construction_family"])
+
+
+def _ensure_scope_integrity(session) -> None:
+    """Reject inconsistent state rather than choosing one of overlapping rules."""
+    active = list(session.scalars(select(DesignRule).where(DesignRule.state == "approved")))
+    for index, rule in enumerate(active):
+        if rule.active_slot != scope_slot(rule.scope):
+            raise DesignKnowledgeRefused("active knowledge scope is inconsistent")
+        if any(scope_overlaps(rule.scope, previous.scope) for previous in active[:index]):
+            raise DesignKnowledgeRefused("overlapping active knowledge scopes conflict")
+    if any(scope_slot(rule.scope) != 1 for rule in active):
+        guard = session.scalar(select(DesignRule).where(DesignRule.active_slot == 1))
+        if guard is None or guard.state != "retired" or guard.key != _SCOPE_GUARD_KEY:
+            raise DesignKnowledgeRefused("legacy rollback scope guard is unavailable")
 
 
 def rule_digest(row) -> str:
@@ -71,10 +113,14 @@ def verify_pins(db, pins: list[dict]) -> list[dict]:
         seen.add(pin["rule_id"])
     verified = []
     with db.session() as s:
+        _ensure_scope_integrity(s)
         for pin in pins:
             rule = s.get(DesignRule, pin["rule_id"])
+            if rule is None:
+                raise DesignKnowledgeRefused("knowledge pin is not an approved rule version")
+            expected_slot = scope_slot(rule.scope)
             if (rule is None or rule.state != "approved" or rule.version != pin["rule_version"]
-                    or rule.active_slot != 1 or not rule.approved_at
+                    or rule.active_slot != expected_slot or not rule.approved_at
                     or not isinstance(rule.approved_by, str) or not rule.approved_by.strip()
                     or not isinstance(rule.producer, str) or not rule.producer.strip()
                     or principal(rule.approved_by) == principal(rule.producer)
@@ -82,8 +128,7 @@ def verify_pins(db, pins: list[dict]) -> list[dict]:
                 raise DesignKnowledgeRefused("knowledge pin is not an approved rule version")
             if (not isinstance(rule.statement, dict) or set(rule.statement) != {"rule", "parameters"}
                     or not isinstance(rule.statement.get("rule"), str)
-                    or rule.statement.get("rule") not in RULES or rule.statement.get("parameters") != {}
-                    or rule.scope != {"writer_section": "finishing"}):
+                    or rule.statement.get("rule") not in RULES or rule.statement.get("parameters") != {}):
                 raise DesignKnowledgeRefused("rule implementation or scope is unsupported")
             approval = s.scalar(select(AuditLog).where(
                 AuditLog.action == "design_knowledge.rule_approved",
@@ -102,21 +147,22 @@ def verify_pins(db, pins: list[dict]) -> list[dict]:
                 raise DesignKnowledgeRefused("evaluation digest does not match")
             verified.append({"pin": dict(pin), "statement": dict(rule.statement),
                              "scope": dict(rule.scope)})
+    for i, record in enumerate(verified):
+        if any(scope_overlaps(record["scope"], other["scope"]) for other in verified[:i]):
+            raise DesignKnowledgeRefused("overlapping knowledge scopes conflict")
     return verified
 
 
 def applicable(db, scope: dict) -> list[dict]:
     """Read approved, evaluated rules for a scope; unavailable evidence means none apply."""
-    if (not isinstance(scope, dict) or not scope or not set(scope) <= set(SCOPE_VALUES)
-            or any(not isinstance(v, str) or v not in SCOPE_VALUES[k]
-                   for k, v in scope.items())):
-        raise DesignKnowledgeRefused("invalid structured scope")
+    scope_slot(scope)
     try:
         with db.session() as s:
             rows = list(s.scalars(select(DesignRule).where(DesignRule.state == "approved")))
             candidates = []
             for row in rows:
-                if row.scope == scope:
+                if row.scope == scope or (row.scope == {"writer_section": "finishing"}
+                                          and "construction_family" in scope):
                     audit = s.scalar(select(AuditLog).where(
                         AuditLog.action == "design_knowledge.rule_approved",
                         AuditLog.artifact == f"design-rule:{row.id}",
@@ -131,10 +177,18 @@ def applicable(db, scope: dict) -> list[dict]:
                 result.extend(verify_pins(db, [pin]))
             except (DesignKnowledgeRefused, ValueError):
                 _log.warning("design rule %s withheld: evidence invalid or stale", pin["rule_id"])
+        if len(result) > 1:
+            raise DesignKnowledgeRefused("overlapping knowledge scopes conflict")
         return result
     except Exception:
         _log.exception("design knowledge unavailable; no rule applied")
         return []
+
+
+def applicable_to_cir(db, cir) -> list[dict]:
+    """Read the finishing rule for this CIR's actual construction family."""
+    return applicable(db, {"writer_section": "finishing",
+                           "construction_family": getattr(cir, "construction", None)})
 
 
 def verify_cir_pins(db, cir) -> list[dict]:
@@ -149,6 +203,8 @@ def verify_cir_pins(db, cir) -> list[dict]:
     if len(entries) != len(verified) or any(entry["rule"] != record["statement"]["rule"]
            for entry, record in zip(entries, verified)):
         raise DesignKnowledgeRefused("frozen directive does not match its approved rule")
+    if any(not scope_matches(record["scope"], cir) for record in verified):
+        raise DesignKnowledgeRefused("frozen directive is outside its approved scope")
     return verified
 
 
@@ -158,6 +214,8 @@ def freeze_pins(db, cir, pins: list[dict]):
     from ..cir import knowledge
 
     records = verify_pins(db, pins)
+    if any(not scope_matches(record["scope"], cir) for record in records):
+        raise DesignKnowledgeRefused("knowledge is outside its approved scope")
     try:
         prior = knowledge.markers(cir)
     except ValueError as exc:
@@ -193,6 +251,8 @@ def repin_revalidated_cir(db, cir, pins: list[dict], *, new_version: str):
     except ValueError as exc:
         raise DesignKnowledgeRefused(str(exc)) from exc
     new = verify_pins(db, pins)
+    if any(not scope_matches(record["scope"], cir) for record in new):
+        raise DesignKnowledgeRefused("knowledge is outside its approved scope")
     if not old or len(old) != len(new):
         raise DesignKnowledgeRefused("old and new knowledge must match")
     with db.session() as s:
@@ -457,6 +517,7 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
             and report.get("rule_id") == rule.id and report.get("rule_key") == rule.key
             and report.get("rule_version") == rule.version
             and report.get("rule_name") == rule.statement.get("rule")
+            and report.get("scope", {"writer_section": "finishing"}) == rule.scope
             and report.get("rule_sha256") == rule_digest(rule)
             and report.get("lineage_sha256") == lineage_digest(session, rule)
             and isinstance(report.get("implementation_sha256"), str)
@@ -502,7 +563,7 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
                 or pin.get("rule_id") != rule.supersedes:
             raise DesignKnowledgeRefused("evaluation incumbent does not match the successor")
         prior = session.get(DesignRule, pin["rule_id"])
-        if (prior is None or prior.state not in ("approved", "retired")
+        if (prior is None or prior.state not in ("approved", "retired") or prior.scope != rule.scope
                 or prior.version != pin["rule_version"] or rule_digest(prior) != pin["rule_digest"]
                 or not isinstance(prior.approved_by, str) or not prior.approved_by.strip()
                 or not isinstance(prior.producer, str) or not prior.producer.strip()
@@ -527,7 +588,7 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
     return design_eval._digest(report)
 
 
-def incumbent_for_evaluation(db) -> list[dict]:
+def incumbent_for_evaluation(db, scope: dict | None = None) -> list[dict]:
     """Authenticate a historical incumbent for a fresh private comparison only.
 
     A new reference changes the corpus and immediately blocks production use of
@@ -536,14 +597,18 @@ def incumbent_for_evaluation(db) -> list[dict]:
     """
     from ..teardown.review import principal
 
+    scope = scope or {"writer_section": "finishing"}
+    slot = scope_slot(scope)
     with db.session() as s:
-        rules = list(s.scalars(select(DesignRule).where(DesignRule.state == "approved")))
+        _ensure_scope_integrity(s)
+        rules = [r for r in s.scalars(select(DesignRule).where(DesignRule.state == "approved"))
+                 if r.scope == scope]
         if not rules:
             return []
         if len(rules) != 1:
             raise DesignKnowledgeRefused("incumbent knowledge set is unsupported")
         rule = rules[0]
-        if (rule.active_slot != 1 or not isinstance(rule.approved_by, str)
+        if (rule.active_slot != slot or not isinstance(rule.approved_by, str)
                 or not rule.approved_by.strip() or not isinstance(rule.producer, str)
                 or not rule.producer.strip() or not rule.approved_at
                 or principal(rule.approved_by) == principal(rule.producer)):
@@ -569,7 +634,7 @@ def incumbent_for_evaluation(db) -> list[dict]:
 def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
             producer: str, supersedes: int | None = None) -> dict:
     """Persist a proposal; its evidence must already exist in the learning system."""
-    if not isinstance(key, str) or not _TOKEN.fullmatch(key):
+    if not isinstance(key, str) or not _TOKEN.fullmatch(key) or key == _SCOPE_GUARD_KEY:
         raise DesignKnowledgeRefused("invalid rule key")
     if not isinstance(producer, str) or not producer.strip() or len(producer) > 120:
         raise DesignKnowledgeRefused("producer is required")
@@ -583,10 +648,7 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
         raise DesignKnowledgeRefused("unknown rule or invalid parameters")
     if set(parameters) != RULES[rule]:
         raise DesignKnowledgeRefused("parameters do not match the rule vocabulary")
-    if (not isinstance(scope, dict) or not scope or not set(scope) <= set(SCOPE_VALUES)
-            or any(not isinstance(v, str) or v not in SCOPE_VALUES[k]
-                   for k, v in scope.items())):
-        raise DesignKnowledgeRefused("invalid structured scope")
+    scope_slot(scope)
     if not isinstance(provenance, list) or not provenance:
         raise DesignKnowledgeRefused("evidence is required")
     evidence = []
@@ -643,7 +705,8 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
                     if root not in evidence:
                         evidence.append(root)
         previous = session.get(DesignRule, supersedes) if supersedes is not None else None
-        if supersedes is not None and (previous is None or previous.key != key):
+        if supersedes is not None and (previous is None or previous.key != key
+                                       or previous.scope != scope):
             raise DesignKnowledgeRefused("superseded version must belong to this rule")
         version = (session.scalar(select(func.max(DesignRule.version))
                                   .where(DesignRule.key == key)) or 0) + 1
@@ -655,7 +718,7 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
         return {"id": row.id, "key": row.key, "version": row.version, "state": row.state}
 
 
-def propose_from_analysis(db, analysis_id: int) -> dict:
+def propose_from_analysis(db, analysis_id: int, *, construction_family: str | None = None) -> dict:
     """Propose a bounded rule for a reviewed, fully read missing section.
 
     This records a hypothesis, not evidence of improved quality. The proposal is
@@ -665,7 +728,13 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
 
     if type(analysis_id) is not int or analysis_id <= 0:
         raise DesignKnowledgeRefused("invalid analysis")
+    scope = {"writer_section": "finishing"}
+    if construction_family is not None:
+        scope["construction_family"] = construction_family
+    slot = scope_slot(scope)
     key = f"finishing_from_analysis_{analysis_id}"
+    if construction_family is not None:
+        key += f"_{construction_family}"
     try:
         with db.session() as s:
             source = s.scalar(select(BenchmarkAnalysis).where(BenchmarkAnalysis.id == analysis_id)
@@ -691,8 +760,11 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
             if lic is None or "private_analysis" not in (lic.allowed_uses or []) \
                     or "private_analysis" in (lic.prohibited_uses or []):
                 raise DesignKnowledgeRefused("analysis licence no longer permits private use")
-            active = s.scalar(select(DesignRule).where(DesignRule.state == "approved",
-                                                       DesignRule.active_slot == 1).with_for_update())
+            current = list(s.scalars(select(DesignRule).where(
+                DesignRule.state == "approved").with_for_update()))
+            if any(item.scope != scope and scope_overlaps(item.scope, scope) for item in current):
+                return {"proposed": False, "reason": "scope_conflict"}
+            active = next((item for item in current if item.active_slot == slot), None)
             if active is not None:
                 if active.statement != {"rule": "include_finishing_checklist", "parameters": {}}:
                     return {"proposed": False, "reason": "no_new_rule"}
@@ -718,12 +790,12 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
                     DesignRule.key == key)) or 0) + 1
                 row = DesignRule(key=key, version=version, statement={
                     "rule": "include_checklist_and_end_check", "parameters": {}},
-                    scope={"writer_section": "finishing"},
+                    scope=scope,
                     provenance=[*active.provenance, {"kind": "analysis", "id": analysis_id}],
                     producer="teardown_analyst", state="proposed", supersedes=active.id)
             else:
                 row = DesignRule(key=key, version=1, statement={"rule": "include_finishing_checklist",
-                    "parameters": {}}, scope={"writer_section": "finishing"},
+                                 "parameters": {}}, scope=scope,
                     provenance=[{"kind": "analysis", "id": analysis_id}],
                     producer="teardown_analyst", state="proposed")
             s.add(row)
@@ -737,6 +809,45 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
             if existing is None:
                 raise
             return {"proposed": False, "reason": "already_proposed", "id": existing.id}
+
+
+def _lock_scope_for_approval(session, scope: dict) -> int:
+    """Serialize scope changes and reserve legacy slot 1 while scoped rules exist.
+
+    The non-approved guard makes an older single-slot binary fail closed instead
+    of approving a global rule over scoped rules during a rolling rollback.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    slot = scope_slot(scope)
+    first = session.scalar(select(DesignRule).where(DesignRule.active_slot == 1).with_for_update())
+    if slot == 1 and first is not None and first.state == "retired":
+        if first.key != _SCOPE_GUARD_KEY:
+            raise DesignKnowledgeRefused("scope guard is invalid")
+        session.execute(update(DesignRule).where(DesignRule.id == first.id)
+                        .values(version=DesignRule.version))
+        if session.scalar(select(DesignRule.id).where(
+                DesignRule.state == "approved", DesignRule.active_slot.in_((2, 3, 4))).limit(1)):
+            raise DesignKnowledgeRefused("global scope conflicts with active scoped knowledge")
+        session.delete(first)
+        session.flush()
+    elif slot != 1:
+        if first is not None and (first.state != "retired" or first.key != _SCOPE_GUARD_KEY):
+            raise DesignKnowledgeRefused("scoped knowledge conflicts with global scope")
+        if first is None:
+            first = DesignRule(key=_SCOPE_GUARD_KEY, version=1, statement={}, scope={},
+                               provenance=[], producer="scope_guard", state="retired", active_slot=1)
+            session.add(first)
+            try:
+                session.flush()
+            except IntegrityError as exc:
+                raise DesignKnowledgeRefused("knowledge scopes changed concurrently") from exc
+        session.execute(update(DesignRule).where(DesignRule.id == first.id)
+                        .values(version=DesignRule.version))
+    elif first is not None:
+        session.execute(update(DesignRule).where(DesignRule.id == first.id)
+                        .values(version=DesignRule.version))
+    return slot
 
 
 def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
@@ -764,9 +875,11 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
             raise DesignKnowledgeRefused("rule not found")
         if not rule.producer or principal(rule.producer) == principal(reviewer):
             raise DesignKnowledgeRefused("independent reviewer required")
+        slot = scope_slot(rule.scope)
         if decision == "reapprove":
-            if rule.state != "approved" or rule.active_slot != 1:
+            if rule.state != "approved" or rule.active_slot != slot:
                 raise DesignKnowledgeRefused("an active rule is required")
+            _ensure_scope_integrity(s)
             digest = _assert_evaluation(db, s, rule, evaluation_id)
             evidence = s.get(AuditLog, evaluation_id)
             latest = s.scalar(select(AuditLog).where(
@@ -776,7 +889,7 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
                     or evidence.detail.get("previous_approval_id") != latest.id):
                 raise DesignKnowledgeRefused("current revalidation evidence is required")
             updated = s.execute(update(DesignRule).where(DesignRule.id == rule_id,
-                DesignRule.state == "approved", DesignRule.active_slot == 1,
+                DesignRule.state == "approved", DesignRule.active_slot == slot,
                 DesignRule.approved_by == rule.approved_by,
                 DesignRule.approved_at == rule.approved_at).values(
                     approved_by=reviewer, approved_at=utcnow()))
@@ -791,11 +904,11 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
                     "pin": {"rule_id": rule_id, "rule_version": rule.version,
                             "rule_digest": rule_sha, "evaluation_digest": digest}}
         if decision == "retire":
-            if rule.state != "approved" or rule.active_slot != 1:
+            if rule.state != "approved" or rule.active_slot != slot:
                 raise DesignKnowledgeRefused("an active rule is required")
             changed = s.execute(update(DesignRule).where(
                 DesignRule.id == rule_id, DesignRule.state == "approved",
-                DesignRule.active_slot == 1).values(state="retired", active_slot=None))
+                DesignRule.active_slot == slot).values(state="retired", active_slot=None))
             if changed.rowcount != 1:
                 raise DesignKnowledgeRefused("rule changed during retirement")
             s.add(AuditLog(actor=reviewer, action="design_knowledge.rule_retired",
@@ -810,7 +923,11 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
             evaluation_digest = _assert_evaluation(db, s, rule, evaluation_id)
             evaluation = s.get(AuditLog, evaluation_id)
             incumbent_pins = evaluation.detail["incumbent_pins"]
-            active = s.scalar(select(DesignRule).where(DesignRule.active_slot == 1).with_for_update())
+            _ensure_scope_integrity(s)
+            _lock_scope_for_approval(s, rule.scope)
+            _ensure_scope_integrity(s)
+            active = s.scalar(select(DesignRule).where(
+                DesignRule.active_slot == slot, DesignRule.state == "approved").with_for_update())
             if active is None:
                 if incumbent_pins:
                     raise DesignKnowledgeRefused("evaluated incumbent is no longer active")
@@ -818,12 +935,12 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
                 if (len(incumbent_pins) != 1 or incumbent_pins[0].get("rule_id") != active.id
                         or rule.supersedes != active.id or rule.key != active.key):
                     raise DesignKnowledgeRefused("candidate does not replace the evaluated incumbent")
-                historical = incumbent_for_evaluation(db)
+                historical = incumbent_for_evaluation(db, rule.scope)
                 if [record["pin"] for record in historical] != incumbent_pins:
                     raise DesignKnowledgeRefused("incumbent changed since evaluation")
                 retired = s.execute(update(DesignRule).where(
                     DesignRule.id == active.id, DesignRule.state == "approved",
-                    DesignRule.active_slot == 1).values(state="retired", active_slot=None))
+                    DesignRule.active_slot == slot).values(state="retired", active_slot=None))
                 if retired.rowcount != 1:
                     raise DesignKnowledgeRefused("incumbent changed during approval")
                 s.add(AuditLog(actor=reviewer, action="design_knowledge.rule_superseded",
@@ -835,7 +952,7 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
                 changed = s.execute(update(DesignRule).where(
                     DesignRule.id == rule_id, DesignRule.state == "proposed",
                     DesignRule.producer == rule.producer).values(
-                        state="approved", approved_by=reviewer, approved_at=stamp, active_slot=1))
+                        state="approved", approved_by=reviewer, approved_at=stamp, active_slot=slot))
             except IntegrityError as exc:
                 raise DesignKnowledgeRefused("another knowledge version is active") from exc
             if changed.rowcount != 1:

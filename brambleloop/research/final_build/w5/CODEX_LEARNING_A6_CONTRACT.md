@@ -4,8 +4,13 @@ The consumer contract follows Main's `I-A6-FROZEN-KNOWLEDGE-CONTRACT`.
 
 * `improve.design_knowledge.applicable(db, scope)` returns a list of verified
   records, each shaped as `{"pin": pin, "statement": statement, "scope": scope}`.
-  The currently supported scope is `{"writer_section": "finishing"}`. A store
-  failure logs an error and returns an empty list.
+  The scope is `{"writer_section": "finishing"}` with an optional
+  `construction_family` of `flat_rows`, `joined_rounds`, or `spiral_rounds`.
+  A store failure logs an error and returns an empty list.
+* A6 drafting and revision should call `applicable_to_cir(db, cir)`, then
+  freeze the returned pins. This selects a rule for the CIR's actual family,
+  or its global finishing rule. Never attach a family-scoped pin to a different
+  family: both `freeze_pins` and `verify_cir_pins` refuse it.
 * A `pin` contains exactly `rule_id`, `rule_version`, `rule_digest` and
   `evaluation_digest`. The two digests are lowercase SHA-256 strings.
 * `improve.design_knowledge.verify_pins(db, pins)` returns the same verified
@@ -39,7 +44,14 @@ Record a learning action only after a consumer actually changes its decision.
 The evaluator compares either the empty incumbent or the prior independently
 approved rule with a proposed successor against the current corpus. A repeated
 rule yields `no_improvement`; an improved successor can replace its incumbent
-atomically. Only one composite rule version can be active. A corpus change
+atomically. One global finishing scope or multiple disjoint construction-family
+finishing scopes can be active, but overlapping scopes are refused. A retired
+internal guard reserves the legacy global slot while family scopes are active,
+so an older single-slot binary cannot silently approve a conflicting global
+rule during rollback. Scoped evaluation measures effects on matching held-out
+cases and uses unmodified no-knowledge controls outside the scope; it does not
+claim those controls reproduce other scopes' current output. A scope with no
+matching held-out case is insufficient evidence. A corpus change
 blocks production use of the old pin until a current evaluation is approved;
 the evaluator can still use the authenticated historical incumbent privately
 for comparison. Existing CIRs pinned to a retired version fail verification

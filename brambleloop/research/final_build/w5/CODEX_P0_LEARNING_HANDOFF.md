@@ -58,11 +58,12 @@ Outstanding before a completion claim:
 * A6 must integrate the frozen pin contract at draft, revision, certificate,
   release, quality and PDF boundaries and demonstrate a real construction
   change authorized by a passing evaluation.
-* The current store supports one composite active rule version. Independent
-  reviewed sources can generate and evaluate an improved successor and the
-  owner can approve an atomic replacement. Multiple independently scoped active
-  rules are not implemented; existing CIRs pinned to retired versions fail
-  verification and need an integration policy.
+* The store supports a global finishing rule or disjoint construction-family
+  finishing rules, with overlapping scopes refused and a legacy rollback guard.
+  These are scoped instruction rules, not rules that change crochet
+  construction. A6 must adopt `applicable_to_cir` and independently review
+  the conflict and rollback behavior. Existing CIRs pinned to retired versions
+  fail verification and need an integration policy.
 * A stale rule can now be re-evaluated against its authenticated historical
   baseline and previously approved metrics. Owner step-up is still required
   for reapproval, and a new release version must be explicitly repinned and
