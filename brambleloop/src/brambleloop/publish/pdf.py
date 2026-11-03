@@ -588,7 +588,11 @@ def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     """
     from ..products import launch0
 
-    return launch0.childrens_assignment(cir.slug) or graded_childrens_assignment(cir)
+    assigned = launch0.childrens_assignment(cir.slug)
+    if assigned is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        return assigned if decision == launch0.ASSIGNED else None
+    return graded_childrens_assignment(cir)
 
 
 def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
@@ -767,6 +771,13 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     # stuffed form is a children's-safety question whatever its title says; title words are
     # the second layer, read through one fold (look-alike and invisible characters).
     stuffed = launch0.closed_stuffed_form(cir)
+    # A slug-only child assignment cannot authorize a different or revised CIR.
+    if launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        if decision != launch0.ASSIGNED:
+            raise ChildrensDecisionRequired(cir.slug, "undecided",
+                f"{cir.slug}: the existing children's assignment does not bind this exact "
+                "design and version. Held pending an explicit authorized decision.")
     if childrens is not None:
         # Assigned to a child: a sewn-on piece that fits, or may fit, the small-parts cylinder
         # holds it until physical evidence is recorded (UNKNOWN is never a pass).
@@ -776,8 +787,7 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
             raise ChildrensDecisionRequired(cir.slug, "small_parts",
                 f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "
                 f"{small_parts.CYLINDER_MM:g} mm small-parts cylinder: {'; '.join(blocks)}. "
-                f"Held until a measured physical sample is recorded "
-                f"(gates.small_parts.SMALL_PARTS_EVIDENCE)")
+                f"Held pending an approved content-bound physical-evidence authority.")
         return
     words = launch0.child_words_in(cir.title, cir.slug)
     if not words and not stuffed:
@@ -793,7 +803,8 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
         f"would carry no safety statements on nobody's decision. Assign it in "
         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
         f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD (the implicit candidate exemption is "
-        f"not a decision for a closed stuffed form)")
+        f"not a decision for a closed stuffed form); an authorized decision bound to this "
+        f"exact design and version is also required, and reapproval is not yet implemented")
 
 
 def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:

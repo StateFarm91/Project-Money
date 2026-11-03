@@ -976,6 +976,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug, version = i["slug"], i["version"]
     cir = _load_cir(ctx, slug, version)
+    # The catalogue's audience assignment belongs to an exact design/version.
+    # Never write safety copy using a stale or unrelated slug-only assignment.
+    if products_launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = products_launch0.childrens_decision_for(cir)
+        if decision != products_launch0.ASSIGNED:
+            why = "child audience assignment does not bind this exact design and version"
+            ctx.audit("listing.seo_blocked", artifact=f"{slug}@{version}",
+                      detail={"blocking": [why], "code": "CHILD_ASSIGNMENT_UNDECIDED"})
+            return {"slug": slug, "version": version, "ok": False, "blocking": [why]}
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # PT-01: the title, tags and category come from the product's own record. A product
@@ -9780,12 +9789,14 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
                                                      OwnerAction.done == False)):  # noqa: E712
             s.add(OwnerAction(
                 requirement_key=rk,
-                action=(f"Decide whether {slug} is merchandised to a child: assign it in "
-                        f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
-                        f"exemption in NOT_MERCHANDISED_TO_A_CHILD"
-                        + ("; for an assigned product, record a measured physical sample in "
-                           "gates.small_parts.SMALL_PARTS_EVIDENCE" if reason == "small_parts"
-                           else "")),
+                action=((f"{slug}: supply a measured small-parts sample and obtain an "
+                         "approved content-bound evidence authority; this hold stays in place "
+                         "until that authority is implemented") if reason == "small_parts" else
+                        (f"Decide whether {slug} is merchandised to a child: assign it in "
+                         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
+                         f"exemption in NOT_MERCHANDISED_TO_A_CHILD; an authorized decision "
+                         f"bound to this exact design/version is also required, and a "
+                         f"reapproval workflow is not yet implemented")),
                 reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
                 blocks=f"{slug} documents and listing",
                 consequence_of_delay=(f"{slug} stays held; every other product continues")))

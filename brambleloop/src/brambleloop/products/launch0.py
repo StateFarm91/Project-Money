@@ -1387,6 +1387,47 @@ NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
            "reason": why}
     for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
 
+# The recorded reasons describe these exact repository designs, not every future
+# use of the same slug. Versions are included; a revision needs a new decision.
+# These bind existing decisions only; owner ratification remains pending.
+_STUFFED_DECISION_CIR_SHA256 = {
+    "heart-row-ring-pillow": "5243ba1417936102e3fdba0e7950f9d9880b1dc097a2702fba29f7d6511bba7b",
+    "spring-garden-kneeler": "2eb7387e6def9659b88f8c6d8226111df413e2b55863067d3aac5d8aa03107da",
+}
+
+
+# Bind existing child assignments to the exact authored design and version.
+# A different or revised CIR needs an explicit, independently authorized decision.
+_ASSIGNED_DECISION_CIR_SHA256 = {
+    "market-basket-medium": "d5628dde96e01e2779c54c729a9f4b99bcdbbb0ecb44446ff6015fad15b20a64",
+    "market-basket-large": "5d31d68b153fdba95e7dd29e76407f1e9fc39581e6326d18521289b30e1ef0cf",
+    "cloudline-baby-blanket": "06edf77343fa3836f99cbf3ca2679c69737963856372a61697fcef93088b03d5",
+    "nordic-forest-mosaic-throw-baby": "8f98e58d975613e2db613001b780d52a615ba23f50c7e479d979ad4779e12fc7",
+}
+
+
+def _cir_decision_digest(cir) -> str | None:
+    import hashlib
+    import json
+
+    try:
+        content = json.dumps(cir.to_dict(), sort_keys=True, separators=(",", ":"),
+                             allow_nan=False).encode("utf-8")
+        return hashlib.sha256(content).hexdigest()
+    except Exception:  # noqa: BLE001 - unreadable content is not an authorization
+        return None
+
+
+def _assigned_decision_matches(cir) -> bool:
+    expected = _ASSIGNED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
+
+
+def _stuffed_decision_matches(cir) -> bool:
+    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
+
+
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
 NOT_FOR_CHILDREN = "not_for_children"
@@ -1447,7 +1488,8 @@ STUFFING_WORDS = re.compile(
 STUFFING_NOTE_WORDS = re.compile(
     r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
     r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
-    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b|"
+    r"\bfill\s+(?:the\s+)?(?:body|head|piece|form|toy|ball|cushion)\b)", re.I)
 # A rounds piece whose last round is at most this many stitches after decreasing from a
 # wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
 CLOSURE_MAX_STITCHES = 12
@@ -1482,21 +1524,27 @@ def stuffed_form_reasons(cir) -> list[str]:
         seams = list(getattr(cir, "assembly", None) or [])
         out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
                for s in seams if getattr(s, "stuff_before_closing", False)]
-        closing = [c.name for c in (cir.components or []) if _closes_on_itself(c)]
+        components = list(cir.components or [])
+        closing = [c.name for c in components if _closes_on_itself(c)]
         closed = bool(seams) or bool(closing)
-        if not closed:
-            return out
         how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
-               else f"{', '.join(closing)} closes on itself")
+               else f"{', '.join(closing)} closes on itself" if closing
+               else "closure cannot be established from stitch counts")
+        # Explicit filling is safety-relevant even when the final stitch count is
+        # greater than twelve or the maker closes the opening using a free-text note.
         for m in getattr(cir, "materials", None) or []:
             name = _folded(getattr(m, "name", ""))
             if STUFFING_WORDS.search(name):
                 out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
-            elif not getattr(m, "yarn_weight", None):
+            elif closed and not getattr(m, "yarn_weight", None):
                 out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
                            f"(UNKNOWN filling: held)")
         notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
-                         + [str(getattr(s, "note", "") or "") for s in seams])
+                         + [str(getattr(seam, "note", "") or "") for seam in seams]
+                         + [str(getattr(component, "note", "") or "")
+                            for component in components]
+                         + [str(getattr(row, "note", "") or "") for component in components
+                            for row in (getattr(component, "rows", None) or [])])
         if STUFFING_NOTE_WORDS.search(_folded(notes)):
             out.append(f"{how}, and the notes say it is stuffed")
         return out
@@ -1509,7 +1557,7 @@ def closed_stuffed_form(cir) -> bool:
     return bool(stuffed_form_reasons(cir))
 
 
-def childrens_decision_for(cir) -> tuple[str, object]:
+def childrens_decision_for(cir, *, listing=None) -> tuple[str, object]:
     """`childrens_decision` for this CIR, read with its construction (A1-R).
 
     For a closed stuffed form only an explicit decision counts: an assignment, or a written,
@@ -1517,8 +1565,22 @@ def childrens_decision_for(cir) -> tuple[str, object]:
     declaring no children's sub-category is not accepted for one -- nobody wrote that decision
     for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
     state, why = childrens_decision(cir.slug)
+    if state == ASSIGNED and not _assigned_decision_matches(cir):
+        return (UNDECIDED, None)
+    if listing is not None:
+        try:
+            listing_words = child_words_in_listing(listing)
+        except ValueError:
+            return (UNDECIDED, None)  # uncheckable copy is not a safety decision
+        if listing_words and state != ASSIGNED:
+            return (UNDECIDED, None)
+    # A legacy no-subcategory decision says nothing about newly introduced child
+    # audience words on this design. A contradictory name requires a decision.
+    if state == NOT_FOR_CHILDREN and child_words_in(cir.title, cir.slug):
+        return (UNDECIDED, None)
     if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
-            and cir.slug not in NOT_MERCHANDISED_TO_A_CHILD:
+            and (cir.slug not in NOT_MERCHANDISED_TO_A_CHILD
+                 or not _stuffed_decision_matches(cir)):
         return (UNDECIDED, None)
     return (state, why)
 
@@ -1554,8 +1616,52 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     from .text_fold import fold
 
     # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
-    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
-    return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+    text = fold(" ".join(t or "" for t in texts))
+    words = set(re.findall(r"[a-z]+", text))
+    found = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    # Explicit ages are not an audience decision. Treat an under-18 lower
+    # bound as a child claim; this is conservative, not a general NLP classifier.
+    ages = (int(m.group(1)) for m in re.finditer(r"\b(?:age|ages|aged)\s*:?\s*(\d{1,3})\b", text))
+    numeric = any(age < 18 for age in ages)
+    for m in re.finditer(r"\b(\d{1,3})(?:\s*(?:-|–|—|to)\s*(\d{1,3}))?\s*"
+                         r"(months?|mos?|years?|yrs?)\b", text):
+        lower = min(int(m.group(1)), int(m.group(2)) if m.group(2) else int(m.group(1)))
+        if lower < (216 if m.group(3).startswith(("month", "mo")) else 18):
+            numeric = True
+            break
+    spelled = ("zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+               "thirteen|fourteen|fifteen|sixteen|seventeen")
+    if re.search(rf"\b(?:age|ages|aged)\b\s*:?\s*(?:{spelled})\b", text) or re.search(
+            rf"\b(?:{spelled})\s+(?:years?|months?)\s+olds?\b", text):
+        numeric = True
+    # Compact and hyphenated forms remain explicit ages (not arbitrary numbers).
+    for m in re.finditer(r"\b(\d{1,3})\s*(?:y\s*/?\s*o|[-–—]\s*years?"
+                         r"\s*[-–— ]\s*olds?)\b", text):
+        if int(m.group(1)) < 18:
+            numeric = True
+    for m in re.finditer(r"\b(?:for|age|ages|aged)\s*:?\s*(\d{1,3})\s*m\s*\+", text):
+        if int(m.group(1)) < 216:
+            numeric = True
+    if numeric:
+        found.append("age_under_18")
+    if re.search(r"\byoung\s+ones\b", text):
+        found.append("young ones")
+    return tuple(found)
+
+
+def child_words_in_listing(listing) -> tuple[str, ...]:
+    """Read customer-facing title, description and tags with the shared fold."""
+    if not isinstance(listing, dict):
+        raise ValueError("listing copy is not a mapping")
+    raw_tags = listing.get("tags")
+    tags = [] if raw_tags is None else raw_tags
+    if not isinstance(tags, (list, tuple)) or any(not isinstance(t, str) for t in tags):
+        raise ValueError("listing tags cannot be checked")
+    texts = ["" if listing.get(key) is None else listing.get(key)
+             for key in ("title", "description")] + list(tags)
+    if any(not isinstance(t, str) for t in texts):
+        raise ValueError("listing copy cannot be checked")
+    return child_words_in(*texts)
 
 
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
@@ -1577,8 +1683,11 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 # `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
 # chose, not a classifier's guess at a fabric.
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
-    "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
-    "kids", "crib", "cot", "lovey", "amigurumi",
+    "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
+    "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
+    "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
+    "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
+    "boy", "boys", "girl", "girls", "teen", "teens", "teenager", "teenagers",
 )
 
 
