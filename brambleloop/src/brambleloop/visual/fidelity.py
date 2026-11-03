@@ -245,6 +245,7 @@ class Expectation:
     ribbing_declared: bool | None
     craft: str
     expected_share: np.ndarray
+    edge_ambiguity: str = ""
 
     @property
     def piece_count(self) -> int:
@@ -392,7 +393,11 @@ def expectation(cir) -> Expectation:
                       None if facts.get("multi_component") or facts.get("end_bands")
                       else bool(facts["edging_declared"]),
                       facts["ribbing_declared"],
-                      facts.get("craft") or "crochet", shares)
+                      facts.get("craft") or "crochet", shares,
+                      "components" if facts.get("multi_component") else
+                      "declared_edging_and_bands" if facts.get("end_bands") and
+                      facts.get("edging_declared") else
+                      "end_bands" if facts.get("end_bands") else "")
     _CACHE[key] = exp
     return exp
 
@@ -804,7 +809,8 @@ def _verify_flat(rgb, piece: dict, model: PieceModel, exp: Expectation) -> list[
             "; ".join(problems) or f"plain {b['colour']} rows {b['rows'][0]}-{b['rows'][1]} "
                                    f"as declared",
             code=FC.INVENTED_END_BAND_TREATMENT, min_band_share=round(float(
-                solid.min(initial=1.0)), 3), width_ratio=round(ratio, 3)))
+                solid.min(initial=1.0)), 3), width_ratio=round(ratio, 3),
+            measured_rows=int(solid.size) if hi > lo else 0))
 
     # Row-end edges (the CIR's plain ends of rows): compare with the CIR's own row ends.
     if not exp.edging_declared:
@@ -919,7 +925,7 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
 
 # ---- craft texture (vision) ---------------------------------------------------------------
 
-CRAFT_FIELDS = ("craft", "ribbing_visible", "border_or_edging_visible", "cable_style",
+CRAFT_FIELDS = ("craft", "ribbing_visible", "border_or_edging_visible", "edge_placement", "cable_style",
                 "fabric_visible_clearly")
 CRAFT_SYSTEM = ("You are a textile expert looking at a photograph of a handmade item. Say "
                 "only what the picture shows. Say 'unclear' whenever you cannot tell.")
@@ -931,12 +937,15 @@ def craft_prompt() -> str:
             "- ribbing_visible: true, false or unclear\n"
             "- border_or_edging_visible: true, false or unclear (a band of different "
             "stitches or colour worked around or along the edges)\n"
+            "- edge_placement: one of ends_only, around_or_sides, none, unclear; "
+            "report ends_only only when all visible edge treatments are confined "
+            "to the two ends and there is no separate side or surrounding border\n"
             "- cable_style: one of none, crochet_post_stitch_crossings, knitted_rope, "
             "unclear\n"
             "- fabric_visible_clearly: true or false")
 
 
-def compare_craft(reading: dict, exp: Expectation) -> dict:
+def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool = False) -> dict:
     """Deterministic comparison of a blind craft reading with the CIR's facts."""
     if not isinstance(reading, dict):
         return _check("craft_texture", UNKNOWN, "no reading")
@@ -965,10 +974,21 @@ def compare_craft(reading: dict, exp: Expectation) -> dict:
                 unclear.append("pattern ribbing cannot be judged in an unclear view")
         elif v["ribbing_visible"] not in ("true", "yes"):
             unclear.append("pattern ribbing not clearly visible")
-    if exp.edging_declared is None:
+    known_bands_only = (exp.edge_ambiguity == "end_bands" and end_bands_verified
+                        and v["border_or_edging_visible"] in ("true", "yes")
+                        and v["edge_placement"] == "ends_only")
+    if exp.edging_declared is None and not known_bands_only:
         unclear.append("visible edge treatment cannot be distinguished from declared bands or components")
     edging = (exp.edging_declared is False and
               v["border_or_edging_visible"] in ("true", "yes"))
+    if exp.edging_declared is True:
+        if v["border_or_edging_visible"] in ("false", "no"):
+            if v["fabric_visible_clearly"] in ("true", "yes"):
+                problems.append("the pattern's edging is not visible")
+            else:
+                unclear.append("pattern edging cannot be judged in an unclear view")
+        elif v["border_or_edging_visible"] not in ("true", "yes"):
+            unclear.append("pattern edging not clearly visible")
     if problems:
         return _check("craft_texture", FAIL, "; ".join(problems),
                       code=FC.WRONG_CRAFT_TEXTURE, reading=v, invented_edging_seen=edging)
@@ -1048,7 +1068,7 @@ class GatewayVisionJudge:
             return {"answered": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
 
-def craft_texture(data: bytes, exp: Expectation, judge) -> dict:
+def craft_texture(data: bytes, exp: Expectation, judge, *, end_bands_verified: bool = False) -> dict:
     if judge is None:
         return _check("craft_texture", UNKNOWN, "no vision judge is configured",
                       code=None, needs="vision judge")
@@ -1056,7 +1076,7 @@ def craft_texture(data: bytes, exp: Expectation, judge) -> dict:
     if not got.get("answered"):
         return _check("craft_texture", UNKNOWN, f"craft texture not judged: {got.get('why')}",
                       needs="vision judge")
-    out = compare_craft(got.get("reading") or {}, exp)
+    out = compare_craft(got.get("reading") or {}, exp, end_bands_verified=end_bands_verified)
     out["judge"] = getattr(judge, "name", "?")
     return out
 
@@ -1132,7 +1152,13 @@ def verify_anchor(data: bytes, cir, *, judge=None) -> dict:
         except Exception as exc:  # noqa: BLE001 - a measurement that broke is UNKNOWN
             checks.append(_check(f"{model.name}:measure", UNKNOWN,
                                  f"{type(exc).__name__}: {str(exc)[:200]}"))
-    checks.append(craft_texture(data, exp, judge))
+    band_checks = [c for c in checks if ":end_band_" in c.get("check", "")]
+    expected_bands = sum(len(model.bands) for model in slots)
+    bands_verified = (len(pieces) == want and expected_bands > 0
+                      and len(band_checks) == expected_bands
+                      and all(c.get("status") == PASS and c.get("measured_rows", 0) > 0
+                              for c in band_checks))
+    checks.append(craft_texture(data, exp, judge, end_bands_verified=bands_verified))
     return _verdict(checks, data=data, exp=exp, kind="anchor")
 
 

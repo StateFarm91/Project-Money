@@ -62,3 +62,21 @@ V1 focused suite 23/23, texture 9/9, rim negative 2/2 and FLUX generator 9/9
 passed in Python 3.11, all with fake providers. The full earlier fidelity suite
 passed 22/22 on 85ff2b8 before this delta, not on this new candidate. Independent
 review, per-edge evidence, full regression and integration are still required.
+
+## Richer edge evidence (review required)
+
+A single-component design with declared end bands can now pass craft fidelity
+when a blind, image-only reading explicitly identifies ends-only treatment and
+all expected band checks contain actual measured rows and pass. A synthetic
+Cloudline anchor exercises that path; an added-border image remains non-PASS.
+Missing/unclear readings, side/surrounding borders, mixed components and a
+separately declared trim remain UNKNOWN. A clear absence of separately declared
+edging fails; an obscured view remains UNKNOWN. These are synthetic/fake-judge
+tests, not a physical observation or certification.
+
+The legacy positive test still uses a fake reader without the new edge-placement
+field and therefore remains UNKNOWN and fails its unchanged PASS assertion.
+Updating its fixture to express independently observable evidence requires
+review; the assertion was not removed or weakened. V1 focused suite 28/28 passes.
+The blind-reading contract changes, so review provider output compatibility and
+experiment authorization before integration. The branch remains DO NOT INTEGRATE.
