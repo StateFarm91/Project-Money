@@ -10,8 +10,9 @@ working tighter than the gauge makes them smaller. So a piece is:
                 a measured physical sample can (never read as a pass);
     CLEAR    -- larger than both bounds by more than the tolerance.
 
-UNKNOWN and FITS both block a children's assignment until physical evidence is recorded
-(`SMALL_PARTS_EVIDENCE`). This is geometry, not the 4.45 N use-and-abuse test.
+UNKNOWN and FITS both block a children's assignment. No content-bound authority for
+accepting physical evidence is implemented, so no registry value can clear a hold.
+This is geometry, not the 4.45 N use-and-abuse test.
 """
 from __future__ import annotations
 
@@ -22,8 +23,8 @@ DEPTH_MM = 57.1
 SMALL_PARTS_TOLERANCE_MM = 4.0      # about one stitch at DK-to-worsted gauge, either way
 FITS, UNKNOWN, CLEAR = "fits", "unknown", "clear"
 
-# slug -> the recorded physical evidence (a passed small-parts test of a made sample). Empty:
-# no physical small-parts evidence exists for any product today.
+# Legacy, unscoped registry retained for compatibility. Values are never authority:
+# no accepted model binds physical evidence to the exact release and owner approval yet.
 SMALL_PARTS_EVIDENCE: dict[str, str] = {}
 
 
@@ -84,11 +85,12 @@ def _sewn_on(cir) -> list[str]:
 
 
 def blocking(cir) -> list[str]:
-    """Every sewn-on piece that fits or may fit the cylinder, unless physical evidence is on
-    record for this product. A1R-5: a piece whose size cannot be worked out (no gauge, no
-    rows, unreadable) is UNKNOWN, and UNKNOWN blocks -- it is never read as clear."""
-    if SMALL_PARTS_EVIDENCE.get(getattr(cir, "slug", "")):
-        return []
+    """Every sewn-on piece that fits or may fit the cylinder remains blocked.
+
+    Unscoped slug-only registry values do not establish a physical test of this exact
+    release. Unknown measurements also block. A separately approved, content-bound
+    evidence authority is required before physical evidence can clear this hold.
+    """
     try:
         pieces = separable_pieces(cir)
     except Exception as exc:  # noqa: BLE001 - unmeasurable is UNKNOWN

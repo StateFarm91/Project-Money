@@ -35,10 +35,21 @@ def test_invalid_measurements_and_gauges_are_unknown():
             raise AssertionError(f"non-finite {field} cleared the PDF safety gate")
     # The actual assets worker records a durable child-safety hold, not a PDF.
     assigned = dataclasses.replace(bad, slug="market-basket-medium")
-    result = harness._assets_build_full(assigned)
+    small_parts.SMALL_PARTS_EVIDENCE[assigned.slug] = "unscoped alleged sample"
+    try:
+        result = harness._assets_build_full(assigned)
+    finally:
+        small_parts.SMALL_PARTS_EVIDENCE.pop(assigned.slug)
     assert harness._held(result), result
     assert result["outputs"]["reason"] == "small_parts", result
     assert "unknown" in result["outputs"]["why"], result
+    from sqlalchemy import select
+    from brambleloop.core.models import OwnerAction
+    with result["db"].session() as session:
+        action = session.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "childrens-decision:market-basket-medium"))
+        assert "content-bound" in action.action, action.action
+        assert "SMALL_PARTS_EVIDENCE" not in action.action, action.action
     assert small_parts.verdict(36, 62) == small_parts.CLEAR
     assert small_parts.verdict(31, 50) == small_parts.FITS
 
