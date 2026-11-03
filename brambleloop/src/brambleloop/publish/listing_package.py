@@ -383,7 +383,10 @@ def record(db, package: dict, *, now: datetime | None = None,
         digest = listing_copy_digest(current_copy)
         expected_digest = package.get("listing_snapshot_sha256")
         release_hash = package.get("release_hash")
-        if (pv is None or not pv.certified or not release_hash
+        # A BLOCKED package may report unavailable evidence; it grants no owner
+        # review authority. READY requires every bound source to verify now.
+        if package.get("state") == READY and (
+                pv is None or not pv.certified or not release_hash
                 or pv.release_hash != release_hash or listing is None
                 or listing.release_hash != release_hash or not digest
                 or digest != expected_digest

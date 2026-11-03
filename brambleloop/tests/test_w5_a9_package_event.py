@@ -209,7 +209,16 @@ def test_when_every_gate_passes_the_event_asks_the_owner_once_and_the_sweep_adds
         pkg = real(db, slug, version)
         if pkg is None:
             return None
-        return {**pkg, "state": LP.READY, "blockers": [],
+        # The gate is synthetic, but the simulated READY copy must still be
+        # the exact persisted Listing the real recorder will bind and review.
+        with db.session() as session:
+            listing = session.scalar(select(Listing).where(
+                Listing.product_slug == slug, Listing.version == version))
+            copy = {"title": listing.title, "description": listing.description,
+                    "tags": listing.tags}
+        return {**pkg, "state": LP.READY, "blockers": [], "copy": copy,
+                "listing_snapshot_sha256": LP.listing_copy_digest(copy),
+                "source_snapshot_sha256": LP._release(db, slug, version)["source_snapshot_sha256"],
                 "fingerprint": "e" * 48 + pkg["fingerprint"][:16]}
 
     LP.assemble = passing

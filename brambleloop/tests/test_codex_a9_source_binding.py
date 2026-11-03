@@ -239,6 +239,18 @@ def test_long_release_key_is_recorded_and_postgres_widen_is_planned():
             assert migrate.widen_plan(PgEngine()) == []
 
 
+def test_blocked_package_with_unavailable_copy_is_recorded_without_owner_authority():
+    db = fixture()
+    blocked = package(db)
+    blocked.update(state=lp.BLOCKED, copy=None, fingerprint="b" * 64,
+                   blockers=[{"source": "certified_payload", "why": "unavailable"}])
+    result = lp.record(db, blocked)
+    assert result["state"] == lp.BLOCKED and not result["review_requested"], result
+    reading = lp.latest(db, blocked["slug"], blocked["version"])
+    assert reading["state"] == lp.BLOCKED and reading["copy"] is None, reading
+    assert not active(db)
+
+
 def test_worker_rechecks_source_changed_after_assembly():
     db = fixture()
     old = package(db)
@@ -274,4 +286,5 @@ if __name__ == "__main__":
     test_long_release_key_is_recorded_and_postgres_widen_is_planned()
     test_worker_retries_after_durable_review_document_storage_recovers()
     test_record_failure_is_retried_without_claiming_a_ready_package()
-    print("9/9 passed")
+    test_blocked_package_with_unavailable_copy_is_recorded_without_owner_authority()
+    print("10/10 passed")

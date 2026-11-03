@@ -292,7 +292,8 @@
         "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
         "brambleloop/tests/test_w5_a9_package_event.py",
         "brambleloop/src/brambleloop/core/models.py",
-        "brambleloop/tests/test_codex_a9_source_binding.py"
+        "brambleloop/tests/test_codex_a9_source_binding.py",
+        "brambleloop/tests/test_opus2_listing_package.py"
       ],
       "claimed_at": "2026-11-03"
     },
