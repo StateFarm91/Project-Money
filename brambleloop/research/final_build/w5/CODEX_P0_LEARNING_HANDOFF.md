@@ -13,9 +13,16 @@ durable evaluation job compares fixed original designs, checks compilation,
 twins, reverse compilation, applicable Product Truth and originality checks,
 and blocks unknown evidence or regressions. Owner step-up is required for rule
 approval; approval and frozen pins are rechecked against current evidence.
-The implemented rule changes finishing instructions to a checklist. Worker
+The implemented rules change finishing instructions to a checklist and, when
+independently supported by two distinct sources, add an end-security check. Worker
 and persistent-database tests exercise the intake-to-writer path, retries,
 recovery and source invalidation.
+
+The analysis worker also records a partial PDF-architecture audit from the
+closed-vocabulary observations. Withheld elements stay unknown, no finding is
+created automatically, and the event contains no source prose. The linked
+audit is protected from retention and reused on retry. Legacy analyses without
+architecture data cannot be prefilled.
 
 Legacy and shared-token findings whose recorder is not established remain
 visible and non-binding, but unmet or unmeasured requirements retain a release
@@ -43,9 +50,12 @@ Outstanding before a completion claim:
   owner can approve an atomic replacement. Multiple independently scoped active
   rules are not implemented; existing CIRs pinned to retired versions fail
   verification and need an integration policy.
-* The remaining support/community producer wiring and complete audit-prefill
-  path need to be completed without inventing consent or treating unknown
-  observations as negative findings.
+* Main decision `I-SUPPORT-LEARNING-CONSENT` prohibits feeding private support
+  case text into Learning until a consent and revocation design is approved.
+  The orphan support text producers therefore remain unwired; aggregate
+  nonidentifying defect counts remain permitted.
+* Partial architecture prefill is not a complete scored audit: unsupported
+  elements remain withheld and require a separately authenticated observer.
 * Main's independent delta review, final regression results, PR review,
   integration, certification and production verification remain outstanding.
 
