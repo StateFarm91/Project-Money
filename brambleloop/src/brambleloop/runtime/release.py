@@ -976,6 +976,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug, version = i["slug"], i["version"]
     cir = _load_cir(ctx, slug, version)
+    # The catalogue's audience assignment belongs to an exact design/version.
+    # Never write safety copy using a stale or unrelated slug-only assignment.
+    if products_launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = products_launch0.childrens_decision_for(cir)
+        if decision != products_launch0.ASSIGNED:
+            why = "child audience assignment does not bind this exact design and version"
+            ctx.audit("listing.seo_blocked", artifact=f"{slug}@{version}",
+                      detail={"blocking": [why], "code": "CHILD_ASSIGNMENT_UNDECIDED"})
+            return {"slug": slug, "version": version, "ok": False, "blocking": [why]}
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # PT-01: the title, tags and category come from the product's own record. A product
