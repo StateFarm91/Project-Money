@@ -23,6 +23,56 @@ from brambleloop.teardown import audits, intake, jobs, lab, library, licence, re
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_architecture_gap_requires_complete_reviewed_current_licensed_evidence(self):
+        from brambleloop.improve import knowledge_gaps
+
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/gaps.db", scratch=True)
+            db.create_all()
+            sha = "a" * 64
+            with db.session() as s:
+                product = BenchmarkProduct(ref="gap-fixture", seller="fixture",
+                                           files=[{"name": "fixture.pdf", "sha256": sha}])
+                s.add(product)
+                s.flush()
+                analysis = BenchmarkAnalysis(benchmark_id=product.id, file_sha256=sha,
+                    recorded_by="teardown_analyst", observations={
+                        "architecture": {key: {"present": True, "pages": [1]}
+                                         for key in audits.PDF_ARCHITECTURE.element_keys},
+                        "architecture_withheld": [], "architecture_complete": True})
+                s.add(analysis)
+                s.flush()
+                analysis_id = analysis.id
+            licence.capture_purchase(db, "gap-fixture")
+            signature = f"learning.knowledge_gap:architecture:{analysis_id}"
+
+            def open_count():
+                with db.session() as s:
+                    return len(list(s.scalars(select(Incident).where(
+                        Incident.signature == signature, Incident.resolved == False))))  # noqa: E712
+
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
+                                   reason="synthetic evidence review")
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            licence.capture_purchase(db, "gap-fixture", terms={"allowed_uses": [],
+                                     "prohibited_uses": ["private_analysis"]})
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            licence.capture_purchase(db, "gap-fixture", terms={
+                "allowed_uses": list(licence.PRIVATE_RESEARCH_USES),
+                "prohibited_uses": list(licence.PUBLISHING_USES)})
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                source.observations = {**source.observations, "architecture_complete": False}
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+
     def test_automatic_dead_redrives_are_bounded_and_not_counted_as_work(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "private"
@@ -180,6 +230,11 @@ class AnalysisWorkerTests(unittest.TestCase):
                     gap = s.scalar(select(Incident).where(
                         Incident.signature == f"learning.knowledge_gap:analysis:{analysis_id}"))
                     self.assertEqual(gap.detail["state"], "review_required")
+                    architecture_gap = s.scalar(select(Incident).where(
+                        Incident.signature == f"learning.knowledge_gap:architecture:{analysis_id}"))
+                    self.assertIsNotNone(architecture_gap)
+                    self.assertFalse(architecture_gap.resolved)
+                    self.assertNotIn("synthetic fixture", str(architecture_gap.detail))
                 with db.session() as s:
                     ref = s.get(BenchmarkProduct, benchmark_id).ref
                 repeated = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
@@ -294,6 +349,9 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with reopened.session() as s:
                     gap = s.scalar(select(Incident).where(Incident.signature == signature))
                     self.assertTrue(gap.resolved)
+                    architecture_gap = s.scalar(select(Incident).where(
+                        Incident.signature == f"learning.knowledge_gap:architecture:{analysis_id}"))
+                    self.assertFalse(architecture_gap.resolved)
                 with reopened.session() as s:
                     source = s.get(BenchmarkAnalysis, analysis_id)
                     source.observations = {**source.observations, "pages": 999}
