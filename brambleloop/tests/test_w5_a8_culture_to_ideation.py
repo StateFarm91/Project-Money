@@ -34,6 +34,14 @@ TODAY = date.today()
 
 
 def _readings(db, signal: str, values) -> None:
+    # Explicit test-fixture rights declaration; never invent one in production.
+    from sqlalchemy import select
+    from brambleloop.core.models import CultureSignal
+    with db.session() as session:
+        filed = session.scalar(select(CultureSignal.id).where(CultureSignal.key == signal))
+    if filed is None:
+        radar.record(db, radar.Signal(key=signal, topic=signal, domain="viral_aesthetic",
+                                      sources=("synthetic fixture",)))
     for i, v in enumerate(values):
         radar.observe(db, signal, channel="reference", interest=v,
                       observed_on=(TODAY - timedelta(days=len(values) - i)).isoformat(),
@@ -132,6 +140,89 @@ def test_one_in_flight_a_second_rising_signal_waits_for_the_first():
     out = _ideate(db)
     assert len(out["opened"]) == ideation.MAX_IN_FLIGHT == 1 and out["waiting"], out
     assert len(_culture_gaps(db)) == 2 and len(A._tasks(db)) == 1
+
+
+def test_long_signal_keys_do_not_collapse_to_the_same_gap_after_restart():
+    from brambleloop.core.db import Database
+
+    db = A._db()
+    prefix = "Dishcloth_" + "a" * 63
+    first, second = prefix + "1", prefix + "2"
+    assert len(first) <= 80 and f"culture:{first}"[:80] == f"culture:{second}"[:80]
+    _readings(db, first, (0.2, 0.6))
+    _readings(db, second, (0.1, 0.7))
+    out = _ideate(db)
+    gaps = _culture_gaps(db)
+    assert len(gaps) == 2 and len({g.arena for g in gaps}) == 2, out
+    assert {g.evidence["culture_signal"] for g in gaps} == {first, second}
+    assert all(len(g.arena) <= 80 for g in gaps)
+    fresh = Database(str(db.engine.url))
+    _ideate(fresh)
+    assert len(_culture_gaps(fresh)) == 2
+
+
+def test_existing_long_signal_gap_is_reused_only_for_exact_identity():
+    from brambleloop.intel import coverage
+
+    db = A._db()
+    prefix = "Dishcloth_" + "a" * 63
+    first, second = prefix + "1", prefix + "2"
+    old_arena = f"culture:{first}"[:80]
+    old_id = coverage.upsert(db, benchmark_key=B.CULTURE_KEY, arena=old_arena,
+                             pod="kitchen_bath", evidence={"culture_signal": first})
+    _readings(db, first, (0.2, 0.6))
+    _readings(db, second, (0.1, 0.7))
+    _ideate(db)
+    gaps = _culture_gaps(db)
+    assert len(gaps) == 2, [(g.id, g.arena) for g in gaps]
+    assert any(g.id == old_id and g.evidence["culture_signal"] == first for g in gaps)
+    assert any(g.id != old_id and g.evidence["culture_signal"] == second for g in gaps)
+
+
+def test_incomparable_stale_future_and_same_day_readings_do_not_create_a_trend():
+    db = A._db()
+    def observe(signal, channel, value, day, source):
+        radar.observe(db, signal, channel=channel, interest=value,
+                      observed_on=day.isoformat(), source=source)
+    for key in ("Dishcloth", "Washcloth", "Potholder", "Pot_holder", "Hot_pad"):
+        radar.record(db, radar.Signal(key=key, topic=key, domain="viral_aesthetic",
+                                      sources=("synthetic fixture",)))
+    # Mixed marketplace/reference scales can falsely look rising.
+    observe("Dishcloth", "reference", 0.8, TODAY - timedelta(days=2), "ref")
+    observe("Dishcloth", "marketplace", 0.1, TODAY - timedelta(days=1), "market")
+    observe("Dishcloth", "marketplace", 0.5, TODAY, "market")
+    # Distinct sources and duplicate readings on one date are not a series.
+    observe("Washcloth", "reference", 0.1, TODAY - timedelta(days=2), "a")
+    observe("Washcloth", "reference", 0.9, TODAY - timedelta(days=1), "b")
+    observe("Potholder", "reference", 0.1, TODAY, "ref")
+    observe("Potholder", "reference", 0.9, TODAY, "ref")
+    observe("Pot_holder", "reference", 0.1, TODAY - timedelta(days=90), "ref")
+    observe("Pot_holder", "reference", 0.9, TODAY - timedelta(days=89), "ref")
+    observe("Hot_pad", "reference", 0.1, TODAY + timedelta(days=1), "ref")
+    observe("Hot_pad", "reference", 0.9, TODAY + timedelta(days=2), "ref")
+    result = _ideate(db)
+    assert result["rising"] == [] and not _culture_gaps(db), result
+    assert all("unknown" in item["why"] for item in result["skipped"]), result
+
+
+def test_protected_or_undeclared_signal_stays_on_named_rights_hold():
+    from brambleloop.culture.rights import ProtectedToken, WORK_TITLE
+
+    db = A._db()
+    # All names here are synthetic fixtures, not claims about a real work.
+    radar.record(db, radar.Signal(key="Dishcloth", topic="Fixture", domain="film",
+        tokens=(ProtectedToken(text="Oat Furrow", asset_class=WORK_TITLE,
+                               source="synthetic fixture"),),
+        sources=("synthetic fixture",)))
+    _readings(db, "Dishcloth", (0.2, 0.6))
+    # A feed can write observations without filing any rights declaration.
+    for day, value in ((TODAY - timedelta(days=2), 0.2), (TODAY - timedelta(days=1), 0.6)):
+        radar.observe(db, "Washcloth", channel="reference", interest=value,
+                      observed_on=day.isoformat(), source="synthetic fixture")
+    A._listings(db, "kitchen_bath", A.KITCHEN)
+    out = _ideate(db)
+    assert out["rising"] == [] and not _culture_gaps(db) and not A._tasks(db), out
+    assert len([item for item in out["skipped"] if "rights hold" in item["why"]]) == 2, out
 
 
 def test_the_job_is_registered_scheduled_and_banded():
