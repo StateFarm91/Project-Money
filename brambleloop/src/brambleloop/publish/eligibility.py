@@ -642,6 +642,10 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     from ..products import launch0 as l0
 
     out: list[str] = []
+    if l0.childrens_assignment(cir.slug) is not None:
+        decision, _why = l0.childrens_decision_for(cir)
+        if decision != l0.ASSIGNED:
+            out.append("child audience: existing assignment does not bind this design and version")
     if listing is not None:
         try:
             words = l0.child_words_in_listing(listing)

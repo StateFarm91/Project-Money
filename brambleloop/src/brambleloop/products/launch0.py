@@ -1396,19 +1396,36 @@ _STUFFED_DECISION_CIR_SHA256 = {
 }
 
 
-def _stuffed_decision_matches(cir) -> bool:
+# Bind existing child assignments to the exact authored design and version.
+# A different or revised CIR needs an explicit, independently authorized decision.
+_ASSIGNED_DECISION_CIR_SHA256 = {
+    "market-basket-medium": "d5628dde96e01e2779c54c729a9f4b99bcdbbb0ecb44446ff6015fad15b20a64",
+    "market-basket-large": "5d31d68b153fdba95e7dd29e76407f1e9fc39581e6326d18521289b30e1ef0cf",
+    "cloudline-baby-blanket": "06edf77343fa3836f99cbf3ca2679c69737963856372a61697fcef93088b03d5",
+    "nordic-forest-mosaic-throw-baby": "8f98e58d975613e2db613001b780d52a615ba23f50c7e479d979ad4779e12fc7",
+}
+
+
+def _cir_decision_digest(cir) -> str | None:
     import hashlib
     import json
 
-    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
-    if expected is None:
-        return False
     try:
         content = json.dumps(cir.to_dict(), sort_keys=True, separators=(",", ":"),
                              allow_nan=False).encode("utf-8")
-        return hashlib.sha256(content).hexdigest() == expected
-    except Exception:  # noqa: BLE001 - unreadable evidence cannot authorize an exemption
-        return False
+        return hashlib.sha256(content).hexdigest()
+    except Exception:  # noqa: BLE001 - unreadable content is not an authorization
+        return None
+
+
+def _assigned_decision_matches(cir) -> bool:
+    expected = _ASSIGNED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
+
+
+def _stuffed_decision_matches(cir) -> bool:
+    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
 
 
 # The three answers to "is this for a child", which used to be two.
@@ -1471,7 +1488,8 @@ STUFFING_WORDS = re.compile(
 STUFFING_NOTE_WORDS = re.compile(
     r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
     r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
-    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b|"
+    r"\bfill\s+(?:the\s+)?(?:body|head|piece|form|toy|ball|cushion)\b)", re.I)
 # A rounds piece whose last round is at most this many stitches after decreasing from a
 # wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
 CLOSURE_MAX_STITCHES = 12
@@ -1547,6 +1565,8 @@ def childrens_decision_for(cir, *, listing=None) -> tuple[str, object]:
     declaring no children's sub-category is not accepted for one -- nobody wrote that decision
     for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
     state, why = childrens_decision(cir.slug)
+    if state == ASSIGNED and not _assigned_decision_matches(cir):
+        return (UNDECIDED, None)
     if listing is not None:
         try:
             listing_words = child_words_in_listing(listing)
