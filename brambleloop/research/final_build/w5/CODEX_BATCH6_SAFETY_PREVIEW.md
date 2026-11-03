@@ -31,3 +31,25 @@ concurrency evidence remain open. The original PR limitations still apply.
 
 Test execution and review results must identify the exact candidate commit and
 Python/database environment; do not treat an SQLite result as PostgreSQL proof.
+
+## Recorded verification
+
+At code commit `141c1ca437f526a3b5409b8d55fe25834e2509f6`, Python 3.11
+combined regression: **122 passed** in 281.84 seconds. Database-backed tests
+used SQLite. The command from `brambleloop/` was:
+
+```sh
+PYTHONPATH=src:tests /workspace/scratch/codex-pg-venv/bin/python -m pytest -q \
+  tests/test_codex_batch6_safety_preview.py \
+  tests/test_codex_a1_listing_child.py tests/test_codex_a1_assignment_content.py \
+  tests/test_a1r_child_safety_core.py tests/test_codex_a2_listing_truth.py \
+  tests/test_codex_a2_stripe_truth.py tests/test_codex_a2_tote_size.py \
+  tests/test_opus2_a2_name_object.py tests/test_w5_a4a_research_to_concept.py \
+  tests/test_intel.py tests/test_w4_intelrec_watchlist.py
+```
+
+The independent reviewer separately checked that child-audience, motif,
+stripe and heat findings appear together and inspected the naming change;
+this was a focused review, not integration acceptance. The review request and
+recorded result are in Issue #28, comment `6606303336`. This handoff-only
+documentation update does not alter the tested code.
