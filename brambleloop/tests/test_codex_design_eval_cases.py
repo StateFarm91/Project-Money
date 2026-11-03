@@ -83,6 +83,7 @@ class FrozenCaseTests(unittest.TestCase):
 
     def test_persistent_preview_measures_every_case_but_cannot_approve(self):
         from sqlalchemy import select
+        from brambleloop.cir import knowledge, writer
         from brambleloop.core.db import Database
         from brambleloop.core.models import AuditLog, DesignRule
 
@@ -98,6 +99,18 @@ class FrozenCaseTests(unittest.TestCase):
                 s.add(row)
                 s.flush()
                 rule_id = row.id
+            original_writer = writer.write_pattern
+
+            def changed_writer(cir, *args, **kwargs):
+                text = original_writer(cir, *args, **kwargs)
+                return text + "unexpected writer change\n" if knowledge.markers(cir) else text
+
+            with patch.object(writer, "write_pattern", side_effect=changed_writer):
+                with self.assertRaises(design_eval.DesignEvaluationRefused):
+                    design_eval.preview_registered_rule(db, rule_id)
+            with db.session() as s:
+                self.assertIsNone(s.scalar(select(AuditLog).where(
+                    AuditLog.action == "design_eval.completed")))
             first = design_eval.preview_registered_rule(db, rule_id)
             reopened = Database(url, scratch=True)
             with reopened.session() as s:

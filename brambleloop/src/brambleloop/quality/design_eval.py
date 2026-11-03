@@ -543,6 +543,8 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     from sqlalchemy import select
 
     from ..cir.compiler import compile_cir
+    import copy
+    from ..cir import knowledge
     from ..cir.writer import write_pattern
     from ..core.models import AuditLog, DesignRule
     from ..improve.design_knowledge import _TOKEN
@@ -577,8 +579,6 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         compiled = compile_cir(cir)
         plain = write_pattern(cir, compiled)
         if incumbent:
-            import copy
-            from ..cir import knowledge
             from ..improve.design_knowledge import incumbent_for_evaluation
 
             records = incumbent_for_evaluation(db)
@@ -593,7 +593,19 @@ def preview_registered_rule(db, rule_id: int) -> dict:
             baseline = plain
         if incumbent and baseline != _preview_checklist(plain, rule_name=incumbent_rule):
             raise DesignEvaluationRefused("incumbent writer output could not be verified")
-        candidate = _preview_checklist(baseline, rule_name=identity["statement"]["rule"])
+        # A hypothetical marker is confined to this held-out run; it has no
+        # approval authority. Exercise the actual writer rather than approving
+        # a preview whose output might differ from production.
+        if cir.provenance is None:
+            raise DesignEvaluationRefused("candidate CIR has no provenance")
+        candidate_cir = copy.deepcopy(cir)
+        hypothetical_pin = {"rule_id": identity["id"], "rule_version": identity["version"],
+                            "rule_digest": _digest(identity), "evaluation_digest": "0" * 64}
+        candidate_cir.provenance.primitives_used += (
+            knowledge.marker(identity["statement"]["rule"], hypothetical_pin),)
+        candidate = write_pattern(candidate_cir, compile_cir(candidate_cir))
+        if candidate != _preview_checklist(baseline, rule_name=identity["statement"]["rule"]):
+            raise DesignEvaluationRefused("candidate writer output differs from evaluated preview")
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
