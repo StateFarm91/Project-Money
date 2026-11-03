@@ -478,8 +478,9 @@ class _Reader:
         return {"shop_id": 4242, "shop_name": self.shop_name}
 
     def catalogue(self, shop_id, **kwargs):
+        from brambleloop.intel.etsy_public import CatalogueResult
         self.catalogue_calls += 1
-        return list(self.listings)
+        return CatalogueResult(self.listings, complete=True)
 
     def images(self, listing_ref):
         self.image_calls += 1

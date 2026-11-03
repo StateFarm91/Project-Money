@@ -649,7 +649,7 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)
-        from ..gates.object_truth import dishcloth_dimension_findings
+        from ..gates.object_truth import dishcloth_dimension_findings, heat_protection_findings
         copy = listing or {}
         texts = [copy.get("title") or "", copy.get("description") or ""]
         tags = copy.get("tags") or []
@@ -657,6 +657,7 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
             texts.extend(tag for tag in tags if isinstance(tag, str))
         out.extend(f"object: {message}" for message in
                    dishcloth_dimension_findings(cir, twin, texts=texts))
+        out.extend(f"object: {message}" for message in heat_protection_findings(cir, texts=texts))
         fabric = l0.fabric_truth(cir, twin)
         if not fabric.get("backed"):
             out.append(f"fabric: {fabric.get('why')}")

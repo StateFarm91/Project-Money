@@ -20,3 +20,13 @@ def dishcloth_dimension_findings(cir, twin, *, texts=()) -> list[str]:
                 return ["The named dishcloth must be a single approximately square cloth "
                         "with computed sides between 15 and 35 cm."]
     return []
+
+
+def heat_protection_findings(cir, *, texts=()) -> list[str]:
+    """Hold heat-protection products until a reviewed evidence standard exists."""
+    for value in (getattr(cir, "title", ""), *texts):
+        text = re.sub(r"[^a-z0-9]+", " ", fold(value or ""))
+        if re.search(r"\b(?:hot\s*pad|pot\s*holder|trivet|oven\s*mitt|hot\s*plate\s*mat|pot\s*rest|heat\s*resistant|heatproof|heat\s*protect(?:ion|ive)?|high\s*temperatures?|hot\s*(?:cookware|pans?))s?\b", text):
+            return ["Heat-protection performance is unverified; a reviewed, "
+                    "content-bound evidence standard is required."]
+    return []

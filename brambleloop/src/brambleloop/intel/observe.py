@@ -133,19 +133,63 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
 
     shop = reader.resolve_shop(shop_name)
     shop_id = shop.get("shop_id")
+    # Only a resolved marketplace ID can establish distinct source shops.
+    from .source_identity import marketplace_shop_id
+    source_shop_id = marketplace_shop_id(shop_id)
     listings = reader.catalogue(shop_id)
     result.listings_seen = len(listings)
+    id_counts = {}
+    for entry in listings:
+        canonical = marketplace_shop_id(entry.get("listing_id"))
+        if canonical:
+            id_counts[canonical] = id_counts.get(canonical, 0) + 1
+    duplicate_ids = {key for key, count in id_counts.items() if count > 1}
+    if duplicate_ids:
+        result.problems.append("catalogue repeats marketplace listing IDs")
+    catalogue_identities_complete = not duplicate_ids and (bool(source_shop_id)
+        and getattr(listings, "complete", False) is True and all(
+        marketplace_shop_id(listing.get("listing_id")) and
+        (listing.get("shop_id") is None or
+         (source_shop_id and marketplace_shop_id(listing.get("shop_id")) == source_shop_id))
+        for listing in listings))
 
     with db.session() as s:
-        known = {row.listing_ref: row for row in s.scalars(
-            select(BenchmarkListing).where(
-                BenchmarkListing.benchmark_key == benchmark_key))}
-    result.baseline = not known
+        prior_rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)))
+    groups = {}
+    for row in prior_rows:
+        canonical = marketplace_shop_id(row.listing_ref)
+        if canonical:
+            groups.setdefault(canonical, []).append(row)
+        else:
+            catalogue_identities_complete = False
+    ambiguous = {key for key, values in groups.items() if len(values) != 1}
+    if ambiguous:
+        catalogue_identities_complete = False
+    known = {key: values[0] for key, values in groups.items() if len(values) == 1}
+    result.baseline = not prior_rows
 
     to_audit: list[dict] = []
     with db.session() as s:
         for listing in listings:
-            ref = str(listing.get("listing_id"))
+            ref = marketplace_shop_id(listing.get("listing_id"))
+            if not ref:
+                # Missing/malformed listing identity is never market evidence.
+                result.problems.append("catalogue entry has no valid marketplace listing ID")
+                continue
+            if ref in duplicate_ids:
+                # An ambiguous repeated observation cannot carry current evidence.
+                if ref in known:
+                    held = s.merge(known[ref])
+                    held.detail = {**(held.detail or {}), "source_shop_id": ""}
+                continue
+            if ref in ambiguous:
+                result.problems.append("catalogue listing has ambiguous legacy identities")
+                continue
+            raw_listing_shop = listing.get("shop_id")
+            listing_shop = marketplace_shop_id(raw_listing_shop)
+            row_shop_id = (source_shop_id if raw_listing_shop is None
+                           or (listing_shop and listing_shop == source_shop_id) else "")
             digest = fingerprint_of(listing)
             title = listing.get("title") or ""
             pod = pods.route(title, listing.get("taxonomy_id") and str(
@@ -166,6 +210,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 result.unchanged += 1
                 row = s.merge(row)
                 row.last_seen = now
+                if row.audit_state == "withdrawn":
+                    # It has returned; re-audit rather than treating old evidence as current.
+                    row.audit_state = "queued"
+                    to_audit.append(listing)
+                row.detail = {**(row.detail or {}), "source_shop_id": row_shop_id}
                 # A new reading of a field already in this payload must reach the listings
                 # that did not change, or it only ever describes the shop's recent edits.
                 # This is what the gallery backlog taught: a reading attached to the
@@ -196,7 +245,8 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
             row.on_sale = bool(listing.get("is_sale") or False)
             row.last_seen = now
             row.audit_state = "queued"
-            row.detail = {"tags": listing.get("tags") or [],
+            row.detail = {"source_shop_id": row_shop_id,
+                          "tags": listing.get("tags") or [],
                           "materials": listing.get("materials") or [],
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
@@ -229,7 +279,7 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
     from ..teardown import licence as _licence
 
     for listing in to_audit:
-        ref = str(listing.get("listing_id"))
+        ref = marketplace_shop_id(listing.get("listing_id"))
         try:
             _licence.register_public_source(
                 db, _licence.public_listing_ref(ref), url=str(listing.get("url") or ""),
@@ -252,15 +302,17 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
     # against Etsy's published 5,000 a day. The backlog closes in under a week.
     backfilled: list[str] = []
     if len(to_audit) < deep_audit_limit + backfill_limit:
-        audited_refs = {str(x.get("listing_id")) for x in to_audit}
+        audited_refs = {marketplace_shop_id(x.get("listing_id")) for x in to_audit}
         with db.session() as s:
-            pending = [r.listing_ref for r in s.scalars(
+            pending = [marketplace_shop_id(r.listing_ref) for r in s.scalars(
                 select(BenchmarkListing).where(
                     BenchmarkListing.benchmark_key == benchmark_key).order_by(
                         BenchmarkListing.listing_ref))
                 if not (r.detail or {}).get("gallery_audited")
-                and r.listing_ref not in audited_refs]
-        by_ref = {str(x.get("listing_id")): x for x in listings}
+                and marketplace_shop_id(r.listing_ref) not in audited_refs
+                and marketplace_shop_id(r.listing_ref) in known]
+        by_ref = {marketplace_shop_id(x.get("listing_id")): x for x in listings
+                  if marketplace_shop_id(x.get("listing_id")) not in duplicate_ids}
         for ref in pending[:backfill_limit]:
             if ref in by_ref:
                 to_audit.append(by_ref[ref])
@@ -268,7 +320,7 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
     result.backfilled = backfilled
 
     for listing in to_audit[:deep_audit_limit + backfill_limit]:
-        ref = str(listing.get("listing_id"))
+        ref = marketplace_shop_id(listing.get("listing_id"))
         try:
             images = reader.images(ref)
         except ReadFailed as e:
@@ -280,7 +332,7 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
         with db.session() as s:
             row = s.scalar(select(BenchmarkListing).where(
                 BenchmarkListing.benchmark_key == benchmark_key,
-                BenchmarkListing.listing_ref == ref))
+                BenchmarkListing.listing_ref == (known[ref].listing_ref if ref in known else ref)))
             if row is not None:
                 row.media_count = len(images)
                 row.audit_state = "audited"
@@ -312,9 +364,12 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
     # and deleting the row would destroy the longitudinal evidence that makes it readable. So
     # the row is marked and kept: "we saw this for six weeks and then it stopped" is a
     # finding, and an absent row says nothing at all.
-    seen_refs = {str(listing.get("listing_id")) for listing in listings}
+    seen_refs = {marketplace_shop_id(listing.get("listing_id")) for listing in listings}
     with db.session() as s:
         for ref, row in known.items():
+            if not catalogue_identities_complete:
+                # An incomplete/misattributed catalogue cannot prove disappearance.
+                continue
             if ref in seen_refs:
                 continue
             live = s.merge(row)

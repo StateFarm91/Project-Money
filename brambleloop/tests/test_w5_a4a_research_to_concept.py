@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
+import hashlib
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -64,10 +65,11 @@ def _listings(db, pod: str, rows, *, days_ago: int = 4) -> None:
         n = s.scalar(select(BenchmarkListing.id).order_by(BenchmarkListing.id.desc())
                      .limit(1)) or 0
         for i, (shop, title, price) in enumerate(rows):
-            s.add(BenchmarkListing(benchmark_key=shop, listing_ref=f"fx-{pod}-{n + i}",
+            s.add(BenchmarkListing(benchmark_key=shop, listing_ref=str(10000000 + n + i),
                                    title=title, pod=pod, price_cad=price,
                                    audit_state="audited", first_seen=seen, last_seen=seen,
-                                   detail={}))
+                                   detail={"source_shop_id": (str(int(hashlib.sha256(
+                                       shop.encode()).hexdigest()[:12], 16) + 1) if shop else "")}))
 
 
 # One shop is the owner's benchmark (MJS): the pre-engineering anti-clone check measures a
@@ -182,7 +184,7 @@ def test_a_gap_with_no_pool_concept_becomes_a_new_concept_and_a_cir_draft():
     assert task.sources[0]["retrieval"] == "internal" and task.sources[0]["read_on"]
     assert task.findings[0]["claim_class"] == "fact"
     assert "5 listings" in task.findings[0]["statement"]
-    assert "3 independently identified shops" in task.findings[0]["statement"]
+    assert "3 resolved marketplace shops" in task.findings[0]["statement"]
     assert task.detail["ideation_census"]["census_sha256"] in task.sources[0]["citation"]
     prop = task.detail["concept_proposals"][0]
     assert prop["concept"]["construction"] == "flat_rows"
@@ -390,6 +392,238 @@ def test_originality_rejects_normalized_competitor_variants():
     for other in ("Ｔｉｄｅｌｉｎｅ Ｓｔｒｉｐｅ Ｄｉｓｈｃｌｏｔｈ",
                   "Tide-Line Stripe Dishcloth", "Tideline Stripes Dishcloths"):
         assert ideation.originality_reasons(title, descriptor, [("fixture", other)]), other
+
+
+def test_same_marketplace_listing_under_multiple_keys_is_not_independent_evidence():
+    db = _db()
+    _listings(db, "kitchen_bath", [("a", "Dishcloth", 5),
+                                    ("b", "Dishcloth", 6),
+                                    ("c", "Dishcloth", 7)])
+    with db.session() as session:
+        for listing in session.scalars(select(BenchmarkListing)):
+            listing.listing_ref = "999"
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["listings"] == 0 and not observed["ok"], observed
+    with db.session() as session:
+        for row, spelling in zip(session.scalars(select(BenchmarkListing)), ("1", "01", "001")):
+            row.listing_ref = spelling
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["listings"] == 0 and not observed["ok"], observed
+
+
+def test_unverified_heat_protection_is_refused_at_certificate_and_live_listing():
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+    from brambleloop.gates.certificate import certify
+    from brambleloop.publish.eligibility import name_truth
+    cir = concept_to_cir(Concept(slug="hot-pad-old", title="Everyday Hot Pad",
+        category="placemat", stitch_repeat=[("sc", 3), ("dc", 1)],
+        width_stitches=48, rows=14, colors={"a": "#ffffff"}))
+    verdict = certify(cir)
+    assert not verdict.granted
+    assert any(f.code == "HEAT_PROTECTION_UNVERIFIED" for f in verdict.findings)
+    assert any("Heat-protection" in item for item in name_truth(cir))
+    cir.title = "Everyday Placemat"
+    assert any("Heat-protection" in item for item in name_truth(cir, {"title": "Ｐｏｔ-hоlder"}))
+
+
+def test_distinct_benchmark_keys_for_one_resolved_shop_do_not_count_twice():
+    db = _db()
+    _listings(db, "kitchen_bath", [("a", "Dishcloth one", 5),
+                                    ("b", "Dishcloth two", 6),
+                                    ("b", "Dishcloth three", 7)])
+    with db.session() as session:
+        for listing in session.scalars(select(BenchmarkListing)):
+            listing.detail = {**listing.detail, "source_shop_id": "1234"}
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["object_shops"] == 1 and not observed["ok"], observed
+    with db.session() as session:
+        rows = list(session.scalars(select(BenchmarkListing)))
+        rows[0].detail = {**rows[0].detail, "source_shop_id": "0001234"}
+        rows[1].detail = {**rows[1].detail, "source_shop_id": "²"}
+        rows[2].detail = {**rows[2].detail, "source_shop_id": "1234"}
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["object_shops"] == 1 and not observed["ok"], observed
+
+
+def test_scan_binds_resolved_shop_id_on_new_and_unchanged_listings():
+    import test_intel
+    from brambleloop.intel import observe
+
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing).where(BenchmarkListing.listing_ref == "1"))
+        assert row.detail["source_shop_id"] == "4242", row.detail
+        row.detail = {k: v for k, v in row.detail.items() if k != "source_shop_id"}
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing).where(BenchmarkListing.listing_ref == "1"))
+        assert row.detail["source_shop_id"] == "4242", row.detail
+
+
+def test_malformed_or_misattributed_catalogue_does_not_create_evidence_or_withdraw():
+    import test_intel
+    from brambleloop.intel import observe
+
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    reader.listings = [test_intel._listing(None, "Invalid Dishcloth"),
+                       test_intel._listing(2, "Other Dishcloth", shop_id=9999)]
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        rows = list(session.scalars(select(BenchmarkListing)))
+        old = next(row for row in rows if row.listing_ref == "1")
+        assert old.audit_state != "withdrawn"
+        assert not any(row.listing_ref == "None" for row in rows)
+        mismatched = next(row for row in rows if row.listing_ref == "2")
+        assert mismatched.detail["source_shop_id"] == "", mismatched.detail
+    class UnresolvedReader(test_intel._Reader):
+        def resolve_shop(self, name):
+            return {"shop_id": None}
+    observe.scan(db, UnresolvedReader([]), env={})
+    with db.session() as session:
+        old = session.scalar(select(BenchmarkListing).where(BenchmarkListing.listing_ref == "1"))
+        assert old.audit_state != "withdrawn"
+
+
+def test_legacy_padded_id_and_withdrawn_reappearance_do_not_duplicate_or_misstate():
+    import test_intel
+    from brambleloop.intel import observe
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing))
+        row.listing_ref = "0001"
+        row.audit_state = "withdrawn"
+    outcome = observe.scan(db, reader, env={})
+    with db.session() as session:
+        rows = list(session.scalars(select(BenchmarkListing)))
+        assert len(rows) == 1 and rows[0].listing_ref == "0001", rows
+        assert rows[0].audit_state == "audited", rows[0].audit_state
+        assert rows[0].detail.get("gallery_audited") is True, rows[0].detail
+    assert "1" in outcome.deep_audited, outcome
+    assert outcome.new_listings == [] and outcome.withdrawn == [], outcome
+
+
+def test_legacy_padded_listing_is_backfilled_using_canonical_id():
+    import test_intel
+    from brambleloop.intel import observe
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing))
+        row.listing_ref = "0001"
+        row.detail = {k: v for k, v in row.detail.items() if k != "gallery_audited"}
+    outcome = observe.scan(db, reader, env={})
+    assert "1" in outcome.backfilled and "1" in outcome.deep_audited, outcome
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing))
+        assert row.detail.get("gallery_audited") is True
+
+
+def test_ambiguous_legacy_listing_ids_are_held_without_duplicate_or_withdrawal():
+    import test_intel
+    from brambleloop.intel import observe
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing))
+        session.add(BenchmarkListing(benchmark_key=row.benchmark_key, listing_ref="0001",
+                                     title=row.title, pod=row.pod, price_cad=row.price_cad,
+                                     audit_state="audited", detail=dict(row.detail)))
+    outcome = observe.scan(db, reader, env={})
+    assert not outcome.new_listings and not outcome.withdrawn, outcome
+    assert any("ambiguous" in p for p in outcome.problems), outcome.problems
+    with db.session() as session:
+        rows = list(session.scalars(select(BenchmarkListing)))
+        assert len(rows) == 2 and all(r.audit_state != "withdrawn" for r in rows)
+
+
+def test_withdrawn_observations_do_not_count_as_current_demand():
+    db = _db()
+    _listings(db, "kitchen_bath", KITCHEN)
+    with db.session() as session:
+        for listing in session.scalars(select(BenchmarkListing)):
+            listing.audit_state = "withdrawn"
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["listings"] == 0 and not observed["ok"], observed
+
+
+def test_truncated_catalogue_never_proves_existing_listing_disappeared():
+    import test_intel
+    from brambleloop.intel import observe
+    from brambleloop.intel.etsy_public import CatalogueResult, PublicReader
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    # An API page count says more exist than this capped read returned.
+    public = object.__new__(PublicReader)
+    public.get = lambda *args, **kwargs: {"count": 2, "results": [test_intel._listing(2, "Other")]}
+    partial = public.catalogue(4242, limit=1, max_pages=1)
+    assert isinstance(partial, CatalogueResult) and not partial.complete
+    reader.catalogue = lambda _shop: partial
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        original = session.scalar(select(BenchmarkListing).where(BenchmarkListing.listing_ref == "1"))
+        assert original.audit_state != "withdrawn", original.audit_state
+
+
+def test_contradictory_empty_page_and_duplicate_ids_do_not_prove_absence():
+    import test_intel
+    from brambleloop.intel import observe
+    from brambleloop.intel.etsy_public import PublicReader
+    db = test_intel._db()
+    reader = test_intel._Reader([test_intel._listing(1, "Cotton Dishcloth")])
+    observe.scan(db, reader, env={})
+    public = object.__new__(PublicReader)
+    public.get = lambda *args, **kwargs: {"count": 20, "results": []}
+    partial = public.catalogue(4242, max_pages=1)
+    assert not partial.complete
+    for malformed in (-1, 1.5, True, "²", None):
+        public.get = lambda *args, value=malformed, **kwargs: {"count": value, "results": []}
+        assert not public.catalogue(4242, max_pages=1).complete, malformed
+    reader.catalogue = lambda _shop: partial
+    observe.scan(db, reader, env={})
+    with db.session() as session:
+        row = session.scalar(select(BenchmarkListing).where(BenchmarkListing.listing_ref == "1"))
+        assert row.audit_state != "withdrawn"
+    pages = iter([{"count": 2, "results": [test_intel._listing(2, "One")]},
+                  {"count": 1, "results": [test_intel._listing(3, "Two")]}])
+    public.get = lambda *args, **kwargs: next(pages)
+    assert not public.catalogue(4242, limit=1, max_pages=2).complete
+    duplicate = test_intel._listing(2, "Cotton Dishcloth")
+    fresh = test_intel._db()
+    outcome = observe.scan(fresh, test_intel._Reader([duplicate, dict(duplicate)]), env={})
+    assert any("repeats" in p for p in outcome.problems), outcome.problems
+    with fresh.session() as session:
+        assert not list(session.scalars(select(BenchmarkListing)))
+
+
+def test_nonfinite_market_prices_are_not_demand_evidence():
+    db = _db()
+    _listings(db, "kitchen_bath", [("a", "Dishcloth one", float("inf")),
+                                    ("b", "Dishcloth two", float("inf")),
+                                    ("b", "Dishcloth three", float("inf"))])
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert not observed["ok"] and observed["price_median_cad"] is None, observed
+
+
+def test_heat_claim_variants_are_held_without_verified_evidence():
+    from brambleloop.gates.object_truth import heat_protection_findings
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+    cir = concept_to_cir(Concept(slug="plain-mat", title="Plain Mat", category="placemat",
+        stitch_repeat=[("sc", 3), ("dc", 1)], width_stitches=48, rows=14,
+        colors={"a": "#ffffff"}))
+    for text in ("Heat resistant table mat", "protects tables from hot cookware",
+                 "Oven Mitt", "hot plate mat", "pot rest", "heatproof trivet",
+                 "insulates your table from high temperatures", "safely handles hot pans"):
+        assert heat_protection_findings(cir, texts=[text]), text
+    assert not heat_protection_findings(cir)
 
 
 def test_rerunning_and_redelivering_creates_no_duplicates():

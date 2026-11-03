@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import statistics
 from dataclasses import dataclass
@@ -312,17 +313,28 @@ def observe(db, pod: str, *, today: date) -> dict:
     flat_rows object the observed titles name most. Reads counts and prices, never content."""
     from ..core.models import BenchmarkListing
     from ..intel import pods
+    from ..intel.source_identity import marketplace_shop_id
 
     since = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(
         days=OBSERVATION_WINDOW_DAYS)
     with db.session() as s:
-        rows = [(r.benchmark_key, r.listing_ref, r.title or "", r.pod or "",
-                 float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen))
+        rows = [(r.benchmark_key, marketplace_shop_id(r.listing_ref), r.title or "", r.pod or "",
+                 float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen),
+                 marketplace_shop_id((r.detail or {}).get("source_shop_id")), r.audit_state)
                 for r in s.scalars(select(BenchmarkListing))]
     listings = [r for r in rows
-                if (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
+                if r[7] != "withdrawn"
+                and (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
                 and r[5] is not None and since <= r[5] <
                 datetime(today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)]
+    # A marketplace listing ID is global, whereas the database uniqueness key is
+    # per benchmark. Reject ambiguous IDs filed under multiple benchmark keys.
+    # No choice between conflicting records is treated as verified evidence.
+    occurrences = {}
+    for r in rows:
+        if r[1]:
+            occurrences[r[1]] = occurrences.get(r[1], 0) + 1
+    listings = [r for r in listings if r[1] and r[6] and occurrences.get(r[1]) == 1]
     objects = POD_OBJECTS.get(pod, ())
     counts = []
     for obj in objects:
@@ -333,9 +345,9 @@ def observe(db, pod: str, *, today: date) -> dict:
     obj = best[1] if best[0] > 0 else None
     mine = [r for r in listings if obj is not None and any(
         re.search(rf"\b{re.escape(k)}s?\b", r[2].lower()) for k in obj.keywords)]
-    priced = sorted(r[4] for r in (mine or listings) if r[4] > 0)
-    shops = {str(r[0]).strip() for r in listings if r[0] and str(r[0]).strip()}
-    object_shops = {str(r[0]).strip() for r in mine if r[0] and str(r[0]).strip()}
+    priced = sorted(r[4] for r in (mine or listings) if math.isfinite(r[4]) and r[4] > 0)
+    shops = {r[6] for r in listings}
+    object_shops = {r[6] for r in mine}
     dates = sorted(r[5].date() for r in listings)
     reasons = []
     if not objects:
@@ -355,7 +367,7 @@ def observe(db, pod: str, *, today: date) -> dict:
     confidence = ("high" if len(mine) >= HIGH_LISTINGS and len(object_shops) >= HIGH_SHOPS
                   else "medium")
     census_hash = hashlib.sha256(json.dumps(sorted(
-        (r[0], r[1], r[2], r[3], r[4], r[5].isoformat()) for r in listings
+        (r[0], r[1], r[2], r[3], r[4], r[5].isoformat(), r[6]) for r in listings
     ), ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
     return {"census_sha256": census_hash,
             "ok": not reasons, "reasons": reasons, "pod": pod, "listings": len(listings),
@@ -555,7 +567,7 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
                            f"CA${obs['price_median_cad']} (CA${obs['price_min_cad']}-"
                            f"CA${obs['price_max_cad']}); {obs['object_listings']} name a "
                            f"{obs['object'].noun.lower()} across "
-                           f"{obs['object_shops']} independently identified shops"))
+                           f"{obs['object_shops']} resolved marketplace shops"))
             refs = {"finding": fref, "source": sref}
             with db.session() as s:
                 from sqlalchemy.orm.attributes import flag_modified
