@@ -41,3 +41,8 @@ their fixed diagnostic prompts and request shapes. Fake-transport tests refuse
 arbitrary generation and vision prompts under probe-only activation. This is
 implementation for independent security review, not an accepted authority model;
 other paid-provider entry points and post-check races must still be reviewed.
+
+The OpenAI research judge now counts invalid, missing or all-zero token usage at
+its documented worst-case estimate, rather than crediting its process cap or
+calling a paid response free. The test uses a fake HTTP response. The shared
+company-ledger reconciliation and orphan exposure described above are still open.

@@ -198,9 +198,17 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0, db=None)
             purpose="d_judge.see")
     except gate.PaidCallRefused as exc:
         raise JudgeSpendRefused(f"refused before the call: {exc}") from None
-    usage = out.get("usage", {})
-    tin, tout = int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))
-    cost_usd = tin * PRICE_USD_PER_M["input"] / 1e6 + tout * PRICE_USD_PER_M["output"] / 1e6
+    usage = out.get("usage") if isinstance(out.get("usage"), dict) else {}
+    tin, tout = usage.get("prompt_tokens"), usage.get("completion_tokens")
+    valid_usage = (type(tin) is int and type(tout) is int and tin >= 0 and tout >= 0
+                   and tin + tout > 0)
+    if valid_usage:
+        cost_usd = tin * PRICE_USD_PER_M["input"] / 1e6 + tout * PRICE_USD_PER_M["output"] / 1e6
+    else:
+        # The provider did work; missing or malformed usage is not free and must
+        # never create a credit against the research budget.
+        tin, tout = 0, 0
+        cost_usd = _worst_case_usd()
     _spent_usd += cost_usd
     text = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
     return {"image": image_path, "image_sha256": sha, "model": out.get("model", model),
@@ -208,7 +216,9 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0, db=None)
             "prompt_tokens": tin, "completion_tokens": tout,
             "reasoning_tokens": int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)),
             "cost_usd": round(cost_usd, 6), "cost_cad": round(cost_usd * USD_TO_CAD, 6),
-            "price_basis": f"list, USD {PRICE_USD_PER_M['input']}/M in, {PRICE_USD_PER_M['output']}/M out",
+            "price_basis": (f"list, USD {PRICE_USD_PER_M['input']}/M in, "
+                            f"{PRICE_USD_PER_M['output']}/M out" if valid_usage
+                            else "worst-case estimate; provider usage missing or invalid"),
             "raw": text}
 
 

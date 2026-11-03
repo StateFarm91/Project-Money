@@ -804,6 +804,34 @@ def test_the_openai_research_judge_obeys_the_gate():
         assert wire.calls == []
 
 
+def test_openai_judge_invalid_usage_counts_worst_case_not_credit():
+    from brambleloop.visual import d_judge
+    import json
+
+    db = _db()
+    _activate(db, provider=G.OPENAI_VISION, scope=G.VISION)
+    img = Path(_TMP) / "invalid-usage-judge.png"
+    img.write_bytes(base64.b64decode(PNG))
+    original_urlopen, original_spent = urllib.request.urlopen, d_judge._spent_usd
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self):
+            return json.dumps({"usage": {"prompt_tokens": -100, "completion_tokens": 1},
+                               "choices": [{"message": {"content": "{}"}}]}).encode()
+    try:
+        urllib.request.urlopen = lambda *a, **k: Response()
+        d_judge._spent_usd = 0
+        with _env(OPENAI_API_KEY=KEY_VALUE, BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD="5"):
+            gw.check_budget_cad(db, estimate_cad=0.1, agent="gateway", purpose="test.judge")
+            result = d_judge.see(str(img), db=db)
+        assert d_judge._spent_usd == d_judge._worst_case_usd(), d_judge._spent_usd
+        assert result["cost_usd"] > 0 and "worst-case" in result["price_basis"], result
+    finally:
+        urllib.request.urlopen = original_urlopen
+        d_judge._spent_usd = original_spent
+
+
 # ---- 8. the owner queue says a key is not activation, by name only ------------------------
 
 def test_owner_queue_card_explains_key_is_not_activation_without_secret_values():

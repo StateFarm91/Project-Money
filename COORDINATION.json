@@ -292,7 +292,8 @@
         "brambleloop/tests/test_w5_v0_paid_provider_gate.py",
         "brambleloop/src/brambleloop/finance/reservations.py",
         "brambleloop/src/brambleloop/gateway/images.py",
-        "brambleloop/src/brambleloop/gateway/anthropic.py"
+        "brambleloop/src/brambleloop/gateway/anthropic.py",
+        "brambleloop/src/brambleloop/visual/d_judge.py"
       ],
       "claimed_at": "2026-11-03"
     }
