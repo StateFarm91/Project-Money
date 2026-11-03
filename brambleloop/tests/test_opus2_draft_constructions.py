@@ -73,7 +73,9 @@ def test_every_fallback_seed_is_routed_and_none_is_a_shaped_object_on_a_panel():
     assert F.plan(category="blanket", title="Granny Throw")["family"] == F.REFUSED
     assert F.plan(category="blanket", title="Everyday Throw")["family"] == F.FLAT_PANEL
     assert F.plan(category="blanket", title="Baby Hat")["family"] == F.REFUSED
-    assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.PANEL_PAIR
+    assert F.plan(category="pillow", title="Everyday Cushion")["family"] == F.PANEL_PAIR
+    # A2: a texture the plain panel pair does not make is refused, never drafted plain.
+    assert F.plan(category="pillow", title="Bobble Cushion")["family"] == F.REFUSED
     assert F.plan(category="wedding", title="Wedding Ring Cushion")["family"] == F.PANEL_PAIR
     # A cushion word never rescues a closed shape the panel pair does not make.
     assert F.plan(category="seasonal_decor", title="Egg Cosy Cushion")["family"] == F.REFUSED

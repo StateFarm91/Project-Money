@@ -281,6 +281,15 @@
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
     },
     {
+      "id": "OPUS2-A2-NAME-OBJECT",
+      "operator": "opus2",
+      "branch": "opus2/a2-name-object",
+      "state": "ready_for_review",
+      "area": "A2 P0-NAME-OBJECT",
+      "claimed": "2026-11-02T15:40Z",
+      "scope": "shared name/object contract in creative/fallback_constructions.plan (all routes), motif_promise in eligibility.name_truth for non-catalogue products"
+    },
+    {
       "id": "OPUS2-A1R-CHILD-SAFETY-CORE",
       "operator": "opus2",
       "branch": "opus2/p0-child-safety-core",
@@ -310,6 +319,22 @@
         "brambleloop/src/brambleloop/runtime/release.py",
         "brambleloop/tests/test_a1r_child_safety_core.py",
         "brambleloop/tests/test_codex_a1_assignment_content.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A2-LISTING-MOTIF",
+      "operator": "codex",
+      "branch": "codex/a2-safety-continuation",
+      "source_branch": "opus2/a2-name-object",
+      "source_sha": "52f83cf7ab9cb7b40b96f75b7ff4422693d18a1b",
+      "scope": "A2 listing-copy motif truth for rule-drafted CIRs; contradictory tote size promises; fabric-backed stripe claims",
+      "files": [
+        "brambleloop/src/brambleloop/publish/eligibility.py",
+        "brambleloop/tests/test_codex_a2_listing_truth.py",
+        "brambleloop/src/brambleloop/creative/fallback_constructions.py",
+        "brambleloop/tests/test_codex_a2_tote_size.py",
+        "brambleloop/tests/test_codex_a2_stripe_truth.py"
       ],
       "claimed_at": "2026-11-03"
     }

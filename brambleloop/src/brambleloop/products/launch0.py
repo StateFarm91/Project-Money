@@ -172,7 +172,7 @@ def title_promise(cir: CIR) -> dict:
     the generic builder in `builder.py` has no field for it -- so a title is currently the only
     place a multiplicity claim lives, and nothing checked it against the pattern.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     claimed: int | None = None
     for token in re.findall(r"[a-z]+|\d+", lowered):
         if token.isdigit():
@@ -235,6 +235,16 @@ def declared_motifs(cir: CIR) -> list[str]:
             or u.endswith(".MOTIF")]
 
 
+def _motif_fold(text) -> str:
+    """A2-1 / A1R-3: a motif word is read as it renders, through the ONE shared fold
+    (`products.text_fold.fold`: NFKC, invisibles, marks, look-alike capitals and letters,
+    lower case) -- the fold the drafting routes, the renderer and the survey read with, so a
+    word the route lets through to this gate is a word this gate sees."""
+    from .text_fold import fold
+
+    return fold(text)
+
+
 def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
                   tags: dict[str, list[str]] | None = None) -> dict:
     """Whether every motif word in the title and copy is backed by the CIR's declared motif.
@@ -255,18 +265,18 @@ def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
             relief = relief or dec["medium"] == RELIEF
     problems = []
     for where, text in texts.items():
-        found = [w for w in re.findall(r"[a-z]+", str(text or "").lower()) if w in MOTIF_WORDS]
+        found = [w for w in re.findall(r"[a-z]+", _motif_fold(text)) if w in MOTIF_WORDS]
         for w in sorted(set(found) - backs):
             problems.append(f"{where}: {w!r} is a motif word the CIR's declared motif "
                             f"{declared or 'none'} does not back")
         backed_here = sorted(set(found) & backs)
-        if backed_here and relief and not (set(re.findall(r"[a-z]+", str(text).lower()))
+        if backed_here and relief and not (set(re.findall(r"[a-z]+", _motif_fold(text)))
                                            & RELIEF_QUALIFIERS):
             problems.append(f"{where}: {backed_here} exist only as raised stitches, and the "
                             f"text does not say so (raised / relief / texture)")
     for where, phrases in (tags or {}).items():
         for ph in phrases:
-            for w in sorted({w for w in re.findall(r"[a-z]+", ph.lower()) if w in MOTIF_WORDS}
+            for w in sorted({w for w in re.findall(r"[a-z]+", _motif_fold(ph)) if w in MOTIF_WORDS}
                             - backs):
                 problems.append(f"{where}: {ph!r} names {w!r}, which the CIR does not back")
     return {"declared": declared, "backs": sorted(backs), "relief": relief,
@@ -299,7 +309,7 @@ def assembly_promise(cir: CIR) -> dict:
     Why: a garland is pennants joined to a cord. A CIR with one panel and no seams is a panel,
     and the buyer who paid for a garland has to invent the part that makes it one.
     """
-    lowered = cir.title.lower()
+    lowered = _motif_fold(cir.title)          # A2F-2: the one shared fold
     named = [f for f in ASSEMBLED_FORMS if f in lowered]
     seams = len(cir.assembly or [])
     pieces = sum(c.make for c in cir.components)
@@ -508,7 +518,7 @@ def fabric_truth(cir: CIR, twin) -> dict:
     heights = twin.stitch_types_used
     mixed_heights = len(heights) > 1
 
-    text = f"{cir.title} {cir.designer_notes or ''}".lower()
+    text = _motif_fold(f"{cir.title} {cir.designer_notes or ''}")  # A2F-2: one fold
     claims = colourwork_claims(text)
     motif = colourwork_motif(grid)
     verdicts = {c: technique_backed(c, motif) for c in claims}

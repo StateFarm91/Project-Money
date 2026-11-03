@@ -470,7 +470,9 @@ def test_handle_cir_draft_drafts_a_cushion_that_is_then_held_until_decided():
         s.add(PatternVersion(product_id=p.id, version="0.9.0", cir_json={}, certified=True))
     inputs = {k: v for k, v in dc.asdict(seed).items() if not isinstance(v, tuple)}
     inputs.update(pipeline.concept_geometry(seed))
-    inputs.update(category="pillow", title="Juniper Cushion")
+    # (A2 x A1-R merge: A2's title rule refuses an unlisted modifier such as "Juniper"; a
+    # plain cushion title keeps the subject -- the construction, not the name, holds it.)
+    inputs.update(category="pillow", title="Everyday Cushion")
     JobQueue(db).enqueue("crochet_engineer", "cir.draft", inputs, priority=0)
     fresh = Database(f"sqlite:///{path}")
     assert Worker(fresh, "a1r-draft", job_types=["cir.draft"]).run_once()
