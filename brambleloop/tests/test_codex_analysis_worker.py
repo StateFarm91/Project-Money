@@ -69,7 +69,19 @@ class AnalysisWorkerTests(unittest.TestCase):
             self.assertEqual(open_count(), 0)
             with db.session() as s:
                 source = s.get(BenchmarkAnalysis, analysis_id)
+                original = dict(source.observations)
                 source.observations = {**source.observations, "architecture_complete": False}
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                source.observations = original
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                s.get(BenchmarkProduct, source.benchmark_id).files = [
+                    {"name": "fixture.txt", "sha256": sha}]
             knowledge_gaps.observe_analysis(db, analysis_id)
             self.assertEqual(open_count(), 1)
 

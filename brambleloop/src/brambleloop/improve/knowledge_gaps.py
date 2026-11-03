@@ -19,6 +19,7 @@ def _architecture_complete(session, source, reviewed: bool) -> bool:
         BenchmarkProduct.id == source.benchmark_id).with_for_update())
     if (not reviewed or product is None or not any(
             isinstance(f, dict) and f.get("sha256") == source.file_sha256
+            and isinstance(f.get("name"), str) and f["name"].lower().endswith(".pdf")
             for f in (product.files or []))):
         return False
     terms = session.scalar(select(BenchmarkLicence).where(
