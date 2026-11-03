@@ -287,6 +287,50 @@ def test_competing_package_records_never_reopen_a_stale_owner_request():
     assert [key for key, done, _state in _requests(db) if not done] == active
 
 
+def test_ineligible_event_and_sweep_close_stale_owner_reviews():
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.ops import owner_queue
+
+    for defect in ("uncertified", "missing_listing", "parked"):
+        db = _db(f"ineligible-{defect}")
+        slug, version = "fixture-review", "1.0.0"
+        with db.session() as session:
+            product = Product(slug=slug, title="Fixture Review")
+            session.add(product)
+            session.flush()
+            session.add(PatternVersion(product_id=product.id, version=version, cir_json={},
+                                       certified=True, release_hash="a" * 64))
+            session.add(Listing(product_slug=slug, version=version, title="Fixture Review",
+                                description="Fixture", tags=[], release_hash="a" * 64))
+        package = {"slug": slug, "version": version, "fingerprint": "b" * 64,
+                   "state": LP.READY, "release_hash": "a" * 64, "identity": {},
+                   "copy": {"title": "Fixture Review"}, "blockers": []}
+        assert LP.record(db, package)["review_requested"]
+        with db.session() as session:
+            if defect == "missing_listing":
+                listing = session.scalar(select(Listing).where(Listing.product_slug == slug))
+                session.delete(listing)
+            else:
+                pv = session.scalar(select(PatternVersion).join(Product).where(Product.slug == slug))
+                pv.certified = False
+            if defect == "parked":
+                action = session.scalar(select(OwnerAction).where(OwnerAction.done == False))
+                action.state = owner_queue.PARKED
+        job = _run(db, {"slug": slug, "version": version}, f"t:ineligible:{defect}")
+        assert job.status == JobStatus.DONE and not job.outputs["eligible"], job.outputs
+        assert LP.latest(db, slug, version)["state"] == LP.BLOCKED
+        actions = _requests(db)
+        if defect == "parked":
+            assert len(actions) == 1 and actions[0][2] == owner_queue.PARKED, actions
+        else:
+            assert len(actions) == 1 and actions[0][1] is True, actions
+            assert actions[0][2] == owner_queue.SUPERSEDED, actions
+        # The safety-net sweep neither reopens a request nor rewrites the hold.
+        again = LP.sweep(db)
+        assert again["changed"] == 0, again
+        assert _requests(db) == actions
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
