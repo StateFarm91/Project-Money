@@ -176,6 +176,72 @@ def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():
     assert _readings(db)[0][1]["undrafted_pool"]          # what could still be drafted
 
 
+def test_recovery_and_a_later_stall_are_reported_from_real_scans():
+    db = _db("recovery")
+    pool = [c.slug for c in pool_with_intake(db)]
+    _drafted(db, pool)
+    first = _scan(db, DAY1, "recovery-stalled")
+    assert first["concept_supply"]["stalled"] is True
+    assert flow_health.concept_supply_stall(db) is not None
+    selected = first["selected"]
+    assert selected
+    # Remove one test-only draft fixture to simulate newly eligible supply.
+    with db.session() as session:
+        fixture = session.scalar(select(Job).where(
+            Job.idempotency_key == f"draft:{selected[0]}"))
+        session.delete(fixture)
+    recovered = _scan(db, DAY1, "recovery-available")
+    assert recovered["concept_supply"]["stalled"] is False, recovered
+    assert flow_health.concept_supply_stall(db) is None
+    fresh = Database(str(db.engine.url))
+    assert flow_health.concept_supply_stall(fresh) is None
+    # A fresh stall later that day must not stay hidden by the healthy scan.
+    _drafted(db, [selected[0]])
+    stalled_again = _scan(db, DAY1, "recovery-stalled-again")
+    assert stalled_again["concept_supply"]["stalled"] is True
+    assert flow_health.concept_supply_stall(db) is not None
+    assert flow_health.concept_supply_stall(Database(str(db.engine.url))) is not None
+    assert len(_readings(db)) == 1
+
+
+def test_backdated_or_future_scan_cannot_clear_a_current_stall():
+    from datetime import date, timedelta
+
+    db = _db("as-of-replay")
+    today = date.today()
+    current, historical, future = (today.isoformat(), (today - timedelta(days=1)).isoformat(),
+                                   (today + timedelta(days=1)).isoformat())
+    _drafted(db, [c.slug for c in pool_with_intake(db)])
+    original = _scan(db, current, "current-stall")
+    assert original["concept_supply"]["stalled"] is True
+    assert flow_health.concept_supply_stall(db) is not None
+    # Remove test-only fixtures so both replayed scans find available supply.
+    with db.session() as session:
+        for row in session.scalars(select(Job).where(Job.job_type == "cir.draft")):
+            session.delete(row)
+    old = _scan(db, historical, "historical-supply")
+    assert old["concept_supply"]["stalled"] is False
+    assert flow_health.concept_supply_stall(db) is not None
+    projected = _scan(db, future, "future-supply")
+    assert projected["concept_supply"]["stalled"] is False
+    assert flow_health.concept_supply_stall(db) is not None
+    current_supply = _scan(db, current, "current-supply")
+    assert current_supply["concept_supply"]["stalled"] is False
+    assert flow_health.concept_supply_stall(db) is None
+
+
+def test_unmeasured_scan_never_proves_recovery():
+    db = _db("unknown")
+    _drafted(db, [c.slug for c in pool_with_intake(db)])
+    _scan(db, DAY1, "unknown-stalled")
+    with db.session() as session:
+        session.add(Job(agent="market_radar", job_type="radar.scan",
+                        inputs={}, outputs={"concept_supply": {"measured": False}},
+                        status=JobStatus.DONE, finished_at=utcnow(),
+                        idempotency_key="fixture-unmeasured"))
+    assert flow_health.concept_supply_stall(db) is not None
+
+
 def test_the_reading_is_visible_to_the_command_center_and_the_readback_evidence():
     from brambleloop.app.command_center import production
     from brambleloop.ops import production_evidence as pe
