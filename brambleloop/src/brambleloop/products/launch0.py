@@ -1366,7 +1366,50 @@ EXTRA_CHILDRENS_ASSIGNMENTS: dict[str, tuple[str, str]] = {
 # child, each with the reason. Empty today, and it is meant to stay small: the point is that
 # an exemption has to be written down by somebody, because the alternative reading of silence
 # is "nobody looked".
-NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {}
+NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {
+    # A1-R (owner directive 2026-11-02): every closed stuffed form needs a written decision;
+    # the implicit "the candidate declares no sub-category" is not one. These two are the
+    # catalogue's stuffed pieces, decided here with their reasons.
+    "heart-row-ring-pillow": ("a wedding ring-bearer pillow: wedding decor that holds the "
+                              "rings, not a plaything; it is not merchandised, sized or "
+                              "described for a child"),
+    "spring-garden-kneeler": ("a garden kneeling pad: an adult gardening accessory, not "
+                              "merchandised, sized or described for a child"),
+}
+
+# A1R-6: the record behind each written exemption -- who decided, when, and the decision log
+# entry. Recorded by opus2 under the owner's A1-R directive of 2026-11-02; the owner's own
+# ratification is an open owner decision, said here rather than implied.
+NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
+    slug: {"decided_by": "opus2 (A1-R), under the owner's 2026-11-02 directive; "
+                         "owner ratification pending",
+           "decided_on": "2026-11-02", "decision_log": "D-A1R-STUFFED-EXEMPTIONS",
+           "reason": why}
+    for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
+
+# The recorded reasons describe these exact repository designs, not every future
+# use of the same slug. Versions are included; a revision needs a new decision.
+# These bind existing decisions only; owner ratification remains pending.
+_STUFFED_DECISION_CIR_SHA256 = {
+    "heart-row-ring-pillow": "5243ba1417936102e3fdba0e7950f9d9880b1dc097a2702fba29f7d6511bba7b",
+    "spring-garden-kneeler": "2eb7387e6def9659b88f8c6d8226111df413e2b55863067d3aac5d8aa03107da",
+}
+
+
+def _stuffed_decision_matches(cir) -> bool:
+    import hashlib
+    import json
+
+    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    if expected is None:
+        return False
+    try:
+        content = json.dumps(cir.to_dict(), sort_keys=True, separators=(",", ":"),
+                             allow_nan=False).encode("utf-8")
+        return hashlib.sha256(content).hexdigest() == expected
+    except Exception:  # noqa: BLE001 - unreadable evidence cannot authorize an exemption
+        return False
+
 
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
@@ -1411,6 +1454,117 @@ def _decided_not_for_children() -> dict[str, str]:
     return out
 
 
+# A1-R: what makes a closed stuffed form. A stuffed seam (the risk matrix's closed_3d_form),
+# or a stuffing material in a CIR whose pieces are closed by any seam. Never a title word and
+# never an optional placement field.
+# A1R-1: the stuffing vocabulary, read through the one fold (so "Fiber-Fill", "fibre-fill",
+# "fiberfil" and look-alike spellings are the same word). A vocabulary of what goes INSIDE a
+# closed piece -- not a narrow product regex -- and any non-yarn material counts as well.
+STUFFING_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bfill(?:ing|er)?\b|"
+    r"\bstuff(?:ing|ed)?\b|kapok|pellets?\b|\bbeans?\b|roving|wadding|batting|\bfoam\b|"
+    r"\binsert\b|pillow\s+form|cushion\s+pad|\bpad\b|buckwheat|hulls?\b|beads?\b|"
+    r"\bfluff\b|filler|down\s+feather|feathers?\b)", re.I)
+# Only these words count when they appear in free text (designer or seam notes): the words a
+# maker writes when a piece is stuffed. "insert"/"pad" alone in a note are too common
+# ("insert the dowel") to read as stuffing; in a material name they count.
+STUFFING_NOTE_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
+    r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b)", re.I)
+# A rounds piece whose last round is at most this many stitches after decreasing from a
+# wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
+CLOSURE_MAX_STITCHES = 12
+ROUNDS = ("joined_rounds", "spiral_rounds")
+
+
+def _folded(text) -> str:
+    from .text_fold import fold
+
+    return fold(str(text or ""))
+
+
+def _closes_on_itself(component) -> bool:
+    """A rounds piece that widens and then decreases back to a small closing round."""
+    if getattr(component, "construction", None) not in ROUNDS:
+        return False
+    counts = [r.declared_count for r in (component.rows or []) if r.declared_count]
+    if len(counts) < 3:
+        return False
+    return counts[-1] < max(counts) and counts[-1] <= CLOSURE_MAX_STITCHES
+
+
+def stuffed_form_reasons(cir) -> list[str]:
+    """Why this CIR is (or must be treated as) a closed stuffed form; [] when it is not.
+
+    A1R-1, fail closed. A closed construction -- any seam, or a rounds piece that closes on
+    itself -- together with ANY of: a seam stuffed before closing, a stuffing word in a
+    material name, a material that is not a yarn (no yarn weight), or a stuffing word in the
+    designer or seam notes. A seam stuffed before closing is enough on its own. Whatever
+    cannot be read is a reason, so it holds."""
+    try:
+        seams = list(getattr(cir, "assembly", None) or [])
+        out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
+               for s in seams if getattr(s, "stuff_before_closing", False)]
+        components = list(cir.components or [])
+        closing = [c.name for c in components if _closes_on_itself(c)]
+        closed = bool(seams) or bool(closing)
+        how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
+               else f"{', '.join(closing)} closes on itself" if closing
+               else "closure cannot be established from stitch counts")
+        # Explicit filling is safety-relevant even when the final stitch count is
+        # greater than twelve or the maker closes the opening using a free-text note.
+        for m in getattr(cir, "materials", None) or []:
+            name = _folded(getattr(m, "name", ""))
+            if STUFFING_WORDS.search(name):
+                out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
+            elif closed and not getattr(m, "yarn_weight", None):
+                out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
+                           f"(UNKNOWN filling: held)")
+        notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
+                         + [str(getattr(seam, "note", "") or "") for seam in seams]
+                         + [str(getattr(component, "note", "") or "")
+                            for component in components]
+                         + [str(getattr(row, "note", "") or "") for component in components
+                            for row in (getattr(component, "rows", None) or [])])
+        if STUFFING_NOTE_WORDS.search(_folded(notes)):
+            out.append(f"{how}, and the notes say it is stuffed")
+        return out
+    except Exception as exc:  # noqa: BLE001 - unreadable construction is UNKNOWN: held
+        return [f"construction unreadable ({type(exc).__name__}): UNKNOWN, held"]
+
+
+def closed_stuffed_form(cir) -> bool:
+    """A1-R / A1R-1: the construction, not the title, decides; UNKNOWN reads as True."""
+    return bool(stuffed_form_reasons(cir))
+
+
+def childrens_decision_for(cir, *, listing=None) -> tuple[str, object]:
+    """`childrens_decision` for this CIR, read with its construction (A1-R).
+
+    For a closed stuffed form only an explicit decision counts: an assignment, or a written,
+    reasoned entry in NOT_MERCHANDISED_TO_A_CHILD. The implicit exemption a candidate gets for
+    declaring no children's sub-category is not accepted for one -- nobody wrote that decision
+    for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
+    state, why = childrens_decision(cir.slug)
+    if listing is not None:
+        try:
+            listing_words = child_words_in_listing(listing)
+        except ValueError:
+            return (UNDECIDED, None)  # uncheckable copy is not a safety decision
+        if listing_words and state != ASSIGNED:
+            return (UNDECIDED, None)
+    # A legacy no-subcategory decision says nothing about newly introduced child
+    # audience words on this design. A contradictory name requires a decision.
+    if state == NOT_FOR_CHILDREN and child_words_in(cir.title, cir.slug):
+        return (UNDECIDED, None)
+    if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
+            and (cir.slug not in NOT_MERCHANDISED_TO_A_CHILD
+                 or not _stuffed_decision_matches(cir)):
+        return (UNDECIDED, None)
+    return (state, why)
+
+
 def childrens_decision(cir_slug: str) -> tuple[str, object]:
     """Whether this product is merchandised to a child, or whether nobody has said.
 
@@ -1439,8 +1593,24 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     Shared by the survey and by the renderer's refusal, so a word added here cannot start
     being reported without also starting to block.
     """
-    words = set(re.findall(r"[a-z]+", " ".join(texts).lower()))
+    from .text_fold import fold
+
+    # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
+    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
     return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+
+
+def child_words_in_listing(listing) -> tuple[str, ...]:
+    """Read customer-facing title, description and tags with the shared fold."""
+    if not isinstance(listing, dict):
+        raise ValueError("listing copy is not a mapping")
+    tags = listing.get("tags") or []
+    if not isinstance(tags, (list, tuple)) or any(not isinstance(t, str) for t in tags):
+        raise ValueError("listing tags cannot be checked")
+    texts = [listing.get("title") or "", listing.get("description") or "", *tags]
+    if any(not isinstance(t, str) for t in texts):
+        raise ValueError("listing copy cannot be checked")
+    return child_words_in(*texts)
 
 
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
@@ -1462,8 +1632,9 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 # `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
 # chose, not a classifier's guess at a fabric.
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
-    "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
-    "kids", "crib", "cot", "lovey", "amigurumi",
+    "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
+    "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
+    "cot", "cots", "lovey", "loveys", "amigurumi",
 )
 
 
@@ -1489,13 +1660,23 @@ def childrens_titles_without_an_assignment() -> list[dict]:
     for size in ("small", "medium", "large"):
         makers[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
     makers["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+    # A1-7: every engineered catalogue CIR too (the kneeler and ring pillow are moment
+    # candidates, not flat or vessel builds), so the survey covers what the renderer holds.
+    from . import inventory
+
+    for slug in inventory.universe():
+        if slug not in makers:
+            makers[slug] = (lambda s=slug: inventory._engineered(s))
 
     out = []
     for key in sorted(makers):
         cir = makers[key]()                               # type: ignore[operator]
+        if cir is None:
+            continue
         hits = child_words_in(cir.title, cir.slug)
-        state, _why = childrens_decision(cir.slug)
-        if hits and state == UNDECIDED:
+        state, _why = childrens_decision_for(cir)
+        # A1-7: the survey reads what the renderer refuses on -- words or the construction.
+        if (hits or closed_stuffed_form(cir)) and state == UNDECIDED:
             out.append({"slug": cir.slug, "title": cir.title, "words": hits,
                         "why": ("the title reads as a children's product and nothing has "
                                 "decided either way -- not an assignment and not an "

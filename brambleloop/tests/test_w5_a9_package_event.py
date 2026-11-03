@@ -241,11 +241,25 @@ def test_the_sweep_is_kept_as_the_safety_net():
 def test_competing_package_records_never_reopen_a_stale_owner_request():
     from threading import Event, Thread, current_thread
 
+    from brambleloop.core.models import PatternVersion, Product
+
     db = _db("package-race")
+    with db.session() as session:
+        product = Product(slug="race-product", title="Original Product")
+        session.add(product)
+        session.flush()
+        session.add(PatternVersion(product_id=product.id, version="1.0.0", cir_json={},
+                                   certified=True, release_hash="r" * 64))
+        session.add(Listing(product_slug="race-product", version="1.0.0",
+                            title="Original Product a", description="fixture", tags=[],
+                            release_hash="r" * 64))
     def package(letter):
+        copy = {"title": f"Original Product {letter}", "description": "fixture", "tags": []}
         return {"slug": "race-product", "version": "1.0.0", "fingerprint": letter * 64,
-                "state": LP.READY, "release_hash": letter * 64, "identity": {},
-                "copy": {"title": "Original Product"}, "blockers": []}
+                "state": LP.READY, "release_hash": "r" * 64, "identity": {}, "copy": copy,
+                "listing_snapshot_sha256": LP.listing_copy_digest(copy),
+                "source_snapshot_sha256": LP._release(db, "race-product", "1.0.0")["source_snapshot_sha256"],
+                "blockers": []}
     a, b = package("a"), package("b")
     LP.record(db, a)
     entered, resume = Event(), Event()
@@ -269,6 +283,10 @@ def test_competing_package_records_never_reopen_a_stale_owner_request():
         thread = Thread(target=old_record, name="old-package")
         thread.start()
         assert entered.wait(20)
+        with db.session() as session:
+            listing = session.scalar(select(Listing).where(Listing.product_slug == "race-product"))
+            listing.title = b["copy"]["title"]
+        b["source_snapshot_sha256"] = LP._release(db, "race-product", "1.0.0")["source_snapshot_sha256"]
         LP.record(db, b)
         resume.set()
         thread.join(20)
@@ -302,9 +320,12 @@ def test_ineligible_event_and_sweep_close_stale_owner_reviews():
                                        certified=True, release_hash="a" * 64))
             session.add(Listing(product_slug=slug, version=version, title="Fixture Review",
                                 description="Fixture", tags=[], release_hash="a" * 64))
+        copy = {"title": "Fixture Review", "description": "Fixture", "tags": []}
         package = {"slug": slug, "version": version, "fingerprint": "b" * 64,
                    "state": LP.READY, "release_hash": "a" * 64, "identity": {},
-                   "copy": {"title": "Fixture Review"}, "blockers": []}
+                   "copy": copy, "listing_snapshot_sha256": LP.listing_copy_digest(copy),
+                   "source_snapshot_sha256": LP._release(db, slug, version)["source_snapshot_sha256"],
+                   "blockers": []}
         assert LP.record(db, package)["review_requested"]
         with db.session() as session:
             if defect == "missing_listing":

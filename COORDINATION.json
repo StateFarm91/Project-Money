@@ -293,6 +293,35 @@
         "brambleloop/tests/test_w5_a9_package_event.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "OPUS2-A1R-CHILD-SAFETY-CORE",
+      "operator": "opus2",
+      "branch": "opus2/p0-child-safety-core",
+      "state": "ready_for_review",
+      "area": "A1-R P0-SAFETY-CHILDREN (architectural correction)",
+      "claimed": "2026-11-02T19:40Z",
+      "scope": "shared safety code only: launch0 children's gate (closed_stuffed_form, childrens_decision_for, NOT_MERCHANDISED entries, child_words_in fold, survey), products/text_fold, gates/small_parts, publish/pdf children's refusal"
+    },
+    {
+      "id": "CODEX-A1-STUFFING-EVIDENCE",
+      "operator": "codex",
+      "branch": "codex/a1-stuffing-continuation",
+      "source_branch": "opus2/p0-child-safety-core",
+      "source_sha": "c3a7b93a59af9b2df7a0656354ce09abba05753e",
+      "scope": "Fail closed on explicit stuffing evidence in rounds and component or row notes; non-finite small-parts measurements; child-audience words override implicit non-child classification; child-audience listing copy and plurals",
+      "files": [
+        "brambleloop/src/brambleloop/products/launch0.py",
+        "brambleloop/tests/test_codex_a1_stuffing_evidence.py",
+        "brambleloop/src/brambleloop/gates/small_parts.py",
+        "brambleloop/tests/test_codex_a1_small_parts_finite.py",
+        "brambleloop/tests/test_codex_a1_child_title.py",
+        "brambleloop/src/brambleloop/publish/eligibility.py",
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/tests/test_codex_a1_listing_child.py",
+        "brambleloop/src/brambleloop/publish/release_gates.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

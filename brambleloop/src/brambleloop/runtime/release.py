@@ -9782,8 +9782,49 @@ def _successor(fn, ctx: JobContext, out: dict) -> dict:
     return out
 
 
+CHILDRENS_HOLD = "childrens.decision_required"
+
+
+def _childrens_hold(ctx: JobContext, exc) -> dict:
+    """A1R-4: one named, owner-visible hold per product, never retried, never blocking any
+    other product: an audit row (every time, with the reason) and ONE open owner decision
+    per slug (requirement key childrens-decision:<slug>)."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    i = dict(ctx.job.inputs)
+    slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
+    reason = getattr(exc, "reason", "undecided")
+    ctx.audit(CHILDRENS_HOLD, artifact=f"{slug}@{i.get('version') or ''}",
+              detail={"slug": slug, "reason": reason, "why": str(exc)[:600],
+                      "job_type": "assets.build"})
+    rk = f"childrens-decision:{slug}"
+    with ctx.db.session() as s:
+        if not s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == rk,
+                                                     OwnerAction.done == False)):  # noqa: E712
+            s.add(OwnerAction(
+                requirement_key=rk,
+                action=(f"Decide whether {slug} is merchandised to a child: assign it in "
+                        f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
+                        f"exemption in NOT_MERCHANDISED_TO_A_CHILD"
+                        + ("; for an assigned product, record a measured physical sample in "
+                           "gates.small_parts.SMALL_PARTS_EVIDENCE" if reason == "small_parts"
+                           else "")),
+                reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
+                blocks=f"{slug} documents and listing",
+                consequence_of_delay=(f"{slug} stays held; every other product continues")))
+    return {"ok": False, "held": True, "gate": "childrens_decision", "slug": slug,
+            "reason": reason, "why": str(exc)[:300]}
+
+
 def handle_assets_build_with_successor(ctx: JobContext) -> dict:
-    out = handle_assets_build(ctx)
+    from ..publish.pdf import ChildrensDecisionRequired
+
+    try:
+        out = handle_assets_build(ctx)
+    except ChildrensDecisionRequired as exc:
+        return _childrens_hold(ctx, exc)
     if isinstance(out, dict) and out.get("ok") is False and out.get("blocking_image_problems"):
         from . import chain_successors
 
