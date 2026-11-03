@@ -16,7 +16,8 @@ from test_codex_purchase_intake import purchase
 from brambleloop.cir.compiler import compile_cir
 from brambleloop.cir.writer import write_pattern
 from brambleloop.core.db import Database
-from brambleloop.core.models import AuditLog, BenchmarkAnalysis, DesignRule, Job, JobStatus
+from brambleloop.core.models import (AuditLog, BenchmarkAnalysis, BenchmarkFingerprintRecord,
+                                    DesignRule, Job, JobStatus)
 from brambleloop.gates.originality import code_benchmarks, record_fingerprint
 from brambleloop.improve import design_knowledge
 from brambleloop.products import launch0
@@ -52,6 +53,9 @@ class LearningHTTPAcceptance(unittest.TestCase):
                 jobs = list(s.scalars(select(Job).where(Job.job_type == "teardown.analyse")))
                 self.assertEqual(len(jobs), 1)
                 self.assertEqual(jobs[0].status, JobStatus.PENDING)
+                fingerprint = s.scalar(select(BenchmarkFingerprintRecord).where(
+                    BenchmarkFingerprintRecord.benchmark_ref == ref))
+                self.assertTrue(fingerprint and fingerprint.wording_shingles)
             reopened = Database(os.environ["BRAMBLELOOP_DATABASE_URL"], scratch=True)
             self.assertTrue(Worker(reopened, name="acceptance-reader", job_types=["teardown.analyse"])
                             .run_once())
@@ -78,7 +82,7 @@ class LearningHTTPAcceptance(unittest.TestCase):
             baseline = write_pattern(cir, compile_cir(cir))
             self.assertEqual(design_knowledge.applicable(reopened, {"writer_section": "finishing"}), [])
             licence.capture_purchase(reopened, design_eval._BENCH2_REF)
-            for source_ref in [ref, *(benchmark.ref for benchmark in code_benchmarks())]:
+            for source_ref in (benchmark.ref for benchmark in code_benchmarks()):
                 record_fingerprint(reopened, source_ref, text=(
                     "synthetic quasar nebula lantern velvet meadow cobalt river telescope "
                     "compass marigold dolphin rainforest juniper quartz"))
