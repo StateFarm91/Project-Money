@@ -1539,7 +1539,7 @@ def closed_stuffed_form(cir) -> bool:
     return bool(stuffed_form_reasons(cir))
 
 
-def childrens_decision_for(cir) -> tuple[str, object]:
+def childrens_decision_for(cir, *, listing=None) -> tuple[str, object]:
     """`childrens_decision` for this CIR, read with its construction (A1-R).
 
     For a closed stuffed form only an explicit decision counts: an assignment, or a written,
@@ -1547,6 +1547,13 @@ def childrens_decision_for(cir) -> tuple[str, object]:
     declaring no children's sub-category is not accepted for one -- nobody wrote that decision
     for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
     state, why = childrens_decision(cir.slug)
+    if listing is not None:
+        try:
+            listing_words = child_words_in_listing(listing)
+        except ValueError:
+            return (UNDECIDED, None)  # uncheckable copy is not a safety decision
+        if listing_words and state != ASSIGNED:
+            return (UNDECIDED, None)
     # A legacy no-subcategory decision says nothing about newly introduced child
     # audience words on this design. A contradictory name requires a decision.
     if state == NOT_FOR_CHILDREN and child_words_in(cir.title, cir.slug):
@@ -1593,6 +1600,19 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
 
 
+def child_words_in_listing(listing) -> tuple[str, ...]:
+    """Read customer-facing title, description and tags with the shared fold."""
+    if not isinstance(listing, dict):
+        raise ValueError("listing copy is not a mapping")
+    tags = listing.get("tags") or []
+    if not isinstance(tags, (list, tuple)) or any(not isinstance(t, str) for t in tags):
+        raise ValueError("listing tags cannot be checked")
+    texts = [listing.get("title") or "", listing.get("description") or "", *tags]
+    if any(not isinstance(t, str) for t in texts):
+        raise ValueError("listing copy cannot be checked")
+    return child_words_in(*texts)
+
+
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
     """The children's sub-category and age band a CIR slug is merchandised into, or None.
 
@@ -1612,8 +1632,9 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
 # `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
 # chose, not a classifier's guess at a fabric.
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
-    "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
-    "kids", "crib", "cot", "lovey", "amigurumi",
+    "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
+    "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
+    "cot", "cots", "lovey", "loveys", "amigurumi",
 )
 
 

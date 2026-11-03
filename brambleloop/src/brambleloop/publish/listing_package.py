@@ -70,6 +70,8 @@ def _release(db, slug: str, version: str) -> dict | None:
         listing = listings[0] if listings else None
         return {"release_hash": pv.release_hash or "", "cir": dict(pv.cir_json or {}),
                 "listing_state": listing.state if listing is not None else None,
+                "listing_copy": ({"title": listing.title, "description": listing.description,
+                                  "tags": listing.tags} if listing is not None else None),
                 "listing_release": (listing.release_hash or "") if listing is not None else ""}
 
 
@@ -105,7 +107,7 @@ def _files(db, slug: str, version: str, release: str) -> dict | None:
     return {"pdf_sha256_by_terminology": dict(hashes), **meta}
 
 
-def _identity(slug: str, cir: dict) -> dict:
+def _identity(slug: str, cir: dict, listing=None) -> dict:
     from ..products import launch0
 
     out = {"risk_class": cir.get("risk_class"), "title_in_pattern": cir.get("title"),
@@ -115,7 +117,7 @@ def _identity(slug: str, cir: dict) -> dict:
     def _decision(slug_):
         from ..cir.model import CIR
 
-        return (launch0.childrens_decision_for(CIR.from_dict(cir)) if cir
+        return (launch0.childrens_decision_for(CIR.from_dict(cir), listing=listing) if cir
                 else launch0.childrens_decision(slug_))
     decision, err = _try(_decision, slug)
     out["childrens_decision"] = (list(decision) if isinstance(decision, tuple)
@@ -191,10 +193,25 @@ def assemble(db, slug: str, version: str) -> dict | None:
             f"the certified {release[:12]}")})
 
 
+    identity = _identity(slug, rel["cir"], rel["listing_copy"])
+    if rel["listing_copy"] is not None:
+        try:
+            from ..products import launch0
+
+            listing_words = launch0.child_words_in_listing(rel["listing_copy"])
+            decision = identity.get("childrens_decision") or []
+            if listing_words and (not isinstance(decision, list) or not decision
+                                  or decision[0] != launch0.ASSIGNED):
+                blockers.append({"source": "childrens_decision", "why":
+                    "listing copy names a child audience without an explicit assignment"})
+        except (TypeError, ValueError):
+            blockers.append({"source": "childrens_decision", "why":
+                             "listing child audience cannot be checked"})
+
     package = {
         "slug": slug, "version": version, "release_hash": release,
         "state": READY if not blockers else BLOCKED,
-        "identity": _identity(slug, rel["cir"]),
+        "identity": identity,
         "listing_state": rel["listing_state"],
         "copy": copy,
         "gallery": frames,
