@@ -12,6 +12,7 @@ import ast
 import hashlib
 import inspect
 import json
+import re
 from pathlib import Path
 
 from ..cir import benchmarks
@@ -29,6 +30,11 @@ _LAUNCH_CASES = (
     ("housewarming-key-basket", "key_basket"),
 )
 _MANIFEST = Path(__file__).with_name("design_eval_cases.json")
+_INTEG1_MANIFEST = Path(__file__).with_name("design_eval_cases_integ1.json")
+_TRUSTED_CASE_HASHES = {
+    "design_eval_cases.json": "d6ccb9c7953ae0b0228a2c76f64e2c3f989ba8a809aa42ecfefd657379f57464",
+    "design_eval_cases_integ1.json": "10d923dfedccfb58d59802a06ac79021a34697f6aad1bd29edf3c398ed7ef469",
+}
 _BENCH2 = Path(__file__).resolve().parents[3] / "research" / "bench2" / "out" / "product_truth.json"
 _BENCH2_REF = "benchmark-2-mini-star-stitch-cardigan"
 _BENCH2_TRUTH_SHA = "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1"
@@ -85,12 +91,12 @@ def implementation_digest(db=None) -> str:
     from ..gates import asset_truth, certificate, originality, policy, risk_matrix
     from ..improve import design_knowledge
     from ..teardown import analysis_store, licence, reader, review, size_family
-    from . import benchmark_e2e
+    from . import benchmark_e2e, design_revalidation
 
     modules = (sys.modules[__name__], writer, knowledge, compiler, reverse, twin, assembly, specification,
                topology, asset_truth, certificate, originality, policy, risk_matrix, benchmarks,
                benchmark_e2e, stitch_benchmarks, design_knowledge, analysis_store,
-               licence, reader, review, size_family)
+               licence, reader, review, size_family, design_revalidation)
     _, manifest, builder = _bench2_files(db)
     parts = [inspect.getsource(module) for module in modules]
     parts.extend(hashlib.sha256(data).hexdigest() for data in (manifest, builder))
@@ -148,18 +154,20 @@ def load_cases(*, challenger_cases=None, db=None) -> dict:
     """Return only the pinned shared set; a challenger cannot supply its own cases."""
     if challenger_cases is not None:
         raise DesignEvaluationRefused("a challenger may not supply evaluation cases")
-    if not _MANIFEST.is_file():
-        raise DesignEvaluationRefused("held-out case manifest is unavailable")
     try:
-        frozen = json.loads(_MANIFEST.read_text(encoding="utf-8"))
         live = materialize_cases(db)
+        available = [path for path in (_MANIFEST, _INTEG1_MANIFEST) if path.is_file()]
+        if not available:
+            raise DesignEvaluationRefused("held-out case manifest is unavailable")
+        for path in available:
+            frozen = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(frozen, dict) or frozen.get("sha256") != _TRUSTED_CASE_HASHES[path.name]:
+                raise DesignEvaluationRefused("held-out case manifest is invalid")
+            if frozen.get("cases") == live and frozen["sha256"] == _digest(live):
+                return {"cases": live, "sha256": frozen["sha256"]}
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise DesignEvaluationRefused("held-out cases cannot be read") from exc
-    if not isinstance(frozen, dict):
-        raise DesignEvaluationRefused("held-out case manifest is invalid")
-    if frozen.get("cases") != live or frozen.get("sha256") != _digest(live):
-        raise DesignEvaluationRefused("held-out cases differ from the frozen manifest")
-    return {"cases": live, "sha256": frozen["sha256"]}
+    raise DesignEvaluationRefused("held-out cases differ from the frozen manifest")
 
 
 def measure_written_case(cir, text: str, *, db=None) -> dict:
@@ -189,6 +197,10 @@ def measure_written_case(cir, text: str, *, db=None) -> dict:
         section = []
     # Count independently generated complete actions, not merely a heading.
     normalized = {line.removeprefix('- ').strip() for line in section}
+    end_check = int(any(re.search(r"\b(?:tug|check|test)\b", line, re.I)
+                        and re.search(r"\bends?\b", line, re.I)
+                        and re.search(r"\b(?:loose|secure)\b", line, re.I)
+                        for line in section))
     twin_failures = 0
     truth_codes = []
     twins = {}
@@ -254,7 +266,8 @@ def measure_written_case(cir, text: str, *, db=None) -> dict:
                                        else unknown_ip if db is not None else None),
             "finishing_actions_expected": len(expected),
             "finishing_actions_present": sum(line in normalized for line in expected),
-            "finishing_actions_listed": sum(('- ' + line) in section for line in expected)}
+            "finishing_actions_listed": sum(('- ' + line) in section for line in expected),
+            "end_check_present": end_check}
 
 
 def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict:
@@ -282,19 +295,17 @@ def compare_written_case(cir, baseline: str, candidate: str, *, db=None) -> dict
     # The shingles are not a substitute for a comparison with purchased sources.
     # They do detect changed word sequences for this formatting-only experiment.
     same_shingles = shingles(baseline) == shingles(candidate)
-    if not same_shingles:
-        regressions.append("word_shingles_changed")
     return {"before": before, "after": after, "regressions": regressions,
             "same_word_shingles": same_shingles,
             "approval_evidence_complete": False,
             "incomplete_reason": "full benchmark and Product Truth evaluation is incomplete"}
 
 
-def _preview_checklist(text: str) -> str:
+def _preview_checklist(text: str, *, rule_name: str = "include_finishing_checklist") -> str:
     from ..cir.writer import finishing_checklist
 
     try:
-        return finishing_checklist(text)
+        return finishing_checklist(text, check_ends=rule_name == "include_checklist_and_end_check")
     except ValueError as exc:
         raise DesignEvaluationRefused(str(exc)) from exc
 
@@ -360,8 +371,20 @@ def _benchmark_checks(db) -> dict:
 def classify_evaluation(report: dict) -> str:
     """Require measured, non-regressing cases and a measurable writer improvement."""
     try:
+        from ..improve import design_knowledge
         cases = report["cases"]
         checks = report["benchmark_checks"]
+        scope = report.get("scope", {"writer_section": "finishing"})
+        design_knowledge.scope_slot(scope)
+        if ("construction_family" in scope and report.get("out_of_scope_controls") !=
+                "unmodified_no_knowledge"):
+            return "insufficient_evidence"
+        matches = {slug: design_knowledge.scope_matches(scope, launch0.cir_for(build))
+                   for slug, build in _LAUNCH_CASES}
+        if not any(matches.values()):
+            return "insufficient_evidence"
+        if report["rule_name"] not in ("include_finishing_checklist", "include_checklist_and_end_check"):
+            return "insufficient_evidence"
         if ({c["case"] for c in cases} != {slug for slug, _ in _LAUNCH_CASES}
                 or len(cases) != len(_LAUNCH_CASES)):
             return "insufficient_evidence"
@@ -375,16 +398,21 @@ def classify_evaluation(report: dict) -> str:
         improvement = False
         for case in cases:
             before, after = case["before"], case["after"]
+            if not matches[case["case"]] and before != after:
+                return "regression"
             for metric in ("compile_errors", "twin_failures", "reverse_findings",
                            "policy_findings", "truth_findings", "finishing_actions_present",
-                           "finishing_actions_listed"):
+                           "finishing_actions_listed", "end_check_present"):
                 if type(before[metric]) is not int or type(after[metric]) is not int:
                     return "insufficient_evidence"
                 if before[metric] < 0 or after[metric] < 0:
                     return "insufficient_evidence"
+            if before["end_check_present"] not in (0, 1) or after["end_check_present"] not in (0, 1):
+                return "insufficient_evidence"
             if case["regressions"] or after["truth_findings"] != 0:
                 return "regression"
-            if case["same_word_shingles"] is not True:
+            if report["rule_name"] == "include_finishing_checklist" \
+                    and case["same_word_shingles"] is not True:
                 return "regression"
             for metric in ("reverse_codes", "policy_codes", "truth_codes"):
                 if not isinstance(before[metric], list) or not isinstance(after[metric], list):
@@ -400,7 +428,11 @@ def classify_evaluation(report: dict) -> str:
                 return "regression"
             if after["finishing_actions_present"] < before["finishing_actions_present"]:
                 return "regression"
-            improvement |= after["finishing_actions_listed"] > before["finishing_actions_listed"]
+            if after["end_check_present"] < before["end_check_present"]:
+                return "regression"
+            if matches[case["case"]]:
+                improvement |= after["finishing_actions_listed"] > before["finishing_actions_listed"]
+                improvement |= after["end_check_present"] > before["end_check_present"]
         for case in cases:
             for phase in ("before", "after"):
                 if case[phase]["originality_unmeasured"] != 0:
@@ -420,23 +452,14 @@ def classify_evaluation(report: dict) -> str:
         return "insufficient_evidence"
 
 
-def _incumbent_pins(db) -> list[dict]:
-    """A claimed incumbent must itself still pass the full pin verifier."""
-    from sqlalchemy import select
-    from ..core.models import DesignRule
+def _incumbent_pins(db, scope: dict | None = None) -> list[dict]:
+    """Authenticate the old decision for a fresh comparison against the current corpus."""
     from ..improve import design_knowledge
 
-    with db.session() as s:
-        rows = list(s.scalars(select(DesignRule).where(DesignRule.state == "approved")))
-        ids = [row.id for row in rows]
-    if not ids:
-        return []
-    if len(ids) != 1:
-        raise DesignEvaluationRefused("incumbent knowledge set is unsupported")
-    records = design_knowledge.applicable(db, {"writer_section": "finishing"})
-    if len(records) != 1 or records[0]["pin"]["rule_id"] != ids[0]:
-        raise DesignEvaluationRefused("incumbent knowledge cannot be verified")
-    return [records[0]["pin"]]
+    try:
+        return [record["pin"] for record in design_knowledge.incumbent_for_evaluation(db, scope)]
+    except (design_knowledge.DesignKnowledgeRefused, ValueError) as exc:
+        raise DesignEvaluationRefused("incumbent knowledge cannot be verified") from exc
 
 
 def evaluation_key(db, rule_id: int) -> str:
@@ -450,7 +473,8 @@ def evaluation_key(db, rule_id: int) -> str:
         rule_sha = rule_digest(row)
         lineage_sha = lineage_digest(s, row)
         supersedes = row.supersedes
-    incumbent = _incumbent_pins(db)
+        scope = dict(row.scope)
+    incumbent = _incumbent_pins(db, scope)
     if incumbent and supersedes != incumbent[0]["rule_id"]:
         raise DesignEvaluationRefused("candidate must supersede the current incumbent")
     identity = {"rule": rule_sha, "cases": load_cases(db=db)["sha256"],
@@ -498,8 +522,8 @@ def evaluate(db, rule_id: int, *, expected_key: str | None = None) -> dict:
             row = s.scalar(select(DesignRule).where(DesignRule.id == rule_id).with_for_update())
             if row is None or row.state != "proposed" or rule_digest(row) != result["rule_sha256"]:
                 raise DesignEvaluationRefused("proposal changed during evaluation")
-            current = list(s.scalars(select(DesignRule.id).where(
-                DesignRule.state == "approved").with_for_update()))
+            current = [r.id for r in s.scalars(select(DesignRule).where(
+                DesignRule.state == "approved").with_for_update()) if r.scope == row.scope]
             if current != [pin["rule_id"] for pin in result["incumbent_pins"]]:
                 raise DesignEvaluationRefused("incumbent knowledge changed during evaluation")
             audit = AuditLog(actor="design_evaluator", action="design_eval.completed",
@@ -533,23 +557,31 @@ def preview_registered_rule(db, rule_id: int) -> dict:
     from sqlalchemy import select
 
     from ..cir.compiler import compile_cir
+    import copy
+    from ..cir import knowledge
     from ..cir.writer import write_pattern
     from ..core.models import AuditLog, DesignRule
-    from ..improve.design_knowledge import _TOKEN
+    from ..improve.design_knowledge import _TOKEN, scope_matches, scope_slot
 
     if type(rule_id) is not int or rule_id <= 0:
         raise DesignEvaluationRefused("invalid rule id")
     frozen = load_cases(db=db)
-    incumbent = _incumbent_pins(db)
     with db.session() as s:
         rule = s.get(DesignRule, rule_id)
         if rule is None or rule.state != "proposed":
             raise DesignEvaluationRefused("a proposed rule is required")
         if not isinstance(rule.key, str) or not _TOKEN.fullmatch(rule.key):
             raise DesignEvaluationRefused("invalid rule key")
-        if rule.statement != {"rule": "include_finishing_checklist", "parameters": {}} \
-                or rule.scope != {"writer_section": "finishing"}:
+        if (not isinstance(rule.statement, dict) or set(rule.statement) != {"rule", "parameters"}
+                or rule.statement.get("rule") not in ("include_finishing_checklist",
+                                                       "include_checklist_and_end_check")
+                or rule.statement.get("parameters") != {}):
             raise DesignEvaluationRefused("unsupported rule or scope")
+        try:
+            scope_slot(rule.scope)
+        except ValueError as exc:
+            raise DesignEvaluationRefused("unsupported rule or scope") from exc
+        incumbent = _incumbent_pins(db, rule.scope)
         if incumbent and rule.supersedes != incumbent[0]["rule_id"]:
             raise DesignEvaluationRefused("candidate must supersede the current incumbent")
         identity = {"id": rule.id, "key": rule.key, "version": rule.version,
@@ -561,24 +593,49 @@ def preview_registered_rule(db, rule_id: int) -> dict:
         if case["kind"] != "launch0":
             continue
         cir = launch0.cir_for(case["build"])
+        matches_scope = scope_matches(identity["scope"], cir)
         compiled = compile_cir(cir)
         plain = write_pattern(cir, compiled)
-        if incumbent:
-            from ..improve.design_knowledge import freeze_pins
+        if incumbent and matches_scope:
+            from ..improve.design_knowledge import incumbent_for_evaluation
 
-            incumbent_cir = freeze_pins(db, cir, incumbent)
+            records = incumbent_for_evaluation(db, identity["scope"])
+            if [record["pin"] for record in records] != incumbent or cir.provenance is None:
+                raise DesignEvaluationRefused("incumbent changed during evaluation")
+            incumbent_cir = copy.deepcopy(cir)
+            incumbent_rule = records[0]["statement"]["rule"]
+            incumbent_cir.provenance.primitives_used += (
+                knowledge.marker(incumbent_rule, incumbent[0]),)
             baseline = write_pattern(incumbent_cir, compile_cir(incumbent_cir))
         else:
             baseline = plain
-        if incumbent and baseline != _preview_checklist(plain):
+        if incumbent and matches_scope and baseline != _preview_checklist(plain, rule_name=incumbent_rule):
             raise DesignEvaluationRefused("incumbent writer output could not be verified")
-        candidate = _preview_checklist(baseline)
+        # A hypothetical marker is confined to this held-out run; it has no
+        # approval authority. Exercise the actual writer rather than approving
+        # a preview whose output might differ from production.
+        if cir.provenance is None:
+            raise DesignEvaluationRefused("candidate CIR has no provenance")
+        candidate_cir = copy.deepcopy(cir)
+        hypothetical_pin = {"rule_id": identity["id"], "rule_version": identity["version"],
+                            "rule_digest": _digest(identity), "evaluation_digest": "0" * 64}
+        if matches_scope:
+            candidate_cir.provenance.primitives_used += (
+                knowledge.marker(identity["statement"]["rule"], hypothetical_pin),)
+        candidate = write_pattern(candidate_cir, compile_cir(candidate_cir))
+        expected = (_preview_checklist(baseline, rule_name=identity["statement"]["rule"])
+                    if matches_scope else baseline)
+        if candidate != expected:
+            raise DesignEvaluationRefused("candidate writer output differs from evaluated preview")
         case_results.append({"case": case["id"], **compare_written_case(cir, baseline, candidate,
                                                                           db=db)})
     if len(case_results) != len(_LAUNCH_CASES):
         raise DesignEvaluationRefused("not all frozen launch cases were measured")
     report = {"rule_id": rule_id, "rule_key": identity["key"],
               "rule_version": identity["version"], "rule_sha256": _digest(identity),
+              "rule_name": identity["statement"]["rule"],
+              "scope": identity["scope"],
+              "out_of_scope_controls": "unmodified_no_knowledge",
               "case_set_sha256": frozen["sha256"], "incumbent_pins": incumbent,
               "cases": case_results,
               "benchmark_checks": _benchmark_checks(db),

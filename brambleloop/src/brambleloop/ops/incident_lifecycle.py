@@ -163,6 +163,8 @@ def _aware(value: datetime) -> datetime:
 # Keyed by detector family (`kind_of`). A family missing here is reported with
 # `needs_owner_path: true` rather than given an owner nobody assigned.
 REMEDIATION: dict[str, tuple[str, str]] = {
+    "learning.knowledge_gap": ("teardown analyst and independent reviewer",
+        "complete and independently review the current licensed evidence; the learning sweep reconciles the gap"),
     "health": ("ops.health sweep", "resolves itself when the signal reads healthy again"),
     "stale-artefact": ("ops.sentinel + rebuild graph",
                        "rebuild enqueued by the sentinel; resolves when upstreams match"),

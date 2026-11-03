@@ -139,14 +139,16 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
         rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
                 if not r.benchmark_ref.startswith(SELF_PREFIX)]
     by_key: dict[tuple[str, str, bool], list] = {}
-    from .review import independent_decision, independently_reviewed
+    from .review import independent_decision, independently_reviewed, principal
 
     for r in rows:
         if independent_decision(r, "rejected"):
             continue
         # Unreviewed scores cannot influence an independently reviewed group.
         state = ("reviewed" if independently_reviewed(r) else "legacy"
-                 if not r.recorded_by or r.review_state is None else "proposed")
+                 if not r.recorded_by or r.recorder_verified is not True
+                 or r.review_state is None else "owner_proposed"
+                 if principal(r.recorded_by) == "owner" else "proposed")
         sufficient = r.confidence is None or r.confidence >= MIN_BINDING_CONFIDENCE
         by_key.setdefault((_key(r)[0], state, sufficient), []).append(r)
 
@@ -414,11 +416,11 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
         if verdict in ("unmet", "unmeasured") and r["binding"]:
             reasons.append(f"teardown requirement {r['key']} ({r['kind']}, "
                            f"{'/'.join(r['consumers'])}): {verdict} -- {why}")
-        elif (verdict in ("unmet", "unmeasured") and r["review_state"] == "proposed" and
+        elif (verdict in ("unmet", "unmeasured") and r["review_state"] != "reviewed" and
               (r["confidence"] is None or r["confidence"] >= MIN_BINDING_CONFIDENCE)):
-            # A new, attributable provisional concern needs review. Legacy
-            # rows with unknown recorders stay visible and non-binding, rather
-            # than creating a hold no independent reviewer can clear.
+            # Preserve the existing release protection until a provisional or
+            # legacy concern is met or independently resolved. The owner can
+            # attest an unknown legacy recorder through the step-up path.
             reasons.append(f"teardown finding for {r['key']} requires independent review")
     return {"product": slug, "requirements": len(reqs),
             "release": release,

@@ -9,6 +9,61 @@ from brambleloop.teardown import licence
 
 
 class ReviewCommandCenterTests(unittest.TestCase):
+    def test_operator_recorder_requires_attribution_and_owner_cannot_self_review(self):
+        with harness.DB.session() as s:
+            s.add(BenchmarkProduct(ref="identity-fixture", seller="test", files=[]))
+        body = {"benchmark_ref": "identity-fixture", "dimension": "instruction_clarity",
+                "score": 1, "mechanism": "Synthetic unclear structure in this fixture.",
+                "improvement": "Use a clear structure in the original document.", "confidence": 0.9}
+        owner_client, csrf = harness.session()
+        owner_record = owner_client.post("/api/teardown/finding", json=body,
+            headers={"Authorization": f"Bearer {harness.OPS}"})
+        self.assertEqual(owner_record.status_code, 200, owner_record.text)
+        owner_id = owner_record.json()["finding"]
+        with harness.DB.session() as s:
+            finding = s.get(TeardownFinding, owner_id)
+            self.assertEqual((finding.recorded_by, finding.recorder_verified), ("owner", True))
+        from brambleloop.teardown import audits
+        spec = audits.BY_KEY["beginner_experience"]
+        answers = {element.key: (True if element.kind == audits.PRESENCE else 3)
+                   for element in spec.elements}
+        key = next(element.key for element in spec.elements if element.kind == audits.QUALITY)
+        answers[key] = {"score": 1, "mechanism": "Synthetic missing explanation in this fixture."}
+        audit_response = owner_client.post("/api/teardown/audit", json={
+            "benchmark_ref": "identity-fixture", "audit": "beginner_experience", "answers": answers},
+            headers={"Authorization": f"Bearer {harness.OPS}"})
+        self.assertEqual(audit_response.status_code, 200, audit_response.text)
+        with harness.DB.session() as s:
+            finding = s.get(TeardownFinding, audit_response.json()["findings_recorded"][0])
+            self.assertEqual((finding.recorded_by, finding.recorder_verified), ("owner", True))
+        other_session, other_csrf = harness.session()
+        denied = harness.post(other_session, other_csrf, "/api/cc/actions/teardown.review_finding",
+            {"finding_id": owner_id, "decision": "reviewed", "reason": "same owner"})
+        self.assertEqual(denied.status_code, 409, denied.text)
+
+        token_only = TestClient(harness.main.app, base_url="https://testserver")
+        recorded = token_only.post("/api/teardown/finding", json=body,
+            headers={"Authorization": f"Bearer {harness.OPS}"})
+        self.assertEqual(recorded.status_code, 200, recorded.text)
+        finding_id = recorded.json()["finding"]
+        with harness.DB.session() as s:
+            finding = s.get(TeardownFinding, finding_id)
+            self.assertIsNone(finding.recorded_by)
+            self.assertFalse(finding.recorder_verified)
+        denied = harness.post(owner_client, csrf, "/api/cc/actions/teardown.review_finding",
+            {"finding_id": finding_id, "decision": "reviewed", "reason": "unknown recorder"})
+        self.assertEqual(denied.status_code, 409, denied.text)
+        attested = harness.post(owner_client, csrf, "/api/cc/actions/teardown.attest_finding_recorder",
+            {"finding_id": finding_id, "recorder": "external:fixture-analyst",
+             "reason": "owner attests the fixture recorder"})
+        self.assertEqual(attested.status_code, 200, attested.text)
+        reviewed = harness.post(owner_client, csrf, "/api/cc/actions/teardown.review_finding",
+            {"finding_id": finding_id, "decision": "reviewed", "reason": "independent review"})
+        self.assertEqual(reviewed.status_code, 200, reviewed.text)
+        token_only.close()
+        other_session.close()
+        owner_client.close()
+
     def test_rule_review_requires_owner_and_cannot_approve_without_evidence(self):
         from sqlalchemy import select
 
@@ -77,7 +132,7 @@ class ReviewCommandCenterTests(unittest.TestCase):
     def test_operator_token_and_unstepped_session_cannot_review(self):
         with harness.DB.session() as s:
             finding = TeardownFinding(benchmark_ref="reference", dimension="instruction_clarity",
-                                      score=4, recorded_by="teardown_analyst")
+                                      score=4, recorded_by="agent:fixture", recorder_verified=True)
             s.add(finding)
             s.flush()
             finding_id = finding.id
@@ -137,6 +192,44 @@ class ReviewCommandCenterTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200, result.text)
         pin = result.json()["result"]["pin"]
         self.assertEqual(design_knowledge.verify_pins(harness.DB, [pin])[0]["pin"], pin)
+        # Revalidation must not itself grant authority; the existing owner
+        # action still requires step-up before a fresh approval is recorded.
+        record_fingerprint(harness.DB, "owner-rule-fixture", text=(
+            "synthetic glacier rainbow orchard compass galaxy velvet meadow forest"))
+        from brambleloop.quality import design_revalidation
+        reevaluated = design_revalidation.evaluate(harness.DB, rule["id"])
+        self.assertEqual(reevaluated["state"], "passed")
+        reapproval = {"rule_id": rule["id"], "decision": "reapprove", "reason": "review",
+                      "evaluation_id": reevaluated["audit_id"]}
+        harness.expire_stepup(client)
+        self.assertEqual(harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule",
+                                      reapproval).status_code, 403)
+        self.assertEqual(harness.post(client, csrf, "/api/cc/auth/step-up",
+                                      {"passphrase": harness.PASS}).status_code, 200)
+        renewed = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", reapproval)
+        self.assertEqual(renewed.status_code, 200, renewed.text)
+        self.assertNotEqual(renewed.json()["result"]["pin"]["evaluation_digest"],
+                            pin["evaluation_digest"])
+        with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+            design_knowledge.verify_pins(harness.DB, [pin])
+        self.assertEqual(design_knowledge.verify_pins(harness.DB,
+            [renewed.json()["result"]["pin"]])[0]["pin"], renewed.json()["result"]["pin"])
+        retired = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", {
+            "rule_id": rule["id"], "decision": "retire", "reason": "switch scope"})
+        self.assertEqual(retired.status_code, 200, retired.text)
+        scoped_pins = []
+        for family in ("flat_rows", "joined_rounds"):
+            proposal = design_knowledge.propose_from_analysis(harness.DB, source_id,
+                                                               construction_family=family)
+            self.assertTrue(proposal["proposed"], proposal)
+            measured = design_eval.evaluate(harness.DB, proposal["id"])
+            self.assertEqual(measured["state"], "passed", measured)
+            decision = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", {
+                "rule_id": proposal["id"], "decision": "approve", "reason": "reviewed scoped rule",
+                "evaluation_id": measured["audit_id"]})
+            self.assertEqual(decision.status_code, 200, decision.text)
+            scoped_pins.append(decision.json()["result"]["pin"])
+        self.assertEqual(len(design_knowledge.verify_pins(harness.DB, scoped_pins)), 2)
         client.close()
 
 

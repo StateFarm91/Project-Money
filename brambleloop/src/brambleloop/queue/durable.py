@@ -656,7 +656,8 @@ class JobQueue:
     REFUSAL_MARKERS = CAPABILITY_REFUSAL_MARKERS
 
     def requeue_dead(self, *, job_types: list[str] | None = None,
-                     ids: list[int] | None = None, reset_attempts: bool = True) -> dict:
+                     ids: list[int] | None = None, reset_attempts: bool = True,
+                     max_automatic_redrives: int | None = None) -> dict:
         """Re-drive dead-lettered jobs after the bug that killed them has been fixed.
 
         A dead letter caused by a defect is work the company still owes. Once the defect is
@@ -666,6 +667,9 @@ class JobQueue:
         Deliberate refusals are never re-driven. Returns what it moved and what it declined,
         because an operation that silently skips half its input is worse than one that fails.
         """
+        if max_automatic_redrives is not None and (type(max_automatic_redrives) is not int
+                                                   or max_automatic_redrives < 0):
+            raise ValueError("automatic redrive limit must be a nonnegative integer")
         moved: list[int] = []
         skipped: list[dict] = []
         with self.db.session() as s:
@@ -687,6 +691,27 @@ class JobQueue:
                 if not gate["allowed"]:
                     skipped.append({"id": job.id, "job_type": job.job_type,
                                     "reason": gate["why"]})
+                    continue
+                if max_automatic_redrives is not None:
+                    previous = job.automatic_redrives
+                    if int(previous or 0) >= max_automatic_redrives:
+                        skipped.append({"id": job.id, "job_type": job.job_type,
+                                        "reason": "automatic redrive limit reached"})
+                        continue
+                    values = {"status": JobStatus.PENDING, "leased_by": None,
+                              "lease_expires_at": None, "run_after": utcnow(),
+                              "last_error": None, "finished_at": None,
+                              "automatic_redrives": int(previous or 0) + 1}
+                    if reset_attempts:
+                        values["attempts"] = 0
+                    updated = s.execute(update(Job).where(
+                        Job.id == job.id, Job.status == JobStatus.DEAD,
+                        Job.automatic_redrives == previous).values(**values))
+                    if updated.rowcount == 1:
+                        moved.append(job.id)
+                    else:
+                        skipped.append({"id": job.id, "job_type": job.job_type,
+                                        "reason": "job changed during automatic redrive"})
                     continue
                 job.status = JobStatus.PENDING
                 job.leased_by = None

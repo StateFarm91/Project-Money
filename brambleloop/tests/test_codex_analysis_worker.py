@@ -11,18 +11,170 @@ from sqlalchemy import select
 
 from brambleloop.agents.registry import Registry
 from brambleloop.core.db import Database
-from brambleloop.core.models import (BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
-                                     DesignRule, Incident, Job, JobStatus, utcnow)
+from brambleloop.core.models import (AuditLog, BenchmarkAnalysis, BenchmarkListing, BenchmarkProduct,
+                                     DesignRule, Incident, Job, JobStatus, TeardownFinding, utcnow)
 from brambleloop.intel import benchmarks
 from brambleloop.products.builder import for_slug
 from brambleloop.publish.pdf import build_pattern_pdf
 from brambleloop.runtime import pipeline  # noqa: F401 -- registers actual handlers
 from brambleloop.runtime.worker import Worker
 from brambleloop.queue.durable import JobQueue
-from brambleloop.teardown import intake, jobs, library, licence, review
+from brambleloop.teardown import audits, intake, jobs, lab, library, licence, review
 
 
 class AnalysisWorkerTests(unittest.TestCase):
+    def test_sweep_recovers_failure_after_purchase_marked_analysed(self):
+        from reportlab.pdfgen import canvas
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            folder = root / "interrupted-purchase"
+            folder.mkdir(parents=True)
+            stream = io.BytesIO()
+            pdf = canvas.Canvas(stream)
+            pdf.drawString(72, 750, "Synthetic materials and gauge for recovery.")
+            pdf.save()
+            data = stream.getvalue()
+            (folder / "pattern.pdf").write_bytes(data)
+            db = Database(f"sqlite:///{tmp}/interrupted.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="interrupted-purchase", seller="fixture", files=[
+                    {"name": "pattern.pdf", "sha256": hashlib.sha256(data).hexdigest()}])
+                s.add(product)
+                s.flush()
+                ident = product.id
+            licence.capture_purchase(db, "interrupted-purchase")
+            jobs.enqueue_purchase(db, ident)
+            with db.session() as s:
+                s.scalar(select(Job).where(Job.job_type == "teardown.analyse")).max_attempts = 1
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                with mock.patch("brambleloop.runtime.teardown_ops.knowledge_gaps.observe_analysis",
+                                side_effect=OSError("interrupted after state update")):
+                    self.assertTrue(Worker(db, name="interrupted", job_types=["teardown.analyse"])
+                                    .run_once())
+                with db.session() as s:
+                    self.assertEqual(s.get(BenchmarkProduct, ident).teardown_state, "analysed")
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "teardown.analyse")).status, JobStatus.DEAD)
+                    self.assertEqual(len(list(s.scalars(select(BenchmarkAnalysis)))), 1)
+                reopened = Database(f"sqlite:///{tmp}/interrupted.db", scratch=True)
+                JobQueue(reopened).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                           idempotency_key="recover-after-state")
+                self.assertTrue(Worker(reopened, name="sweep", job_types=["teardown.analyse_sweep"])
+                                .run_once())
+                with reopened.session() as s:
+                    sweep = s.scalar(select(Job).where(Job.idempotency_key == "recover-after-state"))
+                    self.assertEqual(sweep.outputs["requeued"], 1)
+                self.assertTrue(Worker(reopened, name="restarted", job_types=["teardown.analyse"])
+                                .run_once())
+                with reopened.session() as s:
+                    self.assertEqual(s.scalar(select(Job).where(
+                        Job.job_type == "teardown.analyse")).status, JobStatus.DONE)
+                    self.assertEqual(len(list(s.scalars(select(BenchmarkAnalysis)))), 1)
+                    self.assertEqual(len(list(s.scalars(select(AuditLog).where(
+                        AuditLog.action == "teardown.audit_prefilled")))), 1)
+
+    def test_architecture_gap_requires_complete_reviewed_current_licensed_evidence(self):
+        from brambleloop.improve import knowledge_gaps
+
+        with TemporaryDirectory() as tmp:
+            db = Database(f"sqlite:///{tmp}/gaps.db", scratch=True)
+            db.create_all()
+            sha = "a" * 64
+            with db.session() as s:
+                product = BenchmarkProduct(ref="gap-fixture", seller="fixture",
+                                           files=[{"name": "fixture.pdf", "sha256": sha}])
+                s.add(product)
+                s.flush()
+                analysis = BenchmarkAnalysis(benchmark_id=product.id, file_sha256=sha,
+                    recorded_by="teardown_analyst", observations={
+                        "architecture": {key: {"present": True, "pages": [1]}
+                                         for key in audits.PDF_ARCHITECTURE.element_keys},
+                        "architecture_withheld": [], "architecture_complete": True})
+                s.add(analysis)
+                s.flush()
+                analysis_id = analysis.id
+            licence.capture_purchase(db, "gap-fixture")
+            signature = f"learning.knowledge_gap:architecture:{analysis_id}"
+
+            def open_count():
+                with db.session() as s:
+                    return len(list(s.scalars(select(Incident).where(
+                        Incident.signature == signature, Incident.resolved == False))))  # noqa: E712
+
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
+                                   reason="synthetic evidence review")
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            licence.capture_purchase(db, "gap-fixture", terms={"allowed_uses": [],
+                                     "prohibited_uses": ["private_analysis"]})
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            licence.capture_purchase(db, "gap-fixture", terms={
+                "allowed_uses": list(licence.PRIVATE_RESEARCH_USES),
+                "prohibited_uses": list(licence.PUBLISHING_USES)})
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                original = dict(source.observations)
+                source.observations = {**source.observations, "architecture_complete": False}
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                source.observations = original
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 0)
+            with db.session() as s:
+                source = s.get(BenchmarkAnalysis, analysis_id)
+                s.get(BenchmarkProduct, source.benchmark_id).files = [
+                    {"name": "fixture.txt", "sha256": sha}]
+            knowledge_gaps.observe_analysis(db, analysis_id)
+            self.assertEqual(open_count(), 1)
+
+    def test_automatic_dead_redrives_are_bounded_and_not_counted_as_work(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "private"
+            (root / "missing-purchase").mkdir(parents=True)
+            db = Database(f"sqlite:///{tmp}/bounded.db", scratch=True)
+            db.create_all()
+            Registry(db).seed_defaults()
+            with db.session() as s:
+                product = BenchmarkProduct(ref="missing-purchase", seller="fixture", files=[
+                    {"name": "pattern.pdf", "sha256": "a" * 64}])
+                s.add(product)
+                s.flush()
+                ident = product.id
+            licence.capture_purchase(db, "missing-purchase")
+            jobs.enqueue_purchase(db, ident)
+            with db.session() as s:
+                s.scalar(select(Job).where(Job.job_type == "teardown.analyse")).max_attempts = 1
+            with mock.patch.dict(os.environ, {library.LIBRARY_ENV: str(root)}):
+                self.assertTrue(Worker(db, name="initial", job_types=["teardown.analyse"]).run_once())
+                for turn in range(3):
+                    key = f"bounded-sweep:{turn}"
+                    JobQueue(db).enqueue("orchestrator", "teardown.analyse_sweep", {},
+                                         idempotency_key=key)
+                    self.assertTrue(Worker(db, name=f"sweep-{turn}",
+                                           job_types=["teardown.analyse_sweep"]).run_once())
+                    with db.session() as s:
+                        sweep = s.scalar(select(Job).where(Job.idempotency_key == key))
+                        self.assertEqual(sweep.outputs["requeued"], 1 if turn < 2 else 0)
+                        self.assertEqual(sweep.outputs["work_done"], 0)
+                    if turn < 2:
+                        self.assertTrue(Worker(db, name=f"retry-{turn}",
+                                               job_types=["teardown.analyse"]).run_once())
+            with db.session() as s:
+                job = s.scalar(select(Job).where(Job.job_type == "teardown.analyse"))
+                self.assertEqual(job.status, JobStatus.DEAD)
+                self.assertEqual(job.automatic_redrives, 2)
+
     def test_sweep_redrives_dead_analysis_after_source_is_restored(self):
         from reportlab.pdfgen import canvas
 
@@ -62,6 +214,7 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with db.session() as s:
                     sweep = s.scalar(select(Job).where(Job.job_type == "teardown.analyse_sweep"))
                     self.assertEqual(sweep.outputs["requeued"], 1)
+                    self.assertEqual(sweep.outputs["work_done"], 0)
                 self.assertTrue(Worker(db, name="recovered", job_types=["teardown.analyse"]).run_once())
             with db.session() as s:
                 self.assertEqual(s.scalar(select(Job).where(
@@ -132,9 +285,66 @@ class AnalysisWorkerTests(unittest.TestCase):
                     self.assertEqual(analysis.observations["dimensions"]["finishing"], "absent")
                     self.assertFalse(analysis.observations["architecture_complete"])
                     self.assertTrue(analysis.observations["architecture_withheld"])
+                    event = s.get(AuditLog, analysis.prefill_audit_id)
+                    self.assertEqual(event.action, "teardown.audit_prefilled")
+                    self.assertEqual(event.detail["withheld"], sorted(analysis.observations["architecture_withheld"]))
+                    self.assertFalse(event.detail["complete"])
+                    self.assertNotIn("synthetic fixture", str(event.detail))
+                    self.assertEqual(list(s.scalars(select(TeardownFinding))), [])
+                    audit_id = event.id
                     gap = s.scalar(select(Incident).where(
                         Incident.signature == f"learning.knowledge_gap:analysis:{analysis_id}"))
                     self.assertEqual(gap.detail["state"], "review_required")
+                    architecture_gap = s.scalar(select(Incident).where(
+                        Incident.signature == f"learning.knowledge_gap:architecture:{analysis_id}"))
+                    self.assertIsNotNone(architecture_gap)
+                    self.assertFalse(architecture_gap.resolved)
+                    self.assertNotIn("synthetic fixture", str(architecture_gap.detail))
+                with db.session() as s:
+                    ref = s.get(BenchmarkProduct, benchmark_id).ref
+                repeated = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertEqual(repeated["audit_id"], audit_id)
+                self.assertFalse(repeated["recorded"])
+                with db.session() as s:
+                    product = s.get(BenchmarkProduct, benchmark_id)
+                    original_files = list(product.files)
+                    product.files = [{**original_files[0], "name": "fixture.txt"}]
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                with db.session() as s:
+                    s.get(BenchmarkProduct, benchmark_id).files = original_files
+                    self.assertEqual(len(list(s.scalars(select(AuditLog).where(
+                        AuditLog.action == "teardown.audit_prefilled")))), 1)
+                    event = s.get(AuditLog, audit_id)
+                    event.detail = {**event.detail, "complete": True}
+                repaired = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertTrue(repaired["recorded"])
+                self.assertNotEqual(repaired["audit_id"], audit_id)
+                repeated = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertFalse(repeated["recorded"])
+                self.assertEqual(repeated["audit_id"], repaired["audit_id"])
+                with db.session() as s:
+                    source = s.get(BenchmarkAnalysis, analysis_id)
+                    observations = dict(source.observations)
+                    bad = dict(observations)
+                    bad["architecture_withheld"] = list(bad["architecture_withheld"]) + ["unknown_key"]
+                    source.observations = bad
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                with db.session() as s:
+                    s.get(BenchmarkAnalysis, analysis_id).observations = observations
+                licence.capture_purchase(db, ref, terms={"allowed_uses": [],
+                                         "prohibited_uses": ["private_analysis"]})
+                with self.assertRaises(lab.LabRefused):
+                    lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                     prefill_analysis_id=analysis_id)
+                licence.capture_purchase(db, ref, terms={"allowed_uses": list(licence.PRIVATE_RESEARCH_USES),
+                                         "prohibited_uses": list(licence.PUBLISHING_USES)})
                 queue = JobQueue(db)
                 queue.enqueue("orchestrator", "teardown.analyse_sweep", {}, idempotency_key="sweep:1")
                 self.assertTrue(Worker(db, name="sweep1", job_types=["teardown.analyse_sweep"]).run_once())
@@ -143,6 +353,15 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with self.assertRaises(review.ReviewRefused):
                     review.review_analysis(db, analysis_id, reviewer="teardown_analyst",
                                            decision="reviewed", reason="self review")
+                with db.session() as s:
+                    product = s.get(BenchmarkProduct, benchmark_id)
+                    original_files = list(product.files)
+                    product.files = [{**original_files[0], "name": "not-pdf.txt"}]
+                with self.assertRaises(review.ReviewRefused):
+                    review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
+                                           reason="source is no longer a PDF")
+                with db.session() as s:
+                    s.get(BenchmarkProduct, benchmark_id).files = original_files
                 review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
                                        reason="independent observation review")
                 reopened = Database(url, scratch=True)
@@ -199,6 +418,7 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with reopened.session() as s:
                     recovered = s.scalar(select(Job).where(Job.idempotency_key == "eval:retry"))
                     self.assertEqual(recovered.outputs["requeued"], 1)
+                    self.assertEqual(recovered.outputs["work_done"], 0)
                 self.assertTrue(Worker(reopened, name="evaluator", job_types=["design_eval.evaluate"])
                                 .run_once())
                 with reopened.session() as s:
@@ -222,6 +442,9 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with reopened.session() as s:
                     gap = s.scalar(select(Incident).where(Incident.signature == signature))
                     self.assertTrue(gap.resolved)
+                    architecture_gap = s.scalar(select(Incident).where(
+                        Incident.signature == f"learning.knowledge_gap:architecture:{analysis_id}"))
+                    self.assertFalse(architecture_gap.resolved)
                 with reopened.session() as s:
                     source = s.get(BenchmarkAnalysis, analysis_id)
                     source.observations = {**source.observations, "pages": 999}
