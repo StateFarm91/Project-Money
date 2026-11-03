@@ -131,6 +131,59 @@ def test_owner_request_match_escapes_slug_wildcards():
     assert any("sock_a@1.0.0" in key and key.endswith(digest[:16]) for key in requests), requests
 
 
+def test_long_release_key_is_recorded_and_postgres_widen_is_planned():
+    from sqlalchemy import String
+    from brambleloop.core import migrate
+    from brambleloop.core.models import OperatingReading
+
+    db = t._db("long-release-key")
+    slug, version, release = "s" * 80, "1" * 20, "a" * 64
+    with db.session() as session:
+        product = Product(slug=slug, title="Long fixture")
+        session.add(product)
+        session.flush()
+        session.add(PatternVersion(product_id=product.id, version=version, cir_json={},
+                                   certified=True, release_hash=release))
+        session.add(Listing(product_slug=slug, version=version, title="Long fixture",
+                            description="Fixture", tags=[], release_hash=release))
+    copy = {"title": "Long fixture", "description": "Fixture", "tags": []}
+    digest = lp.listing_copy_digest(copy)
+    item = {"slug": slug, "version": version, "fingerprint": digest, "state": lp.READY,
+            "release_hash": release, "identity": {}, "copy": copy,
+            "listing_snapshot_sha256": digest,
+            "source_snapshot_sha256": lp._release(db, slug, version)["source_snapshot_sha256"],
+            "blockers": []}
+    assert lp.record(db, item)["review_requested"]
+    with db.session() as session:
+        reading = session.scalar(select(OperatingReading).where(
+            OperatingReading.kind == lp.KIND, OperatingReading.period_key == f"{slug}@{version}"))
+        assert reading is not None and len(reading.period_key) == 101
+    # PostgreSQL cannot be run in this environment; exercise the actual planner
+    # with the prior schema shape, not a claim of a live migration.
+    class OldSchema:
+        def get_table_names(self):
+            return ["operating_readings"]
+        def get_columns(self, table):
+            assert table == "operating_readings"
+            return [{"name": "period_key", "type": String(20)}]
+    class PgDialect:
+        name = "postgresql"
+    class PgEngine:
+        dialect = PgDialect()
+    with patch.object(migrate, "inspect", return_value=OldSchema()):
+        assert ("operating_readings", "period_key", 20, 200) in migrate.widen_plan(PgEngine())
+    assert OperatingReading.__table__.c.period_key.type.length == 200
+    class WidenedSchema(OldSchema):
+        def get_columns(self, table):
+            assert table == "operating_readings"
+            return [{"name": "period_key", "type": String(200)}]
+    # Simulate the old binary starting after widening: its migration planner
+    # must leave the wider column alone instead of narrowing or deleting data.
+    with patch.object(OperatingReading.__table__.c.period_key, "type", String(20)):
+        with patch.object(migrate, "inspect", return_value=WidenedSchema()):
+            assert migrate.widen_plan(PgEngine()) == []
+
+
 def test_worker_rechecks_source_changed_after_assembly():
     db = fixture()
     old = package(db)
@@ -163,4 +216,5 @@ if __name__ == "__main__":
     test_storage_failure_closes_review_and_durable_artifact_is_retained()
     test_worker_rechecks_source_changed_after_assembly()
     test_owner_request_match_escapes_slug_wildcards()
-    print("6/6 passed")
+    test_long_release_key_is_recorded_and_postgres_widen_is_planned()
+    print("7/7 passed")

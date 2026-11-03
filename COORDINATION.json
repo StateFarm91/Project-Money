@@ -286,11 +286,13 @@
       "branch": "codex/a9-package-review",
       "source_branch": "claude/w5-A9-package-event",
       "source_sha": "6ee81c19b24611caa0cab9e3f0526ac499cc8e47",
-      "scope": "Prevent stale listing package review requests under event/sweep races",
+      "scope": "Prevent stale listing package review requests under event/sweep races; preview widens operating_readings.period_key for release keys",
       "files": [
         "brambleloop/src/brambleloop/publish/listing_package.py",
         "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
-        "brambleloop/tests/test_w5_a9_package_event.py"
+        "brambleloop/tests/test_w5_a9_package_event.py",
+        "brambleloop/src/brambleloop/core/models.py",
+        "brambleloop/tests/test_codex_a9_source_binding.py"
       ],
       "claimed_at": "2026-11-03"
     },
