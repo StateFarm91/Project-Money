@@ -288,6 +288,19 @@
       "area": "A1-R P0-SAFETY-CHILDREN (architectural correction)",
       "claimed": "2026-11-02T19:40Z",
       "scope": "shared safety code only: launch0 children's gate (closed_stuffed_form, childrens_decision_for, NOT_MERCHANDISED entries, child_words_in fold, survey), products/text_fold, gates/small_parts, publish/pdf children's refusal"
+    },
+    {
+      "id": "CODEX-A1-STUFFING-EVIDENCE",
+      "operator": "codex",
+      "branch": "codex/a1-stuffing-continuation",
+      "source_branch": "opus2/p0-child-safety-core",
+      "source_sha": "c3a7b93a59af9b2df7a0656354ce09abba05753e",
+      "scope": "Fail closed on explicit stuffing evidence in rounds and component or row notes",
+      "files": [
+        "brambleloop/src/brambleloop/products/launch0.py",
+        "brambleloop/tests/test_codex_a1_stuffing_evidence.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [
