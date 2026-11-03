@@ -1387,6 +1387,30 @@ NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
            "reason": why}
     for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
 
+# The recorded reasons describe these exact repository designs, not every future
+# use of the same slug. Versions are included; a revision needs a new decision.
+# These bind existing decisions only; owner ratification remains pending.
+_STUFFED_DECISION_CIR_SHA256 = {
+    "heart-row-ring-pillow": "5243ba1417936102e3fdba0e7950f9d9880b1dc097a2702fba29f7d6511bba7b",
+    "spring-garden-kneeler": "2eb7387e6def9659b88f8c6d8226111df413e2b55863067d3aac5d8aa03107da",
+}
+
+
+def _stuffed_decision_matches(cir) -> bool:
+    import hashlib
+    import json
+
+    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    if expected is None:
+        return False
+    try:
+        content = json.dumps(cir.to_dict(), sort_keys=True, separators=(",", ":"),
+                             allow_nan=False).encode("utf-8")
+        return hashlib.sha256(content).hexdigest() == expected
+    except Exception:  # noqa: BLE001 - unreadable evidence cannot authorize an exemption
+        return False
+
+
 # The three answers to "is this for a child", which used to be two.
 ASSIGNED = "assigned"
 NOT_FOR_CHILDREN = "not_for_children"
@@ -1482,21 +1506,27 @@ def stuffed_form_reasons(cir) -> list[str]:
         seams = list(getattr(cir, "assembly", None) or [])
         out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
                for s in seams if getattr(s, "stuff_before_closing", False)]
-        closing = [c.name for c in (cir.components or []) if _closes_on_itself(c)]
+        components = list(cir.components or [])
+        closing = [c.name for c in components if _closes_on_itself(c)]
         closed = bool(seams) or bool(closing)
-        if not closed:
-            return out
         how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
-               else f"{', '.join(closing)} closes on itself")
+               else f"{', '.join(closing)} closes on itself" if closing
+               else "closure cannot be established from stitch counts")
+        # Explicit filling is safety-relevant even when the final stitch count is
+        # greater than twelve or the maker closes the opening using a free-text note.
         for m in getattr(cir, "materials", None) or []:
             name = _folded(getattr(m, "name", ""))
             if STUFFING_WORDS.search(name):
                 out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
-            elif not getattr(m, "yarn_weight", None):
+            elif closed and not getattr(m, "yarn_weight", None):
                 out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
                            f"(UNKNOWN filling: held)")
         notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
-                         + [str(getattr(s, "note", "") or "") for s in seams])
+                         + [str(getattr(seam, "note", "") or "") for seam in seams]
+                         + [str(getattr(component, "note", "") or "")
+                            for component in components]
+                         + [str(getattr(row, "note", "") or "") for component in components
+                            for row in (getattr(component, "rows", None) or [])])
         if STUFFING_NOTE_WORDS.search(_folded(notes)):
             out.append(f"{how}, and the notes say it is stuffed")
         return out
@@ -1518,7 +1548,8 @@ def childrens_decision_for(cir) -> tuple[str, object]:
     for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
     state, why = childrens_decision(cir.slug)
     if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
-            and cir.slug not in NOT_MERCHANDISED_TO_A_CHILD:
+            and (cir.slug not in NOT_MERCHANDISED_TO_A_CHILD
+                 or not _stuffed_decision_matches(cir)):
         return (UNDECIDED, None)
     return (state, why)
 
