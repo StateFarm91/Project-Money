@@ -2,7 +2,7 @@
 from tempfile import TemporaryDirectory
 import copy
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from brambleloop.core.db import Database
 from brambleloop.core.models import BenchmarkAnalysis, BenchmarkProduct, DesignRule, utcnow
@@ -118,6 +118,13 @@ class KnowledgeContractTests(unittest.TestCase):
                              ["pin"], pin)
             pinned = knowledge.freeze_pins(reopened, cir, [pin])
             self.assertEqual(knowledge.verify_cir_pins(reopened, pinned)[0]["pin"], pin)
+            # A deployment with changed evaluation code cannot silently reuse
+            # an older approval or treat that old result as current evidence.
+            with patch.object(design_eval, "implementation_digest", return_value="f" * 64):
+                with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                    knowledge.verify_cir_pins(reopened, pinned)
+                with self.assertRaises(knowledge.DesignKnowledgeRefused):
+                    knowledge.incumbent_for_evaluation(reopened)
             result = write_pattern(pinned, compile_cir(pinned))
             self.assertNotEqual(result, baseline)
             self.assertIn("\n- Fasten off", result)
