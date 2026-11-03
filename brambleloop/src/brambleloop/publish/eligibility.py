@@ -718,7 +718,7 @@ def _stripe_claimed(cir, listing) -> bool:
     tags = tags if isinstance(tags, (tuple, list)) else []
     text = " ".join(str(x or "") for x in [cir.title, data.get("title"),
                      data.get("description"), *tags])
-    return bool(re.search(r"\bstrip(?:e|es|ed)\b", fold(text)))
+    return bool(re.search(r"\bstrip(?:e|es|ed|ing|ey|y)\b", fold(text)))
 
 
 def name_truth(cir, listing: dict | None = None) -> list[str]:
@@ -759,6 +759,22 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
         motif = l0.motif_promise(cir, texts, tags={"listing.tags": list(raw_tags)})
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
+    # A later listing cannot reintroduce conflicting or unsupported tote sizes.
+    # This checks contradictions within each claim, not a single size against
+    # physically measured dimensions (which still needs separate evidence).
+    if isinstance(listing, dict):
+        import re
+        from ..creative import fallback_constructions as FC
+
+        tags = listing.get("tags") or []
+        tags = tags if isinstance(tags, (list, tuple)) else []
+        for where, text in [("title", listing.get("title")),
+                            ("description", listing.get("description")),
+                            *[("tag", tag) for tag in tags]]:
+            if isinstance(text, str) and re.search(FC._TOTE_WORDS, FC.fold_title(text)):
+                _size, why = FC.tote_size_key(text)
+                if why:
+                    out.append(f"size: listing {where}: {why}")
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)

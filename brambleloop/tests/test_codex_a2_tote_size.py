@@ -68,7 +68,45 @@ def test_worker_refuses_conflicting_title_on_persistent_database():
             assert session.scalar(select(Job).where(Job.job_type == "cir.compile")) is None
 
 
+def test_later_listing_cannot_add_contradictory_tote_sizes():
+    import tempfile
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.gates.certificate import GAUGE_STANDARD
+    from brambleloop.publish import eligibility
+
+    seed = pipeline._seed_for("nordic-forest-basket")
+    geo = pipeline.concept_geometry(seed)
+    concept = pipeline.Concept(slug="codex-size-listing", title="Small Tote", category="bag",
+        stitch_repeat=[tuple(x) for x in geo["stitch_repeat"]], width_stitches=10,
+        rows=4, colors=geo["colors"])
+    cir = fallback.tote(concept)
+    with tempfile.TemporaryDirectory() as directory:
+        url = f"sqlite:///{directory}/listing.sqlite"
+        db = Database(url, scratch=True)
+        db.create_all()
+        with db.session() as session:
+            product = Product(slug=cir.slug, title=cir.title, status="certified")
+            session.add(product)
+            session.flush()
+            session.add(PatternVersion(product_id=product.id, version=cir.version, certified=True,
+                cir_json=cir.to_dict(), release_hash="a" * 64,
+                certificate={"granted": True, "gauge_standard": GAUGE_STANDARD}))
+        reopened = Database(url, scratch=True)
+        for listing in ({"title": "Small Large Tote"},
+                        {"title": "Tote", "description": "A Mini Large Tote"},
+                        {"title": "Tote", "tags": ["Jumbo Tote"]}):
+            verdict = eligibility.product_publication(reopened, cir.slug, cir.version, listing=listing)
+            assert not verdict["publishable"], verdict
+            assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and
+                       "size: listing" in r["why"] for r in verdict["reasons"]), verdict
+        truthful = eligibility.product_publication(reopened, cir.slug, cir.version,
+                                                    listing={"title": "Small Tote"})
+        assert not any("size: listing" in r["why"] for r in truthful["reasons"]), truthful
+
+
 if __name__ == "__main__":
     test_tote_size_conflicts_are_refused_before_and_during_build()
     test_worker_refuses_conflicting_title_on_persistent_database()
+    test_later_listing_cannot_add_contradictory_tote_sizes()
     print("PASS conflicting and unsupported tote sizes fail closed")

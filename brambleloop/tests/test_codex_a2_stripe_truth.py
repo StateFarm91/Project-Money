@@ -39,8 +39,10 @@ def test_persistent_publication_checks_whether_stripes_are_really_written():
         result = eligibility.product_publication(reopened, striped.slug, striped.version)
         assert not any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN for r in result["reasons"]), result
         neutral = dataclasses.replace(plain, title="Everyday Blanket")
-        assert any("stripe" in reason for reason in eligibility.name_truth(neutral, {
-            "description": "A ｓｔｒｉｐｅｄ blanket", "tags": []}))
+        for claim in ("A ｓｔｒｉｐｅｄ blanket", "contrasting striping", "a stripey blanket",
+                      "a stripy blanket"):
+            assert any("stripe" in reason for reason in eligibility.name_truth(neutral, {
+                "description": claim, "tags": []})), claim
 
 
 if __name__ == "__main__":
