@@ -246,6 +246,7 @@ class Expectation:
     craft: str
     expected_share: np.ndarray
     edge_ambiguity: str = ""
+    cables_declared: bool = False
 
     @property
     def piece_count(self) -> int:
@@ -389,6 +390,9 @@ def expectation(cir) -> Expectation:
         fp = cir.fingerprint
     except Exception:  # noqa: BLE001
         fp = key[:16]
+    from ..cir import stitches as taxonomy
+    has_cables = any(c.stitch.startswith(taxonomy.CABLE_PREFIX)
+                     for _, component_twin, _ in parts for c in component_twin.cells)
     exp = Expectation(cir.slug, cir.version, str(fp), ids, hexes, pal_lab, pal_lin, pieces,
                       None if facts.get("multi_component") or facts.get("end_bands")
                       else bool(facts["edging_declared"]),
@@ -397,7 +401,7 @@ def expectation(cir) -> Expectation:
                       "components" if facts.get("multi_component") else
                       "declared_edging_and_bands" if facts.get("end_bands") and
                       facts.get("edging_declared") else
-                      "end_bands" if facts.get("end_bands") else "")
+                      "end_bands" if facts.get("end_bands") else "", has_cables)
     _CACHE[key] = exp
     return exp
 
@@ -925,7 +929,8 @@ def _verify_round(rgb, piece: dict, model: PieceModel, exp: Expectation, lab_ful
 
 # ---- craft texture (vision) ---------------------------------------------------------------
 
-CRAFT_FIELDS = ("craft", "ribbing_visible", "border_or_edging_visible", "edge_placement", "cable_style",
+CRAFT_FIELDS = ("craft", "ribbing_visible", "border_or_edging_visible", "edge_placement",
+                "all_edges_visible", "cable_style",
                 "fabric_visible_clearly")
 CRAFT_SYSTEM = ("You are a textile expert looking at a photograph of a handmade item. Say "
                 "only what the picture shows. Say 'unclear' whenever you cannot tell.")
@@ -940,6 +945,8 @@ def craft_prompt() -> str:
             "- edge_placement: one of ends_only, around_or_sides, none, unclear; "
             "report ends_only only when all visible edge treatments are confined "
             "to the two ends and there is no separate side or surrounding border\n"
+            "- all_edges_visible: true, false or unclear; true only when the entire "
+            "boundary of the product is clearly visible and unobscured\n"
             "- cable_style: one of none, crochet_post_stitch_crossings, knitted_rope, "
             "unclear\n"
             "- fabric_visible_clearly: true or false")
@@ -959,6 +966,12 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
         problems.append(f"reads as {v['craft']}, the pattern is {exp.craft}")
     if v["cable_style"] == "knitted_rope":
         problems.append("knitted rope cables")
+    elif v["cable_style"] not in ("none", "crochet_post_stitch_crossings"):
+        unclear.append("cable style is not clearly observed")
+    elif exp.cables_declared and v["cable_style"] == "none":
+        unclear.append("pattern cable crossings are not observed")
+    elif not exp.cables_declared and v["cable_style"] == "crochet_post_stitch_crossings":
+        unclear.append("unverified cable crossings in the image")
     if exp.ribbing_declared is None:
         unclear.append("pattern ribbing is not determined by the structural reader")
     elif exp.ribbing_declared is False:
@@ -976,11 +989,15 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
             unclear.append("pattern ribbing not clearly visible")
     known_bands_only = (exp.edge_ambiguity == "end_bands" and end_bands_verified
                         and v["border_or_edging_visible"] in ("true", "yes")
-                        and v["edge_placement"] == "ends_only")
+                        and v["edge_placement"] == "ends_only"
+                        and v["all_edges_visible"] in ("true", "yes"))
     if exp.edging_declared is None and not known_bands_only:
         unclear.append("visible edge treatment cannot be distinguished from declared bands or components")
     edging = (exp.edging_declared is False and
               v["border_or_edging_visible"] in ("true", "yes"))
+    if (exp.edging_declared is False and
+            v["border_or_edging_visible"] not in ("true", "yes", "false", "no")):
+        unclear.append("edging is not clearly observed")
     if exp.edging_declared is True:
         if v["border_or_edging_visible"] in ("false", "no"):
             if v["fabric_visible_clearly"] in ("true", "yes"):
@@ -1253,6 +1270,8 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
         got = judge.read(consistency_prompt(), [anchor_data, data],
                          system=CRAFT_SYSTEM, max_tokens=300)
         checks.append(compare_consistency(got))
+    # The lifestyle view does not authenticate a full anchor verdict here.
+    # Do not promote anchor-only band measurements into a lifestyle PASS.
     checks.append(craft_texture(data, exp, judge))
     return _verdict(checks, data=data, exp=exp, kind="lifestyle")
 

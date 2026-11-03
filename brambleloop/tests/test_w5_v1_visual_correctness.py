@@ -443,9 +443,12 @@ def test_end_band_reading_requires_independent_measured_band_evidence():
     exp = fidelity.expectation(cir_for("cloudline_blanket"))
     reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
                "ribbing_visible": "false", "border_or_edging_visible": "true",
-               "edge_placement": "ends_only"}
+               "edge_placement": "ends_only", "all_edges_visible": "true"}
     assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
     assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "PASS"
+    reading["all_edges_visible"] = "false"
+    assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "UNKNOWN"
+    reading["all_edges_visible"] = "true"
     reading["edge_placement"] = "around_or_sides"
     assert fidelity.compare_craft(reading, exp, end_bands_verified=True)["status"] == "UNKNOWN"
 
@@ -457,7 +460,7 @@ def test_separately_declared_edging_is_not_proven_by_end_bands():
     cir.components[0].name = "border panel"
     reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
                "ribbing_visible": "false", "border_or_edging_visible": "true",
-               "edge_placement": "ends_only"}
+               "edge_placement": "ends_only", "all_edges_visible": "true"}
     result = fidelity.compare_craft(reading, fidelity.expectation(cir), end_bands_verified=True)
     assert result["status"] == "UNKNOWN", result
 
@@ -475,15 +478,91 @@ def test_declared_edging_requires_visible_evidence():
     assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
 
 
+def test_undeclared_edging_requires_an_explicit_clear_absence():
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.visual import fidelity
+    exp = fidelity.expectation(build_basket("small"))
+    assert exp.edging_declared is False
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+               "ribbing_visible": "false", "border_or_edging_visible": "unclear"}
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    del reading["border_or_edging_visible"]
+    assert fidelity.compare_craft(reading, exp)["status"] == "UNKNOWN"
+    reading["border_or_edging_visible"] = "false"
+    assert fidelity.compare_craft(reading, exp)["status"] == "PASS"
+
+
+def test_cable_style_requires_valid_reading_and_known_cable_cannot_disappear():
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.products.moment_candidates import reading_nook_cable_wrap
+    from brambleloop.visual import fidelity
+    reading = {"fabric_visible_clearly": "true", "craft": "crochet",
+               "ribbing_visible": "false", "border_or_edging_visible": "false"}
+    basket = fidelity.expectation(build_basket("small"))
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "unclear"
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "invented-value"
+    assert fidelity.compare_craft(reading, basket)["status"] == "UNKNOWN"
+    reading["cable_style"] = "none"
+    assert fidelity.compare_craft(reading, basket)["status"] == "PASS"
+    reading["cable_style"] = "crochet_post_stitch_crossings"
+    inverse = fidelity.compare_craft(reading, basket)
+    assert inverse["status"] == "UNKNOWN" and "cable" in inverse["why"], inverse
+    reading["cable_style"] = "none"
+    wrap = fidelity.expectation(reading_nook_cable_wrap())
+    assert wrap.cables_declared is True
+    result = fidelity.compare_craft(reading, wrap)
+    assert result["status"] == "UNKNOWN" and "cable" in result["why"], result
+
+
+def test_real_cabled_wrap_cannot_pass_with_blind_no_cable_reading():
+    import test_w4_fidelity as fixtures
+    from brambleloop.products.moment_candidates import reading_nook_cable_wrap
+    from brambleloop.visual import fidelity
+    cir = reading_nook_cable_wrap()
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+        "cable_style": "none", "ribbing_visible": "false", "border_or_edging_visible": "true",
+        "edge_placement": "ends_only", "all_edges_visible": "true"})
+    result = fidelity.verify_anchor(fixtures.flat_lay(cir), cir, judge=judge)
+    assert result["status"] != "PASS", result
+    craft = next(c for c in result["checks"] if c["check"] == "craft_texture")
+    assert craft["status"] == "UNKNOWN" and "cable" in craft["why"], craft
+
+
 def test_real_cloudline_anchor_accepts_blind_end_only_reading_with_measured_bands():
     import test_w4_fidelity as fixtures
     from brambleloop.visual import fidelity
     cir = fixtures._cir(fixtures.CLOUD)
     judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
                                 "cable_style": "none", "ribbing_visible": "false",
-                                "border_or_edging_visible": "true", "edge_placement": "ends_only"})
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
     result = fidelity.verify_anchor(fixtures.flat_lay(cir), cir, judge=judge)
     assert result["status"] == "PASS", result
+
+
+def test_lifestyle_anchor_label_is_not_enough_for_band_evidence():
+    import hashlib
+    import test_w4_fidelity as fixtures
+    from brambleloop.creative.pattern_refs import release_hash_of
+    from brambleloop.visual import fidelity
+    cir = fixtures._cir(fixtures.CLOUD)
+    image = fixtures.flat_lay(cir)
+    release = release_hash_of(cir)
+    judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
+                                "cable_style": "none", "ribbing_visible": "false",
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
+    anchor = {"status": "PASS", "release_hash": release,
+              "sha256": hashlib.sha256(image).hexdigest()}
+    def verify(ref):
+        return fidelity.verify_lifestyle(image, cir, release_hash=release, anchor=ref,
+            anchor_data=image, product_region=(300, 200, 1750, 1850), judge=judge)
+    # A caller-provided PASS label is not authenticated anchor evidence.
+    assert verify(anchor)["status"] == "UNKNOWN"
+    assert verify({**anchor, "sha256": "f" * 64})["status"] == "UNKNOWN"
+    assert verify({**anchor, "release_hash": release[:12]})["status"] == "UNKNOWN"
 
 
 def test_wrong_band_or_added_border_does_not_pass_with_end_only_reading():
@@ -492,7 +571,8 @@ def test_wrong_band_or_added_border_does_not_pass_with_end_only_reading():
     cir = fixtures._cir(fixtures.CLOUD)
     judge = fixtures.FakeJudge({"fabric_visible_clearly": "true", "craft": "crochet",
                                 "cable_style": "none", "ribbing_visible": "false",
-                                "border_or_edging_visible": "true", "edge_placement": "ends_only"})
+                                "border_or_edging_visible": "true", "edge_placement": "ends_only",
+                                "all_edges_visible": "true"})
     changed = fixtures.flat_lay(cir, piece_edit=fixtures.edging(fixtures._hexrgb("#FAF6EB"), 0.03))
     assert fidelity.verify_anchor(changed, cir, judge=judge)["status"] != "PASS"
 
