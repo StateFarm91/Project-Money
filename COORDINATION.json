@@ -298,7 +298,8 @@
       "scope": "A4B review findings: bounded retries, deduplication and concurrency",
       "files": [
         "brambleloop/src/brambleloop/creative/enrichment_requests.py",
-        "brambleloop/tests/test_opus2_enrichment_requests.py"
+        "brambleloop/tests/test_opus2_enrichment_requests.py",
+        "brambleloop/src/brambleloop/runtime/pipeline.py"
       ],
       "claimed_at": "2026-11-03"
     }

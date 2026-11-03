@@ -651,6 +651,27 @@ def handle_creative_candidates_file(ctx: JobContext) -> dict:
 def handle_cir_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
 
+    # A queued enrichment cannot outlive or change the approval it was based on.
+    # The current identity is re-read at execution; the queued payload is not
+    # itself evidence that a concept remains approved.
+    key = str(getattr(ctx.job, "idempotency_key", None) or "")
+    if ctx.job.inputs.get("enrichment_round") is not None or key.startswith(f"draft:{slug}:enrich:"):
+        from ..creative.enrichment_requests import _approved_binding, _authoritative_input
+
+        raw = dict(ctx.job.inputs)
+        binding = raw.pop("enrichment_approval_sha256", None)
+        raw.pop("enrichment_round", None)
+        raw.pop("enrichment_fingerprint", None)
+        why = _authoritative_input(ctx.db, slug, {"kind": "radar", "category": raw.get("category")},
+                                   raw, None)
+        current = _approved_binding(ctx.db, slug)
+        if why or not binding or not current or binding != current:
+            reason = why or "approved concept changed or was withdrawn after enqueue"
+            ctx.audit("cir.draft_refused", artifact=slug,
+                      detail={"gate": "enrichment.authority", "reason": reason})
+            return {"artifact": slug, "drafted": False, "gate": "enrichment.authority",
+                    "reasons": [reason]}
+
     # PT-11: a retired concept slug whose design is a Launch-0 variant is routed to the
     # Launch-0 slugs, recorded, and never drafted under its own name.
     from ..products import launch0 as _l0

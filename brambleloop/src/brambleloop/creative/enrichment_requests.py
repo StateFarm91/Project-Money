@@ -195,6 +195,34 @@ def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
     return []
 
 
+def _approved_binding(db, slug: str) -> str | None:
+    """Bind the whole current seed, geometry and approved intake record."""
+    from dataclasses import asdict
+    from ..radar import intake
+    from ..runtime.pipeline import _seed_for, concept_geometry
+
+    seed = _seed_for(slug, db)
+    if seed is None:
+        return None
+    record = None
+    if seed.origin:
+        approved = intake.approved_concept(db, slug)
+        if approved is None:
+            return None
+        with db.session() as session:
+            row = session.get(intake.RadarConcept, approved["id"])
+            if row is None or row.state != intake.APPROVED:
+                return None
+            record = {"id": row.id, "fingerprint": row.fingerprint,
+                      "state": row.state, "source": row.source,
+                      "source_ref": row.source_ref, "seed": row.seed,
+                      "concept": row.concept, "brief": row.brief,
+                      "evidence": row.evidence}
+    value = {"seed": asdict(seed), "geometry": concept_geometry(seed), "approval": record}
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True, allow_nan=False).encode()).hexdigest()
+
+
 def _authoritative_input(db, slug: str, context: dict, payload: dict, brief: dict | None) -> str | None:
     """Do not let an answer invent a new identity or unreviewed design facts.
 
@@ -256,6 +284,11 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
         # different payloads from queuing two drafts. Keep the fingerprint in
         # the durable inputs for provenance and conflict investigation.
         data["enrichment_fingerprint"] = fp
+        binding = _approved_binding(db, slug)
+        if binding is None:
+            return {"slug": slug, "accepted": False, "state": OPEN,
+                    "round": rounds, "why": "current concept approval is unavailable"}
+        data["enrichment_approval_sha256"] = binding
         job = enqueue("crochet_engineer", "cir.draft", data,
                       idempotency_key=f"draft:{slug}:enrich:{rounds}")
         if job is None:

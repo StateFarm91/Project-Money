@@ -269,12 +269,18 @@ def test_real_draft_refusal_before_answer_audit_reopens_by_job_identity():
     real_enqueue = _enqueue(db)
     def enqueue_and_run(*args, **kwargs):
         job = real_enqueue(*args, **kwargs)
-        # Adversarially alter the persisted input before the real worker claims
-        # it; the registered handler emits the refusal before ANSWERED exists.
-        with db.session() as session:
-            row = session.get(Job, job.id)
-            row.inputs = {**row.inputs, "category": "amigurumi"}
-        _run(db, "cir.draft")
+        # Simulate a construction policy changing after precheck. The actual
+        # handler runs its real route and writes its own refusal before ANSWERED.
+        from brambleloop.creative import fallback_constructions as FC
+        old = FC.NEEDS.get("basket")
+        FC.NEEDS["basket"] = "fixture: new construction evidence required"
+        try:
+            _run(db, "cir.draft")
+        finally:
+            if old is None:
+                del FC.NEEDS["basket"]
+            else:
+                FC.NEEDS["basket"] = old
         return job
     result = E.answer(db, slug, _payload(seed), audit=audit, enqueue=enqueue_and_run)
     assert result["accepted"] and result["job"]
@@ -288,6 +294,42 @@ def test_real_draft_refusal_before_answer_audit_reopens_by_job_identity():
     assert E.state(fresh)[slug]["state"] == E.OPEN
     assert E.state(fresh)[slug]["rounds"] == 1
     assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+
+
+def test_queued_enrichment_refuses_changed_or_withdrawn_approval_at_real_handler():
+    from brambleloop.radar import intake
+    for change in ("title", "withdrawn"):
+        db, path = _store()
+        intake._ensure(db)
+        original = dataclasses.asdict(pipeline._seed_for("nordic-forest-basket"))
+        slug = f"fixture-approved-basket-{change}"
+        original.update(slug=slug, title="Original Storage Basket")
+        with db.session() as session:
+            session.add(intake.RadarConcept(slug=slug, state=intake.APPROVED,
+                source=intake.SOURCE_FAMILY, source_ref=f"fixture:{change}",
+                fingerprint=("a" if change == "title" else "b") * 64,
+                seed=original, concept={}, brief={}, evidence=[], quality=1.0))
+        seed = pipeline._seed_for(slug, db)
+        assert seed is not None
+        _established(db, seed)
+        audit = _audit(db)
+        audit("cir.draft_refused", artifact=slug, detail={"gate": "construction",
+              "reason": "fixture", "category": "basket"})
+        E.sweep(db, audit=audit)
+        out = E.answer(db, slug, _payload(seed), audit=audit, enqueue=_enqueue(db))
+        assert out["accepted"], out
+        with db.session() as session:
+            row = session.scalar(select(intake.RadarConcept).where(intake.RadarConcept.slug == slug))
+            if change == "title":
+                row.seed = {**row.seed, "title": "Revised Storage Basket"}
+            else:
+                row.state = intake.WITHDRAWN
+        fresh = Database(f"sqlite:///{path}")
+        _run(fresh, "cir.draft")
+        jobs = _jobs(fresh, "cir.draft")
+        assert len(jobs) == 1 and jobs[0][2].get("gate") == "enrichment.authority", jobs
+        assert jobs[0][2].get("drafted") is False
+        assert not _jobs(fresh, "cir.compile")
 
 
 def test_the_sweep_is_registered_scheduled_and_banded():
