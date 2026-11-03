@@ -536,11 +536,19 @@ def _package_one(db, slug: str, version: str) -> dict:
         previous = latest(db, slug, version)
         expected = (previous or {}).get("fingerprint")
         package, err = _try(assemble, db, slug, version)
-        if err is not None or package is None:
-            return {"key": f"{slug}@{version}", "error": err or "not certified"}
+        if err is not None:
+            return {"key": f"{slug}@{version}", "error": err, "retry": True}
+        if package is None:
+            # Certification may have disappeared after the initial eligibility
+            # check. Reconcile any previous owner request, not just this job.
+            result = _reconcile_ineligible(db, slug, version)
+            if result.get("became_eligible"):
+                continue
+            return result
         recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
         if rerr is not None:
-            return {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]}
+            # No READY verdict exists until the record transaction commits.
+            return {"key": f"{slug}@{version}", "error": rerr, "retry": True}
         if not recorded.get("retry"):
             return recorded
     return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,

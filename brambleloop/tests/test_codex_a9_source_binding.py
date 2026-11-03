@@ -122,6 +122,33 @@ def test_worker_retries_after_durable_review_document_storage_recovers():
     assert len(active(db)) == 1
 
 
+def test_record_failure_is_retried_without_claiming_a_ready_package():
+    from datetime import datetime, timedelta, timezone
+    from brambleloop.core.models import Job, JobStatus, Phase
+    from brambleloop.runtime.worker import Worker
+
+    db = fixture()
+    item = package(db)
+    assert lp.record(db, item)["review_requested"]
+    before = lp.latest(db, item["slug"], item["version"])
+    with patch.object(lp, "assemble", return_value=item):
+        with patch.object(lp, "record", side_effect=OSError("database temporarily unavailable")):
+            job = t._run(db, {"slug": item["slug"], "version": item["version"]},
+                         "source-record-recovery")
+        assert job.status == JobStatus.FAILED, (job.status, job.outputs, job.last_error)
+        assert job.outputs is None, job.outputs
+        assert lp.latest(db, item["slug"], item["version"]) == before
+        with db.session() as session:
+            session.get(Job, job.id).run_after = datetime.now(timezone.utc) - timedelta(seconds=1)
+        assert Worker(db, "record-recovery", phase=Phase.SHADOW,
+                      job_types=["listing.package"]).run_once()
+    with db.session() as session:
+        recovered = session.get(Job, job.id)
+        assert recovered.status == JobStatus.DONE, recovered.last_error
+        assert recovered.outputs["ready"] == 1, recovered.outputs
+    assert len(active(db)) == 1
+
+
 def test_owner_request_match_escapes_slug_wildcards():
     db = t._db("slug-wildcard")
     release = "a" * 64
@@ -246,4 +273,5 @@ if __name__ == "__main__":
     test_owner_request_match_escapes_slug_wildcards()
     test_long_release_key_is_recorded_and_postgres_widen_is_planned()
     test_worker_retries_after_durable_review_document_storage_recovers()
-    print("8/8 passed")
+    test_record_failure_is_retried_without_claiming_a_ready_package()
+    print("9/9 passed")
