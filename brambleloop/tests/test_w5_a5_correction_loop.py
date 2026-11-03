@@ -475,6 +475,109 @@ def test_late_version_collision_gets_a_named_source_hold():
     assert _certified(db, original.slug, "1.3.0").cir_json["title"] == existing.title
 
 
+def test_uncertified_target_inserted_after_revision_is_never_overwritten():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recert-before-collision")
+    _drain(db, ["gate.certify"])
+    _drain(db, ["cir.revise"])
+    _drain(db, ["cir.compile"])
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+        session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                   cir_json={"sentinel": "other draft"}, certified=False,
+                                   release_hash=None, certificate={}))
+    _drain(db, ["gate.certify"])
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == legacy.slug, PatternVersion.version == "1.3.0"))
+        assert row.cir_json == {"sentinel": "other draft"} and not row.certified
+    assert _holds(db, legacy.slug, legacy.version)
+    final = _jobs(db, legacy.slug, "gate.certify")[-1]
+    assert final.outputs and final.outputs["refused"] == "version_immutable", (final.status, final.last_error, final.outputs)
+
+
+def test_certified_target_inserted_after_check_is_never_overwritten():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recert-before-check-race")
+    _drain(db, ["gate.certify"])
+    _drain(db, ["cir.revise"])
+    _drain(db, ["cir.compile"])
+    original = pipeline._version_conflict
+
+    def insert_after_check(ctx, cir, cert):
+        result = original(ctx, cir, cert)
+        assert result is None
+        with db.session() as session:
+            product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+            session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                       cir_json={"sentinel": "certified competitor"},
+                                       certified=True, release_hash="z" * 64,
+                                       certificate={"granted": True}))
+        return result
+
+    pipeline._version_conflict = insert_after_check
+    try:
+        queue = JobQueue(db)
+        claimed = queue.claim("collision-review", ["gate.certify"])
+        assert claimed is not None
+        result = handlers.get("gate.certify")(JobContext(
+            job=claimed, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW))
+    finally:
+        pipeline._version_conflict = original
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == legacy.slug, PatternVersion.version == "1.3.0"))
+        assert row.cir_json == {"sentinel": "certified competitor"}
+        assert row.release_hash == "z" * 64 and row.certified
+    assert _holds(db, legacy.slug, legacy.version)
+    assert result["refused"] == "version_immutable", result
+
+
+def test_concurrent_release_writers_never_overwrite_each_other():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db = _db()
+    base = launch0.cir_for("harvest_runner")
+    _legacy_release(db, base, "Harvest Table Runner Crochet Pattern")
+    first = dataclasses.replace(base, version="1.3.0", title="First Table Runner")
+    second = dataclasses.replace(base, version="1.3.0", title="Second Table Runner")
+    queue = JobQueue(db)
+    jobs = [queue.enqueue("quality_director", "gate.certify", payload,
+                          idempotency_key=f"t:concurrent-certify:{i}")
+            for i, payload in enumerate(({"cir": first.to_dict()},
+                                         {"cir": second.to_dict(),
+                                          "correction": {"of_versions": [base.version]}}))]
+    barrier = Barrier(2, timeout=20)
+
+    def persist(index, cir):
+        ctx = JobContext(job=jobs[index], db=db, queue=queue, registry=Registry(db),
+                         phase=Phase.SHADOW)
+        barrier.wait()
+        try:
+            pipeline._persist_release(ctx, cir, {"granted": True}, ("a" if index == 0 else "b") * 64)
+            return "stored"
+        except pipeline.ReleaseWriteConflict:
+            return "held"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda pair: persist(*pair), enumerate((first, second))))
+    assert sorted(outcomes) == ["held", "stored"], outcomes
+    with db.session() as session:
+        rows = list(session.scalars(select(PatternVersion).join(Product).where(
+            Product.slug == base.slug, PatternVersion.version == "1.3.0")))
+        assert len(rows) == 1
+        winner = outcomes.index("stored")
+        assert rows[0].cir_json["title"] == (first, second)[winner].title
+        assert rows[0].release_hash == ("a" if winner == 0 else "b") * 64
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()
