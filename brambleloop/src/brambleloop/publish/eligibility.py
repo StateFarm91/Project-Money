@@ -716,7 +716,16 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     # motif_promise today (undeclared heart-row, fir-and-star, cable; relief words without
     # 'raised'), and changing their publish state is an integrator decision.
     if _drafted_by_a_rule(cir):
-        motif = l0.motif_promise(cir)
+        # The listing can add an unbacked motif in copy or search tags.
+        listing = listing or {}
+        texts = {"listing.title": listing.get("title") or "",
+                 "listing.description": listing.get("description") or ""}
+        raw_tags = listing.get("tags") or []
+        if not isinstance(raw_tags, (list, tuple)) or not all(
+                isinstance(tag, str) for tag in raw_tags):
+            out.append("motif: listing tags cannot be checked")
+            raw_tags = []
+        motif = l0.motif_promise(cir, texts, tags={"listing.tags": list(raw_tags)})
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
     result = compile_cir(cir)
