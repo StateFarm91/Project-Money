@@ -77,6 +77,8 @@ def _reference_momentum(db, signal: str, *, today: date) -> dict | None:
 
 def candidates(db, *, limit: int = 20, today: date | None = None) -> tuple[list[dict], list[dict]]:
     """(rising signals with their pod, skipped with why), from the radar's own findings."""
+    from sqlalchemy import select
+    from ..core.models import CultureSignal
     from ..intel import pods
     from . import classify, radar
 
@@ -88,6 +90,19 @@ def candidates(db, *, limit: int = 20, today: date | None = None) -> tuple[list[
         moment = _reference_momentum(db, signal, today=today)
         if f.get("sensitive") or classify.sensitive(signal):
             skipped.append({"signal": signal, "why": "sensitive: never routed anywhere"})
+            continue
+        # A reference-feed observation is not a rights declaration. Only a
+        # filed, sourced signal can assert its token set; protected or unknown
+        # sets remain held until the original-concept chain checks them end-to-end.
+        with db.session() as session:
+            filed = session.scalar(select(CultureSignal).where(CultureSignal.key == signal))
+            declared = (filed is not None and isinstance(filed.sources, list)
+                        and any(isinstance(src, str) and src.strip() for src in filed.sources)
+                        and isinstance(filed.protected_tokens, list)
+                        and filed.state != radar.EXITED and not classify.sensitive(filed.topic))
+            protected = bool(filed.protected_tokens) if declared else True
+        if not declared or protected:
+            skipped.append({"signal": signal, "why": "rights hold: token-safe original concept not verified"})
             continue
         if moment is None:
             skipped.append({"signal": signal, "why": "unknown: no recent comparable reference series"})
