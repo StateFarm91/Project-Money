@@ -337,15 +337,15 @@ def test_ineligible_event_and_sweep_close_stale_owner_reviews():
                    "blockers": []}
         assert LP.record(db, package)["review_requested"]
         with db.session() as session:
+            if defect == "parked":
+                action = session.scalar(select(OwnerAction).where(OwnerAction.done == False))
+                action.state = owner_queue.PARKED
             if defect == "missing_listing":
                 listing = session.scalar(select(Listing).where(Listing.product_slug == slug))
                 session.delete(listing)
             else:
                 pv = session.scalar(select(PatternVersion).join(Product).where(Product.slug == slug))
                 pv.certified = False
-            if defect == "parked":
-                action = session.scalar(select(OwnerAction).where(OwnerAction.done == False))
-                action.state = owner_queue.PARKED
         job = _run(db, {"slug": slug, "version": version}, f"t:ineligible:{defect}")
         assert job.status == JobStatus.DONE and not job.outputs["eligible"], job.outputs
         assert LP.latest(db, slug, version)["state"] == LP.BLOCKED
