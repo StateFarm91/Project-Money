@@ -279,6 +279,21 @@
       "area": "queue Q16 split",
       "claimed": "2026-11-02T11:20Z",
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
+    },
+    {
+      "id": "CODEX-A4A-REVIEW-FIX",
+      "operator": "codex",
+      "branch": "codex/a4a-research-truth",
+      "source_branch": "opus2/a4a-research-to-concept",
+      "source_sha": "3dc3e68c490c74d947dd235fd2e39d0f32e7bd5c",
+      "scope": "A4A independent review: product truth, observation evidence, recovery and originality",
+      "files": [
+        "brambleloop/src/brambleloop/radar/ideation.py",
+        "brambleloop/src/brambleloop/radar/intake.py",
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [
