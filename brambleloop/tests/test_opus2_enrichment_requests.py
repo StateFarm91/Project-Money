@@ -298,7 +298,7 @@ def test_real_draft_refusal_before_answer_audit_reopens_by_job_identity():
 
 def test_queued_enrichment_refuses_changed_or_withdrawn_approval_at_real_handler():
     from brambleloop.radar import intake
-    for change in ("title", "withdrawn"):
+    for change in ("unchanged", "title", "withdrawn"):
         db, path = _store()
         intake._ensure(db)
         original = dataclasses.asdict(pipeline._seed_for("nordic-forest-basket"))
@@ -317,12 +317,20 @@ def test_queued_enrichment_refuses_changed_or_withdrawn_approval_at_real_handler
               "reason": "fixture", "category": "basket"})
         E.sweep(db, audit=audit)
         out = E.answer(db, slug, _payload(seed), audit=audit, enqueue=_enqueue(db))
-        assert out["accepted"], out
+        assert out["accepted"] is False and "atomic" in out["why"], out
+        # A previously queued dynamic job must also be held, even if it was
+        # accepted by an older version before the fail-closed policy existed.
+        data = _payload(seed)
+        data["enrichment_round"] = 1
+        data["enrichment_fingerprint"] = E.fingerprint(_payload(seed))
+        data["enrichment_approval_sha256"] = E._approved_binding(db, slug)
+        JobQueue(db).enqueue("crochet_engineer", "cir.draft", data,
+                             idempotency_key=f"draft:{slug}:enrich:1")
         with db.session() as session:
             row = session.scalar(select(intake.RadarConcept).where(intake.RadarConcept.slug == slug))
             if change == "title":
                 row.seed = {**row.seed, "title": "Revised Storage Basket"}
-            else:
+            elif change == "withdrawn":
                 row.state = intake.WITHDRAWN
         fresh = Database(f"sqlite:///{path}")
         _run(fresh, "cir.draft")

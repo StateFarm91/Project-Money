@@ -239,6 +239,11 @@ def _authoritative_input(db, slug: str, context: dict, payload: dict, brief: dic
     seed = _seed_for(slug, db)
     if seed is None:
         return "no current approved concept for this enrichment"
+    # Intake approvals can change concurrently with a running draft. Until the
+    # approval writer and draft share an atomic lock/outbox, a recheck alone
+    # cannot keep a dynamic approval valid through the downstream queue write.
+    if seed.origin:
+        return "dynamic approvals require an atomic enrichment authority contract"
     seed_fields = {f.name for f in fields(seed)}
     geometry = concept_geometry(seed)
     if set(payload) - seed_fields - set(geometry):
