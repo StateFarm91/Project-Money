@@ -405,12 +405,32 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
             key=lambda f: f.position)
         mine = [f for f in frames if f.asset_class == "PHYSICAL_PRODUCT_PHOTO"
                 and f.sha256 == photo.sha256]
-        if not mine or frames[0] is mine[0]:
-            return bool(mine)
+        if not mine:
+            return False
         frame = mine[0]
-        _renumber(s, [frame] + [f for f in frames if f is not frame])
-        _demote_leaders([f for f in frames if f is not frame])
+        from .photo_asset_review import (AWAITING, NOT_QUALIFYING, _reviewable,
+                                         _invalidate_photo_certificates)
+
+        # An unapproved frame with no review state is explicitly withdrawn.
+        # Attestation or reordering must never turn that state into approval.
+        if not frame.approved and not _reviewable(list(frame.blocked_reasons or [])):
+            return False
+        if frames[0] is frame and (frame.claims or {}).get("leads_gallery") is True:
+            return True
+
+        # Keep terminally excluded photos after every effective frame so the
+        # listing-set positions remain contiguous after those photos are filtered.
+        others = [f for f in frames if f is not frame]
+        excluded = [f for f in others if any(str(r).startswith(NOT_QUALIFYING)
+                                              for r in (f.blocked_reasons or []))]
+        included = [f for f in others if f not in excluded]
+        _invalidate_photo_certificates(s, slug, version, "photo_frame_order_changed")
+        _renumber(s, [frame] + included + excluded)
+        _demote_leaders(others)
         frame.claims = {**(frame.claims or {}), "leads_gallery": True}
         frame.approved = False
-        frame.blocked_reasons = ["awaiting asset-truth review and listing-set re-certification"]
+        # Never discard independent holds (such as an owner veto).
+        reasons = [r for r in (frame.blocked_reasons or []) if r != AWAITING
+                   and not str(r).startswith(NOT_QUALIFYING)]
+        frame.blocked_reasons = [AWAITING] + reasons
     return True

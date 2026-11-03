@@ -680,6 +680,230 @@ def test_review_a3d5_a_lock_that_cannot_be_taken_refuses_one_frame_and_the_sweep
     with db.session() as s:
         assert s.get(ListingAsset, fid).blocked_reasons == [par.AWAITING]
 
+def test_excluded_photo_leader_is_replaced_by_an_already_approved_qualifying_photo():
+    from brambleloop.core.models import PhysicalPhoto
+    db, cir, release, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    with db.session() as session:
+        photos = list(session.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.asset_class == par.PHOTO_CLASS)))
+        lead = next(f for f in photos if f.claims.get("leads_gallery"))
+        assert lead.id != first
+        photo = session.get(PhysicalPhoto, lead.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    out = par.sweep(db)
+    with db.session() as session:
+        winner = session.get(ListingAsset, first)
+        old = session.get(ListingAsset, lead.id)
+        assert winner.position == 1 and winner.approved is True, out
+        assert winner.claims.get("leads_gallery") is True
+        assert any(str(r).startswith(par.NOT_QUALIFYING) for r in old.blocked_reasons)
+    effective = release_gates._frames(db, cir.slug, cir.version)
+    assert [f.position for f in effective] == list(range(1, len(effective) + 1))
+    assert effective[0].id == first
+    assert par.sweep(db)["reviewed"] == 0
+
+
+def test_position_one_photo_without_leader_flag_is_recovered_without_churn():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert f.position == 1
+        f.claims = {**f.claims, "leads_gallery": False}
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert f.position == 1 and f.approved and f.claims["leads_gallery"]
+    assert par.sweep(db)["reviewed"] == 0
+
+
+def test_photo_promotion_never_clears_an_independent_owner_hold():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        frame.claims = {**frame.claims, "leads_gallery": False}
+        frame.blocked_reasons = [par.AWAITING, "owner veto"]
+    result = par.sweep(db)
+    assert result["approved"] == 0 and result["work_done"] == 0, result
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        assert not frame.approved
+        assert "owner veto" in frame.blocked_reasons
+
+
+def test_withdrawn_photo_cannot_be_reopened_by_attestation_or_promotion():
+    from brambleloop.publish import physical_upgrade as pu
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        pid = f.claims["physical_photo_id"]
+        f.approved = False
+        f.blocked_reasons = []
+        f.claims = {**f.claims, "leads_gallery": False}
+    assert pu.lead_with_if_qualifying(db, pid) is False
+    pu.attest_unedited(db, pid, actor=T.OWNER, confirm=pu.UNEDITED_CONFIRMATION)
+    assert par.sweep(db)["approved"] == 0
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert not f.approved and not f.blocked_reasons
+
+
+def test_approved_leader_with_revoked_attestation_is_replaced_on_sweep():
+    from brambleloop.core.models import PhysicalPhoto
+    db, cir, _, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        photos = list(session.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.asset_class == par.PHOTO_CLASS)))
+        leader = next(f for f in photos if f.claims.get("leads_gallery"))
+        assert leader.id != first and leader.approved
+        leader_id = leader.id
+        photo = session.get(PhysicalPhoto, leader.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    out = par.sweep(db)
+    with db.session() as session:
+        winner, old = session.get(ListingAsset, first), session.get(ListingAsset, leader_id)
+        assert winner.position == 1 and winner.approved, out
+        assert not old.approved and any(str(r).startswith(par.NOT_QUALIFYING)
+                                        for r in old.blocked_reasons)
+    effective = release_gates._frames(db, cir.slug, cir.version)
+    assert [f.position for f in effective] == list(range(1, len(effective) + 1))
+    assert effective[0].id == first
+    assert par.sweep(db)["reviewed"] == 0
+
+
+def test_approved_leader_with_unreadable_photo_evidence_is_held():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        f.claims = {**f.claims, "physical_photo_id": 99999999}
+    out = par.sweep(db)
+    assert out["approved"] == 0, out
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert not f.approved and par.AWAITING in f.blocked_reasons
+    assert par.sweep(db)["approved"] == 0
+
+
+def test_approved_leader_with_new_unsupported_claim_is_held():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        frame.claims = {**frame.claims, "width_cm": 999}
+    result = par.sweep(db)
+    assert result["approved"] == 0, result
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        assert not frame.approved and par.AWAITING in frame.blocked_reasons
+
+
+def test_revoked_approved_supplement_is_held_and_excluded_on_sweep():
+    from brambleloop.core.models import PhysicalPhoto
+    db, cir, _, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        supplement = session.get(ListingAsset, first)
+        assert supplement.approved and not supplement.claims.get("leads_gallery")
+        photo = session.get(PhysicalPhoto, supplement.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    par.sweep(db)
+    with db.session() as session:
+        frame = session.get(ListingAsset, first)
+        assert not frame.approved
+        assert any(str(r).startswith(par.NOT_QUALIFYING) for r in frame.blocked_reasons)
+    assert first not in [f.id for f in release_gates._frames(db, cir.slug, cir.version)]
+
+
+def test_revoked_supplement_invalidates_certificate_even_if_reissue_fails():
+    from unittest.mock import patch
+    from brambleloop.core.models import PhysicalPhoto
+    from brambleloop.runtime import etsy_ops
+    db, cir, release, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    _, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    assert not etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    with db.session() as session:
+        frame = session.get(ListingAsset, first)
+        assert frame.approved and not frame.claims.get("leads_gallery")
+        photo = session.get(PhysicalPhoto, frame.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    with patch.object(release_gates, "listing_set", side_effect=OSError("interrupted")):
+        par.sweep(db)
+    # Even a crash or unavailable reissue cannot leave the old certificate valid.
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    assert par.sweep(db)["reviewed"] == 0
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+
+
+def test_revocation_during_certificate_issue_cannot_create_stale_valid_set():
+    from unittest.mock import patch
+    from brambleloop.core.models import PhysicalPhoto, ListingSetCertificateRecord
+    from brambleloop.publish import listing_set
+    from brambleloop.runtime import etsy_ops
+    db, cir, release, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        for record in session.scalars(select(ListingSetCertificateRecord)):
+            record.state = "invalidated"
+    original = listing_set.certify
+    def revoke(*args, **kwargs):
+        with db.session() as session:
+            frame = session.get(ListingAsset, first)
+            photo = session.get(PhysicalPhoto, frame.claims["physical_photo_id"])
+            photo.detail = {**photo.detail, "owner_attestation": {}}
+        with patch.object(release_gates, "listing_set", return_value={}):
+            par.sweep(db)
+        return original(*args, **kwargs)
+    with patch.object(listing_set, "certify", side_effect=revoke):
+        _, verdict = _certify_without_touching_approval(db, cir, release)
+    assert not verdict["valid"] and not verdict["issued"], verdict
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+
+
+def test_photo_led_certificate_can_bind_leader_without_including_supplement():
+    from types import SimpleNamespace
+    db, cir, _, _ = _setup()
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        photos = list(session.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.asset_class == par.PHOTO_CLASS)))
+        leader = next(f for f in photos if f.claims.get("leads_gallery"))
+        proposed = [SimpleNamespace(position=leader.position, sha256=leader.sha256,
+                                    medium=par.PHOTO_CLASS)]
+        par._lock(session, db)
+        assert par.photo_certificate_current(session, db, cir.slug, cir.version, proposed)
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

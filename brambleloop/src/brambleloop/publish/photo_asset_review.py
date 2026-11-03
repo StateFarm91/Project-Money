@@ -137,6 +137,81 @@ def _lock(s, db) -> None:
         s.execute(text("BEGIN IMMEDIATE"))
 
 
+def _invalidate_photo_certificates(session, slug: str, version: str, reason: str) -> None:
+    """Invalidate listing-set certificates in the same transaction as a photo change."""
+    from sqlalchemy import select
+    from ..core.models import AuditLog, ListingSetCertificateRecord, utcnow
+
+    records = session.scalars(select(ListingSetCertificateRecord).where(
+        ListingSetCertificateRecord.product_slug == slug,
+        ListingSetCertificateRecord.version == version,
+        ListingSetCertificateRecord.state == "valid").with_for_update())
+    for record in records:
+        record.state = "invalidated"
+        record.invalidated_by = [reason]
+        record.invalidated_at = utcnow()
+        session.add(AuditLog(actor="asset_truth", action="gate.photo_certificate_invalidated",
+                             artifact=f"{slug}@{version}", detail={
+                                 "certificate_id": record.id, "reason": reason}))
+
+
+def photo_snapshot_current(session, db, slug: str, version: str, frames) -> bool:
+    """Under the photo lock, compare proposed photos to current evidence and frames."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    current = list(session.scalars(select(ListingAsset).where(
+        ListingAsset.product_slug == slug, ListingAsset.version == version,
+        ListingAsset.asset_class == PHOTO_CLASS).with_for_update()))
+    current = [f for f in current if not any(str(r).startswith(NOT_QUALIFYING)
+                                             for r in (f.blocked_reasons or []))]
+    proposed = [f for f in frames if f.asset_class == PHOTO_CLASS]
+    def identity(frame):
+        return (frame.id, frame.position, frame.sha256, frame.approved,
+                dict(frame.claims or {}), list(frame.blocked_reasons or []))
+    if sorted((identity(f) for f in current), key=lambda x: x[0]) != sorted(
+            (identity(f) for f in proposed), key=lambda x: x[0]):
+        return False
+    for frame in current:
+        if not frame.approved or frame.blocked_reasons:
+            return False
+        try:
+            checks, _ = _checks(db, frame.id)
+        except Exception:  # noqa: BLE001 - unreadable evidence cannot certify
+            return False
+        if any(checks.get(c) is not True for c in CHECKS):
+            return False
+    return True
+
+
+def photo_certificate_current(session, db, slug: str, version: str, certified_frames) -> bool:
+    """Under the photo lock, bind a proposed certificate to current qualifying photos."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    current = list(session.scalars(select(ListingAsset).where(
+        ListingAsset.product_slug == slug, ListingAsset.version == version,
+        ListingAsset.asset_class == PHOTO_CLASS).with_for_update()))
+    current = [f for f in current if not any(str(r).startswith(NOT_QUALIFYING)
+                                             for r in (f.blocked_reasons or []))]
+    expected = [(f.position, f.sha256) for f in certified_frames if f.medium == PHOTO_CLASS]
+    # A photo-led disclosed certificate deliberately includes its leader only;
+    # other valid supplements may exist without being included in that certificate.
+    by_key = {(f.position, f.sha256): f for f in current}
+    if len(set(expected)) != len(expected) or any(key not in by_key for key in expected):
+        return False
+    for frame in (by_key[key] for key in expected):
+        if not frame.approved or frame.blocked_reasons:
+            return False
+        try:
+            checks, _ = _checks(db, frame.id)
+        except Exception:  # noqa: BLE001 - unreadable evidence cannot certify
+            return False
+        if any(checks.get(c) is not True for c in CHECKS):
+            return False
+    return True
+
+
 def _reviewable(reasons) -> bool:
     return AWAITING in reasons or any(str(r).startswith(NOT_QUALIFYING) for r in reasons)
 
@@ -211,6 +286,9 @@ def _review_frame(db, frame_id: int, *, reissue: bool) -> dict:
                 frame.blocked_reasons = [AWAITING] + others
                 frame.approved = False
                 out["reopened_awaiting"] = failed
+        if frame is not None and out.get("frame_approved") is not True:
+            _invalidate_photo_certificates(s, frame.product_slug, frame.version,
+                                           "photo_review_not_approved")
         s.add(AuditLog(actor="asset_truth", action=ACTION,
                        artifact=f"{ctx.get('slug')}@{ctx.get('version')}",
                        detail={k: v for k, v in out.items() if k != "certificate"}))
@@ -277,26 +355,105 @@ def _promote_if_leaderless(db, frame_id: int) -> bool:
         reasons = list(frame.blocked_reasons or [])
         photo_leads = any(
             f.asset_class == PHOTO_CLASS and (f.claims or {}).get("leads_gallery") is True
+            and not any(str(r).startswith(NOT_QUALIFYING) for r in (f.blocked_reasons or []))
             for f in s.scalars(select(ListingAsset).where(
                 ListingAsset.product_slug == frame.product_slug,
                 ListingAsset.version == frame.version)))
-    if photo_leads or not isinstance(pid, int) or not any(
-            str(r).startswith(NOT_QUALIFYING) for r in reasons):
+    if photo_leads or not isinstance(pid, int) or not _reviewable(reasons):
         return False
     return bool(lead_with_if_qualifying(db, pid))
+
+
+def _reopen_stale_approved_photos(db) -> None:
+    """Re-review every approved physical photo whose evidence has lapsed."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        ids = list(s.scalars(select(ListingAsset.id).where(
+            ListingAsset.asset_class == PHOTO_CLASS,
+            ListingAsset.approved == True)))  # noqa: E712
+    for fid in ids:
+        try:
+            with db.session() as s:
+                _lock(s, db)
+                frame = s.scalar(select(ListingAsset).where(
+                    ListingAsset.id == fid).with_for_update())
+                if (frame is None or not frame.approved
+                        or frame.asset_class != PHOTO_CLASS):
+                    continue
+                try:
+                    checks, _ = _checks(db, fid)
+                except Exception:  # noqa: BLE001 - unreadable evidence is not approval
+                    checks = {}
+                if any(checks.get(c) is not True for c in CHECKS):
+                    # Awaiting is durable if the process stops before the review.
+                    # Never clear other holds; review_frame rechecks the evidence.
+                    frame.approved = False
+                    _invalidate_photo_certificates(s, frame.product_slug, frame.version,
+                                                   "photo_evidence_changed")
+                    frame.blocked_reasons = [AWAITING] + [r for r in
+                        (frame.blocked_reasons or []) if r != AWAITING]
+        except Exception:  # noqa: BLE001 - unknown evidence cannot cause approval
+            continue
+
+
+def _excluded_leader_recoveries(db) -> list[int]:
+    """Previously approved supplements can replace an excluded photo leader."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+    from . import sample_photo
+
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingAsset).order_by(ListingAsset.id)))
+        releases = {(f.product_slug, f.version) for f in rows
+                    if f.asset_class == PHOTO_CLASS and f.position == 1
+                    and any(str(r).startswith(NOT_QUALIFYING)
+                            for r in (f.blocked_reasons or []))}
+        candidates = [(f.id, f.product_slug, f.version, f.sha256,
+                       (f.claims or {}).get("physical_photo_id")) for f in rows
+                      if (f.product_slug, f.version) in releases and f.asset_class == PHOTO_CLASS
+                      and f.approved is True and not (f.blocked_reasons or [])]
+    selected = []
+    for slug, version in sorted(releases):
+        try:
+            qualifying = sample_photo.qualifying_photos(db, slug, version).get("qualifying") or []
+        except Exception:  # noqa: BLE001 - unknown evidence cannot promote
+            continue
+        for fid, cslug, cversion, sha, pid in candidates:
+            if (cslug, cversion) == (slug, version) and any(
+                    e.get("photo_id") == pid and sha and e.get("sha256") == sha
+                    for e in qualifying):
+                selected.append(fid)
+                break
+    return selected
 
 
 def sweep(db) -> dict:
     """Review every awaiting (or newly qualifying) photo frame. CA$0, never publishes."""
     results = []
+    _reopen_stale_approved_photos(db)
     for fid in awaiting_frames(db):
         try:
             _promote_if_leaderless(db, fid)
         except Exception:  # noqa: BLE001 - not promoted: the review below still names why
             pass
         results.append(review_frame(db, fid))
-    return {"reviewed": len(results), "approved": sum(1 for r in results if r["approved"]),
+    for fid in _excluded_leader_recoveries(db):
+        try:
+            from .physical_upgrade import lead_with_if_qualifying
+            from ..core.models import ListingAsset
+            with db.session() as s:
+                row = s.get(ListingAsset, fid)
+                pid = (row.claims or {}).get("physical_photo_id") if row else None
+            if isinstance(pid, int) and lead_with_if_qualifying(db, pid):
+                results.append(review_frame(db, fid))
+        except Exception:  # noqa: BLE001 - retain the hold and retry on next sweep
+            continue
+    return {"reviewed": len(results),
+            "approved": sum(1 for r in results if r.get("frame_approved") is True),
             "not_qualifying": [r.get("frame_id") for r in results if r.get("not_qualifying")],
-            "refused": [{"frame_id": r.get("frame_id"), "failed": r["failed"]}
-                        for r in results if not r["approved"]],
-            "work_done": sum(1 for r in results if r["approved"])}
+            "refused": [{"frame_id": r.get("frame_id"),
+                         "failed": r.get("failed") or r.get("other_reasons") or ["not approved"]}
+                        for r in results if r.get("frame_approved") is not True],
+            "work_done": sum(1 for r in results if r.get("frame_approved") is True)}

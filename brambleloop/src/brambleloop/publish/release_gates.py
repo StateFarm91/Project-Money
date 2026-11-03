@@ -1052,6 +1052,11 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
                         f"listing-set certificate would bind to nothing; refused")}
     covered = None
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
+        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == cert.slug,
             ListingSetCertificateRecord.version == cert.version,
@@ -1075,6 +1080,11 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
         return {"valid": False, "issued": False, "rechecked": rechecked,
                 "why": "no valid certificate covers these frames and issuing was not asked"}
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
+        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=cert.slug, version=cert.version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
@@ -1174,6 +1184,11 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     hashes = {v["position"]: v.get("sha256") for v in per_frame}
     covered = None
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_snapshot_current
+        _lock(s, db)
+        if not photo_snapshot_current(s, db, slug, version, frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
             ListingSetCertificateRecord.version == version,
@@ -1220,6 +1235,11 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     except ls.ListingSetRefused as e:
         return {"valid": False, "issued": False, "rechecked": rechecked, "why": str(e)[:400]}
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_snapshot_current
+        _lock(s, db)
+        if not photo_snapshot_current(s, db, slug, version, frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=slug, version=version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
