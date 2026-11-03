@@ -37,3 +37,11 @@ An independent reviewer also verified that the caller-owned persistence
 preview's first-release and recertification rollback tests restore certificate
 provenance and replacement-audit records. These tests do not establish a fence
 or make its in-memory intents durable.
+
+A subsequent disposable PostgreSQL 16 experiment held `FOR UPDATE` on a
+`DesignRule`: a concurrent update of that rule timed out while the lock was
+held, but a separate transaction successfully changed the fixture purchase's
+`BenchmarkLicence.allowed_uses` during that same lock. A rule-row lock by
+itself therefore does not fence the verification's licence dependencies. The
+local-only runner is `/workspace/scratch/codex-pg-a6-rule-lock.py`. No partial
+guard was wired into the production certification handler.
