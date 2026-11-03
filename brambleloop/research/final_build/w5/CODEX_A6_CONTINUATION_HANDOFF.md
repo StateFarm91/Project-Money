@@ -18,3 +18,14 @@ Python 3.11 with a private local benchmark fixture: `test_w5_a6_frozen_knowledge
 ## Visual boundary follow-up
 
 Every `visual.image_production` stage re-checks a stored CIR's frozen knowledge before resolving a generator or scheduling the next stage. Owner gallery publication approval, gallery persistence, and candidate re-verification also refuse when the stored pin no longer verifies. Legacy releases with no pins retain their existing behavior; publication and experiment controls still apply. A real-worker regression retires an approved rule and verifies the queued visual job, gallery approval, gallery persistence and image re-verification all refuse before work. No paid generator is called. Python 3.11 visual regressions: `test_w4_visnext_frames.py` 7/7 and `test_w4_visnext.py` 21/21.
+
+## Independent review: do not integrate
+
+The independent reviewer reproduced two HIGH findings against `9df9da09f3e12e0858fb92f88f264d1892d2091a`, using SQLite, actual Worker handlers and an evaluated approved rule:
+
+1. Removing the `learning_rule:` provenance marker lets an originally pinned design enter `cir.revise` as if it never had pins, even after the rule is retired. Pin absence must be bound to trusted immutable source/lineage, not inferred from a caller-supplied CIR.
+2. Retiring a rule between `gate.certify`'s pin check and certificate persistence can result in a granted certificate. Rechecking once more is not sufficient: retirement/reapproval and the decision/write require a shared transactional fence, with equivalent protection at other side-effect boundaries.
+
+Repros in the independent review workspace are `/tmp/a6_strip_probe.py` and `/tmp/a6_revoke_race_probe.py`, invoked with the Python 3.11 environment and local benchmark fixture. The two source/evidence and atomicity fixes are not implemented here. The visual checks in this branch are prechecks and do not close either finding. No claim of integration readiness is made.
+
+The follow-up also refuses a resumed visual operation when the stored CIR is missing or unreadable; it does not treat vanished data as a no-pin design. Explicit scratch experiment handling remains subject to its existing authorization and binding checks. Missing-CIR and retired-pin real-worker tests passed; `test_w4_visnext.py` 21/21, `test_w4_visnext2.py` 11/11, `test_w4_controlled_experiments.py` 10/10. A first `test_w4_wraptest.py` run found the experiment-specific refusal precedence had changed and was stopped after that failure; the experiment guard order was corrected and its two affected targeted tests passed. The complete wraptest suite was not rerun.

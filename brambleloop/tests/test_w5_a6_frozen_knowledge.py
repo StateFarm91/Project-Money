@@ -198,6 +198,16 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
     assert persisted.get("refused") == "design_knowledge", persisted
     checked = IP.reverify(db, candidate_id, judges=object())
     assert checked.get("refused") == "design_knowledge", checked
+    # Losing the stored CIR cannot turn a resumed visual into an unpinned one.
+    with db.session() as s:
+        row = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == release.slug, PatternVersion.version == release.version))
+        row.cir_json = {}
+    status, out, err = _run(db, path, "visual.image_production", visual_inputs, "publishing")
+    assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
+    assert "unavailable" in out.get("why", ""), out
+    assert IP.approve(db, key, decided_by="owner").get("refused") == "design_knowledge"
+    assert GP.persist_approved(db, key).get("refused") == "design_knowledge"
     # a design with no pins is never refused by the knowledge gate
     assert KG.refusal(db, baseline) is None
     assert release_gates._knowledge_reasons(db, release.slug, "9.9.9") == []

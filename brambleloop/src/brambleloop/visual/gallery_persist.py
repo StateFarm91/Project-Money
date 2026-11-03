@@ -43,17 +43,17 @@ def persist_approved(db, key: str, *, judges=None, store_root=None) -> dict:
     run = IP.get_run(db, key)
     if run is None:
         return {"persisted": False, "why": "no such run"}
-    from ..publish.release_gates import _knowledge_reasons
-
-    reasons = _knowledge_reasons(db, run["slug"], run["version"])
-    if reasons:
-        return {"persisted": False, "refused": "design_knowledge", "why": reasons[0]}
     try:
         XP.refuse_if_experiment(db, run["slug"], run["version"], action="listing asset write")
     except XP.ExperimentRefused as exc:
         return {"persisted": False, "why": str(exc)}
     if (run.get("card") or {}).get("experiment"):
         return {"persisted": False, "why": f"{XP.LABEL}: experiments never write listing assets"}
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    why = stored_visual_refusal(db, run["slug"], run["version"])
+    if why:
+        return {"persisted": False, "refused": "design_knowledge", "why": why}
     if run["state"] != "approved_for_publication":
         return {"persisted": False, "why": f"run is {run['status']}; only a gallery the owner "
                                            f"approved with no publication blocker is written"}

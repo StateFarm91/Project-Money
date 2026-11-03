@@ -58,3 +58,21 @@ def refusal(db, cir) -> str | None:
     except Exception as exc:  # noqa: BLE001 - any unverifiable pin refuses (fail closed)
         return (f"frozen design knowledge does not verify ({type(exc).__name__}: "
                 f"{str(exc)[:240]}); a pinned design is never accepted or rendered without it")
+
+
+def stored_visual_refusal(db, slug: str, version: str, *, require_release: bool = True) -> str | None:
+    """Re-check stored design pins; never resume production visuals without their CIR."""
+    from sqlalchemy import select
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    try:
+        with db.session() as session:
+            row = session.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == slug, PatternVersion.version == version))
+            data = dict(row.cir_json or {}) if row is not None else {}
+        if not data:
+            return "stored design unavailable for visual verification" if require_release else None
+        return refusal(db, CIR.from_dict(data))
+    except Exception as exc:  # noqa: BLE001 - unreadable stored evidence cannot authorize a visual
+        return f"stored design cannot be verified ({type(exc).__name__})"
