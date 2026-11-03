@@ -242,6 +242,21 @@ def test_concurrent_answers_cannot_queue_two_drafts_for_one_round():
     assert len(jobs) == 1 and jobs[0][0] == f"draft:{seed_slug}:enrich:1", jobs
 
 
+def test_construction_precheck_matches_real_tapestry_palette_refusal():
+    db, _ = _store()
+    payload = {"slug": "fixture-unpaired-tapestry", "title": "Tapestry Basket",
+               "category": "basket", "risk_class": "A", "rationale": "fixture",
+               "stitch_repeat": [["sc", 4]], "width_stitches": 48, "rows": 14,
+               "colors": {"a": "#fefefe"}}
+    missing = E._recheck({"kind": "radar", "category": "basket"}, payload, None)
+    assert missing and "two distinct colours" in str(missing), missing
+    JobQueue(db).enqueue("crochet_engineer", "cir.draft", payload)
+    _run(db, "cir.draft")
+    jobs = _jobs(db, "cir.draft")
+    assert len(jobs) == 1 and jobs[0][2].get("gate") == "construction", jobs
+    assert "two distinct colours" in str(jobs[0][2]), jobs
+
+
 def test_the_sweep_is_registered_scheduled_and_banded():
     from brambleloop.runtime.worker import CADENCES
     from brambleloop.swarm import orchestrate

@@ -155,10 +155,34 @@ def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
 
     route = FC.plan(category=str(payload.get("category") or context.get("category") or ""),
                     title=str(payload.get("title") or ""), slug=str(payload.get("slug") or ""),
+                    is_bundle=bool(payload.get("is_bundle")),
                     rationale=str(payload.get("rationale") or ""))
     if route.get("family") == FC.REFUSED:
         return [{"field": "construction", "why": route.get("why"),
                  "needs": route.get("needs"), "resolved_by": ENRICH}]
+    # Use the same pure construction builders as cir.draft. Planning alone is
+    # not enough: an admitted route may reject its palette or other inputs.
+    from ..runtime.pipeline import Concept, _engineered_cir, concept_to_cir
+    try:
+        if _engineered_cir(str(payload.get("slug") or "")) is not None:
+            return []
+        concept = Concept(slug=payload["slug"], title=payload["title"],
+                          category=payload["category"],
+                          stitch_repeat=[(code, n) for code, n in payload["stitch_repeat"]],
+                          width_stitches=payload["width_stitches"], rows=payload["rows"],
+                          colors=payload["colors"], risk_class=payload.get("risk_class", "A"))
+        family = route["family"]
+        builders = {FC.VESSEL: FC.vessel, FC.COSY: FC.cosy, FC.TOTE: FC.tote,
+                    FC.STOCKING: FC.stocking, FC.TAPESTRY: FC.tapestry_basket,
+                    FC.POUCH: FC.pouch, FC.TRIANGLE: FC.triangle}
+        if family == FC.TAPESTRY and len(set((concept.colors or {}).values())) < 2:
+            raise ValueError("tapestry needs two distinct colours")
+        cir = builders[family](concept) if family in builders else concept_to_cir(concept)
+        if family == FC.PANEL_PAIR:
+            FC.panel_pair(cir)
+    except (ValueError, KeyError, TypeError) as exc:
+        return [{"field": "construction", "why": f"{type(exc).__name__}: {exc}"[:300],
+                 "needs": "inputs the construction can build", "resolved_by": ENRICH}]
     return []
 
 
