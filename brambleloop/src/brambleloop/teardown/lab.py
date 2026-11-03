@@ -155,15 +155,17 @@ def _record_analysis_prefill(db, benchmark_ref: str, spec_key: str, analysis_id:
                 raise LabRefused("architecture prefill is invalid")
             clean[key] = {"present": value["present"], "pages": list(value["pages"])}
         digest = evidence_digest(source)
+        expected = {"analysis_id": analysis_id, "audit": spec_key,
+                    "evidence_sha256": digest, "answers": clean,
+                    "withheld": sorted(withheld), "complete": not withheld}
         previous = s.get(AuditLog, source.prefill_audit_id) if source.prefill_audit_id else None
         if previous is not None and previous.action == "teardown.audit_prefilled" \
-                and (previous.detail or {}).get("evidence_sha256") == digest:
+                and previous.actor == "teardown_analyst" \
+                and previous.artifact == f"benchmark-analysis:{analysis_id}" \
+                and previous.detail == expected:
             return {"recorded": False, "audit_id": previous.id, "reason": "already_recorded"}
         event = AuditLog(actor="teardown_analyst", action="teardown.audit_prefilled",
-                         artifact=f"benchmark-analysis:{analysis_id}", detail={
-                             "analysis_id": analysis_id, "audit": spec_key,
-                             "evidence_sha256": digest, "answers": clean,
-                             "withheld": sorted(withheld), "complete": not withheld})
+                         artifact=f"benchmark-analysis:{analysis_id}", detail=expected)
         s.add(event)
         s.flush()
         source.prefill_audit_id = event.id

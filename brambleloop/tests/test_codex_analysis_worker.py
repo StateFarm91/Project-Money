@@ -317,6 +317,17 @@ class AnalysisWorkerTests(unittest.TestCase):
                     s.get(BenchmarkProduct, benchmark_id).files = original_files
                     self.assertEqual(len(list(s.scalars(select(AuditLog).where(
                         AuditLog.action == "teardown.audit_prefilled")))), 1)
+                    event = s.get(AuditLog, audit_id)
+                    event.detail = {**event.detail, "complete": True}
+                repaired = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertTrue(repaired["recorded"])
+                self.assertNotEqual(repaired["audit_id"], audit_id)
+                repeated = lab.record_audit(db, ref, audits.PDF_ARCHITECTURE.key, {},
+                                            prefill_analysis_id=analysis_id)
+                self.assertFalse(repeated["recorded"])
+                self.assertEqual(repeated["audit_id"], repaired["audit_id"])
+                with db.session() as s:
                     source = s.get(BenchmarkAnalysis, analysis_id)
                     observations = dict(source.observations)
                     bad = dict(observations)
