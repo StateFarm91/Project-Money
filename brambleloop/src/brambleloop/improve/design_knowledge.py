@@ -16,6 +16,7 @@ from sqlalchemy import func, select, update
 
 from ..core.models import (AuditLog, BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct,
                            DesignRule, Incident, Lesson, SupportCase, TeardownFinding)
+from ..teardown.analysis_store import manifested_pdf
 
 
 class DesignKnowledgeRefused(ValueError):
@@ -323,8 +324,7 @@ def _revalidate_provenance(session, rule) -> None:
             supports_gap = (observations.get("fully_readable") is True
                 and isinstance(dimensions, dict) and dimensions.get("finishing") == "absent")
             product = session.get(BenchmarkProduct, source.benchmark_id)
-            if product is None or not any(f.get("sha256") == source.file_sha256
-                                           for f in (product.files or [])):
+            if not manifested_pdf(product, source.file_sha256):
                 raise DesignKnowledgeRefused("analysis source is no longer in the manifest")
             lic = session.scalar(select(BenchmarkLicence).where(
                 BenchmarkLicence.source_ref == product.ref))
@@ -526,8 +526,7 @@ def propose(db, *, key: str, statement: dict, scope: dict, provenance: list,
             if item["kind"] == "analysis":
                 product = session.scalar(select(BenchmarkProduct).where(
                     BenchmarkProduct.id == source.benchmark_id).with_for_update())
-                if product is None or not any(f.get("sha256") == source.file_sha256
-                                               for f in (product.files or [])):
+                if not manifested_pdf(product, source.file_sha256):
                     raise DesignKnowledgeRefused("analysis source is no longer in the manifest")
                 lic = session.scalar(select(BenchmarkLicence).where(
                     BenchmarkLicence.source_ref == product.ref).with_for_update())
@@ -598,8 +597,7 @@ def propose_from_analysis(db, analysis_id: int) -> dict:
                 return {"proposed": False, "reason": "already_proposed", "id": existing.id}
             product = s.scalar(select(BenchmarkProduct).where(
                 BenchmarkProduct.id == source.benchmark_id).with_for_update())
-            if product is None or not any(f.get("sha256") == source.file_sha256
-                                           for f in (product.files or [])):
+            if not manifested_pdf(product, source.file_sha256):
                 raise DesignKnowledgeRefused("analysis source is no longer in the manifest")
             lic = s.scalar(select(BenchmarkLicence).where(
                 BenchmarkLicence.source_ref == product.ref).with_for_update())

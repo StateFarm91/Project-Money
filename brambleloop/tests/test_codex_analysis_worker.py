@@ -342,6 +342,15 @@ class AnalysisWorkerTests(unittest.TestCase):
                 with self.assertRaises(review.ReviewRefused):
                     review.review_analysis(db, analysis_id, reviewer="teardown_analyst",
                                            decision="reviewed", reason="self review")
+                with db.session() as s:
+                    product = s.get(BenchmarkProduct, benchmark_id)
+                    original_files = list(product.files)
+                    product.files = [{**original_files[0], "name": "not-pdf.txt"}]
+                with self.assertRaises(review.ReviewRefused):
+                    review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
+                                           reason="source is no longer a PDF")
+                with db.session() as s:
+                    s.get(BenchmarkProduct, benchmark_id).files = original_files
                 review.review_analysis(db, analysis_id, reviewer="owner", decision="reviewed",
                                        reason="independent observation review")
                 reopened = Database(url, scratch=True)

@@ -104,6 +104,13 @@ class LearningHTTPAcceptance(unittest.TestCase):
             changed = write_pattern(pinned, compile_cir(pinned))
             self.assertNotEqual(changed, baseline)
             self.assertIn("\n- Fasten off", changed)
+            from brambleloop.core.models import BenchmarkProduct
+            with reopened.session() as s:
+                source = s.get(BenchmarkAnalysis, source_id)
+                product = s.get(BenchmarkProduct, source.benchmark_id)
+                product.files = [{**product.files[0], "name": "renamed.txt"}]
+            with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+                design_knowledge.verify_cir_pins(reopened, pinned)
 
 
 if __name__ == "__main__":

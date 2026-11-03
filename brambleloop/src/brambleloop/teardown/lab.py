@@ -119,6 +119,7 @@ def _record_analysis_prefill(db, benchmark_ref: str, spec_key: str, analysis_id:
     """Persist only defended presence answers; withheld answers remain unknown."""
     from sqlalchemy import select
     from ..core.models import AuditLog, BenchmarkAnalysis, BenchmarkLicence, BenchmarkProduct
+    from .analysis_store import manifested_pdf
     from .review import evidence_digest
 
     if spec_key != audits.PDF_ARCHITECTURE.key or type(analysis_id) is not int or analysis_id <= 0:
@@ -129,10 +130,7 @@ def _record_analysis_prefill(db, benchmark_ref: str, spec_key: str, analysis_id:
         product = (s.scalar(select(BenchmarkProduct).where(
             BenchmarkProduct.id == source.benchmark_id).with_for_update())
             if source is not None else None)
-        if product is None or product.ref != benchmark_ref or not any(
-                isinstance(item, dict) and item.get("sha256") == source.file_sha256
-                and isinstance(item.get("name"), str) and item["name"].lower().endswith(".pdf")
-                for item in (product.files or [])):
+        if product is None or product.ref != benchmark_ref or not manifested_pdf(product, source.file_sha256):
             raise LabRefused("analysis source is not in the current purchase manifest")
         terms = s.scalar(select(BenchmarkLicence).where(
             BenchmarkLicence.source_ref == product.ref).with_for_update())

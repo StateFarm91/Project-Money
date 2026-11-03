@@ -12,15 +12,13 @@ from . import design_knowledge
 def _architecture_complete(session, source, reviewed: bool) -> bool:
     """Only current, independently reviewed evidence can close this knowledge gap."""
     from ..teardown.audits import PDF_ARCHITECTURE
+    from ..teardown.analysis_store import manifested_pdf
 
     data = source.observations if isinstance(source.observations, dict) else {}
     answers = data.get("architecture")
     product = session.scalar(select(BenchmarkProduct).where(
         BenchmarkProduct.id == source.benchmark_id).with_for_update())
-    if (not reviewed or product is None or not any(
-            isinstance(f, dict) and f.get("sha256") == source.file_sha256
-            and isinstance(f.get("name"), str) and f["name"].lower().endswith(".pdf")
-            for f in (product.files or []))):
+    if not reviewed or not manifested_pdf(product, source.file_sha256):
         return False
     terms = session.scalar(select(BenchmarkLicence).where(
         BenchmarkLicence.source_ref == product.ref).with_for_update())

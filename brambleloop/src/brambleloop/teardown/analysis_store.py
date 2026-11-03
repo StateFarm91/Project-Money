@@ -22,6 +22,14 @@ class AnalysisRefused(ValueError):
     """The file is not the exact manifested and licensed purchase."""
 
 
+def manifested_pdf(product, sha256: str) -> bool:
+    """The exact analysed bytes must still be listed as a PDF on this purchase."""
+    return product is not None and any(
+        isinstance(item, dict) and item.get("sha256") == sha256
+        and isinstance(item.get("name"), str) and item["name"].lower().endswith(".pdf")
+        for item in (product.files or []))
+
+
 def analyse_file(db, benchmark_id: int, file_sha256: str, *, env=None) -> dict:
     """Analyse an exact manifest version and persist the result once.
 

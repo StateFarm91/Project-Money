@@ -153,6 +153,7 @@ def review_finding(db, finding_id: int, *, reviewer: str, decision: str, reason:
 
 def review_analysis(db, analysis_id: int, *, reviewer: str, decision: str, reason: str) -> dict:
     """Review structured observations without treating them as a quality score."""
+    from .analysis_store import manifested_pdf
     if type(analysis_id) is not int or analysis_id <= 0:
         raise ReviewRefused("invalid analysis")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 64:
@@ -176,11 +177,12 @@ def review_analysis(db, analysis_id: int, *, reviewer: str, decision: str, reaso
             raise ReviewRefused("independent reviewer required")
         if not _reviewable(row):
             raise ReviewRefused("analysis has already been reviewed")
-        product = s.get(BenchmarkProduct, row.benchmark_id)
-        if product is None or not any(f.get("sha256") == row.file_sha256
-                                      for f in (product.files or [])):
+        product = s.scalar(select(BenchmarkProduct).where(
+            BenchmarkProduct.id == row.benchmark_id).with_for_update())
+        if not manifested_pdf(product, row.file_sha256):
             raise ReviewRefused("analysis source is no longer in the purchase manifest")
-        lic = s.scalar(select(BenchmarkLicence).where(BenchmarkLicence.source_ref == product.ref))
+        lic = s.scalar(select(BenchmarkLicence).where(
+            BenchmarkLicence.source_ref == product.ref).with_for_update())
         if lic is None or "private_analysis" not in (lic.allowed_uses or []) \
                 or "private_analysis" in (lic.prohibited_uses or []):
             raise ReviewRefused("purchase licence does not allow private analysis")
