@@ -588,7 +588,11 @@ def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     """
     from ..products import launch0
 
-    return launch0.childrens_assignment(cir.slug) or graded_childrens_assignment(cir)
+    assigned = launch0.childrens_assignment(cir.slug)
+    if assigned is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        return assigned if decision == launch0.ASSIGNED else None
+    return graded_childrens_assignment(cir)
 
 
 def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
@@ -767,6 +771,13 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
     # stuffed form is a children's-safety question whatever its title says; title words are
     # the second layer, read through one fold (look-alike and invisible characters).
     stuffed = launch0.closed_stuffed_form(cir)
+    # A slug-only child assignment cannot authorize a different or revised CIR.
+    if launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = launch0.childrens_decision_for(cir)
+        if decision != launch0.ASSIGNED:
+            raise ChildrensDecisionRequired(cir.slug, "undecided",
+                f"{cir.slug}: the existing children's assignment does not bind this exact "
+                "design and version. Held pending an explicit authorized decision.")
     if childrens is not None:
         # Assigned to a child: a sewn-on piece that fits, or may fit, the small-parts cylinder
         # holds it until physical evidence is recorded (UNKNOWN is never a pass).

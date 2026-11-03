@@ -4,7 +4,8 @@ import math
 
 import test_a1r_child_safety_core as harness
 from brambleloop.gates import small_parts
-from brambleloop.products import inventory
+from brambleloop.products import inventory, launch0
+from unittest.mock import patch
 from brambleloop.publish import pdf
 
 
@@ -41,15 +42,10 @@ def test_invalid_measurements_and_gauges_are_unknown():
     finally:
         small_parts.SMALL_PARTS_EVIDENCE.pop(assigned.slug)
     assert harness._held(result), result
-    assert result["outputs"]["reason"] == "small_parts", result
-    assert "unknown" in result["outputs"]["why"], result
-    from sqlalchemy import select
-    from brambleloop.core.models import OwnerAction
-    with result["db"].session() as session:
-        action = session.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == "childrens-decision:market-basket-medium"))
-        assert "content-bound" in action.action, action.action
-        assert "SMALL_PARTS_EVIDENCE" not in action.action, action.action
+    # NaN is not serializable for a valid content binding: the authority hold is
+    # encountered even before the direct small-parts UNKNOWN check above.
+    assert result["outputs"]["reason"] == "undecided", result
+    assert "exact design" in result["outputs"]["why"], result
     assert small_parts.verdict(36, 62) == small_parts.CLEAR
     assert small_parts.verdict(31, 50) == small_parts.FITS
 
@@ -66,9 +62,22 @@ def test_either_seam_endpoint_can_be_a_small_part():
                                       assembly=[seam])
         blocks = small_parts.blocking(product)
         assert any("tab" in item for item in blocks), (a, b, blocks)
-        result = harness._assets_build_full(product)
+        # Synthetic test-only assignment, so the actual Worker reaches the
+        # small-parts gate instead of stopping at the assignment authority gate.
+        with patch.dict(launch0._ASSIGNED_DECISION_CIR_SHA256,
+                        {product.slug: launch0._cir_decision_digest(product)}), \
+             patch.dict(small_parts.SMALL_PARTS_EVIDENCE,
+                        {product.slug: "unscoped alleged sample"}):
+            result = harness._assets_build_full(product)
         assert harness._held(result), (a, b, result)
         assert result["outputs"]["reason"] == "small_parts", result
+        from sqlalchemy import select
+        from brambleloop.core.models import OwnerAction
+        with result["db"].session() as session:
+            action = session.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == f"childrens-decision:{product.slug}"))
+            assert "content-bound" in action.action, action.action
+            assert "SMALL_PARTS_EVIDENCE" not in action.action, action.action
 
 
 if __name__ == "__main__":
