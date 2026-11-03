@@ -614,6 +614,37 @@ def test_recertification_and_reverify_intent_commit_atomically_across_restart():
     assert len(_audits(reopened, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
 
 
+def test_recertification_dedupe_does_not_roll_back_release_or_hide_wrong_job():
+    from brambleloop.publish import withholding
+
+    for incompatible in (False, True):
+        db = _db()
+        cir = launch0.cir_for("harvest_runner")
+        _legacy_release(db, cir, "Harvest Table Runner Crochet Pattern")
+        withholding.record_reverification(db, cir.slug, cir.version, check="pdf",
+                                          problem="fixture pdf hash drift")
+        queue = JobQueue(db)
+        parent = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:dedupe-recert")
+        key = f"reverify-after-recert:{cir.slug}@{cir.version}:{'f' * 16}"
+        queue.enqueue("quality_director", "gate.certify" if incompatible else "gate.quality",
+                      {}, idempotency_key=key)
+        ctx = JobContext(job=parent, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+        if incompatible:
+            try:
+                pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+                assert False, "a foreign job must not masquerade as a reverify intent"
+            except RuntimeError as exc:
+                assert "incompatible job" in str(exc)
+            assert _certified(db, cir.slug, cir.version).release_hash == "r" * 64
+            assert not _audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")
+        else:
+            pipeline._persist_release(ctx, cir, {"granted": True}, "f" * 64)
+            assert _certified(db, cir.slug, cir.version).release_hash == "f" * 64
+            assert len(_jobs(db, job_type="gate.quality")) == 1
+            assert len(_audits(db, "gate.recertified", f"{cir.slug}@{cir.version}")) == 1
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()

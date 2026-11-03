@@ -1754,16 +1754,35 @@ def _persist_release_serialized(ctx: JobContext, cir: CIR, certificate: dict,
                                                                 certificate)
             existing.certified = True
             if carried:
-                # The reverify intent and release update commit or roll back together.
-                from ..queue.durable import DuplicateJob, JobQueue
+                # Insert the intent with the release. Do not use JobQueue.enqueue
+                # here: its duplicate handler calls Session.rollback(), which
+                # would also roll back this release on a concurrent collision.
+                from ..core.models import Job, JobStatus
+                from ..queue.durable import fit_idempotency_key
+                from ..swarm.orchestrate import priority_for
 
+                key = fit_idempotency_key(
+                    f"reverify-after-recert:{cir.slug}@{cir.version}:{release_hash[:16]}")
+                dialect = ctx.db.engine.dialect.name
+                if dialect == "postgresql":
+                    from sqlalchemy.dialects.postgresql import insert
+                elif dialect == "sqlite":
+                    from sqlalchemy.dialects.sqlite import insert
+                else:
+                    raise RuntimeError(f"unsupported release database dialect: {dialect}")
                 try:
-                    JobQueue(ctx.db).enqueue(
-                        "quality_director", "gate.quality", {}, session=s,
-                        idempotency_key=(f"reverify-after-recert:{cir.slug}@{cir.version}:"
-                                         f"{release_hash[:16]}"))
-                except DuplicateJob:
-                    pass
+                    priority = priority_for("gate.quality", {}, db=ctx.db)
+                except Exception:  # noqa: BLE001 - same priority fallback as JobQueue
+                    priority = priority_for("gate.quality", {})
+                statement = insert(Job).values(
+                    agent="quality_director", job_type="gate.quality", inputs={},
+                    priority=priority, status=JobStatus.PENDING, idempotency_key=key,
+                    max_attempts=3).on_conflict_do_nothing(index_elements=["idempotency_key"])
+                s.execute(statement)
+                intended = s.scalar(select(Job).where(Job.idempotency_key == key))
+                if (intended is None or intended.agent != "quality_director"
+                        or intended.job_type != "gate.quality" or intended.inputs != {}):
+                    raise RuntimeError("reverification idempotency key has incompatible job")
             from ..core.models import AuditLog
 
             s.add(AuditLog(actor=ctx.job.agent, action="gate.recertified",
