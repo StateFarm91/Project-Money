@@ -27,7 +27,7 @@ Read-only: nothing here writes a row or enqueues a job.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from ..products import production_inventory as inv_mod
 
@@ -388,7 +388,21 @@ def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
             Job.job_type == "radar.scan", Job.status == JobStatus.DONE,
             Job.finished_at >= at, Job.finished_at <= now).order_by(
             Job.finished_at.desc(), Job.id.desc()))
+        try:
+            stall_day = date.fromisoformat(period)
+        except (TypeError, ValueError):
+            # An unreadable period cannot be safely cleared by another reading.
+            stall_day = None
         for scan in scans:
+            try:
+                raw_day = (scan.inputs or {}).get("as_of")
+                scan_day = date.fromisoformat(raw_day) if raw_day else _aware(scan.finished_at).date()
+            except (TypeError, ValueError, AttributeError):
+                continue
+            # A historical replay or future-dated projection is not current
+            # evidence that the recorded operational stall has recovered.
+            if stall_day is None or scan_day < stall_day or scan_day > now.date():
+                continue
             supply = (scan.outputs or {}).get("concept_supply")
             if not isinstance(supply, dict) or supply.get("measured") is not True \
                     or type(supply.get("stalled")) is not bool:
@@ -397,7 +411,7 @@ def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
                 return None
             # More recent stalls can have different counts or reason even though
             # the period-deduplicated reading was already written.
-            return {"period": str((scan.inputs or {}).get("as_of") or period),
+            return {"period": scan_day.isoformat(),
                     "at": inv_mod._iso(_aware(scan.finished_at)),
                     "reason": supply.get("reason"), "pool": supply.get("pool"),
                     "drafted": supply.get("drafted"),
