@@ -114,3 +114,11 @@ default-deny route authentication 8/8, route audit 6/6, contracts 5/5, gates
 44/44, culture/teardown 16/16, cost governance 39/39, CIR fibre 20/20, CIR
 roundtrip 6/6, graded truth 8/8 and row arithmetic 9/9. These ran on Python
 3.12; Python 3.11 integration certification remains outstanding.
+
+An uncommitted, disposable rehearsal merged A6 `594d5e3` and Codex `e174552`.
+It merged cleanly. A6's two integration tests passed after scratch-only test
+corrections: preserve jobs referenced by audits, run `gate.certify` as
+`quality_director`, and assert its job completed. An additional scratch
+assertion demonstrated that the approved pin changes the A6 draft's written
+finishing section. These corrections and the behavior assertion were sent to
+Secondary; they are not yet evidence of a reviewed or integrated branch.
