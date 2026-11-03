@@ -134,6 +134,66 @@ def test_one_in_flight_a_second_rising_signal_waits_for_the_first():
     assert len(_culture_gaps(db)) == 2 and len(A._tasks(db)) == 1
 
 
+def test_long_signal_keys_do_not_collapse_to_the_same_gap_after_restart():
+    from brambleloop.core.db import Database
+
+    db = A._db()
+    prefix = "Dishcloth_" + "a" * 63
+    first, second = prefix + "1", prefix + "2"
+    assert len(first) <= 80 and f"culture:{first}"[:80] == f"culture:{second}"[:80]
+    _readings(db, first, (0.2, 0.6))
+    _readings(db, second, (0.1, 0.7))
+    out = _ideate(db)
+    gaps = _culture_gaps(db)
+    assert len(gaps) == 2 and len({g.arena for g in gaps}) == 2, out
+    assert {g.evidence["culture_signal"] for g in gaps} == {first, second}
+    assert all(len(g.arena) <= 80 for g in gaps)
+    fresh = Database(str(db.engine.url))
+    _ideate(fresh)
+    assert len(_culture_gaps(fresh)) == 2
+
+
+def test_existing_long_signal_gap_is_reused_only_for_exact_identity():
+    from brambleloop.intel import coverage
+
+    db = A._db()
+    prefix = "Dishcloth_" + "a" * 63
+    first, second = prefix + "1", prefix + "2"
+    old_arena = f"culture:{first}"[:80]
+    old_id = coverage.upsert(db, benchmark_key=B.CULTURE_KEY, arena=old_arena,
+                             pod="kitchen_bath", evidence={"culture_signal": first})
+    _readings(db, first, (0.2, 0.6))
+    _readings(db, second, (0.1, 0.7))
+    _ideate(db)
+    gaps = _culture_gaps(db)
+    assert len(gaps) == 2, [(g.id, g.arena) for g in gaps]
+    assert any(g.id == old_id and g.evidence["culture_signal"] == first for g in gaps)
+    assert any(g.id != old_id and g.evidence["culture_signal"] == second for g in gaps)
+
+
+def test_incomparable_stale_future_and_same_day_readings_do_not_create_a_trend():
+    db = A._db()
+    def observe(signal, channel, value, day, source):
+        radar.observe(db, signal, channel=channel, interest=value,
+                      observed_on=day.isoformat(), source=source)
+    # Mixed marketplace/reference scales can falsely look rising.
+    observe("Dishcloth", "reference", 0.8, TODAY - timedelta(days=2), "ref")
+    observe("Dishcloth", "marketplace", 0.1, TODAY - timedelta(days=1), "market")
+    observe("Dishcloth", "marketplace", 0.5, TODAY, "market")
+    # Distinct sources and duplicate readings on one date are not a series.
+    observe("Washcloth", "reference", 0.1, TODAY - timedelta(days=2), "a")
+    observe("Washcloth", "reference", 0.9, TODAY - timedelta(days=1), "b")
+    observe("Potholder", "reference", 0.1, TODAY, "ref")
+    observe("Potholder", "reference", 0.9, TODAY, "ref")
+    observe("Pot_holder", "reference", 0.1, TODAY - timedelta(days=90), "ref")
+    observe("Pot_holder", "reference", 0.9, TODAY - timedelta(days=89), "ref")
+    observe("Hot_pad", "reference", 0.1, TODAY + timedelta(days=1), "ref")
+    observe("Hot_pad", "reference", 0.9, TODAY + timedelta(days=2), "ref")
+    result = _ideate(db)
+    assert result["rising"] == [] and not _culture_gaps(db), result
+    assert all("unknown" in item["why"] for item in result["skipped"]), result
+
+
 def test_the_job_is_registered_scheduled_and_banded():
     from brambleloop.agents.registry import DEFAULT_AGENTS
     from brambleloop.authority import classes
