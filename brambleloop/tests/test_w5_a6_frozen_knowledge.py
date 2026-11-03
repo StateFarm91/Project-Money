@@ -167,7 +167,7 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
               "stage": "product_generation"}
     status, out, err = _run(db, path, "visual.image_production", visual, "publishing")
     assert status == JobStatus.DONE and out.get("refused") == "design_knowledge", (out, err)
-    assert "content differs" in out.get("why", ""), out
+    assert "markers are missing" in out.get("why", ""), out
     with db.session() as s:
         stored = s.scalar(select(PatternVersion).join(Product).where(
             Product.slug == release.slug, PatternVersion.version == release.version))
@@ -237,7 +237,9 @@ def test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifi
     assert IP.approve(db, key, decided_by="owner").get("refused") == "design_knowledge"
     assert GP.persist_approved(db, key).get("refused") == "design_knowledge"
     # a design with no pins is never refused by the knowledge gate
-    assert KG.refusal(db, baseline) is None
+    # The baseline and pinned drafts share an identity. Once that identity has
+    # a frozen rule, an unpinned payload is ambiguous and must not bypass it.
+    assert "markers are missing" in KG.refusal(db, baseline)
     assert release_gates._knowledge_reasons(db, release.slug, "9.9.9") == []
 
 

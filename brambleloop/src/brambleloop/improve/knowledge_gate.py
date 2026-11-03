@@ -9,8 +9,9 @@ rule_digest, evaluation_digest}. This module is Pattern Engineering's side of th
   this drafter can honour are frozen into the CIR's provenance (`design_knowledge.freeze_pins`,
   `learning_rule:...` markers). No approved record: the CIR is returned unchanged, so a
   design with no knowledge is byte-identical to before. A store failure freezes nothing.
-* `refusal(db, cir)` -- at certification, re-verification, the PDF and release: None for a
-  CIR that carries no pins; otherwise `design_knowledge.verify_cir_pins`, and ANY failure --
+* `refusal(db, cir)` -- at certification, re-verification, the PDF and release: a CIR with
+  no pins passes this check only if its exact version has no recorded freeze; otherwise
+  `design_knowledge.verify_cir_pins` checks its pins, and ANY failure --
   forged, stale, revoked, unevaluated, unreadable store -- is a named refusal. A pinned
   design is never silently rendered without the knowledge it was certified with.
 """
@@ -48,6 +49,28 @@ def freeze_applicable(db, cir):
 
 
 def refusal(db, cir) -> str | None:
+    # A marker is caller-controlled. An earlier freeze for this exact release
+    # identity is durable evidence that absence is not enough to authorise a
+    # revision or certification. This deliberately holds even an older,
+    # genuinely unpinned candidate for the same identity: resolving that
+    # ambiguity requires authenticated lineage, not a guess.
+    from sqlalchemy import select
+    from ..core.models import AuditLog
+    from ..cir import knowledge
+
+    try:
+        with db.session() as session:
+            history = list(session.scalars(select(AuditLog.detail).where(
+                AuditLog.action == FROZEN,
+                AuditLog.artifact == f"{cir.slug}@{cir.version}")))
+        actual = [entry["pin"] for entry in knowledge.markers(cir)]
+        for detail in history:
+            expected = detail.get("pins") if isinstance(detail, dict) else None
+            if not isinstance(expected, list) or not expected or any(
+                    not isinstance(pin, dict) or pin not in actual for pin in expected):
+                return "frozen design knowledge markers are missing for this design version"
+    except Exception as exc:  # noqa: BLE001 - no history cannot prove no freeze
+        return f"design knowledge history cannot be verified ({type(exc).__name__})"
     if not has_pins(cir):
         return None
     from . import design_knowledge as dk
