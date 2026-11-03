@@ -45,3 +45,24 @@ held, but a separate transaction successfully changed the fixture purchase's
 itself therefore does not fence the verification's licence dependencies. The
 local-only runner is `/workspace/scratch/codex-pg-a6-rule-lock.py`. No partial
 guard was wired into the production certification handler.
+
+## Containment experiment rejected
+
+An uncommitted experiment made the existing `knowledge_gate.refusal` always
+hold, including for a baseline design with no visible Learning history. Two
+Python 3.11, persistent-SQLite tests exercised actual certification, asset,
+visual and draft/activation release checks: the checked paths held as intended.
+The unchanged Learning acceptance test
+`test_approved_knowledge_is_frozen_into_the_draft_and_every_boundary_reverifies_it`
+failed because it expects an approved pinned design to pass. No assertion was
+altered. This approach stops baseline certification and does not meet Learning
+acceptance.
+
+Independent review identified alternate customer delivery paths in
+`commerce/deliverables.py`: `render_certified_pdfs` can render from a certified
+CIR, and `resolve_pdf` may return stored bytes without the knowledge check.
+The experiment therefore was not a universal boundary either. It was discarded;
+the test-only changes and blanket refusal are not in this branch. Existing
+customer-delivery behavior was not changed. A safe solution needs authenticated
+lineage and action-time evidence fencing with an independently reviewed design
+for every affected consumer, including obligations to existing customers.
