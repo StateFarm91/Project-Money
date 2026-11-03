@@ -238,6 +238,55 @@ def test_the_sweep_is_kept_as_the_safety_net():
     assert ("listing_package", "listing", "listing.package", 6 * 60 * 60) in CADENCES
 
 
+def test_competing_package_records_never_reopen_a_stale_owner_request():
+    from threading import Event, Thread, current_thread
+
+    db = _db("package-race")
+    def package(letter):
+        return {"slug": "race-product", "version": "1.0.0", "fingerprint": letter * 64,
+                "state": LP.READY, "release_hash": letter * 64, "identity": {},
+                "copy": {"title": "Original Product"}, "blockers": []}
+    a, b = package("a"), package("b")
+    LP.record(db, a)
+    entered, resume = Event(), Event()
+    real_lock = release._serialise_owner_queue
+    results, errors = [], []
+
+    def delayed_lock(session, database):
+        if current_thread().name == "old-package":
+            entered.set()
+            assert resume.wait(20)
+        return real_lock(session, database)
+
+    def old_record():
+        try:
+            results.append(LP.record(db, a))
+        except Exception as exc:
+            errors.append(repr(exc))
+
+    release._serialise_owner_queue = delayed_lock
+    try:
+        thread = Thread(target=old_record, name="old-package")
+        thread.start()
+        assert entered.wait(20)
+        LP.record(db, b)
+        resume.set()
+        thread.join(20)
+        assert not thread.is_alive() and not errors, errors
+    finally:
+        resume.set()
+        release._serialise_owner_queue = real_lock
+    assert results[0]["retry"] is True, results
+    assert LP.latest(db, "race-product", "1.0.0")["fingerprint"] == b["fingerprint"]
+    active = [key for key, done, _state in _requests(db) if not done]
+    assert active == [f"{LP.ACTION_PREFIX}race-product@1.0.0:{b['fingerprint'][:16]}"], active
+    # A snapshot taken before a competing commit is rejected even if record()
+    # itself starts only after the new package has been stored.
+    stale = LP.record(db, a, expected_fingerprint=a["fingerprint"])
+    assert stale["retry"] is True, stale
+    assert [key for key, done, _state in _requests(db) if not done] == active
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

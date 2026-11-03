@@ -247,7 +247,11 @@ def _owner_closed() -> frozenset:
     return frozenset({owner_queue.SATISFIED, owner_queue.WITHDRAWN})
 
 
-def record(db, package: dict, *, now: datetime | None = None) -> dict:
+_UNSPECIFIED = object()
+
+
+def record(db, package: dict, *, now: datetime | None = None,
+           expected_fingerprint=_UNSPECIFIED) -> dict:
     """Store the package durably (one reading per release, rewritten only when it changed) and
     keep the owner's review request in step with its state."""
     from sqlalchemy import or_, select
@@ -264,7 +268,10 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
     with db.session() as s:
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
                                                       OperatingReading.period_key == key))
-        changed = row is None or (row.payload or {}).get("fingerprint") != package["fingerprint"]
+        observed = (row.payload or {}).get("fingerprint") if row is not None else None
+        changed = observed != package["fingerprint"]
+    if expected_fingerprint is _UNSPECIFIED:
+        expected_fingerprint = observed
     md_sha = None
     if changed:
         stored, err = _try(ArtifactStore().put,
@@ -280,6 +287,12 @@ def record(db, package: dict, *, now: datetime | None = None) -> dict:
         _serialise_owner_queue(s, db)
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
                                                       OperatingReading.period_key == key))
+        current_fingerprint = (row.payload or {}).get("fingerprint") if row is not None else None
+        if current_fingerprint != expected_fingerprint:
+            # Another event or the sweep won after this reading began. It is
+            # unsafe to replace its owner request with this older snapshot.
+            return {"key": key, "state": "STALE", "changed": False,
+                    "retry": True, "blockers": 0, "review_requested": False}
         if changed:
             body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
             if row is None:
@@ -355,12 +368,21 @@ def certified_releases(db) -> list[tuple[str, str]]:
 
 
 def _package_one(db, slug: str, version: str) -> dict:
-    package, err = _try(assemble, db, slug, version)
-    if err is not None or package is None:
-        return {"key": f"{slug}@{version}", "error": err or "not certified"}
-    recorded, rerr = _try(record, db, package)
-    return (recorded if rerr is None else
-            {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]})
+    # Snapshot the package generation before reading source evidence. Any
+    # competing event which commits during assembly makes this attempt stale.
+    for _ in range(3):
+        previous = latest(db, slug, version)
+        expected = (previous or {}).get("fingerprint")
+        package, err = _try(assemble, db, slug, version)
+        if err is not None or package is None:
+            return {"key": f"{slug}@{version}", "error": err or "not certified"}
+        recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
+        if rerr is not None:
+            return {"key": f"{slug}@{version}", "error": rerr, "state": package["state"]}
+        if not recorded.get("retry"):
+            return recorded
+    return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,
+            "error": "package changed repeatedly while assembling"}
 
 
 def _summary(results: list[dict]) -> dict:
