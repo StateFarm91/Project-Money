@@ -749,9 +749,15 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     if _drafted_by_a_rule(cir):
         # The listing can add an unbacked motif in copy or search tags.
         listing = listing or {}
-        texts = {"listing.title": listing.get("title") or "",
-                 "listing.description": listing.get("description") or ""}
-        raw_tags = listing.get("tags") or []
+        texts = {}
+        for key in ("title", "description"):
+            value = listing.get(key)
+            if value is not None and not isinstance(value, str):
+                out.append(f"motif: listing {key} cannot be checked")
+                value = ""
+            texts[f"listing.{key}"] = value or ""
+        raw_tags = listing.get("tags")
+        raw_tags = [] if raw_tags is None else raw_tags
         if not isinstance(raw_tags, (list, tuple)) or not all(
                 isinstance(tag, str) for tag in raw_tags):
             out.append("motif: listing tags cannot be checked")

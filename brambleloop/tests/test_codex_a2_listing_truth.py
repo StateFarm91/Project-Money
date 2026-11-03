@@ -35,7 +35,10 @@ def test_persistent_publication_verdict_checks_listing_copy_and_tags():
         for bad in ({**good, "title": "Heart Basket"},
                     {**good, "description": "A \u041deart motif"},
                     {**good, "tags": ["snowflake basket"]},
-                    {**good, "tags": "heart"}):
+                    {**good, "tags": "heart"}, {**good, "tags": ""},
+                    {**good, "tags": False}, {**good, "tags": 0},
+                    {**good, "tags": {}}, {**good, "title": False},
+                    {**good, "description": 0}):
             verdict = eligibility.product_publication(reopened, cir.slug, cir.version, listing=bad)
             assert not verdict["publishable"], verdict
             assert any(r["code"] == eligibility.NAME_OUTRUNS_PATTERN and
