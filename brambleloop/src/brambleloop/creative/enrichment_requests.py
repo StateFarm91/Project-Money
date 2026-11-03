@@ -17,9 +17,9 @@ Rules.
 * **Precise.** Each item names the field, why it was refused, and what the construction needs.
 * **Re-checked before any draft.** `answer` runs the enriched concept through the same rule that
   refused it (`fallback_constructions.plan`, or the registry). Only a concept that now routes
-  to a construction is drafted, under `draft:<slug>:<fingerprint>` -- a fresh key per enriched
-  concept (the original `draft:<slug>` is spent; an identical answer is the same key, so it is
-  never drafted twice).
+  to a construction is drafted under `draft:<slug>:enrich:<round>`. The original
+  `draft:<slug>` is spent. Each round has a single durable queue key, and its payload
+  records the enrichment fingerprint.
 * **Bounded.** At most MAX_ROUNDS answers per slug; then the request is closed `exhausted` and
   never re-opened: no correction loop runs forever.
 * **Durable.** All state is audit rows, read back on every call; a restart resumes exactly where
@@ -106,16 +106,27 @@ def sweep(db, *, audit) -> dict:
     """Open or update one request for every refusal or hold Research can answer."""
     known = state(db)
     opened, updated = [], []
+    # The most recent refusal is the current need. Replaying historical rows in
+    # turn makes differing asks alternate forever and creates permanent audit churn.
+    latest = {}
     for rid, slug, items, context in _holds(db):
+        latest[slug] = (rid, items, context)
+    for slug, (rid, items, context) in latest.items():
         prior = known.get(slug)
         if prior and prior.get("state") == EXHAUSTED:
             continue
         if prior and prior.get("state") == RESOLVED:
-            if rid <= prior.get("answered_row", 0) or \
-                    int(prior.get("rounds", 0)) >= MAX_ROUNDS:
+            if rid <= prior.get("answered_row", 0):
+                continue
+            if int(prior.get("rounds", 0)) >= MAX_ROUNDS:
+                audit(ANSWERED, artifact=slug, detail={"round": MAX_ROUNDS,
+                    "state": EXHAUSTED, "reason": "last redraft was refused"})
+                known[slug] = {**prior, "state": EXHAUSTED}
+                updated.append(slug)
                 continue
             prior = {**prior, "asks": None}
-        if prior and prior.get("asks") == items:
+        if prior and (rid <= int(prior.get("held_row") or 0)
+                      or prior.get("asks") == items):
             continue
         row = {"state": OPEN, "asks": items, "context": context,
                "rounds": (prior or {}).get("rounds", 0), "held_row": rid}
@@ -154,7 +165,7 @@ def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
 def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
            enqueue) -> dict:
     """Research's enriched concept for an open request: re-checked, then drafted under
-    draft:<slug>:<fingerprint>, or kept open with what is still missing, or exhausted."""
+    draft:<slug>:enrich:<round>, or kept open with what is still missing, or exhausted."""
     req_state = state(db).get(slug)
     if req_state is None or req_state.get("state") != OPEN:
         return {"slug": slug, "accepted": False,
@@ -167,8 +178,15 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
         if brief is not None:
             data["brief"] = dict(brief)
         fp = fingerprint({k: v for k, v in data.items() if k != "enrichment_round"})
+        # A single key per slug and round prevents two concurrent answers with
+        # different payloads from queuing two drafts. Keep the fingerprint in
+        # the durable inputs for provenance and conflict investigation.
+        data["enrichment_fingerprint"] = fp
         job = enqueue("crochet_engineer", "cir.draft", data,
-                      idempotency_key=f"draft:{slug}:{fp}")
+                      idempotency_key=f"draft:{slug}:enrich:{rounds}")
+        if job is None:
+            return {"slug": slug, "accepted": False, "state": OPEN, "round": rounds,
+                    "why": "draft was not queued; an identical draft may already exist"}
         audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": RESOLVED,
                                                 "fingerprint": fp})
         return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,

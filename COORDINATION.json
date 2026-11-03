@@ -288,6 +288,19 @@
       "area": "A4b held/refused draft -> enrichment -> re-draft",
       "claimed": "2026-11-02T20:10Z",
       "scope": "creative/enrichment_requests.py, runtime/enrichment_ops.py (research.enrichment_sweep); consumes cir.draft_refused (gate construction) and, when present, construction_registry holds; re-draft key draft:<slug>:<fingerprint>"
+    },
+    {
+      "id": "CODEX-A4B-REVIEW-FIX",
+      "operator": "codex",
+      "branch": "codex/a4b-enrichment-continuation",
+      "source_branch": "opus2/a4b-enrichment",
+      "source_sha": "e230545cb67e4c9034398e82c328dd5e3b1af018",
+      "scope": "A4B review findings: bounded retries, deduplication and concurrency",
+      "files": [
+        "brambleloop/src/brambleloop/creative/enrichment_requests.py",
+        "brambleloop/tests/test_opus2_enrichment_requests.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

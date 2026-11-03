@@ -4,7 +4,7 @@
 On a real SQLite file through the real Worker and the registered handlers: a radar concept the
 fallback refuses (`cir.draft_refused`, gate construction) becomes one precise request; a
 re-refusal never opens a second; an answer that still does not route stays open; an answer that
-routes is drafted under `draft:<slug>:<fingerprint>` and reaches compile; MAX_ROUNDS answers
+routes is drafted under `draft:<slug>:enrich:<round>` and reaches compile; MAX_ROUNDS answers
 exhaust it for good; a fresh process reads the same state.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_opus2_enrichment_requests.py
@@ -111,17 +111,18 @@ def test_a_refused_draft_is_one_request_then_a_new_draft_that_reaches_compile():
     still = E.answer(db, seed.slug, _payload(seed, title="Woodland Fox Amigurumi"),
                      audit=_audit(db), enqueue=_enqueue(db))
     assert still["state"] == E.OPEN and still["still_missing"], still
+    # Existing baseline behavior, pending review A4B-3's evidence/identity fix.
     # Research re-concepts it as something the fallback makes: drafted under a fresh key
     good = _payload(seed, category="basket", title="Woodland Storage Basket")
     out = E.answer(db, seed.slug, good, audit=_audit(db), enqueue=_enqueue(db))
     assert out["accepted"] and out["state"] == E.RESOLVED and out["round"] == 2, out
     keys = [k for k, *_ in _jobs(db, "cir.draft")]
-    assert f"draft:{seed.slug}:{out['fingerprint']}" in keys, keys
+    assert f"draft:{seed.slug}:enrich:2" in keys, keys
     # a restart reads the same state, and the queued draft reaches compile
     fresh = Database(f"sqlite:///{path}")
     assert E.open_requests(fresh) == []
     _run(fresh, "cir.draft")
-    redraft = [j for j in _jobs(fresh, "cir.draft") if (j[0] or "").endswith(out["fingerprint"])][0]
+    redraft = [j for j in _jobs(fresh, "cir.draft") if j[3].get("enrichment_fingerprint") == out["fingerprint"]][0]
     assert redraft[1] == JobStatus.DONE and redraft[2].get("drafted") is True, redraft
     _run(fresh, "cir.compile")
     compiled = _jobs(fresh, "cir.compile")
@@ -129,7 +130,7 @@ def test_a_refused_draft_is_one_request_then_a_new_draft_that_reaches_compile():
     # the same answer again drafts nothing (the request is resolved, the key is spent)
     again = E.answer(fresh, seed.slug, good, audit=_audit(fresh), enqueue=_enqueue(fresh))
     assert again["accepted"] is False
-    assert len([k for k, *_ in _jobs(fresh, "cir.draft") if out["fingerprint"] in (k or "")]) == 1
+    assert len([k for k, *_ in _jobs(fresh, "cir.draft") if k == f"draft:{seed.slug}:enrich:2"]) == 1
 
 
 def test_answers_are_bounded_and_an_exhausted_request_never_reopens():
@@ -154,6 +155,70 @@ def test_answers_are_bounded_and_an_exhausted_request_never_reopens():
     _audit(db)("cir.draft_refused", artifact="other-slug", detail={
         "reason": "no tournament carried it", "gate": "funnel.may_engineer"})
     assert E.sweep(db, audit=_audit(db))["opened"] == []
+
+
+def test_different_old_refusals_do_not_cause_endless_audit_churn():
+    db, path = _store()
+    audit = _audit(db)
+    for reason in ("first missing piece", "second missing piece"):
+        audit("cir.draft_refused", artifact=SEED, detail={"reason": reason,
+              "gate": "construction", "category": "amigurumi", "needs": reason})
+    assert E.sweep(db, audit=audit)["work_done"] == 1
+    assert E.open_requests(db)[0]["asks"][0]["why"] == "second missing piece"
+    for _ in range(3):
+        assert E.sweep(db, audit=audit)["work_done"] == 0
+    fresh = Database(f"sqlite:///{path}")
+    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+    with fresh.session() as session:
+        rows = list(session.scalars(select(AuditLog).where(AuditLog.action == E.REQUESTED)))
+    assert len(rows) == 1, rows
+
+
+def test_last_refused_redraft_is_exhausted_and_duplicate_enqueue_is_not_success():
+    db, path = _store()
+    audit = _audit(db)
+    audit("cir.draft_refused", artifact=SEED, detail={"gate": "construction",
+          "reason": "first", "category": "amigurumi"})
+    E.sweep(db, audit=audit)
+    good = _payload(pipeline._seed_for(SEED), category="basket", title="Storage Basket")
+    key = f"draft:{SEED}:enrich:1"
+    JobQueue(db).enqueue("crochet_engineer", "cir.draft", good, idempotency_key=key)
+    duplicate = E.answer(db, SEED, good, audit=audit, enqueue=_enqueue(db))
+    assert duplicate["accepted"] is False and E.state(db)[SEED]["state"] == E.OPEN
+    audit(E.ANSWERED, artifact=SEED, detail={"round": E.MAX_ROUNDS, "state": E.RESOLVED})
+    audit("cir.draft_refused", artifact=SEED, detail={"gate": "construction",
+          "reason": "last attempt refused", "category": "amigurumi"})
+    outcome = E.sweep(db, audit=audit)
+    assert outcome["updated"] == [SEED], outcome
+    fresh = Database(f"sqlite:///{path}")
+    assert E.state(fresh)[SEED]["state"] == E.EXHAUSTED
+    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+
+
+def test_concurrent_answers_cannot_queue_two_drafts_for_one_round():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db, path = _store()
+    audit = _audit(db)
+    audit("cir.draft_refused", artifact=SEED, detail={"gate": "construction",
+          "reason": "shaped pieces needed", "category": "amigurumi"})
+    E.sweep(db, audit=audit)
+    barrier = Barrier(2)
+    def answer(title):
+        fresh = Database(f"sqlite:///{path}")
+        real_enqueue = _enqueue(fresh)
+        def synchronized_enqueue(*args, **kwargs):
+            barrier.wait(timeout=10)
+            return real_enqueue(*args, **kwargs)
+        return E.answer(fresh, SEED, _payload(pipeline._seed_for(SEED),
+                        category="basket", title=title), audit=_audit(fresh),
+                        enqueue=synchronized_enqueue)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(answer, ("Everyday Basket", "Storage Basket")))
+    assert sum(r.get("accepted") is True for r in results) == 1, results
+    jobs = _jobs(db, "cir.draft")
+    assert len(jobs) == 1 and jobs[0][0] == f"draft:{SEED}:enrich:1", jobs
 
 
 def test_the_sweep_is_registered_scheduled_and_banded():
