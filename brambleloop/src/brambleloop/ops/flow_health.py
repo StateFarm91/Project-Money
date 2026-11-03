@@ -368,7 +368,7 @@ def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
     """The newest no-new-concept-supply reading if it is recent, else None."""
     from sqlalchemy import select
 
-    from ..core.models import OperatingReading
+    from ..core.models import Job, JobStatus, OperatingReading
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
@@ -377,10 +377,33 @@ def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
         if row is None:
             return None
         at = _aware(row.at)
-        if at is not None and now - at > SUPPLY_STALL_FRESH:
+        if at is None or now - at > SUPPLY_STALL_FRESH:
             return None
         p = dict(row.payload or {})
-    return {"period": row.period_key, "at": inv_mod._iso(at), "reason": p.get("reason"),
+        period = row.period_key
+        # A stall is an observation, not an everlasting state. A later successful,
+        # measured radar scan is authoritative even on the same calendar day.
+        # Failed or unmeasured scans do not establish recovery.
+        scans = s.scalars(select(Job).where(
+            Job.job_type == "radar.scan", Job.status == JobStatus.DONE,
+            Job.finished_at >= at, Job.finished_at <= now).order_by(
+            Job.finished_at.desc(), Job.id.desc()))
+        for scan in scans:
+            supply = (scan.outputs or {}).get("concept_supply")
+            if not isinstance(supply, dict) or supply.get("measured") is not True \
+                    or type(supply.get("stalled")) is not bool:
+                continue
+            if supply["stalled"] is False:
+                return None
+            # More recent stalls can have different counts or reason even though
+            # the period-deduplicated reading was already written.
+            return {"period": str((scan.inputs or {}).get("as_of") or period),
+                    "at": inv_mod._iso(_aware(scan.finished_at)),
+                    "reason": supply.get("reason"), "pool": supply.get("pool"),
+                    "drafted": supply.get("drafted"),
+                    "undrafted_pool": supply.get("undrafted_pool"),
+                    "selected": len((scan.outputs or {}).get("selected") or [])}
+    return {"period": period, "at": inv_mod._iso(at), "reason": p.get("reason"),
             "pool": p.get("pool"), "drafted": p.get("drafted"),
             "undrafted_pool": len(p.get("undrafted_pool") or []),
             "selected": len(p.get("selected") or [])}
