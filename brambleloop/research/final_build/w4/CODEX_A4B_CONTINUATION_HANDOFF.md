@@ -1,0 +1,12 @@
+# A4b continuation handoff
+
+Source `opus2/a4b-enrichment` at `e230545cb67e4c9034398e82c328dd5e3b1af018`.
+Continuation `codex/a4b-enrichment-continuation`, draft PR #29; this is not closure of A4b.
+
+The scheduler consumes only the newest construction refusal per slug, avoiding repeated audit writes for old, alternating reasons. A final failed redraft is marked exhausted. The durable redraft key is now `draft:<slug>:enrich:<round>` and its inputs contain `enrichment_fingerprint`: two answers cannot queue two different drafts for one round. Re-delivery after a crash between the queue write and answer audit recovers only the exact existing pending, running, retryable or successful job; a different payload or failed terminal job is held, never counted as a successful enqueue.
+
+The answer path accepts only the current authoritative radar seed and its deterministic geometry. Category, title, rationale, risk, other seed fields, and geometry cannot be replaced by a caller; unknown input fields are refused. Registry requests and supplied briefs are held until a reviewed, evidence-bound enrichment authority contract exists. This intentionally cannot perform substantive enrichment yet. Approved radar intake remains responsible for its own evidence and freshness; this change does not establish a new evidence source or approval authority.
+
+Focused Python 3.11 tests: `test_opus2_enrichment_requests.py` (8/8), `test_opus2_department_flow.py` (1/1), and `test_w4_fmbatch1_retention_guard.py` (5/5). The first suite includes a real SQLite concurrent queue race, restart after queue/audit interruption, identity substitution and recovery holds. The earlier test which allowed a fox to become a basket under the fox slug was corrected to assert refusal.
+
+Remaining before integration: an authenticated Research producer must supply evidence-backed modifications and an explicit identity-preserving contract, the registry needs an equivalent authority contract, and the construction precheck must match the actual handler before automatic answers can be enabled. The queue/audit recovery records the enqueued state, not proof that drafting succeeded. Independent review is required, including for the changed idempotency key and the conservative hold policy. Existing shared branches were not modified.

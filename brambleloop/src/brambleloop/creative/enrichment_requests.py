@@ -162,6 +162,43 @@ def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
     return []
 
 
+def _authoritative_input(db, slug: str, context: dict, payload: dict, brief: dict | None) -> str | None:
+    """Do not let an answer invent a new identity or unreviewed design facts.
+
+    This initial contract permits only the currently authoritative radar seed and
+    its deterministic geometry. Changes require an approved, evidence-bound
+    intake revision before they can flow here. Registry enrichment needs its own
+    reviewed authority contract and remains held.
+    """
+    if context.get("kind") != "radar" or brief is not None:
+        return "no approved authority contract for this enrichment"
+    from dataclasses import fields
+    from ..runtime.pipeline import _seed_for, concept_geometry
+
+    seed = _seed_for(slug, db)
+    if seed is None:
+        return "no current approved concept for this enrichment"
+    seed_fields = {f.name for f in fields(seed)}
+    geometry = concept_geometry(seed)
+    if set(payload) - seed_fields - set(geometry):
+        return "unapproved input fields are not permitted"
+    for field in ("slug", "title", "category", "risk_class", "rationale"):
+        if payload.get(field) != getattr(seed, field):
+            return f"{field} differs from the current approved concept"
+    for field in seed_fields & set(payload):
+        expected = getattr(seed, field)
+        if isinstance(expected, tuple):
+            expected = list(expected)
+        if payload[field] != expected:
+            return f"{field} differs from the current approved concept"
+    for field, value in geometry.items():
+        if payload.get(field) != value:
+            return f"{field} differs from the approved concept geometry"
+    if context.get("category") != seed.category:
+        return "refusal category differs from the current approved concept"
+    return None
+
+
 def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
            enqueue) -> dict:
     """Research's enriched concept for an open request: re-checked, then drafted under
@@ -172,6 +209,10 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
                 "why": f"no open enrichment request for {slug!r}"}
     rounds = int(req_state.get("rounds", 0)) + 1
     context = req_state.get("context") or {}
+    refusal = _authoritative_input(db, slug, context, payload, brief)
+    if refusal:
+        return {"slug": slug, "accepted": False, "state": OPEN,
+                "why": refusal, "round": int(req_state.get("rounds", 0))}
     still = _recheck(context, payload, brief)
     if not still:
         data = {**payload, "slug": slug, "enrichment_round": rounds}
