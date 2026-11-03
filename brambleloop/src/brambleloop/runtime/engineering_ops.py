@@ -164,7 +164,9 @@ def repair_gauge_band(cir) -> tuple[object | None, dict]:
         new_gauge = gauge_for(weight or "")
     except PrototypeRefused as exc:
         return None, {"why": str(exc)[:200]}
-    revised = replace(cir, gauge=new_gauge)
+    # Preserve hook, row and chain gauges; the finding authorizes stitch gauge only.
+    revised = replace(cir, gauge=replace(
+        cir.gauge, stitches_per_10cm=new_gauge.stitches_per_10cm))
     if any(f.is_error for f in gauge_findings(revised)):
         return None, {"why": "the band's own gauge is still refused for this yarn"}
     return revised, {"rule": "GAUGE_FROM_YARN_BAND", "yarn_weight": new_gauge.yarn_weight,
@@ -287,7 +289,6 @@ def route_failure(ctx: JobContext, cir, *, stage: str, codes=(), problems=(),
     defects = codes - EVIDENCE_WAIT
     if codes and not defects:
         return {"held": False, "waiting_on_evidence": sorted(codes)}
-    codes |= live_codes(cir)
     rules = answering_rules(codes)
     attempts = max(max(0, int(revision or 0)), revision_attempts(ctx.db, slug, version))
     if not rules:
@@ -356,8 +357,10 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     result = compile_cir(cir)
     if stage == "compile" and result.ok:
         return {"ran": False, "why": "the CIR compiles; nothing to revise"}
-    codes = sorted({f.code for f in result.errors} | set(i.get("codes") or ())
-                   | live_codes(cir))
+    # A rule may answer only the refusal that caused this revision. Compiler
+    # errors are authoritative only when this is a compiler refusal.
+    codes = sorted(set(i.get("codes") or ()) |
+                   ({f.code for f in result.errors} if stage == "compile" else set()))
     current, applied = cir, []
     for name, answers, rule in RULES:
         if not set(codes) & set(answers):

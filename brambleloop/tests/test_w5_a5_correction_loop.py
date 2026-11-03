@@ -363,9 +363,9 @@ def _legacy_release(db, cir, listing_title: str):
                       description="Worked flat.", tags=["crochet pattern"], price_cad=9.0))
 
 
-def test_a_failed_reverification_is_corrected_as_a_new_version():
+def test_unrelated_reverification_does_not_rewrite_gauge():
     db = _db()
-    legacy = _off_band("harvest_runner")     # certified before the yarn-band gate existed
+    legacy = _off_band("harvest_runner")
     _legacy_release(db, legacy, "Harvest Market Basket Crochet Pattern")
     healthy = launch0.cir_for("placemat_pair")
     _enqueue_compile(db, healthy)
@@ -374,20 +374,63 @@ def test_a_failed_reverification_is_corrected_as_a_new_version():
                           "release_hash": "r" * 64}, idempotency_key="t:reverify")
     _drain(db, ["gate.asset_truth"] + LOOP)
     check = _jobs(db, legacy.slug, "gate.asset_truth")[0].outputs
-    assert check["ok"] is False and check["correction"]["revise_job"]
-    rev = _jobs(db, legacy.slug, "cir.revise")
-    assert len(rev) == 1 and rev[0].inputs["stage"] == "quality"
-    assert rev[0].outputs["to_version"] == "1.3.0" != legacy.version
-    cert = [c for c in _jobs(db, legacy.slug, "gate.certify")]
-    assert len(cert) == 1 and cert[0].outputs["granted"] is True
-    corr = cert[0].inputs["correction"]
-    assert corr["of_versions"] == [legacy.version] and corr["of_release_hashes"] == ["r" * 64]
-    assert _certified(db, legacy.slug, "1.3.0") is not None
-    # the certified release itself is untouched and stays withheld (its named hold)
+    assert check["ok"] is False and check["correction"]["held"] is True, check
+    assert _jobs(db, legacy.slug, "cir.revise") == []
     pv = _certified(db, legacy.slug, legacy.version)
     assert pv.cir_json["gauge"]["stitches_per_10cm"] == 30.0
     assert pv.certificate.get("withholding", {}).get("quality_reverify")
     assert _done(_jobs(db, healthy.slug, "gate.certify"))[0].outputs["granted"] is True
+
+
+def test_gauge_repair_preserves_hook_row_and_chain_measurements():
+    cir = _off_band("harvest_runner")
+    gauge = dataclasses.replace(cir.gauge, hook_mm=3.5, rows_per_10cm=24,
+                                chains_per_10cm=21, chain_gauge_uncertainty=0.05)
+    cir = dataclasses.replace(cir, gauge=gauge)
+    repaired, audit = EO.repair_gauge_band(cir)
+    assert repaired is not None, audit
+    assert repaired.gauge.stitches_per_10cm != gauge.stitches_per_10cm
+    for field in ("hook_mm", "rows_per_10cm", "chains_per_10cm", "chain_gauge_uncertainty",
+                  "stitch_type", "yarn_weight"):
+        assert getattr(repaired.gauge, field) == getattr(gauge, field), field
+    assert audit["gauge_from"] == gauge.stitches_per_10cm
+    assert audit["gauge_to"] == repaired.gauge.stitches_per_10cm
+
+
+def test_certified_version_is_revised_as_a_new_immutable_release():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recertify-legacy")
+    _drain(db)
+    revise = _jobs(db, legacy.slug, "cir.revise")
+    assert len(revise) == 1 and revise[0].status == JobStatus.DONE, revise
+    assert revise[0].inputs["bump_version"] is True
+    assert revise[0].outputs["to_version"] == "1.3.0", revise[0].outputs
+    assert _certified(db, legacy.slug, "1.3.0") is not None
+    old = _certified(db, legacy.slug, legacy.version)
+    assert old.cir_json["gauge"]["stitches_per_10cm"] == 30.0
+    certs = _jobs(db, legacy.slug, "gate.certify")
+    assert len(certs) == 2 and certs[-1].outputs["granted"] is True
+    assert certs[-1].inputs["correction"]["of_release_hashes"] == ["r" * 64]
+    with db.session() as session:
+        assert not session.scalar(select(Incident).where(
+            Incident.signature == f"release.version_immutable:{legacy.slug}@{legacy.version}"))
+
+
+def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
+    from brambleloop.gates.certificate import gauge_findings
+    db = _db()
+    cir = _off_band("harvest_runner")
+    assert not any(f.is_error for f in gauge_findings(cir, physically_evidenced=True))
+    job = JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                               idempotency_key="t:physical-evidence-refusal")
+    ctx = JobContext(job=job, db=db, queue=JobQueue(db), registry=Registry(db),
+                     phase=Phase.SHADOW)
+    out = EO.route_failure(ctx, cir, stage="certify", codes={"PROVENANCE_MISSING"})
+    assert out["held"] is True, out
+    assert _jobs(db, cir.slug, "cir.revise") == []
 
 
 def test_a_reverification_with_no_rule_stands_on_its_existing_hold():
@@ -428,7 +471,7 @@ def test_assets_truth_failure_routes_through_the_same_loop():
     assert out["held"] is True and out["hold"] == chain_successors.signature(
         chain_successors.ASSETS, cir.slug, cir.version)
     assert _jobs(db, job_type="cir.revise") == []
-    # the same design with a gauge defect is revised as a correcting version instead
+    # An unrelated asset defect never authorizes changing the gauge.
     db2 = _db()
     bad = _off_band("harvest_runner")
     _legacy_release(db2, bad, "Harvest Table Runner Crochet Pattern")
@@ -438,9 +481,8 @@ def test_assets_truth_failure_routes_through_the_same_loop():
     ctx2 = JobContext(job=job2, db=db2, queue=JobQueue(db2), registry=Registry(db2),
                       phase=Phase.SHADOW)
     out2 = _correct_assets(ctx2, ["ERROR COLOR_NOT_IN_PATTERN: frame 2 shows teal"])
-    assert out2["revise_job"] and out2["held"] is False
-    rev = _jobs(db2, bad.slug, "cir.revise")[0]
-    assert rev.inputs["stage"] == "assets" and rev.inputs["bump_version"] is True
+    assert out2["held"] is True, out2
+    assert _jobs(db2, bad.slug, "cir.revise") == []
 
 
 def test_a_compile_failure_without_a_rule_is_held_not_revised():

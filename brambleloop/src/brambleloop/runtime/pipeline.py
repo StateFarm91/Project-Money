@@ -1291,10 +1291,16 @@ def handle_certify(ctx: JobContext) -> dict:
         # stops on a named hold. Missing physical evidence is not a design defect: it waits.
         from .engineering_ops import route_failure
 
+        # A previously certified version is immutable even when it is being
+        # re-certified under newer checks. Correct it as a new version.
+        previous_release = _certified_release(ctx.db, cir.slug, cir.version)
         correction = route_failure(
             ctx, cir, stage="certify", codes={f.code for f in cert.errors},
             problems=cert.blocking_reasons,
-            revision=max(0, int(ctx.job.inputs.get("revision") or 0)))
+            revision=max(0, int(ctx.job.inputs.get("revision") or 0)),
+            bump_version=bool(previous_release),
+            correction={"of_release_hashes": [previous_release]}
+            if previous_release and previous_release != "certified" else None)
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
                 "release_hash": cert.release_hash,
                 "reasons": cert.blocking_reasons[:5], "correction": correction}
