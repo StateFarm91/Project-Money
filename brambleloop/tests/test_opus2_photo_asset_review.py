@@ -728,7 +728,8 @@ def test_photo_promotion_never_clears_an_independent_owner_hold():
         frame = session.get(ListingAsset, fid)
         frame.claims = {**frame.claims, "leads_gallery": False}
         frame.blocked_reasons = [par.AWAITING, "owner veto"]
-    par.sweep(db)
+    result = par.sweep(db)
+    assert result["approved"] == 0 and result["work_done"] == 0, result
     with db.session() as session:
         frame = session.get(ListingAsset, fid)
         assert not frame.approved
@@ -751,6 +752,63 @@ def test_withdrawn_photo_cannot_be_reopened_by_attestation_or_promotion():
     with db.session() as session:
         f = session.get(ListingAsset, fid)
         assert not f.approved and not f.blocked_reasons
+
+
+def test_approved_leader_with_revoked_attestation_is_replaced_on_sweep():
+    from brambleloop.core.models import PhysicalPhoto
+    db, cir, _, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        photos = list(session.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.asset_class == par.PHOTO_CLASS)))
+        leader = next(f for f in photos if f.claims.get("leads_gallery"))
+        assert leader.id != first and leader.approved
+        leader_id = leader.id
+        photo = session.get(PhysicalPhoto, leader.claims["physical_photo_id"])
+        photo.detail = {**photo.detail, "owner_attestation": {}}
+    out = par.sweep(db)
+    with db.session() as session:
+        winner, old = session.get(ListingAsset, first), session.get(ListingAsset, leader_id)
+        assert winner.position == 1 and winner.approved, out
+        assert not old.approved and any(str(r).startswith(par.NOT_QUALIFYING)
+                                        for r in old.blocked_reasons)
+    effective = release_gates._frames(db, cir.slug, cir.version)
+    assert [f.position for f in effective] == list(range(1, len(effective) + 1))
+    assert effective[0].id == first
+    assert par.sweep(db)["reviewed"] == 0
+
+
+def test_approved_leader_with_unreadable_photo_evidence_is_held():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        f.claims = {**f.claims, "physical_photo_id": 99999999}
+    out = par.sweep(db)
+    assert out["approved"] == 0, out
+    with db.session() as session:
+        f = session.get(ListingAsset, fid)
+        assert not f.approved and par.AWAITING in f.blocked_reasons
+    assert par.sweep(db)["approved"] == 0
+
+
+def test_approved_leader_with_new_unsupported_claim_is_held():
+    db, cir, _, _ = _setup()
+    fid = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        frame.claims = {**frame.claims, "width_cm": 999}
+    result = par.sweep(db)
+    assert result["approved"] == 0, result
+    with db.session() as session:
+        frame = session.get(ListingAsset, fid)
+        assert not frame.approved and par.AWAITING in frame.blocked_reasons
 
 
 if __name__ == "__main__":

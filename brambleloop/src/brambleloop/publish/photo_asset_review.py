@@ -286,6 +286,38 @@ def _promote_if_leaderless(db, frame_id: int) -> bool:
     return bool(lead_with_if_qualifying(db, pid))
 
 
+def _reopen_stale_approved_leaders(db) -> None:
+    """Re-review approved photo leaders whose qualifying evidence has lapsed."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        ids = list(s.scalars(select(ListingAsset.id).where(
+            ListingAsset.asset_class == PHOTO_CLASS, ListingAsset.position == 1,
+            ListingAsset.approved == True)))  # noqa: E712
+    for fid in ids:
+        try:
+            with db.session() as s:
+                _lock(s, db)
+                frame = s.scalar(select(ListingAsset).where(
+                    ListingAsset.id == fid).with_for_update())
+                if (frame is None or not frame.approved or frame.position != 1
+                        or frame.asset_class != PHOTO_CLASS):
+                    continue
+                try:
+                    checks, _ = _checks(db, fid)
+                except Exception:  # noqa: BLE001 - unreadable evidence is not approval
+                    checks = {}
+                if any(checks.get(c) is not True for c in CHECKS):
+                    # Awaiting is durable if the process stops before the review.
+                    # Never clear other holds; review_frame rechecks the evidence.
+                    frame.approved = False
+                    frame.blocked_reasons = [AWAITING] + [r for r in
+                        (frame.blocked_reasons or []) if r != AWAITING]
+        except Exception:  # noqa: BLE001 - unknown evidence cannot cause approval
+            continue
+
+
 def _excluded_leader_recoveries(db) -> list[int]:
     """Previously approved supplements can replace an excluded photo leader."""
     from sqlalchemy import select
@@ -320,6 +352,7 @@ def _excluded_leader_recoveries(db) -> list[int]:
 def sweep(db) -> dict:
     """Review every awaiting (or newly qualifying) photo frame. CA$0, never publishes."""
     results = []
+    _reopen_stale_approved_leaders(db)
     for fid in awaiting_frames(db):
         try:
             _promote_if_leaderless(db, fid)
@@ -337,8 +370,10 @@ def sweep(db) -> dict:
                 results.append(review_frame(db, fid))
         except Exception:  # noqa: BLE001 - retain the hold and retry on next sweep
             continue
-    return {"reviewed": len(results), "approved": sum(1 for r in results if r["approved"]),
+    return {"reviewed": len(results),
+            "approved": sum(1 for r in results if r.get("frame_approved") is True),
             "not_qualifying": [r.get("frame_id") for r in results if r.get("not_qualifying")],
-            "refused": [{"frame_id": r.get("frame_id"), "failed": r["failed"]}
-                        for r in results if not r["approved"]],
-            "work_done": sum(1 for r in results if r["approved"])}
+            "refused": [{"frame_id": r.get("frame_id"),
+                         "failed": r.get("failed") or r.get("other_reasons") or ["not approved"]}
+                        for r in results if r.get("frame_approved") is not True],
+            "work_done": sum(1 for r in results if r.get("frame_approved") is True)}
