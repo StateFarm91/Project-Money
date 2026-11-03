@@ -630,6 +630,24 @@ def _next(stage: str) -> str | None:
 def run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict:
     """Run one stage and enqueue the next (see `_run_stage`). A controlled run (W-VISNEXT2)
     mirrors its end state onto its controlled-experiment record."""
+    # A previously certified run may resume after knowledge was revoked. Verify
+    # at every stage, before a generator, spend reservation or next job runs.
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    slug, version = inputs.get("slug"), inputs.get("version")
+    if slug and version:
+        # Initial retrieval may legitimately report a missing certificate. Explicit
+        # scratch experiments establish a separate binding in _run_stage.
+        require_release = (inputs.get("stage") not in (None, "retrieve_release")
+                           and not inputs.get("experiment"))
+        if require_release and not inputs.get("release"):
+            return {"status": "blocked", "refused": "design_knowledge",
+                    "stage": inputs.get("stage"), "why": "visual run release is missing"}
+        why = stored_visual_refusal(db, slug, version, require_release=require_release,
+                                     expected_release=inputs.get("release"))
+        if why:
+            return {"status": "blocked", "refused": "design_knowledge",
+                    "stage": inputs.get("stage"), "why": why}
     out = _run_stage(db, inputs, follow=follow, generator=generator, judges=judges)
     if inputs.get("controlled_run_id") and out.get("run_key"):
         from ..experiments import controlled as CX
@@ -1134,6 +1152,12 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                 "history": list(((row.checks or {}).get("_reverified") or {}).get(
                     "history") or [])}
         sha = row.sha256
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    why = stored_visual_refusal(db, cand["slug"], cand["version"],
+                                require_release=exp is None, expected_release=cand.get("release"))
+    if why:
+        return {"reverified": False, "refused": "design_knowledge", "why": why}
     try:
         data = ArtifactStore().get(sha, db=db)
     except Exception as exc:  # noqa: BLE001 - bytes gone: nothing can be re-read
@@ -1692,6 +1716,12 @@ def approve(db, key: str, *, decided_by: str) -> dict:
     XP.refuse_if_experiment_image(db, [((r.get("candidate") or {}).get("sha256"))
                                        for r in (run.get("card") or {}).get("roles") or []],
                                   action="listing approval")
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    why = stored_visual_refusal(db, run["slug"], run["version"],
+                                expected_release=run.get("release"))
+    if why:
+        return {"approved": False, "refused": "design_knowledge", "why": why}
     if run["state"] != "ready_for_owner_review":
         return {"approved": False, "why": f"run is {run['status']}, not ready_for_owner_review"}
     blockers = list(run["card"].get("publication_blockers") or [])

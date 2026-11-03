@@ -68,6 +68,7 @@ class Job(Base):
 
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    automatic_redrives: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
@@ -1216,7 +1217,8 @@ class DesignRule(Base):
     approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     supersedes: Mapped[int | None] = mapped_column(ForeignKey("design_rules.id"), nullable=True)
-    # At most one approved knowledge version until multi-rule baselines are implemented.
+    # Stable scope slot: 1 is the legacy global scope or its retired rollback
+    # guard; 2-4 are disjoint construction-family scopes. Unique per slot.
     active_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -1269,6 +1271,29 @@ class BenchmarkAnalysis(Base):
     benchmark_id: Mapped[int] = mapped_column(ForeignKey("benchmark_products.id"), index=True)
     file_sha256: Mapped[str] = mapped_column(String(64))
     observations: Mapped[dict] = mapped_column(JSON)
+    prefill_audit_id: Mapped[int | None] = mapped_column(ForeignKey("audit_log.id"), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
+    review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BenchmarkTechniqueObservation(Base):
+    """An additive, independently reviewable extraction from an existing analysis."""
+
+    __tablename__ = "benchmark_technique_observations"
+    __table_args__ = (UniqueConstraint("analysis_id", "extractor_version", "extractor_sha256", "source_digest",
+                                       name="uq_technique_observation_source"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    analysis_id: Mapped[int] = mapped_column(ForeignKey("benchmark_analyses.id"), index=True)
+    extractor_version: Mapped[str] = mapped_column(String(40))
+    extractor_sha256: Mapped[str] = mapped_column(String(64))
+    source_digest: Mapped[str] = mapped_column(String(64))
+    file_sha256: Mapped[str] = mapped_column(String(64))
+    observation: Mapped[dict] = mapped_column(JSON)
     recorded_by: Mapped[str] = mapped_column(String(120), default="teardown_analyst")
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -1299,6 +1324,8 @@ class TeardownFinding(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     raw_notes: Mapped[str] = mapped_column(Text, default="")
     recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # NULL/false means the original human or machine recorder was not established.
+    recorder_verified: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     review_state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

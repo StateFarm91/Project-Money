@@ -134,13 +134,28 @@ def test_cycle_proof_resumes_from_the_checkpointed_report():
     print("OK test_cycle_proof_resumes_from_the_checkpointed_report")
 
 
-def _patch_model_photography(p: _Patch, renders: list):
+def _patch_model_photography(p: _Patch, renders: list, db):
     from brambleloop.cir import compiler, twin
     from brambleloop.gateway import images
     from brambleloop.products import builder
     from brambleloop.publish import listing_asset, model_photography
 
-    cir = SimpleNamespace(version="1.0.0", slug="model-x")
+    # This is a checkpoint-resumption test, so supply a real, certified CIR
+    # rather than the former namespace which could not prove release identity.
+    from dataclasses import replace
+    from brambleloop.core.models import Product, PatternVersion
+    from brambleloop.gates.certificate import certify
+
+    cir = replace(builder.for_slug("harvest-table-runner"), slug="model-x", version="1.0.0")
+    cert = certify(cir)
+    assert cert.granted, cert.blocking_reasons
+    with db.session() as session:
+        product = Product(slug=cir.slug, title=cir.title)
+        session.add(product)
+        session.flush()
+        session.add(PatternVersion(product_id=product.id, version=cir.version,
+            cir_json=cir.to_dict(), certified=True, certificate=cert.to_dict(),
+            release_hash=cert.release_hash))
     p.set(images, "usable", lambda db: True)
     p.set(builder, "for_slug", lambda slug: cir if slug == "model-x" else None)
     p.set(model_photography, "planned_shots", lambda c: {"shots": ["on_body"]})
@@ -166,7 +181,7 @@ def test_model_photography_resumes_without_rendering_again():
     p = _Patch()
     renders: list = []
     try:
-        _patch_model_photography(p, renders)
+        _patch_model_photography(p, renders, db)
         crash = _crash_on_audit(p, model_photography.ACTION)
         jt = "assets.model_photography"
         job = JobQueue(db).enqueue(AGENT_OF[jt], jt, {"slug": "model-x"})
@@ -196,7 +211,7 @@ def test_a_direct_call_without_a_queued_job_still_runs_the_step():
     p = _Patch()
     renders: list = []
     try:
-        _patch_model_photography(p, renders)
+        _patch_model_photography(p, renders, db)
         audits: list[str] = []
         ctx = SimpleNamespace(db=db, job=SimpleNamespace(id=None, inputs={"slug": "model-x"}),
                               audit=lambda action, **kw: audits.append(action))

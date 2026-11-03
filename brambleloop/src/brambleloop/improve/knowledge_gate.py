@@ -18,7 +18,6 @@ from __future__ import annotations
 
 FROZEN = "design_knowledge.frozen"
 REFUSED = "design_knowledge.pins_refused"
-SCOPES = ({"writer_section": "finishing"},)
 
 
 def has_pins(cir) -> bool:
@@ -36,12 +35,10 @@ def freeze_applicable(db, cir):
 
     if getattr(cir, "provenance", None) is None:
         return cir, []                 # nothing to freeze into; the writer stays baseline
-    records = []
-    for scope in SCOPES:
-        try:
-            records += list(dk.applicable(db, scope))
-        except Exception:  # noqa: BLE001 - an unreadable store freezes nothing
-            return cir, []
+    try:
+        records = list(dk.applicable_to_cir(db, cir))
+    except Exception:  # noqa: BLE001 - an unreadable store freezes nothing
+        return cir, []
     if not records:
         return cir, []
     try:
@@ -61,3 +58,37 @@ def refusal(db, cir) -> str | None:
     except Exception as exc:  # noqa: BLE001 - any unverifiable pin refuses (fail closed)
         return (f"frozen design knowledge does not verify ({type(exc).__name__}: "
                 f"{str(exc)[:240]}); a pinned design is never accepted or rendered without it")
+
+
+def stored_visual_refusal(db, slug: str, version: str, *, require_release: bool = True,
+                          expected_release: str | None = None) -> str | None:
+    """Re-check stored design pins; never resume production visuals without their CIR."""
+    from sqlalchemy import select
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    try:
+        with db.session() as session:
+            row = session.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == slug, PatternVersion.version == version))
+            data = dict(row.cir_json or {}) if row is not None else {}
+            certified = bool(row and row.certified)
+            release_hash = str(row.release_hash or "") if row is not None else ""
+        if not data or (require_release and not certified):
+            return "certified stored design unavailable for visual verification" if require_release else None
+        cir = CIR.from_dict(data)
+        why = refusal(db, cir)
+        if why:
+            return why
+        if require_release:
+            from ..runtime.release import _content_hash_of
+
+            if not release_hash or _content_hash_of(cir) != release_hash:
+                return "stored design content differs from its certified release hash"
+            if expected_release:
+                supplied = str(expected_release).strip().lower()
+                if len(supplied) < 12 or not release_hash.lower().startswith(supplied):
+                    return "visual run release differs from the certified release hash"
+        return None
+    except Exception as exc:  # noqa: BLE001 - unreadable stored evidence cannot authorize a visual
+        return f"stored design cannot be verified ({type(exc).__name__})"

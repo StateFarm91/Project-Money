@@ -5,7 +5,7 @@ from ..core.models import BenchmarkAnalysis, BenchmarkProduct, DesignRule
 from ..improve import design_knowledge, knowledge_gaps
 from ..quality import design_eval
 from ..queue.durable import DuplicateJob, JobQueue
-from ..teardown import analysis_store, jobs, licence
+from ..teardown import analysis_store, audits, jobs, lab, licence
 from .worker import handlers
 
 
@@ -13,8 +13,24 @@ from .worker import handlers
 def handle_teardown_analyse(ctx):
     inputs = dict(ctx.job.inputs or {})
     ctx.assert_lease()
+    if inputs.get("mode") == "technique_supplement":
+        result = analysis_store.supplement_technique(ctx.db, inputs.get("analysis_id"),
+            expected_source_digest=inputs.get("source_digest"),
+            expected_extractor_sha256=inputs.get("extractor_sha256"))
+        ctx.assert_lease()
+        if result.get("id"):
+            ctx.audit("teardown.technique_proposed", detail={"analysis_id": inputs["analysis_id"],
+                "observation_id": result["id"], "created": result["created"]})
+        return {"observation_id": result.get("id"), "state": result["state"],
+                "work_done": int(result["created"])}
     result = analysis_store.analyse_file(ctx.db, inputs.get("benchmark_id"),
                                          inputs.get("file_sha256"))
+    ctx.assert_lease()
+    with ctx.db.session() as s:
+        product = s.get(BenchmarkProduct, inputs["benchmark_id"])
+        ref = product.ref if product is not None else ""
+    prefill = lab.record_audit(ctx.db, ref, audits.PDF_ARCHITECTURE.key, {},
+                               prefill_analysis_id=result["id"])
     ctx.assert_lease()
     progress = analysis_store.reconcile_state(ctx.db, inputs["benchmark_id"])
     gap = knowledge_gaps.observe_analysis(ctx.db, result["id"])
@@ -23,14 +39,30 @@ def handle_teardown_analyse(ctx):
     # Analysis is not review or approval: the observation remains proposed.
     return {"analysis_id": result["id"], "created": result["created"],
             "analysis_state": progress["state"], "gap_state": gap["state"],
-            "work_done": int(result["created"] or gap["changed"])}
+            "prefill_audit_id": prefill.get("audit_id"),
+            "work_done": int(result["created"] or prefill.get("recorded") or gap["changed"])}
 
 
 @handlers.register("teardown.analyse_sweep")
 def handle_teardown_analyse_sweep(ctx):
+    family = (ctx.job.inputs or {}).get("construction_family")
+    if family is not None:
+        try:
+            design_knowledge.scope_slot({"writer_section": "finishing", "construction_family": family})
+        except design_knowledge.DesignKnowledgeRefused:
+            return {"work_done": 0, "reason": "invalid_construction_family"}
     with ctx.db.session() as s:
+        scope_problem = False
+        try:
+            design_knowledge._ensure_scope_integrity(s)
+        except design_knowledge.DesignKnowledgeRefused:
+            scope_problem = True
+        active_families = ([] if scope_problem else sorted({r.scope["construction_family"] for r in s.scalars(
+            select(DesignRule).where(DesignRule.state == "approved"))
+            if "construction_family" in r.scope}))
         ids = list(s.scalars(select(BenchmarkProduct.id).where(
-            BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst")))))
+            BenchmarkProduct.teardown_state.in_(("queued", "awaiting_analyst", "needs_analyst",
+                                                 "analysed")))))
         reviewed = list(s.scalars(select(BenchmarkAnalysis.id).where(
             BenchmarkAnalysis.review_state == "reviewed")))
         analyses = list(s.scalars(select(BenchmarkAnalysis.id)))
@@ -49,34 +81,50 @@ def handle_teardown_analyse_sweep(ctx):
         requeued += result.get("requeued", 0)
         analysis_store.reconcile_state(ctx.db, benchmark_id)
     proposed = blocked = 0
+    families = [] if scope_problem else ([family] if family is not None else (active_families or [None]))
+    if scope_problem:
+        blocked += len(reviewed)
     for analysis_id in reviewed:
-        ctx.assert_lease()
-        try:
-            result = design_knowledge.propose_from_analysis(ctx.db, analysis_id)
-        except design_knowledge.DesignKnowledgeRefused:
-            blocked += 1
-            continue
-        proposed += int(result["proposed"])
-    gap_changes = 0
+        for desired_family in families:
+            ctx.assert_lease()
+            try:
+                result = design_knowledge.propose_from_analysis(
+                    ctx.db, analysis_id, construction_family=desired_family)
+            except design_knowledge.DesignKnowledgeRefused:
+                blocked += 1
+                continue
+            proposed += int(result["proposed"])
+    gap_changes = supplement_queued = supplement_requeued = 0
     for analysis_id in analyses:
         ctx.assert_lease()
+        supplement = jobs.enqueue_technique_supplement(ctx.db, analysis_id)
+        supplement_queued += supplement["queued"]
+        supplement_requeued += supplement.get("requeued", 0)
         gap_changes += int(knowledge_gaps.observe_analysis(ctx.db, analysis_id)["changed"])
     return {"purchases": len(ids), "queued": queued, "existing": existing, "requeued": requeued,
             "licence_refused": refused, "knowledge_proposed": proposed,
-            "knowledge_blocked": blocked, "gap_changes": gap_changes,
-            "work_done": queued + requeued + proposed + gap_changes}
+            "knowledge_blocked": blocked, "knowledge_scope_conflict": scope_problem,
+            "gap_changes": gap_changes, "technique_queued": supplement_queued,
+            "technique_requeued": supplement_requeued,
+            "work_done": queued + proposed + gap_changes + supplement_queued}
 
 
 @handlers.register("design_eval.evaluate")
 def handle_design_eval(ctx):
     ctx.assert_lease()
+    revalidation = (ctx.job.inputs or {}).get("mode") == "revalidation"
     with ctx.db.session() as s:
         rule = s.get(DesignRule, (ctx.job.inputs or {}).get("rule_id"))
-        if rule is None or rule.state != "proposed":
+        if rule is None or rule.state != ("approved" if revalidation else "proposed"):
             return {"state": "no_longer_proposed", "work_done": 0}
     try:
-        result = design_eval.evaluate(ctx.db, (ctx.job.inputs or {}).get("rule_id"),
-                                      expected_key=(ctx.job.inputs or {}).get("run_key"))
+        if revalidation:
+            from ..quality import design_revalidation
+            result = design_revalidation.evaluate(ctx.db, rule.id,
+                expected_key=(ctx.job.inputs or {}).get("run_key"))
+        else:
+            result = design_eval.evaluate(ctx.db, rule.id,
+                expected_key=(ctx.job.inputs or {}).get("run_key"))
     except design_eval.StaleEvaluation:
         return {"state": "stale", "work_done": 0}
     ctx.assert_lease()
@@ -88,6 +136,7 @@ def handle_design_eval(ctx):
 def handle_design_eval_sweep(ctx):
     with ctx.db.session() as s:
         ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "proposed")))
+        active_ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "approved")))
     queued = existing = unknown = requeued = 0
     for rule_id in ids:
         ctx.assert_lease()
@@ -99,9 +148,35 @@ def handle_design_eval_sweep(ctx):
         except DuplicateJob as exc:
             existing += 1
             result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
-                                                   ids=[exc.existing_id])
+                                                   ids=[exc.existing_id],
+                                                   max_automatic_redrives=jobs.MAX_AUTOMATIC_REDRIVES)
+            requeued += len(result["requeued"])
+        except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
+            unknown += 1
+    from ..quality import design_revalidation
+    for rule_id in active_ids:
+        ctx.assert_lease()
+        try:
+            history = design_revalidation._history(ctx.db, rule_id)
+            pin = {"rule_id": rule_id, "rule_version": history["version"],
+                   "rule_digest": history["rule_digest"],
+                   "evaluation_digest": history["evaluation_digest"]}
+            try:
+                design_knowledge.verify_pins(ctx.db, [pin])
+                continue
+            except design_knowledge.DesignKnowledgeRefused:
+                pass
+            key = design_revalidation.evaluation_key(ctx.db, rule_id)
+            JobQueue(ctx.db).enqueue("orchestrator", "design_eval.evaluate",
+                {"rule_id": rule_id, "run_key": key, "mode": "revalidation"},
+                idempotency_key=key)
+            queued += 1
+        except DuplicateJob as exc:
+            existing += 1
+            result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
+                ids=[exc.existing_id], max_automatic_redrives=jobs.MAX_AUTOMATIC_REDRIVES)
             requeued += len(result["requeued"])
         except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
             unknown += 1
     return {"queued": queued, "existing": existing, "requeued": requeued,
-            "unavailable": unknown, "work_done": queued + requeued}
+            "unavailable": unknown, "work_done": queued}

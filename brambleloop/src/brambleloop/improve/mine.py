@@ -123,7 +123,9 @@ def _read(db, since: dict) -> dict:
                           i.signature, slugs=slugs | ({i.product_slug} if i.product_slug
                                                       else frozenset()))}
                      for i in s.scalars(select(Incident).where(Incident.resolved.is_(False))
-                                        .order_by(Incident.id))]
+                                        .order_by(Incident.id))
+                     # Unknown evidence is a tracked work item, not a measured product defect.
+                     if not (i.signature or "").startswith("learning.knowledge_gap:")]
         audits = [{"id": a.id, "action": a.action, "artifact": a.artifact or "",
                    "detail": dict(a.detail or {})}
                   for a in s.scalars(select(AuditLog).where(AuditLog.id > since["audit_id"])

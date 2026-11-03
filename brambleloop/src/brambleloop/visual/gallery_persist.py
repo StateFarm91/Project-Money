@@ -49,6 +49,12 @@ def persist_approved(db, key: str, *, judges=None, store_root=None) -> dict:
         return {"persisted": False, "why": str(exc)}
     if (run.get("card") or {}).get("experiment"):
         return {"persisted": False, "why": f"{XP.LABEL}: experiments never write listing assets"}
+    from ..improve.knowledge_gate import stored_visual_refusal
+
+    why = stored_visual_refusal(db, run["slug"], run["version"],
+                                expected_release=run.get("release"))
+    if why:
+        return {"persisted": False, "refused": "design_knowledge", "why": why}
     if run["state"] != "approved_for_publication":
         return {"persisted": False, "why": f"run is {run['status']}; only a gallery the owner "
                                            f"approved with no publication blocker is written"}

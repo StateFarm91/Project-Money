@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 PREFIX = "learning_rule:"
-SUPPORTED = frozenset({"include_finishing_checklist"})
+SUPPORTED = frozenset({"include_finishing_checklist", "include_checklist_and_end_check"})
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
 

@@ -508,7 +508,8 @@ def test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_
 
     # #161: confidence and raw notes are captured on the row.
     rec = lab.record_audit(db, "bench-1", "beginner_experience", _beginner(1),
-                           confidence=0.8, raw_notes="late-row errors have no recovery path")
+                           confidence=0.8, raw_notes="late-row errors have no recovery path",
+                           recorded_by="agent:fixture", recorder_verified=True)
     _independently_review(db, rec)
     [fid] = rec["findings_recorded"]
     with db.session() as s:
@@ -584,7 +585,8 @@ def test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structu
     db = _db()
     _benchmark_and_product(db)
     _independently_review(db, lab.record_audit(
-        db, "bench-1", "beginner_experience", _beginner(1), confidence=0.9))
+        db, "bench-1", "beginner_experience", _beginner(1), confidence=0.9,
+        recorded_by="agent:fixture", recorder_verified=True))
     # Our self-audit of release a...: the gate stops refusing on the trap.
     rec = lab.record_audit(db, "brambleloop:fixture-good", "beginner_experience", _beginner(4))
     with db.session() as s:
@@ -625,10 +627,10 @@ def test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structu
     support = {e: 3 for e in BY_KEY["support_rights"].element_keys}
     _independently_review(db, lab.record_audit(db, "bench-1", "support_rights", {**support, "faq": {
         "score": 5, "mechanism": "every likely question is answered before purchase"}},
-        confidence=0.9))
+        confidence=0.9, recorded_by="agent:fixture", recorder_verified=True))
     _independently_review(db, lab.record_audit(db, "bench-2", "support_rights", {**support, "faq": {
         "score": 1, "mechanism": "no questions are answered anywhere in the package"}},
-        confidence=0.9))
+        confidence=0.9, recorded_by="agent:fixture", recorder_verified=True))
     assert enforce.support_text_evidence()["faq"] is True, "the keyword check does fire"
     row = next(r for r in enforce.check(db, "fixture-good", consumers=("support",))["rows"]
                if r["key"] == "support_rights:faq" and r["kind"] == "clarify")

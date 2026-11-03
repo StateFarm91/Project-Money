@@ -380,6 +380,49 @@ def test_pipeline_definition_drift_and_foreign_runs_are_refused_before_spend():
         pass
 
 
+def test_authorized_controlled_stage_refuses_when_certified_cir_disappears():
+    from sqlalchemy import select
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.experiments import controlled as C
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    definition_id = "exp-2026-10-21-cloudline-acceptance"
+    C.authorize(db, definition_id, by="owner", stepped_up=True)
+    submitted = C.submit(db, definition_id, by="owner", stepped_up=True,
+                         enqueue=lambda inputs, key: None)
+    run_id = submitted["run_id"]
+    C._update(db, run_id, status="running")
+    product = C.load(definition_id)["definition"]["product"]
+    inputs = {"slug": product["slug"], "version": product["version"],
+              "release": product["cir_hash"], "stage": "product_generation",
+              "ns": C.pipeline_ns(run_id), "controlled_run_id": run_id}
+    # The actual owner-authorized controlled run is valid before the loss.
+    assert C.require_pipeline_run(db, run_id, ns=inputs["ns"], slug=inputs["slug"],
+                                  version=inputs["version"], release=inputs["release"])
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == inputs["slug"], PatternVersion.version == inputs["version"]))
+        assert row and row.certified
+        row.certified = False
+    sent = []
+    gen = StagedGen()
+    result = IP.run_stage(db, inputs, follow=lambda data, key: sent.append(data),
+                          generator=gen, judges=Judges())
+    assert result.get("refused") == "design_knowledge", result
+    assert "unavailable" in result.get("why", ""), result
+    with db.session() as session:
+        row = session.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == inputs["slug"], PatternVersion.version == inputs["version"]))
+        row.certified = True
+        row.cir_json = {}
+    result = IP.run_stage(db, inputs, follow=lambda data, key: sent.append(data),
+                          generator=gen, judges=Judges())
+    assert result.get("refused") == "design_knowledge", result
+    assert "unavailable" in result.get("why", ""), result
+    assert not sent and not gen.handed
+
+
 def test_live_acceptance_refuses_without_keys():
     H = _harness()
     saved = {k: os.environ.pop(k, None) for k in H.KEY_VARS}
