@@ -1275,9 +1275,9 @@ def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpo
     def classify(exc: BaseException) -> str:
         if billing.get("billed") or billing.get("accepted"):
             return gate.BILLED
-        if isinstance(exc, TimeoutError):
-            return gate.UNCERTAIN
-        return gate.RELEASED
+        # Once the transport is entered, a reset, wrapped timeout, malformed 2xx,
+        # or HTTP error does not prove that the provider did not accept work.
+        return gate.UNCERTAIN
 
     try:
         return gate.enforce(

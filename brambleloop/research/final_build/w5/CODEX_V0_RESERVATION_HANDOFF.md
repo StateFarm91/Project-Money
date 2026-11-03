@@ -66,3 +66,10 @@ PostgreSQL race tests and independent review. The DO NOT INTEGRATE / no paid
 production use decision remains. Probe-only Anthropic vision is also restricted to
 its fixed diagnostic model; it may still examine the supplied diagnostic image,
 so independent review of source selection and all provider paths is required.
+
+A follow-up changes ambiguous exceptions after entering the image, Anthropic
+vision and OpenAI research-judge transports to UNCERTAIN. Wrapped resets,
+malformed 2xx bodies, and similar failures are not proof of a declined call.
+Fake-transport tests exercise all three against persistent database state.
+This can conservatively hold funds after a provider refusal. The lifecycle and
+reconciliation remain unresolved and the no-integration hold stays in force.

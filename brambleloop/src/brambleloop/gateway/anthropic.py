@@ -849,8 +849,9 @@ class AnthropicProvider:
                                  + r.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
 
                 def classify(exc: BaseException) -> str:
-                    return (gate.RELEASED if _classify_failure(exc) == paid_calls.DECLINED
-                            else gate.UNCERTAIN)
+                    # The HTTP transport may have sent work before a wrapped error.
+                    # No exception here proves the provider did not charge.
+                    return gate.UNCERTAIN
                 try:
                     return gate.enforce(db, provider=gate.ANTHROPIC_VISION, scope=scope,
                                         estimate_cad=estimate, fingerprint=fp,

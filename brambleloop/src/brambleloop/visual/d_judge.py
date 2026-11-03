@@ -193,8 +193,8 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0, db=None)
             estimate_cad=held.get("estimate_cad") or round(_worst_case_usd() * USD_TO_CAD, 6),
             fingerprint=paid_calls.fingerprint("d_judge.see", model, sha),
             reservation_id=held.get("reservation_id"), call=_send,
-            classify=lambda exc: (gate.UNCERTAIN if isinstance(exc, TimeoutError)
-                                  else gate.RELEASED),
+            # Invalid 2xx JSON, reset and wrapped timeouts can follow a billed request.
+            classify=lambda exc: gate.UNCERTAIN,
             purpose="d_judge.see")
     except gate.PaidCallRefused as exc:
         raise JudgeSpendRefused(f"refused before the call: {exc}") from None

@@ -955,6 +955,49 @@ def test_openai_judge_invalid_usage_counts_worst_case_not_credit():
         d_judge._spent_usd = original_spent
 
 
+def test_ambiguous_transport_errors_remain_counted_for_all_paid_vision_and_image_calls():
+    from brambleloop.visual import d_judge
+    import json
+
+    db = _db()
+    _activate(db)
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.VISION)
+    _activate(db, provider=G.OPENAI_VISION, scope=G.VISION)
+    original_post, original_send, original_urlopen = images._post, gw.AnthropicProvider._send, urllib.request.urlopen
+    original_spent = d_judge._spent_usd
+    img = Path(_TMP) / "ambiguous-judge.png"
+    img.write_bytes(base64.b64decode(PNG))
+    class BadResponse:
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def read(self): return b"not-json-despite-200"
+    def bad_post(*args, **kwargs): raise ConnectionResetError("after possible send")
+    def bad_vision(*args, **kwargs): raise gw.TransientError("wrapped network error")
+    try:
+        images._post = bad_post
+        gw.AnthropicProvider._send = bad_vision
+        urllib.request.urlopen = lambda *args, **kwargs: BadResponse()
+        d_judge._spent_usd = 0
+        with _env(**ENV, ANTHROPIC_API_KEY=KEY_VALUE, OPENAI_API_KEY=KEY_VALUE,
+                  BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD="5"):
+            try: _render(db, "ambiguous image request")
+            except ConnectionResetError: pass
+            else: raise AssertionError("image transport did not fail")
+            gw.check_budget_cad(db, estimate_cad=0.1, agent="gateway", purpose="test.vision")
+            try: gw.AnthropicProvider().see("", "judge", ["https://example.invalid/image"], max_tokens=8)
+            except gw.TransientError: pass
+            else: raise AssertionError("vision transport did not fail")
+            gw.check_budget_cad(db, estimate_cad=0.1, agent="gateway", purpose="test.openai")
+            try: d_judge.see(str(img), db=db)
+            except json.JSONDecodeError: pass
+            else: raise AssertionError("malformed 200 did not fail")
+        rows = _calls_rows(db)
+        assert len(rows) == 3 and all(row[1] == G.UNCERTAIN for row in rows), rows
+    finally:
+        images._post, gw.AnthropicProvider._send, urllib.request.urlopen = original_post, original_send, original_urlopen
+        d_judge._spent_usd = original_spent
+
+
 # ---- 8. the owner queue says a key is not activation, by name only ------------------------
 
 def test_owner_queue_card_explains_key_is_not_activation_without_secret_values():
