@@ -543,7 +543,8 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
             src = research.add_source(
                 db, task_id, source="benchmark_listings census (recorded market scans)",
                 citation=(f"db:benchmark_listings?pod={obs['pod']}&from={obs['oldest']}"
-                          f"&to={obs['newest']}&listings={obs['listings']}"),
+                          f"&to={obs['newest']}&listings={obs['listings']}"
+                          f"&census_sha256={obs['census_sha256']}"),
                 retrieval="internal", read_on=date.fromisoformat(obs["oldest"]))
             sref = f"S{src}"
             fref = research.add_finding(
@@ -553,7 +554,8 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
                            f"and {obs['newest']}; priced listings median "
                            f"CA${obs['price_median_cad']} (CA${obs['price_min_cad']}-"
                            f"CA${obs['price_max_cad']}); {obs['object_listings']} name a "
-                           f"{obs['object'].noun.lower()}"))
+                           f"{obs['object'].noun.lower()} across "
+                           f"{obs['object_shops']} independently identified shops"))
             refs = {"finding": fref, "source": sref}
             with db.session() as s:
                 from sqlalchemy.orm.attributes import flag_modified

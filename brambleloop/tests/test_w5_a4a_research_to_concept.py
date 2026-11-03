@@ -182,6 +182,8 @@ def test_a_gap_with_no_pool_concept_becomes_a_new_concept_and_a_cir_draft():
     assert task.sources[0]["retrieval"] == "internal" and task.sources[0]["read_on"]
     assert task.findings[0]["claim_class"] == "fact"
     assert "5 listings" in task.findings[0]["statement"]
+    assert "3 independently identified shops" in task.findings[0]["statement"]
+    assert task.detail["ideation_census"]["census_sha256"] in task.sources[0]["citation"]
     prop = task.detail["concept_proposals"][0]
     assert prop["concept"]["construction"] == "flat_rows"
     slug = prop["slug"]
@@ -371,6 +373,23 @@ def test_restart_after_proposal_attachment_restores_gap_progress():
         assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
     finally:
         restore()
+
+
+def test_unknown_shop_is_not_counted_as_an_independent_source():
+    db = _db()
+    _listings(db, "kitchen_bath", [("", "Dishcloth one", 5),
+                                    ("", "Dishcloth two", 6),
+                                    ("a", "Dishcloth three", 7)])
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["object_shops"] == 1, observed
+    assert not observed["ok"], observed
+
+
+def test_originality_rejects_normalized_competitor_variants():
+    title, descriptor = "Tideline Stripe Dishcloth", "Tideline Stripe"
+    for other in ("Ｔｉｄｅｌｉｎｅ Ｓｔｒｉｐｅ Ｄｉｓｈｃｌｏｔｈ",
+                  "Tide-Line Stripe Dishcloth", "Tideline Stripes Dishcloths"):
+        assert ideation.originality_reasons(title, descriptor, [("fixture", other)]), other
 
 
 def test_rerunning_and_redelivering_creates_no_duplicates():
