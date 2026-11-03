@@ -59,3 +59,24 @@ The benchmark reference-image, ad-image and real-outcome comparison stages
 remain `UNKNOWN`. The evaluator supports only the two registered finishing
 rules; it must refuse any rule that changes construction or imagery until the
 corresponding benchmark stages are measured and pass. UNKNOWN is not PASS.
+
+## Stale approval revalidation (pending independent review)
+
+The daily evaluation sweep detects a stale active pin and queues a durable
+revalidation. It authenticates the previous approval and its held-out report,
+replays the current writer against that approval's original baseline, and
+requires current results to preserve the prior approved metrics as well as
+improve on the baseline. Source, licence, frozen cases and current corpus must
+remain available. Unknown or regressed evidence cannot be reapproved.
+
+Revalidation does not approve anything. An owner with step-up must call the
+existing `design_knowledge.review_rule` action with decision `reapprove` and
+the completed revalidation audit id. This records a new immutable approval
+event; the unchanged rule retains its semantic rule version, while the new
+evaluation digest makes its pin distinct. Existing CIR pins remain invalid.
+`repin_revalidated_cir(db, cir, pins, new_version=...)` authenticates the old
+and new approval, requires the same unchanged rule and a distinct unused release
+version, and returns a copy. The caller must persist that as a new version and
+run the ordinary certification, quality, release, PDF and visual gates. The
+function does not modify or certify an existing release. A6 must not silently
+replace pins on an existing release.

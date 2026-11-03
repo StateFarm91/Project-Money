@@ -222,6 +222,25 @@ class KnowledgeContractTests(unittest.TestCase):
                 actual = write_pattern(item_pinned, compile_cir(item_pinned))
                 self.assertEqual(actual, finishing_checklist(item_plain, check_ends=True))
                 self.assertEqual(compare(item, actual), [])
+            from brambleloop.quality import design_revalidation
+            record_fingerprint(reopened, "second-fixture", text=(
+                "synthetic amber violet waterfall cedar ocean sunrise meadow quasar"))
+            revalidation = design_revalidation.evaluate(reopened, improved["id"])
+            self.assertEqual(revalidation["state"], "passed", revalidation)
+            self.assertEqual(revalidation["incumbent_pins"], [pin])
+            from brambleloop.core.models import AuditLog
+            with reopened.session() as s:
+                historical = s.get(AuditLog, improved_eval["audit_id"]).detail
+                forged_baseline = copy.deepcopy(revalidation)
+                forged_baseline["incumbent_pins"] = []
+                self.assertFalse(design_revalidation.no_historical_regression(historical, forged_baseline))
+            reaffirmed = knowledge.review_rule(reopened, improved["id"], reviewer="owner",
+                decision="reapprove", reason="reviewed current evidence",
+                evaluation_id=revalidation["audit_id"])
+            new_cir = knowledge.repin_revalidated_cir(reopened, new_cir, [reaffirmed["pin"]],
+                                                       new_version="2.0.0")
+            new_pin = reaffirmed["pin"]
+            self.assertEqual(knowledge.verify_cir_pins(reopened, new_cir)[0]["pin"], new_pin)
             with self.assertRaises(knowledge.DesignKnowledgeRefused):
                 knowledge.verify_pins(reopened, [pin])
             licence.capture_purchase(reopened, "fixture-purchase", terms={

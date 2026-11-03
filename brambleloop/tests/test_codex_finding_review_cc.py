@@ -192,6 +192,28 @@ class ReviewCommandCenterTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200, result.text)
         pin = result.json()["result"]["pin"]
         self.assertEqual(design_knowledge.verify_pins(harness.DB, [pin])[0]["pin"], pin)
+        # Revalidation must not itself grant authority; the existing owner
+        # action still requires step-up before a fresh approval is recorded.
+        record_fingerprint(harness.DB, "owner-rule-fixture", text=(
+            "synthetic glacier rainbow orchard compass galaxy velvet meadow forest"))
+        from brambleloop.quality import design_revalidation
+        reevaluated = design_revalidation.evaluate(harness.DB, rule["id"])
+        self.assertEqual(reevaluated["state"], "passed")
+        reapproval = {"rule_id": rule["id"], "decision": "reapprove", "reason": "review",
+                      "evaluation_id": reevaluated["audit_id"]}
+        harness.expire_stepup(client)
+        self.assertEqual(harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule",
+                                      reapproval).status_code, 403)
+        self.assertEqual(harness.post(client, csrf, "/api/cc/auth/step-up",
+                                      {"passphrase": harness.PASS}).status_code, 200)
+        renewed = harness.post(client, csrf, "/api/cc/actions/design_knowledge.review_rule", reapproval)
+        self.assertEqual(renewed.status_code, 200, renewed.text)
+        self.assertNotEqual(renewed.json()["result"]["pin"]["evaluation_digest"],
+                            pin["evaluation_digest"])
+        with self.assertRaises(design_knowledge.DesignKnowledgeRefused):
+            design_knowledge.verify_pins(harness.DB, [pin])
+        self.assertEqual(design_knowledge.verify_pins(harness.DB,
+            [renewed.json()["result"]["pin"]])[0]["pin"], renewed.json()["result"]["pin"])
         client.close()
 
 

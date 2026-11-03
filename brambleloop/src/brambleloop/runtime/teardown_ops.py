@@ -78,13 +78,19 @@ def handle_teardown_analyse_sweep(ctx):
 @handlers.register("design_eval.evaluate")
 def handle_design_eval(ctx):
     ctx.assert_lease()
+    revalidation = (ctx.job.inputs or {}).get("mode") == "revalidation"
     with ctx.db.session() as s:
         rule = s.get(DesignRule, (ctx.job.inputs or {}).get("rule_id"))
-        if rule is None or rule.state != "proposed":
+        if rule is None or rule.state != ("approved" if revalidation else "proposed"):
             return {"state": "no_longer_proposed", "work_done": 0}
     try:
-        result = design_eval.evaluate(ctx.db, (ctx.job.inputs or {}).get("rule_id"),
-                                      expected_key=(ctx.job.inputs or {}).get("run_key"))
+        if revalidation:
+            from ..quality import design_revalidation
+            result = design_revalidation.evaluate(ctx.db, rule.id,
+                expected_key=(ctx.job.inputs or {}).get("run_key"))
+        else:
+            result = design_eval.evaluate(ctx.db, rule.id,
+                expected_key=(ctx.job.inputs or {}).get("run_key"))
     except design_eval.StaleEvaluation:
         return {"state": "stale", "work_done": 0}
     ctx.assert_lease()
@@ -96,6 +102,7 @@ def handle_design_eval(ctx):
 def handle_design_eval_sweep(ctx):
     with ctx.db.session() as s:
         ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "proposed")))
+        active_ids = list(s.scalars(select(DesignRule.id).where(DesignRule.state == "approved")))
     queued = existing = unknown = requeued = 0
     for rule_id in ids:
         ctx.assert_lease()
@@ -109,6 +116,31 @@ def handle_design_eval_sweep(ctx):
             result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
                                                    ids=[exc.existing_id],
                                                    max_automatic_redrives=jobs.MAX_AUTOMATIC_REDRIVES)
+            requeued += len(result["requeued"])
+        except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
+            unknown += 1
+    from ..quality import design_revalidation
+    for rule_id in active_ids:
+        ctx.assert_lease()
+        try:
+            history = design_revalidation._history(ctx.db, rule_id)
+            pin = {"rule_id": rule_id, "rule_version": history["version"],
+                   "rule_digest": history["rule_digest"],
+                   "evaluation_digest": history["evaluation_digest"]}
+            try:
+                design_knowledge.verify_pins(ctx.db, [pin])
+                continue
+            except design_knowledge.DesignKnowledgeRefused:
+                pass
+            key = design_revalidation.evaluation_key(ctx.db, rule_id)
+            JobQueue(ctx.db).enqueue("orchestrator", "design_eval.evaluate",
+                {"rule_id": rule_id, "run_key": key, "mode": "revalidation"},
+                idempotency_key=key)
+            queued += 1
+        except DuplicateJob as exc:
+            existing += 1
+            result = JobQueue(ctx.db).requeue_dead(job_types=["design_eval.evaluate"],
+                ids=[exc.existing_id], max_automatic_redrives=jobs.MAX_AUTOMATIC_REDRIVES)
             requeued += len(result["requeued"])
         except (design_eval.DesignEvaluationRefused, design_knowledge.DesignKnowledgeRefused):
             unknown += 1

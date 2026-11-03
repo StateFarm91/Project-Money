@@ -174,6 +174,64 @@ def freeze_pins(db, cir, pins: list[dict]):
     return out
 
 
+def repin_revalidated_cir(db, cir, pins: list[dict], *, new_version: str):
+    """Copy a CIR to a newly approved evaluation of the same unchanged rules.
+
+    This never changes an existing release, and is not authority to publish the
+    copy. Its caller must recertify it through the ordinary production gates.
+    """
+    import copy
+    from ..cir import knowledge
+    from ..teardown.review import principal
+
+    if (not isinstance(new_version, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,19}",
+                                                              new_version)
+            or new_version == getattr(cir, "version", None)):
+        raise DesignKnowledgeRefused("repinning requires a distinct release version")
+    try:
+        old = knowledge.markers(cir)
+    except ValueError as exc:
+        raise DesignKnowledgeRefused(str(exc)) from exc
+    new = verify_pins(db, pins)
+    if not old or len(old) != len(new):
+        raise DesignKnowledgeRefused("old and new knowledge must match")
+    with db.session() as s:
+        from ..core.models import PatternVersion, Product
+        existing = s.scalar(select(PatternVersion.id).join(Product).where(
+            Product.slug == cir.slug, PatternVersion.version == new_version))
+        if existing is not None:
+            raise DesignKnowledgeRefused("repinning cannot replace an existing release version")
+        for prior, current in zip(old, new):
+            old_pin, new_pin = prior["pin"], current["pin"]
+            if (prior["rule"] != current["statement"]["rule"]
+                    or any(old_pin[k] != new_pin[k] for k in
+                           ("rule_id", "rule_version", "rule_digest"))):
+                raise DesignKnowledgeRefused("repinning cannot change a rule")
+            rule = s.get(DesignRule, old_pin["rule_id"])
+            if rule is None:
+                raise DesignKnowledgeRefused("historical rule is unavailable")
+            approvals = list(s.scalars(select(AuditLog).where(
+                AuditLog.action == "design_knowledge.rule_approved",
+                AuditLog.artifact == f"design-rule:{rule.id}").order_by(AuditLog.id.desc())))
+            matching = [a for a in approvals if isinstance(a.detail, dict)
+                and a.detail.get("rule_digest") == old_pin["rule_digest"]
+                and a.detail.get("evaluation_digest") == old_pin["evaluation_digest"]]
+            if not matching or not matching[0].actor \
+                    or principal(matching[0].actor) == principal(rule.producer):
+                raise DesignKnowledgeRefused("historical pin approval is unavailable")
+            historical = _assert_evaluation(db, s, rule, matching[0].detail.get("evaluation_id"),
+                check_current_corpus=False, check_current_implementation=False)
+            if historical != old_pin["evaluation_digest"]:
+                raise DesignKnowledgeRefused("historical pin evidence does not match")
+    out = copy.deepcopy(cir)
+    out.version = new_version
+    untouched = tuple(item for item in out.provenance.primitives_used
+                      if not (isinstance(item, str) and item.startswith(knowledge.PREFIX)))
+    out.provenance.primitives_used = (*untouched, *(knowledge.marker(
+        record["statement"]["rule"], record["pin"]) for record in new))
+    return out
+
+
 def write_with_verified_knowledge(db, cir, result, terminology: str = "US", **layout) -> str:
     """Render verified knowledge or the exact no-knowledge baseline on read failure.
 
@@ -372,7 +430,8 @@ def lineage_digest(session, rule) -> str:
 
 
 def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
-                       check_current_corpus: bool = True) -> str:
+                       check_current_corpus: bool = True,
+                       check_current_implementation: bool = True) -> str:
     from ..quality import design_eval
     from ..core.models import DesignEvaluationRun
     from ..teardown.review import principal
@@ -380,9 +439,10 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
     if type(evaluation_id) is not int or evaluation_id <= 0:
         raise DesignKnowledgeRefused("completed evaluation is required")
     seen = set() if seen is None else set(seen)
-    if rule.id in seen:
+    identity = (rule.id, evaluation_id)
+    if identity in seen:
         raise DesignKnowledgeRefused("cyclic knowledge history")
-    seen.add(rule.id)
+    seen.add(identity)
     audit = session.get(AuditLog, evaluation_id)
     if audit is None or audit.action != "design_eval.completed" \
             or audit.actor != "design_evaluator" or audit.artifact != f"design-rule:{rule.id}":
@@ -399,7 +459,12 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
             and report.get("rule_name") == rule.statement.get("rule")
             and report.get("rule_sha256") == rule_digest(rule)
             and report.get("lineage_sha256") == lineage_digest(session, rule)
-            and report.get("implementation_sha256") == design_eval.implementation_digest(db)
+            and isinstance(report.get("implementation_sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", report["implementation_sha256"]) is not None
+            and isinstance(report.get("corpus_sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", report["corpus_sha256"]) is not None
+            and (not check_current_implementation or report.get("implementation_sha256")
+                 == design_eval.implementation_digest(db))
             and (not check_current_corpus or report.get("corpus_sha256") == design_eval.corpus_digest(db))
             and report.get("case_set_sha256") == design_eval.load_cases(db=db)["sha256"]
             and design_eval.classify_evaluation(report) == "passed")
@@ -407,6 +472,26 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
         raise DesignKnowledgeRefused("evaluation evidence is unavailable") from exc
     if not valid:
         raise DesignKnowledgeRefused("evaluation is incomplete, stale or regressed")
+    if report.get("mode") == "revalidation":
+        from ..quality import design_revalidation
+
+        previous = session.get(AuditLog, report.get("previous_approval_id"))
+        latest = session.scalar(select(AuditLog).where(
+            AuditLog.action == "design_knowledge.rule_approved",
+            AuditLog.artifact == f"design-rule:{rule.id}", AuditLog.id < audit.id)
+            .order_by(AuditLog.id.desc()))
+        detail = previous.detail if previous is not None and isinstance(previous.detail, dict) else {}
+        if (previous is None or latest is None or previous.id != latest.id
+                or not previous.actor or principal(previous.actor) == principal(rule.producer)
+                or detail.get("rule_digest") != rule_digest(rule)):
+            raise DesignKnowledgeRefused("historical approval is unavailable")
+        prior_digest = _assert_evaluation(db, session, rule, detail.get("evaluation_id"),
+            seen=seen, check_current_corpus=False, check_current_implementation=False)
+        historical = session.get(AuditLog, detail.get("evaluation_id"))
+        if (detail.get("evaluation_digest") != prior_digest
+                or report.get("previous_evaluation_digest") != prior_digest
+                or not design_revalidation.no_historical_regression(historical.detail, report)):
+            raise DesignKnowledgeRefused("revalidation regressed or history changed")
     prior_pins = report.get("incumbent_pins")
     if not isinstance(prior_pins, list) or len(prior_pins) > 1:
         raise DesignKnowledgeRefused("evaluation incumbent is invalid")
@@ -434,7 +519,9 @@ def _assert_evaluation(db, session, rule, evaluation_id: int, *, seen=None,
             raise DesignKnowledgeRefused("incumbent approval is unavailable")
         _revalidate_provenance(session, prior)
         if _assert_evaluation(db, session, prior, detail.get("evaluation_id"), seen=seen,
-                              check_current_corpus=False) \
+                              check_current_corpus=False,
+                              check_current_implementation=(check_current_implementation
+                                  and report.get("mode") != "revalidation")) \
                 != pin["evaluation_digest"]:
             raise DesignKnowledgeRefused("incumbent evaluation does not match")
     return design_eval._digest(report)
@@ -664,8 +751,8 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
         raise DesignKnowledgeRefused("invalid rule id")
     if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 120:
         raise DesignKnowledgeRefused("reviewer identity required")
-    if decision not in ("approve", "reject", "retire"):
-        raise DesignKnowledgeRefused("decision must be approve, reject or retire")
+    if decision not in ("approve", "reject", "retire", "reapprove"):
+        raise DesignKnowledgeRefused("decision must be approve, reject, retire or reapprove")
     if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
         raise DesignKnowledgeRefused("review reason required")
     check_derived(reviewer)
@@ -677,6 +764,32 @@ def review_rule(db, rule_id: int, *, reviewer: str, decision: str, reason: str,
             raise DesignKnowledgeRefused("rule not found")
         if not rule.producer or principal(rule.producer) == principal(reviewer):
             raise DesignKnowledgeRefused("independent reviewer required")
+        if decision == "reapprove":
+            if rule.state != "approved" or rule.active_slot != 1:
+                raise DesignKnowledgeRefused("an active rule is required")
+            digest = _assert_evaluation(db, s, rule, evaluation_id)
+            evidence = s.get(AuditLog, evaluation_id)
+            latest = s.scalar(select(AuditLog).where(
+                AuditLog.action == "design_knowledge.rule_approved",
+                AuditLog.artifact == f"design-rule:{rule.id}").order_by(AuditLog.id.desc()))
+            if (evidence.detail.get("mode") != "revalidation" or latest is None
+                    or evidence.detail.get("previous_approval_id") != latest.id):
+                raise DesignKnowledgeRefused("current revalidation evidence is required")
+            updated = s.execute(update(DesignRule).where(DesignRule.id == rule_id,
+                DesignRule.state == "approved", DesignRule.active_slot == 1,
+                DesignRule.approved_by == rule.approved_by,
+                DesignRule.approved_at == rule.approved_at).values(
+                    approved_by=reviewer, approved_at=utcnow()))
+            if updated.rowcount != 1:
+                raise DesignKnowledgeRefused("rule changed during reapproval")
+            rule_sha = rule_digest(rule)
+            s.add(AuditLog(actor=reviewer, action="design_knowledge.rule_approved",
+                artifact=f"design-rule:{rule_id}", detail={"rule_digest": rule_sha,
+                    "evaluation_id": evaluation_id, "evaluation_digest": digest,
+                    "reason": reason.strip(), "revalidation_of": latest.id}))
+            return {"rule_id": rule_id, "state": "approved", "decision": "reapproved",
+                    "pin": {"rule_id": rule_id, "rule_version": rule.version,
+                            "rule_digest": rule_sha, "evaluation_digest": digest}}
         if decision == "retire":
             if rule.state != "approved" or rule.active_slot != 1:
                 raise DesignKnowledgeRefused("an active rule is required")

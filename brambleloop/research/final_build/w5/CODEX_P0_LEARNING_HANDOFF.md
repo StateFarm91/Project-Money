@@ -63,12 +63,11 @@ Outstanding before a completion claim:
   owner can approve an atomic replacement. Multiple independently scoped active
   rules are not implemented; existing CIRs pinned to retired versions fail
   verification and need an integration policy.
-* When an approved rule becomes stale because its corpus or implementation
-  changes, the store holds it safely but does not yet offer automatic
-  re-evaluation of that same rule. A replacement must preserve the historical
-  baseline, demonstrate no regression and genuine improvement under current
-  evidence, require independent owner approval, and leave old CIR pins held
-  until repinned. Main and Secondary have been notified.
+* A stale rule can now be re-evaluated against its authenticated historical
+  baseline and previously approved metrics. Owner step-up is still required
+  for reapproval, and a new release version must be explicitly repinned and
+  recertified. This code and its shared A6 contract require independent review;
+  A6 does not yet implement the repinning workflow.
 * Main decision `I-SUPPORT-LEARNING-CONSENT` prohibits feeding private support
   case text into Learning until a consent and revocation design is approved.
   The orphan support text producers therefore remain unwired; aggregate
