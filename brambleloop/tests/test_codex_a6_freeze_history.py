@@ -15,6 +15,12 @@ def test_same_version_with_removed_markers_is_held_after_retirement():
     approved = _approved_rule(db)
     pinned = _draft(db, path)
     assert knowledge_gate.has_pins(pinned)
+    with db.session() as session:
+        worker_audit = session.scalar(select(AuditLog).where(
+            AuditLog.action == "design_knowledge.frozen_by_job",
+            AuditLog.artifact == f"{pinned.slug}@{pinned.version}"))
+        assert worker_audit is not None and worker_audit.job_id is not None
+        assert worker_audit.actor == "crochet_engineer"
     stripped = dataclasses.replace(pinned, provenance=dataclasses.replace(
         pinned.provenance, primitives_used=tuple(
             p for p in pinned.provenance.primitives_used if not p.startswith(knowledge.PREFIX))))
