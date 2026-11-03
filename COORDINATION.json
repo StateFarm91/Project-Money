@@ -313,7 +313,8 @@
         "brambleloop/src/brambleloop/improve/design_knowledge.py",
         "brambleloop/src/brambleloop/improve/knowledge_gate.py",
         "brambleloop/src/brambleloop/quality/design_eval.py",
-        "brambleloop/tests/test_codex_a6_session_reads.py"
+        "brambleloop/tests/test_codex_a6_session_reads.py",
+        "brambleloop/tests/test_codex_a6_session_reads_pg.py"
       ],
       "claimed_at": "2026-11-03"
     }

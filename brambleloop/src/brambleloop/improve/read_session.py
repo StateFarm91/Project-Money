@@ -15,6 +15,11 @@ class _ReadSessionDatabase:
             raise ValueError("knowledge read session requires an active transaction")
         if session.new or session.dirty or session.deleted:
             raise ValueError("knowledge read session has pending ORM changes")
+        connection = session.connection()
+        if connection.dialect.name == "postgresql":
+            isolation = connection.exec_driver_sql("SHOW transaction_isolation").scalar_one()
+            if isolation.lower() != "read committed":
+                raise ValueError("knowledge read session requires READ COMMITTED on PostgreSQL")
         # A caller may have loaded an old rule before acquiring its fence.
         # Drop cached attributes before evidence reads; never discard tracked
         # edits, which were refused above. A transaction's isolation level and
