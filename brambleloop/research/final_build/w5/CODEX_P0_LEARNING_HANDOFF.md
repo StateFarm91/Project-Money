@@ -61,3 +61,16 @@ Outstanding before a completion claim:
 
 No deployment, purchase, paid-provider call, publication or shared-branch
 merge is authorized by this handoff.
+
+## Recent checkpoint verification
+
+On the code at `1bc6f47` (subsequent changes to this handoff are documentation
+only), the following ran individually using Python 3.12 and SQLite: worker
+8/8, knowledge contract 4/4, retention guard 5/5, improve regression 24/24,
+autonomy timeline 6/6, design-evaluation cases 7/7, finding review Command
+Center 5/5, analysis store 1/1, purchase intake API 1/1, teardown reader
+12/12, originality 28/28, compiler 9/9, twin 8/8, and reverse 18/18. An
+older SQLite database copy migrated the new nullable audit link successfully.
+These focused results do not represent the complete integration certification;
+the work order's Python 3.11 environment and full remaining regression set must
+be verified by the integrator.
