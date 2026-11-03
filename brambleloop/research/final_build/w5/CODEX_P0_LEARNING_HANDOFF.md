@@ -18,6 +18,13 @@ independently supported by two distinct sources, add an end-security check. Work
 and persistent-database tests exercise the intake-to-writer path, retries,
 recovery and source invalidation.
 
+The measured first-rule improvement is the number of existing finishing actions
+presented as checklist items; the successor measures an added end-security
+instruction. These deterministic output measurements are not maker studies or
+evidence of a real-world quality outcome. Main must independently decide whether
+the formatting metric meets the owner's genuine-improvement standard; the
+unmeasured image and real-outcome stages cannot support construction rules.
+
 The analysis worker also records a partial PDF-architecture audit from the
 closed-vocabulary observations. Withheld elements stay unknown, no finding is
 created automatically, and the event contains no source prose. The linked
