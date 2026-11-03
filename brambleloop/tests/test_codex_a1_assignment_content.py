@@ -38,6 +38,18 @@ def test_child_assignment_is_bound_to_exact_version_and_content():
                                                first_customer=lambda *_a, **_k: [])
     assert not verdict["publishable"], verdict
     assert any("assignment does not bind" in r["why"] for r in verdict["reasons"]), verdict
+    # The real SEO handler must refuse before writing copy under the wrong category.
+    from brambleloop.core.models import Job, Listing
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+    queued = JobQueue(result["db"]).enqueue("listing", "listing.seo",
+        {"slug": spoof.slug, "version": spoof.version}, idempotency_key="codex:child:seo")
+    assert Worker(result["db"], "child-seo", job_types=["listing.seo"]).run_once()
+    with result["db"].session() as session:
+        job = session.get(Job, queued.id)
+        assert job.outputs["ok"] is False, job.outputs
+        assert "assignment does not bind" in str(job.outputs["blocking"]), job.outputs
+        assert session.scalar(select(Listing).where(Listing.product_slug == spoof.slug)) is None
 
 
 if __name__ == "__main__":
