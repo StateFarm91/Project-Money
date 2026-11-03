@@ -297,6 +297,22 @@
       "area": "A1-R P0-SAFETY-CHILDREN (architectural correction)",
       "claimed": "2026-11-02T19:40Z",
       "scope": "shared safety code only: launch0 children's gate (closed_stuffed_form, childrens_decision_for, NOT_MERCHANDISED entries, child_words_in fold, survey), products/text_fold, gates/small_parts, publish/pdf children's refusal"
+    },
+    {
+      "id": "CODEX-A2-LISTING-MOTIF",
+      "operator": "codex",
+      "branch": "codex/a2-safety-continuation",
+      "source_branch": "opus2/a2-name-object",
+      "source_sha": "52f83cf7ab9cb7b40b96f75b7ff4422693d18a1b",
+      "scope": "A2 listing-copy motif truth for rule-drafted CIRs; contradictory tote size promises; fabric-backed stripe claims",
+      "files": [
+        "brambleloop/src/brambleloop/publish/eligibility.py",
+        "brambleloop/tests/test_codex_a2_listing_truth.py",
+        "brambleloop/src/brambleloop/creative/fallback_constructions.py",
+        "brambleloop/tests/test_codex_a2_tote_size.py",
+        "brambleloop/tests/test_codex_a2_stripe_truth.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

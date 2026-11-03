@@ -527,6 +527,9 @@ def _route(*, category: str, title: str, is_bundle: bool = False, slug: str = ""
                     "needs": "a vessel size beyond products.vessels.BASKET_SIZES, measured",
                     "why": (f"the title promises {oversize.group(0)!r}; the tote is drafted "
                             f"only at the three measured vessel sizes")}
+        _size, conflict = tote_size_key(title)
+        if conflict:
+            return {"family": REFUSED, "needs": "one supported tote size", "why": conflict}
         if not _shaped_title(rest):
             return {"family": TOTE, "needs": "",
                     "why": "a tote is a vessel worked in the round with two sewn straps"}
@@ -963,15 +966,27 @@ TOTE_PRIMITIVES = ("creative.fallback_constructions.tote", "products.vessels._di
                    "products.vessels.base_stitches_for", "cir.assembly._placed_on_round_cm")
 
 
+def tote_size_key(title: str | None) -> tuple[str | None, str | None]:
+    """Read all size words, refusing conflicting or unsupported tote dimensions."""
+    text = fold_title(title)
+    if re.search(_TOTE_SIZE_UNSUPPORTED, text):
+        return None, "the title names a tote size that has no supported measurement"
+    words = set(re.findall(r"[a-z]+", text))
+    sizes = {key for word, key in _TOTE_SIZE_WORDS if word in words}
+    if len(sizes) > 1:
+        return None, "the title names conflicting tote sizes; one release has one size"
+    return (next(iter(sizes)) if sizes else "large"), None
+
+
 def tote(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     """A tote bag: a large vessel in the concept's repeat and palette, with two sewn straps."""
     import dataclasses
 
     from ..cir.model import Seam
 
-    lowered = fold_title(concept.title)
-    size = next((key for word, key in _TOTE_SIZE_WORDS if re.search(rf"\b{word}\b", lowered)),
-                "large")
+    size, why = tote_size_key(concept.title)
+    if why:
+        raise ValueError(why)
     body_cir = vessel(concept, version=version, provenance=provenance, size=size)
     body = body_cir.components[0]
     n = body.rows[-1].declared_count

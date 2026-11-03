@@ -690,6 +690,43 @@ def _drafted_by_a_rule(cir) -> bool:
         return True
 
 
+def _full_row_stripes_backed(cir, twin) -> bool:
+    """Prove distinct RGB bands in the twin; not physical visual contrast."""
+    from PIL import ImageColor
+
+    palette = cir.colors or {}
+    bands = []
+    for row in twin.color_grid():
+        if not row or None in row or len(set(row)) != 1:
+            return False
+        colour = palette.get(row[0])
+        if not isinstance(colour, str) or not colour.strip():
+            return False
+        try:
+            rgb = ImageColor.getrgb(colour.strip())
+        except (TypeError, ValueError):
+            return False  # unknown colour is not evidence of visible contrast
+        if len(rgb) not in (3, 4) or any(
+                type(channel) is not int or not 0 <= channel <= 255 for channel in rgb):
+            return False
+        if len(rgb) == 4 and rgb[3] != 255:
+            return False  # translucent values lack a proven background
+        bands.append(tuple(rgb[:3]))
+    return len(set(bands)) >= 2 and sum(a != b for a, b in zip(bands, bands[1:])) >= 2
+
+
+def _stripe_claimed(cir, listing) -> bool:
+    import re
+    from ..products.text_fold import fold
+
+    data = listing if isinstance(listing, dict) else {}
+    tags = data.get("tags") or []
+    tags = tags if isinstance(tags, (tuple, list)) else []
+    text = " ".join(str(x or "") for x in [cir.title, data.get("title"),
+                     data.get("description"), *tags])
+    return bool(re.search(r"\bstrip(?:e|es|ed|ing|ey|y)\b", fold(text)))
+
+
 def name_truth(cir, listing: dict | None = None) -> list[str]:
     """W4-PIPE: what the product's name promises that its CIR does not make.
 
@@ -716,12 +753,72 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
     # motif_promise today (undeclared heart-row, fir-and-star, cable; relief words without
     # 'raised'), and changing their publish state is an integrator decision.
     if _drafted_by_a_rule(cir):
-        motif = l0.motif_promise(cir)
+        # The listing can add an unbacked motif in copy or search tags.
+        listing = listing or {}
+        texts = {}
+        for key in ("title", "description"):
+            value = listing.get(key)
+            if value is not None and not isinstance(value, str):
+                out.append(f"motif: listing {key} cannot be checked")
+                value = ""
+            texts[f"listing.{key}"] = value or ""
+        raw_tags = listing.get("tags")
+        raw_tags = [] if raw_tags is None else raw_tags
+        if not isinstance(raw_tags, (list, tuple)) or not all(
+                isinstance(tag, str) for tag in raw_tags):
+            out.append("motif: listing tags cannot be checked")
+            raw_tags = []
+        motif = l0.motif_promise(cir, texts, tags={"listing.tags": list(raw_tags)})
         if not motif.get("backed"):
             out.append(f"motif: {motif.get('why')}")
+    # A later listing cannot reintroduce conflicting or unsupported tote sizes.
+    # Explicit listing sizes must also agree with the pattern's own title; this
+    # checks label consistency, not physical measurements or a false CIR title.
+    if isinstance(listing, dict):
+        import re
+        from ..creative import fallback_constructions as FC
+
+        tags = listing.get("tags") or []
+        tags = tags if isinstance(tags, (list, tuple)) else []
+        base_title = FC.fold_title(cir.title)
+        base_is_tote = bool(re.search(FC._TOTE_WORDS, base_title))
+        # The listing title must name the same supported object as the pattern;
+        # checking only size words lets a tote be marketed as a purse or backpack.
+        listing_title = listing.get("title")
+        if base_is_tote and isinstance(listing_title, str) and listing_title.strip():
+            conflict = FC.name_object_contract(FC.TOTE, listing_title)
+            if conflict:
+                out.append(f"object: listing title: {conflict.get('why')}")
+        size_words = {word for word, _size in FC._TOTE_SIZE_WORDS}
+        base_explicit = bool(set(re.findall(r"[a-z]+", base_title)) & size_words)
+        base_size, base_why = FC.tote_size_key(base_title)
+        for where, text in [("title", listing.get("title")),
+                            ("description", listing.get("description")),
+                            *[("tag", tag) for tag in tags]]:
+            if not isinstance(text, str):
+                continue
+            folded = FC.fold_title(text)
+            size_word = (r"(?:extra[- ]large|small|mini|tiny|petite|medium|large|big|"
+                         r"jumbo|giant|huge|oversized?|xl|xxl)")
+            explicit_size_phrase = bool(re.search(
+                rf"\bsize\s*[:=]?\s*{size_word}\b|"
+                rf"\b{size_word}[- ]+sized?\b", folded))
+            names_tote = bool(re.search(FC._TOTE_WORDS, folded)) or (
+                base_is_tote and (bool(re.search(r"\bbags?\b", folded))
+                                  or explicit_size_phrase))
+            if not names_tote:
+                continue
+            size, why = FC.tote_size_key(folded)
+            explicit = bool(set(re.findall(r"[a-z]+", folded)) & size_words)
+            if why:
+                out.append(f"size: listing {where}: {why}")
+            elif base_is_tote and explicit and (base_why or not base_explicit or size != base_size):
+                out.append(f"size: listing {where}: size is not supported by the pattern title")
     result = compile_cir(cir)
     if result.ok:
         twin = build_twin(cir, result)
+        if _stripe_claimed(cir, listing) and not _full_row_stripes_backed(cir, twin):
+            out.append("fabric: stripe claim lacks alternating distinct RGB bands in the pattern")
         fabric = l0.fabric_truth(cir, twin)
         if not fabric.get("backed"):
             out.append(f"fabric: {fabric.get('why')}")
@@ -732,6 +829,8 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
 
             out.extend(f"listing: {f}" for f in colourwork_findings(
                 cir, twin, title=listing.get("title") or "", tags=listing.get("tags") or ()))
+    if not result.ok and _stripe_claimed(cir, listing):
+        out.append("fabric: stripe claim cannot be verified against an invalid pattern")
     # W4-PIPE: imagery the name promises that the motif does not depict (W4-CREATIVE's
     # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
     # checked too: outside Launch-0 its words come from the slug and radar seed, which can
