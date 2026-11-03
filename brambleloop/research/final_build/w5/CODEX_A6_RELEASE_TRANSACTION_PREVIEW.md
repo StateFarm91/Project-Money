@@ -19,3 +19,21 @@ all required evidence under a verified shared fence, atomically persist the
 certificate, authority audit, and durable work intents, and resolve existing
 lock-order, retry, cross-version lineage and source-coverage findings. Real
 PostgreSQL interleaving and independent review are required.
+
+## Confirmed existing handler race
+
+An independent test on disposable PostgreSQL 16 used a real `gate.certify`
+Worker and a synthetic licensed fixture reviewed and evaluated through the
+existing pipeline. The test forced retirement immediately after the handler's
+successful knowledge check. The Worker finished with `granted=True` and a
+persisted `PatternVersion.certified=True` while the knowledge rule was retired.
+This is a confirmed interleaving in the existing unfenced handler, not an
+assessment of the optional persistence interface above. The local-only runner
+is `/workspace/scratch/a6_real_retirement_race.py`; it requires a separately
+supplied disposable PostgreSQL URL and is not a production test. No paid
+provider, protected reference text or production database was used.
+
+An independent reviewer also verified that the caller-owned persistence
+preview's first-release and recertification rollback tests restore certificate
+provenance and replacement-audit records. These tests do not establish a fence
+or make its in-memory intents durable.
