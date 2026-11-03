@@ -304,12 +304,13 @@
       "branch": "codex/a2-safety-continuation",
       "source_branch": "opus2/a2-name-object",
       "source_sha": "52f83cf7ab9cb7b40b96f75b7ff4422693d18a1b",
-      "scope": "A2 listing-copy motif truth for rule-drafted CIRs; contradictory tote size promises",
+      "scope": "A2 listing-copy motif truth for rule-drafted CIRs; contradictory tote size promises; fabric-backed stripe claims",
       "files": [
         "brambleloop/src/brambleloop/publish/eligibility.py",
         "brambleloop/tests/test_codex_a2_listing_truth.py",
         "brambleloop/src/brambleloop/creative/fallback_constructions.py",
-        "brambleloop/tests/test_codex_a2_tote_size.py"
+        "brambleloop/tests/test_codex_a2_tote_size.py",
+        "brambleloop/tests/test_codex_a2_stripe_truth.py"
       ],
       "claimed_at": "2026-11-03"
     }
