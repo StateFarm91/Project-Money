@@ -161,6 +161,23 @@ def test_with_supply_available_there_is_no_reading():
     assert flow_health.concept_supply_stall(db) is None
 
 
+def test_noncanonical_existing_drafts_are_not_new_supply_or_scored_again():
+    db = _db("noncanonical-drafts")
+    pool = [c.slug for c in pool_with_intake(db)]
+    with db.session() as s:
+        for slug in pool:
+            s.add(Job(agent="crochet_engineer", job_type="cir.draft", inputs={"slug": slug},
+                      status=JobStatus.DONE, idempotency_key=f"recovery:{slug}:v1"))
+    before = _drafts(db)
+    out = _scan(db, DAY1, "noncanonical-scan")
+    assert out["concept_supply"]["reason"] == "pool_exhausted"
+    _score_all(db)
+    assert _drafts(db) == before
+    with db.session() as s:
+        scores = list(s.scalars(select(Job).where(Job.job_type == "radar.score")))
+        assert any((j.outputs or {}).get("promoted") for j in scores)
+
+
 def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():
     db = _db("selection")
     first = _scan(db, DAY1, "scan-a")

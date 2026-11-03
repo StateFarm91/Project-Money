@@ -306,9 +306,8 @@ def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
                          today: date) -> dict:
     """W5-A7 (P0-SUPPLY-STALL): the next-product supply reading of one `radar.scan`.
 
-    Supply is a selected concept with no `draft:<slug>` job; `radar.score` is the only path
-    that turns one into a `cir.draft`, under that same permanent key, so a drafted slug is
-    never drafted twice and is not supply. With none, one `OperatingReading`
+    Supply is a selected concept with no recorded draft admission. Recovery and rebuilds
+    can also enqueue draft jobs, using keys distinct from `draft:<slug>`. With none, one `OperatingReading`
     (`flow_health.SUPPLY_STALL_KIND`, period = the scan date) and one audit record the stall:
     `pool_exhausted` when every concept in POOL plus approved intake is drafted, else
     `selection_all_drafted`. Deterministic, deduplicated per period, and read-only for the
@@ -547,8 +546,16 @@ def handle_radar_score(ctx: JobContext) -> dict:
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                    idempotency_key=f"draft:{seed.slug}")
+        # Existing recovery or rebuild jobs may use a different key. They are not new
+        # supply and must not be admitted again merely because draft:<slug> is absent.
+        from ..ops import flow_health
+
+        if seed.slug in flow_health.drafted_slugs(ctx.db, {seed.slug}):
+            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
+                      detail={"reason": "an existing draft job already names this slug"})
+        else:
+            ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                        idempotency_key=f"draft:{seed.slug}")
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",

@@ -349,19 +349,27 @@ SUPPLY_STALL_FRESH = timedelta(days=2)
 
 
 def drafted_slugs(db, slugs) -> set[str]:
-    """The slugs whose permanent `draft:<slug>` job exists (any status): `radar.score` can
-    never queue another `cir.draft` for them, so they are no new supply."""
+    """Slugs with a recorded draft job or canonical admission key, in any status.
+
+    Recovery and rebuild jobs can have noncanonical keys; a recorded attempt is not
+    new supply. This read alone is not an atomic admission lock against other writers.
+    """
     from sqlalchemy import select
 
     from ..core.models import Job
 
+    slugs = set(slugs)
     keys = {f"draft:{s}": s for s in slugs}
     if not keys:
         return set()
     with db.session() as s:
         found = set(s.scalars(select(Job.idempotency_key).where(
             Job.idempotency_key.in_(list(keys)))))
-    return {keys[k] for k in found}
+        # Recovery and redrafting legitimately use fingerprinted keys. They are still
+        # existing admissions, not evidence of a new product available to radar.
+        admitted = set(s.scalars(select(Job.inputs["slug"].as_string()).where(
+            Job.job_type == "cir.draft", Job.inputs["slug"].as_string().in_(list(slugs)))))
+    return {keys[k] for k in found} | (admitted & slugs)
 
 
 def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:

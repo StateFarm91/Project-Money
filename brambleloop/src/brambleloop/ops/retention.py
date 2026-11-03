@@ -963,7 +963,7 @@ def job_plan(db, *, now: datetime | None = None, days: int = JOB_RETENTION_DAYS,
     seen_per_type: dict[str, int] = {}
     surviving_done = done_total
     for job_id, job_type, status, finished_at, created_at, key in rows:
-        if (key or "").startswith("draft:"):
+        if job_type == "cir.draft" or (key or "").startswith("draft:"):
             kept["permanent_draft_key"] += 1
             continue
         seen = seen_per_type.get(job_type, 0)
@@ -1043,7 +1043,7 @@ def dead_letter_plan(db, *, now: datetime | None = None,
     kept = {"is_a_defect": 0, "inside_horizon": 0, "referenced": 0,
             "permanent_draft_key": 0}
     for job_id, job_type, last_error, finished_at, created_at, key in rows:
-        if (key or "").startswith("draft:"):
+        if job_type == "cir.draft" or (key or "").startswith("draft:"):
             kept["permanent_draft_key"] += 1
             continue
         if not deliberate_refusal(job_type, last_error or ""):
@@ -1148,7 +1148,8 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
                     removed["audit_log"] += 1
             for row_id in list(jobs["deletable_ids"]) + list(dead["deletable_ids"]):
                 row = s.get(Job, row_id)
-                if row is not None and not (row.idempotency_key or "").startswith("draft:"):
+                if (row is not None and row.job_type != "cir.draft"
+                        and not (row.idempotency_key or "").startswith("draft:")):
                     s.delete(row)
                     removed["jobs" if row_id in set(jobs["deletable_ids"])
                             else "dead_letters"] += 1
