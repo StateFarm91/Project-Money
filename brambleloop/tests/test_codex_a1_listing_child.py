@@ -25,7 +25,8 @@ def test_plural_child_audience_words_are_held_in_pdf_worker():
         assert launch0.childrens_decision_for(changed)[0] == launch0.UNDECIDED, title
         assert harness._refused(changed), title
     for title in ("For ages 2–4", "Suitable from 0 to 36 months", "For preschool",
-                  "Perfect for 3 year olds", "For young ones", "For youth"):
+                  "Perfect for 3 year olds", "For young ones", "For youth",
+                  "For ages two to four", "For girls", "For boys", "For teens"):
         assert launch0.child_words_in(title), title
         assert harness._refused(dataclasses.replace(adult, title=title)), title
     for title in ("For adults age 25", "A basket for ages 18–30", "Everyday Storage Basket"):
@@ -71,7 +72,8 @@ def test_persistent_listing_package_and_publish_verdict_hold_child_copy():
                 assert any("child audience: listing copy cannot be checked" in r
                            for r in reasons), (value, reasons)
             for title in ("For ages 2–4", "Suitable from 0 to 36 months", "For preschool",
-                          "Perfect for 3 year olds", "For young ones", "For youth"):
+                          "Perfect for 3 year olds", "For young ones", "For youth",
+                  "For ages two to four", "For girls", "For boys", "For teens"):
                 reasons = eligibility.name_truth(cir, {"title": title, "tags": []})
                 assert any("child audience" in r for r in reasons), (title, reasons)
             JobQueue(reopened).enqueue("listing", "listing.package", {},
