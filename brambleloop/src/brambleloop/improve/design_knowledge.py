@@ -208,6 +208,30 @@ def verify_cir_pins(db, cir) -> list[dict]:
     return verified
 
 
+def _record_frozen_design(db, cir, records: list[dict], *, source: str) -> None:
+    """Persist pin history before returning a pinned design to any caller.
+
+    This is evidence of a freeze, not a release or review approval. An error
+    writing it must prevent the caller from receiving an unaudited frozen CIR.
+    Sequential identical freezes reuse history; concurrent inserts can still
+    produce duplicate protected rows until a uniqueness constraint is added.
+    """
+    if not records:
+        return
+    with db.session() as session:
+        pins = [record["pin"] for record in records]
+        history = session.scalars(select(AuditLog.detail).where(
+            AuditLog.action == "design_knowledge.frozen",
+            AuditLog.artifact == f"{cir.slug}@{cir.version}"))
+        if any(isinstance(detail, dict) and detail.get("pins") == pins for detail in history):
+            return
+        session.add(AuditLog(actor="design_knowledge", action="design_knowledge.frozen",
+            artifact=f"{cir.slug}@{cir.version}", detail={
+                "pins": pins,
+                "rules": [record["statement"]["rule"] for record in records],
+                "scopes": [record["scope"] for record in records], "source": source}))
+
+
 def freeze_pins(db, cir, pins: list[dict]):
     """Return a new CIR carrying only the verified closed-vocabulary directives."""
     import copy
@@ -229,6 +253,7 @@ def freeze_pins(db, cir, pins: list[dict]):
         raise DesignKnowledgeRefused("CIR provenance is required for frozen knowledge")
     if wanted and not existing:
         out.provenance.primitives_used = (*out.provenance.primitives_used, *wanted)
+    _record_frozen_design(db, out, records, source="freeze_pins")
     return out
 
 
@@ -289,6 +314,7 @@ def repin_revalidated_cir(db, cir, pins: list[dict], *, new_version: str):
                       if not (isinstance(item, str) and item.startswith(knowledge.PREFIX)))
     out.provenance.primitives_used = (*untouched, *(knowledge.marker(
         record["statement"]["rule"], record["pin"]) for record in new))
+    _record_frozen_design(db, out, new, source="repin_revalidated_cir")
     return out
 
 

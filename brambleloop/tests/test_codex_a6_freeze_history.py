@@ -1,8 +1,11 @@
 """Real-worker coverage for removal of a previously frozen knowledge marker."""
 import dataclasses
+from unittest.mock import patch
+
+from sqlalchemy import select
 
 from brambleloop.cir import knowledge
-from brambleloop.core.models import JobStatus
+from brambleloop.core.models import AuditLog, JobStatus
 from brambleloop.improve import design_knowledge, knowledge_gate
 from test_w5_a6_frozen_knowledge import _approved_rule, _draft, _run, _store
 
@@ -36,7 +39,48 @@ def test_unrelated_unpinned_version_remains_eligible_for_baseline_checks():
     assert knowledge_gate.refusal(db, fresh) is None
 
 
+def test_direct_freeze_records_history_before_returning_to_caller():
+    from brambleloop.products import launch0
+
+    db, path = _store()
+    approved = _approved_rule(db)
+    original = launch0.cir_for("basket_small")
+    pinned = design_knowledge.freeze_pins(db, original, [approved["pin"]])
+    design_knowledge.freeze_pins(db, original, [approved["pin"]])
+    with db.session() as session:
+        freezes = list(session.scalars(select(AuditLog).where(
+            AuditLog.action == knowledge_gate.FROZEN,
+            AuditLog.artifact == f"{original.slug}@{original.version}")))
+    assert len(freezes) == 1  # sequential retries do not grow permanent history
+    stripped = dataclasses.replace(pinned, provenance=dataclasses.replace(
+        pinned.provenance, primitives_used=tuple(
+            p for p in pinned.provenance.primitives_used if not p.startswith(knowledge.PREFIX))))
+    status, out, error = _run(db, path, "gate.certify", {"cir": stripped.to_dict()},
+                              "quality_director")
+    assert status == JobStatus.DONE, (out, error)
+    assert out.get("refused") == "design_knowledge", out
+    assert "markers are missing" in out["reasons"][0], out
+
+
+def test_freeze_does_not_return_when_history_cannot_be_written():
+    from brambleloop.products import launch0
+
+    db, _path = _store()
+    approved = _approved_rule(db)
+    records = design_knowledge.verify_pins(db, [approved["pin"]])
+    with patch.object(design_knowledge, "verify_pins", return_value=records), \
+            patch.object(db, "session", side_effect=RuntimeError("history unavailable")):
+        try:
+            design_knowledge.freeze_pins(db, launch0.cir_for("basket_small"), [approved["pin"]])
+        except RuntimeError as error:
+            assert str(error) == "history unavailable"
+        else:
+            raise AssertionError("returned an unaudited frozen design")
+
+
 if __name__ == "__main__":
     test_same_version_with_removed_markers_is_held_after_retirement()
     test_unrelated_unpinned_version_remains_eligible_for_baseline_checks()
-    print("2 passed")
+    test_direct_freeze_records_history_before_returning_to_caller()
+    test_freeze_does_not_return_when_history_cannot_be_written()
+    print("4 passed")

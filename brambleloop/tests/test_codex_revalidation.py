@@ -105,6 +105,20 @@ class RevalidationTests(unittest.TestCase):
                 knowledge.repin_revalidated_cir(reopened, frozen, [new_pin], new_version="9.0.0")
             repinned = knowledge.repin_revalidated_cir(reopened, frozen, [new_pin], new_version="2.0.0")
             self.assertEqual(knowledge.verify_cir_pins(reopened, repinned)[0]["pin"], new_pin)
+            # The public repin path itself must durably bind the new identity;
+            # removing its marker before a real worker boundary must not erase it.
+            stripped = copy.deepcopy(repinned)
+            stripped.provenance.primitives_used = tuple(
+                p for p in stripped.provenance.primitives_used
+                if not p.startswith("learning_rule:"))
+            revise = JobQueue(reopened).enqueue("crochet_engineer", "cir.revise",
+                                                {"cir": stripped.to_dict()})
+            self.assertTrue(Worker(reopened, name="repin-check", job_types=["cir.revise"]).run_once())
+            with reopened.session() as s:
+                result = s.get(Job, revise.id)
+                self.assertEqual(result.status, JobStatus.DONE, result.last_error)
+                self.assertEqual(result.outputs.get("refused"), "design_knowledge")
+                self.assertIn("markers are missing", result.outputs["reasons"][0])
             self.assertIn("\n- Fasten off", write_pattern(repinned, compile_cir(repinned)))
             self.assertIn("\n- Fasten off", baseline_text)
             self.assertNotEqual(repinned.fingerprint, frozen.fingerprint)

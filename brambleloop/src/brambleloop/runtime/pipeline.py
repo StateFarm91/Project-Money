@@ -1170,12 +1170,9 @@ def _freeze_knowledge(ctx: JobContext, cir):
     DesignRule store) into this draft; record the action only when something was frozen."""
     from ..improve import knowledge_gate
 
-    out, records = knowledge_gate.freeze_applicable(ctx.db, cir)
-    if records:
-        ctx.audit(knowledge_gate.FROZEN, artifact=f"{out.slug}@{out.version}",
-                  detail={"pins": [r["pin"] for r in records],
-                          "rules": [r["statement"]["rule"] for r in records],
-                          "scopes": [r["scope"] for r in records]})
+    out, _records = knowledge_gate.freeze_applicable(ctx.db, cir)
+    # freeze_pins records durable history itself, including for non-worker
+    # callers. Do not add a second permanent copy for the same worker freeze.
     return out
 
 
