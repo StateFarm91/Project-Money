@@ -17,9 +17,9 @@ Rules.
 * **Precise.** Each item names the field, why it was refused, and what the construction needs.
 * **Re-checked before any draft.** `answer` runs the enriched concept through the same rule that
   refused it (`fallback_constructions.plan`, or the registry). Only a concept that now routes
-  to a construction is drafted, under `draft:<slug>:<fingerprint>` -- a fresh key per enriched
-  concept (the original `draft:<slug>` is spent; an identical answer is the same key, so it is
-  never drafted twice).
+  to a construction is drafted under `draft:<slug>:enrich:<round>`. The original
+  `draft:<slug>` is spent. Each round has a single durable queue key, and its payload
+  records the enrichment fingerprint.
 * **Bounded.** At most MAX_ROUNDS answers per slug; then the request is closed `exhausted` and
   never re-opened: no correction loop runs forever.
 * **Durable.** All state is audit rows, read back on every call; a restart resumes exactly where
@@ -91,6 +91,7 @@ def state(db) -> dict[str, dict]:
             out[slug]["rounds"] = max(out[slug].get("rounds", 0), int(detail.get("round", 0)))
             out[slug]["state"] = detail.get("state", out[slug].get("state"))
             out[slug]["answered_row"] = _id
+            out[slug]["answered_job"] = detail.get("job")
     for _id, slug, detail in _rows(db, REQUESTED):
         if slug in out and _id > out[slug].get("answered_row", 0) and \
                 out[slug].get("state") == RESOLVED and detail.get("state") == OPEN:
@@ -106,16 +107,35 @@ def sweep(db, *, audit) -> dict:
     """Open or update one request for every refusal or hold Research can answer."""
     known = state(db)
     opened, updated = [], []
+    # The most recent refusal is the current need. Replaying historical rows in
+    # turn makes differing asks alternate forever and creates permanent audit churn.
+    latest = {}
     for rid, slug, items, context in _holds(db):
+        latest[slug] = (rid, items, context)
+    for slug, (rid, items, context) in latest.items():
         prior = known.get(slug)
         if prior and prior.get("state") == EXHAUSTED:
             continue
         if prior and prior.get("state") == RESOLVED:
-            if rid <= prior.get("answered_row", 0) or \
-                    int(prior.get("rounds", 0)) >= MAX_ROUNDS:
+            if rid <= prior.get("answered_row", 0):
+                # The draft worker may run after enqueue but before ANSWERED is
+                # audited. Authenticate that earlier refusal by job ID, not by
+                # relative audit IDs; old unrelated refusals cannot reopen it.
+                from sqlalchemy import select
+                from ..core.models import AuditLog
+                with db.session() as session:
+                    refusal_job = session.scalar(select(AuditLog.job_id).where(AuditLog.id == rid))
+                if not prior.get("answered_job") or refusal_job != prior["answered_job"]:
+                    continue
+            if int(prior.get("rounds", 0)) >= MAX_ROUNDS:
+                audit(ANSWERED, artifact=slug, detail={"round": MAX_ROUNDS,
+                    "state": EXHAUSTED, "reason": "last redraft was refused"})
+                known[slug] = {**prior, "state": EXHAUSTED}
+                updated.append(slug)
                 continue
             prior = {**prior, "asks": None}
-        if prior and prior.get("asks") == items:
+        if prior and (rid <= int(prior.get("held_row") or 0)
+                      or prior.get("asks") == items):
             continue
         row = {"state": OPEN, "asks": items, "context": context,
                "rounds": (prior or {}).get("rounds", 0), "held_row": rid}
@@ -144,35 +164,164 @@ def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
 
     route = FC.plan(category=str(payload.get("category") or context.get("category") or ""),
                     title=str(payload.get("title") or ""), slug=str(payload.get("slug") or ""),
+                    is_bundle=bool(payload.get("is_bundle")),
                     rationale=str(payload.get("rationale") or ""))
     if route.get("family") == FC.REFUSED:
         return [{"field": "construction", "why": route.get("why"),
                  "needs": route.get("needs"), "resolved_by": ENRICH}]
+    # Use the same pure construction builders as cir.draft. Planning alone is
+    # not enough: an admitted route may reject its palette or other inputs.
+    from ..runtime.pipeline import Concept, _engineered_cir, concept_to_cir
+    try:
+        if _engineered_cir(str(payload.get("slug") or "")) is not None:
+            return []
+        concept = Concept(slug=payload["slug"], title=payload["title"],
+                          category=payload["category"],
+                          stitch_repeat=[(code, n) for code, n in payload["stitch_repeat"]],
+                          width_stitches=payload["width_stitches"], rows=payload["rows"],
+                          colors=payload["colors"], risk_class=payload.get("risk_class", "A"))
+        family = route["family"]
+        builders = {FC.VESSEL: FC.vessel, FC.COSY: FC.cosy, FC.TOTE: FC.tote,
+                    FC.STOCKING: FC.stocking, FC.TAPESTRY: FC.tapestry_basket,
+                    FC.POUCH: FC.pouch, FC.TRIANGLE: FC.triangle}
+        if family == FC.TAPESTRY and len(set((concept.colors or {}).values())) < 2:
+            raise ValueError("tapestry needs two distinct colours")
+        cir = builders[family](concept) if family in builders else concept_to_cir(concept)
+        if family == FC.PANEL_PAIR:
+            FC.panel_pair(cir)
+    except (ValueError, KeyError, TypeError) as exc:
+        return [{"field": "construction", "why": f"{type(exc).__name__}: {exc}"[:300],
+                 "needs": "inputs the construction can build", "resolved_by": ENRICH}]
     return []
+
+
+def _approved_binding(db, slug: str) -> str | None:
+    """Bind the whole current seed, geometry and approved intake record."""
+    from dataclasses import asdict
+    from ..radar import intake
+    from ..runtime.pipeline import _seed_for, concept_geometry
+
+    seed = _seed_for(slug, db)
+    if seed is None:
+        return None
+    record = None
+    if seed.origin:
+        approved = intake.approved_concept(db, slug)
+        if approved is None:
+            return None
+        with db.session() as session:
+            row = session.get(intake.RadarConcept, approved["id"])
+            if row is None or row.state != intake.APPROVED:
+                return None
+            record = {"id": row.id, "fingerprint": row.fingerprint,
+                      "state": row.state, "source": row.source,
+                      "source_ref": row.source_ref, "seed": row.seed,
+                      "concept": row.concept, "brief": row.brief,
+                      "evidence": row.evidence}
+    value = {"seed": asdict(seed), "geometry": concept_geometry(seed), "approval": record}
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True, allow_nan=False).encode()).hexdigest()
+
+
+def _authoritative_input(db, slug: str, context: dict, payload: dict, brief: dict | None) -> str | None:
+    """Do not let an answer invent a new identity or unreviewed design facts.
+
+    This initial contract permits only the currently authoritative radar seed and
+    its deterministic geometry. Changes require an approved, evidence-bound
+    intake revision before they can flow here. Registry enrichment needs its own
+    reviewed authority contract and remains held.
+    """
+    if context.get("kind") != "radar" or brief is not None:
+        return "no approved authority contract for this enrichment"
+    from dataclasses import fields
+    from ..runtime.pipeline import _seed_for, concept_geometry
+
+    seed = _seed_for(slug, db)
+    if seed is None:
+        return "no current approved concept for this enrichment"
+    # Intake approvals can change concurrently with a running draft. Until the
+    # approval writer and draft share an atomic lock/outbox, a recheck alone
+    # cannot keep a dynamic approval valid through the downstream queue write.
+    if seed.origin:
+        return "dynamic approvals require an atomic enrichment authority contract"
+    seed_fields = {f.name for f in fields(seed)}
+    geometry = concept_geometry(seed)
+    if set(payload) - seed_fields - set(geometry):
+        return "unapproved input fields are not permitted"
+    for field in ("slug", "title", "category", "risk_class", "rationale"):
+        if payload.get(field) != getattr(seed, field):
+            return f"{field} differs from the current approved concept"
+    for field in seed_fields & set(payload):
+        expected = getattr(seed, field)
+        if isinstance(expected, tuple):
+            expected = list(expected)
+        if payload[field] != expected:
+            return f"{field} differs from the current approved concept"
+    for field, value in geometry.items():
+        if payload.get(field) != value:
+            return f"{field} differs from the approved concept geometry"
+    if context.get("category") != seed.category:
+        return "refusal category differs from the current approved concept"
+    return None
 
 
 def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
            enqueue) -> dict:
     """Research's enriched concept for an open request: re-checked, then drafted under
-    draft:<slug>:<fingerprint>, or kept open with what is still missing, or exhausted."""
+    draft:<slug>:enrich:<round>, or kept open with what is still missing, or exhausted."""
     req_state = state(db).get(slug)
     if req_state is None or req_state.get("state") != OPEN:
         return {"slug": slug, "accepted": False,
                 "why": f"no open enrichment request for {slug!r}"}
     rounds = int(req_state.get("rounds", 0)) + 1
     context = req_state.get("context") or {}
+    refusal = _authoritative_input(db, slug, context, payload, brief)
+    if refusal:
+        return {"slug": slug, "accepted": False, "state": OPEN,
+                "why": refusal, "round": int(req_state.get("rounds", 0))}
     still = _recheck(context, payload, brief)
     if not still:
         data = {**payload, "slug": slug, "enrichment_round": rounds}
         if brief is not None:
             data["brief"] = dict(brief)
         fp = fingerprint({k: v for k, v in data.items() if k != "enrichment_round"})
+        # A single key per slug and round prevents two concurrent answers with
+        # different payloads from queuing two drafts. Keep the fingerprint in
+        # the durable inputs for provenance and conflict investigation.
+        data["enrichment_fingerprint"] = fp
+        binding = _approved_binding(db, slug)
+        if binding is None:
+            return {"slug": slug, "accepted": False, "state": OPEN,
+                    "round": rounds, "why": "current concept approval is unavailable"}
+        data["enrichment_approval_sha256"] = binding
         job = enqueue("crochet_engineer", "cir.draft", data,
-                      idempotency_key=f"draft:{slug}:{fp}")
+                      idempotency_key=f"draft:{slug}:enrich:{rounds}")
+        if job is None:
+            # A crash may occur after the durable queue insert but before the
+            # answer audit. Recover only the exact queued payload; a competing
+            # answer cannot take credit for another writer's round.
+            from sqlalchemy import select
+            from ..core.models import Job, JobStatus
+
+            key = f"draft:{slug}:enrich:{rounds}"
+            with db.session() as session:
+                old = session.scalar(select(Job).where(Job.idempotency_key == key))
+                matches = (old is not None and old.agent == "crochet_engineer"
+                           and old.job_type == "cir.draft" and old.inputs == data)
+                if not matches:
+                    return {"slug": slug, "accepted": False, "state": OPEN,
+                            "round": rounds, "why": "round already used or not queued"}
+                if old.status in (JobStatus.DEAD, JobStatus.CANCELLED) or (
+                        old.status == JobStatus.DONE and not (old.outputs or {}).get("drafted")):
+                    return {"slug": slug, "accepted": False, "state": OPEN,
+                            "round": rounds, "why": "existing draft was not completed successfully"}
+                job_id = old.id
+        else:
+            job_id = getattr(job, "id", None)
         audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": RESOLVED,
-                                                "fingerprint": fp})
+                                                "fingerprint": fp, "job": job_id})
         return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,
-                "fingerprint": fp, "job": getattr(job, "id", None)}
+                "fingerprint": fp, "job": job_id}
     final = EXHAUSTED if rounds >= MAX_ROUNDS else OPEN
     audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": final,
                                             "still_missing": still})
