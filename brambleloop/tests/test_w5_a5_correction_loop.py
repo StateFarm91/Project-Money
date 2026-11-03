@@ -718,7 +718,7 @@ def test_unattributed_or_ambiguous_lineage_is_held_not_trusted():
     assert not claimed and not replay
 
 
-def test_multiple_authenticated_lineage_parents_fail_closed():
+def test_multiple_claimed_lineage_parents_fail_closed():
     db = _db()
     cir = _off_band("harvest_runner")
     other = dataclasses.replace(cir, version="1.4.0")
@@ -733,6 +733,25 @@ def test_multiple_authenticated_lineage_parents_fail_closed():
                 artifact=f"{source.slug}@{source.version}", job_id=claimed.id,
                 detail={"to_version": "1.3.0", "from_fingerprint": source.fingerprint}))
     assert EO.revision_attempts(db, cir.slug, "1.3.0") >= EO.MAX_REVISIONS
+
+
+def test_tampered_revision_destination_does_not_reset_lineage_cap():
+    db = _db()
+    original = _off_band("harvest_runner")
+    _legacy_release(db, original, "Harvest Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": original.to_dict()},
+                         idempotency_key="t:lineage-tamper")
+    _drain(db)
+    assert EO.revision_attempts(db, original.slug, "1.3.0") == 1
+    with db.session() as session:
+        audit = session.scalar(select(AuditLog).where(
+            AuditLog.action == EO.REVISED_AUDIT,
+            AuditLog.artifact == f"{original.slug}@{original.version}"))
+        detail = dict(audit.detail)
+        detail["to_version"] = "1.4.0"
+        audit.detail = detail
+    # An invalid edge is not allowed to disappear from the ancestry lookup.
+    assert EO.revision_attempts(db, original.slug, "1.3.0") >= EO.MAX_REVISIONS
 
 
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():

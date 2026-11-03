@@ -239,8 +239,10 @@ def _trusted_revision(audit, job, slug: str, version: str) -> bool:
         return False
     try:
         cir = CIR.from_dict(job.inputs["cir"])
+        expected_target = _bump(version) if job.inputs.get("bump_version") else version
         return (cir.slug == slug and cir.version == version
-                and cir.fingerprint == detail.get("from_fingerprint"))
+                and cir.fingerprint == detail.get("from_fingerprint")
+                and detail.get("to_version") == expected_target)
     except Exception:  # noqa: BLE001 - damaged provenance cannot establish a safe bound
         return False
 
@@ -270,6 +272,10 @@ def _lineage_attempts(session, slug: str, version: str) -> int:
     def trusted(row) -> bool:
         return _trusted_revision(row[0], row[1], slug, row[2])
 
+    # A corrupted or forged edge could hide the very parent we are looking
+    # for. Every record for this product must be authentic before traversing.
+    if any(not trusted(row) for rows in by_source.values() for row in rows):
+        return MAX_REVISIONS
     chain, cursor = set(), version
     while True:
         if cursor in chain:
