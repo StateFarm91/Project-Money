@@ -155,6 +155,34 @@ def _invalidate_photo_certificates(session, slug: str, version: str, reason: str
                                  "certificate_id": record.id, "reason": reason}))
 
 
+def _lock_photo_sources(session, frames) -> bool:
+    """Fence existing photo and full-make rows for this transaction.
+
+    PostgreSQL row locks also block ordinary UPDATE/DELETE writers that do not use
+    the photo advisory lock. This is only a partial fence: provenance inserts,
+    other binding dependencies, artifact bytes, and operations after commit still
+    require their own coordination.
+    """
+    from sqlalchemy import select
+    from ..core.models import PhysicalPhoto, PhysicalTest
+
+    ids = []
+    for frame in frames:
+        pid = (frame.claims or {}).get("physical_photo_id")
+        if type(pid) is not int:
+            return False
+        ids.append(pid)
+    photos = list(session.scalars(select(PhysicalPhoto).where(
+        PhysicalPhoto.id.in_(sorted(set(ids)))).order_by(PhysicalPhoto.id).with_for_update()))
+    if len(photos) != len(set(ids)):
+        return False
+    test_ids = sorted({p.physical_test_id for p in photos if p.physical_test_id is not None})
+    if test_ids:
+        list(session.scalars(select(PhysicalTest).where(
+            PhysicalTest.id.in_(test_ids)).order_by(PhysicalTest.id).with_for_update()))
+    return True
+
+
 def photo_snapshot_current(session, db, slug: str, version: str, frames) -> bool:
     """Under the photo lock, compare proposed photos to current evidence and frames."""
     from sqlalchemy import select
@@ -171,6 +199,8 @@ def photo_snapshot_current(session, db, slug: str, version: str, frames) -> bool
                 dict(frame.claims or {}), list(frame.blocked_reasons or []))
     if sorted((identity(f) for f in current), key=lambda x: x[0]) != sorted(
             (identity(f) for f in proposed), key=lambda x: x[0]):
+        return False
+    if not _lock_photo_sources(session, current):
         return False
     for frame in current:
         if not frame.approved or frame.blocked_reasons:
@@ -199,6 +229,8 @@ def photo_certificate_current(session, db, slug: str, version: str, certified_fr
     # other valid supplements may exist without being included in that certificate.
     by_key = {(f.position, f.sha256): f for f in current}
     if len(set(expected)) != len(expected) or any(key not in by_key for key in expected):
+        return False
+    if not _lock_photo_sources(session, [by_key[key] for key in expected]):
         return False
     for frame in (by_key[key] for key in expected):
         if not frame.approved or frame.blocked_reasons:
@@ -243,7 +275,10 @@ def _review_frame(db, frame_id: int, *, reissue: bool) -> dict:
         frame = s.scalars(select(ListingAsset).where(ListingAsset.id == int(frame_id))
                           .with_for_update()).first()
         try:
-            checks, ctx = _checks(db, frame_id)       # read while no writer can commit
+            if frame is not None and frame.asset_class == PHOTO_CLASS:
+                if not _lock_photo_sources(s, [frame]):
+                    raise ValueError("photo source missing")
+            checks, ctx = _checks(db, frame_id)
         except Exception as exc:  # noqa: BLE001 - an unreadable record approves nothing
             checks, ctx = {c: f"UNKNOWN: {type(exc).__name__}" for c in CHECKS}, {
                 "frame_id": frame_id}
