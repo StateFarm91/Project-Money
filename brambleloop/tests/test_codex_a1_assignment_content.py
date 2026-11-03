@@ -26,6 +26,12 @@ def test_child_assignment_is_bound_to_exact_version_and_content():
     assert harness._held(result), result
     assert result["outputs"]["reason"] == "undecided", result
     assert "exact design" in result["outputs"]["why"], result
+    from brambleloop.core.models import OwnerAction
+    from sqlalchemy import select
+    with result["db"].session() as session:
+        action = session.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"childrens-decision:{spoof.slug}"))
+        assert "reapproval workflow is not yet implemented" in action.action, action.action
     # A previously stored certificate cannot skip the new assignment hold at publication.
     from brambleloop.core.models import PatternVersion
     from brambleloop.publish import eligibility
