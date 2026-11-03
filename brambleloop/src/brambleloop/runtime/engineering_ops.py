@@ -241,6 +241,40 @@ def revision_attempts(db, slug: str, version: str) -> int:
         return len({(d or {}).get("from_fingerprint") for d in rows})
 
 
+# Serialize the final audit decision across all workers. A database transaction,
+# not an in-process mutex, enforces the cap when Railway has multiple replicas.
+_REVISION_LOCK = 734543626
+
+
+def _claim_revision(ctx, artifact: str, fingerprint: str, detail: dict) -> tuple[bool, bool]:
+    """Atomically claim one source version. Same-fingerprint replays may resume."""
+    from sqlalchemy import select, text
+    from ..core.db import is_postgres
+    from ..core.models import AuditLog
+
+    with ctx.db.session() as session:
+        if is_postgres(ctx.db.engine):
+            session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _REVISION_LOCK})
+        else:
+            session.execute(text("BEGIN IMMEDIATE"))
+        prior = list(session.scalars(select(AuditLog.detail).where(
+            AuditLog.action == REVISED_AUDIT, AuditLog.artifact == artifact)))
+        fingerprints = {(entry or {}).get("from_fingerprint") for entry in prior}
+        if fingerprint in fingerprints:
+            # A redelivery may resume only the same deterministic result.
+            matching = [entry for entry in prior
+                        if (entry or {}).get("from_fingerprint") == fingerprint]
+            same = all(all(entry.get(k) == detail.get(k) for k in
+                           ("to_fingerprint", "to_version", "rules", "stage"))
+                       for entry in matching)
+            return same, same
+        if len(fingerprints) >= MAX_REVISIONS:
+            return False, False
+        session.add(AuditLog(actor=ctx.job.agent, action=REVISED_AUDIT, artifact=artifact,
+                             job_id=ctx.job.id, phase=ctx.phase, detail=detail))
+        return True, False
+
+
 def _bump(version: str) -> str:
     from ..products.reengineer import _bump as bump
 
@@ -389,6 +423,20 @@ def handle_cir_revise(ctx: JobContext) -> dict:
         # A certified release is immutable (PT-03): its revision is a new minor version and
         # declares what it corrects, so buyers of the old one are found (CB2-O09).
         current = replace(current, version=_bump(cir.version))
+        # Never overwrite an occupied release, including an uncertified draft.
+        # The certification conflict path also records a hold if another writer
+        # occupies this version after this check.
+        from ..core.models import PatternVersion, Product
+        with ctx.db.session() as session:
+            occupied = session.scalar(select(PatternVersion.id).join(
+                Product, Product.id == PatternVersion.product_id).where(
+                    Product.slug == cir.slug, PatternVersion.version == current.version))
+        if occupied is not None:
+            hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=attempts,
+                               existing_hold=existing_hold,
+                               reason=f"correcting version {current.version} is already occupied")
+            return {"artifact": artifact, "revised": False, "held": True,
+                    "hold": hold["hold"], "work_done": 1}
         correction = {"of_versions": [cir.version],
                       "of_release_hashes": list((correction or {}).get("of_release_hashes")
                                                 or []),
@@ -399,12 +447,18 @@ def handle_cir_revise(ctx: JobContext) -> dict:
     detail = {}
     for _n, what in applied:
         detail.update({k: v for k, v in what.items() if k != "rule"})
-    if not already:
-        ctx.audit(REVISED_AUDIT, artifact=artifact,
-                  detail={"rule": "+".join(names), "rules": names, "codes": codes, **detail,
-                          "compiles": check.ok, "from_fingerprint": fingerprint,
-                          "to_fingerprint": current.fingerprint, "revision": revision,
-                          "stage": stage, "to_version": current.version})
+    claimed, already = _claim_revision(
+        ctx, artifact, fingerprint,
+        {"rule": "+".join(names), "rules": names, "codes": codes, **detail,
+         "compiles": check.ok, "from_fingerprint": fingerprint,
+         "to_fingerprint": current.fingerprint, "revision": revision,
+         "stage": stage, "to_version": current.version})
+    if not claimed:
+        hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=MAX_REVISIONS,
+                           existing_hold=existing_hold,
+                           reason="another revision has already claimed this version")
+        return {"artifact": artifact, "revised": False, "held": True,
+                "hold": hold["hold"], "work_done": 1}
     if not check.ok:
         hold = record_hold(ctx, cir, stage=stage, codes=codes, attempts=attempts + 1,
                            problems=[str(f) for f in check.errors],

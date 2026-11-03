@@ -436,6 +436,45 @@ def test_certified_version_is_revised_as_a_new_immutable_release():
             Incident.signature == f"release.version_immutable:{legacy.slug}@{legacy.version}"))
 
 
+def test_occupied_correction_version_is_held_before_any_revision():
+    db = _db()
+    legacy = _off_band("harvest_runner")
+    _legacy_release(db, legacy, "Harvest Table Runner Crochet Pattern")
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == legacy.slug))
+        session.add(PatternVersion(product_id=product.id, version="1.3.0",
+                                   cir_json=dataclasses.replace(legacy, version="1.3.0").to_dict(),
+                                   certified=True, release_hash="s" * 64,
+                                   certificate={"granted": True}))
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": legacy.to_dict()},
+                         idempotency_key="t:recertify-occupied")
+    _drain(db)
+    jobs = _jobs(db, legacy.slug, "cir.revise")
+    assert len(jobs) == 1 and jobs[0].status == JobStatus.DONE
+    assert jobs[0].outputs["held"] and not jobs[0].outputs["revised"], jobs[0].outputs
+    assert _holds(db, legacy.slug, legacy.version)
+    assert not _audits(db, EO.REVISED_AUDIT, f"{legacy.slug}@{legacy.version}")
+    assert not _jobs(db, legacy.slug, "cir.compile")
+    assert _certified(db, legacy.slug, "1.3.0").release_hash == "s" * 64
+
+
+def test_late_version_collision_gets_a_named_source_hold():
+    db = _db()
+    original = launch0.cir_for("harvest_runner")
+    candidate = dataclasses.replace(original, version="1.3.0")
+    existing = dataclasses.replace(candidate, title="Other Table Runner")
+    _legacy_release(db, existing, "Other Table Runner Crochet Pattern")
+    JobQueue(db).enqueue("quality_director", "gate.certify",
+                         {"cir": candidate.to_dict(),
+                          "correction": {"of_versions": [original.version]}},
+                         idempotency_key="t:late-version-collision")
+    _drain(db, ["gate.certify"])
+    result = _jobs(db, original.slug, "gate.certify")[0].outputs
+    assert result["refused"] == "version_immutable", result
+    assert _holds(db, original.slug, original.version)
+    assert _certified(db, original.slug, "1.3.0").cir_json["title"] == existing.title
+
+
 def test_physically_evidenced_gauge_is_not_changed_for_unrelated_refusal():
     from brambleloop.gates.certificate import gauge_findings
     db = _db()
@@ -500,6 +539,46 @@ def test_assets_truth_failure_routes_through_the_same_loop():
     out2 = _correct_assets(ctx2, ["ERROR COLOR_NOT_IN_PATTERN: frame 2 shows teal"])
     assert out2["held"] is True, out2
     assert _jobs(db2, bad.slug, "cir.revise") == []
+
+
+def test_concurrent_distinct_revisions_claim_only_one_source_version():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db = _db()
+    one = _off_band("harvest_runner", 30.0)
+    two = _off_band("harvest_runner", 31.0)
+    assert one.fingerprint != two.fingerprint and one.version == two.version
+    queue = JobQueue(db)
+    for i, cir in enumerate((one, two)):
+        queue.enqueue("crochet_engineer", "cir.revise",
+                      {"cir": cir.to_dict(), "stage": "certify",
+                       "codes": ["GAUGE_OUTSIDE_DECLARED_YARN_BAND"]},
+                      idempotency_key=f"t:concurrent-revision:{i}")
+    barrier = Barrier(2, timeout=20)
+    original = EO.RULES
+    rule = EO.repair_gauge_band
+
+    def overlap(cir):
+        result = rule(cir)
+        barrier.wait()
+        return result
+
+    EO.RULES = tuple((name, codes, overlap if name == "GAUGE_FROM_YARN_BAND" else fn)
+                     for name, codes, fn in original)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(Worker(db, f"parallel-{i}", job_types=["cir.revise"]).run_once)
+                       for i in range(2)]
+            assert all(f.result(timeout=45) for f in futures)
+    finally:
+        EO.RULES = original
+    revisions = _jobs(db, one.slug, "cir.revise")
+    assert all(job.status == JobStatus.DONE for job in revisions), [(j.status, j.last_error) for j in revisions]
+    assert sum(bool(job.outputs.get("revised")) for job in revisions) == 1, [j.outputs for j in revisions]
+    assert sum(bool(job.outputs.get("held")) for job in revisions) == 1, [j.outputs for j in revisions]
+    assert len(_audits(db, EO.REVISED_AUDIT, f"{one.slug}@{one.version}")) == 1
+    assert len(_jobs(db, one.slug, "cir.compile")) == 1
 
 
 def test_a_compile_failure_without_a_rule_is_held_not_revised():

@@ -1174,6 +1174,16 @@ def handle_certify(ctx: JobContext) -> dict:
     conflict = _version_conflict(ctx, cir, cert) if cert.granted else None
     if conflict is not None:
         _refuse_version_conflict(ctx, cir, conflict)
+        # A concurrent release may occupy a correcting version after revision
+        # checked it. Keep the original version on a named correction hold.
+        correction = ctx.job.inputs.get("correction") or {}
+        original = correction.get("of_versions") if isinstance(correction, dict) else None
+        if isinstance(original, list) and len(original) == 1 and isinstance(original[0], str):
+            from dataclasses import replace
+            from .engineering_ops import record_hold
+
+            record_hold(ctx, replace(cir, version=original[0]), stage="certify",
+                        codes={"VERSION_IMMUTABLE"}, reason=conflict["why"])
         return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
                 "refused": "version_immutable", "reasons": [conflict["why"]]}
 
