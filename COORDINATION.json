@@ -291,7 +291,11 @@
         "brambleloop/src/brambleloop/radar/ideation.py",
         "brambleloop/src/brambleloop/radar/intake.py",
         "brambleloop/src/brambleloop/runtime/pipeline.py",
-        "brambleloop/tests/test_w5_a4a_research_to_concept.py"
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/src/brambleloop/gates/certificate.py",
+        "brambleloop/src/brambleloop/gates/object_truth.py",
+        "brambleloop/src/brambleloop/products/text_fold.py",
+        "brambleloop/src/brambleloop/publish/eligibility.py"
       ],
       "claimed_at": "2026-11-03"
     }

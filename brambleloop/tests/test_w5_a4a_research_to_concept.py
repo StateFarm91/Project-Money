@@ -242,6 +242,37 @@ def test_the_new_concept_continues_through_compile_to_certification():
     compiles = [j for j in _jobs(db, "cir.compile") if j.inputs["cir"]["slug"] == slug]
     assert compiles and compiles[-1].status == JobStatus.DONE, compiles
     assert (compiles[-1].outputs or {}).get("compiled") is True, compiles[-1].outputs
+    # The actual compiled CIR must make the square object its title promises.
+    from brambleloop.cir.model import CIR
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    cir = CIR.from_dict(compiles[-1].inputs["cir"])
+    twin = build_twin(cir, compile_cir(cir))
+    assert 20 <= twin.width_cm <= 25, twin.width_cm
+    assert 20 <= twin.height_cm <= 25, twin.height_cm
+    assert abs(twin.width_cm - twin.height_cm) <= 2, (twin.width_cm, twin.height_cm)
+    # The old 48x14 placemat geometry must fail at the actual release gate.
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+    from brambleloop.gates.certificate import certify
+    old = concept_to_cir(Concept(slug="dishcloth-old", title="Old Dishcloth",
+        category="placemat", stitch_repeat=[("sc", 3), ("dc", 1)],
+        width_stitches=48, rows=14, colors={"a": "#ffffff"}))
+    refusal = certify(old)
+    assert not refusal.granted
+    assert any(f.code == "DISHCLOTH_DIMENSIONS" for f in refusal.findings), refusal.findings
+    from brambleloop.publish.eligibility import name_truth
+    for title in ("Old Dish\u200bcloth", "Old Dish-cloth", "Old Ｄｉｓｈｃｌｏｔｈ"):
+        old.title = title
+        verdict = certify(old)
+        assert not verdict.granted, title
+        assert any(f.code == "DISHCLOTH_DIMENSIONS" for f in verdict.findings), title
+        assert any("object:" in problem for problem in name_truth(old)), title
+    old.title = "Old Placemat"
+    assert any("object:" in p for p in name_truth(old, {"title": "Dishcloth"}))
+    proposal = _tasks(db)[0].detail["concept_proposals"][0]
+    assert proposal["concept"]["palette_story"] == "forest green and cream"
+    assert proposal["concept"]["motif"] == "alternating stripes"
+    assert cir.colors == {"forest": "#244A3A", "cream": "#FAF6EB"}, cir.colors
     certs = [j for j in _jobs(db, "gate.certify")
              if (j.inputs.get("cir") or {}).get("slug") == slug]
     assert certs, "a compiled research concept was not sent to certification"
@@ -254,6 +285,92 @@ def test_the_new_concept_continues_through_compile_to_certification():
         named = out.get("errors") or out.get("codes") or out.get("reasons")
         assert named, f"certification refused {slug} without naming why: {out}"
     print(f"     certify {slug}: granted={granted} {str(out)[:200]}")
+
+
+def test_future_dated_market_listings_do_not_make_evidence():
+    db = _db()
+    _listings(db, "kitchen_bath", KITCHEN, days_ago=-400)
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["listings"] == 0, observed
+    assert observed["ok"] is False, observed
+
+
+def test_hot_pad_claim_is_not_generated_without_heat_evidence():
+    db = _db()
+    _listings(db, "kitchen_bath", [("a", "Hot Pad", 5),
+                                    ("b", "Potholder", 6),
+                                    ("b", "Hot Pad", 7)])
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["ok"] is False, observed
+    assert observed["object"] is None, observed
+
+
+def test_recovery_refuses_to_attach_a_proposal_to_changed_evidence():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    restore = _judge_intake_concepts()
+    try:
+        _drive(db, datetime.now(timezone.utc))
+        task_id = _tasks(db)[0].id
+        # Simulate interruption after the answer but before proposal attachment.
+        with db.session() as session:
+            task = session.get(research.ResearchTask, task_id)
+            detail = dict(task.detail)
+            detail["concept_proposals"] = []
+            task.detail = detail
+            # Keep the evidence floor satisfied, but change the source census.
+            listing = session.scalar(select(BenchmarkListing).order_by(BenchmarkListing.id))
+            listing.price_cad += 1
+        JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": task_id},
+                             idempotency_key=f"codex:recovery:{task_id}")
+        worker = Worker(db, "a4a-recovery", job_types=["research.investigate"])
+        assert worker.run_once()
+        with db.session() as session:
+            task = session.get(research.ResearchTask, task_id)
+            assert not task.detail.get("concept_proposals"), task.detail
+        outcome = _ideation(db, gid)
+        assert outcome["outcome"] == "insufficient_evidence", outcome
+        assert "census differs" in str(outcome["why"]), outcome
+    finally:
+        restore()
+
+
+def test_object_specific_market_floor_does_not_use_unrelated_listings():
+    db = _db()
+    _listings(db, "kitchen_bath", [("a", "Dishcloth", 5),
+                                    ("b", "Hot Pad", 6),
+                                    ("b", "Trivet", 7)])
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert not observed["ok"], observed
+    assert "object-specific" in str(observed["reasons"]), observed
+
+
+def test_restart_after_proposal_attachment_restores_gap_progress():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    restore = _judge_intake_concepts()
+    try:
+        _drive(db, datetime.now(timezone.utc))
+        task_id = _tasks(db)[0].id
+        expected_slug = _tasks(db)[0].detail["concept_proposals"][0]["slug"]
+        with db.session() as session:
+            gap = session.get(CoverageGap, gid)
+            evidence = dict(gap.evidence)
+            record = dict(evidence["ideation"])
+            record.update(outcome=None, slug=None)
+            evidence["ideation"] = record
+            gap.evidence = evidence
+        JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": task_id},
+                             idempotency_key=f"codex:reattach:{task_id}")
+        assert Worker(db, "a4a-reattach", job_types=["research.investigate"]).run_once()
+        record = _ideation(db, gid)
+        assert record["outcome"] == "proposed", record
+        assert record["slug"] == expected_slug, record
+        assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+    finally:
+        restore()
 
 
 def test_rerunning_and_redelivering_creates_no_duplicates():

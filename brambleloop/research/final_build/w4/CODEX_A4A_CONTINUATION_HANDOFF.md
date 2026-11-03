@@ -1,0 +1,11 @@
+# Codex A4a continuation — review requested
+
+Source: `opus2/a4a-research-to-concept` at `3dc3e68c490c74d947dd235fd2e39d0f32e7bd5c`. This is a stacked continuation for review, not an integration or deployment.
+
+The A4A independent review found a supposedly square dishcloth whose computed dimensions were about 38 by 11 cm. This continuation gives the dishcloth its own draft geometry and adds an object-size check to certification and the live publication eligibility path. The shared text normalizer is taken byte-for-byte from A1/A2. The generated proposal's palette and stripes now agree with the actual draft. Hot pads are held: the existing acrylic construction has no heat-protection evidence. The computed size is not a physical test.
+
+Evidence now excludes future-dated rows, requires the selected object to appear in at least three listings from at least two named shops, and binds crash-recovered proposals to the recorded census digest. A proposal already attached when a worker is interrupted is reconciled to its gap and intake job. Conservative title matching considers compatibility Unicode, punctuation and simple plurals.
+
+Remaining: A4A-3 still prevents a stopped/stalled or previously exhausted gap from opening a new research task when later evidence appears. The crash-after-proposal recovery does not reconstruct a missing `ideation.proposed` audit record. Exact causal auditing and concurrent recovery need independent review. A4a must be tested on a combined tree with A1/A2 and A6; `publish/eligibility.py` and `runtime/pipeline.py` have parallel Codex changes that must both be retained. Existing A4a does not satisfy the entire A4 contract; A4b still needs an authenticated research enrichment producer. No Main integration target was created or altered.
+
+Tests: Python 3.11 locked environment, actual registered workers and file-backed SQLite: `test_w5_a4a_research_to_concept.py` passed 14/14, including certification, a refused legacy strip, obfuscated object names, listing-only claims, changed-evidence recovery, object-specific evidence, future dates and restart reconciliation. `test_w5_concept_intake`, `test_gates`, and retention guard run separately as regression checks; see PR for final exit status. No paid provider, production service, purchase, publication or deployment was used.
