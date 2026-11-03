@@ -858,6 +858,35 @@ def test_revoked_supplement_invalidates_certificate_even_if_reissue_fails():
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
 
 
+def test_revocation_during_certificate_issue_cannot_create_stale_valid_set():
+    from unittest.mock import patch
+    from brambleloop.core.models import PhysicalPhoto, ListingSetCertificateRecord
+    from brambleloop.publish import listing_set
+    from brambleloop.runtime import etsy_ops
+    db, cir, release, _ = _setup()
+    first = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    test_id = T._passed_full_make(db, cir)
+    _second_attested_photo(db, cir, test_id)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as session:
+        for record in session.scalars(select(ListingSetCertificateRecord)):
+            record.state = "invalidated"
+    original = listing_set.certify
+    def revoke(*args, **kwargs):
+        with db.session() as session:
+            frame = session.get(ListingAsset, first)
+            photo = session.get(PhysicalPhoto, frame.claims["physical_photo_id"])
+            photo.detail = {**photo.detail, "owner_attestation": {}}
+        with patch.object(release_gates, "listing_set", return_value={}):
+            par.sweep(db)
+        return original(*args, **kwargs)
+    with patch.object(listing_set, "certify", side_effect=revoke):
+        _, verdict = _certify_without_touching_approval(db, cir, release)
+    assert not verdict["valid"] and not verdict["issued"], verdict
+    assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

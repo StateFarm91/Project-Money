@@ -299,7 +299,10 @@
       "files": [
         "brambleloop/src/brambleloop/publish/photo_asset_review.py",
         "brambleloop/src/brambleloop/publish/physical_upgrade.py",
-        "brambleloop/tests/test_opus2_photo_asset_review.py"
+        "brambleloop/tests/test_opus2_photo_asset_review.py",
+        "brambleloop/src/brambleloop/publish/release_gates.py",
+        "brambleloop/src/brambleloop/runtime/etsy_ops.py",
+        "brambleloop/tests/test_codex_a3_disclosed_race.py"
       ],
       "claimed_at": "2026-11-03"
     }

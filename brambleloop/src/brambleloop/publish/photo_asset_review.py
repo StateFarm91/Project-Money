@@ -155,6 +155,60 @@ def _invalidate_photo_certificates(session, slug: str, version: str, reason: str
                                  "certificate_id": record.id, "reason": reason}))
 
 
+def photo_snapshot_current(session, db, slug: str, version: str, frames) -> bool:
+    """Under the photo lock, compare proposed photos to current evidence and frames."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    current = list(session.scalars(select(ListingAsset).where(
+        ListingAsset.product_slug == slug, ListingAsset.version == version,
+        ListingAsset.asset_class == PHOTO_CLASS).with_for_update()))
+    current = [f for f in current if not any(str(r).startswith(NOT_QUALIFYING)
+                                             for r in (f.blocked_reasons or []))]
+    proposed = [f for f in frames if f.asset_class == PHOTO_CLASS]
+    def identity(frame):
+        return (frame.id, frame.position, frame.sha256, frame.approved,
+                dict(frame.claims or {}), list(frame.blocked_reasons or []))
+    if sorted((identity(f) for f in current), key=lambda x: x[0]) != sorted(
+            (identity(f) for f in proposed), key=lambda x: x[0]):
+        return False
+    for frame in current:
+        if not frame.approved or frame.blocked_reasons:
+            return False
+        try:
+            checks, _ = _checks(db, frame.id)
+        except Exception:  # noqa: BLE001 - unreadable evidence cannot certify
+            return False
+        if any(checks.get(c) is not True for c in CHECKS):
+            return False
+    return True
+
+
+def photo_certificate_current(session, db, slug: str, version: str, certified_frames) -> bool:
+    """Under the photo lock, bind a proposed certificate to current qualifying photos."""
+    from sqlalchemy import select
+    from ..core.models import ListingAsset
+
+    current = list(session.scalars(select(ListingAsset).where(
+        ListingAsset.product_slug == slug, ListingAsset.version == version,
+        ListingAsset.asset_class == PHOTO_CLASS).with_for_update()))
+    current = [f for f in current if not any(str(r).startswith(NOT_QUALIFYING)
+                                             for r in (f.blocked_reasons or []))]
+    expected = sorted((f.position, f.sha256) for f in certified_frames if f.medium == PHOTO_CLASS)
+    if sorted((f.position, f.sha256) for f in current) != expected:
+        return False
+    for frame in current:
+        if not frame.approved or frame.blocked_reasons:
+            return False
+        try:
+            checks, _ = _checks(db, frame.id)
+        except Exception:  # noqa: BLE001 - unreadable evidence cannot certify
+            return False
+        if any(checks.get(c) is not True for c in CHECKS):
+            return False
+    return True
+
+
 def _reviewable(reasons) -> bool:
     return AWAITING in reasons or any(str(r).startswith(NOT_QUALIFYING) for r in reasons)
 
