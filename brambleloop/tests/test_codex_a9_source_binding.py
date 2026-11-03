@@ -94,6 +94,43 @@ def test_storage_failure_closes_review_and_durable_artifact_is_retained():
     assert lp.latest(db, item["slug"], item["version"])["state"] == lp.BLOCKED
 
 
+def test_owner_request_match_escapes_slug_wildcards():
+    db = t._db("slug-wildcard")
+    release = "a" * 64
+    for slug in ("sock_a", "sockXa"):
+        with db.session() as session:
+            product = Product(slug=slug, title=slug)
+            session.add(product)
+            session.flush()
+            session.add(PatternVersion(product_id=product.id, version="1.0.0", cir_json={},
+                                       certified=True, release_hash=release))
+            session.add(Listing(product_slug=slug, version="1.0.0", title=slug,
+                                description="fixture", tags=[], release_hash=release))
+        copy = {"title": slug, "description": "fixture", "tags": []}
+        digest = lp.listing_copy_digest(copy)
+        item = {"slug": slug, "version": "1.0.0", "fingerprint": digest,
+                "state": lp.READY, "release_hash": release, "identity": {}, "copy": copy,
+                "listing_snapshot_sha256": digest,
+                "source_snapshot_sha256": lp._release(db, slug, "1.0.0")["source_snapshot_sha256"],
+                "blockers": []}
+        assert lp.record(db, item)["review_requested"]
+    with db.session() as session:
+        listing = session.scalar(select(Listing).where(Listing.product_slug == "sock_a"))
+        listing.title = "Updated A"
+    copy = {"title": "Updated A", "description": "fixture", "tags": []}
+    digest = lp.listing_copy_digest(copy)
+    updated = {"slug": "sock_a", "version": "1.0.0", "fingerprint": digest,
+               "state": lp.READY, "release_hash": release, "identity": {}, "copy": copy,
+               "listing_snapshot_sha256": digest,
+               "source_snapshot_sha256": lp._release(db, "sock_a", "1.0.0")["source_snapshot_sha256"],
+               "blockers": []}
+    assert lp.record(db, updated)["review_requested"]
+    requests = active(db)
+    assert len(requests) == 2, requests
+    assert any("sockXa@1.0.0" in key for key in requests), requests
+    assert any("sock_a@1.0.0" in key and key.endswith(digest[:16]) for key in requests), requests
+
+
 def test_worker_rechecks_source_changed_after_assembly():
     db = fixture()
     old = package(db)
@@ -125,4 +162,5 @@ if __name__ == "__main__":
     test_revoked_certification_never_raises_a_review()
     test_storage_failure_closes_review_and_durable_artifact_is_retained()
     test_worker_rechecks_source_changed_after_assembly()
-    print("5/5 passed")
+    test_owner_request_match_escapes_slug_wildcards()
+    print("6/6 passed")

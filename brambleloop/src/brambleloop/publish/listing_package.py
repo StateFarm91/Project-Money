@@ -409,8 +409,10 @@ def record(db, package: dict, *, now: datetime | None = None,
         # Review OPUS2EF2 EF2-5: the unfingerprinted key from the first version of this job
         # (exactly `action_key`) is matched too, so a request left under it is superseded
         # rather than orphaned beside the fingerprinted one.
+        escaped_action_key = (action_key.replace("\\", "\\\\")
+                              .replace("%", "\\%").replace("_", "\\_"))
         rows = list(s.scalars(select(OwnerAction).where(or_(
-            OwnerAction.requirement_key.like(f"{action_key}:%"),
+            OwnerAction.requirement_key.like(escaped_action_key + ":%", escape="\\"),
             OwnerAction.requirement_key == action_key))))
         raised = closed = False
         for stale in rows:
