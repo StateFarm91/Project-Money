@@ -114,12 +114,12 @@ POD_OBJECTS: dict[str, tuple[PodObject, ...]] = {
 # The house descriptor vocabulary: Brambleloop's own words, never read from a competitor.
 # (descriptor, motif, palette story, feeling)
 HOUSE_DESCRIPTORS: tuple[tuple[str, str, str, str], ...] = (
-    ("Evergreen Creek", "alternating stripes", "forest green and cream", "serene"),
-    ("Woodland Cove", "alternating stripes", "forest green and cream", "rugged"),
-    ("Pine Harbor", "alternating stripes", "forest green and cream", "serene"),
-    ("Forest Path", "alternating stripes", "forest green and cream", "rugged"),
-    ("Grove Valley", "alternating stripes", "forest green and cream", "quietly_luxurious"),
-    ("Canopy Brook", "alternating stripes", "forest green and cream", "cosy"),
+    ("Nordic Minimalist", "alternating stripes", "forest green and cream", "serene"),
+    ("Cottage Modern", "alternating stripes", "forest green and cream", "rugged"),
+    ("Plain Everyday", "alternating stripes", "forest green and cream", "serene"),
+    ("Heirloom Scandi", "alternating stripes", "forest green and cream", "rugged"),
+    ("Boho Rustic", "alternating stripes", "forest green and cream", "quietly_luxurious"),
+    ("Farmhouse Classic", "alternating stripes", "forest green and cream", "cosy"),
 )
 
 

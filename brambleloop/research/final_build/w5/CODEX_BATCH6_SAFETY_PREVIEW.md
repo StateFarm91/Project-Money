@@ -13,6 +13,14 @@ running both the A2 stripe proof and the A4a dishcloth and heat checks. Source
 branches remain unchanged. Review both merge commits and the actual behavior,
 not just this description.
 
+The combined A1/A2/A4a regression revealed that A4a's nature-themed house
+descriptors were refused by A2's construction-intent allowlist, stopping the
+research-to-draft handoff. This preview uses neutral descriptors already
+accepted by that existing contract; it does not relax the allowlist or bypass
+originality checks. The descriptor vocabulary remains finite and can still be
+exhausted or held by competing titles. Re-review the naming change and run the
+combined suite on the final commit.
+
 The owner's intended Batch 6 integration branch `claude/w6-INTEG1` was absent
 from GitHub when checked. This preview is **not** that branch, an integration
 verdict, a deployment candidate, or evidence of physical testing. Main retains
