@@ -62,7 +62,7 @@ def test_each_diagnosis_routes_to_its_owner():
     assert K.route(strong_ctr_weak_conv)["verdict"] == "strong_ctr_weak_conversion"
 
     closes_nobody_comes = Observed(impressions=n * 20, visits=n, orders=int(n * 0.05))
-    out = K.route(closes_nobody_comes, needed_visits=n * 10)
+    out = K.route(closes_nobody_comes, needed_visits=n * 10, support_cases=0, refunds=0)
     assert out["verdict"] == "strong_conversion_low_traffic" and out["owner"] == "growth"
 
     both_weak = Observed(impressions=n * 1000, visits=n, orders=0)
@@ -107,3 +107,18 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"{sum(1 for n in globals() if n.startswith('test_')) - fails} passing, {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_scaling_recommendations_require_both_defect_rates():
+    observed = Observed(impressions=100000, visits=5000, orders=100)
+    for support, refunds in ((None, None), (None, 0), (0, None), (-1, 0), (0, -1), (True, 0)):
+        result = K.route(observed, support_cases=support, refunds=refunds)
+        healthy = next(row for row in result["rows"] if row["key"] == "healthy")
+        assert healthy["status"] == K.UNMEASURED
+        assert result["verdict"] == "wait"
+        assert K.route(observed, support_cases=support, refunds=refunds,
+                       needed_visits=10000)["verdict"] != "strong_conversion_low_traffic"
+    assert K.route(observed, support_cases=0, refunds=0)["verdict"] == "healthy"
+    # A known high defect rate still routes to QA, even if the other is missing.
+    assert K.route(observed, support_cases=20, refunds=None)["verdict"] == "high_sales_high_support"
+    assert K.route(observed, support_cases=None, refunds=10)["verdict"] == "high_sales_high_support"
