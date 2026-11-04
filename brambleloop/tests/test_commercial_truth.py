@@ -217,3 +217,36 @@ if __name__ == "__main__":
                 fails += 1
                 print("FAIL", name, repr(e))
     sys.exit(1 if fails else 0)
+
+
+def test_bundle_winner_requires_complete_consistent_finite_period_evidence():
+    before = [A.Period("throw", 20, 200, 100)]
+    after = [A.Period("throw", 20, 200, 100)]
+    bundle = A.Period("bundle", 20, 200, 100)
+    bad_cases = [
+        (bundle, before, []),
+        (bundle, before * 2, after),
+        (bundle, before, after * 2),
+        (A.Period("wrong", 20, 200, 100), before, after),
+        (A.Period("bundle", 20, 200, float("nan")), before, after),
+        (A.Period("bundle", 20, 200, 10 ** 1000), before, after),
+        (bundle, [A.Period("throw", -1, 200, 100)], after),
+        (bundle, [A.Period("throw", 2, 200, 100)], after),
+    ]
+    for candidate, left, right in bad_cases:
+        result = A.bundle_effect("bundle", bundle=candidate, components_before=left,
+                                 components_after=right)
+        assert not result.measurable
+        assert not A.amplification_check(result)["may_declare_winner"]
+    for delta in (None, float("nan"), float("inf")):
+        result = A.BundleResult(bundle="bundle", measurable=True, contribution_delta_cad=delta)
+        assert not A.amplification_check(result)["may_declare_winner"]
+
+
+def test_bundle_measure_holds_missing_after_window():
+    from brambleloop.commerce import bundles
+
+    result = bundles.measure(bundle_slug="bundle", bundle=A.Period("bundle", 20, 200, 100),
+                             components_before=[A.Period("throw", 20, 200, 100)],
+                             components_after=[])["result"]
+    assert result["verdict"] == "unmeasured" and not result["measurable"]
