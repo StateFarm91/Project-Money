@@ -66,6 +66,21 @@ def key_for(case_id: int) -> str:
 # How long an identical message with no stated receipt time is treated as the same message.
 # With `received_at` stated the key is exact and there is no window.
 DUPLICATE_WINDOW_HOURS = 24.0
+# Separate from the budget and owner-queue advisory locks. This serializes only
+# the supported owner-recorded intake path, not arbitrary direct database writes.
+INTAKE_LOCK_KEY = 0x535550494E54
+
+
+def _lock_intake(session) -> None:
+    from sqlalchemy import text
+
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": INTAKE_LOCK_KEY})
+    elif dialect == "sqlite":
+        session.execute(text("BEGIN IMMEDIATE"))
+    else:
+        raise MessageRefused(f"support intake has no serialization for {dialect}")
 
 
 def intake_key(customer_ref: str, message: str, received_at: datetime | None) -> str:
@@ -77,7 +92,7 @@ def intake_key(customer_ref: str, message: str, received_at: datetime | None) ->
     return hashlib.sha256(f"{customer_ref}\x1f{when}\x1f{content}".encode("utf-8")).hexdigest()
 
 
-def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now: datetime,
+def _existing_case(session, customer_ref: str, key: str, *, explicit_time: bool, now: datetime,
                    product_slug: str | None, version: str | None):
     """The case this exact message was already recorded as, if any.
 
@@ -89,27 +104,25 @@ def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now:
 
     from ..core.models import SupportCase
 
-    with db.session() as s:
-        for case in s.scalars(select(SupportCase).where(SupportCase.customer_ref == customer_ref)
-                              .order_by(SupportCase.id.desc())):
-            detail = case.detail or {}
-            # The same buyer can ask identical questions about different
-            # products or versions. Existing keys are retained for backwards
-            # compatibility, but only an exact scope match is a duplicate.
-            if (detail.get("intake_key") != key
-                    or (case.product_slug or None) != (product_slug or None)
-                    or (case.version or None) != (version or None)):
+    cases = list(session.scalars(select(SupportCase).where(
+        SupportCase.customer_ref == customer_ref).order_by(
+            SupportCase.id).with_for_update()))
+    for case in reversed(cases):
+        detail = case.detail or {}
+        # Existing keys are retained, but only an exact scope match is a duplicate.
+        if (detail.get("intake_key") != key
+                or (case.product_slug or None) != (product_slug or None)
+                or (case.version or None) != (version or None)):
+            continue
+        if not explicit_time:
+            try:
+                recorded = _aware(datetime.fromisoformat(str(detail.get("recorded_at"))))
+            except ValueError:
                 continue
-            if not explicit_time:
-                try:
-                    recorded = _aware(datetime.fromisoformat(str(detail.get("recorded_at"))))
-                except ValueError:
-                    continue
-                if (_answered(case, now=now) or (now - recorded).total_seconds() / 3600.0
-                        > DUPLICATE_WINDOW_HOURS):
-                    continue
-            s.expunge(case)
-            return case
+            if (_answered(case, now=now) or (now - recorded).total_seconds() / 3600.0
+                    > DUPLICATE_WINDOW_HOURS):
+                continue
+        return case
     return None
 
 
@@ -121,9 +134,6 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
     The case's clock starts at `received_at` -- when the buyer wrote, as the owner read it
     -- not when it was typed in here, so a message recorded a day late is already a day old.
     """
-    from sqlalchemy import select
-
-    from ..core.models import SupportCase
     from .department import CustomerExperience
 
     now = now or datetime.now(timezone.utc)
@@ -138,25 +148,23 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
     if version is not None and (not isinstance(version, str) or len(version) > 20):
         raise MessageRefused("version must be a string of at most 20 characters")
     key = intake_key(ref, str(message), at if received_at not in (None, "") else None)
-    existing = _existing_case(db, ref, key, explicit_time=received_at not in (None, ""),
-                              now=now, product_slug=product_slug, version=version)
-    if existing is not None:
-        # A3-13: the same message recorded twice (a retry, a double tap) is one case and one
-        # first-response card, not two. The caller is told it was a duplicate.
-        return {"case_id": existing.id, "duplicate": True,
-                "received_at": _aware(existing.at).isoformat() if existing.at else None,
-                "hours_waiting": (round((now - _aware(existing.at)).total_seconds() / 3600.0, 2)
-                                  if existing.at else None)}
-    case_id = CustomerExperience(db).intake(customer_ref=ref,
-                                            message=str(message), product_slug=product_slug,
-                                            version=version, source=OWNER_SOURCE)
     with db.session() as s:
-        case = s.scalar(select(SupportCase).where(
-            SupportCase.id == case_id).with_for_update())
+        _lock_intake(s)
+        existing = _existing_case(s, ref, key, explicit_time=received_at not in (None, ""),
+                                  now=now, product_slug=product_slug, version=version)
+        if existing is not None:
+            return {"case_id": existing.id, "duplicate": True,
+                    "received_at": _aware(existing.at).isoformat() if existing.at else None,
+                    "hours_waiting": (round((now - _aware(existing.at)).total_seconds() / 3600.0, 2)
+                                      if existing.at else None)}
+        case = CustomerExperience(db)._intake_in_session(
+            s, customer_ref=ref, message=str(message), product_slug=product_slug,
+            version=version, source=OWNER_SOURCE)
         case.at = at
         case.detail = {**dict(case.detail or {}), "channel": channel,
                        "received_at": at.isoformat(), "recorded_at": now.isoformat(),
                        "intake_key": key}
+        case_id = case.id
     return {"case_id": case_id, "duplicate": False, "received_at": at.isoformat(),
             "hours_waiting": round((now - at).total_seconds() / 3600.0, 2)}
 

@@ -71,6 +71,20 @@ truncated. Existing intake hashes remain unchanged. Actual authenticated API
 tests cover same-scope retries, distinct products/versions, explicit receipt
 times and rejected overlong references. Python 3.11 focused SQLite tests pass
 49/49. A missing scope and a known scope deliberately form separate cases.
-Concurrent identical intake can still race because lookup and insert are not
-atomic; scope metadata is not newly authenticated. No customer messages sent.
+At this stage lookup and insert were not atomic; scope metadata was not newly
+authenticated. No customer messages sent.
 The `app/main.py` route overlaps other work and needs integration review.
+
+Intake transaction follow-up: the supported owner-recorded path now serializes
+duplicate lookup, standard case creation, and receipt metadata in one
+transaction. It uses SQLite `BEGIN IMMEDIATE` or a PostgreSQL transaction
+advisory lock and holds existing buyer-case row locks in id order. The actual
+operator HTTP handler passed concurrent identical requests and returned one case
+on file-backed SQLite, both with and without explicit receipt time; reopening
+the database and retrying reused the same case. A simulated interruption after
+the insert rolls the case back. Python 3.11 focused SQLite tests pass 51/51.
+Independent review exercised the concurrency and rollback tests. No PostgreSQL
+test was run for this change under the workspace storage constraint; the lock
+covers only this intake path, not direct writes or other intake APIs. Lock wait,
+large customer histories, sent/scope authority, and other support races remain
+open. No customer messages were sent.

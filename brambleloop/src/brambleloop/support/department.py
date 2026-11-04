@@ -343,16 +343,23 @@ class CustomerExperience:
         one door an inbound message comes through when one exists, and it drafts nothing:
         drafting is `support.reply`'s job, enqueued by triage.
         """
+        with self.db.session() as s:
+            return self._intake_in_session(s, customer_ref=customer_ref, message=message,
+                                           product_slug=product_slug, version=version,
+                                           source=source).id
+
+    def _intake_in_session(self, session, *, customer_ref: str, message: str,
+                           product_slug: str | None, version: str | None, source: str):
+        """Create the usual inbound case within a caller-owned transaction."""
         from ..core.models import SupportCase
 
-        with self.db.session() as s:
-            case = SupportCase(customer_ref=customer_ref, product_slug=product_slug,
-                               version=version, question=message, answer="",
-                               specialist=triage(message), escalated=False, resolved=False,
-                               sent=False, detail={"awaiting_reply": True, "source": source})
-            s.add(case)
-            s.flush()
-            return case.id
+        case = SupportCase(customer_ref=customer_ref, product_slug=product_slug,
+                           version=version, question=message, answer="",
+                           specialist=triage(message), escalated=False, resolved=False,
+                           sent=False, detail={"awaiting_reply": True, "source": source})
+        session.add(case)
+        session.flush()
+        return case
 
     def triage_cases(self, queue=None, *, now: datetime | None = None) -> dict:
         """Triage every stored case not yet triaged, and enqueue a draft for each that needs one.

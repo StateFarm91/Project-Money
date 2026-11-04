@@ -190,3 +190,69 @@ def test_operator_intake_deduplicates_only_same_product_and_version(tmp_path, mo
         cases = list(session.scalars(select(SupportCase)))
         assert len(cases) == 6
         assert session.get(SupportCase, other_version["case_id"]).version == "2.0.0"
+
+
+def test_concurrent_operator_intake_is_atomic_and_idempotent(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from fastapi.testclient import TestClient
+    from brambleloop.core import opsauth
+
+    monkeypatch.setenv(opsauth.TOKEN_VAR, "test-operator-token-for-fixtures-only")
+    monkeypatch.setenv("BRAMBLELOOP_DATABASE_URL", f"sqlite:///{tmp_path / 'support.db'}")
+    from brambleloop.app import main
+
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    monkeypatch.setattr(main, "db", db)
+    headers = {"Authorization": "Bearer test-operator-token-for-fixtures-only"}
+    for explicit in (False, True):
+        body = {"event": "buyer_message", "customer_ref": f"fixture-{explicit}",
+                "message": "Where is my PDF?", "product_slug": "fixture-a", "version": "1.0.0"}
+        if explicit:
+            body["received_at"] = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        barrier = Barrier(2)
+
+        def submit():
+            client = TestClient(main.app)  # no lifespan startup or external work
+            barrier.wait(timeout=10)
+            response = client.post("/api/support/messages", headers=headers, json=body)
+            assert response.status_code == 200, response.text
+            return response.json()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(submit) for _ in range(2)]
+            results = [future.result(timeout=20) for future in futures]
+        assert results[0]["case_id"] == results[1]["case_id"]
+        assert sorted(result["duplicate"] for result in results) == [False, True]
+    reopened = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    with reopened.session() as session:
+        cases = list(session.scalars(select(SupportCase)))
+        assert len(cases) == 2
+        assert all(case.detail.get("intake_key") and case.detail.get("recorded_at") for case in cases)
+    replay = response_watch.record_buyer_message(reopened, customer_ref="fixture-False",
+        message="Where is my PDF?", product_slug="fixture-a", version="1.0.0")
+    assert replay["duplicate"]
+
+
+def test_intake_failure_after_insert_rolls_back_case_and_allows_retry(tmp_path, monkeypatch):
+    import pytest
+
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    original = CustomerExperience._intake_in_session
+
+    def interrupted(self, session, **kwargs):
+        original(self, session, **kwargs)
+        raise RuntimeError("fixture interruption after insert")
+
+    monkeypatch.setattr(CustomerExperience, "_intake_in_session", interrupted)
+    with pytest.raises(RuntimeError, match="fixture interruption"):
+        response_watch.record_buyer_message(db, customer_ref="fixture-buyer",
+                                            message="Where is my PDF?")
+    with db.session() as session:
+        assert not list(session.scalars(select(SupportCase)))
+    monkeypatch.setattr(CustomerExperience, "_intake_in_session", original)
+    out = response_watch.record_buyer_message(db, customer_ref="fixture-buyer",
+                                               message="Where is my PDF?")
+    assert not out["duplicate"]
