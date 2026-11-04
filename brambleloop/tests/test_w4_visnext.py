@@ -417,11 +417,13 @@ def _queue(db):
 
     q = JobQueue(db)
 
-    def follow(inputs, key):
+    def follow(inputs, key, *, session=None):
         try:
             return q.enqueue("publishing", "visual.image_production", inputs,
-                             idempotency_key=key)
+                             idempotency_key=key, session=session)
         except DuplicateJob:
+            if session is not None:
+                raise
             return None
     return q, follow
 
@@ -531,6 +533,50 @@ def test_restart_refuses_spent_failures_budget_stops_and_running_runs():
     except ValueError:
         pass
     assert ImageCandidate  # imported for the schema
+
+
+def test_restart_rolls_back_run_and_job_when_enqueue_interrupted():
+    from sqlalchemy import select
+    import pytest
+    from brambleloop.core.models import Job
+    from brambleloop.queue.durable import DuplicateJob, JobQueue
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    key = _start(db, TF.FlatLayGenerator(CLOUD), CG.RealJudges(db, references=REFS))
+    before = IP.get_run(db, key)
+    assert before["state"] == "blocked" and IP.restartable(db, key)["restartable"]
+    q = JobQueue(db)
+    seen = []
+
+    def interrupted(inputs, job_key, *, session):
+        seen.append(job_key)
+        q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=job_key, session=session)
+        raise RuntimeError("simulated interruption after job insert")
+
+    with pytest.raises(RuntimeError, match="simulated interruption"):
+        IP.restart(db, key, follow=interrupted, by="owner:test")
+    after = IP.get_run(db, key)
+    assert after["state"] == before["state"] and after["restarts"] == before["restarts"]
+    assert after["blocked_reason"] == before["blocked_reason"]
+    with db.session() as session:
+        assert session.scalar(select(Job).where(Job.idempotency_key == seen[0])) is None
+    q.enqueue(IP.AGENT, IP.JOB_TYPE, {"stage": "foreign"}, idempotency_key=seen[0])
+    def duplicate(inputs, job_key, *, session):
+        return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=job_key, session=session)
+    with pytest.raises(DuplicateJob):
+        IP.restart(db, key, follow=duplicate, by="owner:test")
+    after_duplicate = IP.get_run(db, key)
+    assert after_duplicate["state"] == "blocked" and after_duplicate["restarts"] == before["restarts"]
+    with db.session() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == seen[0]))
+        assert job.inputs == {"stage": "foreign"}
+        session.delete(job)  # isolated test database only
+    _, follow = _queue(db)
+    assert IP.restart(db, key, follow=follow, by="owner:test")["enqueued"]
+    with db.session() as session:
+        assert session.scalar(select(Job).where(Job.idempotency_key == seen[0])) is not None
 
 
 # ---- 4. approved frames into ListingAsset, re-certified --------------------------------------

@@ -183,10 +183,12 @@ def test_unknown_anchor_goes_to_owner_review_and_never_becomes_pass():
     assert any("needs your review" in n["title"] for n in notes)
     q = JobQueue(db)
 
-    def follow(inputs, k):
+    def follow(inputs, k, *, session=None):
         try:
-            return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=k)
+            return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=k, session=session)
         except DuplicateJob:
+            if session is not None:
+                raise
             return None
 
     out = IP.resolve_identity_anchor_review(db, key, decision="confirmed_same_person",
@@ -207,7 +209,8 @@ def test_unknown_anchor_goes_to_owner_review_and_never_becomes_pass():
     q2 = JobQueue(db2)
     out2 = IP.resolve_identity_anchor_review(
         db2, key2, decision="not_laura", by="owner:test",
-        follow=lambda i, k: q2.enqueue(IP.AGENT, IP.JOB_TYPE, i, idempotency_key=k))
+        follow=lambda i, k, session=None: q2.enqueue(IP.AGENT, IP.JOB_TYPE, i,
+                                                    idempotency_key=k, session=session))
     O.drain(db2, generator=gen2, judges=judges)
     assert IP.get_run(db2, key2)["attempts_exhausted"] and out2["resolved"]
 

@@ -1300,8 +1300,12 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
     The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
     with the first pass; jobs from an older epoch are skipped. Attempts, generation calls and
     spend carry over (the per-role cap and the gallery spend plan still bind), and stored
-    candidates are re-verified rather than regenerated where they exist."""
+    candidates are re-verified rather than regenerated where they exist. `follow` must enqueue
+    the job using the supplied SQLAlchemy `session` and propagate failures so the restart
+    state and job commit or roll back together."""
+    from sqlalchemy import select
     from sqlalchemy.orm.attributes import flag_modified
+    from .image_records import ImageProductionRun
 
     if not str(by or "").strip():
         raise ValueError("a restart names who asked for it")
@@ -1311,7 +1315,16 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
     run = get_run(db, key)
     epoch = can["epoch"]
     with db.session() as s:
-        r = _run(s, key)
+        r = s.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        # The preflight performs multiple reads. Refuse a concurrently changed run;
+        # do not spend a new epoch on a stale preflight decision.
+        current_epoch = int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0) if r else -1
+        if (r is None or r.status != "blocked" or current_epoch != epoch - 1
+                or r.stage != run["stage"] or r.stage != can["blocked_at"]
+                or (r.blocked_reason or "") != (run["blocked_reason"] or "")
+                or (r.blocked_reason or "") != can["blocked_reason"]):
+            return {"restarted": False, "why": "run changed during restart; retry preflight"}
         st = dict(r.stages or {})
         rec = dict(st.get(RESTART_KEY) or {})
         rec["epoch"] = epoch
@@ -1328,12 +1341,14 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
                                                             False)
         r.stage = can["resume_at"]
         r.updated_at = _now()
-    inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
-              "stage": can["resume_at"], "round": 0, "epoch": epoch}
-    if can["reverify"]:
-        inputs["reverify"] = True
-    job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
-                                   can["resume_at"], 0, epoch))
+        inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
+                  "stage": can["resume_at"], "round": 0, "epoch": epoch}
+        if can["reverify"]:
+            inputs["reverify"] = True
+        job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
+                                       can["resume_at"], 0, epoch), session=s)
+        if job is None:
+            raise RuntimeError("restart job was not durably enqueued")
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
             "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
 

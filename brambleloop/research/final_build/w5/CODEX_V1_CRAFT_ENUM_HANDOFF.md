@@ -77,6 +77,18 @@ offline fidelity suite had 21 passes and this one failure before the fixture
 correction; the corrected case passed separately. No production authority or
 physical fidelity is established by these synthetic images.
 
+Visual restart previously committed the new epoch before enqueueing its job;
+an interruption could strand the run. The restart transition and its queue
+insert now share the caller's database transaction, with a locked run and a
+stale run-state check. The two Command Center image callbacks pass that
+transaction to the existing durable queue. Persistent SQLite tests cover an
+interruption after insertion, a conflicting idempotency key, successful retry,
+normal restart and identity-review restart. Three focused tests passed; an
+independent reviewer reran the interruption/duplicate test. This does not
+fence concurrent evidence writers, make identity review and restart one
+transaction, or establish PostgreSQL concurrency behavior. Integration remains
+blocked pending those checks and the previously recorded authority gaps.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
