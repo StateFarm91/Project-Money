@@ -1642,10 +1642,22 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     for m in re.finditer(r"\b(?:for|age|ages|aged)\s*:?\s*(\d{1,3})\s*m\s*\+", text):
         if int(m.group(1)) < 216:
             numeric = True
+    # Common compact size/age notation and French Canadian age labels are
+    # explicit audience signals, including when they appear only in a tag.
+    for m in re.finditer(r"(?<![\d.,])(\d{1,3}(?:[.,]\d+)?)\s*(m|y|yr|yrs)\s*\+", text):
+        if float(m.group(1).replace(",", ".")) < (216 if m.group(2) == "m" else 18):
+            numeric = True
+    for m in re.finditer(r"(?<![\d.,])(\d{1,3}(?:[.,]\d+)?)\s*(mois|ans?)\b", text):
+        if float(m.group(1).replace(",", ".")) < (216 if m.group(2) == "mois" else 18):
+            numeric = True
+    if re.search(r"\b[2-5]\s*t\b", text):
+        numeric = True
     if numeric:
         found.append("age_under_18")
     if re.search(r"\byoung\s+ones\b", text):
         found.append("young ones")
+    if re.search(r"\btout[\s-]+petits?\b", text):
+        found.append("tout-petit")
     return tuple(found)
 
 
@@ -1688,6 +1700,9 @@ CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
     "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
     "boy", "boys", "girl", "girls", "teen", "teens", "teenager", "teenagers",
+    # French-language child audience words are folded to their unaccented form.
+    "bebe", "bebes", "enfant", "enfants", "nourrisson", "nourrissons",
+    "bambin", "bambins", "poupon", "poupons", "garcon", "garcons", "fille", "filles",
 )
 
 

@@ -1,0 +1,7 @@
+# A1 child-audience shorthand continuation
+
+Based on `codex/a1-stuffing-continuation` at `ec9dc9a8c098bbb3e00b85c1206bafd06eb02871`. Explicit French audience terms (`bébé`, `enfants`, `tout-petits` and related forms), compact plus age notations (`6m+`, `3y+`), French numeric ages (`6 mois`, `4 ans`), and toddler sizes (`2T`–`5T`) are now detected by the existing shared child-audience reader. These are holds pending the existing exact-design assignment, not new approvals. Adult controls, including decimal ages above the child threshold, remain clear in the focused check. Some unrelated use of abbreviations may conservatively be held.
+
+Python 3.11 file-backed SQLite: full `test_codex_a1_listing_child.py` passed 3/3 on final code after the fractional age parsing improvement. The earlier A1 core/assignment/children regression passed 59/59 before that final parsing edit. This suite uses actual PDF refusal, listing worker and publication activation gate. Independent review confirmed these additions do not grant authority, retained the finite-language limitation, and reran five final decimal/boundary controls successfully.
+
+This is a finite recognizer, not a general audience classifier. The full A1 record-time/authority integration, physical testing, owner reapproval and earlier review blockers remain. Products assigned an audience are still governed by the existing exact-CIR assignment checks. No policy, physical evidence, owner approval, publication or production change occurred.

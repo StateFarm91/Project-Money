@@ -27,11 +27,14 @@ def test_plural_child_audience_words_are_held_in_pdf_worker():
     for title in ("For ages 2–4", "Suitable from 0 to 36 months", "For preschool",
                   "Perfect for 3 year olds", "For young ones", "For youth",
                   "For ages two to four", "Ages: two to four", "Ages:two to four", "For girls", "For boys",
-                  "For teens", "For 3yo", "For 3 y/o", "3-year-old", "For 12m+"):
+                  "For teens", "For 3yo", "For 3 y/o", "3-year-old", "For 12m+",
+                  "Bébé", "Pour enfants", "Pour tout-petits", "6 mois", "4 ans+",
+                  "6m+", "3y+", "17.5y+", "Size 2T"):
         assert launch0.child_words_in(title), title
         assert harness._refused(dataclasses.replace(adult, title=title)), title
     for title in ("For adults age 25", "A basket for ages 18–30", "Everyday Storage Basket",
-                  "For 18yo", "25-year-old", "For 240m+"):
+                  "For 18yo", "25-year-old", "For 240m+", "240m+", "18y+",
+                  "18 ans", "300 mois", "18.5y+", "240.5m+", "18,5 ans"):
         assert not launch0.child_words_in(title), (title, launch0.child_words_in(title))
     result = harness._assets_build_full(dataclasses.replace(adult, title="Basket for toddlers"))
     assert harness._held(result), result
@@ -62,7 +65,10 @@ def test_persistent_listing_package_and_publish_verdict_hold_child_copy():
             for listing in ({"title": "Baby Basket", "tags": []},
                             {"title": "Basket", "description": "For toddlers", "tags": []},
                             {"title": "Basket", "tags": ["newborns"]},
-                            {"title": "Basket", "tags": ["Βabies"]}):
+                            {"title": "Basket", "tags": ["Βabies"]},
+                            {"title": "Basket", "tags": ["6m+"]},
+                            {"title": "Basket", "description": "Pour enfants", "tags": []},
+                            {"title": "Size 2T", "tags": []}):
                 verdict = eligibility.product_publication(reopened, cir.slug, cir.version,
                     listing=listing, first_customer=lambda *_a, **_k: [])
                 assert not verdict["publishable"], verdict
@@ -76,7 +82,9 @@ def test_persistent_listing_package_and_publish_verdict_hold_child_copy():
             for title in ("For ages 2–4", "Suitable from 0 to 36 months", "For preschool",
                           "Perfect for 3 year olds", "For young ones", "For youth",
                   "For ages two to four", "Ages: two to four", "Ages:two to four", "For girls", "For boys",
-                  "For teens", "For 3yo", "For 3 y/o", "3-year-old", "For 12m+"):
+                  "For teens", "For 3yo", "For 3 y/o", "3-year-old", "For 12m+",
+                  "Bébé", "Pour enfants", "Pour tout-petits", "6 mois", "4 ans+",
+                  "6m+", "3y+", "17.5y+", "Size 2T"):
                 reasons = eligibility.name_truth(cir, {"title": title, "tags": []})
                 assert any("child audience" in r for r in reasons), (title, reasons)
             JobQueue(reopened).enqueue("listing", "listing.package", {},
@@ -94,6 +102,12 @@ def test_persistent_listing_package_and_publish_verdict_hold_child_copy():
             with reopened.session() as session:
                 stored = session.scalar(select(Listing).where(Listing.product_slug == cir.slug))
                 stored.title = "Storage Basket"
+                stored.tags = ["6m+"]
+            gated = release_gates.for_publish(reopened, slug=cir.slug, version=cir.version,
+                read_only=True, stage=release_gates.STAGE_ACTIVATION)
+            assert any("child audience" in str(reason) for reason in gated["reasons"]), gated
+            with reopened.session() as session:
+                stored = session.scalar(select(Listing).where(Listing.product_slug == cir.slug))
                 stored.tags = "baby"
             gated = release_gates.for_publish(reopened, slug=cir.slug, version=cir.version,
                 read_only=True, stage=release_gates.STAGE_ACTIVATION)
