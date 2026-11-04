@@ -1,0 +1,7 @@
+# A1 explicit detachable-eye safety
+
+Continuation of `codex/a1-audience-shorthand` at `88c47c6`, itself based on A1 PR #34. The existing children's applied-parts reader now uses the shared Unicode fold and recognizes explicit hard/snap-in eye synonyms, including French hard-eye terms, as detachable. A pattern containing these parts for under-three children is refused by the existing children's assessment; no physical-test exemption or assignment is created. Embroidered eyes remain integral. This remains a finite vocabulary and can conservatively hold mentions that are not actual material instructions.
+
+Python 3.11/file-backed SQLite: 60/60 children's and A1 tests passed before the final bare acrylic/resin eye alias addition. On final source the focused existing parts/PDF tests passed 3/3, and the real `assets.build` Worker test passed 1/1: it refuses a snap-in-eye instruction and produces no PDF. The Worker fixture temporarily supplies a synthetic exact-assignment digest solely to reach the safety gate; it is not owner authority or physical evidence. Independent review confirmed the narrow alias/Unicode change and its limitations and reran the final alias/PDF test 1/1.
+
+Do not integrate the parent A1 branch until its record-time snapshot, owner reapproval, and physical-evidence issues are reviewed. This change does not prove that every hazardous component or natural-language synonym is detected. No publication, deployment, purchase or owner approval occurred.
