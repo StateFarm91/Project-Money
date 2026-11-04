@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 import test_a1r_child_safety_core as harness
 from brambleloop.agents.registry import Registry
-from brambleloop.core.models import AuditLog, Job, JobStatus, OwnerAction, Phase, utcnow
+from brambleloop.core.models import (AuditLog, Job, JobStatus, OwnerAction, PatternVersion,
+                                     Phase, Product, utcnow)
 from brambleloop.core.resilience import TransientError
 from brambleloop.products import inventory, launch0
 from brambleloop.publish.pdf import ChildrensDecisionRequired
@@ -22,6 +23,16 @@ from brambleloop.runtime.worker import JobContext, Worker
 
 
 def _claimed(db, key):
+    cir = dataclasses.replace(inventory._engineered("market-basket-small"),
+                              slug="fixture", version="1.0.0")
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == cir.slug))
+        if product is None:
+            product = Product(slug=cir.slug, title=cir.title)
+            session.add(product)
+            session.flush()
+            session.add(PatternVersion(product_id=product.id, version=cir.version,
+                                       cir_json=cir.to_dict(), certified=True))
     q = JobQueue(db)
     q.enqueue("publishing", "assets.build", {"slug": "fixture", "version": "1.0.0"},
               idempotency_key=key)
@@ -30,8 +41,10 @@ def _claimed(db, key):
 
 
 def _exc():
+    cir = dataclasses.replace(inventory._engineered("market-basket-small"),
+                              slug="fixture", version="1.0.0")
     return ChildrensDecisionRequired("fixture", "safety_refusal", "synthetic safety finding",
-                                     version="1.0.0", content_digest="a" * 64)
+                                     version="1.0.0", content_digest=launch0._cir_decision_digest(cir))
 
 
 def test_concurrent_safety_holds_share_one_owner_action():
@@ -71,6 +84,32 @@ def test_stale_producer_cannot_write_safety_hold():
             AuditLog.action == release.CHILDRENS_HOLD)))
 
 
+@pytest.mark.parametrize("change", ["content", "uncertified", "missing", "identity", "digest"])
+def test_changed_or_unavailable_design_cannot_receive_stale_safety_hold(change):
+    db, _ = harness._store()
+    ctx = _claimed(db, f"stale-design:{change}")
+    exc = _exc()
+    with db.session() as session:
+        product = session.scalar(select(Product).where(Product.slug == "fixture"))
+        pv = session.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
+        if change == "content":
+            pv.cir_json = {**pv.cir_json, "designer_notes": "different design"}
+        elif change == "uncertified":
+            pv.certified = False
+        elif change == "missing":
+            session.delete(pv)
+        elif change == "identity":
+            exc.slug = "different-product"
+        else:
+            exc.content_digest = None
+    with pytest.raises(TransientError):
+        release._childrens_hold(ctx, exc)
+    with db.session() as session:
+        assert not list(session.scalars(select(OwnerAction)))
+        assert not list(session.scalars(select(AuditLog).where(
+            AuditLog.action == release.CHILDRENS_HOLD)))
+
+
 def test_postgresql_owner_and_job_contention_fails_fast_and_retries():
     from sqlalchemy import text
 
@@ -97,7 +136,6 @@ def test_real_worker_retries_after_owner_action_write_failure_atomically():
     db, _ = harness._store()
     cir = dataclasses.replace(inventory._engineered("cloudline-baby-blanket"),
                               designer_notes="Use snap-in eyes.")
-    from brambleloop.core.models import PatternVersion, Product
     with db.session() as session:
         product = Product(slug=cir.slug, title=cir.title)
         session.add(product)
@@ -134,3 +172,45 @@ def test_real_worker_retries_after_owner_action_write_failure_atomically():
             OwnerAction.requirement_key.like("childrens-safety:%"))))) == 1
         assert len(list(session.scalars(select(AuditLog).where(
             AuditLog.action == release.CHILDRENS_HOLD)))) == 1
+
+
+def test_real_worker_refuses_stale_safety_assessment_after_source_change():
+    from brambleloop.publish import pdf
+
+    db, _ = harness._store()
+    cir = dataclasses.replace(inventory._engineered("cloudline-baby-blanket"),
+                              designer_notes="Use snap-in eyes.")
+    with db.session() as session:
+        product = Product(slug=cir.slug, title=cir.title)
+        session.add(product)
+        session.flush()
+        session.add(PatternVersion(product_id=product.id, version=cir.version,
+                                   cir_json=cir.to_dict(), certified=True))
+    queue = JobQueue(db)
+    queued = queue.enqueue("publishing", "assets.build", {"slug": cir.slug, "version": cir.version},
+                           idempotency_key="hold-source-race")
+    original = pdf._refuse_what_the_childrens_assessment_refuses
+
+    def changed_source_after_assessment(*args, **kwargs):
+        try:
+            return original(*args, **kwargs)
+        except ChildrensDecisionRequired:
+            with db.session() as session:
+                product = session.scalar(select(Product).where(Product.slug == cir.slug))
+                pv = session.scalar(select(PatternVersion).where(
+                    PatternVersion.product_id == product.id, PatternVersion.version == cir.version))
+                pv.cir_json = {**pv.cir_json, "designer_notes": "A changed design."}
+            raise
+
+    with patch.dict(launch0._ASSIGNED_DECISION_CIR_SHA256,
+                    {cir.slug: launch0._cir_decision_digest(cir)}), \
+         patch.object(pdf, "_refuse_what_the_childrens_assessment_refuses",
+                      side_effect=changed_source_after_assessment):
+        assert Worker(db, "hold-source-race", job_types=["assets.build"]).run_once()
+    with db.session() as session:
+        job = session.get(Job, queued.id)
+        assert job.status == JobStatus.FAILED and "source changed" in job.last_error
+        assert not list(session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like("childrens-safety:%"))))
+        assert not list(session.scalars(select(AuditLog).where(
+            AuditLog.action == release.CHILDRENS_HOLD)))
