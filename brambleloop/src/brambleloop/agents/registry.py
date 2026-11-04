@@ -178,7 +178,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "cir.reengineer",
                             # OPUS2 (research-enrichment consumer): held briefs go back to
                             # Research with what they lack.
-                            "research.enrichment_sweep"], authority=Authority.GREEN,
+                            "research.enrichment_sweep", "research.enrichment_answer"],
+         authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),
     dict(name="validator", description="Deterministic compile, twin, reverse compile",
          allowed_job_types=["cir.compile", "cir.twin", "cir.reverse"], authority=Authority.GREEN,
