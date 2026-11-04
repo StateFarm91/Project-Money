@@ -147,14 +147,14 @@ def _proposal(**over) -> dict:
     return p
 
 
-def _fixture_judgement():
+def _fixture_judgement(slug=SLUG):
     """Stand in for the vision judge's recorded verdict (image_vision is CLOSED)."""
     from brambleloop.creative import intake as creative_intake
 
     real = creative_intake.judgement_for
     creative_intake.judgement_for = lambda db, key: (
         {"thumbnail_reads_small": True, "craft_impression": 4.2, "sources": ["fixture"]}
-        if key == SLUG else real(db, key))
+        if key == slug else real(db, key))
     return lambda: setattr(creative_intake, "judgement_for", real)
 
 
@@ -166,30 +166,41 @@ def test_research_learning_and_product_handoff_with_source_expiry():
     from brambleloop.learn import runtime  # noqa: F401 - register handler
 
     db = _db()
+    fixture_slug = "nordic-minimalist-table-runner"
     _benchmarks(db)
     tid, _ = _answered_task(db)
     with db.session() as s:
         task = s.get(research.ResearchTask, tid)
         task.domain = "techniques"
-        task.outcome = "fixture: coastal tide line runner construction evidence"
-    intake.attach_proposal(db, tid, _proposal())
-    assert _run(db, "radar.concept_intake", {}, key="integrated-intake")["approved"] == [SLUG]
+        task.outcome = "fixture: nordic minimalist table runner construction evidence"
+    # The integrated safety gate correctly refuses the fixture's decorative
+    # "tide line" title when the fallback drafts a plain panel. Use a truthful
+    # neutral title; the Research lesson and source-expiry assertions remain.
+    intake.attach_proposal(db, tid, _proposal(
+        slug=fixture_slug, title="Nordic Minimalist Table Runner",
+        concept={"premise": "A simple rectangular runner worked in flat rows for a dining table",
+                 "motif": "simple stripe"},
+        brief={"thumbnail_storyboard": "a simple rectangular striped runner laid across a wooden dining table",
+               "silhouette_qualifiers": ["motif_composition"]}))
+    intake_result = _run(db, "radar.concept_intake", {}, key="integrated-intake")
+    assert intake_result["approved"] == [fixture_slug], repr(intake_result)
     before = _run(db, "radar.score", None)
     assert before["lesson_adjustment"] == 0
 
     scan = _run(db, "learn.scan", {}, key="integrated-learning")
     assert not scan["research"].get("error"), scan["research"]
-    restore = _fixture_judgement()
+    restore = _fixture_judgement(fixture_slug)
     try:
-        after = _run(db, "radar.score", {"slug": SLUG}, key="integrated-after-learning")
+        after = _run(db, "radar.score", {"slug": fixture_slug}, key="integrated-after-learning")
         assert after["lesson_adjustment"] > before["lesson_adjustment"]
         assert after["promoted"] is True
         assert len(_jobs(db, "cir.draft")) == 1
-        assert _run(db, "cir.draft", None)["drafted"] is True
-        assert _jobs(db, "cir.compile")[0].inputs["cir"]["slug"] == SLUG
+        drafted = _run(db, "cir.draft", None)
+        assert drafted["drafted"] is True, repr(drafted)
+        assert _jobs(db, "cir.compile")[0].inputs["cir"]["slug"] == fixture_slug
         with db.session() as s:
             s.get(research.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(seconds=1)
-        held = _run(db, "radar.score", {"slug": SLUG}, key="integrated-expired-source")
+        held = _run(db, "radar.score", {"slug": fixture_slug}, key="integrated-expired-source")
         assert held["promoted"] is False
         assert len(_jobs(db, "cir.draft")) == 1
     finally:
@@ -1183,3 +1194,30 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"{fails} failure(s)")
     sys.exit(1 if fails else 0)
+
+
+def test_research_tide_line_fixture_does_not_bypass_product_truth():
+    """A plain fallback must not ship under an unsupported tide-line title."""
+    from brambleloop.learn import runtime  # noqa: F401 - register handler
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    with db.session() as session:
+        task = session.get(research.ResearchTask, tid)
+        task.domain = "techniques"
+        task.outcome = "fixture: coastal tide line runner construction evidence"
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="unbacked-intake")["approved"] == [SLUG]
+    _run(db, "radar.score", None)
+    _run(db, "learn.scan", {}, key="unbacked-learning")
+    restore = _fixture_judgement()
+    try:
+        result = _run(db, "radar.score", {"slug": SLUG}, key="unbacked-score")
+        assert result["promoted"] is True and len(_jobs(db, "cir.draft")) == 1
+        drafted = _run(db, "cir.draft", None)
+        assert drafted["drafted"] is False and drafted["gate"] == "construction", drafted
+        assert "tide line" in str(drafted["reasons"]), drafted
+        assert not _jobs(db, "cir.compile")
+    finally:
+        restore()
