@@ -226,6 +226,14 @@ nested generation is refused. Python 3.11/tmpfs FLUX and anchor tests passed
 concurrency cases. A supplied root shared by different processes and filesystem
 alias changes are not coordinated; no provider was called.
 
+For a caller-supplied scratch root, cooperating processes now also take an
+advisory file lock; nested calls on the same thread do not deadlock, and a
+symlink lock file is refused. The Python 3.11/tmpfs FLUX/anchor suite passed
+28/28, and independent review reran the eight concurrency cases. This requires
+a stable, trusted directory and lock file, no fork while the lock is held, and
+cooperating writers; replacing the file or bypassing the lock defeats it.
+Cross-process authority and provider behavior are not established.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

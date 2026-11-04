@@ -32,9 +32,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import stat
 from contextlib import contextmanager
 from contextvars import ContextVar
-from threading import RLock
+from threading import RLock, local
 import time
 from weakref import WeakValueDictionary
 from pathlib import Path
@@ -56,6 +57,7 @@ _KIND_PRODUCT = "pattern_derived"
 _KIND_LAURA = "laura_canonical"
 _ROOT_LOCKS: WeakValueDictionary = WeakValueDictionary()
 _ROOT_LOCKS_GUARD = RLock()
+_HELD_ROOTS = local()
 
 
 def _scratch_lock(work_root: str | None):
@@ -68,6 +70,42 @@ def _scratch_lock(work_root: str | None):
             lock = RLock()
             _ROOT_LOCKS[key] = lock
         return lock
+
+
+@contextmanager
+def _process_scratch_lock(work_root: str | None):
+    """Serialize cooperating processes on a stable, trusted supplied root.
+
+    The lock is advisory: the directory and lock file must not be replaced, and
+    callers must not fork while holding it. Unrelated writers are not fenced.
+    """
+    if not work_root:
+        yield
+        return
+    import fcntl
+
+    root = os.path.realpath(work_root)
+    held = getattr(_HELD_ROOTS, "roots", None)
+    if held is None:
+        held = _HELD_ROOTS.roots = set()
+    if root in held:
+        yield
+        return
+    os.makedirs(root, exist_ok=True)
+    path = os.path.join(root, ".brambleloop-flux3.lock")
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise GeneratorRefused("scratch lock is not a regular file")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        held.add(root)
+        try:
+            yield
+        finally:
+            held.remove(root)
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 
 class GeneratorRefused(RuntimeError):
@@ -160,7 +198,8 @@ class Flux3Generator:
         from ..core import workspace
 
         with self._scratch_lock:
-            with workspace.work_dir(self.work_root, prefix="generated-") as root:
+            with _process_scratch_lock(self.work_root), workspace.work_dir(
+                    self.work_root, prefix="generated-") as root:
                 previous = self._root
                 self._root = Path(root)
                 try:

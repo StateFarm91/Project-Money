@@ -5,6 +5,13 @@ from brambleloop.creative import flux3_generator as FG
 from brambleloop.creative import image_stages as S
 
 
+def _child_use_scratch(root, ready, entered):
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+    ready.set()
+    with gen._scratch():
+        entered.set()
+
+
 def test_shared_generator_serializes_scratch_and_keeps_run_key_per_thread(monkeypatch):
     gen = FG.Flux3Generator(None, renderer=S.StubRenderer())
     entered_a, entered_b, release_a = threading.Event(), threading.Event(), threading.Event()
@@ -86,6 +93,50 @@ def test_instances_with_same_supplied_root_serialize_in_process(tmp_path):
         assert entered.wait(5) and not done.wait(0.2)
     thread.join(5)
     assert not thread.is_alive() and done.is_set()
+
+
+def test_supplied_root_serializes_separate_processes(tmp_path):
+    import multiprocessing
+
+    root = str(tmp_path / "shared-processes")
+    ctx = multiprocessing.get_context("spawn")
+    ready, entered = ctx.Event(), ctx.Event()
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+    child = ctx.Process(target=_child_use_scratch, args=(root, ready, entered))
+    try:
+        with gen._scratch():
+            child.start()
+            assert ready.wait(10) and not entered.wait(0.3)
+        child.join(10)
+        assert child.exitcode == 0 and entered.is_set()
+    finally:
+        if child.is_alive():
+            child.terminate()
+            child.join(5)
+
+
+def test_supplied_root_rejects_symlink_lock_file(tmp_path):
+    import pytest
+
+    root = tmp_path / "shared"
+    root.mkdir()
+    target = tmp_path / "target"
+    target.write_text("untouched")
+    (root / ".brambleloop-flux3.lock").symlink_to(target)
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=str(root))
+    with pytest.raises(OSError):
+        with gen._scratch():
+            pass
+    assert target.read_text() == "untouched"
+
+
+def test_nested_instances_with_same_supplied_root_do_not_deadlock(tmp_path):
+    root = str(tmp_path / "nested-shared")
+    a = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+    b = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+    with a._scratch():
+        with b._scratch():
+            assert a._root == b._root
 
 
 def test_nested_generate_refused_without_changing_outer_key(monkeypatch):
