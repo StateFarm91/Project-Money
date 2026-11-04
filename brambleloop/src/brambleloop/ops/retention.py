@@ -145,8 +145,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                     "commerce.portfolio.strategic_overlaps reads every recorded "
                                     "exemption; portfolio overlap checks exempt those pairs"),
     "research.fetch": ("lifetime_total",
-                       "intel.research_fetch reads every failed fetch so a failed page is not "
-                       "fetched again for the same task"),
+                       "intel.research_fetch reads failed fetches to preserve permanent "
+                       "refusals and bounded transient retry counts"),
     # W4-FMBATCH1: readers added on that branch without an entry (caught by
     # test_cost_governance_wave2; F-549 scorecard, F-099 trigger, F-661 executive block), and
     # F-723's learning-value report, which reads the newest 200 rows.

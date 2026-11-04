@@ -426,6 +426,101 @@ def test_review_f8_a_network_error_is_not_fetched_and_promotion_still_runs():
     assert {"promoted", "withdrawn", "unrouted"} <= set(out)          # promote() ran
 
 
+def test_learn_worker_retries_transient_fetch_after_backoff_without_network(monkeypatch):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import runtime  # noqa: F401 - register learn.scan
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    url = "https://www.cpsc.gov/fixture-transient"
+    tid = R.open_question(db, question="What does the fixture safety policy require?",
+                          trigger="test:transient-fetch", decision_ref="test:policy",
+                          domain="marketplace_policy", **SPEC)["task"]
+    with db.session() as s:
+        row = s.get(R.ResearchTask, tid)
+        row.detail = {**row.detail, "fetch_urls": [url]}
+    failed_at = datetime.now(timezone.utc) - F.TRANSIENT_RETRY_BASE - timedelta(minutes=1)
+    out = F.fetch_for_task(db, tid, url, now=failed_at, sleep=_no_sleep,
+                           get=lambda _u: (_ for _ in ()).throw(OSError("fixture offline")))
+    assert not out["fetched"] and out["retryable"] is True
+    assert (tid, url) not in F.plan_fetches(db, now=failed_at + timedelta(hours=1))
+    stub = Stub({url: "fixture policy text"})
+    monkeypatch.setattr(F, "_default_get", stub)
+    monkeypatch.setenv(F.ENABLE_VAR, "1")
+    monkeypatch.setattr(F, "MIN_SECONDS_PER_HOST", 0.0)
+    job = JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key="fetch-retry")
+    assert Worker(db, "fetch-retry", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert any(src.get("citation") == url for src in s.get(R.ResearchTask, tid).sources)
+    idx = stub.calls.index(url)
+    assert idx > 0 and stub.calls[idx - 1] == "https://www.cpsc.gov/robots.txt"
+
+
+def test_permanent_refusal_and_retry_limit_do_not_schedule_more_fetches():
+    db = _db()
+    R.detect_unknowns(db, today=NOW.date(), now=NOW)
+    tid, url = F.plan_fetches(db, now=NOW)[0]
+    denied = F.fetch_for_task(db, tid, url, now=NOW, sleep=_no_sleep,
+                             get=Stub({url: "unused"}, robots="User-agent: *\nDisallow: /\n"))
+    assert denied["retryable"] is False
+    assert (tid, url) not in F.plan_fetches(db, now=NOW + timedelta(days=30))
+
+    other = R.open_question(db, question="What does the separate fixture page establish?",
+                            trigger="test:retry-limit", decision_ref="test:retry",
+                            domain="marketplace_policy", now=NOW, **SPEC)["task"]
+    other_url = "https://www.cpsc.gov/fixture-retry-limit"
+    with db.session() as s:
+        row = s.get(R.ResearchTask, other)
+        row.detail = {**row.detail, "fetch_urls": [other_url]}
+    for offset in (0, 7, 20):
+        assert F.fetch_for_task(db, other, other_url, now=NOW + timedelta(hours=offset),
+                                sleep=_no_sleep, get=lambda _u: (_ for _ in ()).throw(
+                                    OSError("fixture offline")))["retryable"] is True
+    assert (other, other_url) not in F.plan_fetches(db, now=NOW + timedelta(days=30))
+
+
+def test_malformed_fetch_history_holds_the_attributable_task_without_crashing():
+    db = _db()
+    tid = R.open_question(db, question="What does the fixture safety page establish?",
+                          trigger="test:bad-history", decision_ref="test:bad-history",
+                          domain="marketplace_policy", now=NOW, **SPEC)["task"]
+    url = "https://www.cpsc.gov/fixture-bad-history"
+    with db.session() as s:
+        row = s.get(R.ResearchTask, tid)
+        row.detail = {**row.detail, "fetch_urls": [url]}
+        s.add(AuditLog(actor="learn", action=F.FETCH_ACTION, at=NOW,
+                       detail={"task": tid, "url": [url], "fetched": False}))
+        s.add(AuditLog(actor="learn", action=F.FETCH_ACTION, at=NOW,
+                       detail={"task": [tid], "url": {"bad": url}, "fetched": False}))
+    assert (tid, url) not in F.plan_fetches(db, now=NOW + timedelta(days=2))
+
+
+@pytest.mark.parametrize("status,retryable", [(503, True), (429, False), (403, False)])
+def test_http_failures_have_conservative_retry_classification(status, retryable):
+    db = _db()
+    tid = R.open_question(db, question="What does the fixture resource actually establish?",
+                          trigger="test:http-classification", decision_ref="test:http",
+                          domain="marketplace_policy", now=NOW, **SPEC)["task"]
+    url = "https://www.cpsc.gov/fixture-http-classification"
+    with db.session() as s:
+        row = s.get(R.ResearchTask, tid)
+        row.detail = {**row.detail, "fetch_urls": [url]}
+
+    def fixture_get(requested):
+        if requested.endswith("/robots.txt"):
+            return 200, b"User-agent: *\nAllow: /\n"
+        return status, b""
+
+    result = F.fetch_for_task(db, tid, url, now=NOW, sleep=_no_sleep, get=fixture_get)
+    assert result["retryable"] is retryable
+    assert ((tid, url) in F.plan_fetches(db, now=NOW + timedelta(hours=7))) is retryable
+
+
 def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
     import urllib.request
 
