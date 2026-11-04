@@ -9770,36 +9770,101 @@ CHILDRENS_HOLD = "childrens.decision_required"
 
 
 def _childrens_hold(ctx: JobContext, exc) -> dict:
-    """A1R-4: one named, owner-visible hold per product, never retried, never blocking any
-    other product: an audit row (every time, with the reason) and ONE open owner decision
-    per slug (requirement key childrens-decision:<slug>)."""
-    from sqlalchemy import select
+    """A named, owner-visible hold; safety findings are scoped to design and finding."""
+    import hashlib
+    from sqlalchemy import select, text
+    from sqlalchemy.exc import OperationalError
 
-    from ..core.models import OwnerAction
+    from ..core.db import is_postgres
+    from ..core.models import (AuditLog, Job, JobStatus, OwnerAction, PatternVersion,
+                               Product, utcnow)
+    from ..core.resilience import TransientError
+    from ..queue.effects import LeaseLost
 
     i = dict(ctx.job.inputs)
     slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
     reason = getattr(exc, "reason", "undecided")
-    ctx.audit(CHILDRENS_HOLD, artifact=f"{slug}@{i.get('version') or ''}",
-              detail={"slug": slug, "reason": reason, "why": str(exc)[:600],
-                      "job_type": "assets.build"})
-    rk = f"childrens-decision:{slug}"
-    with ctx.db.session() as s:
-        if not s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == rk,
-                                                     OwnerAction.done == False)):  # noqa: E712
-            s.add(OwnerAction(
-                requirement_key=rk,
-                action=((f"{slug}: supply a measured small-parts sample and obtain an "
-                         "approved content-bound evidence authority; this hold stays in place "
-                         "until that authority is implemented") if reason == "small_parts" else
-                        (f"Decide whether {slug} is merchandised to a child: assign it in "
-                         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
-                         f"exemption in NOT_MERCHANDISED_TO_A_CHILD; an authorized decision "
-                         f"bound to this exact design/version is also required, and a "
-                         f"reapproval workflow is not yet implemented")),
-                reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
-                blocks=f"{slug} documents and listing",
-                consequence_of_delay=(f"{slug} stays held; every other product continues")))
+    version = getattr(exc, "version", None) or i.get("version") or ""
+    if reason in {"safety_refusal", "small_parts"}:
+        digest = getattr(exc, "content_digest", None) or f"unknown-job-{ctx.job.id}"
+        finding = hashlib.sha256(str(exc).encode("utf-8")).hexdigest()
+        prefix = "childrens-safety" if reason == "safety_refusal" else "childrens-small-parts"
+        rk = f"{prefix}:{slug}@{version}:{digest}:{finding}"
+    else:
+        rk = f"childrens-decision:{slug}"
+    try:
+        with ctx.db.session() as s:
+            # Match the shared owner-queue order; never wait here if another owner
+            # transaction may already hold a producer/owner row in reverse order.
+            postgres = is_postgres(ctx.db.engine)
+            if postgres:
+                if not s.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"),
+                                {"k": OWNER_QUEUE_LOCK}):
+                    raise TransientError("child safety owner queue is contended; retry")
+            else:
+                s.execute(text("BEGIN IMMEDIATE"))
+            job = s.scalar(select(Job).where(Job.id == ctx.job.id).with_for_update(nowait=postgres))
+            token = getattr(ctx.job, "lease_token", None)
+            expiry = job.lease_expires_at if job is not None else None
+            if expiry is not None and expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=utcnow().tzinfo)
+            if (not token or job is None or job.status != JobStatus.RUNNING
+                    or job.lease_token != token or not job.leased_by
+                    or job.leased_by != ctx.job.leased_by or job.agent != "publishing"
+                    or job.job_type != "assets.build" or job.inputs != i
+                    or expiry is None or expiry <= utcnow()):
+                raise LeaseLost("child safety hold producer lease is no longer current")
+            if reason in {"safety_refusal", "small_parts"}:
+                # The PDF assessment happened before this transaction. Hold only
+                # the exact still-certified design that was actually assessed;
+                # an absent, changed or non-canonical source is not evidence.
+                from ..products.launch0 import _cir_decision_digest
+                expected = getattr(exc, "content_digest", None)
+                if (slug != str(i.get("slug") or "") or version != str(i.get("version") or "")
+                        or not isinstance(expected, str) or len(expected) != 64):
+                    raise TransientError("child safety source identity is unavailable; retry")
+                product = s.scalar(select(Product).where(Product.slug == slug)
+                                   .with_for_update(nowait=postgres))
+                pv = (s.scalar(select(PatternVersion).where(
+                    PatternVersion.product_id == product.id, PatternVersion.version == version)
+                    .with_for_update(nowait=postgres)) if product is not None else None)
+                try:
+                    observed = (_cir_decision_digest(CIR.from_dict(pv.cir_json))
+                                if pv is not None and pv.certified else None)
+                except (TypeError, ValueError, KeyError):
+                    observed = None
+                if observed != expected:
+                    raise TransientError("child safety source changed after assessment; retry")
+            existing = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk,
+                              OwnerAction.done == False).with_for_update(nowait=postgres))  # noqa: E712
+            s.add(AuditLog(actor=job.agent, action=CHILDRENS_HOLD, job_id=job.id,
+                           phase=ctx.phase, artifact=f"{slug}@{version}",
+                           detail={"slug": slug, "reason": reason, "why": str(exc)[:600],
+                                   "job_type": "assets.build", "requirement_key": rk}))
+            safety_action = (f"{slug}: correct the stated children's safety finding in the "
+                             "design and obtain a fresh exact-design safety assessment; an "
+                             "audience exemption does not clear the finding")
+            if existing is None:
+                s.add(OwnerAction(
+                    requirement_key=rk,
+                    action=(safety_action
+                            if reason == "safety_refusal" else
+                            (f"{slug}: supply a measured small-parts sample and obtain an "
+                             "approved content-bound evidence authority; this hold stays in place "
+                             "until that authority is implemented") if reason == "small_parts" else
+                            (f"Decide whether {slug} is merchandised to a child: assign it in "
+                             f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
+                             f"exemption in NOT_MERCHANDISED_TO_A_CHILD; an authorized decision "
+                             f"bound to this exact design/version is also required, and a "
+                             f"reapproval workflow is not yet implemented")),
+                    reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
+                    blocks=f"{slug} documents and listing",
+                    consequence_of_delay=(f"{slug} stays held; every other product continues")))
+    except OperationalError as exc:
+        code = getattr(exc.orig, "pgcode", None) or getattr(exc.orig, "sqlstate", None)
+        if code in {"55P03", "40P01", "40001"}:
+            raise TransientError("child safety hold transaction conflicted; retry") from exc
+        raise
     return {"ok": False, "held": True, "gate": "childrens_decision", "slug": slug,
             "reason": reason, "why": str(exc)[:300]}
 

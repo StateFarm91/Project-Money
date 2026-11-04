@@ -110,18 +110,18 @@
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "scope": "gates/size_claims.py",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)",
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)",
       "state": "ready_for_review",
-      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md §32; awaiting re-review"
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md \u00a732; awaiting re-review"
     },
     {
       "id": "OPUS2-LAURAHOME",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "scope": "visual/laura_home.py, flux3 environment wiring, rim negative, p0_acceptance script",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
     },
     {
       "id": "OPUS2-CHAIN-DEADENDS+COMPETITOR-EVIDENCE+PERF-LEARNING",
@@ -133,8 +133,8 @@
         "claude/w5-SECREVIEW-OPUS2A-54766c9",
         "claude/w5-SECREVIEW-OPUS2B-54766c9"
       ],
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
     },
     {
       "id": "P0-LEARNING-REFERENCE",
@@ -152,8 +152,8 @@
       "head": "3cbf6e96/9c1a0037",
       "state": "in_review",
       "boundary": "gaps -> capped owner-approval reference RECOMMENDATIONS only. Purchased-pattern intake, analysis, design knowledge and evaluation stay with Codex (P0-LEARNING-REFERENCE). Neither side builds the other's part.",
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
     },
     {
       "id": "OPUS2-GALLERY-PHOTO-LED",
@@ -172,8 +172,8 @@
         "claude/w4-PHYSFIX-PHOTO (leads_gallery ordering)",
         "claude/w4-LAUNCHFIX (publish/sample_photo activation gate)"
       ],
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
     },
     {
       "id": "OPUS2-REVERIFY-WITHHOLD",
@@ -187,22 +187,22 @@
       "claimed_at": "2026-10-31T07:20Z",
       "state": "ready_for_review",
       "evidence": "tests/test_opus2_reverify_withhold.py 4/4; 23-suite withholding/quality/for_publish/guard regression all exit 0 (2026-10-31)",
-      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff §24",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)"
+      "review_b2": "9c1a0037: every finding fixed (F3.1 required; F1.1 F1.2 F2.1 F2.2 F4.1 F5.1 F5.2); handoff \u00a724",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)"
     },
     {
       "id": "OPUS2-DRAFT-CONSTRUCTIONS",
       "operator": "opus2",
       "branch": "opus2/p0-revenue-workforce",
       "pr": 3,
-      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff §22; triangle shawl added (stitch-pattern titles refused), handoff §23; tote blocked on a stated chain gauge; tote with sewn straps + cir/assembly._placed_on_round_cm (additive), handoff §26; egg cosy (one-piece cup) handoff §27; name_truth cosy rule is W-LISTING-owned (proposal in §27); hats refused naming unsourced hat height + negative ease (CYC head chart sourced) §29; backlog record §30",
+      "area": "creative/fallback_constructions.py; runtime/pipeline.handle_cir_draft fallback block only (route then draft); tests/test_fallback_draft_provenance.py producer-chain pin; panel_pair (cushion/pillow) added, handoff \u00a722; triangle shawl added (stitch-pattern titles refused), handoff \u00a723; tote blocked on a stated chain gauge; tote with sewn straps + cir/assembly._placed_on_round_cm (additive), handoff \u00a726; egg cosy (one-piece cup) handoff \u00a727; name_truth cosy rule is W-LISTING-owned (proposal in \u00a727); hats refused naming unsourced hat height + negative ease (CYC head chart sourced) \u00a729; backlog record \u00a730",
       "state": "ready_for_review",
       "evidence": "tests/test_opus2_draft_constructions.py 12/12; drafting regression exit 0 (2026-10-31)",
       "from_unowned": "P0-DRAFT-CONSTRUCTIONS",
       "note": "does not touch radar/intake.py or the W-CONCEPT concept path",
-      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff §25",
-      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff §31)",
-      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md §32; awaiting re-review"
+      "review_c": "9c1a0037: every finding in opus2 code fixed (F2-1 HIGH via sample_photo.qualifying_photos; F2-2; N1.1; N1.2; N2.1; N3.1-N3.3; test gap); handoff \u00a725",
+      "review_d": "fb52cb9e ACCEPT for Batch 5; R1-R5 + INFO fixed (handoff \u00a731)",
+      "review": "OPUS2E fixes (E1/E3/E4 drafting, E2 size gate) 2026-11-01; handoff OPUS2_P0_HANDOFF.md \u00a732; awaiting re-review"
     },
     {
       "id": "OPUS2-NEXT-PRODUCT-FINDING",
@@ -211,7 +211,7 @@
       "pr": 3,
       "state": "no_build_needed",
       "from_unowned": "P0-NEXT-PRODUCT",
-      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md §21."
+      "finding": "covered by chain.rebuild -> release_recovery.seed_launch0 (hourly, one per run, keyed per design; held releases skipped). Registering pipeline_board's product.pipeline as written would double-draft (pipeline-draft:<slug> keys) -- tried, caught by test_v11_autonomy_overnight, reverted. See OPUS2_P0_HANDOFF.md \u00a721."
     },
     {
       "id": "OPUS2-LISTING-PACKAGE-JOB",
@@ -361,6 +361,121 @@
         "brambleloop/tests/test_w4_intelrec_watchlist.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A1-AUDIENCE-SHORTHAND",
+      "operator": "codex",
+      "branch": "codex/a1-audience-shorthand",
+      "source_branch": "codex/a1-stuffing-continuation",
+      "source_sha": "ec9dc9a8c098bbb3e00b85c1206bafd06eb02871",
+      "scope": "Conservative A1 child-audience detection of explicit French terms and compact numeric age/size notations",
+      "files": [
+        "brambleloop/src/brambleloop/products/launch0.py",
+        "brambleloop/tests/test_codex_a1_listing_child.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_AUDIENCE_SHORTHAND_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HARD-EYES",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-eye-safety",
+      "source_branch": "codex/a1-audience-shorthand",
+      "source_sha": "88c47c6",
+      "scope": "Recognize explicit hard-eye synonyms and shared Unicode fold in existing child applied-parts safety reader",
+      "files": [
+        "brambleloop/src/brambleloop/intel/childrens.py",
+        "brambleloop/tests/test_childrens.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HARD_EYES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-APPLIED-PART-ALIASES",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-part-aliases",
+      "source_branch": "codex/a1-detachable-eye-safety",
+      "source_sha": "ec2dee6",
+      "scope": "Extend existing under-three detachable-parts refusal to explicit rattle, pompom, fastener and French part names",
+      "files": [
+        "brambleloop/src/brambleloop/intel/childrens.py",
+        "brambleloop/tests/test_childrens.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-NAMED-SAFETY-HOLD",
+      "operator": "codex",
+      "branch": "codex/a1-named-safety-hold",
+      "source_branch": "codex/a1-detachable-part-aliases",
+      "source_sha": "32f3163",
+      "scope": "Route existing child PDF safety refusals to a named owner-visible non-retrying hold, scoped to exact design and finding",
+      "files": [
+        "brambleloop/src/brambleloop/publish/pdf.py",
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_NAMED_SAFETY_HOLD_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HOLD-ATOMIC",
+      "operator": "codex",
+      "branch": "codex/a1-hold-atomic",
+      "source_branch": "codex/a1-named-safety-hold",
+      "source_sha": "2e856b8",
+      "scope": "Atomic child safety hold audit and owner action for cooperating assets workers",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold_pg.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HOLD_ATOMIC_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HOLD-SNAPSHOT",
+      "operator": "codex",
+      "branch": "codex/a1-hold-snapshot",
+      "source_branch": "codex/a1-hold-atomic",
+      "source_sha": "b628be5e392795a663d521aaaa4817bf4f784aaa",
+      "scope": "Recheck exact certified CIR snapshot before safety-refusal owner-action transaction",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HOLD_SNAPSHOT_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-FLEXIBLE-FIT",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-part-aliases",
+      "source_sha": "a210178",
+      "scope": "Do not infer physical small-parts non-fit of flexible sewn crochet solely from flat geometry",
+      "files": [
+        "brambleloop/src/brambleloop/gates/small_parts.py",
+        "brambleloop/tests/test_codex_a1_small_parts_finite.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A2-FRENCH-STRIPES",
+      "operator": "codex",
+      "branch": "codex/a2-french-stripes",
+      "source_branch": "codex/a2-safety-continuation",
+      "source_sha": "94d165ec83287bab881083f0c2abed08bbed8b80",
+      "scope": "Apply existing Product Truth stripe claim gate to explicit French stripe forms",
+      "files": [
+        "brambleloop/src/brambleloop/publish/eligibility.py",
+        "brambleloop/tests/test_codex_a2_french_stripes.py",
+        "brambleloop/research/final_build/w5/CODEX_A2_FRENCH_STRIPES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
@@ -938,7 +1053,7 @@
     }
   ],
   "reviews_in_flight": {
-    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
     "items": [
       {
         "id": "OPUS2M",

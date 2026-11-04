@@ -8,11 +8,12 @@ working tighter than the gauge makes them smaller. So a piece is:
     FITS     -- inside the cylinder by geometry: a small part;
     UNKNOWN  -- within SMALL_PARTS_TOLERANCE_MM of either bound: geometry cannot say, and only
                 a measured physical sample can (never read as a pass);
-    CLEAR    -- larger than both bounds by more than the tolerance.
+    CLEAR    -- flat geometric estimate exceeds a bound by more than the tolerance.
 
-UNKNOWN and FITS both block a children's assignment. No content-bound authority for
-accepting physical evidence is implemented, so no registry value can clear a hold.
-This is geometry, not the 4.45 N use-and-abuse test.
+The geometric CLEAR result is not a physical clearance: crocheted fabric may fold or
+compress. Every separately sewn crochet piece remains blocked until physical fit under
+force is assessed through an approved content-bound authority. No such authority is
+implemented, so no registry value can clear a hold. This is not the 4.45 N test.
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ SMALL_PARTS_EVIDENCE: dict[str, str] = {}
 
 def verdict(narrow_mm: float, long_mm: float, *, tolerance: float = SMALL_PARTS_TOLERANCE_MM
             ) -> str:
+    """Classify the flat geometric estimate, not physical fit under force."""
     # NaN compares false against every threshold; treating it as clear would let
     # unknown geometry pass a child-safety gate. Infinity, zero, and negatives
     # likewise cannot describe a measured piece.
@@ -85,7 +87,7 @@ def _sewn_on(cir) -> list[str]:
 
 
 def blocking(cir) -> list[str]:
-    """Every sewn-on piece that fits or may fit the cylinder remains blocked.
+    """Every sewn-on crochet piece remains blocked without physical fit authority.
 
     Unscoped slug-only registry values do not establish a physical test of this exact
     release. Unknown measurements also block. A separately approved, content-bound
@@ -96,8 +98,17 @@ def blocking(cir) -> list[str]:
     except Exception as exc:  # noqa: BLE001 - unmeasurable is UNKNOWN
         return [f"sewn-on pieces unmeasurable ({type(exc).__name__}): {UNKNOWN}"]
     measured = {name for name, _n, _l in pieces}
-    out = [f"{name} (about {n:.0f} x {l:.0f} mm flat: {verdict(n, l)})"
-           for name, n, l in pieces if verdict(n, l) != CLEAR]
+    fits, uncertain = [], []
+    for name, n, length in pieces:
+        geometric = verdict(n, length)
+        if geometric == CLEAR:
+            uncertain.append(f"{name} (about {n:.0f} x {length:.0f} mm flat; geometric estimate "
+                             f"exceeds a bound but folding/fit under force is {UNKNOWN})")
+        elif geometric == FITS:
+            fits.append(f"{name} (about {n:.0f} x {length:.0f} mm flat: {geometric})")
+        else:
+            uncertain.append(f"{name} (about {n:.0f} x {length:.0f} mm flat: {geometric})")
+    out = fits + uncertain  # An identified fitting part precedes uncertain parts.
     out += [f"{name} (size not measurable from the pattern: {UNKNOWN})"
             for name in _sewn_on(cir) if name not in measured]
     return out
