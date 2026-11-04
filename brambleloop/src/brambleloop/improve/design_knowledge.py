@@ -91,8 +91,14 @@ def rule_digest(row) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def verify_pins(db, pins: list[dict]) -> list[dict]:
-    """Verify all frozen knowledge pins or refuse the entire set."""
+def verify_pins(db, pins: list[dict], *, session=None) -> list[dict]:
+    """Verify pins; an optional caller-owned session composes all database reads.
+
+    The caller must separately fence concurrent evidence changes and maintain
+    the same transaction through the authority-bearing write.
+    """
+    from .read_session import bind_read_session
+    db = bind_read_session(db, session)
     from ..teardown.review import principal
     if not isinstance(pins, list):
         raise DesignKnowledgeRefused("knowledge pins must be a list")
@@ -191,7 +197,7 @@ def applicable_to_cir(db, cir) -> list[dict]:
                            "construction_family": getattr(cir, "construction", None)})
 
 
-def verify_cir_pins(db, cir) -> list[dict]:
+def verify_cir_pins(db, cir, *, session=None) -> list[dict]:
     """Verify the frozen CIR directives, including their rule-to-pin mapping."""
     from ..cir import knowledge
 
@@ -199,7 +205,7 @@ def verify_cir_pins(db, cir) -> list[dict]:
         entries = knowledge.markers(cir)
     except ValueError as exc:
         raise DesignKnowledgeRefused(str(exc)) from exc
-    verified = verify_pins(db, [entry["pin"] for entry in entries])
+    verified = verify_pins(db, [entry["pin"] for entry in entries], session=session)
     if len(entries) != len(verified) or any(entry["rule"] != record["statement"]["rule"]
            for entry, record in zip(entries, verified)):
         raise DesignKnowledgeRefused("frozen directive does not match its approved rule")

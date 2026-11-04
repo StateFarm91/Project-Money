@@ -301,6 +301,22 @@
         "brambleloop/tests/test_w4_visnext2.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A6-SESSION-READS",
+      "operator": "codex",
+      "branch": "codex/a6-session-verification",
+      "source_sha": "77d2d415e27f401e75a09e3704ca8f5138daa84f",
+      "scope": "Optional caller-owned transaction for frozen-knowledge evidence reads; not a concurrency fence",
+      "files": [
+        "brambleloop/src/brambleloop/improve/read_session.py",
+        "brambleloop/src/brambleloop/improve/design_knowledge.py",
+        "brambleloop/src/brambleloop/improve/knowledge_gate.py",
+        "brambleloop/src/brambleloop/quality/design_eval.py",
+        "brambleloop/tests/test_codex_a6_session_reads.py",
+        "brambleloop/tests/test_codex_a6_session_reads_pg.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [
