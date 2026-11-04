@@ -10,6 +10,7 @@ from __future__ import annotations
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
+import pytest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -157,6 +158,65 @@ def _fixture_judgement():
 
 
 # ---- the happy path ------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("crash_after_audit", [False, True])
+def test_interrupted_proposal_recovers_on_next_intake_worker(monkeypatch, crash_after_audit):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.PROPOSED_ACTION:
+            if crash_after_audit:
+                original(ctx, action, *args, **kwargs)
+            raise RuntimeError("fixture interruption during proposal audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="interrupted-proposal")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    assert len(_rows(db)) == 1 and _rows(db)[0].state == intake.PROPOSED
+    monkeypatch.setattr(JobContext, "audit", original)
+    out = _run(db, "radar.concept_intake", {}, key="restart-proposal")
+    assert out["approved"] == [SLUG]
+    assert len(_rows(db)) == 1 and _rows(db)[0].state == intake.APPROVED
+    assert len([a for a in _actions(db) if a.action == intake.PROPOSED_ACTION]) == 1
+    assert len(_jobs(db, "radar.score")) == 1
+
+
+def test_interrupted_proposal_with_conflicting_audit_stays_held(monkeypatch):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        result = original(ctx, action, *args, **kwargs)
+        if action == intake.PROPOSED_ACTION:
+            raise RuntimeError("fixture interruption after audit")
+        return result
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="conflicting-proposal")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        a = s.scalar(select(AuditLog).where(AuditLog.action == intake.PROPOSED_ACTION))
+        a.detail = {**a.detail, "source_ref": "research_task:wrong"}
+    out = _run(db, "radar.concept_intake", {}, key="conflicting-restart")
+    assert out["approved"] == []
+    assert _rows(db)[0].state == intake.PROPOSED
+    assert not _jobs(db, "radar.score")
 
 
 def test_an_evidence_backed_opportunity_becomes_a_concept_is_scored_and_reaches_cir_draft():
