@@ -137,11 +137,15 @@ def check_claim(text: str, states: dict[str, bool]) -> list[dict]:
     has made is the same sentence whether somebody meant it or reached for it, and this is
     the only place that difference stops mattering.
     """
+    import re
+    from ..products.text_fold import fold
+
     level = reached(states)["claim_level"]
-    lowered = (text or "").lower()
+    # Printed punctuation and whitespace must not change the evidence a claim needs.
+    lowered = re.sub(r"[\W_]+", " ", fold(text))
     out: list[dict] = []
     for phrase, needs in sorted(_PHRASE_LEVEL.items()):
-        if phrase in lowered and needs > level:
+        if re.sub(r"[\W_]+", " ", fold(phrase)) in lowered and needs > level:
             rung = LADDER[needs - 1]
             out.append({
                 "phrase": phrase, "needs_level": needs, "have_level": level,
