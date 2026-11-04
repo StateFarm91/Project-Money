@@ -19,6 +19,7 @@ quarter later.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 
 # Below this many orders on either side, the comparison is anecdote arithmetic.
 MIN_ORDERS = 15
@@ -96,9 +97,27 @@ def bundle_effect(bundle_slug: str, *, bundle: Period,
     and says nothing about where the buyers came from.
     """
     result = BundleResult(bundle=bundle_slug)
+    periods = [bundle, *components_before, *components_after]
+    def finite_number(v):
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return False
+        try:
+            return math.isfinite(v)
+        except (OverflowError, ValueError):
+            return False
+    def valid_period(p):
+        return (isinstance(p, Period) and isinstance(p.slug, str) and bool(p.slug.strip())
+                and isinstance(p.orders, int) and not isinstance(p.orders, bool) and p.orders >= 0
+                and all(finite_number(v) for v in (p.revenue_cad, p.contribution_cad)))
+    if not all(valid_period(p) for p in periods) or bundle.slug != bundle_slug:
+        result.reason = "invalid period, bundle identity or non-finite financial evidence"
+        return result
     before = {p.slug: p for p in components_before}
     after = {p.slug: p for p in components_after}
 
+    if len(before) != len(components_before) or len(after) != len(components_after):
+        result.reason = "duplicate component period; reconciliation required"
+        return result
     missing_baseline = [s for s in after if s not in before]
     if not components_before or missing_baseline:
         result.reason = (
@@ -107,6 +126,13 @@ def bundle_effect(bundle_slug: str, *, bundle: Period,
             f"is the entire question (#45)")
         return result
 
+    missing_after = sorted(set(before) - set(after))
+    if missing_after:
+        result.reason = f"missing after-window component evidence: {missing_after}"
+        return result
+    if sum(p.orders for p in before.values()) < MIN_ORDERS:
+        result.reason = "baseline orders below minimum; anecdote arithmetic"
+        return result
     total_after_orders = bundle.orders + sum(p.orders for p in after.values())
     if bundle.orders < MIN_ORDERS or total_after_orders < MIN_ORDERS:
         result.reason = (
@@ -140,7 +166,12 @@ def bundle_effect(bundle_slug: str, *, bundle: Period,
     contribution_before = sum(p.contribution_cad for p in before.values())
     contribution_after = (bundle.contribution_cad
                           + sum(p.contribution_cad for p in after.values()))
-    result.contribution_delta_cad = round(contribution_after - contribution_before, 2)
+    delta = contribution_after - contribution_before
+    if not math.isfinite(delta):
+        result.measurable = False
+        result.reason = "financial totals exceed measurable range"
+        return result
+    result.contribution_delta_cad = round(delta, 2)
     return result
 
 
@@ -152,7 +183,11 @@ def amplification_check(result: BundleResult) -> dict:
     is why this has to be a separate, explicit check rather than a number on a dashboard
     beside nine that all went up.
     """
-    if not result.measurable:
+    if (not result.measurable or isinstance(result.contribution_delta_cad, bool)
+            or not isinstance(result.contribution_delta_cad, (int, float))
+            or (isinstance(result.contribution_delta_cad, int)
+                and result.contribution_delta_cad.bit_length() > 1023)
+            or not math.isfinite(result.contribution_delta_cad)):
         return {"may_declare_winner": False, "why": result.reason or "not measurable yet",
                 "verdict": "unmeasured"}
     verdict = result.to_dict()["verdict"]
