@@ -57,11 +57,10 @@ def context(tmp_path):
 def test_signed_grant_allows_transaction_and_rollback(context):
     db, _, ident, expected, verify, anchor = context
     with db._sessions() as session, session.begin():
-        def action(s):
-            s.add(AuditLog(actor="fixture", action="fixture.action", detail={}))
-            s.flush()
-        a.guarded_database_action(session, ident, expected, verify=verify,
-                                  anchor=anchor, fence=FixtureFence(), action=action)
+        a.authorize_in_session(session, ident, expected, verify=verify,
+                               anchor=anchor, fence=FixtureFence())
+        session.add(AuditLog(actor="fixture", action="fixture.action", detail={}))
+        session.flush()
         session.rollback()
     with db.session() as session:
         assert session.scalar(select(AuditLog).where(AuditLog.action == "fixture.action")) is None
@@ -72,8 +71,8 @@ def test_unconfigured_anchor_or_fence_never_runs_action(context):
     with db._sessions() as session, session.begin():
         for bad_anchor, fence in ((None, FixtureFence()), (anchor, None)):
             with pytest.raises(a.AuthorityRefused):
-                a.guarded_database_action(session, ident, expected, verify=verify, anchor=bad_anchor,
-                                          fence=fence, action=lambda _: pytest.fail("must not act"))
+                a.authorize_in_session(session, ident, expected, verify=verify, anchor=bad_anchor,
+                                       fence=fence)
 
 
 def test_wrong_binding_revocation_and_tail_truncation_refuse(context):

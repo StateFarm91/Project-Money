@@ -96,14 +96,3 @@ def authorize_in_session(session, grant_id: int, expected: dict, *,
         raise
     except Exception as exc:
         raise AuthorityRefused("Learning authority evidence is unavailable") from exc
-
-
-def guarded_database_action(session, grant_id: int, expected: dict, *, verify, anchor, fence,
-                            action: Callable):
-    """Invoke a DB-only callback in the caller transaction without committing.
-
-    Callback must not commit or cause external effects; this cannot enforce that.
-    Production requires a real fence, outbox, actor and revocation policy.
-    """
-    authorize_in_session(session, grant_id, expected, verify=verify, anchor=anchor, fence=fence)
-    return action(session)
