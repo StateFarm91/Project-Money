@@ -247,3 +247,29 @@ if __name__ == "__main__":
                 fails += 1
                 print("FAIL", name, repr(e))
     sys.exit(1 if fails else 0)
+
+
+def test_nonfinite_money_and_exchange_rates_are_refused():
+    for value in (float("nan"), float("inf"), float("-inf"), True, 10 ** 1000):
+        try:
+            C.Money(value, "CAD")
+        except C.CurrencyRefused:
+            pass
+        else:
+            raise AssertionError("invalid amount accepted")
+    for value in (float("nan"), float("inf"), -1, 0, True):
+        try:
+            C.to_reporting(C.Money(9, "USD"), C.Rate(value, ON))
+        except C.CurrencyRefused:
+            pass
+        else:
+            raise AssertionError("invalid rate accepted")
+
+
+def test_cad_contribution_does_not_use_an_invalid_usd_fee_rate():
+    try:
+        C.contribution(C.Money(12, "CAD"), rate=C.Rate(float("nan"), ON))
+    except C.CurrencyRefused:
+        pass
+    else:
+        raise AssertionError("invalid USD fee rate accepted")

@@ -1111,3 +1111,46 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_nonfinite_receipts_are_refused_without_advancing_cursor():
+    db = _db()
+    _catalogue(db)
+    _open_gate(db)
+    bad = _receipt(90001, 90001, "111", float("nan"), days_ago=2)
+    good = _receipt(90002, 90002, "111", 1200, days_ago=1)
+    feed = FakeFeed([bad, good])
+    orders_ingest.reader_factory = lambda _db: feed
+    try:
+        _run(db, "cfo", "commerce.orders_ingest")
+        audit = _audit(db, "commerce.orders_ingested")
+        assert any(x.get("receipt_id") == 90001 for x in audit["not_recorded"])
+        assert not audit["cursor"].get("last_modified")
+        with db.session() as session:
+            orders = list(session.scalars(select(Order)))
+            assert len(orders) == 1 and orders[0].external_ref.endswith(":900020")
+        # Re-read the same synthetic feed; successful receipt must not duplicate.
+        _run(db, "cfo", "commerce.orders_ingest")
+        with db.session() as session:
+            assert len(list(session.scalars(select(Order)))) == 1
+    finally:
+        orders_ingest.reader_factory = None
+
+
+def test_invalid_refund_money_is_not_silently_interpreted_as_zero():
+    receipt = _receipt(90003, 90003, "111", 1200, refunds=[float("nan")])
+    try:
+        orders_ingest.lines(receipt)
+    except orders_ingest.IngestRefused:
+        pass
+    else:
+        raise AssertionError("invalid refund was accepted")
+    for divisor in (0, -1, float("inf"), float("nan"), True):
+        receipt = _receipt(90004, 90004, "111", 1200)
+        receipt["transactions"][0]["price"]["divisor"] = divisor
+        try:
+            orders_ingest.lines(receipt)
+        except orders_ingest.IngestRefused:
+            pass
+        else:
+            raise AssertionError("invalid divisor was accepted")

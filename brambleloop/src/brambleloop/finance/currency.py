@@ -28,6 +28,7 @@ basis, so a margin computed without them says so rather than quietly omitting th
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -79,6 +80,14 @@ class Money:
     currency: str
 
     def __post_init__(self) -> None:
+        try:
+            valid_amount = (not isinstance(self.amount, bool)
+                            and isinstance(self.amount, (int, float))
+                            and math.isfinite(self.amount))
+        except OverflowError:
+            valid_amount = False
+        if not valid_amount:
+            raise CurrencyRefused("a monetary amount must be a finite number")
         if not self.currency or len(self.currency) != 3:
             raise CurrencyRefused(
                 f"{self.currency!r} is not a currency code. An amount with no currency "
@@ -125,8 +134,14 @@ def to_reporting(money: Money, rate: Rate) -> dict:
         raise CurrencyRefused(
             f"no rate on file for {money.currency}. Converting it with a rate this company "
             f"has not stated would produce a number nobody can check")
-    if rate.usd_per_cad <= 0:
-        raise CurrencyRefused("an exchange rate must be positive to convert with")
+    try:
+        valid_rate = (not isinstance(rate.usd_per_cad, bool)
+                      and isinstance(rate.usd_per_cad, (int, float))
+                      and math.isfinite(rate.usd_per_cad) and rate.usd_per_cad > 0)
+    except OverflowError:
+        valid_rate = False
+    if not valid_rate:
+        raise CurrencyRefused("an exchange rate must be finite and positive to convert with")
     return {
         "original": money.to_dict(),
         "reporting": Money(round(money.amount / rate.usd_per_cad, 4),
@@ -147,6 +162,9 @@ def contribution(price: Money, *, rate: Rate | None = None,
     rather than the other way round.
     """
     rate = rate or assumed_rate()
+    # Listing fees are denominated in USD even when the price is in CAD.
+    # Validate the exchange rate before any fee calculation as well as conversion.
+    to_reporting(Money(0, "USD"), rate)
     converted = to_reporting(price, rate)
     gross = converted["reporting"]["amount"]
 
