@@ -26,6 +26,10 @@ Python 3.11 persistent SQLite: focused parked-decision cases plus the existing
 owner-fence and source-binding suites passed 31/31. These tests exercise actual
 database transactions, owner-action lifecycle and the package recorder; their
 synthetic READY fixtures are not publication-eligibility evidence.
+The full A9 event suite passed 8/8 against code commit
+`616f788923b76e6485f0668ca92dcf12a50a9912`. An independent reviewer reran
+14/14 parked cases on the same precommit code. These SQLite results do not
+prove PostgreSQL concurrency or complete integration.
 
 **Do not integrate as a complete evidence fence.** SQL bulk updates and other
 gallery/PDF/policy/physical writers still bypass the existing ORM listener;
