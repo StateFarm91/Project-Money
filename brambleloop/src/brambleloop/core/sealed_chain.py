@@ -210,6 +210,53 @@ class GrantLedger:
     def _walk(self, rows):
         return walk(rows, self.verify_row, rebase_ok=self._rebase_ok)
 
+    def refusal_in_session(self, session, ident: int) -> str | None:
+        """Check one grant using one family snapshot in the caller's transaction.
+
+        The caller owns transaction isolation, locking, and rollback. This method
+        does not authenticate an anchor, validate the grant's content binding,
+        lock evidence, detect tail truncation, or record a tamper incident; it
+        must not alone authorize an action.
+        """
+        from sqlalchemy import select
+
+        from .models import AuditLog
+
+        ident = int(ident)
+        entries = list(session.scalars(select(AuditLog).where(
+            AuditLog.action.in_(self.actions)).order_by(AuditLog.id)
+            .execution_options(populate_existing=True)))
+        rows = [(entry.id, dict(entry.detail or {})) for entry in entries]
+        # The row artifact is outside the sealed detail. A mismatch must never
+        # conceal a signed revocation by making it appear to target another id.
+        for entry in entries:
+            if entry.action == self.revoked:
+                detail = dict(entry.detail or {})
+                approval_id = detail.get("approval_id")
+                if (type(approval_id) is not int or approval_id <= 0
+                        or entry.artifact != str(approval_id)):
+                    return f"{self.label} has an inconsistent revocation; every grant refused"
+        revocations = [dict(entry.detail or {}) for entry in entries
+                       if entry.action == self.revoked and entry.artifact == str(ident)]
+        chain = self._walk(rows)
+        if revocations:
+            if any(self.verify_row(detail) is not None for detail in revocations):
+                return f"{self.label} revoked by a row that does not verify; treated as revoked"
+            return f"{self.label} revoked"
+        if any(entry.actor != self.principal or (entry.detail or {}).get("event") != entry.action
+               for entry in entries):
+            return f"{self.label} chain has inconsistent actor or event"
+        if not chain["valid"]:
+            return f"{self.label} chain does not verify ({chain.get('why')}); every grant refused"
+        if chain["start_id"] is None or ident < int(chain["start_id"]):
+            return f"{self.label} predates the owner's latest chain rebase"
+        if not any(entry.id == ident and entry.action == self.approved for entry in entries):
+            return f"{self.label} does not identify an approval"
+        flags = {rid: ok for rid, ok, _why in chain["rows"]}
+        if not flags.get(ident):
+            return f"{self.label} is not a verified link of the grant chain"
+        return None
+
     def chain(self, db, *, record_incident: bool = True) -> dict:
         with db.session() as s:
             rows = load(s, self.actions)
