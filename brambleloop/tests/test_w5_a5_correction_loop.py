@@ -447,6 +447,39 @@ def test_hold_and_its_audit_roll_back_together_when_audit_write_fails():
     assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
 
 
+def test_stale_worker_cannot_replace_current_hold_evidence():
+    import pytest
+    from brambleloop.queue.effects import LeaseLost
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-stale")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    EO.record_hold(ctx, cir, stage="certify", reason="current", codes={"FIRST"})
+    with db.session() as session:
+        session.execute(update(Job).where(Job.id == job.id).values(lease_token="new-attempt"))
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="stale", codes={"SECOND"})
+    ctx.job.lease_token = None
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="stripped", codes={"THIRD"})
+    # A different queued job has no audit foreign key, so it can model a missing
+    # producer without deleting the immutable audit from the current hold.
+    missing = q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                        idempotency_key="t:hold-missing")
+    with db.session() as session:
+        session.delete(session.get(Job, missing.id))
+    ctx = JobContext(job=missing, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="missing", codes={"FOURTH"})
+    hold = _holds(db, cir.slug, cir.version)[0]
+    assert hold.detail["reason"] == "current" and hold.report_count == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
 # ---- 4. quality re-verification and assets: corrected when a rule answers, else held ----
 
 def _legacy_release(db, cir, listing_title: str):

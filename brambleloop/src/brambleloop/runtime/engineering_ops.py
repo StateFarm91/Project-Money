@@ -365,7 +365,8 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
     if existing_hold is None:
         from sqlalchemy import select, text
         from ..core.db import is_postgres
-        from ..core.models import AuditLog, Incident
+        from ..core.models import AuditLog, Incident, Job, JobStatus, utcnow
+        from ..queue.effects import LeaseLost
 
         # Serialize A5 writers so a repeated delivery cannot create duplicate incidents or
         # lose the audit for an opened/changed hold after a crash. Incident restatement and
@@ -375,6 +376,23 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
                 s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _HOLD_LOCK})
             else:
                 s.execute(text("BEGIN IMMEDIATE"))
+            # Lock the producer job in this transaction so a reclaimed worker cannot
+            # overwrite a current incident after validating an obsolete lease.
+            token = getattr(ctx.job, "lease_token", None)
+            job_id = getattr(ctx.job, "id", None)
+            job = (s.scalar(select(Job).where(Job.id == job_id).with_for_update())
+                   if job_id is not None else None)
+            if job_id is not None and job is None:
+                raise LeaseLost(f"job {job_id}: correction hold producer is unavailable")
+            if token is None and job is not None and job.lease_token is not None:
+                raise LeaseLost(f"job {job_id}: correction hold requires its current lease")
+            if token is not None:
+                expiry = job.lease_expires_at if job is not None else None
+                if expiry is not None and expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=utcnow().tzinfo)
+                if (job is None or job.status != JobStatus.RUNNING or job.lease_token != token
+                        or expiry is None or expiry <= utcnow()):
+                    raise LeaseLost(f"job {ctx.job.id}: correction hold lease no longer current")
             current = s.scalar(select(Incident).where(
                 Incident.signature == sig, Incident.resolved == False))  # noqa: E712
             previous = dict(current.detail or {}) if current is not None else {}
