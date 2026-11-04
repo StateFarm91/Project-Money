@@ -382,8 +382,10 @@ def learning_summary(db, *, slug: str | None = None) -> dict:
                      "cost is unknown; never reported as zero")}
 
 
-def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None:
-    from sqlalchemy import select
+def _best(db, *, listing: str, role: str, run: str | None = None,
+          slug: str | None = None, version: str | None = None,
+          release: str | None = None) -> dict | None:
+    from sqlalchemy import func, select
 
     from .image_records import ImageCandidate
 
@@ -392,6 +394,12 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
                                          ImageCandidate.role == role)
         if run:
             q = q.where(ImageCandidate.run_key == run)
+        if slug is not None:
+            q = q.where(ImageCandidate.slug == slug)
+        if version is not None:
+            q = q.where(ImageCandidate.version == version)
+        if release is not None:
+            q = q.where(func.lower(ImageCandidate.release) == release.lower())
         rows = list(s.scalars(q.order_by(ImageCandidate.id.desc())))
     if not rows:
         return None
@@ -408,7 +416,7 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
                        if c.get("status") == "FAIL"},
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
-            "listing": r.listing, "version": r.version, "release": r.release,
+            "listing": r.listing, "slug": r.slug, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
             "laura_present": r.laura_present, "outfit_id": r.outfit_id or None,
             "fidelity": _fidelity_summary(r.checks),

@@ -295,6 +295,21 @@
         "brambleloop/src/brambleloop/visual/image_production.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-V1-ANCHOR-BINDING",
+      "operator": "codex",
+      "branch": "codex/v1-anchor-binding",
+      "source_branch": "codex/v1-visual-correctness",
+      "source_sha": "d125a3ba356fbe360bdc99a05287b06cc29ff360",
+      "scope": "Bind lifestyle anchor selection to full release, product, version and artifact bytes; abbreviated or unavailable evidence is held.",
+      "files": [
+        "brambleloop/src/brambleloop/visual/candidate_gates.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/visual/image_production.py",
+        "brambleloop/tests/test_codex_v1_anchor_binding.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

@@ -348,24 +348,30 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
 def _anchor_of(db, cand: dict, release: str):
     """The release's best product-only anchor and its bytes, or (None, None)."""
     from .image_production import ANCHOR_ROLE, _best, run_key
+    from .fidelity import same_release
 
     if not release:
         return None, None
     listing = cand.get("listing") or outfits.listing_of(cand.get("slug", ""))
     try:
+        identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
+                    "release": release}
         best = _best(db, listing=listing, role=ANCHOR_ROLE,
-                     run=run_key(cand.get("slug", ""), cand.get("version", ""), release)) or \
-            _best(db, listing=listing, role=ANCHOR_ROLE)
+                     run=run_key(cand.get("slug", ""), cand.get("version", ""), release),
+                     **identity) or _best(db, listing=listing, role=ANCHOR_ROLE, **identity)
     except Exception:  # noqa: BLE001 - no learning table yet: no anchor
         return None, None
-    if not best or not best.get("sha256") or not str(best.get("release") or "").startswith(
-            release[:12]):
+    if (not best or not best.get("sha256") or best.get("slug") != cand.get("slug")
+            or best.get("version") != cand.get("version")
+            or not same_release(best.get("release"), release)):
         return None, None
     data = None
     try:
         from ..core.artifacts import ArtifactStore
 
         data = ArtifactStore().get(best["sha256"], db=db)
+        if hashlib.sha256(data).hexdigest() != best["sha256"]:
+            return None, None
     except Exception:  # noqa: BLE001 - bytes unavailable: consistency stays unread
         data = None
     return ({"status": best.get("technical_status"), "release_hash": best.get("release"),
