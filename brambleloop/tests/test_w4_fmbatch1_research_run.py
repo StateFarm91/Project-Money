@@ -216,6 +216,44 @@ def test_expiry_recovery_holds_conflicting_replacement_identity(conflict):
             assert not source.detail.get("expiry_reopen_task")
 
 
+@pytest.mark.parametrize("invalid", ["time_bound", "question", "stop_condition", "terms"])
+def test_learn_worker_reopens_valid_expiry_despite_malformed_neighbor(invalid):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import runtime  # noqa: F401
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    bad = _answered(db, domain="marketplace_policy")
+    good = _answered(db, domain="techniques")
+    with db.session() as s:
+        bad_row = s.get(R.ResearchTask, bad)
+        good_row = s.get(R.ResearchTask, good)
+        bad_row.expires_on = good_row.expires_on = datetime.now(timezone.utc) - timedelta(days=1)
+        if invalid == "time_bound":
+            bad_row.detail = {**bad_row.detail, "time_bound_days": "not-a-number"}
+        elif invalid == "question":
+            bad_row.question = "invalid"
+        elif invalid == "stop_condition":
+            bad_row.detail = {**bad_row.detail, "if_unresolved": ["not", "text"]}
+        else:
+            bad_row.query_terms = 0
+        good_key = R._key(f"{good_row.trigger}#after:{good}")
+    job = JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key=f"expiry-isolate-{invalid}")
+    assert Worker(db, "expiry-isolate", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert not done.outputs["research"].get("error")
+        assert s.get(R.ResearchTask, bad).detail["expiry_reopen_hold"] == "invalid expired task metadata"
+        replacements = list(s.scalars(R.select(R.ResearchTask).where(
+            R.ResearchTask.dedupe_key == good_key)))
+        assert len(replacements) == 1
+        assert s.get(R.ResearchTask, good).detail["expiry_reopen_task"] == replacements[0].id
+
+
 def test_learn_worker_withdraws_orphan_lesson_after_restart(monkeypatch):
     from brambleloop.agents.registry import Registry
     from brambleloop.core.models import Job, JobStatus

@@ -853,7 +853,31 @@ def expire_due(db, *, now: datetime | None = None) -> list[int]:
     with db.session() as s:
         for row in s.scalars(select(ResearchTask).where(ResearchTask.state == EXPIRED)
                              .order_by(ResearchTask.id)):
-            d = row.detail if isinstance(row.detail, dict) else {}
+            if row.detail is not None and not isinstance(row.detail, dict):
+                continue  # preserve malformed history for reconciliation
+            d = row.detail or {}
+            try:
+                fields = (row.question, row.trigger, row.decision_ref, row.domain)
+                terms = [] if row.query_terms is None else row.query_terms
+                bound = d.get("time_bound_days")
+                if bound is None:
+                    bound = DEFAULT_TIME_BOUND_DAYS
+                optional_text = (row.stop_condition, row.confidence, d.get("evidence_needed"),
+                                 d.get("if_unresolved"), d.get("prior_confidence"))
+                if (any(not isinstance(v, str) or not v.strip() for v in fields)
+                        or len(row.question.split()) < 5 or not isinstance(terms, list)
+                        or any(not isinstance(v, str) for v in terms)
+                        or isinstance(bound, bool) or not 1 <= int(bound) <= MAX_TIME_BOUND_DAYS
+                        or any(v is not None and not isinstance(v, str) for v in optional_text)
+                        or (d.get("consequential") is not None
+                            and type(d["consequential"]) is not bool)
+                        or (d.get("kind") or QUESTION) not in KINDS):
+                    raise ResearchRefused("invalid expired task metadata")
+                freshness_for(row.domain)
+                bound = int(bound)
+            except (ResearchRefused, TypeError, ValueError, OverflowError):
+                row.detail = {**d, "expiry_reopen_hold": "invalid expired task metadata"}
+                continue
             marker = d.get("expiry_reopen_task")
             if marker is not None:
                 target = s.get(ResearchTask, marker) if type(marker) is int else None
@@ -861,9 +885,9 @@ def expire_due(db, *, now: datetime | None = None) -> list[int]:
                     row.detail = {**d, "expiry_reopen_hold": "replacement marker conflicts"}
                 continue
             out.append((row.id, row.question, row.trigger, row.decision_ref, row.domain,
-                        list(row.query_terms or []), row.stop_condition or "",
+                        list(terms), row.stop_condition or "",
                         d.get("evidence_needed") or "", d.get("if_unresolved") or "",
-                        int(d.get("time_bound_days") or DEFAULT_TIME_BOUND_DAYS),
+                        bound,
                         bool(d.get("consequential")), d.get("kind") or QUESTION,
                         row.confidence or d.get("prior_confidence") or "unknown"))
     completed = []
@@ -884,15 +908,22 @@ def expire_due(db, *, now: datetime | None = None) -> list[int]:
                                      "expiry_reopen_hold": "replacement identity conflicts"}
                 continue  # ambiguous history requires reconciliation, not another task
             existing_id = matches[0].id if matches else None
-        opened = ({"task": existing_id} if existing_id is not None else
-                  open_question(db, question=q, trigger=reopen_trigger, decision_ref=dec,
-                      domain=dom, query_terms=terms,
-                      stop_condition=stop_c or "answered with a fact or recorded unresolved",
-                      evidence_needed=need or f"what answered task {tid} relied on, re-read",
-                      if_unresolved=action or "a person re-reads the sources of task "
-                                              f"{tid} and records the result",
-                      time_bound_days=days, consequential=cons, kind=kind,
-                      prior_confidence=prior, now=t))
+        try:
+            opened = ({"task": existing_id} if existing_id is not None else
+                      open_question(db, question=q, trigger=reopen_trigger, decision_ref=dec,
+                          domain=dom, query_terms=terms,
+                          stop_condition=stop_c or "answered with a fact or recorded unresolved",
+                          evidence_needed=need or f"what answered task {tid} relied on, re-read",
+                          if_unresolved=action or "a person re-reads the sources of task "
+                                                  f"{tid} and records the result",
+                          time_bound_days=days, consequential=cons, kind=kind,
+                          prior_confidence=prior, now=t))
+        except ResearchRefused:
+            with db.session() as s:
+                source = s.get(ResearchTask, tid)
+                if source is not None and source.state == EXPIRED and isinstance(source.detail, dict):
+                    source.detail = {**source.detail, "expiry_reopen_hold": "replacement refused"}
+            continue
         with db.session() as s:
             source = s.get(ResearchTask, tid)
             target = s.get(ResearchTask, opened["task"])
