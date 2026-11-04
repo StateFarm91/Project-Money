@@ -9785,10 +9785,11 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
     slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
     reason = getattr(exc, "reason", "undecided")
     version = getattr(exc, "version", None) or i.get("version") or ""
-    if reason == "safety_refusal":
+    if reason in {"safety_refusal", "small_parts"}:
         digest = getattr(exc, "content_digest", None) or f"unknown-job-{ctx.job.id}"
         finding = hashlib.sha256(str(exc).encode("utf-8")).hexdigest()
-        rk = f"childrens-safety:{slug}@{version}:{digest}:{finding}"
+        prefix = "childrens-safety" if reason == "safety_refusal" else "childrens-small-parts"
+        rk = f"{prefix}:{slug}@{version}:{digest}:{finding}"
     else:
         rk = f"childrens-decision:{slug}"
     try:
@@ -9813,7 +9814,7 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
                     or job.job_type != "assets.build" or job.inputs != i
                     or expiry is None or expiry <= utcnow()):
                 raise LeaseLost("child safety hold producer lease is no longer current")
-            if reason == "safety_refusal":
+            if reason in {"safety_refusal", "small_parts"}:
                 # The PDF assessment happened before this transaction. Hold only
                 # the exact still-certified design that was actually assessed;
                 # an absent, changed or non-canonical source is not evidence.

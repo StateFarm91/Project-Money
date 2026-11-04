@@ -222,7 +222,8 @@ def _assets_build_full(cir, db=None, path=None) -> dict:
                 "slug") == cir.slug]
         actions = [a.requirement_key for a in s.scalars(select(OwnerAction).where(
             OwnerAction.done == False))  # noqa: E712
-            if a.requirement_key == f"childrens-decision:{cir.slug}"]
+            if (a.requirement_key == f"childrens-decision:{cir.slug}" or
+                a.requirement_key.startswith(f"childrens-small-parts:{cir.slug}@{cir.version}:"))]
         return {"status": row.status, "outputs": dict(row.outputs or {}),
                 "attempts": row.attempts, "error": str(row.last_error or ""),
                 "holds": holds, "actions": actions, "db": fresh, "path": path}
