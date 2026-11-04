@@ -1072,28 +1072,58 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
     clean = _clean(candidate["proposal"])
     fp = fingerprint(candidate["source_ref"], clean, ev)
     prior = _existing(db, fp)
-    if prior is not None:
+    if prior is not None and prior.state != PROPOSED:
         return {"slug": prior.slug, "state": prior.state, "unchanged": True, "id": prior.id}
     slug = str(clean.get("slug") or "unnamed")[:80]
+    if prior is None:
+        with db.session() as s:
+            row = RadarConcept(slug=slug, state=PROPOSED, source=candidate["source"],
+                               source_ref=candidate["source_ref"], fingerprint=fp,
+                               evidence=list(ev.get("items") or []),
+                               quality=float(ev.get("quality") or 0.0),
+                               detail={"proposal": clean, "trigger": candidate.get("trigger"),
+                                       "evidence": {k: v for k, v in ev.items() if k != "items"}})
+            s.add(row)
+            s.flush()
+            row_id = row.id
+    else:
+        detail = prior.detail if isinstance(prior.detail, dict) else {}
+        if (prior.slug != slug or prior.source != candidate["source"]
+                or prior.source_ref != candidate["source_ref"]
+                or detail.get("proposal") != clean
+                or list(prior.evidence or []) != list(ev.get("items") or [])):
+            return {"slug": slug, "state": PROPOSED, "unchanged": True, "id": prior.id,
+                    "reason": "persisted proposal does not match current candidate"}
+        row_id = prior.id
+    from ..core.models import AuditLog, Job
     with db.session() as s:
-        row = RadarConcept(slug=slug, state=PROPOSED, source=candidate["source"],
-                           source_ref=candidate["source_ref"], fingerprint=fp,
-                           evidence=list(ev.get("items") or []),
-                           quality=float(ev.get("quality") or 0.0),
-                           detail={"proposal": clean, "trigger": candidate.get("trigger"),
-                                   "evidence": {k: v for k, v in ev.items() if k != "items"}})
-        s.add(row)
-        s.flush()
-        row_id = row.id
-    audit(PROPOSED_ACTION, artifact=slug, detail={
-        "row": row_id, "source": candidate["source"], "source_ref": candidate["source_ref"],
-        "evidence_refs": [i.get("ref") for i in ev.get("items") or []],
-        "quality": ev.get("quality")})
+        audits = [a for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == PROPOSED_ACTION, AuditLog.artifact == slug))
+                  if isinstance(a.detail, dict) and a.detail.get("row") == row_id]
+        for a in audits:
+            producer = s.get(Job, a.job_id) if a.job_id else None
+            if (a.actor != "market_radar" or producer is None
+                    or producer.agent != "market_radar"
+                    or producer.job_type != "radar.concept_intake"
+                    or a.detail.get("source") != candidate["source"]
+                    or a.detail.get("source_ref") != candidate["source_ref"]
+                    or a.detail.get("evidence_refs") != [i.get("ref") for i in ev.get("items") or []]):
+                return {"slug": slug, "state": PROPOSED, "unchanged": True, "id": row_id,
+                        "reason": "proposal audit conflicts with current candidate"}
+        audited = bool(audits)
+    if not audited:
+        audit(PROPOSED_ACTION, artifact=slug, detail={
+            "row": row_id, "source": candidate["source"], "source_ref": candidate["source_ref"],
+            "evidence_refs": [i.get("ref") for i in ev.get("items") or []],
+            "quality": ev.get("quality"), "recovered": prior is not None})
     verdict = validate(db, candidate["proposal"], ev, source_ref=candidate["source_ref"])
     now = datetime.now(timezone.utc)
     withdrawn_ids: list[int] = []
     with db.session() as s:
-        row = s.get(RadarConcept, row_id)
+        row = s.scalar(select(RadarConcept).where(RadarConcept.id == row_id).with_for_update())
+        if row is None or row.state != PROPOSED:
+            return {"slug": slug, "state": getattr(row, "state", "missing"),
+                    "unchanged": True, "id": row_id}
         row.reasons = list(verdict["reasons"])
         row.concept = dict(verdict["concept"] or {})
         row.brief = dict(verdict["brief"] or {})
