@@ -58,6 +58,34 @@ _KIND_LAURA = "laura_canonical"
 _ROOT_LOCKS: WeakValueDictionary = WeakValueDictionary()
 _ROOT_LOCKS_GUARD = RLock()
 _HELD_ROOTS = local()
+_FD_GUARD = RLock()
+_ACTIVE_LOCK_FDS: set[int] = set()
+SCRATCH_LOCK_TIMEOUT_SECONDS = 30.0
+
+
+def _before_fork():
+    _FD_GUARD.acquire()
+
+
+def _after_fork_parent():
+    _FD_GUARD.release()
+
+
+def _after_fork_child():
+    global _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD, _ACTIVE_LOCK_FDS
+    for fd in _ACTIVE_LOCK_FDS:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    _ACTIVE_LOCK_FDS = set()
+    _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD = (
+        WeakValueDictionary(), RLock(), local(), RLock())
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(before=_before_fork, after_in_parent=_after_fork_parent,
+                        after_in_child=_after_fork_child)
 
 
 def _scratch_lock(work_root: str | None):
@@ -76,8 +104,8 @@ def _scratch_lock(work_root: str | None):
 def _process_scratch_lock(work_root: str | None):
     """Serialize cooperating processes on a stable, trusted supplied root.
 
-    The lock is advisory: the directory and lock file must not be replaced, and
-    callers must not fork while holding it. Unrelated writers are not fenced.
+    The lock is advisory: the directory and lock file must not be replaced.
+    Unrelated writers are not fenced.
     """
     if not work_root:
         yield
@@ -93,19 +121,34 @@ def _process_scratch_lock(work_root: str | None):
         return
     os.makedirs(root, exist_ok=True)
     path = os.path.join(root, ".brambleloop-flux3.lock")
-    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with _FD_GUARD:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        _ACTIVE_LOCK_FDS.add(fd)
+    owner_pid = os.getpid()
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise GeneratorRefused("scratch lock is not a regular file")
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        deadline = time.monotonic() + SCRATCH_LOCK_TIMEOUT_SECONDS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("FLUX scratch root is busy; retry later") from None
+                time.sleep(0.1)
         held.add(root)
         try:
             yield
         finally:
-            held.remove(root)
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            if os.getpid() == owner_pid:
+                held.remove(root)
+                fcntl.flock(fd, fcntl.LOCK_UN)
     finally:
-        os.close(fd)
+        if os.getpid() == owner_pid:
+            with _FD_GUARD:
+                _ACTIVE_LOCK_FDS.discard(fd)
+                os.close(fd)
 
 
 class GeneratorRefused(RuntimeError):
@@ -164,10 +207,12 @@ class Flux3Generator:
 
     @property
     def current_run_key(self) -> str | None:
+        self._refresh_after_fork()
         return self._run_key_context.get()
 
     @current_run_key.setter
     def current_run_key(self, value: str | None) -> None:
+        self._refresh_after_fork()
         self._run_key_context.set(value)
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
@@ -180,6 +225,7 @@ class Flux3Generator:
         # A caller-owned directory, or (None) a scratch directory per call that is removed when
         # the call returns: every method hands back bytes, so nothing must outlive it.
         self.work_root = work_root
+        self._process_id = os.getpid()
         self._scratch_lock = _scratch_lock(work_root)
         self._run_key_context = ContextVar("flux3_run_key", default=None)
         self._generating = ContextVar("flux3_generating", default=False)
@@ -197,7 +243,11 @@ class Flux3Generator:
     def _scratch(self):
         from ..core import workspace
 
-        with self._scratch_lock:
+        self._refresh_after_fork()
+        lock, owner_pid = self._scratch_lock, os.getpid()
+        if not lock.acquire(timeout=SCRATCH_LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError("FLUX adapter scratch is busy; retry later")
+        try:
             with _process_scratch_lock(self.work_root), workspace.work_dir(
                     self.work_root, prefix="generated-") as root:
                 previous = self._root
@@ -206,6 +256,18 @@ class Flux3Generator:
                     yield self._root
                 finally:
                     self._root = previous
+        finally:
+            if os.getpid() == owner_pid:
+                lock.release()
+
+    def _refresh_after_fork(self):
+        if self._process_id != os.getpid():
+            self._process_id = os.getpid()
+            self._scratch_lock = _scratch_lock(self.work_root)
+            self._root = None
+            self._run_key_context.set(None)
+            self._generating.set(False)
+            self._active_run_key.set(None)
 
     # -- references --------------------------------------------------------------------------
     def _release(self, slug: str, version: str, release: str) -> S.Release:
@@ -259,6 +321,7 @@ class Flux3Generator:
     # -- generation --------------------------------------------------------------------------
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
                  outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
+        self._refresh_after_fork()
         if self._generating.get():
             self.current_run_key = self._active_run_key.get()
             raise GeneratorRefused("nested generation on the same adapter is not supported")

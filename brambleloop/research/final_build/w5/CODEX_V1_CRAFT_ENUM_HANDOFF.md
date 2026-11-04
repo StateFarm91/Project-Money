@@ -234,6 +234,15 @@ a stable, trusted directory and lock file, no fork while the lock is held, and
 cooperating writers; replacing the file or bypassing the lock defeats it.
 Cross-process authority and provider behavior are not established.
 
+Scratch lock waits are now bounded. After a fork, tracked inherited lock
+descriptors and execution context are reset before a child reacquires the
+scratch root. Python 3.11/tmpfs concurrency tests passed 11/11; independent
+review reran the fork and cross-process timeout cases. The cooperating child
+must reacquire before doing scratch work: arbitrary continuation inside an
+inherited critical section is not protected. A stable trusted directory and
+lock file remain required; this does not fence other writers or authenticate
+provider behavior.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

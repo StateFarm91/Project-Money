@@ -12,6 +12,22 @@ def _child_use_scratch(root, ready, entered):
         entered.set()
 
 
+def _child_use_inherited_scratch(gen, ready, entered):
+    assert gen.current_run_key is None
+    gen.current_run_key = "child-run"
+    ready.set()
+    with gen._scratch():
+        assert gen.current_run_key == "child-run"
+        entered.set()
+
+
+def _child_hold_scratch(root, ready, release):
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+    with gen._scratch():
+        ready.set()
+        release.wait(10)
+
+
 def test_shared_generator_serializes_scratch_and_keeps_run_key_per_thread(monkeypatch):
     gen = FG.Flux3Generator(None, renderer=S.StubRenderer())
     entered_a, entered_b, release_a = threading.Event(), threading.Event(), threading.Event()
@@ -137,6 +153,70 @@ def test_nested_instances_with_same_supplied_root_do_not_deadlock(tmp_path):
     with a._scratch():
         with b._scratch():
             assert a._root == b._root
+
+
+def test_forked_process_does_not_inherit_a_held_root_lock(tmp_path):
+    import multiprocessing
+
+    ctx = multiprocessing.get_context("fork")
+    ready, entered = ctx.Event(), ctx.Event()
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=str(tmp_path / "fork-root"))
+    gen.current_run_key = "parent-run"
+    child = ctx.Process(target=_child_use_inherited_scratch, args=(gen, ready, entered))
+    try:
+        with gen._scratch():
+            child.start()
+            assert ready.wait(5) and not entered.wait(0.2)
+        child.join(5)
+        assert child.exitcode == 0 and entered.is_set()
+        assert gen.current_run_key == "parent-run"
+    finally:
+        if child.is_alive():
+            child.terminate()
+            child.join(5)
+
+
+def test_busy_shared_adapter_times_out_instead_of_waiting_forever(monkeypatch):
+    gen = FG.Flux3Generator(None, renderer=S.StubRenderer())
+    monkeypatch.setattr(FG, "SCRATCH_LOCK_TIMEOUT_SECONDS", 0.2)
+    errors = []
+    def try_scratch():
+        try:
+            with gen._scratch():
+                pass
+        except Exception as exc:
+            errors.append(exc)
+    with gen._scratch():
+        worker = threading.Thread(target=try_scratch)
+        worker.start()
+        worker.join(5)
+        assert not worker.is_alive()
+    assert len(errors) == 1 and isinstance(errors[0], TimeoutError)
+
+
+def test_busy_other_process_times_out_instead_of_waiting_forever(tmp_path, monkeypatch):
+    import multiprocessing
+    import pytest
+
+    root = str(tmp_path / "busy-process-root")
+    ctx = multiprocessing.get_context("spawn")
+    ready, release = ctx.Event(), ctx.Event()
+    child = ctx.Process(target=_child_hold_scratch, args=(root, ready, release))
+    child.start()
+    try:
+        assert ready.wait(10)
+        monkeypatch.setattr(FG, "SCRATCH_LOCK_TIMEOUT_SECONDS", 0.2)
+        gen = FG.Flux3Generator(None, renderer=S.StubRenderer(), work_root=root)
+        with pytest.raises(TimeoutError, match="scratch root is busy"):
+            with gen._scratch():
+                pass
+    finally:
+        release.set()
+        child.join(5)
+        if child.is_alive():
+            child.terminate()
+            child.join(5)
+    assert child.exitcode == 0
 
 
 def test_nested_generate_refused_without_changing_outer_key(monkeypatch):
