@@ -11,6 +11,16 @@ def plan(**changes):
     return p
 
 
+def record_test_candidate(db, key, cost, token):
+    from brambleloop.visual import image_production as IP
+    cand = {"slug": "item", "version": "1", "release": "a" * 64,
+            "role": "test", "cost_cad": cost, "_paid_call_token": token}
+    verdict = {"sha256": "f" * 64, "listing": "item", "technical_status": "UNKNOWN",
+               "publishable": False, "checks": {"binding": {}}}
+    return IP.record_candidate(db, cand, verdict, method="autonomous", run=key,
+                               stage="product_generation")["candidate_id"]
+
+
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, True, "1", 10**1000])
 def test_bad_plan_amounts_are_refused(bad):
     with pytest.raises(SP.PlanRefused):
@@ -134,6 +144,16 @@ def test_paid_settlement_records_actual_cost_and_overrun_holds():
     token = IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
     IP._settle_paid_generation(db, key, token, 0.08)
     assert IP.get_run(db, key)["spent_cad"] == 0.08
+    # A receipt alone cannot release the hold or be applied twice.
+    with pytest.raises(IP.BudgetStop, match="unresolved cost"):
+        IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
+    with pytest.raises(IP.BudgetStop, match="already processed"):
+        IP._settle_paid_generation(db, key, token, 0.08)
+    assert IP.get_run(db, key)["spent_cad"] == 0.08
+    wrong = record_test_candidate(db, key, 0.08, "different-call")
+    with pytest.raises(IP.BudgetStop, match="candidate or receipt"):
+        IP._complete_paid_generation(db, key, token, wrong)
+    IP._complete_paid_generation(db, key, token, record_test_candidate(db, key, 0.08, token))
     token = IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
     with pytest.raises(IP.BudgetStop, match="exceeded"):
         IP._settle_paid_generation(db, key, token, 0.2)
@@ -151,12 +171,14 @@ def test_free_settlement_does_not_erase_paid_spend_or_unknown_cost_hold():
     IP._begin_generation(db, key, stage="product_generation", paid=False, next_cost=0)
     paid = IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
     IP._settle_paid_generation(db, key, paid, 0.08)
+    IP._complete_paid_generation(db, key, paid, record_test_candidate(db, key, 0.08, paid))
     IP._settle_free_generation(db, key, 0)
     assert IP.get_run(db, key)["spent_cad"] == 0.08
     paid = IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
     with pytest.raises(IP.BudgetStop, match="invalid or nonzero cost"):
         IP._settle_free_generation(db, key, None)
     IP._settle_paid_generation(db, key, paid, 0.05)
+    IP._complete_paid_generation(db, key, paid, record_test_candidate(db, key, 0.05, paid))
     with pytest.raises(IP.BudgetStop, match="unresolved cost"):
         IP._begin_generation(db, key, stage="product_generation", paid=False, next_cost=0)
     assert IP.get_run(db, key)["spent_cad"] == 0.13
@@ -181,6 +203,36 @@ def test_paid_dispatch_exception_leaves_a_durable_hold(monkeypatch):
                 stage="product_generation", brief="", refs=[], outfit=None,
                 laura=False, judges=None, plan_attempt=1)
     assert "provider_error" in IP._generate(db, key, gen, **args)
+    with pytest.raises(IP.BudgetStop, match="unresolved cost"):
+        IP._generate(db, key, gen, **args)
+    assert gen.calls == 1
+
+
+def test_candidate_record_failure_after_receipt_keeps_paid_hold(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import gallery
+    from brambleloop.visual import image_production as IP
+
+    class Paid(O.StubGenerator):
+        paid, max_cost_cad_per_call = True, 0.1
+        def generate(self, **kw):
+            result = super().generate(**kw)
+            result["cost_cad"] = 0.08
+            return result
+
+    monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("candidate storage interrupted")
+    monkeypatch.setattr(IP, "record_candidate", interrupted)
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    gen = Paid()
+    args = dict(slug="item", version="1", release="a" * 64, role=IP.ANCHOR_ROLE,
+                stage="product_generation", brief="", refs=[], outfit=None,
+                laura=False, judges=O.StubJudges(), plan_attempt=1)
+    with pytest.raises(RuntimeError, match="candidate storage interrupted"):
+        IP._generate(db, key, gen, **args)
+    assert IP.get_run(db, key)["spent_cad"] == 0.08
     with pytest.raises(IP.BudgetStop, match="unresolved cost"):
         IP._generate(db, key, gen, **args)
     assert gen.calls == 1

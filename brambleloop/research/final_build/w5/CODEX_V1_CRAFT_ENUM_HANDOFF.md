@@ -108,6 +108,16 @@ other stage writers, central finance accounting, billing truth, and interruption
 after receipt but before candidate recording remain open. No reconciliation
 workflow or authorization to clear a pending marker is provided here.
 
+The paid-call marker now persists after a valid receipt until a candidate with
+the same recorded call token, run, stage and cost is stored. Duplicate receipt
+settlement and substitution of a different candidate are held. An injected
+candidate-storage interruption leaves recorded cost and the hold in place.
+Python 3.11/tmpfs tests passed 33/33 including existing paid-gate coverage;
+independent review reran the spend cases 32/32. The token and candidate record
+are mutable metadata, not authenticated evidence. Interruption after candidate
+completion but before stage transition remains unresolved, as do PostgreSQL
+concurrency, noncooperating writers and company-wide budget fencing.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

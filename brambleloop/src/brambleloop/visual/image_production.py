@@ -328,6 +328,8 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             latency_s=cand.get("latency_s"), width=q.get("width"), height=q.get("height"),
             binding={k: v for k, v in verdict["checks"]["binding"].items()},
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
+                    **({"_paid_call_token": cand["_paid_call_token"]}
+                       if cand.get("_paid_call_token") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
                     "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
@@ -528,7 +530,7 @@ def _begin_generation(db, key, *, stage, paid, next_cost):
 
 
 def _settle_paid_generation(db, key, token, cost):
-    """Clear only this call's marker when a valid actual charge has been recorded."""
+    """Record the actual charge while retaining the marker until candidate persistence."""
     from sqlalchemy import select
     from .image_records import ImageProductionRun
     from . import spend_plan
@@ -542,6 +544,8 @@ def _settle_paid_generation(db, key, token, cost):
         pending = stages.get("_pending_paid_call")
         if not isinstance(pending, dict) or pending.get("token") != token:
             raise BudgetStop("paid image call reservation changed; review required")
+        if pending.get("state") is not None:
+            raise BudgetStop("paid image call receipt was already processed; review required")
         if not spend_plan._amount(row.spent_cad):
             raise BudgetStop("recorded visual spend is invalid; review required")
         maximum = pending["maximum_cad"]
@@ -550,11 +554,33 @@ def _settle_paid_generation(db, key, token, cost):
             stages["_pending_paid_call"] = {**pending, "actual_cad": cost,
                                              "state": "cost_exceeded_maximum"}
         else:
-            del stages["_pending_paid_call"]
+            stages["_pending_paid_call"] = {**pending, "actual_cad": cost,
+                                             "state": "receipt_recorded"}
         row.stages = stages
         row.updated_at = _now()
     if cost > maximum:
         raise BudgetStop("paid image call exceeded its declared maximum; review required")
+
+
+def _complete_paid_generation(db, key, token, candidate_id):
+    """Release the hold only after this run's candidate and receipt are durable."""
+    from sqlalchemy import select
+    from .image_records import ImageCandidate, ImageProductionRun
+
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        pending = stages.get("_pending_paid_call")
+        cand = session.get(ImageCandidate, candidate_id)
+        if (not isinstance(pending, dict) or pending.get("token") != token
+                or pending.get("state") != "receipt_recorded" or cand is None
+                or cand.run_key != key or cand.stage != pending.get("stage")
+                or not cand.sha256 or cand.cost_cad != pending.get("actual_cad")
+                or (cand.checks or {}).get("_paid_call_token") != token):
+            raise BudgetStop("paid image candidate or receipt is missing; review required")
+        del stages["_pending_paid_call"]
+        row.stages, row.updated_at = stages, _now()
 
 
 def _settle_free_generation(db, key, cost):
@@ -675,6 +701,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "cost_basis": out.get("cost_basis") or "generator receipt",
             "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous",
             "repair": repair}
+    if paid:
+        cand["_paid_call_token"] = call_token
     if role == ANCHOR_ROLE:
         bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -695,6 +723,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         verdict = CG.evaluate(db, cand, judges=judges)
     rec = record_candidate(db, cand, verdict, method="autonomous", run=key, stage=stage,
                            attempt=plan_attempt)
+    if paid:
+        _complete_paid_generation(db, key, call_token, rec["candidate_id"])
     return {**rec, "technical_status": verdict["technical_status"],
             "publishable": verdict["publishable"], "cost_cad": cost}
 
