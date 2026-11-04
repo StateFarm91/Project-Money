@@ -164,15 +164,14 @@ def check_proof_claims(text: str, where: str, proof_states: dict | None) -> list
     refuses a sentence that is perfectly sayable *later*: "maker tested" is true the day a
     tester finishes one and false the day before, and no fixed list can tell those apart.
 
-    With no proof position supplied this checks nothing and says nothing, because a listing
-    whose pattern nobody looked up is not thereby proved modest.
+    With no proof position supplied, no rung is established. This conservatively holds
+    proof claims until the caller supplies current, authoritative evidence; ordinary copy
+    without such a claim remains unaffected.
     """
-    if proof_states is None:
-        return []
     from ..quality.proof import check_claim
 
     return [Finding(ERROR, "POLICY_PROOF_OVERCLAIM", refusal["why"], where)
-            for refusal in check_claim(text, proof_states)]
+            for refusal in check_claim(text, proof_states if proof_states is not None else {})]
 
 
 # The disclosures `platform_policy.classify` can owe that are about AI. When classify says one
