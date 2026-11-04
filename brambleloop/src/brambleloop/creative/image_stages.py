@@ -608,8 +608,8 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
               identity_anchor: str | None = None,
               work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
-    """Laura with the product: the six-reference campaign set, then the product photograph,
-    the outfit image and any supplementary images.
+    """Laura with the product: the six-reference campaign set, then the verified AI-generated
+    product-only flat lay (never a photograph), the outfit image and any supplementary images.
 
     `laura_refs`: None means the committed canonical originals; otherwise exactly those three
     files. `outfit` is W-OWNERIMG's reserved outfit {"id", "description", "image"?}, and is

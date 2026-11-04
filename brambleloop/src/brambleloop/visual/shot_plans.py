@@ -194,12 +194,27 @@ CAMPAIGN_GENERATED: dict[str, str] = {
     el.SCALE: "Laura using it from another angle, which also shows its size",
     el.COLOUR_CONTEXT: "second lifestyle: the colourway in the room",
 }
+# W5-V1 (audit P1-c): a listing whose shot plan has no Laura is generated product-only ("The
+# product alone; no person."), so its briefs never ask for her. The same three jobs, without a
+# person; size is shown against everyday objects of known size.
+CAMPAIGN_GENERATED_PRODUCT_ONLY: dict[str, str] = {
+    el.LIFESTYLE: "lifestyle: the piece in use where it lives, no person",
+    el.SCALE: "the piece from another angle beside everyday objects of known size, which "
+              "also shows its size; no person",
+    el.COLOUR_CONTEXT: "second lifestyle: the colourway in the room, no person",
+}
+
+
+def campaign_briefs(laura: bool) -> dict[str, str]:
+    """The generated-campaign briefs for a listing with or without Laura."""
+    return CAMPAIGN_GENERATED if laura else CAMPAIGN_GENERATED_PRODUCT_ONLY
 
 
 def campaign_plan(listing: str) -> dict:
     plan = plan_for(listing)
     has_lifestyle = any(r["job"] == el.LIFESTYLE for r in plan["roles"])
     laura = any(r["laura"] for r in plan["roles"])
+    briefs = campaign_briefs(laura)
     slots = []
     for r in plan["roles"]:
         if r["conditional"]:
@@ -209,10 +224,10 @@ def campaign_plan(listing: str) -> dict:
                    and r["sources"][GENERATED] == BLOCKED_F852)
         slots.append({**r, "generate": gen or gap_gen,
                       "laura": bool(gen and laura),
-                      "campaign_role": CAMPAIGN_GENERATED.get(r["job"], r["role"]) if gen
+                      "campaign_role": briefs.get(r["job"], r["role"]) if gen
                       else ("product full view" if r["job"] == el.DESIRE else r["role"]),
                       "fallback": DISCLOSED if r["sources"][DISCLOSED] == SATISFIES else None,
-                      "brief": r["brief"] or (CAMPAIGN_GENERATED[r["job"]] if gen else "")})
+                      "brief": r["brief"] or (briefs[r["job"]] if gen else "")})
     return {**plan, "roles": slots, "image_count": len(slots),
             "one_outfit": True, "laura_in_campaign": any(s["laura"] for s in slots),
             "ruling_conflicts": ([

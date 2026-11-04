@@ -14,6 +14,8 @@ needs owner authority, which this build does not have.
 """
 from __future__ import annotations
 
+import math
+
 PLAN_VERSION = "visual-spend-plan/1"
 REQUIRED: tuple[str, ...] = ("hypothesis", "provider_model", "call_count", "max_spend_cad",
                              "pass_criteria", "fail_criteria")
@@ -21,6 +23,16 @@ REQUIRED: tuple[str, ...] = ("hypothesis", "provider_model", "call_count", "max_
 
 class PlanRefused(ValueError):
     """A paid visual experiment without a complete plan, or one past its own ceiling."""
+
+
+def _amount(value) -> bool:
+    """A finite nonnegative numeric amount; booleans are not money."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and value >= 0
+    except OverflowError:
+        return False
 
 
 def build(*, hypothesis: str, provider_model: str, call_count: int, max_spend_cad: float,
@@ -48,12 +60,14 @@ def problems(plan: dict | None) -> list[str]:
     if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
         out.append("call_count must be a positive integer")
     cap = plan.get("max_spend_cad")
-    if isinstance(cap, bool) or not isinstance(cap, (int, float)) or not cap > 0:
-        out.append("max_spend_cad must be a positive amount")
+    if not _amount(cap) or cap == 0:
+        out.append("max_spend_cad must be a finite positive amount")
     for key in ("pass_criteria", "fail_criteria"):
         if not [c for c in plan.get(key) or () if str(c).strip()]:
             out.append(f"{key} missing")
     price = plan.get("price_cad_per_call")
+    if price is not None and not _amount(price):
+        out.append("price_cad_per_call must be a finite nonnegative amount")
     if (not out and isinstance(price, (int, float)) and not isinstance(price, bool)
             and price * n > cap + 1e-9):
         out.append(f"call_count x price (CA${round(price * n, 4)}) exceeds max_spend_cad "
@@ -71,6 +85,10 @@ def validate(plan: dict | None) -> dict:
 def guard(plan: dict, *, spent_cad: float, calls_made: int, next_cost_cad: float) -> None:
     """Before each paid call: refuse past the plan's call count or its max spend."""
     validate(plan)
+    if not _amount(spent_cad) or not _amount(next_cost_cad):
+        raise PlanRefused("spent_cad and next_cost_cad must be finite nonnegative amounts")
+    if isinstance(calls_made, bool) or not isinstance(calls_made, int) or calls_made < 0:
+        raise PlanRefused("calls_made must be a nonnegative integer")
     if calls_made + 1 > int(plan["call_count"]):
         raise PlanRefused(f"call {calls_made + 1} exceeds the plan's call_count "
                           f"{plan['call_count']}")

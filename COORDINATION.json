@@ -648,6 +648,142 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-PACKAGE-RACE",
+      "operator": "codex",
+      "branch": "codex/a9-package-review",
+      "source_branch": "claude/w5-A9-package-event",
+      "source_sha": "6ee81c19b24611caa0cab9e3f0526ac499cc8e47",
+      "scope": "Prevent stale listing package review requests under event/sweep races; preview widens operating_readings.period_key for release keys",
+      "files": [
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
+        "brambleloop/tests/test_w5_a9_package_event.py",
+        "brambleloop/src/brambleloop/core/models.py",
+        "brambleloop/tests/test_codex_a9_source_binding.py",
+        "brambleloop/tests/test_opus2_listing_package.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A9-PARKED-MATERIAL-CHANGE",
+      "operator": "codex",
+      "branch": "codex/a9-parked-source-change",
+      "source_sha": "e1974a6dae46e49099a8b56d32b3b8c2c8a3198f",
+      "scope": "Preserve parked owner decisions across temporary source loss; supersede known materially changed ORM listing or design sources",
+      "files": [
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/src/brambleloop/publish/listing_package_fence.py",
+        "brambleloop/tests/test_codex_a9_parked_source_change.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-DEFER-STATE",
+      "operator": "codex",
+      "branch": "codex/a9-defer-state-guard",
+      "source_sha": "2a6393ea1b2a09f3c5f470e35a48b2f5fbb70baa",
+      "scope": "Serialize owner deferral with queue changes and refuse closed or inconsistent state",
+      "files": [
+        "brambleloop/src/brambleloop/app/command_center/approvals.py",
+        "brambleloop/tests/test_codex_a9_defer_state.py",
+        "brambleloop/tests/test_codex_a9_defer_state_pg.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-EVENT-SCOPE",
+      "operator": "codex",
+      "branch": "codex/a9-event-scope-validation",
+      "source_sha": "c0252f6fd92fdd670d191f732aec543cde7dd86b",
+      "scope": "Refuse malformed per-release listing-package events instead of dispatching global sweeps",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
+        "brambleloop/tests/test_codex_a9_event_scope.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-EVENT-RELEASE-BINDING",
+      "operator": "codex",
+      "branch": "codex/a9-event-release-binding",
+      "source_sha": "ed915230d0bd47bc00071d460f0eebdd17fdafe6",
+      "scope": "Bind nonempty listing-package event release hash to assembled and recorded release",
+      "files": [
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
+        "brambleloop/tests/test_codex_a9_event_release.py",
+        "brambleloop/tests/test_codex_a9_event_scope.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-V1-POST-RIB-TRUTH",
+      "operator": "codex",
+      "branch": "codex/v1-visual-correctness",
+      "source_branch": "claude/w5-V1-visual-correctness",
+      "source_sha": "f349c755a17d3792241249a49d0884262c8fd60b",
+      "scope": "V1 false ribbing classification and visual prompt truth",
+      "files": [
+        "brambleloop/src/brambleloop/creative/pattern_refs.py",
+        "brambleloop/tests/test_w5_v1_visual_correctness.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/creative/flux_prompt.py",
+        "brambleloop/src/brambleloop/visual/image_production.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-V1-ANCHOR-BINDING",
+      "operator": "codex",
+      "branch": "codex/v1-anchor-binding",
+      "source_branch": "codex/v1-visual-correctness",
+      "source_sha": "d125a3ba356fbe360bdc99a05287b06cc29ff360",
+      "scope": "Bind lifestyle anchor selection to full release, product, version and artifact bytes; abbreviated or unavailable evidence is held.",
+      "files": [
+        "brambleloop/src/brambleloop/visual/candidate_gates.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/visual/image_production.py",
+        "brambleloop/tests/test_codex_v1_anchor_binding.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-V1-VARIANT-BASE-TRUTH",
+      "operator": "codex",
+      "branch": "codex/v1-variant-base",
+      "source_branch": "codex/v1-anchor-binding",
+      "source_sha": "b9eb3e32fcf5cd0d96b9330790e431c1115ab063",
+      "scope": "Stage-D edit base refuses failed or owner-vetoed evidence and binds to the originating product, release and content bytes; gallery readiness holds cross-run or mixed-release candidates; incomplete blind craft and anchor comparisons hold without encouraging reuse.",
+      "files": [
+        "brambleloop/src/brambleloop/visual/image_production.py",
+        "brambleloop/src/brambleloop/visual/candidate_gates.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/visual/vision_judges.py",
+        "brambleloop/tests/test_codex_v1_variant_base.py",
+        "brambleloop/tests/test_codex_v1_gallery_scope.py",
+        "brambleloop/tests/test_codex_v1_obscured_craft.py",
+        "brambleloop/tests/test_codex_v1_blind_comparison.py",
+        "brambleloop/tests/test_w4_visnext.py"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-V1-CRAFT-ENUM-TRUTH",
+      "operator": "codex",
+      "branch": "codex/v1-craft-enum",
+      "source_branch": "codex/v1-variant-base",
+      "source_sha": "100f06496e108ca8ece2cc4899c11dc2339118a8",
+      "scope": "Unsupported blind craft labels, unobserved declared edging, missing used yarn colours and malformed cable/band presence facts hold UNKNOWN and cannot be reused as variant inputs.",
+      "files": [
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/visual/vision_judges.py",
+        "brambleloop/tests/test_codex_v1_craft_enum.py",
+        "brambleloop/tests/test_codex_v1_variant_base.py",
+        "brambleloop/tests/test_codex_v1_blind_comparison.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

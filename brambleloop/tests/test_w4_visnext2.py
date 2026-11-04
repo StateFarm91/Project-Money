@@ -167,6 +167,32 @@ def test_one_bounded_proportion_correction_then_block():
     assert "lifestyle" not in [h["role"] for h in gen2.handed]
 
 
+def test_identity_correction_stage_retry_does_not_repeat_generated_images(monkeypatch):
+    import pytest
+    from brambleloop.visual import image_production as IP
+
+    db, gen, judges = O.make_db(), StagedGen(), Judges(body=("FAIL", "PASS"))
+    follow, _ = O.drain(db, generator=gen, judges=judges)
+    IP.trigger(follow, slug=CLOUD, version="1.2.0", release=O.RELEASE)
+    O.drain(db, generator=gen, judges=judges, limit=6)
+    inputs = {"slug": CLOUD, "version": "1.2.0", "release": O.RELEASE,
+              "stage": "identity_anchor"}
+    original = IP._generate
+    def interrupt_after_correction(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if kwargs.get("role") == IP.IDENTITY_ANCHOR_ROLE and kwargs.get("repair"):
+            raise RuntimeError("interrupted after identity correction")
+        return result
+    monkeypatch.setattr(IP, "_generate", interrupt_after_correction)
+    with pytest.raises(RuntimeError, match="interrupted after identity correction"):
+        IP.run_stage(db, inputs, follow=follow, generator=gen, judges=judges)
+    assert len([h for h in gen.handed if h["role"] == IP.IDENTITY_ANCHOR_ROLE]) == 2
+    monkeypatch.setattr(IP, "_generate", original)
+    result = IP.run_stage(db, inputs, follow=follow, generator=gen, judges=judges)
+    assert result["next"] == "lifestyle_generation"
+    assert len([h for h in gen.handed if h["role"] == IP.IDENTITY_ANCHOR_ROLE]) == 2
+
+
 def test_unknown_anchor_goes_to_owner_review_and_never_becomes_pass():
     from brambleloop.queue.durable import DuplicateJob, JobQueue
     from brambleloop.visual import image_production as IP
@@ -183,10 +209,12 @@ def test_unknown_anchor_goes_to_owner_review_and_never_becomes_pass():
     assert any("needs your review" in n["title"] for n in notes)
     q = JobQueue(db)
 
-    def follow(inputs, k):
+    def follow(inputs, k, *, session=None):
         try:
-            return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=k)
+            return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=k, session=session)
         except DuplicateJob:
+            if session is not None:
+                raise
             return None
 
     out = IP.resolve_identity_anchor_review(db, key, decision="confirmed_same_person",
@@ -207,7 +235,8 @@ def test_unknown_anchor_goes_to_owner_review_and_never_becomes_pass():
     q2 = JobQueue(db2)
     out2 = IP.resolve_identity_anchor_review(
         db2, key2, decision="not_laura", by="owner:test",
-        follow=lambda i, k: q2.enqueue(IP.AGENT, IP.JOB_TYPE, i, idempotency_key=k))
+        follow=lambda i, k, session=None: q2.enqueue(IP.AGENT, IP.JOB_TYPE, i,
+                                                    idempotency_key=k, session=session))
     O.drain(db2, generator=gen2, judges=judges)
     assert IP.get_run(db2, key2)["attempts_exhausted"] and out2["resolved"]
 

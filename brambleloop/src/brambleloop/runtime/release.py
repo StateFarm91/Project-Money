@@ -2133,6 +2133,28 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
                 lineage=lineage.under(certificate_ref))
 
 
+def _enqueue_listing_package(ctx: JobContext, i: dict, slug: str) -> None:
+    """W5-A9 (P0-PACKAGE-EVENT): the owner-review listing package of this release, now.
+
+    `launch.plan` is the last stage that writes what the package reads (the listing-set
+    renders `release_gates.for_publish` verifies), so every exit of it -- launched, held or
+    withheld -- asks for this one release's package instead of leaving it to the six-hourly
+    sweep. Keyed like every other chain stage (release and rebuild token, plus the evergreen
+    pivot, which re-runs this stage with new copy), so a re-delivered event is a duplicate key.
+    The package itself is idempotent per `slug@version` and fingerprint, so the sweep running
+    after it writes nothing new. Internal writes only; it never publishes.
+    """
+    token = i.get("rebuild", "") + (":evergreen" if i.get("positioning") == "evergreen" else "")
+    try:
+        ctx.enqueue("listing", "listing.package", {"slug": slug, "version": i["version"],
+                                                   "release": i.get("release", "")},
+                    idempotency_key=chain_key("package", slug, i["version"],
+                                              i.get("release", ""), token))
+    except Exception as exc:  # noqa: BLE001 - the sweep remains the safety net
+        ctx.audit("listing.package_event_failed", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+
+
 @handlers.register("launch.plan")
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
@@ -2181,6 +2203,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
                                                   i.get("rebuild", "") + ":evergreen"))
             ctx.audit("launch.pivot_queued", artifact=f"{slug}@{i['version']}",
                       detail={"why": decision.get("why"), "occasion": decision.get("occasion")})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"held": True, "window_decision": decision})
         return out
@@ -2252,6 +2275,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         _mark_withheld(ctx, _load_cir(ctx, slug, i["version"]), reason)
         ctx.audit("gate.release_withheld", artifact=f"{slug}@{i['version']}",
                   detail={"reason": reason, "stage": "launch.plan"})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"withheld": reason, "window_decision": decision})
         return out
@@ -2266,6 +2290,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     ctx.enqueue("store_operator", "store.publish", publish_inputs,
                 idempotency_key=chain_key("publish", slug, i["version"],
                                           i.get("release", ""), i.get("rebuild", "")))
+    _enqueue_listing_package(ctx, i, slug)
     out = plan.to_dict()
     out["window_decision"] = decision
     out["ranking_readiness"] = ranking_summary
@@ -3642,8 +3667,58 @@ def handle_image_production(ctx: JobContext) -> dict:
     from ..visual import image_production
 
     def follow(inputs, key):
-        return ctx.enqueue("publishing", "visual.image_production", inputs,
-                           idempotency_key=key)
+        child = ctx.enqueue("publishing", "visual.image_production", inputs,
+                            idempotency_key=key)
+        if child is not None:
+            return child
+        # JobContext reports a duplicate as None. A dead, cancelled or different
+        # job is not a durable continuation of this stage.
+        from sqlalchemy import select
+        from ..core.models import Job, JobStatus
+        from ..queue.durable import fit_idempotency_key
+
+        with ctx.db.session() as session:
+            existing = session.scalar(select(Job).where(
+                Job.idempotency_key == fit_idempotency_key(key)))
+            done_output = existing.outputs if existing is not None else None
+            expected_run = image_production.run_key(inputs["slug"], inputs["version"],
+                                                    inputs["release"], inputs.get("ns") or "")
+            done_valid = False
+            if isinstance(done_output, dict):
+                status = done_output.get("status")
+                valid_status = (isinstance(status, str) and
+                                (status == image_production.STAGE_STATE.get(inputs["stage"])
+                                 or (inputs["stage"] == "retrieve_release"
+                                     and status == "awaiting_certified_pattern")
+                                 or status.startswith("blocked(")))
+                next_stage = done_output.get("next")
+                expected_stage = inputs["stage"]
+                successors = ({image_production._next(expected_stage)}
+                              if expected_stage in image_production.STAGE_STATE else set())
+                if expected_stage == "fidelity_gate":
+                    successors.add("product_generation")
+                elif expected_stage == "verification":
+                    successors.add("gallery_assembly")
+                elif expected_stage == "repair":
+                    successors = {"verification"}
+                successors.discard(None)
+                valid_next = ("next" in done_output and
+                              isinstance(next_stage, str) and next_stage in successors)
+                done_valid = (done_output.get("run_key") == expected_run
+                              and not done_output.get("skipped")
+                              and ("stage" not in done_output or done_output["stage"] == inputs["stage"])
+                              and (valid_next if "next" in done_output else valid_status)
+                              and ("status" not in done_output or valid_status))
+            if (existing is None or existing.agent != "publishing"
+                    or existing.job_type != "visual.image_production"
+                    or existing.inputs != inputs
+                    or existing.status not in (JobStatus.PENDING, JobStatus.RUNNING,
+                                               JobStatus.FAILED, JobStatus.DONE)
+                    or (existing.status == JobStatus.FAILED
+                        and existing.attempts >= existing.max_attempts)
+                    or (existing.status == JobStatus.DONE and not done_valid)):
+                raise RuntimeError("visual continuation is missing, mismatched or terminal; review required")
+        return None
 
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
     ctx.audit("visual.image_production", artifact=out.get("run_key"),
