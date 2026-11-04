@@ -118,7 +118,10 @@ class TrendDatum:
         archaeology. A plain age cut-off treats those the same.
         """
         horizon = FRESH_FOR_DAYS[self.shape]
-        age = max(0, self.age_days(today))
+        age = self.age_days(today)
+        # A measurement whose window has not closed is not evidence of current demand.
+        if age < 0:
+            return 0.0
         if age <= horizon * 0.5:
             return 1.0
         if age >= horizon:
@@ -159,6 +162,8 @@ def _why(datum: TrendDatum, today: date | None) -> str:
             f"measured on {POPULATIONS[datum.population]}, which is real evidence about "
             f"Canadian demand and weaker evidence than a Canadian measurement")
     fresh = datum.freshness(today)
+    if datum.age_days(today) < 0:
+        reasons.append("measurement window closes in the future")
     if fresh < 1.0:
         reasons.append(
             f"{datum.age_days(today)} days old against a {FRESH_FOR_DAYS[datum.shape]}-day "
@@ -183,6 +188,8 @@ def check_presentable_as_current(datum: TrendDatum, *, claim: str,
             f"{POPULATIONS[datum.population]}. Use it at its discounted weight and say what "
             f"it measured, or find a Canadian figure (#38)")
     if asserts_current and datum.freshness(today) <= 0.0:
+        if datum.age_days(today) < 0:
+            raise ProvenanceRefused("the measurement window closes in the future")
         raise ProvenanceRefused(
             f"the claim describes current demand and the datum's window closed "
             f"{datum.age_days(today)} days ago, past the {FRESH_FOR_DAYS[datum.shape]}-day "
@@ -429,17 +436,26 @@ def evidence_for(db, seed, *, today: date | None = None) -> dict:
         return {"measured": False, "terms": terms, "rows": len(rows), "discount": 1.0,
                 "why": "no stamped trend evidence names this concept; UNMEASURED, score "
                        "left on the concept's own priors"}
-    mean_weight = sum(r[8] for r in usable) / len(usable)
+    weights = []
     presentable, not_presentable = [], []
     for r in usable:
+        weight = 0.0
         try:
             datum = TrendDatum(topic=r[2] or "unnamed", value=float(r[10] or 0.0),
                                source=r[3] or "unknown", population=r[4],
                                window_from=r[5], window_to=r[6], shape=r[7] or SEASONAL)
+            start, end = date.fromisoformat(datum.window_from), date.fromisoformat(datum.window_to)
+            if start > end:
+                raise ProvenanceRefused("measurement window starts after it ends")
+            # Stamps are snapshots. Recalculate at the scoring date rather than treating
+            # the weight at stamp time as permanently current.
+            weight = datum.weight(today)
             check_presentable_as_current(datum, claim="current Canadian demand", today=today)
             presentable.append(f"{r[0]}:{r[1]}")
-        except ProvenanceRefused as exc:
+        except (ProvenanceRefused, ValueError, TypeError) as exc:
             not_presentable.append({"row": f"{r[0]}:{r[1]}", "why": str(exc)[:160]})
+        weights.append(weight)
+    mean_weight = sum(weights) / len(weights)
     discount = round(EVIDENCE_FLOOR + (1 - EVIDENCE_FLOOR) * mean_weight, 4)
     return {"measured": True, "terms": terms, "rows": len(usable),
             "mean_weight": round(mean_weight, 4), "discount": discount,
