@@ -149,6 +149,9 @@ def select_method(domain: str) -> dict:
 REPO_RECORDS = (REPO_RESEARCH.parent / "BUILD_STATE.md", REPO_RESEARCH.parent / "DECISION_LOG.md")
 STOPPED_NO_CHANGE = "STOPPED_NO_CHANGE"
 NO_CHANGE_LIMIT = 2
+# Bound malformed/duplicated audit scans without treating an incomplete scan as
+# evidence of a changed investigation or an established no-change streak.
+NO_CHANGE_AUDIT_SCAN_LIMIT = 1000
 ESCALATIONS = "research.escalations"
 METRICS = "research.metrics"
 
@@ -210,33 +213,41 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
 
 def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
     """How many most-recent investigations of this task ended with exactly this evidence."""
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
 
     from ..core.models import AuditLog, Job, JobStatus
 
     n = 0
     with db.session() as s:
         seen_jobs = set()
-        for a, status in s.execute(select(AuditLog, Job.status).outerjoin(
+        rows = s.execute(select(AuditLog, Job.status).outerjoin(
                 Job, Job.id == AuditLog.job_id).where(
                 AuditLog.action == INVESTIGATED,
-                AuditLog.artifact == f"research_task:{task_id}").order_by(AuditLog.id.desc())
-                           .limit(10)):
-            if a.job_id is not None and status != JobStatus.DONE:
-                continue
+                AuditLog.artifact == f"research_task:{task_id}",
+                AuditLog.at <= datetime.now(timezone.utc),
+                or_(AuditLog.job_id.is_(None), Job.status == JobStatus.DONE))
+                .order_by(AuditLog.id.desc()).limit(NO_CHANGE_AUDIT_SCAN_LIMIT + 1))
+        for scanned, (a, status) in enumerate(rows, 1):
+            if scanned > NO_CHANGE_AUDIT_SCAN_LIMIT:
+                raise R.ResearchRefused("research audit history needs reconciliation before "
+                                        "counting unchanged investigations")
             if isinstance(a.detail, dict) and a.detail.get("ran") is False:
                 continue
             if not isinstance(a.detail, dict):
-                break  # Unreadable evidence is not proof of an unchanged run.
+                raise R.ResearchRefused("research audit history needs reconciliation: "
+                                        "unreadable investigation detail")
             if a.job_id is not None:
                 if a.job_id in seen_jobs:
                     continue
                 seen_jobs.add(a.job_id)
-            held = a.detail.get("evidence") or []
+            held = a.detail.get("evidence")
             if not isinstance(held, list) or any(not isinstance(ref, str) for ref in held):
-                break
+                raise R.ResearchRefused("research audit history needs reconciliation: "
+                                        "malformed evidence references")
             if sorted(held) == sorted(evidence):
                 n += 1
+                if n >= 10:
+                    break
             else:
                 break
     return n

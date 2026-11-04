@@ -708,7 +708,13 @@ def test_failed_investigation_audit_does_not_block_sweep_retry(monkeypatch):
 
 def test_retried_job_audits_count_once_toward_no_change_streak():
     db = _db()
-    _gid, tid = _insufficient_open_task(db)
+    tid = research.open_question(
+        db, question="What is the best technique for a test edge?",
+        trigger="test:generic-audit-dedupe", decision_ref="edge construction",
+        domain="techniques", query_terms=["edge"],
+        evidence_needed="a recorded source about the edge",
+        stop_condition="a fact or an explicit unresolved result",
+        if_unresolved="hold and seek another source")["task"]
     q = JobQueue(db)
     done = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
                      idempotency_key="duplicate-audit-source")

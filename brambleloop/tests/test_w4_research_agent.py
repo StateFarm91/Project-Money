@@ -12,7 +12,9 @@ import _tmp; _tmp.install()  # noqa: E702
 import socket
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -21,7 +23,7 @@ from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import DEFAULT_AGENTS, Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import AuditLog, Job, Lesson, Phase  # noqa: E402
+from brambleloop.core.models import AuditLog, Job, JobStatus, Lesson, Phase  # noqa: E402
 from brambleloop.intel import research as R  # noqa: E402
 from brambleloop.intel import research_agent as RA  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
@@ -306,6 +308,107 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
     # INTEG7: routed through R.stop, so the stop carries its F-444 escalation
     esc = next(e for e in R.escalations(db) if e["task"] == tid)
     assert RA.STOPPED_NO_CHANGE in esc["why_stopped"] and esc["smallest_action"]
+
+
+def test_failed_audit_burst_does_not_hide_completed_no_change_history():
+    db = _db()
+    with db.session() as s:
+        s.add(Lesson(origin_cell="test", subject="moss stitch", statement="moss stitch "
+                     "edges curl less than single crochet on blankets", confidence="medium"))
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-burst", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+              idempotency_key="first-real-investigation", priority=-1000)
+    assert Worker(db, "first-real-investigation", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        task = s.get(R.ResearchTask, tid)
+        evidence = ([item["ref"] for item in task.internal_evidence]
+                    + [item["ref"] for item in task.sources])
+    assert evidence
+    good = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                      idempotency_key="completed-history")]
+    failed = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                        idempotency_key=f"failed-history:{n}") for n in range(12)]
+    with db.session() as s:
+        for job in good + failed:
+            stored = s.get(Job, job.id)
+            stored.status = JobStatus.DONE if job in good else JobStatus.DEAD
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           detail={"evidence": evidence}))
+    assert RA._unchanged_runs(db, tid, evidence) == 2
+    current = q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                        idempotency_key="after-failed-burst", priority=-1000)
+    assert Worker(db, "after-failed-burst", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, current.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["unchanged_runs"] == 2, (finished.outputs["evidence"], evidence,
+                    finished.outputs["new_sources"], finished.outputs["new_internal"])
+        assert finished.outputs["stopped"] and RA.STOPPED_NO_CHANGE in finished.outputs["stopped"], finished.outputs
+        assert s.get(R.ResearchTask, tid).state == R.STOPPED
+
+
+def test_ambiguous_no_change_history_over_scan_limit_is_held(monkeypatch):
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-overflow", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                               idempotency_key="too-many-audits")
+    with db.session() as s:
+        s.get(Job, job.id).status = JobStatus.DONE
+        for _ in range(4):
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           detail={"evidence": ["S1"]}))
+    monkeypatch.setattr(RA, "NO_CHANGE_AUDIT_SCAN_LIMIT", 3)
+    with pytest.raises(R.ResearchRefused, match="audit history needs reconciliation"):
+        RA._unchanged_runs(db, tid, ["S1"])
+
+
+def test_future_dated_audit_does_not_advance_no_change_streak():
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-future", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    q = JobQueue(db)
+    jobs = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                      idempotency_key=f"future-history:{n}") for n in range(2)]
+    with db.session() as s:
+        for n, job in enumerate(jobs):
+            s.get(Job, job.id).status = JobStatus.DONE
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           at=datetime.now(timezone.utc) + timedelta(days=10 if n else -1),
+                           detail={"evidence": ["S1"]}))
+    assert RA._unchanged_runs(db, tid, ["S1"]) == 1
+
+
+def test_malformed_completed_history_requires_reconciliation():
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-malformed", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                               idempotency_key="malformed-history")
+    with db.session() as s:
+        s.get(Job, job.id).status = JobStatus.DONE
+        s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=job.id,
+                       detail={"evidence": [{"not": "a reference"}]}))
+    with pytest.raises(R.ResearchRefused, match="malformed evidence references"):
+        RA._unchanged_runs(db, tid, ["S1"])
+    retry = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                                 idempotency_key="malformed-history-worker", priority=-1000)
+    assert Worker(db, "malformed-history-worker", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, retry.id)
+        assert result.status == JobStatus.FAILED
+        assert "research audit history needs reconciliation" in result.last_error
+        assert s.get(R.ResearchTask, tid).state == R.OPEN
 
 
 def test_f444_and_f449_the_sweep_stores_escalations_and_metrics():
