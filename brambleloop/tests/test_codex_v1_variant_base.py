@@ -70,6 +70,26 @@ def test_edit_base_never_uses_failed_or_vetoed_image(tmp_path, monkeypatch):
         row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
             "status": "UNKNOWN", "checks": [legacy]}}}
     assert select_base() is None
+    # A newly incomplete two-image comparison cannot become an edit base either.
+    from test_codex_v1_blind_comparison import CLOUD, Judge, _cir, _reading
+    from brambleloop.visual import vision_judges
+
+    reading = _reading()
+    reading["image_1"]["craft"] = "unclear"
+    comparison = vision_judges.blind_consistency(
+        Judge(reading), b"anchor", b"candidate", fidelity.expectation(_cir(CLOUD)))
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [comparison]}}}
+    assert select_base() is None
+    # Legacy unknown anchor comparisons without the new marker are also held.
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [{"check": "anchor_consistency",
+                                               "status": "UNKNOWN"}]}}}
+    assert select_base() is None
     with db.session() as session:
         row = session.scalar(select(ImageCandidate))
         row.technical_status = "PASS"

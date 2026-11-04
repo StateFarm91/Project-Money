@@ -1401,6 +1401,7 @@ def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
             if fidelity.get("status") == "FAIL" or any(
                     not isinstance(c, dict) or c.get("status") == "FAIL"
                     or c.get("blocks_variant_input") is True
+                    or (c.get("check") == "anchor_consistency" and c.get("status") == "UNKNOWN")
                     or (c.get("check") == "craft_texture" and c.get("status") == "UNKNOWN"
                         and isinstance(c.get("reading"), dict)
                         and str(c["reading"].get("fabric_visible_clearly") or "").lower()

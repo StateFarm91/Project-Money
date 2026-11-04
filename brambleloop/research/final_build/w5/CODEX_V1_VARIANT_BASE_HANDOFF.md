@@ -69,3 +69,19 @@ is authentic.
 The final Python 3.11 SQLite V1, anchor, gallery, owner-image and stage-D suite
 passed 83/83. A separate reviewer reran the obscured and edit-base cases and
 checked the legacy-visibility follow-up. No paid calls or deployment occurred.
+
+## Blind anchor comparison
+
+The two-image blind comparison previously returned PASS with an unread anchor
+craft, edge, band, cable or colour count, or an unread candidate band/cable
+reading. It now requires readable evidence on both sides before PASS; unsupported
+craft labels and invalid colour counts are UNKNOWN. A negative conclusion about
+an invented edge, band or cable requires an explicit anchor absence, while
+independent clear mismatches still FAIL. Missing, hidden, unanswered or otherwise
+incomplete anchor comparisons are held from variant edit reuse, including
+previously recorded UNKNOWN comparisons. This is not proof of image truth or
+judge authenticity.
+
+Python 3.11/file-backed SQLite: expanded focused and owner-image suite 100/100.
+Independent reviewer reran blind-comparison, variant and obscured cases 18/18.
+The broader pre-existing V1 regression and authority/concurrency holds remain.

@@ -544,47 +544,75 @@ def _has_cables(exp) -> bool:
 
 def compare_items(reading: dict, exp) -> dict:
     """Two independent descriptions (anchor, candidate) compared with each other and the CIR."""
+    if not isinstance(reading, dict):
+        return _c("anchor_consistency", UNKNOWN, "the reading did not describe both images",
+                  blocks_variant_input=True)
     a = reading.get("image_1") if isinstance(reading.get("image_1"), dict) else None
     b = reading.get("image_2") if isinstance(reading.get("image_2"), dict) else None
     if a is None or b is None:
-        return _c("anchor_consistency", UNKNOWN, "the reading did not describe both images")
+        return _c("anchor_consistency", UNKNOWN, "the reading did not describe both images",
+                  blocks_variant_input=True)
     if _tri(b.get("item_visible")) is not True or _tri(a.get("item_visible")) is not True:
         return _c("anchor_consistency", UNKNOWN, "the item is not clearly visible in both "
-                                                 "images", reading=reading)
+                                                 "images", reading=reading, blocks_variant_input=True)
     problems, unclear = [], []
-    craft_b, craft_a = (str(b.get("craft", "unclear")).lower(),
-                        str(a.get("craft", "unclear")).lower())
-    if craft_b == "unclear":
+    allowed_crafts = ("crochet", "knitting", "woven", "printed")
+    craft_b, craft_a = (str(b.get("craft", "unclear")).strip().lower(),
+                        str(a.get("craft", "unclear")).strip().lower())
+    if craft_a not in allowed_crafts:
+        unclear.append("craft unclear in the anchor")
+        craft_a = None
+    if craft_b not in allowed_crafts:
         unclear.append("craft unclear in the candidate")
-    elif craft_b != getattr(exp, "craft", "crochet") or (craft_a != "unclear" and
+    elif craft_b != getattr(exp, "craft", "crochet") or (craft_a is not None and
                                                           craft_a != craft_b):
         problems.append((FC.WRONG_CRAFT_TEXTURE, f"reads as {craft_b} (anchor {craft_a}, "
                                                  f"pattern {getattr(exp, 'craft', '?')})"))
     eb, ea = _tri(b.get("border_or_edging_visible")), _tri(a.get("border_or_edging_visible"))
-    if eb is True and not getattr(exp, "edging_declared", False) and ea is not True:
+    if ea is None:
+        unclear.append("edging unclear in the anchor")
+    if eb is True and not getattr(exp, "edging_declared", False) and ea is False:
         problems.append((FC.INVENTED_EDGING, "an edging the anchor and the pattern do not have"))
     elif eb is None:
         unclear.append("edging unclear")
+    elif ea is not None and eb != ea:
+        unclear.append("edging differs or is obscured between images")
     bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
-    if bb is True and not _has_bands(exp) and ba is not True:
+    if ba is None or bb is None:
+        unclear.append("end bands unclear in one or both images")
+    if bb is True and not _has_bands(exp) and ba is False:
         problems.append((FC.INVENTED_END_BAND_TREATMENT, "end bands the pattern does not have"))
+    elif ba is not None and bb is not None and ba != bb:
+        unclear.append("end bands differ or are obscured between images")
     cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
-    if cb is True and not _has_cables(exp) and ca is not True:
+    if ca is None or cb is None:
+        unclear.append("cables unclear in one or both images")
+    if cb is True and not _has_cables(exp) and ca is False:
         problems.append((FC.WRONG_CRAFT_TEXTURE, "raised cables the pattern does not have"))
+    elif ca is not None and cb is not None and ca != cb:
+        unclear.append("cables differ or are obscured between images")
     nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
+    if na is None or na <= 0:
+        unclear.append("colour count unclear in the anchor")
+        na = None
+    if nb is not None and nb <= 0:
+        nb = None
     declared = len(getattr(exp, "palette_hex", []) or [])
     if nb is not None and declared and nb > declared:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the pattern has "
                                                  f"{declared}"))
     elif nb is not None and na is not None and nb > na:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the anchor shows {na}"))
+    elif nb is not None and na is not None and nb < na:
+        unclear.append("fewer colours are visible in the candidate")
     elif nb is None:
         unclear.append("colour count unclear")
     if problems:
         return _c("anchor_consistency", FAIL, "; ".join(p[1] for p in problems),
                   code=problems[0][0], codes=sorted({p[0] for p in problems}), reading=reading)
     if unclear:
-        return _c("anchor_consistency", UNKNOWN, "; ".join(unclear), reading=reading)
+        return _c("anchor_consistency", UNKNOWN, "; ".join(unclear), reading=reading,
+                  blocks_variant_input=True)
     return _c("anchor_consistency", PASS, "the candidate's item reads as the anchor's and the "
                                           "pattern's (craft, edging, bands, cables, colours)",
               reading=reading)
@@ -595,7 +623,7 @@ def blind_consistency(judge, anchor_data: bytes, data: bytes, exp) -> dict:
     got = ask(judge, "item_description", item_prompt(), [anchor_data, data])
     if not got["answered"]:
         return _c("anchor_consistency", UNKNOWN, f"not judged: {got['why']}",
-                  needs="vision judge")
+                  needs="vision judge", blocks_variant_input=True)
     out = compare_items(got["reading"], exp)
     out["judge"] = got["judge"]
     return out
