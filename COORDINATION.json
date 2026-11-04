@@ -329,6 +329,19 @@
         "brambleloop/tests/test_codex_a1_assignment_content.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A9-PARKED-MATERIAL-CHANGE",
+      "operator": "codex",
+      "branch": "codex/a9-parked-source-change",
+      "source_sha": "e1974a6dae46e49099a8b56d32b3b8c2c8a3198f",
+      "scope": "Preserve parked owner decisions across temporary source loss; supersede known materially changed ORM listing or design sources",
+      "files": [
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/src/brambleloop/publish/listing_package_fence.py",
+        "brambleloop/tests/test_codex_a9_parked_source_change.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

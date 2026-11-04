@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 
 KIND = "listing.package"
@@ -61,6 +62,19 @@ def _release_source_digest(cir, listing, certificate) -> str | None:
     try:
         body = {"cir": cir, "certificate": certificate,
                 "listing": {name: getattr(listing, name) for name in names}}
+        return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
+                                         separators=(",", ":"), allow_nan=False)
+                              .encode("utf-8")).hexdigest()
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _listing_material_digest(listing) -> str | None:
+    """Bind the listing content independently of transient certificate state."""
+    names = ("product_slug", "version", "title", "description", "tags", "price_cad",
+             "chain_version", "release_hash")
+    try:
+        body = {name: getattr(listing, name) for name in names}
         return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
                                          separators=(",", ":"), allow_nan=False)
                               .encode("utf-8")).hexdigest()
@@ -402,8 +416,35 @@ def record(db, package: dict, *, now: datetime | None = None,
             result = _invalidate_locked(s, package["slug"], package["version"],
                                         "review document could not be stored durably")
             return {**result, "retry": True}
+        current = f"{action_key}:{package['fingerprint'][:16]}"
+        escaped_action_key = (action_key.replace("\\", "\\\\")
+                              .replace("%", "\\%").replace("_", "\\_"))
+        rows = list(s.scalars(select(OwnerAction).where(or_(
+            OwnerAction.requirement_key.like(escaped_action_key + ":%", escape="\\"),
+            OwnerAction.requirement_key == action_key))))
+        parked = [r for r in rows if not r.done and r.state == owner_queue.PARKED]
+        previous_question = (row.payload or {}).get("owner_question_sha256") if row else None
+        same_parked = False
+        if package["state"] == READY and parked:
+            if len(parked) != 1:
+                result = _invalidate_locked(s, package["slug"], package["version"],
+                                            "multiple parked review questions require reconciliation")
+                return {**result, "retry": False}
+            if parked[0].requirement_key == current:
+                same_parked = True
+            elif not isinstance(previous_question, str) or not re.fullmatch(r"[0-9a-f]{64}", previous_question):
+                result = _invalidate_locked(s, package["slug"], package["version"],
+                                            "parked review question identity is unavailable")
+                return {**result, "retry": False}
+            else:
+                same_parked = previous_question == md_sha
         if changed:
             body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
+            if package["state"] == READY:
+                body["listing_material_sha256"] = _listing_material_digest(listing)
+                body["owner_question_sha256"] = md_sha
+            elif previous_question:
+                body["owner_question_sha256"] = previous_question
             if row is None:
                 s.add(OperatingReading(kind=KIND, period_key=key, payload=body))
             else:
@@ -411,22 +452,16 @@ def record(db, package: dict, *, now: datetime | None = None,
         # Review OPUS2F A-2/A-3: the review request names the content it asks about. A
         # request the owner already closed for THIS content is never raised again; a request
         # for older content is superseded when the content changes or is blocked again.
-        current = f"{action_key}:{package['fingerprint'][:16]}"
         # Review OPUS2EF2 EF2-5: the unfingerprinted key from the first version of this job
         # (exactly `action_key`) is matched too, so a request left under it is superseded
         # rather than orphaned beside the fingerprinted one.
-        escaped_action_key = (action_key.replace("\\", "\\\\")
-                              .replace("%", "\\%").replace("_", "\\_"))
-        rows = list(s.scalars(select(OwnerAction).where(or_(
-            OwnerAction.requirement_key.like(escaped_action_key + ":%", escape="\\"),
-            OwnerAction.requirement_key == action_key))))
         raised = closed = False
         for stale in rows:
             # Review OPUS2G L5-1: a request the owner PARKED (deferred) is the owner's answer;
             # a transient block leaves it parked. Changed content still supersedes it, because
             # new content is a new question.
             owner_parked = (stale.state or "") == owner_queue.PARKED
-            if owner_parked and package["state"] != READY:
+            if owner_parked and (package["state"] != READY or same_parked):
                 continue
             if not stale.done and (package["state"] != READY
                                    or stale.requirement_key != current):
@@ -441,7 +476,7 @@ def record(db, package: dict, *, now: datetime | None = None,
         # withdrawn), stands for this content. A request this job superseded itself (the
         # package was blocked for a while, then came back unchanged) is not the owner's answer,
         # so the owner is asked again rather than never.
-        already = any(r.requirement_key == current
+        already = same_parked or any(r.requirement_key == current
                       and (not r.done or r.state in _OWNER_CLOSED) for r in rows)
         if package["state"] == READY and not already:
             title = ((package.get("copy") or {}).get("title") or key)[:90]
@@ -462,7 +497,8 @@ def record(db, package: dict, *, now: datetime | None = None,
             "review_requested": raised, "review_withdrawn": closed}
 
 
-def _invalidate_locked(session, slug: str, version: str, reason: str) -> dict:
+def _invalidate_locked(session, slug: str, version: str, reason: str, *,
+                       supersede_parked: bool = False) -> dict:
     """Withdraw stale review authority in the owner-queue transaction."""
     from sqlalchemy import or_, select
     from ..core.models import OperatingReading, OwnerAction
@@ -491,7 +527,7 @@ def _invalidate_locked(session, slug: str, version: str, reason: str) -> dict:
         OwnerAction.requirement_key.like(escaped + ":%", escape="\\"))))
     closed = False
     for action in actions:
-        if not action.done and action.state != owner_queue.PARKED:
+        if not action.done and (supersede_parked or action.state != owner_queue.PARKED):
             owner_queue.close(action, owner_queue.SUPERSEDED, reason[:400])
             closed = True
     return {"key": key, "state": BLOCKED, "changed": changed or closed,

@@ -7,6 +7,31 @@ from sqlalchemy import event, inspect, select, text
 from sqlalchemy.orm import Session
 
 
+def _new_listing_materially_differs(session, listing) -> bool:
+    """Only supersede a parked decision when an existing snapshot proves a change."""
+    import re
+    from types import SimpleNamespace
+    from ..core.models import OperatingReading
+    from .listing_package import KIND, _listing_material_digest
+
+    if not listing.product_slug or not listing.version:
+        return False
+    reading = session.scalar(select(OperatingReading).where(
+        OperatingReading.kind == KIND,
+        OperatingReading.period_key == f"{listing.product_slug}@{listing.version}"))
+    expected = (reading.payload or {}).get("listing_material_sha256") if reading else None
+    if not isinstance(expected, str) or re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+        return False
+    defaults = {"tags": [], "price_cad": 0.0, "state": "draft", "seo_score": 0.0,
+                "chain_version": "1", "release_hash": "", "etsy_listing_id": ""}
+    names = ("product_slug", "version", "title", "description", "tags", "price_cad",
+             "chain_version", "release_hash")
+    values = {name: (getattr(listing, name) if getattr(listing, name) is not None
+                     else defaults.get(name)) for name in names}
+    actual = _listing_material_digest(SimpleNamespace(**values))
+    return bool(actual and actual != expected)
+
+
 @event.listens_for(Session, "before_flush", insert=True)
 def _withdraw_changed_release_requests(session, _context, _instances):
     from ..core.models import Listing, PatternVersion, Product
@@ -46,10 +71,54 @@ def _withdraw_changed_release_requests(session, _context, _instances):
             raise TransientError("listing review fence busy; retry the source transaction")
     else:
         _lock(session)
-    keys = set()
+    keys = {}
     with session.no_autoflush:
         for obj in changed:
             state = inspect(obj)
+            # A content change is a new question even when the owner parked
+            # the old one. A temporary status/evidence block is not.
+            if isinstance(obj, Listing):
+                content_fields = {"product_slug", "version", "title", "description",
+                                  "tags", "price_cad", "chain_version", "release_hash"}
+            elif isinstance(obj, PatternVersion):
+                content_fields = {"product_id", "version", "cir_json", "release_hash", "product"}
+            else:
+                content_fields = {"slug", "title"}
+            fields = listing_fields if isinstance(obj, Listing) else (
+                version_fields if isinstance(obj, PatternVersion) else product_fields)
+            # Disappearance alone is a temporary block, not proof the owner
+            # has a different question. A replacement is compared with the
+            # recorded snapshot where possible.
+            actual_changed = obj in session.new or obj in session.deleted
+            content_changed = (isinstance(obj, Listing) and obj in session.new
+                               and _new_listing_materially_differs(session, obj))
+            if state.persistent and not actual_changed:
+                candidates = {name for name in fields if state.attrs[name].history.has_changes()}
+                columns = sorted(name for name in candidates if name != "product")
+                if "product" in candidates and "product_id" not in columns:
+                    columns.append("product_id")
+                table = type(obj).__table__
+                prior = (session.execute(select(*(table.c[name] for name in columns)).where(
+                    table.c.id == state.identity[0])).first() if columns else None)
+                if columns and prior is None:
+                    actual_changed = content_changed = True
+                elif prior is not None:
+                    for name in candidates - {"product"}:
+                        if getattr(obj, name) != getattr(prior, name):
+                            actual_changed = True
+                            content_changed |= name in content_fields
+                    if "product" in candidates:
+                        added = state.attrs.product.history.added
+                        related_id = getattr(added[0], "id", None) if added else None
+                        if related_id != prior.product_id:
+                            actual_changed = content_changed = True
+            if not actual_changed:
+                continue
+
+            def add_keys(items):
+                for key in items:
+                    keys[key] = keys.get(key, False) or content_changed
+
             if isinstance(obj, Product):
                 if not state.persistent:
                     continue
@@ -57,8 +126,8 @@ def _withdraw_changed_release_requests(session, _context, _instances):
                     Product.__table__.c.id == state.identity[0]))
                 versions = session.scalars(select(PatternVersion.__table__.c.version).where(
                     PatternVersion.__table__.c.product_id == state.identity[0]))
-                keys.update((slug, version) for version in versions
-                            for slug in (previous_slug, obj.slug) if slug and version)
+                add_keys((slug, version) for version in versions
+                         for slug in (previous_slug, obj.slug) if slug and version)
                 continue
             versions = {obj.version, *state.attrs.version.history.deleted}
             if isinstance(obj, Listing):
@@ -83,8 +152,9 @@ def _withdraw_changed_release_requests(session, _context, _instances):
                         versions.add(previous.version)
                 slugs = set(session.scalars(select(Product.slug).where(Product.id.in_(ids))))
                 slugs.update(p.slug for p in state.attrs.product.history.added if p is not None)
-            keys.update((slug, version) for slug in slugs for version in versions
-                        if slug and version)
+            add_keys((slug, version) for slug in slugs for version in versions
+                     if slug and version)
         for slug, version in sorted(keys):
             _invalidate_locked(session, slug, version,
-                               "listing or certified release changed after package review")
+                               "listing or certified release changed after package review",
+                               supersede_parked=keys[(slug, version)])
