@@ -98,7 +98,7 @@ def record(db, *, domain: str, source: str, citation: str, summary: str,
 
     when = datetime(observed_on.year, observed_on.month, observed_on.day,
                     tzinfo=timezone.utc)
-    if when > datetime.now(timezone.utc) + timedelta(days=1):
+    if when.date() > datetime.now(timezone.utc).date():
         raise LearningRefused("an observation cannot have been made in the future")
 
     # F-407: the shared source hierarchy. Tier is derived from the citation (a URL or a
@@ -142,13 +142,18 @@ def observations(db, *, domain: str | None = None, today: date | None = None) ->
         rows = list(s.scalars(stmt.order_by(LearningObservation.observed_on.desc())))
         out = []
         for row in rows:
-            age = (now - _aware(row.observed_on)).days
+            observed = _aware(row.observed_on)
+            # `today` is a date-level as-of query; without it, reject even a
+            # same-day timestamp that has not occurred yet.
+            future = (observed.date() > today if today is not None else observed > now)
+            age = ((today - observed.date()).days if today is not None
+                   else (now - observed).days)
             window = DOMAIN_BY_KEY[row.domain].fresh_for_days
             out.append({"id": row.id, "domain": row.domain, "source": row.source,
                         "citation": row.citation, "summary": row.summary,
-                        "observed_on": _aware(row.observed_on).date().isoformat(),
+                        "observed_on": observed.date().isoformat(),
                         "age_days": age, "fresh_for_days": window,
-                        "fresh": age <= window,
+                        "fresh": not future and age <= window, "future_dated": future,
                         "kind": "external_signal",
                         # Rows written before W4-RESEARCH carry no class: unresolved, never
                         # silently promoted to a claim class nobody assigned.
@@ -172,14 +177,17 @@ def radar(db, *, today: date | None = None) -> dict:
 
     watched, stale, unobserved = [], [], []
     for domain in DOMAINS:
-        items = by_domain[domain.key]
+        all_items = by_domain[domain.key]
+        items = [i for i in all_items if not i["future_dated"]]
         if not items:
             unobserved.append({"domain": domain.key, "what": domain.what,
-                               "why_it_matters": domain.why})
+                               "why_it_matters": domain.why,
+                               "future_dated_excluded": len(all_items)})
             continue
         fresh = [i for i in items if i["fresh"]]
         entry = {"domain": domain.key, "what": domain.what,
                  "observations": len(items), "fresh": len(fresh),
+                 "future_dated_excluded": len(all_items) - len(items),
                  "newest_age_days": min(i["age_days"] for i in items),
                  "fresh_for_days": domain.fresh_for_days, "why": domain.why}
         (watched if fresh else stale).append(entry)

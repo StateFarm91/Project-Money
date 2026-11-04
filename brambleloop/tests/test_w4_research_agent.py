@@ -384,6 +384,102 @@ def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
     assert isinstance(_date.today(), _date)
 
 
+def test_future_observation_cannot_mask_stale_domain_from_research_sweep():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="old-fixture", citation="c",
+                                  observed_on=now - timedelta(days=60),
+                                  summary="an old observed marketplace policy reading"))
+        # Simulate an already stored future-dated row, not a real observation.
+        s.add(LearningObservation(domain="marketplace_policy", source="future-fixture", citation="c",
+                                  observed_on=now + timedelta(days=10),
+                                  summary="a future dated marketplace policy fixture"))
+    radar = learning.radar(db)
+    stale = next(row for row in radar["stale"] if row["domain"] == "marketplace_policy")
+    assert stale["observations"] == 1 and stale["future_dated_excluded"] == 1
+    assert not [row for row in radar["watched"] if row["domain"] == "marketplace_policy"]
+    future = next(row for row in learning.observations(db, domain="marketplace_policy")
+                  if row["source"] == "future-fixture")
+    assert future["future_dated"] is True and future["fresh"] is False
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="future-observation-sweep",
+              priority=-1000)
+    assert Worker(db, "future-observation-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        task = s.scalar(select(R.ResearchTask).where(
+            R.ResearchTask.trigger == "learning.stale:marketplace_policy"))
+        assert task is not None and task.state == R.OPEN
+        assert any((job.inputs or {}).get("task_id") == task.id for job in s.scalars(
+            select(Job).where(Job.job_type == "research.investigate",
+                              Job.status == JobStatus.PENDING)))
+
+
+def test_future_only_domain_is_unobserved_not_falsely_fresh():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="future-fixture", citation="c",
+                                  observed_on=tomorrow,
+                                  summary="a future dated marketplace policy fixture"))
+    radar = learning.radar(db)
+    row = next(item for item in radar["unobserved"] if item["domain"] == "marketplace_policy")
+    assert row["future_dated_excluded"] == 1
+    assert not [item for item in radar["watched"] if item["domain"] == "marketplace_policy"]
+
+
+def test_new_future_dated_observation_is_refused():
+    from brambleloop.intel import learning
+
+    db = _db()
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).date()
+    with pytest.raises(learning.LearningRefused, match="future"):
+        learning.record(db, domain="marketplace_policy", source="fixture", citation="fixture",
+                        observed_on=tomorrow,
+                        summary="a sufficiently specific fixture observation of policy")
+
+
+def test_explicit_as_of_date_includes_same_calendar_day():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    when = datetime(2026, 1, 3, 18, 0, tzinfo=timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="fixture", citation="c",
+                                  observed_on=when,
+                                  summary="a fixture observation of marketplace policy"))
+    row = learning.observations(db, today=when.date())[0]
+    assert row["future_dated"] is False and row["fresh"] is True and row["age_days"] == 0
+
+
+def test_current_instant_excludes_a_later_same_day_observation(monkeypatch):
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    noon = datetime(2026, 1, 3, 12, 0, tzinfo=timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="fixture", citation="c",
+                                  observed_on=noon + timedelta(hours=1),
+                                  summary="a fixture observation of marketplace policy"))
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return noon if tz else noon.replace(tzinfo=None)
+
+    monkeypatch.setattr(learning, "datetime", FrozenDateTime)
+    row = learning.observations(db)[0]
+    assert row["future_dated"] is True and row["fresh"] is False
+
+
 # ---- batch W5: F-420 no research theatre, F-444 escalation, F-449 metrics, retention ------
 
 def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification():
