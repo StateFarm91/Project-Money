@@ -89,13 +89,13 @@ def implementation_digest(db=None) -> str:
     from ..cir import assembly, compiler, knowledge, reverse, specification, topology, twin
     from ..cir import writer
     from ..gates import asset_truth, certificate, originality, policy, risk_matrix
-    from ..improve import design_knowledge
+    from ..improve import design_knowledge, read_session
     from ..teardown import analysis_store, licence, reader, review, size_family
     from . import benchmark_e2e, design_revalidation
 
     modules = (sys.modules[__name__], writer, knowledge, compiler, reverse, twin, assembly, specification,
                topology, asset_truth, certificate, originality, policy, risk_matrix, benchmarks,
-               benchmark_e2e, stitch_benchmarks, design_knowledge, analysis_store,
+               benchmark_e2e, stitch_benchmarks, design_knowledge, read_session, analysis_store,
                licence, reader, review, size_family, design_revalidation)
     _, manifest, builder = _bench2_files(db)
     parts = [inspect.getsource(module) for module in modules]

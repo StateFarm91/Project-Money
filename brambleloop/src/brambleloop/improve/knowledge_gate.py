@@ -48,7 +48,7 @@ def freeze_applicable(db, cir):
         return cir, []
 
 
-def refusal(db, cir) -> str | None:
+def refusal(db, cir, *, session=None) -> str | None:
     # A marker is caller-controlled. An earlier freeze for this exact release
     # identity is durable evidence that absence is not enough to authorise a
     # revision or certification. This deliberately holds even an older,
@@ -57,8 +57,10 @@ def refusal(db, cir) -> str | None:
     from sqlalchemy import select
     from ..core.models import AuditLog
     from ..cir import knowledge
+    from .read_session import bind_read_session
 
     try:
+        db = bind_read_session(db, session)
         with db.session() as session:
             history = list(session.scalars(select(AuditLog.detail).where(
                 AuditLog.action == FROZEN,
