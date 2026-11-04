@@ -12,6 +12,8 @@ from brambleloop.core.db import Database
 @pytest.mark.parametrize("database_name,case", [
     ("a5_hold_test", a5.test_concurrent_identical_holds_are_recorded_once),
     ("a5_hold_stale_test", a5.test_stale_worker_cannot_replace_current_hold_evidence),
+    ("a5_hold_lock_test", a5.test_postgres_hold_contention_retries_worker_without_partial_hold),
+    ("a5_hold_inversion_test", a5.test_postgres_job_first_lock_inversion_refuses_without_deadlock),
 ])
 def test_hold_recording_on_postgresql(monkeypatch, database_name, case):
     url = os.environ.get("CODEX_A5_TEST_POSTGRES_URL")

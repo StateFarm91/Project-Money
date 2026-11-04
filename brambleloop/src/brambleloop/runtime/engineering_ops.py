@@ -366,6 +366,7 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
         from sqlalchemy import select, text
         from ..core.db import is_postgres
         from ..core.models import AuditLog, Incident, Job, JobStatus, utcnow
+        from ..core.resilience import TransientError
         from ..queue.effects import LeaseLost
 
         # Serialize A5 writers so a repeated delivery cannot create duplicate incidents or
@@ -373,7 +374,10 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
         # its audit must commit together; incident last_seen/report_count still advance.
         with ctx.db.session() as s:
             if is_postgres(ctx.db.engine):
-                s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _HOLD_LOCK})
+                acquired = s.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"),
+                                    {"k": _HOLD_LOCK})
+                if not acquired:
+                    raise TransientError("correction hold transaction is contended; retry")
             else:
                 s.execute(text("BEGIN IMMEDIATE"))
             # Lock the producer job in this transaction so a reclaimed worker cannot
