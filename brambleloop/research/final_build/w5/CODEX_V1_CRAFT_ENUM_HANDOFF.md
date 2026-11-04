@@ -209,6 +209,15 @@ Python 3.11/tmpfs terminal-state and existing bounded-repair tests passed 5/5;
 independent review reran the three state cases. A concurrent state change
 between this check and dispatch remains unfenced.
 
+The FLUX adapter's default anchor input now uses the existing candidate-gate
+anchor contract, including certified binding, full release and CIR identity,
+fidelity structure, owner-veto and artifact checks. A run-scoped lookup no
+longer falls back to an unscoped custom lookup on TypeError. Python 3.11/tmpfs
+synthetic anchor and FLUX tests passed 20/20; independent review reran the two
+new cases. This doesn't authenticate verdict metadata or fence later revocation;
+the generator's mutable shared-instance state remains a separate concern. No
+provider was called.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

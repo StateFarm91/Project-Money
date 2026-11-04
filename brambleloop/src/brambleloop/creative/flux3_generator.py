@@ -78,19 +78,23 @@ def _default_cir_loader(db):
 
 def _default_anchor_lookup(db):
     def lookup(slug: str, version: str, release: str, run_key: str | None = None):
-        from ..core.artifacts import ArtifactStore
-        from ..visual import image_production as IP
+        from ..visual import candidate_gates as CG
+        from ..visual import fidelity
         from ..visual import outfits
 
-        # `run_key`: the orchestrator run this generation belongs to (a controlled run has
-        # its own namespaced key, W-VISNEXT2); never another run's anchor.
-        best = IP._best(db, listing=outfits.listing_of(slug), role=IP.ANCHOR_ROLE,
-                        run=run_key or IP.run_key(slug, version, release))
-        if not best or not best.get("sha256"):
+        # Apply the same identity, fidelity, owner-veto and artifact checks used
+        # by the candidate gate before reusing an anchor as a generation input.
+        bind = CG.binding(db, slug, version, release)
+        if (bind.get("status") != CG.PASS
+                or not fidelity.same_release(bind.get("release_hash"), release)):
             return None
-        return {"data": ArtifactStore().get(best["sha256"], db=db),
-                "sha256": best["sha256"], "status": best.get("technical_status") or "UNKNOWN",
-                "checker": f"candidate_gates product_truth (candidate {best.get('candidate_id')})"}
+        anchor, data = CG._anchor_of(
+            db, {"slug": slug, "version": version, "listing": outfits.listing_of(slug),
+                 "run_key": run_key}, release, expected_cir_fingerprint=bind.get("cir_fingerprint"))
+        if not anchor or not data:
+            return None
+        return {"data": data, "sha256": anchor["sha256"], "status": anchor["status"],
+                "checker": fidelity.CHECKER}
     return lookup
 
 
@@ -323,8 +327,8 @@ class Flux3Generator:
         if self.current_run_key:
             try:
                 got = self.anchor_lookup(slug, version, release, run_key=self.current_run_key)
-            except TypeError:           # a caller's own lookup without the run key
-                got = self.anchor_lookup(slug, version, release)
+            except TypeError as exc:
+                raise GeneratorRefused("anchor lookup cannot bind the active run") from exc
         else:
             got = self.anchor_lookup(slug, version, release)
         if not got or not got.get("data"):
