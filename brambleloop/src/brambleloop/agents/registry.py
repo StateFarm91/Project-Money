@@ -651,9 +651,15 @@ class Registry:
         self, actor: str, action: str, *, artifact: str | None = None,
         job_id: int | None = None, phase: Phase | None = None,
         model_version: str | None = None, policy_version: str | None = None,
-        detail: dict | None = None,
+        detail: dict | None = None, session=None,
     ) -> None:
-        with self.db.session() as s:
+        from contextlib import nullcontext
+
+        if session is not None:
+            bind = session.get_bind()
+            if getattr(bind, "engine", bind) is not self.db.engine or not session.in_transaction():
+                raise ValueError("audit session must be an active transaction on this database")
+        with (nullcontext(session) if session is not None else self.db.session()) as s:
             s.add(AuditLog(
                 actor=actor, action=action, artifact=artifact, job_id=job_id, phase=phase,
                 model_version=model_version, policy_version=policy_version,

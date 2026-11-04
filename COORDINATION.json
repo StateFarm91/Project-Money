@@ -342,6 +342,20 @@
         "brambleloop/tests/test_codex_jobqueue_savepoint_pg.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A6-ATOMIC-RELEASE-EFFECTS",
+      "operator": "codex",
+      "branch": "codex/a6-certification-continuation",
+      "source_sha": "67b7b73899f91d250a11febf63446a198e425ae5",
+      "scope": "Optional transactional recertification persistence and quality follow-on, fenced by persisted job lease; no action-time knowledge authority",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/tests/test_codex_a6_atomic_effects.py",
+        "brambleloop/tests/test_codex_a6_atomic_effects_pg.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

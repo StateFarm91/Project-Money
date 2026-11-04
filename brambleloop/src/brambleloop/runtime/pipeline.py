@@ -1808,21 +1808,72 @@ def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:
 
 
 def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str,
-                     *, session=None):
-    """Persist release; optional caller transaction returns deferred side-effect intents.
+                     *, session=None, atomic_effects=False):
+    """Persist release in an optional caller transaction.
 
-    The caller must discard these intents on rollback. They are not a durable
-    outbox and do not themselves make certification atomic or retry-safe.
+    With atomic_effects, the audit and quality follow-on job share that
+    transaction. Without it, a supplied session returns in-memory intents;
+    callers must discard them on rollback. Neither mode is an evidence fence.
     """
     from contextlib import nullcontext
     from sqlalchemy import select
 
+    if atomic_effects and session is None:
+        raise ValueError("atomic release effects require a caller-owned transaction")
     if session is not None:
         bind = session.get_bind()
         if getattr(bind, "engine", bind) is not ctx.db.engine or not session.in_transaction():
             raise ValueError("release session must be an active transaction on this database")
+    if atomic_effects:
+        # SQLite's legacy mode can release an outermost savepoint as a commit.
+        conn = session.connection()
+        if (conn.dialect.name == "sqlite"
+                and not conn.connection.driver_connection.in_transaction):
+            conn.exec_driver_sql("BEGIN")
     deferred = [] if session is not None else None
-    with (nullcontext(session) if session is not None else ctx.db.session()) as s:
+    with (nullcontext(session) if session is not None else ctx.db.session()) as s, \
+            (s.begin_nested() if atomic_effects else nullcontext()):
+        if atomic_effects:
+            import json
+            from ..core.models import Job, JobStatus, utcnow
+
+            token = getattr(ctx.job, "lease_token", None)
+            job_id = getattr(ctx.job, "id", None)
+            if not token or job_id is None:
+                raise ValueError("atomic release requires a live certification-job lease")
+            parent_job = s.scalar(select(Job).where(Job.id == job_id)
+                                  .execution_options(populate_existing=True).with_for_update())
+            if (parent_job is None or parent_job.status != JobStatus.RUNNING
+                    or parent_job.lease_token != token
+                    or not parent_job.leased_by
+                    or parent_job.leased_by != getattr(ctx.job, "leased_by", None)
+                    or parent_job.agent != "quality_director" or parent_job.job_type != "gate.certify"
+                    or parent_job.agent != getattr(ctx.job, "agent", None)
+                    or parent_job.job_type != getattr(ctx.job, "job_type", None)
+                    or not isinstance(parent_job.inputs, dict)):
+                raise ValueError("atomic release certification-job lease or content does not match")
+            try:
+                recorded_cir = json.dumps(parent_job.inputs.get("cir"), sort_keys=True,
+                                          separators=(",", ":"), allow_nan=False)
+                actual_cir = json.dumps(cir.to_dict(), sort_keys=True,
+                                        separators=(",", ":"), allow_nan=False)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("atomic release certification-job content is invalid") from exc
+            if recorded_cir != actual_cir:
+                raise ValueError("atomic release certification-job lease or content does not match")
+            from .release import _content_hash_of
+
+            if (not isinstance(certificate, dict) or certificate.get("granted") is not True
+                    or certificate.get("slug") != cir.slug
+                    or certificate.get("version") != cir.version
+                    or certificate.get("release_hash") != release_hash
+                    or certificate.get("content_hash") != release_hash
+                    or not isinstance(release_hash, str) or _content_hash_of(cir) != release_hash):
+                raise ValueError("atomic release certificate or content hash does not match")
+            expiry = parent_job.lease_expires_at
+            expiry = expiry if expiry is None or expiry.tzinfo else expiry.replace(tzinfo=utcnow().tzinfo)
+            if expiry is None or expiry <= utcnow():
+                raise ValueError("atomic release certification-job lease is expired")
         product = s.scalar(select(Product).where(Product.slug == cir.slug))
         if product is None:
             product = Product(slug=cir.slug, title=cir.title, status="certified",
@@ -1840,6 +1891,10 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                                       cir_json=cir.to_dict(), release_hash=release_hash,
                                       certified=True, certificate=certificate)
             s.add(existing)
+        elif atomic_effects and existing.release_hash == release_hash:
+            # The legacy path performs no certificate update here. Do not let
+            # a caller mistake a stale or uncertified row for fresh issuance.
+            raise ValueError("same-hash release requires explicit duplicate authority verification")
         elif existing.release_hash != release_hash:
             # Re-certification of a version that already exists. Insert-if-absent was how the
             # agent-permission fix failed to reach production (B-027), and it would fail the
@@ -1864,7 +1919,24 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                 args = ("quality_director", "gate.quality", {})
                 kwargs = {"idempotency_key": f"reverify-after-recert:{cir.slug}@{cir.version}:"
                                              f"{release_hash[:16]}"}
-                if deferred is None:
+                if atomic_effects:
+                    child = ctx.enqueue(*args, **kwargs, session=s)
+                    if child is None:
+                        # Existing keys may refer to a completed, failed, or
+                        # older verification cycle; they do not prove that this
+                        # release has a fresh durable follow-on.
+                        raise ValueError("fresh recertification follow-on cannot be established")
+                    from .lineage import JobLink
+
+                    if getattr(ctx.job, "id", None) is None or getattr(child, "id", None) is None:
+                        raise ValueError("recertification follow-on lineage is unavailable")
+                    # The table must already be installed. A failure rolls the
+                    # savepoint back; do not perform schema changes or write a
+                    # separate, potentially orphaned link here.
+                    s.add(JobLink(parent_id=ctx.job.id, child_id=child.id,
+                                  parent_type=str(ctx.job.job_type or "")[:80],
+                                  child_type=str(child.job_type or "")[:80]))
+                elif deferred is None:
                     ctx.enqueue(*args, **kwargs)
                 else:
                     deferred.append(("enqueue", args, kwargs))
@@ -1873,7 +1945,9 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                       "detail": {"previous_release_hash": previous,
                                  "release_hash": release_hash,
                                  "doc_version": DOC_VERSION}}
-            if deferred is None:
+            if atomic_effects:
+                ctx.audit(*args, **kwargs, session=s)
+            elif deferred is None:
                 ctx.audit(*args, **kwargs)
             else:
                 deferred.append(("audit", args, kwargs))
@@ -1931,6 +2005,8 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                 sha256=release_hash if len(release_hash or "") == 64 else "",
                 validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
+        if atomic_effects and expiry <= utcnow():
+            raise ValueError("atomic release certification-job lease expired during persistence")
     return deferred
 
 
