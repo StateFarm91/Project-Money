@@ -13,9 +13,11 @@ listing, shop and price here is a TEST FIXTURE -- not an observation anybody mad
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import hashlib
 import tempfile
+import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -28,7 +30,7 @@ from sqlalchemy import select, text  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
-    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus,
+    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus, Phase,
 )
 from brambleloop.intel import coverage, research  # noqa: E402
 from brambleloop.intel.benchmarks import MJS_KEY  # noqa: E402
@@ -38,7 +40,7 @@ from brambleloop.radar.opportunity import POOL  # noqa: E402
 from brambleloop.runtime import intel_ops  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import release  # noqa: E402,F401 - registers handlers
-from brambleloop.runtime.worker import Scheduler, Worker  # noqa: E402
+from brambleloop.runtime.worker import JobContext, Scheduler, Worker  # noqa: E402
 
 TODAY = date.today()
 POOL_SLUGS = {s.slug for s in POOL}
@@ -407,6 +409,171 @@ def test_restart_after_proposal_attachment_restores_gap_progress():
         assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
     finally:
         restore()
+
+
+def test_restart_recovers_one_proposal_audit_from_persisted_evidence():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    # Simulate the old crash window: the proposal exists but the gap and audit
+    # did not commit. This deletion is confined to the disposable test DB.
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    for n in range(2):
+        q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                  idempotency_key=f"codex:audit-recovery:{n}")
+        assert Worker(db, f"audit-recovery-{n}", job_types=["research.investigate"]).run_once()
+    audits = _audits(db, ideation.PROPOSED)
+    assert len(audits) == 1
+    assert audits[0].artifact == slug
+    assert audits[0].detail["task"] == task.id
+    assert audits[0].detail["recovered_from_persisted_proposal"] is True
+    assert _ideation(db, gid)["slug"] == slug
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_recovery_does_not_record_proposal_for_reassigned_gap():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record["task"] = task.id + 1000
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                         idempotency_key="codex:wrong-owner-recovery")
+    assert Worker(db, "wrong-owner", job_types=["research.investigate"]).run_once()
+    assert not _audits(db, ideation.PROPOSED)
+    assert _ideation(db, gid)["task"] == task.id + 1000
+
+
+def test_two_recovery_workers_record_one_proposal_audit(monkeypatch):
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    jobs = [q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                      idempotency_key=f"concurrent-audit-recovery:{n}", priority=-1000)
+            for n in range(2)]
+    claimed = [q.claim(f"recovery-{n}", job_types=["research.investigate"])
+               for n in range(2)]
+    assert {job.id for job in claimed} == {job.id for job in jobs}
+    barrier = threading.Barrier(2, timeout=20)
+    original = ideation._reconcile_proposal
+
+    def synchronized(*args, **kwargs):
+        barrier.wait()
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ideation, "_reconcile_proposal", synchronized)
+    # Call the real registered handler on separately claimed durable jobs. The
+    # worker's admission policy can serialize one agent and mask this race.
+    contexts = [JobContext(job, db, q, Registry(db), Phase.SHADOW) for job in claimed]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(intel_ops.handle_research_investigate, contexts))
+    assert all(outcome["why"] == "persisted proposal reconciled" for outcome in outcomes)
+    assert len(_audits(db, ideation.PROPOSED)) == 1
+
+
+def test_recovery_holds_when_existing_audit_conflicts_with_proposal():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        event = s.scalar(select(AuditLog).where(AuditLog.action == ideation.PROPOSED))
+        event.artifact = "conflicting-test-slug"
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    queued = q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                       idempotency_key="codex:conflicting-audit-recovery")
+    assert Worker(db, "conflicting-audit", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert "conflicting proposal audit" in result["why"]
+    assert _ideation(db, gid)["outcome"] is None
+    assert len(_audits(db, ideation.PROPOSED)) == 1
+
+
+def test_recovery_refuses_inconsistent_persisted_census_reference():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        stored = s.get(research.ResearchTask, task.id)
+        sources = [dict(source) for source in stored.sources]
+        sources[0]["citation"] = "db:unrelated-observation"
+        stored.sources = sources
+    queued = JobQueue(db).enqueue("research_agent", "research.investigate",
+                                  {"task_id": task.id}, idempotency_key="bad-census-ref")
+    assert Worker(db, "bad-census", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert "census references are inconsistent" in result["why"]
+    assert not _audits(db, ideation.PROPOSED)
+
+
+def test_recovery_refuses_worker_whose_lease_was_reclaimed():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+    q = JobQueue(db)
+    target = q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                       idempotency_key="reclaimed-recovery", priority=-1000)
+    claimed = q.claim("first-worker", job_types=["research.investigate"])
+    assert claimed.id == target.id and claimed.lease_token
+    stale = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        row = s.get(Job, target.id)
+        row.lease_token = "replacement-lease"
+        row.leased_by = "new-worker"
+    result = intel_ops.handle_research_investigate(stale)
+    assert "lease is no longer current" in result["why"]
+    assert not _audits(db, ideation.PROPOSED)
 
 
 def test_unknown_shop_is_not_counted_as_an_independent_source():

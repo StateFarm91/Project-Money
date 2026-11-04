@@ -506,6 +506,107 @@ def _task_state(db, task_id: int) -> dict:
                 "proposals": list((row.detail or {}).get("concept_proposals") or [])}
 
 
+def _reconcile_proposal(ctx, task_id: int, gap_id: int) -> dict:
+    """Commit proposal progress and its recoverable audit under one DB lock.
+
+    The audit describes the persisted census, not a fresh market observation.
+    Other research/task writers still need a shared ownership contract.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+    from ..core.db import is_postgres
+    from ..core.models import AuditLog, CoverageGap, Job, JobStatus
+    from ..intel import research
+
+    db = ctx.db
+    with db.session() as s:
+        if not is_postgres(db.engine):
+            # Acquire SQLite's write reservation before checking for an existing audit.
+            s.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        job = s.get(Job, ctx.job.id, with_for_update=True)
+        expires = _aware(job.lease_expires_at) if job else None
+        raw_task = (job.inputs or {}).get("task_id") if job else None
+        try:
+            named_task = int(raw_task) if not isinstance(raw_task, bool) else None
+        except (ValueError, TypeError, OverflowError):
+            named_task = None
+        if (job is None or job.agent != "research_agent" or job.job_type != "research.investigate"
+                or job.status != JobStatus.RUNNING or not ctx.job.lease_token
+                or job.lease_token != ctx.job.lease_token
+                or not ctx.job.leased_by or job.leased_by != ctx.job.leased_by
+                or not expires or expires <= _now()
+                or named_task != task_id):
+            return {"ok": False, "why": "research worker lease is no longer current"}
+        gap = s.get(CoverageGap, gap_id, with_for_update=True)
+        task = s.get(research.ResearchTask, task_id, with_for_update=True)
+        if gap is None or task is None:
+            return {"ok": False, "why": "research task or gap is missing"}
+        ev = dict(gap.evidence or {})
+        rec = dict(ev.get("ideation") or {})
+        detail = dict(task.detail or {})
+        brief = detail.get("ideation_brief") or {}
+        proposals = detail.get("concept_proposals") or []
+        refs, census = detail.get("ideation_refs") or {}, detail.get("ideation_census") or {}
+        if (rec.get("task") != task_id or task.trigger != f"{TRIGGER_PREFIX}{gap_id}"
+                or task.state != research.ANSWERED or brief.get("gap") != gap_id
+                or not isinstance(proposals, list) or len(proposals) != 1
+                or not isinstance(proposals[0], dict)):
+            return {"ok": False, "why": "gap ownership or attached proposal changed"}
+        proposal = proposals[0]
+        slug = proposal.get("slug")
+        evidence = proposal.get("evidence")
+        if (not isinstance(slug, str) or not slug or not isinstance(evidence, list)
+                or evidence != [refs.get("finding"), refs.get("source")]
+                or not refs.get("finding") or not refs.get("source")
+                or not census.get("census_sha256")
+                or census.get("pod") != brief.get("pod")):
+            return {"ok": False, "why": "persisted proposal evidence is incomplete"}
+        sources = [x for x in (task.sources or []) if isinstance(x, dict)
+                   and x.get("ref") == refs["source"]]
+        findings = [x for x in (task.findings or []) if isinstance(x, dict)
+                    and x.get("ref") == refs["finding"]]
+        digest = census.get("census_sha256")
+        citation = (f"db:benchmark_listings?pod={census.get('pod')}&from={census.get('oldest')}"
+                    f"&to={census.get('newest')}&listings={census.get('listings')}"
+                    f"&census_sha256={digest}")
+        if (not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                or len(sources) != 1 or sources[0].get("citation") != citation
+                or sources[0].get("retrieval") != "internal" or len(findings) != 1
+                or findings[0].get("claim_class") != "fact"
+                or findings[0].get("rests_on") != [refs["source"]]
+                or findings[0].get("confidence") != census.get("confidence")):
+            return {"ok": False, "why": "persisted census references are inconsistent"}
+        previous = list(s.scalars(select(AuditLog).where(AuditLog.action == PROPOSED)))
+        same = [a for a in previous if (a.detail or {}).get("task") == task_id]
+        origin = s.get(Job, same[0].job_id) if len(same) == 1 and same[0].job_id else None
+        try:
+            origin_task = int((origin.inputs or {}).get("task_id")) if origin else None
+        except (ValueError, TypeError, OverflowError):
+            origin_task = None
+        if (len(same) > 1 or (same and (same[0].actor != "research_agent"
+                or same[0].artifact != slug
+                or (same[0].detail or {}).get("gap") != gap_id
+                or (same[0].detail or {}).get("evidence") != evidence
+                or origin is None or origin.agent != "research_agent"
+                or origin.job_type != "research.investigate" or origin_task != task_id))):
+            return {"ok": False, "why": "conflicting proposal audit requires reconciliation"}
+        changed = rec.get("outcome") != OUT_PROPOSED or rec.get("slug") != slug
+        if changed:
+            rec.update(outcome=OUT_PROPOSED, slug=slug, why=[], updated_at=_now().isoformat())
+            ev["ideation"] = rec
+            gap.evidence = ev
+            flag_modified(gap, "evidence")
+        recorded = not same
+        if recorded:
+            s.add(AuditLog(actor=job.agent, action=PROPOSED, artifact=slug, job_id=job.id,
+                           phase=ctx.phase, detail={
+                               "gap": gap_id, "task": task_id, "title": proposal.get("title"),
+                               "evidence": evidence, "confidence": census.get("confidence"),
+                               "listings": census.get("listings"), "shops": census.get("shops"),
+                               "price_cad": proposal.get("price_cad"),
+                               "recovered_from_persisted_proposal": True}))
+        return {"ok": True, "slug": slug, "changed": changed, "audit_recorded": recorded}
+
+
 def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
     """Answer one ideation brief from the recorded observations and attach the proposal.
 
@@ -527,16 +628,12 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
         if len(proposals) != 1:
             return {"task": task_id, "ran": False, "why": "ambiguous persisted proposals",
                     "work_done": 0}
-        slug = proposals[0]["slug"]
-        rec = (_gap_record(db, gap_id) or {}).get("ideation") or {}
-        if rec.get("task") != task_id:
-            return {"task": task_id, "ran": False, "why": "gap task no longer matches",
-                    "work_done": 0}
-        changed = rec.get("outcome") != OUT_PROPOSED or rec.get("slug") != slug
-        if changed:
-            _record(db, gap_id, outcome=OUT_PROPOSED, slug=slug, why=[])
+        result = _reconcile_proposal(ctx, task_id, gap_id)
+        if not result["ok"]:
+            return {"task": task_id, "ran": False, "why": result["why"], "work_done": 0}
         ctx.enqueue("market_radar", intake.JOB_TYPE, {"source": f"research_task:{task_id}"},
                     idempotency_key=f"intake:ideation:{task_id}")
+        changed = result["changed"] or result["audit_recorded"]
         return {"task": task_id, "ran": changed, "why": "persisted proposal reconciled",
                 "work_done": int(changed)}
     if t["state"] not in (research.OPEN, research.ANSWERED):
@@ -618,12 +715,9 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
         return {"task": task_id, "ran": True, "proposed": False, "outcome": OUT_TITLE,
                 "reasons": proposal["refused"], "work_done": 1}
     intake.attach_proposal(db, task_id, proposal)
-    _record(db, gap_id, outcome=OUT_PROPOSED, slug=proposal["slug"], why=[])
-    ctx.audit(PROPOSED, artifact=proposal["slug"], detail={
-        "gap": gap_id, "task": task_id, "title": proposal["title"],
-        "evidence": proposal["evidence"], "confidence": obs["confidence"],
-        "listings": obs["listings"], "shops": obs["shops"],
-        "price_cad": proposal["price_cad"]})
+    result = _reconcile_proposal(ctx, task_id, gap_id)
+    if not result["ok"]:
+        return {"task": task_id, "ran": False, "why": result["why"], "work_done": 0}
     # The intake runs on its own 6 h cadence; queue one pass now so the concept is judged
     # without waiting for the window. Keyed per task: a re-delivery queues nothing new.
     ctx.enqueue("market_radar", intake.JOB_TYPE, {"source": f"research_task:{task_id}"},

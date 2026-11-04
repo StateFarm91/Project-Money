@@ -316,6 +316,21 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A4A-PROPOSAL-AUDIT-RECOVERY",
+      "operator": "codex",
+      "branch": "codex/a4a-proposal-audit-recovery",
+      "base": "abba198416624930a38d54e10e10681f51e10279",
+      "scope": "Recover proposal progress and its audit atomically from persisted task evidence",
+      "files": [
+        "brambleloop/src/brambleloop/radar/ideation.py",
+        "brambleloop/src/brambleloop/ops/retention.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/tests/test_codex_a4a_recovery_postgres.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

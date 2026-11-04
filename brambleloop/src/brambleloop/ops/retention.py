@@ -459,6 +459,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "concept.judged": ("lifetime_total",
                        "creative.intake reads the vision judgement recorded per design; a "
                        "pruned judgement silently returns a design to unjudged"),
+    "ideation.proposed": ("lifetime_total",
+                          "research proposal recovery uses this event to avoid duplicating "
+                          "the recorded outcome when a worker restarts"),
     "radar.skill_gap": ("latest", "creative.ideation reads the latest measured wave gap"),
     # W4-RETFIX: this key was defined twice (`windowed` above, `lifetime_total` here); the
     # dict literal kept the later one. `lifetime_total` is the correct class: an "ever
