@@ -594,6 +594,8 @@ def test_learn_worker_recovers_when_fetched_source_audit_write_fails(monkeypatch
     with db.session() as s:
         assert s.get(Job, first.id).status == JobStatus.DONE
         assert not [v for v in s.get(R.ResearchTask, tid).sources if v.get("citation") == url]
+        assert not list(s.scalars(R.select(Job).where(
+            Job.idempotency_key.like(f"research.fetch.followup:{tid}:%"))))
     monkeypatch.setattr(Session, "add", real_add)
     second = q.enqueue("learn", "learn.scan", {}, idempotency_key="fetch-atomic-restart")
     assert Worker(db, "fetch-atomic-restart", job_types=["learn.scan"]).run_once()
@@ -625,6 +627,61 @@ def test_fetched_bytes_are_not_attached_after_task_stops():
     assert out["fetched"] is False
     with db.session() as s:
         assert not s.get(R.ResearchTask, tid).sources
+
+
+def test_fetch_followup_is_durable_and_resumes_research_on_same_day(monkeypatch):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.intel import research_agent as RA
+    from brambleloop.learn import runtime  # noqa: F401
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import intel_ops  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    tid = R.open_question(db, question="What does Etsy currently say about digital refunds?",
+                          trigger="test:fetch-followup", decision_ref="test:refund",
+                          domain="marketplace_policy", query_terms=["refund"], **SPEC)["task"]
+    monkeypatch.setenv(F.ENABLE_VAR, "1")
+    monkeypatch.setattr(F, "MIN_SECONDS_PER_HOST", 0.0)
+    monkeypatch.setattr(R, "detect_unknowns", lambda *_a, **_kw: {"opened": [], "already_open": []})
+    urls = RA.official_sources("marketplace_policy", ["refund"])
+    monkeypatch.setattr(F, "_default_get", Stub({urls[0]: "fixture official refund text"}))
+    q = JobQueue(db)
+    first = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                      idempotency_key="fetch-followup-initial")
+    assert Worker(db, "initial-research", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, first.id).outputs["status"] == RA.AWAITING_EXTERNAL
+    scan = q.enqueue("learn", "learn.scan", {}, idempotency_key="fetch-followup-scan")
+    assert Worker(db, "source-scan", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, scan.id).status == JobStatus.DONE
+        source = next(x for x in s.get(R.ResearchTask, tid).sources if x.get("citation") == urls[0])
+        followup_id = source["followup_job_id"]
+        followup = s.get(Job, followup_id)
+        assert followup.job_type == "research.investigate" and followup.status == JobStatus.PENDING
+    assert Worker(db, "followup-research", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, followup_id).outputs["status"] == RA.EVIDENCE_GATHERED
+
+
+def test_fetch_followup_enqueue_failure_rolls_back_source_and_audit(monkeypatch):
+    db = _db()
+    tid = R.open_question(db, question="What does the fixture safety policy require now?",
+                          trigger="test:followup-rollback", decision_ref="test:rollback",
+                          domain="marketplace_policy", **SPEC)["task"]
+    url = "https://www.cpsc.gov/fixture-followup-rollback"
+    def fail_enqueue(*_args, **_kwargs):
+        raise RuntimeError("fixture queue failure")
+    with pytest.raises(RuntimeError):
+        F.fetch_for_task(db, tid, url, get=Stub({url: "fixture safety page"}),
+                         sleep=_no_sleep, enqueue=fail_enqueue)
+    with db.session() as s:
+        assert s.get(R.ResearchTask, tid).sources == []
+        assert not [a for a in s.scalars(R.select(AuditLog).where(
+            AuditLog.action == F.FETCH_ACTION)) if a.detail.get("url") == url]
 
 
 def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
