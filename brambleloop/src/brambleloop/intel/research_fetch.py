@@ -155,7 +155,7 @@ def robots_allows(url: str, *, get=None) -> tuple[bool, str]:
 
 
 def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None = None,
-                   sleep=time.sleep) -> dict:
+                   sleep=time.sleep, enqueue=None) -> dict:
     """Fetch one allowlisted page politely and record it as a `fetched` source of the task."""
     from ..core.models import AuditLog
     from . import research
@@ -223,9 +223,20 @@ def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None
                 sources.append({"ref": next_ref, "source": host, "citation": url,
                                 "retrieval": "fetched", "read_on": now.date().isoformat(),
                                 "sha256": digest, "bytes": len(body)})
+                followup_id = None
+                if enqueue is not None:
+                    followup = enqueue("research_agent", "research.investigate",
+                                       {"task_id": task_id},
+                                       idempotency_key=f"research.fetch.followup:{task_id}:{next_ref}",
+                                       session=s)
+                    if followup is None:
+                        raise RuntimeError("research fetch follow-up key requires reconciliation")
+                    followup_id = followup.id
+                    sources[-1]["followup_job_id"] = followup_id
                 row.sources = sources
                 out = {"task": task_id, "url": url, "fetched": True,
                        "source_ref": next_ref, "bytes": len(body), "sha256": digest,
+                       "followup_job_id": followup_id,
                        "excerpt": text[:2000], "basis": ALLOWED_HOSTS[host], "spend_cad": 0.0}
             s.add(AuditLog(actor="learn", action=FETCH_ACTION, at=now,
                            detail={k: v for k, v in out.items() if k != "excerpt"}))
@@ -411,7 +422,8 @@ def fetch_enabled(env=None) -> bool:
     return str(e.get(ENABLE_VAR) or "").strip() == "1"
 
 
-def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None) -> dict:
+def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None,
+        enqueue=None) -> dict:
     """One research run: bounded fetches for planned sources, then promotion."""
     planned = plan_fetches(db, now=now)
     if get is None and not fetch_enabled(env):
@@ -422,7 +434,8 @@ def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None
         for tid, url in planned[:MAX_FETCHES_PER_RUN]:
             # Review F-8: one bad fetch never stops the others or the promotion below.
             try:
-                done.append(fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep))
+                done.append(fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep,
+                                           enqueue=enqueue))
             except Exception as exc:  # noqa: BLE001
                 done.append({"task": tid, "url": url, "fetched": False,
                              "why": f"fetch failed: {type(exc).__name__}: {str(exc)[:160]}"})
