@@ -687,16 +687,23 @@ def test_wardrobe_editor_and_outfit_reference():
 
 # ---- 6. learning: taxonomy end to end, improvements only through the Learn path -------------
 
+class SyntheticPhotoReferenceGenerator(TF.FlatLayGenerator):
+    """Test double for the photo-reference route; its bytes are not a real photo."""
+
+    def prepare_references(self, **kw):
+        return [{"kind": "physical_product_photo", "data": TF.flat_lay(self.cir, canvas=256),
+                 "label": "synthetic test double"}]
+
 def test_wardrobe_codes_flow_from_the_judge_to_learning_and_a_league_challenger():
     from brambleloop.visual import candidate_gates as CG
     from brambleloop.visual import image_learning as L
     from brambleloop.visual import image_production as IP
 
     db = O.make_db()
-    gen = TF.FlatLayGenerator(CLOUD)
+    gen = SyntheticPhotoReferenceGenerator(CLOUD)
     judges = CG.RealJudges(db, vision=Recorded(
         "laura_match_a", "outfit_reference_carryover", "anatomy_ok", "realism_ok",
-        "item_same", "region_ok"), references=REFS)
+        "item_same", "region_ok", craft=TF.PASSING_BANDS_JUDGE.reading), references=REFS)
     before = IP.prompt_version(db)
     key = _start(db, gen, judges)
     run = IP.get_run(db, key)
@@ -731,10 +738,10 @@ def test_wardrobe_repetition_seen_by_the_judge_repicks_the_outfit():
     outfits.reserve(db, "oat-jumper-02", "winter-village-graphghan")
     O.approved_outfit(db, "sage-cardigan-01")
     outfits.reserve(db, "sage-cardigan-01", CLOUD)
-    gen = TF.FlatLayGenerator(CLOUD)
+    gen = SyntheticPhotoReferenceGenerator(CLOUD)
     judges = CG.RealJudges(db, vision=Recorded(
         "laura_match_a", "outfit_other_listing", "anatomy_ok", "realism_ok", "item_same",
-        "region_ok"), references=REFS)
+        "region_ok", craft=TF.PASSING_BANDS_JUDGE.reading), references=REFS)
     key = _start(db, gen, judges)
     run = IP.get_run(db, key)
     old = outfits.get(db, "sage-cardigan-01")

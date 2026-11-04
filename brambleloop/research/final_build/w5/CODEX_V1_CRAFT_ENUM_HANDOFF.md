@@ -61,6 +61,14 @@ The normal vision handler already converts an absent reading to an empty mapping
 legacy markerless no-reading results and unavailable-judge policy are unchanged.
 Python 3.11/tmpfs focused tests passed 58/58.
 
+The two VISNEXT wardrobe retry tests now use a clearly identified synthetic
+photo-reference test double. Their original wardrobe, correction and learning
+assertions are unchanged; chart-only references still follow the separately
+tested structural hold. Together the VISNEXT and V1 correctness suites pass
+53/53 on Python 3.11/tmpfs; independent review reran both wardrobe cases and
+two structural hold controls 4/4. Synthetic reference bytes establish routing
+only, not physical provenance, authority or fidelity.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
