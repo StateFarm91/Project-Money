@@ -724,7 +724,10 @@ def _stripe_claimed(cir, listing) -> bool:
     tags = tags if isinstance(tags, (tuple, list)) else []
     text = " ".join(str(x or "") for x in [cir.title, data.get("title"),
                      data.get("description"), *tags])
-    return bool(re.search(r"\bstrip(?:e|es|ed|ing|ey|y)\b", fold(text)))
+    # French stripe claims fold to ASCII: rayé/rayée/rayés/rayées and
+    # rayure(s) promise bands just as "striped" does.
+    return bool(re.search(r"\b(?:strip(?:e|es|ed|ing|ey|y)|"
+                          r"ray(?:ure|ures|e|ee|es|ees))\b", fold(text)))
 
 
 def name_truth(cir, listing: dict | None = None) -> list[str]:

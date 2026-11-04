@@ -462,6 +462,20 @@
         "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A2-FRENCH-STRIPES",
+      "operator": "codex",
+      "branch": "codex/a2-french-stripes",
+      "source_branch": "codex/a2-safety-continuation",
+      "source_sha": "94d165ec83287bab881083f0c2abed08bbed8b80",
+      "scope": "Apply existing Product Truth stripe claim gate to explicit French stripe forms",
+      "files": [
+        "brambleloop/src/brambleloop/publish/eligibility.py",
+        "brambleloop/tests/test_codex_a2_french_stripes.py",
+        "brambleloop/research/final_build/w5/CODEX_A2_FRENCH_STRIPES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
