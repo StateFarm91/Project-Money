@@ -550,6 +550,14 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
         "ops.on_demand._last_run: the newest row per artifact, which the global "
         "keep-per-action does not protect"),
     # OPUS2-P0 (P0-LEARNING-GAPS): a 30-day count of construction refusals per product line.
+    # OPUS2 A4b: creative.enrichment_requests keeps ALL its state in these rows (one request
+    # per slug, its rounds, resolved/exhausted). Pruning them would re-open an exhausted
+    # request or reset its round count -- the unbounded correction loop A4b exists to stop.
+    "research.enrichment_requested": ("lifetime_total",
+        "creative.enrichment_requests.state: every request and its rounds, read over all rows"),
+    "research.enrichment_answered": ("lifetime_total",
+        "creative.enrichment_requests.state: every answer, its round and state, read over "
+        "all rows (MAX_ROUNDS is counted from them)"),
     "cir.draft_refused": ("windowed",
         "intel.knowledge_gaps.evidence counts construction refusals over WINDOW_DAYS (30)"),
     "cir.compiled": ("lifetime_total",
@@ -808,6 +816,13 @@ KNOWN_READ_PREFIXES: dict[str, tuple[str, str]] = {
 # where that is classified. Every entry is checked to still exist; an unresolved site not
 # listed here makes `unknown_read_actions` fail closed.
 UNRESOLVED_READ_SITES: dict[str, str] = {
+    # OPUS2 A4b: `_rows(db, action)` is called with REQUESTED, ANSWERED (lifetime_total above),
+    # REFUSED_ACTION = cir.draft_refused (windowed: only refusals new since a request are read;
+    # an old pruned refusal already has its request) and, when the registry is present, its
+    # HELD_ACTION.
+    "creative/enrichment_requests.py::_rows": (
+        "research.enrichment_requested / research.enrichment_answered (lifetime_total), "
+        "cir.draft_refused (windowed), construction_registry.HELD_ACTION when integrated"),
     "app/command_center/emergency.py::_live_grants": (
         "loops over (publication_authority, activation_authority) modules and reads "
         "mod.APPROVED: owner.publication.approved / owner.activation.approved, both "
