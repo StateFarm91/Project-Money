@@ -693,6 +693,59 @@ def test_existing_gap_can_reconcile_after_own_product_covers_its_pod(monkeypatch
         watchlist.reader_factory = None
 
 
+def test_queued_watchlist_score_is_held_when_corroboration_disappears():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        gid = _gap(db)
+        inputs = {"slug": "chunky-ribbed-scarf", "source": "intel.opportunity_review",
+                  "coverage_gaps": [gid]}
+        _with_reader(Reader(down={"ZKBDESIGNER"}))
+        watchlist.scan_all(db, force=True)
+        held = _run(db, "radar.score", inputs)
+        assert held["score"] is None and held["promoted"] is False
+        with db.session() as s:
+            assert not list(s.scalars(select(Job).where(Job.job_type == "cir.draft")))
+        _with_reader(Reader())
+        watchlist.scan_all(db, force=True)
+        resumed = _run(db, "radar.score", inputs)
+        assert isinstance(resumed["score"], (int, float))
+    finally:
+        watchlist.reader_factory = None
+
+
+def test_held_queued_score_can_be_routed_again_after_source_recovery():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        gid = _gap(db)
+        job = JobQueue(db).enqueue("market_radar", "radar.score",
+            {"slug": "chunky-ribbed-scarf", "source": "intel.opportunity_review",
+             "coverage_gaps": [gid]}, idempotency_key="watchlist-test-held")
+        with db.session() as s:
+            g = s.get(CoverageGap, gid)
+            g.evidence = {**(g.evidence or {}), "design_job_ids": [job.id], "routes": 1}
+        _with_reader(Reader(down={"ZKBDESIGNER"}))
+        watchlist.scan_all(db, force=True)
+        Worker(db, "held", phase=Phase.SHADOW, job_types=["radar.score"]).run_once()
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            assert j.status == JobStatus.DONE and j.outputs["score"] is None
+            j.finished_at = datetime.now(timezone.utc) - watchlist.SETTLE - timedelta(seconds=1)
+        _with_reader(Reader())
+        watchlist.scan_all(db, force=True)
+        day = datetime.now(timezone.utc).date()
+        first = watchlist.review(db, enqueue=_enqueuer(db), today=day)
+        assert any(d["last"] == "route_refused" for d in first["decisions"])
+        later = watchlist.review(db, enqueue=_enqueuer(db),
+                                 today=day + watchlist.REDECIDE_AFTER)
+        assert any(d["last"] == "routed" for d in later["decisions"])
+    finally:
+        watchlist.reader_factory = None
+
+
 def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
     """Review L-6."""
     db = _db()
