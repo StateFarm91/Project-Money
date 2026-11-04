@@ -43,11 +43,20 @@ def _store():
 
 
 def _audit(db):
-    def write(action, artifact=None, detail=None, **_kw):
+    def write(action, artifact=None, detail=None, session=None, **_kw):
+        if session is not None:
+            session.add(AuditLog(actor="test", action=action, artifact=artifact,
+                                 detail=detail or {}, at=datetime.now(timezone.utc)))
+            return
         with db.session() as s:
             s.add(AuditLog(actor="test", action=action, artifact=artifact,
                            detail=detail or {}, at=datetime.now(timezone.utc)))
     return write
+
+
+def _sweep(db, *, audit=None):
+    writer = audit or _audit(db)
+    return E.sweep(db, audit=writer, audit_transaction=writer)
 
 
 def _enqueue(db):
@@ -117,8 +126,9 @@ def test_authoritative_seed_can_redraft_and_reaches_compile():
     _established(db, seed)
     _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
         "reason": "fixture construction hold", "gate": "construction", "category": seed.category})
-    E.sweep(db, audit=_audit(db))
-    out = E.answer(db, seed.slug, _payload(seed), audit=_audit(db), enqueue=_enqueue(db))
+    _sweep(db, audit=_audit(db))
+    out = E.answer(db, seed.slug, _payload(seed), audit=_audit(db), enqueue=_enqueue(db),
+                   audit_transaction=_audit(db), enqueue_transaction=_enqueue(db))
     assert out["accepted"] and out["state"] == E.RESOLVED, out
     fresh = Database(f"sqlite:///{path}")
     _run(fresh, "cir.draft")
@@ -134,22 +144,279 @@ def test_answers_are_bounded_and_an_exhausted_request_never_reopens():
     _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
         "reason": "an amigurumi needs shaped pieces", "gate": "construction",
         "category": seed.category, "needs": "shaped pieces"})
-    E.sweep(db, audit=_audit(db))
+    _sweep(db, audit=_audit(db))
     bad = _payload(seed)
-    first = E.answer(db, seed.slug, bad, audit=_audit(db), enqueue=_enqueue(db))
+    first = E.answer(db, seed.slug, bad, audit=_audit(db), enqueue=_enqueue(db),
+                     audit_transaction=_audit(db))
     second = E.answer(db, seed.slug, bad,
-                      audit=_audit(db), enqueue=_enqueue(db))
+                      audit=_audit(db), enqueue=_enqueue(db), audit_transaction=_audit(db))
     assert first["state"] == E.OPEN and second["state"] == E.EXHAUSTED == "exhausted"
     assert E.MAX_ROUNDS == 2 and _jobs(db, "cir.draft") == []
     _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
         "reason": "refused again for another reason", "gate": "construction",
         "category": seed.category, "needs": "something else"})
-    swept = E.sweep(db, audit=_audit(db))
+    swept = _sweep(db, audit=_audit(db))
     assert swept["opened"] == [] and swept["updated"] == [] and E.open_requests(db) == []
     # a refusal that is not about construction (the funnel) is not Research's to answer
     _audit(db)("cir.draft_refused", artifact="other-slug", detail={
         "reason": "no tournament carried it", "gate": "funnel.may_engineer"})
-    assert E.sweep(db, audit=_audit(db))["opened"] == []
+    assert _sweep(db, audit=_audit(db))["opened"] == []
+
+
+def test_real_answer_handler_records_atomic_bounded_rounds():
+    db, path = _store()
+    seed = pipeline._seed_for(SEED)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "shaped pieces needed", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    for i in range(2):
+        JobQueue(db).enqueue("crochet_engineer", "research.enrichment_answer",
+                             {"slug": seed.slug, "payload": _payload(seed)},
+                             idempotency_key=f"test-answer:{i}")
+        _run(db, "research.enrichment_answer")
+        db = Database(f"sqlite:///{path}")
+    answers = _jobs(db, "research.enrichment_answer")
+    assert [row[2]["state"] for row in answers] == [E.OPEN, E.EXHAUSTED]
+    assert E.state(db)[seed.slug]["rounds"] == 2
+    assert _jobs(db, "cir.draft") == []
+
+
+def test_unsuccessful_answer_rolls_back_audit_pair_on_failure():
+    db, _ = _store()
+    seed = pipeline._seed_for(SEED)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "shaped pieces needed", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+
+    def fails_second(action, *, artifact, detail, session):
+        if action == E.REQUESTED:
+            raise RuntimeError("simulated audit failure")
+        _audit(db)(action, artifact=artifact, detail=detail, session=session)
+
+    import pytest
+    with pytest.raises(RuntimeError, match="simulated audit failure"):
+        E.answer(db, seed.slug, _payload(seed), audit=_audit(db), enqueue=_enqueue(db),
+                 audit_transaction=fails_second)
+    assert E.state(db)[seed.slug].get("rounds", 0) == 0
+    assert E._rows(db, E.ANSWERED) == []
+
+
+def test_unsuccessful_answer_without_transactional_auditor_is_held():
+    db, _ = _store()
+    seed = pipeline._seed_for(SEED)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "shaped pieces needed", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    result = E.answer(db, seed.slug, _payload(seed), audit=_audit(db), enqueue=_enqueue(db))
+    assert not result["accepted"] and "auditor or queue unavailable" in result["why"]
+    assert E.state(db)[seed.slug].get("rounds", 0) == 0
+
+
+def test_concurrent_real_answer_workers_do_not_spend_same_round(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db, path = _store()
+    seed = pipeline._seed_for(SEED)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "shaped pieces needed", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    for i in range(2):
+        JobQueue(db).enqueue("crochet_engineer", "research.enrichment_answer",
+                             {"slug": seed.slug, "payload": _payload(seed)},
+                             idempotency_key=f"concurrent-answer:{i}")
+    barrier = Barrier(2)
+    original = E._recheck
+
+    def synchronize(*args, **kwargs):
+        result = original(*args, **kwargs)
+        barrier.wait(timeout=15)
+        return result
+
+    monkeypatch.setattr(E, "_recheck", synchronize)
+
+    def run(i):
+        fresh = Database(path if path.startswith("postgresql") else f"sqlite:///{path}")
+        return Worker(fresh, f"answer-{i}", job_types=["research.enrichment_answer"]).run_once()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert all(pool.map(run, range(2)))
+    answers = _jobs(db, "research.enrichment_answer")
+    assert sorted(row[2]["state"] for row in answers) == ["changed", "open"]
+    assert len(E._rows(db, E.ANSWERED)) == 1
+    assert E.state(db)[seed.slug]["rounds"] == 1
+
+
+def test_real_answer_handler_queues_approved_draft_and_audits_in_transaction():
+    db, _ = _store()
+    seed = pipeline._seed_for("nordic-forest-basket")
+    _established(db, seed)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "fixture", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    JobQueue(db).enqueue("crochet_engineer", "research.enrichment_answer",
+                         {"slug": seed.slug, "payload": _payload(seed)},
+                         idempotency_key="test:answer:approved")
+    _run(db, "research.enrichment_answer")
+    answers = _jobs(db, "research.enrichment_answer")
+    assert answers[0][2]["accepted"] is True
+    assert E.state(db)[seed.slug]["state"] == E.RESOLVED
+    assert len(_jobs(db, "cir.draft")) == 1
+    from brambleloop.runtime.lineage import JobLink
+    with db.session() as session:
+        assert session.scalar(select(JobLink).where(JobLink.child_id == answers[0][2]["job"]))
+
+
+def test_stale_answer_worker_cannot_record_a_round():
+    import pytest
+    from brambleloop.queue.effects import LeaseLost
+    from brambleloop.runtime.worker import JobContext, handlers
+    from brambleloop.core.models import Phase
+    from sqlalchemy import update
+
+    db, _ = _store()
+    seed = pipeline._seed_for(SEED)
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "fixture", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    q = JobQueue(db)
+    q.enqueue("crochet_engineer", "research.enrichment_answer",
+              {"slug": seed.slug, "payload": _payload(seed)}, idempotency_key="answer:stale")
+    claimed = q.claim("old-answer", ["research.enrichment_answer"])
+    ctx = JobContext(job=claimed, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    with db.session() as session:
+        session.execute(update(Job).where(Job.id == claimed.id).values(lease_token="new-attempt"))
+    with pytest.raises(LeaseLost):
+        handlers.get("research.enrichment_answer")(ctx)
+    assert E.state(db)[seed.slug].get("rounds", 0) == 0
+    assert E._rows(db, E.ANSWERED) == []
+
+
+def test_answer_worker_refuses_changed_persisted_producer():
+    import pytest
+    from brambleloop.queue.effects import LeaseLost
+    from brambleloop.runtime.worker import JobContext, handlers
+    from brambleloop.core.models import Phase
+    from sqlalchemy import update
+
+    for change in ({"inputs": {"slug": "other", "payload": {}}},
+                   {"agent": "validator"}, {"job_type": "cir.draft"},
+                   {"leased_by": "other-worker"}):
+        db, _ = _store()
+        seed = pipeline._seed_for(SEED)
+        _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+            "reason": "fixture", "gate": "construction", "category": seed.category})
+        _sweep(db, audit=_audit(db))
+        q = JobQueue(db)
+        q.enqueue("crochet_engineer", "research.enrichment_answer",
+                  {"slug": seed.slug, "payload": _payload(seed)}, idempotency_key="answer:changed")
+        claimed = q.claim("answer-worker", ["research.enrichment_answer"])
+        ctx = JobContext(job=claimed, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+        with db.session() as session:
+            session.execute(update(Job).where(Job.id == claimed.id).values(**change))
+        with pytest.raises(LeaseLost):
+            handlers.get("research.enrichment_answer")(ctx)
+        assert E.state(db)[seed.slug].get("rounds", 0) == 0
+        assert E._rows(db, E.ANSWERED) == []
+
+
+def test_competing_success_and_failed_answers_cannot_commit_the_same_round(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, Lock
+
+    db, path = _store()
+    seed = pipeline._seed_for("nordic-forest-basket")
+    _audit(db)("cir.draft_refused", artifact=seed.slug, detail={
+        "reason": "fixture", "gate": "construction", "category": seed.category})
+    _sweep(db, audit=_audit(db))
+    for i in range(2):
+        JobQueue(db).enqueue("crochet_engineer", "research.enrichment_answer",
+                             {"slug": seed.slug, "payload": _payload(seed)},
+                             idempotency_key=f"answer:mixed:{i}")
+    barrier, lock, calls = Barrier(2), Lock(), []
+
+    def conflicting_recheck(*_args, **_kwargs):
+        # Model two code/policy snapshots disagreeing about the same answer.
+        with lock:
+            calls.append(len(calls))
+            n = calls[-1]
+        barrier.wait(timeout=15)
+        return [] if n == 0 else [{"field": "construction", "why": "still missing"}]
+
+    monkeypatch.setattr(E, "_recheck", conflicting_recheck)
+
+    def run(i):
+        fresh = Database(path if path.startswith("postgresql") else f"sqlite:///{path}")
+        return Worker(fresh, f"mixed-answer-{i}",
+                      job_types=["research.enrichment_answer"]).run_once()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert all(pool.map(run, range(2)))
+    outputs = [row[2] for row in _jobs(db, "research.enrichment_answer")]
+    assert sum(out.get("state") == "changed" for out in outputs) == 1
+    answers = E._rows(db, E.ANSWERED)
+    assert len(answers) == 1 and answers[0][2]["round"] == 1
+    if answers[0][2]["state"] == E.RESOLVED:
+        assert len(_jobs(db, "cir.draft")) == 1
+    else:
+        assert _jobs(db, "cir.draft") == []
+
+
+def test_sweep_and_answer_serialize_request_state(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    db, path = _store()
+    seed = pipeline._seed_for(SEED)
+    audit = _audit(db)
+    audit("cir.draft_refused", artifact=seed.slug, detail={"gate": "construction",
+          "reason": "first", "category": seed.category})
+    _sweep(db, audit=audit)
+    audit("cir.draft_refused", artifact=seed.slug, detail={"gate": "construction",
+          "reason": "changed", "category": seed.category})
+    q = JobQueue(db)
+    q.enqueue("crochet_engineer", "research.enrichment_sweep", {}, idempotency_key="race:sweep")
+    q.enqueue("crochet_engineer", "research.enrichment_answer",
+              {"slug": seed.slug, "payload": _payload(seed)}, idempotency_key="race:answer")
+    sweep_job = q.claim("race-sweep", ["research.enrichment_sweep"])
+    answer_job = q.claim("race-answer", ["research.enrichment_answer"])
+    from brambleloop.runtime import lineage
+    lineage.ensure_table(db)
+    entered, release, answer_ready = Event(), Event(), Event()
+    original = E._holds
+    original_recheck = E._recheck
+
+    def pause_sweep(*args, **kwargs):
+        result = original(*args, **kwargs)
+        entered.set()
+        assert release.wait(timeout=15)
+        return result
+
+    monkeypatch.setattr(E, "_holds", pause_sweep)
+    def observed_answer(*args, **kwargs):
+        result = original_recheck(*args, **kwargs)
+        answer_ready.set()
+        return result
+    monkeypatch.setattr(E, "_recheck", observed_answer)
+
+    def run(kind):
+        from brambleloop.core.models import Phase
+        from brambleloop.runtime.worker import JobContext, handlers
+        fresh = Database(path if path.startswith("postgresql") else f"sqlite:///{path}")
+        job = sweep_job if kind == "research.enrichment_sweep" else answer_job
+        ctx = JobContext(job=job, db=fresh, queue=JobQueue(fresh),
+                         registry=Registry(fresh), phase=Phase.SHADOW)
+        return handlers.get(kind)(ctx)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        sweep = pool.submit(run, "research.enrichment_sweep")
+        assert entered.wait(timeout=15)
+        answer = pool.submit(run, "research.enrichment_answer")
+        assert answer_ready.wait(timeout=15)
+        release.set()
+        assert sweep.result(timeout=20)["work_done"] == 1
+        assert answer.result(timeout=20)["state"] == "changed"
+    assert E._rows(db, E.ANSWERED) == []
 
 
 def test_different_old_refusals_do_not_cause_endless_audit_churn():
@@ -158,12 +425,12 @@ def test_different_old_refusals_do_not_cause_endless_audit_churn():
     for reason in ("first missing piece", "second missing piece"):
         audit("cir.draft_refused", artifact=SEED, detail={"reason": reason,
               "gate": "construction", "category": "amigurumi", "needs": reason})
-    assert E.sweep(db, audit=audit)["work_done"] == 1
+    assert _sweep(db, audit=audit)["work_done"] == 1
     assert E.open_requests(db)[0]["asks"][0]["why"] == "second missing piece"
     for _ in range(3):
-        assert E.sweep(db, audit=audit)["work_done"] == 0
+        assert _sweep(db, audit=audit)["work_done"] == 0
     fresh = Database(f"sqlite:///{path}")
-    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+    assert _sweep(fresh, audit=_audit(fresh))["work_done"] == 0
     with fresh.session() as session:
         rows = list(session.scalars(select(AuditLog).where(AuditLog.action == E.REQUESTED)))
     assert len(rows) == 1, rows
@@ -175,20 +442,21 @@ def test_last_refused_redraft_is_exhausted_and_duplicate_enqueue_is_not_success(
     audit = _audit(db)
     audit("cir.draft_refused", artifact=seed_slug, detail={"gate": "construction",
           "reason": "first", "category": "basket"})
-    E.sweep(db, audit=audit)
+    _sweep(db, audit=audit)
     good = _payload(pipeline._seed_for(seed_slug))
     key = f"draft:{seed_slug}:enrich:1"
     JobQueue(db).enqueue("crochet_engineer", "cir.draft", good, idempotency_key=key)
-    duplicate = E.answer(db, seed_slug, good, audit=audit, enqueue=_enqueue(db))
+    duplicate = E.answer(db, seed_slug, good, audit=audit, enqueue=_enqueue(db),
+                         audit_transaction=audit, enqueue_transaction=_enqueue(db))
     assert duplicate["accepted"] is False and E.state(db)[seed_slug]["state"] == E.OPEN
     audit(E.ANSWERED, artifact=seed_slug, detail={"round": E.MAX_ROUNDS, "state": E.RESOLVED})
     audit("cir.draft_refused", artifact=seed_slug, detail={"gate": "construction",
           "reason": "last attempt refused", "category": "basket"})
-    outcome = E.sweep(db, audit=audit)
+    outcome = _sweep(db, audit=audit)
     assert outcome["updated"] == [seed_slug], outcome
     fresh = Database(f"sqlite:///{path}")
     assert E.state(fresh)[seed_slug]["state"] == E.EXHAUSTED
-    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+    assert _sweep(fresh, audit=_audit(fresh))["work_done"] == 0
 
 
 def test_restart_recovers_exact_queued_draft_when_answer_audit_was_interrupted():
@@ -197,26 +465,29 @@ def test_restart_recovers_exact_queued_draft_when_answer_audit_was_interrupted()
     audit = _audit(db)
     audit("cir.draft_refused", artifact=seed_slug, detail={"gate": "construction",
           "reason": "shaped pieces needed", "category": "basket"})
-    E.sweep(db, audit=audit)
+    _sweep(db, audit=audit)
     good = _payload(pipeline._seed_for(seed_slug))
     def interrupted(action, **kwargs):
         if action == E.ANSWERED:
             raise RuntimeError("simulated interruption after durable queue insert")
         return audit(action, **kwargs)
     try:
-        E.answer(db, seed_slug, good, audit=interrupted, enqueue=_enqueue(db))
+        E.answer(db, seed_slug, good, audit=interrupted, enqueue=_enqueue(db),
+                 audit_transaction=interrupted, enqueue_transaction=_enqueue(db))
         assert False, "interruption did not occur"
     except RuntimeError:
         pass
     fresh = Database(f"sqlite:///{path}")
     assert E.state(fresh)[seed_slug]["state"] == E.OPEN
-    recovered = E.answer(fresh, seed_slug, good, audit=_audit(fresh), enqueue=_enqueue(fresh))
+    assert _jobs(fresh, "cir.draft") == []  # queue insert and audit rolled back together
+    recovered = E.answer(fresh, seed_slug, good, audit=_audit(fresh), enqueue=_enqueue(fresh),
+                         audit_transaction=_audit(fresh), enqueue_transaction=_enqueue(fresh))
     assert recovered["accepted"] is True and recovered["state"] == E.RESOLVED, recovered
     assert len(_jobs(fresh, "cir.draft")) == 1
     assert E.state(fresh)[seed_slug]["state"] == E.RESOLVED
 
 
-def test_concurrent_answers_cannot_queue_two_drafts_for_one_round():
+def test_concurrent_answers_cannot_queue_two_drafts_for_one_round(monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
 
@@ -225,16 +496,20 @@ def test_concurrent_answers_cannot_queue_two_drafts_for_one_round():
     audit = _audit(db)
     audit("cir.draft_refused", artifact=seed_slug, detail={"gate": "construction",
           "reason": "shaped pieces needed", "category": "basket"})
-    E.sweep(db, audit=audit)
+    _sweep(db, audit=audit)
     barrier = Barrier(2)
+    original = E._recheck
+    def synchronized_recheck(*args, **kwargs):
+        result = original(*args, **kwargs)
+        barrier.wait(timeout=10)
+        return result
+    monkeypatch.setattr(E, "_recheck", synchronized_recheck)
     def answer(title):
         fresh = Database(f"sqlite:///{path}")
         real_enqueue = _enqueue(fresh)
-        def synchronized_enqueue(*args, **kwargs):
-            barrier.wait(timeout=10)
-            return real_enqueue(*args, **kwargs)
         return E.answer(fresh, seed_slug, _payload(pipeline._seed_for(seed_slug)), audit=_audit(fresh),
-                        enqueue=synchronized_enqueue)
+                        enqueue=real_enqueue, audit_transaction=_audit(fresh),
+                        enqueue_transaction=real_enqueue)
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(answer, ("Everyday Basket", "Storage Basket")))
     assert any(r.get("accepted") is True for r in results), results
@@ -265,35 +540,36 @@ def test_real_draft_refusal_before_answer_audit_reopens_by_job_identity():
     audit = _audit(db)
     audit("cir.draft_refused", artifact=slug, detail={"gate": "construction",
           "reason": "original", "category": seed.category})
-    E.sweep(db, audit=audit)
-    real_enqueue = _enqueue(db)
-    def enqueue_and_run(*args, **kwargs):
-        job = real_enqueue(*args, **kwargs)
-        # Simulate a construction policy changing after precheck. The actual
-        # handler runs its real route and writes its own refusal before ANSWERED.
-        from brambleloop.creative import fallback_constructions as FC
-        old = FC.NEEDS.get("basket")
-        FC.NEEDS["basket"] = "fixture: new construction evidence required"
-        try:
-            _run(db, "cir.draft")
-        finally:
-            if old is None:
-                del FC.NEEDS["basket"]
-            else:
-                FC.NEEDS["basket"] = old
-        return job
-    result = E.answer(db, slug, _payload(seed), audit=audit, enqueue=enqueue_and_run)
-    assert result["accepted"] and result["job"]
+    _sweep(db, audit=audit)
+    # Historical queue entries could be visible before ANSWERED. Preserve
+    # recovery of those rows even though new enqueue+audit is atomic.
+    payload = _payload(seed)
+    data = {**payload, "enrichment_round": 1, "enrichment_fingerprint": E.fingerprint(payload),
+            "enrichment_approval_sha256": E._approved_binding(db, slug)}
+    job = _enqueue(db)("crochet_engineer", "cir.draft", data,
+                       idempotency_key=f"draft:{slug}:enrich:1")
+    from brambleloop.creative import fallback_constructions as FC
+    old = FC.NEEDS.get("basket")
+    FC.NEEDS["basket"] = "fixture: new construction evidence required"
+    try:
+        _run(db, "cir.draft")
+    finally:
+        if old is None:
+            del FC.NEEDS["basket"]
+        else:
+            FC.NEEDS["basket"] = old
+    audit(E.ANSWERED, artifact=slug, detail={"round": 1, "state": E.RESOLVED,
+                                             "fingerprint": E.fingerprint(payload), "job": job.id})
     jobs = _jobs(db, "cir.draft")
     assert len(jobs) == 1 and jobs[0][2].get("gate") == "construction", jobs
     fresh = Database(f"sqlite:///{path}")
     before = E.state(fresh)[slug]
     assert before["state"] == E.RESOLVED
-    outcome = E.sweep(fresh, audit=_audit(fresh))
+    outcome = _sweep(fresh, audit=_audit(fresh))
     assert outcome["updated"] == [slug], outcome
     assert E.state(fresh)[slug]["state"] == E.OPEN
     assert E.state(fresh)[slug]["rounds"] == 1
-    assert E.sweep(fresh, audit=_audit(fresh))["work_done"] == 0
+    assert _sweep(fresh, audit=_audit(fresh))["work_done"] == 0
 
 
 def test_queued_enrichment_refuses_changed_or_withdrawn_approval_at_real_handler():
@@ -315,7 +591,7 @@ def test_queued_enrichment_refuses_changed_or_withdrawn_approval_at_real_handler
         audit = _audit(db)
         audit("cir.draft_refused", artifact=slug, detail={"gate": "construction",
               "reason": "fixture", "category": "basket"})
-        E.sweep(db, audit=audit)
+        _sweep(db, audit=audit)
         out = E.answer(db, slug, _payload(seed), audit=audit, enqueue=_enqueue(db))
         assert out["accepted"] is False and "atomic" in out["why"], out
         # A previously queued dynamic job must also be held, even if it was

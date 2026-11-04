@@ -46,12 +46,13 @@ def _registry():
     return construction_registry
 
 
-def _rows(db, action: str) -> list[tuple[int, str, dict]]:
+def _rows(db, action: str, *, session=None) -> list[tuple[int, str, dict]]:
+    from contextlib import nullcontext
     from sqlalchemy import select
 
     from ..core.models import AuditLog
 
-    with db.session() as s:
+    with (nullcontext(session) if session is not None else db.session()) as s:
         return [(r.id, r.artifact or "", dict(r.detail or {})) for r in s.scalars(
             select(AuditLog).where(AuditLog.action == action).order_by(AuditLog.id))]
 
@@ -61,10 +62,10 @@ def fingerprint(payload: dict) -> str:
                           ).hexdigest()[:12]
 
 
-def _holds(db) -> list[tuple[int, str, list[dict], dict]]:
+def _holds(db, *, session=None) -> list[tuple[int, str, list[dict], dict]]:
     """(row id, slug, items, context) for every refusal or hold Research can answer."""
     out = []
-    for rid, slug, d in _rows(db, REFUSED_ACTION):
+    for rid, slug, d in _rows(db, REFUSED_ACTION, session=session):
         if d.get("gate") != "construction":
             continue                              # funnel/engine refusals are not Research's
         out.append((rid, slug, [{"field": "construction", "why": str(d.get("reason") or ""),
@@ -73,7 +74,7 @@ def _holds(db) -> list[tuple[int, str, list[dict], dict]]:
                     {"kind": "radar", "category": d.get("category")}))
     reg = _registry()
     if reg is not None:
-        for rid, slug, d in _rows(db, reg.HELD_ACTION):
+        for rid, slug, d in _rows(db, reg.HELD_ACTION, session=session):
             items = [u for u in d.get("unresolved") or [] if u.get("resolved_by") == reg.ENRICH]
             if items and not any(u.get("resolved_by") == reg.ENGINE
                                  for u in d.get("unresolved") or []):
@@ -82,17 +83,17 @@ def _holds(db) -> list[tuple[int, str, list[dict], dict]]:
     return sorted(out, key=lambda x: x[0])
 
 
-def state(db) -> dict[str, dict]:
+def state(db, *, session=None) -> dict[str, dict]:
     out: dict[str, dict] = {}
-    for _id, slug, detail in _rows(db, REQUESTED):
+    for _id, slug, detail in _rows(db, REQUESTED, session=session):
         out[slug] = {**detail, "slug": slug, "requested_row": _id}
-    for _id, slug, detail in _rows(db, ANSWERED):
+    for _id, slug, detail in _rows(db, ANSWERED, session=session):
         if slug in out:
             out[slug]["rounds"] = max(out[slug].get("rounds", 0), int(detail.get("round", 0)))
             out[slug]["state"] = detail.get("state", out[slug].get("state"))
             out[slug]["answered_row"] = _id
             out[slug]["answered_job"] = detail.get("job")
-    for _id, slug, detail in _rows(db, REQUESTED):
+    for _id, slug, detail in _rows(db, REQUESTED, session=session):
         if slug in out and _id > out[slug].get("answered_row", 0) and \
                 out[slug].get("state") == RESOLVED and detail.get("state") == OPEN:
             out[slug]["state"] = OPEN
@@ -103,48 +104,70 @@ def open_requests(db) -> list[dict]:
     return [r for r in state(db).values() if r.get("state") == OPEN]
 
 
-def sweep(db, *, audit) -> dict:
-    """Open or update one request for every refusal or hold Research can answer."""
-    known = state(db)
-    opened, updated = [], []
-    # The most recent refusal is the current need. Replaying historical rows in
-    # turn makes differing asks alternate forever and creates permanent audit churn.
-    latest = {}
-    for rid, slug, items, context in _holds(db):
-        latest[slug] = (rid, items, context)
-    for slug, (rid, items, context) in latest.items():
-        prior = known.get(slug)
-        if prior and prior.get("state") == EXHAUSTED:
-            continue
-        if prior and prior.get("state") == RESOLVED:
-            if rid <= prior.get("answered_row", 0):
-                # The draft worker may run after enqueue but before ANSWERED is
-                # audited. Authenticate that earlier refusal by job ID, not by
-                # relative audit IDs; old unrelated refusals cannot reopen it.
-                from sqlalchemy import select
-                from ..core.models import AuditLog
-                with db.session() as session:
-                    refusal_job = session.scalar(select(AuditLog.job_id).where(AuditLog.id == rid))
-                if not prior.get("answered_job") or refusal_job != prior["answered_job"]:
-                    continue
-            if int(prior.get("rounds", 0)) >= MAX_ROUNDS:
-                audit(ANSWERED, artifact=slug, detail={"round": MAX_ROUNDS,
-                    "state": EXHAUSTED, "reason": "last redraft was refused"})
-                known[slug] = {**prior, "state": EXHAUSTED}
-                updated.append(slug)
+def sweep(db, *, audit, audit_transaction=None, validate_transaction=None) -> dict:
+    """Open or update research requests under the same lock as answers."""
+    if audit_transaction is None:
+        return {"opened": [], "updated": [], "work_done": 0,
+                "why": "transactional enrichment auditor unavailable"}
+    from sqlalchemy import text
+    from ..core.db import is_postgres
+    from ..core.models import AuditLog
+
+    with db.session() as session:
+        if is_postgres(db.engine):
+            session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": 734543628})
+        else:
+            session.execute(text("BEGIN IMMEDIATE"))
+        if validate_transaction is not None:
+            validate_transaction(session)
+
+        def stage(action, *, artifact, detail):
+            before = set(session.new)
+            audit_transaction(action, artifact=artifact, detail=detail, session=session)
+            if not any(isinstance(row, AuditLog) and row.action == action
+                       and row.artifact == artifact and row.detail == detail
+                       for row in session.new.difference(before)):
+                raise RuntimeError("transactional enrichment auditor did not stage its audit")
+
+        known = state(db, session=session)
+        opened, updated = [], []
+        # The most recent refusal is the current need. Replaying historical rows in
+        # turn makes differing asks alternate forever and creates permanent audit churn.
+        latest = {}
+        for rid, slug, items, context in _holds(db, session=session):
+            latest[slug] = (rid, items, context)
+        for slug, (rid, items, context) in latest.items():
+            prior = known.get(slug)
+            if prior and prior.get("state") == EXHAUSTED:
                 continue
-            prior = {**prior, "asks": None}
-        if prior and (rid <= int(prior.get("held_row") or 0)
-                      or prior.get("asks") == items):
-            continue
-        row = {"state": OPEN, "asks": items, "context": context,
-               "rounds": (prior or {}).get("rounds", 0), "held_row": rid}
-        audit(REQUESTED, artifact=slug, detail=row)
-        known[slug] = {**row, "slug": slug}
-        (updated if prior else opened).append(slug)
-    return {"opened": opened, "updated": updated,
-            "open": sum(1 for r in known.values() if r.get("state") == OPEN),
-            "work_done": len(opened) + len(updated)}
+            if prior and prior.get("state") == RESOLVED:
+                if rid <= prior.get("answered_row", 0):
+                    # The draft worker may run after enqueue but before ANSWERED is
+                    # audited. Authenticate that earlier refusal by job ID, not by
+                    # relative audit IDs; old unrelated refusals cannot reopen it.
+                    from sqlalchemy import select
+                    from ..core.models import AuditLog
+                    refusal_job = session.scalar(select(AuditLog.job_id).where(AuditLog.id == rid))
+                    if not prior.get("answered_job") or refusal_job != prior["answered_job"]:
+                        continue
+                if int(prior.get("rounds", 0)) >= MAX_ROUNDS:
+                    stage(ANSWERED, artifact=slug, detail={"round": MAX_ROUNDS,
+                        "state": EXHAUSTED, "reason": "last redraft was refused"})
+                    known[slug] = {**prior, "state": EXHAUSTED}
+                    updated.append(slug)
+                    continue
+                prior = {**prior, "asks": None}
+            if prior and (rid <= int(prior.get("held_row") or 0)
+                          or prior.get("asks") == items):
+                continue
+            row = {"state": OPEN, "asks": items, "context": context,
+                   "rounds": (prior or {}).get("rounds", 0), "held_row": rid}
+            stage(REQUESTED, artifact=slug, detail=row)
+            known[slug] = {**row, "slug": slug}
+            (updated if prior else opened).append(slug)
+        return {"opened": opened, "updated": updated,
+                "open": sum(1 for r in known.values() if r.get("state") == OPEN),
+                "work_done": len(opened) + len(updated)}
 
 
 def _recheck(context: dict, payload: dict, brief: dict | None) -> list[dict]:
@@ -266,7 +289,8 @@ def _authoritative_input(db, slug: str, context: dict, payload: dict, brief: dic
 
 
 def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
-           enqueue) -> dict:
+           enqueue, audit_transaction=None, enqueue_transaction=None,
+           validate_transaction=None) -> dict:
     """Research's enriched concept for an open request: re-checked, then drafted under
     draft:<slug>:enrich:<round>, or kept open with what is still missing, or exhausted."""
     req_state = state(db).get(slug)
@@ -280,32 +304,59 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
         return {"slug": slug, "accepted": False, "state": OPEN,
                 "why": refusal, "round": int(req_state.get("rounds", 0))}
     still = _recheck(context, payload, brief)
+    # Both accepted and refused answers use the same serialized state transition.
+    # Legacy non-transactional callers are held until they adopt the transactional
+    # adapter; no queue work or round audit is written on that path.
+    if audit_transaction is None or (not still and enqueue_transaction is None):
+        return {"slug": slug, "accepted": False, "state": OPEN,
+                "round": int(req_state.get("rounds", 0)),
+                "why": "transactional enrichment auditor or queue unavailable"}
+    from sqlalchemy import select, text
+    from sqlalchemy.orm import object_session
+    from ..core.db import is_postgres
+    from ..core.models import AuditLog, Job, JobStatus
+
+    data = None
     if not still:
         data = {**payload, "slug": slug, "enrichment_round": rounds}
         if brief is not None:
             data["brief"] = dict(brief)
         fp = fingerprint({k: v for k, v in data.items() if k != "enrichment_round"})
-        # A single key per slug and round prevents two concurrent answers with
-        # different payloads from queuing two drafts. Keep the fingerprint in
-        # the durable inputs for provenance and conflict investigation.
         data["enrichment_fingerprint"] = fp
         binding = _approved_binding(db, slug)
         if binding is None:
             return {"slug": slug, "accepted": False, "state": OPEN,
                     "round": rounds, "why": "current concept approval is unavailable"}
         data["enrichment_approval_sha256"] = binding
-        job = enqueue("crochet_engineer", "cir.draft", data,
-                      idempotency_key=f"draft:{slug}:enrich:{rounds}")
-        if job is None:
-            # A crash may occur after the durable queue insert but before the
-            # answer audit. Recover only the exact queued payload; a competing
-            # answer cannot take credit for another writer's round.
-            from sqlalchemy import select
-            from ..core.models import Job, JobStatus
 
+    with db.session() as session:
+        if is_postgres(db.engine):
+            session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": 734543628})
+        else:
+            session.execute(text("BEGIN IMMEDIATE"))
+        if validate_transaction is not None:
+            validate_transaction(session)
+        current = state(db, session=session).get(slug)
+        if (current is None or current.get("state") != OPEN
+                or current.get("requested_row") != req_state.get("requested_row")
+                or int(current.get("rounds", 0)) != int(req_state.get("rounds", 0))):
+            return {"slug": slug, "accepted": False, "state": "changed",
+                    "why": "enrichment request changed while answering; retry"}
+
+        def stage(action, detail):
+            before = set(session.new)
+            audit_transaction(action, artifact=slug, detail=detail, session=session)
+            added = session.new.difference(before)
+            if not any(isinstance(row, AuditLog) and row.action == action
+                       and row.artifact == slug and row.detail == detail for row in added):
+                raise RuntimeError("transactional enrichment auditor did not stage its audit")
+
+        if not still:
             key = f"draft:{slug}:enrich:{rounds}"
-            with db.session() as session:
-                old = session.scalar(select(Job).where(Job.idempotency_key == key))
+            job = enqueue_transaction("crochet_engineer", "cir.draft", data,
+                                      idempotency_key=key, session=session)
+            if job is None:
+                old = session.scalar(select(Job).where(Job.idempotency_key == key).with_for_update())
                 matches = (old is not None and old.agent == "crochet_engineer"
                            and old.job_type == "cir.draft" and old.inputs == data)
                 if not matches:
@@ -316,17 +367,18 @@ def answer(db, slug: str, payload: dict, brief: dict | None = None, *, audit,
                     return {"slug": slug, "accepted": False, "state": OPEN,
                             "round": rounds, "why": "existing draft was not completed successfully"}
                 job_id = old.id
-        else:
-            job_id = getattr(job, "id", None)
-        audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": RESOLVED,
-                                                "fingerprint": fp, "job": job_id})
-        return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,
-                "fingerprint": fp, "job": job_id}
-    final = EXHAUSTED if rounds >= MAX_ROUNDS else OPEN
-    audit(ANSWERED, artifact=slug, detail={"round": rounds, "state": final,
-                                            "still_missing": still})
-    if final == OPEN:
-        audit(REQUESTED, artifact=slug, detail={"state": OPEN, "rounds": rounds,
-                                                "context": context, "asks": still})
-    return {"slug": slug, "accepted": False, "state": final, "round": rounds,
-            "still_missing": still}
+            else:
+                if object_session(job) is not session or job.id is None:
+                    raise RuntimeError("transactional enrichment queue did not stage its job")
+                job_id = job.id
+            stage(ANSWERED, {"round": rounds, "state": RESOLVED,
+                             "fingerprint": fp, "job": job_id})
+            return {"slug": slug, "accepted": True, "state": RESOLVED, "round": rounds,
+                    "fingerprint": fp, "job": job_id}
+        final = EXHAUSTED if rounds >= MAX_ROUNDS else OPEN
+        stage(ANSWERED, {"round": rounds, "state": final, "still_missing": still})
+        if final == OPEN:
+            stage(REQUESTED, {"state": OPEN, "rounds": rounds,
+                              "context": context, "asks": still})
+        return {"slug": slug, "accepted": False, "state": final, "round": rounds,
+                "still_missing": still}

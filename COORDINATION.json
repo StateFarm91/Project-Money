@@ -302,6 +302,26 @@
         "brambleloop/src/brambleloop/runtime/pipeline.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A4B-ANSWER-TRANSACTION",
+      "operator": "codex",
+      "branch": "codex/a4b-answer-fence",
+      "source_branch": "codex/a4b-enrichment-continuation",
+      "source_sha": "f19b878d4d38edc21f53d9a873d60ffcb9973bbc",
+      "scope": "Serialize enrichment sweep and answer state transitions, queue and audits; isolated dependency on reviewed queue savepoint",
+      "files": [
+        "brambleloop/src/brambleloop/creative/enrichment_requests.py",
+        "brambleloop/src/brambleloop/runtime/enrichment_ops.py",
+        "brambleloop/src/brambleloop/queue/durable.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/src/brambleloop/authority/classes.py",
+        "brambleloop/tests/test_opus2_enrichment_requests.py",
+        "brambleloop/tests/test_codex_a4b_answer_postgres.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint_pg.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
