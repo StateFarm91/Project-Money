@@ -17,6 +17,13 @@ cable and unfunded-judge cases. Independent reviewer reran the five enum cases
 and the persistent variant-input case including the marker-less legacy reading
 and confirmed the narrow behavior. No paid call or deployment occurred.
 
+The blind two-image comparator also previously passed a real compiled CIR
+declaring edging when neither image reported seeing it. That observation now
+holds UNKNOWN and cannot become a variant input. Both images visibly reporting
+the declared edging still pass the comparison; existing definite mismatch
+checks are unchanged. Python 3.11/tmpfs targeted suite 27/27; independent
+declared-edging regression 1/1. This is not physical or authenticated evidence.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

@@ -165,3 +165,22 @@ def test_multi_component_unknown_band_presence_cannot_pass_on_absence():
                     raised_cables_visible="no", distinct_yarn_colours=1)
     result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
     assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+def test_declared_edging_not_seen_in_either_image_is_not_a_pass():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("with-border", [_row(i, "pine") for i in range(1, 6)],
+                {"pine": "#244A3A"})
+    cir.components[0].name = "border panel"
+    exp = fidelity.expectation(cir)
+    assert exp.edging_declared is True
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    for item in reading.values():
+        item["border_or_edging_visible"] = "yes"
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"

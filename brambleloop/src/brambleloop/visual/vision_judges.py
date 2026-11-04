@@ -590,6 +590,8 @@ def compare_items(reading: dict, exp) -> dict:
         unclear.append("edging unclear")
     elif ea is not None and eb != ea:
         unclear.append("edging differs or is obscured between images")
+    elif getattr(exp, "edging_declared", None) is True and (ea is not True or eb is not True):
+        unclear.append("declared edging cannot be verified in both images")
     bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
     has_bands = _has_bands(exp)
     if ba is None or bb is None:
