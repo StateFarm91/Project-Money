@@ -827,8 +827,21 @@ def metrics(db) -> dict:
                 "spend_avoided_cad": "spend of the answered tasks reused instead of redone"}}
 
 
+def _expiry_replacement_matches(source, target, *, require_trigger: bool = False) -> bool:
+    if target is None or target.id == source.id or target.state not in (OPEN, ANSWERED, STOPPED, EXPIRED):
+        return False
+    if target.domain != source.domain or target.decision_ref != source.decision_ref:
+        return False
+    if question_key(target.question, target.domain, target.decision_ref) != question_key(
+            source.question, source.domain, source.decision_ref):
+        return False
+    trigger = f"{source.trigger}#after:{source.id}"
+    return not require_trigger or (target.dedupe_key == _key(trigger)
+                                   and target.trigger == trigger.strip()[:200])
+
+
 def expire_due(db, *, now: datetime | None = None) -> list[int]:
-    """Answered tasks past their expiry become EXPIRED and the question re-opens (once)."""
+    """Expire tasks and resume any interrupted replacement handoffs on later scans."""
     _ensure(db)
     t = _now(now)
     out = []
@@ -837,26 +850,58 @@ def expire_due(db, *, now: datetime | None = None) -> list[int]:
                                                         ResearchTask.expires_on.is_not(None))):
             if _aware(row.expires_on) <= t:
                 row.state = EXPIRED
-                d = row.detail or {}
-                out.append((row.id, row.question, row.trigger, row.decision_ref, row.domain,
-                            list(row.query_terms or []), row.stop_condition or "",
-                            d.get("evidence_needed") or "", d.get("if_unresolved") or "",
-                            int(d.get("time_bound_days") or DEFAULT_TIME_BOUND_DAYS),
-                            bool(d.get("consequential")), d.get("kind") or QUESTION,
-                            row.confidence or d.get("prior_confidence") or "unknown"))
+    with db.session() as s:
+        for row in s.scalars(select(ResearchTask).where(ResearchTask.state == EXPIRED)
+                             .order_by(ResearchTask.id)):
+            d = row.detail if isinstance(row.detail, dict) else {}
+            marker = d.get("expiry_reopen_task")
+            if marker is not None:
+                target = s.get(ResearchTask, marker) if type(marker) is int else None
+                if not _expiry_replacement_matches(row, target):
+                    row.detail = {**d, "expiry_reopen_hold": "replacement marker conflicts"}
+                continue
+            out.append((row.id, row.question, row.trigger, row.decision_ref, row.domain,
+                        list(row.query_terms or []), row.stop_condition or "",
+                        d.get("evidence_needed") or "", d.get("if_unresolved") or "",
+                        int(d.get("time_bound_days") or DEFAULT_TIME_BOUND_DAYS),
+                        bool(d.get("consequential")), d.get("kind") or QUESTION,
+                        row.confidence or d.get("prior_confidence") or "unknown"))
+    completed = []
     for (tid, q, trig, dec, dom, terms, stop_c, need, action, days, cons, kind,
          prior) in out:
         # A row from before W4-FMBATCH1 has no evidence_needed / action: the re-opened task
         # says so instead of inventing them.
-        open_question(db, question=q, trigger=f"{trig}#after:{tid}", decision_ref=dec,
+        reopen_trigger = f"{trig}#after:{tid}"
+        with db.session() as s:
+            matches = list(s.scalars(select(ResearchTask).where(
+                ResearchTask.dedupe_key == _key(reopen_trigger))))
+            source = s.get(ResearchTask, tid)
+            if (len(matches) > 1 or source is None or source.state != EXPIRED
+                    or (matches and not _expiry_replacement_matches(
+                        source, matches[0], require_trigger=True))):
+                if source is not None:
+                    source.detail = {**(source.detail or {}),
+                                     "expiry_reopen_hold": "replacement identity conflicts"}
+                continue  # ambiguous history requires reconciliation, not another task
+            existing_id = matches[0].id if matches else None
+        opened = ({"task": existing_id} if existing_id is not None else
+                  open_question(db, question=q, trigger=reopen_trigger, decision_ref=dec,
                       domain=dom, query_terms=terms,
                       stop_condition=stop_c or "answered with a fact or recorded unresolved",
                       evidence_needed=need or f"what answered task {tid} relied on, re-read",
                       if_unresolved=action or "a person re-reads the sources of task "
                                               f"{tid} and records the result",
                       time_bound_days=days, consequential=cons, kind=kind,
-                      prior_confidence=prior, now=t)
-    return [x[0] for x in out]
+                      prior_confidence=prior, now=t))
+        with db.session() as s:
+            source = s.get(ResearchTask, tid)
+            target = s.get(ResearchTask, opened["task"])
+            if (source is not None and source.state == EXPIRED
+                    and _expiry_replacement_matches(source, target)):
+                source.detail = {**(source.detail or {}), "expiry_reopen_task": opened["task"],
+                                 "expiry_reopen_hold": None}
+                completed.append(tid)
+    return completed
 
 
 def tasks(db, *, state: str | None = None) -> list[dict]:
