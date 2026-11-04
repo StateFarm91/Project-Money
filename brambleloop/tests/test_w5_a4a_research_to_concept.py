@@ -30,7 +30,7 @@ from sqlalchemy import select, text  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
-    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus, Phase,
+    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus, Phase, utcnow,
 )
 from brambleloop.intel import coverage, research  # noqa: E402
 from brambleloop.intel.benchmarks import MJS_KEY  # noqa: E402
@@ -409,6 +409,169 @@ def test_restart_after_proposal_attachment_restores_gap_progress():
         assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
     finally:
         restore()
+
+
+def _brief_without_initial_job(db):
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc), types=["radar.scan", "radar.score"])
+    task = _tasks(db)[0]
+    key = f"ideation:investigate:{task.id}"
+    with db.session() as s:
+        original = s.scalar(select(Job).where(Job.idempotency_key == key))
+        assert original is not None and original.status == JobStatus.PENDING
+        # Simulate stopping after the task/gap transaction but before enqueue.
+        s.delete(original)
+    return gid, task.id, key
+
+
+def _run_coverage_handoff(db, key):
+    q = JobQueue(db)
+    job = q.enqueue("market_radar", "radar.score", {}, idempotency_key=key, priority=-1000)
+    assert Worker(db, f"worker-{key}", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, job.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        return dict(finished.outputs or {})
+
+
+def test_missing_initial_investigation_is_recovered_by_real_handoff():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    first = _run_coverage_handoff(db, "recover-handoff-1")
+    assert {"gap": gid, "task": tid} in first["ideation"]["recovered"]
+    second = _run_coverage_handoff(db, "recover-handoff-2")
+    assert not second["ideation"]["recovered"]
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.idempotency_key == key)))
+        assert len(jobs) == 1 and jobs[0].status == JobStatus.PENDING
+        events = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+        assert len(events) == 1 and events[0].detail["job_id"] == jobs[0].id
+    assert Worker(db, "recovered-research", job_types=["research.investigate"]).run_once()
+    assert _tasks(db)[0].state == research.ANSWERED
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_existing_noncanonical_investigation_is_not_duplicated():
+    db = _db()
+    _gid, tid, key = _brief_without_initial_job(db)
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": tid},
+                         idempotency_key="research-sweep-existing")
+    result = _run_coverage_handoff(db, "recover-noncanonical")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+
+
+def test_gap_reassignment_before_recovery_does_not_enqueue_old_task(monkeypatch):
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    original = ideation._recover_missing_initial_job
+
+    def reassign_then_recover(ctx, gap_id, task_id):
+        with db.session() as s:
+            gap = s.get(CoverageGap, gap_id)
+            evidence = dict(gap.evidence)
+            record = dict(evidence["ideation"])
+            record["task"] = tid + 1000
+            evidence["ideation"] = record
+            gap.evidence = evidence
+        return original(ctx, gap_id, task_id)
+
+    monkeypatch.setattr(ideation, "_recover_missing_initial_job", reassign_then_recover)
+    result = _run_coverage_handoff(db, "reassigned-before-recovery")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+    assert _ideation(db, gid)["task"] == tid + 1000
+
+
+def test_competing_handoff_recoveries_create_one_job_and_one_audit():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    q = JobQueue(db)
+    parents = [q.enqueue("market_radar", "radar.score", {},
+                         idempotency_key=f"competing-handoff:{n}", priority=-1000)
+               for n in range(2)]
+    claimed = [q.claim(f"handoff-{n}", job_types=["radar.score"]) for n in range(2)]
+    assert {job.id for job in claimed} == {job.id for job in parents}
+    contexts = [JobContext(job, db, q, Registry(db), Phase.SHADOW) for job in claimed]
+    barrier = threading.Barrier(2, timeout=20)
+
+    def attempt(ctx):
+        barrier.wait()
+        return ideation._recover_missing_initial_job(ctx, gid, tid)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(attempt, contexts)) == [False, True]
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.idempotency_key == key)))
+        events = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+    assert len(jobs) == len(events) == 1
+    assert events[0].detail["job_id"] == jobs[0].id
+
+
+def test_stopped_research_task_is_not_reopened_automatically():
+    db = _db()
+    _gid, tid, key = _brief_without_initial_job(db)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).state = research.STOPPED
+    result = _run_coverage_handoff(db, "recover-stopped")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert s.get(research.ResearchTask, tid).state == research.STOPPED
+
+
+def test_stale_handoff_lease_cannot_recover_initial_job():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    q = JobQueue(db)
+    parent = q.enqueue("market_radar", "radar.score", {},
+                       idempotency_key="stale-handoff-parent", priority=-1000)
+    claimed = q.claim("old-handoff-worker", job_types=["radar.score"])
+    assert claimed.id == parent.id and claimed.lease_token
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        row = s.get(Job, parent.id)
+        row.lease_token = "new-lease"
+        row.leased_by = "new-handoff-worker"
+    assert ideation._recover_missing_initial_job(ctx, gid, tid) is False
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert not list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+
+
+def test_missing_lineage_storage_rolls_back_handoff_then_retry_recovers():
+    from brambleloop.runtime import lineage
+
+    db = _db()
+    _gid, _tid, key = _brief_without_initial_job(db)
+    lineage.ensure_table(db)
+    # Simulate storage failure after the transactional job insert begins.
+    lineage.JobLink.__table__.drop(db.engine)
+    q = JobQueue(db)
+    parent = q.enqueue("market_radar", "radar.score", {},
+                       idempotency_key="failed-recovery-parent", priority=-1000)
+    assert Worker(db, "failed-recovery", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, parent.id).status == JobStatus.FAILED
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert not list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+    lineage.JobLink.__table__.create(db.engine)
+    with db.session() as s:
+        s.get(Job, parent.id).run_after = utcnow()
+    assert Worker(db, "recovered-storage", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, parent.id).status == JobStatus.DONE
+        child = s.scalar(select(Job).where(Job.idempotency_key == key))
+        assert child is not None
+        link = s.scalar(select(lineage.JobLink).where(lineage.JobLink.child_id == child.id))
+        assert link is not None and link.parent_id == parent.id
 
 
 def test_restart_recovers_one_proposal_audit_from_persisted_evidence():

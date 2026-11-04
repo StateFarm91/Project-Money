@@ -186,6 +186,77 @@ def brief_of(db, task_id: int) -> dict | None:
 # ---- 1. the coverage handoff opens one brief per gap ---------------------------------------
 
 
+def _recover_missing_initial_job(ctx, gap_id: int, task_id: int) -> bool:
+    """Recover only an initial research handoff that left no investigation job.
+
+    A completed, failed or stopped prior job is not automatically retried here.
+    Other non-cooperating research writers are not fenced by this transaction.
+    """
+    from ..core.db import is_postgres
+    from ..core.models import AuditLog, CoverageGap, Job, JobStatus
+    from ..intel import research
+    from ..runtime import lineage
+    from ..swarm.orchestrate import priority_for
+
+    db = ctx.db
+    lineage.ensure_table(db)
+    inputs = {"task_id": task_id}
+    try:
+        priority = priority_for("research.investigate", inputs, db=db)
+    except Exception:  # noqa: BLE001 - match JobQueue's priority fallback
+        priority = priority_for("research.investigate")
+    with db.session() as s:
+        if not is_postgres(db.engine):
+            s.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        parent = s.get(Job, ctx.job.id, with_for_update=True)
+        expires = _aware(parent.lease_expires_at) if parent else None
+        if (parent is None or parent.agent != "market_radar" or parent.job_type != "radar.score"
+                or parent.status != JobStatus.RUNNING or not ctx.job.lease_token
+                or parent.lease_token != ctx.job.lease_token or not ctx.job.leased_by
+                or parent.leased_by != ctx.job.leased_by or not expires or expires <= _now()):
+            return False
+        gap = s.get(CoverageGap, gap_id, with_for_update=True)
+        task = s.get(research.ResearchTask, task_id, with_for_update=True)
+        evidence = gap.evidence if gap and isinstance(gap.evidence, dict) else {}
+        rec = evidence.get("ideation") or {}
+        detail = task.detail if task and isinstance(task.detail, dict) else {}
+        brief = detail.get("ideation_brief") or {}
+        if (gap is None or gap.state not in ("uncovered", "concepting")
+                or task is None or task.state not in (research.OPEN, research.ANSWERED)
+                or not isinstance(rec, dict) or type(task_id) is not int
+                or type(rec.get("task")) is not int or rec.get("task") != task_id
+                or rec.get("outcome") is not None or rec.get("completed")
+                or task.trigger != f"{TRIGGER_PREFIX}{gap_id}"
+                or not isinstance(brief, dict) or type(brief.get("gap")) is not int
+                or brief.get("gap") != gap_id
+                or brief.get("pod") != gap.pod):
+            return False
+        # A noncanonical investigation can legitimately exist (e.g. a sweep).
+        # Preserve it; this recovery is only for a genuinely missing handoff.
+        for existing in s.scalars(select(Job).where(Job.job_type == "research.investigate")):
+            raw = (existing.inputs or {}).get("task_id") if isinstance(existing.inputs, dict) else None
+            try:
+                named_task = int(raw) if not isinstance(raw, bool) else None
+            except (TypeError, ValueError, OverflowError):
+                named_task = None
+            if named_task == task_id:
+                return False
+        key = f"ideation:investigate:{task_id}"
+        if s.scalar(select(Job.id).where(Job.idempotency_key == key)) is not None:
+            return False
+        child = Job(agent="research_agent", job_type="research.investigate", inputs=inputs,
+                    priority=priority, idempotency_key=key, max_attempts=3)
+        s.add(child)
+        s.flush()
+        s.add(lineage.JobLink(parent_id=parent.id, child_id=child.id,
+                              parent_type=parent.job_type, child_type=child.job_type))
+        s.add(AuditLog(actor=parent.agent, action="ideation.investigation_recovered",
+                       artifact=f"research_task:{task_id}", job_id=parent.id, phase=ctx.phase,
+                       detail={"gap": gap_id, "task": task_id, "job_id": child.id,
+                               "reason": "initial investigation job was missing"}))
+        return True
+
+
 def status(db, rec: dict, *, now: datetime | None = None) -> tuple[str, str]:
     """(in_flight | done, outcome) for a gap's ideation record, read from the records the
     downstream steps write: the intake row, the radar.scored audit and the draft job."""
@@ -252,10 +323,13 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
                       detail={"gap": gid, "outcome": outcome, "slug": rec.get("slug"),
                               "task": rec.get("task")})
             completed.append({"gap": gid, "outcome": outcome})
-    opened, already, waiting = [], [], []
+    opened, already, waiting, recovered = [], [], [], []
     for gap in unanswered:
         rec = (_gap_record(db, gap["gap"]) or {}).get("ideation") or {}
         if rec.get("task"):
+            if (rec.get("outcome") is None and not rec.get("completed")
+                    and _recover_missing_initial_job(ctx, gap["gap"], rec["task"])):
+                recovered.append({"gap": gap["gap"], "task": rec["task"]})
             already.append(gap["gap"])
             continue
         if len(in_flight) >= MAX_IN_FLIGHT:
@@ -303,7 +377,7 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
                                    "max_in_flight": MAX_IN_FLIGHT,
                                    "why": "the next gap opens when the one in flight has "
                                           "an outcome"})
-    return {"opened": opened, "already": already, "waiting": waiting,
+    return {"opened": opened, "already": already, "waiting": waiting, "recovered": recovered,
             "in_flight": in_flight, "completed": completed}
 
 

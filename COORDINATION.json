@@ -373,6 +373,20 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A4A-MISSING-INITIAL-HANDOFF",
+      "operator": "codex",
+      "branch": "codex/a4a-brief-job-recovery",
+      "base": "fb9d590b8c463bb87adc7857863cbd99391cfb7b",
+      "scope": "Recover missing initial research job with a durable gap-owned handoff",
+      "files": [
+        "brambleloop/src/brambleloop/radar/ideation.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/tests/test_codex_a4a_recovery_postgres.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

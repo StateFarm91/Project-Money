@@ -122,3 +122,31 @@ def test_cross_kind_reference_collision(pg_suite):
 
 def test_repeated_citation(pg_suite):
     pg_suite.test_repeated_citation_cannot_inflate_fact_share()
+
+
+def test_initial_investigation_handoff_recovery(pg_suite):
+    pg_suite.test_missing_initial_investigation_is_recovered_by_real_handoff()
+
+
+def test_noncanonical_investigation_not_duplicated(pg_suite):
+    pg_suite.test_existing_noncanonical_investigation_is_not_duplicated()
+
+
+def test_reassigned_gap_not_recovered(pg_suite, monkeypatch):
+    pg_suite.test_gap_reassignment_before_recovery_does_not_enqueue_old_task(monkeypatch)
+
+
+def test_stopped_task_not_automatically_reopened(pg_suite):
+    pg_suite.test_stopped_research_task_is_not_reopened_automatically()
+
+
+def test_competing_initial_handoff_recoveries(pg_suite):
+    pg_suite.test_competing_handoff_recoveries_create_one_job_and_one_audit()
+
+
+def test_handoff_storage_failure_retry(pg_suite):
+    pg_suite.test_missing_lineage_storage_rolls_back_handoff_then_retry_recovers()
+
+
+def test_stale_handoff_lease(pg_suite):
+    pg_suite.test_stale_handoff_lease_cannot_recover_initial_job()
