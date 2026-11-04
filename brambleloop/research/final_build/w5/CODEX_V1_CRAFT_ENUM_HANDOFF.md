@@ -146,6 +146,13 @@ stage advancement are separate transactions: PostgreSQL concurrency,
 noncooperating writers, evidence authority and company budget fencing remain
 unverified. No real provider was called.
 
+An additional real `remaining_roles` handler test interrupts after one saved
+candidate, then retries with a one-attempt-per-role cap. The first role is
+reused and only the second is generated; an independent reviewer reran the
+case. The Python 3.11/tmpfs spend and recovery suite passed 39/39. This uses a
+free synthetic generator and does not establish concurrent or paid-provider
+behavior.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

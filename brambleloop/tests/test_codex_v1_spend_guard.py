@@ -382,3 +382,33 @@ def test_stage_retry_holds_when_recorded_candidate_bytes_change(monkeypatch):
     result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
                           judges=O.StubJudges())
     assert "artifact changed" in result["blocked_reason"] and gen.calls == 1
+
+
+def test_multi_role_stage_reuses_completed_role_after_interruption(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual import shot_plans as SP
+
+    roles = [{"role": "detail", "job": "DETAIL", "laura": False, "brief": "detail"},
+             {"role": "angle", "job": "ANGLE", "laura": False, "brief": "angle"}]
+    monkeypatch.setattr(IP, "_is_launch", lambda listing: True)
+    monkeypatch.setattr(IP, "MAX_ATTEMPTS_PER_ROLE", 1)
+    monkeypatch.setattr(SP, "campaign_plan", lambda listing: {"roles": roles})
+    monkeypatch.setattr(SP, "generated_roles", lambda plan: roles)
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "remaining_roles"}
+    gen, original = O.StubGenerator(), IP._generate
+    def interrupt_after_first(*args, **kwargs):
+        original(*args, **kwargs)
+        raise RuntimeError("stage interrupted after first candidate")
+    monkeypatch.setattr(IP, "_generate", interrupt_after_first)
+    with pytest.raises(RuntimeError, match="interrupted after first"):
+        IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    assert gen.calls == 1
+    monkeypatch.setattr(IP, "_generate", original)
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert result["next"] == "verification" and gen.calls == 2
+    assert IP._attempts(db, key, "detail") == 1 and IP._attempts(db, key, "angle") == 1
