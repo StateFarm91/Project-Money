@@ -326,6 +326,21 @@
         "brambleloop/research/final_build/w5/CODEX_A1_AUDIENCE_SHORTHAND_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HARD-EYES",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-eye-safety",
+      "source_branch": "codex/a1-audience-shorthand",
+      "source_sha": "88c47c6",
+      "scope": "Recognize explicit hard-eye synonyms and shared Unicode fold in existing child applied-parts safety reader",
+      "files": [
+        "brambleloop/src/brambleloop/intel/childrens.py",
+        "brambleloop/tests/test_childrens.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HARD_EYES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

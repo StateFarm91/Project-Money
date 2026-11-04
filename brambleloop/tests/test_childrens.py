@@ -573,6 +573,26 @@ def test_a_childrens_pdf_whose_pattern_names_safety_eyes_under_three_is_refused(
         raise AssertionError("a pattern naming safety eyes rendered for under-3s")
 
 
+def test_hard_eye_aliases_and_folded_names_are_refused_for_under_three():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for material in ("acrylic toy eyes", "acrylic eyes", "resin eyes", "plastic doll eyes", "glass animal eyes",
+                     "snap-in eyes", "locking eye", "yeux en plastique",
+                     "yeux de sécurité", "sаfety eyes", "safe\u200bty eyes"):
+        cir = _cir_with(material)
+        parts = ch.parts_in_cir(cir)
+        assert any(ch.classify_part(part) == "detachable" for part in parts), (material, parts)
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "SMALL_PART_UNDER_3" in str(exc), (material, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {material!r} rendered")
+    # An embroidered feature is not automatically recategorized as hard eyes.
+    assert ch.parts_in_cir(_cir_with("worsted cotton", note="Embroidered eyes")) == (
+        "embroidered_eyes",)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
