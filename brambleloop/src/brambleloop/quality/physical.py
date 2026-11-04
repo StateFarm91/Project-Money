@@ -463,6 +463,14 @@ def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessmen
 
 def _assess_yarn(out: SampleAssessment, measured: dict[str, float]) -> None:
     estimated = out.estimated_metres
+    missing = sorted(c for c, amount in estimated.items()
+                     if amount > 0 and (c not in measured or measured[c] <= 0))
+    if missing:
+        out.findings.append(Finding(
+            "SAMPLE_COLOUR_UNMEASURED",
+            f"the made pieces use {missing}, but no positive yarn measurement is recorded "
+            "for those colours; an incomplete sample cannot establish yarn use", "ERROR"))
+        return
     unknown = sorted(set(measured) - set(estimated))
     if unknown:
         out.findings.append(Finding(
