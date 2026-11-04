@@ -449,6 +449,54 @@ def test_unknown_outcome_never_frees_paid_exposure_after_restart():
              code="accounting_store_unreadable")
 
 
+def test_conflicting_settlement_reports_preserve_the_greatest_exposure():
+    from brambleloop.core.db import Database
+    from brambleloop.finance import reservations
+
+    for first, second in ((G.RELEASED, G.BILLED), (G.BILLED, G.RELEASED)):
+        db = _db()
+        _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+        held = _reserve(db, estimate=0.4)
+        ticket = _authorize(db, f"conflict-{first}", estimate=0.4, reservation=held)
+        G.settle(db, ticket, first, actual_cad=0.7)
+        G.settle(db, ticket, second, actual_cad=0.7)
+        reservations.release(db, held["reservation_id"], now=NOW)
+        reopened = Database(str(db.engine.url))
+        with reopened.session() as session:
+            row = session.get(G.PaidProviderCall, ticket["call_id"])
+            assert row.status == G.UNCERTAIN
+            assert G.uncovered_company_exposure(session, now=NOW) == 0.7
+
+
+def test_conflicting_billed_amounts_hold_the_greater_amount_in_both_orders():
+    from brambleloop.finance import reservations
+
+    for first, second in ((0.4, 0.7), (0.7, 0.4)):
+        db = _db()
+        _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+        held = _reserve(db, estimate=0.4)
+        ticket = _authorize(db, f"billed-{first}", estimate=0.4, reservation=held)
+        G.settle(db, ticket, G.BILLED, actual_cad=first)
+        G.settle(db, ticket, G.BILLED, actual_cad=second)
+        reservations.release(db, held["reservation_id"], now=NOW)
+        with db.session() as session:
+            row = session.get(G.PaidProviderCall, ticket["call_id"])
+            assert row.status == G.UNCERTAIN
+            assert G.uncovered_company_exposure(session, now=NOW) == 0.7
+
+
+def test_repeated_identical_billed_settlement_is_idempotent():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    ticket = _authorize(db, "same-bill", estimate=0.4)
+    G.settle(db, ticket, G.BILLED, actual_cad=0.7)
+    G.settle(db, ticket, G.BILLED, actual_cad=0.7)
+    with db.session() as session:
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        assert row.status == G.BILLED
+        assert row.actual_cad == 0.7
+
+
 def test_retention_never_reuses_paid_reservation_identity():
     from brambleloop.finance import reservations
     from brambleloop.core.models import SpendReservation

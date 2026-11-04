@@ -787,9 +787,45 @@ def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
         if status not in (BILLED, RELEASED, UNCERTAIN):
             status = UNCERTAIN
             error = "invalid provider outcome; counted at the reserved estimate"
-        with db.session() as s:
+        # Settlement changes the same exposure used by check-and-reserve, so
+        # serialize it with that decision (including across processes).
+        from . import anthropic as gw
+        with gw.budget_lock(db) as s:
             row = s.get(PaidProviderCall, int(ticket["call_id"]))
-            if row is None or row.status != RESERVED:
+            if row is None:
+                return
+            if row.status != RESERVED:
+                # Contradictory final reports are not evidence of a free call.
+                # Keep the greatest known positive exposure while escalating
+                # the attempt to UNCERTAIN, regardless of report order.
+                conflicting = status != row.status
+                if status == row.status == BILLED and actual_cad is not None:
+                    try:
+                        repeat_actual = float(actual_cad)
+                        existing_actual = float(row.actual_cad)
+                        conflicting = (not math.isfinite(repeat_actual) or repeat_actual <= 0
+                                       or not math.isfinite(existing_actual)
+                                       or repeat_actual != existing_actual)
+                    except (TypeError, ValueError, OverflowError):
+                        conflicting = True
+                if row.status in (RELEASED, BILLED, UNCERTAIN) and conflicting:
+                    amounts = [row.estimate_cad, row.actual_cad]
+                    if status == BILLED:
+                        amounts.append(actual_cad)
+                    valid = []
+                    for amount in amounts:
+                        try:
+                            value = float(amount)
+                        except (TypeError, ValueError, OverflowError):
+                            continue
+                        if math.isfinite(value) and value > 0:
+                            valid.append(value)
+                    if not valid:
+                        return  # invalid original evidence stays fail-closed
+                    row.estimate_cad = max(valid)
+                    row.status = UNCERTAIN
+                    row.error = "conflicting provider outcomes; reconciliation required"
+                    row.settled_at = utcnow()
                 return
             if status == BILLED:
                 # Missing/zero usage is not proof a provider call was free. Invalid

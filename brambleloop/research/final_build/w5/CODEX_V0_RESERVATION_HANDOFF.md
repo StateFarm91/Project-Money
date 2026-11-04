@@ -113,3 +113,19 @@ simultaneous real `authorize` calls sharing one funded reservation yielded one
 allowed call and one `reservation_already_used` refusal. No paid provider was
 contacted. This is one concurrency case, not a certification of all reservation,
 release, settlement, or ledger races. Independent review remains required.
+
+Settlement now takes the same budget lock as check-and-reserve. Contradictory
+settlement outcomes (including two different billed amounts) hold UNCERTAIN at
+the greatest known positive amount, in either order. File-backed SQLite cases
+pass, and separate processes on a disposable PostgreSQL 16 database also
+preserved the higher exposure. Python 3.11 V0/model-spend regressions pass
+59/59 with fake transports. An independent reviewer found the repeated-bill
+case, which is now covered.
+
+These are known amounts or estimates, not proof that an unknown provider bill
+cannot exceed the recorded exposure. Full reconciliation remains necessary.
+The in-repository `settle` callers (`confirm` and `enforce`) call it outside
+`budget_lock`; a caller entering `settle` while already holding that lock in
+another session could self-block. Do not integrate until all callers and lock
+ordering are reviewed and this API contract is enforced. Missing-table
+continuity, other provider paths and the no-paid-provider hold also remain.
