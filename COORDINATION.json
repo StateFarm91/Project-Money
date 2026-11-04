@@ -345,6 +345,20 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A4A-CURRENT-RESEARCH-EVIDENCE",
+      "operator": "codex",
+      "branch": "codex/a4a-evidence-dates",
+      "base": "230f148d65f78ecab37667d7fb0f504edb319b5e",
+      "scope": "Hold research-backed concepts for future, malformed or missing source evidence",
+      "files": [
+        "brambleloop/src/brambleloop/radar/intake.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/tests/test_codex_a4a_recovery_postgres.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

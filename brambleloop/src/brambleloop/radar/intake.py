@@ -298,6 +298,12 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
     if state != research.ANSWERED:
         reasons.append(f"research task {task_id} is {state}, not answered: an open question "
                        f"is not an approved opportunity")
+    evaluated_now = datetime.now(timezone.utc)
+    if answered is None:
+        reasons.append(f"research task {task_id} has no recorded answer time")
+    elif (answered.date() > today
+          or (today == evaluated_now.date() and answered > evaluated_now)):
+        reasons.append(f"research task {task_id} was answered after the evaluation date")
     if conclusion.get("status") == "unresolved":
         reasons.append(f"research task {task_id} concluded unresolved")
     # The moment evidence is judged at: the start of `today`, or the real time when `today`
@@ -317,20 +323,40 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
                        f"({confidence or 'none'!r})")
 
     def _source_date(ref: str) -> str | None:
+        if not isinstance(ref, str) or not ref.strip():
+            reasons.append("finding has a malformed supporting-source reference")
+            return None
         if ref in sources:
-            return sources[ref].get("read_on")
-        if ref in internal and answered is not None:
-            return answered.date().isoformat()
-        return None
+            raw = sources[ref].get("read_on")
+        elif ref in internal and answered is not None:
+            raw = answered.date().isoformat()
+        else:
+            reasons.append(f"source {ref!r} is missing from research task {task_id}")
+            return None
+        try:
+            if not isinstance(raw, str):
+                raise ValueError("source date is not text")
+            day = date.fromisoformat(raw)
+        except (ValueError, TypeError):
+            reasons.append(f"source {ref!r} has a missing or invalid date")
+            return None
+        if day > today:
+            reasons.append(f"source {ref!r} is dated after the evaluation date")
+            return None
+        return day.isoformat()
 
     items: list[dict] = []
     for ref in refs:
         if ref in findings:
             f = findings[ref]
-            dates = [d for d in (_source_date(r) for r in f.get("rests_on") or []) if d]
+            rests_on = f.get("rests_on")
+            if not isinstance(rests_on, list) or not rests_on:
+                reasons.append(f"finding {ref!r} has no recorded supporting sources")
+                rests_on = []
+            dates = [d for d in (_source_date(r) for r in rests_on) if d]
             item = {"ref": ref, "kind": "finding", "claim_class": f.get("claim_class"),
                     "statement": str(f.get("statement") or "")[:300],
-                    "rests_on": list(f.get("rests_on") or []),
+                    "rests_on": list(rests_on),
                     "date": min(dates) if dates else None}
         elif ref in sources:
             src = sources[ref]
@@ -339,7 +365,7 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
                     "citation": str(src.get("citation") or "")[:240],
                     "claim_class": ("fact" if src.get("retrieval") in research.FACT_GRADE
                                     else "source_claim"),
-                    "date": src.get("read_on")}
+                    "date": _source_date(ref)}
         else:
             reasons.append(f"evidence ref {ref!r} is not a finding or source of research "
                            f"task {task_id}: evidence must be recorded, not asserted")
@@ -476,6 +502,21 @@ def _unsupported_research(db, rows) -> set[int]:
                                                 row_detail.get("proposal"),
                                                 expected_trigger=row_detail.get("trigger"))):
                 ok.add(rid)
+    # A task can remain ANSWERED while one of its cited source dates or
+    # supports changes. Do not keep it in the pool until the next sweep merely
+    # because the task-level expiry still looks current.
+    for rid in tuple(ok):
+        row_detail = refs[rid].detail if isinstance(refs[rid].detail, dict) else {}
+        proposal = row_detail.get("proposal")
+        try:
+            evidence = research_evidence(db, parsed[rid],
+                                         proposal.get("evidence", []) if isinstance(proposal, dict)
+                                         else [], today=now.date())
+            if not evidence.get("ok"):
+                ok.discard(rid)
+        except (TypeError, ValueError, KeyError, AttributeError):
+            # A corrupt source record is not evidence of a supported concept.
+            ok.discard(rid)
     return set(refs) - ok
 
 

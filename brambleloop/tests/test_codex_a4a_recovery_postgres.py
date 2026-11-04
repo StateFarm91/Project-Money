@@ -86,3 +86,23 @@ def test_changed_proposal_holds_old_approval(pg_suite):
 
 def test_removed_markers_do_not_reclassify_recorded_ideation(pg_suite):
     pg_suite.test_removing_ideation_markers_does_not_reclassify_existing_intake()
+
+
+def test_future_source_date(pg_suite):
+    pg_suite.test_future_dated_market_source_is_not_current_evidence()
+
+
+def test_malformed_source_date(pg_suite):
+    pg_suite.test_malformed_source_date_holds_instead_of_crashing_intake_worker()
+
+
+def test_missing_finding_support(pg_suite):
+    pg_suite.test_finding_with_missing_support_is_not_backed_by_other_valid_source()
+
+
+def test_future_answer_timestamp(pg_suite):
+    pg_suite.test_future_answer_timestamp_is_not_accepted_as_current()
+
+
+def test_malformed_finding_support(pg_suite):
+    pg_suite.test_malformed_support_reference_holds_instead_of_crashing_worker()

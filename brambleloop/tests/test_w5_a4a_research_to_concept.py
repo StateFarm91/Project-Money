@@ -655,6 +655,109 @@ def test_removing_ideation_markers_does_not_reclassify_existing_intake():
                 if c["source_ref"] == f"research_task:{task.id}"]
 
 
+def _mutate_research_and_run_intake(db, mutate, key):
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        mutate(row)
+    # A stale source must leave the visible approved pool immediately, not
+    # only after the next scheduled intake sweep writes a withdrawal.
+    assert intake.approved_concept(db, slug) is None
+    queued = JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                                  idempotency_key=key, priority=-1000)
+    assert Worker(db, key, job_types=["radar.concept_intake"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, queued.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+    assert intake.approved_concept(db, slug) is None
+    return task
+
+
+def test_future_dated_market_source_is_not_current_evidence():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources[0]["read_on"] = (TODAY + timedelta(days=1)).isoformat()
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "future-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "after the evaluation date" in str(evidence["reasons"])
+
+
+def test_malformed_source_date_holds_instead_of_crashing_intake_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources[0]["read_on"] = "not-a-date"
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "invalid-source-date-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "invalid date" in str(evidence["reasons"])
+
+
+def test_finding_with_missing_support_is_not_backed_by_other_valid_source():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        findings = [dict(finding) for finding in row.findings]
+        findings[0]["rests_on"] = ["S1", "S999"]
+        row.findings = findings
+
+    task = _mutate_research_and_run_intake(db, change, "missing-support-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "S999" in str(evidence["reasons"])
+
+
+def test_future_answer_timestamp_is_not_accepted_as_current():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        row.answered_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    task = _mutate_research_and_run_intake(db, change, "future-answer-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "answered after the evaluation date" in str(evidence["reasons"])
+
+
+def test_malformed_support_reference_holds_instead_of_crashing_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        findings = [dict(finding) for finding in row.findings]
+        findings[0]["rests_on"] = ["S1", {"not": "a source ref"}]
+        row.findings = findings
+
+    task = _mutate_research_and_run_intake(db, change, "invalid-support-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "malformed supporting-source" in str(evidence["reasons"])
+
+
 def test_unknown_shop_is_not_counted_as_an_independent_source():
     db = _db()
     _listings(db, "kitchen_bath", [("", "Dishcloth one", 5),
