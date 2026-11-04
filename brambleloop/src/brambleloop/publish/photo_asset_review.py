@@ -183,6 +183,50 @@ def _lock_photo_sources(session, frames) -> bool:
     return True
 
 
+def _park_excluded_supplements(session, slug: str, version: str) -> bool:
+    """Keep excluded frames after the effective set without changing approval.
+
+    This repairs only a previously contiguous set with an effective leader;
+    malformed order or unavailable source rows remain held for review. NOWAIT
+    avoids waiting on noncooperating row-lock order in PostgreSQL.
+    """
+    from sqlalchemy import select
+    from ..core.models import ListingAsset, PhysicalPhoto
+    from .physical_upgrade import _renumber
+
+    frames = list(session.scalars(select(ListingAsset).where(
+        ListingAsset.product_slug == slug, ListingAsset.version == version)
+        .order_by(ListingAsset.position, ListingAsset.id).with_for_update(nowait=True)))
+    # `_renumber` temporarily uses positions starting at 100001.
+    if len(frames) >= 100001 or [f.position for f in frames] != list(range(1, len(frames) + 1)):
+        return False
+    excluded = [f for f in frames if any(str(r).startswith(NOT_QUALIFYING)
+                                         for r in (f.blocked_reasons or []))]
+    included = [f for f in frames if f not in excluded]
+    if not excluded or not included or included[0].position != 1 or frames == included + excluded:
+        return False
+    leader = included[0]
+    if (leader.asset_class != PHOTO_CLASS or not leader.approved or leader.blocked_reasons
+            or (leader.claims or {}).get("leads_gallery") is not True
+            or sum((f.claims or {}).get("leads_gallery") is True for f in frames) != 1):
+        return False
+    ids = []
+    for frame in frames:
+        pid = (frame.claims or {}).get("physical_photo_id")
+        if pid is not None:
+            if type(pid) is not int:
+                return False
+            ids.append(pid)
+    if ids:
+        photos = list(session.scalars(select(PhysicalPhoto).where(
+            PhysicalPhoto.id.in_(sorted(set(ids)))).order_by(PhysicalPhoto.id)
+            .with_for_update(nowait=True)))
+        if len(photos) != len(set(ids)):
+            return False
+    _renumber(session, included + excluded)
+    return True
+
+
 def photo_snapshot_current(session, db, slug: str, version: str, frames) -> bool:
     """Under the photo lock, compare proposed photos to current evidence and frames."""
     from sqlalchemy import select
@@ -313,6 +357,9 @@ def _review_frame(db, frame_id: int, *, reissue: bool) -> dict:
                 frame.blocked_reasons = [f"{NOT_QUALIFYING}{', '.join(failed)}"] + others
                 frame.approved = False
                 out["not_qualifying"] = failed
+                if frame.position != 1:
+                    out["excluded_frame_parked"] = _park_excluded_supplements(
+                        s, frame.product_slug, frame.version)
             elif any(str(r).startswith(NOT_QUALIFYING) for r in frame.blocked_reasons or []):
                 # A3D-1: the photo qualifies now, but another check fails (its order, a claim,
                 # an UNKNOWN). The "not qualifying" reason is no longer true: it goes back to
