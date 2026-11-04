@@ -47,6 +47,8 @@ import re
 import statistics
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from numbers import Real
 
 from sqlalchemy import select
 
@@ -308,6 +310,18 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
 # ---- 2. the research step answers a brief from recorded observations ------------------------
 
 
+def _observed_price(value) -> float | None:
+    """Treat an invalid recorded price as unknown, never as a free or paid price."""
+    # Do not turn booleans or arbitrary text into financial observations.
+    if isinstance(value, bool) or not isinstance(value, (Real, Decimal)):
+        return None
+    try:
+        price = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return price if math.isfinite(price) and price > 0 else None
+
+
 def observe(db, pod: str, *, today: date) -> dict:
     """The recorded market census for a pod: dated listing counts, shops, prices, and which
     flat_rows object the observed titles name most. Reads counts and prices, never content."""
@@ -319,7 +333,7 @@ def observe(db, pod: str, *, today: date) -> dict:
         days=OBSERVATION_WINDOW_DAYS)
     with db.session() as s:
         rows = [(r.benchmark_key, marketplace_shop_id(r.listing_ref), r.title or "", r.pod or "",
-                 float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen),
+                 _observed_price(r.price_cad), _aware(r.last_seen) or _aware(r.first_seen),
                  marketplace_shop_id((r.detail or {}).get("source_shop_id")), r.audit_state)
                 for r in s.scalars(select(BenchmarkListing))]
     listings = [r for r in rows
@@ -345,7 +359,7 @@ def observe(db, pod: str, *, today: date) -> dict:
     obj = best[1] if best[0] > 0 else None
     mine = [r for r in listings if obj is not None and any(
         re.search(rf"\b{re.escape(k)}s?\b", r[2].lower()) for k in obj.keywords)]
-    priced = sorted(r[4] for r in (mine or listings) if math.isfinite(r[4]) and r[4] > 0)
+    priced = sorted(r[4] for r in (mine or listings) if r[4] is not None)
     shops = {r[6] for r in listings}
     object_shops = {r[6] for r in mine}
     dates = sorted(r[5].date() for r in listings)

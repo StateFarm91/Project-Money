@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select, text  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
@@ -79,6 +79,38 @@ KITCHEN = [(MJS_KEY, "Farmhouse Dishcloth Crochet Pattern", 5.5),
            ("fx-shop-b", "Cotton Washcloth Crochet Pattern", 6.5),
            ("fx-shop-b", "Granny Potholder Pattern", 7.0),
            ("fx-shop-c", "Scrubby Dishcloth Set Pattern", 7.5)]
+
+
+def test_census_does_not_interpret_text_or_boolean_as_a_recorded_price():
+    for value in (True, False, "1", "invalid", None, float("inf"), float("nan"), -1, 0):
+        assert ideation._observed_price(value) is None
+
+
+def test_census_skips_malformed_price_without_fabricating_a_price():
+    db = _db()
+    _listings(db, "kitchen_bath", KITCHEN)
+    # SQLite can hold a legacy malformed value despite the model's float type.
+    with db.engine.begin() as connection:
+        connection.execute(text("UPDATE benchmark_listings SET price_cad='invalid' "
+                                "WHERE id=(SELECT min(id) FROM benchmark_listings)"))
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["ok"] is True
+    assert observed["listings"] == 5
+    # The invalid listing contributes neither zero nor an invented price.
+    assert observed["price_median_cad"] == 6.5
+
+
+def test_research_worker_holds_when_all_observed_prices_are_malformed():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    with db.engine.begin() as connection:
+        connection.execute(text("UPDATE benchmark_listings SET price_cad='invalid'"))
+    _drive(db, datetime.now(timezone.utc))
+    assert _ideation(db, gid)["outcome"] == ideation.OUT_INSUFFICIENT
+    assert not _concepts(db)
+    assert any("no observed listing carries a price" in str(row.detail)
+               for row in _audits(db, ideation.INSUFFICIENT))
 
 
 def _judge_intake_concepts():

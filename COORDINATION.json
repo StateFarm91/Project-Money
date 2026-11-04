@@ -303,6 +303,19 @@
         "brambleloop/tests/test_w4_intelrec_watchlist.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A4A-CENSUS-PRICE-VALIDATION",
+      "operator": "codex",
+      "branch": "codex/a4a-census-price-validation",
+      "base": "bc65dd88010f20843eefc8c1f4d44676c2a1d86a",
+      "scope": "Treat malformed recorded prices as unknown in the research census",
+      "files": [
+        "brambleloop/src/brambleloop/radar/ideation.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
