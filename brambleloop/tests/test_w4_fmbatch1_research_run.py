@@ -521,6 +521,74 @@ def test_http_failures_have_conservative_retry_classification(status, retryable)
     assert ((tid, url) in F.plan_fetches(db, now=NOW + timedelta(hours=7))) is retryable
 
 
+def test_learn_worker_recovers_when_fetched_source_audit_write_fails(monkeypatch):
+    from sqlalchemy.orm import Session
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import runtime  # noqa: F401
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    url = "https://www.cpsc.gov/fixture-atomic-source"
+    tid = R.open_question(db, question="What does the fixture official safety source state?",
+                          trigger="test:atomic-source", decision_ref="test:atomic",
+                          domain="marketplace_policy", **SPEC)["task"]
+    with db.session() as s:
+        row = s.get(R.ResearchTask, tid)
+        row.detail = {**row.detail, "fetch_urls": [url]}
+    monkeypatch.setenv(F.ENABLE_VAR, "1")
+    monkeypatch.setattr(F, "_default_get", Stub({url: "fixture atomic source text"}))
+    monkeypatch.setattr(F, "MIN_SECONDS_PER_HOST", 0.0)
+    real_add = Session.add
+
+    def fail_audit(session, instance, *args, **kwargs):
+        if (isinstance(instance, AuditLog) and instance.action == F.FETCH_ACTION
+                and instance.detail.get("url") == url and instance.detail.get("fetched")):
+            raise RuntimeError("fixture audit storage interruption")
+        return real_add(session, instance, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "add", fail_audit)
+    q = JobQueue(db)
+    first = q.enqueue("learn", "learn.scan", {}, idempotency_key="fetch-atomic-first")
+    assert Worker(db, "fetch-atomic-first", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, first.id).status == JobStatus.DONE
+        assert not [v for v in s.get(R.ResearchTask, tid).sources if v.get("citation") == url]
+    monkeypatch.setattr(Session, "add", real_add)
+    second = q.enqueue("learn", "learn.scan", {}, idempotency_key="fetch-atomic-restart")
+    assert Worker(db, "fetch-atomic-restart", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        source = next(v for v in s.get(R.ResearchTask, tid).sources if v.get("citation") == url)
+        audit = s.scalar(R.select(AuditLog).where(AuditLog.action == F.FETCH_ACTION,
+                          AuditLog.detail["url"].as_string() == url,
+                          AuditLog.detail["fetched"].as_boolean() == True))  # noqa: E712
+        assert audit is not None
+        assert source["sha256"] == audit.detail["sha256"]
+        assert source["bytes"] == audit.detail["bytes"]
+
+
+def test_fetched_bytes_are_not_attached_after_task_stops():
+    db = _db()
+    tid = R.open_question(db, question="What does this safety resource actually state?",
+                          trigger="test:closed-fetch", decision_ref="test:closed",
+                          domain="marketplace_policy", now=NOW, **SPEC)["task"]
+    url = "https://www.cpsc.gov/fixture-closed"
+
+    def changing_get(requested):
+        if requested.endswith("/robots.txt"):
+            return 200, b"User-agent: *\nAllow: /\n"
+        with db.session() as s:
+            s.get(R.ResearchTask, tid).state = R.STOPPED
+        return 200, b"fixture data"
+
+    out = F.fetch_for_task(db, tid, url, get=changing_get, now=NOW, sleep=_no_sleep)
+    assert out["fetched"] is False
+    with db.session() as s:
+        assert not s.get(R.ResearchTask, tid).sources
+
+
 def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
     import urllib.request
 

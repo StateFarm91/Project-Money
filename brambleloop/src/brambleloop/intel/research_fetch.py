@@ -198,12 +198,38 @@ def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None
         out = {"task": task_id, "url": url, "fetched": False,
                "why": f"page larger than the {MAX_BYTES}-byte cap; not stored partially"}
     else:
+        from sqlalchemy import select
+
         text = body.decode("utf-8", errors="replace")
-        n = research.add_source(db, task_id, source=host, citation=url, retrieval="fetched",
-                                read_on=now.date())
-        out = {"task": task_id, "url": url, "fetched": True, "source_ref": f"S{n}",
-               "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest(),
-               "excerpt": text[:2000], "basis": ALLOWED_HOSTS[host], "spend_cad": 0.0}
+        digest = hashlib.sha256(body).hexdigest()
+        # The source and its checksum audit are one durable write. A task may have closed
+        # during the fetch, so check again while holding its row before appending.
+        with db.session() as s:
+            row = s.scalar(select(research.ResearchTask).where(
+                research.ResearchTask.id == task_id).with_for_update())
+            sources = list(row.sources or []) if row is not None else []
+            refs = [x.get("ref") for x in sources if isinstance(x, dict)]
+            next_ref = f"S{len(sources) + 1}"
+            if row is None or row.state != research.OPEN:
+                out = {"task": task_id, "url": url, "fetched": False,
+                       "why": "research task is missing or no longer open", "retryable": False}
+            elif (len(refs) != len(sources) or any(not isinstance(ref, str) for ref in refs)
+                  or len(set(refs)) != len(refs)
+                  or next_ref in refs or any(x.get("citation") == url for x in sources)):
+                out = {"task": task_id, "url": url, "fetched": False,
+                       "why": "source already exists or source identities are ambiguous",
+                       "retryable": False}
+            else:
+                sources.append({"ref": next_ref, "source": host, "citation": url,
+                                "retrieval": "fetched", "read_on": now.date().isoformat(),
+                                "sha256": digest, "bytes": len(body)})
+                row.sources = sources
+                out = {"task": task_id, "url": url, "fetched": True,
+                       "source_ref": next_ref, "bytes": len(body), "sha256": digest,
+                       "excerpt": text[:2000], "basis": ALLOWED_HOSTS[host], "spend_cad": 0.0}
+            s.add(AuditLog(actor="learn", action=FETCH_ACTION, at=now,
+                           detail={k: v for k, v in out.items() if k != "excerpt"}))
+        return out
     with db.session() as s:
         s.add(AuditLog(actor="learn", action=FETCH_ACTION, at=now,
                        detail={k: v for k, v in out.items() if k != "excerpt"}))
