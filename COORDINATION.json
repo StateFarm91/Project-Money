@@ -443,6 +443,19 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-RESEARCH-FUTURE-OBSERVATIONS",
+      "operator": "codex",
+      "branch": "codex/research-future-observations",
+      "base": "0f68c1d334d6f9c6005edac4610c9a16b8b5f33c",
+      "scope": "Exclude future-dated external signals from freshness and stale-domain research decisions",
+      "files": [
+        "brambleloop/src/brambleloop/intel/learning.py",
+        "brambleloop/tests/test_w4_research_agent.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
