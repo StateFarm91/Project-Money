@@ -180,6 +180,61 @@ def test_noncanonical_existing_drafts_are_not_new_supply_or_scored_again():
         assert all(not (j.outputs or {}).get("promoted") for j in scores)
 
 
+def test_competing_canonical_admission_is_reported_as_a_hold(monkeypatch):
+    """The actual score worker reports the enqueue result, not an earlier read."""
+    db = _db("canonical-admission-race")
+    original = flow_health.drafted_slugs
+    raced = []
+    from brambleloop.improve import consume
+    original_matching = consume.matching
+    original_act = consume.act
+    engineering_actions = []
+
+    def matching(database, cell, text, **kwargs):
+        if cell == "pattern_engineering":
+            return [{"id": 1, "direction": 1, "shared": ["example"]}]
+        return original_matching(database, cell, text, **kwargs)
+
+    def act(database, cell, lessons, **kwargs):
+        if cell == "pattern_engineering":
+            engineering_actions.append((cell, lessons))
+            return []
+        return original_act(database, cell, lessons, **kwargs)
+
+    def admit_after_read(database, slugs):
+        found = original(database, slugs)
+        slugs = set(slugs)
+        # Only intercept the score handler's single-slug read, after the real
+        # database query and before its real enqueue.
+        if not raced and len(slugs) == 1 and not found:
+            slug = next(iter(slugs))
+            JobQueue(database).enqueue("crochet_engineer", "cir.draft", {"slug": slug},
+                                       idempotency_key=f"draft:{slug}")
+            raced.append(slug)
+        return found
+
+    _scan(db, DAY1, "canonical-race-scan")
+    monkeypatch.setattr(flow_health, "drafted_slugs", admit_after_read)
+    monkeypatch.setattr(consume, "matching", matching)
+    monkeypatch.setattr(consume, "act", act)
+    _score_all(db)
+    assert len(raced) == 1, "the test needs a promotable concept"
+    with db.session() as s:
+        scores = list(s.scalars(select(Job).where(Job.job_type == "radar.score")))
+        score = next(j for j in scores if (j.outputs or {}).get("slug") == raced[0])
+        assert score.outputs["promoted"] is False
+        assert score.outputs["draft_hold"] == "the draft admission was already queued"
+        events = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "radar.scored", AuditLog.artifact == raced[0])))
+        assert events and events[-1].detail["promoted"] is False
+        assert events[-1].detail["draft_hold"] == score.outputs["draft_hold"]
+        assert len(list(s.scalars(select(Job.id).where(
+            Job.idempotency_key == f"draft:{raced[0]}")))) == 1
+    # The score that lost the race must not claim its lesson moved that job.
+    assert len(engineering_actions) == sum(
+        1 for j in scores if (j.outputs or {}).get("promoted"))
+
+
 def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():
     db = _db("selection")
     first = _scan(db, DAY1, "scan-a")

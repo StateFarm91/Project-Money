@@ -519,14 +519,6 @@ def handle_radar_score(ctx: JobContext) -> dict:
             ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
                       detail={"reason": draft_hold})
 
-    ctx.audit("radar.scored", artifact=seed.slug, detail={
-        "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
-        "evidence_discount": evidence["discount"], "components": rescored.components,
-        "lesson_adjustment": lesson_adjustment,
-        "lessons": [l["id"] for l in radar_lessons],
-        "promoted": promote, "draft_hold": draft_hold,
-        "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
-    })
     if promote:
         payload = rescored.to_dict()
         payload.update(intake_fields)
@@ -552,12 +544,28 @@ def handle_radar_score(ctx: JobContext) -> dict:
                            + "; ".join(", ".join(l["shared"][:3]) for l in eng_lessons))[:200],
                 "benefit": "unmeasured: a bounded heuristic nudge, not an expected value"}
             payload["lessons"] = [l["id"] for l in eng_lessons]
+        child = ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                            idempotency_key=f"draft:{seed.slug}")
+        if child is None:
+            # A competing canonical admission can win after the read above.  A
+            # deduplicated enqueue is not a new promotion by this score job.
+            draft_hold = "the draft admission was already queued"
+            promote = False
+            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
+                      detail={"reason": draft_hold})
+        elif eng_lessons:
             consume.act(ctx.db, "pattern_engineering", eng_lessons,
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                    idempotency_key=f"draft:{seed.slug}")
+    ctx.audit("radar.scored", artifact=seed.slug, detail={
+        "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
+        "evidence_discount": evidence["discount"], "components": rescored.components,
+        "lesson_adjustment": lesson_adjustment,
+        "lessons": [l["id"] for l in radar_lessons],
+        "promoted": promote, "draft_hold": draft_hold,
+        "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
+    })
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
