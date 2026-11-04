@@ -154,8 +154,16 @@ def _recent_outputs(db, now) -> dict:
                               provider="production.recent_outputs")
 
 
-def _stalls_loops(flow: dict) -> dict:
+def _stalls_loops(flow: dict, supply: dict | None = None) -> dict:
     items = []
+    # W5-A7 (P0-SUPPLY-STALL): no selected concept can still be drafted (a company-wide stall,
+    # not one product's), from the newest recent `radar.supply_stall` reading.
+    if supply:
+        items.append({"title": "next-product concept supply", "status": "DEGRADED",
+                      "kind": f"STALLED: no new concept supply ({supply.get('reason')})",
+                      "job_type": "radar.scan", "period": supply.get("period"),
+                      "detail": (f"{supply.get('drafted')}/{supply.get('pool')} pool concepts "
+                                 f"drafted; {supply.get('undrafted_pool')} undrafted")})
     for r in flow["rows"]:
         name = f"{r['slug']}@{r['version']}" if r["version"] else r["slug"]
         for st in r["stalls"]:
@@ -170,10 +178,14 @@ def _stalls_loops(flow: dict) -> dict:
                           "detail": lp.get("why") or ("outputs unchanged"
                                                        if lp["outputs_unchanged"]
                                                        else "outputs varied")})
-    status = "BLOCKED" if flow["stalled_count"] else "DEGRADED" if flow["looping_count"] else "OK"
-    return providers.envelope(status, items, ["jobs"], provider="production.flow_health",
+    status = ("BLOCKED" if flow["stalled_count"] else
+              "DEGRADED" if flow["looping_count"] or supply else "OK")
+    return providers.envelope(status, items,
+                              ["jobs"] + (["operating_readings"] if supply else []),
+                              provider="production.flow_health",
                               reason=None if status == "OK" else
-                              f"{flow['stalled_count']} stalled, {flow['looping_count']} looping",
+                              f"{flow['stalled_count']} stalled, {flow['looping_count']} looping"
+                              + ("; no new concept supply" if supply else ""),
                               thresholds=flow["thresholds"])
 
 
@@ -221,7 +233,8 @@ def build(db) -> dict:
         "products": _env("production.products", lambda: _products_section(inv, fl)),
         "agents_working": _env("production.agents_working", lambda: _agents_working(db)),
         "recent_outputs": _env("production.recent_outputs", lambda: _recent_outputs(db, now)),
-        "stalls_loops": _env("production.flow_health", lambda: _stalls_loops(fl)),
+        "stalls_loops": _env("production.flow_health", lambda: _stalls_loops(
+            fl, flow_health.concept_supply_stall(db, now=now))),
         "costs_failures": (_env("production.departments", lambda: _costs_failures(act))
                            if "windows" in act else act),
         "next_work": _env("production.next_work",

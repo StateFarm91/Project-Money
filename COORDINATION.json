@@ -895,6 +895,53 @@
         "brambleloop/research/final_build/w5/CODEX_A5_HOLD_AUDIT_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A7-FRESHNESS-FIX",
+      "operator": "codex",
+      "branch": "codex/a7-supply-continuation",
+      "source_branch": "claude/w5-A7-supply-stall",
+      "source_sha": "83fe31d25d1d6f85b6d03a276191642eca4d985d",
+      "scope": "A7 supply stall recovery evidence freshness",
+      "files": [
+        "brambleloop/src/brambleloop/ops/flow_health.py",
+        "brambleloop/tests/test_w5_a7_supply_stall.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A7-PERMANENT-DRAFT-KEYS",
+      "operator": "codex",
+      "branch": "codex/a7-draft-key-retention",
+      "scope": "Keep permanent draft admission keys through retention and dead-letter purge",
+      "state": "in_review",
+      "base": "4213b2ac0c736163232f2efb8ef7744105f4c260"
+    },
+    {
+      "id": "CODEX-A7-CANONICAL-RACE-REPORT",
+      "operator": "codex",
+      "branch": "codex/a7-admission-atomic",
+      "scope": "Report a raced canonical draft deduplication as held; retain A7 controls",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/tests/test_w5_a7_supply_stall.py"
+      ],
+      "base": "d0437a5f2e2dd41f37da7ee66f1ae847560bf64b",
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A8-IDENTITY-FIX",
+      "operator": "codex",
+      "branch": "codex/a8-culture-continuation",
+      "source_branch": "opus2/a8-culture-ideation",
+      "source_sha": "4f99bd8ff867755a67c4bf0671c85e70cf0580c4",
+      "scope": "A8 culture-signal identity collisions and safe momentum evidence",
+      "files": [
+        "brambleloop/src/brambleloop/culture/ideation_bridge.py",
+        "brambleloop/tests/test_w5_a8_culture_to_ideation.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

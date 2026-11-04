@@ -27,7 +27,7 @@ Read-only: nothing here writes a row or enqueues a job.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from ..products import production_inventory as inv_mod
 
@@ -337,3 +337,95 @@ def next_work(db, *, now: datetime | None = None, limit: int = 15) -> dict:
                          "run_after": inv_mod._iso(j.run_after), "product": j.slug,
                          "due": bool(j.run_after and j.run_after <= now)} for j in pending],
             "cadences": [c for c in next_cadences(db, now=now) if not c["suspended"]][:limit]}
+
+
+# ---- W5-A7 (P0-SUPPLY-STALL): next-product concept supply ------------------------------------
+
+# One reading per scan date: `radar.scan` writes it (runtime.pipeline._record_supply_stall)
+# when no concept it selected can still be drafted. Read here, read-only, for the Command
+# Center and the readback evidence.
+SUPPLY_STALL_KIND = "radar.supply_stall"
+SUPPLY_STALL_FRESH = timedelta(days=2)
+
+
+def drafted_slugs(db, slugs) -> set[str]:
+    """Slugs with a recorded draft job or canonical admission key, in any status.
+
+    Recovery and rebuild jobs can have noncanonical keys; a recorded attempt is not
+    new supply. This read alone is not an atomic admission lock against other writers.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job
+
+    slugs = set(slugs)
+    keys = {f"draft:{s}": s for s in slugs}
+    if not keys:
+        return set()
+    with db.session() as s:
+        found = set(s.scalars(select(Job.idempotency_key).where(
+            Job.idempotency_key.in_(list(keys)))))
+        # Recovery and redrafting legitimately use fingerprinted keys. They are still
+        # existing admissions, not evidence of a new product available to radar.
+        admitted = set(s.scalars(select(Job.inputs["slug"].as_string()).where(
+            Job.job_type == "cir.draft", Job.inputs["slug"].as_string().in_(list(slugs)))))
+    return {keys[k] for k in found} | (admitted & slugs)
+
+
+def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
+    """The newest no-new-concept-supply reading if it is recent, else None."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus, OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == SUPPLY_STALL_KIND).order_by(OperatingReading.id.desc()))
+        if row is None:
+            return None
+        at = _aware(row.at)
+        if at is None or now - at > SUPPLY_STALL_FRESH:
+            return None
+        p = dict(row.payload or {})
+        period = row.period_key
+        # A stall is an observation, not an everlasting state. A later successful,
+        # measured radar scan is authoritative even on the same calendar day.
+        # Failed or unmeasured scans do not establish recovery.
+        scans = s.scalars(select(Job).where(
+            Job.job_type == "radar.scan", Job.status == JobStatus.DONE,
+            Job.finished_at >= at, Job.finished_at <= now).order_by(
+            Job.finished_at.desc(), Job.id.desc()))
+        try:
+            stall_day = date.fromisoformat(period)
+        except (TypeError, ValueError):
+            # An unreadable period cannot be safely cleared by another reading.
+            stall_day = None
+        for scan in scans:
+            try:
+                raw_day = (scan.inputs or {}).get("as_of")
+                scan_day = date.fromisoformat(raw_day) if raw_day else _aware(scan.finished_at).date()
+            except (TypeError, ValueError, AttributeError):
+                continue
+            # A historical replay or future-dated projection is not current
+            # evidence that the recorded operational stall has recovered.
+            if stall_day is None or scan_day < stall_day or scan_day > now.date():
+                continue
+            supply = (scan.outputs or {}).get("concept_supply")
+            if not isinstance(supply, dict) or supply.get("measured") is not True \
+                    or type(supply.get("stalled")) is not bool:
+                continue
+            if supply["stalled"] is False:
+                return None
+            # More recent stalls can have different counts or reason even though
+            # the period-deduplicated reading was already written.
+            return {"period": scan_day.isoformat(),
+                    "at": inv_mod._iso(_aware(scan.finished_at)),
+                    "reason": supply.get("reason"), "pool": supply.get("pool"),
+                    "drafted": supply.get("drafted"),
+                    "undrafted_pool": supply.get("undrafted_pool"),
+                    "selected": len((scan.outputs or {}).get("selected") or [])}
+    return {"period": period, "at": inv_mod._iso(at), "reason": p.get("reason"),
+            "pool": p.get("pool"), "drafted": p.get("drafted"),
+            "undrafted_pool": len(p.get("undrafted_pool") or []),
+            "selected": len(p.get("selected") or [])}

@@ -382,6 +382,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "culture_ideate",
+      "agent": "market_radar",
+      "job_type": "culture.ideate",
+      "period_seconds": 86400
+     },
+     {
       "name": "gallery_analysis",
       "agent": "market_radar",
       "job_type": "intel.gallery_analysis",
@@ -446,6 +452,7 @@
      "plan.cycle",
      "portfolio.review",
      "radar.scan",
+     "radar/ideation.py:open_briefs",
      "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
     ]
@@ -484,12 +491,14 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.enrichment_ops",
+     "brambleloop.runtime.culture_ideation_ops",
      "brambleloop.runtime.evidence_ops",
      "brambleloop.runtime.intel_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
+     "culture.ideate",
      "culture.sweep",
      "etsy.probe",
      "intel.acceptance",

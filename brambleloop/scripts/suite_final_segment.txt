@@ -236,3 +236,4 @@ tests/test_w5_inventory.py
 tests/test_w5_a4a_research_to_concept.py
 tests/test_w5_a9_package_event.py
 tests/test_w5_v1_visual_correctness.py
+tests/test_w5_a7_supply_stall.py
