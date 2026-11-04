@@ -20,6 +20,7 @@ release per run, which the readiness gate reads and ages.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import re
 
 ACTION = "launch.rollback_rehearsed"
 # A rehearsal older than this no longer proves the plan; the daily readiness re-rehearses.
@@ -67,8 +68,17 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
                           if listing is not None and state != WITHDRAWN else
                           "no listing to withdraw" if listing is None else
                           "the listing is already withdrawn")})
-    pdf_shas = sorted({v for v in (built or {}).get("pdf_sha256_by_terminology", {}).values()}
-                      | ({built["pdf_sha256"]} if built else set()))
+    pdf_map = (built or {}).get("pdf_sha256_by_terminology", {})
+    raw_pdfs = list(pdf_map.values()) if isinstance(pdf_map, dict) else [None]
+    if built:
+        raw_pdfs.append(built["pdf_sha256"])
+    def valid_sha(value):
+        return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+    invalid_pdfs = sum(not valid_sha(sha) for sha in raw_pdfs)
+    invalid_frames = sum(not valid_sha(sha) for sha in frame_shas)
+    pdf_shas = sorted({sha for sha in raw_pdfs if valid_sha(sha)})
+    frame_shas = [sha for sha in frame_shas if valid_sha(sha)]
     # W4-FIRSTSALE (B5): on disk, or held in Postgres under its hash (durable_artifacts,
     # re-hashed on read) -- either way a restore re-serves the same bytes.
     from ..commerce import deliverables
@@ -76,11 +86,15 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
     missing = [sha for sha in pdf_shas + frame_shas
                if not deliverables.restorable(db, sha, store)]
     steps.append({"step": "deliverables_restorable",
-                  "ok": bool(pdf_shas) and bool(frame_shas) and not missing,
+                  "ok": bool(pdf_shas) and bool(frame_shas) and not missing
+                  and not invalid_pdfs and not invalid_frames,
                   "pdf_hashes": len(pdf_shas), "frame_hashes": len(frame_shas),
+                  "invalid_pdf_hashes": invalid_pdfs, "invalid_frame_hashes": invalid_frames,
                   "missing_on_disk": [m[:12] for m in missing][:8],
                   "why": ("every PDF and frame a restore would re-serve is on disk or held in "
-                          "Postgres under its recorded hash" if pdf_shas and frame_shas and not missing else
+                          "Postgres under its recorded hash" if pdf_shas and frame_shas and not missing
+                          and not invalid_pdfs and not invalid_frames else
+                          "one or more PDF or frame hashes are missing or invalid" if invalid_pdfs or invalid_frames else
                           "no built PDF is recorded for this release" if not pdf_shas else
                           "no stored frames are recorded for this release" if not frame_shas
                           else f"{len(missing)} recorded artefact(s) are neither on disk "
