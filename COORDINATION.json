@@ -300,6 +300,19 @@
       "scope": "Keep permanent draft admission keys through retention and dead-letter purge",
       "state": "in_review",
       "base": "4213b2ac0c736163232f2efb8ef7744105f4c260"
+    },
+    {
+      "id": "CODEX-A7-CANONICAL-RACE-REPORT",
+      "operator": "codex",
+      "branch": "codex/a7-admission-atomic",
+      "scope": "Report a raced canonical draft deduplication as held; retain A7 controls",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/pipeline.py",
+        "brambleloop/tests/test_w5_a7_supply_stall.py"
+      ],
+      "base": "d0437a5f2e2dd41f37da7ee66f1ae847560bf64b",
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
