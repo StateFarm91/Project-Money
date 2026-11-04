@@ -58,6 +58,24 @@ def _nonnegative_number(value) -> float | None:
     return minutes if math.isfinite(minutes) and minutes >= 0 else None
 
 
+def _sent_minutes(case, *, now: datetime | None = None) -> float | None:
+    """Return an attested response interval, never inferring delivery from a label."""
+    from .response_watch import MessageRefused, _aware, _parse
+
+    detail = case.detail or {}
+    if (not case.sent or not detail.get("first_response_at") or case.at is None
+            or detail.get("delivery_timing_conflict")):
+        return None
+    try:
+        received = _aware(case.at)
+        sent = _parse(detail["first_response_at"], now=_aware(now or datetime.now(timezone.utc)))
+    except (MessageRefused, TypeError, ValueError, OverflowError):
+        return None
+    if sent < received:
+        return None
+    return round((sent - received).total_seconds() / 60.0, 2)
+
+
 def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
                     measured_as: str = "sent") -> dict:
     """Record how long a case waited, on the case itself.
@@ -136,19 +154,22 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
 
     with db.session() as s:
         rows = [(c.escalated, dict(c.detail or {}),
-                 c.at if c.at.tzinfo else c.at.replace(tzinfo=timezone.utc))
+                 c.at if c.at.tzinfo else c.at.replace(tzinfo=timezone.utc),
+                 _sent_minutes(c, now=now))
                 for c in s.scalars(select(SupportCase))]
 
     recent = [r for r in rows if r[2] >= cutoff]
-    all_timed = [(esc, d) for esc, d, _ in recent
+    all_timed = [(esc, d, attested) for esc, d, _, attested in recent
                  if _nonnegative_number(d.get("response_minutes")) is not None
                  and d.get("response_measured_as", "sent") in MEASURED_AS]
     # Only a response somebody received is a service level. A draft-ready time is how fast
     # the automation produced an answer, reported beside it and never counted as delivered.
-    drafts = [(esc, d) for esc, d in all_timed
+    drafts = [(esc, d) for esc, d, _ in all_timed
               if d.get("response_measured_as") == "draft_ready"]
-    timed = [(esc, d) for esc, d in all_timed
-             if d.get("response_measured_as", "sent") == "sent"]
+    timed = [(esc, d) for esc, d, attested in all_timed
+             if d.get("response_measured_as", "sent") == "sent"
+             and attested is not None
+             and _nonnegative_number(d.get("response_minutes")) == attested]
     # A held draft is not a delivered response; it remains untimed for the
     # buyer-facing service level, even though draft latency is shown separately.
     untimed = len(recent) - len(timed)
