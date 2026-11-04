@@ -181,6 +181,12 @@ Python 3.11/tmpfs spend, restart and identity tests passed 44/44; an independent
 reviewer reran the real product-stage case. The count/check/dispatch sequence
 is not proven safe against concurrent workers on PostgreSQL.
 
+An existing visual run is now reused only when its stored product, version and
+release agree with the requested identity. A real handler test proves a run-key
+collision is refused before synthetic generation. The focused Python 3.11/tmpfs
+suite passed 44/44; independent review reran the collision case. Concurrent
+creation and authentication of stored identity remain unverified.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

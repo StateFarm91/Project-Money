@@ -340,6 +340,22 @@ def test_product_stage_refuses_new_invocation_after_attempt_cap(monkeypatch):
     assert IP.get_run(db, key)["generation_calls"] == 1
 
 
+def test_visual_run_key_collision_refuses_other_product_before_generation():
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+
+    db, gen = O.make_db(), O.StubGenerator()
+    first = IP._ensure_run(db, "a@b", "c", "f" * 64, "")
+    assert first == IP.run_key("a", "b@c", "f" * 64)
+    with pytest.raises(ValueError, match="collides with another product"):
+        IP.run_stage(db, {"slug": "a", "version": "b@c", "release": "f" * 64,
+                          "stage": "product_generation"}, follow=lambda i, k: None,
+                     generator=gen, judges=O.StubJudges())
+    stored = IP.get_run(db, first)
+    assert stored["slug"] == "a@b" and stored["version"] == "c"
+    assert stored["generation_calls"] == 0 and gen.calls == 0
+
+
 def test_stage_replay_does_not_bypass_an_unrelated_pending_paid_call(monkeypatch):
     import test_w4_ownerimg as O
     from brambleloop.visual import image_production as IP

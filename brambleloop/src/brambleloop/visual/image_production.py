@@ -239,9 +239,12 @@ def _ensure_run(db, slug, version, release, ns: str = ""):
     ensure_tables(db)
     key = run_key(slug, version, release, ns)
     with db.session() as s:
-        if _run(s, key) is None:
+        existing = _run(s, key)
+        if existing is None:
             s.add(ImageProductionRun(run_key=key, slug=slug, version=version, release=release,
                                      listing=outfits.listing_of(slug), stages={}))
+        elif (existing.slug, existing.version, existing.release) != (slug, version, release):
+            raise ValueError("visual run key collides with another product or release")
     return key
 
 
