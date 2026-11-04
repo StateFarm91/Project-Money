@@ -79,6 +79,29 @@ def test_current_canadian_evidence_keeps_full_weight():
     assert out["evidence"]["discount"] == 1.0 and out["score"] == out["raw_score"]
 
 
+def test_score_recalculates_stale_weight_when_no_restamp_has_run():
+    db = _db()
+    observed = date(2024, 9, 10)
+    _insight(db, "chunky scarf", "canada", observed)
+    provenance.stamp_all(db, today=observed)
+    out = _score(db, "aged-without-restamp")
+    assert out["evidence"]["mean_weight"] == 0.0
+    assert out["evidence"]["discount"] < 1.0
+    assert out["promoted"] is False
+
+
+def test_score_does_not_treat_future_measurement_as_current():
+    db = _db()
+    _insight(db, "chunky scarf", "canada", date(2027, 1, 1))
+    provenance.stamp_all(db, today=TODAY)
+    out = _score(db, "future-measurement")
+    assert out["evidence"]["mean_weight"] == 0.0
+    assert out["promoted"] is False
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "radar.evidence_discount"))
+        assert row.detail["not_presentable"]
+
+
 def test_no_evidence_is_unmeasured_and_leaves_the_score_alone():
     out = _score(_db(), "none")
     assert out["evidence"]["measured"] is False and out["score"] == out["raw_score"]
