@@ -822,6 +822,49 @@
         "brambleloop/tests/test_codex_a3_excluded_gap.py"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "OPUS2-A4B-ENRICHMENT",
+      "operator": "opus2",
+      "branch": "opus2/a4b-enrichment",
+      "state": "ready_for_review",
+      "area": "A4b held/refused draft -> enrichment -> re-draft",
+      "claimed": "2026-11-02T20:10Z",
+      "scope": "creative/enrichment_requests.py, runtime/enrichment_ops.py (research.enrichment_sweep); consumes cir.draft_refused (gate construction) and, when present, construction_registry holds; re-draft key draft:<slug>:<fingerprint>"
+    },
+    {
+      "id": "CODEX-A4B-REVIEW-FIX",
+      "operator": "codex",
+      "branch": "codex/a4b-enrichment-continuation",
+      "source_branch": "opus2/a4b-enrichment",
+      "source_sha": "e230545cb67e4c9034398e82c328dd5e3b1af018",
+      "scope": "A4B review findings: bounded retries, deduplication and concurrency",
+      "files": [
+        "brambleloop/src/brambleloop/creative/enrichment_requests.py",
+        "brambleloop/tests/test_opus2_enrichment_requests.py",
+        "brambleloop/src/brambleloop/runtime/pipeline.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A4B-ANSWER-TRANSACTION",
+      "operator": "codex",
+      "branch": "codex/a4b-answer-fence",
+      "source_branch": "codex/a4b-enrichment-continuation",
+      "source_sha": "f19b878d4d38edc21f53d9a873d60ffcb9973bbc",
+      "scope": "Serialize enrichment sweep and answer state transitions, queue and audits; isolated dependency on reviewed queue savepoint",
+      "files": [
+        "brambleloop/src/brambleloop/creative/enrichment_requests.py",
+        "brambleloop/src/brambleloop/runtime/enrichment_ops.py",
+        "brambleloop/src/brambleloop/queue/durable.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/src/brambleloop/authority/classes.py",
+        "brambleloop/tests/test_opus2_enrichment_requests.py",
+        "brambleloop/tests/test_codex_a4b_answer_postgres.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint_pg.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
