@@ -1,0 +1,7 @@
+# Release-scoped unknown quality readings
+
+Stacked on quality release-freshness PR #95 (`63b3f98`). `unverifiable()` previously grouped quality audits only by slug, version and check, so a late audit bearing an old release hash could hide that the current release's check remained UNKNOWN in the `gate.quality` result. Malformed non-boolean `ok` values could also suppress that status.
+
+The report now selects checks for the current certified release hash, counts unknown and malformed outcome readings per exact hash, and reports the hash with each finding. Only actual booleans count as known outcomes. Historical audit records remain unchanged. Hashless releases or audits do not appear as current unknown readings; the existing freshness scheduler treats them as stale. A current-hash passing reading removes that current unknown from the report. Synthetic Worker tests cover an old-hash pass following a current-hash unknown, later recovery, and malformed outcome data.
+
+Python 3.11 tmpfs SQLite quality/Worker regression passed 22/22. Existing test fixture now supplies the release hash that the scheduled worker already carries. Audit hashes remain caller-supplied; this does not authenticate them, prevent late jobs from changing holds, fence concurrent releases, or establish PostgreSQL or production integration. No physical evidence, approval, purchase, publication or deployment occurred.
