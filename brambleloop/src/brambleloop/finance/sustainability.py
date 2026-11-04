@@ -170,19 +170,27 @@ def listing_maintenance_cost(db, *, now: datetime | None = None) -> dict:
                 "why": "no listing is live, so no spend can be attributed to maintaining one. "
                        "Until then per-listing maintenance is inside platform spend"}
     per: dict[str, dict] = {}
+    selected_all = []
     for slug, since in live.items():
-        selected = [c for c in costs if c[3] == slug and c[1] in AI_KINDS and c[0] is not None and c[0] >= since]
-        spent = sum(c[2] for c in selected)
+        selected = [c for c in costs if c[3] == slug and c[1] in AI_KINDS
+                    and c[0] is not None and since <= c[0] <= now]
+        selected_all.extend(selected)
         months = max((now - since).days, 1) / 30.0
-        per[slug] = {"cost_basis": basis_summary((c[2],c[6]) for c in selected), "live_since": since.isoformat(), "spent_cad": round(spent, 4),
-                     "per_month_cad": round(spent / months, 4),
+        spent = sum(c[2] for c in selected) if selected else None
+        per[slug] = {"cost_basis": basis_summary((c[2], c[6]) for c in selected),
+                     "live_since": since.isoformat(),
+                     "spent_cad": round(spent, 4) if spent is not None else None,
+                     "per_month_cad": round(spent / months, 4) if spent is not None else None,
                      "months_observed": round(months, 2)}
-    monthly = [v["per_month_cad"] for v in per.values()]
-    basis = basis_summary((c[2],c[6]) for c in costs if c[3] in live and c[1] in AI_KINDS and c[0] is not None and c[0] >= live[c[3]])
-    return {"reading": basis["reading"], "cost_basis": basis, "listings": per,
-            "per_listing_month_cad": round(sum(monthly) / len(monthly), 4),
-            "note": "cost tagged to the product after its first live listing; product work "
-                    "that was not tagged is in platform spend, so this is a floor"}
+    missing = sorted(slug for slug, value in per.items() if value["per_month_cad"] is None)
+    monthly = [v["per_month_cad"] for v in per.values() if v["per_month_cad"] is not None]
+    basis = basis_summary((c[2], c[6]) for c in selected_all)
+    return {"reading": "UNMEASURED" if missing else basis["reading"],
+            "cost_basis": basis, "listings": per, "missing_listings": missing,
+            "per_listing_month_cad": (None if missing else round(sum(monthly) / len(monthly), 4)),
+            "note": "cost tagged to the product after its first live listing; absent tagged "
+                    "cost is not evidence of zero, and untagged product work is in platform spend"}
+
 
 
 # ---------------------------------------------------------------------------
@@ -376,8 +384,8 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         "unmeasured_terms": unmeasured_terms,
         "note": ("every scenario figure is a named assumption multiplied by a recorded unit "
                  "cost. " + (f"{unmeasured_terms} are not yet measurable and are carried "
-                             f"inside platform spend (costed at 0 separately), which is why "
-                             f"platform spend is scaled per scenario" if unmeasured_terms
+                             f"as zero separately for illustration only; their full costs may not be "
+                             f"captured by scaled platform spend" if unmeasured_terms
                              else "")),
     }
 
@@ -444,7 +452,8 @@ def verdict(db, *, now: datetime | None = None) -> dict:
     criterion = ("MODELLED pre-launch estimate: forecast computable AND cost coverage "
                  "complete (all AI/API kinds incl. image renders; untagged spend counted as "
                  "platform; no billed render missing from the ledger; no priced product with "
-                 "UNKNOWN creation cost) AND contribution per sale positive at every recorded "
+                 "UNKNOWN creation cost) AND every scenario cost component measured "
+                 "AND contribution per sale positive at every recorded "
                  "opening price with modelled fees. Assumed volumes may only block (recurring "
                  "AI/API cost not covered at the LOW scenario's assumed sales, or base-case "
                  "AI share over the limit), never grant")
@@ -455,6 +464,13 @@ def verdict(db, *, now: datetime | None = None) -> dict:
                     f["missing"])}
     base, low = f["scenarios"]["base"], f["scenarios"]["low"]
     problems = []
+    # Illustrative scenarios currently substitute zero for unknown unit costs.
+    # Those figures may identify a problem, but cannot demonstrate sustainability.
+    raw_unknown_costs = f.get("unmeasured_terms")
+    unknown_costs = (raw_unknown_costs if isinstance(raw_unknown_costs, list)
+                     else ["scenario cost coverage unavailable"])
+    if unknown_costs:
+        problems.append("scenario cost evidence is unmeasured: " + ", ".join(unknown_costs))
 
     # 2. Cost coverage.
     cov = coverage(db)
@@ -501,6 +517,7 @@ def verdict(db, *, now: datetime | None = None) -> dict:
         "criterion": criterion, "problems": problems,
         "checks": {
             "cost_coverage_complete": cov["complete"],
+            "scenario_costs_complete": not unknown_costs,
             "unit_margin_positive": bool(units) and all(
                 u["per_sale_cad"] > 0 for u in units.values()),
             "recurring_cost_covered_at_low_assumed_volume": (

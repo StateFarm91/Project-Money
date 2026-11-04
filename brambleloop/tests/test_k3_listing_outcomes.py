@@ -387,3 +387,41 @@ if __name__ == "__main__":
             traceback.print_exc()
             print(f"FAIL {t.__name__}: {type(e).__name__}: {e}")
     sys.exit(1 if failed else 0)
+
+
+def test_replaced_export_clears_old_source_in_actual_worker():
+    db = _db()
+    _listing(db, "coaster-a", etsy_id="7001")
+    LO.submit_export(db, "listing id,impressions,visits,traffic source\n7001,900,30,etsy_ads\n",
+                     period_start=P_START, period_end=P_END)
+    _run(db, RLO.ACTION, agent="cfo")
+    first = _outcomes(db)[0]
+    assert first.detail["traffic_source"] == "etsy_ads" and first.detail["paid"] is True
+    LO.submit_export(db, "listing id,impressions,visits\n7001,1000,35\n",
+                     period_start=P_START, period_end=P_END)
+    _run(db, RLO.ACTION, agent="cfo")
+    revised = _outcomes(db)[0]
+    assert revised.impressions == 1000 and revised.visits == 35
+    assert "traffic_source" not in revised.detail and "paid" not in revised.detail
+
+
+def test_invalid_outcome_metadata_rolls_back_counts_and_provenance():
+    from brambleloop.creative import style_learning
+
+    db = _db()
+    _listing(db, "coaster-a", etsy_id="7001")
+    LO.submit_export(db, "listing id,impressions,visits,traffic source\n7001,900,30,etsy_ads\n",
+                     period_start=P_START, period_end=P_END)
+    _run(db, RLO.ACTION, agent="cfo")
+    before = _outcomes(db)[0]
+    try:
+        style_learning.record_outcome(db, product_slug="coaster-a", version=before.version,
+            period_start=P_START, period_end=P_END, impressions=1000, visits=35,
+            source="fixture", outcome_detail="invalid")
+    except style_learning.StyleLearningRefused:
+        pass
+    else:
+        raise AssertionError("invalid outcome detail accepted")
+    after = _outcomes(db)[0]
+    assert (after.impressions, after.visits, after.source, after.detail) == (
+        before.impressions, before.visits, before.source, before.detail)
