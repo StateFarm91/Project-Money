@@ -495,7 +495,9 @@ def test_c1_the_verdict_states_its_basis_and_labels_volume_assumed():
     for sc in v["forecast"]["scenarios"].values():
         assert sc["basis"] == "MODELLED" and sc["volume_basis"] == "ASSUMED"
     assert v["checks"]["cost_coverage_complete"] and v["checks"]["unit_margin_positive"]
-    assert v["sustainable"] is True and v["why"].startswith("MODELLED")
+    assert v["sustainable"] is False
+    assert not v["checks"]["scenario_costs_complete"]
+    assert any("scenario cost evidence is unmeasured" in p for p in v["problems"])
     be = sustainability.break_even(db)["products"]["p1"]
     assert be["reading"] == "computed_floor" and be["break_even_sales_is_floor"] is True
 
@@ -548,7 +550,9 @@ def test_c1_the_readiness_requirement_carries_the_basis():
     db = _db()
     _sust1(db, now)
     by = {r.key: r for r in assess(db, phase="shadow").requirements}
-    ev = by["sustainable_economics"].evidence
+    req = by["sustainable_economics"]
+    ev = req.evidence
+    assert not req.ready and not ev["checks"]["scenario_costs_complete"]
     assert ev["basis"] == "MODELLED" and ev["criterion"]
     assert all(s["volume_basis"] == "ASSUMED" for s in ev["scenarios"].values())
     assert ev["break_even"]["p1"]["break_even_sales_is_floor"] is True
