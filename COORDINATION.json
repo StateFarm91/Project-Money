@@ -294,6 +294,21 @@
         "brambleloop/tests/test_w5_integfix.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A5-HOLD-AUDIT",
+      "operator": "codex",
+      "branch": "codex/a5-hold-audit",
+      "source_branch": "codex/a5-correction-review",
+      "source_sha": "e68c93168e912f58ca7ac6c68c252016ae3a3d00",
+      "scope": "A5-8 correction-hold incident and audit idempotency",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/engineering_ops.py",
+        "brambleloop/tests/test_w5_a5_correction_loop.py",
+        "brambleloop/tests/test_codex_a5_hold_postgres.py",
+        "brambleloop/research/final_build/w5/CODEX_A5_HOLD_AUDIT_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

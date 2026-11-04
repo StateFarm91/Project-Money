@@ -363,7 +363,199 @@ def test_a_lost_lease_on_a_held_certify_keeps_one_hold():
     _drain(db, ["gate.certify"], name="restarted")
     holds = _holds(db, bare.slug, bare.version)
     assert len(holds) == 1 and holds[0].report_count == 2
+    # A replay restates the incident but does not append an identical hold audit.
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{bare.slug}@{bare.version}")) == 1
     assert _jobs(db, job_type="cir.revise") == []
+
+
+def test_changed_hold_evidence_is_audited_and_reopened_hold_is_audited():
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-changed")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    artifact = f"{cir.slug}@{cir.version}"
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    EO.record_hold(ctx, cir, stage="certify", reason="two", codes={"SECOND"})
+    rows = _audits(db, EO.HOLD_AUDIT, artifact)
+    assert len(rows) == 2
+    assert [row.detail["reason"] for row in rows] == ["one", "two"]
+    assert _holds(db, cir.slug, cir.version)[0].report_count == 3
+    with db.session() as session:
+        incident_lifecycle.resolve_signatures(session, [EO.hold_signature(cir.slug, cir.version)],
+                                              resolution="test evidence superseded")
+    EO.record_hold(ctx, cir, stage="certify", reason="two", codes={"SECOND"})
+    rows = _audits(db, EO.HOLD_AUDIT, artifact)
+    assert len(rows) == 3 and rows[-1].detail["opened"] is True
+
+
+def test_concurrent_identical_holds_are_recorded_once():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from time import sleep
+    from brambleloop.core.resilience import TransientError
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:concurrent-hold")
+    job = q.claim("holder", ["gate.certify"])
+    barrier = Barrier(2)
+
+    def report():
+        ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+        barrier.wait(timeout=10)
+        for _ in range(50):
+            try:
+                return EO.record_hold(ctx, cir, stage="certify", reason="same", codes={"FIRST"})
+            except TransientError:
+                sleep(0.02)
+        raise AssertionError("hold remained contended after bounded retries")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: report(), range(2)))
+    assert sum(result["opened"] for result in results) == 1
+    assert _holds(db, cir.slug, cir.version)[0].report_count == 2
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_hold_and_its_audit_roll_back_together_when_audit_write_fails():
+    import pytest
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-atomic")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+
+    def fail_audit(session, *_):
+        if any(isinstance(row, AuditLog) and row.action == EO.HOLD_AUDIT
+               for row in session.new):
+            raise RuntimeError("simulated hold audit write failure")
+
+    event.listen(Session, "before_flush", fail_audit)
+    try:
+        with pytest.raises(RuntimeError, match="simulated hold audit"):
+            EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    finally:
+        event.remove(Session, "before_flush", fail_audit)
+    assert not _holds(db, cir.slug, cir.version)
+    assert not _audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    assert len(_holds(db, cir.slug, cir.version)) == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_stale_worker_cannot_replace_current_hold_evidence():
+    import pytest
+    from brambleloop.queue.effects import LeaseLost
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-stale")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    EO.record_hold(ctx, cir, stage="certify", reason="current", codes={"FIRST"})
+    with db.session() as session:
+        session.execute(update(Job).where(Job.id == job.id).values(lease_token="new-attempt"))
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="stale", codes={"SECOND"})
+    ctx.job.lease_token = None
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="stripped", codes={"THIRD"})
+    # A different queued job has no audit foreign key, so it can model a missing
+    # producer without deleting the immutable audit from the current hold.
+    missing = q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                        idempotency_key="t:hold-missing")
+    with db.session() as session:
+        session.delete(session.get(Job, missing.id))
+    ctx = JobContext(job=missing, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    with pytest.raises(LeaseLost):
+        EO.record_hold(ctx, cir, stage="certify", reason="missing", codes={"FOURTH"})
+    hold = _holds(db, cir.slug, cir.version)[0]
+    assert hold.detail["reason"] == "current" and hold.report_count == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_postgres_hold_contention_retries_worker_without_partial_hold():
+    import pytest
+    from sqlalchemy import text
+    from brambleloop.core.models import utcnow
+
+    db = _db()
+    if db.engine.dialect.name != "postgresql":
+        pytest.skip("requires disposable PostgreSQL")
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    queue = JobQueue(db)
+    queued = queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                           idempotency_key="t:hold-pg-contended")
+    with db.session() as held:
+        held.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": EO._HOLD_LOCK})
+        worker = Worker(db, "pg-hold-worker", job_types=["gate.certify"])
+        assert worker.run_once()
+        with db.session() as observed:
+            job = observed.get(Job, queued.id)
+            assert job.status == JobStatus.FAILED
+            assert "correction hold transaction is contended" in job.last_error
+        assert _holds(db, cir.slug, cir.version) == []
+        assert _audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}") == []
+    # Move the retry due time forward in this disposable fixture rather than wait.
+    with db.session() as session:
+        session.get(Job, queued.id).run_after = utcnow()
+    assert Worker(db, "pg-hold-retry", job_types=["gate.certify"]).run_once()
+    assert len(_holds(db, cir.slug, cir.version)) == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_postgres_job_first_lock_inversion_refuses_without_deadlock():
+    import pytest
+    from concurrent.futures import ThreadPoolExecutor
+    from time import monotonic, sleep
+    from sqlalchemy import text
+    from brambleloop.core.resilience import TransientError
+
+    db = _db()
+    if db.engine.dialect.name != "postgresql":
+        pytest.skip("requires disposable PostgreSQL")
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    queue = JobQueue(db)
+    queue.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+                  idempotency_key="t:hold-pg-inversion")
+    job = queue.claim("pg-holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+
+    def report():
+        return EO.record_hold(ctx, cir, stage="certify", reason="same", codes={"FIRST"})
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        with db.session() as held:
+            held.scalar(select(Job).where(Job.id == job.id).with_for_update())
+            first = pool.submit(report)
+            deadline = monotonic() + 10
+            while True:
+                with db.session() as probe:
+                    available = probe.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"),
+                                             {"k": EO._HOLD_LOCK})
+                if not available:
+                    break
+                assert monotonic() < deadline, "hold writer did not acquire advisory lock"
+                sleep(0.02)
+            second = pool.submit(report)
+            with pytest.raises(TransientError, match="contended"):
+                second.result(timeout=5)
+        assert first.result(timeout=10)["held"] is True
+    assert len(_holds(db, cir.slug, cir.version)) == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
 
 
 # ---- 4. quality re-verification and assets: corrected when a rule answers, else held ----

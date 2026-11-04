@@ -305,6 +305,7 @@ def revision_attempts(db, slug: str, version: str) -> int:
 # Serialize the final audit decision across all workers. A database transaction,
 # not an in-process mutex, enforces the cap when Railway has multiple replicas.
 _REVISION_LOCK = 734543626
+_HOLD_LOCK = 734543627
 
 
 def _claim_revision(ctx, artifact: str, fingerprint: str, detail: dict) -> tuple[bool, bool]:
@@ -362,13 +363,57 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
                       "correction loop enqueues nothing more for this version"}
     opened = False
     if existing_hold is None:
+        from sqlalchemy import select, text
+        from ..core.db import is_postgres
+        from ..core.models import AuditLog, Incident, Job, JobStatus, utcnow
+        from ..core.resilience import TransientError
+        from ..queue.effects import LeaseLost
+
+        # Serialize A5 writers so a repeated delivery cannot create duplicate incidents or
+        # lose the audit for an opened/changed hold after a crash. Incident restatement and
+        # its audit must commit together; incident last_seen/report_count still advance.
         with ctx.db.session() as s:
+            if is_postgres(ctx.db.engine):
+                acquired = s.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"),
+                                    {"k": _HOLD_LOCK})
+                if not acquired:
+                    raise TransientError("correction hold transaction is contended; retry")
+            else:
+                s.execute(text("BEGIN IMMEDIATE"))
+            # Lock the producer job in this transaction so a reclaimed worker cannot
+            # overwrite a current incident after validating an obsolete lease.
+            token = getattr(ctx.job, "lease_token", None)
+            job_id = getattr(ctx.job, "id", None)
+            job = (s.scalar(select(Job).where(Job.id == job_id).with_for_update())
+                   if job_id is not None else None)
+            if job_id is not None and job is None:
+                raise LeaseLost(f"job {job_id}: correction hold producer is unavailable")
+            if token is None and job is not None and job.lease_token is not None:
+                raise LeaseLost(f"job {job_id}: correction hold requires its current lease")
+            if token is not None:
+                expiry = job.lease_expires_at if job is not None else None
+                if expiry is not None and expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=utcnow().tzinfo)
+                if (job is None or job.status != JobStatus.RUNNING or job.lease_token != token
+                        or expiry is None or expiry <= utcnow()):
+                    raise LeaseLost(f"job {ctx.job.id}: correction hold lease no longer current")
+            current = s.scalar(select(Incident).where(
+                Incident.signature == sig, Incident.resolved == False))  # noqa: E712
+            previous = dict(current.detail or {}) if current is not None else {}
+            changed = current is None or any(previous.get(k) != v for k, v in detail.items())
             _row, opened = lifecycle.open_or_restate(
                 s, signature=sig, severity="P2", product_slug=slug,
                 summary=(f"correction loop held {slug}@{version} at {stage}: {reason}")[:500],
                 detail=detail, halts_publication=False)
-    ctx.audit(HOLD_AUDIT, artifact=f"{slug}@{version}",
-              detail={**detail, "signature": sig, "opened": opened})
+            if changed:
+                s.add(AuditLog(actor=ctx.job.agent, action=HOLD_AUDIT,
+                               artifact=f"{slug}@{version}", job_id=ctx.job.id,
+                               phase=ctx.phase,
+                               detail={**detail, "signature": sig, "opened": opened}))
+    else:
+        # A hold owned by another department has its own incident lifecycle.
+        ctx.audit(HOLD_AUDIT, artifact=f"{slug}@{version}",
+                  detail={**detail, "signature": sig, "opened": opened})
     return {"held": True, "hold": sig, "reason": reason, "opened": opened}
 
 
