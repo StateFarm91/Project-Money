@@ -49,6 +49,7 @@ import hashlib
 import io
 import json
 import math
+import re
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -1179,6 +1180,15 @@ def verify_anchor(data: bytes, cir, *, judge=None) -> dict:
     return _verdict(checks, data=data, exp=exp, kind="anchor")
 
 
+def same_release(left: str, right: str) -> bool:
+    """Require two complete, equal release digests for visual anchor evidence."""
+    if not isinstance(left, str) or not isinstance(right, str):
+        return False
+    left, right = left.lower(), right.lower()
+    return (bool(re.fullmatch(r"[0-9a-f]{64}", left))
+            and bool(re.fullmatch(r"[0-9a-f]{64}", right)) and left == right)
+
+
 def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None,
                      anchor_data: bytes | None = None, product_region=None,
                      judge=None, consistency=None) -> dict:
@@ -1201,8 +1211,7 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
     if not a:
         checks.append(_check("anchor", UNKNOWN, "no product-only anchor for this release",
                              code=FC.UNVERIFIABLE_COUNT))
-    elif not (rel and release_hash and (rel.startswith(release_hash[:12]) or
-                                        release_hash.startswith(rel[:12]))):
+    elif not same_release(rel, release_hash):
         checks.append(_check("anchor", UNKNOWN, "the anchor is for another release",
                              code=FC.UNVERIFIABLE_COUNT))
     elif a.get("status") != PASS:

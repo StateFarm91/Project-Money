@@ -382,8 +382,11 @@ def learning_summary(db, *, slug: str | None = None) -> dict:
                      "cost is unknown; never reported as zero")}
 
 
-def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None:
-    from sqlalchemy import select
+def _best(db, *, listing: str, role: str, run: str | None = None,
+          slug: str | None = None, version: str | None = None,
+          release: str | None = None, method: str | None = None,
+          unscoped_only: bool = False, exclude_ids: tuple[int, ...] = ()) -> dict | None:
+    from sqlalchemy import case, func, select
 
     from .image_records import ImageCandidate
 
@@ -392,12 +395,25 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
                                          ImageCandidate.role == role)
         if run:
             q = q.where(ImageCandidate.run_key == run)
-        rows = list(s.scalars(q.order_by(ImageCandidate.id.desc())))
-    if not rows:
+        if unscoped_only:
+            q = q.where(ImageCandidate.run_key == "")
+        if slug is not None:
+            q = q.where(ImageCandidate.slug == slug)
+        if version is not None:
+            q = q.where(ImageCandidate.version == version)
+        if release is not None:
+            q = q.where(func.lower(ImageCandidate.release) == release.lower())
+        if method is not None:
+            q = q.where(ImageCandidate.method == method)
+        if exclude_ids:
+            q = q.where(ImageCandidate.id.not_in(exclude_ids))
+        rank = case((ImageCandidate.technical_status == "PASS", 0),
+                    (ImageCandidate.technical_status == "UNKNOWN", 1),
+                    (ImageCandidate.technical_status == "FAIL", 2), else_=3)
+        publishable_rank = case((ImageCandidate.publishable.is_(True), 0), else_=1)
+        r = s.scalar(q.order_by(publishable_rank, rank, ImageCandidate.id.desc()).limit(1))
+    if r is None:
         return None
-    rank = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
-    r = sorted(rows, key=lambda x: (not x.publishable, rank.get(x.technical_status, 3),
-                                    -x.id))[0]
     return {"candidate_id": r.id, "sha256": r.sha256, "method": r.method,
             "technical_status": r.technical_status, "publishable": r.publishable,
             "attempt": r.attempt, "outcome": r.outcome,
@@ -408,7 +424,7 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
                        if c.get("status") == "FAIL"},
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
-            "listing": r.listing, "version": r.version, "release": r.release,
+            "listing": r.listing, "slug": r.slug, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
             "laura_present": r.laura_present, "outfit_id": r.outfit_id or None,
             "fidelity": _fidelity_summary(r.checks),
@@ -434,7 +450,11 @@ def _fidelity_summary(checks: dict | None) -> dict:
     fid = ((checks or {}).get("product_truth") or {}).get("fidelity") or {}
     needs = sorted({f"{c['check']} needs a {c['needs']}" for c in fid.get("checks") or []
                     if c.get("needs") and c.get("status") == "UNKNOWN"})
-    return {"status": fid.get("status"), "unknown": fid.get("unknown") or [],
+    return {"status": fid.get("status"), "kind": fid.get("kind"), "checker": fid.get("checker"),
+            "image_sha256": fid.get("image_sha256"), "cir_fingerprint": fid.get("cir_fingerprint"),
+            "slug": fid.get("slug"), "version": fid.get("version"),
+            "checks": fid.get("checks") or [],
+            "unknown": fid.get("unknown") or [],
             "failed": fid.get("failed") or [], "codes": fid.get("codes") or [],
             "needs": needs}
 
@@ -514,7 +534,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     except spend_plan.PlanRefused as exc:
         raise BudgetStop(str(exc)) from None
     _update(db, key, stage=stage, generation_calls=calls + 1)
-    base = {"slug": slug, "version": version, "release": release, "role": role,
+    base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
     if exp is not None:
@@ -1152,6 +1172,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
         if row is None or not row.sha256:
             return {"reverified": False, "why": "no stored candidate"}
         cand = {"slug": row.slug, "version": row.version, "release": row.release,
+                "run_key": row.run_key,
                 "role": row.role, "provider": row.provider, "model": row.model,
                 "prompt": row.prompt, "references": list(row.references or []),
                 "laura_present": row.laura_present, "outfit_id": row.outfit_id or None,
