@@ -1111,3 +1111,86 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_reinvestment_worker_supersedes_stale_recommendation(monkeypatch):
+    from brambleloop.scale import confidence
+
+    db = _db()
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=5000,
+                                evidence_ref="fixture-sale", at=NOW - timedelta(days=1)))
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.5})
+    _run(db, "cfo", "commerce.order_readings")
+    prior = order_readings.latest(db)["reinvestment"]["owner_action"]
+    assert prior
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "UNMEASURED", "reported_probability": None})
+    _run(db, "cfo", "commerce.order_readings")
+    assert order_readings.latest(db)["reinvestment"]["owner_action"] is None
+    with db.session() as session:
+        action = session.scalar(select(OwnerAction).where(OwnerAction.requirement_key == prior))
+        assert action.done and action.state == "superseded"
+        assert session.scalar(select(AuditLog).where(
+            AuditLog.action == "owner_action.lifecycle",
+            AuditLog.artifact == f"owner_action:{action.id}")) is not None
+    _run(db, "cfo", "commerce.order_readings")
+    with db.session() as session:
+        assert not list(session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like("reinvestment:%"), OwnerAction.done.is_(False))))
+
+
+def test_parked_reinvestment_is_not_reopened_by_evidence_changes(monkeypatch):
+    from brambleloop.scale import confidence
+    from brambleloop.ops import owner_queue
+
+    db = _db()
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=5000,
+                                evidence_ref="fixture-sale", at=NOW - timedelta(days=1)))
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.5})
+    _run(db, "cfo", "commerce.order_readings")
+    key = order_readings.latest(db)["reinvestment"]["owner_action"]
+    with db.session() as session:
+        action = session.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key))
+        owner_queue.transition(session, action, owner_queue.PARKED, "owner deferred", actor="owner")
+        # Simulate a legacy concurrent duplicate alongside the parked decision.
+        session.add(OwnerAction(requirement_key=key, action="duplicate", max_cost_cad=action.max_cost_cad))
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "UNMEASURED", "reported_probability": None})
+    _run(db, "cfo", "commerce.order_readings")
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.8})
+    _run(db, "cfo", "commerce.order_readings")
+    assert order_readings.latest(db)["reinvestment"]["owner_action"] is None
+    with db.session() as session:
+        actions = list(session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like("reinvestment:%"), OwnerAction.done.is_(False))))
+        assert len(actions) == 1 and actions[0].state == "parked"
+
+
+def test_reinvestment_changed_amount_supersedes_prior_action(monkeypatch):
+    from brambleloop.scale import confidence
+
+    db = _db()
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=5000,
+                                evidence_ref="fixture-sale", at=NOW - timedelta(days=1)))
+    probability = {"value": 0.5}
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": probability["value"]})
+    _run(db, "cfo", "commerce.order_readings")
+    key = order_readings.latest(db)["reinvestment"]["owner_action"]
+    with db.session() as session:
+        first = session.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key))
+        original_id = first.id
+    probability["value"] = 0.25
+    _run(db, "cfo", "commerce.order_readings")
+    with db.session() as session:
+        first = session.get(OwnerAction, original_id)
+        assert first.done and first.state == "superseded"
+        active = list(session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == key, OwnerAction.done.is_(False))))
+        assert len(active) == 1 and active[0].id != original_id
