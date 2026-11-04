@@ -462,7 +462,10 @@ def test_restart_after_the_vision_judge_is_funded_reverifies_without_regeneratin
     assert gen.calls == 1 and not run["attempts_exhausted"]
     can = IP.restartable(db, key)
     assert can["restartable"] and can["resume_at"] == "fidelity_gate" and can["reverify"]
-    funded = CG.RealJudges(db, vision=Recorded(*FUNDED), references=REFS)
+    # This test's FlatLayGenerator renders Cloudline's known synthetic end bands;
+    # describe that image, while the real deterministic band checks still run.
+    funded = CG.RealJudges(db, vision=Recorded(*FUNDED, craft=TF.PASSING_BANDS_JUDGE.reading),
+                           references=REFS)
     _, follow = _queue(db)
     out = IP.restart(db, key, follow=follow, by="owner:test", reason="vision funded")
     assert out["restarted"] and out["epoch"] == 1 and out["enqueued"]

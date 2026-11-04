@@ -960,7 +960,10 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
     v = {k: str(reading.get(k, "unclear")).strip().lower() for k in CRAFT_FIELDS}
     problems, unclear = [], []
     if v["fabric_visible_clearly"] not in ("true", "yes"):
-        unclear.append("fabric not clearly visible")
+        # Contradictory guesses from an obscured view cannot establish a defect.
+        # Other independent, deterministic image checks may still return FAIL.
+        return _check("craft_texture", UNKNOWN, "fabric not clearly visible", reading=v,
+                      blocks_variant_input=True)
     if v["craft"] == "unclear":
         unclear.append("craft unclear")
     elif v["craft"] != exp.craft:
@@ -1272,7 +1275,7 @@ def verify_lifestyle(data: bytes, cir, *, release_hash: str, anchor: dict | None
     if judge is None or not anchor_data:
         checks.append(_check("anchor_consistency", UNKNOWN,
                              "no vision reading compares this image with the anchor",
-                             needs="vision judge"))
+                             needs="vision judge", blocks_variant_input=True))
     elif consistency is not None:
         checks.append(consistency(judge, anchor_data, data, exp))
     else:
@@ -1297,7 +1300,7 @@ def consistency_prompt() -> str:
 def compare_consistency(got: dict) -> dict:
     if not got.get("answered"):
         return _check("anchor_consistency", UNKNOWN, f"not judged: {got.get('why')}",
-                      needs="vision judge")
+                      needs="vision judge", blocks_variant_input=True)
     r = got.get("reading") or {}
     same = str(r.get("same_item", "unclear")).lower()
     diffs = [str(d) for d in (r.get("differences") or [])]
@@ -1311,4 +1314,5 @@ def compare_consistency(got: dict) -> dict:
                       code=code, reading=r)
     if same in ("true", "yes"):
         return _check("anchor_consistency", PASS, "the same item as the anchor", reading=r)
-    return _check("anchor_consistency", UNKNOWN, "consistency unclear", reading=r)
+    return _check("anchor_consistency", UNKNOWN, "consistency unclear", reading=r,
+                  blocks_variant_input=True)

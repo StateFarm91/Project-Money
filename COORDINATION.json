@@ -310,6 +310,26 @@
         "brambleloop/tests/test_codex_v1_anchor_binding.py"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-V1-VARIANT-BASE-TRUTH",
+      "operator": "codex",
+      "branch": "codex/v1-variant-base",
+      "source_branch": "codex/v1-anchor-binding",
+      "source_sha": "b9eb3e32fcf5cd0d96b9330790e431c1115ab063",
+      "scope": "Stage-D edit base refuses failed or owner-vetoed evidence and binds to the originating product, release and content bytes; gallery readiness holds cross-run or mixed-release candidates; incomplete blind craft and anchor comparisons hold without encouraging reuse.",
+      "files": [
+        "brambleloop/src/brambleloop/visual/image_production.py",
+        "brambleloop/src/brambleloop/visual/candidate_gates.py",
+        "brambleloop/src/brambleloop/visual/fidelity.py",
+        "brambleloop/src/brambleloop/visual/vision_judges.py",
+        "brambleloop/tests/test_codex_v1_variant_base.py",
+        "brambleloop/tests/test_codex_v1_gallery_scope.py",
+        "brambleloop/tests/test_codex_v1_obscured_craft.py",
+        "brambleloop/tests/test_codex_v1_blind_comparison.py",
+        "brambleloop/tests/test_w4_visnext.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

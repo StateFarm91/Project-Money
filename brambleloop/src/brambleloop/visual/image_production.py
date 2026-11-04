@@ -385,8 +385,9 @@ def learning_summary(db, *, slug: str | None = None) -> dict:
 def _best(db, *, listing: str, role: str, run: str | None = None,
           slug: str | None = None, version: str | None = None,
           release: str | None = None, method: str | None = None,
-          unscoped_only: bool = False, exclude_ids: tuple[int, ...] = ()) -> dict | None:
-    from sqlalchemy import case, func, select
+          unscoped_only: bool = False, exclude_ids: tuple[int, ...] = (),
+          production_only: bool = False) -> dict | None:
+    from sqlalchemy import and_, case, func, or_, select
 
     from .image_records import ImageCandidate
 
@@ -397,6 +398,9 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
             q = q.where(ImageCandidate.run_key == run)
         if unscoped_only:
             q = q.where(ImageCandidate.run_key == "")
+        if production_only:
+            q = q.where(or_(and_(ImageCandidate.run_key == "", ImageCandidate.method == "owner_submitted"),
+                            and_(ImageCandidate.run_key != "", ~ImageCandidate.run_key.like("%#%"))))
         if slug is not None:
             q = q.where(ImageCandidate.slug == slug)
         if version is not None:
@@ -971,7 +975,9 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                     # Stage D: a non-LIFESTYLE Laura role edits the accepted lifestyle frame,
                     # so the outfit stays identical across the listing.
                     if r["job"] != "LIFESTYLE":
-                        base_ = _accepted_lifestyle(db, key, run["listing"], plan)
+                        base_ = _accepted_lifestyle(db, key, run["listing"], plan,
+                                                    slug=run["slug"], version=run["version"],
+                                                    release=run["release"])
                         if base_:
                             refs_ = refs_ + [base_]
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
@@ -1342,7 +1348,24 @@ def _prior_ref(db, sha: str, label: str) -> dict | None:
     except Exception:  # noqa: BLE001 - bytes gone: not handed in
         return None
     return {"kind": "prior_candidate", "label": label, "sha256": sha, "data": data} \
-        if data else None
+        if data and hashlib.sha256(data).hexdigest() == sha else None
+
+
+def _image_has_negative_decision(db, *, slug: str, version: str, sha: str) -> bool:
+    """Hold duplicate image bytes when a record has a negative decision.
+
+    This read does not authenticate the decision or fence concurrent writers.
+    """
+    from sqlalchemy import or_, select
+    from .image_records import ImageCandidate
+
+    with db.session() as session:
+        return session.scalar(select(ImageCandidate.id).where(
+            ImageCandidate.slug == slug, ImageCandidate.version == version,
+            ImageCandidate.sha256 == sha,
+            or_(ImageCandidate.owner_visual_approval.is_(False),
+                ImageCandidate.outcome == "rejected"),
+        ).limit(1)) is not None
 
 
 def _accepted_identity_anchor(db, key: str) -> dict | None:
@@ -1352,16 +1375,46 @@ def _accepted_identity_anchor(db, key: str) -> dict | None:
     return _prior_ref(db, sha, "identity_anchor") if sha else None
 
 
-def _accepted_lifestyle(db, key: str, listing: str, plan: dict) -> dict | None:
+def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
+                        version: str, release: str) -> dict | None:
     """The edit base for stage D: the run's best LIFESTYLE frame that no check FAILed and the
     owner did not reject. It is a generation input, not a verdict: the variant made from it is
     judged on its own."""
+    from .fidelity import same_release
+
+    canonical = run_key(slug, version, release)
+    if not same_release(release, release) or not (
+            key == canonical or key.startswith(canonical + "#")):
+        return None
     roles = [r["role"] for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
     for role in roles:
-        b = _best(db, listing=listing, role=role, run=key)
-        if b and b.get("sha256") and b.get("technical_status") != "FAIL" and \
-                b.get("owner_visual_approval") is not False:
-            return _prior_ref(db, b["sha256"], "edit_base")
+        try:
+            b = _best(db, listing=listing, role=role, run=key,
+                      slug=slug, version=version, release=release)
+            if not b or not b.get("sha256") or b.get("technical_status") not in ("PASS", "UNKNOWN"):
+                continue
+            if b.get("failed") or b.get("outcome") == "rejected" or \
+                    b.get("owner_visual_approval") is False:
+                continue
+            fidelity = b.get("fidelity") or {}
+            checks = fidelity.get("checks") or []
+            if fidelity.get("status") == "FAIL" or any(
+                    not isinstance(c, dict) or c.get("status") == "FAIL"
+                    or c.get("blocks_variant_input") is True
+                    or (c.get("check") == "anchor_consistency" and c.get("status") == "UNKNOWN")
+                    or (c.get("check") == "craft_texture" and c.get("status") == "UNKNOWN"
+                        and isinstance(c.get("reading"), dict)
+                        and str(c["reading"].get("fabric_visible_clearly") or "").lower()
+                        not in ("true", "yes")) for c in checks):
+                continue
+            if _image_has_negative_decision(db, slug=b["slug"], version=b["version"],
+                                            sha=b["sha256"]):
+                continue
+            ref = _prior_ref(db, b["sha256"], "edit_base")
+            if ref:
+                return ref
+        except Exception:  # noqa: BLE001 - unreadable evidence must not be used as input
+            continue
     return None
 
 
@@ -1559,13 +1612,61 @@ def _is_launch(listing: str) -> bool:
 
 # ---- gallery assembly / readiness (both methods) ----------------------------------------
 
+def _dashboard_identity(db, listing: str) -> tuple[dict | None, bool]:
+    """Resolve a single production identity for an unscoped dashboard, or hold ambiguity."""
+    from sqlalchemy import and_, or_, select
+    from .fidelity import same_release
+    from .image_records import ImageCandidate
+
+    with db.session() as session:
+        rows = list(session.execute(select(
+            ImageCandidate.slug, ImageCandidate.version, ImageCandidate.release,
+            ImageCandidate.run_key, ImageCandidate.method,
+        ).where(ImageCandidate.listing == listing).where(or_(
+            and_(ImageCandidate.run_key == "", ImageCandidate.method == "owner_submitted"),
+            and_(ImageCandidate.run_key != "", ~ImageCandidate.run_key.like("%#%")),
+        )).distinct().limit(256)))
+    if not rows:
+        return None, False
+    if len(rows) == 256:
+        return None, True
+    identities = set()
+    for slug, version, release, key, method in rows:
+        if (not isinstance(slug, str) or not slug or not isinstance(version, str) or not version
+                or not same_release(release, release)
+                or (key and key != run_key(slug, version, release))
+                or (not key and method != "owner_submitted")):
+            return None, True
+        identities.add((slug, version, release.lower()))
+    if len(identities) != 1:
+        return None, True
+    slug, version, release = identities.pop()
+    return {"slug": slug, "version": version, "release": release}, False
+
+
 def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | None = None) -> dict:
     """The shot plan with what fills each role, the set check and publication blockers."""
     from ..gates.asset_truth import AssetClass
     from ..publish import eligibility as el
+    from .fidelity import same_release
 
     plan = plan or SP.campaign_plan(listing)
+    run = get_run(db, run_key_) if run_key_ else None
+    identity = None
+    ambiguous = False
+    if run and run.get("listing") == listing:
+        release = run.get("release") or ""
+        canonical = run_key(run.get("slug", ""), run.get("version", ""), release)
+        if (isinstance(run_key_, str) and same_release(release, release) and
+                (run_key_ == canonical or run_key_.startswith(canonical + "#"))):
+            identity = {"slug": run["slug"], "version": run["version"], "release": release}
+    if not run_key_:
+        identity, ambiguous = _dashboard_identity(db, listing)
+    elif identity is None:
+        ambiguous = True
     roles, set_cands, blockers, chosen = [], [], set(), []
+    if ambiguous:
+        blockers.add("generated candidates have ambiguous or unavailable production identity; select a valid run")
     for r in plan["roles"]:
         entry = {"position": r["position"], "role": r["role"], "job": r["job"],
                  "campaign_role": r.get("campaign_role"), "laura": r.get("laura"),
@@ -1573,8 +1674,13 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
                  "preferred_source": r["preferred_source"]}
         best = None
         if r.get("generate"):
-            best = _best(db, listing=listing, role=r["role"], run=run_key_) or \
-                (_best(db, listing=listing, role=r["role"]) if run_key_ else None)
+            if run_key_ and identity:
+                best = _best(db, listing=listing, role=r["role"], run=run_key_, **identity)
+                if best is None and run_key_ == canonical:
+                    best = _best(db, listing=listing, role=r["role"], unscoped_only=True,
+                                 method="owner_submitted", **identity)
+            elif not run_key_ and identity:
+                best = _best(db, listing=listing, role=r["role"], production_only=True, **identity)
             if best is not None:
                 chosen.append(best)
                 for b in best.get("blockers") or []:
@@ -1626,7 +1732,8 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             "ruling_conflicts": plan.get("ruling_conflicts") or [],
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
-                                 for e in roles) and consistency["status"] != CG.FAIL,
+                                 for e in roles) and bool(set_check["ok"])
+                             and consistency["status"] != CG.FAIL and not ambiguous,
             "basis": "visual.shot_plans.campaign_plan + candidate_gates + eligibility.check_set"}
 
 
