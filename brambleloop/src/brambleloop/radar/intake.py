@@ -280,7 +280,39 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
     from ..intel import research
 
     research._ensure(db)
-    refs = [str(r) for r in refs or () if str(r).strip()]
+    record_reasons: list[str] = []
+    if not isinstance(refs, (list, tuple)):
+        refs = []
+        record_reasons.append("proposal evidence references are not a list")
+    else:
+        raw_refs = refs
+        refs = []
+        for ref in raw_refs:
+            if not isinstance(ref, str) or not ref or ref != ref.strip():
+                record_reasons.append("proposal contains a malformed evidence reference")
+            else:
+                refs.append(ref)
+        if len(refs) != len(set(refs)):
+            record_reasons.append("proposal contains duplicate evidence references")
+            refs = list(dict.fromkeys(refs))
+
+    def _index_records(value, kind):
+        result = {}
+        if not isinstance(value, list):
+            record_reasons.append(f"research {kind} records are not a list")
+            return result
+        for item in value:
+            if (not isinstance(item, dict) or not isinstance(item.get("ref"), str)
+                    or not item["ref"] or item["ref"] != item["ref"].strip()):
+                record_reasons.append(f"research {kind} has a malformed reference")
+                continue
+            ref = item["ref"]
+            if ref in result:
+                record_reasons.append(f"research {kind} has duplicate reference {ref!r}")
+                continue
+            result[ref] = item
+        return result
+
     with db.session() as s:
         row = s.get(research.ResearchTask, int(task_id))
         if row is None:
@@ -290,11 +322,15 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
         confidence = str(row.confidence or "").strip().lower()
         expires = _aware(row.expires_on)
         answered = _aware(row.answered_at)
-        findings = {f["ref"]: f for f in row.findings or []}
-        sources = {x["ref"]: x for x in row.sources or []}
-        internal = {x.get("ref") for x in row.internal_evidence or []}
+        findings = _index_records(row.findings or [], "finding")
+        sources = _index_records(row.sources or [], "source")
+        internal = _index_records(row.internal_evidence or [], "internal evidence")
         conclusion = (row.detail or {}).get("conclusion") or {}
-    reasons: list[str] = []
+    collisions = (set(findings) & set(sources)) | (set(findings) & set(internal)) | (
+        set(sources) & set(internal))
+    if collisions:
+        record_reasons.append("research references collide across evidence kinds")
+    reasons: list[str] = list(record_reasons)
     if state != research.ANSWERED:
         reasons.append(f"research task {task_id} is {state}, not answered: an open question "
                        f"is not an approved opportunity")

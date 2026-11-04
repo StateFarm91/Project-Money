@@ -758,6 +758,68 @@ def test_malformed_support_reference_holds_instead_of_crashing_worker():
     assert "malformed supporting-source" in str(evidence["reasons"])
 
 
+def test_duplicate_source_identifier_holds_instead_of_selecting_one():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        extra = dict(sources[0])
+        extra["citation"] = "different record with same source identifier"
+        row.sources = sources + [extra]
+
+    task = _mutate_research_and_run_intake(db, change, "duplicate-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "duplicate reference" in str(evidence["reasons"])
+
+
+def test_malformed_source_record_holds_instead_of_crashing_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        row.sources = list(row.sources) + [{"citation": "missing identifier"}]
+
+    task = _mutate_research_and_run_intake(db, change, "malformed-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "malformed reference" in str(evidence["reasons"])
+
+
+def test_source_identifier_cannot_collide_with_a_finding():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources.append({**sources[0], "ref": "F1"})
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "cross-kind-ref-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "collide across evidence kinds" in str(evidence["reasons"])
+
+
+def test_repeated_citation_cannot_inflate_fact_share():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    evidence = intake.research_evidence(db, task.id, ["F1", "F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "duplicate evidence references" in str(evidence["reasons"])
+    assert [item["ref"] for item in evidence["items"]] == ["F1", "S1"]
+
+
 def test_unknown_shop_is_not_counted_as_an_independent_source():
     db = _db()
     _listings(db, "kitchen_bath", [("", "Dishcloth one", 5),

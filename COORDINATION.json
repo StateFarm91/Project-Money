@@ -359,6 +359,20 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A4A-EVIDENCE-REFERENCE-INTEGRITY",
+      "operator": "codex",
+      "branch": "codex/a4a-evidence-ref-integrity",
+      "base": "b057f54422c8fb85237fd3c7aaf83ea6bdffc566",
+      "scope": "Refuse ambiguous and malformed research evidence references",
+      "files": [
+        "brambleloop/src/brambleloop/radar/intake.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/tests/test_codex_a4a_recovery_postgres.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

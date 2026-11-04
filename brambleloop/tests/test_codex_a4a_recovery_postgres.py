@@ -106,3 +106,19 @@ def test_future_answer_timestamp(pg_suite):
 
 def test_malformed_finding_support(pg_suite):
     pg_suite.test_malformed_support_reference_holds_instead_of_crashing_worker()
+
+
+def test_duplicate_source_identifier(pg_suite):
+    pg_suite.test_duplicate_source_identifier_holds_instead_of_selecting_one()
+
+
+def test_malformed_source_record(pg_suite):
+    pg_suite.test_malformed_source_record_holds_instead_of_crashing_worker()
+
+
+def test_cross_kind_reference_collision(pg_suite):
+    pg_suite.test_source_identifier_cannot_collide_with_a_finding()
+
+
+def test_repeated_citation(pg_suite):
+    pg_suite.test_repeated_citation_cannot_inflate_fact_share()
