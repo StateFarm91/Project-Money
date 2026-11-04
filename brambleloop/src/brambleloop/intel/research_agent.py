@@ -206,18 +206,7 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None,
                             "retrieval": "internal"})
         for r in s.scalars(select(R.ResearchTask).where(R.ResearchTask.state == R.ANSWERED)
                            .limit(500)):
-            answered = R._aware(r.answered_at)
-            expires = R._aware(r.expires_on)
-            try:
-                lifetime, _why = R.freshness_for(r.domain)
-            except R.ResearchRefused:
-                continue
-            if answered is not None and lifetime is not None:
-                latest_valid = answered + timedelta(days=lifetime)
-                expires = min(expires, latest_valid) if expires is not None else None
-            if (r.id != exclude_task and answered is not None and answered <= now
-                    and ((expires is None and lifetime is None)
-                         or (expires is not None and expires > now))
+            if (r.id != exclude_task and R.answer_fresh_at(r, now)
                     and _all_terms(f"{r.question} {r.outcome}", terms)):
                 out.append({"ref": f"research_tasks:{r.id}", "kind": "prior_research",
                             "text": f"{r.question} -> {r.outcome}"[:300],
@@ -306,7 +295,7 @@ def stale_domains_to_research(db, *, today: date | None = None) -> dict:
             live = [r for r in s.scalars(select(R.ResearchTask).where(
                 R.ResearchTask.dedupe_key == R._key(trigger),
                 R.ResearchTask.state == R.ANSWERED))
-                if R._aware(r.expires_on) is None or R._aware(r.expires_on) > now]
+                if R.answer_fresh_at(r, now)]
             # INTEG7: research that could not resolve the episode stops with an escalation
             # (R.stop). That escalation stands for the domain's freshness window, so the same
             # stale episode is not re-opened and re-stopped every day.

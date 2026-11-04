@@ -210,6 +210,36 @@ def test_prior_research_requires_current_answer_and_expiry():
                 if x["kind"] == "prior_research"]
 
 
+@pytest.mark.parametrize("case", ["expired", "future", "missing_expiry", "overlong"])
+def test_investigation_request_opens_new_work_for_noncurrent_prior_answer(case):
+    db = _db()
+    now = datetime.now(timezone.utc)
+    question = "What is uniquezzanswer evidence saying now?"
+    first = _open(db, question=question, trigger="answer-older", decision_ref="reuse-target",
+                  domain="aesthetics", query_terms=["uniquezzanswer"])
+    with db.session() as s:
+        row = s.get(R.ResearchTask, first["task"])
+        row.state = R.ANSWERED
+        row.outcome = "old finding"
+        row.answered_at = now - timedelta(days=1000 if case == "overlong" else 1)
+        row.expires_on = now + timedelta(days=1000)
+        if case == "expired":
+            row.expires_on = now - timedelta(seconds=1)
+        elif case == "future":
+            row.answered_at = now + timedelta(days=1)
+        elif case == "missing_expiry":
+            row.expires_on = None
+    inputs = {"question": question, "trigger": "answer-new", "decision_ref": "reuse-target",
+              "domain": "aesthetics", "query_terms": ["uniquezzanswer"]}
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", inputs)
+    assert Worker(db, "reuse-check", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, job.id)
+        assert result.status == JobStatus.DONE, result.last_error
+        assert result.outputs["task"] != first["task"]
+        assert result.outputs["status"] == RA.UNRESOLVED
+
+
 def test_platform_policy_is_blocked_on_official_docs_not_guessed():
     db = _db()
     opened = _open(db, question="What does Etsy currently require for digital "
