@@ -385,8 +385,8 @@ def learning_summary(db, *, slug: str | None = None) -> dict:
 def _best(db, *, listing: str, role: str, run: str | None = None,
           slug: str | None = None, version: str | None = None,
           release: str | None = None, method: str | None = None,
-          unscoped_only: bool = False) -> dict | None:
-    from sqlalchemy import func, select
+          unscoped_only: bool = False, exclude_ids: tuple[int, ...] = ()) -> dict | None:
+    from sqlalchemy import case, func, select
 
     from .image_records import ImageCandidate
 
@@ -405,12 +405,15 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
             q = q.where(func.lower(ImageCandidate.release) == release.lower())
         if method is not None:
             q = q.where(ImageCandidate.method == method)
-        rows = list(s.scalars(q.order_by(ImageCandidate.id.desc())))
-    if not rows:
+        if exclude_ids:
+            q = q.where(ImageCandidate.id.not_in(exclude_ids))
+        rank = case((ImageCandidate.technical_status == "PASS", 0),
+                    (ImageCandidate.technical_status == "UNKNOWN", 1),
+                    (ImageCandidate.technical_status == "FAIL", 2), else_=3)
+        publishable_rank = case((ImageCandidate.publishable.is_(True), 0), else_=1)
+        r = s.scalar(q.order_by(publishable_rank, rank, ImageCandidate.id.desc()).limit(1))
+    if r is None:
         return None
-    rank = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
-    r = sorted(rows, key=lambda x: (not x.publishable, rank.get(x.technical_status, 3),
-                                    -x.id))[0]
     return {"candidate_id": r.id, "sha256": r.sha256, "method": r.method,
             "technical_status": r.technical_status, "publishable": r.publishable,
             "attempt": r.attempt, "outcome": r.outcome,

@@ -21,6 +21,7 @@ def _row(db, digest, release, *, slug="item", version="1", run=None, method="aut
             method=method, provenance_kind="ai_generated_autonomous",
             slug=slug, version=version, release=release, listing="same-listing",
             role=image_production.ANCHOR_ROLE, technical_status="PASS", publishable=True,
+            outcome="accepted",
             checks={"product_truth": {"fidelity": fidelity_override if fidelity_override is not None
                                       else {"status": "PASS", "kind": "anchor", "checker": fidelity.CHECKER,
                                             "checks": [{"check": name, "status": "PASS"}
@@ -108,6 +109,54 @@ def test_pass_label_without_matching_fidelity_evidence_is_held(tmp_path, monkeyp
         row = session.scalar(select(ImageCandidate))
         row.checks = {"product_truth": {"fidelity": valid}}
     assert _anchor(db, cand, release)[1] == data
+
+
+def test_missing_newest_anchor_does_not_hide_eligible_older_anchor(tmp_path, monkeypatch):
+    from brambleloop.core import artifacts
+
+    monkeypatch.setattr(artifacts, "DEFAULT_DIR", str(tmp_path / "artifacts"))
+    db = Database("sqlite:///" + str(tmp_path / "fallback.db"), scratch=True)
+    db.create_all()
+    release = "b" * 64
+    good = b"synthetic older anchor"
+    good_digest = ArtifactStore().put("good", good, "image/png", db=db).sha256
+    missing_digest = ArtifactStore().put("missing", b"newer image", "image/png", db=db).sha256
+    _row(db, good_digest, release)
+    _row(db, missing_digest, release)
+    (tmp_path / "artifacts" / missing_digest[:2] / missing_digest).unlink()
+    cand = {"slug": "item", "version": "1", "listing": "same-listing"}
+    anchor, selected = _anchor(db, cand, release)
+    assert anchor["sha256"] == good_digest and selected == good
+
+    # A malformed newer verdict is not used, even if its bytes are available.
+    fake = ArtifactStore().put("fake", b"incorrect verdict", "image/png", db=db).sha256
+    _row(db, fake, release, fidelity_override={})
+    assert _anchor(db, cand, release)[1] == good
+
+
+def test_rejected_or_owner_vetoed_anchor_is_never_a_fallback(tmp_path, monkeypatch):
+    from sqlalchemy import select
+    from brambleloop.core import artifacts
+
+    monkeypatch.setattr(artifacts, "DEFAULT_DIR", str(tmp_path / "artifacts"))
+    db = Database("sqlite:///" + str(tmp_path / "veto.db"), scratch=True)
+    db.create_all()
+    release = "c" * 64
+    data = b"synthetic vetoed anchor"
+    digest = ArtifactStore().put("test", data, "image/png", db=db).sha256
+    _row(db, digest, release)
+    cand = {"slug": "item", "version": "1", "listing": "same-listing"}
+    with db.session() as session:
+        session.scalar(select(ImageCandidate)).owner_visual_approval = False
+    assert _anchor(db, cand, release) == (None, None)
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.owner_visual_approval = None
+        row.outcome = "rejected"
+    assert _anchor(db, cand, release) == (None, None)
+    # Another row with the same bytes cannot evade the negative decision.
+    _row(db, digest, release)
+    assert _anchor(db, cand, release) == (None, None)
 
 
 def test_real_synthetic_fidelity_verdict_can_be_selected(tmp_path, monkeypatch):

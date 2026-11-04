@@ -16,8 +16,11 @@ availability consequence and requires integration review.
 These checks do not authenticate a stored PASS verdict, independently prove
 physical fidelity or protect evidence against concurrent modification. Selection
 filters product, version and release before ranking so mismatched candidates do
-not hide an otherwise eligible anchor. A matching candidate with missing or
-corrupt bytes can still hide another usable candidate (a conservative hold).
+not hide an otherwise eligible anchor. It tries up to 16 matching candidates in
+deterministic ranked order, skipping missing, corrupt or inconsistent evidence.
+It holds an image when any record for the same product/version and image bytes
+has an owner veto or rejected outcome. Beyond 16 candidates it holds; changes
+after the reads are not fenced and stored decisions remain unauthenticated.
 Generation and re-verification propagate the actual run key and selection no
 longer falls back to a different controlled run. Unscoped owner-submitted
 anchors remain eligible only for the ordinary production run. These are database
@@ -55,3 +58,8 @@ structural validation. Older records lacking these fields hold until reverified.
 The real verifier's PASS on a synthetic test image is accepted; that is not
 physical evidence. On this delta the V1, anchor and owner-image suites passed
 74/74 using Python 3.11 and file-backed SQLite. Independent review required.
+
+On the bounded-search follow-up, those suites passed 76/76. A reviewer found a
+duplicate-image veto ambiguity; the follow-up holds any matching image with a
+negative decision instead of selecting an older duplicate. Selection remains
+subject to concurrent state changes and has no external authority guarantee.

@@ -362,45 +362,73 @@ def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | 
     if not isinstance(candidate_run, str) or not (
             candidate_run == canonical_run or candidate_run.startswith(canonical_run + "#")):
         return None, None
-    try:
-        identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
-                    "release": release}
-        best = _best(db, listing=listing, role=ANCHOR_ROLE, run=candidate_run, **identity)
-        if best is None and candidate_run == canonical_run:
-            # Owner uploads are recorded without a run; only production may use them.
-            best = _best(db, listing=listing, role=ANCHOR_ROLE, unscoped_only=True,
-                         method="owner_submitted", **identity)
-    except Exception:  # noqa: BLE001 - no learning table yet: no anchor
-        return None, None
-    if (not best or not best.get("sha256") or best.get("slug") != cand.get("slug")
-            or best.get("version") != cand.get("version")
-            or not same_release(best.get("release"), release)):
-        return None, None
-    fidelity = best.get("fidelity") or {}
-    checks = fidelity.get("checks") or []
-    if (not expected_cir_fingerprint or fidelity.get("status") != PASS
-            or fidelity.get("checker") != CHECKER or not isinstance(checks, list) or not checks
-            or any(not isinstance(check, dict) or not isinstance(check.get("check"), str)
-                   or check.get("status") not in (PASS, NA)
-                   for check in checks)
-            or not {"isolation", "piece_count", "craft_texture"}.issubset(
-                {check.get("check") for check in checks if isinstance(check, dict)})
-            or fidelity.get("unknown") or fidelity.get("failed") or fidelity.get("codes")
-            or fidelity.get("kind") != "anchor" or fidelity.get("image_sha256") != best["sha256"]
-            or fidelity.get("slug") != cand.get("slug") or fidelity.get("version") != cand.get("version")
-            or fidelity.get("cir_fingerprint") != expected_cir_fingerprint):
-        return None, None
-    data = None
-    try:
-        from ..core.artifacts import ArtifactStore
+    identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
+                "release": release}
+    scopes = [{"run": candidate_run}]
+    if candidate_run == canonical_run:
+        # Owner uploads are recorded without a run; only production may use them.
+        scopes.append({"unscoped_only": True, "method": "owner_submitted"})
+    # A corrupt or unavailable newest image must not hide a good older one. Bound
+    # work so a long history cannot turn one verification into unbounded I/O.
+    remaining = 16
+    for scope in scopes:
+        excluded: list[int] = []
+        while remaining:
+            try:
+                best = _best(db, listing=listing, role=ANCHOR_ROLE, exclude_ids=tuple(excluded),
+                             **scope, **identity)
+            except Exception:  # noqa: BLE001 - unreadable evidence stays unknown
+                return None, None
+            if best is None:
+                break
+            remaining -= 1
+            excluded.append(best["candidate_id"])
+            if (best.get("technical_status") != PASS or best.get("outcome") != "accepted"
+                    or best.get("owner_visual_approval") is False or not best.get("sha256")
+                    or best.get("slug") != cand.get("slug")
+                    or best.get("version") != cand.get("version")
+                    or not same_release(best.get("release"), release)):
+                continue
+            fidelity = best.get("fidelity") or {}
+            checks = fidelity.get("checks") or []
+            if (not expected_cir_fingerprint or fidelity.get("status") != PASS
+                    or fidelity.get("checker") != CHECKER or not isinstance(checks, list) or not checks
+                    or any(not isinstance(check, dict) or not isinstance(check.get("check"), str)
+                           or check.get("status") not in (PASS, NA) for check in checks)
+                    or not {"isolation", "piece_count", "craft_texture"}.issubset(
+                        {check.get("check") for check in checks if isinstance(check, dict)})
+                    or fidelity.get("unknown") or fidelity.get("failed") or fidelity.get("codes")
+                    or fidelity.get("kind") != "anchor" or fidelity.get("image_sha256") != best["sha256"]
+                    or fidelity.get("slug") != cand.get("slug")
+                    or fidelity.get("version") != cand.get("version")
+                    or fidelity.get("cir_fingerprint") != expected_cir_fingerprint):
+                continue
+            try:
+                from ..core.artifacts import ArtifactStore
+                from sqlalchemy import or_, select
+                from .image_records import ImageCandidate
 
-        data = ArtifactStore().get(best["sha256"], db=db)
-        if hashlib.sha256(data).hexdigest() != best["sha256"]:
-            return None, None
-    except Exception:  # noqa: BLE001 - bytes unavailable: consistency stays unread
-        data = None
-    return ({"status": best.get("technical_status"), "release_hash": best.get("release"),
-             "sha256": best["sha256"]}, data)
+                # A negative decision on the same image must not be evaded by
+                # selecting an older duplicate row for the same product/version.
+                with db.session() as session:
+                    rejected = session.scalar(select(ImageCandidate.id).where(
+                        ImageCandidate.slug == cand.get("slug"),
+                        ImageCandidate.version == cand.get("version"),
+                        ImageCandidate.sha256 == best["sha256"],
+                        or_(ImageCandidate.owner_visual_approval.is_(False),
+                            ImageCandidate.outcome == "rejected"),
+                    ).limit(1))
+                if rejected is not None:
+                    continue
+
+                data = ArtifactStore().get(best["sha256"], db=db)
+                if hashlib.sha256(data).hexdigest() != best["sha256"]:
+                    continue
+            except Exception:  # noqa: BLE001 - try an older candidate; never trust missing bytes
+                continue
+            return ({"status": PASS, "release_hash": best.get("release"),
+                     "sha256": best["sha256"]}, data)
+    return None, None
 
 
 def lifestyle_reading(cand: dict, bind: dict) -> dict:
