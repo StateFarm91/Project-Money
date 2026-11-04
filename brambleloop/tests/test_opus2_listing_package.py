@@ -171,9 +171,22 @@ def _requests(db, cir, *, open_only=False):
         return list(s.scalars(q.order_by(OwnerAction.id)))
 
 
+def _source_checked_fixture(db, cir, package):
+    """When simulating READY, bind the fixture to the actual stored Listing copy.
+
+    The publication gate is still synthetic. This does not assert release eligibility.
+    """
+    with db.session() as session:
+        listing = session.scalar(select(Listing).where(
+            Listing.product_slug == cir.slug, Listing.version == cir.version))
+        copy = {"title": listing.title, "description": listing.description, "tags": listing.tags}
+    return {**package, "copy": copy, "listing_snapshot_sha256": LP.listing_copy_digest(copy),
+            "source_snapshot_sha256": LP._release(db, cir.slug, cir.version)["source_snapshot_sha256"]}
+
+
 def test_a_ready_package_asks_for_one_review_and_a_new_blocker_withdraws_it():
     db, cir, _rh = _release("ready")
-    pkg = LP.assemble(db, cir.slug, cir.version)
+    pkg = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
     ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "a" * 64}
     r1 = LP.record(db, ready)
     r2 = LP.record(db, ready)                                   # unchanged: not asked twice
@@ -191,7 +204,7 @@ def test_a_ready_package_asks_for_one_review_and_a_new_blocker_withdraws_it():
 
 def test_review_opus2f_a2_a_review_the_owner_completed_is_never_asked_again():
     db, cir, _rh = _release("a2")
-    ready = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": [],
+    ready = {**_source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version)), "state": LP.READY, "blockers": [],
              "fingerprint": "c" * 64}
     LP.record(db, ready)
     with db.session() as s:
@@ -204,9 +217,21 @@ def test_review_opus2f_a2_a_review_the_owner_completed_is_never_asked_again():
 
 def test_review_opus2f_a3_a_changed_ready_package_supersedes_the_stale_request():
     db, cir, _rh = _release("a3")
-    base = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": []}
+    # Simulate two certified release snapshots by changing both persisted sources.
+    with db.session() as session:
+        pv = session.scalar(select(PatternVersion))
+        listing = session.scalar(select(Listing).where(Listing.product_slug == cir.slug))
+        pv.release_hash = listing.release_hash = "1" * 64
+    base = {**_source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version)),
+            "state": LP.READY, "blockers": []}
     LP.record(db, {**base, "release_hash": "1" * 64, "fingerprint": "d" * 64})
-    r = LP.record(db, {**base, "release_hash": "2" * 64, "fingerprint": "e" * 64})
+    with db.session() as session:
+        pv = session.scalar(select(PatternVersion))
+        listing = session.scalar(select(Listing).where(Listing.product_slug == cir.slug))
+        pv.release_hash = listing.release_hash = "2" * 64
+    updated = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
+    r = LP.record(db, {**updated, "state": LP.READY, "blockers": [],
+                       "release_hash": "2" * 64, "fingerprint": "e" * 64})
     assert r["review_requested"] is True and r["review_withdrawn"] is True
     open_ = _requests(db, cir, open_only=True)
     assert len(open_) == 1 and "222222222222" in open_[0].reason
@@ -237,7 +262,7 @@ def test_review_opus2f_a4_copy_written_for_another_release_blocks():
     with db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == cir.slug))
         row.release_hash = "7" * 64
-    pkg = LP.assemble(db, cir.slug, cir.version)
+    pkg = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
     assert any(b["source"] == "listing" and "written for release" in b["why"]
                for b in pkg["blockers"]), pkg["blockers"]
     # A second row for the same slug@version cannot exist: the database refuses it, so the
@@ -295,7 +320,7 @@ def test_review_opus2f_a8_one_release_failing_to_record_does_not_stop_the_sweep(
 
 def test_review_opus2ef2_ef24_ready_blocked_ready_asks_the_owner_again():
     db, cir, _rh = _release("ef24")
-    pkg = LP.assemble(db, cir.slug, cir.version)
+    pkg = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
     ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "f" * 64}
     blocked = {**pkg, "state": LP.BLOCKED,
                "blockers": [{"source": "fixture", "why": "transient"}], "fingerprint": "9" * 64}
@@ -318,7 +343,7 @@ def test_review_opus2ef2_ef25_a_request_under_the_legacy_key_is_superseded():
     legacy = f"{LP.ACTION_PREFIX}{cir.slug}@{cir.version}"
     with db.session() as s:
         s.add(OwnerAction(requirement_key=legacy, action="old review", reason="r"))
-    ready = {**LP.assemble(db, cir.slug, cir.version), "state": LP.READY, "blockers": [],
+    ready = {**_source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version)), "state": LP.READY, "blockers": [],
              "fingerprint": "7" * 64}
     out = LP.record(db, ready)
     assert out["review_requested"] is True and out["review_withdrawn"] is True
@@ -328,7 +353,7 @@ def test_review_opus2ef2_ef25_a_request_under_the_legacy_key_is_superseded():
 
 def test_review_opus2g_l51_an_owner_deferral_survives_a_transient_block():
     db, cir, _rh = _release("l51")
-    pkg = LP.assemble(db, cir.slug, cir.version)
+    pkg = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
     ready = {**pkg, "state": LP.READY, "blockers": [], "fingerprint": "6" * 64}
     blocked = {**pkg, "state": LP.BLOCKED,
                "blockers": [{"source": "fixture", "why": "transient"}], "fingerprint": "5" * 64}

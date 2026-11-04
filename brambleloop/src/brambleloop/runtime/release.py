@@ -2133,6 +2133,28 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
                 lineage=lineage.under(certificate_ref))
 
 
+def _enqueue_listing_package(ctx: JobContext, i: dict, slug: str) -> None:
+    """W5-A9 (P0-PACKAGE-EVENT): the owner-review listing package of this release, now.
+
+    `launch.plan` is the last stage that writes what the package reads (the listing-set
+    renders `release_gates.for_publish` verifies), so every exit of it -- launched, held or
+    withheld -- asks for this one release's package instead of leaving it to the six-hourly
+    sweep. Keyed like every other chain stage (release and rebuild token, plus the evergreen
+    pivot, which re-runs this stage with new copy), so a re-delivered event is a duplicate key.
+    The package itself is idempotent per `slug@version` and fingerprint, so the sweep running
+    after it writes nothing new. Internal writes only; it never publishes.
+    """
+    token = i.get("rebuild", "") + (":evergreen" if i.get("positioning") == "evergreen" else "")
+    try:
+        ctx.enqueue("listing", "listing.package", {"slug": slug, "version": i["version"],
+                                                   "release": i.get("release", "")},
+                    idempotency_key=chain_key("package", slug, i["version"],
+                                              i.get("release", ""), token))
+    except Exception as exc:  # noqa: BLE001 - the sweep remains the safety net
+        ctx.audit("listing.package_event_failed", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+
+
 @handlers.register("launch.plan")
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
@@ -2181,6 +2203,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
                                                   i.get("rebuild", "") + ":evergreen"))
             ctx.audit("launch.pivot_queued", artifact=f"{slug}@{i['version']}",
                       detail={"why": decision.get("why"), "occasion": decision.get("occasion")})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"held": True, "window_decision": decision})
         return out
@@ -2252,6 +2275,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         _mark_withheld(ctx, _load_cir(ctx, slug, i["version"]), reason)
         ctx.audit("gate.release_withheld", artifact=f"{slug}@{i['version']}",
                   detail={"reason": reason, "stage": "launch.plan"})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"withheld": reason, "window_decision": decision})
         return out
@@ -2266,6 +2290,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     ctx.enqueue("store_operator", "store.publish", publish_inputs,
                 idempotency_key=chain_key("publish", slug, i["version"],
                                           i.get("release", ""), i.get("rebuild", "")))
+    _enqueue_listing_package(ctx, i, slug)
     out = plan.to_dict()
     out["window_decision"] = decision
     out["ranking_readiness"] = ranking_summary
