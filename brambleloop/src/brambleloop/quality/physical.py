@@ -355,9 +355,8 @@ def _non_finite(report: SampleReport) -> list[str]:
     bad = []
 
     def check(label, v):
-        if isinstance(v, bool):
-            return
-        if isinstance(v, (int, float)) and not math.isfinite(v):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float))
+                              or not math.isfinite(v)):
             bad.append(label)
 
     for key in ("hook_mm", "measured_width_cm", "measured_height_cm", "measured_around_cm",
@@ -464,6 +463,14 @@ def assess(report: SampleReport, twin, cir=None, result=None) -> SampleAssessmen
 
 def _assess_yarn(out: SampleAssessment, measured: dict[str, float]) -> None:
     estimated = out.estimated_metres
+    missing = sorted(c for c, amount in estimated.items()
+                     if amount > 0 and (c not in measured or measured[c] <= 0))
+    if missing:
+        out.findings.append(Finding(
+            "SAMPLE_COLOUR_UNMEASURED",
+            f"the made pieces use {missing}, but no positive yarn measurement is recorded "
+            "for those colours; an incomplete sample cannot establish yarn use", "ERROR"))
+        return
     unknown = sorted(set(measured) - set(estimated))
     if unknown:
         out.findings.append(Finding(
