@@ -298,25 +298,52 @@ def reinvestment_block(db, *, now: datetime) -> dict:
         purpose="reinvestment envelope from the trailing 30 days of recorded sales")
     out = {"gross_cad_30d": round(gross, 2), "recommendation": rec,
            "owner_action": None}
-    if rec["recommended_cad"] > 0:
-        key = f"reinvestment:{now.date().strftime('%Y-%m')}"
-        fields = dict(
-            action=(f"Decide whether to reinvest up to CA${rec['recommended_cad']:.2f} "
-                    f"(the CFO's confidence-scaled envelope after tax, operating and cash "
-                    f"reserves)"),
-            reason=rec["envelope"]["note"],
-            max_cost_cad=float(rec["recommended_cad"]), minutes=5,
-            consequence_of_delay="the envelope stays in reserve; nothing is spent",
-            blocks="#49 reinvestment")
-        with db.session() as s:
-            row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key,
-                                                     OwnerAction.done.is_(False)))
-            if row is None:
-                s.add(OwnerAction(requirement_key=key, **fields))
+    key = f"reinvestment:{now.date().strftime('%Y-%m')}"
+    from ..ops import owner_queue
+
+    with db.session() as s:
+        active = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like("reinvestment:%"),
+            OwnerAction.done.is_(False)).order_by(OwnerAction.id).with_for_update()))
+        current = []
+        parked_any = False
+        for row in active:
+            if owner_queue.effective_state(row) == owner_queue.PARKED:
+                parked_any = True
+                continue
+            if row.requirement_key != key or rec["recommended_cad"] <= 0:
+                owner_queue.transition(
+                    s, row, owner_queue.SUPERSEDED,
+                    "reinvestment recommendation is no longer current or supported",
+                    actor="commerce.order_readings", now=now)
             else:
+                current.append(row)
+        if rec["recommended_cad"] > 0:
+            fields = dict(
+                action=(f"Decide whether to reinvest up to CA${rec['recommended_cad']:.2f} "
+                        f"(the CFO's confidence-scaled envelope after tax, operating and cash "
+                        f"reserves)"),
+                reason=rec["envelope"]["note"],
+                max_cost_cad=float(rec["recommended_cad"]), minutes=5,
+                consequence_of_delay="the envelope stays in reserve; nothing is spent",
+                blocks="#49 reinvestment")
+            # Bind a recommendation to its amount. Updating an existing row
+            # would leave approvals for the previous amount attached to it.
+            stable = None
+            for row in current:
+                if not parked_any and stable is None and row.max_cost_cad == fields["max_cost_cad"]:
+                    stable = row
+                else:
+                    owner_queue.transition(s, row, owner_queue.SUPERSEDED,
+                        "reinvestment recommendation changed or was duplicated",
+                        actor="commerce.order_readings", now=now)
+            if stable is not None:
                 for k, v in fields.items():
-                    setattr(row, k, v)
-        out["owner_action"] = key
+                    setattr(stable, k, v)
+                out["owner_action"] = key
+            elif not parked_any:
+                s.add(OwnerAction(requirement_key=key, **fields))
+                out["owner_action"] = key
     return out
 
 
