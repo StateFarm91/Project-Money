@@ -742,6 +742,8 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # The photo gate refuses only inside for_publish at activation; the other src users of
     # sample_photo only choose the truthful disclosure sentence. Internal callers of
     # for_publish (e.g. products.inventory) use the default draft stage.
+    import re as _re_par
+
     # W5-INTEG1: match the module name as a whole word. A substring test also matched PDF1's
     # unrelated `sample_photo_placeholders` keyword in publish/pdf.py, which never touches the
     # sample_photo module. `\bsample_photo\b` still catches every import, attribute access
@@ -754,9 +756,45 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
     # gate) and never passes a stage.
     assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/photo_asset_review.py",
                      "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
                      "brambleloop/runtime/release.py"], users
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): the deterministic photo-frame review reads the gate's own
+    # qualifying predicate and its synthetic-digest list, and nothing else of sample_photo.
+    par_src = (ROOT / "src/brambleloop/publish/photo_asset_review.py").read_text()
+    assert set(_re_par.findall(r"sample_photo\.(\w+)\(", par_src)) == {
+        "qualifying_photos", "_synthetic_shas"}
+    assert not _re_par.search(r"from\s+[.\w]*sample_photo\s+import", par_src)
+    assert not _re_par.search(r"import\s+[.\w]*sample_photo\s+as\s", par_src)
+    assert "requirement(" not in par_src and "stage=" not in par_src
+    # OPUS2S-5: any reach into sample_photo (a getattr, a call) names only those two, as the
+    # physical_upgrade guard reads it; no other binding of the module exists.
+    reached = {m for line in par_src.splitlines() if "import" not in line
+               for m in _re_par.findall(r"sample_photo\W+(\w+)", line)}
+    assert reached == {"qualifying_photos", "_synthetic_shas"}, reached
+    assert "getattr(sample_photo" not in par_src.replace(" ", "")
+    # OPUS2W-6: no alias anywhere (also after a comma on a multi-name import), and every
+    # mention in code -- docstrings and comments stripped -- is one of the two calls or the
+    # single import.
+    assert not _re_par.search(r"sample_photo\s+as\b", par_src)
+    import ast as _ast_par
+    import io as _io_par
+    import tokenize as _tok_par
+
+    code_only = []
+    for tok in _tok_par.generate_tokens(_io_par.StringIO(par_src).readline):
+        if tok.type in (_tok_par.COMMENT, _tok_par.STRING):
+            continue
+        code_only.append(tok.string)
+    names = [s for s in code_only if s == "sample_photo"]
+    tree = _ast_par.parse(par_src)
+    calls = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.Attribute)
+             and isinstance(n.value, _ast_par.Name) and n.value.id == "sample_photo"]
+    assert {c.attr for c in calls} == {"qualifying_photos", "_synthetic_shas"}, calls
+    imports = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.ImportFrom)
+               for a in n.names if a.name == "sample_photo" and a.asname is None]
+    assert imports and len(names) == len(calls) + len(imports), (len(names), len(calls))
     import re as _re
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))

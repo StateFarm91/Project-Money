@@ -763,6 +763,8 @@ JOB_BANDS: dict[str, str] = {
     "cir.reverse": "proven_winner",
     "assets.build": "proven_winner",
     "assets.physical_upgrade": "proven_winner",
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): the next step of the same release chain.
+    "assets.photo_review": "proven_winner",
     # W5-INTEG1 (integration fix): opus2 job types merged in Batch 5 had no decided band
     # (test_swarm_runtime). Each takes the band of the chain it belongs to.
     "chain.successors": "proven_winner",          # advances a release to its next stage
