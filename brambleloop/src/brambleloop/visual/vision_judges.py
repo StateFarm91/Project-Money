@@ -41,6 +41,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from numbers import Real
 
 from ..creative import failure_codes as FC
 
@@ -618,13 +620,30 @@ def compare_items(reading: dict, exp) -> dict:
     if nb is not None and nb <= 0:
         nb = None
     declared = len(getattr(exp, "palette_hex", []) or [])
+    try:
+        raw_shares = list(exp.expected_share)
+        if any(isinstance(value, bool) or not isinstance(value, Real) for value in raw_shares):
+            raise ValueError("non-numeric expected shares")
+        shares = [float(value) for value in raw_shares]
+        if (len(shares) != declared or not declared
+                or not all(math.isfinite(value) and value >= 0 for value in shares)
+                or not math.isclose(sum(shares), 1.0, abs_tol=1e-6, rel_tol=1e-6)):
+            raise ValueError("unusable expected shares")
+        used = sum(value > 0 for value in shares)
+        if not used:
+            raise ValueError("no used colours")
+    except (AttributeError, OverflowError, TypeError, ValueError):
+        used = None
+        unclear.append("pattern colour usage unavailable")
+    if used is not None and ((na is not None and na < used) or (nb is not None and nb < used)):
+        unclear.append("a pattern colour is not visible in one or both images")
     if nb is not None and declared and nb > declared:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the pattern has "
                                                  f"{declared}"))
-    elif nb is not None and na is not None and nb > na:
+    elif nb is not None and na is not None and nb > na and used is not None and na >= used:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the anchor shows {na}"))
-    elif nb is not None and na is not None and nb < na:
-        unclear.append("fewer colours are visible in the candidate")
+    elif nb is not None and na is not None and nb != na:
+        unclear.append("colour counts differ between images")
     elif nb is None:
         unclear.append("colour count unclear")
     if problems:

@@ -184,3 +184,41 @@ def test_declared_edging_not_seen_in_either_image_is_not_a_pass():
     for item in reading.values():
         item["border_or_edging_visible"] = "yes"
     assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"
+
+
+def test_both_images_missing_a_used_yarn_colour_do_not_pass():
+    exp = fidelity.expectation(_cir(CLOUD))
+    assert sum(float(share) > 0 for share in exp.expected_share) == 2
+    reading = _reading()
+    for item in reading.values():
+        item["distinct_yarn_colours"] = 1
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    # The candidate may show the missing colour even when the anchor does not;
+    # the incomplete anchor does not prove an invented extra colour.
+    reading["image_2"]["distinct_yarn_colours"] = 2
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("shares", [[True, False], ["1", "0"], [0.3, 0.3], [float("nan"), 0]])
+def test_malformed_expected_colour_usage_is_never_a_pass(shares):
+    from dataclasses import replace
+
+    exp = replace(fidelity.expectation(_cir(CLOUD)), expected_share=shares)
+    result = vision_judges.blind_consistency(Judge(_reading()), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+def test_unused_palette_entry_is_not_required_visible():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("unused-colour", [_row(i, "pine") for i in range(1, 6)],
+                {"pine": "#244A3A", "cream": "#DDD7CA"})
+    exp = fidelity.expectation(cir)
+    assert len(exp.palette_hex) == 2 and sum(float(share) > 0 for share in exp.expected_share) == 1
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"

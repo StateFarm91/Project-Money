@@ -24,6 +24,14 @@ the declared edging still pass the comparison; existing definite mismatch
 checks are unchanged. Python 3.11/tmpfs targeted suite 27/27; independent
 declared-edging regression 1/1. This is not physical or authenticated evidence.
 
+The blind comparison now also holds UNKNOWN when either image does not show a
+colour present in the verifier's compiled-model render, or when its colour-usage shares
+are malformed. A missing colour in the anchor does not prove the candidate
+invented it. Unused palette entries do not create a visibility requirement;
+the real compiled one-used/two-declared control remains PASS. Python 3.11/tmpfs
+focused suite 33/33; independent used/malformed/unused-palette tests 6/6. This is a
+conservative comparison, not proof of judge authenticity or physical fidelity.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
