@@ -216,6 +216,14 @@ def handle_research_investigate(ctx: JobContext) -> dict:
         except research.ResearchRefused as exc:
             return {"ran": False, "why": f"refused: {exc}"}
         tid = opened["task"]
+        if opened.get("reused"):
+            # The research layer already selected a fresh answered task. Passing it to
+            # investigate would report NOT_OPEN and drop the conclusion the requester needs.
+            ctx.audit("research.answer_reused", artifact=f"research_task:{tid}",
+                      detail={"task": tid, "decision_ref": str(i.get("decision_ref") or "")})
+            return {"ran": False, "task": tid, "status": "ANSWER_REUSED", "reused": True,
+                    "outcome": opened.get("outcome"), "conclusion": opened.get("conclusion"),
+                    "work_done": 0}
     # A4(a): a task carrying an ideation brief (opened by radar.score's coverage handoff) is
     # answered by the deterministic ideation step from the recorded market observations; it
     # proposes a concept to intake, or records a named outcome. Never the generic agent,
