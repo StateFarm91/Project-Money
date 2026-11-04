@@ -356,6 +356,21 @@
         "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-NAMED-SAFETY-HOLD",
+      "operator": "codex",
+      "branch": "codex/a1-named-safety-hold",
+      "source_branch": "codex/a1-detachable-part-aliases",
+      "source_sha": "32f3163",
+      "scope": "Route existing child PDF safety refusals to a named owner-visible non-retrying hold, scoped to exact design and finding",
+      "files": [
+        "brambleloop/src/brambleloop/publish/pdf.py",
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_NAMED_SAFETY_HOLD_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

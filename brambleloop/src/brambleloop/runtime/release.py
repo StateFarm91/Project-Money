@@ -9770,9 +9770,8 @@ CHILDRENS_HOLD = "childrens.decision_required"
 
 
 def _childrens_hold(ctx: JobContext, exc) -> dict:
-    """A1R-4: one named, owner-visible hold per product, never retried, never blocking any
-    other product: an audit row (every time, with the reason) and ONE open owner decision
-    per slug (requirement key childrens-decision:<slug>)."""
+    """A named, owner-visible hold; safety findings are scoped to design and finding."""
+    import hashlib
     from sqlalchemy import select
 
     from ..core.models import OwnerAction
@@ -9780,16 +9779,28 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
     i = dict(ctx.job.inputs)
     slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
     reason = getattr(exc, "reason", "undecided")
-    ctx.audit(CHILDRENS_HOLD, artifact=f"{slug}@{i.get('version') or ''}",
+    version = getattr(exc, "version", None) or i.get("version") or ""
+    if reason == "safety_refusal":
+        digest = getattr(exc, "content_digest", None) or f"unknown-job-{ctx.job.id}"
+        finding = hashlib.sha256(str(exc).encode("utf-8")).hexdigest()
+        rk = f"childrens-safety:{slug}@{version}:{digest}:{finding}"
+    else:
+        rk = f"childrens-decision:{slug}"
+    ctx.audit(CHILDRENS_HOLD, artifact=f"{slug}@{version}",
               detail={"slug": slug, "reason": reason, "why": str(exc)[:600],
-                      "job_type": "assets.build"})
-    rk = f"childrens-decision:{slug}"
+                      "job_type": "assets.build", "requirement_key": rk})
     with ctx.db.session() as s:
-        if not s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == rk,
-                                                     OwnerAction.done == False)):  # noqa: E712
+        existing = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk,
+                                                       OwnerAction.done == False))  # noqa: E712
+        safety_action = (f"{slug}: correct the stated children's safety finding in the "
+                         "design and obtain a fresh exact-design safety assessment; an "
+                         "audience exemption does not clear the finding")
+        if existing is None:
             s.add(OwnerAction(
                 requirement_key=rk,
-                action=((f"{slug}: supply a measured small-parts sample and obtain an "
+                action=(safety_action
+                        if reason == "safety_refusal" else
+                        (f"{slug}: supply a measured small-parts sample and obtain an "
                          "approved content-bound evidence authority; this hold stays in place "
                          "until that authority is implemented") if reason == "small_parts" else
                         (f"Decide whether {slug} is merchandised to a child: assign it in "

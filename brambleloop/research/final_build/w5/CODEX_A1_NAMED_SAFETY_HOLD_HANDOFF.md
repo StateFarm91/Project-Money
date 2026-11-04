@@ -1,0 +1,9 @@
+# A1 named safety-refusal hold
+
+Based on `codex/a1-detachable-part-aliases` at `32f3163`. Children's PDF applied-part and wearable safety refusals are still refusals, but now use the existing `ChildrensDecisionRequired` exception so the real `assets.build` Worker records a named owner-visible hold instead of repeatedly retrying and dead-lettering. The owner guidance says to correct the finding and obtain fresh exact-design safety assessment; audience exemption does not clear it.
+
+Independent review found a slug-only action could hide a new safety issue behind a parked earlier audience decision. Safety-refusal action keys now include slug, version, full CIR digest and full finding digest. A separate prior audience action and a prior parked safety action are preserved. If the content digest cannot be calculated, the hold uses the job identity to avoid treating absent content as verified. No physical evidence or new owner approval is created.
+
+Python 3.11, file-backed SQLite: children's/A1 combined suite passed 63/63 before replacing the shortened finding digest with the full digest. The final Worker suite passed 3/3 after that edit, including existing parked audience action, repeat delivery, and new-version action while prior safety action remains parked. The independent reviewer reran the actual Worker suite 3/3 on the pre-final digest-length version and confirmed the design's narrow scope.
+
+DO NOT INTEGRATE as proof of full A1 completion: audit and OwnerAction are still written in separate transactions; concurrent action deduplication and evidence snapshot fencing are not proved. Existing parent A1 authority, physical evidence, reapproval and delivery integration issues remain open. This does not make any unsafe design publishable, and no production, purchase, publication or deployment occurred.

@@ -743,9 +743,11 @@ class ChildrensDecisionRequired(_PermanentError, ValueError):
     hold instead of spending attempts toward a dead letter. A ValueError too, so every
     existing caller that refuses on ValueError still refuses."""
 
-    def __init__(self, slug: str, reason: str, message: str):
+    def __init__(self, slug: str, reason: str, message: str, *,
+                 version: str | None = None, content_digest: str | None = None):
         super().__init__(message)
         self.slug, self.reason = slug, reason
+        self.version, self.content_digest = version, content_digest
 
 
 def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
@@ -1176,6 +1178,7 @@ def _refuse_what_the_childrens_assessment_refuses(cir: CIR,
     rendered-statement audit after layout owns those.
     """
     from ..intel import childrens as ch
+    from ..products.launch0 import _cir_decision_digest
 
     subcategory, audience = assignment
     concept = ch.concept_from_cir(
@@ -1187,15 +1190,17 @@ def _refuse_what_the_childrens_assessment_refuses(cir: CIR,
     if getattr(cir, "grading", None) is not None or subcategory == "childrens_garment":
         implausible = ch.physical_plausibility(cir)
         if implausible:
-            raise ValueError(
+            raise ChildrensDecisionRequired(cir.slug, "safety_refusal",
                 f"refusing to render {cir.slug}: a children's wearable the pattern would make "
                 f"impractical -- " + "; ".join(f"{p['code']}: {p['detail']}"
-                                               for p in implausible))
+                                               for p in implausible),
+                version=cir.version, content_digest=_cir_decision_digest(cir))
     if refused:
-        raise ValueError(
+        raise ChildrensDecisionRequired(cir.slug, "safety_refusal",
             f"refusing to render {cir.slug}: it is a {subcategory} product for children "
             f"{audience}, and the pattern itself names what intel.childrens refuses -- "
-            + "; ".join(f"{f.code}: {f.detail}" for f in refused))
+            + "; ".join(f"{f.code}: {f.detail}" for f in refused),
+            version=cir.version, content_digest=_cir_decision_digest(cir))
 
 
 def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_bytes: bytes,
