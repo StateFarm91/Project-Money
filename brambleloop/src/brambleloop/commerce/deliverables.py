@@ -255,13 +255,24 @@ def delivery_links(receipt: dict, listings: dict) -> list[dict]:
     """
     from ..publish.pdf import TERMINOLOGIES
 
-    paid = bool(receipt.get("is_paid")) or str(receipt.get("status", "")).lower() in (
+    paid_flag = receipt.get("is_paid")
+    if paid_flag is not None and paid_flag is not True:
+        return []  # Explicitly unpaid or malformed; never infer payment from a conflicting status.
+    paid = paid_flag is True or str(receipt.get("status", "")).lower() in (
         "paid", "completed")
     if not paid:
         return []
     out = []
     for tx in receipt.get("transactions") or []:
-        if not tx.get("is_digital"):
+        if tx.get("is_digital") is False:
+            continue
+        if tx.get("is_digital") is not True:
+            # An unknown line must not disappear from a passing rehearsal.
+            out.append({"receipt_id": receipt.get("receipt_id"),
+                        "transaction_id": tx.get("transaction_id"),
+                        "listing_id": tx.get("listing_id"), "release": None,
+                        "terminology": None, "href": None,
+                        "problem": "digital status is not a boolean"})
             continue
         rel = listings.get(str(tx.get("listing_id")))
         for t in TERMINOLOGIES:
@@ -283,7 +294,8 @@ def rehearse_purchase(db, receipt: dict, listings: dict, *, store=None, render=N
         row = {k: link[k] for k in ("transaction_id", "listing_id", "release", "terminology",
                                     "href")}
         if link["release"] is None:
-            files.append({**row, "state": FAIL, "why": "the line maps to no release"})
+            files.append({**row, "state": FAIL,
+                          "why": link.get("problem") or "the line maps to no release"})
             continue
         slug, version = link["release"].split("@", 1)
         want = certified(db, slug, version)["pdfs"].get(link["terminology"])
