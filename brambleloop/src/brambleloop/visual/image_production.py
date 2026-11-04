@@ -337,7 +337,7 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             latency_s=cand.get("latency_s"), width=q.get("width"), height=q.get("height"),
             binding={k: v for k, v in verdict["checks"]["binding"].items()},
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
-                    **({"_paid_call_token": cand["_paid_call_token"]}
+                    **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
@@ -435,9 +435,9 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
             "failure_categories": list(r.failure_categories or []),
             "owner_visual_approval": r.owner_visual_approval,
             "unknown": sorted(k for k, c in (r.checks or {}).items()
-                              if c.get("status") == "UNKNOWN"),
+                              if k != "_paid_call_token" and c.get("status") == "UNKNOWN"),
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
-                       if c.get("status") == "FAIL"},
+                       if k != "_paid_call_token" and c.get("status") == "FAIL"},
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
             "listing": r.listing, "slug": r.slug, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
@@ -586,7 +586,7 @@ def _complete_paid_generation(db, key, token, candidate_id):
                 or pending.get("state") != "receipt_recorded" or cand is None
                 or cand.run_key != key or cand.stage != pending.get("stage")
                 or not cand.sha256 or cand.cost_cad != pending.get("actual_cad")
-                or (cand.checks or {}).get("_paid_call_token") != token):
+                or ((cand.checks or {}).get("_paid_call") or {}).get("token") != token):
             raise BudgetStop("paid image candidate or receipt is missing; review required")
         del stages["_pending_paid_call"]
         row.stages, row.updated_at = stages, _now()

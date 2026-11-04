@@ -125,6 +125,14 @@ reviewer reran the ordinary checkpoint/hold case. SQLite does not establish
 row-lock serialization. PostgreSQL concurrency, bulk SQL and other modules'
 writers, evidence authority and company-wide finance fencing remain open.
 
+Correction to the earlier token checkpoint: candidate checks are mappings, so
+the token is now stored in a mapping instead of a scalar. A fake paid adapter
+test exercises the actual generation, persistence and candidate-selection path.
+The selector also recognizes the scalar field from earlier isolated test rows;
+this does not migrate or authorize their pending markers. Python 3.11/tmpfs
+spend, anchor and variant tests passed 44/44; the fake-paid selection case was
+independently rerun. No real provider was called.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

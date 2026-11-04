@@ -154,6 +154,7 @@ def test_paid_settlement_records_actual_cost_and_overrun_holds():
     with pytest.raises(IP.BudgetStop, match="candidate or receipt"):
         IP._complete_paid_generation(db, key, token, wrong)
     IP._complete_paid_generation(db, key, token, record_test_candidate(db, key, 0.08, token))
+    assert IP._best(db, listing="item", role="test", run=key)["sha256"] == "f" * 64
     token = IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
     with pytest.raises(IP.BudgetStop, match="exceeded"):
         IP._settle_paid_generation(db, key, token, 0.2)
@@ -249,3 +250,33 @@ def test_candidate_record_failure_after_receipt_keeps_paid_hold(monkeypatch):
     with pytest.raises(IP.BudgetStop, match="unresolved cost"):
         IP._generate(db, key, gen, **args)
     assert gen.calls == 1
+
+
+def test_fake_paid_generation_produces_a_selectable_candidate(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import gallery
+    from brambleloop.visual import image_production as IP
+
+    class Paid(O.StubGenerator):
+        paid, max_cost_cad_per_call = True, 0.1
+        def generate(self, **kw):
+            result = super().generate(**kw)
+            result["cost_cad"] = 0.08
+            return result
+
+    monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    gen = Paid()
+    result = IP._generate(db, key, gen, slug="item", version="1", release="a" * 64,
+                          role=IP.ANCHOR_ROLE, stage="product_generation", brief="", refs=[],
+                          outfit=None, laura=False, judges=O.StubJudges(), plan_attempt=1)
+    selected = IP._best(db, listing="item", role=IP.ANCHOR_ROLE, run=key)
+    assert selected["candidate_id"] == result["candidate_id"]
+    assert IP.get_run(db, key)["spent_cad"] == 0.08 and gen.calls == 1
+    # Earlier isolated development checkpoints stored this metadata as a scalar.
+    from brambleloop.visual.image_records import ImageCandidate
+    with db.session() as session:
+        row = session.get(ImageCandidate, result["candidate_id"])
+        row.checks = {**row.checks, "_paid_call_token": "legacy-test-value"}
+    assert IP._best(db, listing="item", role=IP.ANCHOR_ROLE, run=key)["candidate_id"] == result["candidate_id"]
