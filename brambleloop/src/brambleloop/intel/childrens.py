@@ -1212,12 +1212,22 @@ def parts_in_cir(cir) -> tuple[str, ...]:
 def neck_or_hood_tie_in_cir(cir) -> bool:
     """Whether any sentence of the pattern puts a tie, cord or drawstring at a neck or hood."""
     import re
+    from ..products.text_fold import fold
 
-    tie = re.compile(r"\b(drawstrings?|draw strings?|ties?|cords?|laces?)\b", re.IGNORECASE)
-    place = re.compile(r"\b(neck|neckline|hood|collar)\b", re.IGNORECASE)
+    tie = re.compile(r"\b(?:draw[\s_-]*(?:strings?|cords?)|ties?|cords?|laces?|strings?|"
+                     r"cordons?|lacets?)\b")
+    place = re.compile(r"\b(?:neck|neckline|hood|collar|capuches?|capuchons?|encolures?|cou|col)\b")
+    reference = re.compile(r"\b(?:thread|pull|pass|insert|weave|secure|attach|tuck|feed|use)\s+"
+                           r"(?:it|them)\b")
     for text in _cir_texts(cir):
-        for sentence in re.split(r"[.;\n]", text):
+        sentences = re.split(r"[.;\n]", fold(text))
+        for index, sentence in enumerate(sentences):
             if tie.search(sentence) and place.search(sentence):
+                return True
+            # A nearby explicit pronoun can carry the cord into the next
+            # sentence; do not infer a link merely from unrelated waist copy.
+            if index and tie.search(sentences[index - 1]) and place.search(sentence) \
+                    and reference.search(sentence):
                 return True
     return False
 

@@ -642,6 +642,29 @@ def test_unqualified_toy_eyes_are_unassessed_not_inferred_safe():
     assert "hard_toy_eyes" in parts and "unqualified_toy_eyes" not in parts
 
 
+def test_neck_or_hood_drawcord_variants_reach_child_safety_refusal():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for note in ("Thread the drawcord through the hood.",
+                 "Thread the draw-string through the neckline.",
+                 "Insérer un cordon à la capuche.",
+                 "Attach a drawcord. Thread it through the hood.",
+                 "Thread the drawcоrd through the hood."):
+        cir = _cir_with(note=note)
+        assert ch.neck_or_hood_tie_in_cir(cir), note
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "NECK_OR_HOOD_DRAWSTRING" in str(exc), (note, exc)
+        else:
+            raise AssertionError(f"a child pattern containing {note!r} rendered")
+    for note in ("Tie off and weave in ends.",
+                 "Attach a drawcord at the waist. Hood is optional.",
+                 "Make a waist drawcord. This hood is optional.",
+                 "Make a hood. Sew the waist band."):
+        assert not ch.neck_or_hood_tie_in_cir(_cir_with(note=note)), note
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
