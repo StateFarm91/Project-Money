@@ -28,12 +28,18 @@ def test_old_release_result_does_not_hide_current_unknown_from_quality_sweep():
         session.add(Listing(product_slug=cir.slug, version=cir.version,
                             title="Crochet pattern", description="Crochet pattern.",
                             tags=["crochet"], price_cad=6.5, state="draft"))
-    assert run("policy", "gate.policy", {**current, "release_hash": "o" * 64})["ok"] is True
+    # A historical audit can still arrive from older code; retain it without
+    # making the current report depend on a stale job being accepted here.
+    from brambleloop.core.models import AuditLog
+    with db.session() as session:
+        session.add(AuditLog(actor="fixture", action=quality_ops.READING,
+                             artifact=f"{cir.slug}@{cir.version}",
+                             detail={"check": "gate.policy", "release_hash": "o" * 64,
+                                     "ok": True}))
     report = run("quality_director", "gate.quality", {})
     assert any(row["check"] == "gate.policy" for row in report["unverifiable"]), report
     assert run("policy", "gate.policy", current)["ok"] is True
     assert not any(row["check"] == "gate.policy" for row in quality_ops.unverifiable(db))
-    from brambleloop.core.models import AuditLog
     with db.session() as session:
         session.add(AuditLog(actor="fixture", action=quality_ops.READING,
                              artifact=f"{cir.slug}@{cir.version}",

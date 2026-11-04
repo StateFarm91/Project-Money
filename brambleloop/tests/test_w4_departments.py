@@ -56,6 +56,10 @@ def _cir():
 
 
 def _run(db, agent, jt, inputs):
+    if jt in quality_ops.CHECKS and "release_hash" not in inputs:
+        with db.session() as session:
+            pv = session.scalar(select(PatternVersion).where(PatternVersion.version == inputs.get("version")))
+            inputs = {**inputs, "release_hash": pv.release_hash if pv else ""}
     job = JobQueue(db).enqueue(agent, jt, inputs)
     return handlers.get(jt)(JobContext(job=job, db=db, queue=JobQueue(db),
                                        registry=Registry(db), phase=Phase.SHADOW))

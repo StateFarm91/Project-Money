@@ -24,7 +24,7 @@ def test_real_worker_holds_wrong_identity_and_recovers(title, tags, expected):
     db = d._db(cir, {"title": title, "description": "Crochet pattern.",
                      "tags": tags, "price_cad": 6.5, "state": "draft"})
     def run():
-        job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version})
+        job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version, "release_hash": "r" * 64})
         assert Worker(db, "identity-test", job_types=["gate.asset_truth"]).run_once()
         with db.session() as session:
             row = session.get(Job, job.id)
