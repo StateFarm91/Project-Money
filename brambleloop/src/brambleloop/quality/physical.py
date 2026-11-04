@@ -355,9 +355,8 @@ def _non_finite(report: SampleReport) -> list[str]:
     bad = []
 
     def check(label, v):
-        if isinstance(v, bool):
-            return
-        if isinstance(v, (int, float)) and not math.isfinite(v):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float))
+                              or not math.isfinite(v)):
             bad.append(label)
 
     for key in ("hook_mm", "measured_width_cm", "measured_height_cm", "measured_around_cm",
