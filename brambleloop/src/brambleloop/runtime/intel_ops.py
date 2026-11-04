@@ -242,6 +242,10 @@ def handle_research_investigate(ctx: JobContext) -> dict:
     return out
 
 
+RESEARCH_SWEEP_MAX_QUEUED = 25
+RESEARCH_SWEEP_MAX_ENQUEUE_ATTEMPTS = 100
+
+
 @handlers.register("research.sweep")
 def handle_research_sweep(ctx: JobContext) -> dict:
     """F-401 self-trigger: unknowns become tasks, due tasks become investigations."""
@@ -255,11 +259,30 @@ def handle_research_sweep(ctx: JobContext) -> dict:
     reopened: list = []
     due = research_agent.due_for_investigation(ctx.db)
     day = datetime.now(timezone.utc).date().isoformat()
-    queued = 0
-    for tid in due[:25]:
+    # A prior same-day key can be terminal (for example a failed/dead job)
+    # while its task remains due. Do not let the first 25 such keys starve
+    # later tasks. Retain the daily idempotency key and cap actual attempts.
+    from sqlalchemy import select
+    from ..core.models import Job
+
+    with ctx.db.session() as s:
+        existing = set(s.scalars(select(Job.idempotency_key).where(
+            Job.idempotency_key.like(f"research.investigate:%:{day}"))))
+    queued = attempts = 0
+    attempt_limit_reached = False
+    for tid in due:
+        key = f"research.investigate:{tid}:{day}"
+        if key in existing:
+            continue
+        if attempts >= RESEARCH_SWEEP_MAX_ENQUEUE_ATTEMPTS:
+            attempt_limit_reached = True
+            break
+        attempts += 1
         job = ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
-                          idempotency_key=f"research.investigate:{tid}:{day}")
+                          idempotency_key=key)
         queued += job is not None
+        if queued >= RESEARCH_SWEEP_MAX_QUEUED:
+            break
     # F-444 / F-449: the escalation report and the research metrics, one reading per day each.
     from .etsy_ops import store_reading
 
@@ -268,9 +291,12 @@ def handle_research_sweep(ctx: JobContext) -> dict:
     store_reading(ctx.db, research_agent.METRICS, research_agent.metrics(ctx.db))
     ctx.audit("research.swept", detail={"opened": len(found["opened"]), "escalations": len(esc),
                                         "reopened": len(reopened), "due": len(due),
-                                        "queued": queued})
+                                        "queued": queued, "enqueue_attempts": attempts,
+                                        "attempt_limit_reached": attempt_limit_reached})
     return {"opened": len(found["opened"]), "reopened": len(reopened), "due": len(due),
-            "queued": queued, "work_done": len(found["opened"]) + queued}
+            "queued": queued, "enqueue_attempts": attempts,
+            "attempt_limit_reached": attempt_limit_reached,
+            "work_done": len(found["opened"]) + queued}
 
 
 @handlers.register("research.flag_architecture")

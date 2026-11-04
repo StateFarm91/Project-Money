@@ -183,6 +183,110 @@ def test_the_sweep_self_triggers_investigations_once_per_task():
     assert not set(RA.due_for_investigation(db)) & {j.inputs["task_id"] for j in jobs}
 
 
+def _open_fixture_tasks(db, count):
+    ids = []
+    with db.session() as s:
+        for n in range(count):
+            row = R.ResearchTask(question=f"What recorded evidence supports fixture task {n}?",
+                                 trigger=f"fixture:fair-sweep:{n}",
+                                 dedupe_key=f"fixture-{n}", decision_ref="fixture",
+                                 domain="techniques", state=R.OPEN, detail={})
+            s.add(row)
+            s.flush()
+            ids.append(row.id)
+    return ids
+
+
+def test_research_sweep_skips_dead_same_day_keys_without_starving_later_task():
+    db = _db()
+    ids = _open_fixture_tasks(db, 26)
+    day = datetime.now(timezone.utc).date().isoformat()
+    with db.session() as s:
+        for tid in ids[:25]:
+            s.add(Job(agent=RA.AGENT, job_type="research.investigate", inputs={"task_id": tid},
+                      status=JobStatus.DEAD, idempotency_key=f"research.investigate:{tid}:{day}"))
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="fairness-sweep",
+                      priority=-1000)
+    assert Worker(db, "fairness-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, sweep.id).status == JobStatus.DONE
+        later = s.scalar(select(Job).where(
+            Job.idempotency_key == f"research.investigate:{ids[25]}:{day}"))
+        assert later is not None and later.status == JobStatus.PENDING
+
+
+def test_research_sweep_still_bounds_new_investigations():
+    db = _db()
+    ids = _open_fixture_tasks(db, 40)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="bounded-sweep", priority=-1000)
+    assert Worker(db, "bounded-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        keys = set(s.scalars(select(Job.idempotency_key).where(
+            Job.job_type == "research.investigate", Job.status == JobStatus.PENDING)))
+    assert len(keys & {f"research.investigate:{tid}:{day}" for tid in ids}) == 25
+
+
+def test_research_sweep_continues_after_concurrent_duplicate(monkeypatch):
+    db = _db()
+    ids = _open_fixture_tasks(db, 26)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="race-sweep",
+                      priority=-1000)
+    original = JobContext.enqueue
+    raced = []
+
+    def compete(ctx, agent, job_type, inputs=None, **kwargs):
+        if job_type == "research.investigate" and not raced:
+            # A real queue insert wins after the sweep's existing-key snapshot.
+            ctx.queue.enqueue(agent, job_type, inputs, **kwargs)
+            raced.append(inputs["task_id"])
+        return original(ctx, agent, job_type, inputs, **kwargs)
+
+    monkeypatch.setattr(JobContext, "enqueue", compete)
+    assert Worker(db, "race-sweep", job_types=["research.sweep"]).run_once()
+    assert raced == [ids[0]]
+    with db.session() as s:
+        finished = s.get(Job, sweep.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["queued"] == 25
+        later = s.scalar(select(Job).where(
+            Job.idempotency_key == f"research.investigate:{ids[-1]}:{day}"))
+        assert later is not None and later.status == JobStatus.PENDING
+
+
+def test_research_sweep_bounds_concurrent_duplicate_attempts(monkeypatch):
+    db = _db()
+    ids = _open_fixture_tasks(db, 110)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="bounded-race-sweep",
+                      priority=-1000)
+    original = JobContext.enqueue
+    raced = []
+
+    def compete(ctx, agent, job_type, inputs=None, **kwargs):
+        if job_type == "research.investigate":
+            ctx.queue.enqueue(agent, job_type, inputs, **kwargs)
+            raced.append(inputs["task_id"])
+        return original(ctx, agent, job_type, inputs, **kwargs)
+
+    monkeypatch.setattr(JobContext, "enqueue", compete)
+    assert Worker(db, "bounded-race-sweep", job_types=["research.sweep"]).run_once()
+    assert len(raced) == 100
+    with db.session() as s:
+        finished = s.get(Job, sweep.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["queued"] == 0
+        assert finished.outputs["enqueue_attempts"] == 100
+        assert finished.outputs["attempt_limit_reached"] is True
+        assert s.scalar(select(Job.id).where(
+            Job.idempotency_key == f"research.investigate:{ids[100]}:{day}")) is None
+
+
 def test_an_architecture_flag_needs_graded_evidence_and_never_relaxes_a_floor():
     db = _db()
     with db.session() as s:
