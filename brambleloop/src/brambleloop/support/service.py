@@ -40,6 +40,10 @@ class ServiceRefused(ValueError):
     """A response time that cannot be true, or one recorded twice."""
 
 
+class ReplyAlreadySent(ServiceRefused):
+    """A held draft cannot be timed after the buyer response was recorded."""
+
+
 MEASURED_AS: tuple[str, ...] = ("sent", "draft_ready")
 
 
@@ -56,7 +60,10 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
     `draft_ready_minutes`. Still refused: the same basis twice, a draft timing after the
     reply was sent, and a sent timing earlier than the draft it delivered.
     """
+    from sqlalchemy import select
+
     from ..core.models import SupportCase
+    from .response_watch import _answered
 
     if minutes < 0:
         raise ServiceRefused("a response cannot have taken negative time")
@@ -64,10 +71,13 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
         raise ServiceRefused(f"{measured_as!r} is not a timing basis: {list(MEASURED_AS)}")
 
     with db.session() as s:
-        case = s.get(SupportCase, case_id)
+        case = s.scalar(select(SupportCase).where(
+            SupportCase.id == case_id).with_for_update())
         if case is None:
             raise ServiceRefused(f"no support case {case_id}")
         detail = dict(case.detail or {})
+        if measured_as == "draft_ready" and _answered(case):
+            raise ReplyAlreadySent("a sent case cannot receive a later held-draft timing")
         draft_minutes = None
         if "response_minutes" in detail:
             prior_basis = detail.get("response_measured_as", "sent")
