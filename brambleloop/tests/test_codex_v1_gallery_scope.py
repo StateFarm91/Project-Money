@@ -60,6 +60,8 @@ def test_missing_run_does_not_fall_back_to_an_unrelated_gallery(tmp_path):
         ))
     view = IP.readiness(db, listing, run_key_="missing", plan=plan)
     assert next(r for r in view["roles"] if r["role"] == role).get("candidate") is None
+    assert not view["gallery_ready"]
+    assert any("unavailable production identity" in b for b in view["publication_blockers"])
 
 
 def test_unscoped_dashboard_holds_mixed_production_release_identities(tmp_path):
@@ -79,4 +81,4 @@ def test_unscoped_dashboard_holds_mixed_production_release_identities(tmp_path):
     view = IP.readiness(db, listing, plan=plan)
     assert next(r for r in view["roles"] if r["role"] == role).get("candidate") is None
     assert not view["gallery_ready"]
-    assert any("ambiguous production identities" in b for b in view["publication_blockers"])
+    assert any("ambiguous or unavailable production identity" in b for b in view["publication_blockers"])

@@ -1656,9 +1656,11 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             identity = {"slug": run["slug"], "version": run["version"], "release": release}
     if not run_key_:
         identity, ambiguous = _dashboard_identity(db, listing)
+    elif identity is None:
+        ambiguous = True
     roles, set_cands, blockers, chosen = [], [], set(), []
     if ambiguous:
-        blockers.add("generated candidates have ambiguous production identities; select a specific run")
+        blockers.add("generated candidates have ambiguous or unavailable production identity; select a valid run")
     for r in plan["roles"]:
         entry = {"position": r["position"], "role": r["role"], "job": r["job"],
                  "campaign_role": r.get("campaign_role"), "laura": r.get("laura"),

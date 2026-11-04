@@ -39,6 +39,10 @@ more than one or malformed product/release identity. Conflicting records, more
 than 255 distinct identity/run/method combinations, and missing full release IDs cause conservative
 holds; they are not silently combined.
 
+An explicit unknown or mismatched run is also marked not ready with a named
+blocker, even if some disclosed-render fallback entries can be displayed. The
+separate no-run/no-candidate disclosed-gallery behavior is unchanged.
+
 Python 3.11/file-backed SQLite: 81/81 V1, anchor, owner-image, stage-D and new
 gallery tests. The independent reviewer reran the gallery cases 3/3. The
 identity scan and later role reads remain separate transactions; metadata is
