@@ -3,6 +3,41 @@
 `codex/v1-craft-enum` continues `codex/v1-variant-base` at
 `100f06496e108ca8ece2cc4899c11dc2339118a8`; the previous branch is unchanged.
 
+## Integration review at `10a50cf08aab7a28eac04568bbbfda8a8dda819e`
+
+PR #60 is a draft stacked on PR #47; neither this review nor the tests below
+authorize integration or deployment. The stack changes visual evidence checks,
+FLUX anchor/scratch handling, generation budgets and replay, restart enqueue,
+and duplicate child validation. Shared files include `runtime/release.py` and
+`app/command_center/api.py`; coordinate integration with A1/support and other
+workers before applying these changes.
+
+Reproduced on Python 3.11 and file-backed SQLite in tmpfs: 142 tests passed on
+the exact head above. From `brambleloop/` with the repository's Python 3.11
+environment installed:
+
+```sh
+TMPDIR=/dev/shm PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:tests python -m pytest -q -p no:cacheprovider \
+  tests/test_codex_v1_spend_guard.py tests/test_codex_v1_flux_concurrency.py \
+  tests/test_codex_v1_anchor_binding.py tests/test_codex_v1_variant_base.py \
+  tests/test_codex_v1_craft_enum.py tests/test_codex_v1_blind_comparison.py \
+  tests/test_w4_visnext2.py::test_identity_correction_stage_retry_does_not_repeat_generated_images
+```
+
+Required before integration: independent review of the cumulative stack and
+shared interfaces; PostgreSQL concurrency tests for cooperating and bulk/other
+writers; action-time authenticated authority and evidence fencing; central
+finance and provider billing reconciliation; experiment/production separation
+across shared runs and candidate selection; a reviewed recovery path for held
+legacy operation markers; and the owner's fresh authorization for the frozen
+experiment definition drift. The existing experiment dry-run refuses that drift
+and must not be repinned automatically. File-lock evidence assumes a stable,
+trusted lock path and cooperating processes. Provider receipts, image readings,
+candidate metadata and synthetic physical-reference fixtures are not proof of
+physical fidelity or authenticated approval. Tests here do not establish
+Railway production behavior, cross-process budget guarantees or deployment
+readiness.
+
 The blind craft comparator previously treated an unsupported or malformed craft
 label as a definite mismatch, even when the judge had not described a recognized
 craft. Such readings now remain UNKNOWN and are marked unsuitable for stage-D
