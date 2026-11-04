@@ -48,7 +48,7 @@ class ReplyAlreadySent(ServiceRefused):
 MEASURED_AS: tuple[str, ...] = ("sent", "draft_ready")
 
 
-def _valid_minutes(value) -> float | None:
+def _nonnegative_number(value) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     try:
@@ -76,7 +76,7 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
     from ..core.models import SupportCase
     from .response_watch import _answered
 
-    measured_minutes = _valid_minutes(minutes)
+    measured_minutes = _nonnegative_number(minutes)
     if measured_minutes is None:
         raise ServiceRefused("a response time must be a finite non-negative number")
     if measured_as not in MEASURED_AS:
@@ -98,7 +98,7 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
                     f"case {case_id} already recorded {detail['response_minutes']} minutes "
                     f"({prior_basis}). A response time that can be revised is one somebody "
                     f"will revise, and the revision always goes the same way")
-            draft_minutes = _valid_minutes(detail["response_minutes"])
+            draft_minutes = _nonnegative_number(detail["response_minutes"])
             if draft_minutes is None:
                 raise ServiceRefused("existing draft timing is invalid; reconciliation required")
             if measured_minutes < draft_minutes:
@@ -141,7 +141,7 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
 
     recent = [r for r in rows if r[2] >= cutoff]
     all_timed = [(esc, d) for esc, d, _ in recent
-                 if _valid_minutes(d.get("response_minutes")) is not None
+                 if _nonnegative_number(d.get("response_minutes")) is not None
                  and d.get("response_measured_as", "sent") in MEASURED_AS]
     # Only a response somebody received is a service level. A draft-ready time is how fast
     # the automation produced an answer, reported beside it and never counted as delivered.
@@ -225,15 +225,30 @@ def refund_impact(db, *, days: int = 90) -> dict:
                        "claim a support department runs on for a year without checking"),
         }
 
-    refunds = [x for x in sales if x.refunds_cad > 0]
+    # Ledger rows alone do not establish distinct buyers, link support speed to
+    # each outcome, or provide a comparison capable of measuring an effect.
+    # Report only descriptive row counts and never turn their existence into a
+    # causal or associative claim.
+    recorded_refunds = 0
+    invalid_refunds = 0
+    for sale in sales:
+        amount = _nonnegative_number(sale.refunds_cad)
+        if amount is None:
+            invalid_refunds += 1
+        elif amount > 0:
+            recorded_refunds += 1
     level = service_level(db, days=days)
     return {
-        "measurable": True,
-        "orders": len(sales),
-        "refunds": len(refunds),
-        "refund_rate": round(len(refunds) / len(sales), 4),
+        "measurable": False,
+        "orders": None,
+        "refunds": None,
+        "refund_rate": None,
+        "sale_rows": len(sales),
+        "sale_rows_with_positive_recorded_refunds": recorded_refunds,
+        "sale_rows_with_invalid_refunds": invalid_refunds,
         "service_level": level,
-        "note": ("a refund rate beside a service level is an association and not yet a "
-                 "cause. Saying which way it runs needs orders that differ in how fast they "
-                 "were answered, which is a comparison this shop cannot make yet"),
+        "reason": ("ledger sale rows are not a linked comparison of support response "
+                   "speed and refunds, so the impact cannot be measured"),
+        "note": ("sale-row counts are descriptive, all-history ledger observations; they "
+                 "are not deduplicated order counts or a measured refund rate"),
     }
