@@ -106,3 +106,10 @@ and model-spend suites pass 57/57 with fake transports; no paid call was made.
 This conservative hold does not repair unknown historic records or establish
 complete provider-ledger reconciliation. PostgreSQL and independent review
 remain required; DO NOT INTEGRATE remains.
+
+An opt-in regression in `tests/test_codex_v0_postgres.py` ran against a freshly
+created, loopback-only disposable PostgreSQL 16 database and passed: two
+simultaneous real `authorize` calls sharing one funded reservation yielded one
+allowed call and one `reservation_already_used` refusal. No paid provider was
+contacted. This is one concurrency case, not a certification of all reservation,
+release, settlement, or ledger races. Independent review remains required.
