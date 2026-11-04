@@ -929,6 +929,19 @@
       "base": "d0437a5f2e2dd41f37da7ee66f1ae847560bf64b",
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A8-IDENTITY-FIX",
+      "operator": "codex",
+      "branch": "codex/a8-culture-continuation",
+      "source_branch": "opus2/a8-culture-ideation",
+      "source_sha": "4f99bd8ff867755a67c4bf0671c85e70cf0580c4",
+      "scope": "A8 culture-signal identity collisions and safe momentum evidence",
+      "files": [
+        "brambleloop/src/brambleloop/culture/ideation_bridge.py",
+        "brambleloop/tests/test_w5_a8_culture_to_ideation.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

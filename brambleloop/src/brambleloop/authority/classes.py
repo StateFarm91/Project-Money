@@ -86,7 +86,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "creative.outcome_learning": _R, "creative.photoreal_calibration": _R,
     "creative.reference_reading": _R, "creative.style_learning": _R,
     "creative.tournament": _R, "creative.white_space": _R, "creative.family_engine": _R, "creative.salvage_review": _R, "creative.capability_scorecard": _R, "creative.photo_principles": _R,
-    "listing.cross_sell_graph": _R, "culture.sweep": _R,
+    "listing.cross_sell_graph": _R, "culture.sweep": _R, "culture.ideate": _R,
     "improve.mine": _R, "improve.retrospective": _R, "intel.acceptance": _R,
     "intel.benchmark_health": _R, "intel.benchmark_refresh": _R,
     "intel.gallery_analysis": _R, "intel.panel_discovery": _R, "intel.pod_learning": _R,

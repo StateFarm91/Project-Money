@@ -3038,6 +3038,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.white_space": ("hypotheses", "complaints"),
     "creative.candidates_file": ("boards_filed", "registered"),
     "culture.sweep": ("recorded", "discovered", "placed", "routed", "demand_points"),
+    "culture.ideate": ("work_done",),
     "etsy.credential_health": ("findings",),
     "etsy.probe": ("ok",),
     "finance.accounting.cycle": ("posting.posted", "posting.reversed", "matching.matched",
@@ -3643,6 +3644,7 @@ from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_l
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import enrichment_ops  # noqa: E402,F401  (OPUS2: research.enrichment_sweep)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
+from . import culture_ideation_ops  # noqa: E402,F401  (OPUS2 A8: culture.ideate)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

@@ -105,6 +105,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).
                             "culture.sweep", "intel.gallery_analysis",
+                            # OPUS2 A8 (P0-CULTURE-TO-IDEATION): a rising culture signal
+                            # opens an ideation brief through A4(a)'s chain.
+                            "culture.ideate",
                             # W4-AGENTS C1: the priority baby & children's family (F-351..366).
                             "intel.children_portfolio",
                             # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): per-shop scan evidence.

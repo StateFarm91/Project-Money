@@ -826,6 +826,8 @@ JOB_BANDS: dict[str, str] = {
     "intel.opportunity_review": "new_opportunity",
     "radar.concept_intake": "new_opportunity",
     "culture.sweep": "benchmark_change",
+    # OPUS2 A8: the culture signal's way into ideation, the same band as the sweep.
+    "culture.ideate": "benchmark_change",
     "creative.blind_review": "benchmark_change",
     # Unproven, possibly valuable.
     "radar.score": "new_opportunity",
