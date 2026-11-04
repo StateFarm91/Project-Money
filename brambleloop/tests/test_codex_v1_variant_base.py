@@ -70,6 +70,15 @@ def test_edit_base_never_uses_failed_or_vetoed_image(tmp_path, monkeypatch):
         row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
             "status": "UNKNOWN", "checks": [legacy]}}}
     assert select_base() is None
+    unreadable = fidelity.compare_craft(
+        {"fabric_visible_clearly": "true", "craft": "crocheted", "cable_style": "none",
+         "ribbing_visible": "false", "border_or_edging_visible": "false"},
+        fidelity.expectation(build_basket("small")))
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [unreadable]}}}
+    assert select_base() is None
     # A newly incomplete two-image comparison cannot become an edit base either.
     from test_codex_v1_blind_comparison import CLOUD, Judge, _cir, _reading
     from brambleloop.visual import vision_judges

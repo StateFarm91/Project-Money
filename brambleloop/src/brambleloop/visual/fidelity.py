@@ -964,7 +964,8 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
         # Other independent, deterministic image checks may still return FAIL.
         return _check("craft_texture", UNKNOWN, "fabric not clearly visible", reading=v,
                       blocks_variant_input=True)
-    if v["craft"] == "unclear":
+    craft_unreadable = v["craft"] not in ("crochet", "knitting", "woven", "printed")
+    if craft_unreadable:
         unclear.append("craft unclear")
     elif v["craft"] != exp.craft:
         problems.append(f"reads as {v['craft']}, the pattern is {exp.craft}")
@@ -1017,7 +1018,8 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
         return _check("craft_texture", FAIL, "an edging the pattern does not have",
                       code=FC.INVENTED_EDGING, reading=v)
     if unclear:
-        return _check("craft_texture", UNKNOWN, "; ".join(unclear), reading=v)
+        return _check("craft_texture", UNKNOWN, "; ".join(unclear), reading=v,
+                      blocks_variant_input=craft_unreadable)
     return _check("craft_texture", PASS, f"reads as {exp.craft} and matches known texture constraints",
                   reading=v)
 
