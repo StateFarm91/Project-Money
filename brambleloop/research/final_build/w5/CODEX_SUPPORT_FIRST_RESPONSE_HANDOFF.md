@@ -101,3 +101,14 @@ distinct people, and versionless cases remain grouped as version unknown.
 These remain candidate defects, not physical proof or confirmed defects.
 PostgreSQL and duplicate audit-event recovery are not verified here. No
 customer messages were sent.
+
+Service-level follow-up: held drafts and malformed timings remain untimed for
+the delivered-response metric, and an incomplete set of recent delivered
+timings cannot make `meets_target` pass. The verdict uses unrounded shares;
+display shares remain rounded and the response explains that distinction.
+Non-finite, negative, boolean and nonnumeric timing inputs are refused.
+Python 3.11 focused tmpfs SQLite suites passed 57/57; an independent reviewer
+reran service/trust and the rounding-boundary tests. This is not authenticated
+proof of delivery: legacy sent markers remain unsigned and other malformed
+case fields can still make a reading fail. The latest head was not tested on
+PostgreSQL. No customer messages were sent.

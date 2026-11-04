@@ -22,6 +22,7 @@ except where it matters.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 
 # What "in minutes" means, per kind of question. Separate targets on purpose: one average over
@@ -47,6 +48,16 @@ class ReplyAlreadySent(ServiceRefused):
 MEASURED_AS: tuple[str, ...] = ("sent", "draft_ready")
 
 
+def _valid_minutes(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        minutes = float(value)
+    except (OverflowError, ValueError):
+        return None
+    return minutes if math.isfinite(minutes) and minutes >= 0 else None
+
+
 def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
                     measured_as: str = "sent") -> dict:
     """Record how long a case waited, on the case itself.
@@ -65,8 +76,9 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
     from ..core.models import SupportCase
     from .response_watch import _answered
 
-    if minutes < 0:
-        raise ServiceRefused("a response cannot have taken negative time")
+    measured_minutes = _valid_minutes(minutes)
+    if measured_minutes is None:
+        raise ServiceRefused("a response time must be a finite non-negative number")
     if measured_as not in MEASURED_AS:
         raise ServiceRefused(f"{measured_as!r} is not a timing basis: {list(MEASURED_AS)}")
 
@@ -86,21 +98,23 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
                     f"case {case_id} already recorded {detail['response_minutes']} minutes "
                     f"({prior_basis}). A response time that can be revised is one somebody "
                     f"will revise, and the revision always goes the same way")
-            draft_minutes = float(detail["response_minutes"])
-            if float(minutes) < draft_minutes:
+            draft_minutes = _valid_minutes(detail["response_minutes"])
+            if draft_minutes is None:
+                raise ServiceRefused("existing draft timing is invalid; reconciliation required")
+            if measured_minutes < draft_minutes:
                 raise ServiceRefused(
-                    f"case {case_id}: a reply sent after {float(minutes)} minutes cannot "
+                    f"case {case_id}: a reply sent after {measured_minutes} minutes cannot "
                     f"predate the draft that was ready after {draft_minutes} minutes")
             detail["draft_ready_minutes"] = draft_minutes
             detail["draft_from_canonical"] = bool(detail.get("from_canonical"))
-        detail["response_minutes"] = float(minutes)
+        detail["response_minutes"] = measured_minutes
         detail["from_canonical"] = bool(from_canonical)
         # In shadow mode a reply is drafted and held, so what can be timed is how long the
         # answer took to be ready, not how long the buyer waited. Kept apart below: a draft
         # held in a queue is not a response anybody received.
         detail["response_measured_as"] = measured_as
         case.detail = detail
-        out = {"case_id": case_id, "minutes": float(minutes),
+        out = {"case_id": case_id, "minutes": measured_minutes,
                "from_canonical": bool(from_canonical), "measured_as": measured_as}
         if draft_minutes is not None:
             out["draft_ready_minutes"] = draft_minutes
@@ -126,14 +140,18 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
                 for c in s.scalars(select(SupportCase))]
 
     recent = [r for r in rows if r[2] >= cutoff]
-    all_timed = [(esc, d) for esc, d, _ in recent if "response_minutes" in d]
+    all_timed = [(esc, d) for esc, d, _ in recent
+                 if _valid_minutes(d.get("response_minutes")) is not None
+                 and d.get("response_measured_as", "sent") in MEASURED_AS]
     # Only a response somebody received is a service level. A draft-ready time is how fast
     # the automation produced an answer, reported beside it and never counted as delivered.
     drafts = [(esc, d) for esc, d in all_timed
               if d.get("response_measured_as") == "draft_ready"]
     timed = [(esc, d) for esc, d in all_timed
              if d.get("response_measured_as", "sent") == "sent"]
-    untimed = len(recent) - len(all_timed)
+    # A held draft is not a delivered response; it remains untimed for the
+    # buyer-facing service level, even though draft latency is shown separately.
+    untimed = len(recent) - len(timed)
 
     canonical = [d for esc, d in timed if not esc]
     escalated = [d for esc, d in timed if esc]
@@ -152,7 +170,14 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
                             "has received it and it is not a service level")}
     canonical_share = share(canonical, TARGETS["canonical_minutes"])
     escalated_share = share(escalated, TARGETS["escalated_hours"] * 60)
-    measured = [s for s in (canonical_share, escalated_share) if s is not None]
+    measured_groups = [(canonical, TARGETS["canonical_minutes"]),
+                       (escalated, TARGETS["escalated_hours"] * 60)]
+    measured_groups = [(items, limit) for items, limit in measured_groups if items]
+    # Use unrounded ratios for the verdict; display rounding must never turn a
+    # just-below-floor result into a passing one.
+    meets = (all(sum(item["response_minutes"] <= limit for item in items) / len(items)
+                 >= SERVICE_FLOOR for items, limit in measured_groups)
+             if measured_groups and not untimed else None)
 
     return {
         "window_days": days,
@@ -164,14 +189,16 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
         "escalated": {"cases": len(escalated), "within_target": escalated_share,
                       "target_hours": TARGETS["escalated_hours"]},
         # Minimum, not average: the worse of the two is the one a buyer experienced.
-        "meets_target": (min(measured) >= SERVICE_FLOOR) if measured else None,
+        "meets_target": meets,
         "draft_ready": draft_block,
         "floor": SERVICE_FLOOR,
         "note": ("no case in this window has a recorded response time, so there is no "
                  "service level -- which is different from a bad one"
                  if not timed else
                  f"{untimed} case(s) are untimed and are counted as untimed rather than "
-                 f"dropped: dropping them measures the cases somebody remembered to time"),
+                 f"dropped: dropping them measures the cases somebody remembered to time")
+                + ". Shares are rounded for display; the target uses unrounded ratios "
+                  "and requires complete delivered-response timing.",
     }
 
 
