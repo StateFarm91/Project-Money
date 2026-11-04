@@ -283,8 +283,11 @@ def unverifiable(db, *, days: int = 30) -> list[dict]:
         for a in s.scalars(select(AuditLog).where(AuditLog.action == READING,
                                                   AuditLog.at >= since)
                            .order_by(AuditLog.id)):
-            d = a.detail or {}
-            key = (a.artifact, d.get("check"))
+            d = a.detail if isinstance(a.detail, dict) else {}
+            check = d.get("check")
+            if not isinstance(check, str) or check not in CHECKS:
+                continue
+            key = (a.artifact, check)
             newest[key] = d
             if d.get("ok") is None:
                 unknown[key] = unknown.get(key, 0) + 1
@@ -315,13 +318,18 @@ def next_work(db) -> list[dict]:
     since = datetime.now(timezone.utc) - timedelta(hours=FRESH_HOURS)
     # L-4: fresh only when ALL four checks have a reading for the release in the window
     # (an UNKNOWN reading counts as having run; it is never counted as a pass).
-    seen: dict[str, set] = {}
+    seen: dict[tuple[str, str], set] = {}
     with db.session() as s:
         for a, d in s.execute(select(AuditLog.artifact, AuditLog.detail).where(
                 AuditLog.action == READING, AuditLog.at >= since)).all():
-            seen.setdefault(a, set()).add((d or {}).get("check"))
+            detail = d if isinstance(d, dict) else {}
+            digest = detail.get("release_hash")
+            check = detail.get("check")
+            if isinstance(digest, str) and digest and isinstance(check, str) and check in CHECKS:
+                seen.setdefault((a, digest), set()).add(check)
     stale = [f"{r['slug']}@{r['version']}" for r in releases
-             if not set(CHECKS) <= seen.get(f"{r['slug']}@{r['version']}", set())]
+             if not r["release_hash"] or not set(CHECKS) <= seen.get(
+                 (f"{r['slug']}@{r['version']}", r["release_hash"]), set())]
     if not stale:
         return []
     return [{"key": f"quality.reverify:{len(stale)}", "kind": "internal",
