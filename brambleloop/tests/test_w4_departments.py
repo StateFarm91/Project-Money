@@ -87,7 +87,7 @@ def test_certified_release_reverifies_clean_and_changes_nothing():
     for j in jobs:
         out = handlers.get(j.job_type)(JobContext(job=j, db=db, queue=JobQueue(db),
                                                   registry=Registry(db), phase=Phase.SHADOW))
-        if j.job_type == "gate.policy":
+        if j.job_type in ("gate.policy", "gate.asset_truth"):
             assert out["ran"] is False and "no drafted listing" in out["why"]
             continue
         assert out["ok"] is True, (j.job_type, out)
