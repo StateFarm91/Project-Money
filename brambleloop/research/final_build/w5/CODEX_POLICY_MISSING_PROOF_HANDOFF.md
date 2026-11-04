@@ -1,0 +1,7 @@
+# Policy re-verification with missing proof
+
+Stacked on proof-normalization branch `codex/proof-claim-normalization` at `93d8b7c`. The actual `gate.policy` Worker re-verifies stored listing copy without passing a proof position. `check_proof_claims` previously skipped the check in that case, so a synthetic unsupported `maker tested` listing passed the policy recheck and did not trigger the publication withholding workflow. The `listing.seo` policy check also omits a proof position.
+
+A missing proof position now means no proof rung is established: claims requiring evidence are held, while ordinary non-claim copy is unchanged. An explicit proof position still follows the existing ladder. This is a conservative availability hold: callers that have not wired authoritative current evidence cannot assert even legitimately earned claims until that integration exists. The change does not authenticate a supplied proof-state map, resolve concurrent evidence changes, prove physical testing, or authorize publication.
+
+The actual Worker test uses synthetic certified-release fixtures and confirms a durable policy withholding, then changes copy in the test and confirms the same check clears its own hold. No actual owner approval, physical evidence, deployment, publication or purchase occurred. Python 3.11 tmpfs SQLite proof and re-verification regressions passed 22/22; no PostgreSQL or production acceptance is claimed.
