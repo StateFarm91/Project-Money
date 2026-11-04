@@ -617,6 +617,31 @@ def test_applied_part_aliases_are_refused_for_under_three():
     assert ch.parts_in_cir(_cir_with("plastic rattle insert")) == ("plastic_rattle_insert",)
 
 
+def test_unqualified_toy_eyes_are_unassessed_not_inferred_safe():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for text in ("toy eyes", "doll eyes", "craft eyes", "animal eyes", "stitched toy eyes",
+                 "not embroidered toy eyes", "embroidered toy eyes made of plastic",
+                 "embroidered eyes with washers", "embroidered toy eyes", "crocheted doll eyes",
+                 "embroidered toy eyes; made of plastic",
+                 "embroidered toy eyes with detachable backs"):
+        cir = _cir_with("worsted cotton", note=f"Attach {text}.")
+        assert "unqualified_toy_eyes" in ch.parts_in_cir(cir), text
+        assert ch.classify_part("unqualified_toy_eyes") == "unknown"
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "UNRECOGNISED_PART" in str(exc), (text, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {text!r} rendered")
+    for text, expected in (("embroidered eyes", "embroidered_eyes"),
+                           ("crocheted eyes", "crocheted_eyes")):
+        parts = ch.parts_in_cir(_cir_with("worsted cotton", note=text))
+        assert expected in parts and "unqualified_toy_eyes" not in parts, (text, parts)
+    parts = ch.parts_in_cir(_cir_with("acrylic toy eyes"))
+    assert "hard_toy_eyes" in parts and "unqualified_toy_eyes" not in parts
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

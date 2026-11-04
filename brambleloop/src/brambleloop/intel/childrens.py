@@ -1160,12 +1160,34 @@ def parts_in_cir(cir) -> tuple[str, ...]:
              if any(_part_pattern(part).search(t) for t in texts)}
     # Explicit hard/snap-in eye synonyms are detachable; do not infer this for
     # unqualified or embroidered eyes. French terms are folded without accents.
-    aliases = (r"\b(?:plastic|acrylic|resin|glass)\s+(?:(?:toy|doll|animal|craft)\s+)?eyes?\b",
+    aliases = (r"\b(?:plastic|acrylic|resin|glass|safety)\s+(?:(?:toy|doll|animal|craft)\s+)?eyes?\b",
                r"\b(?:snap[\s_-]*in|locking)\s+eyes?\b",
                r"\byeux\s+(?:de\s+securite|en\s+(?:plastique|verre))\b")
     if (not found.intersection({"safety_eyes", "plastic_eyes", "glass_eyes", "googly_eyes"})
             and any(re.search(pattern, text) for pattern in aliases for text in texts)):
         found.add("hard_toy_eyes")
+    # A toy/doll/craft eye without an explicit hard material is unassessed.
+    # Even "embroidered toy eyes" can refer to a separate attached piece;
+    # a nearby adjective alone is not evidence that it is integral.
+    for text in texts:
+        for match in re.finditer(r"\b(?:toy|doll|animal|craft)\s+eyes?\b", text):
+            qualifier = re.search(r"\b(embroidered|crocheted|plastic|acrylic|resin|glass|safety)\s+$",
+                                  text[:match.start()])
+            word = qualifier.group(1) if qualifier else None
+            if word not in {"plastic", "acrylic", "resin", "glass", "safety"}:
+                found.add("unqualified_toy_eyes")
+        for match in re.finditer(r"\b(?:embroidered|crocheted)\s+"
+                                 r"(?:(?:toy|doll|animal|craft)\s+)?eyes?\b", text):
+            # A nearby negation or an explicit hard attachment contradicts an
+            # integral-only reading. Preserve UNKNOWN instead of trusting it.
+            before = re.split(r"[.;\n]", text[:match.start()])[-1]
+            after = re.split(r"[.\n]", text[match.end():])[0]
+            negated = re.search(r"\b(?:no|not|never|avoid|without|non)\b", before)
+            hard = re.search(r"\b(?:made\s+(?:of|from)|with|using)\s+"
+                             r"(?:(?:hard|detachable)\s+)?"
+                             r"(?:plastic|acrylic|resin|glass|washers?|backs?)\b", after)
+            if negated or hard:
+                found.add("unqualified_toy_eyes")
     # Named applied parts in common compact or French forms remain subject to
     # the same under-three refusal as their existing English vocabulary.
     part_aliases = {
