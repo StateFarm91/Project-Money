@@ -617,6 +617,94 @@ def test_applied_part_aliases_are_refused_for_under_three():
     assert ch.parts_in_cir(_cir_with("plastic rattle insert")) == ("plastic_rattle_insert",)
 
 
+def test_unqualified_toy_eyes_are_unassessed_not_inferred_safe():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for text in ("toy eyes", "doll eyes", "craft eyes", "animal eyes", "stitched toy eyes",
+                 "not embroidered toy eyes", "embroidered toy eyes made of plastic",
+                 "embroidered eyes with washers", "embroidered toy eyes", "crocheted doll eyes",
+                 "embroidered toy eyes; made of plastic",
+                 "embroidered toy eyes with detachable backs"):
+        cir = _cir_with("worsted cotton", note=f"Attach {text}.")
+        assert "unqualified_toy_eyes" in ch.parts_in_cir(cir), text
+        assert ch.classify_part("unqualified_toy_eyes") == "unknown"
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "UNRECOGNISED_PART" in str(exc), (text, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {text!r} rendered")
+    for text, expected in (("embroidered eyes", "embroidered_eyes"),
+                           ("crocheted eyes", "crocheted_eyes")):
+        parts = ch.parts_in_cir(_cir_with("worsted cotton", note=text))
+        assert expected in parts and "unqualified_toy_eyes" not in parts, (text, parts)
+    parts = ch.parts_in_cir(_cir_with("acrylic toy eyes"))
+    assert "hard_toy_eyes" in parts and "unqualified_toy_eyes" not in parts
+
+
+def test_neck_or_hood_drawcord_variants_reach_child_safety_refusal():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for note in ("Thread the drawcord through the hood.",
+                 "Thread the draw-string through the neckline.",
+                 "Insérer un cordon à la capuche.",
+                 "Attach a drawcord. Thread it through the hood.",
+                 "Thread the drawcоrd through the hood."):
+        cir = _cir_with(note=note)
+        assert ch.neck_or_hood_tie_in_cir(cir), note
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "NECK_OR_HOOD_DRAWSTRING" in str(exc), (note, exc)
+        else:
+            raise AssertionError(f"a child pattern containing {note!r} rendered")
+    for note in ("Tie off and weave in ends.",
+                 "Attach a drawcord at the waist. Hood is optional.",
+                 "Make a waist drawcord. This hood is optional.",
+                 "Make a hood. Sew the waist band."):
+        assert not ch.neck_or_hood_tie_in_cir(_cir_with(note=note)), note
+
+
+def test_sewn_felt_shape_is_unassessed_without_retention_authority():
+    from brambleloop.gates import small_parts
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    assert ch.classify_part("felt_shapes_sewn") == "unknown"
+    for text in ("felt shapes sewn", "sewn felt eyes", "felt shapes are stitched"):
+        cir = _cir_with(text)
+        assert "felt_shapes_sewn" in ch.parts_in_cir(cir), text
+        # An old slug-only assertion is not a content-bound physical test.
+        small_parts.SMALL_PARTS_EVIDENCE[cir.slug] = "unscoped alleged sample"
+        try:
+            try:
+                build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+            except ValueError as exc:
+                assert "UNRECOGNISED_PART" in str(exc), exc
+            else:
+                raise AssertionError("unassessed sewn felt rendered for under-three audience")
+        finally:
+            small_parts.SMALL_PARTS_EVIDENCE.pop(cir.slug, None)
+    assert ch.classify_part("embroidered_eyes") == "integral"
+
+
+def test_explicit_separate_crocheted_features_are_unassessed():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for note in ("Sew the crocheted eyes onto the head.",
+                 "The crocheted nose is sewn on.", "Attach crocheted eyes.",
+                 "Use separate crocheted eyes."):
+        cir = _cir_with(note=note)
+        assert "unassessed_crocheted_attachment" in ch.parts_in_cir(cir), note
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "UNRECOGNISED_PART" in str(exc), (note, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {note!r} rendered")
+    assert ch.parts_in_cir(_cir_with(note="Crocheted eyes")) == ("crocheted_eyes",)
+    assert ch.classify_part("crocheted_eyes") == "integral"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

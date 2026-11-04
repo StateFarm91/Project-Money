@@ -848,12 +848,17 @@ DETACHABLE_APPLIED_PARTS: frozenset[str] = frozenset((
     "hard_toy_eyes", "rattle_insert", "snap_fasteners",
 ))
 
-# Features worked into the fabric, or sewn through it with yarn. They cannot detach without the
-# fabric failing first, which is a different and much slower failure.
+# Features worked into the fabric itself. A separate sewn-on felt piece is not
+# included: its retention has not been established by the pattern text alone.
 INTEGRAL_FEATURES: frozenset[str] = frozenset((
     "embroidered_eyes", "embroidered_nose", "embroidered_mouth", "crocheted_eyes",
-    "crocheted_nose", "felt_shapes_sewn", "surface_slip_stitch", "colourwork_face",
+    "crocheted_nose", "surface_slip_stitch", "colourwork_face",
 ))
+
+# Discoverable parts that still have no accepted physical-evidence authority.
+# `classify_part` deliberately leaves these UNKNOWN rather than asserting that
+# stitching a separate shape makes it either safe or detachable.
+UNASSESSED_APPLIED_PARTS: frozenset[str] = frozenset(("felt_shapes_sewn",))
 
 
 def classify_part(part: str) -> str:
@@ -1156,20 +1161,45 @@ def parts_in_cir(cir) -> tuple[str, ...]:
     # Reuse the same Unicode fold as the child-audience decision so lookalike
     # letters and invisible characters cannot hide a named detachable part.
     texts = [fold(text) for text in _cir_texts(cir)]
-    found = {part for part in DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES
+    found = {part for part in DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES | UNASSESSED_APPLIED_PARTS
              if any(_part_pattern(part).search(t) for t in texts)}
     # Explicit hard/snap-in eye synonyms are detachable; do not infer this for
     # unqualified or embroidered eyes. French terms are folded without accents.
-    aliases = (r"\b(?:plastic|acrylic|resin|glass)\s+(?:(?:toy|doll|animal|craft)\s+)?eyes?\b",
+    aliases = (r"\b(?:plastic|acrylic|resin|glass|safety)\s+(?:(?:toy|doll|animal|craft)\s+)?eyes?\b",
                r"\b(?:snap[\s_-]*in|locking)\s+eyes?\b",
                r"\byeux\s+(?:de\s+securite|en\s+(?:plastique|verre))\b")
     if (not found.intersection({"safety_eyes", "plastic_eyes", "glass_eyes", "googly_eyes"})
             and any(re.search(pattern, text) for pattern in aliases for text in texts)):
         found.add("hard_toy_eyes")
+    # A toy/doll/craft eye without an explicit hard material is unassessed.
+    # Even "embroidered toy eyes" can refer to a separate attached piece;
+    # a nearby adjective alone is not evidence that it is integral.
+    for text in texts:
+        for match in re.finditer(r"\b(?:toy|doll|animal|craft)\s+eyes?\b", text):
+            qualifier = re.search(r"\b(embroidered|crocheted|plastic|acrylic|resin|glass|safety)\s+$",
+                                  text[:match.start()])
+            word = qualifier.group(1) if qualifier else None
+            if word not in {"plastic", "acrylic", "resin", "glass", "safety"}:
+                found.add("unqualified_toy_eyes")
+        for match in re.finditer(r"\b(?:embroidered|crocheted)\s+"
+                                 r"(?:(?:toy|doll|animal|craft)\s+)?eyes?\b", text):
+            # A nearby negation or an explicit hard attachment contradicts an
+            # integral-only reading. Preserve UNKNOWN instead of trusting it.
+            before = re.split(r"[.;\n]", text[:match.start()])[-1]
+            after = re.split(r"[.\n]", text[match.end():])[0]
+            negated = re.search(r"\b(?:no|not|never|avoid|without|non)\b", before)
+            hard = re.search(r"\b(?:made\s+(?:of|from)|with|using)\s+"
+                             r"(?:(?:hard|detachable)\s+)?"
+                             r"(?:plastic|acrylic|resin|glass|washers?|backs?)\b", after)
+            if negated or hard:
+                found.add("unqualified_toy_eyes")
     # Named applied parts in common compact or French forms remain subject to
     # the same under-three refusal as their existing English vocabulary.
     part_aliases = {
         "pom_poms": r"\bpom[\s_-]*poms?\b",
+        "felt_shapes_sewn": r"\b(?:sewn|stitched)[\s_-]+felt[\s_-]+(?:shapes?|eyes?|noses?)\b"
+                            r"|\bfelt[\s_-]+(?:shapes?|eyes?|noses?)[\s_-]+"
+                            r"(?:are[\s_-]+)?(?:sewn|stitched)\b",
         "rattle_insert": r"\brattle[\s_-]+(?:inserts?|boxes|box|capsules?|balls?|modules?)\b"
                          r"|\bboitier[\s_-]+de[\s_-]+hochet\b",
         "snap_fasteners": r"\bsnap[\s_-]+fasteners?\b|\bpress[\s_-]+studs?\b",
@@ -1184,18 +1214,40 @@ def parts_in_cir(cir) -> tuple[str, ...]:
             found.add(part)
     if "plastic_rattle_insert" in found:
         found.discard("rattle_insert")
+    # A separately attached crocheted feature is not established to be
+    # integral merely because the feature itself was crocheted. Preserve the
+    # legacy plain "crocheted eyes/nose" interpretation; hold explicit
+    # attachment wording until its retention can be assessed.
+    separate_crochet = (
+        r"\b(?:sew|sewn|attach|attached|glue|glued|stitch[\s_-]+on|stitched[\s_-]+on)"
+        r"[\s_-]+(?:on[\s_-]+)?(?:the[\s_-]+)?crocheted[\s_-]+(?:eyes?|noses?)\b"
+        r"|\bcrocheted[\s_-]+(?:eyes?|noses?)[\s_-]+(?:(?:is|are)[\s_-]+)?"
+        r"(?:sewn|attached|stitched|glued)\b"
+        r"|\bseparate[\s_-]+crocheted[\s_-]+(?:eyes?|noses?)\b")
+    if any(re.search(separate_crochet, text) for text in texts):
+        found.add("unassessed_crocheted_attachment")
     return tuple(sorted(found))
 
 
 def neck_or_hood_tie_in_cir(cir) -> bool:
     """Whether any sentence of the pattern puts a tie, cord or drawstring at a neck or hood."""
     import re
+    from ..products.text_fold import fold
 
-    tie = re.compile(r"\b(drawstrings?|draw strings?|ties?|cords?|laces?)\b", re.IGNORECASE)
-    place = re.compile(r"\b(neck|neckline|hood|collar)\b", re.IGNORECASE)
+    tie = re.compile(r"\b(?:draw[\s_-]*(?:strings?|cords?)|ties?|cords?|laces?|strings?|"
+                     r"cordons?|lacets?)\b")
+    place = re.compile(r"\b(?:neck|neckline|hood|collar|capuches?|capuchons?|encolures?|cou|col)\b")
+    reference = re.compile(r"\b(?:thread|pull|pass|insert|weave|secure|attach|tuck|feed|use)\s+"
+                           r"(?:it|them)\b")
     for text in _cir_texts(cir):
-        for sentence in re.split(r"[.;\n]", text):
+        sentences = re.split(r"[.;\n]", fold(text))
+        for index, sentence in enumerate(sentences):
             if tie.search(sentence) and place.search(sentence):
+                return True
+            # A nearby explicit pronoun can carry the cord into the next
+            # sentence; do not infer a link merely from unrelated waist copy.
+            if index and tie.search(sentences[index - 1]) and place.search(sentence) \
+                    and reference.search(sentence):
                 return True
     return False
 
