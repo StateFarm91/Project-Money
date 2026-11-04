@@ -128,8 +128,12 @@ def reverify(db, check: str, slug: str, version: str) -> dict:
         lst = _listing(db, slug, version)
         if not lst:
             return {"check": check, "ok": None, "why": "no drafted listing to check"}
+        tags = lst["tags"]
+        if not isinstance(tags, (list, tuple)) or any(not isinstance(tag, str) for tag in tags):
+            problems.append("listing tags are malformed and cannot be re-verified")
+            tags = []
         problems += _errors(check_listing(ListingDraft(
-            title=lst["title"], description=lst["description"], tags=list(lst["tags"]),
+            title=lst["title"], description=lst["description"], tags=list(tags),
             price_cad=float(lst["price_cad"] or 0)), cir))
     else:
         return {"check": check, "ok": None, "why": f"unknown check {check!r}"}
