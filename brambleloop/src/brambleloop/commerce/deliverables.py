@@ -152,10 +152,15 @@ def secure_release(db, slug: str, version: str, *, store=None, render=None,
     from disk when present (frames are re-made by the next `assets.build`, which keeps them).
     """
     from ..core.artifacts import ArtifactMissing, ArtifactStore
+    from ..publish.pdf import TERMINOLOGIES
 
     store = store or ArtifactStore()
     want = certified(db, slug, version)
     pdfs, frames = {}, {}
+    for t in TERMINOLOGIES:
+        if not want["pdfs"].get(t):
+            pdfs[t] = {"sha256": None, "held": False,
+                       "refused": "no certified PDF hash is on record"}
     for t, sha in sorted(want["pdfs"].items()):
         try:
             got = resolve_pdf(db, slug, version, t, store=store, render=render)
@@ -225,12 +230,18 @@ def restorable(db, sha256: str, store=None) -> bool:
 def durable_state(db, slug: str, version: str) -> dict:
     """PASS when every certified PDF of this release is held in Postgres; FAIL when one is
     not; UNKNOWN when nothing certifies a PDF for it (never read as PASS)."""
+    from ..publish.pdf import TERMINOLOGIES
+
     try:
         want = certified(db, slug, version)["pdfs"]
     except Exception as exc:  # noqa: BLE001
         return {"state": UNKNOWN, "why": f"unreadable: {type(exc).__name__}: {exc}"[:240]}
     if not want:
         return {"state": UNKNOWN, "why": f"no certified PDF hash is recorded for {slug}@{version}"}
+    uncertified = sorted(t for t in TERMINOLOGIES if not want.get(t))
+    if uncertified:
+        return {"state": FAIL, "pdfs": want, "missing": uncertified,
+                "why": f"no certified PDF hash is recorded for {uncertified} of {slug}@{version}"}
     missing = sorted(t for t, sha in want.items() if not held(db, sha))
     if missing:
         return {"state": FAIL, "pdfs": want, "missing": missing,
