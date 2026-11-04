@@ -305,6 +305,7 @@ def revision_attempts(db, slug: str, version: str) -> int:
 # Serialize the final audit decision across all workers. A database transaction,
 # not an in-process mutex, enforces the cap when Railway has multiple replicas.
 _REVISION_LOCK = 734543626
+_HOLD_LOCK = 734543627
 
 
 def _claim_revision(ctx, artifact: str, fingerprint: str, detail: dict) -> tuple[bool, bool]:
@@ -362,13 +363,35 @@ def record_hold(ctx: JobContext, cir, *, stage: str, reason: str, codes, problem
                       "correction loop enqueues nothing more for this version"}
     opened = False
     if existing_hold is None:
+        from sqlalchemy import select, text
+        from ..core.db import is_postgres
+        from ..core.models import AuditLog, Incident
+
+        # Serialize A5 writers so a repeated delivery cannot create duplicate incidents or
+        # lose the audit for an opened/changed hold after a crash. Incident restatement and
+        # its audit must commit together; incident last_seen/report_count still advance.
         with ctx.db.session() as s:
+            if is_postgres(ctx.db.engine):
+                s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _HOLD_LOCK})
+            else:
+                s.execute(text("BEGIN IMMEDIATE"))
+            current = s.scalar(select(Incident).where(
+                Incident.signature == sig, Incident.resolved == False))  # noqa: E712
+            previous = dict(current.detail or {}) if current is not None else {}
+            changed = current is None or any(previous.get(k) != v for k, v in detail.items())
             _row, opened = lifecycle.open_or_restate(
                 s, signature=sig, severity="P2", product_slug=slug,
                 summary=(f"correction loop held {slug}@{version} at {stage}: {reason}")[:500],
                 detail=detail, halts_publication=False)
-    ctx.audit(HOLD_AUDIT, artifact=f"{slug}@{version}",
-              detail={**detail, "signature": sig, "opened": opened})
+            if changed:
+                s.add(AuditLog(actor=ctx.job.agent, action=HOLD_AUDIT,
+                               artifact=f"{slug}@{version}", job_id=ctx.job.id,
+                               phase=ctx.phase,
+                               detail={**detail, "signature": sig, "opened": opened}))
+    else:
+        # A hold owned by another department has its own incident lifecycle.
+        ctx.audit(HOLD_AUDIT, artifact=f"{slug}@{version}",
+                  detail={**detail, "signature": sig, "opened": opened})
     return {"held": True, "hold": sig, "reason": reason, "opened": opened}
 
 

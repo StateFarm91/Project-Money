@@ -363,7 +363,88 @@ def test_a_lost_lease_on_a_held_certify_keeps_one_hold():
     _drain(db, ["gate.certify"], name="restarted")
     holds = _holds(db, bare.slug, bare.version)
     assert len(holds) == 1 and holds[0].report_count == 2
+    # A replay restates the incident but does not append an identical hold audit.
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{bare.slug}@{bare.version}")) == 1
     assert _jobs(db, job_type="cir.revise") == []
+
+
+def test_changed_hold_evidence_is_audited_and_reopened_hold_is_audited():
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-changed")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+    artifact = f"{cir.slug}@{cir.version}"
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    EO.record_hold(ctx, cir, stage="certify", reason="two", codes={"SECOND"})
+    rows = _audits(db, EO.HOLD_AUDIT, artifact)
+    assert len(rows) == 2
+    assert [row.detail["reason"] for row in rows] == ["one", "two"]
+    assert _holds(db, cir.slug, cir.version)[0].report_count == 3
+    with db.session() as session:
+        incident_lifecycle.resolve_signatures(session, [EO.hold_signature(cir.slug, cir.version)],
+                                              resolution="test evidence superseded")
+    EO.record_hold(ctx, cir, stage="certify", reason="two", codes={"SECOND"})
+    rows = _audits(db, EO.HOLD_AUDIT, artifact)
+    assert len(rows) == 3 and rows[-1].detail["opened"] is True
+
+
+def test_concurrent_identical_holds_are_recorded_once():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:concurrent-hold")
+    job = q.claim("holder", ["gate.certify"])
+    barrier = Barrier(2)
+
+    def report():
+        ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+        barrier.wait(timeout=10)
+        return EO.record_hold(ctx, cir, stage="certify", reason="same", codes={"FIRST"})
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: report(), range(2)))
+    assert sum(result["opened"] for result in results) == 1
+    assert _holds(db, cir.slug, cir.version)[0].report_count == 2
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
+
+
+def test_hold_and_its_audit_roll_back_together_when_audit_write_fails():
+    import pytest
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    db = _db()
+    cir = _no_provenance(launch0.cir_for("nordic_forest_baby"))
+    q = JobQueue(db)
+    q.enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
+              idempotency_key="t:hold-atomic")
+    job = q.claim("holder", ["gate.certify"])
+    ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+
+    def fail_audit(session, *_):
+        if any(isinstance(row, AuditLog) and row.action == EO.HOLD_AUDIT
+               for row in session.new):
+            raise RuntimeError("simulated hold audit write failure")
+
+    event.listen(Session, "before_flush", fail_audit)
+    try:
+        with pytest.raises(RuntimeError, match="simulated hold audit"):
+            EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    finally:
+        event.remove(Session, "before_flush", fail_audit)
+    assert not _holds(db, cir.slug, cir.version)
+    assert not _audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")
+    EO.record_hold(ctx, cir, stage="certify", reason="one", codes={"FIRST"})
+    assert len(_holds(db, cir.slug, cir.version)) == 1
+    assert len(_audits(db, EO.HOLD_AUDIT, f"{cir.slug}@{cir.version}")) == 1
 
 
 # ---- 4. quality re-verification and assets: corrected when a rule answers, else held ----
