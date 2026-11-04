@@ -54,3 +54,15 @@ def test_real_assets_worker_refuses_child_neck_drawcord():
     assert result["status"] in {JobStatus.FAILED, JobStatus.DEAD}, result
     assert "NECK_OR_HOOD_DRAWSTRING" in result["error"], result
     assert not result["outputs"].get("pdf_sha256"), result
+
+
+def test_real_assets_worker_refuses_unassessed_sewn_felt():
+    original = inventory._engineered("cloudline-baby-blanket")
+    changed = dataclasses.replace(original, designer_notes="Attach felt shapes sewn.")
+    # Synthetic exact assignment only for this test; no physical evidence added.
+    with patch.dict(launch0._ASSIGNED_DECISION_CIR_SHA256,
+                    {changed.slug: launch0._cir_decision_digest(changed)}):
+        result = harness._assets_build_full(changed)
+    assert result["status"] in {JobStatus.FAILED, JobStatus.DEAD}, result
+    assert "UNRECOGNISED_PART" in result["error"], result
+    assert not result["outputs"].get("pdf_sha256"), result

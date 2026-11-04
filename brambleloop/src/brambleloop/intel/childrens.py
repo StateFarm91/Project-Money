@@ -848,12 +848,17 @@ DETACHABLE_APPLIED_PARTS: frozenset[str] = frozenset((
     "hard_toy_eyes", "rattle_insert", "snap_fasteners",
 ))
 
-# Features worked into the fabric, or sewn through it with yarn. They cannot detach without the
-# fabric failing first, which is a different and much slower failure.
+# Features worked into the fabric itself. A separate sewn-on felt piece is not
+# included: its retention has not been established by the pattern text alone.
 INTEGRAL_FEATURES: frozenset[str] = frozenset((
     "embroidered_eyes", "embroidered_nose", "embroidered_mouth", "crocheted_eyes",
-    "crocheted_nose", "felt_shapes_sewn", "surface_slip_stitch", "colourwork_face",
+    "crocheted_nose", "surface_slip_stitch", "colourwork_face",
 ))
+
+# Discoverable parts that still have no accepted physical-evidence authority.
+# `classify_part` deliberately leaves these UNKNOWN rather than asserting that
+# stitching a separate shape makes it either safe or detachable.
+UNASSESSED_APPLIED_PARTS: frozenset[str] = frozenset(("felt_shapes_sewn",))
 
 
 def classify_part(part: str) -> str:
@@ -1156,7 +1161,7 @@ def parts_in_cir(cir) -> tuple[str, ...]:
     # Reuse the same Unicode fold as the child-audience decision so lookalike
     # letters and invisible characters cannot hide a named detachable part.
     texts = [fold(text) for text in _cir_texts(cir)]
-    found = {part for part in DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES
+    found = {part for part in DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES | UNASSESSED_APPLIED_PARTS
              if any(_part_pattern(part).search(t) for t in texts)}
     # Explicit hard/snap-in eye synonyms are detachable; do not infer this for
     # unqualified or embroidered eyes. French terms are folded without accents.
@@ -1192,6 +1197,9 @@ def parts_in_cir(cir) -> tuple[str, ...]:
     # the same under-three refusal as their existing English vocabulary.
     part_aliases = {
         "pom_poms": r"\bpom[\s_-]*poms?\b",
+        "felt_shapes_sewn": r"\b(?:sewn|stitched)[\s_-]+felt[\s_-]+(?:shapes?|eyes?|noses?)\b"
+                            r"|\bfelt[\s_-]+(?:shapes?|eyes?|noses?)[\s_-]+"
+                            r"(?:are[\s_-]+)?(?:sewn|stitched)\b",
         "rattle_insert": r"\brattle[\s_-]+(?:inserts?|boxes|box|capsules?|balls?|modules?)\b"
                          r"|\bboitier[\s_-]+de[\s_-]+hochet\b",
         "snap_fasteners": r"\bsnap[\s_-]+fasteners?\b|\bpress[\s_-]+studs?\b",

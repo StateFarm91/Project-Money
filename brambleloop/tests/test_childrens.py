@@ -665,6 +665,28 @@ def test_neck_or_hood_drawcord_variants_reach_child_safety_refusal():
         assert not ch.neck_or_hood_tie_in_cir(_cir_with(note=note)), note
 
 
+def test_sewn_felt_shape_is_unassessed_without_retention_authority():
+    from brambleloop.gates import small_parts
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    assert ch.classify_part("felt_shapes_sewn") == "unknown"
+    for text in ("felt shapes sewn", "sewn felt eyes", "felt shapes are stitched"):
+        cir = _cir_with(text)
+        assert "felt_shapes_sewn" in ch.parts_in_cir(cir), text
+        # An old slug-only assertion is not a content-bound physical test.
+        small_parts.SMALL_PARTS_EVIDENCE[cir.slug] = "unscoped alleged sample"
+        try:
+            try:
+                build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+            except ValueError as exc:
+                assert "UNRECOGNISED_PART" in str(exc), exc
+            else:
+                raise AssertionError("unassessed sewn felt rendered for under-three audience")
+        finally:
+            small_parts.SMALL_PARTS_EVIDENCE.pop(cir.slug, None)
+    assert ch.classify_part("embroidered_eyes") == "integral"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
