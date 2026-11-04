@@ -571,6 +571,11 @@ def uncovered_company_exposure(session, *, now: datetime | None = None) -> float
 
     if not inspect(session.get_bind()).has_table(PaidProviderCall.__tablename__):
         return 0.0
+    invalid = session.scalar(select(PaidProviderCall.id).where(
+        (PaidProviderCall.status.is_(None)) |
+        (~PaidProviderCall.status.in_((*COUNTED, RELEASED)))).limit(1))
+    if invalid is not None:
+        raise ValueError("paid attempt has unknown outcome; reconciliation required")
     now = _now(now)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     total = 0.0
@@ -776,6 +781,12 @@ def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
            error: str = "") -> None:
     """BILLED / RELEASED / UNCERTAIN. Never raises: a row left RESERVED stays counted."""
     try:
+        # An unknown outcome is not evidence that a paid call is free.  In
+        # particular, arbitrary status strings are outside COUNTED and would
+        # otherwise silently release the budget exposure.
+        if status not in (BILLED, RELEASED, UNCERTAIN):
+            status = UNCERTAIN
+            error = "invalid provider outcome; counted at the reserved estimate"
         with db.session() as s:
             row = s.get(PaidProviderCall, int(ticket["call_id"]))
             if row is None or row.status != RESERVED:

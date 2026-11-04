@@ -419,6 +419,36 @@ def test_legacy_invalid_usage_never_credits_provider_budget():
              code="provider_daily_ceiling")
 
 
+def test_unknown_outcome_never_frees_paid_exposure_after_restart():
+    from brambleloop.core.db import Database
+    from brambleloop.finance import reservations
+
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    held = _reserve(db, estimate=0.4)
+    ticket = _authorize(db, "unknown-outcome", estimate=0.4, reservation=held)
+    next_held = _reserve(db, estimate=0.2)
+    G.settle(db, ticket, "unexpected")
+    reservations.release(db, held["reservation_id"], now=NOW)
+    reopened = Database(str(db.engine.url))
+    with reopened.session() as session:
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        assert row.status == G.UNCERTAIN
+        assert G.uncovered_company_exposure(session, now=NOW) == 0.4
+        # A historical malformed row must also block budget calculation.
+        row.status = "legacy-unrecognised"
+    with reopened.session() as session:
+        try:
+            G.uncovered_company_exposure(session, now=NOW)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("unknown historic outcome must hold company spend")
+    _refused(lambda: _authorize(reopened, "after-corrupt-history", estimate=0.2,
+                                reservation=next_held),
+             code="accounting_store_unreadable")
+
+
 def test_retention_never_reuses_paid_reservation_identity():
     from brambleloop.finance import reservations
     from brambleloop.core.models import SpendReservation

@@ -96,3 +96,13 @@ non-cached usage at `routing.record`. Real gateway and durable-ledger tests
 cover negative, missing and fractional counts. This does not certify every
 provider's direct cost writer: independently audit the remaining paths and
 reconcile unknown or historical bad rows before integration.
+
+An unrecognized paid-attempt outcome was previously outside every counted
+status and could silently free its budget exposure. Settlement now records an
+unknown requested outcome as UNCERTAIN; a historical status outside the known
+set holds company-budget accounting until reconciliation. A real durable SQLite
+test checks restart and refusal by the authorization handler. Python 3.11 V0
+and model-spend suites pass 57/57 with fake transports; no paid call was made.
+This conservative hold does not repair unknown historic records or establish
+complete provider-ledger reconciliation. PostgreSQL and independent review
+remain required; DO NOT INTEGRATE remains.
