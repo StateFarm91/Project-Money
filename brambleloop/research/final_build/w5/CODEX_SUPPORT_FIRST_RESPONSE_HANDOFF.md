@@ -12,7 +12,7 @@ The first-response watch now requires recorded sent evidence (`sent` or
 `support.reply` Worker processing on file-backed SQLite, reopens the database,
 checks the 30h owner alert and 37h escalation, then records a synthetic owner
 send and checks closure. No customer message is sent by the test or code.
-Python 3.11 focused support, department and fresh-message tests passed 30/30;
+Python 3.11 focused support, department and fresh-message tests passed 32/32;
 an attempted broader FB4 run was interrupted after 6 passes and is not a suite
 pass.
 
@@ -23,3 +23,11 @@ alert until an explicit resolution workflow is designed. Existing truthy
 `first_response_at` evidence is not newly authenticated here. Concurrent
 customer case updates and PostgreSQL have not been verified. Do not treat this
 change as a completed support department or authority contract.
+
+Follow-up: newly drafted cases remain unresolved; existing resolution and sent
+state are not deliberately changed by drafting. The `support.reply` worker
+skips a case already recorded sent, and direct draft recording leaves an
+already-sent answer untouched. This covers sequential operation only: a send
+that races between the check and write is not transaction-fenced and can still
+cause a lost update. The runtime hunk in `runtime/release.py` overlaps other
+work and requires additive integration review.

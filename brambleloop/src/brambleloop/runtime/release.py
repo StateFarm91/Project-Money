@@ -2447,6 +2447,8 @@ def handle_support_reply(ctx: JobContext) -> dict:
             case = s.get(SupportCase, int(case_id))
             if case is None:
                 raise ValueError(f"support.reply names case {case_id}, which does not exist")
+            if case.sent or (case.detail or {}).get("first_response_at"):
+                return {"case_id": int(case_id), "skipped": "first_response_already_recorded"}
             question = question or case.question
             slug = slug or case.product_slug
             version = version or case.version

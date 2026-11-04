@@ -287,9 +287,11 @@
       "claimed_at": "2026-11-04T04:01:28Z",
       "files": [
         "brambleloop/src/brambleloop/support/response_watch.py",
-        "brambleloop/tests/test_codex_support_first_response_truth.py"
+        "brambleloop/tests/test_codex_support_first_response_truth.py",
+        "brambleloop/src/brambleloop/support/department.py",
+        "brambleloop/src/brambleloop/runtime/release.py"
       ],
-      "scope": "Keep first-response alerts open for unsent support drafts; no messages sent."
+      "scope": "Keep unsent drafts unresolved and on first-response watch; skip already-sent cases; no messages sent."
     }
   ],
   "unowned": [

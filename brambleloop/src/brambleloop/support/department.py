@@ -253,11 +253,15 @@ class CustomerExperience:
                 case = s.get(SupportCase, case_id)
                 if case is None:
                     raise ValueError(f"no support case {case_id}")
+                if case.sent or (case.detail or {}).get("first_response_at"):
+                    # A delayed draft must not replace an already-recorded reply.
+                    return
                 case.answer = reply.body
                 case.specialist = reply.specialist
                 case.escalated = reply.escalated
-                case.resolved = not reply.escalated
-                case.sent = False     # shadow mode: drafted and held, and recorded as such
+                # A held draft does not resolve a buyer's case. Preserve any
+                # existing resolution rather than manufacturing a new one.
+                # Preserve the existing sent state; drafting never sends a reply.
                 case.detail = {**dict(case.detail or {}),
                                **({"lesson_links": reply.lesson_links}
                                   if reply.lesson_links else {}),
@@ -270,7 +274,7 @@ class CustomerExperience:
             s.add(SupportCase(
                 customer_ref=customer_ref, product_slug=product_slug, version=version,
                 question=message, answer=reply.body, specialist=reply.specialist,
-                escalated=reply.escalated, resolved=not reply.escalated,
+                escalated=reply.escalated, resolved=False,
                 sent=False,   # shadow mode: drafted and held, and recorded as such
                 detail={"cited_rows": reply.cited_rows,
                         **({"lesson_links": reply.lesson_links} if reply.lesson_links else {}),
