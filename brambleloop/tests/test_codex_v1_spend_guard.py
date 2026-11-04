@@ -208,6 +208,19 @@ def test_paid_dispatch_exception_leaves_a_durable_hold(monkeypatch):
     assert gen.calls == 1
 
 
+def test_ordinary_stage_checkpoint_preserves_unresolved_paid_marker():
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
+    IP._update(db, key, stage="product_generation", record={"outputs": {"note": "checkpoint"}})
+    assert IP._stage_data(db, key)["_pending_paid_call"]["maximum_cad"] == 0.1
+    with pytest.raises(IP.BudgetStop, match="unresolved cost"):
+        IP._begin_generation(db, key, stage="product_generation", paid=True, next_cost=0.1)
+
+
 def test_candidate_record_failure_after_receipt_keeps_paid_hold(monkeypatch):
     import test_w4_ownerimg as O
     from brambleloop.visual import gallery

@@ -224,6 +224,15 @@ def _run(s, key: str):
     return s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
 
 
+def _run_locked(s, key: str):
+    """Serialize cooperating mutations of the run row on PostgreSQL."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+
+    return s.scalar(select(ImageProductionRun).where(
+        ImageProductionRun.run_key == key).with_for_update())
+
+
 def _ensure_run(db, slug, version, release, ns: str = ""):
     from .image_records import ImageProductionRun, ensure_tables
 
@@ -241,7 +250,7 @@ def _update(db, key: str, *, stage: str, status: str | None = None, record: dict
     from sqlalchemy.orm.attributes import flag_modified
 
     with db.session() as s:
-        r = _run(s, key)
+        r = _run_locked(s, key)
         r.stage = stage
         if record is not None:
             st = dict(r.stages or {})
@@ -822,7 +831,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         from sqlalchemy.orm.attributes import flag_modified
 
         with db.session() as s:
-            r_ = _run(s, key)
+            r_ = _run_locked(s, key)
             st_ = dict(r_.stages or {})
             if not st_.get("_controlled"):
                 st_["_controlled"] = {"run_id": controlled, "ns": ns}

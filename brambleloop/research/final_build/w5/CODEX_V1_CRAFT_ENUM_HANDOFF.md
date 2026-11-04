@@ -118,6 +118,13 @@ are mutable metadata, not authenticated evidence. Interruption after candidate
 completion but before stage transition remains unresolved, as do PostgreSQL
 concurrency, noncooperating writers and company-wide budget fencing.
 
+The ordinary visual stage checkpoint and controlled-run metadata update now
+take the same run-row lock used by the pending-call writers before changing
+stage JSON. Focused Python 3.11/tmpfs tests passed 35/35; an independent
+reviewer reran the ordinary checkpoint/hold case. SQLite does not establish
+row-lock serialization. PostgreSQL concurrency, bulk SQL and other modules'
+writers, evidence authority and company-wide finance fencing remain open.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
