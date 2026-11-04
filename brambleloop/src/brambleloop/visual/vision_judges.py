@@ -533,8 +533,17 @@ def item_prompt() -> str:
             f"{one}, \"image_2\": the same keys for image 2}}.")
 
 
-def _has_bands(exp) -> bool:
-    return any(p.bands for p in getattr(exp, "pieces", []) or [])
+def _has_bands(exp) -> bool | None:
+    if any(p.bands for p in getattr(exp, "pieces", []) or []):
+        return True
+    ambiguity = getattr(exp, "edge_ambiguity", "")
+    if ambiguity in ("end_bands", "declared_edging_and_bands"):
+        # Short declared bands can be too small for a standalone pixel check.
+        return True
+    if ambiguity == "components":
+        # A different component may have bands that the main-piece model omits.
+        return None
+    return False
 
 
 def _has_cables(exp) -> bool:
@@ -582,12 +591,15 @@ def compare_items(reading: dict, exp) -> dict:
     elif ea is not None and eb != ea:
         unclear.append("edging differs or is obscured between images")
     bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
+    has_bands = _has_bands(exp)
     if ba is None or bb is None:
         unclear.append("end bands unclear in one or both images")
-    if bb is True and not _has_bands(exp) and ba is False:
+    if bb is True and has_bands is False and ba is False:
         problems.append((FC.INVENTED_END_BAND_TREATMENT, "end bands the pattern does not have"))
     elif ba is not None and bb is not None and ba != bb:
         unclear.append("end bands differ or are obscured between images")
+    elif (has_bands is True and (ba is not True or bb is not True)) or has_bands is None:
+        unclear.append("declared end bands cannot be verified in both images")
     cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
     if ca is None or cb is None:
         unclear.append("cables unclear in one or both images")
@@ -595,6 +607,8 @@ def compare_items(reading: dict, exp) -> dict:
         problems.append((FC.WRONG_CRAFT_TEXTURE, "raised cables the pattern does not have"))
     elif ca is not None and cb is not None and ca != cb:
         unclear.append("cables differ or are obscured between images")
+    elif _has_cables(exp) and (ca is not True or cb is not True):
+        unclear.append("declared cables cannot be verified in both images")
     nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
     if na is None or na <= 0:
         unclear.append("colour count unclear in the anchor")

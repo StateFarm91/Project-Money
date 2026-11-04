@@ -94,3 +94,11 @@ with the anchor stays UNKNOWN and is held from edit reuse; the same observation
 on a real no-cable basket still FAILs. This does not prove physical fidelity.
 The expanded Python 3.11 focused suite passed 101/101; independent review is
 scoped to this comparison and does not accept the wider V1 work.
+
+The same distinction now applies to short declared end bands: those too narrow
+for a standalone pixel measurement are not called invented merely because the
+measurement list is empty. Multi-component band presence remains UNKNOWN when
+not independently established. Declared bands or cables not visible in both
+images also hold UNKNOWN. A real short-band CIR, real no-band basket control and
+multi-component case are covered; no physical evidence was inferred. Python
+3.11 expanded suite passed 103/103; independent blind comparison review 19/19.

@@ -110,9 +110,58 @@ def test_single_cable_in_compiled_cir_is_not_called_invented():
     reading["image_2"]["raised_cables_visible"] = "yes"
     result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
     assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    reading["image_2"]["raised_cables_visible"] = "no"
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "UNKNOWN"
+    reading["image_2"]["raised_cables_visible"] = "yes"
     from brambleloop.products.vessels import build_basket
 
     basket = fidelity.expectation(build_basket("small"))
     assert not basket.cables_declared
     defect = vision_judges.blind_consistency(Judge(reading), b"a", b"b", basket)
     assert defect["status"] == "FAIL"
+
+
+def test_declared_short_end_bands_are_not_called_invented():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    colors = ["cream", "cream", "pine", "pine", "cream", "pine", "pine", "cream", "cream"]
+    cir = _flat("short-bands", [_row(i, color) for i, color in enumerate(colors, 1)],
+                {"cream": "#DDD7CA", "pine": "#244A3A"})
+    exp = fidelity.expectation(cir)
+    assert exp.edge_ambiguity == "end_bands" and not any(p.bands for p in exp.pieces)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", raised_cables_visible="no",
+                    distinct_yarn_colours=2)
+    reading["image_1"]["plain_end_bands_visible"] = "no"
+    reading["image_2"]["plain_end_bands_visible"] = "yes"
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    reading["image_2"]["plain_end_bands_visible"] = "no"
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "UNKNOWN"
+    reading["image_2"]["plain_end_bands_visible"] = "yes"
+
+    from brambleloop.products.vessels import build_basket
+
+    basket = fidelity.expectation(build_basket("small"))
+    for item in reading.values():
+        item["distinct_yarn_colours"] = 1
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", basket)["status"] == "FAIL"
+
+
+def test_multi_component_unknown_band_presence_cannot_pass_on_absence():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("two-pieces", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    other = _flat("second", [_row(i, "pine") for i in range(1, 5)],
+                  {"pine": "#244A3A"}).components[0]
+    other.name = "other"
+    cir.components.append(other)
+    exp = fidelity.expectation(cir)
+    assert exp.edge_ambiguity == "components"
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
