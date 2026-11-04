@@ -3619,8 +3619,36 @@ def handle_image_production(ctx: JobContext) -> dict:
     from ..visual import image_production
 
     def follow(inputs, key):
-        return ctx.enqueue("publishing", "visual.image_production", inputs,
-                           idempotency_key=key)
+        child = ctx.enqueue("publishing", "visual.image_production", inputs,
+                            idempotency_key=key)
+        if child is not None:
+            return child
+        # JobContext reports a duplicate as None. A dead, cancelled or different
+        # job is not a durable continuation of this stage.
+        from sqlalchemy import select
+        from ..core.models import Job, JobStatus
+        from ..queue.durable import fit_idempotency_key
+
+        with ctx.db.session() as session:
+            existing = session.scalar(select(Job).where(
+                Job.idempotency_key == fit_idempotency_key(key)))
+            done_output = existing.outputs if existing is not None else None
+            expected_run = image_production.run_key(inputs["slug"], inputs["version"],
+                                                    inputs["release"], inputs.get("ns") or "")
+            if (existing is None or existing.agent != "publishing"
+                    or existing.job_type != "visual.image_production"
+                    or existing.inputs != inputs
+                    or existing.status not in (JobStatus.PENDING, JobStatus.RUNNING,
+                                               JobStatus.FAILED, JobStatus.DONE)
+                    or (existing.status == JobStatus.FAILED
+                        and existing.attempts >= existing.max_attempts)
+                    or (existing.status == JobStatus.DONE
+                        and (not isinstance(done_output, dict)
+                             or done_output.get("run_key") != expected_run
+                             or done_output.get("skipped")
+                             or not ({"next", "status", "blocked_reason"} & done_output.keys())))):
+                raise RuntimeError("visual continuation is missing, mismatched or terminal; review required")
+        return None
 
     out = image_production.run_stage(ctx.db, dict(ctx.job.inputs), follow=follow)
     ctx.audit("visual.image_production", artifact=out.get("run_key"),

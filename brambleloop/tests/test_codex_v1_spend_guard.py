@@ -563,3 +563,63 @@ def test_queue_retry_after_child_enqueue_does_not_duplicate_generation_or_child(
         children = session.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE,
                                    Job.id != retry.id)).all()
         assert len(children) == 1 and children[0].id == child_id
+
+
+@pytest.mark.parametrize("problem", ["dead", "cancelled", "mismatched", "skipped",
+                                    "empty_done", "wrong_run_done", "exhausted", "valid_done"])
+def test_registered_handler_refuses_invalid_duplicate_child(monkeypatch, problem):
+    import test_w4_ownerimg as O
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import DuplicateJob, JobQueue
+    from brambleloop.runtime import release as runtime_release
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+
+    db, gen = O.make_db(), O.StubGenerator()
+    IP._ensure_run(db, "item", "1", "a" * 64, "")
+    monkeypatch.setattr(IP, "resolve_generator", lambda db: gen)
+    monkeypatch.setattr(CG, "RealJudges", lambda db: O.StubJudges())
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    child_inputs = {**inputs, "stage": "fidelity_gate", "round": 0}
+    if problem == "mismatched":
+        child_inputs["slug"] = "another"
+    queue = JobQueue(db)
+    child = queue.enqueue(IP.AGENT, IP.JOB_TYPE, child_inputs,
+                          idempotency_key=IP.stage_key("item", "1", "a" * 64, "fidelity_gate"))
+    with db.session() as session:
+        row = session.get(Job, child.id)
+        if problem == "dead":
+            row.status = JobStatus.DEAD
+        elif problem == "cancelled":
+            row.status = JobStatus.CANCELLED
+        elif problem == "skipped":
+            row.status, row.outputs = JobStatus.DONE, {"skipped": True}
+        elif problem == "empty_done":
+            row.status, row.outputs = JobStatus.DONE, {}
+        elif problem == "wrong_run_done":
+            row.status, row.outputs = JobStatus.DONE, {"run_key": "other", "next": "x"}
+        elif problem == "exhausted":
+            row.status, row.attempts = JobStatus.FAILED, row.max_attempts
+        elif problem == "valid_done":
+            row.status, row.outputs = JobStatus.DONE, {
+                "run_key": IP.run_key("item", "1", "a" * 64), "next": "load_laura_references"}
+    class Context:
+        def __init__(self):
+            self.db, self.job = db, type("Stage", (), {"inputs": inputs})()
+        def enqueue(self, agent, job_type, child_inputs, **kw):
+            try:
+                return queue.enqueue(agent, job_type, child_inputs, **kw)
+            except DuplicateJob:
+                return None
+        def audit(self, *args, **kwargs):
+            pass
+
+    if problem == "valid_done":
+        assert runtime_release.handle_image_production(Context())["next"] == "fidelity_gate"
+    else:
+        with pytest.raises(RuntimeError, match="continuation is missing, mismatched or terminal"):
+            runtime_release.handle_image_production(Context())
+        with pytest.raises(RuntimeError, match="continuation is missing, mismatched or terminal"):
+            runtime_release.handle_image_production(Context())
+    assert gen.calls == 1

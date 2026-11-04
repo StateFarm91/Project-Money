@@ -187,6 +187,15 @@ collision is refused before synthetic generation. The focused Python 3.11/tmpfs
 suite passed 44/44; independent review reran the collision case. Concurrent
 creation and authentication of stored identity remain unverified.
 
+The registered visual handler now validates a deduplicated continuation against
+the durable queue: mismatched, dead, cancelled, exhausted, skipped or malformed
+completed child jobs cannot silently count as a continuation. A legitimate
+matching completed child remains accepted. Registered-handler/queue tests run
+offline; the focused Python 3.11/tmpfs suite passed 51/51 and independent review
+reran eight child-state controls. This modifies the shared `runtime/release.py`;
+coordinate its integration with the A1/support changes touching that file. Job
+metadata and concurrent status changes remain unauthenticated and unfenced.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
