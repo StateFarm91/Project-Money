@@ -155,6 +155,61 @@ def test_no_evidence_is_recorded_unresolved_with_the_next_bounded_test():
     assert again["ran"] is False and again["work_done"] == 0
 
 
+def test_investigation_excludes_expired_prior_answer_but_preserves_its_history():
+    db = _db()
+    now = datetime.now(timezone.utc)
+    token = "uniqueqzrelic"
+    with db.session() as s:
+        prior = R.ResearchTask(question=f"What about {token}?", trigger="old-prior",
+                               dedupe_key="old-prior", decision_ref="old",
+                               domain="aesthetics", state=R.ANSWERED,
+                               outcome=f"{token} outcome", answered_at=now-timedelta(days=90),
+                               expires_on=now-timedelta(days=1))
+        s.add(prior)
+        s.flush()
+        prior_id = prior.id
+    opened = _open(db, question=f"What is {token} evidence saying now?", trigger="new-prior-test",
+                   decision_ref="new", domain="aesthetics", query_terms=[token])
+    tid = opened["task"]
+    ref = f"research_tasks:{prior_id}"
+    with db.session() as s:
+        s.get(R.ResearchTask, tid).internal_evidence = [
+            {"ref": ref, "kind": "prior_research", "text": "historical",
+             "retrieval": "internal"}]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid})
+    assert Worker(db, "stale-prior", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert ref not in done.outputs["evidence"]
+        assert done.outputs["status"] == RA.UNRESOLVED
+        assert s.get(R.ResearchTask, tid).internal_evidence[0]["ref"] == ref
+
+
+def test_prior_research_requires_current_answer_and_expiry():
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for i, (answered, expiry) in enumerate([
+            (now-timedelta(days=1), now+timedelta(days=1)),
+            (now+timedelta(days=1), now+timedelta(days=2)),
+            (None, now+timedelta(days=2)),
+            (now-timedelta(days=1), None),
+            (now-timedelta(days=1000), now+timedelta(days=1000)),
+        ]):
+            s.add(R.ResearchTask(question="uniqueqzfresh", trigger=f"prior-{i}",
+                                 dedupe_key=f"prior-{i}", decision_ref="prior",
+                                 domain="aesthetics", state=R.ANSWERED,
+                                 outcome="uniqueqzfresh", answered_at=answered,
+                                 expires_on=expiry))
+    prior = [x for x in RA.internal_evidence(db, ["uniqueqzfresh"])
+             if x["kind"] == "prior_research"]
+    assert len(prior) == 1
+    assert not [x for x in RA.internal_evidence(db, ["uniqueqzfresh"],
+                                                as_of=now-timedelta(days=2))
+                if x["kind"] == "prior_research"]
+
+
 def test_platform_policy_is_blocked_on_official_docs_not_guessed():
     db = _db()
     opened = _open(db, question="What does Etsy currently require for digital "
