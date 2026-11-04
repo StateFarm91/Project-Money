@@ -329,6 +329,19 @@
         "brambleloop/tests/test_codex_a6_release_transaction.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-JOBQUEUE-CALLER-SAVEPOINT",
+      "operator": "codex",
+      "branch": "codex/jobqueue-savepoint-preview",
+      "source_sha": "6cb70e3a90ab4cc84f3ecd73f4fca570e48c1859",
+      "scope": "Preserve caller transaction during duplicate-key enqueue race using nested transaction",
+      "files": [
+        "brambleloop/src/brambleloop/queue/durable.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint.py",
+        "brambleloop/tests/test_codex_jobqueue_savepoint_pg.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

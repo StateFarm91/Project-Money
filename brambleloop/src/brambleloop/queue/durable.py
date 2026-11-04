@@ -263,16 +263,43 @@ class JobQueue:
                 max_attempts=max_attempts,
                 run_after=run_after or utcnow(),
             )
-            s.add(job)
-            try:
-                s.flush()
-            except IntegrityError:
-                s.rollback()
-                existing = s.scalar(
-                    select(Job).where(Job.idempotency_key == idempotency_key)
-                )
-                note_dedupe(job_type)
-                raise DuplicateJob(idempotency_key or "", existing.id if existing else -1)
+            if session is not None:
+                # A duplicate can win after the read above. Roll back only the
+                # insert attempt; rolling back the caller's session here would
+                # silently discard unrelated authority writes in its transaction.
+                # With SQLite's legacy transaction mode, SELECT does not start
+                # a database transaction; releasing a top-level SAVEPOINT can
+                # otherwise commit the job despite an outer Session rollback.
+                conn = s.connection()
+                if (conn.dialect.name == "sqlite"
+                        and not conn.connection.driver_connection.in_transaction):
+                    conn.exec_driver_sql("BEGIN")
+                try:
+                    with s.begin_nested():
+                        s.add(job)
+                        s.flush()
+                except IntegrityError:
+                    # A failure before the savepoint was established may have
+                    # invalidated the outer transaction; never mask it as dedupe.
+                    if not s.is_active:
+                        raise
+                    existing = s.scalar(select(Job).where(
+                        Job.idempotency_key == idempotency_key)) if idempotency_key else None
+                    if existing is None:
+                        raise
+                    note_dedupe(job_type)
+                    raise DuplicateJob(idempotency_key, existing.id)
+            else:
+                s.add(job)
+                try:
+                    s.flush()
+                except IntegrityError:
+                    s.rollback()
+                    existing = s.scalar(
+                        select(Job).where(Job.idempotency_key == idempotency_key)
+                    )
+                    note_dedupe(job_type)
+                    raise DuplicateJob(idempotency_key or "", existing.id if existing else -1)
             return job
 
         if session is not None:
