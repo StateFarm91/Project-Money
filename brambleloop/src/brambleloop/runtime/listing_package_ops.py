@@ -25,7 +25,7 @@ def handle_listing_package(ctx: JobContext) -> dict:
     scoped = i is not None and ("slug" in i or "version" in i)
     valid_event = bool(scoped and all(
         isinstance(i.get(key), str) and i[key].strip() and i[key] == i[key].strip()
-        for key in ("slug", "version")))
+        for key in ("slug", "version")) and ("release" not in i or isinstance(i["release"], str)))
     # The scheduler and its post-deploy retry use these exact forms. A typo or
     # incomplete event must not accidentally authorize a company-wide sweep.
     valid_sweep = bool(i is not None and (not i or (
@@ -40,7 +40,8 @@ def handle_listing_package(ctx: JobContext) -> dict:
         return {"eligible": False, "releases": 0, "ready": 0, "changed": 0,
                 "publishes": False, "work_done": False, "refused": "invalid_release_scope"}
     single = valid_event
-    out = (LP.for_release(ctx.db, i["slug"], i["version"]) if single else LP.sweep(ctx.db))
+    out = (LP.for_release(ctx.db, i["slug"], i["version"], expected_release=i.get("release", ""))
+           if single else LP.sweep(ctx.db))
     if any(result.get("retry") for result in out["results"]):
         # Let the durable worker retry; do not report an unrecorded snapshot as done.
         raise RuntimeError("listing package changed repeatedly; retry the job")
@@ -50,9 +51,10 @@ def handle_listing_package(ctx: JobContext) -> dict:
                       "releases": out["releases"], "ready": out["ready"],
                       "changed": out["changed"],
                       "results": [{k: r.get(k) for k in ("key", "state", "blockers",
-                                                         "review_requested", "error")}
+                                                         "review_requested", "error", "refused")}
                                   for r in out["results"][:30]]})
+    refused = next((r["refused"] for r in out["results"] if r.get("refused")), None)
     return {"ran": True, "trigger": "event" if single else "sweep",
             "eligible": out.get("eligible", True), "releases": out["releases"],
             "ready": out["ready"], "changed": out["changed"], "publishes": False,
-            "work_done": bool(out["changed"])}
+            "work_done": bool(out["changed"]), **({"refused": refused} if refused else {})}

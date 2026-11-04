@@ -570,7 +570,7 @@ def certified_releases(db) -> list[tuple[str, str]]:
     return sorted(set(out))
 
 
-def _package_one(db, slug: str, version: str) -> dict:
+def _package_one(db, slug: str, version: str, *, expected_release: str = "") -> dict:
     # Snapshot the package generation before reading source evidence. Any
     # competing event which commits during assembly makes this attempt stale.
     for _ in range(3):
@@ -586,6 +586,12 @@ def _package_one(db, slug: str, version: str) -> dict:
             if result.get("became_eligible"):
                 continue
             return result
+        if expected_release and package.get("release_hash") != expected_release:
+            # A delayed event for an older release must not build or replace a
+            # review for a different release under the same slug/version.
+            return {"key": f"{slug}@{version}", "state": "STALE", "changed": False,
+                    "review_requested": False, "blockers": 0,
+                    "refused": "event_release_mismatch"}
         recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
         if rerr is not None:
             # No READY verdict exists until the record transaction commits.
@@ -623,7 +629,7 @@ def sweep(db) -> dict:
     return _summary(results)
 
 
-def for_release(db, slug: str, version: str) -> dict:
+def for_release(db, slug: str, version: str, *, expected_release: str = "") -> dict:
     """W5-A9 (P0-PACKAGE-EVENT): the package of ONE release, as the sweep would make it.
 
     The event path: `launch.plan` enqueues this as soon as the chain has stored everything the
@@ -636,9 +642,9 @@ def for_release(db, slug: str, version: str) -> dict:
     if (slug, version) not in set(certified_releases(db)):
         result = _reconcile_ineligible(db, slug, version)
         if result.get("became_eligible"):
-            return {**_summary([_package_one(db, slug, version)]), "eligible": True}
+            return {**_summary([_package_one(db, slug, version, expected_release=expected_release)]), "eligible": True}
         return {**_summary([result] if result.get("changed") else []), "eligible": False}
-    return {**_summary([_package_one(db, slug, version)]), "eligible": True}
+    return {**_summary([_package_one(db, slug, version, expected_release=expected_release)]), "eligible": True}
 
 
 def latest(db, slug: str, version: str) -> dict | None:

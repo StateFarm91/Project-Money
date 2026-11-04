@@ -25,6 +25,7 @@ def _run(db, inputs):
     {"slug": " ", "version": "1.0.0"},
     {"slug": "test-bound-release", "version": None},
     {"slug": 42, "version": "1.0.0"},
+    {"slug": "test-bound-release", "version": "1.0.0", "release": 0},
     {"slugs": "test-bound-release"}, {"release": "abc"},
     {"cadence": "different_job"}, {"cadence": "listing_package", "extra": "unexpected"},
     {"cadence": "listing_package", "retry_for_commit": False},

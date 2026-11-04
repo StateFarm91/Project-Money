@@ -367,6 +367,20 @@
         "brambleloop/tests/test_codex_a9_event_scope.py"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-EVENT-RELEASE-BINDING",
+      "operator": "codex",
+      "branch": "codex/a9-event-release-binding",
+      "source_sha": "ed915230d0bd47bc00071d460f0eebdd17fdafe6",
+      "scope": "Bind nonempty listing-package event release hash to assembled and recorded release",
+      "files": [
+        "brambleloop/src/brambleloop/publish/listing_package.py",
+        "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
+        "brambleloop/tests/test_codex_a9_event_release.py",
+        "brambleloop/tests/test_codex_a9_event_scope.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
