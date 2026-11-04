@@ -687,6 +687,24 @@ def test_sewn_felt_shape_is_unassessed_without_retention_authority():
     assert ch.classify_part("embroidered_eyes") == "integral"
 
 
+def test_explicit_separate_crocheted_features_are_unassessed():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for note in ("Sew the crocheted eyes onto the head.",
+                 "The crocheted nose is sewn on.", "Attach crocheted eyes.",
+                 "Use separate crocheted eyes."):
+        cir = _cir_with(note=note)
+        assert "unassessed_crocheted_attachment" in ch.parts_in_cir(cir), note
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "UNRECOGNISED_PART" in str(exc), (note, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {note!r} rendered")
+    assert ch.parts_in_cir(_cir_with(note="Crocheted eyes")) == ("crocheted_eyes",)
+    assert ch.classify_part("crocheted_eyes") == "integral"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

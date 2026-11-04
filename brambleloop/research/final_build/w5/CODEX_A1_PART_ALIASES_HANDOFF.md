@@ -23,3 +23,9 @@ Python 3.11 tmpfs SQLite: final children's PDF and actual assets Worker suite 48
 `felt_shapes_sewn` remains discoverable, including explicit `sewn felt eyes` and `felt shapes are stitched`, but is now UNKNOWN rather than automatically integral: separately attached felt retention is not established by wording. This creates a conservative hold pending an independently approved, content-bound physical-evidence authority. The old unscoped `SMALL_PARTS_EVIDENCE` assertion cannot clear it. Existing `embroidered_eyes` classification is unchanged. There is currently no accepted content-bound evidence exception to demonstrate as a legitimate clearance; no such authority was created.
 
 Python 3.11 tmpfs SQLite children's and real assets Worker suite passed 50/50 on final code. Independent reviewer reran the focused PDF and Worker checks 2/2. Exact assignment in the Worker fixture was synthetic. Other felt wording and other detached-part phrasing may still be missed; the parent A1 safety/authority blockers remain, and descendants based on old 32f3163 must retain the follow-up during integration.
+
+## Explicit separately attached crocheted feature follow-up
+
+When the pattern explicitly says a crocheted eye or nose is sewn, attached, glued, stitched on or separate, the child parts assessment now adds UNKNOWN; crocheting the piece is not evidence of its retention. The existing bare `crocheted eyes` interpretation is unchanged. A negated or ambiguous phrase can conservatively hold; alternative wording and relations across CIR text fields may still be missed.
+
+Python 3.11 tmpfs SQLite: children's and actual assets Worker suite 52/52 passed on this change. Independent reviewer reran the targeted PDF and Worker tests 2/2. The Worker uses a synthetic exact assignment only to reach the safety assessment; no physical test or real authorization was created. The parent A1 physical-evidence and integration blockers remain.

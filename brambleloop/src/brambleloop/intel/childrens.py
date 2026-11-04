@@ -1214,6 +1214,18 @@ def parts_in_cir(cir) -> tuple[str, ...]:
             found.add(part)
     if "plastic_rattle_insert" in found:
         found.discard("rattle_insert")
+    # A separately attached crocheted feature is not established to be
+    # integral merely because the feature itself was crocheted. Preserve the
+    # legacy plain "crocheted eyes/nose" interpretation; hold explicit
+    # attachment wording until its retention can be assessed.
+    separate_crochet = (
+        r"\b(?:sew|sewn|attach|attached|glue|glued|stitch[\s_-]+on|stitched[\s_-]+on)"
+        r"[\s_-]+(?:on[\s_-]+)?(?:the[\s_-]+)?crocheted[\s_-]+(?:eyes?|noses?)\b"
+        r"|\bcrocheted[\s_-]+(?:eyes?|noses?)[\s_-]+(?:(?:is|are)[\s_-]+)?"
+        r"(?:sewn|attached|stitched|glued)\b"
+        r"|\bseparate[\s_-]+crocheted[\s_-]+(?:eyes?|noses?)\b")
+    if any(re.search(separate_crochet, text) for text in texts):
+        found.add("unassessed_crocheted_attachment")
     return tuple(sorted(found))
 
 
