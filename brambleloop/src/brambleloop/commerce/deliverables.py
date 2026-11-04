@@ -216,9 +216,22 @@ def keep_frames(db, shas, *, slug: str, version: str, store=None) -> dict:
 
 
 def restorable(db, sha256: str, store=None) -> bool:
-    """On disk under its hash, or held in Postgres -- either is re-servable as the same bytes."""
-    if store is not None and store.exists(sha256):
-        return True
+    """Read and verify disk bytes, or verify the independently held database copy."""
+    from ..core.artifacts import ArtifactMissing
+
+    if store is not None:
+        try:
+            return _sha(store.get(sha256)) == sha256
+        except ArtifactMissing:
+            try:
+                if store.exists(sha256):
+                    # ArtifactStore.get does not fall back to Postgres when a
+                    # corrupt file exists, so the normal read path still fails.
+                    return False
+            except Exception:
+                return False
+        except Exception:  # noqa: BLE001 - unreadable disk is not a restoration proof
+            return False
     return db is not None and held(db, sha256)
 
 
