@@ -897,7 +897,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         # a job from before (or beyond) the run's current restart epoch: superseded
         return {"run_key": key, "skipped": True,
                 "why": f"job epoch {epoch} is not the run's epoch {run.get('restarts', 0)}"}
-    if run["state"] in ("blocked", "approved_for_publication") and stage != "repair":
+    if run["state"] in ("blocked", "ready_for_owner_review", "approved_for_publication"):
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
     judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
     if generator is not None:

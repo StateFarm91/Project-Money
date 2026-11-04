@@ -356,6 +356,28 @@ def test_visual_run_key_collision_refuses_other_product_before_generation():
     assert stored["generation_calls"] == 0 and gen.calls == 0
 
 
+@pytest.mark.parametrize("state", ["blocked", "ready_for_owner_review", "approved_for_publication"])
+def test_delayed_repair_cannot_resume_terminal_visual_run(state):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual.image_records import ImageProductionRun
+    from sqlalchemy import select
+
+    db, gen = O.make_db(), O.StubGenerator()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        row.status = state
+        row.blocked_reason = "requires owner review" if state == "blocked" else ""
+    queued = []
+    result = IP.run_stage(db, {"slug": "item", "version": "1", "release": "a" * 64,
+                               "stage": "repair", "round": 1},
+                          follow=lambda i, k: queued.append((i, k)),
+                          generator=gen, judges=O.StubJudges())
+    assert result["skipped"] and gen.calls == 0 and queued == []
+    assert IP.get_run(db, key)["state"] == state
+
+
 def test_stage_replay_does_not_bypass_an_unrelated_pending_paid_call(monkeypatch):
     import test_w4_ownerimg as O
     from brambleloop.visual import image_production as IP

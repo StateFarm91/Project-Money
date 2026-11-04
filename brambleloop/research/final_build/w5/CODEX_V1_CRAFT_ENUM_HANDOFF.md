@@ -202,6 +202,13 @@ status. Null or unrelated successor values are refused. Focused Python
 3.11/tmpfs tests passed 56/56; an independent reviewer reran 13 child-result
 cases. These are structural checks, not authenticated queue evidence.
 
+Delayed repair or other stage jobs now skip a visual run that is blocked,
+awaiting owner review, or already approved. The normal restart explicitly
+returns an eligible blocked run to an active state before enqueueing work.
+Python 3.11/tmpfs terminal-state and existing bounded-repair tests passed 5/5;
+independent review reran the three state cases. A concurrent state change
+between this check and dispatch remains unfenced.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
