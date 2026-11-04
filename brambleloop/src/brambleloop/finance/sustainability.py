@@ -280,6 +280,49 @@ OBSERVATION_PURPOSES = ("gallery_observation", "listing_classify", "listing_mech
                         "topic_filing", "seasonal_signal", "construction_reading")
 
 
+def _recorded_support_case_cost(db, *, start: datetime, now: datetime) -> dict:
+    """Aggregate recorded measured support calls by their linked durable case."""
+    from sqlalchemy import select
+    from ..core.models import CostEntry, Job, SupportCase
+
+    totals = {}
+    with db.session() as s:
+        for cost in s.scalars(select(CostEntry)):
+            at = _aware(cost.at)
+            job = s.get(Job, cost.job_id) if cost.job_id is not None else None
+            if (cost.kind not in AI_KINDS
+                    or not ("support" in (cost.purpose or "") or cost.agent == "support"
+                            or (job is not None and job.job_type == "support.reply"))):
+                continue
+            if at is None:
+                return {"value": None, "cases": 0, "why": "support cost date is unavailable"}
+            if not start <= at <= now:
+                continue
+            amount = cost.amount_cad
+            if (isinstance(amount, bool) or not isinstance(amount, (int, float))
+                    or not math.isfinite(amount) or amount < 0 or cost_basis(cost) != "measured"):
+                return {"value": None, "cases": 0, "why": "support cost basis or amount is unverified"}
+            inputs = job.inputs if job is not None and isinstance(job.inputs, dict) else {}
+            case_id = inputs.get("case_id")
+            if (job is None or job.job_type != "support.reply" or isinstance(case_id, bool)
+                    or not isinstance(case_id, int) or case_id <= 0
+                    or s.get(SupportCase, case_id) is None):
+                return {"value": None, "cases": 0, "why": "support cost lacks a linked case job"}
+            totals[case_id] = totals.get(case_id, 0.0) + amount
+            if not math.isfinite(totals[case_id]):
+                return {"value": None, "cases": 0, "why": "support case cost exceeds finite range"}
+    if not totals:
+        return {"value": None, "cases": 0, "why": "no linked measured support case costs"}
+    try:
+        average = math.fsum(totals.values()) / len(totals)
+        if not math.isfinite(average):
+            raise OverflowError("non-finite average")
+    except OverflowError:
+        return {"value": None, "cases": 0, "why": "support case totals exceed finite range"}
+    return {"value": round(average, 4), "cases": len(totals),
+            "why": "recorded linked costs per case; completeness and authenticity are unverified"}
+
+
 def forecast(db, *, now: datetime | None = None) -> dict:
     """Steady-state monthly AI/API cost and contribution, low/base/high, or a refusal."""
     now = now or datetime.now(timezone.utc)
@@ -315,8 +358,7 @@ def forecast(db, *, now: datetime | None = None) -> dict:
     cost_per_observation_run = (round(sum(obs_rows) / len(obs_rows), 6)
                                 if obs_rows else None)
     observation_monthly = round(sum(obs_rows) * 30.0 / window_days, 2)
-    support_rows = [a for at, k, a, slug, p, g, _basis in ai
-                    if at >= window_start and ("support" in p or g == "support")]
+    support_case_cost = _recorded_support_case_cost(db, start=window_start, now=now)
     maintenance = listing_maintenance_cost(db, now=now)
 
     measured = {
@@ -329,8 +371,8 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         "creation_cost_per_product_cad": (round(sum(created) / len(created), 4)
                                           if created else None),
         "maintenance_per_listing_month_cad": maintenance["per_listing_month_cad"],
-        "support_cost_per_case_cad": (round(sum(support_rows) / len(support_rows), 4)
-                                      if support_rows else None),
+        "support_cost_per_case_cad": support_case_cost["value"],
+        "support_cost_case_evidence": support_case_cost,
         "opening_price_mean_cad": round(sum(priced) / len(priced), 2) if priced else None,
     }
     if missing:
