@@ -153,6 +153,12 @@ case. The Python 3.11/tmpfs spend and recovery suite passed 39/39. This uses a
 free synthetic generator and does not establish concurrent or paid-provider
 behavior.
 
+The identity-anchor stage now has an interruption test covering an initial
+synthetic image plus one bounded correction. Retrying after the corrected
+candidate is saved makes no third image. The new case and existing correction
+and identity-anchor flows passed 3/3 in Python 3.11/tmpfs; an independent
+reviewer reran the new case. This is not a real identity or provider test.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
