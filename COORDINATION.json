@@ -430,6 +430,19 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-RESEARCH-SWEEP-FAIRNESS",
+      "operator": "codex",
+      "branch": "codex/research-sweep-fairness",
+      "base": "ff3debb0b3ad9d690a5e1d3c5e6dd745d54757df",
+      "scope": "Skip prior daily idempotency keys without starving later due investigations",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/intel_ops.py",
+        "brambleloop/tests/test_w4_research_agent.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
