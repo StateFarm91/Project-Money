@@ -500,11 +500,12 @@ def compare(db, *, now: datetime | None = None) -> dict:
                                               "assumed AI-operated"},
         })
     ours = _our_pods(db)
-    validated = sorted((pod, sorted(alias for alias, _ in a)) for pod, a in arenas.items()
-                       if len({shop_id for _, shop_id in a}) >= MIN_SHOPS_FOR_ARENA
-                       and pod not in ours)
+    corroborated = sorted((pod, sorted(alias for alias, _ in a)) for pod, a in arenas.items()
+                          if len({shop_id for _, shop_id in a}) >= MIN_SHOPS_FOR_ARENA)
+    validated = [(pod, aliases) for pod, aliases in corroborated if pod not in ours]
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
             "validated_arenas": [{"pod": p, "corroborated_by": a} for p, a in validated],
+            "corroborated_arenas": [{"pod": p, "corroborated_by": a} for p, a in corroborated],
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
@@ -803,9 +804,16 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
     now = _now(now)
     today = today or now.date()
     decided = []
+    held = []
+    currently_validated = {a["pod"] for a in compare(db, now=now)["corroborated_arenas"]}
     for g in _open_gaps(db):
         if len(decided) >= REVIEW_LIMIT:
             break
+        # A gap is a durable queue entry, not perpetual proof of a market opportunity.
+        # Hold both existing outcomes and new routing when current corroboration is lost.
+        if g["pod"] not in currently_validated:
+            held.append({"gap": g["id"], "reason": "current_corroboration_missing"})
+            continue
         ev = g["evidence"]
         attempts = list(ev.get("failed_attempts") or [])
         job_ids = ev.get("design_job_ids")
@@ -912,4 +920,4 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                                         research=_research_state(db, ev.get(
                                             "research_task_id")))
                        | {"gap": g["id"]})
-    return {"decisions": decided, "work_done": len(decided)}
+    return {"decisions": decided, "held": held, "work_done": len(decided)}

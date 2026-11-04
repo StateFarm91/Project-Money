@@ -365,7 +365,8 @@ def handle_opportunity_review(ctx: JobContext) -> dict:
 
     out = watchlist.review(ctx.db, enqueue=ctx.enqueue)
     ctx.audit("intel.opportunity_review", detail={
-        "decisions": [{k: d.get(k) for k in ("gap", "last", "on")} for d in out["decisions"]]})
+        "decisions": [{k: d.get(k) for k in ("gap", "last", "on")} for d in out["decisions"]],
+        "held": out["held"]})
     return {"decisions": len(out["decisions"]), "network_calls": 0,
             "work_done": out["work_done"]}
 

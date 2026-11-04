@@ -364,6 +364,23 @@ def _gap(db, pod="hats", arena=None):
                            arena=arena or f"watchlist:{pod}", pod=pod)
 
 
+def _current_corroboration(db, *, education=False):
+    class CorroboratingReader(Reader):
+        def catalogue(self, shop_id, **kw):
+            from brambleloop.intel.etsy_public import CatalogueResult
+            result = super().catalogue(shop_id, **kw)
+            if education and shop_id in (1, 2):
+                extra = [_listing(90000 + shop_id * 10 + i,
+                                  f"Crochet guidebook {i}") for i in range(3)]
+                return CatalogueResult(list(result) + extra, complete=True)
+            return result
+    _with_reader(CorroboratingReader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+
+
 def test_summary_is_unknown_when_unconfigured_or_refused():
     """Review M-1: an unobserved watchlist never reads OK to Laura."""
     db = _db()
@@ -406,6 +423,7 @@ def test_design_outcomes_are_classified_from_what_the_job_produced():
     from datetime import date
 
     db = _db()
+    _current_corroboration(db)
     gid = _gap(db)
     q = _enqueuer(db)
     day = date(2026, 10, 27)
@@ -465,6 +483,7 @@ def test_no_paid_job_types_are_queued_by_the_scan_or_the_review():
     withheld = [s["mission"]["paid_work_withheld"] for s in out["shops"]]
     assert all(w == ["creative.tournament"] for w in withheld), withheld
     watchlist.record_comparison(db)
+    _current_corroboration(db, education=True)
     _gap(db, "hats", "watchlist:hats:x")
     nope = _gap(db, "education")                          # no pool concept answers it
     rev = watchlist.review(db, enqueue=enqueue)
@@ -489,6 +508,7 @@ def test_parked_gaps_are_not_redecided_daily():
     finally:
         watchlist.reader_factory = None
     gid = _gap(db, "education")
+    _current_corroboration(db, education=True)
     d0 = date(2026, 10, 27)
     first = watchlist.review(db, enqueue=_enqueuer(db), today=d0)
     assert [d["last"] for d in first["decisions"] if d["gap"] == gid] == ["needs_original_design"]
@@ -640,6 +660,39 @@ def test_two_aliases_for_one_shop_do_not_corroborate_an_arena():
     assert watchlist.compare(db)["validated_arenas"] == []
 
 
+def test_existing_opportunity_waits_for_current_corroboration_then_resumes():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        _run(db, "intel.watchlist_compare")
+        _with_reader(Reader(down={"ZKBDESIGNER"}))
+        watchlist.scan_all(db, force=True)
+        held = _run(db, "intel.opportunity_review")
+        assert held["decisions"] == 0
+        with db.session() as s:
+            assert not list(s.scalars(select(Job).where(Job.job_type == "radar.score")))
+        _with_reader(Reader())
+        watchlist.scan_all(db, force=True)
+        resumed = _run(db, "intel.opportunity_review")
+        assert resumed["decisions"] >= 1
+    finally:
+        watchlist.reader_factory = None
+
+
+def test_existing_gap_can_reconcile_after_own_product_covers_its_pod(monkeypatch):
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        _run(db, "intel.watchlist_compare")
+        monkeypatch.setattr(watchlist, "_our_pods", lambda _db: {"hats"})
+        out = _run(db, "intel.opportunity_review")
+        assert out["decisions"] >= 1
+    finally:
+        watchlist.reader_factory = None
+
+
 def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
     """Review L-6."""
     db = _db()
@@ -698,6 +751,7 @@ def test_a_waiting_gate_and_a_repeated_measurement_are_not_attempts():
     from datetime import date
 
     db = _db()
+    _current_corroboration(db)
     gid = _gap(db)
     q = _enqueuer(db)
     day = date(2026, 10, 27)
