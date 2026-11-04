@@ -326,7 +326,11 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
     if cand.get("role") == ANCHOR_ROLE:
         return FID.verify_anchor(data, cir, judge=judge)
     release = str(bind.get("release_hash") or release_hash or "")
-    anchor, anchor_data = _anchor_of(db, cand, release)
+    try:
+        fingerprint = cir.fingerprint() if callable(cir.fingerprint) else cir.fingerprint
+    except Exception:  # noqa: BLE001 - unverifiable CIR evidence holds
+        fingerprint = None
+    anchor, anchor_data = _anchor_of(db, cand, release, expected_cir_fingerprint=fingerprint)
     region, located = cand.get("product_region"), None
     if not region and locate is not None and (anchor or {}).get("status") == PASS:
         # Only asked once the release's anchor has passed: without it the image cannot pass
@@ -345,10 +349,10 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
     return out
 
 
-def _anchor_of(db, cand: dict, release: str):
+def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | None = None):
     """The release's best product-only anchor and its bytes, or (None, None)."""
     from .image_production import ANCHOR_ROLE, _best, run_key
-    from .fidelity import same_release
+    from .fidelity import CHECKER, same_release
 
     if not release:
         return None, None
@@ -371,6 +375,20 @@ def _anchor_of(db, cand: dict, release: str):
     if (not best or not best.get("sha256") or best.get("slug") != cand.get("slug")
             or best.get("version") != cand.get("version")
             or not same_release(best.get("release"), release)):
+        return None, None
+    fidelity = best.get("fidelity") or {}
+    checks = fidelity.get("checks") or []
+    if (not expected_cir_fingerprint or fidelity.get("status") != PASS
+            or fidelity.get("checker") != CHECKER or not isinstance(checks, list) or not checks
+            or any(not isinstance(check, dict) or not isinstance(check.get("check"), str)
+                   or check.get("status") not in (PASS, NA)
+                   for check in checks)
+            or not {"isolation", "piece_count", "craft_texture"}.issubset(
+                {check.get("check") for check in checks if isinstance(check, dict)})
+            or fidelity.get("unknown") or fidelity.get("failed") or fidelity.get("codes")
+            or fidelity.get("kind") != "anchor" or fidelity.get("image_sha256") != best["sha256"]
+            or fidelity.get("slug") != cand.get("slug") or fidelity.get("version") != cand.get("version")
+            or fidelity.get("cir_fingerprint") != expected_cir_fingerprint):
         return None, None
     data = None
     try:

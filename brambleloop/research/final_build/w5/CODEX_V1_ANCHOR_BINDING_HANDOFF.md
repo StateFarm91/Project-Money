@@ -45,3 +45,13 @@ V1 correctness and owner images. A separate reviewer reran the five anchor
 tests and confirmed the owner fallback's intended scope. A caller-supplied run
 key defaults to the production run when omitted and, like the stored method and
 PASS status, is mutable metadata; these checks do not authenticate its origin.
+
+The subsequent fidelity-evidence consistency check also holds a technical PASS
+unless its stored current-verifier anchor verdict has matching product, version,
+CIR fingerprint and image digest, and includes passing isolation, piece-count
+and craft-texture checks with no recorded failures or unknowns. The full verifier
+has additional checks which are not proven complete or authenticated by this
+structural validation. Older records lacking these fields hold until reverified.
+The real verifier's PASS on a synthetic test image is accepted; that is not
+physical evidence. On this delta the V1, anchor and owner-image suites passed
+74/74 using Python 3.11 and file-backed SQLite. Independent review required.

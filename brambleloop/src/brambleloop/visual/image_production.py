@@ -447,7 +447,11 @@ def _fidelity_summary(checks: dict | None) -> dict:
     fid = ((checks or {}).get("product_truth") or {}).get("fidelity") or {}
     needs = sorted({f"{c['check']} needs a {c['needs']}" for c in fid.get("checks") or []
                     if c.get("needs") and c.get("status") == "UNKNOWN"})
-    return {"status": fid.get("status"), "unknown": fid.get("unknown") or [],
+    return {"status": fid.get("status"), "kind": fid.get("kind"), "checker": fid.get("checker"),
+            "image_sha256": fid.get("image_sha256"), "cir_fingerprint": fid.get("cir_fingerprint"),
+            "slug": fid.get("slug"), "version": fid.get("version"),
+            "checks": fid.get("checks") or [],
+            "unknown": fid.get("unknown") or [],
             "failed": fid.get("failed") or [], "codes": fid.get("codes") or [],
             "needs": needs}
 
