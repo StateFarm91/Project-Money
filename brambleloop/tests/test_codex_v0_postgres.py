@@ -74,6 +74,11 @@ def test_postgres_one_reservation_cannot_authorize_two_calls():
     assert all(not thread.is_alive() for thread in threads)
     assert sorted(value[0] for value in results) == ["allowed", "reservation_already_used"]
     ticket = next(value[1] for value in results if value[0] == "allowed")
+    with gw.budget_lock(db):
+        with pytest.raises(gw.BudgetExceeded, match="nested"):
+            gate.settle(db, ticket, gate.BILLED, actual_cad=0.7)
+    with db.session() as session:
+        assert session.get(gate.PaidProviderCall, ticket["call_id"]).status == gate.RESERVED
     # Separate processes do not share the Python process lock; the database
     # lock must serialize these contradictory settlement reports.
     context = multiprocessing.get_context("spawn")

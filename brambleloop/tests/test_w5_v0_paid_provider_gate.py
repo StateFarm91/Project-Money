@@ -497,6 +497,30 @@ def test_repeated_identical_billed_settlement_is_idempotent():
         assert row.actual_cad == 0.7
 
 
+def test_nested_budget_settlement_refuses_without_losing_reserved_exposure():
+    db = _db()
+    _activate(db, at=NOW, daily_ceiling_cad=2, monthly_ceiling_cad=5, per_gallery_cad=2)
+    ticket = _authorize(db, "nested-settle", estimate=0.4)
+    with gw.budget_lock(db):
+        try:
+            with gw.budget_lock(db):
+                raise AssertionError("nested lock entered")
+        except gw.BudgetExceeded as exc:
+            assert "nested" in str(exc)
+        try:
+            G.settle(db, ticket, G.BILLED, actual_cad=0.7)
+        except gw.BudgetExceeded as exc:
+            assert "nested" in str(exc)
+        else:
+            raise AssertionError("nested settlement must not silently succeed")
+    with db.session() as session:
+        assert session.get(G.PaidProviderCall, ticket["call_id"]).status == G.RESERVED
+    G.settle(db, ticket, G.BILLED, actual_cad=0.7)
+    with db.session() as session:
+        row = session.get(G.PaidProviderCall, ticket["call_id"])
+        assert row.status == G.BILLED and row.actual_cad == 0.7
+
+
 def test_retention_never_reuses_paid_reservation_identity():
     from brambleloop.finance import reservations
     from brambleloop.core.models import SpendReservation

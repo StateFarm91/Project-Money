@@ -779,7 +779,14 @@ def confirm(db, ticket: dict, *, now: datetime | None = None) -> None:
 
 def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
            error: str = "") -> None:
-    """BILLED / RELEASED / UNCERTAIN. Never raises: a row left RESERVED stays counted."""
+    """Settle a paid attempt; nested budget transactions must retry outside the lock.
+
+    Other settlement failures leave a RESERVED row counted. A nested caller must
+    receive the refusal so it cannot treat a skipped settlement as successful.
+    """
+    from . import anthropic as gw
+    if gw.budget_lock_held():
+        raise gw.BudgetExceeded("nested settlement refused; retry outside the budget lock")
     try:
         # An unknown outcome is not evidence that a paid call is free.  In
         # particular, arbitrary status strings are outside COUNTED and would
@@ -789,7 +796,6 @@ def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
             error = "invalid provider outcome; counted at the reserved estimate"
         # Settlement changes the same exposure used by check-and-reserve, so
         # serialize it with that decision (including across processes).
-        from . import anthropic as gw
         with gw.budget_lock(db) as s:
             row = s.get(PaidProviderCall, int(ticket["call_id"]))
             if row is None:

@@ -129,3 +129,14 @@ The in-repository `settle` callers (`confirm` and `enforce`) call it outside
 another session could self-block. Do not integrate until all callers and lock
 ordering are reviewed and this API contract is enforced. Missing-table
 continuity, other provider paths and the no-paid-provider hold also remain.
+
+The same-execution-context nested budget transaction now refuses immediately;
+`settle` exposes that refusal instead of swallowing it, so the caller can retry
+outside the lock and the existing RESERVED exposure stays counted. Python 3.11
+V0/model-spend regressions passed 61/61, and the opt-in PostgreSQL 16 test
+verified the nested refusal and later settlement behavior. Independent review
+confirmed the guard is scoped to its execution context. A different thread
+that waits for the lock while its parent waits for that thread can still block;
+inherited asynchronous contexts may also refuse conservatively. Cross-thread
+and cross-process lock ordering, full reconciliation, and missing-table
+continuity remain open. DO NOT INTEGRATE or activate a paid provider.

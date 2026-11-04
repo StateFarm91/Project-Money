@@ -33,6 +33,7 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -472,6 +473,12 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
 # ceiling is the defect this exists to close.
 BUDGET_LOCK_KEY = 734543611
 _PROCESS_BUDGET_LOCK = threading.RLock()
+_BUDGET_LOCK_ACTIVE: ContextVar[bool] = ContextVar("budget_lock_active", default=False)
+
+
+def budget_lock_held() -> bool:
+    """Whether this execution context already owns a budget transaction."""
+    return _BUDGET_LOCK_ACTIVE.get()
 
 
 def _sqlite_in_memory(engine) -> bool:
@@ -484,22 +491,28 @@ def budget_lock(db):
     """Hold the spend ceiling's lock for one check-and-reserve. Yields the locked session."""
     from sqlalchemy import text
 
+    if budget_lock_held():
+        raise BudgetExceeded("nested budget transaction refused; retry outside the existing lock")
     with _PROCESS_BUDGET_LOCK:
-        with db.session() as session:
-            engine = session.get_bind()
-            dialect = engine.dialect.name
-            if dialect == "postgresql":
-                session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
-                                {"key": BUDGET_LOCK_KEY})
-            elif dialect == "sqlite":
-                if not _sqlite_in_memory(engine):
-                    session.execute(text("BEGIN IMMEDIATE"))
-            else:
-                raise BudgetExceeded(
-                    f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
-                    f"and its reservation cannot be made atomic. Refused rather than checked "
-                    f"without one")
-            yield session
+        token = _BUDGET_LOCK_ACTIVE.set(True)
+        try:
+            with db.session() as session:
+                engine = session.get_bind()
+                dialect = engine.dialect.name
+                if dialect == "postgresql":
+                    session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                                    {"key": BUDGET_LOCK_KEY})
+                elif dialect == "sqlite":
+                    if not _sqlite_in_memory(engine):
+                        session.execute(text("BEGIN IMMEDIATE"))
+                else:
+                    raise BudgetExceeded(
+                        f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
+                        f"and its reservation cannot be made atomic. Refused rather than checked "
+                        f"without one")
+                yield session
+        finally:
+            _BUDGET_LOCK_ACTIVE.reset(token)
 
 
 def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
