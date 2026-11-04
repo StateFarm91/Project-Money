@@ -6,12 +6,15 @@
 The blind craft comparator previously treated an unsupported or malformed craft
 label as a definite mismatch, even when the judge had not described a recognized
 craft. Such readings now remain UNKNOWN and are marked unsuitable for stage-D
-edit reuse. A clearly observed different supported craft and any independent
-image defect remain FAIL. This does not turn uncertainty into PASS or assert
+edit reuse. Previously stored UNKNOWN craft readings with an explicit unreadable
+craft field are also held even without the new marker. A clearly observed
+different supported craft and any independent image defect remain FAIL. This
+does not turn uncertainty into PASS or assert
 physical evidence.
 
 Python 3.11, SQLite/tmpfs: 9/9 focused craft, obscured-image, variant-input,
 cable and unfunded-judge cases. Independent reviewer reran the five enum cases
+and the persistent variant-input case including the marker-less legacy reading
 and confirmed the narrow behavior. No paid call or deployment occurred.
 
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D

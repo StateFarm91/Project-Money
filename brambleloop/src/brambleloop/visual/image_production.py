@@ -1404,8 +1404,10 @@ def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
                     or (c.get("check") == "anchor_consistency" and c.get("status") == "UNKNOWN")
                     or (c.get("check") == "craft_texture" and c.get("status") == "UNKNOWN"
                         and isinstance(c.get("reading"), dict)
-                        and str(c["reading"].get("fabric_visible_clearly") or "").lower()
-                        not in ("true", "yes")) for c in checks):
+                        and (str(c["reading"].get("fabric_visible_clearly") or "").strip().lower()
+                             not in ("true", "yes")
+                             or str(c["reading"].get("craft") or "").strip().lower()
+                             not in ("crochet", "knitting", "woven", "printed"))) for c in checks):
                 continue
             if _image_has_negative_decision(db, slug=b["slug"], version=b["version"],
                                             sha=b["sha256"]):
