@@ -235,15 +235,17 @@ def _run_check(ctx: JobContext) -> dict:
         ctx.audit(READING, artifact=f"{slug}@{version}",
                   detail={**r, "incident": None, "release_hash": i.get("release_hash", "")})
         return {"ran": False, **r}
-    resolved = _resolve(ctx.db, slug, version, check) if r["ok"] else 0
-    inc = None if r["ok"] else _incident(ctx.db, slug, version, check, r["problems"])
     # P0-REVERIFY-WITHHOLD (OPUS2-P0): the verdict is also kept on the stored release, which
     # retention never prunes, and publication refuses on it until this check passes again.
     from ..publish import withholding
 
+    resolved = _resolve(ctx.db, slug, version, check) if r["ok"] else 0
     held = withholding.record_reverification(
         ctx.db, slug, version, check=check,
         problem=None if r["ok"] else ((r["problems"] or ["failed"])[0]))
+    # A failed check must withhold before optional incident bookkeeping can fail.
+    # A retry can then finish recording the incident without leaving publication open.
+    inc = None if r["ok"] else _incident(ctx.db, slug, version, check, r["problems"])
     ctx.audit(READING, artifact=f"{slug}@{version}",
               detail={**r, "incident": inc, "resolved": resolved,
                       "withheld_checks": held.get("failed_checks", []),
