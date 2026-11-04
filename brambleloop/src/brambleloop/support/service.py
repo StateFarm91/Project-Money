@@ -73,7 +73,13 @@ def _sent_minutes(case, *, now: datetime | None = None) -> float | None:
         return None
     if sent < received:
         return None
-    return round((sent - received).total_seconds() / 60.0, 2)
+    exact = (sent - received).total_seconds() / 60.0
+    rounded = round(exact, 2)
+    limit = TARGETS["escalated_hours"] * 60 if case.escalated else TARGETS["canonical_minutes"]
+    # Do not let stored/display rounding turn a late response into a pass.
+    if exact > limit and rounded <= limit:
+        return None
+    return rounded
 
 
 def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,

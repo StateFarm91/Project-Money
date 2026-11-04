@@ -134,3 +134,15 @@ def test_owner_send_preserves_invalid_or_later_draft_timing_atomically(tmp_path)
             assert case.detail["delivery_timing_conflict"]
             assert case.detail["response_minutes"] == prior
         assert service.service_level(db, now=now)["timed"] == 0
+
+
+def test_rounded_late_delivery_cannot_pass_service_target(tmp_path):
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    now = datetime.now(timezone.utc)
+    case_id = _case(db)
+    with db.session() as session:
+        session.get(SupportCase, case_id).at = now - timedelta(minutes=5, microseconds=100000)
+    response_watch.record_reply_sent(db, case_id, sent_at=now, now=now)
+    result = service.service_level(db, now=now)
+    assert result["timed"] == 0 and result["meets_target"] is None
