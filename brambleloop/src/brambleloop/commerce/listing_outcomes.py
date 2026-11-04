@@ -275,24 +275,20 @@ def _record_export(db, key: str, payload: dict) -> dict:
         return {"status": "refused", "why": str(e)}
     recorded, refused = [], []
     for r in rows:
-        try:
-            style_learning.record_outcome(
-                db, product_slug=r["slug"], version=r["version"], period_start=ps,
-                period_end=pe, impressions=r["impressions"], visits=r["visits"],
-                favourites=r["favourites"], orders=r["orders"], source=source)
-        except style_learning.StyleLearningRefused as e:
-            refused.append({"line": r["line"], "slug": r["slug"], "why": str(e)})
-            continue
         detail = {"export": key, "line": r["line"], "carts": r["carts"],
                   "basis": "measured", "source_kind": "owner_listing_stats_export"}
         if r["traffic_source"]:
             detail["traffic_source"] = r["traffic_source"]
             detail["paid"] = r["traffic_source"] in PAID_SOURCES
-        with db.session() as s:
-            row = s.scalar(select(ListingOutcome).where(
-                ListingOutcome.product_slug == r["slug"], ListingOutcome.period_start == ps,
-                ListingOutcome.period_end == pe))
-            row.detail = {**dict(row.detail or {}), **detail}
+        try:
+            style_learning.record_outcome(
+                db, product_slug=r["slug"], version=r["version"], period_start=ps,
+                period_end=pe, impressions=r["impressions"], visits=r["visits"],
+                favourites=r["favourites"], orders=r["orders"], source=source,
+                outcome_detail=detail)
+        except style_learning.StyleLearningRefused as e:
+            refused.append({"line": r["line"], "slug": r["slug"], "why": str(e)})
+            continue
         recorded.append(r)
     # The round trip: every recorded row read back from the table, field by field.
     mismatches = []
@@ -304,10 +300,13 @@ def _record_export(db, key: str, payload: dict) -> dict:
             got = None if row is None else {
                 "impressions": row.impressions, "visits": row.visits,
                 "favourites": row.favourites, "orders": row.orders, "source": row.source,
-                "carts": (row.detail or {}).get("carts")}
+                "carts": (row.detail or {}).get("carts"),
+                "traffic_source": (row.detail or {}).get("traffic_source"),
+                "paid": (row.detail or {}).get("paid")}
             want = {"impressions": r["impressions"], "visits": r["visits"],
                     "favourites": r["favourites"], "orders": r["orders"], "source": source,
-                    "carts": r["carts"]}
+                    "carts": r["carts"], "traffic_source": r["traffic_source"] or None,
+                    "paid": (r["traffic_source"] in PAID_SOURCES) if r["traffic_source"] else None}
             if got != want:
                 mismatches.append({"slug": r["slug"], "wrote": want, "read": got})
     return {"status": "recorded" if recorded and not refused else

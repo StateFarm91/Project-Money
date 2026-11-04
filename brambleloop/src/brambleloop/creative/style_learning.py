@@ -186,7 +186,7 @@ def record_outcome(db, *, product_slug: str, version: str = "", period_start: st
                    period_end: str, impressions: int, visits: int, source: str,
                    favourites: int | None = None, first_frame_views: int | None = None,
                    first_frame_engagements: int | None = None, orders: int | None = None,
-                   test_key: str = "") -> dict:
+                   test_key: str = "", outcome_detail: dict | None = None) -> dict:
     """Write one listing's measured period, tagged with the style it was showing.
 
     Refuses the impossible rather than storing it: more visits than impressions, more
@@ -224,7 +224,7 @@ def record_outcome(db, *, product_slug: str, version: str = "", period_start: st
         row = s.scalar(select(ListingOutcome).where(
             ListingOutcome.product_slug == product_slug,
             ListingOutcome.period_start == period_start,
-            ListingOutcome.period_end == period_end))
+            ListingOutcome.period_end == period_end).with_for_update())
         if row is None:
             row = ListingOutcome(product_slug=product_slug, period_start=period_start,
                                  period_end=period_end, source=source)
@@ -235,6 +235,18 @@ def record_outcome(db, *, product_slug: str, version: str = "", period_start: st
         row.orders = orders
         row.hero_style, row.styles = hero, styles
         row.test_key, row.source = test_key or "", source
+        # Evidence belongs to this version of the outcome, not the preceding
+        # import. Keep unrelated details while replacing import provenance.
+        if row.detail is not None and not isinstance(row.detail, dict):
+            raise StyleLearningRefused("existing outcome detail needs reconciliation")
+        prior = dict(row.detail or {})
+        for key in ("export", "line", "carts", "basis", "source_kind", "traffic_source", "paid"):
+            prior.pop(key, None)
+        if outcome_detail is not None:
+            if not isinstance(outcome_detail, dict):
+                raise StyleLearningRefused("outcome detail must be an object")
+            prior.update(outcome_detail)
+        row.detail = prior
     return {"recorded": True, "product_slug": product_slug, "hero_style": hero or None,
             "styles": styles,
             "untagged": not hero,
