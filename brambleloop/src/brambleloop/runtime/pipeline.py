@@ -404,6 +404,14 @@ def handle_radar_score(ctx: JobContext) -> dict:
     can sit in the queue for days and a seasonal window can close underneath it.
     """
     c = dict(ctx.job.inputs)
+    if c.get("source") == "intel.opportunity_review":
+        from ..intel import watchlist
+
+        if not watchlist.score_still_supported(ctx.db, c.get("coverage_gaps")):
+            ctx.audit("radar.watchlist_evidence_held", artifact=c.get("slug"),
+                      detail={"reason": "current corroboration missing"})
+            return {"slug": c.get("slug"), "score": None, "promoted": False,
+                    "reason": "watchlist corroboration no longer current"}
     if not c.get("slug"):
         # A mission rather than a concept: the Intelligence charter generates radar.score
         # from its CoverageGap handoff ("scores the coverage gap queue", autonomy/charters.py)
