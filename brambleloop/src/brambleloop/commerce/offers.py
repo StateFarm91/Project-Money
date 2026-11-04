@@ -30,6 +30,7 @@ is the cheapest offer it has not worn yet.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from .benchmarks import METRICS
@@ -190,6 +191,25 @@ def compare(results: list[Result]) -> dict:
     }
 
 
+def _retirement_evidence_complete(result: Result) -> bool:
+    """A sold offer still needs offer-scoped traffic and financial measurements."""
+    def count(value):
+        return (isinstance(value, int) and not isinstance(value, bool)
+                and 0 <= value and value.bit_length() <= 1023)
+
+    def finite(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(value)
+        except OverflowError:
+            return False
+
+    return (count(result.visitors) and count(result.buyers)
+            and result.visitors > 0 and result.buyers <= result.visitors
+            and finite(result.revenue_cad) and finite(result.contribution_cad))
+
+
 def may_retire(design_slug: str, results: list[Result]) -> dict:
     """Whether a design may be discarded, or whether only its offer has been tested.
 
@@ -201,7 +221,9 @@ def may_retire(design_slug: str, results: list[Result]) -> dict:
     tried = {r.offer for r in mine}
     families = {r.family for r in mine}
     thin = sorted({r.offer for r in mine
-                   if (r.buyers or 0) < MIN_BUYERS_PER_OFFER})
+                   if (not isinstance(r.buyers, int) or isinstance(r.buyers, bool)
+                       or r.buyers < MIN_BUYERS_PER_OFFER)})
+    incomplete = sorted({r.offer for r in mine if not _retirement_evidence_complete(r)})
 
     reasons: list[str] = []
     if len(families) < MIN_OFFER_FAMILIES_BEFORE_RETIRING:
@@ -213,6 +235,10 @@ def may_retire(design_slug: str, results: list[Result]) -> dict:
         reasons.append(
             f"{thin} had fewer than {MIN_BUYERS_PER_OFFER} buyers, so what failed there is "
             f"not established. An offer nobody bought enough of did not lose; it did not run")
+
+    if incomplete:
+        reasons.append(f"{incomplete} lack complete valid offer-scoped visitor, buyer or "
+                       "financial evidence; a sale count alone cannot establish failure")
 
     untried = [o.key for o in OFFERS if o.key not in tried and available(o.key)["available"]]
     cheapest = min((BY_KEY[k] for k in untried), key=lambda o: o.posture, default=None)

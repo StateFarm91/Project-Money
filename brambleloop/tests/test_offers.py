@@ -153,3 +153,13 @@ if __name__ == "__main__":
                 fails += 1
                 print("FAIL", name, repr(e))
     sys.exit(1 if fails else 0)
+
+
+def test_retirement_requires_complete_valid_offer_scoped_evidence():
+    for partial in ({"visitors": None}, {"buyers": 21, "visitors": 20},
+                    {"visitors": True}, {"buyers": "20"},
+                    {"revenue_cad": float("nan")}, {"contribution_cad": float("inf")},
+                    {"contribution_cad": None}):
+        result = O.may_retire("hex-coaster", [_r(O.SINGLE), _r(O.MINI, **partial)])
+        assert not result["may_retire"]
+        assert any("offer-scoped" in reason for reason in result["reasons"])
