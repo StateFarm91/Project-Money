@@ -47,8 +47,11 @@ BLOCKED = "blocked"
 
 
 def _try(fn, *a, **k):
+    from ..queue.effects import LeaseLost
     try:
         return fn(*a, **k), None
+    except LeaseLost:
+        raise
     except Exception as exc:  # noqa: BLE001 - a reader that cannot answer is a blocker
         return None, f"{type(exc).__name__}: {str(exc)[:300]}"
 
@@ -617,15 +620,33 @@ def sweep(db) -> dict:
     with db.session() as session:
         keys = [r.period_key for r in session.scalars(
             select(OperatingReading).where(OperatingReading.kind == KIND))]
-    results = [_package_one(db, slug, version) for slug, version in sorted(eligible)]
+    results = []
+    def run_one(slug, version, *, reconcile=False):
+        from ..queue.effects import LeaseLost
+        try:
+            if reconcile:
+                result = _reconcile_ineligible(db, slug, version)
+                if not result.get("became_eligible"):
+                    return result
+            return _package_one(db, slug, version)
+        except LeaseLost:
+            raise
+        except Exception as exc:
+            # Individual failures must not starve other releases. The handler
+            # retries the job if any result requests it; omit exception text,
+            # which can contain sensitive database or provider details.
+            return {"key": f"{slug}@{version}", "changed": False,
+                    "retry": True, "error": f"{type(exc).__name__} processing release"}
+
+    for slug, version in sorted(eligible):
+        results.append(run_one(slug, version))
     for key in keys:
         if not isinstance(key, str) or "@" not in key:
             continue
         slug, version = key.rsplit("@", 1)
         if (slug, version) in eligible:
             continue
-        result = _reconcile_ineligible(db, slug, version)
-        results.append(_package_one(db, slug, version) if result.get("became_eligible") else result)
+        results.append(run_one(slug, version, reconcile=True))
     return _summary(results)
 
 
