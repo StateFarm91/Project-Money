@@ -277,6 +277,8 @@ def unverifiable(db, *, days: int = 30) -> list[dict]:
     from ..core.models import AuditLog
 
     since = datetime.now(timezone.utc) - timedelta(days=days)
+    current = {(f"{r['slug']}@{r['version']}", r["release_hash"])
+               for r in certified_releases(db) if r["release_hash"]}
     newest: dict[tuple, dict] = {}
     unknown: dict[tuple, int] = {}
     with db.session() as s:
@@ -287,14 +289,17 @@ def unverifiable(db, *, days: int = 30) -> list[dict]:
             check = d.get("check")
             if not isinstance(check, str) or check not in CHECKS:
                 continue
-            key = (a.artifact, check)
+            digest = d.get("release_hash")
+            if not isinstance(digest, str) or (a.artifact, digest) not in current:
+                continue
+            key = (a.artifact, check, digest)
             newest[key] = d
-            if d.get("ok") is None:
+            if d.get("ok") is not True and d.get("ok") is not False:
                 unknown[key] = unknown.get(key, 0) + 1
-    return [{"release": k[0], "check": k[1], "unknown_readings": unknown.get(k, 0),
-             "why": (d.get("why") or "")[:200]}
+    return [{"release": k[0], "check": k[1], "release_hash": k[2],
+             "unknown_readings": unknown.get(k, 0), "why": str(d.get("why") or "")[:200]}
             for k, d in sorted(newest.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))
-            if d.get("ok") is None]
+            if d.get("ok") is not True and d.get("ok") is not False]
 
 
 FRESH_HOURS = 24

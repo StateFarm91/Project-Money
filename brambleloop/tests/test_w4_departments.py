@@ -497,7 +497,7 @@ def test_l4_a_check_that_raises_is_recorded_as_a_finding():
 def test_b199_i1_a_check_that_can_never_read_is_reported_as_unverifiable():
     cir = _cir()
     db = _db(cir)                                       # no drafted listing: policy can't read
-    ref = {"slug": cir.slug, "version": cir.version}
+    ref = {"slug": cir.slug, "version": cir.version, "release_hash": "r" * 64}
     for _ in range(2):
         _run(db, "policy", "gate.policy", ref)
     rows = quality_ops.unverifiable(db)
