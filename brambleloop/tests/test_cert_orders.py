@@ -1111,3 +1111,45 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_scale_reading_excludes_future_dated_sales():
+    from brambleloop.scale import runrate
+
+    db = _db()
+    day = date.today() - timedelta(days=3)
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=100,
+            at=datetime.combine(day + timedelta(days=1), datetime.min.time(), timezone.utc),
+            evidence_ref="fixture-future"))
+    reading = runrate.observe(db, today=day)
+    assert reading["observed"].revenue_cad is None
+
+
+def test_scale_reading_excludes_future_booked_orders_and_support():
+    from brambleloop.scale import runrate
+    from brambleloop.core.models import SupportCase
+
+    db, _, _ = _ingested()
+    tomorrow = NOW + timedelta(days=1)
+    with db.session() as session:
+        orders = list(session.scalars(select(Order)))
+        for order in orders:
+            order.at = tomorrow
+        orders[0].at = NOW - timedelta(days=2)
+        session.add(SupportCase(customer_ref="fixture", question="fixture", at=tomorrow))
+    reading = runrate.observe(db, today=date.today() - timedelta(days=1))
+    assert reading["observed"].orders == 1
+    assert reading["support_rate"] == 0
+
+
+def test_future_order_does_not_make_historical_zero_measured():
+    from brambleloop.scale import runrate
+
+    db, _, _ = _ingested()
+    with db.session() as session:
+        for order in session.scalars(select(Order)):
+            order.at = NOW + timedelta(days=1)
+    reading = runrate.observe(db, today=date.today() - timedelta(days=1))
+    assert not reading["orders_source"]["live"]
+    assert reading["observed"].orders is None
