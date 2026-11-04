@@ -90,3 +90,29 @@ def test_missing_or_hidden_comparison_is_not_a_variant_input():
                vision_judges.blind_consistency(Judge(hidden), b"a", b"b", exp),
                vision_judges.blind_consistency(None, b"a", b"b", exp)]
     assert all(v["status"] == "UNKNOWN" and v["blocks_variant_input"] is True for v in results)
+
+
+def test_single_cable_in_compiled_cir_is_not_called_invented():
+    from brambleloop.cir.model import Op
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    rows = [_row(i, "pine") for i in range(1, 7)]
+    rows[2].ops = [Op("sc", 4), Op("cable2x2"), Op("sc", 4)]
+    cir = _flat("single-cable", rows, {"pine": "#244A3A"})
+    exp = fidelity.expectation(cir)
+    assert exp.cables_declared is True
+    assert all(not p.repeat or "cable" not in str(p.repeat.get("what")) for p in exp.pieces)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    distinct_yarn_colours=1)
+    reading["image_1"]["raised_cables_visible"] = "no"
+    reading["image_2"]["raised_cables_visible"] = "yes"
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    from brambleloop.products.vessels import build_basket
+
+    basket = fidelity.expectation(build_basket("small"))
+    assert not basket.cables_declared
+    defect = vision_judges.blind_consistency(Judge(reading), b"a", b"b", basket)
+    assert defect["status"] == "FAIL"

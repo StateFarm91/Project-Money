@@ -85,3 +85,12 @@ judge authenticity.
 Python 3.11/file-backed SQLite: expanded focused and owner-image suite 100/100.
 Independent reviewer reran blind-comparison, variant and obscured cases 18/18.
 The broader pre-existing V1 regression and authority/concurrency holds remain.
+
+The comparator previously treated cable presence as equivalent to a measurable
+repeated-column model. A real compiled single-crossing CIR has a cable but no
+such model, so visible cable was falsely called invented. The comparison now
+uses the compiled cable-presence fact as well as the repeated model. A mismatch
+with the anchor stays UNKNOWN and is held from edit reuse; the same observation
+on a real no-cable basket still FAILs. This does not prove physical fidelity.
+The expanded Python 3.11 focused suite passed 101/101; independent review is
+scoped to this comparison and does not accept the wider V1 work.

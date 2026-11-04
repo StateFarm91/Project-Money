@@ -538,8 +538,12 @@ def _has_bands(exp) -> bool:
 
 
 def _has_cables(exp) -> bool:
-    return any(p.repeat and "cable" in str(p.repeat.get("what", ""))
-               for p in getattr(exp, "pieces", []) or [])
+    # Repeated-column measurement is not a cable-presence test: a single
+    # compiled crossing (or a crossing on a smaller component) has no such
+    # measurement but is still declared in the design.
+    return bool(getattr(exp, "cables_declared", False)) or any(
+        p.repeat and "cable" in str(p.repeat.get("what", ""))
+        for p in getattr(exp, "pieces", []) or [])
 
 
 def compare_items(reading: dict, exp) -> dict:
