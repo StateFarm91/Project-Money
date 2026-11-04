@@ -549,7 +549,68 @@ def _sum(session, *where) -> float:
             PaidProviderCall.status.in_(COUNTED), *where)):
         amount = row.actual_cad if row.status == BILLED and row.actual_cad is not None \
             else row.estimate_cad
-        total += float(amount or 0.0)
+        amount = float(amount or 0.0)
+        if not math.isfinite(amount) or amount <= 0:
+            amount = float(row.estimate_cad or 0.0)
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError("paid attempt has no valid positive accounting estimate")
+        total += amount
+    return round(total, 6)
+
+
+def uncovered_company_exposure(session, *, now: datetime | None = None) -> float:
+    """Conservatively count paid attempts not covered by a live company reservation.
+
+    This intentionally does not subtract booked costs: until reconciliation can bind
+    an attempt to its exact ledger entry, double-counting is safer than losing a paid
+    call. RESERVED/UNCERTAIN attempts survive month boundaries; BILLED attempts are
+    included in their calendar month. Any malformed amount fails the budget closed.
+    """
+    from sqlalchemy import inspect
+    from ..core.models import SpendReservation
+
+    if not inspect(session.get_bind()).has_table(PaidProviderCall.__tablename__):
+        return 0.0
+    invalid = session.scalar(select(PaidProviderCall.id).where(
+        (PaidProviderCall.status.is_(None)) |
+        (~PaidProviderCall.status.in_((*COUNTED, RELEASED)))).limit(1))
+    if invalid is not None:
+        raise ValueError("paid attempt has unknown outcome; reconciliation required")
+    now = _now(now)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total = 0.0
+    covered_ids = set()
+    rows = session.scalars(select(PaidProviderCall).where(
+        PaidProviderCall.status.in_(COUNTED)).order_by(PaidProviderCall.id))
+    for row in rows:
+        at = _aware(row.at)
+        settled = _aware(row.settled_at)
+        # A previous-month call can settle in this month; do not free its
+        # headroom between settlement and the later ledger write.
+        if (row.status == BILLED and at is not None and at < month_start
+                and settled is not None and settled < month_start):
+            continue
+        estimate = float(row.estimate_cad or 0.0)
+        if not math.isfinite(estimate) or estimate <= 0:
+            raise ValueError("unresolved paid attempt has invalid estimate")
+        actual = row.actual_cad if row.status == BILLED else None
+        if actual is not None:
+            actual = float(actual)
+            if math.isfinite(actual) and actual > estimate:
+                estimate = actual
+        reservation = session.get(SpendReservation, row.reservation_id) if row.reservation_id else None
+        live = (reservation is not None and reservation.id not in covered_ids
+                and _aware(reservation.at) is not None and at is not None
+                and _aware(reservation.at) <= at and reservation.released_at is None
+                and _aware(reservation.expires_at) is not None
+                and _aware(reservation.expires_at) > now)
+        covered = 0.0
+        if live:
+            covered_ids.add(reservation.id)
+            covered = float(reservation.amount_cad or 0.0)
+            if not math.isfinite(covered) or covered < 0:
+                raise ValueError("paid attempt has invalid company reservation")
+        total += max(0.0, estimate - covered)
     return round(total, 6)
 
 
@@ -619,10 +680,21 @@ def authorize(db, *, provider: str, scope: str, estimate_cad: float, fingerprint
                                f"no live company-budget reservation for this call (reservation "
                                f"{reservation_id!r}); the accounting evidence the month ceiling "
                                f"writes is missing, so the call is refused (fail closed)")
+                elif (not math.isfinite(float(res.amount_cad or 0.0))
+                      or float(res.amount_cad or 0.0) + 1e-9 < estimate):
+                    refusal = ("reservation_underfunded",
+                               "the company-budget reservation does not cover this call's estimate")
+                elif s.scalar(select(PaidProviderCall.id).where(
+                        PaidProviderCall.reservation_id == res.id).limit(1)) is not None:
+                    # One reservation accounts for one attempt, even if that attempt was
+                    # released: retrying must obtain a fresh company-budget decision.
+                    refusal = ("reservation_already_used",
+                               "the company-budget reservation already backed a paid attempt")
             if refusal is None:
                 ceiling = gw.monthly_ceiling_cad()
                 committed = round(gw.spent_this_month_cad(db, now=now)
-                                  + reservations.outstanding(db, now=now)["cad"], 6)
+                                  + reservations.outstanding(db, now=now)["cad"]
+                                  + uncovered_company_exposure(s, now=now), 6)
                 if not math.isfinite(ceiling) or ceiling <= 0 or committed > ceiling + 1e-9:
                     refusal = ("company_monthly_budget",
                                f"the company has CA${committed:.4f} billed or reserved this "
@@ -707,16 +779,74 @@ def confirm(db, ticket: dict, *, now: datetime | None = None) -> None:
 
 def settle(db, ticket: dict, status: str, *, actual_cad: float | None = None,
            error: str = "") -> None:
-    """BILLED / RELEASED / UNCERTAIN. Never raises: a row left RESERVED stays counted."""
+    """Settle a paid attempt; nested budget transactions must retry outside the lock.
+
+    Other settlement failures leave a RESERVED row counted. A nested caller must
+    receive the refusal so it cannot treat a skipped settlement as successful.
+    """
+    from . import anthropic as gw
+    if gw.budget_lock_held():
+        raise gw.BudgetExceeded("nested settlement refused; retry outside the budget lock")
     try:
-        with db.session() as s:
+        # An unknown outcome is not evidence that a paid call is free.  In
+        # particular, arbitrary status strings are outside COUNTED and would
+        # otherwise silently release the budget exposure.
+        if status not in (BILLED, RELEASED, UNCERTAIN):
+            status = UNCERTAIN
+            error = "invalid provider outcome; counted at the reserved estimate"
+        # Settlement changes the same exposure used by check-and-reserve, so
+        # serialize it with that decision (including across processes).
+        with gw.budget_lock(db) as s:
             row = s.get(PaidProviderCall, int(ticket["call_id"]))
-            if row is None or row.status != RESERVED:
+            if row is None:
                 return
-            row.status = status
+            if row.status != RESERVED:
+                # Contradictory final reports are not evidence of a free call.
+                # Keep the greatest known positive exposure while escalating
+                # the attempt to UNCERTAIN, regardless of report order.
+                conflicting = status != row.status
+                if status == row.status == BILLED and actual_cad is not None:
+                    try:
+                        repeat_actual = float(actual_cad)
+                        existing_actual = float(row.actual_cad)
+                        conflicting = (not math.isfinite(repeat_actual) or repeat_actual <= 0
+                                       or not math.isfinite(existing_actual)
+                                       or repeat_actual != existing_actual)
+                    except (TypeError, ValueError, OverflowError):
+                        conflicting = True
+                if row.status in (RELEASED, BILLED, UNCERTAIN) and conflicting:
+                    amounts = [row.estimate_cad, row.actual_cad]
+                    if status == BILLED:
+                        amounts.append(actual_cad)
+                    valid = []
+                    for amount in amounts:
+                        try:
+                            value = float(amount)
+                        except (TypeError, ValueError, OverflowError):
+                            continue
+                        if math.isfinite(value) and value > 0:
+                            valid.append(value)
+                    if not valid:
+                        return  # invalid original evidence stays fail-closed
+                    row.estimate_cad = max(valid)
+                    row.status = UNCERTAIN
+                    row.error = "conflicting provider outcomes; reconciliation required"
+                    row.settled_at = utcnow()
+                return
             if status == BILLED:
-                row.actual_cad = round(float(actual_cad if actual_cad is not None
-                                             else row.estimate_cad), 6)
+                # Missing/zero usage is not proof a provider call was free. Invalid
+                # usage must never become a negative credit against the owner's cap.
+                try:
+                    value = float(actual_cad) if actual_cad is not None else None
+                except (TypeError, ValueError, OverflowError):
+                    value = float("nan")
+                if value is not None and (not math.isfinite(value) or value < 0):
+                    status = UNCERTAIN
+                    error = "invalid provider usage; counted at the reserved estimate"
+                else:
+                    row.actual_cad = round(value if value and value > 0
+                                           else float(row.estimate_cad), 6)
+            row.status = status
             row.error = str(error or "")[:300]
             row.settled_at = utcnow()
     except Exception:  # noqa: BLE001 - unsettled means still counted, the safe direction

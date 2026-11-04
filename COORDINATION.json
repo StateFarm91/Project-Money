@@ -279,6 +279,26 @@
       "area": "queue Q16 split",
       "claimed": "2026-11-02T11:20Z",
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
+    },
+    {
+      "id": "CODEX-V0-RESERVATION-BINDING",
+      "operator": "codex",
+      "branch": "codex/v0-provider-authority",
+      "source_branch": "opus2/v0-paid-provider-gate",
+      "source_sha": "76fc0f3d6b6d2588e7953cf369b81bd7e99acd74",
+      "scope": "P0 paid-provider gate: bind one funded company-budget reservation to one provider attempt",
+      "files": [
+        "brambleloop/src/brambleloop/gateway/paid_provider_gate.py",
+        "brambleloop/tests/test_w5_v0_paid_provider_gate.py",
+        "brambleloop/src/brambleloop/finance/reservations.py",
+        "brambleloop/src/brambleloop/gateway/images.py",
+        "brambleloop/src/brambleloop/gateway/anthropic.py",
+        "brambleloop/src/brambleloop/visual/d_judge.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/src/brambleloop/gateway/routing.py",
+        "brambleloop/src/brambleloop/gateway/model_gateway.py"
+      ],
+      "claimed_at": "2026-11-03"
     }
   ],
   "unowned": [

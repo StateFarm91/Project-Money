@@ -1192,6 +1192,19 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
     caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
+    if gate_scope == "probe":
+        # Probe authorization is narrower than generation: fixed diagnostic
+        # prompts only, without arbitrary caller-provided fields or sizing.
+        allowed = {
+            ("image.probe", "A plain grey fabric swatch on a white background, product photograph.", 0),
+            ("image.reference_probe", "A plain ceramic mug on a white background, product photograph.", 0),
+        }
+        if ((purpose, prompt, len(reference_urls or [])) not in allowed
+                or size != "1024x1024" or extra_fields):
+            raise ImagesGateRefused("probe activation covers only fixed diagnostic requests",
+                                    "probe_scope_mismatch")
+    elif gate_scope != "generation":
+        raise ImagesGateRefused("unknown image authorization scope", "probe_scope_mismatch")
     if not work_dir:
         raise ImagesRefused(
             "generate() needs a work_dir: the path it returns has to outlive the call, so "
@@ -1261,9 +1274,9 @@ def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpo
     def classify(exc: BaseException) -> str:
         if billing.get("billed") or billing.get("accepted"):
             return gate.BILLED
-        if isinstance(exc, TimeoutError):
-            return gate.UNCERTAIN
-        return gate.RELEASED
+        # Once the transport is entered, a reset, wrapped timeout, malformed 2xx,
+        # or HTTP error does not prove that the provider did not accept work.
+        return gate.UNCERTAIN
 
     try:
         return gate.enforce(
@@ -1565,6 +1578,13 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     # `ops.capability_probes` and passed no `work_dir`, so every run made one more.
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
+        # The conditioned step accepts an image reference. Until its same-run
+        # first-render identity is bound durably, probe-only authority must not
+        # authorize it. Check before the first render to avoid a wasted call.
+        from . import paid_provider_gate as gate
+        if not gate.activation_state(db, provider_key, gate.GENERATION)["active"]:
+            raise ImagesGateRefused("reference conditioning requires generation activation "
+                                    "until diagnostic inputs are bound", "probe_scope_mismatch")
         with workspace.work_dir(work_dir, prefix="generated-") as root:
             # `db` passed through so both renders are reserved and ledgered (B2) in the
             # database this probe audits into, attributed as shared platform spend.
@@ -1577,7 +1597,7 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
                               env=env, provider_key=provider_key,
                               reference_urls=[first["image_ref"]], work_dir=root, db=db,
                               purpose=REFERENCE_PROBE_ACTION,
-                              spend_detail=shared, gate_scope="probe")
+                              spend_detail=shared, gate_scope="generation")
             # `ok` means the conditioned render came back *and* the reference's bytes were
             # proven to be in the request that produced it (F-212). A render alone proves
             # only that the provider answered.
