@@ -411,9 +411,6 @@ def compare(db, *, now: datetime | None = None) -> dict:
         media = [g["median_media"] for g in groups
                  if isinstance(g["median_media"], (int, float))]
         mix = {g["pod"]: g["listings"] for g in groups}
-        for pod, n in mix.items():
-            if n >= MIN_LISTINGS_FOR_ARENA:
-                arenas.setdefault(pod, []).append(alias)
         shop = st.get("shop") or {}
         as_of = st.get("last_ok_at") or (snap["at"] if listings else None)
         src = "etsy open api v3 (stored benchmark_listings)"
@@ -421,7 +418,20 @@ def compare(db, *, now: datetime | None = None) -> dict:
         # Review L-1: a figure carried over from an earlier read while this shop's latest
         # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
         # stored rows are labelled rows_present, never "ok".)
-        fresh = state in ("ok", "rows_present")
+        # Stored catalogue rows survive outages and may outlive an observation.  They
+        # cannot corroborate a current opportunity unless the shop has a recent,
+        # successful watchlist read with an actual (non-future) timestamp.
+        try:
+            last_ok = datetime.fromisoformat(st.get("last_ok_at") or "")
+            if last_ok.tzinfo is None:
+                last_ok = last_ok.replace(tzinfo=timezone.utc)
+            fresh = state == "ok" and timedelta(0) <= now - last_ok <= STALE_AFTER
+        except (TypeError, ValueError):
+            fresh = False
+        if fresh:
+            for pod, n in mix.items():
+                if n >= MIN_LISTINGS_FOR_ARENA:
+                    arenas.setdefault(pod, []).append(alias)
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")

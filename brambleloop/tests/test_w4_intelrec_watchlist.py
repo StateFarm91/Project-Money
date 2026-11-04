@@ -547,6 +547,42 @@ def test_stale_and_unmeasured_figures_are_not_measured():
     assert anchor["observation"]["state"] == "rows_present", anchor["observation"]
 
 
+def test_outage_rows_do_not_corroborate_until_source_recovers():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        _with_reader(Reader(down={"ZKBDESIGNER"}))
+        watchlist.scan_all(db, force=True)
+        out = _run(db, "intel.watchlist_compare")
+        assert out["validated_arenas"] == 0
+        with db.session() as s:
+            assert s.scalar(select(CoverageGap).where(
+                CoverageGap.benchmark_key == watchlist.WATCHLIST_KEY)) is None
+        _with_reader(Reader())
+        watchlist.scan_all(db, force=True)
+        out = _run(db, "intel.watchlist_compare")
+        assert out["validated_arenas"] >= 1
+    finally:
+        watchlist.reader_factory = None
+
+
+def test_old_or_future_success_cannot_validate_current_arena():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    now = datetime.now(timezone.utc)
+    for when in (now - watchlist.STALE_AFTER - timedelta(seconds=1),
+                 now + timedelta(seconds=1)):
+        state = watchlist._state(db, "zkbdesigner")
+        state["last_ok_at"] = when.isoformat()
+        watchlist._save_state(db, "zkbdesigner", state, now=now)
+        assert watchlist.compare(db, now=now)["validated_arenas"] == []
+
+
 def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
     """Review L-6."""
     db = _db()
