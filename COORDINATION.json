@@ -361,6 +361,25 @@
         "brambleloop/tests/test_w4_intelrec_watchlist.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-SUPPORT-FIRST-RESPONSE-TRUTH",
+      "operator": "codex",
+      "branch": "codex/support-first-response-truth",
+      "claimed_at": "2026-11-04T04:01:28Z",
+      "files": [
+        "brambleloop/src/brambleloop/support/response_watch.py",
+        "brambleloop/tests/test_codex_support_first_response_truth.py",
+        "brambleloop/src/brambleloop/support/department.py",
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/src/brambleloop/support/service.py",
+        "brambleloop/tests/test_codex_support_response_pg.py",
+        "brambleloop/src/brambleloop/app/main.py",
+        "brambleloop/src/brambleloop/support/workspace.py",
+        "brambleloop/tests/test_codex_support_hotspot_truth.py",
+        "brambleloop/tests/test_codex_support_service_truth.py"
+      ],
+      "scope": "Preserve support response, service-level, intake and version-scoped defect-signal truth; no customer messages sent."
     }
   ],
   "unowned": [
