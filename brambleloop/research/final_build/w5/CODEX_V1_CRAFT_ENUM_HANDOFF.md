@@ -89,6 +89,14 @@ fence concurrent evidence writers, make identity review and restart one
 transaction, or establish PostgreSQL concurrency behavior. Integration remains
 blocked pending those checks and the previously recorded authority gaps.
 
+Visual spend planning now refuses non-finite, negative or malformed plan and
+runtime amounts, malformed call counters, and paid generators without a
+positive maximum price. Raw stored counters reach validation before a call.
+Python 3.11/tmpfs focused tests, including actual generation entry and existing
+plan and paid-gate controls, passed 28/28; independent reviewer reran 25/25.
+No provider was called. These checks trust the generator's free/paid declaration
+and do not provide cross-process budget reservation or global budget proof.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

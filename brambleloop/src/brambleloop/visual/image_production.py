@@ -506,37 +506,40 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
 
     with db.session() as s:
         r = _run(s, key)
-        calls, spent = int(r.generation_calls or 0), float(r.spent_cad or 0.0)
-    next_cost = float(getattr(gen, "max_cost_cad_per_call", 0.0))
+        calls, spent = r.generation_calls, r.spent_cad
+    paid = getattr(gen, "paid", True) is not False
+    next_cost = getattr(gen, "max_cost_cad_per_call", 0.0)
+    try:
+        spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
+                         next_cost_cad=next_cost)
+    except spend_plan.PlanRefused as exc:
+        raise BudgetStop(str(exc)) from None
     if exp is not None:
         # W4-WRAPTEST: an experiment's paid call needs the owner's recorded experiment approval
         # and headroom in its own hard budget; every ceiling below still applies on top.
         from .experiment import ExperimentBudgetStop
 
-        if getattr(gen, "paid", True) and not exp.paid_authorised():
+        if paid and not exp.paid_authorised():
             raise CapabilityBlocked("experiment is not live: a paid generator may not be "
                                     "called (dry run uses the stub provider)")
-        if getattr(gen, "paid", True):
+        if paid:
             try:
                 exp.guard_paid(next_cost)
             except ExperimentBudgetStop as exc:
                 raise BudgetStop(str(exc)) from None
-    elif _controlled_of(db, key) and getattr(gen, "paid", True):
+    elif _controlled_of(db, key) and paid:
         # W-VISNEXT2: an owner-authorised controlled run of a certified release. The owner's
         # step-up authorization, inside its (shared) cap, stands in for the image_generation
         # gate for this run only; every ceiling below still applies on top.
         from ..experiments import controlled as CX
 
         CX.guard_generation(db, _controlled_of(db, key), next_cost)
-    elif getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
+    elif paid and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
                                 "called")
-    try:
-        spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
-                         next_cost_cad=next_cost)
-    except spend_plan.PlanRefused as exc:
-        raise BudgetStop(str(exc)) from None
+    if paid and next_cost == 0:
+        raise BudgetStop("paid generator requires a positive maximum cost per call")
     _update(db, key, stage=stage, generation_calls=calls + 1)
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
@@ -576,7 +579,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         # marked as an experiment image before anything evaluates it
         from ..experiments import controlled as CX
 
-        CX.record_generation(db, ctl, reserved_cad=next_cost if getattr(gen, "paid", True)
+        CX.record_generation(db, ctl, reserved_cad=next_cost if paid
                              else 0.0, actual_cad=cost, sha256=sha)
     cand = {**base, "data": data, "sha256": sha, "provider": out.get("provider"),
             "model": out.get("model"), "prompt": out.get("prompt") or brief,
