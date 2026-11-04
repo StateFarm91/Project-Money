@@ -149,6 +149,9 @@ def select_method(domain: str) -> dict:
 REPO_RECORDS = (REPO_RESEARCH.parent / "BUILD_STATE.md", REPO_RESEARCH.parent / "DECISION_LOG.md")
 STOPPED_NO_CHANGE = "STOPPED_NO_CHANGE"
 NO_CHANGE_LIMIT = 2
+# Bound malformed/duplicated audit scans without treating an incomplete scan as
+# evidence of a changed investigation or an established no-change streak.
+NO_CHANGE_AUDIT_SCAN_LIMIT = 1000
 ESCALATIONS = "research.escalations"
 METRICS = "research.metrics"
 
@@ -179,7 +182,8 @@ def _all_terms(text: str, terms) -> bool:
     return all(x.lower() in t for x in terms)
 
 
-def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dict]:
+def internal_evidence(db, terms, *, exclude_task: int | None = None,
+                      as_of: datetime | None = None) -> list[dict]:
     """F-405 (INTEG7 reconciliation): FMBATCH1's `intel.research.search_internal_report` is the
     internal search. This agent adds only its two extra corpora, the listing-test memory and
     earlier answered research, as refs that the task's findings may rest on (retrieval
@@ -193,6 +197,7 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
     out = list(out)
     from ..core.models import ListingMemory
 
+    now = R._aware(as_of) if as_of is not None else datetime.now(timezone.utc)
     with db.session() as s:
         for r in s.scalars(select(ListingMemory).limit(500)):
             if _all_terms(f"{r.idea} {r.context} {r.note}", terms):
@@ -201,7 +206,8 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
                             "retrieval": "internal"})
         for r in s.scalars(select(R.ResearchTask).where(R.ResearchTask.state == R.ANSWERED)
                            .limit(500)):
-            if r.id != exclude_task and _all_terms(f"{r.question} {r.outcome}", terms):
+            if (r.id != exclude_task and R.answer_fresh_at(r, now)
+                    and _all_terms(f"{r.question} {r.outcome}", terms)):
                 out.append({"ref": f"research_tasks:{r.id}", "kind": "prior_research",
                             "text": f"{r.question} -> {r.outcome}"[:300],
                             "retrieval": "internal"})
@@ -210,18 +216,41 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
 
 def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
     """How many most-recent investigations of this task ended with exactly this evidence."""
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, Job, JobStatus
 
     n = 0
     with db.session() as s:
-        for a in s.scalars(select(AuditLog).where(
+        seen_jobs = set()
+        rows = s.execute(select(AuditLog, Job.status).outerjoin(
+                Job, Job.id == AuditLog.job_id).where(
                 AuditLog.action == INVESTIGATED,
-                AuditLog.artifact == f"research_task:{task_id}").order_by(AuditLog.id.desc())
-                           .limit(10)):
-            if sorted((a.detail or {}).get("evidence") or []) == sorted(evidence):
+                AuditLog.artifact == f"research_task:{task_id}",
+                AuditLog.at <= datetime.now(timezone.utc),
+                or_(AuditLog.job_id.is_(None), Job.status == JobStatus.DONE))
+                .order_by(AuditLog.id.desc()).limit(NO_CHANGE_AUDIT_SCAN_LIMIT + 1))
+        for scanned, (a, status) in enumerate(rows, 1):
+            if scanned > NO_CHANGE_AUDIT_SCAN_LIMIT:
+                raise R.ResearchRefused("research audit history needs reconciliation before "
+                                        "counting unchanged investigations")
+            if isinstance(a.detail, dict) and a.detail.get("ran") is False:
+                continue
+            if not isinstance(a.detail, dict):
+                raise R.ResearchRefused("research audit history needs reconciliation: "
+                                        "unreadable investigation detail")
+            if a.job_id is not None:
+                if a.job_id in seen_jobs:
+                    continue
+                seen_jobs.add(a.job_id)
+            held = a.detail.get("evidence")
+            if not isinstance(held, list) or any(not isinstance(ref, str) for ref in held):
+                raise R.ResearchRefused("research audit history needs reconciliation: "
+                                        "malformed evidence references")
+            if sorted(held) == sorted(evidence):
                 n += 1
+                if n >= 10:
+                    break
             else:
                 break
     return n
@@ -266,7 +295,7 @@ def stale_domains_to_research(db, *, today: date | None = None) -> dict:
             live = [r for r in s.scalars(select(R.ResearchTask).where(
                 R.ResearchTask.dedupe_key == R._key(trigger),
                 R.ResearchTask.state == R.ANSWERED))
-                if R._aware(r.expires_on) is None or R._aware(r.expires_on) > now]
+                if R.answer_fresh_at(r, now)]
             # INTEG7: research that could not resolve the episode stops with an escalation
             # (R.stop). That escalation stands for the domain's freshness window, so the same
             # stale episode is not re-opened and re-stopped every day.
@@ -310,6 +339,9 @@ def _task(db, task_id: int):
 
 def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     """Run the cheapest adequate research this agent can on one open task (CA$0)."""
+    as_of = (datetime.combine(today + timedelta(days=1), datetime.min.time(),
+                              tzinfo=timezone.utc) - timedelta(microseconds=1)
+             if today is not None else None)
     today = today or datetime.now(timezone.utc).date()
     t = _task(db, task_id)
     if t is None or t["state"] != R.OPEN:
@@ -318,7 +350,7 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     # (`R.open_question`); an open task is always researched.
     plan = select_method(t["domain"])
     # F-402 / F-405: every internal record first, refreshed (evidence may have arrived since).
-    internal = internal_evidence(db, t["terms"], exclude_task=task_id)
+    internal = internal_evidence(db, t["terms"], exclude_task=task_id, as_of=as_of)
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
         have = {x["ref"] for x in row.internal_evidence or []}
@@ -335,7 +367,12 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
                          citation=hit["path"], retrieval="repository", read_on=today)
             added_sources.append(hit["path"])
     t = _task(db, task_id)
-    evidence = [x["ref"] for x in t["internal"]] + [x["ref"] for x in t["sources"]]
+    # Keep historical references in the task, but do not treat expired or unavailable
+    # prior answers as current evidence on subsequent investigations.
+    fresh_prior = {x["ref"] for x in internal if x["ref"].startswith("research_tasks:")}
+    evidence = [x["ref"] for x in t["internal"]
+                if not x["ref"].startswith("research_tasks:") or x["ref"] in fresh_prior]
+    evidence += [x["ref"] for x in t["sources"]]
     # F-420: research must change something. An investigation that adds no evidence to a task
     # still open is counted; after NO_CHANGE_LIMIT in a row the task is stopped with the
     # justification and its next test, instead of being re-read every week for show.
@@ -505,20 +542,69 @@ def architecture_flags(db, *, days: int = 35) -> list[dict]:
 
 
 def due_for_investigation(db, *, now: datetime | None = None) -> list[int]:
-    """Open tasks not investigated in the last REINVESTIGATE_DAYS."""
+    """Open tasks due normally or with newly sufficient ideation observations."""
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, CoverageGap, Job, JobStatus
+    from ..radar import ideation
 
     now = now or datetime.now(timezone.utc)
     R._ensure(db)
     since = now - timedelta(days=REINVESTIGATE_DAYS)
     with db.session() as s:
-        recent = {a for (a,) in s.execute(select(AuditLog.artifact).where(
-            AuditLog.action == INVESTIGATED, AuditLog.at >= since)).all()}
-        return [r.id for r in s.scalars(select(R.ResearchTask).where(
-            R.ResearchTask.state == R.OPEN).order_by(R.ResearchTask.id))
-                if f"research_task:{r.id}" not in recent]
+        recent = {artifact for artifact, detail, job_id, status, lease, token in s.execute(
+            select(AuditLog.artifact, AuditLog.detail, AuditLog.job_id, Job.status,
+                   Job.lease_expires_at, Job.lease_token)
+            .outerjoin(Job, Job.id == AuditLog.job_id).where(
+                AuditLog.action == INVESTIGATED, AuditLog.at >= since,
+                AuditLog.at <= now)).all()
+            if not (isinstance(detail, dict) and detail.get("ran") is False)
+            and (job_id is None or status == JobStatus.DONE or
+                 (status == JobStatus.RUNNING and token and lease
+                  and (lease if lease.tzinfo else lease.replace(tzinfo=timezone.utc)) > now))}
+        active_task_ids = set()
+        for inputs in s.scalars(select(Job.inputs).where(
+                Job.job_type == "research.investigate",
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+            raw = inputs.get("task_id") if isinstance(inputs, dict) else None
+            try:
+                if not isinstance(raw, bool):
+                    active_task_ids.add(int(raw))
+            except (TypeError, ValueError, OverflowError):
+                pass
+        tasks = list(s.scalars(select(R.ResearchTask).where(
+            R.ResearchTask.state == R.OPEN).order_by(R.ResearchTask.id)))
+        due = []
+        observations = {}
+        for task in tasks:
+            if task.id in active_task_ids:
+                continue
+            if f"research_task:{task.id}" not in recent:
+                due.append(task.id)
+                continue
+            detail = task.detail if isinstance(task.detail, dict) else {}
+            brief = detail.get("ideation_brief")
+            if not isinstance(brief, dict) or type(brief.get("gap")) is not int:
+                continue
+            gap = s.get(CoverageGap, brief["gap"])
+            ev = gap.evidence if gap and isinstance(gap.evidence, dict) else {}
+            rec = ev.get("ideation") or {}
+            if (gap is None or gap.state not in ("uncovered", "concepting")
+                    or not isinstance(rec, dict) or type(rec.get("task")) is not int
+                    or rec.get("task") != task.id or rec.get("outcome") != ideation.OUT_INSUFFICIENT
+                    or not rec.get("insufficient_census_sha256")
+                    or task.trigger != f"{ideation.TRIGGER_PREFIX}{gap.id}"
+                    or brief.get("pod") != gap.pod):
+                continue
+            # A persisted reference binds an earlier census; do not reuse it.
+            if detail.get("ideation_refs"):
+                continue
+            if gap.pod not in observations:
+                observations[gap.pod] = ideation.observe(db, gap.pod, today=now.date())
+            obs = observations[gap.pod]
+            if obs["ok"] and obs["census_sha256"] != rec["insufficient_census_sha256"]:
+                due.append(task.id)
+        return due
 
 
 def request_research(ctx, *, question: str, trigger: str, decision_ref: str, domain: str,

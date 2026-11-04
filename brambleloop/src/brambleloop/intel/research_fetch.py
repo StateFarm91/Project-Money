@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
 USER_AGENT = "BrambleloopStudioResearch/1.0 (+contact via Etsy shop BrambleloopStudio)"
@@ -36,6 +36,8 @@ MAX_BYTES = 512_000
 TIMEOUT_S = 20.0
 MIN_SECONDS_PER_HOST = 3.0
 MAX_FETCHES_PER_RUN = 5
+MAX_TRANSIENT_ATTEMPTS = 3
+TRANSIENT_RETRY_BASE = timedelta(hours=6)
 
 #: Host -> why this system may read it. Primary public sources only; nothing behind a login,
 #: a paywall or terms that forbid automated reading.
@@ -153,17 +155,18 @@ def robots_allows(url: str, *, get=None) -> tuple[bool, str]:
 
 
 def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None = None,
-                   sleep=time.sleep) -> dict:
+                   sleep=time.sleep, enqueue=None) -> dict:
     """Fetch one allowlisted page politely and record it as a `fetched` source of the task."""
     from ..core.models import AuditLog
     from . import research
 
     now = now or datetime.now(timezone.utc)
     get = get or _default_get
-    def _refused(why: str) -> dict:
-        out = {"task": task_id, "url": url, "fetched": False, "why": why}
+    def _refused(why: str, *, retryable: bool = False) -> dict:
+        out = {"task": task_id, "url": url, "fetched": False, "why": why,
+               "retryable": retryable}
         with db.session() as s:
-            s.add(AuditLog(actor="learn", action=FETCH_ACTION, detail=out))
+            s.add(AuditLog(actor="learn", action=FETCH_ACTION, detail=out, at=now))
         return out
 
     try:
@@ -174,7 +177,7 @@ def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None
     except FetchRefused as exc:
         return _refused(str(exc))
     except OSError as exc:
-        return _refused(f"robots.txt not reachable: {str(exc)[:200]}")
+        return _refused(f"robots.txt not reachable: {str(exc)[:200]}", retryable=True)
     wait = MIN_SECONDS_PER_HOST - (time.monotonic() - _last_host_fetch.get(host, -1e9))
     if wait > 0:
         sleep(wait)
@@ -183,31 +186,100 @@ def fetch_for_task(db, task_id: int, url: str, *, get=None, now: datetime | None
     except FetchRefused as exc:
         return _refused(f"redirect refused: {exc}")
     except OSError as exc:
-        return _refused(f"not reachable: {str(exc)[:200]}")
+        return _refused(f"not reachable: {str(exc)[:200]}", retryable=True)
     finally:
         _last_host_fetch[host] = time.monotonic()
     if status != 200 or not body:
         out = {"task": task_id, "url": url, "fetched": False,
-               "why": f"{host} answered {status} with {len(body)} bytes"}
+               "why": f"{host} answered {status} with {len(body)} bytes",
+               "retryable": isinstance(status, int) and not isinstance(status, bool)
+                            and 500 <= status <= 599}
     elif len(body) > MAX_BYTES:
         out = {"task": task_id, "url": url, "fetched": False,
                "why": f"page larger than the {MAX_BYTES}-byte cap; not stored partially"}
     else:
+        from sqlalchemy import select
+
         text = body.decode("utf-8", errors="replace")
-        n = research.add_source(db, task_id, source=host, citation=url, retrieval="fetched",
-                                read_on=now.date())
-        out = {"task": task_id, "url": url, "fetched": True, "source_ref": f"S{n}",
-               "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest(),
-               "excerpt": text[:2000], "basis": ALLOWED_HOSTS[host], "spend_cad": 0.0}
+        digest = hashlib.sha256(body).hexdigest()
+        # The source and its checksum audit are one durable write. A task may have closed
+        # during the fetch, so check again while holding its row before appending.
+        with db.session() as s:
+            row = s.scalar(select(research.ResearchTask).where(
+                research.ResearchTask.id == task_id).with_for_update())
+            sources = list(row.sources or []) if row is not None else []
+            refs = [x.get("ref") for x in sources if isinstance(x, dict)]
+            next_ref = f"S{len(sources) + 1}"
+            if row is None or row.state != research.OPEN:
+                out = {"task": task_id, "url": url, "fetched": False,
+                       "why": "research task is missing or no longer open", "retryable": False}
+            elif (len(refs) != len(sources) or any(not isinstance(ref, str) for ref in refs)
+                  or len(set(refs)) != len(refs)
+                  or next_ref in refs or any(x.get("citation") == url for x in sources)):
+                out = {"task": task_id, "url": url, "fetched": False,
+                       "why": "source already exists or source identities are ambiguous",
+                       "retryable": False}
+            else:
+                sources.append({"ref": next_ref, "source": host, "citation": url,
+                                "retrieval": "fetched", "read_on": now.date().isoformat(),
+                                "sha256": digest, "bytes": len(body)})
+                followup_id = None
+                if enqueue is not None:
+                    followup = enqueue("research_agent", "research.investigate",
+                                       {"task_id": task_id},
+                                       idempotency_key=f"research.fetch.followup:{task_id}:{next_ref}",
+                                       session=s)
+                    if followup is None:
+                        raise RuntimeError("research fetch follow-up key requires reconciliation")
+                    followup_id = followup.id
+                    sources[-1]["followup_job_id"] = followup_id
+                row.sources = sources
+                out = {"task": task_id, "url": url, "fetched": True,
+                       "source_ref": next_ref, "bytes": len(body), "sha256": digest,
+                       "followup_job_id": followup_id,
+                       "excerpt": text[:2000], "basis": ALLOWED_HOSTS[host], "spend_cad": 0.0}
+            s.add(AuditLog(actor="learn", action=FETCH_ACTION, at=now,
+                           detail={k: v for k, v in out.items() if k != "excerpt"}))
+        return out
     with db.session() as s:
-        s.add(AuditLog(actor="learn", action=FETCH_ACTION,
+        s.add(AuditLog(actor="learn", action=FETCH_ACTION, at=now,
                        detail={k: v for k, v in out.items() if k != "excerpt"}))
     return out
 
 
-def plan_fetches(db) -> list[tuple[int, str]]:
+def plan_fetches(db, *, now: datetime | None = None) -> list[tuple[int, str]]:
     """Open tasks whose trigger names a known source with an allowlisted URL."""
     from . import childrens, research
+
+    from sqlalchemy import select
+    from ..core.models import AuditLog
+
+    now = research._aware(now or datetime.now(timezone.utc))
+    with db.session() as s:
+        failures = {}
+        ambiguous_tasks = set()
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == FETCH_ACTION)):
+            detail = a.detail if isinstance(a.detail, dict) else {}
+            if detail.get("fetched") is False:
+                task, url = detail.get("task"), detail.get("url")
+                if type(task) is not int or task <= 0:
+                    continue  # no attributable task can be blocked by this malformed record
+                if not isinstance(url, str) or not url:
+                    ambiguous_tasks.add(task)
+                    continue
+                failures.setdefault((task, url), []).append(
+                    (research._aware(a.at), detail.get("retryable") is True))
+
+    def eligible(task, url):
+        if task in ambiguous_tasks:
+            return False
+        prior = failures.get((task, url), [])
+        if not prior:
+            return True
+        if len(prior) >= MAX_TRANSIENT_ATTEMPTS or any(
+                at is None or at > now or not retryable for at, retryable in prior):
+            return False
+        return now >= max(at for at, _ in prior) + TRANSIENT_RETRY_BASE * (2 ** (len(prior) - 1))
 
     out = []
     for t in research.tasks(db, state=research.OPEN):
@@ -215,7 +287,8 @@ def plan_fetches(db) -> list[tuple[int, str]]:
             continue
         key = t["trigger"].split(":", 1)[1].split("#", 1)[0]
         src = childrens.SOURCES.get(key)
-        if src is None or any(x.get("citation") == src.url for x in t["sources"]):
+        if (src is None or any(x.get("citation") == src.url for x in t["sources"])
+                or not eligible(t["id"], src.url)):
             continue
         try:
             check_url(src.url)
@@ -224,24 +297,16 @@ def plan_fetches(db) -> list[tuple[int, str]]:
         out.append((t["id"], src.url))
     # F-406 (W4-INTELREC C05): pages the Research Agent planned for an open task whose
     # internal evidence could not settle a platform question (`detail.fetch_urls`).
-    from sqlalchemy import select
-
-    from ..core.models import AuditLog
-
     research._ensure(db)
     planned = {tid for tid, _u in out}
     with db.session() as s:
-        # a page this step already failed to read for that task is not retried every run
-        failed = {((a.detail or {}).get("task"), (a.detail or {}).get("url"))
-                  for a in s.scalars(select(AuditLog).where(AuditLog.action == FETCH_ACTION))
-                  if (a.detail or {}).get("fetched") is False}
         rows = list(s.scalars(select(research.ResearchTask).where(
             research.ResearchTask.state == research.OPEN)))
         for r in rows:
             cited = {x.get("citation") for x in r.sources or []}
             for url in (r.detail or {}).get("fetch_urls") or []:
                 if url in cited or (r.id, url) in out or r.id in planned \
-                        or (r.id, url) in failed:
+                        or not eligible(r.id, url):
                     continue
                 try:
                     check_url(url)
@@ -253,39 +318,88 @@ def plan_fetches(db) -> list[tuple[int, str]]:
     return out
 
 
-def promote(db) -> dict:
+def promote(db, *, now: datetime | None = None, withdraw_only: bool = False) -> dict:
     """Answered tasks with a fact become routed lessons; expired ones are withdrawn."""
     from ..improve import bus
+    from ..core.models import Lesson
     from . import research
 
-    promoted, withdrawn, unrouted = [], [], []
+    now = research._aware(now or datetime.now(timezone.utc))
+    promoted, withdrawn, unrouted, held = [], [], [], []
+    research._ensure(db)
     with db.session() as s:
         rows = list(s.scalars(research.select(research.ResearchTask).where(
             research.ResearchTask.state.in_([research.ANSWERED, research.EXPIRED]))))
         snap = [(r.id, r.state, r.domain, r.question, r.outcome, list(r.findings or []),
-                 dict(r.detail or {})) for r in rows]
-    for tid, state, domain, question, outcome, findings, detail in snap:
+                 dict(r.detail or {}), research.answer_fresh_at(r, now)) for r in rows]
+    for tid, state, domain, question, outcome, findings, detail, fresh in snap:
         facts = [f for f in findings if f.get("claim_class") == "fact"]
         lesson = detail.get("promoted_lesson")
-        if state == research.EXPIRED and lesson and not detail.get("lesson_withdrawn"):
-            bus.withdraw(db, lesson, reason=f"research task {tid} expired (F-433 freshness)",
-                         evidence_ref=f"research_tasks:{tid}", withdrawn_by="learn")
-            _set(db, tid, lesson_withdrawn=True)
-            withdrawn.append(lesson)
-            continue
-        if state != research.ANSWERED or lesson or not facts:
-            continue
         subject = DOMAIN_SUBJECT.get(domain)
+        statement = (f"Research answered '{question[:160]}': {outcome[:200]}. Facts: "
+                     + "; ".join(f["statement"][:160] for f in facts[:3]))
+        with db.session() as s:
+            related = list(s.scalars(research.select(Lesson).where(
+                Lesson.evidence_ref == f"research_tasks:{tid}",
+                Lesson.superseded_by.is_(None))))
+            valid = [r.id for r in related if r.origin_cell == "learn"
+                     and r.subject == subject and r.confidence == "confirmed"
+                     and r.statement == statement]
+        if len(related) != len(valid) or len(valid) > 1 or (lesson and lesson not in valid):
+            held.append({"task": tid, "reason": "lesson provenance requires reconciliation"})
+            continue
+        if not lesson and valid:
+            lesson = valid[0]
+            _set(db, tid, promoted_lesson=lesson)
+        if (state == research.EXPIRED or not fresh) and lesson:
+            result = bus.withdraw(db, lesson, reason=f"research task {tid} expired (F-433 freshness)",
+                                  evidence_ref=f"research_tasks:{tid}", withdrawn_by="learn")
+            _set(db, tid, lesson_withdrawn=True)
+            if result["withdrawn"]:
+                withdrawn.append(lesson)
+            continue
+        if state != research.ANSWERED or not fresh or lesson or not facts:
+            continue
+        if withdraw_only:
+            continue
         if subject is None or subject not in bus.SUBJECT_ROUTING:
             unrouted.append({"task": tid, "domain": domain})
             continue
-        statement = (f"Research answered '{question[:160]}': {outcome[:200]}. Facts: "
-                     + "; ".join(f["statement"][:160] for f in facts[:3]))
         lid = bus.publish(db, origin_cell="learn", subject=subject, statement=statement,
                           evidence_ref=f"research_tasks:{tid}", confidence="confirmed")
         _set(db, tid, promoted_lesson=lid)
         promoted.append(lid)
-    return {"promoted": promoted, "withdrawn": withdrawn, "unrouted": unrouted}
+    return {"promoted": promoted, "withdrawn": withdrawn, "unrouted": unrouted, "held": held}
+
+
+def lesson_current(db, lesson, *, now: datetime | None = None) -> bool:
+    """Fail closed when a routed research lesson has lost its current source binding.
+
+    This is a read-time guard, not authentication or an action-time transaction fence.
+    """
+    from . import research
+
+    try:
+        prefix, identifier = lesson.evidence_ref.split(":", 1)
+        if prefix != "research_tasks" or not identifier.isdecimal() or str(int(identifier)) != identifier:
+            return False
+        with db.session() as s:
+            task = s.get(research.ResearchTask, int(identifier))
+            if task is None or not research.answer_fresh_at(
+                    task, now or datetime.now(timezone.utc)):
+                return False
+            detail = task.detail if isinstance(task.detail, dict) else {}
+            facts = [f for f in (task.findings or [])
+                     if isinstance(f, dict) and f.get("claim_class") == "fact"]
+            if not facts or detail.get("promoted_lesson") != lesson.id:
+                return False
+            statement = (f"Research answered '{task.question[:160]}': {task.outcome[:200]}. Facts: "
+                         + "; ".join(f["statement"][:160] for f in facts[:3]))
+            return (lesson.origin_cell == "learn" and lesson.confidence == "confirmed"
+                    and lesson.subject == DOMAIN_SUBJECT.get(task.domain)
+                    and lesson.statement == statement and lesson.withdrawn_at is None)
+    except Exception:  # noqa: BLE001 - unreadable/malformed source cannot authorize use
+        return False
 
 
 def _set(db, tid: int, **kv) -> None:
@@ -308,9 +422,10 @@ def fetch_enabled(env=None) -> bool:
     return str(e.get(ENABLE_VAR) or "").strip() == "1"
 
 
-def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None) -> dict:
+def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None,
+        enqueue=None) -> dict:
     """One research run: bounded fetches for planned sources, then promotion."""
-    planned = plan_fetches(db)
+    planned = plan_fetches(db, now=now)
     if get is None and not fetch_enabled(env):
         fetches = {"enabled": False, "planned": len(planned),
                    "why": f"fetch step off: {ENABLE_VAR} is not 1 in this deployment"}
@@ -319,11 +434,12 @@ def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None
         for tid, url in planned[:MAX_FETCHES_PER_RUN]:
             # Review F-8: one bad fetch never stops the others or the promotion below.
             try:
-                done.append(fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep))
+                done.append(fetch_for_task(db, tid, url, get=get, now=now, sleep=sleep,
+                                           enqueue=enqueue))
             except Exception as exc:  # noqa: BLE001
                 done.append({"task": tid, "url": url, "fetched": False,
                              "why": f"fetch failed: {type(exc).__name__}: {str(exc)[:160]}"})
         fetches = {"enabled": True, "planned": len(planned),
                    "results": [{k: f.get(k) for k in ("task", "url", "fetched", "why")}
                                for f in done]}
-    return {"fetches": fetches, **promote(db)}
+    return {"fetches": fetches, **promote(db, now=now)}

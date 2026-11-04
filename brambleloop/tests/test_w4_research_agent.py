@@ -12,7 +12,9 @@ import _tmp; _tmp.install()  # noqa: E702
 import socket
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -21,12 +23,12 @@ from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import DEFAULT_AGENTS, Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import AuditLog, Job, Lesson, Phase  # noqa: E402
+from brambleloop.core.models import AuditLog, Job, JobStatus, Lesson, Phase  # noqa: E402
 from brambleloop.intel import research as R  # noqa: E402
 from brambleloop.intel import research_agent as RA  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
-from brambleloop.runtime.worker import CADENCES, JobContext, handlers  # noqa: E402
+from brambleloop.runtime.worker import CADENCES, JobContext, Worker, handlers  # noqa: E402
 
 _N = [0]
 _TMP = tempfile.mkdtemp(prefix="w4res_")
@@ -153,6 +155,118 @@ def test_no_evidence_is_recorded_unresolved_with_the_next_bounded_test():
     assert again["ran"] is False and again["work_done"] == 0
 
 
+def test_investigation_excludes_expired_prior_answer_but_preserves_its_history():
+    db = _db()
+    now = datetime.now(timezone.utc)
+    token = "uniqueqzrelic"
+    with db.session() as s:
+        prior = R.ResearchTask(question=f"What about {token}?", trigger="old-prior",
+                               dedupe_key="old-prior", decision_ref="old",
+                               domain="aesthetics", state=R.ANSWERED,
+                               outcome=f"{token} outcome", answered_at=now-timedelta(days=90),
+                               expires_on=now-timedelta(days=1))
+        s.add(prior)
+        s.flush()
+        prior_id = prior.id
+    opened = _open(db, question=f"What is {token} evidence saying now?", trigger="new-prior-test",
+                   decision_ref="new", domain="aesthetics", query_terms=[token])
+    tid = opened["task"]
+    ref = f"research_tasks:{prior_id}"
+    with db.session() as s:
+        s.get(R.ResearchTask, tid).internal_evidence = [
+            {"ref": ref, "kind": "prior_research", "text": "historical",
+             "retrieval": "internal"}]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid})
+    assert Worker(db, "stale-prior", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert ref not in done.outputs["evidence"]
+        assert done.outputs["status"] == RA.UNRESOLVED
+        assert s.get(R.ResearchTask, tid).internal_evidence[0]["ref"] == ref
+
+
+def test_prior_research_requires_current_answer_and_expiry():
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for i, (answered, expiry) in enumerate([
+            (now-timedelta(days=1), now+timedelta(days=1)),
+            (now+timedelta(days=1), now+timedelta(days=2)),
+            (None, now+timedelta(days=2)),
+            (now-timedelta(days=1), None),
+            (now-timedelta(days=1000), now+timedelta(days=1000)),
+        ]):
+            s.add(R.ResearchTask(question="uniqueqzfresh", trigger=f"prior-{i}",
+                                 dedupe_key=f"prior-{i}", decision_ref="prior",
+                                 domain="aesthetics", state=R.ANSWERED,
+                                 outcome="uniqueqzfresh", answered_at=answered,
+                                 expires_on=expiry))
+    prior = [x for x in RA.internal_evidence(db, ["uniqueqzfresh"])
+             if x["kind"] == "prior_research"]
+    assert len(prior) == 1
+    assert not [x for x in RA.internal_evidence(db, ["uniqueqzfresh"],
+                                                as_of=now-timedelta(days=2))
+                if x["kind"] == "prior_research"]
+
+
+def test_worker_returns_reused_conclusion_to_requester_without_reinvestigation():
+    db = _db()
+    question = "What does the fixture evidence show for sizing?"
+    first = _open(db, question=question, trigger="reuse-first", decision_ref="reuse-decision",
+                  domain="aesthetics", query_terms=["uniquezzreuse"])
+    tid = first["task"]
+    R.add_finding(db, tid, statement="fixture source remains unavailable",
+                  claim_class="unresolved", confidence="none")
+    answered = R.answer(db, tid, outcome="unresolved pending source", confidence="none",
+                        effect={"kind": "stop_justified", "statement": "source missing"},
+                        conclusion={"alternatives": [], "constraints": [], "unresolved": [],
+                                    "next_test": None, "applicability": None})
+    request = {"question": question, "trigger": "reuse-second", "decision_ref": "reuse-decision",
+               "domain": "aesthetics", "query_terms": ["uniquezzreuse"]}
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", request)
+    assert Worker(db, "reuse-worker", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, job.id)
+        assert result.status == JobStatus.DONE, result.last_error
+        assert result.outputs["task"] == tid and result.outputs["reused"] is True
+        assert result.outputs["outcome"] == "unresolved pending source"
+        assert result.outputs["conclusion"] == answered["conclusion"]
+        assert result.outputs["conclusion"]["status"] == "unresolved"
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == RA.INVESTIGATED, AuditLog.job_id == job.id)) is None
+
+
+@pytest.mark.parametrize("case", ["expired", "future", "missing_expiry", "overlong"])
+def test_investigation_request_opens_new_work_for_noncurrent_prior_answer(case):
+    db = _db()
+    now = datetime.now(timezone.utc)
+    question = "What is uniquezzanswer evidence saying now?"
+    first = _open(db, question=question, trigger="answer-older", decision_ref="reuse-target",
+                  domain="aesthetics", query_terms=["uniquezzanswer"])
+    with db.session() as s:
+        row = s.get(R.ResearchTask, first["task"])
+        row.state = R.ANSWERED
+        row.outcome = "old finding"
+        row.answered_at = now - timedelta(days=1000 if case == "overlong" else 1)
+        row.expires_on = now + timedelta(days=1000)
+        if case == "expired":
+            row.expires_on = now - timedelta(seconds=1)
+        elif case == "future":
+            row.answered_at = now + timedelta(days=1)
+        elif case == "missing_expiry":
+            row.expires_on = None
+    inputs = {"question": question, "trigger": "answer-new", "decision_ref": "reuse-target",
+              "domain": "aesthetics", "query_terms": ["uniquezzanswer"]}
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", inputs)
+    assert Worker(db, "reuse-check", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, job.id)
+        assert result.status == JobStatus.DONE, result.last_error
+        assert result.outputs["task"] != first["task"]
+        assert result.outputs["status"] == RA.UNRESOLVED
+
+
 def test_platform_policy_is_blocked_on_official_docs_not_guessed():
     db = _db()
     opened = _open(db, question="What does Etsy currently require for digital "
@@ -179,6 +293,110 @@ def test_the_sweep_self_triggers_investigations_once_per_task():
                                                         phase=Phase.SHADOW))
     # investigated tasks are not due again inside the window
     assert not set(RA.due_for_investigation(db)) & {j.inputs["task_id"] for j in jobs}
+
+
+def _open_fixture_tasks(db, count):
+    ids = []
+    with db.session() as s:
+        for n in range(count):
+            row = R.ResearchTask(question=f"What recorded evidence supports fixture task {n}?",
+                                 trigger=f"fixture:fair-sweep:{n}",
+                                 dedupe_key=f"fixture-{n}", decision_ref="fixture",
+                                 domain="techniques", state=R.OPEN, detail={})
+            s.add(row)
+            s.flush()
+            ids.append(row.id)
+    return ids
+
+
+def test_research_sweep_skips_dead_same_day_keys_without_starving_later_task():
+    db = _db()
+    ids = _open_fixture_tasks(db, 26)
+    day = datetime.now(timezone.utc).date().isoformat()
+    with db.session() as s:
+        for tid in ids[:25]:
+            s.add(Job(agent=RA.AGENT, job_type="research.investigate", inputs={"task_id": tid},
+                      status=JobStatus.DEAD, idempotency_key=f"research.investigate:{tid}:{day}"))
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="fairness-sweep",
+                      priority=-1000)
+    assert Worker(db, "fairness-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, sweep.id).status == JobStatus.DONE
+        later = s.scalar(select(Job).where(
+            Job.idempotency_key == f"research.investigate:{ids[25]}:{day}"))
+        assert later is not None and later.status == JobStatus.PENDING
+
+
+def test_research_sweep_still_bounds_new_investigations():
+    db = _db()
+    ids = _open_fixture_tasks(db, 40)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="bounded-sweep", priority=-1000)
+    assert Worker(db, "bounded-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        keys = set(s.scalars(select(Job.idempotency_key).where(
+            Job.job_type == "research.investigate", Job.status == JobStatus.PENDING)))
+    assert len(keys & {f"research.investigate:{tid}:{day}" for tid in ids}) == 25
+
+
+def test_research_sweep_continues_after_concurrent_duplicate(monkeypatch):
+    db = _db()
+    ids = _open_fixture_tasks(db, 26)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="race-sweep",
+                      priority=-1000)
+    original = JobContext.enqueue
+    raced = []
+
+    def compete(ctx, agent, job_type, inputs=None, **kwargs):
+        if job_type == "research.investigate" and not raced:
+            # A real queue insert wins after the sweep's existing-key snapshot.
+            ctx.queue.enqueue(agent, job_type, inputs, **kwargs)
+            raced.append(inputs["task_id"])
+        return original(ctx, agent, job_type, inputs, **kwargs)
+
+    monkeypatch.setattr(JobContext, "enqueue", compete)
+    assert Worker(db, "race-sweep", job_types=["research.sweep"]).run_once()
+    assert raced == [ids[0]]
+    with db.session() as s:
+        finished = s.get(Job, sweep.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["queued"] == 25
+        later = s.scalar(select(Job).where(
+            Job.idempotency_key == f"research.investigate:{ids[-1]}:{day}"))
+        assert later is not None and later.status == JobStatus.PENDING
+
+
+def test_research_sweep_bounds_concurrent_duplicate_attempts(monkeypatch):
+    db = _db()
+    ids = _open_fixture_tasks(db, 110)
+    day = datetime.now(timezone.utc).date().isoformat()
+    q = JobQueue(db)
+    sweep = q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="bounded-race-sweep",
+                      priority=-1000)
+    original = JobContext.enqueue
+    raced = []
+
+    def compete(ctx, agent, job_type, inputs=None, **kwargs):
+        if job_type == "research.investigate":
+            ctx.queue.enqueue(agent, job_type, inputs, **kwargs)
+            raced.append(inputs["task_id"])
+        return original(ctx, agent, job_type, inputs, **kwargs)
+
+    monkeypatch.setattr(JobContext, "enqueue", compete)
+    assert Worker(db, "bounded-race-sweep", job_types=["research.sweep"]).run_once()
+    assert len(raced) == 100
+    with db.session() as s:
+        finished = s.get(Job, sweep.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["queued"] == 0
+        assert finished.outputs["enqueue_attempts"] == 100
+        assert finished.outputs["attempt_limit_reached"] is True
+        assert s.scalar(select(Job.id).where(
+            Job.idempotency_key == f"research.investigate:{ids[100]}:{day}")) is None
 
 
 def test_an_architecture_flag_needs_graded_evidence_and_never_relaxes_a_floor():
@@ -278,6 +496,102 @@ def test_f404_a_stale_domain_becomes_one_research_question_per_episode():
     assert isinstance(_date.today(), _date)
 
 
+def test_future_observation_cannot_mask_stale_domain_from_research_sweep():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="old-fixture", citation="c",
+                                  observed_on=now - timedelta(days=60),
+                                  summary="an old observed marketplace policy reading"))
+        # Simulate an already stored future-dated row, not a real observation.
+        s.add(LearningObservation(domain="marketplace_policy", source="future-fixture", citation="c",
+                                  observed_on=now + timedelta(days=10),
+                                  summary="a future dated marketplace policy fixture"))
+    radar = learning.radar(db)
+    stale = next(row for row in radar["stale"] if row["domain"] == "marketplace_policy")
+    assert stale["observations"] == 1 and stale["future_dated_excluded"] == 1
+    assert not [row for row in radar["watched"] if row["domain"] == "marketplace_policy"]
+    future = next(row for row in learning.observations(db, domain="marketplace_policy")
+                  if row["source"] == "future-fixture")
+    assert future["future_dated"] is True and future["fresh"] is False
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.sweep", {}, idempotency_key="future-observation-sweep",
+              priority=-1000)
+    assert Worker(db, "future-observation-sweep", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        task = s.scalar(select(R.ResearchTask).where(
+            R.ResearchTask.trigger == "learning.stale:marketplace_policy"))
+        assert task is not None and task.state == R.OPEN
+        assert any((job.inputs or {}).get("task_id") == task.id for job in s.scalars(
+            select(Job).where(Job.job_type == "research.investigate",
+                              Job.status == JobStatus.PENDING)))
+
+
+def test_future_only_domain_is_unobserved_not_falsely_fresh():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="future-fixture", citation="c",
+                                  observed_on=tomorrow,
+                                  summary="a future dated marketplace policy fixture"))
+    radar = learning.radar(db)
+    row = next(item for item in radar["unobserved"] if item["domain"] == "marketplace_policy")
+    assert row["future_dated_excluded"] == 1
+    assert not [item for item in radar["watched"] if item["domain"] == "marketplace_policy"]
+
+
+def test_new_future_dated_observation_is_refused():
+    from brambleloop.intel import learning
+
+    db = _db()
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).date()
+    with pytest.raises(learning.LearningRefused, match="future"):
+        learning.record(db, domain="marketplace_policy", source="fixture", citation="fixture",
+                        observed_on=tomorrow,
+                        summary="a sufficiently specific fixture observation of policy")
+
+
+def test_explicit_as_of_date_includes_same_calendar_day():
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    when = datetime(2026, 1, 3, 18, 0, tzinfo=timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="fixture", citation="c",
+                                  observed_on=when,
+                                  summary="a fixture observation of marketplace policy"))
+    row = learning.observations(db, today=when.date())[0]
+    assert row["future_dated"] is False and row["fresh"] is True and row["age_days"] == 0
+
+
+def test_current_instant_excludes_a_later_same_day_observation(monkeypatch):
+    from brambleloop.core.models import LearningObservation
+    from brambleloop.intel import learning
+
+    db = _db()
+    noon = datetime(2026, 1, 3, 12, 0, tzinfo=timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="marketplace_policy", source="fixture", citation="c",
+                                  observed_on=noon + timedelta(hours=1),
+                                  summary="a fixture observation of marketplace policy"))
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return noon if tz else noon.replace(tzinfo=None)
+
+    monkeypatch.setattr(learning, "datetime", FrozenDateTime)
+    row = learning.observations(db)[0]
+    assert row["future_dated"] is True and row["fresh"] is False
+
+
 # ---- batch W5: F-420 no research theatre, F-444 escalation, F-449 metrics, retention ------
 
 def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification():
@@ -290,9 +604,14 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
                              domain="techniques", query_terms=["moss stitch"])
     tid = opened["task"]
     runs = []
-    for _ in range(3):
-        out, _job = _run(db, RA.AGENT, "research.investigate", {"task_id": tid})
-        runs.append(out)
+    for n in range(3):
+        job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                                   idempotency_key=f"no-change-worker:{n}", priority=-1000)
+        assert Worker(db, f"no-change-{n}", job_types=["research.investigate"]).run_once()
+        with db.session() as s:
+            stored = s.get(Job, job.id)
+            assert stored.status.value == "done", stored.last_error
+            runs.append(dict(stored.outputs or {}))
     assert runs[0]["changed"] is True and runs[0]["stopped"] is None
     assert runs[1]["changed"] is False and runs[1]["unchanged_runs"] == 1
     assert runs[2]["stopped"] and RA.STOPPED_NO_CHANGE in runs[2]["stopped"]
@@ -301,6 +620,107 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
     # INTEG7: routed through R.stop, so the stop carries its F-444 escalation
     esc = next(e for e in R.escalations(db) if e["task"] == tid)
     assert RA.STOPPED_NO_CHANGE in esc["why_stopped"] and esc["smallest_action"]
+
+
+def test_failed_audit_burst_does_not_hide_completed_no_change_history():
+    db = _db()
+    with db.session() as s:
+        s.add(Lesson(origin_cell="test", subject="moss stitch", statement="moss stitch "
+                     "edges curl less than single crochet on blankets", confidence="medium"))
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-burst", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    q = JobQueue(db)
+    q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+              idempotency_key="first-real-investigation", priority=-1000)
+    assert Worker(db, "first-real-investigation", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        task = s.get(R.ResearchTask, tid)
+        evidence = ([item["ref"] for item in task.internal_evidence]
+                    + [item["ref"] for item in task.sources])
+    assert evidence
+    good = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                      idempotency_key="completed-history")]
+    failed = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                        idempotency_key=f"failed-history:{n}") for n in range(12)]
+    with db.session() as s:
+        for job in good + failed:
+            stored = s.get(Job, job.id)
+            stored.status = JobStatus.DONE if job in good else JobStatus.DEAD
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           detail={"evidence": evidence}))
+    assert RA._unchanged_runs(db, tid, evidence) == 2
+    current = q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                        idempotency_key="after-failed-burst", priority=-1000)
+    assert Worker(db, "after-failed-burst", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, current.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        assert finished.outputs["unchanged_runs"] == 2, (finished.outputs["evidence"], evidence,
+                    finished.outputs["new_sources"], finished.outputs["new_internal"])
+        assert finished.outputs["stopped"] and RA.STOPPED_NO_CHANGE in finished.outputs["stopped"], finished.outputs
+        assert s.get(R.ResearchTask, tid).state == R.STOPPED
+
+
+def test_ambiguous_no_change_history_over_scan_limit_is_held(monkeypatch):
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-overflow", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                               idempotency_key="too-many-audits")
+    with db.session() as s:
+        s.get(Job, job.id).status = JobStatus.DONE
+        for _ in range(4):
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           detail={"evidence": ["S1"]}))
+    monkeypatch.setattr(RA, "NO_CHANGE_AUDIT_SCAN_LIMIT", 3)
+    with pytest.raises(R.ResearchRefused, match="audit history needs reconciliation"):
+        RA._unchanged_runs(db, tid, ["S1"])
+
+
+def test_future_dated_audit_does_not_advance_no_change_streak():
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-future", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    q = JobQueue(db)
+    jobs = [q.enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                      idempotency_key=f"future-history:{n}") for n in range(2)]
+    with db.session() as s:
+        for n, job in enumerate(jobs):
+            s.get(Job, job.id).status = JobStatus.DONE
+            s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=job.id,
+                           at=datetime.now(timezone.utc) + timedelta(days=10 if n else -1),
+                           detail={"evidence": ["S1"]}))
+    assert RA._unchanged_runs(db, tid, ["S1"]) == 1
+
+
+def test_malformed_completed_history_requires_reconciliation():
+    db = _db()
+    tid = _open(db, question="Do moss stitch edges curl less on blankets?",
+                trigger="test:moss-malformed", decision_ref="cir.draft edge",
+                domain="techniques", query_terms=["moss stitch"])["task"]
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                               idempotency_key="malformed-history")
+    with db.session() as s:
+        s.get(Job, job.id).status = JobStatus.DONE
+        s.add(AuditLog(actor=RA.AGENT, action=RA.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=job.id,
+                       detail={"evidence": [{"not": "a reference"}]}))
+    with pytest.raises(R.ResearchRefused, match="malformed evidence references"):
+        RA._unchanged_runs(db, tid, ["S1"])
+    retry = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                                 idempotency_key="malformed-history-worker", priority=-1000)
+    assert Worker(db, "malformed-history-worker", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, retry.id)
+        assert result.status == JobStatus.FAILED
+        assert "research audit history needs reconciliation" in result.last_error
+        assert s.get(R.ResearchTask, tid).state == R.OPEN
 
 
 def test_f444_and_f449_the_sweep_stores_escalations_and_metrics():

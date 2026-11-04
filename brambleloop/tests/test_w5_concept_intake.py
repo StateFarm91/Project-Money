@@ -10,6 +10,7 @@ from __future__ import annotations
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
+import pytest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -49,7 +50,8 @@ def _run(db, job_type: str, inputs: dict | None = None, key: str = "") -> dict:
     q = JobQueue(db)
     if inputs is not None:
         agent = {"radar.concept_intake": "market_radar", "radar.score": "market_radar",
-                 "radar.scan": "market_radar", "cir.draft": "crochet_engineer"}[job_type]
+                 "radar.scan": "market_radar", "cir.draft": "crochet_engineer",
+                 "learn.scan": "learn"}[job_type]
         q.enqueue(agent, job_type, inputs, priority=0,
                   idempotency_key=key or f"t:{job_type}:{id(inputs)}")
     with db.session() as s:
@@ -157,6 +159,200 @@ def _fixture_judgement():
 
 
 # ---- the happy path ------------------------------------------------------------------------
+
+
+def test_research_learning_and_product_handoff_with_source_expiry():
+    """Integrated SQLite fixture: a routed lesson changes scoring until its source expires."""
+    from brambleloop.learn import runtime  # noqa: F401 - register handler
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    with db.session() as s:
+        task = s.get(research.ResearchTask, tid)
+        task.domain = "techniques"
+        task.outcome = "fixture: coastal tide line runner construction evidence"
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="integrated-intake")["approved"] == [SLUG]
+    before = _run(db, "radar.score", None)
+    assert before["lesson_adjustment"] == 0
+
+    scan = _run(db, "learn.scan", {}, key="integrated-learning")
+    assert not scan["research"].get("error"), scan["research"]
+    restore = _fixture_judgement()
+    try:
+        after = _run(db, "radar.score", {"slug": SLUG}, key="integrated-after-learning")
+        assert after["lesson_adjustment"] > before["lesson_adjustment"]
+        assert after["promoted"] is True
+        assert len(_jobs(db, "cir.draft")) == 1
+        assert _run(db, "cir.draft", None)["drafted"] is True
+        assert _jobs(db, "cir.compile")[0].inputs["cir"]["slug"] == SLUG
+        with db.session() as s:
+            s.get(research.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(seconds=1)
+        held = _run(db, "radar.score", {"slug": SLUG}, key="integrated-expired-source")
+        assert held["promoted"] is False
+        assert len(_jobs(db, "cir.draft")) == 1
+    finally:
+        restore()
+
+
+@pytest.mark.parametrize("crash_after_audit", [False, True])
+def test_interrupted_proposal_recovers_on_next_intake_worker(monkeypatch, crash_after_audit):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.PROPOSED_ACTION:
+            if crash_after_audit:
+                original(ctx, action, *args, **kwargs)
+            raise RuntimeError("fixture interruption during proposal audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="interrupted-proposal")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    assert len(_rows(db)) == 1 and _rows(db)[0].state == intake.PROPOSED
+    monkeypatch.setattr(JobContext, "audit", original)
+    out = _run(db, "radar.concept_intake", {}, key="restart-proposal")
+    assert out["approved"] == [SLUG]
+    assert len(_rows(db)) == 1 and _rows(db)[0].state == intake.APPROVED
+    assert len([a for a in _actions(db) if a.action == intake.PROPOSED_ACTION]) == 1
+    assert len(_jobs(db, "radar.score")) == 1
+
+
+def test_interrupted_proposal_with_conflicting_audit_stays_held(monkeypatch):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        result = original(ctx, action, *args, **kwargs)
+        if action == intake.PROPOSED_ACTION:
+            raise RuntimeError("fixture interruption after audit")
+        return result
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="conflicting-proposal")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        a = s.scalar(select(AuditLog).where(AuditLog.action == intake.PROPOSED_ACTION))
+        a.detail = {**a.detail, "source_ref": "research_task:wrong"}
+    out = _run(db, "radar.concept_intake", {}, key="conflicting-restart")
+    assert out["approved"] == []
+    assert _rows(db)[0].state == intake.PROPOSED
+    assert not _jobs(db, "radar.score")
+
+
+@pytest.mark.parametrize("stage", ["approval_audit", "enqueue", "handoff_audit"])
+def test_interrupted_approved_research_handoff_recovers_without_duplicate_score(monkeypatch, stage):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    real_audit, real_enqueue = JobContext.audit, JobContext.enqueue
+
+    def interrupted_audit(ctx, action, *args, **kwargs):
+        if ((stage == "approval_audit" and action == intake.APPROVED_ACTION)
+                or (stage == "handoff_audit" and action == intake.HANDOFF_ACTION)):
+            raise RuntimeError("fixture interruption at audit")
+        return real_audit(ctx, action, *args, **kwargs)
+
+    def interrupted_enqueue(ctx, agent, job_type, *args, **kwargs):
+        if stage == "enqueue" and job_type == "radar.score":
+            raise RuntimeError("fixture interruption before enqueue")
+        return real_enqueue(ctx, agent, job_type, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted_audit)
+    monkeypatch.setattr(JobContext, "enqueue", interrupted_enqueue)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key=f"interrupted-{stage}")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    assert _rows(db)[0].state == intake.APPROVED
+    monkeypatch.setattr(JobContext, "audit", real_audit)
+    monkeypatch.setattr(JobContext, "enqueue", real_enqueue)
+    out = _run(db, "radar.concept_intake", {}, key=f"restart-{stage}")
+    assert out["recovered_handoffs"] == [SLUG]
+    assert len(_jobs(db, "radar.score")) == 1
+    assert len([a for a in _actions(db) if a.action == intake.APPROVED_ACTION]) == 1
+    assert len([a for a in _actions(db) if a.action == intake.HANDOFF_ACTION]) == 1
+    _run(db, "radar.concept_intake", {}, key=f"again-{stage}")
+    assert len(_jobs(db, "radar.score")) == 1
+
+
+def test_interrupted_approval_does_not_recover_when_source_expires(monkeypatch):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.APPROVED_ACTION:
+            raise RuntimeError("fixture interruption before approval audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="expired-approval")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(days=1)
+    out = _run(db, "radar.concept_intake", {}, key="expired-restart")
+    assert not out["recovered_handoffs"]
+    assert not _jobs(db, "radar.score")
+
+
+@pytest.mark.parametrize("corruption", ["dead", "agent", "payload", "bool_score", "nan_score"])
+def test_interrupted_handoff_does_not_accept_invalid_existing_score(monkeypatch, corruption):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.HANDOFF_ACTION:
+            raise RuntimeError("fixture interruption after score enqueue")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key=f"bad-score-{corruption}")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        score = s.scalar(select(Job).where(Job.job_type == "radar.score"))
+        if corruption == "dead":
+            score.status = JobStatus.DEAD
+        elif corruption == "agent":
+            score.agent = "wrong-agent"
+        elif corruption in ("bool_score", "nan_score"):
+            score.status = JobStatus.DONE
+            score.outputs = {"score": True if corruption == "bool_score" else float("nan")}
+        else:
+            score.inputs = {**score.inputs, "title": "wrong title"}
+    out = _run(db, "radar.concept_intake", {}, key=f"bad-score-restart-{corruption}")
+    assert not out["recovered_handoffs"]
+    assert not [a for a in _actions(db) if a.action == intake.HANDOFF_ACTION]
 
 
 def test_an_evidence_backed_opportunity_becomes_a_concept_is_scored_and_reaches_cir_draft():
@@ -366,6 +562,51 @@ def test_unchanged_input_is_not_reprocessed_and_a_change_is():
 
 
 # ---- product families ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lost_demand", [False, True])
+def test_family_handoff_restart_requires_current_proven_demand(monkeypatch, lost_demand):
+    from brambleloop.creative import family_engine
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    family = "nordic-forest"
+    members = [s.slug for s in POOL if s.family == family and not s.is_bundle]
+    report = {"families": [{"family": family, "next_members": [],
+                            "members": [{"slug": m, "version": "1.0.0", "orders": 3}
+                                        for m in members],
+                            "amplification": {"orders": 12}}]}
+    monkeypatch.setattr(family_engine, "family_report", lambda _db: report)
+    with db.session() as s:
+        customer = Customer(customer_ref="fixture-family-handoff")
+        s.add(customer)
+        s.flush()
+        for i in range(12):
+            s.add(Order(customer_id=customer.id, external_ref=f"family-handoff-{i}",
+                        product_slug=members[i % len(members)],
+                        at=datetime.now(timezone.utc) - timedelta(days=3 + i)))
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.APPROVED_ACTION:
+            raise RuntimeError("fixture interruption at family approval audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="interrupted-family-handoff")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    target = _rows(db)[0]
+    assert target.state == intake.APPROVED
+    monkeypatch.setattr(JobContext, "audit", original)
+    if lost_demand:
+        report["families"][0]["amplification"] = "UNMEASURED"
+    result = _run(db, "radar.concept_intake", {}, key="restart-family-handoff")
+    jobs = [j for j in _jobs(db, "radar.score") if j.inputs.get("slug") == target.slug]
+    if lost_demand:
+        assert target.slug not in result["recovered_handoffs"] and not jobs
+    else:
+        assert target.slug in result["recovered_handoffs"] and len(jobs) == 1
 
 
 def test_a_proven_family_proposes_coordinated_variations_without_duplicates():

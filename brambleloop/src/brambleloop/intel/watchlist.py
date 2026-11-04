@@ -211,6 +211,7 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
     from . import mission, mission_runtime, observe
     from .etsy_public import ReadFailed
+    from .source_identity import marketplace_shop_id
 
     now = _now(now)
     st = _state(db, member.key)
@@ -265,6 +266,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     history = list(st.get("shop_history") or [])[-29:]
     history.append({"at": now.isoformat(), **facts})
     st.update(state="ok", last_ok_at=now.isoformat(), last_attempt_at=now.isoformat(),
+              catalogue_observed_at=result.observed_at,
+              catalogue_shop_id=marketplace_shop_id(shop.get("shop_id")),
               consecutive_failures=0, last_error="", shop=facts, shop_history=history,
               listings_seen=report["catalogue_coverage"]["listings_seen_this_scan"],
               changes=len(report["changes"]))
@@ -393,14 +396,25 @@ def compare(db, *, now: datetime | None = None) -> dict:
     import statistics
 
     from ..runtime.intel_ops import benchmark_alias, snapshot
+    from sqlalchemy import select
+    from ..core.models import BenchmarkListing
+    from .source_identity import marketplace_shop_id
 
     now = _now(now)
     snap = snapshot(db, now=now)
+    # Preserve the scan timestamp on each listing; a later successful scan must not
+    # make listings retained from an earlier catalogue current again.
+    with db.session() as s:
+        observed = list(s.execute(select(BenchmarkListing.benchmark_key,
+                                         BenchmarkListing.pod,
+                                         BenchmarkListing.last_seen,
+                                         BenchmarkListing.audit_state,
+                                         BenchmarkListing.detail)))
     by_alias: dict[str, list] = {}
     for g in snap["groups"]:
         by_alias.setdefault(g["benchmark"], []).append(g)
     shops = []
-    arenas: dict[str, list[str]] = {}
+    arenas: dict[str, list[tuple[str, str]]] = {}
     for m in WATCHLIST:
         alias = benchmark_alias(m.key)
         st = _state(db, m.key)
@@ -411,9 +425,6 @@ def compare(db, *, now: datetime | None = None) -> dict:
         media = [g["median_media"] for g in groups
                  if isinstance(g["median_media"], (int, float))]
         mix = {g["pod"]: g["listings"] for g in groups}
-        for pod, n in mix.items():
-            if n >= MIN_LISTINGS_FOR_ARENA:
-                arenas.setdefault(pod, []).append(alias)
         shop = st.get("shop") or {}
         as_of = st.get("last_ok_at") or (snap["at"] if listings else None)
         src = "etsy open api v3 (stored benchmark_listings)"
@@ -421,7 +432,39 @@ def compare(db, *, now: datetime | None = None) -> dict:
         # Review L-1: a figure carried over from an earlier read while this shop's latest
         # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
         # stored rows are labelled rows_present, never "ok".)
-        fresh = state in ("ok", "rows_present")
+        # Stored catalogue rows survive outages and may outlive an observation.  They
+        # cannot corroborate a current opportunity unless the shop has a recent,
+        # successful watchlist read with an actual (non-future) timestamp.
+        try:
+            last_ok = datetime.fromisoformat(st.get("last_ok_at") or "")
+            if last_ok.tzinfo is None:
+                last_ok = last_ok.replace(tzinfo=timezone.utc)
+            fresh = state == "ok" and timedelta(0) <= now - last_ok <= STALE_AFTER
+        except (TypeError, ValueError):
+            fresh = False
+        if fresh:
+            counts = {}
+            scan_at = st.get("catalogue_observed_at")
+            shop_id = marketplace_shop_id(st.get("catalogue_shop_id"))
+            try:
+                scan_time = datetime.fromisoformat(scan_at or "")
+                if scan_time.tzinfo is None:
+                    scan_time = scan_time.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                scan_time = None
+            for key, pod, seen, audit_state, detail in observed:
+                if key != m.key or not seen or scan_time is None:
+                    continue
+                if seen.tzinfo is None:
+                    seen = seen.replace(tzinfo=timezone.utc)
+                if (seen != scan_time or audit_state == "withdrawn" or not shop_id
+                        or not isinstance(detail, dict)
+                        or marketplace_shop_id(detail.get("source_shop_id")) != shop_id):
+                    continue
+                counts[pod] = counts.get(pod, 0) + 1
+            for pod, n in counts.items():
+                if n >= MIN_LISTINGS_FOR_ARENA:
+                    arenas.setdefault(pod, []).append((alias, shop_id))
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")
@@ -457,10 +500,12 @@ def compare(db, *, now: datetime | None = None) -> dict:
                                               "assumed AI-operated"},
         })
     ours = _our_pods(db)
-    validated = sorted((pod, sorted(a)) for pod, a in arenas.items()
-                       if len(a) >= MIN_SHOPS_FOR_ARENA and pod not in ours)
+    corroborated = sorted((pod, sorted(alias for alias, _ in a)) for pod, a in arenas.items()
+                          if len({shop_id for _, shop_id in a}) >= MIN_SHOPS_FOR_ARENA)
+    validated = [(pod, aliases) for pod, aliases in corroborated if pod not in ours]
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
             "validated_arenas": [{"pod": p, "corroborated_by": a} for p, a in validated],
+            "corroborated_arenas": [{"pod": p, "corroborated_by": a} for p, a in corroborated],
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
@@ -745,6 +790,21 @@ def queue_scores(db, enqueue, slugs, *, key: str, context: dict, today: date) ->
     return ids
 
 
+def score_still_supported(db, gap_ids) -> bool:
+    """Check queued watchlist scores against currently corroborated open gaps.
+
+    This is a conservative read-time check, not a transaction fence against writers.
+    """
+    if not isinstance(gap_ids, list) or not gap_ids:
+        return False
+    if any(isinstance(gid, bool) or not isinstance(gid, int) or gid <= 0
+           for gid in gap_ids):
+        return False
+    gaps = {g["id"]: g for g in _open_gaps(db)}
+    supported = {a["pod"] for a in compare(db)["corroborated_arenas"]}
+    return all(gid in gaps and gaps[gid]["pod"] in supported for gid in gap_ids)
+
+
 def review(db, *, enqueue, today: date | None = None, now: datetime | None = None) -> dict:
     """One decision per validated opportunity. Bounded, idempotent, lesson-aware, and
     non-spending: the only job it queues is radar.score. An arena no pool concept answers
@@ -759,9 +819,16 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
     now = _now(now)
     today = today or now.date()
     decided = []
+    held = []
+    currently_validated = {a["pod"] for a in compare(db, now=now)["corroborated_arenas"]}
     for g in _open_gaps(db):
         if len(decided) >= REVIEW_LIMIT:
             break
+        # A gap is a durable queue entry, not perpetual proof of a market opportunity.
+        # Hold both existing outcomes and new routing when current corroboration is lost.
+        if g["pod"] not in currently_validated:
+            held.append({"gap": g["id"], "reason": "current_corroboration_missing"})
+            continue
         ev = g["evidence"]
         attempts = list(ev.get("failed_attempts") or [])
         job_ids = ev.get("design_job_ids")
@@ -868,4 +935,4 @@ def review(db, *, enqueue, today: date | None = None, now: datetime | None = Non
                                         research=_research_state(db, ev.get(
                                             "research_task_id")))
                        | {"gap": g["id"]})
-    return {"decisions": decided, "work_done": len(decided)}
+    return {"decisions": decided, "held": held, "work_done": len(decided)}

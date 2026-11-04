@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import date, datetime, timedelta, timezone
 
@@ -280,7 +281,39 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
     from ..intel import research
 
     research._ensure(db)
-    refs = [str(r) for r in refs or () if str(r).strip()]
+    record_reasons: list[str] = []
+    if not isinstance(refs, (list, tuple)):
+        refs = []
+        record_reasons.append("proposal evidence references are not a list")
+    else:
+        raw_refs = refs
+        refs = []
+        for ref in raw_refs:
+            if not isinstance(ref, str) or not ref or ref != ref.strip():
+                record_reasons.append("proposal contains a malformed evidence reference")
+            else:
+                refs.append(ref)
+        if len(refs) != len(set(refs)):
+            record_reasons.append("proposal contains duplicate evidence references")
+            refs = list(dict.fromkeys(refs))
+
+    def _index_records(value, kind):
+        result = {}
+        if not isinstance(value, list):
+            record_reasons.append(f"research {kind} records are not a list")
+            return result
+        for item in value:
+            if (not isinstance(item, dict) or not isinstance(item.get("ref"), str)
+                    or not item["ref"] or item["ref"] != item["ref"].strip()):
+                record_reasons.append(f"research {kind} has a malformed reference")
+                continue
+            ref = item["ref"]
+            if ref in result:
+                record_reasons.append(f"research {kind} has duplicate reference {ref!r}")
+                continue
+            result[ref] = item
+        return result
+
     with db.session() as s:
         row = s.get(research.ResearchTask, int(task_id))
         if row is None:
@@ -290,14 +323,24 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
         confidence = str(row.confidence or "").strip().lower()
         expires = _aware(row.expires_on)
         answered = _aware(row.answered_at)
-        findings = {f["ref"]: f for f in row.findings or []}
-        sources = {x["ref"]: x for x in row.sources or []}
-        internal = {x.get("ref") for x in row.internal_evidence or []}
+        findings = _index_records(row.findings or [], "finding")
+        sources = _index_records(row.sources or [], "source")
+        internal = _index_records(row.internal_evidence or [], "internal evidence")
         conclusion = (row.detail or {}).get("conclusion") or {}
-    reasons: list[str] = []
+    collisions = (set(findings) & set(sources)) | (set(findings) & set(internal)) | (
+        set(sources) & set(internal))
+    if collisions:
+        record_reasons.append("research references collide across evidence kinds")
+    reasons: list[str] = list(record_reasons)
     if state != research.ANSWERED:
         reasons.append(f"research task {task_id} is {state}, not answered: an open question "
                        f"is not an approved opportunity")
+    evaluated_now = datetime.now(timezone.utc)
+    if answered is None:
+        reasons.append(f"research task {task_id} has no recorded answer time")
+    elif (answered.date() > today
+          or (today == evaluated_now.date() and answered > evaluated_now)):
+        reasons.append(f"research task {task_id} was answered after the evaluation date")
     if conclusion.get("status") == "unresolved":
         reasons.append(f"research task {task_id} concluded unresolved")
     # The moment evidence is judged at: the start of `today`, or the real time when `today`
@@ -317,20 +360,40 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
                        f"({confidence or 'none'!r})")
 
     def _source_date(ref: str) -> str | None:
+        if not isinstance(ref, str) or not ref.strip():
+            reasons.append("finding has a malformed supporting-source reference")
+            return None
         if ref in sources:
-            return sources[ref].get("read_on")
-        if ref in internal and answered is not None:
-            return answered.date().isoformat()
-        return None
+            raw = sources[ref].get("read_on")
+        elif ref in internal and answered is not None:
+            raw = answered.date().isoformat()
+        else:
+            reasons.append(f"source {ref!r} is missing from research task {task_id}")
+            return None
+        try:
+            if not isinstance(raw, str):
+                raise ValueError("source date is not text")
+            day = date.fromisoformat(raw)
+        except (ValueError, TypeError):
+            reasons.append(f"source {ref!r} has a missing or invalid date")
+            return None
+        if day > today:
+            reasons.append(f"source {ref!r} is dated after the evaluation date")
+            return None
+        return day.isoformat()
 
     items: list[dict] = []
     for ref in refs:
         if ref in findings:
             f = findings[ref]
-            dates = [d for d in (_source_date(r) for r in f.get("rests_on") or []) if d]
+            rests_on = f.get("rests_on")
+            if not isinstance(rests_on, list) or not rests_on:
+                reasons.append(f"finding {ref!r} has no recorded supporting sources")
+                rests_on = []
+            dates = [d for d in (_source_date(r) for r in rests_on) if d]
             item = {"ref": ref, "kind": "finding", "claim_class": f.get("claim_class"),
                     "statement": str(f.get("statement") or "")[:300],
-                    "rests_on": list(f.get("rests_on") or []),
+                    "rests_on": list(rests_on),
                     "date": min(dates) if dates else None}
         elif ref in sources:
             src = sources[ref]
@@ -339,7 +402,7 @@ def research_evidence(db, task_id: int, refs, *, today: date) -> dict:
                     "citation": str(src.get("citation") or "")[:240],
                     "claim_class": ("fact" if src.get("retrieval") in research.FACT_GRADE
                                     else "source_claim"),
-                    "date": src.get("read_on")}
+                    "date": _source_date(ref)}
         else:
             reasons.append(f"evidence ref {ref!r} is not a finding or source of research "
                            f"task {task_id}: evidence must be recorded, not asserted")
@@ -439,23 +502,103 @@ def _unsupported_research(db, rows) -> set[int]:
     moment of use, so a stale approval is out of the pool even before `run` withdraws it."""
     from ..intel import research
 
-    refs = {r.id: r.source_ref for r in rows if r.source == SOURCE_RESEARCH}
+    refs = {r.id: r for r in rows if r.source == SOURCE_RESEARCH}
     if not refs:
         return set()
     research._ensure(db)
-    ids = {int(v.split(":", 1)[1]) for v in refs.values()}
+    ids = set()
+    parsed = {}
+    for rid, row in refs.items():
+        try:
+            prefix, raw_id = row.source_ref.split(":", 1)
+            tid = int(raw_id)
+            if prefix != "research_task" or tid <= 0:
+                raise ValueError("invalid research source")
+            parsed[rid] = tid
+            ids.add(tid)
+        except (AttributeError, TypeError, ValueError):
+            continue
     now = datetime.now(timezone.utc)
     with db.session() as s:
         tasks = {t.id: t for t in s.scalars(select(research.ResearchTask)
                                             .where(research.ResearchTask.id.in_(ids)))}
         ok = set()
-        for tid, t in tasks.items():
+        for rid, tid in parsed.items():
+            t = tasks.get(tid)
+            if t is None:
+                continue
             expires = _aware(t.expires_on)
-            concl = (t.detail or {}).get("conclusion") or {}
+            task_detail = t.detail if isinstance(t.detail, dict) else {}
+            concl = task_detail.get("conclusion") or {}
+            if not isinstance(concl, dict):
+                continue
+            row_detail = refs[rid].detail if isinstance(refs[rid].detail, dict) else {}
             if (t.state == research.ANSWERED and concl.get("status") != "unresolved"
-                    and (expires is None or expires > now)):
-                ok.add(tid)
-    return {rid for rid, ref in refs.items() if int(ref.split(":", 1)[1]) not in ok}
+                    and (expires is None or expires > now)
+                    and _ideation_owner_current(s, t, refs[rid].slug,
+                                                row_detail.get("proposal"),
+                                                expected_trigger=row_detail.get("trigger"))):
+                ok.add(rid)
+    # A task can remain ANSWERED while one of its cited source dates or
+    # supports changes. Do not keep it in the pool until the next sweep merely
+    # because the task-level expiry still looks current.
+    for rid in tuple(ok):
+        row_detail = refs[rid].detail if isinstance(refs[rid].detail, dict) else {}
+        proposal = row_detail.get("proposal")
+        try:
+            evidence = research_evidence(db, parsed[rid],
+                                         proposal.get("evidence", []) if isinstance(proposal, dict)
+                                         else [], today=now.date())
+            if not evidence.get("ok"):
+                ok.discard(rid)
+        except (TypeError, ValueError, KeyError, AttributeError):
+            # A corrupt source record is not evidence of a supported concept.
+            ok.discard(rid)
+    return set(refs) - ok
+
+
+_NO_APPROVED_PROPOSAL = object()
+
+
+def _ideation_owner_current(session, task, slug: str,
+                            approved_proposal=_NO_APPROVED_PROPOSAL,
+                            *, expected_trigger=None) -> bool:
+    """Hold ideation concepts whose recorded gap or attached proposal has changed.
+
+    Non-ideation research tasks have their existing evidence rules. This read is
+    not a transaction fence against a later task or gap mutation.
+    """
+    from ..core.models import CoverageGap
+    from . import ideation
+
+    detail = task.detail if isinstance(task.detail, dict) else {}
+    trigger = task.trigger if isinstance(task.trigger, str) else ""
+    if (isinstance(expected_trigger, str) and expected_trigger.startswith(ideation.TRIGGER_PREFIX)
+            and trigger != expected_trigger):
+        return False
+    if not trigger.startswith(ideation.TRIGGER_PREFIX) and "ideation_brief" not in detail:
+        if "ideation_refs" in detail or "ideation_census" in detail:
+            return False
+        return True
+    brief = detail.get("ideation_brief")
+    if not isinstance(brief, dict):
+        return False
+    gap_id = brief.get("gap")
+    if type(gap_id) is not int or gap_id <= 0 or trigger != f"{ideation.TRIGGER_PREFIX}{gap_id}":
+        return False
+    gap = session.get(CoverageGap, gap_id)
+    evidence = gap.evidence if gap and isinstance(gap.evidence, dict) else {}
+    record = evidence.get("ideation") or {}
+    proposals = detail.get("concept_proposals")
+    if (not isinstance(slug, str) or not slug or not isinstance(record, dict)
+            or type(record.get("task")) is not int or record.get("task") != task.id
+            or record.get("outcome") != ideation.OUT_PROPOSED or record.get("slug") != slug
+            or not isinstance(proposals, list) or len(proposals) != 1
+            or not isinstance(proposals[0], dict) or proposals[0].get("slug") != slug):
+        return False
+    return (approved_proposal is _NO_APPROVED_PROPOSAL
+            or (isinstance(approved_proposal, dict)
+                and _clean(proposals[0]) == _clean(approved_proposal)))
 
 
 def has_rows(db, slug: str) -> bool:
@@ -755,16 +898,34 @@ def research_candidates(db, *, today: date) -> list[dict]:
 
     research._ensure(db)
     with db.session() as s:
-        rows = [(r.id, list((r.detail or {}).get("concept_proposals") or []), r.trigger)
-                for r in s.scalars(select(research.ResearchTask)
-                                   .order_by(research.ResearchTask.id))
-                if (r.detail or {}).get("concept_proposals")]
+        rows = []
+        # Existing intake decisions retain the source trigger they judged. If a
+        # task later drops its ideation markers, do not silently reclassify it.
+        known_triggers = {}
+        for source_ref, prior_detail in s.execute(select(RadarConcept.source_ref,
+                RadarConcept.detail).where(RadarConcept.source == SOURCE_RESEARCH)):
+            trigger = prior_detail.get("trigger") if isinstance(prior_detail, dict) else None
+            if isinstance(trigger, str) and trigger.startswith("ideation_gap:"):
+                known_triggers.setdefault(source_ref, set()).add(trigger)
+        for row in s.scalars(select(research.ResearchTask).order_by(research.ResearchTask.id)):
+            detail = row.detail if isinstance(row.detail, dict) else {}
+            proposals = detail.get("concept_proposals") or []
+            if not isinstance(proposals, list):
+                continue
+            for prop in proposals:
+                if not isinstance(prop, dict):
+                    continue
+                seen = known_triggers.get(f"research_task:{row.id}", set())
+                if len(seen) > 1:
+                    continue
+                expected = next(iter(seen), None)
+                if _ideation_owner_current(s, row, prop.get("slug"), expected_trigger=expected):
+                    rows.append((row.id, dict(prop), row.trigger))
     out = []
-    for tid, proposals, trigger in rows:
-        for prop in proposals:
-            ev = research_evidence(db, tid, (prop or {}).get("evidence") or (), today=today)
-            out.append({"source": SOURCE_RESEARCH, "source_ref": f"research_task:{tid}",
-                        "proposal": dict(prop or {}), "evidence": ev, "trigger": trigger})
+    for tid, prop, trigger in rows:
+        ev = research_evidence(db, tid, prop.get("evidence") or (), today=today)
+        out.append({"source": SOURCE_RESEARCH, "source_ref": f"research_task:{tid}",
+                    "proposal": prop, "evidence": ev, "trigger": trigger})
     return out
 
 
@@ -912,28 +1073,58 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
     clean = _clean(candidate["proposal"])
     fp = fingerprint(candidate["source_ref"], clean, ev)
     prior = _existing(db, fp)
-    if prior is not None:
+    if prior is not None and prior.state != PROPOSED:
         return {"slug": prior.slug, "state": prior.state, "unchanged": True, "id": prior.id}
     slug = str(clean.get("slug") or "unnamed")[:80]
+    if prior is None:
+        with db.session() as s:
+            row = RadarConcept(slug=slug, state=PROPOSED, source=candidate["source"],
+                               source_ref=candidate["source_ref"], fingerprint=fp,
+                               evidence=list(ev.get("items") or []),
+                               quality=float(ev.get("quality") or 0.0),
+                               detail={"proposal": clean, "trigger": candidate.get("trigger"),
+                                       "evidence": {k: v for k, v in ev.items() if k != "items"}})
+            s.add(row)
+            s.flush()
+            row_id = row.id
+    else:
+        detail = prior.detail if isinstance(prior.detail, dict) else {}
+        if (prior.slug != slug or prior.source != candidate["source"]
+                or prior.source_ref != candidate["source_ref"]
+                or detail.get("proposal") != clean
+                or list(prior.evidence or []) != list(ev.get("items") or [])):
+            return {"slug": slug, "state": PROPOSED, "unchanged": True, "id": prior.id,
+                    "reason": "persisted proposal does not match current candidate"}
+        row_id = prior.id
+    from ..core.models import AuditLog, Job
     with db.session() as s:
-        row = RadarConcept(slug=slug, state=PROPOSED, source=candidate["source"],
-                           source_ref=candidate["source_ref"], fingerprint=fp,
-                           evidence=list(ev.get("items") or []),
-                           quality=float(ev.get("quality") or 0.0),
-                           detail={"proposal": clean, "trigger": candidate.get("trigger"),
-                                   "evidence": {k: v for k, v in ev.items() if k != "items"}})
-        s.add(row)
-        s.flush()
-        row_id = row.id
-    audit(PROPOSED_ACTION, artifact=slug, detail={
-        "row": row_id, "source": candidate["source"], "source_ref": candidate["source_ref"],
-        "evidence_refs": [i.get("ref") for i in ev.get("items") or []],
-        "quality": ev.get("quality")})
+        audits = [a for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == PROPOSED_ACTION, AuditLog.artifact == slug))
+                  if isinstance(a.detail, dict) and a.detail.get("row") == row_id]
+        for a in audits:
+            producer = s.get(Job, a.job_id) if a.job_id else None
+            if (a.actor != "market_radar" or producer is None
+                    or producer.agent != "market_radar"
+                    or producer.job_type != "radar.concept_intake"
+                    or a.detail.get("source") != candidate["source"]
+                    or a.detail.get("source_ref") != candidate["source_ref"]
+                    or a.detail.get("evidence_refs") != [i.get("ref") for i in ev.get("items") or []]):
+                return {"slug": slug, "state": PROPOSED, "unchanged": True, "id": row_id,
+                        "reason": "proposal audit conflicts with current candidate"}
+        audited = bool(audits)
+    if not audited:
+        audit(PROPOSED_ACTION, artifact=slug, detail={
+            "row": row_id, "source": candidate["source"], "source_ref": candidate["source_ref"],
+            "evidence_refs": [i.get("ref") for i in ev.get("items") or []],
+            "quality": ev.get("quality"), "recovered": prior is not None})
     verdict = validate(db, candidate["proposal"], ev, source_ref=candidate["source_ref"])
     now = datetime.now(timezone.utc)
     withdrawn_ids: list[int] = []
     with db.session() as s:
-        row = s.get(RadarConcept, row_id)
+        row = s.scalar(select(RadarConcept).where(RadarConcept.id == row_id).with_for_update())
+        if row is None or row.state != PROPOSED:
+            return {"slug": slug, "state": getattr(row, "state", "missing"),
+                    "unchanged": True, "id": row_id}
         row.reasons = list(verdict["reasons"])
         row.concept = dict(verdict["concept"] or {})
         row.brief = dict(verdict["brief"] or {})
@@ -1014,6 +1205,107 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
                 "reason": "re-scored: a vision judgement is now on record"})
             out.append(row.slug)
     return out
+
+
+def recover_approved_handoffs(db, candidates, *, audit, enqueue, today: date) -> list[str]:
+    """Repair sequential score-handoff interruptions only for current source evidence."""
+    from ..core.models import AuditLog, Job, JobStatus
+
+    recovered = []
+    by_fingerprint = {fingerprint(c["source_ref"], _clean(c["proposal"]), c["evidence"]): c
+                      for c in candidates if c["source"] == SOURCE_RESEARCH}
+    rows = approved_rows(db)
+    if any(row.source == SOURCE_FAMILY for row in rows):
+        from ..creative.family_engine import family_report
+
+        families = {f.get("family"): f for f in family_report(db).get("families", [])
+                    if isinstance(f, dict) and isinstance(f.get("amplification"), dict)
+                    and not f.get("next_members")}
+        for row in rows:
+            if row.source != SOURCE_FAMILY or not row.source_ref.startswith("family:"):
+                continue
+            family = families.get(row.source_ref.split(":", 1)[1])
+            proposal = (row.detail or {}).get("proposal")
+            if family is None or not isinstance(proposal, dict):
+                continue
+            evidence = family_evidence(db, family, today=today)
+            candidate = {"source": SOURCE_FAMILY, "source_ref": row.source_ref,
+                         "proposal": proposal, "evidence": evidence}
+            key = fingerprint(row.source_ref, _clean(proposal), evidence)
+            by_fingerprint[key] = candidate
+    for row in rows:
+        candidate = by_fingerprint.get(row.fingerprint)
+        if candidate is None or candidate["source"] != row.source:
+            continue
+        if (candidate["source_ref"] != row.source_ref
+                or _clean(candidate["proposal"]) != (row.detail or {}).get("proposal")
+                or list(candidate["evidence"].get("items") or []) != list(row.evidence or [])):
+            continue
+        with db.session() as s:
+            audits = [a for a in s.scalars(select(AuditLog).where(
+                AuditLog.action.in_((APPROVED_ACTION, HANDOFF_ACTION)),
+                AuditLog.artifact == row.slug))
+                      if isinstance(a.detail, dict) and a.detail.get("row") == row.id]
+            if any(a.actor != "market_radar" or not a.job_id
+                   or (p := s.get(Job, a.job_id)) is None
+                   or p.agent != "market_radar" or p.job_type != "radar.concept_intake"
+                   or (a.action == APPROVED_ACTION
+                       and a.detail.get("source_ref") != row.source_ref)
+                   or (a.action == HANDOFF_ACTION
+                       and a.detail.get("job_type") != "radar.score")
+                   for a in audits):
+                continue
+            if any(a.action == HANDOFF_ACTION for a in audits):
+                continue
+            existing = [j for j in s.scalars(select(Job).where(
+                Job.job_type == "radar.score", Job.idempotency_key.like(f"score:{row.slug}:%")))
+                        if isinstance(j.inputs, dict)
+                        and isinstance(j.inputs.get("intake"), dict)
+                        and j.inputs["intake"].get("row") == row.id]
+            drafted = s.scalar(select(Job.id).where(
+                Job.idempotency_key == f"draft:{row.slug}").limit(1))
+        if drafted:
+            continue
+        verdict = validate(db, candidate["proposal"], candidate["evidence"],
+                           source_ref=candidate["source_ref"])
+        if not verdict["ok"] or verdict["seed"] != row.seed:
+            continue
+        if not any(a.action == APPROVED_ACTION for a in audits):
+            audit(APPROVED_ACTION, artifact=row.slug, detail={
+                "row": row.id, "source_ref": row.source_ref, "recovered": True,
+                "reason": "current candidate and approval revalidated after interruption"})
+        if len(existing) > 1:
+            continue
+        job = existing[0] if existing else None
+        if job is not None:
+            try:
+                score_day = date.fromisoformat(job.idempotency_key.rsplit(":", 1)[-1])
+            except (AttributeError, TypeError, ValueError):
+                continue
+            expected = score_concept(_seed_from(row), score_day).to_dict()
+            expected["intake"] = {"row": row.id, "source_ref": row.source_ref}
+            score = (job.outputs or {}).get("score")
+            if (job.agent != "market_radar" or job.inputs != expected
+                    or job.status not in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.DONE)
+                    or (job.status == JobStatus.DONE
+                        and (isinstance(score, bool) or not isinstance(score, (int, float))
+                             or not math.isfinite(score)))):
+                continue
+        if job is None:
+            current = approved_concept(db, row.slug)
+            if current is None:
+                continue
+            payload = score_concept(current["seed"], today).to_dict()
+            payload["intake"] = {"row": row.id, "source_ref": row.source_ref}
+            job = enqueue("market_radar", "radar.score", payload,
+                          idempotency_key=f"score:{row.slug}:{today.isoformat()}")
+            if job is None:
+                continue  # A key collision is not proof this approval was handed off.
+        audit(HANDOFF_ACTION, artifact=row.slug, detail={
+            "row": row.id, "job_type": "radar.score", "job_id": job.id,
+            "recovered": True})
+        recovered.append(row.slug)
+    return recovered
 
 
 def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
@@ -1103,6 +1395,8 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
     today = today or datetime.now(timezone.utc).date()
     withdrawn = withdraw_unsupported(db, audit=audit, today=today)
     candidates = research_candidates(db, today=today) + family_candidates(db, today=today)
+    recovered = recover_approved_handoffs(db, candidates, audit=audit, enqueue=enqueue,
+                                          today=today)
     decided, unchanged = [], 0
     for cand in candidates:
         if len(decided) >= MAX_EVALUATIONS_PER_RUN:
@@ -1114,9 +1408,9 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
         decided.append(out)
     rescored = rescore_judged(db, audit=audit, enqueue=enqueue, today=today)
     return {"candidates": len(candidates), "unchanged": unchanged,
-            "rescored": rescored, "withdrawn": withdrawn,
+            "rescored": rescored, "recovered_handoffs": recovered, "withdrawn": withdrawn,
             "approved": [d["slug"] for d in decided if d["state"] == APPROVED],
             "refused": [{"slug": d["slug"], "reasons": d.get("reasons", [])[:3]}
                         for d in decided if d["state"] == REFUSED],
-            "work_done": len(decided) + len(rescored) + len(withdrawn), "network_calls": 0, "spend_cad": 0.0,
+            "work_done": len(decided) + len(rescored) + len(recovered) + len(withdrawn), "network_calls": 0, "spend_cad": 0.0,
             "as_of": today.isoformat()}
