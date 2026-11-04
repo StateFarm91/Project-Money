@@ -73,3 +73,20 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_scheduled_reading_does_not_recommend_scaling_with_unknown_refunds(monkeypatch):
+    from brambleloop.scale import runrate
+
+    db = _db()
+    observed = runrate.Observed(impressions=100000, visits=5000, orders=100,
+                                revenue_cad=1000, contribution_cad=800)
+    monkeypatch.setattr(runrate, "observe", lambda *args, **kwargs: {"observed": observed})
+    job = JobQueue(db).enqueue("cfo", "commerce.readings", {}, idempotency_key="unknown-refunds")
+    assert Worker(db, "readings", phase=Phase.SHADOW, job_types=["commerce.readings"]).run_once()
+    with db.session() as session:
+        assert session.get(Job, job.id).status == JobStatus.DONE
+        audit = session.scalar(select(AuditLog).where(AuditLog.action == "commerce.readings"))
+        reading = audit.detail["reading"]["kill_table"]
+    assert reading["route"]["verdict"] != "healthy"
+    assert reading["route"]["verdict"] != "strong_conversion_low_traffic"
