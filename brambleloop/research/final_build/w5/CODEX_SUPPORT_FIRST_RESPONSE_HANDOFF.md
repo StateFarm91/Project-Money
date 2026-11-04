@@ -40,3 +40,15 @@ triage, raw SQL, other writers and SQLite concurrency still need audit. The
 runtime hunk in `runtime/release.py` overlaps other work and requires additive
 integration review. No authenticated disposition or sent-evidence guarantee is
 introduced by row locking.
+
+Triage follow-up: each case is now re-read and locked in its own transaction,
+preserving oldest-first processing without locking the entire case history.
+Intake metadata and post-enqueue bookkeeping also lock the case; sent cases
+are not selected for a new draft. Python 3.11 focused SQLite tests pass 46/46.
+An earlier version using one all-case lock passed the opt-in PostgreSQL race
+test in both send/triage orders; the final per-case version has **not** been
+run on PostgreSQL because workspace disk space was exhausted. The enqueue step
+remains separate, so an owner send can still race a draft enqueue (the worker
+skips an already-sent case). Teardown/lesson and other case writers, SQLite
+concurrency, sent-evidence authentication, and no-reply disposition remain
+open. No customer message was sent.

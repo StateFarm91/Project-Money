@@ -16,6 +16,7 @@ from brambleloop.queue.durable import JobQueue
 from brambleloop.runtime import pipeline  # noqa: F401 -- register handlers
 from brambleloop.runtime.worker import Worker
 from brambleloop.support import response_watch
+from brambleloop.support.department import CustomerExperience
 
 
 def test_sent_and_draft_transactions_serialize_in_both_orders():
@@ -75,3 +76,43 @@ def test_sent_and_draft_transactions_serialize_in_both_orders():
             assert session.get(Job, job.id).status == JobStatus.DONE
             if first == "owner":
                 assert session.get(Job, job.id).outputs["skipped"] == "first_response_already_recorded"
+
+    for first in ("owner", "triage"):
+        now = datetime.now(timezone.utc)
+        case_id = response_watch.record_buyer_message(
+            db, customer_ref=f"fixture-triage-{first}", message="Where is my PDF?", now=now)["case_id"]
+        locked, release = threading.Event(), threading.Event()
+
+        def hold_before_flush(session, _context, _instances):
+            if threading.current_thread().name == f"fixture-{first}" and any(
+                    isinstance(row, SupportCase) and row.id == case_id for row in session.dirty):
+                locked.set()
+                assert release.wait(10)
+
+        def owner():
+            threading.current_thread().name = "fixture-owner"
+            return response_watch.record_reply_sent(db, case_id)
+
+        def triage():
+            threading.current_thread().name = "fixture-triage"
+            return CustomerExperience(db).triage_cases(now=now)
+
+        event.listen(Session, "before_flush", hold_before_flush)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                initial = pool.submit(owner if first == "owner" else triage)
+                assert locked.wait(10)
+                other = pool.submit(triage if first == "owner" else owner)
+                try:
+                    with pytest.raises(TimeoutError):
+                        other.result(timeout=0.25)
+                finally:
+                    release.set()
+                initial.result(timeout=15)
+                other.result(timeout=15)
+        finally:
+            event.remove(Session, "before_flush", hold_before_flush)
+        with db.session() as session:
+            case = session.get(SupportCase, case_id)
+            assert case.sent and case.detail.get("first_response_at")
+            assert case.detail.get("triaged_at")

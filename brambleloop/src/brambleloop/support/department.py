@@ -372,10 +372,17 @@ class CustomerExperience:
         window = case_window()
         triaged, enqueued, already = [], [], []
         with self.db.session() as s:
-            cases = list(s.scalars(select(SupportCase).order_by(SupportCase.at,
-                                                                SupportCase.id)))
-            pending = []
-            for case in cases:
+            case_ids = list(s.scalars(select(SupportCase.id).order_by(
+                SupportCase.at, SupportCase.id)))
+        pending = []
+        for case_id in case_ids:
+            # Hold only this case's lock, preserving oldest-first processing
+            # without blocking owner sends for every other case in the queue.
+            with self.db.session() as s:
+                case = s.scalar(select(SupportCase).where(
+                    SupportCase.id == case_id).with_for_update())
+                if case is None:
+                    continue
                 detail = dict(case.detail or {})
                 if "triaged_at" not in detail:
                     confused = bool(CONFUSION.search(case.question or ""))
@@ -388,7 +395,8 @@ class CustomerExperience:
                     detail["resolve_before"] = (at + timedelta(days=window["days"])).isoformat()
                 elif not case.resolved:
                     detail["resolve_before"] = "UNKNOWN"
-                needs = not (case.answer or "").strip() and not detail.get("reply_job")
+                needs = (not case.sent and not detail.get("first_response_at")
+                         and not (case.answer or "").strip() and not detail.get("reply_job"))
                 detail["needs_reply"] = needs
                 case.detail = detail
                 if needs:
@@ -412,12 +420,15 @@ class CustomerExperience:
                     already.append(case_id)
                     continue
                 with self.db.session() as s:
-                    case = s.get(SupportCase, case_id)
+                    case = s.scalar(select(SupportCase).where(
+                        SupportCase.id == case_id).with_for_update())
+                    if case is None:
+                        continue
                     case.detail = {**dict(case.detail or {}), "reply_job": job.id,
                                    "needs_reply": False}
                 enqueued.append({"case": case_id, "job": job.id})
 
-        return {"cases": len(cases), "triaged": triaged, "reply_jobs": enqueued,
+        return {"cases": len(case_ids), "triaged": triaged, "reply_jobs": enqueued,
                 "awaiting_draft": already,
                 "needing_reply": [p[0] for p in pending],
                 "case_window": window,

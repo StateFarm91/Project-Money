@@ -115,6 +115,8 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
     The case's clock starts at `received_at` -- when the buyer wrote, as the owner read it
     -- not when it was typed in here, so a message recorded a day late is already a day old.
     """
+    from sqlalchemy import select
+
     from ..core.models import SupportCase
     from .department import CustomerExperience
 
@@ -137,7 +139,8 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
                                             message=str(message), product_slug=product_slug,
                                             version=version, source=OWNER_SOURCE)
     with db.session() as s:
-        case = s.get(SupportCase, case_id)
+        case = s.scalar(select(SupportCase).where(
+            SupportCase.id == case_id).with_for_update())
         case.at = at
         case.detail = {**dict(case.detail or {}), "channel": channel,
                        "received_at": at.isoformat(), "recorded_at": now.isoformat(),

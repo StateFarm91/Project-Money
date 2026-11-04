@@ -85,3 +85,19 @@ def test_late_draft_does_not_replace_previously_recorded_sent_case(tmp_path):
         assert case.sent and case.detail["first_response_at"]
         assert case.answer == "Previously recorded owner answer"
         assert "response_measured_as" not in case.detail
+
+
+def test_triage_does_not_enqueue_a_draft_after_recorded_sent_reply(tmp_path):
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    Registry(db).seed_defaults()
+    now = datetime.now(timezone.utc)
+    case_id = response_watch.record_buyer_message(
+        db, customer_ref="fixture-buyer", message="Where is my PDF?", now=now)["case_id"]
+    response_watch.record_reply_sent(db, case_id, now=now)
+    result = CustomerExperience(db).triage_cases(JobQueue(db), now=now)
+    assert case_id not in result["needing_reply"]
+    assert not result["reply_jobs"]
+    with db.session() as session:
+        case = session.get(SupportCase, case_id)
+        assert case.sent and case.detail["first_response_at"]
