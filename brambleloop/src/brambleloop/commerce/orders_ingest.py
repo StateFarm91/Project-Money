@@ -1101,6 +1101,20 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
     from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
 
     before = cursor(db)
+    retry_at = before.get("refused_retry_not_before")
+    if retry_at:
+        try:
+            retry_time = datetime.fromisoformat(retry_at)
+            if retry_time.tzinfo is None:
+                retry_time = retry_time.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            return {"ran": False, "reading": "UNMEASURED", "gate": state,
+                    "network_calls": 0, "cursor": before,
+                    "why": "invalid refusal retry state requires reconciliation"}
+        if now < retry_time:
+            return {"ran": False, "reading": "UNMEASURED", "gate": state,
+                    "network_calls": 0, "cursor": before,
+                    "why": "refused receipt replay is deferred until its bounded retry time"}
     since, mode = _plan_read(before, now)
     # A reader that does not declare its `since` a last-modified watermark may filter by
     # creation time; an incremental read through it would lose a refund on an old receipt.
@@ -1157,6 +1171,16 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
                                  else before.get("last_full_sweep")),
              "runs": int(before.get("runs") or 0) + 1, "last_run": now.isoformat(),
              "last_mode": mode}
+    if refused:
+        prior = before.get("refused_retry_count", 0)
+        if not isinstance(prior, int) or isinstance(prior, bool) or prior < 0:
+            prior = 0
+        streak = min(prior + 1, 10)
+        after["refused_retry_count"] = streak
+        # First refusal is retried at the next cadence. Subsequent attempts are
+        # rate-limited to at most one full replay per day.
+        if streak >= 2:
+            after["refused_retry_not_before"] = (now + timedelta(hours=24)).isoformat()
     _save_cursor(db, after)
     from . import cohorts
 
