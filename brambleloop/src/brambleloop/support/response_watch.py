@@ -14,8 +14,9 @@ What this does, on every `support.triage` run:
   incident; at **36h** the incident becomes P1 and the action says so; at **48h** the
   standard is breached and the incident says that too. One row per case, restated, never
   duplicated.
-- When the reply is recorded as sent (`record_reply_sent`, or `case.sent`) or the case is
-  resolved, the action closes and the incident resolves, on that evidence.
+- When the reply is recorded as sent (`record_reply_sent`, or `case.sent`), the action
+  closes and the incident resolves on that evidence. A case marked resolved by a drafted
+  answer is not evidence that a buyer received it.
 
 What it does not do: read Etsy Messages. There is no Etsy messages API; a buyer message
 enters only when the owner records it (`record_buyer_message`, the operator-authenticated
@@ -172,7 +173,9 @@ def record_reply_sent(db, case_id: int, *, sent_at=None, now: datetime | None = 
 
 def _answered(case) -> bool:
     detail = case.detail or {}
-    return bool(case.sent or case.resolved or detail.get("first_response_at"))
+    # Drafting currently marks a confident case `resolved` even though `sent`
+    # remains false. Resolution therefore cannot prove a first response.
+    return bool(case.sent or detail.get("first_response_at"))
 
 
 def watch(db, *, now: datetime | None = None) -> dict:

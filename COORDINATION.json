@@ -279,6 +279,17 @@
       "area": "queue Q16 split",
       "claimed": "2026-11-02T11:20Z",
       "scope": "stuffed finishing (a9fac088), openings in repeats (b4ea6795), drawstring pouch (c7a8d31e, 3b0a8867 pouch hunks), OPUS2P P-5/P-6/P-8/P-9 (c5671087 hunks); amigurumi stays on opus2/p0-amigurumi"
+    },
+    {
+      "id": "CODEX-SUPPORT-FIRST-RESPONSE-TRUTH",
+      "operator": "codex",
+      "branch": "codex/support-first-response-truth",
+      "claimed_at": "2026-11-04T04:01:28Z",
+      "files": [
+        "brambleloop/src/brambleloop/support/response_watch.py",
+        "brambleloop/tests/test_codex_support_first_response_truth.py"
+      ],
+      "scope": "Keep first-response alerts open for unsent support drafts; no messages sent."
     }
   ],
   "unowned": [
