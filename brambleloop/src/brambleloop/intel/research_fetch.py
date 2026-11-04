@@ -307,6 +307,36 @@ def promote(db, *, now: datetime | None = None, withdraw_only: bool = False) -> 
     return {"promoted": promoted, "withdrawn": withdrawn, "unrouted": unrouted, "held": held}
 
 
+def lesson_current(db, lesson, *, now: datetime | None = None) -> bool:
+    """Fail closed when a routed research lesson has lost its current source binding.
+
+    This is a read-time guard, not authentication or an action-time transaction fence.
+    """
+    from . import research
+
+    try:
+        prefix, identifier = lesson.evidence_ref.split(":", 1)
+        if prefix != "research_tasks" or not identifier.isdecimal() or str(int(identifier)) != identifier:
+            return False
+        with db.session() as s:
+            task = s.get(research.ResearchTask, int(identifier))
+            if task is None or not research.answer_fresh_at(
+                    task, now or datetime.now(timezone.utc)):
+                return False
+            detail = task.detail if isinstance(task.detail, dict) else {}
+            facts = [f for f in (task.findings or [])
+                     if isinstance(f, dict) and f.get("claim_class") == "fact"]
+            if not facts or detail.get("promoted_lesson") != lesson.id:
+                return False
+            statement = (f"Research answered '{task.question[:160]}': {task.outcome[:200]}. Facts: "
+                         + "; ".join(f["statement"][:160] for f in facts[:3]))
+            return (lesson.origin_cell == "learn" and lesson.confidence == "confirmed"
+                    and lesson.subject == DOMAIN_SUBJECT.get(task.domain)
+                    and lesson.statement == statement and lesson.withdrawn_at is None)
+    except Exception:  # noqa: BLE001 - unreadable/malformed source cannot authorize use
+        return False
+
+
 def _set(db, tid: int, **kv) -> None:
     from . import research
 

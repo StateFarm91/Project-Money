@@ -230,6 +230,65 @@ def test_learn_worker_holds_calendar_when_lesson_provenance_conflicts(monkeypatc
         assert done.outputs["lesson_moves"] == []
 
 
+def test_radar_worker_stops_using_research_lesson_when_its_source_expires():
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - register handler
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    tid = _answered(db, domain="techniques")
+    with db.session() as s:
+        s.get(R.ResearchTask, tid).outcome = "chunky ribbed scarf construction evidence"
+    lid = F.promote(db)["promoted"][0]
+    q = JobQueue(db)
+
+    def score(key):
+        job = q.enqueue("market_radar", "radar.score", {"slug": "chunky-ribbed-scarf"},
+                        idempotency_key=key)
+        assert Worker(db, key, job_types=["radar.score"]).run_once()
+        with db.session() as s:
+            row = s.get(Job, job.id)
+            assert row.status == JobStatus.DONE, row.last_error
+            return dict(row.outputs)
+
+    assert score("research-lesson-current")["lesson_adjustment"] > 0
+    with db.session() as s:
+        s.get(R.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(seconds=1)
+        assert s.get(Lesson, lid).withdrawn_at is None
+    assert score("research-lesson-expired")["lesson_adjustment"] == 0
+
+
+@pytest.mark.parametrize("failure", ["missing_task", "missing_pointer", "changed_statement",
+                                    "stopped_task", "changed_finding"])
+def test_research_inbox_holds_unbound_lessons_without_blocking_other_lessons(failure):
+    from brambleloop.improve import bus
+
+    db = _db()
+    tid = _answered(db, domain="techniques")
+    lid = F.promote(db)["promoted"][0]
+    other = bus.publish(db, origin_cell="learn", subject="construction_preference",
+                        statement="Fixture ordinary construction guidance remains available here",
+                        evidence_ref="fixture:other")
+    assert {lid, other} <= {r["id"] for r in bus.inbox(db, "market_radar")}
+    with db.session() as s:
+        task = s.get(R.ResearchTask, tid)
+        if failure == "missing_task":
+            s.delete(task)
+        elif failure == "missing_pointer":
+            task.detail = {**task.detail, "promoted_lesson": None}
+        elif failure == "changed_statement":
+            s.get(Lesson, lid).statement = "a modified research lesson statement"
+        elif failure == "stopped_task":
+            task.state = R.STOPPED
+        else:
+            task.findings = [{**f, "statement": "changed source finding"} for f in task.findings]
+    ids = {r["id"] for r in bus.inbox(db, "market_radar")}
+    assert lid not in ids and other in ids
+
+
 def test_a_domain_with_no_subject_is_reported_not_forced():
     db = _db()
     _answered(db, domain="competitor_positioning")
