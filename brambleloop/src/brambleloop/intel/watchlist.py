@@ -790,6 +790,21 @@ def queue_scores(db, enqueue, slugs, *, key: str, context: dict, today: date) ->
     return ids
 
 
+def score_still_supported(db, gap_ids) -> bool:
+    """Check queued watchlist scores against currently corroborated open gaps.
+
+    This is a conservative read-time check, not a transaction fence against writers.
+    """
+    if not isinstance(gap_ids, list) or not gap_ids:
+        return False
+    if any(isinstance(gid, bool) or not isinstance(gid, int) or gid <= 0
+           for gid in gap_ids):
+        return False
+    gaps = {g["id"]: g for g in _open_gaps(db)}
+    supported = {a["pod"] for a in compare(db)["corroborated_arenas"]}
+    return all(gid in gaps and gaps[gid]["pod"] in supported for gid in gap_ids)
+
+
 def review(db, *, enqueue, today: date | None = None, now: datetime | None = None) -> dict:
     """One decision per validated opportunity. Bounded, idempotent, lesson-aware, and
     non-spending: the only job it queues is radar.score. An arena no pool concept answers
