@@ -305,8 +305,23 @@ def _production_reader(db):
 def _money(obj: Any) -> tuple[float, str] | None:
     if not isinstance(obj, dict) or "amount" not in obj:
         return None
-    divisor = float(obj.get("divisor") or 1) or 1.0
-    return float(obj["amount"]) / divisor, str(obj.get("currency_code") or "").upper()
+    import math
+
+    try:
+        raw_amount = obj["amount"]
+        raw_divisor = obj.get("divisor", 1)
+        if isinstance(raw_amount, bool) or isinstance(raw_divisor, bool):
+            raise ValueError("boolean is not money")
+        divisor = float(raw_divisor)
+        amount = float(raw_amount)
+        if not math.isfinite(divisor) or divisor <= 0 or not math.isfinite(amount):
+            raise ValueError("non-finite amount or invalid divisor")
+        value = amount / divisor
+        if not math.isfinite(value):
+            raise ValueError("amount outside finite range")
+    except (TypeError, ValueError, OverflowError, ZeroDivisionError) as exc:
+        raise IngestRefused("receipt money has an invalid amount or divisor") from exc
+    return value, str(obj.get("currency_code") or "").upper()
 
 
 def _ts(value) -> datetime | None:
@@ -1129,11 +1144,16 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
             newest = max(newest, revision(receipt))
         except IngestRefused as exc:
             refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
+    # Any refused receipt must be re-read: a later valid receipt must not advance
+    # the watermark past unprocessed evidence.
+    if refused:
+        newest = int(datetime.fromisoformat(before["last_modified"]).timestamp()) \
+            if before.get("last_modified") else 0
     # The run completed: the cursor may move. Held receipts (unpaid, unknown) are re-read
     # when Etsy changes them, because that changes their update_timestamp.
     after = {"last_modified": (datetime.fromtimestamp(newest, tz=timezone.utc).isoformat()
                                if newest else before.get("last_modified")),
-             "last_full_sweep": (now.isoformat() if since is None
+             "last_full_sweep": (now.isoformat() if since is None and not refused
                                  else before.get("last_full_sweep")),
              "runs": int(before.get("runs") or 0) + 1, "last_run": now.isoformat(),
              "last_mode": mode}
