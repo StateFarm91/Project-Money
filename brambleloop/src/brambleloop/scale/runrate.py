@@ -502,16 +502,24 @@ def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
 
         # rc1-ORD2: booked orders only; `refunded` below means not countable (voided).
         _held = _oi.held_refs(s)
-        orders = [o for o in _oi.booked_orders(s)
-                  if _aware(o.at) is not None and _aware(o.at) >= since]
+        booked = _oi.booked_orders(s)
+        orders = [o for o in booked
+                  if _aware(o.at) is not None and since <= _aware(o.at) < now]
+        # Current publication state and future orders do not establish whether
+        # an order source existed at an earlier requested reporting instant.
+        if today is not None and now <= datetime.now(timezone.utc):
+            prior_orders = [o for o in booked if _aware(o.at) is not None and _aware(o.at) < now]
+            if not prior_orders:
+                source = {**source, "live": False,
+                          "why": "no booked order establishes a source by this historical instant"}
         _void = {o.id for o in orders if not _oi.countable(o, _held)}
         sales = [x for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
-                 if _aware(x.at) is not None and _aware(x.at) >= since]
+                 if _aware(x.at) is not None and since <= _aware(x.at) < now]
         from ..core.listing_state import is_live_on_etsy
 
         published = sum(1 for r in s.scalars(select(Listing)) if is_live_on_etsy(r.state))
         support = [c for c in s.scalars(select(SupportCase))
-                   if _aware(c.at) is not None and _aware(c.at) >= since]
+                   if _aware(c.at) is not None and since <= _aware(c.at) < now]
 
     visits = sum(int(r.visits or 0) for r in outcomes) if outcomes else None
     impressions = sum(int(r.impressions or 0) for r in outcomes) if outcomes else None
