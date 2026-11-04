@@ -150,6 +150,72 @@ def test_an_answered_fact_becomes_a_routed_lesson_once_and_is_withdrawn_on_expir
     assert gone["withdrawn"] == out["promoted"], gone
 
 
+@pytest.mark.parametrize("after_create", [False, True])
+def test_learn_worker_recovers_interrupted_expiry_reopen(monkeypatch, after_create):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import runtime  # noqa: F401 - registers learn.scan
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    tid = _answered(db)
+    with db.session() as s:
+        source = s.get(R.ResearchTask, tid)
+        source.expires_on = datetime.now(timezone.utc) - timedelta(days=1)
+        reopen_key = R._key(f"{source.trigger}#after:{tid}")
+    real_open = R.open_question
+
+    def interrupted(*args, **kwargs):
+        if kwargs.get("trigger", "").endswith(f"#after:{tid}"):
+            if after_create:
+                real_open(*args, **kwargs)
+            raise RuntimeError("fixture interruption during expiry handoff")
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(R, "open_question", interrupted)
+    q = JobQueue(db)
+    first = q.enqueue("learn", "learn.scan", {}, idempotency_key="expiry-interrupted")
+    assert Worker(db, "expiry-interrupted", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, first.id).status == JobStatus.DONE
+        assert s.get(Job, first.id).outputs["research"].get("error")
+        assert s.get(R.ResearchTask, tid).state == R.EXPIRED
+    monkeypatch.setattr(R, "open_question", real_open)
+    second = q.enqueue("learn", "learn.scan", {}, idempotency_key="expiry-restart")
+    assert Worker(db, "expiry-restart", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, second.id).status == JobStatus.DONE
+        assert not s.get(Job, second.id).outputs["research"].get("error")
+        matches = list(s.scalars(R.select(R.ResearchTask).where(
+            R.ResearchTask.dedupe_key == reopen_key)))
+        assert len(matches) == 1
+        assert s.get(R.ResearchTask, tid).detail["expiry_reopen_task"] == matches[0].id
+
+
+@pytest.mark.parametrize("conflict", ["foreign_key", "invalid_marker"])
+def test_expiry_recovery_holds_conflicting_replacement_identity(conflict):
+    db = _db()
+    tid = _answered(db)
+    with db.session() as s:
+        source = s.get(R.ResearchTask, tid)
+        source.state = R.EXPIRED
+        if conflict == "invalid_marker":
+            source.detail = {**source.detail, "expiry_reopen_task": 999999}
+        else:
+            trigger = f"{source.trigger}#after:{tid}"
+            s.add(R.ResearchTask(question="This is a different unrelated research question",
+                                 trigger=trigger, dedupe_key=R._key(trigger),
+                                 decision_ref="foreign", domain=source.domain, state=R.OPEN))
+    assert R.expire_due(db, now=NOW + timedelta(days=30)) == []
+    with db.session() as s:
+        source = s.get(R.ResearchTask, tid)
+        assert "conflicts" in source.detail["expiry_reopen_hold"]
+        if conflict == "foreign_key":
+            assert not source.detail.get("expiry_reopen_task")
+
+
 def test_learn_worker_withdraws_orphan_lesson_after_restart(monkeypatch):
     from brambleloop.agents.registry import Registry
     from brambleloop.core.models import Job, JobStatus
