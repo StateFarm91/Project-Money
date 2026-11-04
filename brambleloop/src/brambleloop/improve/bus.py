@@ -159,6 +159,11 @@ def inbox(db, cell: str, *, unacted_only: bool = True,
         if cell not in (row.routed_to or []) and not (include_own
                                                       and row.origin_cell == cell):
             continue
+        if str(row.evidence_ref or "").startswith("research_tasks:"):
+            from ..intel.research_fetch import lesson_current
+
+            if not lesson_current(db, row):
+                continue
         acted = [e.get("cell") for e in (row.acted_on_by or [])]
         if unacted_only and cell in acted:
             continue
