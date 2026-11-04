@@ -14,7 +14,8 @@ def test_real_policy_worker_withholds_unproved_claim_and_clears_after_copy_fixed
     db = d._db(cir, listing)
 
     def run():
-        job = JobQueue(db).enqueue("policy", "gate.policy", {"slug": cir.slug, "version": cir.version})
+        job = JobQueue(db).enqueue("policy", "gate.policy", {"slug": cir.slug, "version": cir.version,
+                                                            "release_hash": "r" * 64})
         assert Worker(db, "test-policy", job_types=["gate.policy"]).run_once()
         with db.session() as session:
             row = session.get(Job, job.id)

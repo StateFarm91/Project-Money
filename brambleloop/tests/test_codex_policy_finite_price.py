@@ -12,7 +12,8 @@ def test_real_policy_worker_holds_nonfinite_price_and_recovers():
     db = d._db(cir, {"title": "Crochet pattern PDF", "description": "Crochet pattern.",
                      "tags": ["crochet pattern"], "price_cad": float("inf"), "state": "draft"})
     def run():
-        job = JobQueue(db).enqueue("policy", "gate.policy", {"slug": cir.slug, "version": cir.version})
+        job = JobQueue(db).enqueue("policy", "gate.policy", {"slug": cir.slug, "version": cir.version,
+                                                            "release_hash": "r" * 64})
         assert Worker(db, "finite-price", job_types=["gate.policy"]).run_once()
         with db.session() as session:
             row = session.get(Job, job.id)
