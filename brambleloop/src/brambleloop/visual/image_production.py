@@ -1399,7 +1399,12 @@ def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
             fidelity = b.get("fidelity") or {}
             checks = fidelity.get("checks") or []
             if fidelity.get("status") == "FAIL" or any(
-                    not isinstance(c, dict) or c.get("status") == "FAIL" for c in checks):
+                    not isinstance(c, dict) or c.get("status") == "FAIL"
+                    or c.get("blocks_variant_input") is True
+                    or (c.get("check") == "craft_texture" and c.get("status") == "UNKNOWN"
+                        and isinstance(c.get("reading"), dict)
+                        and str(c["reading"].get("fabric_visible_clearly") or "").lower()
+                        not in ("true", "yes")) for c in checks):
                 continue
             if _image_has_negative_decision(db, slug=b["slug"], version=b["version"],
                                             sha=b["sha256"]):

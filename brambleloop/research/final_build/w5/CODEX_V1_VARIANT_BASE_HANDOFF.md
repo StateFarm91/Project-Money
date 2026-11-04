@@ -53,3 +53,19 @@ gallery tests. The independent reviewer reran the gallery cases 4/4. The
 identity scan and later role reads remain separate transactions; metadata is
 not authenticated and later writes can change the result. This is not an
 action-time approval or publication fence. DO NOT INTEGRATE remains.
+
+## Obscured blind craft readings
+
+When the judge says fabric is not clearly visible, contradictory guesses about
+craft, ribbing or edging now remain UNKNOWN rather than producing a definite
+craft failure and a potentially futile paid repair. A clear mismatch still
+fails, and independent deterministic image failures are unchanged. Since stage
+D otherwise allows some UNKNOWN generation inputs, an explicit obscured-fabric
+reading also holds that image as an edit base; legacy readings with the same
+visibility field are covered. Other UNKNOWN readings without visibility evidence
+retain the existing policy. This is not proof that a judge or any owner approval
+is authentic.
+
+The final Python 3.11 SQLite V1, anchor, gallery, owner-image and stage-D suite
+passed 83/83. A separate reviewer reran the obscured and edit-base cases and
+checked the legacy-visibility follow-up. No paid calls or deployment occurred.

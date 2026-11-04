@@ -53,6 +53,23 @@ def test_edit_base_never_uses_failed_or_vetoed_image(tmp_path, monkeypatch):
         row.checks = {"product_truth": {"status": "FAIL"}}
     assert select_base() is None
     # A contradictory nested verifier must not be hidden by a PASS outer label.
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.visual import fidelity
+
+    obscured = fidelity.compare_craft({"fabric_visible_clearly": "false", "craft": "knitting"},
+                                     fidelity.expectation(build_basket("small")))
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [obscured]}}}
+    assert select_base() is None
+    # Older verifier results did not record the dedicated edit-base marker.
+    legacy = {k: v for k, v in obscured.items() if k != "blocks_variant_input"}
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [legacy]}}}
+    assert select_base() is None
     with db.session() as session:
         row = session.scalar(select(ImageCandidate))
         row.technical_status = "PASS"

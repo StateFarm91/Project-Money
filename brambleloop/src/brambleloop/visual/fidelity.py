@@ -960,7 +960,10 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
     v = {k: str(reading.get(k, "unclear")).strip().lower() for k in CRAFT_FIELDS}
     problems, unclear = [], []
     if v["fabric_visible_clearly"] not in ("true", "yes"):
-        unclear.append("fabric not clearly visible")
+        # Contradictory guesses from an obscured view cannot establish a defect.
+        # Other independent, deterministic image checks may still return FAIL.
+        return _check("craft_texture", UNKNOWN, "fabric not clearly visible", reading=v,
+                      blocks_variant_input=True)
     if v["craft"] == "unclear":
         unclear.append("craft unclear")
     elif v["craft"] != exp.craft:
