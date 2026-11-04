@@ -1096,11 +1096,14 @@ def benchmark_observations(db) -> tuple[list, list]:
         seed = seeds.get(slug)
         listing = listings.get(slug)
         pod = DEPARTMENT_OF.get(seed.category if seed else "", "unclassified")
-        sources = {(r.detail or {}).get("traffic_source") or "etsy_search" for r in rows}
-        source = sources.pop() if len(sources) == 1 else None
+        def recorded_source(row):
+            value = row.detail.get("traffic_source") if isinstance(row.detail, dict) else None
+            return value if isinstance(value, str) else None
+        sources = {recorded_source(r) for r in rows}
+        source = next(iter(sources)) if len(sources) == 1 else None
         if source not in benchmarks.TRAFFIC_SOURCES:
-            skipped.append({"slug": slug, "why": f"traffic source {sorted(sources)} unknown or "
-                                                 f"mixed; a cell needs one"})
+            skipped.append({"slug": slug, "why": "traffic source unknown or mixed; "
+                                                 "a cell needs one recorded source"})
             continue
         price = float(listing.price_cad) if listing else (seed.price_cad if seed else 0.0)
         age = ((datetime.now(timezone.utc) - _aware(listing.created_at)).days
@@ -1201,7 +1204,14 @@ def benchmark_incidents(db, reading: dict) -> dict:
                         "why": ("diagnosed against comparable listings in the same category, "
                                 "traffic source, price band, season, maturity and age, not "
                                 "against the shop average")})
-        closed = reconcile(s, "benchmark:", lambda row: row.signature in wanted,
+        recovered = {f"benchmark:{d['slug']}:below_cohort": d["cell"]
+                     for d in reading["diagnoses"] if d["verdict"] == "at_or_above"}
+        # Missing, unmeasured or differently scoped evidence cannot close an incident.
+        def remains_open(row):
+            prior_cell = row.detail.get("cell") if isinstance(row.detail, dict) else None
+            return (not prior_cell or row.signature not in recovered
+                    or recovered[row.signature] != prior_cell)
+        closed = reconcile(s, "benchmark:", remains_open,
                            resolution="the listing converts at or above its cohort again")
     return {"opened": sorted(wanted), "resolved": closed["resolved"]}
 

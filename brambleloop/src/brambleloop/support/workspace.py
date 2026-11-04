@@ -73,12 +73,13 @@ def _upstream_fixes(db) -> list[dict]:
                 AuditLog.action == "support.defect_candidate")
                 .order_by(desc(AuditLog.id)).limit(50)):
             d = row.detail or {}
-            key = (d.get("product"), d.get("row"))
+            key = (d.get("product"), d.get("version"), d.get("row"))
             if key in seen:
                 continue
             seen.add(key)
             fixes.append({"kind": "deliverable", "owner": "quality", "product":
-                          d.get("product"), "cause": f"row {d.get('row')} hotspot",
+                          d.get("product"), "version": d.get("version"),
+                          "cause": f"row {d.get('row')} hotspot",
                           "count": d.get("mentions"), "signature": None})
     return fixes
 
@@ -169,8 +170,9 @@ def summary(db) -> dict:
             "refund_causes": by_code,
             "recurring_confusion": confusion_reading(db),
             "risks": {k: len(v) for k, v in risks.items()},
-            "upstream_fixes": [{k: f[k] for k in ("kind", "owner", "product", "cause",
-                                                  "count")} for f in fixes],
+            "upstream_fixes": [{**{k: f[k] for k in ("kind", "owner", "product", "cause",
+                                                       "count")},
+                                "version": f.get("version")} for f in fixes],
         }
         if not cases and not orders:
             status, basis = "UNKNOWN", "unknown"

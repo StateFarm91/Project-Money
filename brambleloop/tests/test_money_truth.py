@@ -512,7 +512,10 @@ def test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost
         assert s["assumptions"]["sales_per_month"] and s["why"]
     assert (f["scenarios"]["low"]["ai_cost_monthly_cad"]
             < f["scenarios"]["high"]["ai_cost_monthly_cad"])
-    assert sustainability.verdict(db, now=NOW)["sustainable"] is True
+    verdict = sustainability.verdict(db, now=NOW)
+    assert verdict["sustainable"] is False
+    assert not verdict["checks"]["scenario_costs_complete"]
+    assert any("scenario cost evidence is unmeasured" in p for p in verdict["problems"])
     expensive = _db()
     _operating_history(expensive, platform_per_day=20.0)     # CA$600/month of inference
     v = sustainability.verdict(expensive, now=NOW)
@@ -544,3 +547,18 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_unrecorded_or_future_maintenance_is_not_a_zero_cost():
+    db = _db()
+    _listing(db, slug="missing-maintenance", created=NOW - timedelta(days=20))
+    _costs(db, [(NOW + timedelta(days=1), 1.0, "missing-maintenance", "revalidation")])
+    reading = sustainability.listing_maintenance_cost(db, now=NOW)
+    assert reading["reading"] == "UNMEASURED"
+    assert reading["per_listing_month_cad"] is None
+    assert reading["listings"]["missing-maintenance"]["spent_cad"] is None
+    _costs(db, [(NOW - timedelta(days=1), 1.0, "missing-maintenance", "revalidation")])
+    _listing(db, slug="second-missing", etsy_id="333", created=NOW - timedelta(days=10))
+    mixed = sustainability.listing_maintenance_cost(db, now=NOW)
+    assert mixed["per_listing_month_cad"] is None
+    assert mixed["missing_listings"] == ["second-missing"]

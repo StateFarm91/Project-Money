@@ -12,7 +12,7 @@ from __future__ import annotations
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +57,15 @@ def _case(db, *, escalated: bool = False) -> int:
         s.add(row)
         s.flush()
         return row.id
+
+
+def _delivered(db, case_id: int, minutes: int) -> None:
+    from brambleloop.core.models import SupportCase
+    from brambleloop.support import response_watch
+
+    with db.session() as session:
+        session.get(SupportCase, case_id).at = NOW - timedelta(minutes=minutes)
+    response_watch.record_reply_sent(db, case_id, sent_at=NOW, now=NOW)
 
 
 # ---- #17: the sequence ----------------------------------------------------
@@ -156,7 +165,7 @@ def test_an_untimed_case_is_counted_as_untimed_rather_than_dropped():
     db = _db()
     _case(db)
     timed = _case(db)
-    service.record_response(db, timed, minutes=2, from_canonical=True)
+    _delivered(db, timed, 2)
 
     report = service.service_level(db, now=NOW)
 
@@ -170,9 +179,9 @@ def test_canonical_and_escalated_targets_are_kept_apart():
     minority, and the escalated minority is where the unhappy buyers are."""
     db = _db()
     for _ in range(9):
-        service.record_response(db, _case(db), minutes=2, from_canonical=True)
+        _delivered(db, _case(db), 2)
     slow = _case(db, escalated=True)
-    service.record_response(db, slow, minutes=60 * 72, from_canonical=False)
+    _delivered(db, slow, 60 * 72)
 
     report = service.service_level(db, now=NOW)
 

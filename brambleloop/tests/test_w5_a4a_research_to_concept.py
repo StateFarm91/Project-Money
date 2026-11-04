@@ -13,9 +13,11 @@ listing, shop and price here is a TEST FIXTURE -- not an observation anybody mad
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import hashlib
 import tempfile
+import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,14 +25,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select, text  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
-    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus,
+    AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus, Phase, utcnow,
 )
 from brambleloop.intel import coverage, research  # noqa: E402
+from brambleloop.intel import research_agent  # noqa: E402
 from brambleloop.intel.benchmarks import MJS_KEY  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.radar import ideation, intake  # noqa: E402
@@ -38,7 +41,7 @@ from brambleloop.radar.opportunity import POOL  # noqa: E402
 from brambleloop.runtime import intel_ops  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime import release  # noqa: E402,F401 - registers handlers
-from brambleloop.runtime.worker import Scheduler, Worker  # noqa: E402
+from brambleloop.runtime.worker import JobContext, Scheduler, Worker  # noqa: E402
 
 TODAY = date.today()
 POOL_SLUGS = {s.slug for s in POOL}
@@ -79,6 +82,38 @@ KITCHEN = [(MJS_KEY, "Farmhouse Dishcloth Crochet Pattern", 5.5),
            ("fx-shop-b", "Cotton Washcloth Crochet Pattern", 6.5),
            ("fx-shop-b", "Granny Potholder Pattern", 7.0),
            ("fx-shop-c", "Scrubby Dishcloth Set Pattern", 7.5)]
+
+
+def test_census_does_not_interpret_text_or_boolean_as_a_recorded_price():
+    for value in (True, False, "1", "invalid", None, float("inf"), float("nan"), -1, 0):
+        assert ideation._observed_price(value) is None
+
+
+def test_census_skips_malformed_price_without_fabricating_a_price():
+    db = _db()
+    _listings(db, "kitchen_bath", KITCHEN)
+    # SQLite can hold a legacy malformed value despite the model's float type.
+    with db.engine.begin() as connection:
+        connection.execute(text("UPDATE benchmark_listings SET price_cad='invalid' "
+                                "WHERE id=(SELECT min(id) FROM benchmark_listings)"))
+    observed = ideation.observe(db, "kitchen_bath", today=TODAY)
+    assert observed["ok"] is True
+    assert observed["listings"] == 5
+    # The invalid listing contributes neither zero nor an invented price.
+    assert observed["price_median_cad"] == 6.5
+
+
+def test_research_worker_holds_when_all_observed_prices_are_malformed():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    with db.engine.begin() as connection:
+        connection.execute(text("UPDATE benchmark_listings SET price_cad='invalid'"))
+    _drive(db, datetime.now(timezone.utc))
+    assert _ideation(db, gid)["outcome"] == ideation.OUT_INSUFFICIENT
+    assert not _concepts(db)
+    assert any("no observed listing carries a price" in str(row.detail)
+               for row in _audits(db, ideation.INSUFFICIENT))
 
 
 def _judge_intake_concepts():
@@ -375,6 +410,794 @@ def test_restart_after_proposal_attachment_restores_gap_progress():
         assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
     finally:
         restore()
+
+
+def _brief_without_initial_job(db):
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc), types=["radar.scan", "radar.score"])
+    task = _tasks(db)[0]
+    key = f"ideation:investigate:{task.id}"
+    with db.session() as s:
+        original = s.scalar(select(Job).where(Job.idempotency_key == key))
+        assert original is not None and original.status == JobStatus.PENDING
+        # Simulate stopping after the task/gap transaction but before enqueue.
+        s.delete(original)
+    return gid, task.id, key
+
+
+def _run_coverage_handoff(db, key):
+    q = JobQueue(db)
+    job = q.enqueue("market_radar", "radar.score", {}, idempotency_key=key, priority=-1000)
+    assert Worker(db, f"worker-{key}", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, job.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+        return dict(finished.outputs or {})
+
+
+def test_missing_initial_investigation_is_recovered_by_real_handoff():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    first = _run_coverage_handoff(db, "recover-handoff-1")
+    assert {"gap": gid, "task": tid} in first["ideation"]["recovered"]
+    second = _run_coverage_handoff(db, "recover-handoff-2")
+    assert not second["ideation"]["recovered"]
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.idempotency_key == key)))
+        assert len(jobs) == 1 and jobs[0].status == JobStatus.PENDING
+        events = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+        assert len(events) == 1 and events[0].detail["job_id"] == jobs[0].id
+    assert Worker(db, "recovered-research", job_types=["research.investigate"]).run_once()
+    assert _tasks(db)[0].state == research.ANSWERED
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_existing_noncanonical_investigation_is_not_duplicated():
+    db = _db()
+    _gid, tid, key = _brief_without_initial_job(db)
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": tid},
+                         idempotency_key="research-sweep-existing")
+    result = _run_coverage_handoff(db, "recover-noncanonical")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+
+
+def test_gap_reassignment_before_recovery_does_not_enqueue_old_task(monkeypatch):
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    original = ideation._recover_missing_initial_job
+
+    def reassign_then_recover(ctx, gap_id, task_id):
+        with db.session() as s:
+            gap = s.get(CoverageGap, gap_id)
+            evidence = dict(gap.evidence)
+            record = dict(evidence["ideation"])
+            record["task"] = tid + 1000
+            evidence["ideation"] = record
+            gap.evidence = evidence
+        return original(ctx, gap_id, task_id)
+
+    monkeypatch.setattr(ideation, "_recover_missing_initial_job", reassign_then_recover)
+    result = _run_coverage_handoff(db, "reassigned-before-recovery")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+    assert _ideation(db, gid)["task"] == tid + 1000
+
+
+def test_competing_handoff_recoveries_create_one_job_and_one_audit():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    q = JobQueue(db)
+    parents = [q.enqueue("market_radar", "radar.score", {},
+                         idempotency_key=f"competing-handoff:{n}", priority=-1000)
+               for n in range(2)]
+    claimed = [q.claim(f"handoff-{n}", job_types=["radar.score"]) for n in range(2)]
+    assert {job.id for job in claimed} == {job.id for job in parents}
+    contexts = [JobContext(job, db, q, Registry(db), Phase.SHADOW) for job in claimed]
+    barrier = threading.Barrier(2, timeout=20)
+
+    def attempt(ctx):
+        barrier.wait()
+        return ideation._recover_missing_initial_job(ctx, gid, tid)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(attempt, contexts)) == [False, True]
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.idempotency_key == key)))
+        events = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+    assert len(jobs) == len(events) == 1
+    assert events[0].detail["job_id"] == jobs[0].id
+
+
+def test_stopped_research_task_is_not_reopened_automatically():
+    db = _db()
+    _gid, tid, key = _brief_without_initial_job(db)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).state = research.STOPPED
+    result = _run_coverage_handoff(db, "recover-stopped")
+    assert not result["ideation"]["recovered"]
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert s.get(research.ResearchTask, tid).state == research.STOPPED
+
+
+def test_stale_handoff_lease_cannot_recover_initial_job():
+    db = _db()
+    gid, tid, key = _brief_without_initial_job(db)
+    q = JobQueue(db)
+    parent = q.enqueue("market_radar", "radar.score", {},
+                       idempotency_key="stale-handoff-parent", priority=-1000)
+    claimed = q.claim("old-handoff-worker", job_types=["radar.score"])
+    assert claimed.id == parent.id and claimed.lease_token
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        row = s.get(Job, parent.id)
+        row.lease_token = "new-lease"
+        row.leased_by = "new-handoff-worker"
+    assert ideation._recover_missing_initial_job(ctx, gid, tid) is False
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert not list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+
+
+def _insufficient_open_task(db):
+    gid = _gap(db, "kitchen_bath")
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    rec = _ideation(db, gid)
+    assert task.state == research.OPEN
+    assert rec["outcome"] == ideation.OUT_INSUFFICIENT
+    assert rec.get("insufficient_census_sha256")
+    return gid, task.id
+
+
+def _run_research_sweep(db, key):
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.sweep", {}, idempotency_key=key,
+                    priority=-1000)
+    assert Worker(db, f"sweep-{key}", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        return dict(done.outputs or {})
+
+
+def test_new_sufficient_observations_trigger_open_task_before_weekly_window():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    assert tid not in research_agent.due_for_investigation(db)
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "new-evidence-sweep-1")
+    _run_research_sweep(db, "new-evidence-sweep-2")
+    with db.session() as s:
+        followups = [job for job in s.scalars(select(Job).where(
+            Job.job_type == "research.investigate")) if (job.inputs or {}).get("task_id") == tid]
+        assert sum(job.status == JobStatus.PENDING for job in followups) == 1
+    assert Worker(db, "new-evidence-research", job_types=["research.investigate"]).run_once()
+    assert _tasks(db)[0].state == research.ANSWERED
+    assert _ideation(db, gid)["outcome"] == ideation.OUT_PROPOSED
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_changed_but_insufficient_observations_do_not_trigger_early_retry():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    _listings(db, "kitchen_bath", KITCHEN[:1])
+    assert tid not in research_agent.due_for_investigation(db)
+
+
+def test_active_investigation_prevents_evidence_triggered_duplicate():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    _listings(db, "kitchen_bath", KITCHEN)
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": tid},
+                         idempotency_key="other-active-investigation")
+    assert tid not in research_agent.due_for_investigation(db)
+    # The ordinary time-based path must also respect in-flight work.
+    assert tid not in research_agent.due_for_investigation(db, now=utcnow() + timedelta(days=8))
+
+
+def test_legacy_missing_census_baseline_does_not_trigger_early_retry():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.pop("insufficient_census_sha256")
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid not in research_agent.due_for_investigation(db)
+    # The ordinary age-based cadence still covers legacy open tasks.
+    assert tid in research_agent.due_for_investigation(db, now=utcnow() + timedelta(days=8))
+
+
+def test_stopped_ideation_task_does_not_reopen_on_new_observations():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).state = research.STOPPED
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid not in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "stopped-evidence-sweep")
+    with db.session() as s:
+        assert s.get(research.ResearchTask, tid).state == research.STOPPED
+        assert not [job for job in s.scalars(select(Job).where(
+            Job.job_type == "research.investigate", Job.status == JobStatus.PENDING))
+            if (job.inputs or {}).get("task_id") == tid]
+
+
+def test_future_or_no_work_audit_does_not_suppress_a_due_task():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(
+                AuditLog.action == research_agent.INVESTIGATED,
+                AuditLog.artifact == f"research_task:{tid}")):
+            event.at = utcnow() + timedelta(days=10)
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", at=utcnow(), detail={"ran": False}))
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "future-audit-sweep")
+    with db.session() as s:
+        assert any((job.inputs or {}).get("task_id") == tid and job.status == JobStatus.PENDING
+                   for job in s.scalars(select(Job).where(Job.job_type == "research.investigate")))
+
+
+def test_stale_investigation_cannot_overwrite_new_gap_owner():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="stale-owner-investigation", priority=-1000)
+    claimed = q.claim("old-research-worker", job_types=["research.investigate"])
+    assert claimed.id == job.id
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record["task"] = tid + 1000
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    out = intel_ops.handle_research_investigate(ctx)
+    assert out["ran"] is False and "ownership or lease changed" in out["why"]
+    assert _ideation(db, gid)["task"] == tid + 1000
+
+
+def test_failed_investigation_audit_does_not_block_sweep_retry(monkeypatch):
+    db = _db()
+    _gid, tid, _key = _brief_without_initial_job(db)
+    with db.session() as s:
+        for listing in s.scalars(select(BenchmarkListing)):
+            s.delete(listing)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="dies-after-audit", priority=-1000, max_attempts=1)
+    original = Registry.audit
+
+    def audit_then_fail(registry, actor, action, **kwargs):
+        result = original(registry, actor, action, **kwargs)
+        if action == research_agent.INVESTIGATED:
+            raise RuntimeError("simulated interruption after audit")
+        return result
+
+    with monkeypatch.context() as scope:
+        scope.setattr(Registry, "audit", audit_then_fail)
+        assert Worker(db, "failed-after-audit", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, job.id).status == JobStatus.DEAD
+        event = s.scalar(select(AuditLog).where(
+            AuditLog.action == research_agent.INVESTIGATED, AuditLog.job_id == job.id))
+        assert event is not None
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "after-failed-audit")
+    with db.session() as s:
+        assert any((item.inputs or {}).get("task_id") == tid and item.status == JobStatus.PENDING
+                   for item in s.scalars(select(Job).where(
+                       Job.job_type == "research.investigate")))
+
+
+def test_retried_job_audits_count_once_toward_no_change_streak():
+    db = _db()
+    tid = research.open_question(
+        db, question="What is the best technique for a test edge?",
+        trigger="test:generic-audit-dedupe", decision_ref="edge construction",
+        domain="techniques", query_terms=["edge"],
+        evidence_needed="a recorded source about the edge",
+        stop_condition="a fact or an explicit unresolved result",
+        if_unresolved="hold and seek another source")["task"]
+    q = JobQueue(db)
+    done = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                     idempotency_key="duplicate-audit-source")
+    dead = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                     idempotency_key="failed-audit-source")
+    running = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                        idempotency_key="unfinished-audit-source")
+    with db.session() as s:
+        s.get(Job, done.id).status = JobStatus.DONE
+        s.get(Job, dead.id).status = JobStatus.DEAD
+        s.get(Job, running.id).status = JobStatus.RUNNING
+        for _ in range(2):
+            s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=done.id,
+                           detail={"evidence": ["S1"]}))
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=dead.id,
+                       detail={"evidence": ["S1"]}))
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=running.id,
+                       detail={"evidence": ["S1"]}))
+    assert research_agent._unchanged_runs(db, tid, ["S1"]) == 1
+
+
+def test_task_stopped_during_observation_cannot_record_new_outcome(monkeypatch):
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="stopped-during-observation", priority=-1000)
+    claimed = q.claim("stale-observer", job_types=["research.investigate"])
+    assert claimed.id == job.id
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    original = ideation.observe
+
+    def stop_then_observe(database, pod, *, today):
+        with database.session() as s:
+            s.get(research.ResearchTask, tid).state = research.STOPPED
+        return original(database, pod, today=today)
+
+    monkeypatch.setattr(ideation, "observe", stop_then_observe)
+    before = _ideation(db, gid)
+    out = intel_ops.handle_research_investigate(ctx)
+    assert out["ran"] is False and "ownership or lease changed" in out["why"]
+    assert _ideation(db, gid) == before
+
+
+def test_missing_lineage_storage_rolls_back_handoff_then_retry_recovers():
+    from brambleloop.runtime import lineage
+
+    db = _db()
+    _gid, _tid, key = _brief_without_initial_job(db)
+    lineage.ensure_table(db)
+    # Simulate storage failure after the transactional job insert begins.
+    lineage.JobLink.__table__.drop(db.engine)
+    q = JobQueue(db)
+    parent = q.enqueue("market_radar", "radar.score", {},
+                       idempotency_key="failed-recovery-parent", priority=-1000)
+    assert Worker(db, "failed-recovery", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, parent.id).status == JobStatus.FAILED
+        assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
+        assert not list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "ideation.investigation_recovered")))
+    lineage.JobLink.__table__.create(db.engine)
+    with db.session() as s:
+        s.get(Job, parent.id).run_after = utcnow()
+    assert Worker(db, "recovered-storage", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, parent.id).status == JobStatus.DONE
+        child = s.scalar(select(Job).where(Job.idempotency_key == key))
+        assert child is not None
+        link = s.scalar(select(lineage.JobLink).where(lineage.JobLink.child_id == child.id))
+        assert link is not None and link.parent_id == parent.id
+
+
+def test_restart_recovers_one_proposal_audit_from_persisted_evidence():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    # Simulate the old crash window: the proposal exists but the gap and audit
+    # did not commit. This deletion is confined to the disposable test DB.
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    for n in range(2):
+        q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                  idempotency_key=f"codex:audit-recovery:{n}")
+        assert Worker(db, f"audit-recovery-{n}", job_types=["research.investigate"]).run_once()
+    audits = _audits(db, ideation.PROPOSED)
+    assert len(audits) == 1
+    assert audits[0].artifact == slug
+    assert audits[0].detail["task"] == task.id
+    assert audits[0].detail["recovered_from_persisted_proposal"] is True
+    assert _ideation(db, gid)["slug"] == slug
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_recovery_does_not_record_proposal_for_reassigned_gap():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record["task"] = task.id + 1000
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                         idempotency_key="codex:wrong-owner-recovery")
+    assert Worker(db, "wrong-owner", job_types=["research.investigate"]).run_once()
+    assert not _audits(db, ideation.PROPOSED)
+    assert _ideation(db, gid)["task"] == task.id + 1000
+
+
+def test_two_recovery_workers_record_one_proposal_audit(monkeypatch):
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    jobs = [q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                      idempotency_key=f"concurrent-audit-recovery:{n}", priority=-1000)
+            for n in range(2)]
+    claimed = [q.claim(f"recovery-{n}", job_types=["research.investigate"])
+               for n in range(2)]
+    assert {job.id for job in claimed} == {job.id for job in jobs}
+    barrier = threading.Barrier(2, timeout=20)
+    original = ideation._reconcile_proposal
+
+    def synchronized(*args, **kwargs):
+        barrier.wait()
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ideation, "_reconcile_proposal", synchronized)
+    # Call the real registered handler on separately claimed durable jobs. The
+    # worker's admission policy can serialize one agent and mask this race.
+    contexts = [JobContext(job, db, q, Registry(db), Phase.SHADOW) for job in claimed]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(intel_ops.handle_research_investigate, contexts))
+    assert all(outcome["why"] == "persisted proposal reconciled" for outcome in outcomes)
+    assert len(_audits(db, ideation.PROPOSED)) == 1
+
+
+def test_recovery_holds_when_existing_audit_conflicts_with_proposal():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        event = s.scalar(select(AuditLog).where(AuditLog.action == ideation.PROPOSED))
+        event.artifact = "conflicting-test-slug"
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.update(outcome=None, slug=None)
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    q = JobQueue(db)
+    queued = q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                       idempotency_key="codex:conflicting-audit-recovery")
+    assert Worker(db, "conflicting-audit", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert "conflicting proposal audit" in result["why"]
+    assert _ideation(db, gid)["outcome"] is None
+    assert len(_audits(db, ideation.PROPOSED)) == 1
+
+
+def test_recovery_refuses_inconsistent_persisted_census_reference():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+        stored = s.get(research.ResearchTask, task.id)
+        sources = [dict(source) for source in stored.sources]
+        sources[0]["citation"] = "db:unrelated-observation"
+        stored.sources = sources
+    queued = JobQueue(db).enqueue("research_agent", "research.investigate",
+                                  {"task_id": task.id}, idempotency_key="bad-census-ref")
+    assert Worker(db, "bad-census", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert "census references are inconsistent" in result["why"]
+    assert not _audits(db, ideation.PROPOSED)
+
+
+def test_recovery_refuses_worker_whose_lease_was_reclaimed():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(AuditLog.action == ideation.PROPOSED)):
+            s.delete(event)
+    q = JobQueue(db)
+    target = q.enqueue("research_agent", "research.investigate", {"task_id": task.id},
+                       idempotency_key="reclaimed-recovery", priority=-1000)
+    claimed = q.claim("first-worker", job_types=["research.investigate"])
+    assert claimed.id == target.id and claimed.lease_token
+    stale = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        row = s.get(Job, target.id)
+        row.lease_token = "replacement-lease"
+        row.leased_by = "new-worker"
+    result = intel_ops.handle_research_investigate(stale)
+    assert "lease is no longer current" in result["why"]
+    assert not _audits(db, ideation.PROPOSED)
+
+
+def test_reassigned_gap_holds_research_candidate_and_real_score_handler():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        rec = dict(evidence["ideation"])
+        rec["task"] = task.id + 1000
+        evidence["ideation"] = rec
+        gap.evidence = evidence
+    assert not [c for c in intake.research_candidates(db, today=TODAY)
+                if c["source_ref"] == f"research_task:{task.id}"]
+    assert intake.approved_concept(db, slug) is None
+    assert slug not in {seed.slug for seed in intake.pool_with_intake(db)}
+    before = len(_jobs(db, "cir.draft"))
+    queued = JobQueue(db).enqueue("market_radar", "radar.score", {"slug": slug},
+                                  idempotency_key="codex:reassigned-score", priority=-1000)
+    assert Worker(db, "reassigned-score", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert result["promoted"] is False and result["reason"] == "not in the pool"
+    assert len(_jobs(db, "cir.draft")) == before
+    # A corrected owner record makes the still-valid approval visible again;
+    # a transient mismatch does not fabricate a new approval or destroy it.
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        rec = dict(evidence["ideation"])
+        rec["task"] = task.id
+        evidence["ideation"] = rec
+        gap.evidence = evidence
+    assert intake.approved_concept(db, slug) is not None
+
+
+def test_changed_attached_proposal_holds_old_approved_concept():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        detail = dict(row.detail)
+        proposal = dict(detail["concept_proposals"][0])
+        proposal["title"] += " changed"
+        detail["concept_proposals"] = [proposal]
+        row.detail = detail
+    assert intake.approved_concept(db, slug) is None
+    assert any(c["proposal"]["slug"] == slug for c in intake.research_candidates(db, today=TODAY))
+
+
+def test_removing_ideation_markers_does_not_reclassify_existing_intake():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        detail = dict(row.detail)
+        detail.pop("ideation_brief", None)
+        detail.pop("ideation_refs", None)
+        detail.pop("ideation_census", None)
+        row.detail = detail
+        row.trigger = "other-research"
+    assert intake.approved_concept(db, slug) is None
+    assert not [c for c in intake.research_candidates(db, today=TODAY)
+                if c["source_ref"] == f"research_task:{task.id}"]
+
+
+def _mutate_research_and_run_intake(db, mutate, key):
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        mutate(row)
+    # A stale source must leave the visible approved pool immediately, not
+    # only after the next scheduled intake sweep writes a withdrawal.
+    assert intake.approved_concept(db, slug) is None
+    queued = JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                                  idempotency_key=key, priority=-1000)
+    assert Worker(db, key, job_types=["radar.concept_intake"]).run_once()
+    with db.session() as s:
+        finished = s.get(Job, queued.id)
+        assert finished.status == JobStatus.DONE, finished.last_error
+    assert intake.approved_concept(db, slug) is None
+    return task
+
+
+def test_future_dated_market_source_is_not_current_evidence():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources[0]["read_on"] = (TODAY + timedelta(days=1)).isoformat()
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "future-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "after the evaluation date" in str(evidence["reasons"])
+
+
+def test_malformed_source_date_holds_instead_of_crashing_intake_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources[0]["read_on"] = "not-a-date"
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "invalid-source-date-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "invalid date" in str(evidence["reasons"])
+
+
+def test_finding_with_missing_support_is_not_backed_by_other_valid_source():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        findings = [dict(finding) for finding in row.findings]
+        findings[0]["rests_on"] = ["S1", "S999"]
+        row.findings = findings
+
+    task = _mutate_research_and_run_intake(db, change, "missing-support-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "S999" in str(evidence["reasons"])
+
+
+def test_future_answer_timestamp_is_not_accepted_as_current():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        row.answered_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    task = _mutate_research_and_run_intake(db, change, "future-answer-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "answered after the evaluation date" in str(evidence["reasons"])
+
+
+def test_malformed_support_reference_holds_instead_of_crashing_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        findings = [dict(finding) for finding in row.findings]
+        findings[0]["rests_on"] = ["S1", {"not": "a source ref"}]
+        row.findings = findings
+
+    task = _mutate_research_and_run_intake(db, change, "invalid-support-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert evidence["ok"] is False
+    assert "malformed supporting-source" in str(evidence["reasons"])
+
+
+def test_duplicate_source_identifier_holds_instead_of_selecting_one():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        extra = dict(sources[0])
+        extra["citation"] = "different record with same source identifier"
+        row.sources = sources + [extra]
+
+    task = _mutate_research_and_run_intake(db, change, "duplicate-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "duplicate reference" in str(evidence["reasons"])
+
+
+def test_malformed_source_record_holds_instead_of_crashing_worker():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        row.sources = list(row.sources) + [{"citation": "missing identifier"}]
+
+    task = _mutate_research_and_run_intake(db, change, "malformed-source-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "malformed reference" in str(evidence["reasons"])
+
+
+def test_source_identifier_cannot_collide_with_a_finding():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+
+    def change(row):
+        sources = [dict(source) for source in row.sources]
+        sources.append({**sources[0], "ref": "F1"})
+        row.sources = sources
+
+    task = _mutate_research_and_run_intake(db, change, "cross-kind-ref-intake")
+    evidence = intake.research_evidence(db, task.id, ["F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "collide across evidence kinds" in str(evidence["reasons"])
+
+
+def test_repeated_citation_cannot_inflate_fact_share():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    evidence = intake.research_evidence(db, task.id, ["F1", "F1", "S1"], today=TODAY)
+    assert not evidence["ok"]
+    assert "duplicate evidence references" in str(evidence["reasons"])
+    assert [item["ref"] for item in evidence["items"]] == ["F1", "S1"]
 
 
 def test_unknown_shop_is_not_counted_as_an_independent_source():

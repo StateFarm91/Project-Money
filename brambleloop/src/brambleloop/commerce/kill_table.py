@@ -146,7 +146,8 @@ class KillTableRefused(ValueError):
 
 
 def _defect_rate(numerator: int | None, orders: int | None) -> float | None:
-    if numerator is None or orders is None:
+    if (isinstance(numerator, bool) or not isinstance(numerator, int) or numerator < 0
+            or isinstance(orders, bool) or not isinstance(orders, int)):
         return None
     if orders < MIN_ORDERS_FOR_REFUND_RATE:
         return None
@@ -193,8 +194,17 @@ def route(observed: runrate.Observed, *, support_cases: int | None = None,
                                      f"support and refund counts; "
                                      f"{'none of these are measured' if missing else 'orders are below the floor'}")})
                 continue
-            hit = ((support_rate or 0.0) > t["support_high_above"]
-                   or (refund_rate or 0.0) > t["refund_high_above"])
+            hit = ((support_rate is not None and support_rate > t["support_high_above"])
+                   or (refund_rate is not None and refund_rate > t["refund_high_above"]))
+            if not hit and (support_rate is None or refund_rate is None):
+                rows.append({**r.to_dict(), "status": UNMEASURED,
+                             "why": "both support and refund rates must be measured"})
+                continue
+        elif r.key in ("healthy", "strong_conversion_low_traffic") and (
+                support_rate is None or refund_rate is None):
+            rows.append({**r.to_dict(), "status": UNMEASURED,
+                         "why": "scaling requires measured support and refund rates"})
+            continue
         elif missing or not enough:
             rows.append({**r.to_dict(), "status": UNMEASURED,
                          "why": (f"{missing} unmeasured" if missing else
@@ -223,7 +233,8 @@ def route(observed: runrate.Observed, *, support_cases: int | None = None,
             fired = r.key
 
     if fired is None:
-        verdict = "wait" if (unmeasured or not enough) else "no_rule_fired"
+        verdict = ("wait" if (unmeasured or not enough or support_rate is None
+                              or refund_rate is None) else "no_rule_fired")
         action = ("collect more signal before routing anything; every rate here is either "
                   "unmeasured or below the sample floor" if verdict == "wait" else
                   "no row fired: the rates sit between thresholds, which is a listing to "

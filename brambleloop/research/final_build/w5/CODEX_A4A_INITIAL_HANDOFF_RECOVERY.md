@@ -1,0 +1,9 @@
+# A4a missing initial research handoff — partial checkpoint
+
+Base: `codex/a4a-evidence-ref-integrity` at `fb9d590b8c463bb87adc7857863cbd99391cfb7b`.
+
+A crash after the gap/task assignment but before the initial research job was queued could leave the gap waiting until a later research sweep. The normal coverage handoff now detects this missing initial job. Under transaction locks it rechecks the current leased radar job, gap ownership, open task and brief; it refuses to duplicate any existing investigation job for that task, including noncanonical sweep keys. It then inserts the initial job, parent-child link and recovery audit together. Stopped tasks and previously existing jobs are not automatically reopened. A failure creating lineage rolls back the job and audit, and a later Worker retry recovers the handoff.
+
+Python 3.11 file-backed SQLite: A4a/concept intake/retention suite 98/98, followed by three additional focused concurrency/rollback/stale-lease tests 3/3. Disposable local PostgreSQL 16: opt-in suite 22/22, followed by the same three additional cases 3/3. Real Worker handlers cover the initial handoff, repeated scan, existing noncanonical job, gap reassignment, stopped task and storage failure/retry. The contention case synchronizes two separately claimed contexts at the actual recovery helper; normal Worker admission may serialize one agent. Independent reviewer reran the first four real-worker cases and inspected the narrow logic.
+
+Limits: a noncooperating writer can insert a different investigation key after the absent-job read; lease expiry after its check, downstream task/gap reassignment and other writers are not globally fenced. The change does not reopen stopped or long-stalled tasks, establish authenticated research provenance or close A4b enrichment. It is not full A4a integration or production verification. No production database or paid provider was used.

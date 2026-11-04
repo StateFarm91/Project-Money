@@ -22,14 +22,23 @@ def handle_scan(ctx):
     # lesson as acted on, so `bus.compounding` counts a decision that moved, not a read.
     from ..improve import consume
     from .metrics import calendar
-    plan = calendar(ctx.db, metrics=m)
     acted = []
-    for move in plan["_moves"]:
-        ids = consume.act(ctx.db, "learn", move["lesson_objs"],
-                          how=(f"learn calendar moved {move['topic']} from rank "
-                               f"{move['from_rank']} to {move['to_rank']}"))
-        acted.append({"topic": move["topic"], "from_rank": move["from_rank"],
-                      "to_rank": move["to_rank"], "lessons": ids})
+    try:
+        from ..intel import research_fetch
+
+        maintenance = research_fetch.promote(ctx.db, withdraw_only=True)
+        result["research_lesson_maintenance"] = maintenance
+    except Exception as exc:  # noqa: BLE001 - fail closed on lesson consumption
+        maintenance = None
+        result["research_lesson_maintenance"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+    if maintenance is not None and not maintenance["held"]:
+        plan = calendar(ctx.db, metrics=m)
+        for move in plan["_moves"]:
+            ids = consume.act(ctx.db, "learn", move["lesson_objs"],
+                              how=(f"learn calendar moved {move['topic']} from rank "
+                                   f"{move['from_rank']} to {move['to_rank']}"))
+            acted.append({"topic": move["topic"], "from_rank": move["from_rank"],
+                          "to_rank": move["to_rank"], "lessons": ids})
     result["lesson_moves"] = acted
     # W4-RESEARCH (F-403/F-433): unknowns on decision paths become research questions, and
     # answered research past its domain's freshness re-opens. Reads and writes rows only;
@@ -52,7 +61,7 @@ def handle_scan(ctx):
         # W4-FMBATCH1 (F-431): bounded allowlisted fetches, then promotion into lessons.
         from ..intel import research_fetch
 
-        result["research"]["run"] = research_fetch.run(ctx.db)
+        result["research"]["run"] = research_fetch.run(ctx.db, enqueue=ctx.enqueue)
     except Exception as exc:  # noqa: BLE001
         result["research"] = {"error": f"{type(exc).__name__}: {str(exc)[:160]}"}
     ctx.audit("learn.scanned", detail=result)
