@@ -405,20 +405,11 @@ def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | 
                 continue
             try:
                 from ..core.artifacts import ArtifactStore
-                from sqlalchemy import or_, select
-                from .image_records import ImageCandidate
+                from .image_production import _image_has_negative_decision
 
-                # A negative decision on the same image must not be evaded by
-                # selecting an older duplicate row for the same product/version.
-                with db.session() as session:
-                    rejected = session.scalar(select(ImageCandidate.id).where(
-                        ImageCandidate.slug == cand.get("slug"),
-                        ImageCandidate.version == cand.get("version"),
-                        ImageCandidate.sha256 == best["sha256"],
-                        or_(ImageCandidate.owner_visual_approval.is_(False),
-                            ImageCandidate.outcome == "rejected"),
-                    ).limit(1))
-                if rejected is not None:
+                if _image_has_negative_decision(db, slug=cand.get("slug"),
+                                                version=cand.get("version"),
+                                                sha=best["sha256"]):
                     continue
 
                 data = ArtifactStore().get(best["sha256"], db=db)

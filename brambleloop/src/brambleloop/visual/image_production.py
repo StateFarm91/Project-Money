@@ -971,7 +971,9 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                     # Stage D: a non-LIFESTYLE Laura role edits the accepted lifestyle frame,
                     # so the outfit stays identical across the listing.
                     if r["job"] != "LIFESTYLE":
-                        base_ = _accepted_lifestyle(db, key, run["listing"], plan)
+                        base_ = _accepted_lifestyle(db, key, run["listing"], plan,
+                                                    slug=run["slug"], version=run["version"],
+                                                    release=run["release"])
                         if base_:
                             refs_ = refs_ + [base_]
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
@@ -1342,7 +1344,24 @@ def _prior_ref(db, sha: str, label: str) -> dict | None:
     except Exception:  # noqa: BLE001 - bytes gone: not handed in
         return None
     return {"kind": "prior_candidate", "label": label, "sha256": sha, "data": data} \
-        if data else None
+        if data and hashlib.sha256(data).hexdigest() == sha else None
+
+
+def _image_has_negative_decision(db, *, slug: str, version: str, sha: str) -> bool:
+    """Hold duplicate image bytes when a record has a negative decision.
+
+    This read does not authenticate the decision or fence concurrent writers.
+    """
+    from sqlalchemy import or_, select
+    from .image_records import ImageCandidate
+
+    with db.session() as session:
+        return session.scalar(select(ImageCandidate.id).where(
+            ImageCandidate.slug == slug, ImageCandidate.version == version,
+            ImageCandidate.sha256 == sha,
+            or_(ImageCandidate.owner_visual_approval.is_(False),
+                ImageCandidate.outcome == "rejected"),
+        ).limit(1)) is not None
 
 
 def _accepted_identity_anchor(db, key: str) -> dict | None:
@@ -1352,16 +1371,40 @@ def _accepted_identity_anchor(db, key: str) -> dict | None:
     return _prior_ref(db, sha, "identity_anchor") if sha else None
 
 
-def _accepted_lifestyle(db, key: str, listing: str, plan: dict) -> dict | None:
+def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
+                        version: str, release: str) -> dict | None:
     """The edit base for stage D: the run's best LIFESTYLE frame that no check FAILed and the
     owner did not reject. It is a generation input, not a verdict: the variant made from it is
     judged on its own."""
+    from .fidelity import same_release
+
+    canonical = run_key(slug, version, release)
+    if not same_release(release, release) or not (
+            key == canonical or key.startswith(canonical + "#")):
+        return None
     roles = [r["role"] for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
     for role in roles:
-        b = _best(db, listing=listing, role=role, run=key)
-        if b and b.get("sha256") and b.get("technical_status") != "FAIL" and \
-                b.get("owner_visual_approval") is not False:
-            return _prior_ref(db, b["sha256"], "edit_base")
+        try:
+            b = _best(db, listing=listing, role=role, run=key,
+                      slug=slug, version=version, release=release)
+            if not b or not b.get("sha256") or b.get("technical_status") not in ("PASS", "UNKNOWN"):
+                continue
+            if b.get("failed") or b.get("outcome") == "rejected" or \
+                    b.get("owner_visual_approval") is False:
+                continue
+            fidelity = b.get("fidelity") or {}
+            checks = fidelity.get("checks") or []
+            if fidelity.get("status") == "FAIL" or any(
+                    not isinstance(c, dict) or c.get("status") == "FAIL" for c in checks):
+                continue
+            if _image_has_negative_decision(db, slug=b["slug"], version=b["version"],
+                                            sha=b["sha256"]):
+                continue
+            ref = _prior_ref(db, b["sha256"], "edit_base")
+            if ref:
+                return ref
+        except Exception:  # noqa: BLE001 - unreadable evidence must not be used as input
+            continue
     return None
 
 
