@@ -49,6 +49,12 @@ band/cable claims in both images also hold UNKNOWN rather than passing. Python
 3.11/tmpfs targeted suite 50/50; independent ambiguity case 1/1. No physical
 or authenticated visual evidence is claimed.
 
+Malformed craft, cable, ribbing or edging facts in the expectation now hold
+the craft check UNKNOWN and block stage-D edit reuse. A separate definite craft
+mismatch still fails. Python 3.11/tmpfs focused tests passed 55/55, including
+persistent stage-D selection; an independent reviewer reran craft and stage-D
+tests 11/11. Existing knitted-rope assumptions remain a separate review item.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

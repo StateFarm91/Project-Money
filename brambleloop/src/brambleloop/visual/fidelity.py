@@ -964,22 +964,37 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
         # Other independent, deterministic image checks may still return FAIL.
         return _check("craft_texture", UNKNOWN, "fabric not clearly visible", reading=v,
                       blocks_variant_input=True)
-    craft_unreadable = v["craft"] not in ("crochet", "knitting", "woven", "printed")
+    crafts = ("crochet", "knitting", "woven", "printed")
+    source_craft = getattr(exp, "craft", None)
+    craft_source_valid = isinstance(source_craft, str) and source_craft in crafts
+    source_cables = getattr(exp, "cables_declared", None)
+    cable_source_valid = type(source_cables) is bool
+    source_ribbing = getattr(exp, "ribbing_declared", "invalid")
+    ribbing_source_valid = source_ribbing is None or type(source_ribbing) is bool
+    source_edging = getattr(exp, "edging_declared", "invalid")
+    edging_source_valid = source_edging is None or type(source_edging) is bool
+    source_invalid = not (craft_source_valid and cable_source_valid and
+                          ribbing_source_valid and edging_source_valid)
+    if source_invalid:
+        unclear.append("pattern craft facts unavailable or malformed")
+    craft_unreadable = v["craft"] not in crafts
     if craft_unreadable:
         unclear.append("craft unclear")
-    elif v["craft"] != exp.craft:
-        problems.append(f"reads as {v['craft']}, the pattern is {exp.craft}")
+    elif craft_source_valid and v["craft"] != source_craft:
+        problems.append(f"reads as {v['craft']}, the pattern is {source_craft}")
     if v["cable_style"] == "knitted_rope":
         problems.append("knitted rope cables")
     elif v["cable_style"] not in ("none", "crochet_post_stitch_crossings"):
         unclear.append("cable style is not clearly observed")
-    elif exp.cables_declared and v["cable_style"] == "none":
+    elif cable_source_valid and source_cables and v["cable_style"] == "none":
         unclear.append("pattern cable crossings are not observed")
-    elif not exp.cables_declared and v["cable_style"] == "crochet_post_stitch_crossings":
+    elif cable_source_valid and not source_cables and v["cable_style"] == "crochet_post_stitch_crossings":
         unclear.append("unverified cable crossings in the image")
-    if exp.ribbing_declared is None:
+    if not ribbing_source_valid:
+        pass  # malformed pattern evidence was recorded above
+    elif source_ribbing is None:
         unclear.append("pattern ribbing is not determined by the structural reader")
-    elif exp.ribbing_declared is False:
+    elif source_ribbing is False:
         if v["ribbing_visible"] in ("true", "yes"):
             problems.append("ribbing the pattern does not have")
         elif v["ribbing_visible"] not in ("false", "no"):
@@ -992,18 +1007,18 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
                 unclear.append("pattern ribbing cannot be judged in an unclear view")
         elif v["ribbing_visible"] not in ("true", "yes"):
             unclear.append("pattern ribbing not clearly visible")
-    known_bands_only = (exp.edge_ambiguity == "end_bands" and end_bands_verified
+    known_bands_only = (getattr(exp, "edge_ambiguity", None) == "end_bands" and end_bands_verified
                         and v["border_or_edging_visible"] in ("true", "yes")
                         and v["edge_placement"] == "ends_only"
                         and v["all_edges_visible"] in ("true", "yes"))
-    if exp.edging_declared is None and not known_bands_only:
+    if edging_source_valid and source_edging is None and not known_bands_only:
         unclear.append("visible edge treatment cannot be distinguished from declared bands or components")
-    edging = (exp.edging_declared is False and
+    edging = (source_edging is False and
               v["border_or_edging_visible"] in ("true", "yes"))
-    if (exp.edging_declared is False and
+    if (source_edging is False and
             v["border_or_edging_visible"] not in ("true", "yes", "false", "no")):
         unclear.append("edging is not clearly observed")
-    if exp.edging_declared is True:
+    if source_edging is True:
         if v["border_or_edging_visible"] in ("false", "no"):
             if v["fabric_visible_clearly"] in ("true", "yes"):
                 problems.append("the pattern's edging is not visible")
@@ -1019,7 +1034,7 @@ def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool =
                       code=FC.INVENTED_EDGING, reading=v)
     if unclear:
         return _check("craft_texture", UNKNOWN, "; ".join(unclear), reading=v,
-                      blocks_variant_input=craft_unreadable)
+                      blocks_variant_input=craft_unreadable or source_invalid)
     return _check("craft_texture", PASS, f"reads as {exp.craft} and matches known texture constraints",
                   reading=v)
 

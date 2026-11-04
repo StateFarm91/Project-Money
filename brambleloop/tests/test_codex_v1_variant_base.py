@@ -85,6 +85,18 @@ def test_edit_base_never_uses_failed_or_vetoed_image(tmp_path, monkeypatch):
         row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
             "status": "UNKNOWN", "checks": [legacy_unreadable]}}}
     assert select_base() is None
+    # Malformed pattern facts are not a safe edit base even with a clear image.
+    from dataclasses import replace
+
+    invalid_source = fidelity.compare_craft(
+        {"fabric_visible_clearly": "true", "craft": "crochet", "cable_style": "none",
+         "ribbing_visible": "false", "border_or_edging_visible": "false"},
+        replace(fidelity.expectation(build_basket("small")), ribbing_declared="false"))
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate))
+        row.checks = {"product_truth": {"status": "UNKNOWN", "fidelity": {
+            "status": "UNKNOWN", "checks": [invalid_source]}}}
+    assert select_base() is None
     # A newly incomplete two-image comparison cannot become an edit base either.
     from test_codex_v1_blind_comparison import CLOUD, Judge, _cir, _reading
     from brambleloop.visual import vision_judges
