@@ -280,3 +280,105 @@ def test_fake_paid_generation_produces_a_selectable_candidate(monkeypatch):
         row = session.get(ImageCandidate, result["candidate_id"])
         row.checks = {**row.checks, "_paid_call_token": "legacy-test-value"}
     assert IP._best(db, listing="item", role=IP.ANCHOR_ROLE, run=key)["candidate_id"] == result["candidate_id"]
+
+
+def test_real_stage_retry_reuses_candidate_after_follow_enqueue_failure(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import gallery
+    from brambleloop.visual import image_production as IP
+
+    class Paid(O.StubGenerator):
+        paid, max_cost_cad_per_call = True, 0.1
+        def generate(self, **kw):
+            result = super().generate(**kw)
+            result["cost_cad"] = 0.08
+            return result
+
+    monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    gen = Paid()
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    tried = []
+    def interrupted(i, k):
+        tried.append((i, k))
+        raise RuntimeError("follow enqueue failed")
+    with pytest.raises(RuntimeError, match="follow enqueue failed"):
+        IP.run_stage(db, inputs, follow=interrupted, generator=gen, judges=O.StubJudges())
+    sent = []
+    result = IP.run_stage(db, inputs, follow=lambda i, k: sent.append((i, k)),
+                          generator=gen, judges=O.StubJudges())
+    assert result["next"] == "fidelity_gate" and len(sent) == 1 and sent[0] == tried[0]
+    assert gen.calls == 1 and IP.get_run(db, key)["generation_calls"] == 1
+    assert IP.get_run(db, key)["spent_cad"] == 0.08
+    # A distinct correction round is a new stage invocation, not a replay.
+    IP.run_stage(db, {**inputs, "round": 1}, follow=lambda i, k: sent.append((i, k)),
+                 generator=gen, judges=O.StubJudges())
+    assert gen.calls == 2
+
+
+def test_stage_replay_does_not_bypass_an_unrelated_pending_paid_call(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    gen = O.StubGenerator()
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    IP._begin_generation(db, key, stage="other", paid=True, next_cost=0.1)
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert "unresolved cost" in result["blocked_reason"]
+    assert gen.calls == 1
+
+
+def test_stage_recovers_candidate_after_marker_completion_interruption(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import gallery
+    from brambleloop.visual import image_production as IP
+
+    class Paid(O.StubGenerator):
+        paid, max_cost_cad_per_call = True, 0.1
+        def generate(self, **kw):
+            result = super().generate(**kw)
+            result["cost_cad"] = 0.08
+            return result
+
+    monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    gen = Paid()
+    complete = IP._complete_paid_generation
+    def interrupted(*args):
+        raise RuntimeError("completion interrupted")
+    monkeypatch.setattr(IP, "_complete_paid_generation", interrupted)
+    with pytest.raises(RuntimeError, match="completion interrupted"):
+        IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    assert IP.get_run(db, key)["spent_cad"] == 0.08
+    monkeypatch.setattr(IP, "_complete_paid_generation", complete)
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert result["next"] == "fidelity_gate" and gen.calls == 1
+    assert "_pending_paid_call" not in IP._stage_data(db, key)
+
+
+def test_stage_retry_holds_when_recorded_candidate_bytes_change(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    gen = O.StubGenerator()
+    IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    monkeypatch.setattr(ArtifactStore, "get", lambda *args, **kwargs: b"changed bytes")
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert "artifact changed" in result["blocked_reason"] and gen.calls == 1

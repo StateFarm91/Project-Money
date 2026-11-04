@@ -339,6 +339,8 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
                     **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
+                    **({"_generation_operation": {"key": cand["_generation_operation"]}}
+                       if cand.get("_generation_operation") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
                     "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
@@ -617,12 +619,59 @@ def _settle_free_generation(db, key, cost):
         raise BudgetStop("free image generator returned an invalid or nonzero cost; review required")
 
 
+def _recover_generation(db, key, *, operation, stage, role, slug, version, release):
+    """Reuse only the candidate recorded by this exact stage invocation."""
+    if not operation:
+        return None
+    from sqlalchemy import select
+    from ..core.artifacts import ArtifactStore
+    from .image_records import ImageCandidate
+
+    with db.session() as session:
+        rows = session.scalars(select(ImageCandidate).where(
+            ImageCandidate.run_key == key, ImageCandidate.stage == stage,
+            ImageCandidate.role == role)).all()
+        matches = [r for r in rows if isinstance((r.checks or {}).get("_generation_operation"), dict)
+                   and r.checks["_generation_operation"].get("key") == operation]
+        if len(matches) > 1:
+            raise BudgetStop("multiple candidates for one generation operation; review required")
+        if not matches:
+            return None
+        row = matches[0]
+        if (row.slug != slug or row.version != version or row.release != release
+                or not row.sha256):
+            raise BudgetStop("generation operation candidate identity changed; review required")
+        try:
+            data = ArtifactStore().get(row.sha256, db=db)
+        except Exception as exc:
+            raise BudgetStop("generation operation artifact unavailable; review required") from exc
+        if not data or hashlib.sha256(data).hexdigest() != row.sha256:
+            raise BudgetStop("generation operation artifact changed; review required")
+        out = {"candidate_id": row.id, "sha256": row.sha256, "outcome": row.outcome,
+               "technical_status": row.technical_status, "publishable": row.publishable,
+               "cost_cad": row.cost_cad, "attempt": row.attempt}
+        token = ((row.checks or {}).get("_paid_call") or {}).get("token")
+    current = _stage_data(db, key)
+    if "_unresolved_free_cost" in current:
+        raise BudgetStop("prior image call has an unresolved cost; review required")
+    if "_pending_paid_call" in current:
+        pending = current["_pending_paid_call"]
+        if not token or not isinstance(pending, dict) or pending.get("token") != token:
+            raise BudgetStop("another paid image call has an unresolved cost; review required")
+        _complete_paid_generation(db, key, token, out["candidate_id"])
+    return out
+
+
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
-              repair: dict | None = None, exp=None) -> dict:
+              repair: dict | None = None, exp=None, operation: str = "") -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
+    recovered = _recover_generation(db, key, operation=operation, stage=stage, role=role,
+                                    slug=slug, version=version, release=release)
+    if recovered is not None:
+        return recovered
     with db.session() as s:
         r = _run(s, key)
         calls, spent = r.generation_calls, r.spent_cad
@@ -712,6 +761,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "repair": repair}
     if paid:
         cand["_paid_call_token"] = call_token
+    if operation:
+        cand["_generation_operation"] = operation
     if role == ANCHOR_ROLE:
         bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -735,7 +786,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     if paid:
         _complete_paid_generation(db, key, call_token, rec["candidate_id"])
     return {**rec, "technical_status": verdict["technical_status"],
-            "publishable": verdict["publishable"], "cost_cad": cost}
+            "publishable": verdict["publishable"], "cost_cad": cost, "attempt": plan_attempt}
 
 
 def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
@@ -858,6 +909,10 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
     max_att = exp.max_attempts_per_role if exp is not None else MAX_ATTEMPTS_PER_ROLE
 
+    def operation_for(role: str, segment: str = "") -> str:
+        material = json.dumps([key, stage, round_, epoch, role, segment], separators=(",", ":"))
+        return hashlib.sha256(material.encode()).hexdigest()
+
     def go(next_stage: str | None, *, rnd: int = 0):
         if next_stage is None:
             return None
@@ -947,10 +1002,11 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
-                            plan_attempt=attempt, repair=repair, exp=exp)
+                            plan_attempt=attempt, repair=repair, exp=exp,
+                            operation=operation_for(ANCHOR_ROLE))
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
-            return {"run_key": key, "next": go(_next(stage), rnd=attempt - 1)}
+            return {"run_key": key, "next": go(_next(stage), rnd=got.get("attempt", attempt) - 1)}
 
         if stage == "fidelity_gate":
             if inputs.get("reverify"):
@@ -1082,6 +1138,11 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             for r in roles:
                 attempt = _attempts(db, key, r["role"]) + 1
                 if attempt > max_att:
+                    recovered = _recover_generation(
+                        db, key, operation=operation_for(r["role"]), stage=rnd_stage,
+                        role=r["role"], slug=slug, version=version, release=release)
+                    if recovered is not None:
+                        outs.append(recovered)
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
                 if (r["laura"] and outfit and outfit.get("approved_reference")
@@ -1115,14 +1176,16 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                       f"{r['job']}: the finished piece", refs=refs_,
                                       outfit=outfit if r["laura"] else None,
                                       plan_attempt=attempt,
-                                      repair=(repairs or {}).get(r["role"]), exp=exp))
+                                      repair=(repairs or {}).get(r["role"]), exp=exp,
+                                      operation=operation_for(r["role"])))
             return outs
 
         if stage == "identity_anchor":
             return _stage_identity_anchor(db, key, run, inputs, gen=gen, judges=judges, exp=exp,
                                           laura_roles=laura_roles, st=st, go=go, block=block,
                                           refs=_refs_with_bytes, laura_refs=laura_refs,
-                                          slug=slug, version=version, release=release)
+                                          slug=slug, version=version, release=release,
+                                          operation_for=operation_for)
 
         if stage == "lifestyle_generation":
             roles = [r for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
@@ -1578,7 +1641,7 @@ def _drifted_dimensions(best: dict | None, db) -> list[str]:
 
 
 def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_roles, st, go,
-                           block, refs, laura_refs, slug, version, release) -> dict:
+                           block, refs, laura_refs, slug, version, release, operation_for) -> dict:
     """Stage A. PASS: accepted and reused. A judged body-proportion drift gets exactly one
     correction pass. FAIL after that: blocked (attempts spent). UNKNOWN: an identity review is
     opened for the owner and the run stops at this gate with every image kept; it resumes only
@@ -1606,7 +1669,9 @@ def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_role
         return _generate(db, key, gen, slug=slug, version=version, release=release,
                          role=IDENTITY_ANCHOR_ROLE, stage=stage, laura=True, judges=judges,
                          brief="Laura alone in the listing's outfit", outfit=outfit,
-                         refs=refs() + laura_refs(), plan_attempt=n, repair=repair, exp=exp)
+                         refs=refs() + laura_refs(), plan_attempt=n, repair=repair, exp=exp,
+                         operation=operation_for(IDENTITY_ANCHOR_ROLE,
+                                                 "correction" if repair else "initial"))
 
     if best is None:
         got = generate()

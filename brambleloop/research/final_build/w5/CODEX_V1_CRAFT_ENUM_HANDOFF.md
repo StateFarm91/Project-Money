@@ -133,6 +133,19 @@ this does not migrate or authorize their pending markers. Python 3.11/tmpfs
 spend, anchor and variant tests passed 44/44; the fake-paid selection case was
 independently rerun. No real provider was called.
 
+Visual stage invocations now record an operation key scoped to run, stage,
+epoch, round, role and identity-anchor correction. A retry can reuse its
+persisted candidate after checking identity and artifact bytes, retaining the
+original attempt and follow-on job key. A different correction round still
+generates separately; conflicting cost holds block replay. Real handler tests
+cover failed follow-on enqueue, interrupted paid-marker completion and changed
+candidate bytes. Python 3.11/tmpfs spend/recovery tests passed 38/38; independent
+review reran the key handler cases. Existing candidates without operation keys
+are not migrated, and metadata remains mutable. Reads, marker completion and
+stage advancement are separate transactions: PostgreSQL concurrency,
+noncooperating writers, evidence authority and company budget fencing remain
+unverified. No real provider was called.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
