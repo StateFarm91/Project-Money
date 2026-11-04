@@ -29,11 +29,13 @@ Python 3.11 focused SQLite run: 19 passed, one opt-in PostgreSQL test skipped.
 That run covers the new component, its prior transaction preview, queue
 savepoint tests and the legacy withholding regression. The PostgreSQL test
 requires an empty disposable database via `BRAMBLELOOP_TEST_POSTGRES_URL`.
-An independent PostgreSQL 16 run passed the repository's opt-in test (1/1)
-and the 12-case atomic-effects suite adapted only to use fresh PostgreSQL
-fixtures (12/12). An independent reviewer reran the 12-case suite on SQLite
-at code commit `9d3172aa4327409f49d2298ecf3e0698eae582fa` and confirmed its
-narrow atomic behavior, not the full authority contract.
+An independent PostgreSQL 16 run on a precommit tree based on `11f29b6`
+passed the opt-in test (1/1) and the 12-case atomic-effects suite adapted only
+to use fresh PostgreSQL fixtures (12/12). The exact precommit tree has not
+been independently matched to the final commit, so those runs are not claimed
+as verification of the final SHA. An independent reviewer reran the 12-case
+suite on SQLite at code commit `9d3172aa4327409f49d2298ecf3e0698eae582fa`
+and confirmed its narrow behavior, not the full authority contract.
 
 ## Why the handler remains unwired
 
