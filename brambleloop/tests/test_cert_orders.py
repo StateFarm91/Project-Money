@@ -1111,3 +1111,32 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_portfolio_worker_holds_retirement_when_offer_traffic_is_unknown(monkeypatch):
+    from brambleloop.commerce import offers
+    from brambleloop.core.models import Product, PortfolioReview
+
+    db, _, _ = _ingested()
+    period = (date.today() - timedelta(days=7)).isoformat()
+    with db.session() as session:
+        session.add(Product(slug="harvest-table-runner", title="C", status="certified"))
+        session.add(ListingOutcome(product_slug="harvest-table-runner", period_start=period,
+                    period_end=date.today().isoformat(), impressions=2000, visits=80,
+                    favourites=1, orders=0, source="fixture"))
+        for order in session.scalars(select(Order).where(
+                Order.product_slug == "harvest-table-runner")):
+            order.refunded = True
+    monkeypatch.setattr(order_readings, "offer_results", lambda db: [
+        offers.Result("harvest-table-runner", offers.SINGLE, 100, 20, 100, 50),
+        offers.Result("harvest-table-runner", offers.MINI, None, 20, 100, 50),
+    ])
+    _run(db, "orchestrator", "portfolio.review")
+    audit = _audit(db, "portfolio.reviewed")
+    guard = next(g for g in audit["offer_guard"] if g["slug"] == "harvest-table-runner")
+    assert not guard["may_retire"]
+    assert any("offer-scoped" in reason for reason in guard["reasons"])
+    with db.session() as session:
+        review = session.scalar(select(PortfolioReview).order_by(PortfolioReview.id.desc()))
+        assert any("harvest-table-runner" in action and "#13" in action
+                   for action in review.actions)
