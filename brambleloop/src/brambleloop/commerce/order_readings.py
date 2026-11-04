@@ -285,8 +285,9 @@ def active_study(db, *, today: date | None = None) -> dict | None:
 def reinvestment_block(db, *, now: datetime) -> dict:
     from sqlalchemy import select
 
-    from ..core.models import LedgerEntry, OwnerAction
+    from ..core.models import LedgerEntry, Order, OwnerAction
     from ..finance import reinvestment
+    from . import orders_ingest
 
     import math
 
@@ -294,6 +295,19 @@ def reinvestment_block(db, *, now: datetime) -> dict:
     gross = 0.0
     invalid = False
     with db.session() as s:
+        held_refs = orders_ingest.held_refs(s)
+        order_rows = list(s.scalars(select(Order)))
+        orders_by_ref = {order.external_ref: order for order in order_rows if order.external_ref}
+        window_refs = set()
+        for order in order_rows:
+            at = _aware(order.at)
+            if at is None:
+                invalid = True
+            elif since <= at <= now:
+                if not order.external_ref or order.external_ref in window_refs:
+                    invalid = True
+                window_refs.add(order.external_ref)
+        seen = set()
         for entry in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")):
             at = _aware(entry.at)
             if at is None:
@@ -302,20 +316,39 @@ def reinvestment_block(db, *, now: datetime) -> dict:
             if not since <= at <= now:
                 continue
             try:
+                ref = entry.evidence_ref
+                order = orders_by_ref.get(ref)
+                if (not ref or ref in seen or order is None
+                        or entry.external_id != ref or not entry.source
+                        or entry.source != order.source or entry.currency != order.currency
+                        or _aware(order.at) != at
+                        or not orders_ingest.in_books(order, held_refs)):
+                    invalid = True
+                    continue
+                seen.add(ref)
                 values = (entry.gross_cad, entry.refunds_cad)
                 if any(isinstance(v, bool) or not isinstance(v, (int, float))
                        or not math.isfinite(v) or v < 0 for v in values):
                     invalid = True
                     continue
-                gross += values[0] - values[1]
+                net = values[0] - values[1]
+                if (isinstance(order.revenue_cad, bool)
+                        or not isinstance(order.revenue_cad, (int, float))
+                        or not math.isfinite(order.revenue_cad)
+                        or abs(net - order.revenue_cad) > 0.005):
+                    invalid = True
+                    continue
+                gross += net
                 if not math.isfinite(gross):
                     invalid = True
-            except OverflowError:
+            except (OverflowError, TypeError, ValueError, AttributeError):
                 invalid = True
+        if window_refs != seen:
+            invalid = True
     if invalid:
         rec = {"recommended_cad": 0.0, "owner_approval_required": True,
                "envelope": None, "reading": "UNMEASURED",
-               "why": "invalid sale amount or date requires financial reconciliation"}
+               "why": "sale and booked-order evidence is invalid, incomplete or inconsistent"}
         out = {"gross_cad_30d": None, "recommendation": rec, "owner_action": None}
     else:
         rec = reinvestment.recommend(
