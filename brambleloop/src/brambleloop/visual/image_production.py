@@ -1726,7 +1726,8 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             "ruling_conflicts": plan.get("ruling_conflicts") or [],
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
-                                 for e in roles) and consistency["status"] != CG.FAIL and not ambiguous,
+                                 for e in roles) and bool(set_check["ok"])
+                             and consistency["status"] != CG.FAIL and not ambiguous,
             "basis": "visual.shot_plans.campaign_plan + candidate_gates + eligibility.check_set"}
 
 

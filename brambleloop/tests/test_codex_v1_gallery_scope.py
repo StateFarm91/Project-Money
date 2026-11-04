@@ -82,3 +82,15 @@ def test_unscoped_dashboard_holds_mixed_production_release_identities(tmp_path):
     assert next(r for r in view["roles"] if r["role"] == role).get("candidate") is None
     assert not view["gallery_ready"]
     assert any("ambiguous or unavailable production identity" in b for b in view["publication_blockers"])
+
+
+def test_gallery_with_failed_set_check_is_not_reported_ready(tmp_path):
+    db = Database("sqlite:///" + str(tmp_path / "incomplete.db"), scratch=True)
+    db.create_all()
+    listing = "cloudline-baby-blanket"
+    plan = SP.campaign_plan(listing)
+    # A one-frame plan can have a disclosed detail but no hero.
+    plan = {**plan, "roles": [next(r for r in plan["roles"] if r["role"] == "detail")]}
+    view = IP.readiness(db, listing, plan=plan)
+    assert not view["set_check"]["ok"]
+    assert not view["gallery_ready"]

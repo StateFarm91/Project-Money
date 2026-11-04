@@ -43,8 +43,13 @@ An explicit unknown or mismatched run is also marked not ready with a named
 blocker, even if some disclosed-render fallback entries can be displayed. The
 separate no-run/no-candidate disclosed-gallery behavior is unchanged.
 
-Python 3.11/file-backed SQLite: 81/81 V1, anchor, owner-image, stage-D and new
-gallery tests. The independent reviewer reran the gallery cases 3/3. The
+Gallery readiness now also requires the existing listing-set check to pass: a
+plan whose only disclosed frame is a detail without a hero no longer reports
+`gallery_ready=True` while `set_check.ok=False`. This corrects a status reading;
+it does not authorize publication or create a listing-set certificate.
+
+Python 3.11/file-backed SQLite: 82/82 V1, anchor, owner-image, stage-D and new
+gallery tests. The independent reviewer reran the gallery cases 4/4. The
 identity scan and later role reads remain separate transactions; metadata is
 not authenticated and later writes can change the result. This is not an
 action-time approval or publication fence. DO NOT INTEGRATE remains.
