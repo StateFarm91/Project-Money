@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import date, datetime, timedelta, timezone
 
@@ -1206,6 +1207,88 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
     return out
 
 
+def recover_research_handoffs(db, candidates, *, audit, enqueue, today: date) -> list[str]:
+    """Repair sequential approval-to-score interruptions for still-current research."""
+    from ..core.models import AuditLog, Job, JobStatus
+
+    recovered = []
+    by_fingerprint = {fingerprint(c["source_ref"], _clean(c["proposal"]), c["evidence"]): c
+                      for c in candidates if c["source"] == SOURCE_RESEARCH}
+    for row in approved_rows(db):
+        candidate = by_fingerprint.get(row.fingerprint)
+        if row.source != SOURCE_RESEARCH or candidate is None:
+            continue
+        if (candidate["source_ref"] != row.source_ref
+                or _clean(candidate["proposal"]) != (row.detail or {}).get("proposal")
+                or list(candidate["evidence"].get("items") or []) != list(row.evidence or [])):
+            continue
+        with db.session() as s:
+            audits = [a for a in s.scalars(select(AuditLog).where(
+                AuditLog.action.in_((APPROVED_ACTION, HANDOFF_ACTION)),
+                AuditLog.artifact == row.slug))
+                      if isinstance(a.detail, dict) and a.detail.get("row") == row.id]
+            if any(a.actor != "market_radar" or not a.job_id
+                   or (p := s.get(Job, a.job_id)) is None
+                   or p.agent != "market_radar" or p.job_type != "radar.concept_intake"
+                   or (a.action == APPROVED_ACTION
+                       and a.detail.get("source_ref") != row.source_ref)
+                   or (a.action == HANDOFF_ACTION
+                       and a.detail.get("job_type") != "radar.score")
+                   for a in audits):
+                continue
+            if any(a.action == HANDOFF_ACTION for a in audits):
+                continue
+            existing = [j for j in s.scalars(select(Job).where(
+                Job.job_type == "radar.score", Job.idempotency_key.like(f"score:{row.slug}:%")))
+                        if isinstance(j.inputs, dict)
+                        and isinstance(j.inputs.get("intake"), dict)
+                        and j.inputs["intake"].get("row") == row.id]
+            drafted = s.scalar(select(Job.id).where(
+                Job.idempotency_key == f"draft:{row.slug}").limit(1))
+        if drafted:
+            continue
+        verdict = validate(db, candidate["proposal"], candidate["evidence"],
+                           source_ref=candidate["source_ref"])
+        if not verdict["ok"] or verdict["seed"] != row.seed:
+            continue
+        if not any(a.action == APPROVED_ACTION for a in audits):
+            audit(APPROVED_ACTION, artifact=row.slug, detail={
+                "row": row.id, "source_ref": row.source_ref, "recovered": True,
+                "reason": "current candidate and approval revalidated after interruption"})
+        if len(existing) > 1:
+            continue
+        job = existing[0] if existing else None
+        if job is not None:
+            try:
+                score_day = date.fromisoformat(job.idempotency_key.rsplit(":", 1)[-1])
+            except (AttributeError, TypeError, ValueError):
+                continue
+            expected = score_concept(_seed_from(row), score_day).to_dict()
+            expected["intake"] = {"row": row.id, "source_ref": row.source_ref}
+            score = (job.outputs or {}).get("score")
+            if (job.agent != "market_radar" or job.inputs != expected
+                    or job.status not in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.DONE)
+                    or (job.status == JobStatus.DONE
+                        and (isinstance(score, bool) or not isinstance(score, (int, float))
+                             or not math.isfinite(score)))):
+                continue
+        if job is None:
+            current = approved_concept(db, row.slug)
+            if current is None:
+                continue
+            payload = score_concept(current["seed"], today).to_dict()
+            payload["intake"] = {"row": row.id, "source_ref": row.source_ref}
+            job = enqueue("market_radar", "radar.score", payload,
+                          idempotency_key=f"score:{row.slug}:{today.isoformat()}")
+            if job is None:
+                continue  # A key collision is not proof this approval was handed off.
+        audit(HANDOFF_ACTION, artifact=row.slug, detail={
+            "row": row.id, "job_type": "radar.score", "job_id": job.id,
+            "recovered": True})
+        recovered.append(row.slug)
+    return recovered
+
+
 def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
     """F1: an approval stands only while its evidence does. Each approved row is re-checked
     against its source as of `today`; one that no longer passes (stale, expired, unresolved,
@@ -1302,11 +1385,13 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
             unchanged += 1
             continue
         decided.append(out)
+    recovered = recover_research_handoffs(db, candidates, audit=audit, enqueue=enqueue,
+                                          today=today)
     rescored = rescore_judged(db, audit=audit, enqueue=enqueue, today=today)
     return {"candidates": len(candidates), "unchanged": unchanged,
-            "rescored": rescored, "withdrawn": withdrawn,
+            "rescored": rescored, "recovered_handoffs": recovered, "withdrawn": withdrawn,
             "approved": [d["slug"] for d in decided if d["state"] == APPROVED],
             "refused": [{"slug": d["slug"], "reasons": d.get("reasons", [])[:3]}
                         for d in decided if d["state"] == REFUSED],
-            "work_done": len(decided) + len(rescored) + len(withdrawn), "network_calls": 0, "spend_cad": 0.0,
+            "work_done": len(decided) + len(rescored) + len(recovered) + len(withdrawn), "network_calls": 0, "spend_cad": 0.0,
             "as_of": today.isoformat()}
