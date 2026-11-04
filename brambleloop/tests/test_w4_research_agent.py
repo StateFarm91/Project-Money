@@ -210,6 +210,33 @@ def test_prior_research_requires_current_answer_and_expiry():
                 if x["kind"] == "prior_research"]
 
 
+def test_worker_returns_reused_conclusion_to_requester_without_reinvestigation():
+    db = _db()
+    question = "What does the fixture evidence show for sizing?"
+    first = _open(db, question=question, trigger="reuse-first", decision_ref="reuse-decision",
+                  domain="aesthetics", query_terms=["uniquezzreuse"])
+    tid = first["task"]
+    R.add_finding(db, tid, statement="fixture source remains unavailable",
+                  claim_class="unresolved", confidence="none")
+    answered = R.answer(db, tid, outcome="unresolved pending source", confidence="none",
+                        effect={"kind": "stop_justified", "statement": "source missing"},
+                        conclusion={"alternatives": [], "constraints": [], "unresolved": [],
+                                    "next_test": None, "applicability": None})
+    request = {"question": question, "trigger": "reuse-second", "decision_ref": "reuse-decision",
+               "domain": "aesthetics", "query_terms": ["uniquezzreuse"]}
+    job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", request)
+    assert Worker(db, "reuse-worker", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, job.id)
+        assert result.status == JobStatus.DONE, result.last_error
+        assert result.outputs["task"] == tid and result.outputs["reused"] is True
+        assert result.outputs["outcome"] == "unresolved pending source"
+        assert result.outputs["conclusion"] == answered["conclusion"]
+        assert result.outputs["conclusion"]["status"] == "unresolved"
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == RA.INVESTIGATED, AuditLog.job_id == job.id)) is None
+
+
 @pytest.mark.parametrize("case", ["expired", "future", "missing_expiry", "overlong"])
 def test_investigation_request_opens_new_work_for_noncurrent_prior_answer(case):
     db = _db()
