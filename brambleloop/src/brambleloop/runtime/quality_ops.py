@@ -100,12 +100,20 @@ def reverify(db, check: str, slug: str, version: str) -> dict:
 
         if not problems:
             twin = build_twin(cir, result)
+            listing = _listing(db, slug, version)
             texts = [("cir.title", cir.title)] + [
-                (f"listing.{k}", v) for k, v in _listing(db, slug, version).items()
+                (f"listing.{k}", v) for k, v in listing.items()
                 if k in ("title", "description") and v]
+            tags = listing.get("tags", [])
+            if not isinstance(tags, (list, tuple)) or any(not isinstance(tag, str) for tag in tags):
+                problems.append("listing tags are malformed and cannot be re-verified")
+            else:
+                texts.extend((f"listing.tag:{i}", tag) for i, tag in enumerate(tags))
             for where, text in texts:
                 problems += _errors(check_shape_claims(text, cir, twin, where))
                 problems += _errors(check_technique_claims(text, cir, twin, where))
+            if not listing and not problems:
+                return {"check": check, "ok": None, "why": "no drafted listing to check"}
     elif check == "gate.policy":
         from ..gates.policy import ListingDraft, check_listing
 
@@ -128,7 +136,8 @@ def _listing(db, slug: str, version: str) -> dict:
     with db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == slug,
                                              Listing.version == version))
-        return ({"title": row.title, "description": row.description, "tags": row.tags or [],
+        return ({"title": row.title, "description": row.description,
+                 "tags": row.tags,
                  "price_cad": row.price_cad} if row is not None else {})
 
 
