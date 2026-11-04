@@ -498,6 +498,90 @@ def _spend_plan() -> dict:
         fail_criteria=["attempt cap reached", "any spend past the plan"])
 
 
+def _begin_generation(db, key, *, stage, paid, next_cost):
+    """Record a paid call before dispatch; unresolved calls hold further generation."""
+    from uuid import uuid4
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    token = uuid4().hex if paid else None
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        if "_pending_paid_call" in stages or "_unresolved_free_cost" in stages:
+            raise BudgetStop("prior paid image call has an unresolved cost; review required")
+        try:
+            spend_plan.guard(_spend_plan(), spent_cad=row.spent_cad,
+                             calls_made=row.generation_calls, next_cost_cad=next_cost)
+        except spend_plan.PlanRefused as exc:
+            raise BudgetStop(str(exc)) from None
+        row.generation_calls += 1
+        row.stage, row.updated_at = stage, _now()
+        if paid:
+            stages["_pending_paid_call"] = {"token": token, "stage": stage,
+                                             "maximum_cad": next_cost,
+                                             "at": _now().isoformat()}
+            row.stages = stages
+    return token
+
+
+def _settle_paid_generation(db, key, token, cost):
+    """Clear only this call's marker when a valid actual charge has been recorded."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    if not spend_plan._amount(cost):
+        raise BudgetStop("paid image call has an invalid or missing cost; review required")
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        pending = stages.get("_pending_paid_call")
+        if not isinstance(pending, dict) or pending.get("token") != token:
+            raise BudgetStop("paid image call reservation changed; review required")
+        if not spend_plan._amount(row.spent_cad):
+            raise BudgetStop("recorded visual spend is invalid; review required")
+        maximum = pending["maximum_cad"]
+        row.spent_cad += cost
+        if cost > maximum:
+            stages["_pending_paid_call"] = {**pending, "actual_cad": cost,
+                                             "state": "cost_exceeded_maximum"}
+        else:
+            del stages["_pending_paid_call"]
+        row.stages = stages
+        row.updated_at = _now()
+    if cost > maximum:
+        raise BudgetStop("paid image call exceeded its declared maximum; review required")
+
+
+def _settle_free_generation(db, key, cost):
+    """Record unexpected free-adapter charges without overwriting concurrent spend."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    valid = spend_plan._amount(cost)
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        if not spend_plan._amount(row.spent_cad):
+            raise BudgetStop("recorded visual spend is invalid; review required")
+        if valid and cost > 0:
+            row.spent_cad += cost
+        if not valid or cost > 0:
+            stages = dict(row.stages or {})
+            # A separate marker cannot be cleared by a concurrent paid settlement.
+            stages["_unresolved_free_cost"] = {"state": "unexpected_free_cost",
+                                                "actual_cad": cost if valid else None}
+            row.stages = stages
+        row.updated_at = _now()
+    if not valid or cost > 0:
+        raise BudgetStop("free image generator returned an invalid or nonzero cost; review required")
+
+
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
               repair: dict | None = None, exp=None) -> dict:
@@ -540,7 +624,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                 "called")
     if paid and next_cost == 0:
         raise BudgetStop("paid generator requires a positive maximum cost per call")
-    _update(db, key, stage=stage, generation_calls=calls + 1)
+    call_token = _begin_generation(db, key, stage=stage, paid=paid, next_cost=next_cost)
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
@@ -568,7 +652,10 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                                              f"{str(exc)[:300]}"}}))
         return {"provider_error": f"{type(exc).__name__}: {str(exc)[:300]}"}
     cost = out.get("cost_cad")
-    _update(db, key, stage=stage, spent_cad=spent + float(cost or 0.0))
+    if paid:
+        _settle_paid_generation(db, key, call_token, cost)
+    else:
+        _settle_free_generation(db, key, cost)
     data = out["data"]
     ctl = _controlled_of(db, key)
     sha = store_bytes(db, data, key=f"{key}/{role}/{plan_attempt}",

@@ -97,6 +97,17 @@ plan and paid-gate controls, passed 28/28; independent reviewer reran 25/25.
 No provider was called. These checks trust the generator's free/paid declaration
 and do not provide cross-process budget reservation or global budget proof.
 
+A paid image dispatch now records a pending marker before the provider call;
+missing, malformed or excessive cost and interrupted calls hold later
+generation for review. Valid receipts record the actual charge. Free-adapter
+settlement reads current stored spend under the run lock and holds unexpected
+charges or missing receipts. Offline Python 3.11/tmpfs tests passed 33/33;
+independent review reran the spend cases 31/31. No provider was called. These
+are synthetic SQLite tests, not PostgreSQL concurrent-writer verification;
+other stage writers, central finance accounting, billing truth, and interruption
+after receipt but before candidate recording remain open. No reconciliation
+workflow or authorization to clear a pending marker is provided here.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
