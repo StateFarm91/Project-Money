@@ -212,15 +212,30 @@ def _unchanged_runs(db, task_id: int, evidence: list[str]) -> int:
     """How many most-recent investigations of this task ended with exactly this evidence."""
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, Job, JobStatus
 
     n = 0
     with db.session() as s:
-        for a in s.scalars(select(AuditLog).where(
+        seen_jobs = set()
+        for a, status in s.execute(select(AuditLog, Job.status).outerjoin(
+                Job, Job.id == AuditLog.job_id).where(
                 AuditLog.action == INVESTIGATED,
                 AuditLog.artifact == f"research_task:{task_id}").order_by(AuditLog.id.desc())
                            .limit(10)):
-            if sorted((a.detail or {}).get("evidence") or []) == sorted(evidence):
+            if a.job_id is not None and status != JobStatus.DONE:
+                continue
+            if isinstance(a.detail, dict) and a.detail.get("ran") is False:
+                continue
+            if not isinstance(a.detail, dict):
+                break  # Unreadable evidence is not proof of an unchanged run.
+            if a.job_id is not None:
+                if a.job_id in seen_jobs:
+                    continue
+                seen_jobs.add(a.job_id)
+            held = a.detail.get("evidence") or []
+            if not isinstance(held, list) or any(not isinstance(ref, str) for ref in held):
+                break
+            if sorted(held) == sorted(evidence):
                 n += 1
             else:
                 break
@@ -515,11 +530,16 @@ def due_for_investigation(db, *, now: datetime | None = None) -> list[int]:
     R._ensure(db)
     since = now - timedelta(days=REINVESTIGATE_DAYS)
     with db.session() as s:
-        recent = {artifact for artifact, detail in s.execute(
-            select(AuditLog.artifact, AuditLog.detail).where(
+        recent = {artifact for artifact, detail, job_id, status, lease, token in s.execute(
+            select(AuditLog.artifact, AuditLog.detail, AuditLog.job_id, Job.status,
+                   Job.lease_expires_at, Job.lease_token)
+            .outerjoin(Job, Job.id == AuditLog.job_id).where(
                 AuditLog.action == INVESTIGATED, AuditLog.at >= since,
                 AuditLog.at <= now)).all()
-            if not (isinstance(detail, dict) and detail.get("ran") is False)}
+            if not (isinstance(detail, dict) and detail.get("ran") is False)
+            and (job_id is None or status == JobStatus.DONE or
+                 (status == JobStatus.RUNNING and token and lease
+                  and (lease if lease.tzinfo else lease.replace(tzinfo=timezone.utc)) > now))}
         active_task_ids = set()
         for inputs in s.scalars(select(Job.inputs).where(
                 Job.job_type == "research.investigate",

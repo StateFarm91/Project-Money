@@ -673,6 +673,66 @@ def test_stale_investigation_cannot_overwrite_new_gap_owner():
     assert _ideation(db, gid)["task"] == tid + 1000
 
 
+def test_failed_investigation_audit_does_not_block_sweep_retry(monkeypatch):
+    db = _db()
+    _gid, tid, _key = _brief_without_initial_job(db)
+    with db.session() as s:
+        for listing in s.scalars(select(BenchmarkListing)):
+            s.delete(listing)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="dies-after-audit", priority=-1000, max_attempts=1)
+    original = Registry.audit
+
+    def audit_then_fail(registry, actor, action, **kwargs):
+        result = original(registry, actor, action, **kwargs)
+        if action == research_agent.INVESTIGATED:
+            raise RuntimeError("simulated interruption after audit")
+        return result
+
+    with monkeypatch.context() as scope:
+        scope.setattr(Registry, "audit", audit_then_fail)
+        assert Worker(db, "failed-after-audit", job_types=["research.investigate"]).run_once()
+    with db.session() as s:
+        assert s.get(Job, job.id).status == JobStatus.DEAD
+        event = s.scalar(select(AuditLog).where(
+            AuditLog.action == research_agent.INVESTIGATED, AuditLog.job_id == job.id))
+        assert event is not None
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "after-failed-audit")
+    with db.session() as s:
+        assert any((item.inputs or {}).get("task_id") == tid and item.status == JobStatus.PENDING
+                   for item in s.scalars(select(Job).where(
+                       Job.job_type == "research.investigate")))
+
+
+def test_retried_job_audits_count_once_toward_no_change_streak():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    q = JobQueue(db)
+    done = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                     idempotency_key="duplicate-audit-source")
+    dead = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                     idempotency_key="failed-audit-source")
+    running = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                        idempotency_key="unfinished-audit-source")
+    with db.session() as s:
+        s.get(Job, done.id).status = JobStatus.DONE
+        s.get(Job, dead.id).status = JobStatus.DEAD
+        s.get(Job, running.id).status = JobStatus.RUNNING
+        for _ in range(2):
+            s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                           artifact=f"research_task:{tid}", job_id=done.id,
+                           detail={"evidence": ["S1"]}))
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=dead.id,
+                       detail={"evidence": ["S1"]}))
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", job_id=running.id,
+                       detail={"evidence": ["S1"]}))
+    assert research_agent._unchanged_runs(db, tid, ["S1"]) == 1
+
+
 def test_task_stopped_during_observation_cannot_record_new_outcome(monkeypatch):
     db = _db()
     gid, tid = _insufficient_open_task(db)

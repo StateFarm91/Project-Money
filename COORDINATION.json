@@ -402,6 +402,20 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-RESEARCH-FAILED-AUDIT-RECOVERY",
+      "operator": "codex",
+      "branch": "codex/research-failed-audit-recovery",
+      "base": "7b34ed08eef718101804c206ffe69227e4a81a51",
+      "scope": "Do not let failed or duplicated investigation audits suppress research recovery",
+      "files": [
+        "brambleloop/src/brambleloop/intel/research_agent.py",
+        "brambleloop/tests/test_w4_research_agent.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

@@ -26,7 +26,7 @@ from brambleloop.intel import research as R  # noqa: E402
 from brambleloop.intel import research_agent as RA  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
-from brambleloop.runtime.worker import CADENCES, JobContext, handlers  # noqa: E402
+from brambleloop.runtime.worker import CADENCES, JobContext, Worker, handlers  # noqa: E402
 
 _N = [0]
 _TMP = tempfile.mkdtemp(prefix="w4res_")
@@ -290,9 +290,14 @@ def test_f420_investigations_that_add_nothing_are_stopped_with_a_justification()
                              domain="techniques", query_terms=["moss stitch"])
     tid = opened["task"]
     runs = []
-    for _ in range(3):
-        out, _job = _run(db, RA.AGENT, "research.investigate", {"task_id": tid})
-        runs.append(out)
+    for n in range(3):
+        job = JobQueue(db).enqueue(RA.AGENT, "research.investigate", {"task_id": tid},
+                                   idempotency_key=f"no-change-worker:{n}", priority=-1000)
+        assert Worker(db, f"no-change-{n}", job_types=["research.investigate"]).run_once()
+        with db.session() as s:
+            stored = s.get(Job, job.id)
+            assert stored.status.value == "done", stored.last_error
+            runs.append(dict(stored.outputs or {}))
     assert runs[0]["changed"] is True and runs[0]["stopped"] is None
     assert runs[1]["changed"] is False and runs[1]["unchanged_runs"] == 1
     assert runs[2]["stopped"] and RA.STOPPED_NO_CHANGE in runs[2]["stopped"]
