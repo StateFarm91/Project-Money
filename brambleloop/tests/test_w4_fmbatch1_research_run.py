@@ -11,6 +11,7 @@ import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import socket
 import sys
 import tempfile
+import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -147,6 +148,86 @@ def test_an_answered_fact_becomes_a_routed_lesson_once_and_is_withdrawn_on_expir
     R.expire_due(db, now=NOW + timedelta(days=30))           # marketplace_policy: 21 days
     gone = F.promote(db)
     assert gone["withdrawn"] == out["promoted"], gone
+
+
+def test_learn_worker_withdraws_orphan_lesson_after_restart(monkeypatch):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+    from brambleloop.learn import runtime  # noqa: F401 - registers learn.scan
+    from brambleloop.learn import metrics
+
+    db = _db()
+    Registry(db).seed_defaults()
+    tid = _answered(db)
+    original = F._set
+
+    def interrupted(db_, task, **values):
+        if "promoted_lesson" in values:
+            raise RuntimeError("fixture interruption after lesson publication")
+        return original(db_, task, **values)
+
+    monkeypatch.setattr(F, "_set", interrupted)
+    with pytest.raises(RuntimeError):
+        F.promote(db, now=NOW)
+    monkeypatch.setattr(F, "_set", original)
+    with db.session() as s:
+        task = s.get(R.ResearchTask, tid)
+        assert not (task.detail or {}).get("promoted_lesson")
+        task.expires_on = datetime.now(timezone.utc) - timedelta(days=1)
+        lesson = s.scalar(R.select(Lesson).where(Lesson.evidence_ref == f"research_tasks:{tid}"))
+        lid = lesson.id
+        assert lesson.withdrawn_at is None
+    checked = []
+
+    def calendar_after_withdrawal(db_, *, metrics):
+        with db_.session() as s:
+            assert s.get(Lesson, lid).withdrawn_at is not None
+        checked.append(True)
+        return {"_moves": []}
+
+    monkeypatch.setattr(metrics, "calendar", calendar_after_withdrawal)
+    job = JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key="lesson-restart")
+    assert Worker(db, "lesson-recovery", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert not done.outputs["research"].get("error")
+        assert s.get(Lesson, lid).withdrawn_at is not None
+        assert s.get(R.ResearchTask, tid).detail["promoted_lesson"] == lid
+    assert checked
+    assert F.promote(db)["withdrawn"] == []
+
+
+@pytest.mark.parametrize("conflict", ["statement", "subject"])
+def test_learn_worker_holds_calendar_when_lesson_provenance_conflicts(monkeypatch, conflict):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import metrics, runtime  # noqa: F401
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    tid = _answered(db)
+    out = F.promote(db, now=NOW)
+    with db.session() as s:
+        lesson = s.get(Lesson, out["promoted"][0])
+        if conflict == "statement":
+            lesson.statement = "a conflicting historical statement"
+        else:
+            lesson.subject = "palette"
+    def unexpected_calendar(*_args, **_kwargs):
+        raise AssertionError("calendar must hold on ambiguous lesson provenance")
+    monkeypatch.setattr(metrics, "calendar", unexpected_calendar)
+    job = JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key="conflicting-lesson")
+    assert Worker(db, "lesson-hold", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert done.outputs["research_lesson_maintenance"]["held"][0]["task"] == tid
+        assert done.outputs["lesson_moves"] == []
 
 
 def test_a_domain_with_no_subject_is_reported_not_forced():

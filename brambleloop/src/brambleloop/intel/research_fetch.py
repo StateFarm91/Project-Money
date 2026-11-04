@@ -253,39 +253,58 @@ def plan_fetches(db) -> list[tuple[int, str]]:
     return out
 
 
-def promote(db) -> dict:
+def promote(db, *, now: datetime | None = None, withdraw_only: bool = False) -> dict:
     """Answered tasks with a fact become routed lessons; expired ones are withdrawn."""
     from ..improve import bus
+    from ..core.models import Lesson
     from . import research
 
-    promoted, withdrawn, unrouted = [], [], []
+    now = research._aware(now or datetime.now(timezone.utc))
+    promoted, withdrawn, unrouted, held = [], [], [], []
+    research._ensure(db)
     with db.session() as s:
         rows = list(s.scalars(research.select(research.ResearchTask).where(
             research.ResearchTask.state.in_([research.ANSWERED, research.EXPIRED]))))
         snap = [(r.id, r.state, r.domain, r.question, r.outcome, list(r.findings or []),
-                 dict(r.detail or {})) for r in rows]
-    for tid, state, domain, question, outcome, findings, detail in snap:
+                 dict(r.detail or {}), research.answer_fresh_at(r, now)) for r in rows]
+    for tid, state, domain, question, outcome, findings, detail, fresh in snap:
         facts = [f for f in findings if f.get("claim_class") == "fact"]
         lesson = detail.get("promoted_lesson")
-        if state == research.EXPIRED and lesson and not detail.get("lesson_withdrawn"):
-            bus.withdraw(db, lesson, reason=f"research task {tid} expired (F-433 freshness)",
-                         evidence_ref=f"research_tasks:{tid}", withdrawn_by="learn")
-            _set(db, tid, lesson_withdrawn=True)
-            withdrawn.append(lesson)
-            continue
-        if state != research.ANSWERED or lesson or not facts:
-            continue
         subject = DOMAIN_SUBJECT.get(domain)
+        statement = (f"Research answered '{question[:160]}': {outcome[:200]}. Facts: "
+                     + "; ".join(f["statement"][:160] for f in facts[:3]))
+        with db.session() as s:
+            related = list(s.scalars(research.select(Lesson).where(
+                Lesson.evidence_ref == f"research_tasks:{tid}",
+                Lesson.superseded_by.is_(None))))
+            valid = [r.id for r in related if r.origin_cell == "learn"
+                     and r.subject == subject and r.confidence == "confirmed"
+                     and r.statement == statement]
+        if len(related) != len(valid) or len(valid) > 1 or (lesson and lesson not in valid):
+            held.append({"task": tid, "reason": "lesson provenance requires reconciliation"})
+            continue
+        if not lesson and valid:
+            lesson = valid[0]
+            _set(db, tid, promoted_lesson=lesson)
+        if (state == research.EXPIRED or not fresh) and lesson:
+            result = bus.withdraw(db, lesson, reason=f"research task {tid} expired (F-433 freshness)",
+                                  evidence_ref=f"research_tasks:{tid}", withdrawn_by="learn")
+            _set(db, tid, lesson_withdrawn=True)
+            if result["withdrawn"]:
+                withdrawn.append(lesson)
+            continue
+        if state != research.ANSWERED or not fresh or lesson or not facts:
+            continue
+        if withdraw_only:
+            continue
         if subject is None or subject not in bus.SUBJECT_ROUTING:
             unrouted.append({"task": tid, "domain": domain})
             continue
-        statement = (f"Research answered '{question[:160]}': {outcome[:200]}. Facts: "
-                     + "; ".join(f["statement"][:160] for f in facts[:3]))
         lid = bus.publish(db, origin_cell="learn", subject=subject, statement=statement,
                           evidence_ref=f"research_tasks:{tid}", confidence="confirmed")
         _set(db, tid, promoted_lesson=lid)
         promoted.append(lid)
-    return {"promoted": promoted, "withdrawn": withdrawn, "unrouted": unrouted}
+    return {"promoted": promoted, "withdrawn": withdrawn, "unrouted": unrouted, "held": held}
 
 
 def _set(db, tid: int, **kv) -> None:
@@ -326,4 +345,4 @@ def run(db, *, get=None, now: datetime | None = None, sleep=time.sleep, env=None
         fetches = {"enabled": True, "planned": len(planned),
                    "results": [{k: f.get(k) for k in ("task", "url", "fetched", "why")}
                                for f in done]}
-    return {"fetches": fetches, **promote(db)}
+    return {"fetches": fetches, **promote(db, now=now)}
