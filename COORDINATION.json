@@ -371,6 +371,21 @@
         "brambleloop/research/final_build/w5/CODEX_A1_NAMED_SAFETY_HOLD_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HOLD-ATOMIC",
+      "operator": "codex",
+      "branch": "codex/a1-hold-atomic",
+      "source_branch": "codex/a1-named-safety-hold",
+      "source_sha": "2e856b8",
+      "scope": "Atomic child safety hold audit and owner action for cooperating assets workers",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold_pg.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HOLD_ATOMIC_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
