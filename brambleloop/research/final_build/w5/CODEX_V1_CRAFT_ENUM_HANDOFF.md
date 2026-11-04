@@ -167,6 +167,13 @@ combined focused suite passed 41/41 on Python 3.11/tmpfs; independent review
 reran the queue case. This does not demonstrate PostgreSQL concurrency or real
 provider billing.
 
+The complementary queue window is covered: if a worker finishes the handler
+and creates its child job but fails before acknowledging the parent, reopening
+the database and retrying reuses the synthetic candidate and the existing
+child. The Python 3.11/tmpfs spend/recovery suite passed 41/41; independent
+review reran this queue case. This is a sequential SQLite test, not a provider
+or PostgreSQL concurrency certification.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

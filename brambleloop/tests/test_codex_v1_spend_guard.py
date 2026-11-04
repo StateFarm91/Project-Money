@@ -470,3 +470,58 @@ def test_registered_handler_recovers_via_durable_queue_after_reopen(monkeypatch)
         children = session.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE,
                                    Job.id != retry.id)).all()
         assert len(children) == 1 and children[0].inputs["stage"] == "fidelity_gate"
+
+
+def test_queue_retry_after_child_enqueue_does_not_duplicate_generation_or_child(monkeypatch):
+    from datetime import timedelta
+    import test_w4_ownerimg as O
+    from sqlalchemy import select
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Job, utcnow
+    from brambleloop.queue.durable import DuplicateJob, JobQueue
+    from brambleloop.runtime import release as runtime_release
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+
+    db, gen = O.make_db(), O.StubGenerator()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    monkeypatch.setattr(IP, "resolve_generator", lambda db: gen)
+    monkeypatch.setattr(CG, "RealJudges", lambda db: O.StubJudges())
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    queue = JobQueue(db)
+    queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key="test-stage-job")
+    job = queue.claim("worker-a", job_types=[IP.JOB_TYPE])
+
+    class Context:
+        def __init__(self, db, queue, job):
+            self.db, self.queue, self.job = db, queue, job
+        def enqueue(self, agent, job_type, inputs, **kw):
+            try:
+                return self.queue.enqueue(agent, job_type, inputs, **kw)
+            except DuplicateJob:
+                return None
+        def audit(self, *args, **kwargs):
+            pass
+
+    first = runtime_release.handle_image_production(Context(db, queue, job))
+    assert first["next"] == "fidelity_gate"
+    queue.fail(job.id, "worker interrupted before completion", worker="worker-a",
+               lease_token=job.lease_token)
+    with db.session() as session:
+        session.get(Job, job.id).run_after = utcnow() - timedelta(seconds=1)
+        child = session.scalar(select(Job).where(Job.job_type == IP.JOB_TYPE, Job.id != job.id))
+        child.run_after = utcnow() + timedelta(days=1)
+        child_id = child.id
+    reopened = Database(str(db.engine.url), scratch=True)
+    queue2 = JobQueue(reopened)
+    retry = queue2.claim("worker-b", job_types=[IP.JOB_TYPE])
+    assert retry.id == job.id
+    out = runtime_release.handle_image_production(Context(reopened, queue2, retry))
+    assert queue2.complete(retry.id, outputs=out, worker="worker-b", lease_token=retry.lease_token)
+    assert out["next"] == "fidelity_gate" and gen.calls == 1
+    assert IP.get_run(reopened, key)["generation_calls"] == 1
+    with reopened.session() as session:
+        children = session.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE,
+                                   Job.id != retry.id)).all()
+        assert len(children) == 1 and children[0].id == child_id
