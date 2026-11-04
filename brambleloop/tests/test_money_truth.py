@@ -512,7 +512,10 @@ def test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost
         assert s["assumptions"]["sales_per_month"] and s["why"]
     assert (f["scenarios"]["low"]["ai_cost_monthly_cad"]
             < f["scenarios"]["high"]["ai_cost_monthly_cad"])
-    assert sustainability.verdict(db, now=NOW)["sustainable"] is True
+    verdict = sustainability.verdict(db, now=NOW)
+    assert verdict["sustainable"] is False
+    assert not verdict["checks"]["scenario_costs_complete"]
+    assert any("scenario cost evidence is unmeasured" in p for p in verdict["problems"])
     expensive = _db()
     _operating_history(expensive, platform_per_day=20.0)     # CA$600/month of inference
     v = sustainability.verdict(expensive, now=NOW)
