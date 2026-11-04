@@ -170,19 +170,27 @@ def listing_maintenance_cost(db, *, now: datetime | None = None) -> dict:
                 "why": "no listing is live, so no spend can be attributed to maintaining one. "
                        "Until then per-listing maintenance is inside platform spend"}
     per: dict[str, dict] = {}
+    selected_all = []
     for slug, since in live.items():
-        selected = [c for c in costs if c[3] == slug and c[1] in AI_KINDS and c[0] is not None and c[0] >= since]
-        spent = sum(c[2] for c in selected)
+        selected = [c for c in costs if c[3] == slug and c[1] in AI_KINDS
+                    and c[0] is not None and since <= c[0] <= now]
+        selected_all.extend(selected)
         months = max((now - since).days, 1) / 30.0
-        per[slug] = {"cost_basis": basis_summary((c[2],c[6]) for c in selected), "live_since": since.isoformat(), "spent_cad": round(spent, 4),
-                     "per_month_cad": round(spent / months, 4),
+        spent = sum(c[2] for c in selected) if selected else None
+        per[slug] = {"cost_basis": basis_summary((c[2], c[6]) for c in selected),
+                     "live_since": since.isoformat(),
+                     "spent_cad": round(spent, 4) if spent is not None else None,
+                     "per_month_cad": round(spent / months, 4) if spent is not None else None,
                      "months_observed": round(months, 2)}
-    monthly = [v["per_month_cad"] for v in per.values()]
-    basis = basis_summary((c[2],c[6]) for c in costs if c[3] in live and c[1] in AI_KINDS and c[0] is not None and c[0] >= live[c[3]])
-    return {"reading": basis["reading"], "cost_basis": basis, "listings": per,
-            "per_listing_month_cad": round(sum(monthly) / len(monthly), 4),
-            "note": "cost tagged to the product after its first live listing; product work "
-                    "that was not tagged is in platform spend, so this is a floor"}
+    missing = sorted(slug for slug, value in per.items() if value["per_month_cad"] is None)
+    monthly = [v["per_month_cad"] for v in per.values() if v["per_month_cad"] is not None]
+    basis = basis_summary((c[2], c[6]) for c in selected_all)
+    return {"reading": "UNMEASURED" if missing else basis["reading"],
+            "cost_basis": basis, "listings": per, "missing_listings": missing,
+            "per_listing_month_cad": (None if missing else round(sum(monthly) / len(monthly), 4)),
+            "note": "cost tagged to the product after its first live listing; absent tagged "
+                    "cost is not evidence of zero, and untagged product work is in platform spend"}
+
 
 
 # ---------------------------------------------------------------------------
