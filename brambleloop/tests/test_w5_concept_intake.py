@@ -219,6 +219,106 @@ def test_interrupted_proposal_with_conflicting_audit_stays_held(monkeypatch):
     assert not _jobs(db, "radar.score")
 
 
+@pytest.mark.parametrize("stage", ["approval_audit", "enqueue", "handoff_audit"])
+def test_interrupted_approved_research_handoff_recovers_without_duplicate_score(monkeypatch, stage):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    real_audit, real_enqueue = JobContext.audit, JobContext.enqueue
+
+    def interrupted_audit(ctx, action, *args, **kwargs):
+        if ((stage == "approval_audit" and action == intake.APPROVED_ACTION)
+                or (stage == "handoff_audit" and action == intake.HANDOFF_ACTION)):
+            raise RuntimeError("fixture interruption at audit")
+        return real_audit(ctx, action, *args, **kwargs)
+
+    def interrupted_enqueue(ctx, agent, job_type, *args, **kwargs):
+        if stage == "enqueue" and job_type == "radar.score":
+            raise RuntimeError("fixture interruption before enqueue")
+        return real_enqueue(ctx, agent, job_type, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted_audit)
+    monkeypatch.setattr(JobContext, "enqueue", interrupted_enqueue)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key=f"interrupted-{stage}")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    assert _rows(db)[0].state == intake.APPROVED
+    monkeypatch.setattr(JobContext, "audit", real_audit)
+    monkeypatch.setattr(JobContext, "enqueue", real_enqueue)
+    out = _run(db, "radar.concept_intake", {}, key=f"restart-{stage}")
+    assert out["recovered_handoffs"] == [SLUG]
+    assert len(_jobs(db, "radar.score")) == 1
+    assert len([a for a in _actions(db) if a.action == intake.APPROVED_ACTION]) == 1
+    assert len([a for a in _actions(db) if a.action == intake.HANDOFF_ACTION]) == 1
+    _run(db, "radar.concept_intake", {}, key=f"again-{stage}")
+    assert len(_jobs(db, "radar.score")) == 1
+
+
+def test_interrupted_approval_does_not_recover_when_source_expires(monkeypatch):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.APPROVED_ACTION:
+            raise RuntimeError("fixture interruption before approval audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="expired-approval")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(days=1)
+    out = _run(db, "radar.concept_intake", {}, key="expired-restart")
+    assert not out["recovered_handoffs"]
+    assert not _jobs(db, "radar.score")
+
+
+@pytest.mark.parametrize("corruption", ["dead", "agent", "payload", "bool_score", "nan_score"])
+def test_interrupted_handoff_does_not_accept_invalid_existing_score(monkeypatch, corruption):
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    intake.attach_proposal(db, tid, _proposal())
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.HANDOFF_ACTION:
+            raise RuntimeError("fixture interruption after score enqueue")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key=f"bad-score-{corruption}")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    monkeypatch.setattr(JobContext, "audit", original)
+    with db.session() as s:
+        score = s.scalar(select(Job).where(Job.job_type == "radar.score"))
+        if corruption == "dead":
+            score.status = JobStatus.DEAD
+        elif corruption == "agent":
+            score.agent = "wrong-agent"
+        elif corruption in ("bool_score", "nan_score"):
+            score.status = JobStatus.DONE
+            score.outputs = {"score": True if corruption == "bool_score" else float("nan")}
+        else:
+            score.inputs = {**score.inputs, "title": "wrong title"}
+    out = _run(db, "radar.concept_intake", {}, key=f"bad-score-restart-{corruption}")
+    assert not out["recovered_handoffs"]
+    assert not [a for a in _actions(db) if a.action == intake.HANDOFF_ACTION]
+
+
 def test_an_evidence_backed_opportunity_becomes_a_concept_is_scored_and_reaches_cir_draft():
     db = _db()
     _benchmarks(db)
