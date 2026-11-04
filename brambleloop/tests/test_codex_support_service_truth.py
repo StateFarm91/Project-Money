@@ -146,3 +146,19 @@ def test_rounded_late_delivery_cannot_pass_service_target(tmp_path):
     response_watch.record_reply_sent(db, case_id, sent_at=now, now=now)
     result = service.service_level(db, now=now)
     assert result["timed"] == 0 and result["meets_target"] is None
+
+
+def test_non_object_detail_remains_untimed_and_does_not_break_gate(tmp_path):
+    from brambleloop.commerce import ranking_readiness
+
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    case_id = _case(db)
+    with db.session() as session:
+        case = session.get(SupportCase, case_id)
+        case.detail = ["invalid", {"response_minutes": 0}]
+        case.sent = True
+    level = service.service_level(db, now=datetime.now(timezone.utc))
+    assert level["cases"] == 1 and level["untimed"] == 1
+    assert level["meets_target"] is None
+    assert ranking_readiness.service_quality(db)["status"] == "UNMEASURED"

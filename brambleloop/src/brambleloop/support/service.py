@@ -62,7 +62,7 @@ def _sent_minutes(case, *, now: datetime | None = None) -> float | None:
     """Return an attested response interval, never inferring delivery from a label."""
     from .response_watch import MessageRefused, _aware, _parse
 
-    detail = case.detail or {}
+    detail = case.detail if isinstance(case.detail, dict) else {}
     if (not case.sent or not detail.get("first_response_at") or case.at is None
             or detail.get("delivery_timing_conflict")):
         return None
@@ -156,10 +156,12 @@ def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:
     from ..core.models import SupportCase
 
     now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     cutoff = now - timedelta(days=days)
 
     with db.session() as s:
-        rows = [(c.escalated, dict(c.detail or {}),
+        rows = [(c.escalated, dict(c.detail) if isinstance(c.detail, dict) else {},
                  c.at if c.at.tzinfo else c.at.replace(tzinfo=timezone.utc),
                  _sent_minutes(c, now=now))
                 for c in s.scalars(select(SupportCase))]
