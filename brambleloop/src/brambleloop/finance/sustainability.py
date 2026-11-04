@@ -376,8 +376,8 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         "unmeasured_terms": unmeasured_terms,
         "note": ("every scenario figure is a named assumption multiplied by a recorded unit "
                  "cost. " + (f"{unmeasured_terms} are not yet measurable and are carried "
-                             f"inside platform spend (costed at 0 separately), which is why "
-                             f"platform spend is scaled per scenario" if unmeasured_terms
+                             f"as zero separately for illustration only; their full costs may not be "
+                             f"captured by scaled platform spend" if unmeasured_terms
                              else "")),
     }
 
@@ -444,7 +444,8 @@ def verdict(db, *, now: datetime | None = None) -> dict:
     criterion = ("MODELLED pre-launch estimate: forecast computable AND cost coverage "
                  "complete (all AI/API kinds incl. image renders; untagged spend counted as "
                  "platform; no billed render missing from the ledger; no priced product with "
-                 "UNKNOWN creation cost) AND contribution per sale positive at every recorded "
+                 "UNKNOWN creation cost) AND every scenario cost component measured "
+                 "AND contribution per sale positive at every recorded "
                  "opening price with modelled fees. Assumed volumes may only block (recurring "
                  "AI/API cost not covered at the LOW scenario's assumed sales, or base-case "
                  "AI share over the limit), never grant")
@@ -455,6 +456,13 @@ def verdict(db, *, now: datetime | None = None) -> dict:
                     f["missing"])}
     base, low = f["scenarios"]["base"], f["scenarios"]["low"]
     problems = []
+    # Illustrative scenarios currently substitute zero for unknown unit costs.
+    # Those figures may identify a problem, but cannot demonstrate sustainability.
+    raw_unknown_costs = f.get("unmeasured_terms")
+    unknown_costs = (raw_unknown_costs if isinstance(raw_unknown_costs, list)
+                     else ["scenario cost coverage unavailable"])
+    if unknown_costs:
+        problems.append("scenario cost evidence is unmeasured: " + ", ".join(unknown_costs))
 
     # 2. Cost coverage.
     cov = coverage(db)
@@ -501,6 +509,7 @@ def verdict(db, *, now: datetime | None = None) -> dict:
         "criterion": criterion, "problems": problems,
         "checks": {
             "cost_coverage_complete": cov["complete"],
+            "scenario_costs_complete": not unknown_costs,
             "unit_margin_positive": bool(units) and all(
                 u["per_sale_cad"] > 0 for u in units.values()),
             "recurring_cost_covered_at_low_assumed_volume": (
