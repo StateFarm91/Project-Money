@@ -1207,16 +1207,35 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
     return out
 
 
-def recover_research_handoffs(db, candidates, *, audit, enqueue, today: date) -> list[str]:
-    """Repair sequential approval-to-score interruptions for still-current research."""
+def recover_approved_handoffs(db, candidates, *, audit, enqueue, today: date) -> list[str]:
+    """Repair sequential score-handoff interruptions only for current source evidence."""
     from ..core.models import AuditLog, Job, JobStatus
 
     recovered = []
     by_fingerprint = {fingerprint(c["source_ref"], _clean(c["proposal"]), c["evidence"]): c
                       for c in candidates if c["source"] == SOURCE_RESEARCH}
-    for row in approved_rows(db):
+    rows = approved_rows(db)
+    if any(row.source == SOURCE_FAMILY for row in rows):
+        from ..creative.family_engine import family_report
+
+        families = {f.get("family"): f for f in family_report(db).get("families", [])
+                    if isinstance(f, dict) and isinstance(f.get("amplification"), dict)
+                    and not f.get("next_members")}
+        for row in rows:
+            if row.source != SOURCE_FAMILY or not row.source_ref.startswith("family:"):
+                continue
+            family = families.get(row.source_ref.split(":", 1)[1])
+            proposal = (row.detail or {}).get("proposal")
+            if family is None or not isinstance(proposal, dict):
+                continue
+            evidence = family_evidence(db, family, today=today)
+            candidate = {"source": SOURCE_FAMILY, "source_ref": row.source_ref,
+                         "proposal": proposal, "evidence": evidence}
+            key = fingerprint(row.source_ref, _clean(proposal), evidence)
+            by_fingerprint[key] = candidate
+    for row in rows:
         candidate = by_fingerprint.get(row.fingerprint)
-        if row.source != SOURCE_RESEARCH or candidate is None:
+        if candidate is None or candidate["source"] != row.source:
             continue
         if (candidate["source_ref"] != row.source_ref
                 or _clean(candidate["proposal"]) != (row.detail or {}).get("proposal")
@@ -1376,6 +1395,8 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
     today = today or datetime.now(timezone.utc).date()
     withdrawn = withdraw_unsupported(db, audit=audit, today=today)
     candidates = research_candidates(db, today=today) + family_candidates(db, today=today)
+    recovered = recover_approved_handoffs(db, candidates, audit=audit, enqueue=enqueue,
+                                          today=today)
     decided, unchanged = [], 0
     for cand in candidates:
         if len(decided) >= MAX_EVALUATIONS_PER_RUN:
@@ -1385,8 +1406,6 @@ def run(db, *, audit, enqueue, today: date | None = None) -> dict:
             unchanged += 1
             continue
         decided.append(out)
-    recovered = recover_research_handoffs(db, candidates, audit=audit, enqueue=enqueue,
-                                          today=today)
     rescored = rescore_judged(db, audit=audit, enqueue=enqueue, today=today)
     return {"candidates": len(candidates), "unchanged": unchanged,
             "rescored": rescored, "recovered_handoffs": recovered, "withdrawn": withdrawn,

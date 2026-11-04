@@ -528,6 +528,51 @@ def test_unchanged_input_is_not_reprocessed_and_a_change_is():
 # ---- product families ----------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("lost_demand", [False, True])
+def test_family_handoff_restart_requires_current_proven_demand(monkeypatch, lost_demand):
+    from brambleloop.creative import family_engine
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    family = "nordic-forest"
+    members = [s.slug for s in POOL if s.family == family and not s.is_bundle]
+    report = {"families": [{"family": family, "next_members": [],
+                            "members": [{"slug": m, "version": "1.0.0", "orders": 3}
+                                        for m in members],
+                            "amplification": {"orders": 12}}]}
+    monkeypatch.setattr(family_engine, "family_report", lambda _db: report)
+    with db.session() as s:
+        customer = Customer(customer_ref="fixture-family-handoff")
+        s.add(customer)
+        s.flush()
+        for i in range(12):
+            s.add(Order(customer_id=customer.id, external_ref=f"family-handoff-{i}",
+                        product_slug=members[i % len(members)],
+                        at=datetime.now(timezone.utc) - timedelta(days=3 + i)))
+    original = JobContext.audit
+
+    def interrupted(ctx, action, *args, **kwargs):
+        if action == intake.APPROVED_ACTION:
+            raise RuntimeError("fixture interruption at family approval audit")
+        return original(ctx, action, *args, **kwargs)
+
+    monkeypatch.setattr(JobContext, "audit", interrupted)
+    JobQueue(db).enqueue("market_radar", "radar.concept_intake", {},
+                         idempotency_key="interrupted-family-handoff")
+    assert Worker(db, "interrupted", job_types=["radar.concept_intake"]).run_once()
+    target = _rows(db)[0]
+    assert target.state == intake.APPROVED
+    monkeypatch.setattr(JobContext, "audit", original)
+    if lost_demand:
+        report["families"][0]["amplification"] = "UNMEASURED"
+    result = _run(db, "radar.concept_intake", {}, key="restart-family-handoff")
+    jobs = [j for j in _jobs(db, "radar.score") if j.inputs.get("slug") == target.slug]
+    if lost_demand:
+        assert target.slug not in result["recovered_handoffs"] and not jobs
+    else:
+        assert target.slug in result["recovered_handoffs"] and len(jobs) == 1
+
+
 def test_a_proven_family_proposes_coordinated_variations_without_duplicates():
     db = _db()
     family = "nordic-forest"
