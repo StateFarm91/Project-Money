@@ -3087,13 +3087,20 @@ def handle_physical_record(ctx: JobContext) -> dict:
         raise ValueError("`instructions_followed` must be answered yes or no; a blank or "
                          "missing answer is not a yes")
 
+    def _reported_number(value, key):
+        # bool is an int in Python; converting it to 1.0 invents a measurement.
+        if isinstance(value, bool):
+            raise ValueError(f"`{key}` must be a measurement, not a boolean")
+        return float(value)
+
     report = SampleReport(
         # SECREVIEW R12: no default tester. `physical.record` binds the sample to the tester's
         # recorded independent agreement, or refuses it (owner_made is non-evidence).
         product_slug=slug, version=version, tester_ref=str(i.get("tester_ref") or ""),
-        grams_by_color={str(k): float(v) for k, v in (i.get("grams_by_color") or {}).items()},
-        ball_band=BallBand(grams=float(i["ball_band_grams"]),
-                           metres=float(i["ball_band_metres"])),
+        grams_by_color={str(k): _reported_number(v, "grams_by_color")
+                        for k, v in (i.get("grams_by_color") or {}).items()},
+        ball_band=BallBand(grams=_reported_number(i["ball_band_grams"], "ball_band_grams"),
+                           metres=_reported_number(i["ball_band_metres"], "ball_band_metres")),
         hook_mm=i.get("hook_mm"),
         measured_width_cm=i.get("measured_width_cm"),
         measured_height_cm=i.get("measured_height_cm"),
