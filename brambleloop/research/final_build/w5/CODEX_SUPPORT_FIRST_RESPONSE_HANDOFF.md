@@ -88,3 +88,16 @@ test was run for this change under the workspace storage constraint; the lock
 covers only this intake path, not direct writes or other intake APIs. Lock wait,
 large customer histories, sent/scope authority, and other support races remain
 open. No customer messages were sent.
+
+Hotspot follow-up: repeated cases or repeated row mentions from the same
+recorded buyer reference now count once per product, version and row; unknown
+buyer references and malformed rows do not manufacture corroboration. The
+workspace retains separate candidate entries for different versions. A real
+`support.triage` Worker and file-backed SQLite restart test confirms the
+candidate audit contains no buyer references. Focused Python 3.11 SQLite
+support/department/trust/workspace tests passed 54/54; an independent reviewer
+reran the Worker test. Distinct recorded references are not authenticated
+distinct people, and versionless cases remain grouped as version unknown.
+These remain candidate defects, not physical proof or confirmed defects.
+PostgreSQL and duplicate audit-event recovery are not verified here. No
+customer messages were sent.

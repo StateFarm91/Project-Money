@@ -292,9 +292,11 @@
         "brambleloop/src/brambleloop/runtime/release.py",
         "brambleloop/src/brambleloop/support/service.py",
         "brambleloop/tests/test_codex_support_response_pg.py",
-        "brambleloop/src/brambleloop/app/main.py"
+        "brambleloop/src/brambleloop/app/main.py",
+        "brambleloop/src/brambleloop/support/workspace.py",
+        "brambleloop/tests/test_codex_support_hotspot_truth.py"
       ],
-      "scope": "Preserve support first-response truth and product/version-scoped intake; no customer messages sent."
+      "scope": "Preserve support response and intake truth, and count version-scoped buyer-reference hotspots; no customer messages sent."
     }
   ],
   "unowned": [
