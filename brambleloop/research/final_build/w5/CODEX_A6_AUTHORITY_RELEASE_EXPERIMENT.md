@@ -1,0 +1,7 @@
+# A6 authority and release transaction experiment — DO NOT INTEGRATE
+
+This isolated preview composes the certification persistence checkpoint `0f28a40`, the session ledger from `1fc3141`, the verifier from `98452be`, and the owner-append source/tests at `4504125`. It does not modify any shared branch or wire the real certification handler.
+
+A synthetic fixture with a real independently reviewed and evaluated Learning rule creates an Ed25519 grant, freezes the rule into a CIR, checks the pin and grant, and calls the existing caller-session release persistence helper. The fixture checks rejection of an anchor mismatch, outer transaction rollback, and a subsequent committed release. The certificate is synthesized for the test: no gate-issued certification or production authority is demonstrated. The fixture's DB anchor, owner decision and fence have no trust or concurrency guarantees.
+
+The actual `gate.certify` handler still does not run these operations in one transaction. Signed grant expected values must be derived from current locked evidence; `authorize_in_session` accepts supplied values and does not do that itself. A trusted independent live anchor and owner signing infrastructure, complete evidence/writer fence, authenticated owner/independence policy, commit-time lease, gate-issued certificate, durable effect/outbox and post-commit invalidation/delivery policy remain unimplemented. Pin marker removal and revocation/licence races remain open. The prototype cannot authorize production work, integration or deployment.
