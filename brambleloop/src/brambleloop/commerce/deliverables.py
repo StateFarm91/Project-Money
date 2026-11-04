@@ -116,7 +116,7 @@ def resolve_pdf(db, slug: str, version: str, terminology: str = "US", *, release
     Order: disk -> Postgres -> byte-identical re-render (then kept). `render` is injectable
     for tests; it defaults to `render_certified_pdfs`.
     """
-    from ..core.artifacts import ArtifactMissing, ArtifactStore
+    from ..core.artifacts import ArtifactMissing, ArtifactStore, _recover
 
     want = certified(db, slug, version, release)["pdfs"].get(terminology)
     if not want:
@@ -126,8 +126,12 @@ def resolve_pdf(db, slug: str, version: str, terminology: str = "US", *, release
     try:
         data = store.get(want, db=db)
         source = "disk" if not held(db, want) else "durable"
-    except ArtifactMissing:
-        data, source = None, ""
+    except (ArtifactMissing, OSError):
+        # A corrupt local cache prevents ArtifactStore.get from consulting the
+        # database. Return only the independently re-hashed durable bytes; do
+        # not overwrite the cache or imply that a filesystem path is repaired.
+        data = _recover(db, want) if db is not None else None
+        source = "durable" if data is not None else ""
     if data is None:
         rendered = (render or render_certified_pdfs)(db, slug, version).get(terminology)
         if rendered is None or _sha(rendered) != want:
