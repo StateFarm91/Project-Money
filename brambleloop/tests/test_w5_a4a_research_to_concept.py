@@ -33,6 +33,7 @@ from brambleloop.core.models import (  # noqa: E402
     AuditLog, BenchmarkListing, CoverageGap, Job, JobStatus, Phase, utcnow,
 )
 from brambleloop.intel import coverage, research  # noqa: E402
+from brambleloop.intel import research_agent  # noqa: E402
 from brambleloop.intel.benchmarks import MJS_KEY  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.radar import ideation, intake  # noqa: E402
@@ -543,6 +544,156 @@ def test_stale_handoff_lease_cannot_recover_initial_job():
         assert s.scalar(select(Job.id).where(Job.idempotency_key == key)) is None
         assert not list(s.scalars(select(AuditLog).where(
             AuditLog.action == "ideation.investigation_recovered")))
+
+
+def _insufficient_open_task(db):
+    gid = _gap(db, "kitchen_bath")
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    rec = _ideation(db, gid)
+    assert task.state == research.OPEN
+    assert rec["outcome"] == ideation.OUT_INSUFFICIENT
+    assert rec.get("insufficient_census_sha256")
+    return gid, task.id
+
+
+def _run_research_sweep(db, key):
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.sweep", {}, idempotency_key=key,
+                    priority=-1000)
+    assert Worker(db, f"sweep-{key}", job_types=["research.sweep"]).run_once()
+    with db.session() as s:
+        done = s.get(Job, job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        return dict(done.outputs or {})
+
+
+def test_new_sufficient_observations_trigger_open_task_before_weekly_window():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    assert tid not in research_agent.due_for_investigation(db)
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "new-evidence-sweep-1")
+    _run_research_sweep(db, "new-evidence-sweep-2")
+    with db.session() as s:
+        followups = [job for job in s.scalars(select(Job).where(
+            Job.job_type == "research.investigate")) if (job.inputs or {}).get("task_id") == tid]
+        assert sum(job.status == JobStatus.PENDING for job in followups) == 1
+    assert Worker(db, "new-evidence-research", job_types=["research.investigate"]).run_once()
+    assert _tasks(db)[0].state == research.ANSWERED
+    assert _ideation(db, gid)["outcome"] == ideation.OUT_PROPOSED
+    assert len(_tasks(db)[0].detail["concept_proposals"]) == 1
+
+
+def test_changed_but_insufficient_observations_do_not_trigger_early_retry():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    _listings(db, "kitchen_bath", KITCHEN[:1])
+    assert tid not in research_agent.due_for_investigation(db)
+
+
+def test_active_investigation_prevents_evidence_triggered_duplicate():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    _listings(db, "kitchen_bath", KITCHEN)
+    JobQueue(db).enqueue("research_agent", "research.investigate", {"task_id": tid},
+                         idempotency_key="other-active-investigation")
+    assert tid not in research_agent.due_for_investigation(db)
+    # The ordinary time-based path must also respect in-flight work.
+    assert tid not in research_agent.due_for_investigation(db, now=utcnow() + timedelta(days=8))
+
+
+def test_legacy_missing_census_baseline_does_not_trigger_early_retry():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record.pop("insufficient_census_sha256")
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid not in research_agent.due_for_investigation(db)
+    # The ordinary age-based cadence still covers legacy open tasks.
+    assert tid in research_agent.due_for_investigation(db, now=utcnow() + timedelta(days=8))
+
+
+def test_stopped_ideation_task_does_not_reopen_on_new_observations():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        s.get(research.ResearchTask, tid).state = research.STOPPED
+    _listings(db, "kitchen_bath", KITCHEN)
+    assert tid not in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "stopped-evidence-sweep")
+    with db.session() as s:
+        assert s.get(research.ResearchTask, tid).state == research.STOPPED
+        assert not [job for job in s.scalars(select(Job).where(
+            Job.job_type == "research.investigate", Job.status == JobStatus.PENDING))
+            if (job.inputs or {}).get("task_id") == tid]
+
+
+def test_future_or_no_work_audit_does_not_suppress_a_due_task():
+    db = _db()
+    _gid, tid = _insufficient_open_task(db)
+    with db.session() as s:
+        for event in s.scalars(select(AuditLog).where(
+                AuditLog.action == research_agent.INVESTIGATED,
+                AuditLog.artifact == f"research_task:{tid}")):
+            event.at = utcnow() + timedelta(days=10)
+        s.add(AuditLog(actor="research_agent", action=research_agent.INVESTIGATED,
+                       artifact=f"research_task:{tid}", at=utcnow(), detail={"ran": False}))
+    assert tid in research_agent.due_for_investigation(db)
+    _run_research_sweep(db, "future-audit-sweep")
+    with db.session() as s:
+        assert any((job.inputs or {}).get("task_id") == tid and job.status == JobStatus.PENDING
+                   for job in s.scalars(select(Job).where(Job.job_type == "research.investigate")))
+
+
+def test_stale_investigation_cannot_overwrite_new_gap_owner():
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="stale-owner-investigation", priority=-1000)
+    claimed = q.claim("old-research-worker", job_types=["research.investigate"])
+    assert claimed.id == job.id
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        record = dict(evidence["ideation"])
+        record["task"] = tid + 1000
+        evidence["ideation"] = record
+        gap.evidence = evidence
+    out = intel_ops.handle_research_investigate(ctx)
+    assert out["ran"] is False and "ownership or lease changed" in out["why"]
+    assert _ideation(db, gid)["task"] == tid + 1000
+
+
+def test_task_stopped_during_observation_cannot_record_new_outcome(monkeypatch):
+    db = _db()
+    gid, tid = _insufficient_open_task(db)
+    q = JobQueue(db)
+    job = q.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                    idempotency_key="stopped-during-observation", priority=-1000)
+    claimed = q.claim("stale-observer", job_types=["research.investigate"])
+    assert claimed.id == job.id
+    ctx = JobContext(claimed, db, q, Registry(db), Phase.SHADOW)
+    original = ideation.observe
+
+    def stop_then_observe(database, pod, *, today):
+        with database.session() as s:
+            s.get(research.ResearchTask, tid).state = research.STOPPED
+        return original(database, pod, today=today)
+
+    monkeypatch.setattr(ideation, "observe", stop_then_observe)
+    before = _ideation(db, gid)
+    out = intel_ops.handle_research_investigate(ctx)
+    assert out["ran"] is False and "ownership or lease changed" in out["why"]
+    assert _ideation(db, gid) == before
 
 
 def test_missing_lineage_storage_rolls_back_handoff_then_retry_recovers():

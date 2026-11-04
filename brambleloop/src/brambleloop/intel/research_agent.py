@@ -505,20 +505,64 @@ def architecture_flags(db, *, days: int = 35) -> list[dict]:
 
 
 def due_for_investigation(db, *, now: datetime | None = None) -> list[int]:
-    """Open tasks not investigated in the last REINVESTIGATE_DAYS."""
+    """Open tasks due normally or with newly sufficient ideation observations."""
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, CoverageGap, Job, JobStatus
+    from ..radar import ideation
 
     now = now or datetime.now(timezone.utc)
     R._ensure(db)
     since = now - timedelta(days=REINVESTIGATE_DAYS)
     with db.session() as s:
-        recent = {a for (a,) in s.execute(select(AuditLog.artifact).where(
-            AuditLog.action == INVESTIGATED, AuditLog.at >= since)).all()}
-        return [r.id for r in s.scalars(select(R.ResearchTask).where(
-            R.ResearchTask.state == R.OPEN).order_by(R.ResearchTask.id))
-                if f"research_task:{r.id}" not in recent]
+        recent = {artifact for artifact, detail in s.execute(
+            select(AuditLog.artifact, AuditLog.detail).where(
+                AuditLog.action == INVESTIGATED, AuditLog.at >= since,
+                AuditLog.at <= now)).all()
+            if not (isinstance(detail, dict) and detail.get("ran") is False)}
+        active_task_ids = set()
+        for inputs in s.scalars(select(Job.inputs).where(
+                Job.job_type == "research.investigate",
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+            raw = inputs.get("task_id") if isinstance(inputs, dict) else None
+            try:
+                if not isinstance(raw, bool):
+                    active_task_ids.add(int(raw))
+            except (TypeError, ValueError, OverflowError):
+                pass
+        tasks = list(s.scalars(select(R.ResearchTask).where(
+            R.ResearchTask.state == R.OPEN).order_by(R.ResearchTask.id)))
+        due = []
+        observations = {}
+        for task in tasks:
+            if task.id in active_task_ids:
+                continue
+            if f"research_task:{task.id}" not in recent:
+                due.append(task.id)
+                continue
+            detail = task.detail if isinstance(task.detail, dict) else {}
+            brief = detail.get("ideation_brief")
+            if not isinstance(brief, dict) or type(brief.get("gap")) is not int:
+                continue
+            gap = s.get(CoverageGap, brief["gap"])
+            ev = gap.evidence if gap and isinstance(gap.evidence, dict) else {}
+            rec = ev.get("ideation") or {}
+            if (gap is None or gap.state not in ("uncovered", "concepting")
+                    or not isinstance(rec, dict) or type(rec.get("task")) is not int
+                    or rec.get("task") != task.id or rec.get("outcome") != ideation.OUT_INSUFFICIENT
+                    or not rec.get("insufficient_census_sha256")
+                    or task.trigger != f"{ideation.TRIGGER_PREFIX}{gap.id}"
+                    or brief.get("pod") != gap.pod):
+                continue
+            # A persisted reference binds an earlier census; do not reuse it.
+            if detail.get("ideation_refs"):
+                continue
+            if gap.pod not in observations:
+                observations[gap.pod] = ideation.observe(db, gap.pod, today=now.date())
+            obs = observations[gap.pod]
+            if obs["ok"] and obs["census_sha256"] != rec["insufficient_census_sha256"]:
+                due.append(task.id)
+        return due
 
 
 def request_research(ctx, *, question: str, trigger: str, decision_ref: str, domain: str,

@@ -227,7 +227,8 @@ def handle_research_investigate(ctx: JobContext) -> dict:
         ctx.audit(research_agent.INVESTIGATED, artifact=f"research_task:{tid}",
                   detail={"method": "radar.ideation", "status": out.get("outcome")
                           or out.get("why"), "proposed": bool(out.get("proposed")),
-                          "slug": out.get("slug")})
+                          "slug": out.get("slug"), "ran": bool(out.get("ran")),
+                          "work_done": int(out.get("work_done") or 0)})
         return out
     out = research_agent.investigate(ctx.db, int(tid))
     if out["status"] == research_agent.NOT_OPEN:

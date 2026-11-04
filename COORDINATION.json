@@ -387,6 +387,21 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-RESEARCH-SWEEP-NEW-EVIDENCE",
+      "operator": "codex",
+      "branch": "codex/research-sweep-new-evidence",
+      "base": "5ee9bed519faf99f242726a32d7df0668bd633e8",
+      "scope": "Retry an open insufficient-evidence task when its recorded census changes and becomes sufficient",
+      "files": [
+        "brambleloop/src/brambleloop/radar/ideation.py",
+        "brambleloop/src/brambleloop/intel/research_agent.py",
+        "brambleloop/src/brambleloop/runtime/intel_ops.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
