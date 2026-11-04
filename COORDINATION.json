@@ -784,6 +784,44 @@
         "brambleloop/tests/test_codex_v1_blind_comparison.py"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "OPUS2-PHOTO-ASSET-REVIEW",
+      "operator": "opus2",
+      "branch": "opus2/p0-photo-asset-review",
+      "state": "claimed",
+      "area": "P0-PHOTO-ASSET-REVIEW",
+      "claimed": "2026-11-02T05:00Z",
+      "scope": "deterministic asset-truth review of attested PHYSICAL_PRODUCT_PHOTO frames (publish/photo_asset_review.py, assets.photo_review job), approve + audit + listing-set re-issue; no LLM verdict"
+    },
+    {
+      "id": "CODEX-A3-PHOTO-RECOVERY",
+      "operator": "codex",
+      "branch": "codex/a3-photo-recovery",
+      "source_branch": "opus2/p0-photo-asset-review",
+      "source_sha": "c21749471d000c0baf0c83e5530f7d6a59e89700",
+      "scope": "A3F photo-led gallery liveness findings",
+      "files": [
+        "brambleloop/src/brambleloop/publish/photo_asset_review.py",
+        "brambleloop/src/brambleloop/publish/physical_upgrade.py",
+        "brambleloop/tests/test_opus2_photo_asset_review.py",
+        "brambleloop/src/brambleloop/publish/release_gates.py",
+        "brambleloop/src/brambleloop/runtime/etsy_ops.py",
+        "brambleloop/tests/test_codex_a3_disclosed_race.py"
+      ],
+      "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A3-EXCLUDED-GALLERY-GAP",
+      "operator": "codex",
+      "branch": "codex/a3-gallery-gap-recovery",
+      "source_sha": "c888769bb0a0003f97701c589a751052f90fb630",
+      "scope": "Keep effective gallery positions contiguous when a nonleader photo is excluded, preserving holds and certificate invalidation",
+      "files": [
+        "brambleloop/src/brambleloop/publish/photo_asset_review.py",
+        "brambleloop/tests/test_codex_a3_excluded_gap.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
