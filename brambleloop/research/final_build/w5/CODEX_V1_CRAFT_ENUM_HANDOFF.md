@@ -196,6 +196,12 @@ reran eight child-state controls. This modifies the shared `runtime/release.py`;
 coordinate its integration with the A1/support changes touching that file. Job
 metadata and concurrent status changes remain unauthenticated and unfenced.
 
+Completed duplicate child results additionally require the expected run, a
+matching stage where supplied, and a valid stage-specific successor or stage
+status. Null or unrelated successor values are refused. Focused Python
+3.11/tmpfs tests passed 56/56; an independent reviewer reran 13 child-result
+cases. These are structural checks, not authenticated queue evidence.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

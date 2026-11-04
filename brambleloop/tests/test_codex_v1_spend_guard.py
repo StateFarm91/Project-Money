@@ -566,7 +566,9 @@ def test_queue_retry_after_child_enqueue_does_not_duplicate_generation_or_child(
 
 
 @pytest.mark.parametrize("problem", ["dead", "cancelled", "mismatched", "skipped",
-                                    "empty_done", "wrong_run_done", "exhausted", "valid_done"])
+                                    "empty_done", "wrong_run_done", "exhausted", "bad_next",
+                                    "wrong_successor", "null_next", "bad_stage", "bad_status",
+                                    "valid_done"])
 def test_registered_handler_refuses_invalid_duplicate_child(monkeypatch, problem):
     import test_w4_ownerimg as O
     from brambleloop.core.models import Job, JobStatus
@@ -604,6 +606,14 @@ def test_registered_handler_refuses_invalid_duplicate_child(monkeypatch, problem
         elif problem == "valid_done":
             row.status, row.outputs = JobStatus.DONE, {
                 "run_key": IP.run_key("item", "1", "a" * 64), "next": "load_laura_references"}
+        elif problem in ("bad_next", "wrong_successor", "null_next", "bad_stage", "bad_status"):
+            row.status, row.outputs = JobStatus.DONE, {
+                "run_key": IP.run_key("item", "1", "a" * 64),
+                "next": ("not_a_stage" if problem == "bad_next" else
+                         "owner_card" if problem == "wrong_successor" else
+                         None if problem == "null_next" else "load_laura_references"),
+                **({"stage": "wrong"} if problem == "bad_stage" else {}),
+                **({"status": "fabricated"} if problem == "bad_status" else {})}
     class Context:
         def __init__(self):
             self.db, self.job = db, type("Stage", (), {"inputs": inputs})()

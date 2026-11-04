@@ -3635,6 +3635,32 @@ def handle_image_production(ctx: JobContext) -> dict:
             done_output = existing.outputs if existing is not None else None
             expected_run = image_production.run_key(inputs["slug"], inputs["version"],
                                                     inputs["release"], inputs.get("ns") or "")
+            done_valid = False
+            if isinstance(done_output, dict):
+                status = done_output.get("status")
+                valid_status = (isinstance(status, str) and
+                                (status == image_production.STAGE_STATE.get(inputs["stage"])
+                                 or (inputs["stage"] == "retrieve_release"
+                                     and status == "awaiting_certified_pattern")
+                                 or status.startswith("blocked(")))
+                next_stage = done_output.get("next")
+                expected_stage = inputs["stage"]
+                successors = ({image_production._next(expected_stage)}
+                              if expected_stage in image_production.STAGE_STATE else set())
+                if expected_stage == "fidelity_gate":
+                    successors.add("product_generation")
+                elif expected_stage == "verification":
+                    successors.add("gallery_assembly")
+                elif expected_stage == "repair":
+                    successors = {"verification"}
+                successors.discard(None)
+                valid_next = ("next" in done_output and
+                              isinstance(next_stage, str) and next_stage in successors)
+                done_valid = (done_output.get("run_key") == expected_run
+                              and not done_output.get("skipped")
+                              and ("stage" not in done_output or done_output["stage"] == inputs["stage"])
+                              and (valid_next if "next" in done_output else valid_status)
+                              and ("status" not in done_output or valid_status))
             if (existing is None or existing.agent != "publishing"
                     or existing.job_type != "visual.image_production"
                     or existing.inputs != inputs
@@ -3642,11 +3668,7 @@ def handle_image_production(ctx: JobContext) -> dict:
                                                JobStatus.FAILED, JobStatus.DONE)
                     or (existing.status == JobStatus.FAILED
                         and existing.attempts >= existing.max_attempts)
-                    or (existing.status == JobStatus.DONE
-                        and (not isinstance(done_output, dict)
-                             or done_output.get("run_key") != expected_run
-                             or done_output.get("skipped")
-                             or not ({"next", "status", "blocked_reason"} & done_output.keys())))):
+                    or (existing.status == JobStatus.DONE and not done_valid)):
                 raise RuntimeError("visual continuation is missing, mismatched or terminal; review required")
         return None
 
