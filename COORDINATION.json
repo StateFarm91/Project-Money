@@ -355,6 +355,18 @@
         "brambleloop/tests/test_codex_a9_defer_state_pg.py"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A9-EVENT-SCOPE",
+      "operator": "codex",
+      "branch": "codex/a9-event-scope-validation",
+      "source_sha": "c0252f6fd92fdd670d191f732aec543cde7dd86b",
+      "scope": "Refuse malformed per-release listing-package events instead of dispatching global sweeps",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/listing_package_ops.py",
+        "brambleloop/tests/test_codex_a9_event_scope.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
