@@ -312,6 +312,20 @@
         "brambleloop/tests/test_codex_a1_assignment_content.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-A1-AUDIENCE-SHORTHAND",
+      "operator": "codex",
+      "branch": "codex/a1-audience-shorthand",
+      "source_branch": "codex/a1-stuffing-continuation",
+      "source_sha": "ec9dc9a8c098bbb3e00b85c1206bafd06eb02871",
+      "scope": "Conservative A1 child-audience detection of explicit French terms and compact numeric age/size notations",
+      "files": [
+        "brambleloop/src/brambleloop/products/launch0.py",
+        "brambleloop/tests/test_codex_a1_listing_child.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_AUDIENCE_SHORTHAND_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
