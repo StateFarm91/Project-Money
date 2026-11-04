@@ -31,8 +31,12 @@ negatives to the certified ones; they never remove one.
 from __future__ import annotations
 
 import hashlib
+import os
 from contextlib import contextmanager
+from contextvars import ContextVar
+from threading import RLock
 import time
+from weakref import WeakValueDictionary
 from pathlib import Path
 from typing import Callable
 
@@ -50,6 +54,20 @@ VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
                    "angle": "second_angle", "detail": "detail_closeup"}
 _KIND_PRODUCT = "pattern_derived"
 _KIND_LAURA = "laura_canonical"
+_ROOT_LOCKS: WeakValueDictionary = WeakValueDictionary()
+_ROOT_LOCKS_GUARD = RLock()
+
+
+def _scratch_lock(work_root: str | None):
+    if not work_root:
+        return RLock()
+    key = os.path.realpath(work_root)
+    with _ROOT_LOCKS_GUARD:
+        lock = _ROOT_LOCKS.get(key)
+        if lock is None:
+            lock = RLock()
+            _ROOT_LOCKS[key] = lock
+        return lock
 
 
 class GeneratorRefused(RuntimeError):
@@ -105,7 +123,14 @@ class Flux3Generator:
     paid = True
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
     accepts_staged_method = ACCEPTS_STAGED_METHOD
-    current_run_key: str | None = None     # set by the orchestrator per generation
+
+    @property
+    def current_run_key(self) -> str | None:
+        return self._run_key_context.get()
+
+    @current_run_key.setter
+    def current_run_key(self, value: str | None) -> None:
+        self._run_key_context.set(value)
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
@@ -117,6 +142,10 @@ class Flux3Generator:
         # A caller-owned directory, or (None) a scratch directory per call that is removed when
         # the call returns: every method hands back bytes, so nothing must outlive it.
         self.work_root = work_root
+        self._scratch_lock = _scratch_lock(work_root)
+        self._run_key_context = ContextVar("flux3_run_key", default=None)
+        self._generating = ContextVar("flux3_generating", default=False)
+        self._active_run_key = ContextVar("flux3_active_run_key", default=None)
         self._root: Path | None = None
         self.size = size
         # A stub renderer spends nothing; the paid flag is what opens W-OWNERIMG's gate check.
@@ -130,12 +159,14 @@ class Flux3Generator:
     def _scratch(self):
         from ..core import workspace
 
-        with workspace.work_dir(self.work_root, prefix="generated-") as root:
-            self._root = Path(root)
-            try:
-                yield self._root
-            finally:
-                self._root = None
+        with self._scratch_lock:
+            with workspace.work_dir(self.work_root, prefix="generated-") as root:
+                previous = self._root
+                self._root = Path(root)
+                try:
+                    yield self._root
+                finally:
+                    self._root = previous
 
     # -- references --------------------------------------------------------------------------
     def _release(self, slug: str, version: str, release: str) -> S.Release:
@@ -189,9 +220,19 @@ class Flux3Generator:
     # -- generation --------------------------------------------------------------------------
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
                  outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
-        with self._scratch():
-            return self._generate(stage=stage, role=role, brief=brief, references=references,
-                                  outfit=outfit, attempt=attempt, repair=repair)
+        if self._generating.get():
+            self.current_run_key = self._active_run_key.get()
+            raise GeneratorRefused("nested generation on the same adapter is not supported")
+        token = self._generating.set(True)
+        key_token = self._active_run_key.set(self.current_run_key)
+        try:
+            with self._scratch():
+                return self._generate(stage=stage, role=role, brief=brief, references=references,
+                                      outfit=outfit, attempt=attempt, repair=repair)
+        finally:
+            self._active_run_key.reset(key_token)
+            self._generating.reset(token)
+            self.current_run_key = None
 
     def _generate(self, *, stage, role, brief, references, outfit, attempt, repair) -> dict:
         started = time.time()

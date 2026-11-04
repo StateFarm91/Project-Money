@@ -218,6 +218,14 @@ new cases. This doesn't authenticate verdict metadata or fence later revocation;
 the generator's mutable shared-instance state remains a separate concern. No
 provider was called.
 
+Shared FLUX adapter calls now keep run keys in execution-local context and
+serialize scratch usage within a process, including across instances using the
+same canonical caller-supplied root. Nested scratch restores its outer root;
+nested generation is refused. Python 3.11/tmpfs FLUX and anchor tests passed
+25/25, including synthetic threaded cases; independent review reran five
+concurrency cases. A supplied root shared by different processes and filesystem
+alias changes are not coordinated; no provider was called.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
