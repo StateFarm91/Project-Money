@@ -29,3 +29,38 @@ Python 3.11 focused SQLite run: 19 passed, one opt-in PostgreSQL test skipped.
 That run covers the new component, its prior transaction preview, queue
 savepoint tests and the legacy withholding regression. The PostgreSQL test
 requires an empty disposable database via `BRAMBLELOOP_TEST_POSTGRES_URL`.
+An independent PostgreSQL 16 run passed the repository's opt-in test (1/1)
+and the 12-case atomic-effects suite adapted only to use fresh PostgreSQL
+fixtures (12/12). An independent reviewer reran the 12-case suite on SQLite
+at code commit `9d3172aa4327409f49d2298ecf3e0698eae582fa` and confirmed its
+narrow atomic behavior, not the full authority contract.
+
+## Why the handler remains unwired
+
+The existing owner step-up action calls `review_rule` with a hardcoded owner
+identity, but the underlying service accepts a string and its Learning approval
+audit is not a signed Learning grant. There is no implemented Learning-specific
+grant binding the rule, evaluation and source provenance to an independently
+protected current-revocation anchor. The existing generic sealed chain documents
+tail truncation and uses separate sessions for append/refusal. Configuring the
+storefront signing key alone does not create an approved Learning authority model
+or make current revocation trustworthy. The model and anchoring approach need
+owner approval, implementation and independent review; exact infrastructure
+configuration depends on that design. Existing unsigned approvals must not be
+silently converted into new authority.
+
+The decision must specify who may approve and revoke Learning rules, what
+independence and step-up are required, the exact rule/evaluation/source digests
+and validity period each grant binds, how legacy approvals are handled, and
+where the current revocation/chain head is anchored outside the authority
+database. Once approved, the implementation needs an owner-only signer, a
+worker-only verifier, protected anchor access and explicit fail-closed behavior
+when the anchor or key is unavailable. No specific dashboard setting can be
+named until that design and infrastructure are selected.
+
+Separately, every protected evidence writer and every consequential certification
+and delivery path needs a shared action-time transaction fence. The actual
+handler still has its early duplicate return, separate granted audit and release
+write, and post-certification consumption gaps. The helper's bounded transaction
+is not a substitute. A wiring change before those requirements are met would
+leave known races, so this branch leaves the handler unchanged.
