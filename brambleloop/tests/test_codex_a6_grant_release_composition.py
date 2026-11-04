@@ -62,3 +62,19 @@ def test_fixture_signed_rule_and_release_effects_share_caller_rollback(setup):
         pipeline._persist_release(ctx, cir, certificate, target, session=session, atomic_effects=True)
     with db.session() as session:
         assert session.scalar(select(PatternVersion).where(PatternVersion.release_hash == target)) is not None
+
+
+def test_retired_rule_fails_fixture_precheck_even_with_signed_grant(setup):
+    db, rule_id, sign, verify = setup
+    anchor, fence = FixtureAnchor(), FixtureFence()
+    with db._sessions() as session, session.begin():
+        append_owner_grant_in_session(db, session, rule_id, sign=sign, verify=verify,
+                         anchor=anchor, fence=fence, owner_decision=FixtureStepUp())
+    cir = launch0.cir_for("basket_small")
+    pin = next(r["pin"] for r in dk.applicable_to_cir(db, cir) if r["pin"]["rule_id"] == rule_id)
+    cir = dk.freeze_pins(db, cir, [pin])
+    dk.review_rule(db, rule_id, reviewer="owner", decision="retire", reason="fixture retirement")
+    with db._sessions() as session, session.begin():
+        assert kg.refusal(db, cir, session=session) is not None
+    with db.session() as session:
+        assert session.scalar(select(PatternVersion).where(PatternVersion.version == cir.version)) is None
