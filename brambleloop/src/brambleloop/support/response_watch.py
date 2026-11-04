@@ -189,6 +189,30 @@ def record_reply_sent(db, case_id: int, *, sent_at=None, now: datetime | None = 
         if detail.get("first_response_at"):
             raise MessageRefused(f"case {case_id} already has a first response recorded at "
                                  f"{detail['first_response_at']}")
+        # Preserve contradictory historical timing while recording the owner's
+        # attestation. Service-level reporting leaves the conflict unmeasured.
+        if received is not None:
+            from .service import _nonnegative_number
+            minutes = round((at - received).total_seconds() / 60.0, 2)
+            conflict = None
+            if "response_minutes" in detail:
+                prior = _nonnegative_number(detail["response_minutes"])
+                basis = detail.get("response_measured_as", "sent")
+                if prior is None or basis not in ("sent", "draft_ready"):
+                    conflict = "invalid prior timing"
+                elif basis == "sent" and prior != minutes:
+                    conflict = "prior sent timing differs from attested interval"
+                elif basis == "draft_ready":
+                    if minutes < prior:
+                        conflict = "attested send predates recorded draft"
+                    else:
+                        detail["draft_ready_minutes"] = prior
+                        detail["draft_from_canonical"] = bool(detail.get("from_canonical"))
+            if conflict:
+                detail["delivery_timing_conflict"] = conflict
+            else:
+                detail["response_minutes"] = minutes
+                detail["response_measured_as"] = "sent"
         detail.update({"first_response_at": at.isoformat(), "awaiting_reply": False})
         case.detail = detail
         case.sent = True

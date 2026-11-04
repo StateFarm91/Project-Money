@@ -84,7 +84,7 @@ def test_late_draft_does_not_replace_previously_recorded_sent_case(tmp_path):
         assert session.get(Job, job.id).outputs["skipped"] == "first_response_already_recorded"
         assert case.sent and case.detail["first_response_at"]
         assert case.answer == "Previously recorded owner answer"
-        assert "response_measured_as" not in case.detail
+        assert case.detail["response_measured_as"] == "sent"
 
 
 def test_triage_does_not_enqueue_a_draft_after_recorded_sent_reply(tmp_path):
