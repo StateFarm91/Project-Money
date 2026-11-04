@@ -148,12 +148,15 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
 
 def record_reply_sent(db, case_id: int, *, sent_at=None, now: datetime | None = None) -> dict:
     """The owner records that the reply reached the buyer. Stops the clock for that case."""
+    from sqlalchemy import select
+
     from ..core.models import SupportCase
 
     now = now or datetime.now(timezone.utc)
     at = _parse(sent_at, now=now)
     with db.session() as s:
-        case = s.get(SupportCase, int(case_id))
+        case = s.scalar(select(SupportCase).where(
+            SupportCase.id == int(case_id)).with_for_update())
         if case is None:
             raise MessageRefused(f"no support case {case_id}")
         received = _aware(case.at) if case.at else None

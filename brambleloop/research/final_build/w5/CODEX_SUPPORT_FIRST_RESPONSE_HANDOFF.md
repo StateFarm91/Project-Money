@@ -28,6 +28,15 @@ Follow-up: newly drafted cases remain unresolved; existing resolution and sent
 state are not deliberately changed by drafting. The `support.reply` worker
 skips a case already recorded sent, and direct draft recording leaves an
 already-sent answer untouched. This covers sequential operation only: a send
-that races between the check and write is not transaction-fenced and can still
-cause a lost update. The runtime hunk in `runtime/release.py` overlaps other
-work and requires additive integration review.
+that races between the check and write was not transaction-fenced.
+
+The sent recorder, draft recorder, draft copy check and response timing writer
+now lock the case row before their respective writes, recheck sent state, and
+skip an obsolete draft. The opt-in `test_codex_support_response_pg.py` passed
+on a fresh local PostgreSQL 16 database, forcing actual Worker and owner-sent
+transactions in both orders. Focused Python 3.11 SQLite tests pass 32/32. No
+real message was sent. This is a limited fence for those four paths: intake,
+triage, raw SQL, other writers and SQLite concurrency still need audit. The
+runtime hunk in `runtime/release.py` overlaps other work and requires additive
+integration review. No authenticated disposition or sent-evidence guarantee is
+introduced by row locking.

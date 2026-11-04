@@ -289,9 +289,11 @@
         "brambleloop/src/brambleloop/support/response_watch.py",
         "brambleloop/tests/test_codex_support_first_response_truth.py",
         "brambleloop/src/brambleloop/support/department.py",
-        "brambleloop/src/brambleloop/runtime/release.py"
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/src/brambleloop/support/service.py",
+        "brambleloop/tests/test_codex_support_response_pg.py"
       ],
-      "scope": "Keep unsent drafts unresolved and on first-response watch; skip already-sent cases; no messages sent."
+      "scope": "Keep held drafts open and serialize owner-sent and draft paths; no customer messages sent."
     }
   ],
   "unowned": [

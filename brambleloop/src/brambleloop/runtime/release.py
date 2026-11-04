@@ -2466,6 +2466,8 @@ def handle_support_reply(ctx: JobContext) -> dict:
     # case records how long the answer took. Both act on the case itself.
     checked = _check_and_time_reply(ctx, case_id=case_id, customer=customer,
                                     question=question, reply=reply)
+    if checked.get("already_sent"):
+        return {"case_id": checked["case_id"], "skipped": "first_response_already_recorded"}
     ctx.audit("support.replied", artifact=f"{slug}@{version}" if slug else None,
               detail={"specialist": reply.specialist, "escalated": reply.escalated,
                       "sent": reply.sent, "case_id": checked["case_id"],
@@ -2500,15 +2502,19 @@ def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: 
     copy = check_support_copy(reply.body or "")
     with ctx.db.session() as s:
         if case_id is not None:
-            case = s.get(SupportCase, int(case_id))
+            case = s.scalar(select(SupportCase).where(
+                SupportCase.id == int(case_id)).with_for_update())
         else:
             case = s.scalar(select(SupportCase).where(
                 SupportCase.customer_ref == customer, SupportCase.question == question)
-                .order_by(desc(SupportCase.id)).limit(1))
+                .order_by(desc(SupportCase.id)).limit(1).with_for_update())
         if case is None:
             return {"case_id": case_id, "copy": copy,
                     "timing": {"recorded": False, "why": "no stored case to time"}}
         cid = int(case.id)
+        if case.sent or (case.detail or {}).get("first_response_at"):
+            return {"case_id": cid, "copy": copy, "already_sent": True,
+                    "timing": {"recorded": False, "why": "first response already recorded"}}
         at = case.at if case.at.tzinfo else case.at.replace(tzinfo=timezone.utc)
         # A draft timing does not block the later sent timing (Codex CB2-G08); a sent one,
         # or a second draft, is already recorded.
@@ -2526,9 +2532,13 @@ def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: 
     if already:
         timing = {"recorded": False, "why": "this case's response time is already recorded"}
     else:
-        timing = {"recorded": True, **service.record_response(
-            ctx.db, cid, minutes=round(minutes, 2), from_canonical=not reply.escalated,
-            measured_as="sent" if reply.sent else "draft_ready")}
+        try:
+            timing = {"recorded": True, **service.record_response(
+                ctx.db, cid, minutes=round(minutes, 2), from_canonical=not reply.escalated,
+                measured_as="sent" if reply.sent else "draft_ready")}
+        except service.ReplyAlreadySent:
+            return {"case_id": cid, "copy": copy, "already_sent": True,
+                    "timing": {"recorded": False, "why": "first response already recorded"}}
     if not copy["ok"]:
         ctx.audit("support.draft_refused", artifact=f"case:{cid}",
                   detail={"found": copy["found"], "why": copy["why"]})

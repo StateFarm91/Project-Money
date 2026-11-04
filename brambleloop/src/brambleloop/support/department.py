@@ -246,11 +246,14 @@ class CustomerExperience:
 
     def _record(self, customer_ref, product_slug, version, message, reply: Reply, *,
                 case_id: int | None = None) -> None:
+        from sqlalchemy import select
+
         from ..core.models import SupportCase
 
         with self.db.session() as s:
             if case_id is not None:
-                case = s.get(SupportCase, case_id)
+                case = s.scalar(select(SupportCase).where(
+                    SupportCase.id == case_id).with_for_update())
                 if case is None:
                     raise ValueError(f"no support case {case_id}")
                 if case.sent or (case.detail or {}).get("first_response_at"):
