@@ -235,11 +235,15 @@ def test_blind_anchor_consistency_compares_two_descriptions_with_the_cir():
     exp = exp_cloud()
     a, b = O.png(64, 64), O.png(64, 64)
 
-    def run(sc):
-        return VJ.blind_consistency(Recorded(sc), a, b, exp)
+    def run(sc, expected=exp):
+        return VJ.blind_consistency(Recorded(sc), a, b, expected)
 
     assert run("item_same")["status"] == "PASS"
-    assert run("item_border_invented")["code"] == "INVENTED_EDGING"
+    # Cloudline's declared end bands make edge treatment ambiguous. Use a real
+    # no-edging CIR for the definite-invented negative; the assertion is unchanged.
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.visual import fidelity as F
+    assert run("item_border_invented", F.expectation(build_basket("small")))["code"] == "INVENTED_EDGING"
     assert run("item_knitted")["code"] == "WRONG_CRAFT_TEXTURE"
     assert run("item_extra_colour")["code"] == "WRONG_COLOUR_LAYOUT"
     assert run("item_hidden")["status"] == "UNKNOWN"
@@ -413,11 +417,13 @@ def _queue(db):
 
     q = JobQueue(db)
 
-    def follow(inputs, key):
+    def follow(inputs, key, *, session=None):
         try:
             return q.enqueue("publishing", "visual.image_production", inputs,
-                             idempotency_key=key)
+                             idempotency_key=key, session=session)
         except DuplicateJob:
+            if session is not None:
+                raise
             return None
     return q, follow
 
@@ -527,6 +533,50 @@ def test_restart_refuses_spent_failures_budget_stops_and_running_runs():
     except ValueError:
         pass
     assert ImageCandidate  # imported for the schema
+
+
+def test_restart_rolls_back_run_and_job_when_enqueue_interrupted():
+    from sqlalchemy import select
+    import pytest
+    from brambleloop.core.models import Job
+    from brambleloop.queue.durable import DuplicateJob, JobQueue
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import image_production as IP
+
+    db = O.make_db()
+    key = _start(db, TF.FlatLayGenerator(CLOUD), CG.RealJudges(db, references=REFS))
+    before = IP.get_run(db, key)
+    assert before["state"] == "blocked" and IP.restartable(db, key)["restartable"]
+    q = JobQueue(db)
+    seen = []
+
+    def interrupted(inputs, job_key, *, session):
+        seen.append(job_key)
+        q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=job_key, session=session)
+        raise RuntimeError("simulated interruption after job insert")
+
+    with pytest.raises(RuntimeError, match="simulated interruption"):
+        IP.restart(db, key, follow=interrupted, by="owner:test")
+    after = IP.get_run(db, key)
+    assert after["state"] == before["state"] and after["restarts"] == before["restarts"]
+    assert after["blocked_reason"] == before["blocked_reason"]
+    with db.session() as session:
+        assert session.scalar(select(Job).where(Job.idempotency_key == seen[0])) is None
+    q.enqueue(IP.AGENT, IP.JOB_TYPE, {"stage": "foreign"}, idempotency_key=seen[0])
+    def duplicate(inputs, job_key, *, session):
+        return q.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=job_key, session=session)
+    with pytest.raises(DuplicateJob):
+        IP.restart(db, key, follow=duplicate, by="owner:test")
+    after_duplicate = IP.get_run(db, key)
+    assert after_duplicate["state"] == "blocked" and after_duplicate["restarts"] == before["restarts"]
+    with db.session() as session:
+        job = session.scalar(select(Job).where(Job.idempotency_key == seen[0]))
+        assert job.inputs == {"stage": "foreign"}
+        session.delete(job)  # isolated test database only
+    _, follow = _queue(db)
+    assert IP.restart(db, key, follow=follow, by="owner:test")["enqueued"]
+    with db.session() as session:
+        assert session.scalar(select(Job).where(Job.idempotency_key == seen[0])) is not None
 
 
 # ---- 4. approved frames into ListingAsset, re-certified --------------------------------------
@@ -683,16 +733,23 @@ def test_wardrobe_editor_and_outfit_reference():
 
 # ---- 6. learning: taxonomy end to end, improvements only through the Learn path -------------
 
+class SyntheticPhotoReferenceGenerator(TF.FlatLayGenerator):
+    """Test double for the photo-reference route; its bytes are not a real photo."""
+
+    def prepare_references(self, **kw):
+        return [{"kind": "physical_product_photo", "data": TF.flat_lay(self.cir, canvas=256),
+                 "label": "synthetic test double"}]
+
 def test_wardrobe_codes_flow_from_the_judge_to_learning_and_a_league_challenger():
     from brambleloop.visual import candidate_gates as CG
     from brambleloop.visual import image_learning as L
     from brambleloop.visual import image_production as IP
 
     db = O.make_db()
-    gen = TF.FlatLayGenerator(CLOUD)
+    gen = SyntheticPhotoReferenceGenerator(CLOUD)
     judges = CG.RealJudges(db, vision=Recorded(
         "laura_match_a", "outfit_reference_carryover", "anatomy_ok", "realism_ok",
-        "item_same", "region_ok"), references=REFS)
+        "item_same", "region_ok", craft=TF.PASSING_BANDS_JUDGE.reading), references=REFS)
     before = IP.prompt_version(db)
     key = _start(db, gen, judges)
     run = IP.get_run(db, key)
@@ -727,10 +784,10 @@ def test_wardrobe_repetition_seen_by_the_judge_repicks_the_outfit():
     outfits.reserve(db, "oat-jumper-02", "winter-village-graphghan")
     O.approved_outfit(db, "sage-cardigan-01")
     outfits.reserve(db, "sage-cardigan-01", CLOUD)
-    gen = TF.FlatLayGenerator(CLOUD)
+    gen = SyntheticPhotoReferenceGenerator(CLOUD)
     judges = CG.RealJudges(db, vision=Recorded(
         "laura_match_a", "outfit_other_listing", "anatomy_ok", "realism_ok", "item_same",
-        "region_ok"), references=REFS)
+        "region_ok", craft=TF.PASSING_BANDS_JUDGE.reading), references=REFS)
     key = _start(db, gen, judges)
     run = IP.get_run(db, key)
     old = outfits.get(db, "sage-cardigan-01")

@@ -482,7 +482,9 @@ def test_owner_wrap_image_is_never_pass():
 
 
 def test_lifestyle_needs_anchor_pass_region_and_vision():
-    cir = _cir(CLOUD)
+    # This route cannot authenticate anchor-only measurements of Cloudline's
+    # ambiguous bands. Use the compiled no-band design for the positive path.
+    cir = _cir(COASTERS)
     from brambleloop.creative.pattern_refs import release_hash_of
 
     rel = release_hash_of(cir)
@@ -495,6 +497,17 @@ def test_lifestyle_needs_anchor_pass_region_and_vision():
                       ("anchor_data", None), ("product_region", None), ("judge", None)):
         v = F.verify_lifestyle(img, cir, release_hash=rel, **{**full, drop: val})
         assert v["status"] == "UNKNOWN", (drop, val, v["status"])
+
+    # A caller-supplied anchor PASS cannot authenticate the separate band facts.
+    cloud = _cir(CLOUD)
+    cloud_rel = release_hash_of(cloud)
+    cloud_img = flat_lay(cloud)
+    v = F.verify_lifestyle(cloud_img, cloud, release_hash=cloud_rel,
+                           anchor={"status": "PASS", "release_hash": cloud_rel},
+                           anchor_data=cloud_img, product_region=(300, 200, 1750, 1850),
+                           judge=PASSING_BANDS_JUDGE)
+    assert v["status"] == "UNKNOWN"
+    assert st(v, "craft_texture")[0]["status"] == "UNKNOWN"
 
 
 def test_codes_and_verdict_contract():

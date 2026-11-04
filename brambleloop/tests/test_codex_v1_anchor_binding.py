@@ -78,6 +78,55 @@ def test_release_comparison_requires_two_complete_matching_digests():
     assert not fidelity.same_release(release, "a" * 12 + "not-a-digest")
 
 
+def test_flux_default_anchor_lookup_uses_shared_release_and_fidelity_gate(tmp_path, monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.core import artifacts
+    from brambleloop.creative.flux3_generator import _default_anchor_lookup
+
+    monkeypatch.setattr(artifacts, "DEFAULT_DIR", str(tmp_path / "artifacts"))
+    db = O.make_db()
+    slug, version, release = "cloudline-baby-blanket", "1.2.0", O.RELEASE
+    bind = candidate_gates.binding(db, slug, version, release)
+    assert bind["status"] == "PASS" and bind["cir_fingerprint"]
+    data = b"synthetic anchor; not a physical product"
+    digest = ArtifactStore().put("test", data, "image/png", db=db).sha256
+    run = image_production.run_key(slug, version, release)
+    def add(candidate_slug, evidence):
+        with db.session() as session:
+            session.add(ImageCandidate(
+                sha256=digest, run_key=run, slug=candidate_slug, version=version,
+                release=release, listing=slug, role=image_production.ANCHOR_ROLE,
+                method="autonomous", provenance_kind="ai_generated_autonomous",
+                technical_status="PASS", publishable=True, outcome="accepted",
+                checks={"product_truth": {"fidelity": evidence}}))
+    lookup = _default_anchor_lookup(db)
+    add("different-item", {})
+    add(slug, {})  # an outer PASS does not establish fidelity
+    assert lookup(slug, version, release, run_key=run) is None
+    good = {"status": "PASS", "kind": "anchor", "checker": fidelity.CHECKER,
+            "checks": [{"check": name, "status": "PASS"}
+                       for name in ("isolation", "piece_count", "craft_texture")],
+            "image_sha256": digest, "slug": slug, "version": version,
+            "cir_fingerprint": bind["cir_fingerprint"]}
+    add(slug, good)
+    got = lookup(slug, version, release, run_key=run)
+    assert got["data"] == data and got["sha256"] == digest
+    assert lookup(slug, version, release[:12], run_key=run) is None
+    assert lookup(slug, version, release, run_key=run + "#other") is None
+    (tmp_path / "artifacts" / digest[:2] / digest).write_bytes(b"altered")
+    assert lookup(slug, version, release, run_key=run) is None
+
+
+def test_flux_does_not_downgrade_run_scoped_lookup_on_type_error():
+    import pytest
+    from brambleloop.creative import flux3_generator as FG
+
+    g = FG.Flux3Generator(None, anchor_lookup=lambda slug, version, release: None)
+    g.current_run_key = "synthetic-controlled-run"
+    with pytest.raises(FG.GeneratorRefused, match="cannot bind the active run"):
+        g._anchor(None, "item", "1", "a" * 64)
+
+
 def test_pass_label_without_matching_fidelity_evidence_is_held(tmp_path, monkeypatch):
     from sqlalchemy import select
     from brambleloop.core import artifacts

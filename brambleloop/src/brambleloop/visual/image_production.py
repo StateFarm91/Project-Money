@@ -224,15 +224,27 @@ def _run(s, key: str):
     return s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
 
 
+def _run_locked(s, key: str):
+    """Serialize cooperating mutations of the run row on PostgreSQL."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+
+    return s.scalar(select(ImageProductionRun).where(
+        ImageProductionRun.run_key == key).with_for_update())
+
+
 def _ensure_run(db, slug, version, release, ns: str = ""):
     from .image_records import ImageProductionRun, ensure_tables
 
     ensure_tables(db)
     key = run_key(slug, version, release, ns)
     with db.session() as s:
-        if _run(s, key) is None:
+        existing = _run(s, key)
+        if existing is None:
             s.add(ImageProductionRun(run_key=key, slug=slug, version=version, release=release,
                                      listing=outfits.listing_of(slug), stages={}))
+        elif (existing.slug, existing.version, existing.release) != (slug, version, release):
+            raise ValueError("visual run key collides with another product or release")
     return key
 
 
@@ -241,7 +253,7 @@ def _update(db, key: str, *, stage: str, status: str | None = None, record: dict
     from sqlalchemy.orm.attributes import flag_modified
 
     with db.session() as s:
-        r = _run(s, key)
+        r = _run_locked(s, key)
         r.stage = stage
         if record is not None:
             st = dict(r.stages or {})
@@ -328,6 +340,11 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             latency_s=cand.get("latency_s"), width=q.get("width"), height=q.get("height"),
             binding={k: v for k, v in verdict["checks"]["binding"].items()},
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
+                    **({"_paid_call": {"token": cand["_paid_call_token"]}}
+                       if cand.get("_paid_call_token") else {}),
+                    **({"_generation_operation": {"key": cand["_generation_operation"],
+                                                   "mode": cand.get("_generation_mode")}}
+                       if cand.get("_generation_operation") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
                     "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
@@ -424,9 +441,9 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
             "failure_categories": list(r.failure_categories or []),
             "owner_visual_approval": r.owner_visual_approval,
             "unknown": sorted(k for k, c in (r.checks or {}).items()
-                              if c.get("status") == "UNKNOWN"),
+                              if k != "_paid_call_token" and c.get("status") == "UNKNOWN"),
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
-                       if c.get("status") == "FAIL"},
+                       if k != "_paid_call_token" and c.get("status") == "FAIL"},
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
             "listing": r.listing, "slug": r.slug, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
@@ -498,46 +515,211 @@ def _spend_plan() -> dict:
         fail_criteria=["attempt cap reached", "any spend past the plan"])
 
 
+def _begin_generation(db, key, *, stage, paid, next_cost):
+    """Record a paid call before dispatch; unresolved calls hold further generation."""
+    from uuid import uuid4
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    token = uuid4().hex if paid else None
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        if "_pending_paid_call" in stages or "_unresolved_free_cost" in stages:
+            raise BudgetStop("prior paid image call has an unresolved cost; review required")
+        try:
+            spend_plan.guard(_spend_plan(), spent_cad=row.spent_cad,
+                             calls_made=row.generation_calls, next_cost_cad=next_cost)
+        except spend_plan.PlanRefused as exc:
+            raise BudgetStop(str(exc)) from None
+        row.generation_calls += 1
+        row.stage, row.updated_at = stage, _now()
+        if paid:
+            stages["_pending_paid_call"] = {"token": token, "stage": stage,
+                                             "maximum_cad": next_cost,
+                                             "at": _now().isoformat()}
+            row.stages = stages
+    return token
+
+
+def _settle_paid_generation(db, key, token, cost):
+    """Record the actual charge while retaining the marker until candidate persistence."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    if not spend_plan._amount(cost):
+        raise BudgetStop("paid image call has an invalid or missing cost; review required")
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        pending = stages.get("_pending_paid_call")
+        if not isinstance(pending, dict) or pending.get("token") != token:
+            raise BudgetStop("paid image call reservation changed; review required")
+        if pending.get("state") is not None:
+            raise BudgetStop("paid image call receipt was already processed; review required")
+        if not spend_plan._amount(row.spent_cad):
+            raise BudgetStop("recorded visual spend is invalid; review required")
+        maximum = pending["maximum_cad"]
+        row.spent_cad += cost
+        if cost > maximum:
+            stages["_pending_paid_call"] = {**pending, "actual_cad": cost,
+                                             "state": "cost_exceeded_maximum"}
+        else:
+            stages["_pending_paid_call"] = {**pending, "actual_cad": cost,
+                                             "state": "receipt_recorded"}
+        row.stages = stages
+        row.updated_at = _now()
+    if cost > maximum:
+        raise BudgetStop("paid image call exceeded its declared maximum; review required")
+
+
+def _complete_paid_generation(db, key, token, candidate_id):
+    """Release the hold only after this run's candidate and receipt are durable."""
+    from sqlalchemy import select
+    from .image_records import ImageCandidate, ImageProductionRun
+
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        stages = dict(row.stages or {})
+        pending = stages.get("_pending_paid_call")
+        cand = session.get(ImageCandidate, candidate_id)
+        if (not isinstance(pending, dict) or pending.get("token") != token
+                or pending.get("state") != "receipt_recorded" or cand is None
+                or cand.run_key != key or cand.stage != pending.get("stage")
+                or not cand.sha256 or cand.cost_cad != pending.get("actual_cad")
+                or ((cand.checks or {}).get("_paid_call") or {}).get("token") != token):
+            raise BudgetStop("paid image candidate or receipt is missing; review required")
+        del stages["_pending_paid_call"]
+        row.stages, row.updated_at = stages, _now()
+
+
+def _settle_free_generation(db, key, cost):
+    """Record unexpected free-adapter charges without overwriting concurrent spend."""
+    from sqlalchemy import select
+    from .image_records import ImageProductionRun
+    from . import spend_plan
+
+    valid = spend_plan._amount(cost)
+    with db.session() as session:
+        row = session.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        if not spend_plan._amount(row.spent_cad):
+            raise BudgetStop("recorded visual spend is invalid; review required")
+        if valid and cost > 0:
+            row.spent_cad += cost
+        if not valid or cost > 0:
+            stages = dict(row.stages or {})
+            # A separate marker cannot be cleared by a concurrent paid settlement.
+            stages["_unresolved_free_cost"] = {"state": "unexpected_free_cost",
+                                                "actual_cad": cost if valid else None}
+            row.stages = stages
+        row.updated_at = _now()
+    if not valid or cost > 0:
+        raise BudgetStop("free image generator returned an invalid or nonzero cost; review required")
+
+
+def _recover_generation(db, key, *, operation, stage, role, slug, version, release,
+                        experiment: bool = False):
+    """Reuse only the candidate recorded by this exact stage invocation."""
+    if not operation:
+        return None
+    from sqlalchemy import select
+    from ..core.artifacts import ArtifactStore
+    from .image_records import ImageCandidate
+
+    with db.session() as session:
+        rows = session.scalars(select(ImageCandidate).where(
+            ImageCandidate.run_key == key, ImageCandidate.stage == stage,
+            ImageCandidate.role == role)).all()
+        matches = [r for r in rows if isinstance((r.checks or {}).get("_generation_operation"), dict)
+                   and r.checks["_generation_operation"].get("key") == operation]
+        if len(matches) > 1:
+            raise BudgetStop("multiple candidates for one generation operation; review required")
+        if not matches:
+            return None
+        row = matches[0]
+        binding = row.binding if isinstance(row.binding, dict) else {}
+        mode = row.checks["_generation_operation"].get("mode")
+        if (mode != ("experiment" if experiment else "normal")
+                or binding.get("experiment", False) is not experiment):
+            raise BudgetStop("generation operation mode is ambiguous or changed; review required")
+        if (row.slug != slug or row.version != version or row.release != release
+                or not row.sha256):
+            raise BudgetStop("generation operation candidate identity changed; review required")
+        try:
+            data = ArtifactStore().get(row.sha256, db=db)
+        except Exception as exc:
+            raise BudgetStop("generation operation artifact unavailable; review required") from exc
+        if not data or hashlib.sha256(data).hexdigest() != row.sha256:
+            raise BudgetStop("generation operation artifact changed; review required")
+        out = {"candidate_id": row.id, "sha256": row.sha256, "outcome": row.outcome,
+               "technical_status": row.technical_status, "publishable": row.publishable,
+               "cost_cad": row.cost_cad, "attempt": row.attempt}
+        token = ((row.checks or {}).get("_paid_call") or {}).get("token")
+    current = _stage_data(db, key)
+    if "_unresolved_free_cost" in current:
+        raise BudgetStop("prior image call has an unresolved cost; review required")
+    if "_pending_paid_call" in current:
+        pending = current["_pending_paid_call"]
+        if not token or not isinstance(pending, dict) or pending.get("token") != token:
+            raise BudgetStop("another paid image call has an unresolved cost; review required")
+        _complete_paid_generation(db, key, token, out["candidate_id"])
+    return out
+
+
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
-              repair: dict | None = None, exp=None) -> dict:
+              repair: dict | None = None, exp=None, operation: str = "") -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
+    recovered = _recover_generation(db, key, operation=operation, stage=stage, role=role,
+                                    slug=slug, version=version, release=release,
+                                    experiment=exp is not None)
+    if recovered is not None:
+        return recovered
     with db.session() as s:
         r = _run(s, key)
-        calls, spent = int(r.generation_calls or 0), float(r.spent_cad or 0.0)
-    next_cost = float(getattr(gen, "max_cost_cad_per_call", 0.0))
+        calls, spent = r.generation_calls, r.spent_cad
+    paid = getattr(gen, "paid", True) is not False
+    next_cost = getattr(gen, "max_cost_cad_per_call", 0.0)
+    try:
+        spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
+                         next_cost_cad=next_cost)
+    except spend_plan.PlanRefused as exc:
+        raise BudgetStop(str(exc)) from None
     if exp is not None:
         # W4-WRAPTEST: an experiment's paid call needs the owner's recorded experiment approval
         # and headroom in its own hard budget; every ceiling below still applies on top.
         from .experiment import ExperimentBudgetStop
 
-        if getattr(gen, "paid", True) and not exp.paid_authorised():
+        if paid and not exp.paid_authorised():
             raise CapabilityBlocked("experiment is not live: a paid generator may not be "
                                     "called (dry run uses the stub provider)")
-        if getattr(gen, "paid", True):
+        if paid:
             try:
                 exp.guard_paid(next_cost)
             except ExperimentBudgetStop as exc:
                 raise BudgetStop(str(exc)) from None
-    elif _controlled_of(db, key) and getattr(gen, "paid", True):
+    elif _controlled_of(db, key) and paid:
         # W-VISNEXT2: an owner-authorised controlled run of a certified release. The owner's
         # step-up authorization, inside its (shared) cap, stands in for the image_generation
         # gate for this run only; every ceiling below still applies on top.
         from ..experiments import controlled as CX
 
         CX.guard_generation(db, _controlled_of(db, key), next_cost)
-    elif getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
+    elif paid and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
                                 "called")
-    try:
-        spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
-                         next_cost_cad=next_cost)
-    except spend_plan.PlanRefused as exc:
-        raise BudgetStop(str(exc)) from None
-    _update(db, key, stage=stage, generation_calls=calls + 1)
+    if paid and next_cost == 0:
+        raise BudgetStop("paid generator requires a positive maximum cost per call")
+    call_token = _begin_generation(db, key, stage=stage, paid=paid, next_cost=next_cost)
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
@@ -565,7 +747,10 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
                                                              f"{str(exc)[:300]}"}}))
         return {"provider_error": f"{type(exc).__name__}: {str(exc)[:300]}"}
     cost = out.get("cost_cad")
-    _update(db, key, stage=stage, spent_cad=spent + float(cost or 0.0))
+    if paid:
+        _settle_paid_generation(db, key, call_token, cost)
+    else:
+        _settle_free_generation(db, key, cost)
     data = out["data"]
     ctl = _controlled_of(db, key)
     sha = store_bytes(db, data, key=f"{key}/{role}/{plan_attempt}",
@@ -576,7 +761,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         # marked as an experiment image before anything evaluates it
         from ..experiments import controlled as CX
 
-        CX.record_generation(db, ctl, reserved_cad=next_cost if getattr(gen, "paid", True)
+        CX.record_generation(db, ctl, reserved_cad=next_cost if paid
                              else 0.0, actual_cad=cost, sha256=sha)
     cand = {**base, "data": data, "sha256": sha, "provider": out.get("provider"),
             "model": out.get("model"), "prompt": out.get("prompt") or brief,
@@ -585,6 +770,11 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
             "cost_basis": out.get("cost_basis") or "generator receipt",
             "latency_s": out.get("latency_s"), "provenance_kind": "ai_generated_autonomous",
             "repair": repair}
+    if paid:
+        cand["_paid_call_token"] = call_token
+    if operation:
+        cand["_generation_operation"] = operation
+        cand["_generation_mode"] = "experiment" if exp is not None else "normal"
     if role == ANCHOR_ROLE:
         bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -605,8 +795,10 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         verdict = CG.evaluate(db, cand, judges=judges)
     rec = record_candidate(db, cand, verdict, method="autonomous", run=key, stage=stage,
                            attempt=plan_attempt)
+    if paid:
+        _complete_paid_generation(db, key, call_token, rec["candidate_id"])
     return {**rec, "technical_status": verdict["technical_status"],
-            "publishable": verdict["publishable"], "cost_cad": cost}
+            "publishable": verdict["publishable"], "cost_cad": cost, "attempt": plan_attempt}
 
 
 def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
@@ -702,7 +894,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         from sqlalchemy.orm.attributes import flag_modified
 
         with db.session() as s:
-            r_ = _run(s, key)
+            r_ = _run_locked(s, key)
             st_ = dict(r_.stages or {})
             if not st_.get("_controlled"):
                 st_["_controlled"] = {"run_id": controlled, "ns": ns}
@@ -714,7 +906,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         # a job from before (or beyond) the run's current restart epoch: superseded
         return {"run_key": key, "skipped": True,
                 "why": f"job epoch {epoch} is not the run's epoch {run.get('restarts', 0)}"}
-    if run["state"] in ("blocked", "approved_for_publication") and stage != "repair":
+    if run["state"] in ("blocked", "ready_for_owner_review", "approved_for_publication"):
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
     judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
     if generator is not None:
@@ -728,6 +920,15 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
     else:
         plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
     max_att = exp.max_attempts_per_role if exp is not None else MAX_ATTEMPTS_PER_ROLE
+
+    def operation_for(role: str, segment: str = "") -> str:
+        identity = [key, stage, round_, epoch, role, segment]
+        if exp is not None:
+            # Legacy scratch experiments can use the same run key as a normal
+            # run. Their candidates must not satisfy each other's replay key.
+            identity.append("experiment")
+        material = json.dumps(identity, separators=(",", ":"))
+        return hashlib.sha256(material.encode()).hexdigest()
 
     def go(next_stage: str | None, *, rnd: int = 0):
         if next_stage is None:
@@ -808,20 +1009,30 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
         if stage == "product_generation":
             attempt = _attempts(db, key, ANCHOR_ROLE) + 1
+            operation = operation_for(ANCHOR_ROLE)
+            # A retried job may recover its already-recorded candidate even when it
+            # used the last attempt. A different invocation must respect the cap.
+            recovered = _recover_generation(db, key, operation=operation, stage=stage,
+                                            role=ANCHOR_ROLE, slug=slug, version=version,
+                                            release=release, experiment=exp is not None)
+            if recovered is None and attempt > max_att:
+                return block(f"product generation attempt cap {max_att} reached",
+                             exhausted=True)
             # A regeneration after a fidelity FAIL carries the targeted repair for its codes
             # when every code has a route; otherwise it is a plain retry within the cap.
             prior = (_best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
                      if attempt > 1 else None)
             repair = (_repair_for(prior) if prior and prior.get("technical_status") == "FAIL"
                       else None)
-            got = _generate(db, key, gen, slug=slug, version=version, release=release,
+            got = recovered or _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
-                            plan_attempt=attempt, repair=repair, exp=exp)
+                            plan_attempt=attempt, repair=repair, exp=exp,
+                            operation=operation)
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
-            return {"run_key": key, "next": go(_next(stage), rnd=attempt - 1)}
+            return {"run_key": key, "next": go(_next(stage), rnd=got.get("attempt", attempt) - 1)}
 
         if stage == "fidelity_gate":
             if inputs.get("reverify"):
@@ -953,6 +1164,12 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             for r in roles:
                 attempt = _attempts(db, key, r["role"]) + 1
                 if attempt > max_att:
+                    recovered = _recover_generation(
+                        db, key, operation=operation_for(r["role"]), stage=rnd_stage,
+                        role=r["role"], slug=slug, version=version, release=release,
+                        experiment=exp is not None)
+                    if recovered is not None:
+                        outs.append(recovered)
                     continue
                 refs_ = _refs_with_bytes() + (laura_refs() if r["laura"] else [])
                 if (r["laura"] and outfit and outfit.get("approved_reference")
@@ -986,14 +1203,16 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                       f"{r['job']}: the finished piece", refs=refs_,
                                       outfit=outfit if r["laura"] else None,
                                       plan_attempt=attempt,
-                                      repair=(repairs or {}).get(r["role"]), exp=exp))
+                                      repair=(repairs or {}).get(r["role"]), exp=exp,
+                                      operation=operation_for(r["role"])))
             return outs
 
         if stage == "identity_anchor":
             return _stage_identity_anchor(db, key, run, inputs, gen=gen, judges=judges, exp=exp,
                                           laura_roles=laura_roles, st=st, go=go, block=block,
                                           refs=_refs_with_bytes, laura_refs=laura_refs,
-                                          slug=slug, version=version, release=release)
+                                          slug=slug, version=version, release=release,
+                                          operation_for=operation_for)
 
         if stage == "lifestyle_generation":
             roles = [r for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
@@ -1300,8 +1519,12 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
     The next job carries `epoch` and its idempotency key ends `:e<epoch>`, so it never collides
     with the first pass; jobs from an older epoch are skipped. Attempts, generation calls and
     spend carry over (the per-role cap and the gallery spend plan still bind), and stored
-    candidates are re-verified rather than regenerated where they exist."""
+    candidates are re-verified rather than regenerated where they exist. `follow` must enqueue
+    the job using the supplied SQLAlchemy `session` and propagate failures so the restart
+    state and job commit or roll back together."""
+    from sqlalchemy import select
     from sqlalchemy.orm.attributes import flag_modified
+    from .image_records import ImageProductionRun
 
     if not str(by or "").strip():
         raise ValueError("a restart names who asked for it")
@@ -1311,7 +1534,16 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
     run = get_run(db, key)
     epoch = can["epoch"]
     with db.session() as s:
-        r = _run(s, key)
+        r = s.scalar(select(ImageProductionRun).where(
+            ImageProductionRun.run_key == key).with_for_update())
+        # The preflight performs multiple reads. Refuse a concurrently changed run;
+        # do not spend a new epoch on a stale preflight decision.
+        current_epoch = int(((r.stages or {}).get(RESTART_KEY) or {}).get("epoch") or 0) if r else -1
+        if (r is None or r.status != "blocked" or current_epoch != epoch - 1
+                or r.stage != run["stage"] or r.stage != can["blocked_at"]
+                or (r.blocked_reason or "") != (run["blocked_reason"] or "")
+                or (r.blocked_reason or "") != can["blocked_reason"]):
+            return {"restarted": False, "why": "run changed during restart; retry preflight"}
         st = dict(r.stages or {})
         rec = dict(st.get(RESTART_KEY) or {})
         rec["epoch"] = epoch
@@ -1328,12 +1560,14 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
                                                             False)
         r.stage = can["resume_at"]
         r.updated_at = _now()
-    inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
-              "stage": can["resume_at"], "round": 0, "epoch": epoch}
-    if can["reverify"]:
-        inputs["reverify"] = True
-    job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
-                                   can["resume_at"], 0, epoch))
+        inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
+                  "stage": can["resume_at"], "round": 0, "epoch": epoch}
+        if can["reverify"]:
+            inputs["reverify"] = True
+        job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
+                                       can["resume_at"], 0, epoch), session=s)
+        if job is None:
+            raise RuntimeError("restart job was not durably enqueued")
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
             "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
 
@@ -1404,8 +1638,10 @@ def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
                     or (c.get("check") == "anchor_consistency" and c.get("status") == "UNKNOWN")
                     or (c.get("check") == "craft_texture" and c.get("status") == "UNKNOWN"
                         and isinstance(c.get("reading"), dict)
-                        and str(c["reading"].get("fabric_visible_clearly") or "").lower()
-                        not in ("true", "yes")) for c in checks):
+                        and (str(c["reading"].get("fabric_visible_clearly") or "").strip().lower()
+                             not in ("true", "yes")
+                             or str(c["reading"].get("craft") or "").strip().lower()
+                             not in ("crochet", "knitting", "woven", "printed"))) for c in checks):
                 continue
             if _image_has_negative_decision(db, slug=b["slug"], version=b["version"],
                                             sha=b["sha256"]):
@@ -1432,7 +1668,7 @@ def _drifted_dimensions(best: dict | None, db) -> list[str]:
 
 
 def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_roles, st, go,
-                           block, refs, laura_refs, slug, version, release) -> dict:
+                           block, refs, laura_refs, slug, version, release, operation_for) -> dict:
     """Stage A. PASS: accepted and reused. A judged body-proportion drift gets exactly one
     correction pass. FAIL after that: blocked (attempts spent). UNKNOWN: an identity review is
     opened for the owner and the run stops at this gate with every image kept; it resumes only
@@ -1460,7 +1696,9 @@ def _stage_identity_anchor(db, key, run, inputs, *, gen, judges, exp, laura_role
         return _generate(db, key, gen, slug=slug, version=version, release=release,
                          role=IDENTITY_ANCHOR_ROLE, stage=stage, laura=True, judges=judges,
                          brief="Laura alone in the listing's outfit", outfit=outfit,
-                         refs=refs() + laura_refs(), plan_attempt=n, repair=repair, exp=exp)
+                         refs=refs() + laura_refs(), plan_attempt=n, repair=repair, exp=exp,
+                         operation=operation_for(IDENTITY_ANCHOR_ROLE,
+                                                 "correction" if repair else "initial"))
 
     if best is None:
         got = generate()

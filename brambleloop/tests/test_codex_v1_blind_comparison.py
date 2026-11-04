@@ -71,6 +71,37 @@ def test_unclear_anchor_edge_does_not_prove_invented_edging():
     assert verdict["status"] == "UNKNOWN"
 
 
+def test_ambiguous_pattern_edge_does_not_prove_invented_edging():
+    exp = fidelity.expectation(_cir(CLOUD))
+    assert exp.edging_declared is None and exp.edge_ambiguity == "end_bands"
+    reading = _reading()
+    reading["image_1"]["border_or_edging_visible"] = "no"
+    reading["image_2"]["border_or_edging_visible"] = "yes"
+    verdict = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert verdict["status"] == "UNKNOWN" and verdict["blocks_variant_input"] is True
+    # Agreement that both images have visible edging still cannot resolve the
+    # pattern's ambiguity between separate edging and declared end bands.
+    reading["image_1"]["border_or_edging_visible"] = "yes"
+    verdict = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert verdict["status"] == "UNKNOWN" and verdict["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("field", ["plain_end_bands_visible", "raised_cables_visible"])
+def test_matching_unsupported_reference_feature_does_not_pass(field):
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain-reference", [_row(i, "pine") for i in range(1, 6)],
+                {"pine": "#244A3A"})
+    exp = fidelity.expectation(cir)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+        item[field] = "yes"
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
 def test_fewer_visible_colours_do_not_silently_pass_comparison():
     reading = _reading()
     reading["image_2"]["distinct_yarn_colours"] = 1
@@ -159,6 +190,120 @@ def test_multi_component_unknown_band_presence_cannot_pass_on_absence():
     cir.components.append(other)
     exp = fidelity.expectation(cir)
     assert exp.edge_ambiguity == "components"
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+def test_declared_edging_not_seen_in_either_image_is_not_a_pass():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("with-border", [_row(i, "pine") for i in range(1, 6)],
+                {"pine": "#244A3A"})
+    cir.components[0].name = "border panel"
+    exp = fidelity.expectation(cir)
+    assert exp.edging_declared is True
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    for item in reading.values():
+        item["border_or_edging_visible"] = "yes"
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"
+
+
+def test_both_images_missing_a_used_yarn_colour_do_not_pass():
+    exp = fidelity.expectation(_cir(CLOUD))
+    assert sum(float(share) > 0 for share in exp.expected_share) == 2
+    reading = _reading()
+    for item in reading.values():
+        item["distinct_yarn_colours"] = 1
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+    # The candidate may show the missing colour even when the anchor does not;
+    # the incomplete anchor does not prove an invented extra colour.
+    reading["image_2"]["distinct_yarn_colours"] = 2
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("shares", [[True, False], ["1", "0"], [0.3, 0.3], [float("nan"), 0]])
+def test_malformed_expected_colour_usage_is_never_a_pass(shares):
+    from dataclasses import replace
+
+    exp = replace(fidelity.expectation(_cir(CLOUD)), expected_share=shares)
+    result = vision_judges.blind_consistency(Judge(_reading()), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+def test_unused_palette_entry_is_not_required_visible():
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("unused-colour", [_row(i, "pine") for i in range(1, 6)],
+                {"pine": "#244A3A", "cream": "#DDD7CA"})
+    exp = fidelity.expectation(cir)
+    assert len(exp.palette_hex) == 2 and sum(float(share) > 0 for share in exp.expected_share) == 1
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"
+
+
+@pytest.mark.parametrize("field,value", [("cables_declared", None),
+                                        ("cables_declared", "false"),
+                                        ("edge_ambiguity", None),
+                                        ("edge_ambiguity", "unrecognized")])
+def test_missing_pattern_presence_fact_is_unknown(field, value):
+    from copy import copy
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    exp = copy(fidelity.expectation(cir))
+    assert exp.edge_ambiguity == "" and exp.cables_declared is False
+    setattr(exp, field, value)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("field,value", [("bands", "yes"), ("bands", ["not-a-band"]), ("bands", [{}]),
+                                        ("repeat", "cable"), ("repeat", {"what": "unknown", "n": 1}),
+                                        ("repeat", {"what": "cable columns", "n": True}),
+                                        ("repeat", {"what": "cable columns", "n": 2,
+                                                    "x": [0, 10 ** 1000]})])
+def test_malformed_piece_presence_evidence_is_unknown(field, value):
+    from copy import deepcopy
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    exp = deepcopy(fidelity.expectation(cir))
+    setattr(exp.pieces[0], field, value)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("edging", ["false", 0, None])
+def test_malformed_pattern_edging_fact_does_not_pass(edging):
+    from copy import copy
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain-edge", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    exp = copy(fidelity.expectation(cir))
+    assert exp.edging_declared is False and exp.edge_ambiguity == ""
+    exp.edging_declared = edging
     reading = _reading()
     for item in reading.values():
         item.update(border_or_edging_visible="no", plain_end_bands_visible="no",

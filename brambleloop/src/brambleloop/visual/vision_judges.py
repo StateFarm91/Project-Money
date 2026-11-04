@@ -41,6 +41,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from numbers import Real
 
 from ..creative import failure_codes as FC
 
@@ -534,9 +536,29 @@ def item_prompt() -> str:
 
 
 def _has_bands(exp) -> bool | None:
-    if any(p.bands for p in getattr(exp, "pieces", []) or []):
-        return True
-    ambiguity = getattr(exp, "edge_ambiguity", "")
+    ambiguity = getattr(exp, "edge_ambiguity", None)
+    pieces = getattr(exp, "pieces", None)
+    if (ambiguity not in ("", "end_bands", "declared_edging_and_bands", "components")
+            or not isinstance(pieces, (list, tuple)) or not pieces):
+        return None
+    try:
+        for p in pieces:
+            if not isinstance(p.bands, list):
+                return None
+            for band in p.bands:
+                if not isinstance(band, dict):
+                    return None
+                rows = band.get("rows")
+                if (not isinstance(rows, (list, tuple)) or len(rows) != 2
+                        or any(type(row) is not int for row in rows)
+                        or rows[0] < 1 or rows[1] < rows[0]
+                        or not isinstance(band.get("colour"), str) or not band["colour"]
+                        or band.get("outer") not in ("top", "bottom")):
+                    return None
+        if any(p.bands for p in pieces):
+            return True
+    except (AttributeError, OverflowError, TypeError):
+        return None
     if ambiguity in ("end_bands", "declared_edging_and_bands"):
         # Short declared bands can be too small for a standalone pixel check.
         return True
@@ -546,13 +568,31 @@ def _has_bands(exp) -> bool | None:
     return False
 
 
-def _has_cables(exp) -> bool:
+def _has_cables(exp) -> bool | None:
     # Repeated-column measurement is not a cable-presence test: a single
     # compiled crossing (or a crossing on a smaller component) has no such
     # measurement but is still declared in the design.
-    return bool(getattr(exp, "cables_declared", False)) or any(
-        p.repeat and "cable" in str(p.repeat.get("what", ""))
-        for p in getattr(exp, "pieces", []) or [])
+    declared = getattr(exp, "cables_declared", None)
+    pieces = getattr(exp, "pieces", None)
+    if type(declared) is not bool or not isinstance(pieces, (list, tuple)) or not pieces:
+        return None
+    try:
+        for p in pieces:
+            repeat = p.repeat
+            if repeat is not None and (not isinstance(repeat, dict)
+                    or repeat.get("what") not in ("cable columns", "motif repeats")
+                    or type(repeat.get("n")) is not int or repeat["n"] < 1):
+                return None
+            if repeat is not None:
+                span = repeat.get("x")
+                if (not isinstance(span, (list, tuple)) or len(span) != 2
+                        or any(isinstance(x, bool) or not isinstance(x, Real) or not math.isfinite(x)
+                               for x in span) or not (0 <= span[0] < span[1] <= 1)):
+                    return None
+        return declared or any(p.repeat and "cable" in str(p.repeat.get("what", ""))
+                               for p in pieces)
+    except (AttributeError, OverflowError, TypeError):
+        return None
 
 
 def compare_items(reading: dict, exp) -> dict:
@@ -582,14 +622,24 @@ def compare_items(reading: dict, exp) -> dict:
         problems.append((FC.WRONG_CRAFT_TEXTURE, f"reads as {craft_b} (anchor {craft_a}, "
                                                  f"pattern {getattr(exp, 'craft', '?')})"))
     eb, ea = _tri(b.get("border_or_edging_visible")), _tri(a.get("border_or_edging_visible"))
+    edge_expected = getattr(exp, "edging_declared", "missing")
+    edge_valid = (type(edge_expected) is bool or
+                  (edge_expected is None and getattr(exp, "edge_ambiguity", None) in
+                   ("end_bands", "declared_edging_and_bands", "components")))
+    if not edge_valid:
+        unclear.append("pattern edging evidence unavailable")
     if ea is None:
         unclear.append("edging unclear in the anchor")
-    if eb is True and not getattr(exp, "edging_declared", False) and ea is False:
+    if eb is True and edge_valid and edge_expected is False and ea is False:
         problems.append((FC.INVENTED_EDGING, "an edging the anchor and the pattern do not have"))
     elif eb is None:
         unclear.append("edging unclear")
     elif ea is not None and eb != ea:
         unclear.append("edging differs or is obscured between images")
+    elif edge_expected is True and (ea is not True or eb is not True):
+        unclear.append("declared edging cannot be verified in both images")
+    elif edge_expected is None and (ea is True or eb is True):
+        unclear.append("visible edging is ambiguous with declared bands or components")
     bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
     has_bands = _has_bands(exp)
     if ba is None or bb is None:
@@ -600,15 +650,20 @@ def compare_items(reading: dict, exp) -> dict:
         unclear.append("end bands differ or are obscured between images")
     elif (has_bands is True and (ba is not True or bb is not True)) or has_bands is None:
         unclear.append("declared end bands cannot be verified in both images")
+    elif has_bands is False and (ba is True or bb is True):
+        unclear.append("anchor band reading is not supported by the pattern")
     cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
+    has_cables = _has_cables(exp)
     if ca is None or cb is None:
         unclear.append("cables unclear in one or both images")
-    if cb is True and not _has_cables(exp) and ca is False:
+    if cb is True and has_cables is False and ca is False:
         problems.append((FC.WRONG_CRAFT_TEXTURE, "raised cables the pattern does not have"))
     elif ca is not None and cb is not None and ca != cb:
         unclear.append("cables differ or are obscured between images")
-    elif _has_cables(exp) and (ca is not True or cb is not True):
+    elif (has_cables is True and (ca is not True or cb is not True)) or has_cables is None:
         unclear.append("declared cables cannot be verified in both images")
+    elif has_cables is False and (ca is True or cb is True):
+        unclear.append("anchor cable reading is not supported by the pattern")
     nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
     if na is None or na <= 0:
         unclear.append("colour count unclear in the anchor")
@@ -616,13 +671,30 @@ def compare_items(reading: dict, exp) -> dict:
     if nb is not None and nb <= 0:
         nb = None
     declared = len(getattr(exp, "palette_hex", []) or [])
+    try:
+        raw_shares = list(exp.expected_share)
+        if any(isinstance(value, bool) or not isinstance(value, Real) for value in raw_shares):
+            raise ValueError("non-numeric expected shares")
+        shares = [float(value) for value in raw_shares]
+        if (len(shares) != declared or not declared
+                or not all(math.isfinite(value) and value >= 0 for value in shares)
+                or not math.isclose(sum(shares), 1.0, abs_tol=1e-6, rel_tol=1e-6)):
+            raise ValueError("unusable expected shares")
+        used = sum(value > 0 for value in shares)
+        if not used:
+            raise ValueError("no used colours")
+    except (AttributeError, OverflowError, TypeError, ValueError):
+        used = None
+        unclear.append("pattern colour usage unavailable")
+    if used is not None and ((na is not None and na < used) or (nb is not None and nb < used)):
+        unclear.append("a pattern colour is not visible in one or both images")
     if nb is not None and declared and nb > declared:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the pattern has "
                                                  f"{declared}"))
-    elif nb is not None and na is not None and nb > na:
+    elif nb is not None and na is not None and nb > na and used is not None and na >= used:
         problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the anchor shows {na}"))
-    elif nb is not None and na is not None and nb < na:
-        unclear.append("fewer colours are visible in the candidate")
+    elif nb is not None and na is not None and nb != na:
+        unclear.append("colour counts differ between images")
     elif nb is None:
         unclear.append("colour count unclear")
     if problems:
