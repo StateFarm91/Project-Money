@@ -785,6 +785,10 @@ def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
         # holds it until physical evidence is recorded (UNKNOWN is never a pass).
         # A1R-5: every assigned product, stuffed or not; unmeasurable is UNKNOWN and blocks.
         blocks = small_parts.blocking(cir)
+        # A whole toy can itself fit the cylinder. Flat stitch estimates do not
+        # establish its physical dimensions; no content-bound test authority exists.
+        if childrens == ("amigurumi_toy", ch.UNDER_3) and not blocks:
+            blocks.append("whole toy (physical fit is unknown)")
         if blocks:
             raise ChildrensDecisionRequired(cir.slug, "small_parts",
                 f"{cir.slug}: assigned to a child, and these pieces fit or may fit the "

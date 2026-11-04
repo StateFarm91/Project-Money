@@ -194,3 +194,32 @@ if __name__ == "__main__":
     test_invalid_measurements_and_gauges_are_unknown()
     test_either_seam_endpoint_can_be_a_small_part()
     print("PASS invalid child small-parts geometry is UNKNOWN and held")
+
+
+def test_single_piece_under_three_toy_needs_whole_object_fit_evidence():
+    from brambleloop.core.models import JobStatus
+    from brambleloop.intel import childrens as ch
+
+    toy = harness._one_piece_ball()
+    assert not toy.assembly and not small_parts.blocking(toy)
+    # Synthetic catalogue assignment and digest only exercise the real worker.
+    with patch.dict(launch0._cir_audience_map(), {toy.slug: ("amigurumi_toy", ch.UNDER_3)}), \
+         patch.dict(launch0._ASSIGNED_DECISION_CIR_SHA256,
+                    {toy.slug: launch0._cir_decision_digest(toy)}), \
+         patch.dict(small_parts.SMALL_PARTS_EVIDENCE, {toy.slug: "unscoped alleged sample"}):
+        try:
+            pdf._refuse_an_undecided_childrens_title(toy, ("amigurumi_toy", ch.UNDER_3))
+        except pdf.ChildrensDecisionRequired as exc:
+            assert exc.reason == "small_parts" and "whole toy" in str(exc)
+        else:
+            raise AssertionError("single-piece toy bypassed whole-object fit check")
+        result = harness._assets_build_full(toy)
+        pdf._refuse_an_undecided_childrens_title(toy, ("amigurumi_toy", ch.THREE_TO_SIX))
+        pdf._refuse_an_undecided_childrens_title(toy, ("baby_blanket", ch.UNDER_3))
+    assert result["status"] == JobStatus.DONE and result["outputs"].get("held"), result
+    assert result["outputs"]["reason"] == "small_parts", result
+    assert not result["outputs"].get("pdf_sha256"), result
+
+    # This scoped hold must not infer a toy audience for unrelated products.
+    blanket = inventory._engineered("market-basket-medium")
+    pdf._refuse_an_undecided_childrens_title(blanket, ("baby_blanket", ch.UNDER_3))
