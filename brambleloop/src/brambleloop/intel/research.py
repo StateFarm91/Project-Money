@@ -142,6 +142,24 @@ def freshness_for(domain: str) -> tuple[int | None, str]:
         f"improvement cell. A default expiry is the single global constant F-433 removes")
 
 
+def answer_fresh_at(row: ResearchTask, at: datetime) -> bool:
+    """A prior answer is reusable only during its domain's supported lifetime."""
+    at = _aware(at)
+    answered = _aware(row.answered_at)
+    expires = _aware(row.expires_on)
+    try:
+        lifetime, _why = freshness_for(row.domain)
+    except ResearchRefused:
+        return False
+    if row.state != ANSWERED or answered is None or answered > at:
+        return False
+    if lifetime is None:
+        return expires is None or expires > at
+    if expires is None:
+        return False
+    return min(expires, answered + timedelta(days=lifetime)) > at
+
+
 # ---- internal evidence first ------------------------------------------------------------
 
 def question_key(question: str, domain: str, decision_ref: str) -> str:
@@ -334,7 +352,7 @@ def open_question(db, *, question: str, trigger: str, decision_ref: str, domain:
                              .order_by(ResearchTask.id.desc())):
             if (row.detail or {}).get("question_key") != qkey:
                 continue
-            if _aware(row.expires_on) is not None and _aware(row.expires_on) <= t:
+            if not answer_fresh_at(row, t):
                 continue                       # stale: expire_due re-opens it
             if reopen_because is None:
                 d = dict(row.detail or {})
