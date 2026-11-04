@@ -255,6 +255,14 @@ def delivery_links(receipt: dict, listings: dict) -> list[dict]:
     """
     from ..publish.pdf import TERMINOLOGIES
 
+    def invalid(why, tx=None):
+        tx = tx if isinstance(tx, dict) else {}
+        return {"receipt_id": receipt.get("receipt_id") if isinstance(receipt, dict) else None,
+                "transaction_id": tx.get("transaction_id"), "listing_id": tx.get("listing_id"),
+                "release": None, "terminology": None, "href": None, "problem": why}
+
+    if not isinstance(receipt, dict):
+        return [invalid("receipt is not an object")]
     paid_flag = receipt.get("is_paid")
     if paid_flag is not None and paid_flag is not True:
         return []  # Explicitly unpaid or malformed; never infer payment from a conflicting status.
@@ -263,18 +271,31 @@ def delivery_links(receipt: dict, listings: dict) -> list[dict]:
     if not paid:
         return []
     out = []
-    for tx in receipt.get("transactions") or []:
+    transactions = receipt.get("transactions")
+    if not isinstance(transactions, list):
+        return [invalid("transactions is not a list")]
+    if not isinstance(listings, dict):
+        return [invalid("listing mappings are not an object")]
+    for tx in transactions:
+        if not isinstance(tx, dict):
+            out.append(invalid("transaction is not an object"))
+            continue
         if tx.get("is_digital") is False:
             continue
         if tx.get("is_digital") is not True:
             # An unknown line must not disappear from a passing rehearsal.
-            out.append({"receipt_id": receipt.get("receipt_id"),
-                        "transaction_id": tx.get("transaction_id"),
-                        "listing_id": tx.get("listing_id"), "release": None,
-                        "terminology": None, "href": None,
-                        "problem": "digital status is not a boolean"})
+            out.append(invalid("digital status is not a boolean", tx))
             continue
-        rel = listings.get(str(tx.get("listing_id")))
+        listing_id = tx.get("listing_id")
+        if (isinstance(listing_id, bool) or not isinstance(listing_id, (str, int))
+                or not str(listing_id).strip()):
+            out.append(invalid("the line has no valid listing id", tx))
+            continue
+        rel = listings.get(str(listing_id))
+        if (not isinstance(rel, (tuple, list)) or len(rel) != 2
+                or any(not isinstance(v, str) or not v or "@" in v for v in rel)):
+            out.append(invalid("the line maps to no valid release", tx))
+            continue
         for t in TERMINOLOGIES:
             out.append({"receipt_id": receipt.get("receipt_id"),
                         "transaction_id": tx.get("transaction_id"),
@@ -311,7 +332,7 @@ def rehearse_purchase(db, receipt: dict, listings: dict, *, store=None, render=N
         files.append({**row, "state": PASS if ok else FAIL, "certified_sha256": want,
                       "served_sha256": sha, "bytes": len(got["bytes"]),
                       "source": got["source"]})
-    return {"receipt_id": receipt.get("receipt_id"), "links": len(links),
+    return {"receipt_id": receipt.get("receipt_id") if isinstance(receipt, dict) else None, "links": len(links),
             "state": (PASS if files and all(f["state"] == PASS for f in files) else FAIL),
             "files": files, "etsy_called": False}
 
