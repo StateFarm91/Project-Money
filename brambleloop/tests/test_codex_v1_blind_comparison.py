@@ -222,3 +222,43 @@ def test_unused_palette_entry_is_not_required_visible():
         item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
                     raised_cables_visible="no", distinct_yarn_colours=1)
     assert vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)["status"] == "PASS"
+
+
+@pytest.mark.parametrize("field,value", [("cables_declared", None),
+                                        ("cables_declared", "false"),
+                                        ("edge_ambiguity", None),
+                                        ("edge_ambiguity", "unrecognized")])
+def test_missing_pattern_presence_fact_is_unknown(field, value):
+    from copy import copy
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    exp = copy(fidelity.expectation(cir))
+    assert exp.edge_ambiguity == "" and exp.cables_declared is False
+    setattr(exp, field, value)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+@pytest.mark.parametrize("field,value", [("bands", "yes"), ("bands", ["not-a-band"]), ("bands", [{}]),
+                                        ("repeat", "cable"), ("repeat", {"what": "unknown", "n": 1}),
+                                        ("repeat", {"what": "cable columns", "n": True}),
+                                        ("repeat", {"what": "cable columns", "n": 2,
+                                                    "x": [0, 10 ** 1000]})])
+def test_malformed_piece_presence_evidence_is_unknown(field, value):
+    from copy import deepcopy
+    from test_w5_v1_visual_correctness import _flat, _row
+
+    cir = _flat("plain", [_row(i, "pine") for i in range(1, 6)], {"pine": "#244A3A"})
+    exp = deepcopy(fidelity.expectation(cir))
+    setattr(exp.pieces[0], field, value)
+    reading = _reading()
+    for item in reading.values():
+        item.update(border_or_edging_visible="no", plain_end_bands_visible="no",
+                    raised_cables_visible="no", distinct_yarn_colours=1)
+    result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True

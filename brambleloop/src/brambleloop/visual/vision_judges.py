@@ -536,9 +536,29 @@ def item_prompt() -> str:
 
 
 def _has_bands(exp) -> bool | None:
-    if any(p.bands for p in getattr(exp, "pieces", []) or []):
-        return True
-    ambiguity = getattr(exp, "edge_ambiguity", "")
+    ambiguity = getattr(exp, "edge_ambiguity", None)
+    pieces = getattr(exp, "pieces", None)
+    if (ambiguity not in ("", "end_bands", "declared_edging_and_bands", "components")
+            or not isinstance(pieces, (list, tuple)) or not pieces):
+        return None
+    try:
+        for p in pieces:
+            if not isinstance(p.bands, list):
+                return None
+            for band in p.bands:
+                if not isinstance(band, dict):
+                    return None
+                rows = band.get("rows")
+                if (not isinstance(rows, (list, tuple)) or len(rows) != 2
+                        or any(type(row) is not int for row in rows)
+                        or rows[0] < 1 or rows[1] < rows[0]
+                        or not isinstance(band.get("colour"), str) or not band["colour"]
+                        or band.get("outer") not in ("top", "bottom")):
+                    return None
+        if any(p.bands for p in pieces):
+            return True
+    except (AttributeError, OverflowError, TypeError):
+        return None
     if ambiguity in ("end_bands", "declared_edging_and_bands"):
         # Short declared bands can be too small for a standalone pixel check.
         return True
@@ -548,13 +568,31 @@ def _has_bands(exp) -> bool | None:
     return False
 
 
-def _has_cables(exp) -> bool:
+def _has_cables(exp) -> bool | None:
     # Repeated-column measurement is not a cable-presence test: a single
     # compiled crossing (or a crossing on a smaller component) has no such
     # measurement but is still declared in the design.
-    return bool(getattr(exp, "cables_declared", False)) or any(
-        p.repeat and "cable" in str(p.repeat.get("what", ""))
-        for p in getattr(exp, "pieces", []) or [])
+    declared = getattr(exp, "cables_declared", None)
+    pieces = getattr(exp, "pieces", None)
+    if type(declared) is not bool or not isinstance(pieces, (list, tuple)) or not pieces:
+        return None
+    try:
+        for p in pieces:
+            repeat = p.repeat
+            if repeat is not None and (not isinstance(repeat, dict)
+                    or repeat.get("what") not in ("cable columns", "motif repeats")
+                    or type(repeat.get("n")) is not int or repeat["n"] < 1):
+                return None
+            if repeat is not None:
+                span = repeat.get("x")
+                if (not isinstance(span, (list, tuple)) or len(span) != 2
+                        or any(isinstance(x, bool) or not isinstance(x, Real) or not math.isfinite(x)
+                               for x in span) or not (0 <= span[0] < span[1] <= 1)):
+                    return None
+        return declared or any(p.repeat and "cable" in str(p.repeat.get("what", ""))
+                               for p in pieces)
+    except (AttributeError, OverflowError, TypeError):
+        return None
 
 
 def compare_items(reading: dict, exp) -> dict:
@@ -605,13 +643,14 @@ def compare_items(reading: dict, exp) -> dict:
     elif (has_bands is True and (ba is not True or bb is not True)) or has_bands is None:
         unclear.append("declared end bands cannot be verified in both images")
     cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
+    has_cables = _has_cables(exp)
     if ca is None or cb is None:
         unclear.append("cables unclear in one or both images")
-    if cb is True and not _has_cables(exp) and ca is False:
+    if cb is True and has_cables is False and ca is False:
         problems.append((FC.WRONG_CRAFT_TEXTURE, "raised cables the pattern does not have"))
     elif ca is not None and cb is not None and ca != cb:
         unclear.append("cables differ or are obscured between images")
-    elif _has_cables(exp) and (ca is not True or cb is not True):
+    elif (has_cables is True and (ca is not True or cb is not True)) or has_cables is None:
         unclear.append("declared cables cannot be verified in both images")
     nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
     if na is None or na <= 0:

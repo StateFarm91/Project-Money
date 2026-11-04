@@ -32,6 +32,14 @@ the real compiled one-used/two-declared control remains PASS. Python 3.11/tmpfs
 focused suite 33/33; independent used/malformed/unused-palette tests 6/6. This is a
 conservative comparison, not proof of judge authenticity or physical fidelity.
 
+The comparator previously interpreted a missing/malformed cable-presence flag or
+edge-band classification as absence, and truthy malformed nested piece data as
+presence. It now uses UNKNOWN for unrecognized or malformed fields, validating
+the local band/repeat structure rather than trusting truthiness. Invalid numeric
+spans are held rather than crashing. Python 3.11/tmpfs focused suite 44/44;
+independent malformed-piece cases 7/7. Full verifier provenance and concurrent
+source changes remain outside these checks.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

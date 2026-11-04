@@ -337,7 +337,7 @@
       "branch": "codex/v1-craft-enum",
       "source_branch": "codex/v1-variant-base",
       "source_sha": "100f06496e108ca8ece2cc4899c11dc2339118a8",
-      "scope": "Unsupported blind craft labels, unobserved declared edging and missing used yarn colours hold UNKNOWN and cannot be reused as variant inputs.",
+      "scope": "Unsupported blind craft labels, unobserved declared edging, missing used yarn colours and malformed cable/band presence facts hold UNKNOWN and cannot be reused as variant inputs.",
       "files": [
         "brambleloop/src/brambleloop/visual/fidelity.py",
         "brambleloop/src/brambleloop/visual/vision_judges.py",
