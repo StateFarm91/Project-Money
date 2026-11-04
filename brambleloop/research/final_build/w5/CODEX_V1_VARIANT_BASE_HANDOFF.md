@@ -26,3 +26,21 @@ can change them after the check. The underlying V1 branch remains blocked on
 inherited regressions, explicit experiment authorization and the shared evidence
 contract. When unavailable, the edit base is omitted; this does not certify or
 publish the generated variant.
+
+## Gallery readiness run scope
+
+An explicit production or controlled-run gallery previously fell back to any
+candidate on the listing. A controlled experiment's candidate could thus appear
+on a production run's owner card. The run-bound selection now requires the
+stored run's product/version/full release, keeps controlled runs separate, and
+permits matching unscoped owner uploads only in production. An unscoped
+dashboard filters controlled runs and holds if its production candidates have
+more than one or malformed product/release identity. Conflicting records, more
+than 255 distinct identity/run/method combinations, and missing full release IDs cause conservative
+holds; they are not silently combined.
+
+Python 3.11/file-backed SQLite: 81/81 V1, anchor, owner-image, stage-D and new
+gallery tests. The independent reviewer reran the gallery cases 3/3. The
+identity scan and later role reads remain separate transactions; metadata is
+not authenticated and later writes can change the result. This is not an
+action-time approval or publication fence. DO NOT INTEGRATE remains.
