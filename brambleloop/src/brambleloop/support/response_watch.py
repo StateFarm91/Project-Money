@@ -77,7 +77,8 @@ def intake_key(customer_ref: str, message: str, received_at: datetime | None) ->
     return hashlib.sha256(f"{customer_ref}\x1f{when}\x1f{content}".encode("utf-8")).hexdigest()
 
 
-def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now: datetime):
+def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now: datetime,
+                   product_slug: str | None, version: str | None):
     """The case this exact message was already recorded as, if any.
 
     With a stated receipt time the key is exact. Without one, the same words from the same
@@ -92,7 +93,12 @@ def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now:
         for case in s.scalars(select(SupportCase).where(SupportCase.customer_ref == customer_ref)
                               .order_by(SupportCase.id.desc())):
             detail = case.detail or {}
-            if detail.get("intake_key") != key:
+            # The same buyer can ask identical questions about different
+            # products or versions. Existing keys are retained for backwards
+            # compatibility, but only an exact scope match is a duplicate.
+            if (detail.get("intake_key") != key
+                    or (case.product_slug or None) != (product_slug or None)
+                    or (case.version or None) != (version or None)):
                 continue
             if not explicit_time:
                 try:
@@ -124,10 +130,16 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
     if not str(customer_ref or "").strip() or not str(message or "").strip():
         raise MessageRefused("customer_ref and message are required")
     at = _parse(received_at, now=now)
-    ref = str(customer_ref)[:80]
+    ref = str(customer_ref)
+    if len(ref) > 80:
+        raise MessageRefused("customer_ref exceeds 80 characters; cannot preserve its identity")
+    if product_slug is not None and (not isinstance(product_slug, str) or len(product_slug) > 80):
+        raise MessageRefused("product_slug must be a string of at most 80 characters")
+    if version is not None and (not isinstance(version, str) or len(version) > 20):
+        raise MessageRefused("version must be a string of at most 20 characters")
     key = intake_key(ref, str(message), at if received_at not in (None, "") else None)
     existing = _existing_case(db, ref, key, explicit_time=received_at not in (None, ""),
-                              now=now)
+                              now=now, product_slug=product_slug, version=version)
     if existing is not None:
         # A3-13: the same message recorded twice (a retry, a double tap) is one case and one
         # first-response card, not two. The caller is told it was a duplicate.
@@ -135,7 +147,7 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
                 "received_at": _aware(existing.at).isoformat() if existing.at else None,
                 "hours_waiting": (round((now - _aware(existing.at)).total_seconds() / 3600.0, 2)
                                   if existing.at else None)}
-    case_id = CustomerExperience(db).intake(customer_ref=str(customer_ref)[:80],
+    case_id = CustomerExperience(db).intake(customer_ref=ref,
                                             message=str(message), product_slug=product_slug,
                                             version=version, source=OWNER_SOURCE)
     with db.session() as s:

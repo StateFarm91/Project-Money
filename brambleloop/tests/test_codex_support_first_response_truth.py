@@ -146,3 +146,47 @@ def test_invalid_legacy_response_marker_does_not_suppress_real_draft_worker(tmp_
         assert case.detail["first_response_at"] == "not-a-time"
         assert case.detail["response_measured_as"] == "draft_ready"
     assert case_id in response_watch.watch(db, now=now)["raised"]
+
+
+def test_operator_intake_deduplicates_only_same_product_and_version(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from brambleloop.core import opsauth
+
+    monkeypatch.setenv(opsauth.TOKEN_VAR, "test-operator-token-for-fixtures-only")
+    monkeypatch.setenv("BRAMBLELOOP_DATABASE_URL", f"sqlite:///{tmp_path / 'support.db'}")
+    from brambleloop.app import main
+
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    monkeypatch.setattr(main, "db", db)
+    client = TestClient(main.app)
+    headers = {"Authorization": "Bearer test-operator-token-for-fixtures-only"}
+    body = {"event": "buyer_message", "customer_ref": "fixture-buyer",
+            "message": "Where is my PDF?", "product_slug": "fixture-a", "version": "1.0.0"}
+    assert client.post("/api/support/messages", json=body).status_code == 401
+    first = client.post("/api/support/messages", headers=headers, json=body).json()
+    repeat = client.post("/api/support/messages", headers=headers, json=body).json()
+    assert repeat["duplicate"] and repeat["case_id"] == first["case_id"]
+    other_product = client.post("/api/support/messages", headers=headers,
+                                json={**body, "product_slug": "fixture-b"}).json()
+    other_version = client.post("/api/support/messages", headers=headers,
+                                json={**body, "version": "2.0.0"}).json()
+    unknown_version = client.post("/api/support/messages", headers=headers,
+                                  json={**body, "version": None}).json()
+    assert len({first["case_id"], other_product["case_id"],
+                other_version["case_id"], unknown_version["case_id"]}) == 4
+    received = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    timed = {**body, "received_at": received}
+    timed_first = client.post("/api/support/messages", headers=headers, json=timed).json()
+    timed_repeat = client.post("/api/support/messages", headers=headers, json=timed).json()
+    timed_other = client.post("/api/support/messages", headers=headers,
+                              json={**timed, "version": "2.0.0"}).json()
+    assert timed_repeat["duplicate"] and timed_repeat["case_id"] == timed_first["case_id"]
+    assert timed_other["case_id"] != timed_first["case_id"]
+    too_long = client.post("/api/support/messages", headers=headers,
+                           json={**body, "customer_ref": "x" * 81})
+    assert too_long.status_code == 400
+    with db.session() as session:
+        cases = list(session.scalars(select(SupportCase)))
+        assert len(cases) == 6
+        assert session.get(SupportCase, other_version["case_id"]).version == "2.0.0"

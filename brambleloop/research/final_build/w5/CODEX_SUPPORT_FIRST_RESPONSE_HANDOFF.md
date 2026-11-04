@@ -62,3 +62,15 @@ pass 48/48. A valid legacy timestamp and the `sent` flag are still not
 cryptographically authenticated. The owner-sent recorder refuses to overwrite
 an invalid historic marker, so a separately authorized correction workflow is
 still required. The final timestamp change has not been tested on PostgreSQL.
+
+Intake follow-up: duplicate lookup now requires the same product and version in
+addition to the existing buyer/message/time key; a question about another
+purchase is no longer discarded as a duplicate. The operator API passes the
+version through and overlong buyer references are refused rather than silently
+truncated. Existing intake hashes remain unchanged. Actual authenticated API
+tests cover same-scope retries, distinct products/versions, explicit receipt
+times and rejected overlong references. Python 3.11 focused SQLite tests pass
+49/49. A missing scope and a known scope deliberately form separate cases.
+Concurrent identical intake can still race because lookup and insert are not
+atomic; scope metadata is not newly authenticated. No customer messages sent.
+The `app/main.py` route overlaps other work and needs integration review.
