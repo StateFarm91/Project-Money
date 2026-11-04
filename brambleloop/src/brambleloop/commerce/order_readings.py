@@ -288,16 +288,41 @@ def reinvestment_block(db, *, now: datetime) -> dict:
     from ..core.models import LedgerEntry, OwnerAction
     from ..finance import reinvestment
 
+    import math
+
     since = now - timedelta(days=30)
+    gross = 0.0
+    invalid = False
     with db.session() as s:
-        gross = sum(float(x.gross_cad or 0.0) - float(x.refunds_cad or 0.0)
-                    for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
-                    if _aware(x.at) and _aware(x.at) >= since)
-    rec = reinvestment.recommend(
-        db, gross_cad=round(gross, 2),
-        purpose="reinvestment envelope from the trailing 30 days of recorded sales")
-    out = {"gross_cad_30d": round(gross, 2), "recommendation": rec,
-           "owner_action": None}
+        for entry in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")):
+            at = _aware(entry.at)
+            if at is None:
+                invalid = True
+                continue
+            if not since <= at <= now:
+                continue
+            try:
+                values = (entry.gross_cad, entry.refunds_cad)
+                if any(isinstance(v, bool) or not isinstance(v, (int, float))
+                       or not math.isfinite(v) or v < 0 for v in values):
+                    invalid = True
+                    continue
+                gross += values[0] - values[1]
+                if not math.isfinite(gross):
+                    invalid = True
+            except OverflowError:
+                invalid = True
+    if invalid:
+        rec = {"recommended_cad": 0.0, "owner_approval_required": True,
+               "envelope": None, "reading": "UNMEASURED",
+               "why": "invalid sale amount or date requires financial reconciliation"}
+        out = {"gross_cad_30d": None, "recommendation": rec, "owner_action": None}
+    else:
+        rec = reinvestment.recommend(
+            db, gross_cad=round(gross, 2),
+            purpose="reinvestment envelope from the trailing 30 days of recorded sales")
+        out = {"gross_cad_30d": round(gross, 2), "recommendation": rec,
+               "owner_action": None}
     key = f"reinvestment:{now.date().strftime('%Y-%m')}"
     from ..ops import owner_queue
 

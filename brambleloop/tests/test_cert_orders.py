@@ -1194,3 +1194,63 @@ def test_reinvestment_changed_amount_supersedes_prior_action(monkeypatch):
         active = list(session.scalars(select(OwnerAction).where(
             OwnerAction.requirement_key == key, OwnerAction.done.is_(False))))
         assert len(active) == 1 and active[0].id != original_id
+
+
+def test_reinvestment_invalid_ledger_supersedes_action_and_recovers(monkeypatch):
+    from brambleloop.scale import confidence
+
+    db = _db()
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.5})
+    with db.session() as session:
+        entry = LedgerEntry(category="sale", gross_cad=5000, refunds_cad=0,
+                            evidence_ref="fixture-sale", at=NOW - timedelta(days=1))
+        session.add(entry)
+        session.flush()
+        entry_id = entry.id
+    first = order_readings.reinvestment_block(db, now=NOW)
+    assert first["owner_action"]
+    with db.session() as session:
+        session.get(LedgerEntry, entry_id).gross_cad = float("inf")
+    held = order_readings.reinvestment_block(db, now=NOW)
+    assert held["gross_cad_30d"] is None and held["owner_action"] is None
+    assert held["recommendation"]["reading"] == "UNMEASURED"
+    with db.session() as session:
+        action = session.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == first["owner_action"]))
+        assert action.done and action.state == "superseded"
+        session.get(LedgerEntry, entry_id).gross_cad = 5000
+    recovered = order_readings.reinvestment_block(db, now=NOW)
+    assert recovered["owner_action"] == first["owner_action"]
+    with db.session() as session:
+        active = list(session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == first["owner_action"], OwnerAction.done.is_(False))))
+        assert len(active) == 1 and active[0].id != action.id
+
+
+def test_reinvestment_excludes_future_ledger_sales(monkeypatch):
+    from brambleloop.scale import confidence
+
+    db = _db()
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.5})
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=5000, refunds_cad=0,
+                                evidence_ref="fixture-future", at=NOW + timedelta(days=1)))
+    result = order_readings.reinvestment_block(db, now=NOW)
+    assert result["gross_cad_30d"] == 0 and result["owner_action"] is None
+
+
+def test_reinvestment_invalid_ledger_in_actual_readings_worker(monkeypatch):
+    from brambleloop.scale import confidence
+
+    db = _db()
+    monkeypatch.setattr(confidence, "probability", lambda _db, **kwargs: {
+        "state": "MEASURED", "reported_probability": 0.5})
+    with db.session() as session:
+        session.add(LedgerEntry(category="sale", gross_cad=float("inf"), refunds_cad=0,
+                                evidence_ref="fixture-invalid", at=NOW - timedelta(days=1)))
+    _run(db, "cfo", "commerce.order_readings")
+    result = order_readings.latest(db)["reinvestment"]
+    assert result["recommendation"]["reading"] == "UNMEASURED"
+    assert result["owner_action"] is None
