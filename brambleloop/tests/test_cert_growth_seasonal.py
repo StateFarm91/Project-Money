@@ -273,7 +273,7 @@ def test_bundle_attribution_and_holdouts_run_from_the_weekly_job():
     from brambleloop.commerce import bundles
 
     db2 = _db()
-    _orders(db2, "nordic-forest-stocking", 20, contribution=10.0, days_ago=15, prefix="b")
+    _orders(db2, "nordic-forest-stocking", 20, contribution=10.0, days_ago=7, prefix="b")
     _orders(db2, "nordic-forest-bundle", 16, revenue=40.0, contribution=30.0, days_ago=5)
     got = bundles.attribution_from_db(db2, today=TODAY)
     measured = next(b for b in got["bundles"] if b["bundle"] == "nordic-forest-bundle")
@@ -788,3 +788,17 @@ if __name__ == "__main__":
                 traceback.print_exc()
     print(f"{fails} failure(s)")
     sys.exit(1 if fails else 0)
+
+
+def test_bundle_without_orders_in_actual_baseline_window_is_not_a_winner():
+    from brambleloop.commerce import bundles
+
+    db = _db()
+    # Launch five days ago; fifteen-day-old component orders are outside the
+    # equally long baseline window and do not establish a before comparison.
+    _orders(db, "nordic-forest-stocking", 20, contribution=10.0, days_ago=15, prefix="old")
+    _orders(db, "nordic-forest-bundle", 16, revenue=40.0, contribution=30.0, days_ago=5)
+    report = bundles.attribution_from_db(db, today=TODAY)
+    row = next(b for b in report["bundles"] if b["bundle"] == "nordic-forest-bundle")
+    assert row["verdict"] == "unmeasured"
+    assert not row["may_declare_winner"]

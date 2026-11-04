@@ -246,18 +246,26 @@ class CustomerExperience:
 
     def _record(self, customer_ref, product_slug, version, message, reply: Reply, *,
                 case_id: int | None = None) -> None:
+        from sqlalchemy import select
+
         from ..core.models import SupportCase
+        from .response_watch import _answered
 
         with self.db.session() as s:
             if case_id is not None:
-                case = s.get(SupportCase, case_id)
+                case = s.scalar(select(SupportCase).where(
+                    SupportCase.id == case_id).with_for_update())
                 if case is None:
                     raise ValueError(f"no support case {case_id}")
+                if _answered(case):
+                    # A delayed draft must not replace an already-recorded reply.
+                    return
                 case.answer = reply.body
                 case.specialist = reply.specialist
                 case.escalated = reply.escalated
-                case.resolved = not reply.escalated
-                case.sent = False     # shadow mode: drafted and held, and recorded as such
+                # A held draft does not resolve a buyer's case. Preserve any
+                # existing resolution rather than manufacturing a new one.
+                # Preserve the existing sent state; drafting never sends a reply.
                 case.detail = {**dict(case.detail or {}),
                                **({"lesson_links": reply.lesson_links}
                                   if reply.lesson_links else {}),
@@ -270,7 +278,7 @@ class CustomerExperience:
             s.add(SupportCase(
                 customer_ref=customer_ref, product_slug=product_slug, version=version,
                 question=message, answer=reply.body, specialist=reply.specialist,
-                escalated=reply.escalated, resolved=not reply.escalated,
+                escalated=reply.escalated, resolved=False,
                 sent=False,   # shadow mode: drafted and held, and recorded as such
                 detail={"cited_rows": reply.cited_rows,
                         **({"lesson_links": reply.lesson_links} if reply.lesson_links else {}),
@@ -298,16 +306,34 @@ class CustomerExperience:
             cases = list(s.scalars(q))
 
         by_specialist: dict[str, int] = {}
-        row_mentions: dict[tuple[str, int], int] = {}
+        row_buyers: dict[tuple[str, str | None, int], set[str]] = {}
         for case in cases:
             by_specialist[case.specialist] = by_specialist.get(case.specialist, 0) + 1
-            for row in (case.detail or {}).get("cited_rows", []):
-                key = (case.product_slug or "?", int(row))
-                row_mentions[key] = row_mentions.get(key, 0) + 1
+            buyer = (case.customer_ref or "").strip()
+            slug = (case.product_slug or "").strip()
+            detail = case.detail if isinstance(case.detail, dict) else {}
+            rows = detail.get("cited_rows", [])
+            if not buyer or buyer.casefold() == "unknown" or not slug or not isinstance(rows, list):
+                continue
+            version = (case.version or "").strip() or None
+            for row in rows:
+                if type(row) is int:
+                    row_number = row
+                elif (isinstance(row, str) and len(row.strip()) <= 9
+                      and row.strip().isascii() and row.strip().isdigit()):
+                    row_number = int(row.strip())
+                else:
+                    continue
+                if row_number <= 0:
+                    continue
+                key = (slug, version, row_number)
+                row_buyers.setdefault(key, set()).add(buyer)
 
-        hotspots = [{"product": slug, "row": row, "mentions": n}
-                    for (slug, row), n in sorted(row_mentions.items(), key=lambda kv: -kv[1])
-                    if n >= 2]
+        hotspots = [{"product": slug, "version": version, "row": row, "mentions": len(buyers)}
+                    for (slug, version, row), buyers in sorted(
+                        row_buyers.items(), key=lambda kv: (-len(kv[1]), kv[0][0],
+                                                           kv[0][1] or "", kv[0][2]))
+                    if len(buyers) >= 2]
         from ..commerce.buyer_trust import support_readings
 
         return {
@@ -321,8 +347,9 @@ class CustomerExperience:
             "readings": support_readings(self.db),
             # K8 F-689: the one CX workspace, as aggregates (no buyer text or reference).
             "workspace": _workspace_summary(self.db),
-            "note": ("row hotspots are candidate defects, not confirmed ones. Confirmation "
-                     "runs through the compiler, not through a vote."),
+            "note": ("row hotspots count distinct recorded buyer references per product, "
+                     "version and row; they are candidate defects, not confirmed ones. "
+                     "Confirmation runs through the compiler, not through a vote."),
         }
 
     # -- intake and the triage cadence (#41) ---------------------------------------------
@@ -335,16 +362,23 @@ class CustomerExperience:
         one door an inbound message comes through when one exists, and it drafts nothing:
         drafting is `support.reply`'s job, enqueued by triage.
         """
+        with self.db.session() as s:
+            return self._intake_in_session(s, customer_ref=customer_ref, message=message,
+                                           product_slug=product_slug, version=version,
+                                           source=source).id
+
+    def _intake_in_session(self, session, *, customer_ref: str, message: str,
+                           product_slug: str | None, version: str | None, source: str):
+        """Create the usual inbound case within a caller-owned transaction."""
         from ..core.models import SupportCase
 
-        with self.db.session() as s:
-            case = SupportCase(customer_ref=customer_ref, product_slug=product_slug,
-                               version=version, question=message, answer="",
-                               specialist=triage(message), escalated=False, resolved=False,
-                               sent=False, detail={"awaiting_reply": True, "source": source})
-            s.add(case)
-            s.flush()
-            return case.id
+        case = SupportCase(customer_ref=customer_ref, product_slug=product_slug,
+                           version=version, question=message, answer="",
+                           specialist=triage(message), escalated=False, resolved=False,
+                           sent=False, detail={"awaiting_reply": True, "source": source})
+        session.add(case)
+        session.flush()
+        return case
 
     def triage_cases(self, queue=None, *, now: datetime | None = None) -> dict:
         """Triage every stored case not yet triaged, and enqueue a draft for each that needs one.
@@ -360,15 +394,23 @@ class CustomerExperience:
         from ..commerce.buyer_trust import case_window
         from ..core.models import SupportCase
         from ..queue.durable import DuplicateJob
+        from .response_watch import _answered
 
         now = now or utcnow()
         window = case_window()
         triaged, enqueued, already = [], [], []
         with self.db.session() as s:
-            cases = list(s.scalars(select(SupportCase).order_by(SupportCase.at,
-                                                                SupportCase.id)))
-            pending = []
-            for case in cases:
+            case_ids = list(s.scalars(select(SupportCase.id).order_by(
+                SupportCase.at, SupportCase.id)))
+        pending = []
+        for case_id in case_ids:
+            # Hold only this case's lock, preserving oldest-first processing
+            # without blocking owner sends for every other case in the queue.
+            with self.db.session() as s:
+                case = s.scalar(select(SupportCase).where(
+                    SupportCase.id == case_id).with_for_update())
+                if case is None:
+                    continue
                 detail = dict(case.detail or {})
                 if "triaged_at" not in detail:
                     confused = bool(CONFUSION.search(case.question or ""))
@@ -381,7 +423,8 @@ class CustomerExperience:
                     detail["resolve_before"] = (at + timedelta(days=window["days"])).isoformat()
                 elif not case.resolved:
                     detail["resolve_before"] = "UNKNOWN"
-                needs = not (case.answer or "").strip() and not detail.get("reply_job")
+                needs = (not _answered(case, now=now)
+                         and not (case.answer or "").strip() and not detail.get("reply_job"))
                 detail["needs_reply"] = needs
                 case.detail = detail
                 if needs:
@@ -405,12 +448,15 @@ class CustomerExperience:
                     already.append(case_id)
                     continue
                 with self.db.session() as s:
-                    case = s.get(SupportCase, case_id)
+                    case = s.scalar(select(SupportCase).where(
+                        SupportCase.id == case_id).with_for_update())
+                    if case is None:
+                        continue
                     case.detail = {**dict(case.detail or {}), "reply_job": job.id,
                                    "needs_reply": False}
                 enqueued.append({"case": case_id, "job": job.id})
 
-        return {"cases": len(cases), "triaged": triaged, "reply_jobs": enqueued,
+        return {"cases": len(case_ids), "triaged": triaged, "reply_jobs": enqueued,
                 "awaiting_draft": already,
                 "needing_reply": [p[0] for p in pending],
                 "case_window": window,

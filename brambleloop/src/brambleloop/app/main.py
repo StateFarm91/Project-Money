@@ -1003,7 +1003,7 @@ async def api_support_messages(request: Request,
     recorded here as sent. Operator credential required: it writes customer content.
 
     Body: {event: "buyer_message", customer_ref, message, received_at? (ISO 8601),
-    product_slug?} or {event: "reply_sent", case_id, sent_at? (ISO 8601)}.
+    product_slug?, version?} or {event: "reply_sent", case_id, sent_at? (ISO 8601)}.
     """
     refused = _operator_read_refusal(authorization)
     if refused is not None:
@@ -1020,7 +1020,8 @@ async def api_support_messages(request: Request,
             out = response_watch.record_buyer_message(
                 db, customer_ref=str(body.get("customer_ref") or ""),
                 message=str(body.get("message") or ""),
-                received_at=body.get("received_at"), product_slug=body.get("product_slug"))
+                received_at=body.get("received_at"), product_slug=body.get("product_slug"),
+                version=body.get("version"))
         elif event == "reply_sent":
             out = response_watch.record_reply_sent(db, int(body.get("case_id")),
                                                    sent_at=body.get("sent_at"))

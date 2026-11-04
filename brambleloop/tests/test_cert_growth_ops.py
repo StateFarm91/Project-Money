@@ -284,7 +284,8 @@ def test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof()
         for k in range(3):
             s.add(ListingOutcome(product_slug=f"bench-{k}", period_start="2026-08-01",
                                  period_end="2026-08-31", impressions=400, visits=40,
-                                 orders=0 if k == 0 else 1, source="fixture"))
+                                 orders=0 if k == 0 else 1, source="fixture",
+                                 detail={"traffic_source": "etsy_search"}))
     done = _work(db, "growth", "growth.journey")
     assert done.status == JobStatus.DONE, done.last_error
     r = _reading(db, growth_ops.JOURNEY_KIND)
@@ -598,3 +599,34 @@ if __name__ == "__main__":
                 traceback.print_exc()
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_benchmark_worker_holds_unknown_source_and_existing_incident():
+    db = _db()
+    with db.session() as session:
+        for k in range(3):
+            session.add(ListingOutcome(product_slug=f"source-{k}", period_start="2026-08-01",
+                period_end="2026-08-31", impressions=400, visits=40,
+                orders=0 if k == 0 else 1, source="fixture",
+                detail={"traffic_source": "etsy_search"}))
+    assert _work(db, "growth", "growth.journey").status == JobStatus.DONE
+    with db.session() as session:
+        row = session.scalar(select(ListingOutcome).where(ListingOutcome.product_slug == "source-0"))
+        row.detail = {"traffic_source": ["etsy_search"]}  # malformed means unknown
+    _run(db, "growth.journey", agent="growth")
+    reading = _reading(db, growth_ops.JOURNEY_KIND)["benchmarks"]
+    assert any(row["slug"] == "source-0" for row in reading["skipped"])
+    growth_ops.benchmark_incidents(db, {"diagnoses": [{"slug": "source-0",
+        "verdict": "at_or_above", "cell": "a different cohort"}]})
+    with db.session() as session:
+        incident = session.scalar(select(Incident).where(
+            Incident.signature == "benchmark:source-0:below_cohort"))
+        assert incident is not None and not incident.resolved
+        row = session.scalar(select(ListingOutcome).where(ListingOutcome.product_slug == "source-0"))
+        row.detail = {"traffic_source": "etsy_search"}
+        row.orders = 2
+    _run(db, "growth.journey", agent="growth")
+    with db.session() as session:
+        incident = session.scalar(select(Incident).where(
+            Incident.signature == "benchmark:source-0:below_cohort"))
+        assert incident.resolved

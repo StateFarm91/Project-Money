@@ -33,6 +33,7 @@ The floors and refusals run anyway, which is how they are tested before the day 
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from statistics import median
 
@@ -214,12 +215,37 @@ def baseline(observations: list[Observation], cell: Cell) -> dict:
     moves a mean and does not move what an ordinary listing in this cell does.
     """
     rows = [o for o in observations if o.cell.key() == cell.key()]
-    impressions = sum(o.impressions or 0 for o in rows)
+    def valid_count(value):
+        return value is None or (isinstance(value, int) and not isinstance(value, bool)
+                                 and value >= 0 and value.bit_length() <= 1023)
+
+    def valid_amount(value):
+        if value is None:
+            return True
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(value)
+        except OverflowError:
+            return False
+
+    invalid = any(not all(valid_count(getattr(o, k)) for k in (
+                      "impressions", "clicks", "favourites", "orders", "refunds_and_support"))
+                  or not valid_amount(o.contribution_cad) for o in rows)
+    impressions = sum(o.impressions or 0 for o in rows if valid_count(o.impressions))
 
     reasons: list[str] = []
-    if len(rows) < MIN_LISTINGS_PER_CELL:
+    if invalid:
+        reasons.append("invalid or non-finite observation; reconcile before benchmarking")
+    refs = [o.listing_ref.strip() for o in rows
+            if isinstance(o.listing_ref, str) and o.listing_ref.strip()]
+    distinct_refs = set(refs)
+    if len(refs) != len(rows) or len(distinct_refs) != len(rows):
+        reasons.append("missing or duplicate listing identity; reconcile observations before "
+                       "using this cell as a baseline")
+    if len(distinct_refs) < MIN_LISTINGS_PER_CELL:
         reasons.append(
-            f"{len(rows)} listing(s) in this cell against a floor of "
+            f"{len(distinct_refs)} listing(s) in this cell against a floor of "
             f"{MIN_LISTINGS_PER_CELL}. Two listings and a fortnight is the shape of a "
             f"baseline and none of its content, and a thin cell answers, which makes it more "
             f"dangerous than an empty one")
@@ -229,9 +255,9 @@ def baseline(observations: list[Observation], cell: Cell) -> dict:
 
     metrics: dict[str, dict] = {}
     for metric, spec in METRICS.items():
-        values = _metric_values(metric, rows)
-        if not values or reasons:
-            orders = sum(o.orders or 0 for o in rows)
+        values = [] if invalid else _metric_values(metric, rows)
+        if len(values) < MIN_LISTINGS_PER_CELL or reasons:
+            orders = sum(o.orders or 0 for o in rows if valid_count(o.orders))
             if reasons:
                 why = "this cell cannot be read yet"
             elif metric == "refund_or_support_rate" and 0 < orders < MIN_ORDERS_FOR_REFUND_RATE:
@@ -240,6 +266,9 @@ def baseline(observations: list[Observation], cell: Cell) -> dict:
                 why = (f"{orders} order(s) against a floor of {MIN_ORDERS_FOR_REFUND_RATE} "
                        f"before a refund rate means anything: one refund against three "
                        f"orders reads as 33% and is a rumour")
+            elif values:
+                why = (f"only {len(values)} listing(s) carry this metric against a floor of "
+                       f"{MIN_LISTINGS_PER_CELL}; a partial metric is not a cell baseline")
             else:
                 why = (f"nothing in this cell carries {list(spec['needs'])}. Absent is not "
                        f"zero: a refund rate of zero on a shop with no orders is not good "
@@ -251,7 +280,7 @@ def baseline(observations: list[Observation], cell: Cell) -> dict:
                                "basis": "median across the listings in this cell"}
 
     return {
-        "cell": cell.key(), "listings": len(rows), "impressions": impressions,
+        "cell": cell.key(), "listings": len(distinct_refs), "impressions": impressions,
         "readable": not reasons, "reasons": reasons, "metrics": metrics,
         "floors": {"listings": MIN_LISTINGS_PER_CELL,
                    "impressions": MIN_IMPRESSIONS_PER_CELL},

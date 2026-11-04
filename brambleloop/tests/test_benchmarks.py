@@ -228,3 +228,37 @@ if __name__ == "__main__":
                 fails += 1
                 print("FAIL", name, repr(e))
     sys.exit(1 if fails else 0)
+
+
+def test_duplicate_or_missing_listing_identity_cannot_satisfy_sample_floor():
+    rows = _rows(ORNAMENT, n=3)
+    rows[1].listing_ref = rows[0].listing_ref
+    out = B.baseline(rows, ORNAMENT)
+    assert not out["readable"] and out["listings"] == 2
+    assert all(metric["value"] is None for metric in out["metrics"].values())
+    rows[1].listing_ref = " "
+    out = B.cells(rows)["cells"][ORNAMENT.key()]
+    assert not out["readable"] and out["listings"] == 2
+
+
+def test_metric_needs_three_measured_listings_even_in_a_readable_cell():
+    rows = _rows(ORNAMENT, n=3)
+    rows[1].orders = None
+    rows[2].orders = None
+    out = B.baseline(rows, ORNAMENT)
+    assert out["readable"]
+    assert out["metrics"]["impressions_to_click"]["value"] is not None
+    assert out["metrics"]["conversion"]["n"] == 1
+    assert out["metrics"]["conversion"]["value"] is None
+
+
+def test_invalid_numeric_inputs_never_create_a_baseline():
+    for field, bad in (("impressions", float("nan")), ("clicks", -1),
+                       ("orders", True), ("favourites", float("inf")),
+                       ("contribution_cad", float("nan")),
+                       ("contribution_cad", 10 ** 1000)):
+        rows = _rows(ORNAMENT, n=3)
+        setattr(rows[0], field, bad)
+        out = B.baseline(rows, ORNAMENT)
+        assert not out["readable"]
+        assert all(metric["value"] is None for metric in out["metrics"].values())
