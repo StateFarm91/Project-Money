@@ -684,6 +684,66 @@ def test_fetch_followup_enqueue_failure_rolls_back_source_and_audit(monkeypatch)
             AuditLog.action == F.FETCH_ACTION)) if a.detail.get("url") == url]
 
 
+@pytest.mark.parametrize("status", ["cancelled", "dead"])
+def test_retention_preserves_fetched_source_followup_job_and_key(monkeypatch, status):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.learn import runtime  # noqa: F401
+    from brambleloop.ops import retention
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    Registry(db).seed_defaults()
+    url = "https://www.cpsc.gov/fixture-retention"
+    tid = R.open_question(db, question="What does this fixture safety source actually require?",
+                          trigger="test:source-retention", decision_ref="test:retention",
+                          domain="marketplace_policy", **SPEC)["task"]
+    with db.session() as s:
+        row = s.get(R.ResearchTask, tid)
+        row.detail = {**row.detail, "fetch_urls": [url]}
+    monkeypatch.setenv(F.ENABLE_VAR, "1")
+    monkeypatch.setattr(F, "MIN_SECONDS_PER_HOST", 0.0)
+    monkeypatch.setattr(F, "_default_get", Stub({url: "fixture source"}))
+    monkeypatch.setattr(R, "detect_unknowns", lambda *_a, **_kw: {"opened": [], "already_open": []})
+    JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key="source-retention-scan")
+    assert Worker(db, "source-retention", job_types=["learn.scan"]).run_once()
+    with db.session() as s:
+        source = next(v for v in s.get(R.ResearchTask, tid).sources if v.get("citation") == url)
+        jid = source["followup_job_id"]
+        job = s.get(Job, jid)
+        key = job.idempotency_key
+        job.status = JobStatus.CANCELLED if status == "cancelled" else JobStatus.DEAD
+        job.last_error = "capability not enabled: fixture" if status == "dead" else "fixture cancellation"
+        job.finished_at = datetime.now(timezone.utc) - timedelta(days=200)
+        for i in range(30):
+            s.add(Job(agent="research_agent", job_type="research.investigate",
+                      inputs={"task_id": tid}, status=JobStatus.CANCELLED,
+                      idempotency_key=f"retention-unrelated-{i}",
+                      finished_at=datetime.now(timezone.utc) - timedelta(days=200)))
+    future = datetime.now(timezone.utc) + timedelta(days=200)
+    result = retention.apply(db, now=future)
+    assert result["removed"]["jobs"] > 0
+    with db.session() as s:
+        assert s.get(Job, jid) is not None and s.get(Job, jid).idempotency_key == key
+        assert s.get(R.ResearchTask, tid).sources[0]["followup_job_id"] == jid
+
+
+def test_malformed_followup_reference_holds_job_retention():
+    from brambleloop.ops import retention
+
+    db = _db()
+    tid = R.open_question(db, question="What does the fixture safety source actually require?",
+                          trigger="test:malformed-retention", decision_ref="test:retention",
+                          domain="marketplace_policy", **SPEC)["task"]
+    with db.session() as s:
+        s.get(R.ResearchTask, tid).sources = [{"followup_job_id": ["invalid"]}]
+    with pytest.raises(retention.RetentionRefused):
+        retention.job_plan(db)
+    with pytest.raises(retention.RetentionRefused):
+        retention.dead_letter_plan(db)
+
+
 def test_review_f8_default_get_turns_network_errors_into_fetch_unavailable():
     import urllib.request
 

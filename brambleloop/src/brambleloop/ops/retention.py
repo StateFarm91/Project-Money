@@ -930,6 +930,30 @@ def audit_plan(db, *, now: datetime | None = None,
     }
 
 
+def _research_followup_refs(session) -> set[int]:
+    """Protect durable jobs named by Research source handoffs, including dead letters."""
+    from sqlalchemy import inspect, select
+    from ..intel.research import ResearchTask
+
+    if not inspect(session.connection()).has_table(ResearchTask.__tablename__):
+        return set()
+    referenced = set()
+    for sources in session.scalars(select(ResearchTask.sources)):
+        if sources is None:
+            continue
+        if not isinstance(sources, list):
+            raise RetentionRefused("research source list is malformed; job retention held")
+        for source in sources:
+            if not isinstance(source, dict):
+                raise RetentionRefused("research source entry is malformed; job retention held")
+            if "followup_job_id" in source:
+                job_id = source["followup_job_id"]
+                if type(job_id) is not int or job_id <= 0:
+                    raise RetentionRefused("research followup job reference is malformed; job retention held")
+                referenced.add(job_id)
+    return referenced
+
+
 def job_plan(db, *, now: datetime | None = None, days: int = JOB_RETENTION_DAYS,
              keep_per_type: int = KEEP_PER_JOB_TYPE,
              done_floor: int = JOBS_DONE_FLOOR) -> dict:
@@ -960,6 +984,7 @@ def job_plan(db, *, now: datetime | None = None, days: int = JOB_RETENTION_DAYS,
             referenced.update(
                 job_id for (job_id,) in s.execute(
                     select(table.job_id).where(table.job_id.is_not(None))).all())
+        referenced.update(_research_followup_refs(s))
         rows = list(s.execute(
             select(Job.id, Job.job_type, Job.status, Job.finished_at, Job.created_at)
             .order_by(desc(Job.id))).all())
@@ -1008,9 +1033,8 @@ def job_plan(db, *, now: datetime | None = None, days: int = JOB_RETENTION_DAYS,
         "horizon_days": int(days),
         "cutoff": cutoff.isoformat(),
         "why_referenced_are_kept": (
-            "audit_log.job_id, cost_entries.job_id and spend_reservations.job_id are foreign "
-            "keys. Deleting the job breaks the evidence that points at it, and the evidence "
-            "is the part with a policy"),
+            "audit, cost, reservation and Research source handoff records refer to these "
+            "jobs; deleting them would break durable provenance and idempotency"),
         "why_the_floor_exists": (
             "scale.confidence gates on 100 completed jobs over all time. Retention must not "
             "be able to make a true claim false, so it stops far above the threshold"),
@@ -1040,6 +1064,7 @@ def dead_letter_plan(db, *, now: datetime | None = None,
             referenced.update(
                 job_id for (job_id,) in s.execute(
                     select(table.job_id).where(table.job_id.is_not(None))).all())
+        referenced.update(_research_followup_refs(s))
         rows = list(s.execute(
             select(Job.id, Job.job_type, Job.last_error, Job.finished_at, Job.created_at)
             .where(Job.status == JobStatus.DEAD)).all())
