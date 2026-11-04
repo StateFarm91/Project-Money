@@ -86,6 +86,14 @@ Python 3.11/file-backed SQLite: expanded focused and owner-image suite 100/100.
 Independent reviewer reran blind-comparison, variant and obscured cases 18/18.
 The broader pre-existing V1 regression and authority/concurrency holds remain.
 
+The VISNEXT restart test generates a known synthetic Cloudline flat lay. Its
+fake vision reading now describes that test image's end bands, using the existing
+bands fixture; the real deterministic band checks and all original assertions
+still run. This restores the restart case without presenting a physical or
+production vision observation. Full VISNEXT is now 19 passed / 2 failed. The
+two unchanged wardrobe cases expect retries despite the separate structural
+reference hold and require a safe test/contract resolution. They remain failures.
+
 The comparator previously treated cable presence as equivalent to a measurable
 repeated-column model. A real compiled single-crossing CIR has a cable but no
 such model, so visible cable was falsely called invented. The comparison now

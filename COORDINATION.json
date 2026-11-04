@@ -326,7 +326,8 @@
         "brambleloop/tests/test_codex_v1_variant_base.py",
         "brambleloop/tests/test_codex_v1_gallery_scope.py",
         "brambleloop/tests/test_codex_v1_obscured_craft.py",
-        "brambleloop/tests/test_codex_v1_blind_comparison.py"
+        "brambleloop/tests/test_codex_v1_blind_comparison.py",
+        "brambleloop/tests/test_w4_visnext.py"
       ],
       "claimed_at": "2026-11-04"
     }
