@@ -258,11 +258,24 @@ def check_listing(draft: ListingDraft, cir: CIR | None = None,
         out.append(Finding(ERROR, "POLICY_PERPETUAL_SALE",
                            f"listing has been on sale for {draft.sale_days_running} days; "
                            "this is a regular price, not a promotion", "listing.price"))
-    if draft.compare_at_cad is not None and draft.compare_at_cad <= draft.price_cad:
+    import math
+
+    def valid_price(value):
+        try:
+            return not isinstance(value, bool) and math.isfinite(value) and value > 0
+        except (TypeError, ValueError, OverflowError):
+            return False
+
+    price_valid = valid_price(draft.price_cad)
+    compare_valid = draft.compare_at_cad is None or valid_price(draft.compare_at_cad)
+    if not compare_valid or (draft.compare_at_cad is not None and price_valid
+                             and draft.compare_at_cad <= draft.price_cad):
         out.append(Finding(ERROR, "POLICY_BAD_COMPARE_AT",
-                           "compare-at price is not above the selling price", "listing.price"))
-    if draft.price_cad <= 0:
-        out.append(Finding(ERROR, "POLICY_NO_PRICE", "listing has no price", "listing.price"))
+                           "compare-at price must be finite, positive and above the selling price",
+                           "listing.price"))
+    if not price_valid:
+        out.append(Finding(ERROR, "POLICY_NO_PRICE", "listing has no finite positive price",
+                           "listing.price"))
 
     if cir is not None:
         if not cir.gauge:
