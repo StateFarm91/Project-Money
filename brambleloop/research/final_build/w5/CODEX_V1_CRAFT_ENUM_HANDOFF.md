@@ -69,6 +69,14 @@ tested structural hold. Together the VISNEXT and V1 correctness suites pass
 two structural hold controls 4/4. Synthetic reference bytes establish routing
 only, not physical provenance, authority or fidelity.
 
+An older lifestyle-positive test used Cloudline despite this route's inability
+to authenticate its ambiguous band evidence. Its positive and dependency-drop
+assertions now use a real compiled no-band design; an explicit Cloudline case
+still requires UNKNOWN when the caller supplies only an anchor PASS. The full
+offline fidelity suite had 21 passes and this one failure before the fixture
+correction; the corrected case passed separately. No production authority or
+physical fidelity is established by these synthetic images.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
