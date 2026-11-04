@@ -18,9 +18,11 @@ physical fidelity or protect evidence against concurrent modification. Selection
 filters product, version and release before ranking so mismatched candidates do
 not hide an otherwise eligible anchor. A matching candidate with missing or
 corrupt bytes can still hide another usable candidate (a conservative hold).
-The fallback can still select an anchor
-from another run of the same release; production/experiment namespace authority
-is not established by this change. Existing
+Generation and re-verification propagate the actual run key and selection no
+longer falls back to a different controlled run. Unscoped owner-submitted
+anchors remain eligible only for the ordinary production run. These are database
+identity checks, not cryptographic authentication of a run, method or verdict.
+Existing
 Cloudline experiment approval must not be repinned or activated. Inherited V1
 uncertainty and independent-review requirements remain. DO NOT INTEGRATE.
 
@@ -37,3 +39,9 @@ the vision/fidelity handoff require separate review. No assertions were weakened
 because the owner-controlled Cloudline experiment remains frozen to older prompt
 and reference versions. Its drift-refusal case was reproduced on the unchanged
 `d125a3b` base. This work does not modify or reauthorize that experiment.
+
+The run-scope follow-up passed 72/72 Python 3.11 tests across anchor binding,
+V1 correctness and owner images. A separate reviewer reran the five anchor
+tests and confirmed the owner fallback's intended scope. A caller-supplied run
+key defaults to the production run when omitted and, like the stored method and
+PASS status, is mutable metadata; these checks do not authenticate its origin.

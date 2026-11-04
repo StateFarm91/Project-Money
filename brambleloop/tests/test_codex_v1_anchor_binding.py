@@ -5,11 +5,12 @@ from brambleloop.visual import candidate_gates, fidelity, image_production
 from brambleloop.visual.image_records import ImageCandidate
 
 
-def _row(db, digest, release, *, slug="item", version="1", run=None):
+def _row(db, digest, release, *, slug="item", version="1", run=None, method="autonomous"):
     with db.session() as session:
         session.add(ImageCandidate(
-            sha256=digest, run_key=run or image_production.run_key("item", "1", release),
-            method="autonomous", provenance_kind="ai_generated_autonomous",
+            sha256=digest, run_key=(image_production.run_key("item", "1", release)
+                                    if run is None else run),
+            method=method, provenance_kind="ai_generated_autonomous",
             slug=slug, version=version, release=release, listing="same-listing",
             role=image_production.ANCHOR_ROLE, technical_status="PASS", publishable=True,
         ))
@@ -59,6 +60,59 @@ def test_release_comparison_requires_two_complete_matching_digests():
     assert not fidelity.same_release(release, "a" * 12 + "b" * 52)
     assert not fidelity.same_release(release, "a")
     assert not fidelity.same_release(release, "a" * 12 + "not-a-digest")
+
+
+def test_anchor_selection_keeps_production_and_experiment_runs_separate(tmp_path, monkeypatch):
+    from brambleloop.core import artifacts
+
+    monkeypatch.setattr(artifacts, "DEFAULT_DIR", str(tmp_path / "artifacts"))
+    db = Database("sqlite:///" + str(tmp_path / "runs.db"), scratch=True)
+    db.create_all()
+    release = "a" * 64
+    run = image_production.run_key("item", "1", release)
+    exp_a, exp_b = run + "#experiment-a", run + "#experiment-b"
+    data = b"experiment-only synthetic anchor"
+    digest = ArtifactStore().put("test", data, "image/png", db=db).sha256
+    _row(db, digest, release, run=exp_a)
+    base = {"slug": "item", "version": "1", "listing": "same-listing"}
+    assert candidate_gates._anchor_of(db, base, release) == (None, None)
+    assert candidate_gates._anchor_of(db, {**base, "run_key": exp_b}, release) == (None, None)
+    assert candidate_gates._anchor_of(db, {**base, "run_key": exp_a}, release)[1] == data
+    assert candidate_gates._anchor_of(db, {**base, "run_key": "unrelated"}, release) == (None, None)
+    # Unscoped owner submissions remain available to production, never experiments.
+    _row(db, digest, release, run="", method="owner_submitted")
+    assert candidate_gates._anchor_of(db, base, release)[1] == data
+    assert candidate_gates._anchor_of(db, {**base, "run_key": exp_b}, release) == (None, None)
+
+
+def test_reverify_uses_persisted_candidate_run_not_another_run(tmp_path, monkeypatch):
+    from brambleloop.core import artifacts
+
+    monkeypatch.setattr(artifacts, "DEFAULT_DIR", str(tmp_path / "artifacts"))
+    db = Database("sqlite:///" + str(tmp_path / "reverify.db"), scratch=True)
+    db.create_all()
+    release = "a" * 64
+    run = image_production.run_key("item", "1", release)
+    data = b"synthetic image"
+    digest = ArtifactStore().put("test", data, "image/png", db=db).sha256
+    _row(db, digest, release, run=run + "#a")
+    with db.session() as session:
+        row = ImageCandidate(sha256=digest, run_key=run + "#b", method="autonomous",
+                             provenance_kind="ai_generated_autonomous", slug="item",
+                             version="1", release=release, listing="same-listing",
+                             role="lifestyle", technical_status="UNKNOWN")
+        session.add(row)
+        session.flush()
+        candidate_id = row.id
+
+    def evaluate(db_, cand, **_kwargs):
+        selected, _ = candidate_gates._anchor_of(db_, cand, release)
+        return {"checks": {}, "technical_status": "UNKNOWN" if selected is None else "PASS",
+                "publishable": False}
+
+    monkeypatch.setattr(candidate_gates, "evaluate", evaluate)
+    result = image_production.reverify(db, candidate_id, judges=None)
+    assert result["reverified"] and result["technical_status"] == "UNKNOWN"
 
 
 def test_lifestyle_handler_does_not_bind_a_different_full_release():

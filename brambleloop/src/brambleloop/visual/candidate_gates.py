@@ -353,12 +353,19 @@ def _anchor_of(db, cand: dict, release: str):
     if not release:
         return None, None
     listing = cand.get("listing") or outfits.listing_of(cand.get("slug", ""))
+    canonical_run = run_key(cand.get("slug", ""), cand.get("version", ""), release)
+    candidate_run = cand.get("run_key") or canonical_run
+    if not isinstance(candidate_run, str) or not (
+            candidate_run == canonical_run or candidate_run.startswith(canonical_run + "#")):
+        return None, None
     try:
         identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
                     "release": release}
-        best = _best(db, listing=listing, role=ANCHOR_ROLE,
-                     run=run_key(cand.get("slug", ""), cand.get("version", ""), release),
-                     **identity) or _best(db, listing=listing, role=ANCHOR_ROLE, **identity)
+        best = _best(db, listing=listing, role=ANCHOR_ROLE, run=candidate_run, **identity)
+        if best is None and candidate_run == canonical_run:
+            # Owner uploads are recorded without a run; only production may use them.
+            best = _best(db, listing=listing, role=ANCHOR_ROLE, unscoped_only=True,
+                         method="owner_submitted", **identity)
     except Exception:  # noqa: BLE001 - no learning table yet: no anchor
         return None, None
     if (not best or not best.get("sha256") or best.get("slug") != cand.get("slug")

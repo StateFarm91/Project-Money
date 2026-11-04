@@ -384,7 +384,8 @@ def learning_summary(db, *, slug: str | None = None) -> dict:
 
 def _best(db, *, listing: str, role: str, run: str | None = None,
           slug: str | None = None, version: str | None = None,
-          release: str | None = None) -> dict | None:
+          release: str | None = None, method: str | None = None,
+          unscoped_only: bool = False) -> dict | None:
     from sqlalchemy import func, select
 
     from .image_records import ImageCandidate
@@ -394,12 +395,16 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
                                          ImageCandidate.role == role)
         if run:
             q = q.where(ImageCandidate.run_key == run)
+        if unscoped_only:
+            q = q.where(ImageCandidate.run_key == "")
         if slug is not None:
             q = q.where(ImageCandidate.slug == slug)
         if version is not None:
             q = q.where(ImageCandidate.version == version)
         if release is not None:
             q = q.where(func.lower(ImageCandidate.release) == release.lower())
+        if method is not None:
+            q = q.where(ImageCandidate.method == method)
         rows = list(s.scalars(q.order_by(ImageCandidate.id.desc())))
     if not rows:
         return None
@@ -522,7 +527,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     except spend_plan.PlanRefused as exc:
         raise BudgetStop(str(exc)) from None
     _update(db, key, stage=stage, generation_calls=calls + 1)
-    base = {"slug": slug, "version": version, "release": release, "role": role,
+    base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
     if exp is not None:
@@ -1160,6 +1165,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
         if row is None or not row.sha256:
             return {"reverified": False, "why": "no stored candidate"}
         cand = {"slug": row.slug, "version": row.version, "release": row.release,
+                "run_key": row.run_key,
                 "role": row.role, "provider": row.provider, "model": row.model,
                 "prompt": row.prompt, "references": list(row.references or []),
                 "laura_present": row.laura_present, "outfit_id": row.outfit_id or None,
