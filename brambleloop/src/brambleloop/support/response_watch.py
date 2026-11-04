@@ -99,7 +99,7 @@ def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now:
                     recorded = _aware(datetime.fromisoformat(str(detail.get("recorded_at"))))
                 except ValueError:
                     continue
-                if (_answered(case) or (now - recorded).total_seconds() / 3600.0
+                if (_answered(case, now=now) or (now - recorded).total_seconds() / 3600.0
                         > DUPLICATE_WINDOW_HOURS):
                     continue
             s.expunge(case)
@@ -177,11 +177,20 @@ def record_reply_sent(db, case_id: int, *, sent_at=None, now: datetime | None = 
                                         if received else None)}
 
 
-def _answered(case) -> bool:
+def _answered(case, *, now: datetime | None = None) -> bool:
     detail = case.detail or {}
     # Drafting currently marks a confident case `resolved` even though `sent`
     # remains false. Resolution therefore cannot prove a first response.
-    return bool(case.sent or detail.get("first_response_at"))
+    if case.sent:
+        return True
+    timestamp = detail.get("first_response_at")
+    if not timestamp or case.at is None:
+        return False
+    try:
+        response_at = _parse(timestamp, now=_aware(now or datetime.now(timezone.utc)))
+        return response_at >= _aware(case.at)
+    except (MessageRefused, TypeError, ValueError, OverflowError):
+        return False
 
 
 def watch(db, *, now: datetime | None = None) -> dict:
@@ -202,7 +211,7 @@ def watch(db, *, now: datetime | None = None) -> dict:
             action = s.scalar(select(OwnerAction).where(
                 OwnerAction.requirement_key == key,
                 OwnerAction.done == False))  # noqa: E712
-            if _answered(case):
+            if _answered(case, now=now):
                 if action is not None:
                     from ..ops import owner_queue
                     owner_queue.close(action, owner_queue.SATISFIED,

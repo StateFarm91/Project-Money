@@ -52,3 +52,13 @@ remains separate, so an owner send can still race a draft enqueue (the worker
 skips an already-sent case). Teardown/lesson and other case writers, SQLite
 concurrency, sent-evidence authentication, and no-reply disposition remain
 open. No customer message was sent.
+
+Timestamp follow-up: an unsent case no longer treats a malformed, future, or
+pre-receipt `first_response_at` as a sent reply. The watch, triage, draft
+recorder, reply Worker and timing writer use the same check; a real Worker
+test confirms a malformed legacy marker remains stored while a draft can be
+created and the owner alert remains open. Python 3.11 focused SQLite tests
+pass 48/48. A valid legacy timestamp and the `sent` flag are still not
+cryptographically authenticated. The owner-sent recorder refuses to overwrite
+an invalid historic marker, so a separately authorized correction workflow is
+still required. The final timestamp change has not been tested on PostgreSQL.

@@ -63,6 +63,7 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
     from sqlalchemy import select
 
     from ..core.models import SupportCase
+    from .response_watch import _answered
 
     if minutes < 0:
         raise ServiceRefused("a response cannot have taken negative time")
@@ -75,7 +76,7 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
         if case is None:
             raise ServiceRefused(f"no support case {case_id}")
         detail = dict(case.detail or {})
-        if measured_as == "draft_ready" and (case.sent or detail.get("first_response_at")):
+        if measured_as == "draft_ready" and _answered(case):
             raise ReplyAlreadySent("a sent case cannot receive a later held-draft timing")
         draft_minutes = None
         if "response_minutes" in detail:

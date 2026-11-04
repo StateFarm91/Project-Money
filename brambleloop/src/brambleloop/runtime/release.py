@@ -2432,6 +2432,7 @@ def handle_support_reply(ctx: JobContext) -> dict:
     rather than relying on that absence.
     """
     from ..support.department import CustomerExperience
+    from ..support.response_watch import _answered
 
     # A reply enqueued by the triage cadence names the stored case it drafts for, and the
     # draft is written onto that case rather than beside it (#41).
@@ -2447,7 +2448,7 @@ def handle_support_reply(ctx: JobContext) -> dict:
             case = s.get(SupportCase, int(case_id))
             if case is None:
                 raise ValueError(f"support.reply names case {case_id}, which does not exist")
-            if case.sent or (case.detail or {}).get("first_response_at"):
+            if _answered(case):
                 return {"case_id": int(case_id), "skipped": "first_response_already_recorded"}
             question = question or case.question
             slug = slug or case.product_slug
@@ -2498,6 +2499,7 @@ def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: 
     from ..commerce.reviews import check_support_copy
     from ..core.models import SupportCase
     from ..support import service
+    from ..support.response_watch import _answered
 
     copy = check_support_copy(reply.body or "")
     with ctx.db.session() as s:
@@ -2512,7 +2514,7 @@ def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: 
             return {"case_id": case_id, "copy": copy,
                     "timing": {"recorded": False, "why": "no stored case to time"}}
         cid = int(case.id)
-        if case.sent or (case.detail or {}).get("first_response_at"):
+        if _answered(case):
             return {"case_id": cid, "copy": copy, "already_sent": True,
                     "timing": {"recorded": False, "why": "first response already recorded"}}
         at = case.at if case.at.tzinfo else case.at.replace(tzinfo=timezone.utc)

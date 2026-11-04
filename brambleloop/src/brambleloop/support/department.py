@@ -249,6 +249,7 @@ class CustomerExperience:
         from sqlalchemy import select
 
         from ..core.models import SupportCase
+        from .response_watch import _answered
 
         with self.db.session() as s:
             if case_id is not None:
@@ -256,7 +257,7 @@ class CustomerExperience:
                     SupportCase.id == case_id).with_for_update())
                 if case is None:
                     raise ValueError(f"no support case {case_id}")
-                if case.sent or (case.detail or {}).get("first_response_at"):
+                if _answered(case):
                     # A delayed draft must not replace an already-recorded reply.
                     return
                 case.answer = reply.body
@@ -367,6 +368,7 @@ class CustomerExperience:
         from ..commerce.buyer_trust import case_window
         from ..core.models import SupportCase
         from ..queue.durable import DuplicateJob
+        from .response_watch import _answered
 
         now = now or utcnow()
         window = case_window()
@@ -395,7 +397,7 @@ class CustomerExperience:
                     detail["resolve_before"] = (at + timedelta(days=window["days"])).isoformat()
                 elif not case.resolved:
                     detail["resolve_before"] = "UNKNOWN"
-                needs = (not case.sent and not detail.get("first_response_at")
+                needs = (not _answered(case, now=now)
                          and not (case.answer or "").strip() and not detail.get("reply_job"))
                 detail["needs_reply"] = needs
                 case.detail = detail

@@ -101,3 +101,48 @@ def test_triage_does_not_enqueue_a_draft_after_recorded_sent_reply(tmp_path):
     with db.session() as session:
         case = session.get(SupportCase, case_id)
         assert case.sent and case.detail["first_response_at"]
+
+
+def test_invalid_first_response_timestamps_cannot_silence_the_watch(tmp_path):
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    now = datetime.now(timezone.utc)
+    received = now - timedelta(hours=30)
+    markers = ["not-a-time", (now + timedelta(hours=1)).isoformat(),
+               (received - timedelta(minutes=1)).isoformat(),
+               (received + timedelta(hours=1)).isoformat()]
+    ids = []
+    for index, marker in enumerate(markers):
+        case_id = response_watch.record_buyer_message(
+            db, customer_ref=f"fixture-{index}", message="Where is my PDF?",
+            received_at=received, now=now)["case_id"]
+        ids.append(case_id)
+        with db.session() as session:
+            case = session.get(SupportCase, case_id)
+            case.detail = {**case.detail, "first_response_at": marker}
+    result = response_watch.watch(db, now=now)
+    assert all(case_id in result["raised"] for case_id in ids[:3])
+    assert ids[3] not in result["raised"]
+
+
+def test_invalid_legacy_response_marker_does_not_suppress_real_draft_worker(tmp_path):
+    db = Database(f"sqlite:///{tmp_path / 'support.db'}", scratch=True)
+    db.create_all()
+    Registry(db).seed_defaults()
+    now = datetime.now(timezone.utc)
+    case_id = response_watch.record_buyer_message(
+        db, customer_ref="fixture-buyer", message="Where is my PDF?",
+        received_at=now - timedelta(hours=30), now=now)["case_id"]
+    with db.session() as session:
+        case = session.get(SupportCase, case_id)
+        case.detail = {**case.detail, "first_response_at": "not-a-time"}
+    result = CustomerExperience(db).triage_cases(JobQueue(db), now=now)
+    assert case_id in [entry["case"] for entry in result["reply_jobs"]]
+    assert Worker(db, "fixture-invalid-marker", phase=Phase.SHADOW,
+                  job_types=["support.reply"]).run_once()
+    with db.session() as session:
+        case = session.get(SupportCase, case_id)
+        assert case.answer and not case.sent and not case.resolved
+        assert case.detail["first_response_at"] == "not-a-time"
+        assert case.detail["response_measured_as"] == "draft_ready"
+    assert case_id in response_watch.watch(db, now=now)["raised"]
