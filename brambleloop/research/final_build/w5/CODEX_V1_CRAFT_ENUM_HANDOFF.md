@@ -159,6 +159,14 @@ candidate is saved makes no third image. The new case and existing correction
 and identity-anchor flows passed 3/3 in Python 3.11/tmpfs; an independent
 reviewer reran the new case. This is not a real identity or provider test.
 
+The registered visual application handler was also exercised through the real
+durable queue: a follow-on enqueue fails after candidate persistence, the job
+is retried after reopening the SQLite database, and the saved candidate is
+reused with one synthetic paid-adapter call and one fidelity child job. The
+combined focused suite passed 41/41 on Python 3.11/tmpfs; independent review
+reran the queue case. This does not demonstrate PostgreSQL concurrency or real
+provider billing.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

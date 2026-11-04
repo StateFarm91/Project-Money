@@ -412,3 +412,61 @@ def test_multi_role_stage_reuses_completed_role_after_interruption(monkeypatch):
                           judges=O.StubJudges())
     assert result["next"] == "verification" and gen.calls == 2
     assert IP._attempts(db, key, "detail") == 1 and IP._attempts(db, key, "angle") == 1
+
+
+def test_registered_handler_recovers_via_durable_queue_after_reopen(monkeypatch):
+    from datetime import timedelta
+    import test_w4_ownerimg as O
+    from sqlalchemy import select
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Job, utcnow
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import release as runtime_release
+    from brambleloop.visual import candidate_gates as CG
+    from brambleloop.visual import gallery, image_production as IP
+
+    class Paid(O.StubGenerator):
+        paid, max_cost_cad_per_call = True, 0.1
+        def generate(self, **kw):
+            result = super().generate(**kw)
+            result["cost_cad"] = 0.08
+            return result
+
+    db, gen = O.make_db(), Paid()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    monkeypatch.setattr(gallery, "gates_now", lambda *a, **kw: {"image_generation": True})
+    monkeypatch.setattr(IP, "resolve_generator", lambda db: gen)
+    monkeypatch.setattr(CG, "RealJudges", lambda db: O.StubJudges())
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    queue = JobQueue(db)
+    queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key="test-stage-job")
+    job = queue.claim("worker-a", job_types=[IP.JOB_TYPE])
+
+    class Context:
+        def __init__(self, db, queue, job, interrupt=False):
+            self.db, self.queue, self.job, self.interrupt = db, queue, job, interrupt
+        def enqueue(self, agent, job_type, inputs, **kw):
+            if self.interrupt:
+                raise RuntimeError("enqueue interrupted")
+            return self.queue.enqueue(agent, job_type, inputs, **kw)
+        def audit(self, *args, **kwargs):
+            pass
+
+    with pytest.raises(RuntimeError, match="enqueue interrupted"):
+        runtime_release.handle_image_production(Context(db, queue, job, interrupt=True))
+    queue.fail(job.id, "test interruption", worker="worker-a", lease_token=job.lease_token)
+    with db.session() as session:
+        session.get(Job, job.id).run_after = utcnow() - timedelta(seconds=1)
+    reopened = Database(str(db.engine.url), scratch=True)
+    queue2 = JobQueue(reopened)
+    retry = queue2.claim("worker-b", job_types=[IP.JOB_TYPE])
+    assert retry.id == job.id
+    out = runtime_release.handle_image_production(Context(reopened, queue2, retry))
+    assert queue2.complete(retry.id, outputs=out, worker="worker-b", lease_token=retry.lease_token)
+    assert out["next"] == "fidelity_gate" and gen.calls == 1
+    assert IP.get_run(reopened, key)["spent_cad"] == 0.08
+    with reopened.session() as session:
+        children = session.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE,
+                                   Job.id != retry.id)).all()
+        assert len(children) == 1 and children[0].inputs["stage"] == "fidelity_gate"
