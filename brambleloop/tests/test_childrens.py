@@ -593,6 +593,30 @@ def test_hard_eye_aliases_and_folded_names_are_refused_for_under_three():
         "embroidered_eyes",)
 
 
+def test_applied_part_aliases_are_refused_for_under_three():
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for material, expected in (("rattle insert", "rattle_insert"),
+                               ("rattle box", "rattle_insert"),
+                               ("pompoms", "pom_poms"),
+                               ("snap fasteners", "snap_fasteners"),
+                               ("press studs", "snap_fasteners"),
+                               ("perles", "beads"), ("boutons", "buttons"),
+                               ("grelots", "bells"), ("clochettes", "bells")):
+        cir = _cir_with(material)
+        parts = ch.parts_in_cir(cir)
+        assert expected in parts and ch.classify_part(expected) == "detachable", (material, parts)
+        try:
+            build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+        except ValueError as exc:
+            assert "SMALL_PART_UNDER_3" in str(exc), (material, exc)
+        else:
+            raise AssertionError(f"an under-three pattern naming {material!r} rendered")
+    assert ch.parts_in_cir(_cir_with("worsted cotton", note="Work the rattle stitch.")) == ()
+    assert ch.parts_in_cir(_cir_with("worsted cotton", note="Press and turn.")) == ()
+    assert ch.parts_in_cir(_cir_with("plastic rattle insert")) == ("plastic_rattle_insert",)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
