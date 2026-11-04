@@ -410,7 +410,7 @@ def test_quality_sweep_reaches_the_coo_and_lauras_idle_priorities_without_laura_
     cands = generators.provider_candidates(db, charters.BY_KEY["product_truth"], snap)
     assert [c.job_type for c in cands] == ["gate.quality"]
     # L-4: one check's reading is not a fresh re-verification; all four must have run
-    ref = {"slug": cir.slug, "version": cir.version}
+    ref = {"slug": cir.slug, "version": cir.version, "release_hash": "r" * 64}
     _run(db, "validator", "cir.twin", ref)
     assert quality_ops.next_work(db) and "1 certified" in quality_ops.next_work(db)[0]["why"]
     _run(db, "validator", "cir.reverse", ref)
