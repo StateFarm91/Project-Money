@@ -265,6 +265,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
                       if missing else "the wave leans on one level; ideate the others"),
             "as_of": today.isoformat()})
 
+    # W5-A7 (P0-SUPPLY-STALL): `draft:<slug>` is permanent, so a selected concept that was
+    # drafted already can never become a new product. When nothing selected is undrafted the
+    # company has no new concept supply; that is recorded once per scan date, never silent.
+    # A reading fault never costs the scan.
+    try:
+        supply = _record_supply_stall(ctx, [c.slug for c in steered],
+                                      [c.slug for c in portfolio.selected], today)
+    except Exception as exc:  # noqa: BLE001
+        supply = {"measured": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
     for c in portfolio.selected:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
@@ -296,11 +306,58 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         "constraints_met": portfolio.constraints_met,
         "swaps": portfolio.reasons,
         "arbitrage_steered": [m["slug"] for m in steering["steered"]],
+        "concept_supply": supply,
         "skill_portfolio": {"segmented": skills["wave"]["segmented"],
                             "shares": skills["wave"]["shares"], "missing": missing,
                             "over": excess},
         "as_of": today.isoformat(),
     }
+
+
+def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
+                         today: date) -> dict:
+    """W5-A7 (P0-SUPPLY-STALL): the next-product supply reading of one `radar.scan`.
+
+    Supply is a selected concept with no recorded draft admission. Recovery and rebuilds
+    can also enqueue draft jobs, using keys distinct from `draft:<slug>`. With none, one `OperatingReading`
+    (`flow_health.SUPPLY_STALL_KIND`, period = the scan date) and one audit record the stall:
+    `pool_exhausted` when every concept in POOL plus approved intake is drafted, else
+    `selection_all_drafted`. Deterministic, deduplicated per period, and read-only for the
+    queue: it enqueues nothing.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from ..core.models import OperatingReading
+    from ..ops import flow_health
+
+    drafted = flow_health.drafted_slugs(ctx.db, set(pool) | set(selected))
+    undrafted_pool = sorted(s for s in set(pool) if s not in drafted)
+    undrafted_selected = [s for s in selected if s not in drafted]
+    out = {"measured": True, "pool": len(set(pool)), "drafted": len(drafted & set(pool)),
+           "undrafted_pool": len(undrafted_pool), "undrafted_selected": len(undrafted_selected),
+           "stalled": not undrafted_selected, "recorded": False}
+    if undrafted_selected:
+        return out
+    period = today.isoformat()
+    payload = {"reason": "pool_exhausted" if not undrafted_pool else "selection_all_drafted",
+               "pool": out["pool"], "drafted": out["drafted"],
+               "undrafted_pool": undrafted_pool[:50], "selected": list(selected)[:50],
+               "as_of": period, "job_id": ctx.job.id}
+    out["reason"] = payload["reason"]
+    try:
+        with ctx.db.session() as s:
+            if s.scalar(select(OperatingReading.id).where(
+                    OperatingReading.kind == flow_health.SUPPLY_STALL_KIND,
+                    OperatingReading.period_key == period)) is not None:
+                return out
+            s.add(OperatingReading(kind=flow_health.SUPPLY_STALL_KIND, period_key=period,
+                                   payload=payload))
+    except IntegrityError:          # a concurrent scan recorded this period first
+        return out
+    out["recorded"] = True
+    ctx.audit("radar.supply_stall", detail=payload)
+    return out
 
 
 def _scan_date(ctx: JobContext) -> date:
@@ -491,14 +548,16 @@ def handle_radar_score(ctx: JobContext) -> dict:
             preengineering.record(ctx, gate, source="radar.score")
             promote = gate["engineer"]
 
-    ctx.audit("radar.scored", artifact=seed.slug, detail={
-        "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
-        "evidence_discount": evidence["discount"], "components": rescored.components,
-        "lesson_adjustment": lesson_adjustment,
-        "lessons": [l["id"] for l in radar_lessons],
-        "promoted": promote,
-        "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
-    })
+    draft_hold = None
+    if promote:
+        from ..ops import flow_health
+
+        if seed.slug in flow_health.drafted_slugs(ctx.db, {seed.slug}):
+            draft_hold = "an existing draft job already names this slug"
+            promote = False
+            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
+                      detail={"reason": draft_hold})
+
     if promote:
         payload = rescored.to_dict()
         payload.update(intake_fields)
@@ -524,17 +583,33 @@ def handle_radar_score(ctx: JobContext) -> dict:
                            + "; ".join(", ".join(l["shared"][:3]) for l in eng_lessons))[:200],
                 "benefit": "unmeasured: a bounded heuristic nudge, not an expected value"}
             payload["lessons"] = [l["id"] for l in eng_lessons]
+        child = ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                            idempotency_key=f"draft:{seed.slug}")
+        if child is None:
+            # A competing canonical admission can win after the read above.  A
+            # deduplicated enqueue is not a new promotion by this score job.
+            draft_hold = "the draft admission was already queued"
+            promote = False
+            ctx.audit("radar.draft_already_admitted", artifact=seed.slug,
+                      detail={"reason": draft_hold})
+        elif eng_lessons:
             consume.act(ctx.db, "pattern_engineering", eng_lessons,
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                    idempotency_key=f"draft:{seed.slug}")
+    ctx.audit("radar.scored", artifact=seed.slug, detail={
+        "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
+        "evidence_discount": evidence["discount"], "components": rescored.components,
+        "lesson_adjustment": lesson_adjustment,
+        "lessons": [l["id"] for l in radar_lessons],
+        "promoted": promote, "draft_hold": draft_hold,
+        "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
+    })
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
                                                       "mean_weight", "why")},
-            "promoted": promote,
+            "promoted": promote, "draft_hold": draft_hold,
             "lesson_adjustment": lesson_adjustment, "adjusted_score": adjusted,
             "components": rescored.components,
             "gate": (None if gate is None else
