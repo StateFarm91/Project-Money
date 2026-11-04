@@ -992,18 +992,27 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
         if stage == "product_generation":
             attempt = _attempts(db, key, ANCHOR_ROLE) + 1
+            operation = operation_for(ANCHOR_ROLE)
+            # A retried job may recover its already-recorded candidate even when it
+            # used the last attempt. A different invocation must respect the cap.
+            recovered = _recover_generation(db, key, operation=operation, stage=stage,
+                                            role=ANCHOR_ROLE, slug=slug, version=version,
+                                            release=release)
+            if recovered is None and attempt > max_att:
+                return block(f"product generation attempt cap {max_att} reached",
+                             exhausted=True)
             # A regeneration after a fidelity FAIL carries the targeted repair for its codes
             # when every code has a route; otherwise it is a plain retry within the cap.
             prior = (_best(db, listing=run["listing"], role=ANCHOR_ROLE, run=key)
                      if attempt > 1 else None)
             repair = (_repair_for(prior) if prior and prior.get("technical_status") == "FAIL"
                       else None)
-            got = _generate(db, key, gen, slug=slug, version=version, release=release,
+            got = recovered or _generate(db, key, gen, slug=slug, version=version, release=release,
                             role=ANCHOR_ROLE, stage=stage, laura=False, judges=judges,
                             brief="the finished piece alone, flat, plain background, every "
                                   "piece visible", refs=_refs_with_bytes(), outfit=None,
                             plan_attempt=attempt, repair=repair, exp=exp,
-                            operation=operation_for(ANCHOR_ROLE))
+                            operation=operation)
             _update(db, key, stage=stage, status=st,
                     record={"outputs": got, "cost_cad": got.get("cost_cad")})
             return {"run_key": key, "next": go(_next(stage), rnd=got.get("attempt", attempt) - 1)}

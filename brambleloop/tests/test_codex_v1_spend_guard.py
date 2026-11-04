@@ -318,6 +318,28 @@ def test_real_stage_retry_reuses_candidate_after_follow_enqueue_failure(monkeypa
     assert gen.calls == 2
 
 
+def test_product_stage_refuses_new_invocation_after_attempt_cap(monkeypatch):
+    import test_w4_ownerimg as O
+    from brambleloop.visual import image_production as IP
+
+    monkeypatch.setattr(IP, "MAX_ATTEMPTS_PER_ROLE", 1)
+    db = O.make_db()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    gen = O.StubGenerator()
+    first = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                         judges=O.StubJudges())
+    replay = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert first["next"] == replay["next"] == "fidelity_gate" and gen.calls == 1
+    capped = IP.run_stage(db, {**inputs, "round": 1}, follow=lambda i, k: None,
+                          generator=gen, judges=O.StubJudges())
+    assert "attempt cap 1 reached" in capped["blocked_reason"]
+    assert capped["attempts_exhausted"] and gen.calls == 1
+    assert IP.get_run(db, key)["generation_calls"] == 1
+
+
 def test_stage_replay_does_not_bypass_an_unrelated_pending_paid_call(monkeypatch):
     import test_w4_ownerimg as O
     from brambleloop.visual import image_production as IP

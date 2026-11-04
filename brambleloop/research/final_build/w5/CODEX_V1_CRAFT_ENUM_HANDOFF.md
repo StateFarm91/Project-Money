@@ -174,6 +174,13 @@ child. The Python 3.11/tmpfs spend/recovery suite passed 41/41; independent
 review reran this queue case. This is a sequential SQLite test, not a provider
 or PostgreSQL concurrency certification.
 
+The product-only generation handler now enforces its per-role attempt cap at
+the generation boundary, including for a distinct stale stage job. A replay of
+the same invocation may still recover its saved last-attempt candidate. Focused
+Python 3.11/tmpfs spend, restart and identity tests passed 44/44; an independent
+reviewer reran the real product-stage case. The count/check/dispatch sequence
+is not proven safe against concurrent workers on PostgreSQL.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
