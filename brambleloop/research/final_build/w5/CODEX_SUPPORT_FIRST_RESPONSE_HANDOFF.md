@@ -112,3 +112,14 @@ reran service/trust and the rounding-boundary tests. This is not authenticated
 proof of delivery: legacy sent markers remain unsigned and other malformed
 case fields can still make a reading fail. The latest head was not tested on
 PostgreSQL. No customer messages were sent.
+
+Refund-impact follow-up: existing sale ledger rows alone no longer set the
+support-speed/refund relationship to measurable or label row count as order
+count. The response keeps impact and refund rate unknown and exposes only
+clearly described all-history sale-row counts, separating invalid refund values.
+This is not a linked comparison, a refund-rate certification, or proof of
+causation. Python 3.11 focused tmpfs SQLite suites passed 58/58 with synthetic
+duplicate-source and invalid-amount rows, including the actual authenticated
+`/api/trust` reporting handler; no financial or customer action was performed.
+PostgreSQL and authenticated order-to-support evidence remain open. External
+API clients may need to handle `None` for orders, refunds and rate.
