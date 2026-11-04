@@ -80,6 +80,37 @@ def test_either_seam_endpoint_can_be_a_small_part():
             assert "SMALL_PARTS_EVIDENCE" not in action.action, action.action
 
 
+def test_large_flexible_sewn_pieces_need_physical_fit_evidence():
+    from brambleloop.core.models import JobStatus
+
+    basket = inventory._engineered("market-basket-medium")
+    panel = dataclasses.replace(basket.components[0], name="panel")
+    seam = dataclasses.replace(inventory._engineered("heart-row-ring-pillow").assembly[0],
+        piece_a="panel", piece_b="basket", stuff_before_closing=False,
+        note=None, at_round=None, stitches_from_centre=None)
+    cir = dataclasses.replace(basket, components=list(basket.components) + [panel], assembly=[seam])
+    pieces = small_parts.separable_pieces(cir)
+    assert pieces and all(small_parts.verdict(n, length) == small_parts.CLEAR
+                          for _name, n, length in pieces)
+    blocks = small_parts.blocking(cir)
+    assert len(blocks) == len(pieces) and all("fit under force is unknown" in b for b in blocks)
+    # The digest binding and sample assertion are synthetic test fixtures;
+    # neither creates real owner authorization or physical test evidence.
+    with patch.dict(launch0._ASSIGNED_DECISION_CIR_SHA256,
+                    {cir.slug: launch0._cir_decision_digest(cir)}), \
+         patch.dict(small_parts.SMALL_PARTS_EVIDENCE, {cir.slug: "unscoped alleged sample"}):
+        try:
+            pdf._refuse_an_undecided_childrens_title(cir, ("toys", "under_3"))
+        except pdf.ChildrensDecisionRequired as exc:
+            assert exc.reason == "small_parts" and "fit under force is unknown" in str(exc)
+        else:
+            raise AssertionError("flat size was incorrectly treated as physical clearance")
+        result = harness._assets_build_full(cir)
+    assert result["status"] == JobStatus.DONE and result["outputs"].get("held"), result
+    assert result["outputs"]["reason"] == "small_parts", result
+    assert not result["outputs"].get("pdf_sha256"), result
+
+
 if __name__ == "__main__":
     test_invalid_measurements_and_gauges_are_unknown()
     test_either_seam_endpoint_can_be_a_small_part()

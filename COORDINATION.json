@@ -341,6 +341,34 @@
         "brambleloop/research/final_build/w5/CODEX_A1_HARD_EYES_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-APPLIED-PART-ALIASES",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-part-aliases",
+      "source_branch": "codex/a1-detachable-eye-safety",
+      "source_sha": "ec2dee6",
+      "scope": "Extend existing under-three detachable-parts refusal to explicit rattle, pompom, fastener and French part names",
+      "files": [
+        "brambleloop/src/brambleloop/intel/childrens.py",
+        "brambleloop/tests/test_childrens.py",
+        "brambleloop/tests/test_codex_a1_hard_eyes.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-FLEXIBLE-FIT",
+      "operator": "codex",
+      "branch": "codex/a1-detachable-part-aliases",
+      "source_sha": "a210178",
+      "scope": "Do not infer physical small-parts non-fit of flexible sewn crochet solely from flat geometry",
+      "files": [
+        "brambleloop/src/brambleloop/gates/small_parts.py",
+        "brambleloop/tests/test_codex_a1_small_parts_finite.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_PART_ALIASES_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [
