@@ -386,6 +386,20 @@
         "brambleloop/research/final_build/w5/CODEX_A1_HOLD_ATOMIC_HANDOFF.md"
       ],
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A1-HOLD-SNAPSHOT",
+      "operator": "codex",
+      "branch": "codex/a1-hold-snapshot",
+      "source_branch": "codex/a1-hold-atomic",
+      "source_sha": "b628be5e392795a663d521aaaa4817bf4f784aaa",
+      "scope": "Recheck exact certified CIR snapshot before safety-refusal owner-action transaction",
+      "files": [
+        "brambleloop/src/brambleloop/runtime/release.py",
+        "brambleloop/tests/test_codex_a1_atomic_hold.py",
+        "brambleloop/research/final_build/w5/CODEX_A1_HOLD_SNAPSHOT_HANDOFF.md"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

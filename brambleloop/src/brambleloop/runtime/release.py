@@ -9776,7 +9776,8 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
     from sqlalchemy.exc import OperationalError
 
     from ..core.db import is_postgres
-    from ..core.models import AuditLog, Job, JobStatus, OwnerAction, utcnow
+    from ..core.models import (AuditLog, Job, JobStatus, OwnerAction, PatternVersion,
+                               Product, utcnow)
     from ..core.resilience import TransientError
     from ..queue.effects import LeaseLost
 
@@ -9784,10 +9785,11 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
     slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
     reason = getattr(exc, "reason", "undecided")
     version = getattr(exc, "version", None) or i.get("version") or ""
-    if reason == "safety_refusal":
+    if reason in {"safety_refusal", "small_parts"}:
         digest = getattr(exc, "content_digest", None) or f"unknown-job-{ctx.job.id}"
         finding = hashlib.sha256(str(exc).encode("utf-8")).hexdigest()
-        rk = f"childrens-safety:{slug}@{version}:{digest}:{finding}"
+        prefix = "childrens-safety" if reason == "safety_refusal" else "childrens-small-parts"
+        rk = f"{prefix}:{slug}@{version}:{digest}:{finding}"
     else:
         rk = f"childrens-decision:{slug}"
     try:
@@ -9812,6 +9814,27 @@ def _childrens_hold(ctx: JobContext, exc) -> dict:
                     or job.job_type != "assets.build" or job.inputs != i
                     or expiry is None or expiry <= utcnow()):
                 raise LeaseLost("child safety hold producer lease is no longer current")
+            if reason in {"safety_refusal", "small_parts"}:
+                # The PDF assessment happened before this transaction. Hold only
+                # the exact still-certified design that was actually assessed;
+                # an absent, changed or non-canonical source is not evidence.
+                from ..products.launch0 import _cir_decision_digest
+                expected = getattr(exc, "content_digest", None)
+                if (slug != str(i.get("slug") or "") or version != str(i.get("version") or "")
+                        or not isinstance(expected, str) or len(expected) != 64):
+                    raise TransientError("child safety source identity is unavailable; retry")
+                product = s.scalar(select(Product).where(Product.slug == slug)
+                                   .with_for_update(nowait=postgres))
+                pv = (s.scalar(select(PatternVersion).where(
+                    PatternVersion.product_id == product.id, PatternVersion.version == version)
+                    .with_for_update(nowait=postgres)) if product is not None else None)
+                try:
+                    observed = (_cir_decision_digest(CIR.from_dict(pv.cir_json))
+                                if pv is not None and pv.certified else None)
+                except (TypeError, ValueError, KeyError):
+                    observed = None
+                if observed != expected:
+                    raise TransientError("child safety source changed after assessment; retry")
             existing = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk,
                               OwnerAction.done == False).with_for_update(nowait=postgres))  # noqa: E712
             s.add(AuditLog(actor=job.agent, action=CHILDRENS_HOLD, job_id=job.id,
