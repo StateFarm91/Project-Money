@@ -9,7 +9,7 @@ from brambleloop.launch import rollback
 from test_w4_firstsale_deliverables import _db
 
 
-@pytest.mark.parametrize("defect", ["missing-frame", "invalid-frame", "invalid-pdf", "malformed-pdf-map"])
+@pytest.mark.parametrize("defect", ["missing-frame", "invalid-frame", "invalid-pdf", "malformed-pdf-map", "stale-release", "malformed-output", "revoked", "false-grant", "malformed-certificate"])
 def test_incomplete_artifact_evidence_is_audited_as_refused(tmp_path, defect):
     db = _db()
     store = ArtifactStore(tmp_path)
@@ -22,20 +22,32 @@ def test_incomplete_artifact_evidence_is_audited_as_refused(tmp_path, defect):
         session.add(product)
         session.flush()
         session.add(PatternVersion(product_id=product.id, version="1", cir_json={},
-                                   certified=True, certificate={"granted": True}))
+                                   certified=defect != "revoked", release_hash="a" * 64,
+                                   certificate=["invalid"] if defect == "malformed-certificate" else
+                                   {"granted": "yes" if defect == "false-grant" else True}))
         session.add(Listing(product_slug="item", version="1", title="Item", description="Fixture", tags=[], state="draft"))
         session.add(ListingAsset(product_slug="item", version="1", position=1, asset_class="photo", role="hero",
                                  sha256=None if defect == "missing-frame" else "bad" if defect == "invalid-frame" else image_sha))
-        output = {"slug": "item", "version": "1", "pdf_sha256": pdf_sha}
+        output = {"slug": "item", "version": "1", "release": "a" * 64, "pdf_sha256": pdf_sha}
         if defect == "invalid-pdf":
             output["pdf_sha256_by_terminology"] = {"US": pdf_sha, "UK": None}
         elif defect == "malformed-pdf-map":
             output["pdf_sha256_by_terminology"] = []
-        session.add(Job(agent="assets", job_type="assets.build", status=JobStatus.DONE, outputs=output))
+        elif defect == "stale-release":
+            output["release"] = "b" * 64
+        elif defect == "malformed-output":
+            output = ["not a build record"]
+        session.add(Job(agent="assets", job_type="assets.build", status=JobStatus.DONE,
+                        inputs={"slug": "item", "version": "1", "release": "a" * 64}, outputs=output))
     result = rollback.rehearse(db, slug="item", version="1", store=store)
     step = next(s for s in result["steps"] if s["step"] == "deliverables_restorable")
-    assert not result["ok"] and not step["ok"]
-    assert step["invalid_pdf_hashes" if defect in {"invalid-pdf", "malformed-pdf-map"} else "invalid_frame_hashes"] == 1
+    assert not result["ok"]
+    if defect in {"revoked", "false-grant", "malformed-certificate"}:
+        assert not next(s for s in result["steps"] if s["step"] == "certificate_retained")["ok"]
+    else:
+        assert not step["ok"]
+    if defect not in {"stale-release", "revoked", "false-grant", "malformed-certificate"}:
+        assert step["invalid_pdf_hashes" if defect in {"invalid-pdf", "malformed-pdf-map", "malformed-output"} else "invalid_frame_hashes"] == 1
     with db.session() as session:
         audit = session.scalar(select(AuditLog).where(AuditLog.action == rollback.ACTION))
         assert audit is not None and audit.detail["ok"] is False

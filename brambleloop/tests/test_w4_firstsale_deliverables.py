@@ -65,7 +65,7 @@ def _release(db, art: Path, *, keep: bool):
         s.add(p)
         s.flush()
         s.add(PatternVersion(product_id=p.id, version=cir.version, cir_json=cir.to_dict(),
-                             certified=True, certificate={"granted": True},
+                             certified=True, release_hash="a" * 64, certificate={"granted": True},
                              created_at=RELEASED))
     if not _PDFS:
         _PDFS.update(D.render_certified_pdfs(db, SLUG, cir.version))
@@ -78,9 +78,9 @@ def _release(db, art: Path, *, keep: bool):
               keep="frame" if keep else "")
     hashes = {t: _sha(b) for t, b in _PDFS.items()}
     with db.session() as s:
-        job = Job(agent="assets", job_type="assets.build", inputs={"slug": SLUG},
+        job = Job(agent="assets", job_type="assets.build", inputs={"slug": SLUG, "version": cir.version, "release": "a" * 64},
                   status=JobStatus.DONE,
-                  outputs={"slug": SLUG, "version": cir.version, "pdf_sha256": hashes["US"],
+                  outputs={"slug": SLUG, "version": cir.version, "release": "a" * 64, "pdf_sha256": hashes["US"],
                            "pdf_sha256_by_terminology": hashes})
         s.add(job)
         s.flush()
