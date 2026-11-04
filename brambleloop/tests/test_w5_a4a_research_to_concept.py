@@ -576,6 +576,85 @@ def test_recovery_refuses_worker_whose_lease_was_reclaimed():
     assert not _audits(db, ideation.PROPOSED)
 
 
+def test_reassigned_gap_holds_research_candidate_and_real_score_handler():
+    db = _db()
+    gid = _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        rec = dict(evidence["ideation"])
+        rec["task"] = task.id + 1000
+        evidence["ideation"] = rec
+        gap.evidence = evidence
+    assert not [c for c in intake.research_candidates(db, today=TODAY)
+                if c["source_ref"] == f"research_task:{task.id}"]
+    assert intake.approved_concept(db, slug) is None
+    assert slug not in {seed.slug for seed in intake.pool_with_intake(db)}
+    before = len(_jobs(db, "cir.draft"))
+    queued = JobQueue(db).enqueue("market_radar", "radar.score", {"slug": slug},
+                                  idempotency_key="codex:reassigned-score", priority=-1000)
+    assert Worker(db, "reassigned-score", job_types=["radar.score"]).run_once()
+    with db.session() as s:
+        result = s.get(Job, queued.id).outputs
+    assert result["promoted"] is False and result["reason"] == "not in the pool"
+    assert len(_jobs(db, "cir.draft")) == before
+    # A corrected owner record makes the still-valid approval visible again;
+    # a transient mismatch does not fabricate a new approval or destroy it.
+    with db.session() as s:
+        gap = s.get(CoverageGap, gid)
+        evidence = dict(gap.evidence)
+        rec = dict(evidence["ideation"])
+        rec["task"] = task.id
+        evidence["ideation"] = rec
+        gap.evidence = evidence
+    assert intake.approved_concept(db, slug) is not None
+
+
+def test_changed_attached_proposal_holds_old_approved_concept():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        detail = dict(row.detail)
+        proposal = dict(detail["concept_proposals"][0])
+        proposal["title"] += " changed"
+        detail["concept_proposals"] = [proposal]
+        row.detail = detail
+    assert intake.approved_concept(db, slug) is None
+    assert any(c["proposal"]["slug"] == slug for c in intake.research_candidates(db, today=TODAY))
+
+
+def test_removing_ideation_markers_does_not_reclassify_existing_intake():
+    db = _db()
+    _gap(db, "kitchen_bath")
+    _listings(db, "kitchen_bath", KITCHEN)
+    _drive(db, datetime.now(timezone.utc))
+    task = _tasks(db)[0]
+    slug = task.detail["concept_proposals"][0]["slug"]
+    assert intake.approved_concept(db, slug) is not None
+    with db.session() as s:
+        row = s.get(research.ResearchTask, task.id)
+        detail = dict(row.detail)
+        detail.pop("ideation_brief", None)
+        detail.pop("ideation_refs", None)
+        detail.pop("ideation_census", None)
+        row.detail = detail
+        row.trigger = "other-research"
+    assert intake.approved_concept(db, slug) is None
+    assert not [c for c in intake.research_candidates(db, today=TODAY)
+                if c["source_ref"] == f"research_task:{task.id}"]
+
+
 def test_unknown_shop_is_not_counted_as_an_independent_source():
     db = _db()
     _listings(db, "kitchen_bath", [("", "Dishcloth one", 5),

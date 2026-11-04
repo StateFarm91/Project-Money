@@ -439,23 +439,88 @@ def _unsupported_research(db, rows) -> set[int]:
     moment of use, so a stale approval is out of the pool even before `run` withdraws it."""
     from ..intel import research
 
-    refs = {r.id: r.source_ref for r in rows if r.source == SOURCE_RESEARCH}
+    refs = {r.id: r for r in rows if r.source == SOURCE_RESEARCH}
     if not refs:
         return set()
     research._ensure(db)
-    ids = {int(v.split(":", 1)[1]) for v in refs.values()}
+    ids = set()
+    parsed = {}
+    for rid, row in refs.items():
+        try:
+            prefix, raw_id = row.source_ref.split(":", 1)
+            tid = int(raw_id)
+            if prefix != "research_task" or tid <= 0:
+                raise ValueError("invalid research source")
+            parsed[rid] = tid
+            ids.add(tid)
+        except (AttributeError, TypeError, ValueError):
+            continue
     now = datetime.now(timezone.utc)
     with db.session() as s:
         tasks = {t.id: t for t in s.scalars(select(research.ResearchTask)
                                             .where(research.ResearchTask.id.in_(ids)))}
         ok = set()
-        for tid, t in tasks.items():
+        for rid, tid in parsed.items():
+            t = tasks.get(tid)
+            if t is None:
+                continue
             expires = _aware(t.expires_on)
-            concl = (t.detail or {}).get("conclusion") or {}
+            task_detail = t.detail if isinstance(t.detail, dict) else {}
+            concl = task_detail.get("conclusion") or {}
+            if not isinstance(concl, dict):
+                continue
+            row_detail = refs[rid].detail if isinstance(refs[rid].detail, dict) else {}
             if (t.state == research.ANSWERED and concl.get("status") != "unresolved"
-                    and (expires is None or expires > now)):
-                ok.add(tid)
-    return {rid for rid, ref in refs.items() if int(ref.split(":", 1)[1]) not in ok}
+                    and (expires is None or expires > now)
+                    and _ideation_owner_current(s, t, refs[rid].slug,
+                                                row_detail.get("proposal"),
+                                                expected_trigger=row_detail.get("trigger"))):
+                ok.add(rid)
+    return set(refs) - ok
+
+
+_NO_APPROVED_PROPOSAL = object()
+
+
+def _ideation_owner_current(session, task, slug: str,
+                            approved_proposal=_NO_APPROVED_PROPOSAL,
+                            *, expected_trigger=None) -> bool:
+    """Hold ideation concepts whose recorded gap or attached proposal has changed.
+
+    Non-ideation research tasks have their existing evidence rules. This read is
+    not a transaction fence against a later task or gap mutation.
+    """
+    from ..core.models import CoverageGap
+    from . import ideation
+
+    detail = task.detail if isinstance(task.detail, dict) else {}
+    trigger = task.trigger if isinstance(task.trigger, str) else ""
+    if (isinstance(expected_trigger, str) and expected_trigger.startswith(ideation.TRIGGER_PREFIX)
+            and trigger != expected_trigger):
+        return False
+    if not trigger.startswith(ideation.TRIGGER_PREFIX) and "ideation_brief" not in detail:
+        if "ideation_refs" in detail or "ideation_census" in detail:
+            return False
+        return True
+    brief = detail.get("ideation_brief")
+    if not isinstance(brief, dict):
+        return False
+    gap_id = brief.get("gap")
+    if type(gap_id) is not int or gap_id <= 0 or trigger != f"{ideation.TRIGGER_PREFIX}{gap_id}":
+        return False
+    gap = session.get(CoverageGap, gap_id)
+    evidence = gap.evidence if gap and isinstance(gap.evidence, dict) else {}
+    record = evidence.get("ideation") or {}
+    proposals = detail.get("concept_proposals")
+    if (not isinstance(slug, str) or not slug or not isinstance(record, dict)
+            or type(record.get("task")) is not int or record.get("task") != task.id
+            or record.get("outcome") != ideation.OUT_PROPOSED or record.get("slug") != slug
+            or not isinstance(proposals, list) or len(proposals) != 1
+            or not isinstance(proposals[0], dict) or proposals[0].get("slug") != slug):
+        return False
+    return (approved_proposal is _NO_APPROVED_PROPOSAL
+            or (isinstance(approved_proposal, dict)
+                and _clean(proposals[0]) == _clean(approved_proposal)))
 
 
 def has_rows(db, slug: str) -> bool:
@@ -755,16 +820,34 @@ def research_candidates(db, *, today: date) -> list[dict]:
 
     research._ensure(db)
     with db.session() as s:
-        rows = [(r.id, list((r.detail or {}).get("concept_proposals") or []), r.trigger)
-                for r in s.scalars(select(research.ResearchTask)
-                                   .order_by(research.ResearchTask.id))
-                if (r.detail or {}).get("concept_proposals")]
+        rows = []
+        # Existing intake decisions retain the source trigger they judged. If a
+        # task later drops its ideation markers, do not silently reclassify it.
+        known_triggers = {}
+        for source_ref, prior_detail in s.execute(select(RadarConcept.source_ref,
+                RadarConcept.detail).where(RadarConcept.source == SOURCE_RESEARCH)):
+            trigger = prior_detail.get("trigger") if isinstance(prior_detail, dict) else None
+            if isinstance(trigger, str) and trigger.startswith("ideation_gap:"):
+                known_triggers.setdefault(source_ref, set()).add(trigger)
+        for row in s.scalars(select(research.ResearchTask).order_by(research.ResearchTask.id)):
+            detail = row.detail if isinstance(row.detail, dict) else {}
+            proposals = detail.get("concept_proposals") or []
+            if not isinstance(proposals, list):
+                continue
+            for prop in proposals:
+                if not isinstance(prop, dict):
+                    continue
+                seen = known_triggers.get(f"research_task:{row.id}", set())
+                if len(seen) > 1:
+                    continue
+                expected = next(iter(seen), None)
+                if _ideation_owner_current(s, row, prop.get("slug"), expected_trigger=expected):
+                    rows.append((row.id, dict(prop), row.trigger))
     out = []
-    for tid, proposals, trigger in rows:
-        for prop in proposals:
-            ev = research_evidence(db, tid, (prop or {}).get("evidence") or (), today=today)
-            out.append({"source": SOURCE_RESEARCH, "source_ref": f"research_task:{tid}",
-                        "proposal": dict(prop or {}), "evidence": ev, "trigger": trigger})
+    for tid, prop, trigger in rows:
+        ev = research_evidence(db, tid, prop.get("evidence") or (), today=today)
+        out.append({"source": SOURCE_RESEARCH, "source_ref": f"research_task:{tid}",
+                    "proposal": prop, "evidence": ev, "trigger": trigger})
     return out
 
 

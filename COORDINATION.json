@@ -331,6 +331,20 @@
       ],
       "state": "in_review",
       "claimed_at": "2026-11-04"
+    },
+    {
+      "id": "CODEX-A4A-INTAKE-OWNER-RECHECK",
+      "operator": "codex",
+      "branch": "codex/a4a-intake-owner-recheck",
+      "base": "29c10e90085845b6c3cf2e6b847d0bebe9cc27e1",
+      "scope": "Hold research intake and approved-pool reads on recorded gap ownership mismatch",
+      "files": [
+        "brambleloop/src/brambleloop/radar/intake.py",
+        "brambleloop/tests/test_w5_a4a_research_to_concept.py",
+        "brambleloop/tests/test_codex_a4a_recovery_postgres.py"
+      ],
+      "state": "in_review",
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

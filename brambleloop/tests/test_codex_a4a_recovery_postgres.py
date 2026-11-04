@@ -74,3 +74,15 @@ def test_concurrent_handlers(pg_suite, monkeypatch):
 
 def test_reclaimed_lease(pg_suite):
     pg_suite.test_recovery_refuses_worker_whose_lease_was_reclaimed()
+
+
+def test_reassigned_gap_holds_score(pg_suite):
+    pg_suite.test_reassigned_gap_holds_research_candidate_and_real_score_handler()
+
+
+def test_changed_proposal_holds_old_approval(pg_suite):
+    pg_suite.test_changed_attached_proposal_holds_old_approved_concept()
+
+
+def test_removed_markers_do_not_reclassify_recorded_ideation(pg_suite):
+    pg_suite.test_removing_ideation_markers_does_not_reclassify_existing_intake()
