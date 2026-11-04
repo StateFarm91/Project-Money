@@ -1113,6 +1113,7 @@ class Concept:
     waist_tie_inches_outside_channel: float | None = None
     tie_ends_in_toggle_or_knot: bool = False
     stated_statements: tuple[str, ...] = ()
+    waist_drawstring_unassessed: bool = False
 
 
 # ---- the concept read off the pattern (F-363) ---------------------------------------------
@@ -1200,6 +1201,18 @@ def neck_or_hood_tie_in_cir(cir) -> bool:
     return False
 
 
+def waist_drawstring_in_cir(cir) -> bool:
+    """Recognize explicit waist/bottom drawstring instructions, not their safety."""
+    import re
+    from ..products.text_fold import fold
+
+    cord = re.compile(r"\b(?:draw[\s_-]*(?:strings?|cords?)|ties?|cords?)\b")
+    place = re.compile(r"\b(?:waist|bottom[\s_-]+(?:edge|hem|channel)|lower[\s_-]+hem)\b")
+    return any(cord.search(sentence) and place.search(sentence)
+               for text in _cir_texts(cir)
+               for sentence in re.split(r"[.;\n]", fold(text)))
+
+
 def concept_from_cir(cir, *, subcategory: str, audience: str,
                      stated_statements: tuple[str, ...] = (),
                      declared_parts: tuple[str, ...] = ()) -> "Concept":
@@ -1212,7 +1225,9 @@ def concept_from_cir(cir, *, subcategory: str, audience: str,
     parts = tuple(sorted(set(declared_parts) | set(parts_in_cir(cir))))
     return Concept(subject=cir.title, subcategory=subcategory, audience=audience,
                    applied_parts=parts, neck_or_hood_drawstring=neck_or_hood_tie_in_cir(cir),
-                   stated_statements=stated_statements)
+                   stated_statements=stated_statements,
+                   waist_drawstring_unassessed=(subcategory == "childrens_garment"
+                                                and waist_drawstring_in_cir(cir)))
 
 
 @dataclass(frozen=True)
@@ -1282,6 +1297,11 @@ def assess(concept: Concept) -> list[Finding]:
                             "a children's garment."))
 
     free = concept.waist_tie_inches_outside_channel
+    if concept.waist_drawstring_unassessed and free is None:
+        out.append(_finding("waist_or_bottom_tie_length", "WAIST_DRAWSTRING_UNASSESSED",
+                            "A waist or bottom drawstring is named but its free length and "
+                            "applicability to the upper-outerwear rule are not established. "
+                            "Hold for assessment; this is not a finding of a violation."))
     if free is not None and free > 3.0:
         out.append(_finding("waist_or_bottom_tie_length", "TIE_TOO_LONG",
                             f"{free} inches outside the channel at full width; the limit is 3."))
