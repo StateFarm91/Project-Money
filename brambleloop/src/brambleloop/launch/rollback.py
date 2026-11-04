@@ -44,23 +44,42 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
         pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
                                                     PatternVersion.version == version))
               if product is not None else None)
-        certificate = dict(pv.certificate or {}) if pv is not None else {}
+        certificate = pv.certificate if pv is not None and isinstance(pv.certificate, dict) else {}
+        release_hash = pv.release_hash if pv is not None else None
+        certified = bool(pv is not None and pv.certified and certificate.get("granted") is True)
         listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
                                                  Listing.version == version)
                            .order_by(desc(Listing.id)).limit(1))
         state = listing.state if listing is not None else None
         frame_shas = [r.sha256 for r in s.scalars(select(ListingAsset).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version))]
-        built = next((dict(j.outputs or {}) for j in s.scalars(
-            select(Job).where(Job.job_type == "assets.build", Job.status == JobStatus.DONE)
-            .order_by(desc(Job.id)).limit(200))
-            if (j.outputs or {}).get("slug") == slug
-            and (j.outputs or {}).get("version") == version
-            and (j.outputs or {}).get("pdf_sha256")), None)
+        built = None
+        bad_build_record = False
+        for job in s.scalars(select(Job).where(
+                Job.job_type == "assets.build", Job.status == JobStatus.DONE)
+                .order_by(desc(Job.id)).limit(200)):
+            inputs, outputs = job.inputs, job.outputs
+            if not isinstance(outputs, dict):
+                if not isinstance(inputs, dict) or not inputs.get("slug") or not inputs.get("version") or (
+                        inputs.get("slug"), inputs.get("version")) == (slug, version):
+                    bad_build_record = True
+                    break
+                continue
+            if (outputs.get("slug"), outputs.get("version")) != (slug, version):
+                continue
+            if not isinstance(inputs, dict):
+                bad_build_record = True
+                break
+            if (isinstance(release_hash, str) and re.fullmatch(r"[0-9a-f]{64}", release_hash)
+                    and inputs.get("slug") == slug and inputs.get("version") == version
+                    and inputs.get("release") == release_hash
+                    and outputs.get("release") == release_hash and outputs.get("pdf_sha256")):
+                built = outputs
+                break
 
-    steps.append({"step": "certificate_retained", "ok": bool(certificate.get("granted")),
+    steps.append({"step": "certificate_retained", "ok": certified,
                   "why": ("the release row keeps the certificate it was published under"
-                          if certificate.get("granted") else
+                          if certified else
                           "no granted certificate is retained for this release")})
     steps.append({"step": "listing_on_record", "ok": listing is not None and state != WITHDRAWN,
                   "state": state,
@@ -75,7 +94,7 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
     def valid_sha(value):
         return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
-    invalid_pdfs = sum(not valid_sha(sha) for sha in raw_pdfs)
+    invalid_pdfs = sum(not valid_sha(sha) for sha in raw_pdfs) + int(bad_build_record)
     invalid_frames = sum(not valid_sha(sha) for sha in frame_shas)
     pdf_shas = sorted({sha for sha in raw_pdfs if valid_sha(sha)})
     frame_shas = [sha for sha in frame_shas if valid_sha(sha)]
