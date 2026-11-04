@@ -50,7 +50,8 @@ def _run(db, job_type: str, inputs: dict | None = None, key: str = "") -> dict:
     q = JobQueue(db)
     if inputs is not None:
         agent = {"radar.concept_intake": "market_radar", "radar.score": "market_radar",
-                 "radar.scan": "market_radar", "cir.draft": "crochet_engineer"}[job_type]
+                 "radar.scan": "market_radar", "cir.draft": "crochet_engineer",
+                 "learn.scan": "learn"}[job_type]
         q.enqueue(agent, job_type, inputs, priority=0,
                   idempotency_key=key or f"t:{job_type}:{id(inputs)}")
     with db.session() as s:
@@ -158,6 +159,41 @@ def _fixture_judgement():
 
 
 # ---- the happy path ------------------------------------------------------------------------
+
+
+def test_research_learning_and_product_handoff_with_source_expiry():
+    """Integrated SQLite fixture: a routed lesson changes scoring until its source expires."""
+    from brambleloop.learn import runtime  # noqa: F401 - register handler
+
+    db = _db()
+    _benchmarks(db)
+    tid, _ = _answered_task(db)
+    with db.session() as s:
+        task = s.get(research.ResearchTask, tid)
+        task.domain = "techniques"
+        task.outcome = "fixture: coastal tide line runner construction evidence"
+    intake.attach_proposal(db, tid, _proposal())
+    assert _run(db, "radar.concept_intake", {}, key="integrated-intake")["approved"] == [SLUG]
+    before = _run(db, "radar.score", None)
+    assert before["lesson_adjustment"] == 0
+
+    scan = _run(db, "learn.scan", {}, key="integrated-learning")
+    assert not scan["research"].get("error"), scan["research"]
+    restore = _fixture_judgement()
+    try:
+        after = _run(db, "radar.score", {"slug": SLUG}, key="integrated-after-learning")
+        assert after["lesson_adjustment"] > before["lesson_adjustment"]
+        assert after["promoted"] is True
+        assert len(_jobs(db, "cir.draft")) == 1
+        assert _run(db, "cir.draft", None)["drafted"] is True
+        assert _jobs(db, "cir.compile")[0].inputs["cir"]["slug"] == SLUG
+        with db.session() as s:
+            s.get(research.ResearchTask, tid).expires_on = datetime.now(timezone.utc) - timedelta(seconds=1)
+        held = _run(db, "radar.score", {"slug": SLUG}, key="integrated-expired-source")
+        assert held["promoted"] is False
+        assert len(_jobs(db, "cir.draft")) == 1
+    finally:
+        restore()
 
 
 @pytest.mark.parametrize("crash_after_audit", [False, True])
