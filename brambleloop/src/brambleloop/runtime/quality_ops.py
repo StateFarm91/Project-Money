@@ -207,6 +207,23 @@ def _run_check(ctx: JobContext) -> dict:
     slug, version, check = i.get("slug"), i.get("version"), ctx.job.job_type
     if not slug or not version:
         return {"ran": False, "why": "needs slug and version of a certified release"}
+    # Reject obviously stale jobs before they can resolve incidents or clear holds.
+    # This read is not a transaction fence against a release changing afterwards.
+    from sqlalchemy import select
+    from ..core.models import PatternVersion, Product
+
+    with ctx.db.session() as session:
+        current_hash = session.scalar(
+            select(PatternVersion.release_hash)
+            .join(Product, PatternVersion.product_id == Product.id)
+            .where(Product.slug == slug, PatternVersion.version == version,
+                   PatternVersion.certified == True))  # noqa: E712
+    expected = i.get("release_hash")
+    if not isinstance(expected, str) or not expected or not current_hash or expected != current_hash:
+        r = {"check": check, "ok": None, "why": "missing or stale certified release hash"}
+        ctx.audit(READING, artifact=f"{slug}@{version}",
+                  detail={**r, "incident": None, "release_hash": ""})
+        return {"ran": False, **r}
     try:
         r = reverify(ctx.db, check, slug, version)
     except Exception as exc:  # noqa: BLE001 - L-4: a check that raises is a finding, not silence

@@ -16,7 +16,7 @@ def test_real_asset_truth_worker_holds_and_recovers_for_tag_only_misclaim():
     db = d._db(cir, {"title": "Crochet pattern PDF", "description": "Crochet pattern.",
                      "tags": ["bobble"], "price_cad": 6.5, "state": "draft"})
     def run():
-        job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version})
+        job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version, "release_hash": "r" * 64})
         assert Worker(db, "asset-truth-test", job_types=["gate.asset_truth"]).run_once()
         with db.session() as session:
             row = session.get(Job, job.id)
@@ -42,7 +42,7 @@ def test_malformed_tag_collection_is_not_a_clean_reverification():
     cir = d._cir()
     db = d._db(cir, {"title": "Crochet pattern PDF", "description": "Crochet pattern.",
                      "tags": {"bobble": True}, "price_cad": 6.5, "state": "draft"})
-    job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version})
+    job = JobQueue(db).enqueue("asset_truth", "gate.asset_truth", {"slug": cir.slug, "version": cir.version, "release_hash": "r" * 64})
     assert Worker(db, "asset-truth-malformed", job_types=["gate.asset_truth"]).run_once()
     with db.session() as session:
         row = session.get(Job, job.id)

@@ -1,0 +1,7 @@
+# Reject obviously stale quality re-verification jobs
+
+Stacked on quality current-unknown PR #102 (`b7add45`). A synthetic real Worker run showed a `gate.policy` job carrying the old release hash could run after the certified release changed and clear the current quality hold. Hashless jobs had the same unscoped effect.
+
+Before running a quality check or resolving its incident/hold, the handler now requires the job's nonempty release hash to match the current certified PatternVersion hash. Mismatch, missing hash or missing certified release returns UNKNOWN and records an unscoped audit without changing the hold. The scheduled quality sweep already provides release hashes; manually or historically queued hashless jobs now need a fresh scheduled job with the current hash. Existing holds remain in place until an eligible check passes.
+
+This is an early mismatch check only: the release can change after the read, and a caller-supplied hash is not an authenticated evidence grant. It does not close the shared evidence/authority transaction defect, fence concurrent writers, or authorize publication. Python 3.11 tmpfs SQLite quality/withholding/Worker regressions passed 34/34; independent reviewer reran the Worker case 1/1. Synthetic fixtures now supply the release hash already included in scheduler jobs. No actual physical evidence, owner approval, purchase, publication, deployment or PostgreSQL test occurred.
