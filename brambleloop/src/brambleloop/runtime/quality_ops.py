@@ -109,6 +109,11 @@ def reverify(db, check: str, slug: str, version: str) -> dict:
                 problems.append("listing tags are malformed and cannot be re-verified")
             else:
                 texts.extend((f"listing.tag:{i}", tag) for i, tag in enumerate(tags))
+                if listing:
+                    from ..gates.first_customer import colourwork_findings, product_type_findings
+
+                    problems += product_type_findings(cir, title=listing.get("title"), tags=tags)
+                    problems += colourwork_findings(cir, twin, title=listing.get("title"), tags=tags)
             for where, text in texts:
                 problems += _errors(check_shape_claims(text, cir, twin, where))
                 problems += _errors(check_technique_claims(text, cir, twin, where))
