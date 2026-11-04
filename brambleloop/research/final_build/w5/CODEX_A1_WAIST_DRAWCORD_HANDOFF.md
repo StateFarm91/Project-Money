@@ -1,0 +1,7 @@
+# A1 unassessed waist drawstrings
+
+Based on `codex/a1-hold-snapshot` at `3b1251b`. The children's specification §2.4 limits waist/bottom drawstrings for upper outerwear in sizes 2T–16, including free length at full garment width and free-end attachments. CIR-derived assessment previously set the free length to unknown but made no finding when a drawstring was explicitly named.
+
+This candidate conservatively holds an assigned children's garment that explicitly names a waist/bottom drawstring until applicability and free length can be assessed. It does not claim that the garment violates the rule. CIR currently lacks a content-bound approved assessment that can clear the hold, so this can block legitimate garments including those outside the regulatory scope or whose instructions negate a drawstring. The recognizer is finite and sentence-local; alternative wording, relationships across sentences/fields, unknown assignments and other paths remain gaps. Adult and non-garment assignments do not gain this new finding. Numeric manually supplied Concept assessment behavior is retained, not a physical test or release authorization.
+
+Python 3.11 tmpfs SQLite children's regression and actual assets Worker suite: 44 passed. Test-only synthetic assignment and digest are not an owner decision or physical evidence. This stacks the content/version-scoped hold branch; #50 later safety changes and subsequent integration fencing must also be retained. No PostgreSQL, production, purchase, publication or deployment was performed.
