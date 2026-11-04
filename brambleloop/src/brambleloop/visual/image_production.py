@@ -342,7 +342,8 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
                     **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
-                    **({"_generation_operation": {"key": cand["_generation_operation"]}}
+                    **({"_generation_operation": {"key": cand["_generation_operation"],
+                                                   "mode": cand.get("_generation_mode")}}
                        if cand.get("_generation_operation") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
@@ -622,7 +623,8 @@ def _settle_free_generation(db, key, cost):
         raise BudgetStop("free image generator returned an invalid or nonzero cost; review required")
 
 
-def _recover_generation(db, key, *, operation, stage, role, slug, version, release):
+def _recover_generation(db, key, *, operation, stage, role, slug, version, release,
+                        experiment: bool = False):
     """Reuse only the candidate recorded by this exact stage invocation."""
     if not operation:
         return None
@@ -641,6 +643,11 @@ def _recover_generation(db, key, *, operation, stage, role, slug, version, relea
         if not matches:
             return None
         row = matches[0]
+        binding = row.binding if isinstance(row.binding, dict) else {}
+        mode = row.checks["_generation_operation"].get("mode")
+        if (mode != ("experiment" if experiment else "normal")
+                or binding.get("experiment", False) is not experiment):
+            raise BudgetStop("generation operation mode is ambiguous or changed; review required")
         if (row.slug != slug or row.version != version or row.release != release
                 or not row.sha256):
             raise BudgetStop("generation operation candidate identity changed; review required")
@@ -672,7 +679,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     from .gallery import gates_now
 
     recovered = _recover_generation(db, key, operation=operation, stage=stage, role=role,
-                                    slug=slug, version=version, release=release)
+                                    slug=slug, version=version, release=release,
+                                    experiment=exp is not None)
     if recovered is not None:
         return recovered
     with db.session() as s:
@@ -766,6 +774,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         cand["_paid_call_token"] = call_token
     if operation:
         cand["_generation_operation"] = operation
+        cand["_generation_mode"] = "experiment" if exp is not None else "normal"
     if role == ANCHOR_ROLE:
         bind = _binding(db, exp, slug, version, release)
         pt = judges.product_truth({**cand, "role": ANCHOR_ROLE}, bind)
@@ -913,7 +922,12 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
     max_att = exp.max_attempts_per_role if exp is not None else MAX_ATTEMPTS_PER_ROLE
 
     def operation_for(role: str, segment: str = "") -> str:
-        material = json.dumps([key, stage, round_, epoch, role, segment], separators=(",", ":"))
+        identity = [key, stage, round_, epoch, role, segment]
+        if exp is not None:
+            # Legacy scratch experiments can use the same run key as a normal
+            # run. Their candidates must not satisfy each other's replay key.
+            identity.append("experiment")
+        material = json.dumps(identity, separators=(",", ":"))
         return hashlib.sha256(material.encode()).hexdigest()
 
     def go(next_stage: str | None, *, rnd: int = 0):
@@ -1000,7 +1014,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             # used the last attempt. A different invocation must respect the cap.
             recovered = _recover_generation(db, key, operation=operation, stage=stage,
                                             role=ANCHOR_ROLE, slug=slug, version=version,
-                                            release=release)
+                                            release=release, experiment=exp is not None)
             if recovered is None and attempt > max_att:
                 return block(f"product generation attempt cap {max_att} reached",
                              exhausted=True)
@@ -1152,7 +1166,8 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                 if attempt > max_att:
                     recovered = _recover_generation(
                         db, key, operation=operation_for(r["role"]), stage=rnd_stage,
-                        role=r["role"], slug=slug, version=version, release=release)
+                        role=r["role"], slug=slug, version=version, release=release,
+                        experiment=exp is not None)
                     if recovered is not None:
                         outs.append(recovered)
                     continue

@@ -243,6 +243,16 @@ inherited critical section is not protected. A stable trusted directory and
 lock file remain required; this does not fence other writers or authenticate
 provider behavior.
 
+Visual replay now tags new operation records with normal or legacy scratch
+experiment mode, and checks both that tag and the binding's experiment flag
+before reusing a candidate. Previously recorded operations without a mode are
+held for review rather than assumed normal, which can affect availability.
+Python 3.11/tmpfs focused mode and queue tests passed 5/5; independent review
+reran three mode cases. Run state and `_best` candidate selection are still
+shared across these modes, so this does not establish experiment isolation.
+The existing controlled-experiment dry-run regression still refuses the frozen
+prompt/reference definition drift; it was not repinned or authorized.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

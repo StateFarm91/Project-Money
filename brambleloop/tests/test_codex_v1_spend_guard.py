@@ -340,6 +340,67 @@ def test_product_stage_refuses_new_invocation_after_attempt_cap(monkeypatch):
     assert IP.get_run(db, key)["generation_calls"] == 1
 
 
+def test_scratch_experiment_cannot_reuse_normal_mode_stage_candidate(monkeypatch):
+    import test_w4_ownerimg as O
+    from types import SimpleNamespace
+    from brambleloop.visual import experiment as XP
+    from brambleloop.visual import image_production as IP
+
+    db, gen = O.make_db(), O.StubGenerator()
+    IP._ensure_run(db, "item", "1", "a" * 64, "")
+    experiment = SimpleNamespace(plan={}, max_attempts_per_role=3, label="synthetic experiment")
+    monkeypatch.setattr(XP, "context_for", lambda *a: experiment)
+    monkeypatch.setattr(IP, "_binding", lambda db, exp, *a: {
+        "status": "PASS", "why": "test only", "experiment": exp is not None})
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    IP.run_stage(db, {**inputs, "experiment": True}, follow=lambda i, k: None,
+                 generator=gen, judges=O.StubJudges())
+    assert gen.calls == 2
+
+
+def test_legacy_experiment_candidate_cannot_satisfy_normal_replay():
+    import test_w4_ownerimg as O
+    from sqlalchemy import select
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual.image_records import ImageCandidate
+
+    db, gen = O.make_db(), O.StubGenerator()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate).where(ImageCandidate.run_key == key))
+        row.binding = {**row.binding, "experiment": True}
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert "mode is ambiguous or changed" in result["blocked_reason"]
+    assert gen.calls == 1
+
+
+def test_unmarked_legacy_candidate_is_not_assumed_to_be_normal():
+    import test_w4_ownerimg as O
+    from sqlalchemy import select
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual.image_records import ImageCandidate
+
+    db, gen = O.make_db(), O.StubGenerator()
+    key = IP._ensure_run(db, "item", "1", "a" * 64, "")
+    inputs = {"slug": "item", "version": "1", "release": "a" * 64,
+              "stage": "product_generation"}
+    IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen, judges=O.StubJudges())
+    with db.session() as session:
+        row = session.scalar(select(ImageCandidate).where(ImageCandidate.run_key == key))
+        checks = dict(row.checks)
+        checks["_generation_operation"] = {"key": checks["_generation_operation"]["key"]}
+        row.checks = checks
+    result = IP.run_stage(db, inputs, follow=lambda i, k: None, generator=gen,
+                          judges=O.StubJudges())
+    assert "mode is ambiguous or changed" in result["blocked_reason"] and gen.calls == 1
+
+
 def test_visual_run_key_collision_refuses_other_product_before_generation():
     import test_w4_ownerimg as O
     from brambleloop.visual import image_production as IP
