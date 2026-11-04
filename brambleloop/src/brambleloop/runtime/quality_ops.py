@@ -111,9 +111,12 @@ def reverify(db, check: str, slug: str, version: str) -> dict:
                 texts.extend((f"listing.tag:{i}", tag) for i, tag in enumerate(tags))
                 if listing:
                     from ..gates.first_customer import colourwork_findings, product_type_findings
+                    from ..publish.eligibility import name_truth
 
                     problems += product_type_findings(cir, title=listing.get("title"), tags=tags)
                     problems += colourwork_findings(cir, twin, title=listing.get("title"), tags=tags)
+                    problems += [f"PUBLISH_NAME_TRUTH: {finding}"
+                                 for finding in name_truth(cir, listing)]
             for where, text in texts:
                 problems += _errors(check_shape_claims(text, cir, twin, where))
                 problems += _errors(check_technique_claims(text, cir, twin, where))
