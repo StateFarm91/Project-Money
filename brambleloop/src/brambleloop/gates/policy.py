@@ -236,7 +236,12 @@ def check_listing(draft: ListingDraft, cir: CIR | None = None,
     out += check_proof_claims(draft.description, "listing.description", proof_states)
     out += claim_findings(draft.title, "listing.title", cir)
     out += claim_findings(draft.description, "listing.description", cir)
-    for t in draft.tags:
+    tags = draft.tags
+    if not isinstance(tags, (list, tuple)) or any(not isinstance(tag, str) for tag in tags):
+        out.append(Finding(ERROR, "POLICY_TAGS_INVALID",
+                           "listing tags must be a list of text values", "listing.tags"))
+        tags = ()
+    for t in tags:
         out += check_text(t, f"listing.tag:{t}")
         out += check_proof_claims(t, f"listing.tag:{t}", proof_states)
         out += claim_findings(t, f"listing.tag:{t}", cir)
@@ -245,10 +250,10 @@ def check_listing(draft: ListingDraft, cir: CIR | None = None,
         out.append(Finding(ERROR, "POLICY_TITLE_LENGTH",
                            f"title is {len(draft.title)} characters; Etsy allows 140",
                            "listing.title"))
-    if len(draft.tags) > 13:
+    if len(tags) > 13:
         out.append(Finding(ERROR, "POLICY_TAG_COUNT",
-                           f"{len(draft.tags)} tags; Etsy allows 13", "listing.tags"))
-    for t in draft.tags:
+                           f"{len(tags)} tags; Etsy allows 13", "listing.tags"))
+    for t in tags:
         if len(t) > 20:
             out.append(Finding(ERROR, "POLICY_TAG_LENGTH",
                                f"tag {t!r} exceeds 20 characters", "listing.tags"))

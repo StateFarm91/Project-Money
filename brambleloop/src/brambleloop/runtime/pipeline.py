@@ -1086,9 +1086,15 @@ def _certify_listing(ctx: JobContext, cir: CIR):
                                              Listing.version == cir.version))
         stored = None if row is None else {
             "title": row.title or "", "description": row.description or "",
-            "tags": list(row.tags or []), "price_cad": float(row.price_cad or 0.0)}
+            "tags": row.tags, "price_cad": float(row.price_cad or 0.0)}
     refused: list[str] = []
     if stored is not None:
+        # Preserve malformed source data for policy to reject; do not turn an
+        # object or string into apparently valid tag keys or characters.
+        tags = stored["tags"]
+        if not isinstance(tags, (list, tuple)) or any(not isinstance(tag, str) for tag in tags):
+            return (ListingDraft(**stored),
+                    {"source": "stored Listing row", "title": stored["title"][:140]})
         refused = first_customer.product_type_findings(cir, title=stored["title"],
                                                        tags=stored["tags"])
         if not refused:
