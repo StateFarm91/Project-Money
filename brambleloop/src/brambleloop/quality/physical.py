@@ -778,11 +778,16 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
             f"from such a tester. An owner's own make is recorded with owner_made=True, as "
             f"non-evidence")
     else:
+        import hashlib
+
         measured["tester_agreement"] = {
             "ref": assessment.report.tester_ref,
             "relationship": (agreement.get("independence") or {}).get("relationship"),
             "consent_version": agreement.get("consent_version"),
-            "agreed_on": agreement.get("agreed_on")}
+            "agreed_on": agreement.get("agreed_on"),
+            # Bind the source without copying potentially private source text.
+            "consent_source_sha256": hashlib.sha256(
+                str(agreement.get("consent_source") or "").encode("utf-8")).hexdigest()}
     with db.session() as s:
         row = PhysicalTest(
             product_slug=assessment.report.product_slug,

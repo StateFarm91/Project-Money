@@ -298,6 +298,20 @@
         "brambleloop/tests/test_codex_support_service_truth.py"
       ],
       "scope": "Preserve support response, service-level, intake and version-scoped defect-signal truth; no customer messages sent."
+    },
+    {
+      "id": "CODEX-TRUST-PROOF-TRUTH",
+      "operator": "codex",
+      "branch": "codex/trust-proof-truth",
+      "claimed_at": "2026-11-04T05:12:53Z",
+      "files": [
+        "brambleloop/src/brambleloop/commerce/trust.py",
+        "brambleloop/src/brambleloop/runtime/growth_ops.py",
+        "brambleloop/src/brambleloop/quality/physical.py",
+        "brambleloop/tests/test_trust.py",
+        "brambleloop/tests/test_codex_trust_proof_truth.py"
+      ],
+      "scope": "Conservatively withhold unlinked physical and sales rows from traffic trust proof; no paid action. PHYSFIX owner review required."
     }
   ],
   "unowned": [

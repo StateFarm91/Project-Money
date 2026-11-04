@@ -1207,8 +1207,7 @@ def benchmark_incidents(db, reading: dict) -> dict:
 
 
 def proof_sweep(db) -> dict:
-    """#17: every passed physical test and every sale ledger row attached as proof, once, via
-    `trust.record_proof` -- which refuses anything without a row behind it."""
+    """#17: attach currently eligible evidence as proof once, without inventing it."""
     from sqlalchemy import select
 
     from ..commerce import trust
@@ -1224,12 +1223,21 @@ def proof_sweep(db) -> dict:
                        for x in s.scalars(select(LedgerEntry).where(
                            LedgerEntry.category == "sale"))]
     recorded = []
+    eligible = trust.proof_sources(db)
+    withheld = 0
     for origin, row_id, summary in candidates:
         if f"{origin}:{row_id}" in done:
             continue
-        recorded.append(trust.record_proof(db, origin=origin, row_id=row_id,
-                                           summary=summary[:200]))
-    return {"recorded": len(recorded), "proof": trust.proof_count(db)}
+        if row_id not in eligible[origin]:
+            withheld += 1
+            continue
+        try:
+            recorded.append(trust.record_proof(db, origin=origin, row_id=row_id,
+                                               summary=summary[:200]))
+        except trust.TrustRefused:
+            # Evidence can change between the sweep and the actual record.
+            withheld += 1
+    return {"recorded": len(recorded), "withheld": withheld, "proof": trust.proof_count(db)}
 
 
 @handlers.register("growth.journey")

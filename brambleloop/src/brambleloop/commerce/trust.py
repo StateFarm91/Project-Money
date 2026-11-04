@@ -96,19 +96,124 @@ def refuse_star_seller_as_ranking(factors) -> None:
 
 
 def proof_count(db) -> dict:
-    """Legitimate proof, counted from rows rather than from a claim about proof."""
-    from sqlalchemy import func, select
+    """Count conservative, individually linked tester and customer evidence."""
+    sources = proof_sources(db)
+    return {"physical_test": len(sources[TESTER_PROOF]), "sale": len(sources[CUSTOMER_PROOF]),
+            "total": len(sources[TESTER_PROOF]) + len(sources[CUSTOMER_PROOF])}
 
-    from ..core.models import LedgerEntry, PhysicalTest
 
-    with db.session() as s:
-        testers = int(s.scalar(select(func.count()).select_from(PhysicalTest).where(
-            PhysicalTest.passed == True)) or 0)  # noqa: E712
-        # A sale is a ledger row with money in it. There is no orders table, and inventing
-        # one so this function could count something would be the wrong kind of tidy.
-        customers = int(s.scalar(select(func.count()).select_from(LedgerEntry).where(
-            LedgerEntry.category == "sale")) or 0)
-    return {"physical_test": testers, "sale": customers, "total": testers + customers}
+def proof_sources(db) -> dict[str, set[int]]:
+    """Return one eligible row per recorded tester/buyer, never unbound placeholders.
+
+    This is a conservative read of recorded evidence, not authenticated identity,
+    a physical certification, or permission to pay for advertising.
+    """
+    import hashlib
+    import math
+    import re
+    from datetime import date, datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Customer, LedgerEntry, Order, PhysicalTest
+    from ..gates.risk_matrix import FULL_PHYSICAL_MAKE
+    from ..quality.tester_programme import independent_agreement
+    from . import orders_ingest
+
+    def positive(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        return math.isfinite(value) and value > 0
+
+    def not_future(value):
+        if not isinstance(value, datetime):
+            return False
+        value = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value <= datetime.now(timezone.utc)
+
+    def aware(value):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    def nonnegative(value):
+        return (not isinstance(value, bool) and isinstance(value, (int, float))
+                and math.isfinite(value) and value >= 0)
+
+    with db.session() as session:
+        tests = list(session.scalars(select(PhysicalTest).order_by(PhysicalTest.id)))
+        orders = list(session.scalars(select(Order).order_by(Order.id)))
+        customers = {row.id: row for row in session.scalars(select(Customer))}
+        held = orders_ingest.held_refs(session)
+        sales = list(session.scalars(select(LedgerEntry).where(
+            LedgerEntry.category == "sale").order_by(LedgerEntry.id)))
+
+    tester_rows: dict[str, int] = {}
+    agreements = {}
+    for row in tests:
+        ref = (row.tester_ref or "").strip()
+        measured = row.measured if isinstance(row.measured, dict) else {}
+        snapshot = measured.get("tester_agreement")
+        if (not ref or ref.casefold() in {"owner", "unknown"} or row.passed is not True
+                or not row.product_slug or not row.version or not not_future(row.completed_at)
+                or measured.get("owner_made") is True
+                or measured.get("evidence_role") == "owner_made_non_evidence"
+                or measured.get("slug") != row.product_slug or measured.get("version") != row.version
+                or measured.get("tester") != ref or measured.get("outcome") != "PASS"
+                or measured.get("scope") != "full_make" or measured.get("whole_pattern") is not True
+                or measured.get("size_proof") is not True
+                or measured.get("evidence_class") != FULL_PHYSICAL_MAKE
+                or not re.fullmatch(r"[0-9a-f]{64}", str(measured.get("content_hash") or ""))
+                or not isinstance(snapshot, dict) or snapshot.get("ref") != ref):
+            continue
+        if ref not in agreements:
+            agreements[ref] = independent_agreement(db, ref)
+        agreement = agreements[ref]
+        if not agreement:
+            continue
+        independence = agreement.get("independence") or {}
+        try:
+            agreement_date = date.fromisoformat(str(agreement.get("agreed_on") or ""))
+        except ValueError:
+            continue
+        if (snapshot.get("relationship") != independence.get("relationship")
+                or not agreement.get("consent_version") or not agreement.get("consent_source")
+                or agreement_date > row.completed_at.date()
+                or snapshot.get("consent_version") != agreement.get("consent_version")
+                or snapshot.get("agreed_on") != agreement.get("agreed_on")
+                or snapshot.get("consent_source_sha256") != hashlib.sha256(
+                    str(agreement["consent_source"]).encode("utf-8")).hexdigest()):
+            continue
+        tester_rows.setdefault(ref.casefold(), row.id)
+
+    by_ref: dict[str, list] = {}
+    for row in sales:
+        if row.evidence_ref:
+            by_ref.setdefault(row.evidence_ref, []).append(row)
+    buyer_rows: dict[str, int] = {}
+    for order in orders:
+        customer = customers.get(order.customer_id)
+        buyer = (customer.customer_ref or "").strip() if customer else ""
+        rows = by_ref.get(order.external_ref or "", [])
+        if (not buyer or buyer.casefold() == "unknown" or not order.external_ref
+                or not order.product_slug or not order.version or not not_future(order.at)
+                or order.source != orders_ingest.SOURCE or not positive(order.price_cad)
+                or not positive(order.amount_original)
+                or not isinstance(order.detail, dict)
+                or order.detail.get("state") not in (orders_ingest.PAID, orders_ingest.PARTIALLY_REFUNDED)
+                or not orders_ingest.countable(order, held) or not positive(order.revenue_cad)
+                or len(rows) != 1):
+            continue
+        sale = rows[0]
+        if (sale.source != orders_ingest.SOURCE or sale.basis != "measured" or not not_future(sale.at)
+                or sale.external_id != order.external_ref or not positive(sale.gross_cad)
+                or not positive(sale.amount_original) or sale.currency != order.currency
+                or aware(sale.at) != aware(order.at)
+                or abs(sale.gross_cad - order.price_cad) > 0.005
+                or abs(sale.amount_original - order.amount_original) > 0.005
+                or not nonnegative(sale.refunds_cad)
+                or abs(order.revenue_cad - (order.price_cad - sale.refunds_cad)) > 0.005):
+            continue
+        buyer_rows.setdefault(buyer.casefold(), sale.id)
+    return {TESTER_PROOF: set(tester_rows.values()), CUSTOMER_PROOF: set(buyer_rows.values())}
 
 
 def record_proof(db, *, origin: str, row_id: int, summary: str) -> dict:
@@ -130,6 +235,8 @@ def record_proof(db, *, origin: str, row_id: int, summary: str) -> dict:
             raise TrustRefused(
                 f"no {origin} row {row_id}. Proof points at something that happened, and "
                 f"this points at nothing")
+        if row_id not in proof_sources(db)[origin]:
+            raise TrustRefused("the row is not currently eligible independent, linked proof")
         entry = AuditLog(actor="brand", action="trust.proof", artifact=f"{origin}:{row_id}",
                          detail={"origin": origin, "row_id": row_id, "summary": summary})
         s.add(entry)

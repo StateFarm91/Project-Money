@@ -34,16 +34,21 @@ def _db() -> Database:
 
 
 def _passing_test(db, n: int = 1) -> list[int]:
-    from brambleloop.core.models import PhysicalTest
+    from brambleloop.quality import physical, tester_programme
 
     ids = []
-    with db.session() as s:
-        for i in range(n):
-            row = PhysicalTest(product_slug=f"p{i}", version="1.0.0", tester_ref=f"t{i}",
-                               passed=True)
-            s.add(row)
-            s.flush()
-            ids.append(row.id)
+    for i in range(n):
+        ref = f"fixture-tester-{i}"
+        tester_programme.record_agreement(db, handle_ref=ref, specialties=["home_decor"],
+            express_consent=True, consent_source="synthetic fixture", relationship="none",
+            qualification="https://example.test/projects/fixture")
+        report = physical.SampleReport(product_slug=f"p{i}", version="1.0.0", tester_ref=ref,
+            grams_by_color={"fixture": 100}, ball_band=physical.BallBand(100, 200),
+            instructions_followed=True)
+        assessment = physical.SampleAssessment(report=report, estimated_metres={"fixture": 200},
+            measured_metres={"fixture": 200}, factor=1.0, size_agrees=True,
+            scope="full_make", made={"blanket": 1}, whole_pattern=True)
+        ids.append(physical.record(db, assessment, content_hash="a" * 64))
     return ids
 
 
