@@ -560,6 +560,10 @@ _RESOLVED_READ_ACTIONS: dict[str, tuple[str, str]] = {
         "all rows (MAX_ROUNDS is counted from them)"),
     "cir.draft_refused": ("windowed",
         "intel.knowledge_gaps.evidence counts construction refusals over WINDOW_DAYS (30)"),
+    # W5-A5 P0-CORRECTION-LOOP: the revision cap is counted from these rows (distinct
+    # revised fingerprints per slug@version); pruning them would lift the bound.
+    "cir.revised": ("lifetime_total",
+        "runtime.engineering_ops.revision_attempts counts every row of the artifact"),
     "cir.compiled": ("lifetime_total",
         "seasonal.calendar.milestone_evidence: the seasonal evidence window is 365 "
         "days, longer than the retention horizon"),

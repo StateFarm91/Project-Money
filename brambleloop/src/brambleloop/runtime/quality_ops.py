@@ -257,10 +257,32 @@ def _run_check(ctx: JobContext) -> dict:
               detail={**r, "incident": inc, "resolved": resolved,
                       "withheld_checks": held.get("failed_checks", []),
                       "release_hash": i.get("release_hash", "")})
+    correction = None if r["ok"] else _correct(ctx, slug, version, check, r["problems"],
+                                               i.get("release_hash", ""))
     return {**r, "slug": slug, "version": version, "incident": inc, "resolved": resolved,
             # True only when this reading changed the stored withholding record.
             "certificate_changed": bool(held.get("changed")), "withheld_checks": held.get("failed_checks", []),
-            "work_done": 1}
+            "correction": correction, "work_done": 1}
+
+
+def _correct(ctx: JobContext, slug: str, version: str, check: str, problems: list[str],
+             release_hash: str) -> dict | None:
+    """W5-A5 P0-CORRECTION-LOOP: a failed re-verification whose findings a deterministic
+    rule answers is revised (as a new, correcting version: the certified one is immutable);
+    otherwise the publication withholding and the P2 incident above are the named hold.
+    Never changes this check's verdict."""
+    from .engineering_ops import route_failure
+
+    try:
+        cir = _cir(ctx.db, slug, version)
+        if cir is None:
+            return None
+        return route_failure(ctx, cir, stage="quality", problems=problems, bump_version=True,
+                             correction={"of_release_hashes": [release_hash] if release_hash
+                                         else []},
+                             existing_hold=signature(check, slug, version))
+    except Exception as exc:  # noqa: BLE001 - the verdict and its withholding stand regardless
+        return {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
 
 for _jt in CHECKS:
