@@ -5,6 +5,12 @@ from brambleloop.products.vessels import build_basket
 from brambleloop.visual import fidelity
 
 
+@pytest.mark.parametrize("reading", [None, [], ""])
+def test_absent_or_malformed_craft_reading_is_not_an_edit_base(reading):
+    result = fidelity.compare_craft(reading, fidelity.expectation(build_basket("small")))
+    assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
 @pytest.mark.parametrize("craft", ["unreadable", "crocheted", "unknown", ""])
 def test_unsupported_blind_craft_labels_are_unknown_not_fail(craft):
     exp = fidelity.expectation(build_basket("small"))

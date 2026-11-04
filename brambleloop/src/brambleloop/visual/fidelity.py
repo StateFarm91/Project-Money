@@ -956,7 +956,7 @@ def craft_prompt() -> str:
 def compare_craft(reading: dict, exp: Expectation, *, end_bands_verified: bool = False) -> dict:
     """Deterministic comparison of a blind craft reading with the CIR's facts."""
     if not isinstance(reading, dict):
-        return _check("craft_texture", UNKNOWN, "no reading")
+        return _check("craft_texture", UNKNOWN, "no reading", blocks_variant_input=True)
     v = {k: str(reading.get(k, "unclear")).strip().lower() for k in CRAFT_FIELDS}
     problems, unclear = [], []
     if v["fabric_visible_clearly"] not in ("true", "yes"):

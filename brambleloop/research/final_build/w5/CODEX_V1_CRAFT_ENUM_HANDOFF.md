@@ -55,6 +55,12 @@ mismatch still fails. Python 3.11/tmpfs focused tests passed 55/55, including
 persistent stage-D selection; an independent reviewer reran craft and stage-D
 tests 11/11. Existing knitted-rope assumptions remain a separate review item.
 
+Direct malformed or absent craft-reading inputs now also carry the edit-input
+block marker. A persisted stage-D regression confirms this marker is honored.
+The normal vision handler already converts an absent reading to an empty mapping;
+legacy markerless no-reading results and unavailable-judge policy are unchanged.
+Python 3.11/tmpfs focused tests passed 58/58.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.
