@@ -547,3 +547,18 @@ if __name__ == "__main__":
                 print("FAIL", name, repr(e))
     print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
     sys.exit(1 if fails else 0)
+
+
+def test_unrecorded_or_future_maintenance_is_not_a_zero_cost():
+    db = _db()
+    _listing(db, slug="missing-maintenance", created=NOW - timedelta(days=20))
+    _costs(db, [(NOW + timedelta(days=1), 1.0, "missing-maintenance", "revalidation")])
+    reading = sustainability.listing_maintenance_cost(db, now=NOW)
+    assert reading["reading"] == "UNMEASURED"
+    assert reading["per_listing_month_cad"] is None
+    assert reading["listings"]["missing-maintenance"]["spent_cad"] is None
+    _costs(db, [(NOW - timedelta(days=1), 1.0, "missing-maintenance", "revalidation")])
+    _listing(db, slug="second-missing", etsy_id="333", created=NOW - timedelta(days=10))
+    mixed = sustainability.listing_maintenance_cost(db, now=NOW)
+    assert mixed["per_listing_month_cad"] is None
+    assert mixed["missing_listings"] == ["second-missing"]
