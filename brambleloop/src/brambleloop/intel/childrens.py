@@ -845,6 +845,7 @@ DETACHABLE_APPLIED_PARTS: frozenset[str] = frozenset((
     "safety_eyes", "plastic_eyes", "glass_eyes", "googly_eyes", "safety_nose", "plastic_nose",
     "buttons", "beads", "bells", "sequins", "joint_discs", "pom_poms", "ribbon_bow",
     "plastic_rattle_insert", "squeaker", "wired_armature", "felt_shapes_glued",
+    "hard_toy_eyes", "rattle_insert", "snap_fasteners",
 ))
 
 # Features worked into the fabric, or sewn through it with yarn. They cannot detach without the
@@ -1149,10 +1150,41 @@ def _part_pattern(part: str) -> "re.Pattern[str]":
 
 def parts_in_cir(cir) -> tuple[str, ...]:
     """Every applied part or integral feature the pattern itself names, in vocabulary terms."""
-    texts = _cir_texts(cir)
-    found = [part for part in sorted(DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES)
-             if any(_part_pattern(part).search(t) for t in texts)]
-    return tuple(found)
+    import re
+    from ..products.text_fold import fold
+
+    # Reuse the same Unicode fold as the child-audience decision so lookalike
+    # letters and invisible characters cannot hide a named detachable part.
+    texts = [fold(text) for text in _cir_texts(cir)]
+    found = {part for part in DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES
+             if any(_part_pattern(part).search(t) for t in texts)}
+    # Explicit hard/snap-in eye synonyms are detachable; do not infer this for
+    # unqualified or embroidered eyes. French terms are folded without accents.
+    aliases = (r"\b(?:plastic|acrylic|resin|glass)\s+(?:(?:toy|doll|animal|craft)\s+)?eyes?\b",
+               r"\b(?:snap[\s_-]*in|locking)\s+eyes?\b",
+               r"\byeux\s+(?:de\s+securite|en\s+(?:plastique|verre))\b")
+    if (not found.intersection({"safety_eyes", "plastic_eyes", "glass_eyes", "googly_eyes"})
+            and any(re.search(pattern, text) for pattern in aliases for text in texts)):
+        found.add("hard_toy_eyes")
+    # Named applied parts in common compact or French forms remain subject to
+    # the same under-three refusal as their existing English vocabulary.
+    part_aliases = {
+        "pom_poms": r"\bpom[\s_-]*poms?\b",
+        "rattle_insert": r"\brattle[\s_-]+(?:inserts?|boxes|box|capsules?|balls?|modules?)\b"
+                         r"|\bboitier[\s_-]+de[\s_-]+hochet\b",
+        "snap_fasteners": r"\bsnap[\s_-]+fasteners?\b|\bpress[\s_-]+studs?\b",
+        "buttons": r"\bboutons?\b",
+        "beads": r"\bperles?\b",
+        "bells": r"\b(?:grelots?|clochettes?)\b",
+    }
+    for part, pattern in part_aliases.items():
+        if part == "rattle_insert" and "plastic_rattle_insert" in found:
+            continue
+        if any(re.search(pattern, text) for text in texts):
+            found.add(part)
+    if "plastic_rattle_insert" in found:
+        found.discard("rattle_insert")
+    return tuple(sorted(found))
 
 
 def neck_or_hood_tie_in_cir(cir) -> bool:

@@ -1,0 +1,7 @@
+# A1 child safety hold atomicity
+
+Continuation of `codex/a1-named-safety-hold` at `2e856b8`. For the existing `assets.build` child-safety hold path, the hold audit and owner action now share a transaction, and the producer's persisted job identity, input, running lease and expiry are checked while its row is locked. Cooperating writers take the existing owner queue lock; PostgreSQL lock conflicts fail fast as retryable errors rather than wait in the known inverse order. Existing parked owner actions are not reopened. The action remains a hold and creates no approval.
+
+Python 3.11: independent reviewer reran focused SQLite tests 3/3; author-run real disposable PostgreSQL 16 tests passed 4/4: concurrent reporters, stale producer, real Worker owner-action-write failure/rollback/retry, and owner/job-row contention refusal with retry. Broad child/A1 regression result to follow.
+
+This is not the shared evidence/authority fence and is not full A1 acceptance. A source or physical evidence can change after the earlier PDF assessment; a lease can expire after its check and before commit. Direct/noncooperating SQL writers can bypass the owner-queue advisory lock or create duplicate keys. Repeated lock contention can exhaust bounded queue retries. Owner actor authority, snapshot revalidation, physical evidence, A9 integration and other parent A1 blockers remain unresolved. No real physical evidence, approval, purchase, publication or deployment was created.
