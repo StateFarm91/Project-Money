@@ -1,0 +1,7 @@
+# Isolated quality and policy integration preview
+
+This is an isolated engineering preview, not an authorized shared integration branch. Merge commit `966a2ca9475f3c47ff746ef2f8116278ab3990c2` combines quality chain head `cb02f5e` (PR #111) and policy/proof chain head `0daf9be` (PR #98), both descended from safety preview `6cb70e3`. It preserves the component commits and their individual review limitations. The two policy Worker tests now supply the synthetic certified release hash already required by PR #104's stale-job guard.
+
+Python 3.11 tmpfs SQLite combined quality/policy/proof/withholding regression: 54/54. An independent reviewer reran the two integrated policy Worker files 4/4. Tests exercise real handlers and persistent synthetic databases, including stale-hash refusal, failed-check hold/retry, publication name truth, missing-proof hold and finite-price validation. No actual physical evidence, approval, purchase, production price, publication or deployment occurred.
+
+This preview does not include all A1/A2/A3/A6/A9 work or the separate physical evidence branches; it is not a complete Batch 6 candidate. The shared authority and evidence-fencing contract remains unimplemented, hashes/actors are not authenticated, transaction races remain, PostgreSQL has not been tested, and the quality checks deliberately impose the documented conservative holds. The user's shared integration target and Main's independent acceptance remain required.
