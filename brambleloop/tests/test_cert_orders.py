@@ -1154,3 +1154,25 @@ def test_invalid_refund_money_is_not_silently_interpreted_as_zero():
             pass
         else:
             raise AssertionError("invalid divisor was accepted")
+
+
+def test_refused_receipt_retry_is_durable_bounded_and_recovers():
+    db = _db()
+    _catalogue(db)
+    _open_gate(db)
+    bad = _receipt(90005, 90005, "111", float("nan"))
+    feed = FakeFeed([bad])
+    for hour in (0, 6):
+        result = orders_ingest.ingest(db, reader=feed, now=NOW + timedelta(hours=hour))
+        assert result["ran"] and result["not_recorded"]
+    assert feed.calls == 2
+    # Reload cursor from a new Database instance, as after a process restart.
+    db2 = Database(str(db.engine.url))
+    deferred = orders_ingest.ingest(db2, reader=feed, now=NOW + timedelta(hours=12))
+    assert not deferred["ran"] and deferred["network_calls"] == 0
+    assert feed.calls == 2
+    feed.receipts_list = [_receipt(90005, 90005, "111", 1200)]
+    recovered = orders_ingest.ingest(db2, reader=feed, now=NOW + timedelta(hours=30))
+    assert recovered["ran"] and recovered["orders_created"] == 1
+    assert not recovered["cursor"].get("refused_retry_not_before")
+    assert not recovered["cursor"].get("refused_retry_count")
