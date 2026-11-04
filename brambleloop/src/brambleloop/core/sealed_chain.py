@@ -331,25 +331,18 @@ class GrantLedger:
 
     def refusal(self, db, ident: int) -> str | None:
         """Chain-level reasons this grant id is not usable, or None. Fails closed."""
-        from sqlalchemy import select
-
-        from .models import AuditLog
-
         with db.session() as s:
-            revocations = [dict(d or {}) for d in s.scalars(
-                select(AuditLog.detail).where(AuditLog.action == self.revoked,
-                                              AuditLog.artifact == str(int(ident))))]
-        c = self.chain(db)
-        if revocations:
-            if any(self.verify_row(d) is not None for d in revocations):
-                return (f"{self.label} revoked by a row that does not verify; treated as "
-                        f"revoked and reported as tampering")
-            return f"{self.label} revoked"
-        if not c["valid"]:
-            return f"{self.label} chain does not verify ({c.get('why')}); every grant refused"
-        if c["start_id"] is None or int(ident) < int(c["start_id"]):
-            return f"{self.label} predates the owner's latest chain rebase"
-        flags = {rid: ok for rid, ok, _why in c["rows"]}
-        if not flags.get(int(ident)):
-            return f"{self.label} is not a verified link of the grant chain"
-        return None
+            result = self.refusal_in_session(s, ident)
+        # Preserve chain incident bookkeeping, including metadata inconsistencies
+        # that the sealed-detail-only chain walker cannot see. These incident
+        # writes are for reporting; the decision above comes from one snapshot.
+        if result and ("inconsistent revocation" in result
+                       or "inconsistent actor or event" in result):
+            tamper_incident(db, signature=self.signature,
+                            chain={"valid": False, "broken_at": None, "why": result},
+                            summary=f"{self.label} chain metadata is inconsistent")
+        else:
+            self.chain(db)
+        if result and "row that does not verify; treated as revoked" in result:
+            return f"{result}; reported as tampering"
+        return result
