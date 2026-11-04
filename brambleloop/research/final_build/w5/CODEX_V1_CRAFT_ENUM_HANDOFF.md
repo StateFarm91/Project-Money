@@ -40,6 +40,15 @@ spans are held rather than crashing. Python 3.11/tmpfs focused suite 44/44;
 independent malformed-piece cases 7/7. Full verifier provenance and concurrent
 source changes remain outside these checks.
 
+Malformed or unavailable edging facts now hold UNKNOWN instead of being treated
+as no edging. In particular, Cloudline's ambiguous end-band/edging state cannot
+support a definite invented-edge FAIL or a PASS merely because both images show
+an edge. The existing definite-invented-edge assertion remains intact and now
+uses a real compiled no-edging basket as its control. Matching unsupported
+band/cable claims in both images also hold UNKNOWN rather than passing. Python
+3.11/tmpfs targeted suite 50/50; independent ambiguity case 1/1. No physical
+or authenticated visual evidence is claimed.
+
 **DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
 reads are unauthenticated and not fenced against concurrent writes. Existing V1
 full-suite failures and the owner-controlled experiment remain unresolved.

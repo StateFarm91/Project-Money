@@ -622,16 +622,24 @@ def compare_items(reading: dict, exp) -> dict:
         problems.append((FC.WRONG_CRAFT_TEXTURE, f"reads as {craft_b} (anchor {craft_a}, "
                                                  f"pattern {getattr(exp, 'craft', '?')})"))
     eb, ea = _tri(b.get("border_or_edging_visible")), _tri(a.get("border_or_edging_visible"))
+    edge_expected = getattr(exp, "edging_declared", "missing")
+    edge_valid = (type(edge_expected) is bool or
+                  (edge_expected is None and getattr(exp, "edge_ambiguity", None) in
+                   ("end_bands", "declared_edging_and_bands", "components")))
+    if not edge_valid:
+        unclear.append("pattern edging evidence unavailable")
     if ea is None:
         unclear.append("edging unclear in the anchor")
-    if eb is True and not getattr(exp, "edging_declared", False) and ea is False:
+    if eb is True and edge_valid and edge_expected is False and ea is False:
         problems.append((FC.INVENTED_EDGING, "an edging the anchor and the pattern do not have"))
     elif eb is None:
         unclear.append("edging unclear")
     elif ea is not None and eb != ea:
         unclear.append("edging differs or is obscured between images")
-    elif getattr(exp, "edging_declared", None) is True and (ea is not True or eb is not True):
+    elif edge_expected is True and (ea is not True or eb is not True):
         unclear.append("declared edging cannot be verified in both images")
+    elif edge_expected is None and (ea is True or eb is True):
+        unclear.append("visible edging is ambiguous with declared bands or components")
     bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
     has_bands = _has_bands(exp)
     if ba is None or bb is None:
@@ -642,6 +650,8 @@ def compare_items(reading: dict, exp) -> dict:
         unclear.append("end bands differ or are obscured between images")
     elif (has_bands is True and (ba is not True or bb is not True)) or has_bands is None:
         unclear.append("declared end bands cannot be verified in both images")
+    elif has_bands is False and (ba is True or bb is True):
+        unclear.append("anchor band reading is not supported by the pattern")
     cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
     has_cables = _has_cables(exp)
     if ca is None or cb is None:
@@ -652,6 +662,8 @@ def compare_items(reading: dict, exp) -> dict:
         unclear.append("cables differ or are obscured between images")
     elif (has_cables is True and (ca is not True or cb is not True)) or has_cables is None:
         unclear.append("declared cables cannot be verified in both images")
+    elif has_cables is False and (ca is True or cb is True):
+        unclear.append("anchor cable reading is not supported by the pattern")
     nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
     if na is None or na <= 0:
         unclear.append("colour count unclear in the anchor")

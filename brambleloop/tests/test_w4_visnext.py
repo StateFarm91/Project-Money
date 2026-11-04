@@ -235,11 +235,15 @@ def test_blind_anchor_consistency_compares_two_descriptions_with_the_cir():
     exp = exp_cloud()
     a, b = O.png(64, 64), O.png(64, 64)
 
-    def run(sc):
-        return VJ.blind_consistency(Recorded(sc), a, b, exp)
+    def run(sc, expected=exp):
+        return VJ.blind_consistency(Recorded(sc), a, b, expected)
 
     assert run("item_same")["status"] == "PASS"
-    assert run("item_border_invented")["code"] == "INVENTED_EDGING"
+    # Cloudline's declared end bands make edge treatment ambiguous. Use a real
+    # no-edging CIR for the definite-invented negative; the assertion is unchanged.
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.visual import fidelity as F
+    assert run("item_border_invented", F.expectation(build_basket("small")))["code"] == "INVENTED_EDGING"
     assert run("item_knitted")["code"] == "WRONG_CRAFT_TEXTURE"
     assert run("item_extra_colour")["code"] == "WRONG_COLOUR_LAYOUT"
     assert run("item_hidden")["status"] == "UNKNOWN"
