@@ -562,3 +562,43 @@ def test_unrecorded_or_future_maintenance_is_not_a_zero_cost():
     mixed = sustainability.listing_maintenance_cost(db, now=NOW)
     assert mixed["per_listing_month_cad"] is None
     assert mixed["missing_listings"] == ["second-missing"]
+
+
+def test_support_cost_uses_cases_not_number_of_calls():
+    from brambleloop.core.models import Job, SupportCase
+
+    db = _db()
+    with db.session() as session:
+        first = SupportCase(customer_ref="first", question="fixture")
+        second = SupportCase(customer_ref="second", question="fixture")
+        session.add_all([first, second])
+        session.flush()
+        job1 = Job(agent="support", job_type="support.reply", inputs={"case_id": first.id})
+        job2 = Job(agent="support", job_type="support.reply", inputs={"case_id": second.id})
+        session.add_all([job1, job2])
+        session.flush()
+        for job_id, amount in ((job1.id, 1.0), (job1.id, 2.0), (job2.id, 3.0)):
+            # One call lacks a support label but belongs to a support reply job.
+            session.add(CostEntry(at=NOW, kind="llm", agent="other" if amount == 2 else "support",
+                                  purpose="answer" if amount == 2 else "support.reply",
+                                  amount_cad=amount, job_id=job_id, detail={"basis": "measured"}))
+    result = sustainability._recorded_support_case_cost(db, start=NOW - timedelta(days=1), now=NOW)
+    assert result["cases"] == 2 and result["value"] == 3.0
+    with db.session() as session:
+        session.add(CostEntry(at=NOW, kind="llm", agent="support", purpose="support.reply",
+                              amount_cad=1, detail={"basis": "measured"}))
+    held = sustainability._recorded_support_case_cost(db, start=NOW - timedelta(days=1), now=NOW)
+    assert held["value"] is None and "linked" in held["why"]
+
+
+def test_forecast_holds_unlinked_support_cost_without_inventing_case_rate():
+    db = _db()
+    _operating_history(db, platform_per_day=0.01)
+    with db.session() as session:
+        session.add(CostEntry(at=NOW, kind="llm", agent="support", purpose="support.reply",
+                              amount_cad=1, detail={"basis": "measured"}))
+    forecast = sustainability.forecast(db, now=NOW)
+    assert forecast["measured"]["support_cost_per_case_cad"] is None
+    assert "support_cost_per_case" in forecast["unmeasured_terms"]
+    verdict = sustainability.verdict(db, now=NOW)
+    assert not verdict["sustainable"] and not verdict["checks"]["scenario_costs_complete"]
