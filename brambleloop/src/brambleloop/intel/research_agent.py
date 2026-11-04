@@ -182,7 +182,8 @@ def _all_terms(text: str, terms) -> bool:
     return all(x.lower() in t for x in terms)
 
 
-def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dict]:
+def internal_evidence(db, terms, *, exclude_task: int | None = None,
+                      as_of: datetime | None = None) -> list[dict]:
     """F-405 (INTEG7 reconciliation): FMBATCH1's `intel.research.search_internal_report` is the
     internal search. This agent adds only its two extra corpora, the listing-test memory and
     earlier answered research, as refs that the task's findings may rest on (retrieval
@@ -196,6 +197,7 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
     out = list(out)
     from ..core.models import ListingMemory
 
+    now = R._aware(as_of) if as_of is not None else datetime.now(timezone.utc)
     with db.session() as s:
         for r in s.scalars(select(ListingMemory).limit(500)):
             if _all_terms(f"{r.idea} {r.context} {r.note}", terms):
@@ -204,7 +206,19 @@ def internal_evidence(db, terms, *, exclude_task: int | None = None) -> list[dic
                             "retrieval": "internal"})
         for r in s.scalars(select(R.ResearchTask).where(R.ResearchTask.state == R.ANSWERED)
                            .limit(500)):
-            if r.id != exclude_task and _all_terms(f"{r.question} {r.outcome}", terms):
+            answered = R._aware(r.answered_at)
+            expires = R._aware(r.expires_on)
+            try:
+                lifetime, _why = R.freshness_for(r.domain)
+            except R.ResearchRefused:
+                continue
+            if answered is not None and lifetime is not None:
+                latest_valid = answered + timedelta(days=lifetime)
+                expires = min(expires, latest_valid) if expires is not None else None
+            if (r.id != exclude_task and answered is not None and answered <= now
+                    and ((expires is None and lifetime is None)
+                         or (expires is not None and expires > now))
+                    and _all_terms(f"{r.question} {r.outcome}", terms)):
                 out.append({"ref": f"research_tasks:{r.id}", "kind": "prior_research",
                             "text": f"{r.question} -> {r.outcome}"[:300],
                             "retrieval": "internal"})
@@ -336,6 +350,9 @@ def _task(db, task_id: int):
 
 def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     """Run the cheapest adequate research this agent can on one open task (CA$0)."""
+    as_of = (datetime.combine(today + timedelta(days=1), datetime.min.time(),
+                              tzinfo=timezone.utc) - timedelta(microseconds=1)
+             if today is not None else None)
     today = today or datetime.now(timezone.utc).date()
     t = _task(db, task_id)
     if t is None or t["state"] != R.OPEN:
@@ -344,7 +361,7 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
     # (`R.open_question`); an open task is always researched.
     plan = select_method(t["domain"])
     # F-402 / F-405: every internal record first, refreshed (evidence may have arrived since).
-    internal = internal_evidence(db, t["terms"], exclude_task=task_id)
+    internal = internal_evidence(db, t["terms"], exclude_task=task_id, as_of=as_of)
     with db.session() as s:
         row = s.get(R.ResearchTask, task_id)
         have = {x["ref"] for x in row.internal_evidence or []}
@@ -361,7 +378,12 @@ def investigate(db, task_id: int, *, today: date | None = None) -> dict:
                          citation=hit["path"], retrieval="repository", read_on=today)
             added_sources.append(hit["path"])
     t = _task(db, task_id)
-    evidence = [x["ref"] for x in t["internal"]] + [x["ref"] for x in t["sources"]]
+    # Keep historical references in the task, but do not treat expired or unavailable
+    # prior answers as current evidence on subsequent investigations.
+    fresh_prior = {x["ref"] for x in internal if x["ref"].startswith("research_tasks:")}
+    evidence = [x["ref"] for x in t["internal"]
+                if not x["ref"].startswith("research_tasks:") or x["ref"] in fresh_prior]
+    evidence += [x["ref"] for x in t["sources"]]
     # F-420: research must change something. An investigation that adds no evidence to a task
     # still open is counted; after NO_CHANGE_LIMIT in a row the task is stopped with the
     # justification and its next test, instead of being re-read every week for show.
