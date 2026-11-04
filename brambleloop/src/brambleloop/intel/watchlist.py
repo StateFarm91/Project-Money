@@ -211,6 +211,7 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
     from . import mission, mission_runtime, observe
     from .etsy_public import ReadFailed
+    from .source_identity import marketplace_shop_id
 
     now = _now(now)
     st = _state(db, member.key)
@@ -265,6 +266,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     history = list(st.get("shop_history") or [])[-29:]
     history.append({"at": now.isoformat(), **facts})
     st.update(state="ok", last_ok_at=now.isoformat(), last_attempt_at=now.isoformat(),
+              catalogue_observed_at=result.observed_at,
+              catalogue_shop_id=marketplace_shop_id(shop.get("shop_id")),
               consecutive_failures=0, last_error="", shop=facts, shop_history=history,
               listings_seen=report["catalogue_coverage"]["listings_seen_this_scan"],
               changes=len(report["changes"]))
@@ -393,14 +396,25 @@ def compare(db, *, now: datetime | None = None) -> dict:
     import statistics
 
     from ..runtime.intel_ops import benchmark_alias, snapshot
+    from sqlalchemy import select
+    from ..core.models import BenchmarkListing
+    from .source_identity import marketplace_shop_id
 
     now = _now(now)
     snap = snapshot(db, now=now)
+    # Preserve the scan timestamp on each listing; a later successful scan must not
+    # make listings retained from an earlier catalogue current again.
+    with db.session() as s:
+        observed = list(s.execute(select(BenchmarkListing.benchmark_key,
+                                         BenchmarkListing.pod,
+                                         BenchmarkListing.last_seen,
+                                         BenchmarkListing.audit_state,
+                                         BenchmarkListing.detail)))
     by_alias: dict[str, list] = {}
     for g in snap["groups"]:
         by_alias.setdefault(g["benchmark"], []).append(g)
     shops = []
-    arenas: dict[str, list[str]] = {}
+    arenas: dict[str, list[tuple[str, str]]] = {}
     for m in WATCHLIST:
         alias = benchmark_alias(m.key)
         st = _state(db, m.key)
@@ -429,9 +443,28 @@ def compare(db, *, now: datetime | None = None) -> dict:
         except (TypeError, ValueError):
             fresh = False
         if fresh:
-            for pod, n in mix.items():
+            counts = {}
+            scan_at = st.get("catalogue_observed_at")
+            shop_id = marketplace_shop_id(st.get("catalogue_shop_id"))
+            try:
+                scan_time = datetime.fromisoformat(scan_at or "")
+                if scan_time.tzinfo is None:
+                    scan_time = scan_time.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                scan_time = None
+            for key, pod, seen, audit_state, detail in observed:
+                if key != m.key or not seen or scan_time is None:
+                    continue
+                if seen.tzinfo is None:
+                    seen = seen.replace(tzinfo=timezone.utc)
+                if (seen != scan_time or audit_state == "withdrawn" or not shop_id
+                        or not isinstance(detail, dict)
+                        or marketplace_shop_id(detail.get("source_shop_id")) != shop_id):
+                    continue
+                counts[pod] = counts.get(pod, 0) + 1
+            for pod, n in counts.items():
                 if n >= MIN_LISTINGS_FOR_ARENA:
-                    arenas.setdefault(pod, []).append(alias)
+                    arenas.setdefault(pod, []).append((alias, shop_id))
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")
@@ -467,8 +500,9 @@ def compare(db, *, now: datetime | None = None) -> dict:
                                               "assumed AI-operated"},
         })
     ours = _our_pods(db)
-    validated = sorted((pod, sorted(a)) for pod, a in arenas.items()
-                       if len(a) >= MIN_SHOPS_FOR_ARENA and pod not in ours)
+    validated = sorted((pod, sorted(alias for alias, _ in a)) for pod, a in arenas.items()
+                       if len({shop_id for _, shop_id in a}) >= MIN_SHOPS_FOR_ARENA
+                       and pod not in ours)
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
             "validated_arenas": [{"pod": p, "corroborated_by": a} for p, a in validated],
             "copies_competitor_content": False,

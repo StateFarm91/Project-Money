@@ -583,6 +583,63 @@ def test_old_or_future_success_cannot_validate_current_arena():
         assert watchlist.compare(db, now=now)["validated_arenas"] == []
 
 
+def test_new_scan_does_not_revalidate_listings_missing_from_latest_catalogue():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+        assert watchlist.compare(db)["validated_arenas"]
+
+        class RemovedHats(Reader):
+            def catalogue(self, shop_id, **kw):
+                from brambleloop.intel.etsy_public import CatalogueResult
+                if shop_id == SHOPS["ZKBDESIGNER"]:
+                    return CatalogueResult([], complete=True)
+                return super().catalogue(shop_id, **kw)
+
+        _with_reader(RemovedHats())
+        watchlist.scan_all(db, force=True)
+        out = _run(db, "intel.watchlist_compare")
+        assert out["validated_arenas"] == 0
+        with db.session() as s:
+            assert s.scalar(select(CoverageGap).where(
+                CoverageGap.benchmark_key == watchlist.WATCHLIST_KEY)) is None
+    finally:
+        watchlist.reader_factory = None
+
+
+def test_current_listing_must_match_the_shop_resolved_for_its_scan():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == "zkbdesigner")))
+        for row in rows:
+            row.detail = {**row.detail, "source_shop_id": "999999"}
+    assert watchlist.compare(db)["validated_arenas"] == []
+
+
+def test_two_aliases_for_one_shop_do_not_corroborate_an_arena():
+    db = _db()
+    _with_reader(Reader())
+    try:
+        watchlist.scan_all(db, force=True)
+    finally:
+        watchlist.reader_factory = None
+    state = watchlist._state(db, "zkbdesigner")
+    state["catalogue_shop_id"] = str(SHOPS["MadelineMaeCo"])
+    watchlist._save_state(db, "zkbdesigner", state, now=datetime.now(timezone.utc))
+    with db.session() as s:
+        for row in s.scalars(select(BenchmarkListing).where(
+                BenchmarkListing.benchmark_key == "zkbdesigner")):
+            row.detail = {**row.detail, "source_shop_id": str(SHOPS["MadelineMaeCo"])}
+    assert watchlist.compare(db)["validated_arenas"] == []
+
+
 def test_refused_shops_back_off_and_a_scan_resolves_each_shop_once():
     """Review L-6."""
     db = _db()
