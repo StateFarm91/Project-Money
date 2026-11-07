@@ -1064,7 +1064,7 @@
     {
       "subject": "Fix-only + support follow-up deltas",
       "sha": "0f2de815, 5494fc71, 34956e07",
-      "recorded": "2026-11-07T13:00:00Z",
+      "recorded": "2026-11-07T12:08:00Z",
       "report": "review agent hand-backs (Main)",
       "verdicts": {
         "claude/w6-fix-only-rebuild 0f2de815": "SHIP: R1/R2/N5 fixed, 6/6 mutants killed. Open LOW: R3 launch_review behavioural test (clock-dependent test_w4_launch_review), R4 card text should say disclosure/terms checks not run, N4 dead live branch in _persist_listing.",
@@ -1204,7 +1204,7 @@
     },
     "claude/w6-INTEG1": {
       "head": "5913931f",
-      "updated": "2026-11-07T13:00:00Z",
+      "updated": "2026-11-07T12:08:00Z",
       "contains": [
         "secret-leak",
         "A7",
