@@ -84,6 +84,7 @@ def test_every_unreadable_case_is_unknown_never_pass():
         SC.verify(_Judge({**good, "product_box": [0.2, 0.2, 1.6, 0.9]}), _frame(), CIR),
         SC.verify(_Judge(good), b"not an image", CIR),
     ]
+    assert len(cases) == 9
     for v in cases:
         assert v["status"] == "UNKNOWN", v
 

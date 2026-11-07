@@ -300,8 +300,10 @@ def test_cards_are_per_sku_not_per_week_and_a_decision_is_not_re_asked_for_90_da
     assert _cards(db) == [("portfolio.retire:old-throw", False),
                           ("portfolio.rework:tired-hat", False)]
     with db.session() as s:          # review ee5dbeee N3: every card states its terms
-        for r in s.scalars(select(OwnerAction).where(
-                OwnerAction.requirement_key.like("portfolio.%"))):
+        cards = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key.like("portfolio.%"))))
+        assert len(cards) == 2, cards
+        for r in cards:
             assert r.max_cost_cad == 0.0 and r.minutes == 10, (r.max_cost_cad, r.minutes)
             assert "stays as it is" in (r.consequence_of_delay or ""), r.consequence_of_delay
             assert "Close this card as withdrawn" in r.action and "@1.0.0" in r.action, r.action
