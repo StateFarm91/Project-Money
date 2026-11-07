@@ -17,6 +17,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tests"))
+
+# W6 regfix: the handlers pick their arena with `prospecting.choose`, a wheel deterministic in
+# the epoch week and today's date, and these scenarios were written against a cycle whose slot
+# is Christmas/hats (Halloween/hats being the other proven arena). On the wall clock the suite
+# changed answer when the week turned -- 2026-11-05 starts week 2966, a non-priority slot, and
+# the wheel picks Halloween -- with no code change. So the file runs at a stated date:
+# pinned_clock keeps the clock ticking from 2026-11-02T12:00Z (week 2965, Christmas 53 days
+# out, the clock Batch 5 was green on). Production code runs unmodified; no assertion changed.
+# See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-11-02T12:00:00+00:00")
 
 from sqlalchemy import select  # noqa: E402
 
