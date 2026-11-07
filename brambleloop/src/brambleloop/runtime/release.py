@@ -7292,7 +7292,7 @@ def handle_health_sweep(ctx: JobContext) -> dict:
         with ctx.db.session() as session:
             detail["secret_leak"] = secret_leak.escalate(session)
     except Exception as exc:  # noqa: BLE001
-        detail["secret_leak"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+        detail["secret_leak"] = {"status": "UNKNOWN", "error": type(exc).__name__}
         # Fail closed: a caught secret whose escalation raised still opens an incident
         # (error type only, never a value). Guarded; it can never fail the health sweep.
         try:
