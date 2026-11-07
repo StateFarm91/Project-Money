@@ -616,7 +616,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "pdf_sha256_by_terminology": {t: stored.sha256
                                              for t, stored in sorted(pdfs.items())},
                "frames": stored_frames}
-    ctx.enqueue("pricing", "pricing.position", payload,
+    # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
+    # outputs, which ordinary re-prices and targeted rebuilds copy (review 6cbc08e6 F1).
+    ctx.enqueue("pricing", "pricing.position",
+                {**payload, **({"fix_only": True} if ctx.job.inputs.get("fix_only") else {})},
                 idempotency_key=chain_key("price", slug, version, release, token))
     # W-OWNERIMG: a certified release whose disclosed set is usable starts autonomous
     # image production once per slug@version@release (idempotency key). It is shadow-safe:
@@ -799,7 +802,8 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     # so a rebuild cannot manufacture a flat history.
     from ..commerce import elasticity
 
-    price_point = elasticity.record_price_set(
+    price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
+        if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=category, price_cad=decision.price_cad,
         season=(seed.season or "evergreen") if seed else "unassigned")
 
@@ -870,7 +874,8 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
     price = float(launch["price_cad"])
     _vet_promotion(ctx, i, slug, price)
     pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
-    price_point = elasticity.record_price_set(
+    price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
+        if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=record["category"], price_cad=price,
         season="evergreen")
     detail = {"price_cad": price, "net_cad": launch["net_cad_after_fees"],
@@ -1310,6 +1315,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     certificate["search_policy"] = _search_policy.stamp(ctx.db)
     tag_sources = search_mod.tag_provenance(copy.tags, queries, observed_tags=buyer["tags"])
+    if i.get("fix_only"):
+        stopped = _fix_only_candidate(ctx, slug, version, copy=copy, choice=choice, props=props,
+                                      attributes=attributes, blocking=blocking)
+        if stopped is not None:
+            return stopped
     _persist_search_profile(ctx, slug, version, copy=copy, choice=choice, props=props,
                             attributes=attributes, coverage=coverage, tag_sources=tag_sources,
                             certificate=certificate,
@@ -1358,7 +1368,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
               "search_certificate": {k: certificate[k] for k in
                                      ("verdict", "failed", "pending")},
               "classification": classification.to_dict() if classification else None})
-    _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
+    _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""),
+                     fix_only=bool(i.get("fix_only")))
     # F-004: the hero is the one search dimension the draft cannot judge. Now that the copy
     # the listing-set certificate checks (the disclosure, the dimensions) is on file, the
     # certified image set is judged and the completed certificate written back with its
@@ -1419,11 +1430,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         "catalogue": {k: catalogue.get(k) for k in ("measurable", "listings",
                                                     "concentrated_on", "competing_pairs",
                                                     "stuffing", "required_facets_missing")}})
-    ctx.enqueue("growth", "launch.plan", i,
-                idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
-                                          i.get("rebuild", "")
-                                          + (":evergreen" if evergreen else "")))
+    if i.get("fix_only"):
+        # W6 FIX-ONLY: a remediation rebuild ends at the listing. It never reaches
+        # launch.plan, marketing.schedule or store.publish (FMBATCH1 F-1; reviews PORTFOLIO
+        # f3bea437 F2, STOREFRONT d8b2754b F2).
+        ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+                  detail={"stopped_before": "launch.plan", "rebuild": i.get("rebuild", "")})
+    else:
+        ctx.enqueue("growth", "launch.plan", i,
+                    idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
+                                              i.get("rebuild", "")
+                                              + (":evergreen" if evergreen else "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
+            **({"stopped_before": "launch.plan"} if i.get("fix_only") else {}),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading,
             "search_hero": hero_reading,
@@ -2076,9 +2095,119 @@ def _content_hash(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(p or "" for p in parts).encode()).hexdigest()
 
 
+LIVE_STATES = ("published", "published_manually", "active")
+
+
+def without_fix_only(inputs: dict | None) -> dict:
+    """A copy of a previous chain job's inputs or outputs with the W6 FIX-ONLY bound removed.
+
+    Every path that re-drives the chain from a stored job (plan-drift re-price, targeted
+    rebuild, launch review, taxonomy-drift re-queue) uses this, so a remediation's bound never
+    leaks into an ordinary rebuild (reviews 6cbc08e6 F1, 9e8665c3 N1)."""
+    return {k: v for k, v in dict(inputs or {}).items() if k != "fix_only"}
+
+
+def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choice, props,
+                        attributes, blocking: list) -> dict | None:
+    """W6 FIX-ONLY (review 6cbc08e6 F2-F4): a remediation changes only an existing DRAFT.
+
+    When the release's listing row is live, or exists in any state other than `draft` (for
+    example `withdrawn` after a refused certification), nothing is persisted: not the row,
+    not the search profile (so F-294 and taxonomy-drift incidents are untouched), not the
+    search package, not the FAQ. The full candidate is audited (`listing.fix_candidate`)
+    and, for a live listing, the owner card names that audit. Returns the stage result, or
+    None when the row is a draft (or absent) and the rebuild may refresh it."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        if row is None or (row.state == "draft" and not _is_live(row)):
+            return None
+        live, state, etsy = _is_live(row), row.state, row.etsy_listing_id
+    candidate = {"title": copy.title, "tags": list(copy.tags), "description": copy.description,
+                 "taxonomy": choice.to_dict() if hasattr(choice, "to_dict") else choice,
+                 "properties": list((props or {}).get("payload") or []),
+                 "attributes": attributes}
+    if blocking is None:
+        raise TypeError("_fix_only_candidate needs the gate's blocking list (review a5781649 R2)")
+    import hashlib
+    import json as _json
+
+    rejected = [str(b) for b in blocking]
+    # Review a5781649 R1: the owner card names one exact candidate, never "the newest audit",
+    # so a later run's refused candidate can never be mistaken for the one the card offers.
+    candidate_sha = hashlib.sha256(_json.dumps(candidate, sort_keys=True, default=str)
+                                   .encode()).hexdigest()[:16]
+    ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
+        "live": live, "state": state, "etsy_listing_id": etsy, "applied": False,
+        "candidate": candidate, "candidate_sha": candidate_sha, "rejected": rejected[:20]})
+    key = f"listing.live_update:{slug}@{version}"[:200]
+    if rejected:
+        # Review 9e8665c3 N2: a candidate the gates refuse is never put to the owner. Review
+        # a5781649 R1: an open card from an earlier run is WITHDRAWN, not left standing. The
+        # refused copy may be byte-identical to the one the card offers (the gates, not the
+        # copy, changed), so no earlier candidate is offered once a newer run is refused; the
+        # next passing run raises a fresh card naming its own candidate.
+        from sqlalchemy import select as _select
+
+        from ..core.models import OwnerAction
+        from ..ops import owner_queue
+
+        with ctx.db.session() as s:
+            for card in s.scalars(_select(OwnerAction).where(
+                    OwnerAction.requirement_key == key,
+                    OwnerAction.done == False)):  # noqa: E712
+                owner_queue.close(card, owner_queue.WITHDRAWN,
+                                  f"a newer fix-only candidate {candidate_sha} was refused by "
+                                  f"the listing gates ({'; '.join(rejected[:3])[:300]}); no "
+                                  f"candidate is offered until one passes")
+        ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+                  detail={"stopped_before": "listing persistence", "live": live,
+                          "state": state, "candidate_sha": candidate_sha,
+                          "rejected": rejected[:5]})
+        return {"slug": slug, "version": version, "ok": False, "candidate_only": True,
+                "live": live, "state": state, "blocking": rejected,
+                "candidate_sha": candidate_sha}
+    if live:
+        from ..ops import owner_queue
+
+        with ctx.db.session() as s:
+            owner_queue.ensure(
+                s, key,
+                action=(f"Compare the rebuilt listing copy for {slug}@{version} with the live "
+                        f"Etsy listing {etsy or '(manual)'}: the full candidate (title, tags, "
+                        f"description, taxonomy, properties) is the audit "
+                        f"'listing.fix_candidate' for {slug}@{version} with candidate_sha "
+                        f"{candidate_sha} in the Command Center (only that one; it passed the "
+                        f"listing gates). If it is better, apply it in Shop Manager; the system "
+                        f"never edits a live listing."),
+                reason=("a remediation found this live listing's search copy weak and rebuilt "
+                        "a candidate; live listings are never changed autonomously"),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay="the live listing keeps its current copy")
+    ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+              detail={"stopped_before": "listing persistence", "live": live, "state": state})
+    return {"slug": slug, "version": version, "ok": True, "candidate_only": True,
+            "live": live, "state": state, "stopped_before": "launch.plan",
+            "candidate_sha": candidate_sha}
+
+
+def _is_live(row) -> bool:
+    return bool(getattr(row, "etsy_listing_id", "")) or str(row.state or "") in LIVE_STATES
+
+
 def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float,
-                     release: str = "") -> None:
-    """Drafted, never published. Shadow mode holds the whole shop ready rather than open."""
+                     release: str = "", *, fix_only: bool = False) -> None:
+    """Drafted, never published. Shadow mode holds the whole shop ready rather than open.
+
+    W6 FIX-ONLY (reviews PORTFOLIO f3bea437 F1/F3, STOREFRONT d8b2754b F1): a remediation
+    rebuild never changes a LIVE listing's local row -- its state, price or copy -- because
+    nothing would carry the change to Etsy and the local row would then misdescribe what
+    buyers see. It records the candidate copy and asks the owner to apply it. On a draft it
+    refreshes the copy but keeps the existing price (no stale-input revert)."""
     from sqlalchemy import select
 
     from ..core.models import Listing
@@ -2087,13 +2216,32 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
     with ctx.db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == slug,
                                              Listing.version == version))
+        if fix_only and row is not None and _is_live(row):
+            ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
+                "live": True, "etsy_listing_id": row.etsy_listing_id, "state": row.state,
+                "candidate": {"title": copy.title, "tags": list(copy.tags),
+                              "description_chars": len(copy.description or "")},
+                "applied": False})
+            from ..ops import owner_queue
+
+            owner_queue.ensure(
+                s, f"listing.live_update:{slug}@{version}"[:200],
+                action=(f"Review the rebuilt listing copy for {slug}@{version} (audit "
+                        f"listing.fix_candidate) and, if it is better, update the live Etsy "
+                        f"listing by hand; the system does not edit live listings."),
+                reason=("a remediation found this live listing's search copy weak and "
+                        "rebuilt a candidate; live listings are never changed autonomously"),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay="the live listing keeps its current copy")
+            return
+        keep_price = row.price_cad if (fix_only and row is not None) else None
         if row is None:
             row = Listing(product_slug=slug, version=version)
             s.add(row)
         row.title = copy.title
         row.description = copy.description
         row.tags = list(copy.tags)
-        row.price_cad = copy.price_cad
+        row.price_cad = copy.price_cad if keep_price is None else keep_price
         row.seo_score = share
         row.state = "draft"
         row.chain_version = CHAIN_VERSION
@@ -2128,6 +2276,11 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
+    if i.get("fix_only"):
+        # Backstop: a fix-only chain is never launched or published, whoever enqueued it.
+        ctx.audit("launch.fix_only_refused", artifact=f"{slug}@{i.get('version')}",
+                  detail={"rebuild": i.get("rebuild", "")})
+        return {"slug": slug, "refused": True, "why": "fix_only chains are never launched"}
     seed = _seed_for(slug, ctx.db)
     today = (date.fromisoformat(i["as_of"]) if i.get("as_of") else date.today())
 
@@ -2605,10 +2758,19 @@ def handle_support_triage(ctx: JobContext) -> dict:
                                        "case_window_known": bool(
                                            triaged["case_window"].get("known")),
                                        "sent": 0})
+    # W6 P0-SUPPORT-DEFECT-INCIDENT: a hotspot at the threshold acts -- one correlated
+    # incident, one deterministic re-verification (cir.twin + cir.reverse) and a withholding
+    # of that release's publication, once per release+row (support.defects). The audit row
+    # stays as the receipt.
+    from ..support import defects as support_defects
+
+    out["defects"] = []
     for hotspot in out["row_hotspots"]:
-        if hotspot["mentions"] >= 3:
+        if hotspot["mentions"] >= support_defects.THRESHOLD:
             ctx.audit("support.defect_candidate", artifact=hotspot["product"],
                       detail=hotspot)
+            out["defects"].append(support_defects.escalate(ctx, hotspot))
+    out["defect_holds"] = support_defects.reconcile_holds(ctx.db)
     return out
 
 
@@ -5194,7 +5356,8 @@ def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str
     token = hashlib.sha256(
         f"reprice:{chk['listing_cad']}->{chk['plan_cad']}".encode()).hexdigest()[:12]
     job = ctx.enqueue("pricing", "pricing.position",
-                      {**built, "release": pv.release_hash or "", "rebuild": token},
+                      {**without_fix_only(built),
+                       "release": pv.release_hash or "", "rebuild": token},
                       idempotency_key=chain_key("price", slug, pv.version,
                                                 pv.release_hash or "", token))
     ctx.audit("chain.reprice_requested", artifact=f"{slug}@{pv.version}",
@@ -5393,7 +5556,8 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                                                               release, token))
         else:
             stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
-                                    {**built, "release": release, "rebuild": token},
+                                    {**without_fix_only(built),
+                                     "release": release, "rebuild": token},
                                     idempotency_key=chain_key("price", slug, version,
                                                               release, token))
     for k in stale:
@@ -7333,6 +7497,25 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             detail["provider_health"] = provider_health.reconcile(ctx.db, session)
     except Exception as exc:  # noqa: BLE001
         detail["provider_health"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # W6 P0-SECRET-LEAK-ESCALATE: a secret the F-159 log guard caught in this process
+    # becomes one incident and one owner rotation action (names and fingerprints only,
+    # never a value). Guarded; it can never fail the health sweep.
+    from ..ops import secret_leak
+
+    try:
+        with ctx.db.session() as session:
+            detail["secret_leak"] = secret_leak.escalate(session)
+    except Exception as exc:  # noqa: BLE001
+        detail["secret_leak"] = {"status": "UNKNOWN", "error": type(exc).__name__}
+        # Fail closed: a caught secret whose escalation raised still opens an incident
+        # (error type only, never a value). Guarded; it can never fail the health sweep.
+        try:
+            if secret_leak.guard.summary().get("status") == "CAUGHT":
+                with ctx.db.session() as session:
+                    detail["secret_leak"] = secret_leak.escalation_failed(
+                        session, type(exc).__name__)
+        except Exception as exc2:  # noqa: BLE001
+            detail["secret_leak"]["fallback_error"] = type(exc2).__name__
     # W4-FMBATCH1 (F-720): stale ready work with an idle worker is diagnosed by cause.
     from ..ops import useful_work
 

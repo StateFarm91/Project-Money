@@ -263,6 +263,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
                       if missing else "the wave leans on one level; ideate the others"),
             "as_of": today.isoformat()})
 
+    # W5-A7 (P0-SUPPLY-STALL): `draft:<slug>` is permanent, so a selected concept that was
+    # drafted already can never become a new product. When nothing selected is undrafted the
+    # company has no new concept supply; that is recorded once per scan date, never silent.
+    # A reading fault never costs the scan.
+    try:
+        supply = _record_supply_stall(ctx, [c.slug for c in steered],
+                                      [c.slug for c in portfolio.selected], today)
+    except Exception as exc:  # noqa: BLE001
+        supply = {"measured": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
     for c in portfolio.selected:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
@@ -284,11 +294,59 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         "constraints_met": portfolio.constraints_met,
         "swaps": portfolio.reasons,
         "arbitrage_steered": [m["slug"] for m in steering["steered"]],
+        "concept_supply": supply,
         "skill_portfolio": {"segmented": skills["wave"]["segmented"],
                             "shares": skills["wave"]["shares"], "missing": missing,
                             "over": excess},
         "as_of": today.isoformat(),
     }
+
+
+def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
+                         today: date) -> dict:
+    """W5-A7 (P0-SUPPLY-STALL): the next-product supply reading of one `radar.scan`.
+
+    Supply is a selected concept with no `draft:<slug>` job; `radar.score` is the only path
+    that turns one into a `cir.draft`, under that same permanent key, so a drafted slug is
+    never drafted twice and is not supply. With none, one `OperatingReading`
+    (`flow_health.SUPPLY_STALL_KIND`, period = the scan date) and one audit record the stall:
+    `pool_exhausted` when every concept in POOL plus approved intake is drafted, else
+    `selection_all_drafted`. Deterministic, deduplicated per period, and read-only for the
+    queue: it enqueues nothing.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from ..core.models import OperatingReading
+    from ..ops import flow_health
+
+    drafted = flow_health.drafted_slugs(ctx.db, set(pool) | set(selected))
+    undrafted_pool = sorted(s for s in set(pool) if s not in drafted)
+    undrafted_selected = [s for s in selected if s not in drafted]
+    out = {"measured": True, "pool": len(set(pool)), "drafted": len(drafted & set(pool)),
+           "undrafted_pool": len(undrafted_pool), "undrafted_selected": len(undrafted_selected),
+           "stalled": not undrafted_selected, "recorded": False}
+    if undrafted_selected:
+        return out
+    period = today.isoformat()
+    payload = {"reason": "pool_exhausted" if not undrafted_pool else "selection_all_drafted",
+               "pool": out["pool"], "drafted": out["drafted"],
+               "undrafted_pool": undrafted_pool[:50], "selected": list(selected)[:50],
+               "as_of": period, "job_id": ctx.job.id}
+    out["reason"] = payload["reason"]
+    try:
+        with ctx.db.session() as s:
+            if s.scalar(select(OperatingReading.id).where(
+                    OperatingReading.kind == flow_health.SUPPLY_STALL_KIND,
+                    OperatingReading.period_key == period)) is not None:
+                return out
+            s.add(OperatingReading(kind=flow_health.SUPPLY_STALL_KIND, period_key=period,
+                                   payload=payload))
+    except IntegrityError:          # a concurrent scan recorded this period first
+        return out
+    out["recorded"] = True
+    ctx.audit("radar.supply_stall", detail=payload)
+    return out
 
 
 def _scan_date(ctx: JobContext) -> date:
@@ -1196,6 +1254,16 @@ def handle_certify(ctx: JobContext) -> dict:
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        # W6 support-defect (review dd05e389 F-1): a release that just became the one on sale
+        # inherits any active support-defect hold now, not at the next hourly triage.
+        # store.publish reconciles again immediately before its gates, and fails closed.
+        from ..support import defects as _support_defects
+
+        try:
+            _support_defects.reconcile_holds(ctx.db)
+        except Exception as exc:  # noqa: BLE001
+            ctx.audit("support.defect_reconcile_failed", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"error": type(exc).__name__, "at": "gate.certify"})
         # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
         # the version map written at sale time, and prepares their notice. Sending it is the
         # owner's (an owner action is raised); nothing is sent from here.
@@ -1830,6 +1898,20 @@ def handle_store_publish(ctx: JobContext) -> dict:
     # `/api/verify` counts as evidence of Shadow Mode working would start saying something
     # else.
     # W4-WRAPTEST: an uncertified EXPERIMENT never reaches publication, in any phase.
+    # W6 support-defect (review dd05e389 F-1): the holds are reconciled FIRST, before any
+    # gate reads them (`_release_gates` below), so a release that became current since the
+    # last triage (a new certification, a rollback) can never be published in that window.
+    # A reconcile that cannot run refuses the publish (fail closed).
+    from ..support import defects as _support_defects
+
+    try:
+        _support_defects.reconcile_holds(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
+                  detail={"reason": f"support-defect holds could not be reconciled: "
+                                    f"{type(exc).__name__}"})
+        raise RuntimeError("support-defect holds could not be reconciled before publish; "
+                           "refusing to publish") from exc
     from ..visual.experiment import refuse_if_experiment
 
     refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),

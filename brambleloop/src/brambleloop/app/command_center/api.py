@@ -794,6 +794,74 @@ def make_router(db) -> APIRouter:
                     detail={"action": "launch_review.resume", "run_job_id": job.id})
         return ok({**st, "run_job_id": job.id})
 
+    # ---- paid provider owner activation (P0-PAID-PROVIDER-OWNER-GATE) ------------------------
+    # A provider key authorises nothing. The owner activates (and revokes) each paid image or
+    # vision provider here, behind the owner session and a fresh step-up; the step-up is
+    # re-verified against the session row by `paid_provider_gate`, and every change is audited.
+
+    @router.get("/paid-providers")
+    def paid_providers_state(request: Request):
+        from ...gateway import paid_provider_gate
+
+        return ok(paid_provider_gate.owner_view(db))
+
+    @router.post("/paid-providers/activate")
+    async def paid_providers_activate(request: Request):
+        from datetime import datetime
+
+        from ...gateway import paid_provider_gate as gate
+        from ...gateway.paid_provider_gate import activate as activate_paid_provider
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, gate.STEP_UP_ACTION)
+        pid = auth.current_public_id(request)
+        try:
+            raw_exp = body.get("expires_at")
+            expires = datetime.fromisoformat(str(raw_exp)) if raw_exp else None
+            # `activate_paid_provider`, not `.activate(`: this writes the owner's local
+            # activation row; it is not an Etsy listing activation (close5 F-542's scan).
+            out = await run_in_threadpool(lambda: activate_paid_provider(
+                db, provider=str(body.get("provider") or "")[:40],
+                scope=str(body.get("scope") or "")[:16], by=actor(request),
+                session_public_id=pid,
+                daily_ceiling_cad=body.get("daily_ceiling_cad"),
+                monthly_ceiling_cad=body.get("monthly_ceiling_cad"),
+                per_gallery_cad=body.get("per_gallery_cad"), expires_at=expires,
+                max_attempts_per_request=body.get("max_attempts_per_request",
+                                                  gate.DEFAULT_MAX_ATTEMPTS),
+                max_calls_per_run=body.get("max_calls_per_run",
+                                           gate.DEFAULT_MAX_CALLS_PER_RUN),
+                note=str(body.get("note") or "")))
+        except (gate.ActivationRefused, ValueError, TypeError) as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "paid_provider.activate",
+                            **{k: out.get(k) for k in ("id", "provider", "scope",
+                                                       "daily_ceiling_cad",
+                                                       "monthly_ceiling_cad",
+                                                       "per_gallery_cad", "expires_at")}})
+        return ok(out)
+
+    @router.post("/paid-providers/revoke")
+    async def paid_providers_revoke(request: Request):
+        from ...gateway import paid_provider_gate as gate
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, "paid_provider.revoke")
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: gate.revoke(
+                db, provider=str(body.get("provider") or "")[:40],
+                scope=str(body.get("scope") or "")[:16], by=actor(request),
+                session_public_id=pid, reason=str(body.get("reason") or "")[:300]))
+        except gate.ActivationRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "paid_provider.revoke", **out})
+        return ok(out)
+
     @router.get("/experiments/runs/{run_id}/card")
     def experiments_card(run_id: int, request: Request):
         from ...experiments import controlled

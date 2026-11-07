@@ -59,7 +59,10 @@ HANDOFFS: dict[str, tuple] = {
     "pricing.position": (lambda o: bool(o.get("price_cad")) and not o.get("refused")
                          and not o.get("stopped"),
                          ("listing.seo",), inv_mod.LISTING_COMPLETED),
-    "listing.seo": (lambda o: o.get("ok") is True, ("launch.plan",), inv_mod.LISTING_COMPLETED),
+    # Review a5781649 / 9e8665c3 N5: a W6 FIX-ONLY remediation stops on purpose before
+    # launch.plan; that is not a stall.
+    "listing.seo": (lambda o: o.get("ok") is True and not o.get("stopped_before"),
+                    ("launch.plan",), inv_mod.LISTING_COMPLETED),
     "launch.plan": (lambda o: not o.get("held") and not o.get("withheld"), ("store.publish",),
                     inv_mod.PUBLISHED),
 }
@@ -337,3 +340,73 @@ def next_work(db, *, now: datetime | None = None, limit: int = 15) -> dict:
                          "run_after": inv_mod._iso(j.run_after), "product": j.slug,
                          "due": bool(j.run_after and j.run_after <= now)} for j in pending],
             "cadences": [c for c in next_cadences(db, now=now) if not c["suspended"]][:limit]}
+
+
+# ---- W5-A7 (P0-SUPPLY-STALL): next-product concept supply ------------------------------------
+
+# One reading per scan date: `radar.scan` writes it (runtime.pipeline._record_supply_stall)
+# when no concept it selected can still be drafted. Read here, read-only, for the Command
+# Center and the readback evidence.
+SUPPLY_STALL_KIND = "radar.supply_stall"
+SUPPLY_STALL_FRESH = timedelta(days=2)
+
+
+def drafted_slugs(db, slugs) -> set[str]:
+    """The slugs whose permanent `draft:<slug>` job exists (any status): `radar.score` can
+    never queue another `cir.draft` for them, so they are no new supply."""
+    from sqlalchemy import select
+
+    from ..core.models import Job
+
+    keys = {f"draft:{s}": s for s in slugs}
+    if not keys:
+        return set()
+    with db.session() as s:
+        found = set(s.scalars(select(Job.idempotency_key).where(
+            Job.idempotency_key.in_(list(keys)))))
+    return {keys[k] for k in found}
+
+
+def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
+    """The newest no-new-concept-supply reading if it is recent, else None."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus, OperatingReading
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == SUPPLY_STALL_KIND).order_by(OperatingReading.id.desc()))
+        if row is None:
+            return None
+        at = _aware(row.at)
+        if at is None or now - at > SUPPLY_STALL_FRESH:
+            return None
+        p = dict(row.payload or {})
+        period = row.period_key
+        # A stall is an observation, not an everlasting state. A later successful,
+        # measured radar scan is authoritative even on the same calendar day.
+        # Failed or unmeasured scans do not establish recovery.
+        scans = s.scalars(select(Job).where(
+            Job.job_type == "radar.scan", Job.status == JobStatus.DONE,
+            Job.finished_at >= at, Job.finished_at <= now).order_by(
+            Job.finished_at.desc(), Job.id.desc()))
+        for scan in scans:
+            supply = (scan.outputs or {}).get("concept_supply")
+            if not isinstance(supply, dict) or supply.get("measured") is not True \
+                    or type(supply.get("stalled")) is not bool:
+                continue
+            if supply["stalled"] is False:
+                return None
+            # More recent stalls can have different counts or reason even though
+            # the period-deduplicated reading was already written.
+            return {"period": str((scan.inputs or {}).get("as_of") or period),
+                    "at": inv_mod._iso(_aware(scan.finished_at)),
+                    "reason": supply.get("reason"), "pool": supply.get("pool"),
+                    "drafted": supply.get("drafted"),
+                    "undrafted_pool": supply.get("undrafted_pool"),
+                    "selected": len((scan.outputs or {}).get("selected") or [])}
+    return {"period": period, "at": inv_mod._iso(at), "reason": p.get("reason"),
+            "pool": p.get("pool"), "drafted": p.get("drafted"),
+            "undrafted_pool": len(p.get("undrafted_pool") or []),
+            "selected": len(p.get("selected") or [])}

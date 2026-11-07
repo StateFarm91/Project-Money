@@ -51,6 +51,16 @@
    "sha": "ee35a493dfd817bd105455091af601a3aa86eb9c",
    "observed": "2026-10-27T16:06Z",
    "evidence": "owner-approved deploy of the combined release (suite SHA 2aeb177f, full suite 20261027T104727Z-259: 9673 passing, 0 failing; independent review 46ed8b47 SHIP). Pre-deploy backup 20261027T160323Z restore_ok, 142 tables. Guard ALLOW, rehearsal ALLOW. Railway deployment 5e04aa22 SUCCESS. Readback 11/12; no_unexpected_dead_letters_in_24h is false, cause not publicly readable (as reported by the coordinator)."
+  },
+  {
+   "sha": "0967c3eee287d06cad0d8034a99e39076c0ab6d5",
+   "observed": "2026-11-02T03:31Z",
+   "evidence": "owner-approved deploy of Batch 4 (\"APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5\", 2026-11-02; suite SHA d230e8fd, full suite 20261101T080736Z-18171: 10122 passing, 0 failing; release record fa139a78). Pre-release backup brambleloop_prod_20261102T032745Z.dump, 497732160 B, sha256 9d94e242, BK restore_ok, 144 tables, 262123 rows. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW; pushed ee35a493..0967c3ee; /health build.commit 0967c3ee after 63.6 s. Readback evidence research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json (decision FIX_FORWARD, P1 only). Recorded late (2026-11-02, Batch 5 release preparation): the entry was missing, which made the Batch 5 rollback rehearsal refuse; production /health still reports build.commit 0967c3ee at 2026-11-02T20:29Z."
+  },
+  {
+   "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+   "observed": "2026-11-07T07:37Z",
+   "evidence": "owner exact-SHA approval 2026-11-07 (Main channel). Batch 5 release record over suite tree 5ba84bf7 (full suite 20261102T164117Z-1487: 10384 passing, 0 suites failing). Pre-deploy backup brambleloop_prod_20261107T072926Z.dump restore_ok, 147 tables, 319915 rows, BK RESULT OK. Guard ALLOW, rollback rehearsal to 0967c3ee ALLOW. /health build 705725a3, worker alive; /api/verify 13/13; readback smoke PASS, 6 NEEDS_OPERATOR (operator-gated endpoints), rollback_decision FIX_FORWARD."
   }
  ]
 }

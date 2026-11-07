@@ -486,7 +486,16 @@ def autonomy_loop(db, *, now: datetime, days: int = LOOP_WINDOW_DAYS) -> dict:
         t = tally(sel, judge)
         stages.append({"stage": name, "job_types": list(jts), "basis": basis, **t,
                        "evidenced": t["useful_completed"] > 0})
+    # W5-A7 (P0-SUPPLY-STALL): the newest recent no-new-concept-supply reading (counts,
+    # period and reason only), informational: it changes no verdict here.
+    try:
+        from .flow_health import concept_supply_stall
+
+        supply = concept_supply_stall(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        supply = _unreadable(exc)
     return {"readable": True, "window_days": days,
+            "concept_supply_stall": supply,
             "judge": "runtime.pipeline.did_no_work (a no-op never counts as useful work)",
             "stages": stages,
             "stages_with_useful_work": sum(1 for x in stages if x["evidenced"]),

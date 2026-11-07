@@ -727,10 +727,12 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         CX.guard_generation(db, _controlled_of(db, key), next_cost)
     elif paid and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
+        from ..gateway.paid_provider_gate import generation_gate_reason
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
-                                "called")
+                                f"called ({generation_gate_reason(db)})")
     if paid and next_cost == 0:
         raise BudgetStop("paid generator requires a positive maximum cost per call")
+    # V1's _begin_generation runs V0's spend_plan.guard and counts the call, atomically.
     call_token = _begin_generation(db, key, stage=stage, paid=paid, next_cost=next_cost)
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),

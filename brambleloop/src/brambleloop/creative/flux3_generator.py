@@ -327,8 +327,12 @@ class Flux3Generator:
             raise GeneratorRefused("nested generation on the same adapter is not supported")
         token = self._generating.set(True)
         key_token = self._active_run_key.set(self.current_run_key)
+        # P0-PAID-PROVIDER-OWNER-GATE: every render of this run is charged to its gallery (the
+        # image-production run key) against the owner's per-gallery limit.
+        from ..gateway.paid_provider_gate import gallery_scope
+
         try:
-            with self._scratch():
+            with self._scratch(), gallery_scope(self.current_run_key):
                 return self._generate(stage=stage, role=role, brief=brief, references=references,
                                       outfit=outfit, attempt=attempt, repair=repair)
         finally:

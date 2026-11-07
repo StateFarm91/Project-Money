@@ -894,8 +894,15 @@ def test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_2
                                  provider="fixture", model=judge_model, input_tokens=10,
                                  output_tokens=5, latency_ms=1.0)
 
-    with db.session() as s:
-        s.add(AuditLog(actor="ops", action=gw.VISION_PROBE_ACTION, detail={"ok": True}))
+    # V0: a probe row alone no longer opens vision; the owner's explicit activation does.
+    import _paid_activation as _paid
+    from brambleloop.gateway import paid_provider_gate as _paid_gate
+
+    acts = _paid.activate(db, _paid_gate.ANTHROPIC_VISION)
+    probe_act = next(a for a in acts if a["scope"] == _paid_gate.PROBE)
+    with db.session() as s:   # a probe made under that activation, as a real probe records
+        s.add(AuditLog(actor="ops", action=gw.VISION_PROBE_ACTION,
+                       detail={"ok": True, "activation_id": probe_act["id"]}))
     saved = gw.provider_for
     gw.provider_for = lambda task, **kw: FixtureJudge()
     try:
