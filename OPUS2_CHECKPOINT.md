@@ -10,8 +10,8 @@ worktrees, not this file.
 | PHYSICAL | opus2/physical-sample-request-on-codex | e8b458b5 | REVIEW-REQUESTED; supersedes d697d093 (withdrawn) |
 | VISUAL stack on V1 | v2/v4/v5/v3-on-v1 | top 8427e777 | in Main's independent review; HOLD changes |
 | V6 on V1 | opus2/v6-on-v1 | 60747f7e | REVIEW-REQUESTED; option (a), V1-SCENE-END-BANDS |
-| STOREFRONT-fo | opus2/p0-storefront-asset-fix-fo | 8094601b | waiting on the fix-only verdict, then rebase |
-| PORTFOLIO-fo | opus2/p0-portfolio-act-fo | d564a059 | waiting on the fix-only verdict, then rebase |
+| STOREFRONT-fo | opus2/p0-storefront-asset-fix-fo | a1331372 | REVIEW-REQUESTED on fix-only 0f2de815 |
+| PORTFOLIO-fo | opus2/p0-portfolio-act-fo | ee5dbeee | REVIEW-REQUESTED on fix-only 0f2de815 |
 Next after verdicts: rebase #7 onto w6-INTEG1; fold #3 onto codex quality-a1-a2 after U2; #9 fixes.
 Stop reason: everything assigned is review-requested or on hold for Main's verdicts.
 
