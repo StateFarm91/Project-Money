@@ -529,6 +529,68 @@ def test_store_publish_reconciles_before_its_gates_read_the_holds():
     assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
 
 
+def _publish_ctx(db, slug, version, key):
+    from brambleloop.agents.registry import Registry as _Reg
+    from brambleloop.runtime.worker import JobContext
+
+    q = JobQueue(db)
+    return JobContext(job=q.enqueue("store_operator", "store.publish",
+                                    {"slug": slug, "version": version}, idempotency_key=key),
+                      db=db, queue=q, registry=_Reg(db), phase=Phase.SHADOW)
+
+
+def _audit_rows(db, action):
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        return [dict(r.detail or {}) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == action).order_by(AuditLog.id))]
+
+
+def test_the_publish_gates_already_see_the_reconciled_hold():
+    """Review a66ae0b0 M6: the reconcile runs BEFORE `_release_gates` reads the holds, so the
+    gates' own record of this attempt names the support-defect hold."""
+    a, _b = _cirs()
+    db = _db(a)
+    _setup_incident(db, a, "m6")
+    _add_version(db, a, "9.0.0", certified=True)            # same instructions, no triage yet
+    try:
+        pipeline.handle_store_publish(_publish_ctx(db, a.slug, "9.0.0", "m6-publish"))
+    except Exception:  # noqa: BLE001 - SHADOW refuses after the gates; that is fine
+        pass
+    gates = _audit_rows(db, "store.release_gates")
+    assert gates, "the publish never reached its gates"
+    assert gates[-1]["blocks_release"] is True, gates[-1]
+    assert "support" in repr(gates[-1]["reasons"]).lower(), gates[-1]["reasons"]
+
+
+def test_a_reconcile_failure_refuses_the_publish():
+    """Review a66ae0b0 M3: fail closed. A reconcile that cannot run refuses the publish and
+    records why; the gates are never reached."""
+    a, _b = _cirs()
+    db = _db(a)
+    _setup_incident(db, a, "m3")
+    real = defects.reconcile_holds
+
+    def broken(_db):
+        raise OSError("database unavailable")
+
+    defects.reconcile_holds = broken
+    before = len(_audit_rows(db, "store.release_gates"))
+    try:
+        raised = None
+        try:
+            pipeline.handle_store_publish(_publish_ctx(db, a.slug, a.version, "m3-publish"))
+        except Exception as exc:  # noqa: BLE001
+            raised = exc
+    finally:
+        defects.reconcile_holds = real
+    assert isinstance(raised, RuntimeError) and "refusing to publish" in str(raised), raised
+    refused = _audit_rows(db, "store.publish_refused")
+    assert refused and "could not be reconciled" in refused[-1]["reason"], refused
+    assert len(_audit_rows(db, "store.release_gates")) == before, "gates ran after a failure"
+
+
 def test_re_certifying_the_held_version_in_place_does_not_unhold_the_release_on_sale():
     """Review dd05e389 F-2: the instructions are fixed when the incident opens."""
     a, _b = _cirs()
