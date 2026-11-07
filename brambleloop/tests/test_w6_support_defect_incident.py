@@ -440,11 +440,89 @@ def test_not_a_defect_releases_every_hold_it_needed_and_none_another_incident_ne
     sig9 = defects.signature(a.slug, "9.0.0", ROW)
     assert sig9 in [i[0] for i in _open(db)], _incidents(db)
     defects.record_owner_decision(db, iid, "not_a_defect", "a misread stitch key, not a defect")
-    assert W.reasons(db, a.slug, a.version)["withheld"] is False
-    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True   # sig9 still active
+    # sig9 is still active, and every certified version with its instructions stays held --
+    # the original too (review a66ae0b0 #1: held by instructions, not by a "current" reader).
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
     defects.record_owner_decision(db, _incident_id(db, sig9), "not_a_defect",
                                   "the same misread on the re-release")
     assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+
+
+def test_the_version_the_publish_gate_allows_is_the_one_on_sale_whatever_the_insert_order():
+    """Review a66ae0b0 #1: a lower version certified AFTER a higher one is not "on sale" --
+    the publish gate lets only the highest through. Its buyers' cases count on the highest,
+    and an incident on any version holds the publishable one when the instructions match."""
+    a, _b = _cirs()
+    db = _db(a)
+    _add_version(db, a, "9.0.0", certified=True)             # same instructions
+    _add_version(db, a, "2.0.0", certified=True)             # inserted last, lower number
+    for n in range(3):
+        _case(db, a, 40 + n, version="2.0.0")                # buyers of an unpublishable one
+    _triage(db, "ord1")
+    assert defects.signature(a.slug, "2.0.0", ROW) not in [i[0] for i in _open(db)]
+    for n in range(3):
+        _case(db, a, 50 + n, version="9.0.0")                # buyers of the publishable one
+    _triage(db, "ord2")
+    assert defects.signature(a.slug, "9.0.0", ROW) in [i[0] for i in _open(db)], _incidents(db)
+    for v in ("9.0.0", "2.0.0", a.version):                  # identical instructions: all held
+        assert W.reasons(db, a.slug, v)["blocks_publish"] is True, v
+
+
+def test_on_sale_is_ordered_by_version_not_text():
+    """Review 5494fc71 M8: 10.0.0 is newer than 9.0.0."""
+    a, _b = _cirs()
+    db = _db(a)
+    _add_version(db, a, "10.0.0", certified=True, cir_json=_changed_instructions(a))
+    _add_version(db, a, "9.0.0", certified=True)
+    assert defects._on_sale_version(db, a.slug) == "10.0.0"
+
+
+def test_a_legacy_incident_with_unknown_instructions_holds_every_certified_version():
+    """Review 5494fc71 #2: no stored hash and no held row -> fail closed."""
+    a, _b = _cirs()
+    db = _db(a)
+    sig, _iid = _setup_incident(db, a, "leg1")
+    _add_version(db, a, "9.0.0", certified=True, cir_json=_changed_instructions(a))
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == sig))
+        d = dict(inc.detail or {})
+        d.pop("instruction_hash", None)
+        d["version"] = "0.0.0-gone"
+        inc.detail = d
+    defects.reconcile_holds(db)
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+
+
+def test_unorderable_versions_say_why_no_incident_opened():
+    """Review 5494fc71 #1."""
+    a, _b = _cirs()
+    db = _db(a)
+    _add_version(db, a, "build-seven", certified=True)
+    assert defects._on_sale_version(db, a.slug) is None
+    for n in range(3):
+        _case(db, a, 60 + n)
+    _triage(db, "unord1")
+    assert not [i for i in _open(db) if i[0].startswith(defects.signature(a.slug, a.version, ROW))]
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "support.defect_unorderable_versions")) is not None
+
+
+def test_an_incident_on_an_old_version_holds_a_higher_one_certified_later():
+    """Review a66ae0b0 #1: 1.x incident, then 9.0.0 and 2.0.0 certified (same instructions);
+    9.0.0 -- the only publishable version -- is held at its certification's reconcile."""
+    a, _b = _cirs()
+    db = _db(a)
+    _setup_incident(db, a, "old1")
+    _add_version(db, a, "9.0.0", certified=True)
+    _add_version(db, a, "2.0.0", certified=True)
+    defects.reconcile_holds(db)
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    assert W.reasons(db, a.slug, "2.0.0")["blocks_publish"] is True
 
 
 def test_a_confirmed_incident_on_an_old_version_keeps_holding_a_rolled_back_release():
