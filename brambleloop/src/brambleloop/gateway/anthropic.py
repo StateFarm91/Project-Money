@@ -842,9 +842,11 @@ class AnthropicProvider:
         }).encode()
         return self._guarded(payload, key, "anthropic.vision",
                              timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS),
-                             gate=self._vision_gate(image_urls, max_tokens))
+                             gate=self._vision_gate(image_urls, max_tokens,
+                                                    prompt=prompt, system=system))
 
-    def _vision_gate(self, image_urls: list[str], max_tokens: int):
+    def _vision_gate(self, image_urls: list[str], max_tokens: int, *, prompt: str = "",
+                     system: str = ""):
         """P0-PAID-PROVIDER-OWNER-GATE: every paid vision request passes
         `paid_provider_gate.enforce` immediately before it is sent. The budget evidence is the
         reservation `check_budget_cad` noted in this context (consumed here: one reservation,
@@ -855,9 +857,23 @@ class AnthropicProvider:
         if db is None:
             db = paid_calls.current_db()
         held = held or {}
-        estimate = held.get("estimate_cad") or estimate_cad(
-            self.model, input_tokens=IMAGE_TOKENS_ESTIMATE * max(1, len(image_urls)),
+        # Review U7 F1: this request's own worst case, computed here, never only the noted
+        # reservation's estimate (which may belong to an unrelated, smaller call). The gate
+        # then refuses a reservation smaller than the call (`reservation_underfunded`).
+        import math as _math
+
+        own = estimate_cad(
+            self.model,
+            # The same costing every production caller reserves with
+            # (`len(prompt) // 4 + IMAGE_TOKENS_ESTIMATE` per image, visual/inspect.py etc.).
+            input_tokens=(IMAGE_TOKENS_ESTIMATE * max(1, len(image_urls))
+                          + len(prompt or "") // 4),
             output_tokens=max_tokens)
+        try:
+            noted = float(held.get("estimate_cad") or 0.0)
+        except (TypeError, ValueError):
+            noted = 0.0
+        estimate = max(own, noted) if _math.isfinite(noted) else own
         scope = gate.current_call_scope(gate.VISION)
         if scope == gate.PROBE:
             try:

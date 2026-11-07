@@ -237,3 +237,5 @@ tests/test_w6_secret_leak_escalate.py
 tests/test_w5_a7_supply_stall.py
 tests/test_w6_support_defect_incident.py
 tests/test_w5_v0_paid_provider_gate.py
+tests/test_codex_governor_invalid_cost.py
+tests/test_codex_v0_postgres.py

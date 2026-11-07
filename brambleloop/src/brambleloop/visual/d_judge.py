@@ -125,6 +125,19 @@ class JudgeSpendRefused(RuntimeError):
     pass
 
 
+def _own_or_noted(held: dict) -> float:
+    """Review U7 F1: this request's own worst case, never less than it because a smaller,
+    unrelated reservation was noted in this context."""
+    import math
+
+    own = round(_worst_case_usd() * USD_TO_CAD, 6)
+    try:
+        noted = float((held or {}).get("estimate_cad") or 0.0)
+    except (TypeError, ValueError):
+        noted = 0.0
+    return max(own, noted) if math.isfinite(noted) else own
+
+
 def _worst_case_usd() -> float:
     return (WORST_CASE_INPUT_TOKENS * PRICE_USD_PER_M["input"]
             + MAX_OUTPUT_TOKENS * PRICE_USD_PER_M["output"]) / 1e6
@@ -190,7 +203,7 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0, db=None)
     try:
         out = gate.enforce(
             gate_db, provider=gate.OPENAI_VISION, scope=gate.VISION,
-            estimate_cad=held.get("estimate_cad") or round(_worst_case_usd() * USD_TO_CAD, 6),
+            estimate_cad=_own_or_noted(held),
             fingerprint=paid_calls.fingerprint("d_judge.see", model, sha),
             reservation_id=held.get("reservation_id"), call=_send,
             # Invalid 2xx JSON, reset and wrapped timeouts can follow a billed request.

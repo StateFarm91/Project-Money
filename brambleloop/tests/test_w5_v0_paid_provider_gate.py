@@ -697,6 +697,75 @@ def test_probe_only_vision_rejects_an_unobserved_image_source():
         assert len(wire.calls) == 1
 
 
+def _refused_any(fn, codes, exc=G.PaidCallRefused):
+    try:
+        fn()
+    except exc as e:
+        got = getattr(e, "code", "")
+        assert got in codes, f"refused with {got!r} ({e}), expected one of {codes}"
+        return e
+    raise AssertionError(f"expected a refusal in {codes}; the call was allowed")
+
+
+def test_a_tiny_noted_reservation_never_funds_a_large_vision_call():
+    """Review U7 F1: the vision gate costs the request itself, not the noted reservation."""
+    db = _db()
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.VISION, daily_ceiling_cad=0.01)
+    with _env(ANTHROPIC_API_KEY=KEY_VALUE), Wire() as wire:
+        gw.check_budget_cad(db, estimate_cad=0.0001, agent="gateway", purpose="text.call")
+        provider = gw.AnthropicProvider()
+        with G.call_scope(G.VISION):
+            _refused_any(lambda: provider.see("", "describe",
+                                              [f"https://example.test/{n}" for n in range(4)],
+                                              max_tokens=8000),
+                         {"reservation_underfunded", "provider_daily_ceiling",
+                          "provider_ceiling", "daily_ceiling"},
+                         exc=gw.VisionGateRefused)
+        assert wire.calls == [], wire.calls
+
+
+def test_a_tiny_noted_reservation_never_funds_the_openai_judge():
+    """Review U7 F1, the second vision path (visual.d_judge.see)."""
+    from brambleloop.visual import d_judge
+
+    db = _db()
+    _activate(db, provider=G.OPENAI_VISION, scope=G.VISION)
+    img = Path(_TMP) / "tiny-reservation-judge.png"
+    img.write_bytes(base64.b64decode(PNG))
+    with _env(OPENAI_API_KEY=KEY_VALUE, BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD="5"), Wire() as wire:
+        gw.check_budget_cad(db, estimate_cad=0.000001, agent="gateway", purpose="text.call")
+        try:
+            d_judge.see(str(img), db=db)
+            raise AssertionError("the judge call was allowed on a tiny reservation")
+        except AssertionError:
+            raise
+        except Exception as e:  # noqa: BLE001 - the gate's refusal, whatever its class
+            assert "underfunded" in str(e) or getattr(e, "code", "") == "reservation_underfunded", e
+        assert wire.calls == [], wire.calls
+
+
+def test_probe_scope_refuses_a_non_diagnostic_prompt_or_budget_even_on_the_known_image():
+    """Review U7 F4: kills mutant M19 (the probe-scope prompt restriction)."""
+    from brambleloop.core.models import BenchmarkListing
+
+    db = _db()
+    with db.session() as session:
+        session.add(BenchmarkListing(benchmark_key="fixture", listing_ref="known-image",
+            audit_state="audited", detail={"image_urls": ["https://example.invalid/known"]}))
+    _activate(db, provider=G.ANTHROPIC_VISION, scope=G.PROBE)
+    with _env(ANTHROPIC_API_KEY=KEY_VALUE), Wire() as wire:
+        provider = gw.AnthropicProvider(model=gw.VISION_PROBE_MODEL)
+        for prompt, max_tokens in (("Describe the commercial product in detail",
+                                    gw.VISION_PROBE_MAX_TOKENS),
+                                   (gw.VISION_PROBE_PROMPT, 8000)):
+            gw.check_budget_cad(db, estimate_cad=0.1, agent="gateway", purpose="test.vision")
+            with G.call_scope(G.PROBE):
+                _refused(lambda: provider.see("", prompt, ["https://example.invalid/known"],
+                                              max_tokens=max_tokens),
+                         code="probe_scope_mismatch", exc=gw.VisionGateRefused)
+        assert wire.calls == [], wire.calls
+
+
 def test_probe_only_reference_step_cannot_use_an_arbitrary_image():
     db = _db()
     _activate(db, scope=G.PROBE)
@@ -1097,7 +1166,7 @@ def test_vision_probe_and_vision_judge_calls_obey_the_gate():
         assert gw.vision_usable(db) is False
         # A vision judge (any `provider.see` after the usual reservation) is refused too.
         provider = gw.AnthropicProvider(model=gw.VISION_PROBE_MODEL)
-        gw.check_budget(db, model=provider.model, input_tokens=6000, max_tokens=8,
+        gw.check_budget(db, model=provider.model, input_tokens=len("judge") // 4 + gw.IMAGE_TOKENS_ESTIMATE, max_tokens=8,
                         agent="gateway", purpose="test.vision")
         _refused(lambda: provider.see("", "judge", ["https://example.invalid/g.jpg"],
                                       max_tokens=8),
@@ -1112,7 +1181,7 @@ def test_vision_probe_and_vision_judge_calls_obey_the_gate():
         rec = gw.vision_probe(db, image_url="https://example.invalid/g.jpg")
         assert rec["ok"] is True and rec["activation_id"] == act["id"], rec
         assert len(wire.calls) == 1 and gw.vision_usable(db) is True
-        gw.check_budget(db, model=provider.model, input_tokens=6000, max_tokens=8,
+        gw.check_budget(db, model=provider.model, input_tokens=len("judge") // 4 + gw.IMAGE_TOKENS_ESTIMATE, max_tokens=8,
                         agent="gateway", purpose="test.vision")
         out = provider.see("", "judge", ["https://example.invalid/g2.jpg"], max_tokens=8)
         assert out.text == "photograph" and len(wire.calls) == 2
@@ -1123,7 +1192,7 @@ def test_vision_probe_and_vision_judge_calls_obey_the_gate():
         assert len(wire.calls) == 2
         # The owner's vision ceiling binds the judge: a day already spent refuses.
         _activate(db, G.ANTHROPIC_VISION, G.VISION, daily_ceiling_cad=0.0001)
-        gw.check_budget(db, model=provider.model, input_tokens=6000, max_tokens=8,
+        gw.check_budget(db, model=provider.model, input_tokens=len("judge") // 4 + gw.IMAGE_TOKENS_ESTIMATE, max_tokens=8,
                         agent="gateway", purpose="test.vision")
         _refused(lambda: provider.see("", "judge", ["https://example.invalid/g4.jpg"],
                                       max_tokens=8),
