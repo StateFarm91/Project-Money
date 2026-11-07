@@ -21,6 +21,11 @@ Wave-3 lane K12. Three requirements that sit on top of the existing Laura gate
   qualified in this build -- that needs a face-embedding model, which is not installed and
   is gated -- so the biometric floor is UNMEASURED and every non-drift frame goes to human
   review. That is the honest state, not a defect to route around.
+* **V3 qualification (OA-V3-LAURA-QUALIFICATION, fixture-only).** An embedder becomes the
+  biometric floor only through a validated qualification record (`validate_qualification`,
+  `measure_biometric`). Production admits a record only from `PRODUCTION_QUALIFICATIONS`,
+  which is empty, so production identity stays UNKNOWN. Fixture records are admitted only on
+  explicit opt-in in shadow, and every result they touch carries `FIXTURE_LABEL`.
 
 Nothing here generates, calls a model or spends. Nothing here approves an image for
 publication: `visual.canonical.asset_status` remains the only publication status, and a
@@ -28,6 +33,8 @@ resolved review records what a reviewer saw rather than changing it.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from datetime import datetime, timezone
 
@@ -44,6 +51,9 @@ BAND_PASS, BAND_REVIEW, BAND_AUTO_REFUSE, BAND_INVALID = (
 # below `refuse_below` is a different face, between is borderline (review). Empty: no
 # embedder has been installed or qualified (no face-embedding dependency in this build).
 # Adding one is a qualification decision recorded here in code, never a caller argument.
+# V3: the production wiring (`vision_judges.Adapters`) never reads this table; it admits an
+# embedder only through a validated qualification record (`PRODUCTION_QUALIFICATIONS`,
+# below, also empty). Kept for direct `assess` evidence; it stays empty in the build.
 QUALIFIED_EMBEDDERS: dict[str, dict] = {}
 
 REVIEW_DECISIONS = frozenset({"confirmed_same_person", "not_laura", "inconclusive"})
@@ -166,7 +176,12 @@ def biometric_floor(bio: dict | None) -> dict:
         return {"status": UNMEASURED, "similarity": None,
                 "why": (f"no qualified face-embedding model{' ' + repr(name) if name else ''}"
                         f"; the biometric floor is gated on installing and qualifying one")}
-    a, b = bio.get("reference") or [], bio.get("frame") or []
+    return _cosine_floor(bio.get("reference"), bio.get("frame"), spec, name)
+
+
+def _cosine_floor(a, b, spec: dict, name: str) -> dict:
+    """The floor itself: cosine of two embeddings against the embedder's own thresholds."""
+    a, b = a or [], b or []
     try:
         a, b = [float(x) for x in a], [float(x) for x in b]
     except (TypeError, ValueError):
@@ -187,13 +202,227 @@ def biometric_floor(bio: dict | None) -> dict:
             "why": f"cosine {sim} under {name}"}
 
 
-def assess(evidence: dict | None, *, now: datetime | None = None) -> dict:
+# ---------------------------------------------------------------------------- V3 qualification
+#
+# OA-V3-LAURA-QUALIFICATION (owner, fixture-only): an embedder is admissible as the biometric
+# floor only through a *qualification record* -- which embedder, its version, the hash of its
+# weights, the calibration evidence it was qualified on (against her current canonical
+# references) and the owner decision that admitted it -- validated here, deterministically.
+# A record is never a caller's say-so:
+#
+# * production admits only a record that is on `PRODUCTION_QUALIFICATIONS` (by its sha256),
+#   is not fixture-only, carries an owner decision scoped to production, and matches the
+#   embedder actually in use. That register is EMPTY: no embedder has been funded, run on
+#   evidence or independently validated, so production identity stays UNKNOWN exactly as
+#   before (provider choice and spend are an OWNER ACTION);
+# * a fixture record (`fixture_only: True`) is admitted only where a caller explicitly opts
+#   into fixtures *and* the phase is shadow, and every result it touches is labelled
+#   `FIXTURE_LABEL`: a fixture PASS is a test of the wiring, never identity certification.
+#
+# The thresholds a record carries are the embedder's own `match_at` / `refuse_below`, applied
+# by the same `_cosine_floor` as `QUALIFIED_EMBEDDERS`; nothing here relaxes any rule of
+# `assess`. `QUALIFIED_EMBEDDERS` stays empty and the production wiring (`vision_judges`)
+# never reads it: embeddings are computed here from the image bytes, never supplied.
+
+QUALIFICATION_VERSION = "embedder-qualification/1"
+FIXTURE_LABEL = ("FIXTURE ONLY: stand-in embedder and simulated judges "
+                 "(OA-V3-LAURA-QUALIFICATION). Not identity certification; real identity "
+                 "qualification remains UNKNOWN until validated with approved providers.")
+CERT_FIXTURE, CERT_QUALIFIED = "fixture_only_not_certification", "qualified"
+FIXTURE_DECISION_ID = "OA-V3-LAURA-QUALIFICATION"
+SCOPE_PRODUCTION, SCOPE_FIXTURE = "production", "fixture_only"
+
+# Owner-funded, independently validated qualification records admitted for production. EMPTY:
+# adding one is an owner decision with calibration evidence, recorded here in code.
+PRODUCTION_QUALIFICATIONS: tuple[dict, ...] = ()
+
+_RECORD_FIELDS = ("version", "embedder", "embedder_version", "weights_sha256", "calibration",
+                  "owner_decision", "fixture_only")
+
+
+def _is_hex64(v) -> bool:
+    s = str(v or "")
+    return len(s) == 64 and all(c in "0123456789abcdef" for c in s)
+
+
+def record_sha256(record: dict) -> str:
+    """The content hash of a qualification record (every field but its own hash)."""
+    body = {k: (record or {}).get(k) for k in _RECORD_FIELDS}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                     default=str).encode()).hexdigest()
+
+
+def qualification_record(*, embedder: str, embedder_version: str, weights_sha256: str,
+                         calibration: dict, owner_decision: dict,
+                         fixture_only: bool) -> dict:
+    """A qualification record with its content hash. Building one admits nothing."""
+    rec = {"version": QUALIFICATION_VERSION, "embedder": embedder,
+           "embedder_version": embedder_version, "weights_sha256": weights_sha256,
+           "calibration": dict(calibration or {}), "owner_decision": dict(owner_decision or {}),
+           "fixture_only": fixture_only}
+    rec["record_sha256"] = record_sha256(rec)
+    return rec
+
+
+def _phase() -> str:
+    import os
+
+    return (os.environ.get("BRAMBLELOOP_PHASE") or "shadow").strip().lower() or "shadow"
+
+
+def validate_qualification(record: dict | None, *, embedder=None,
+                           allow_fixture: bool = False) -> dict:
+    """Whether this record admits its embedder as the biometric floor, and why not."""
+    from . import canonical
+
+    rec = record if isinstance(record, dict) else {}
+    refused: list[str] = []
+    if not rec:
+        return {"admitted": False, "reasons": ["no qualification record"], "spec": None,
+                "fixture_only": None, "certification": None}
+    if rec.get("version") != QUALIFICATION_VERSION:
+        refused.append(f"record version {rec.get('version')!r} is not {QUALIFICATION_VERSION}")
+    if not _is_hex64(rec.get("record_sha256")) or rec.get("record_sha256") != record_sha256(rec):
+        refused.append("record_sha256 does not match the record's content")
+    name, ver = str(rec.get("embedder") or ""), str(rec.get("embedder_version") or "")
+    if not name or not ver:
+        refused.append("the record does not name the embedder and its version")
+    if not _is_hex64(rec.get("weights_sha256")):
+        refused.append("weights_sha256 is not a sha256")
+    fixture = rec.get("fixture_only")
+    if not isinstance(fixture, bool):
+        refused.append("fixture_only must be declared true or false")
+    cal = rec.get("calibration") if isinstance(rec.get("calibration"), dict) else {}
+    spec = None
+    try:
+        match_at, refuse_below = float(cal["match_at"]), float(cal["refuse_below"])
+        if not (0.0 < refuse_below < match_at <= 1.0):
+            refused.append(f"thresholds out of order (refuse_below {refuse_below}, "
+                           f"match_at {match_at})")
+        else:
+            spec = {"match_at": match_at, "refuse_below": refuse_below}
+    except (KeyError, TypeError, ValueError):
+        refused.append("calibration carries no numeric match_at / refuse_below")
+    if not _is_hex64(cal.get("evidence_sha256")):
+        refused.append("calibration evidence is not hashed (evidence_sha256)")
+    for k in ("genuine_pairs", "impostor_pairs"):
+        n = cal.get(k)
+        if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+            refused.append(f"calibration {k} must be a positive count")
+    current = {str(v).lower() for v in canonical.CURRENT_REFERENCE_HASHES.values()}
+    named = {str(v).lower() for v in cal.get("canonical_references") or ()}
+    if named != current:
+        refused.append("calibration was not measured against her current canonical "
+                       "references (canonical.CURRENT_REFERENCE_HASHES)")
+    frames = list(cal.get("reference_frames") or ())
+    if not frames or any(f not in canonical.CURRENT_REFERENCE_HASHES for f in frames):
+        refused.append("calibration names no valid canonical reference frame to compare against")
+    dec = rec.get("owner_decision") if isinstance(rec.get("owner_decision"), dict) else {}
+    if not str(dec.get("decision_id") or "").strip() or not str(dec.get("decided_by") or
+                                                                "").strip():
+        refused.append("no owner decision (decision_id and decided_by) admits this embedder")
+    elif dec.get("decision") != "approved":
+        refused.append(f"owner decision {dec.get('decision_id')} is not 'approved'")
+    if _parse(dec.get("decided_at")) is None:
+        refused.append("the owner decision has no valid decided_at")
+    scope = dec.get("scope")
+    if fixture is True:
+        if scope != SCOPE_FIXTURE:
+            refused.append("a fixture record's decision must be scoped fixture_only")
+        if not allow_fixture:
+            refused.append("fixture-only record refused: production never admits a fixture "
+                           "embedder")
+        elif _phase() != "shadow":
+            refused.append(f"fixture-only record refused outside shadow (phase {_phase()})")
+    elif fixture is False:
+        if scope != SCOPE_PRODUCTION:
+            refused.append("the owner decision is not scoped to production")
+        if rec.get("record_sha256") not in {r.get("record_sha256")
+                                            for r in PRODUCTION_QUALIFICATIONS}:
+            refused.append("not on the owner-funded production register "
+                           "(identity_gate.PRODUCTION_QUALIFICATIONS is empty: no embedder "
+                           "is qualified; OWNER ACTION)")
+    if embedder is not None:
+        got = (str(getattr(embedder, "name", "") or ""),
+               str(getattr(embedder, "version", "") or ""))
+        if got != (name, ver):
+            refused.append(f"the embedder in use {got} is not the qualified one {(name, ver)}")
+        w = str(getattr(embedder, "weights_sha256", "") or "")
+        if w != rec.get("weights_sha256"):
+            refused.append("the embedder in use does not carry the qualified weights hash")
+    admitted = not refused
+    return {"admitted": admitted, "reasons": refused, "spec": spec if admitted else None,
+            "fixture_only": fixture if isinstance(fixture, bool) else None,
+            "embedder": name, "embedder_version": ver,
+            "record_sha256": rec.get("record_sha256"),
+            "certification": ((CERT_FIXTURE if fixture else CERT_QUALIFIED) if admitted
+                              else None)}
+
+
+def _embed(embedder, data: bytes):
+    try:
+        vec = embedder.embed(data)
+    except Exception as exc:  # noqa: BLE001 - an embedding that was not made is UNMEASURED
+        return None, f"{type(exc).__name__}: {str(exc)[:160]}"
+    return vec, ""
+
+
+def measure_biometric(embedder, record: dict | None, frame: bytes, references: dict, *,
+                      allow_fixture: bool = False) -> dict:
+    """The biometric floor computed here: the embedder's similarity of the frame to each of
+    her canonical reference frames the record was calibrated on (verified by sha256). The
+    worst similarity counts. Any refusal is UNMEASURED, so `assess` can never PASS on it."""
+    from . import canonical
+
+    q = validate_qualification(record, embedder=embedder, allow_fixture=allow_fixture)
+    base = {"qualification": {k: q.get(k) for k in ("admitted", "embedder", "embedder_version",
+                                                     "record_sha256", "fixture_only",
+                                                     "certification", "reasons")}}
+    if q.get("fixture_only") is True:
+        base["certification"] = FIXTURE_LABEL
+    if embedder is None:
+        return {**base, "status": UNMEASURED, "similarity": None,
+                "why": "no face-embedding model is configured"}
+    if not q["admitted"]:
+        return {**base, "status": UNMEASURED, "similarity": None,
+                "why": "embedder not qualified: " + "; ".join(q["reasons"])}
+    if not frame:
+        return {**base, "status": UNMEASURED, "similarity": None, "why": "no frame bytes"}
+    fvec, err = _embed(embedder, frame)
+    if err:
+        return {**base, "status": UNMEASURED, "similarity": None, "why": err}
+    frames = list(record["calibration"]["reference_frames"])
+    results = []
+    for f in frames:
+        data = (references or {}).get(f) or b""
+        if not data or hashlib.sha256(data).hexdigest() != canonical.CURRENT_REFERENCE_HASHES[f]:
+            return {**base, "status": UNMEASURED, "similarity": None,
+                    "why": f"canonical reference {f} unreadable by its recorded sha256"}
+        rvec, err = _embed(embedder, data)
+        if err:
+            return {**base, "status": UNMEASURED, "similarity": None, "why": err}
+        r = _cosine_floor(rvec, fvec, q["spec"], q["embedder"])
+        if r["status"] == UNMEASURED:
+            return {**base, **r}
+        results.append({"frame": f, **r})
+    worst = min(results, key=lambda r: r["similarity"])
+    return {**base, **{k: v for k, v in worst.items() if k != "frame"},
+            "against": [{"frame": r["frame"], "similarity": r["similarity"]} for r in results],
+            "why": f"{worst['why']} (worst of {len(results)} canonical reference frame(s))"}
+
+
+def assess(evidence: dict | None, *, now: datetime | None = None,
+           biometric: dict | None = None) -> dict:
     """The identity gate for one model-bearing frame: PASS, FAIL or UNKNOWN, with its band.
 
     Order: any drift read by any judge is auto-refused (FAIL) -- the existing rule, kept;
     an invalid trial is UNKNOWN (fix the trial, no review); everything else that is not
     provably her enters the REVIEW band (UNKNOWN, blocks); PASS needs a valid trial, both
     judges reading Laura with a matching morphology floor, and the biometric floor PASS.
+
+    `biometric`: a floor already computed here (`measure_biometric`, from a validated
+    qualification record); otherwise the evidence's embeddings are read against
+    `QUALIFIED_EMBEDDERS`. A fixture floor labels the whole result as not certification.
     """
     from . import canonical
 
@@ -203,10 +432,13 @@ def assess(evidence: dict | None, *, now: datetime | None = None) -> dict:
     verdicts = [{"judge": j["judge"], **canonical.laura_verdict(j["scored"])}
                 for j in judges]
     drifted = sorted({d for v in verdicts for d in v["drifted"]})
-    bio = biometric_floor(ev.get("biometric"))
+    bio = (dict(biometric) if isinstance(biometric, dict)
+           else biometric_floor(ev.get("biometric")))
     base = {"gate_version": GATE_VERSION, "validity": validity, "judges": verdicts,
             "biometric": bio, "rule": canonical.IDENTITY_RULE, "score": None,
             "publication_approved": False}
+    if bio.get("certification") == FIXTURE_LABEL:
+        base.update(certification=FIXTURE_LABEL, fixture_only=True)
 
     if not judges:
         return {**base, "status": "UNKNOWN", "band": BAND_INVALID,
