@@ -46,15 +46,30 @@ def _open_image_generation(db) -> None:
     provider with no price on file, an account with no credit, and a provider that refuses
     this company's brief on content grounds are four states and one string, and the last is
     a live possibility for a brief about an attractive adult model.
+
+    Since V0 (P0-PAID-PROVIDER-OWNER-GATE, merged 83fa8e7a / review fixes 0b3d54ee) a key is
+    not an activation either: `images.usable` opens only on a successful probe made under the
+    owner's activation of that provider. So the owner activation is recorded for real
+    (`_paid_activation.activate`), and the helper first proves that the same probe without it
+    leaves the gate shut.
     """
+    import _paid_activation
+
     from brambleloop.gateway import images
 
-    images.probe(
-        db,
-        env={"BRAMBLELOOP_IMAGE_PROVIDER": "flux-2-pro", "BRAMBLELOOP_IMAGE_KEY": "k"},
-        generator=lambda prompt, **kw: {"provider": "flux-2-pro", "cad": 0.0274,
-                                        "url": "https://example.invalid/i.png",
-                                        "latency_ms": 900.0})
+    def probe():
+        images.probe(
+            db,
+            env={"BRAMBLELOOP_IMAGE_PROVIDER": "flux-2-pro", "BRAMBLELOOP_IMAGE_KEY": "k"},
+            generator=lambda prompt, **kw: {"provider": "flux-2-pro", "cad": 0.0274,
+                                            "url": "https://example.invalid/i.png",
+                                            "latency_ms": 900.0})
+
+    probe()
+    assert not images.usable(db), "a key without the owner's activation opened image generation"
+    _paid_activation.activate(db, "flux-2-pro")
+    probe()
+    assert images.usable(db), "an activated, successful probe did not open image generation"
 
 
 def _open_tester_roster(db) -> None:
