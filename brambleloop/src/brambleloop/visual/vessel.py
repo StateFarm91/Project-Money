@@ -41,18 +41,21 @@ SEP_DE = 12.0               # product pixel: at least this far (dE76) from the f
 PEAK_WINDOW_DEG = 18        # a corner is a radius maximum over +- this many degrees
 PEAK_PROMINENCE = 0.035     # ... standing this far (fraction of the mean radius) above the
                             # lowest radius within +- 30 degrees
-# Why no test can separate the prominence floor from the window (Main 6702728170 asked): for
-# a hexagon, a bump at a flat's midpoint is only the maximum of its own +-18 deg window if it
-# rises above the edge 12 deg from the corner (~0.93 of the corner radius against 0.866 for
-# the flat). A bump that high already stands ~7 % above the dip beside it, past this 3.5 %
-# floor, so it is a corner either way. The floor is kept as defence in depth for
-# non-polygonal noise; test_a_jagged_flat_is_not_a_corner pins the behaviour it protects.
+# The prominence floor is load-bearing (review V2 F5): it is what keeps a nearly round
+# outline (a circle with a slight 6-lobed ripple) from being counted as a hexagon.
+# test_a_lobed_circle_is_round_not_a_hexagon pins it. (For a bump on a polygon's flat the
+# +-18 deg window already decides; test_a_jagged_flat_is_not_a_corner pins that.)
 SMOOTH_DEG = 7
 MIN_PRODUCT_FRAC = 0.03     # of the image area
 MIN_BAND_PX = 3             # a colour run shorter than this is merged into its neighbour
 MIN_PX_PER_ROW = 1.5        # the side view needs this many pixels per wall row
 RIM_WIDTH_RATIO = 1.06      # top-strip width over the wall's median width
 RIM_STRIP = 0.06            # the top 6 % of the wall's height is the rim strip
+SHARE_REL_MAX = 0.35        # each wall band's share of the wall may be off by this much
+MIN_TOP_RADIUS_PX = 60      # below this mean outline radius a corner count is not readable
+PALETTE_COVERAGE_MIN = 0.85  # share of wall pixels within OFF_PALETTE_DE of the palette
+OFF_ROW_FRAC = 0.5          # a row with more off-palette pixels than this is labelled "off"
+OFF_MIN_ROWS = 0.5          # an "off" run under this many wall rows tall is edge blending
 CENTRE_COLUMN = (0.30, 0.70)  # band labels read from the middle of the wall only
 
 BLIND_SPOTS = (
@@ -73,6 +76,9 @@ class VesselModel:
     base_rows: int
     wall_total_rows: int
     palette: dict[str, str] = field(default_factory=dict)
+    # False when the twin says "vessel" but no wall can be modelled (review V2 F4): the
+    # verdict is then UNKNOWN by name, never the round-piece check.
+    modelled: bool = True
 
 
 def vessel_models(cir) -> list[VesselModel]:
@@ -89,6 +95,8 @@ def vessel_models(cir) -> list[VesselModel]:
             continue
         counts = [r.count for r in (getattr(twin.geometry, "rings", None) or [])]
         if not counts:
+            out.append(VesselModel(comp.name, twin.sides, [], [], "", 0, 0,
+                                   dict(cir.colors), modelled=False))
             continue
         # The wall is the trailing rounds that repeat the round before them; the round that
         # first reaches the final count is the last increase round, the base's outer edge.
@@ -98,6 +106,8 @@ def vessel_models(cir) -> list[VesselModel]:
                 break
             wall_n += 1
         if wall_n == 0:
+            out.append(VesselModel(comp.name, twin.sides, [], [], "", len(counts), 0,
+                                   dict(cir.colors), modelled=False))
             continue
         rows = comp.rows[-wall_n:]
         colours = [getattr(r, "color", None) or "" for r in rows]
@@ -184,13 +194,17 @@ def corner_count(mask: np.ndarray) -> tuple[int, dict]:
                         "points_to_flats": round(float(prof.max() / max(prof.min(), 1e-9)), 3)}
 
 
-def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str]):
+def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str], rows_total: int = 1):
     ys, xs = np.nonzero(mask)
     top, bottom = ys.min(), ys.max()
+    # An "off" run thinner than half a wall row is the edge blending into the surface
+    # (blur, rotation, JPEG), not a band: it is merged like any too-short run.
+    min_off = OFF_MIN_ROWS * (bottom - top + 1) / max(rows_total, 1)
     ids = list(palette)
     pal = np.array([F._lab(np.array([[F._hex_rgb(palette[i])]], dtype=np.float64))[0, 0]
                     for i in ids])
     labels, widths = [], []
+    on_px = total_px = 0
     for y in range(bottom, top - 1, -1):                  # bottom to top
         row = np.nonzero(mask[y])[0]
         if row.size == 0:
@@ -202,8 +216,17 @@ def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str]):
         if px.size == 0:
             labels.append(None)
             continue
-        cls = F._de(px[:, None, :], pal[None, :, :]).argmin(axis=1)
-        labels.append(ids[int(np.bincount(cls, minlength=len(ids)).argmax())])
+        dist = F._de(px[:, None, :], pal[None, :, :])
+        cls, near = dist.argmin(axis=1), dist.min(axis=1)
+        ok = near <= F.OFF_PALETTE_DE
+        on_px += int(ok.sum())
+        total_px += int(ok.size)
+        # Review V2 F1: a pixel is only a palette colour if it is near one. A row mostly
+        # off the palette is "off", so a wrong colourway cannot pass as the right bands.
+        if ok.mean() < 1.0 - OFF_ROW_FRAC:
+            labels.append("off")
+            continue
+        labels.append(ids[int(np.bincount(cls[ok], minlength=len(ids)).argmax())])
     runs: list[list] = []
     for lab_id in labels:
         if runs and runs[-1][0] == lab_id:
@@ -214,7 +237,7 @@ def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str]):
     while changed and len(runs) > 1:
         changed = False
         for i, (cid, n) in enumerate(runs):
-            if n < MIN_BAND_PX or cid is None:
+            if n < MIN_BAND_PX or cid is None or (cid == "off" and n < min_off):
                 j = i - 1 if i > 0 else i + 1
                 runs[j][1] += n
                 del runs[i]
@@ -226,7 +249,8 @@ def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str]):
                         k += 1
                 changed = True
                 break
-    return runs, widths, bottom - top + 1
+    coverage = on_px / total_px if total_px else 0.0
+    return runs, widths, bottom - top + 1, coverage
 
 
 # ---- the verifier ---------------------------------------------------------------------------
@@ -236,12 +260,20 @@ def verify_top(data: bytes, model: VesselModel) -> dict:
     mask, _lab, why = _product_mask(data)
     if mask is None:
         return F._check(name, F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")
-    if not model.sides:
-        return F._check(name, F.NA, "the twin states no side count for this vessel")
+    if model.sides is None:
+        # Review V2 F2: a side count the twin cannot state is a verification gap.
+        return F._check(name, F.UNKNOWN, "the twin states no side count for this vessel",
+                        code="UNVERIFIABLE_COUNT")
     n, measured = corner_count(mask)
-    ok = n == model.sides
+    if measured["mean_radius_px"] < MIN_TOP_RADIUS_PX:
+        # Review V2 F3: a tiny outline's corners are not countable.
+        return F._check(name, F.UNKNOWN, f"outline radius {measured['mean_radius_px']} px is "
+                                         f"under {MIN_TOP_RADIUS_PX} px; corners not countable",
+                        code="UNVERIFIABLE_COUNT", **measured)
+    ok = n == model.sides          # 0 for a round vessel: a round outline has no corners
+    shape = "round" if model.sides == 0 else f"{model.sides}-sided"
     return F._check(name, F.PASS if ok else F.FAIL,
-                    f"{n} corners counted from above, the CIR makes {model.sides}",
+                    f"{n} corners counted from above, the CIR makes a {shape} vessel",
                     code="WRONG_REPEAT_COUNT", counted=n, expected=model.sides, **measured)
 
 
@@ -250,13 +282,16 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
     name = model.component
     if mask is None:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")]
-    runs, widths, height = _bands(mask, lab, model.palette)
+    runs, widths, height, coverage = _bands(mask, lab, model.palette, model.wall_total_rows)
     if height / max(model.wall_total_rows, 1) < MIN_PX_PER_ROW:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN,
                          f"{height} px for {model.wall_total_rows} wall rows",
                          code="UNVERIFIABLE_COUNT")]
     seen = [r[0] for r in runs]
-    out = []
+    out = [F._check(f"{name}:palette", F.PASS if coverage >= PALETTE_COVERAGE_MIN else F.FAIL,
+                    f"{coverage:.0%} of the wall is within {F.OFF_PALETTE_DE:g} dE of the "
+                    f"CIR's colours (needs {PALETTE_COVERAGE_MIN:.0%})",
+                    code="OFF_PALETTE_COLOUR", coverage=round(coverage, 3))]
     expected = list(model.wall_bands)
     extra_top = len(seen) == len(expected) + 1 and seen[:-1] == expected
     rim_w = np.median(widths[-max(1, int(RIM_STRIP * len(widths))):])
@@ -266,7 +301,8 @@ def verify_side(data: bytes, model: VesselModel) -> list[dict]:
         shares = [r[1] / height for r in runs]
         want = [n / model.wall_total_rows for n in model.wall_rows]
         worst_rel = max(abs(s - w) / w for s, w in zip(shares, want))
-        out.append(F._check(f"{name}:wall_bands", F.PASS if worst_rel <= 0.6 else F.FAIL,
+        out.append(F._check(f"{name}:wall_bands",
+                            F.PASS if worst_rel <= SHARE_REL_MAX else F.FAIL,
                             f"bands {seen} bottom to top; worst share off by "
                             f"{worst_rel:.0%}", code="WRONG_COLOUR_LAYOUT",
                             bands=seen, shares=[round(s, 3) for s in shares],
@@ -296,6 +332,12 @@ def verify(top: bytes, side: bytes, cir) -> dict:
     else:
         checks = []
         for m in models:
+            if not m.modelled:
+                checks.append(F._check(f"{m.component}:vessel_model", F.UNKNOWN,
+                                       "the twin is a vessel but its wall cannot be modelled "
+                                       "(no constant trailing rounds)",
+                                       code="UNVERIFIABLE_COUNT"))
+                continue
             checks.append(verify_top(top, m))
             checks.extend(verify_side(side, m))
     status = F.worst(c["status"] for c in checks)

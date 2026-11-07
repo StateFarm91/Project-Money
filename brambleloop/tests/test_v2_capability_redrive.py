@@ -143,6 +143,28 @@ def test_the_hourly_chain_successors_sweep_runs_it():
     assert len(queued) == 1 and queued[0].inputs["epoch"] == 1, queued
 
 
+def test_an_experiment_run_blocked_on_the_gate_is_never_re_driven():
+    """Review V2 F10 (mutant R4): a controlled experiment run ('#' in its key) is one-shot,
+    even when its blocked reason names the capability gate."""
+    db = _db()
+    key = IP.run_key("basket-x", "1.0.0", "basket-x-release") + "#exp1"
+    with db.session() as s:
+        s.add(ImageProductionRun(run_key=key, slug="basket-x", version="1.0.0",
+                                 release="basket-x-release", listing="basket-x",
+                                 stage="product_generation", status="blocked",
+                                 blocked_reason=GATE_REASON, stages={}))
+    gate, calls = _Gate(), []
+    gate.open = True
+    real = _with_gate(gate)
+    try:
+        out = IP.redrive_capability_blocked(db, follow=_follow(calls))
+    finally:
+        gallery.gates_now = real
+    assert calls == [] and out["restarted"] == [], out
+    assert [r["run_key"] for r in out["refused"]] == [key], out
+    assert "one-shot" in out["refused"][0]["why"], out
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):

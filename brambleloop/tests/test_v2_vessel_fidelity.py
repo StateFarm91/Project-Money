@@ -37,8 +37,8 @@ MODEL = V.vessel_models(CIR)[0]
 HEX = CIR.colors
 
 
-def _rgb(cid):
-    h = HEX[cid].lstrip("#")
+def _rgb(cid, model=None):
+    h = ((model.palette if model else None) or HEX).get(cid, cid).lstrip("#")
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
@@ -66,15 +66,24 @@ def _perturb(im, *, rotate=0.0, blur=0.0, gradient=0.0, jpeg=None):
     return buf.getvalue()
 
 
-def top_view(sides=None, *, size=1600, bump=0.0, **pert):
+def top_view(sides=None, *, size=1600, bump=0.0, lobes=0.0, model=None, **pert):
     """The basket standing on its base, from directly above: the outline is the twin's
-    polygon (`sides`), the rim is the top wall row's colour, the inside a shade darker."""
-    sides = MODEL.sides if sides is None else sides
+    polygon (`sides`), the rim is the top wall row's colour, the inside a shade darker.
+    `lobes` draws a near-circle r(1 + a*cos 6t) instead (review V2 F5)."""
+    model = model or MODEL
+    sides = model.sides if sides is None else sides
     im = Image.new("RGB", (size, size), SURFACE)
     d = ImageDraw.Draw(im)
     c, r = size / 2, size * 0.32
-    rim = _rgb(MODEL.rim_colour)
-    if sides == 0:
+    rim = _rgb(model.rim_colour, model)
+    if lobes:
+        pts = [(c + r * (1 + lobes * math.cos(6 * t)) * math.cos(t),
+                c + r * (1 + lobes * math.cos(6 * t)) * math.sin(t))
+               for t in (2 * math.pi * k / 720 for k in range(720))]
+        d.polygon(pts, fill=rim)
+        d.ellipse([c - r * .85, c - r * .85, c + r * .85, c + r * .85],
+                  fill=tuple(int(v * .82) for v in rim))
+    elif sides == 0:
         d.ellipse([c - r, c - r, c + r, c + r], fill=rim)
         d.ellipse([c - r * .85, c - r * .85, c + r * .85, c + r * .85],
                   fill=tuple(int(v * .82) for v in rim))
@@ -97,11 +106,13 @@ def top_view(sides=None, *, size=1600, bump=0.0, **pert):
     return _perturb(_texture(im), **pert)
 
 
-def side_view(bands=None, rows=None, *, rim=None, rim_bulge=1.0, size=(1600, 1200), **pert):
+def side_view(bands=None, rows=None, *, rim=None, rim_bulge=1.0, size=(1600, 1200), model=None,
+              **pert):
     """The basket standing, camera level with the wall: the wall's colour bands, bottom to
-    top, at their row shares (the twin's width:height)."""
-    bands = MODEL.wall_bands if bands is None else bands
-    rows = MODEL.wall_rows if rows is None else rows
+    top, at their row shares (the twin's width:height). A band may be a palette id or a hex."""
+    model = model or MODEL
+    bands = model.wall_bands if bands is None else bands
+    rows = model.wall_rows if rows is None else rows
     im = Image.new("RGB", size, SURFACE)
     d = ImageDraw.Draw(im)
     w = size[0] * 0.6
@@ -111,10 +122,10 @@ def side_view(bands=None, rows=None, *, rim=None, rim_bulge=1.0, size=(1600, 120
     y = y_bottom
     for cid, n in zip(bands, rows):
         bh = h * n / total
-        d.rectangle([x0, y - bh, x0 + w, y], fill=_rgb(cid))
+        d.rectangle([x0, y - bh, x0 + w, y], fill=_rgb(cid, model))
         y -= bh
     if rim is not None or rim_bulge != 1.0:
-        colour = _rgb(rim or MODEL.rim_colour)
+        colour = _rgb(rim or model.rim_colour, model)
         extra = w * (rim_bulge - 1.0) / 2
         rh = h * (0.10 if rim else 0.07)
         d.rectangle([x0 - extra, y - rh, x0 + w + extra, y], fill=colour)
@@ -234,6 +245,102 @@ def test_a_jagged_flat_is_not_a_corner():
         v = V.verify(top_view(bump=0.02, **p), side_view(**p), CIR)
         sides = next(c for c in v["checks"] if c["check"].endswith(":sides"))
         assert sides["status"] == "PASS" and sides["counted"] == 6, (p, sides)
+
+
+# ---- review V2 6799f1d4 F1-F7 ------------------------------------------------------------
+
+def test_the_wrong_colourway_fails_off_palette():
+    """F1: the right band layout in yellow and navy is not the CIR's cream and wine."""
+    wrong = {"cream": "#E8C547", "wine": "#1F2A5A"}
+    bands = [wrong[b] for b in MODEL.wall_bands]
+    for p in ({}, {"blur": 1.5, "jpeg": 75}):
+        v = V.verify(top_view(**p), side_view(bands, **p), CIR)
+        codes, status = _codes(v)
+        assert status == "FAIL" and "OFF_PALETTE_COLOUR" in codes, (p, codes)
+    good = V.verify(top_view(), side_view(), CIR)
+    pal = next(c for c in good["checks"] if c["check"].endswith(":palette"))
+    assert pal["status"] == "PASS" and pal["coverage"] > 0.95, pal
+
+
+KEY = launch0.cir_for("key_basket")
+KEY_MODEL = V.vessel_models(KEY)[0]
+
+
+def test_a_round_basket_requires_no_corners():
+    """F2: sides == 0 is a round vessel, a real requirement, not "no side count"."""
+    assert KEY_MODEL.sides == 0 and KEY_MODEL.modelled
+    for p in ({}, {"blur": 1.5, "rotate": 3.0, "jpeg": 75}):
+        v = V.verify(top_view(model=KEY_MODEL, **p), side_view(model=KEY_MODEL, **p), KEY)
+        assert v["status"] == "PASS", (p, [(c["check"], c["status"], c["why"])
+                                           for c in v["checks"]])
+        for sides in (4, 6):
+            codes, status = _codes(V.verify(top_view(sides, model=KEY_MODEL, **p),
+                                            side_view(model=KEY_MODEL, **p), KEY))
+            assert status == "FAIL" and "WRONG_REPEAT_COUNT" in codes, (sides, p, codes)
+
+
+def test_a_vessel_whose_side_count_is_unknown_is_unknown():
+    """F2: a twin that states no side count gives UNKNOWN, never NA."""
+    from dataclasses import replace
+
+    c = V.verify_top(top_view(), replace(MODEL, sides=None))
+    assert c["status"] == "UNKNOWN" and c["code"] == "UNVERIFIABLE_COUNT", c
+
+
+def test_a_top_view_too_small_to_count_corners_is_unknown():
+    """F3: a few dozen pixels of outline cannot show six corners."""
+    for size in (100, 150):
+        c = V.verify_top(top_view(size=size), MODEL)
+        assert c["status"] == "UNKNOWN" and c["code"] == "UNVERIFIABLE_COUNT", (size, c)
+    assert V.verify_top(top_view(size=400), MODEL)["status"] == "PASS"
+
+
+def test_a_vessel_twin_without_a_wall_model_is_unknown_never_the_round_check():
+    """F4: shape == "vessel" with no constant trailing rounds is not verifiable."""
+    from brambleloop.visual import fidelity as F
+
+    real = V.vessel_models
+    try:
+        V.vessel_models = lambda cir: [V.VesselModel("basket", 6, [], [], "", 10, 0,
+                                                     dict(cir.colors), modelled=False)]
+        assert V.is_vessel(CIR)
+        v = V.verify(top_view(), side_view(), CIR)
+        assert v["status"] == "UNKNOWN", v["status"]
+        assert [c["check"] for c in v["checks"]] == ["basket:vessel_model"], v["checks"]
+        a = F.verify_anchor(top_view(), CIR, side=side_view())
+        assert a["status"] == "UNKNOWN" and not any(
+            c["check"] == "aspect" for c in a["checks"]), a
+    finally:
+        V.vessel_models = real
+
+
+def test_a_lobed_circle_is_round_not_a_hexagon():
+    """F5: a circle with a slight 6-fold ripple has six radius maxima 60 deg apart; only the
+    prominence floor stops them being counted as a hexagon's corners."""
+    for a in (0.005, 0.01, 0.015):
+        for p in ({}, {"blur": 1.5, "jpeg": 75}):
+            c = V.verify_top(top_view(lobes=a, **p), MODEL)
+            assert c["status"] == "FAIL" and c["counted"] != 6, (a, p, c)
+
+
+def test_band_shares_far_from_the_cirs_rows_fail():
+    """F6: [6,1,1,1,3] against the CIR's [4,2,1,2,3] is a different wall."""
+    for rows in ([6, 1, 1, 1, 3], [2, 2, 1, 2, 5]):
+        codes, status = _codes(V.verify(top_view(), side_view(rows=rows), CIR))
+        assert status == "FAIL" and "WRONG_COLOUR_LAYOUT" in codes, (rows, codes)
+
+
+def test_one_off_palette_band_in_an_otherwise_right_wall_fails_the_layout():
+    """F1: a single yellow row where the CIR works cream keeps palette coverage above its
+    floor (11 of 12 rows), so only the per-row "off" label catches it."""
+    bands = list(MODEL.wall_bands)
+    assert bands[2] == "cream" and MODEL.wall_rows[2] == 1
+    bands[2] = "#E8C547"
+    v = V.verify(top_view(), side_view(bands), CIR)
+    codes, status = _codes(v)
+    assert status == "FAIL" and "WRONG_COLOUR_LAYOUT" in codes, codes
+    pal = next(c for c in v["checks"] if c["check"].endswith(":palette"))
+    assert pal["status"] == "PASS", pal
 
 
 if __name__ == "__main__":
