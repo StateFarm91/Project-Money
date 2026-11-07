@@ -58,3 +58,4 @@
 {"at": "2026-11-07T04:47:58Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "checkpoint", "sha": "450e2d0d", "note": "pushed; focused 100% + mutants; regression running"}
 {"at": "2026-11-07T04:48:00Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "checkpoint", "sha": "0179a1a1", "note": "pushed; focused 100% + mutants; regression running"}
 {"at": "2026-11-07T04:52:21Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "f3bea437", "note": "#28 6702476082; regression 14/14"}
+{"at": "2026-11-07T04:52:23Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "d8b2754b", "note": "#28 6702476082; regression 11/11"}
