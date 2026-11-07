@@ -108,6 +108,7 @@ def test_postgres_one_reservation_cannot_authorize_two_calls():
     start = context.Event()
     workers = [context.Process(target=_settle_in_process, args=(raw, ticket, status, start))
                for status in (gate.RELEASED, gate.BILLED)]
+    assert len(workers) == 2, "both contradictory settlement reports must race"
     for worker in workers:
         worker.start()
     start.set()
