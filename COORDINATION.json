@@ -936,6 +936,15 @@
       "verdicts": {
         "claude/w6-secret-leak-followup 7727e68b": "DO NOT SHIP: D-M1 MED after restart a resolved unidentified secret re-leaking stays hidden (cross-process counts incomparable); D-M2 MED fallback P1 auto-closed by a clean sweep in a new process; D-L1 4 surviving mutants. Main's response 17f63074: acknowledgement rule removed entirely (re-open noise bounded by the rotation redeploy), fallback never auto-closes, REMEDIATION owner path."
       }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta 3",
+      "sha": "17f63074",
+      "recorded": "2026-11-07T04:47:50Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_17f63074.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 17f63074": "SHIP: no exposure hidden; fallback type-only, never auto-closes, cannot fail ops.health; 8/10 mutants killed. LOW: L1 re-open noise unbounded without a redeploy (e.g. OAuth re-auth); L2 (base) no-change path never refreshes last_seen -> UNCONFIRMED after 48h; L3 fallback inner except untested; L4 fallback wording points at job output lacking fingerprints."
+      }
     }
   ],
   "integration": {
@@ -1029,7 +1038,7 @@
       "branch": "claude/w6-INTEG1",
       "created": "2026-11-07T03:22:00Z",
       "base": "claude/w5-INTEG1 7c42e706",
-      "head": "f5c3976d",
+      "head": "c83d9516",
       "integrated": [
         {
           "item": "P0-SECRET-LEAK-ESCALATE",
@@ -1043,9 +1052,20 @@
           "review": "83fe31d2 DO NOT SHIP as is (A7-1) + 677661ec SHIP",
           "how": "merge f5c3976d (suite list conflict: kept both)",
           "suites": "test_w5_a7_supply_stall 6/6, test_w6_secret_leak_escalate 4/4, test_w4_readback_evidence 23/23, test_w4_board 11/11 on merged tree"
+        },
+        {
+          "item": "P0-SECRET-LEAK-ESCALATE follow-up",
+          "sha": "17f63074",
+          "review": "SHIP (delta 3)",
+          "how": "merge c83d9516",
+          "suites": "test_w6_secret_leak_escalate 8, test_acceptance 8, test_cert_orchestration 20, test_w5_a7_supply_stall 6, test_w4_owner_incidents 6"
         }
       ],
-      "ladder": "P0-SECRET-LEAK-ESCALATE, P0-SUPPLY-STALL: BUILT, REVIEWED, INTEGRATED; not certified"
+      "ladder": "P0-SECRET-LEAK-ESCALATE, P0-SUPPLY-STALL: BUILT, REVIEWED, INTEGRATED; not certified",
+      "open_low": [
+        "SECRET L1-L4 (17f63074 review)",
+        "A7 D-1..D-4 (677661ec review)"
+      ]
     }
   },
   "owner_directives": [
@@ -1199,12 +1219,6 @@
         "started": "2026-11-02T22:49:44Z",
         "requested_by": "#28 6590109328",
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
-      },
-      {
-        "id": "W6-SECRET-FOLLOWUP-D3",
-        "subject": "claude/w6-secret-leak-followup 17f63074 (cumulative from 1c4c9211)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_17f63074.md",
-        "started": "2026-11-07T04:30:59Z"
       },
       {
         "id": "W6-SUPPORT-D4",
