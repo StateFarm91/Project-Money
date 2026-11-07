@@ -308,6 +308,20 @@
         "brambleloop/src/brambleloop/gateway/model_gateway.py"
       ],
       "claimed_at": "2026-11-03"
+    },
+    {
+      "id": "CODEX-GOVERNOR-COST-TRUTH",
+      "operator": "codex",
+      "branch": "codex/governor-invalid-cost",
+      "source_branch": "codex/v0-provider-authority",
+      "source_sha": "649896e714600327c5ca76878447c325a3077ed6",
+      "scope": "Refuse invalid cost amounts in Governor reporting and expose unavailable state",
+      "files": [
+        "brambleloop/src/brambleloop/finance/governor.py",
+        "brambleloop/src/brambleloop/app/main.py",
+        "brambleloop/tests/test_codex_governor_invalid_cost.py"
+      ],
+      "claimed_at": "2026-11-04"
     }
   ],
   "unowned": [

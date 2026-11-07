@@ -4108,7 +4108,10 @@ def api_governor(days: int = 30) -> dict:
 
     out = governor.state()
     with db.session() as session:
-        out["report"] = governor.report(session, days=days)
+        try:
+            out["report"] = governor.report(session, days=days)
+        except governor.GovernorRefused as exc:
+            out["report"] = {"available": False, "reason": str(exc)}
     return out
 
 
