@@ -115,8 +115,12 @@ def request(ctx, cir, cert) -> dict | None:
     key = requirement_key(cir.slug, cir.version)
     yarn = ", ".join(m["name"] for m in kit["yarn"]) or "the pattern's stated yarn"
     hook = f"{kit['hook_mm']} mm" if kit["hook_mm"] else "hook UNKNOWN (pattern states none)"
+    colours = sorted({y["color_id"] for y in kit["yarn"] if y.get("color_id")})
     action = (f"{spec['action']} Sample spec (kit {digest[:12]}): {yarn}; {hook}; "
-              f"gauge {kit['gauge']}; pieces {kit['pieces']}.")
+              f"gauge {kit['gauge']}; pieces {kit['pieces']}. When recording it, give the "
+              f"finished measurements and the grams used of every yarn colour "
+              f"({', '.join(colours) or 'each colour'}): a record missing a colour is refused "
+              f"(SAMPLE_COLOUR_UNMEASURED).")
     with ctx.db.session() as s:
         prior = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)
                          .order_by(OwnerAction.id.desc()))

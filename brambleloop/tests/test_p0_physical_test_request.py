@@ -97,6 +97,9 @@ def test_class_c_raises_one_keyed_request_whose_kit_is_this_cir():
     assert [y["name"] for y in kit["yarn"]] == [m.name for m in cir.materials]
     assert kit["pieces"] == [c.name for c in cir.components] and kit["scope"] == "full_make"
     assert asked[0]["kit_hash"][:12] in row.action
+    # Codex's physical line refuses a record that misses a yarn colour; the card says so.
+    assert "SAMPLE_COLOUR_UNMEASURED" in row.action, row.action
+    assert all(m.color_id in row.action for m in cir.materials if m.color_id), row.action
     assert row.requirement_key == f"physical.sample:{cir.slug}@{cir.version}"
 
 
