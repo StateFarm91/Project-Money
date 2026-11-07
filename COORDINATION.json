@@ -1046,6 +1046,20 @@
       "verdicts": {
         "A1 union (local merge d39e14e1, not pushed)": "DO NOT SHIP: HIGH test_childrens 7 failures (present on 2af2a48e alone; whole-toy hold at publish/pdf.py:790 precedes specific hazard check so hazards are hidden behind the sample request); HIGH test_codex_a1_hard_eyes 4 failures (tests expect FAILED/DEAD, 4800b597 made refusals a held DONE) leaving mutants C10/C13/C14 unguarded; HIGH carried: Pacifier Clip/Teether/Rattle/Bib/Toy pass with no hold (launch0.py:1697); MED M10 test vacuous (N8 survives), N6/N10 mutants survive. Slug reuse, retitle, numeric ages FIXED. Assigned: CODEX (leaves 4800b597/2af2a48e owner) reconcile the two leaves and the hazard ordering; SECONDARY the launch0 baby-item vocabulary gap."
       }
+    },
+    {
+      "subject": "Visual stack V1+V2+V4+V5+V3",
+      "sha": "8427e777 (base 7c42e706)",
+      "recorded": "2026-11-07T11:05:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_VISUAL_STACK_8427e777.md",
+      "verdicts": {
+        "V1 ded427f6": "SHIP with caveats (tests pass under a pytest shim; not line-reviewed in full); N9 test files lack runners.",
+        "V2 +8bca3606": "DO NOT SHIP: N1 HIGH stack turns V1 corrupt-anchor FAIL into UNKNOWN (test_codex_v1_obscured_craft red; fidelity.py:1157); N2 MED vessel path raises on undecodable bytes (vessel.py:140); N3 MED 8bca3606 session/duplicate handling untested (3 mutants survive). Prior F1-F7, F9 fixed; F8 open.",
+        "V4": "SHIP (fails closed; not wired).",
+        "V5": "SHIP (not wired; UNKNOWN on unreadable).",
+        "V3": "SHIP as fixture-only, but N4 MED: fixture identity result is literal PASS and fixture_only is dropped by exception_evidence/publication_verdict; must become UNKNOWN before any caller enables fixtures.",
+        "stack": "N5 MED predates V0: conflicts with w6-INTEG1 in flux3_generator.generate, image_production._generate, COORDINATION.json, suite_final_segment.txt; needs a rebase onto w6-INTEG1 and re-review. N6 LOW V3 second judge/embedder bypass V0 structurally (unconfigured today)."
+      }
     }
   ],
   "integration": {
