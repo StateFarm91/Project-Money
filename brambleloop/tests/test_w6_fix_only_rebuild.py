@@ -122,6 +122,12 @@ def test_a_fix_only_rebuild_never_touches_a_live_listing_and_never_reaches_publi
     db, slug, version = st["db"], st["slug"], st["version"]
     _set_listing(db, slug, version, state="published", etsy_listing_id="1234567",
                  price_cad=12.34)
+    from brambleloop.commerce import elasticity
+
+    # The live price was changed to 12.34, and its price point opened. A rebuild that
+    # recorded its own computed price would open a second one; nothing was applied.
+    elasticity.record_price_set(db, product_slug=slug, category="blanket", price_cad=12.34,
+                                set_by="owner")
     before, points = _listing(db, slug, version), _price_points(db)
     _fix(db, st["inputs"], "live-1")
     ran = _jobs(db, "live-1")
