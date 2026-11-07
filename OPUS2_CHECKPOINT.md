@@ -25,6 +25,9 @@ Stop reason: no unduplicated assigned work remains. Waiting on Main for a new as
   - Diff saved as opus2_wip/A4A_local_wip_on_3dc3e68c.patch, and as git stash@{0} in
     /home/user/opus2-a4a.
   - Reuse only the OBJECT_SIZE_BANDS / check_object_size_claims idea, and only if Codex asks.
+- 03:31Z: Main's verdicts e846a2ab say A6 8c131f10 and A7 83fe31d2 are DO NOT SHIP. A7-1 is
+  already fixed on Codex 677661ec (PR #129 b4814be): verified, posted on #28 (6701682843).
+  Main notes A6 is superseded by the codex/a6-* lines. Batch 6 base claude/w6-INTEG1 exists.
 - Next action: wait for a [MAIN] ASSIGN on #28. Do not start new work on handed-off lines.
 
 ## How a wake resumes
