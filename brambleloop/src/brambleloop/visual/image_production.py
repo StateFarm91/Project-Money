@@ -830,7 +830,9 @@ def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
                                      if reserved else CG._c(CG.UNKNOWN, "no reserved outfit")),
               "anatomy": CG._judge(judges, "anatomy", cand),
               "realism": CG._judge(judges, "realism", cand)}
-    tech = CG.worst(*(c["status"] for c in checks.values()))
+    # Review VISUAL D1 A-1 (owner V3 condition): through gate_status, so a fixture-labelled
+    # identity PASS never makes Laura's identity anchor "accepted" without the owner's review.
+    tech = CG.technical_of(checks)
     cats = sorted({CG.FAILURE_CATEGORY[k] for k, c in checks.items()
                    if c["status"] == CG.FAIL and k in CG.FAILURE_CATEGORY})
     for c in checks.values():
@@ -841,7 +843,7 @@ def identity_anchor_verdict(db, cand: dict, judges, bind: dict) -> dict:
             "publication": {"publishable": False, "blockers": [
                 "the identity anchor is an intermediate reference, never a gallery frame"]},
             "failure_categories": cats,
-            "unknown": sorted(k for k, c in checks.items() if c["status"] == CG.UNKNOWN)}
+            "unknown": CG.unknown_of(checks)}
 
 
 def _controlled_of(db, key: str) -> int | None:
