@@ -990,6 +990,15 @@
       "verdicts": {
         "opus2/v2-vessel-fidelity 6799f1d4": "DO NOT SHIP: HIGH vessel.py:205 no palette-distance limit (yellow/navy passes as cream/wine); HIGH vessel.py:239 sides 0/None -> NA so a square passes as round key_basket; MED-HIGH no minimum top-view size (24-48px pentagon/octagon/circle count 6); MED vessel.py:100 flared top falls back to the old round check; MED prominence-floor mutant reachable (1%-lobed circle passes as hexagon); MED 60% band-share tolerance and gallery_ready blocker unprotected. Sound: gallery_ready, the two test edits, P2-a, Laura untouched, paid generation OFF. Corrections to opus2."
       }
+    },
+    {
+      "subject": "FIX-ONLY primitive",
+      "sha": "6cbc08e6",
+      "recorded": "2026-11-07T07:31:12Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_FIXONLY_6cbc08e6.md",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild 6cbc08e6": "DO NOT SHIP: F1 HIGH fix_only stored in assets.build outputs leaked into ordinary re-price/targeted rebuild/launch-review (silent no-relaunch); F2 live listing search profile overwritten (false F-294, possible false taxonomy-drift resolve); F3 withdrawn listing revived as draft; F4 card lacked the candidate description. Fixed in 9e8665c3 (in review)."
+      }
     }
   ],
   "integration": {
@@ -1118,7 +1127,8 @@
         "SECRET L1-L4 (17f63074 review)",
         "A7 D-1..D-4 (677661ec review)",
         "SUPPORT dd05e389 MED F-1/F-2 (Main follow-up) + LOWs"
-      ]
+      ],
+      "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
     }
   },
   "owner_directives": [
@@ -2397,6 +2407,20 @@
       "finding": "requirements.txt has fastapi>=0.115 unpinned; a fresh install pulls starlette 1.10.0, whose TestClient requires httpx2 (absent), so TestClient suites (e.g. test_fb4_ops owner-intake route) fail in a fresh container while passing under starlette 1.6.0 (venv-integ4). Certification runs and Railway builds are not reproducible. Fix: pin fastapi/starlette (and httpx) to the certified versions in Batch 6.",
       "owner": "main",
       "correction": "CORRECTED same day: not a product or certification defect. The Dockerfile installs only requirements.lock with --require-hashes (starlette==1.6.0, fastapi==0.141.1), and certification runs on venv-integ4 (same pins). Only a bare system python in a fresh container (pip install -r requirements.txt) gets starlette 1.10. Action: run suites with venv-integ4 or install requirements.lock; no Batch 6 pin change needed."
+    },
+    {
+      "id": "PF-PAID-PROBE-ONGOING",
+      "recorded": "2026-11-07T07:31:12Z",
+      "severity": "HIGH (owner order item 6)",
+      "fact": "Railway DNS shows api.bfl.ai resolved by brambleloop-os on 2026-11-03T00:01Z, 06:02Z; 11-04 00:00Z, 12:04Z; 11-05 00:00Z, 18:02Z; 11-06 00:00Z, 18:02Z; 11-07 00:01Z (about twice daily). /api/verify evidence check no_repeated_paid_call_in_24h is false. Cause: gateway/images.py probe_if_due on the capability-probe cadence makes a paid FLUX generation whenever a BRAMBLELOOP_IMAGE_KEY_* is set; no env kill switch exists in 0967c3ee or in Batch 5 705725a3 (setting an invalid provider falls back to any available key).",
+      "containment": "owner removes BRAMBLELOOP_IMAGE_KEY_BFL/_GOOGLE/_OPENAI from brambleloop-os variables (keeping copies), or a code gate (V0) ships. Keys cannot stay configured safely behind a verified disabled gate in either deployable SHA.",
+      "unknown": "billing amounts and whether probes succeeded (DB paid_call_records)"
+    },
+    {
+      "id": "PF-DIAG-LOGS",
+      "recorded": "2026-11-07T07:31:12Z",
+      "fact": "Railway deploy logs for brambleloop-os contain only uvicorn access lines; job failures/dead letters are not logged to stdout, so the Batch 4 dead-letter cause cannot be read from logs. /api/verify publishes check names only. Exact missing access: a read-only query against the production Postgres jobs table (status=DEAD, updated_at in 2026-11-02T03:31Z..2026-11-03T03:31Z: job_type, last_error) or the operator-credential readback (ops/readback.py) which reads the same.",
+      "needed": "either a read-only DATABASE_URL role, or running PROD_DIAG_READONLY.sql via the Railway Postgres console (owner), or the BRAMBLELOOP_OPS_TOKEN for ops/readback.py"
     }
   ]
 }
