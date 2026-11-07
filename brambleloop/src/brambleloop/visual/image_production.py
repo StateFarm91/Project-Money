@@ -444,7 +444,7 @@ def _best(db, *, listing: str, role: str, run: str | None = None,
             # (the owner's anchor-review card reads this list).
             "unknown": sorted(k for k, c in (r.checks or {}).items()
                               if k != "_paid_call_token" and isinstance(c, dict)
-                              and CG.gate_status(c) == "UNKNOWN"),
+                              and "status" in c and CG.gate_status(c) == "UNKNOWN"),
             "failed": {k: c.get("why") for k, c in (r.checks or {}).items()
                        if k != "_paid_call_token" and c.get("status") == "FAIL"},
             "blockers": ((r.checks or {}).get("_publication") or {}).get("blockers"),
@@ -1425,7 +1425,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
         prev = {"technical_status": row.technical_status,
                 "failure_categories": list(row.failure_categories or []),
                 "unknown": sorted(k for k, c in (row.checks or {}).items()
-                                  if isinstance(c, dict)
+                                  if isinstance(c, dict) and "status" in c
                                   and CG.gate_status(c) == "UNKNOWN"),     # A-N3
                 "history": list(((row.checks or {}).get("_reverified") or {}).get(
                     "history") or [])}
