@@ -41,6 +41,30 @@ def _db(d):
     return db
 
 
+def _owner_activates_generation(db, provider: str) -> None:
+    """W6 V0: a credential is not an activation -- the probe renders only on a provider the
+    owner has activated (step-up, ceilings). `generate` is replaced below, so nothing is sent,
+    but the gate is real and so is the owner's activation, exactly as in
+    test_w5_v0_paid_provider_gate (and test_w3_k12_model_photography). The generation scope:
+    it covers the probe, and the image_generation gate this file asserts can open reads it
+    (a probe-only activation proves the provider but never opens generation)."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.gateway import paid_provider_gate as G
+
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with db.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    G.activate(db, provider=provider, scope=G.GENERATION, by="owner:test",
+               session_public_id=pid, daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0,
+               per_gallery_cad=5.0)
+
+
 # ---------------------------------------------------------------------------
 # 1. image_generation probe owns a work_dir
 
@@ -63,6 +87,9 @@ with tempfile.TemporaryDirectory() as d:
     images.generate = fake_generate
     try:
         env = {"BRAMBLELOOP_IMAGE_KEY_BFL": "test-credential-placeholder"}
+        # No provider is named, so the probe takes the first credentialled one (BFL's
+        # flux-2-pro); that is the provider the owner activates.
+        _owner_activates_generation(db, images.available(env)[0])
         rec = images.probe(db, env=env)
     finally:
         images.generate = real_generate

@@ -241,11 +241,34 @@ def test_thumbnails_are_refused_without_demonstrated_vision():
     assert seeing.seen == []
 
 
+def _owner_activates_vision(db) -> int:
+    """W6 V0: the image_vision gate opens only on the owner's activation of paid vision
+    (step-up, ceilings) and a probe made under it. The `_Seeing` provider is a fake -- nothing
+    is sent -- but the gate is real, so the owner's activation is real too, exactly as in
+    test_w5_v0_paid_provider_gate (and test_w3_k12_model_photography). Returns its id."""
+    import secrets
+
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.gateway import paid_provider_gate as G
+
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with db.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    return G.activate(db, provider=G.ANTHROPIC_VISION, scope=G.VISION, by="owner:test",
+                      session_public_id=pid, daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0,
+                      per_gallery_cad=5.0)["id"]
+
+
 def test_top_thumbnails_are_judged_one_per_call_and_stored_as_composition():
     db = _db()
+    activation_id = _owner_activates_vision(db)
     with db.session() as s:
+        # The successful probe, recorded as `vision_probe` records one: under the activation.
         s.add(AuditLog(actor="orchestrator", action=GW.VISION_PROBE_ACTION,
-                       artifact="probe", detail={"ok": True}))
+                       artifact="probe", detail={"ok": True, "activation_id": activation_id}))
     snap = serp.capture(db, _reader(_Stub()), "q", detail_top=2)
     seeing = _Seeing(['{"shot_type": "flat_lay", "thumbnail_readability": "clear"}',
                       '{"shot_type": "in_use"}'])

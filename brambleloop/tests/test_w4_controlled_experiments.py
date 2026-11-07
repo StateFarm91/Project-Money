@@ -207,6 +207,31 @@ def _authorize(gen=None, vis=None):
                        vision_cap_cad=vis)
 
 
+def _owner_activates_generation(provider: str = "flux-3-image") -> None:
+    """W6 V0: a paid provider generates only after the owner activates it (step-up, ceilings).
+    This harness's transport is the mock BFL `Transport` -- nothing leaves -- but the gate is
+    real, so the owner's activation is real too, exactly as in test_w5_v0_paid_provider_gate
+    (and test_w3_k12_model_photography). The experiment renders on `flux-3-image`; an
+    activation already in force is kept rather than superseded, so a ticket issued under it
+    (a killed run being resumed) still settles against it."""
+    import secrets
+    from datetime import datetime, timezone
+
+    from brambleloop.gateway import paid_provider_gate as G
+
+    if G.activation_state(DB, provider, G.GENERATION)["active"]:
+        return
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with DB.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    G.activate(DB, provider=provider, scope=G.GENERATION, by="owner:test",
+               session_public_id=pid, daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0,
+               per_gallery_cad=5.0)
+
+
 def _settle_active():
     with DB.session() as s:
         for r in s.scalars(select(C.ControlledRun).where(C.ControlledRun.status.in_(C.ACTIVE))):
@@ -226,6 +251,7 @@ def test_full_run_through_the_routes_and_the_worker_and_no_key_anywhere():
     dup = post(c, csrf, f"/api/cc/experiments/{EXP}/run").json()
     assert dup["duplicate"] is True and dup["job_id"] == first["job_id"]   # idempotent
     assert first["idempotency_key"].startswith(f"exp:{EXP}:")
+    _owner_activates_generation()
     t = Transport()
     with t:
         assert drain() >= 1

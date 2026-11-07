@@ -260,6 +260,7 @@ def test_on_demand_check_runs_the_job_and_no_key_leaks_anywhere():
 def _claimed_run():
     CE._settle_active()
     CE._authorize()
+    CE._owner_activates_generation()      # W6 V0: the owner activates the stand-in provider
     q = JobQueue(DB)
     out = C.submit(DB, CE.EXP, by="owner:test", stepped_up=True,
                    enqueue=lambda i, k: q.enqueue(C.AGENT, C.JOB_TYPE, i, idempotency_key=k,
