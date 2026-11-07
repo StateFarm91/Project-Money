@@ -33,7 +33,11 @@ Independence: identity and body proportions need two readings from two *differen
 (different transport name or model). One judge can refuse (any drift is a FAIL) but never
 pass. Identity additionally needs the biometric floor, which no qualified embedder provides
 in this build (`identity_gate.QUALIFIED_EMBEDDERS` is empty), so identity tops out at the
-REVIEW band (UNKNOWN). That is the honest state.
+REVIEW band (UNKNOWN). That is the honest state. V3 (OA-V3-LAURA-QUALIFICATION): the floor is
+computed here from the image bytes by an embedder admitted through a validated qualification
+record (`identity_gate.measure_biometric`), never read from generator evidence. Production
+configures no embedder and no second transport (`configured_second_transport`), so it stays
+UNKNOWN until the owner funds and qualifies both; fixture stand-ins are labelled as such.
 
 Nothing here generates, publishes, or relaxes a gate.
 """
@@ -219,12 +223,19 @@ def conditioning_of(cand: dict, size_of) -> dict:
                            if s_], "proven": proven}
 
 
-def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0) -> dict:
+def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0,
+                   biometric: dict | None = None) -> dict:
     """`identity_gate.assess` on the conditioning receipt and the blind judge readings.
 
     Generator-supplied judge readings are never used (a generator does not grade itself);
-    only its conditioning receipt, which proves which reference bytes were sent."""
+    only its conditioning receipt, which proves which reference bytes were sent. The same
+    holds for embeddings (V3): the biometric floor is the one `identity_gate.measure_biometric`
+    computed from the image bytes with a validated qualification record (`biometric`), never
+    one the generator's evidence carries. Without it the floor is UNMEASURED."""
     from . import identity_gate
+
+    if not isinstance(biometric, dict):
+        biometric = identity_gate.measure_biometric(None, None, b"", {})
 
     ev = dict(cand.get("identity_evidence") or {})
     evidence = {"conditioning": conditioning_of(cand, size_of),
@@ -237,17 +248,26 @@ def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0) -
                      and not str(r.get("role")).startswith("laura_")}
                     | {r.get("sha256") for r in cand.get("references") or []
                        if r.get("kind") != "laura_canonical" and r.get("sha256")}),
-                "biometric": ev.get("biometric"),
                 "judges": [{"judge": r["judge"], "scored": r["scored"]} for r in readings
                            if r.get("answered") and r.get("scored")]}
-    g = identity_gate.assess(evidence)
+    g = identity_gate.assess(evidence, biometric=biometric)
     unread = [f"{r.get('judge') or 'judge'}: {r['why']}" for r in readings
               if not r.get("answered")]
     why = g["why"] + (f" (unanswered: {'; '.join(unread)})" if unread else "")
+    extra = {}
+    if g["status"] == FAIL:
+        extra["code"] = FC.IDENTITY_DRIFT
+    if g.get("fixture_only"):
+        # A fixture reading is a test of the wiring: labelled wherever it is recorded.
+        extra.update(fixture_only=True, certification=g["certification"])
+        why = f"[{identity_gate.CERT_FIXTURE}] " + why
     return _c("identity", g["status"], why, band=g.get("band"),
               validity=(g.get("validity") or {}).get("validity"),
               judges=[r.get("judge") for r in readings if r.get("answered")],
-              failed=g.get("failed") or [])
+              failed=g.get("failed") or [],
+              biometric={k: (g.get("biometric") or {}).get(k)
+                         for k in ("status", "similarity", "why", "qualification")},
+              **extra)
 
 
 def body_check(readings: list[dict]) -> dict:
@@ -666,10 +686,17 @@ def locate_product(judge, data: bytes) -> dict:
 class Adapters:
     """The blind adapters on one or two judge transports, with per-image caching."""
 
-    def __init__(self, db, judge, *, second=None, references: dict | None = None):
+    def __init__(self, db, judge, *, second=None, references: dict | None = None,
+                 embedder=None, qualification: dict | None = None,
+                 allow_fixture: bool = False):
         self.db, self.judge, self.second = db, judge, second
         self._refs = references
         self._cache: dict = {}
+        # V3: the face embedder and the qualification record that admits it. Production
+        # passes neither (no embedder is funded or qualified): the floor stays UNMEASURED.
+        # `allow_fixture` admits a fixture-only record, in shadow only, labelled as such.
+        self.embedder, self.qualification = embedder, qualification
+        self.allow_fixture = bool(allow_fixture)
 
     def refs(self) -> dict:
         if self._refs is None:
@@ -718,8 +745,22 @@ class Adapters:
         except Exception:  # noqa: BLE001 - bytes not found: not measured
             return 0
 
+    def biometric(self, cand: dict) -> dict:
+        """The biometric floor for this frame, computed here (`identity_gate`)."""
+        from . import identity_gate
+
+        data = self._data(cand)
+        key = ("biometric", hashlib.sha256(data).hexdigest() if data else "")
+        if key not in self._cache:
+            self._cache[key] = identity_gate.measure_biometric(
+                self.embedder, self.qualification, data,
+                self.refs() if self.embedder is not None else {},
+                allow_fixture=self.allow_fixture)
+        return self._cache[key]
+
     def identity(self, cand: dict) -> dict:
-        return identity_check(cand, self._person(cand), size_of=self._size_of)
+        return identity_check(cand, self._person(cand), size_of=self._size_of,
+                              biometric=self.biometric(cand))
 
     def body_proportions(self, cand: dict) -> dict:
         return body_check(self._person(cand))
@@ -764,3 +805,17 @@ class Adapters:
 
     def product_region(self, cand: dict) -> dict:
         return locate_product(self.judge, self._data(cand))
+
+
+# ---- V3: what production configures (OWNER ACTION) -------------------------------------------
+
+# The second, independent vision transport production would judge identity with. None: no
+# second provider has been chosen or funded (provider choice and spend are an OWNER ACTION).
+# When one is, it is wired here, and it must answer under a different `judge_id`.
+SECOND_VISION_TRANSPORT = None
+
+
+def configured_second_transport(db=None):
+    """The production second judge transport, or None while none is owner-funded."""
+    factory = SECOND_VISION_TRANSPORT
+    return factory(db) if callable(factory) else None

@@ -111,3 +111,20 @@ WARDROBE_CATEGORY_OF: dict[str, str] = {code: row["category"] for code, row in
                                         WARDROBE_CODES.items()}
 WARDROBE_ALL_CODES: frozenset[str] = frozenset(WARDROBE_CATEGORY_OF)
 EVERY_CODE: frozenset[str] = ALL_CODES | WARDROBE_ALL_CODES
+
+# The identity gate's failure code (V3, OA-V3-LAURA-QUALIFICATION). It is the existing gate
+# category `visual.candidate_gates.FAILURE_CATEGORY["identity"]` ("identity_drift"), which
+# `image_learning` already classifies as a gate category; registered here so the identity
+# check (`visual.vision_judges.identity_check`) reports it from the one constant. It is not a
+# Product Truth or wardrobe code and has no prompt repair route (a drifted frame is refused,
+# never repaired into Laura), so it is not part of EVERY_CODE, which the repair router reads.
+IDENTITY = "identity"
+IDENTITY_DRIFT = "identity_drift"
+IDENTITY_CODES: dict[str, dict] = {
+    IDENTITY_DRIFT: {
+        "category": IDENTITY,
+        "meaning": "the person is not Laura: a judge read drift on a locked dimension, or the "
+                   "qualified biometric floor is below its refusal threshold "
+                   "(canonical.IDENTITY_RULE: a woman similar to Laura is NOT Laura)",
+        "countered_by": "refuse and regenerate from her current canonical reference bytes"},
+}

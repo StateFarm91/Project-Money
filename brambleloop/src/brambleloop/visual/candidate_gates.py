@@ -195,6 +195,9 @@ def disclosure(job: str | None) -> dict:
 
 # ---- judges (product truth, identity, anatomy, realism) ----------------------------------
 
+_CONFIGURED = object()   # RealJudges: "use the configured production transport"
+
+
 class RealJudges:
     """The production judges: existing deterministic gates, no invented readings.
 
@@ -202,13 +205,26 @@ class RealJudges:
     consistency (`visual.fidelity.GatewayVisionJudge`, gated on `image_vision`). Unfunded,
     it answers nothing, and those checks stay UNKNOWN."""
 
-    def __init__(self, db, *, vision=None, second_vision=None, references=None):
+    def __init__(self, db, *, vision=None, second_vision=_CONFIGURED, references=None,
+                 embedder=None, qualification=None, allow_fixture: bool = False):
         self.db = db
         self.vision = vision
         # W-VISNEXT: a second, independent judge transport (another model). Identity and body
         # proportions need two distinct readings to pass; with one, they can only refuse.
+        # V3: unless a caller names one, it is the configured production transport
+        # (`vision_judges.configured_second_transport`): None until the owner funds one.
+        if second_vision is _CONFIGURED:
+            from .vision_judges import configured_second_transport
+
+            second_vision = configured_second_transport(db)
         self.second_vision = second_vision
         self.references = references
+        # V3 (OA-V3-LAURA-QUALIFICATION): the face embedder and the qualification record
+        # that admits it (`identity_gate.validate_qualification`). Production names neither,
+        # so the biometric floor stays UNMEASURED and identity UNKNOWN. `allow_fixture`
+        # admits a fixture-only record in shadow, labelled as not certification.
+        self.embedder, self.qualification = embedder, qualification
+        self.allow_fixture = bool(allow_fixture)
         self._adapters = None
 
     def _vision_judge(self):
@@ -224,7 +240,9 @@ class RealJudges:
             from .vision_judges import Adapters
 
             self._adapters = Adapters(self.db, self._vision_judge(), second=self.second_vision,
-                                      references=self.references)
+                                      references=self.references, embedder=self.embedder,
+                                      qualification=self.qualification,
+                                      allow_fixture=self.allow_fixture)
         return self._adapters
 
     def product_truth(self, cand: dict, bind: dict) -> dict:
