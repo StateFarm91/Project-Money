@@ -891,6 +891,24 @@
         "claude/w6-secret-leak-escalate 1c4c9211": "SHIP: no path writes a secret value to DB/logs/events/Command Center (dump-check kills leak mutant). Follow-ups (MED): owner-resolved incident reopens a fresh P1 on next sweep (fails loud, ops/secret_leak.py:144); escalation exception records only UNKNOWN without an incident (runtime/release.py:7295); LOW non-'CAUGHT' status reads CLEAN (ops/secret_leak.py:127). Mutants 5/8 killed (2 equivalent).",
         "claude/w6-support-defect-incident 26bac0e9": "DO NOT SHIP: HIGH hold self-clears when cir.twin/cir.reverse (already passed at certification) re-pass, then never re-escalates; HIGH incident committed before hold/jobs, a transient failure leaves an open incident with no hold permanently; MED target version is all-time majority; MED one buyer x3 messages triggers P1+hold. No support free text reaches Learning. Main (owner of the line) is fixing."
       }
+    },
+    {
+      "subject": "A7 delta",
+      "sha": "677661ec",
+      "recorded": "2026-11-07T03:40:57Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A7_677661ec.md",
+      "verdicts": {
+        "Codex 677661ec on A7 83fe31d2": "SHIP: A7-1 fixed (both readers defer to newest measured healthy scan finished after the reading; unmeasured/failed scans ignored). LOW follow-ups: D-1 finish-time ordering can hide a stall until next scan; D-2 cross-host clock skew; D-3 other-period scan clears (no producer); D-4 10/13 mutants survive incl. finished_at>=at guard and untested 48h freshness."
+      }
+    },
+    {
+      "subject": "W6 support delta",
+      "sha": "05961fd0",
+      "recorded": "2026-11-07T03:40:57Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_05961fd0.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident 05961fd0": "DO NOT SHIP: N-1 HIGH hold can never clear (no path resolves a support.defect incident; needs_owner_path); N-2 MED buyers counted across versions; N-3 LOW incident on unstored version; N-4 LOW hold timestamp churn per mention. Main fixing (owner decision path + card + REMEDIATION, supersession, per-version buyers)."
+      }
     }
   ],
   "integration": {
@@ -984,16 +1002,23 @@
       "branch": "claude/w6-INTEG1",
       "created": "2026-11-07T03:22:00Z",
       "base": "claude/w5-INTEG1 7c42e706",
-      "head": "1c4c9211",
+      "head": "f5c3976d",
       "integrated": [
         {
           "item": "P0-SECRET-LEAK-ESCALATE",
           "sha": "1c4c9211",
           "review": "SHIP (W6 2026-11-07)",
           "how": "fast-forward"
+        },
+        {
+          "item": "P0-SUPPLY-STALL (A7, opus2 83fe31d2 + Codex 677661ec)",
+          "sha": "677661ec",
+          "review": "83fe31d2 DO NOT SHIP as is (A7-1) + 677661ec SHIP",
+          "how": "merge f5c3976d (suite list conflict: kept both)",
+          "suites": "test_w5_a7_supply_stall 6/6, test_w6_secret_leak_escalate 4/4, test_w4_readback_evidence 23/23, test_w4_board 11/11 on merged tree"
         }
       ],
-      "ladder": "P0-SECRET-LEAK-ESCALATE: BUILT, REVIEWED, INTEGRATED; not certified"
+      "ladder": "P0-SECRET-LEAK-ESCALATE, P0-SUPPLY-STALL: BUILT, REVIEWED, INTEGRATED; not certified"
     }
   },
   "owner_directives": [
@@ -1149,25 +1174,11 @@
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
       },
       {
-        "id": "W6-SUPPORT-DELTA",
-        "subject": "claude/w6-support-defect-incident 05961fd0 (delta from 26bac0e9)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_05961fd0.md",
-        "started": "2026-11-07T03:22:00Z",
-        "requested_by": "Main fix of W6 review HIGH x2 MED x2"
-      },
-      {
         "id": "W6-SECRET-FOLLOWUP-DELTA",
         "subject": "claude/w6-secret-leak-followup 340025ca (delta from 1c4c9211)",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_340025ca.md",
         "started": "2026-11-07T03:30:25Z",
         "requested_by": "Main follow-up of W6 review MED x2 LOW"
-      },
-      {
-        "id": "A7-DELTA-677661ec",
-        "subject": "Codex 677661ec (A7-1 fix on 83fe31d2), verified by Secondary 6701682843",
-        "report": "scratchpad/INDEPENDENT_REVIEW_A7_677661ec.md",
-        "started": "2026-11-07T03:33:36Z",
-        "requested_by": "#28 6701682843"
       }
     ]
   },
