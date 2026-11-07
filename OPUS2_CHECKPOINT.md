@@ -10,7 +10,7 @@ worktrees, not this file.
   The *-on-v1 branches are superseded.
 - PORTFOLIO-fo ee5dbeee and STOREFRONT-fo a1331372 on fix-only 0f2de815: REVIEW-REQUESTED.
 - PHYSICAL on Codex e8b458b5: REVIEW-REQUESTED.
-- #7 M-6 paid_calls: asked Main to route it to Codex.
+- #7: M-5 only (test) REVIEW-REQUESTED @ 49a27769; Codex adopts M-6 into V0 (Main 6707471647).
 - Base issue (not ours): test_w3_k12_model_photography fails on INTEG1 5913931f (V0 not_activated).
 Stop reason: everything is review-requested; waiting on Main.
 
