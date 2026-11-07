@@ -1154,6 +1154,13 @@
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_05961fd0.md",
         "started": "2026-11-07T03:22:00Z",
         "requested_by": "Main fix of W6 review HIGH x2 MED x2"
+      },
+      {
+        "id": "W6-SECRET-FOLLOWUP-DELTA",
+        "subject": "claude/w6-secret-leak-followup 340025ca (delta from 1c4c9211)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_340025ca.md",
+        "started": "2026-11-07T03:30:25Z",
+        "requested_by": "Main follow-up of W6 review MED x2 LOW"
       }
     ]
   },
