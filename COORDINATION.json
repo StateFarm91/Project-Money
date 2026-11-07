@@ -1008,6 +1008,17 @@
       "verdicts": {
         "opus2/p0-child-safety-core c3a7b93a": "DO NOT SHIP alone: slug reuse (a one-piece stuffed ball under an assigned or exempt slug passes), exempt-product retitle not re-checked, numeric ages (0-12 months, ages 2+) undetected; fail-open mutants N6 (launch0 unreadable construction -> []) and N10 (small_parts exception -> []); N12 dedup untested. 6/6 suites pass; 15/18 mutants killed. Codex continuation c10a6eb9/974a34c0/944bcffe addresses slug reuse, retitle, numeric ages. Next unit: A1 full = c3a7b93a + leaves 4800b597 + 2af2a48e."
       }
+    },
+    {
+      "subject": "U1 durable/evidence primitives",
+      "sha": "7f986be5,4e39a9cc,ee32f68f",
+      "recorded": "2026-11-07T08:20:00Z",
+      "report": "research/final_build/w5/ (U1 review)",
+      "verdicts": {
+        "7f986be5": "SHIP (doc-only); integrate into claude/w6-INTEG1.",
+        "4e39a9cc": "HOLD: primitive has no caller; integrate only together with its first consumer.",
+        "ee32f68f": "DO NOT SHIP: durable.py logic correct, but four test files use pytest (not installed; run_tests.sh runs scripts) and two mutants survive. Fix: convert to the plain-script convention and add tests killing the surviving mutants. Assigned to CODEX (module owner); Main integrates on re-review."
+      }
     }
   ],
   "integration": {
