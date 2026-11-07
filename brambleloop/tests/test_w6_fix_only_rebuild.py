@@ -146,6 +146,17 @@ def test_a_fix_only_rebuild_never_touches_a_live_listing_and_never_reaches_publi
     assert _audits(db, "chain.fix_only_stopped"), "the stop is recorded"
 
 
+def test_either_an_etsy_id_or_a_published_state_alone_makes_a_listing_live():
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    for n, kw in enumerate(({"state": "draft", "etsy_listing_id": "7654321"},
+                            {"state": "published_manually", "etsy_listing_id": ""})):
+        _set_listing(db, slug, version, price_cad=12.34, title=f"live title {n}", **kw)
+        before = _listing(db, slug, version)
+        _fix(db, st["inputs"], f"live-only-{n}")
+        assert _listing(db, slug, version) == before, (kw, _listing(db, slug, version))
+
+
 def test_a_fix_only_rebuild_of_a_draft_refreshes_copy_but_keeps_its_price():
     st = chain()
     db, slug, version = st["db"], st["slug"], st["version"]
