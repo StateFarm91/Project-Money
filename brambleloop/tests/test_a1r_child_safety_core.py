@@ -636,6 +636,9 @@ BN1_TITLES = {
     "Onesieset": "onesie", "Layetteset": "layette", "Christeninggown": "christening",
     "Carseatcover": "carseat", "Blankiebear": "blankie", "Stuffiepal": "stuffie",
     "Taggieblanket": "taggie", "Amigurumibear": "amigurumi", "Babiesset": "babies",
+    # only the CamelCase split reads these: the child word is not at the start, or is a
+    # short word that is deliberately not a stem
+    "SoftBib": "bib", "PlayToy": "toy", "WarmBooties": "booties", "ClipDummy": "dummy",
 }
 
 
