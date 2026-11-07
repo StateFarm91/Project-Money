@@ -81,8 +81,22 @@ def record(ctx, kind: str, *, inputs: dict, summary: str, detail: dict,
     slug = str(inputs.get("slug") or "")
     version = str(inputs.get("version") or "")
     sig = signature(kind, slug, version)
+    stored = {k: v for k, v in inputs.items() if k != "rebuild"}
+    if stored.get("fix_only"):
+        # Review STOREFRONT a1331372 H1: a fix-only refusal never replaces an ordinary dead
+        # end's inputs, or its re-drive would carry the remediation's bound and never launch.
+        from sqlalchemy import select
+
+        from ..core.models import Incident
+
+        with ctx.db.session() as s:
+            prior = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                    Incident.resolved.is_(False)))
+            prior_inputs = ((prior.detail or {}).get("inputs") if prior is not None else None)
+        if prior_inputs and not prior_inputs.get("fix_only"):
+            stored = dict(prior_inputs)
     payload = {"kind": kind, "stage": stage, "agent": agent, "department": dept,
-               "inputs": {k: v for k, v in inputs.items() if k != "rebuild"},
+               "inputs": stored,
                "refused_under_commit": _commit(), "refused_job": ctx.job.id,
                **detail}
     with ctx.db.session() as s:
@@ -190,6 +204,10 @@ def _stage_succeeded(db, kind: str, inputs: dict) -> bool:
         for j in s.scalars(select(Job).where(Job.job_type == stage, Job.status == JobStatus.DONE)
                            .order_by(desc(Job.id)).limit(SWEEP_LIMIT)):
             i, o = j.inputs or {}, j.outputs or {}
+            if i.get("fix_only"):
+                # Review STOREFRONT a1331372 H1: a bounded remediation stops before launch; it
+                # never stands in for the ordinary stage that dead-ended.
+                continue
             if (i.get("slug"), i.get("version"), i.get("release", "")) != (
                     inputs.get("slug"), inputs.get("version"), inputs.get("release", "")):
                 continue

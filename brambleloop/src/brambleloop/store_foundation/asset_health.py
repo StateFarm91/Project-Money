@@ -122,8 +122,12 @@ OWNER_CODES = ("ICON_MISSING",)
 ICON_UNMEASURED = ("ICON_UNREAD", "ICON_READING_STALE")
 ROUTED = "storefront.asset_fix_routed"
 CARD_PREFIX = "storefront.asset:"
-LIVE_CARD_PREFIX = "storefront.live_images:"
-LIVE_UPDATE_PAIR = "listing.live_update:"   # fix_only's copy card for the same live listing
+# Review STOREFRONT a1331372 M1/M2/L1: a live listing's gallery is never rebuilt. A rebuild
+# rewrites its local ListingAsset rows (so the finding self-clears while Etsy is unchanged),
+# its owner card would go out before the images passed their gates, and it drives a copy
+# card for copy nobody judged weak. Until a candidate-set store exists, it is reported.
+LIVE_WHY = ("a live listing's gallery is never rebuilt locally: its rows would no longer "
+            "describe what buyers see; rebuilt frames need a candidate-set store first")
 AUTO_CLOSED = "the finding cleared in a storefront review that measured it"
 # The frame classes `publish.listing_assets.build_frames` renders. Any other class in a
 # release's gallery was put there by something else and a re-render would overwrite it.
@@ -175,6 +179,19 @@ def _chain_in_flight(s, slug: str, version: str, release: str) -> str | None:
         j = s.scalar(select(Job).where(Job.idempotency_key == key))
         if j is not None and j.status != JobStatus.DONE:
             return f"its own {j.job_type} ({key}) is {j.status.value}"
+        if j is not None and (j.outputs or {}).get("ok") is False:
+            # Review STOREFRONT a1331372 H1: a blocked build is DONE with ok=False. Its
+            # recovery belongs to chain.successors (the ordinary chain, through launch).
+            return (f"its own {j.job_type} ({key}) was blocked; chain.successors owns its "
+                    f"recovery")
+    from ..core.models import Incident
+    from ..runtime import chain_successors as CS
+
+    for kind in (CS.ASSETS, CS.PRICING):
+        sig = CS.signature(kind, slug, version)
+        if s.scalar(select(Incident.id).where(Incident.signature == sig,
+                                              Incident.resolved.is_(False))) is not None:
+            return f"an open chain dead end ({sig}) owns this release's recovery"
     drafted = s.scalar(select(Job).where(Job.idempotency_key ==
                                          chain_key("listing", slug, version, release)))
     if drafted is not None and s.scalar(select(Job.id).where(
@@ -246,12 +263,13 @@ def route(ctx, health: dict) -> dict:
         with ctx.db.session() as s:
             in_flight = _chain_in_flight(s, slug, rel["version"], rel["release_hash"])
             foreign = [] if in_flight else _foreign_frames(s, slug, rel["version"])
-        if in_flight or foreign:
+            live = None if (in_flight or foreign) else _live_listing(s, slug, rel["version"])
+        if in_flight or foreign or live is not None:
             for code in codes:
                 not_routed.append({"code": code, "subject": slug, "why": (
                     f"the release's own chain is not finished: {in_flight}" if in_flight
                     else "the gallery holds frames a re-render would overwrite: "
-                         + ", ".join(foreign[:5]))})
+                         + ", ".join(foreign[:5]) if foreign else LIVE_WHY)})
             continue
         token = (rel["release_hash"] or rel["version"])[:16]
         job = ctx.enqueue("publishing", "assets.build",
@@ -262,28 +280,6 @@ def route(ctx, health: dict) -> dict:
         (queued if job is not None else already).append(
             {"slug": slug, "version": rel["version"], "codes": codes,
              "job": getattr(job, "id", None)})
-        if job is None:
-            continue
-        with ctx.db.session() as s:
-            live = _live_listing(s, slug, rel["version"])
-            if live is not None:
-                key = f"{LIVE_CARD_PREFIX}{slug}@{rel['version']}:{token}"[:200]
-                row = owner_queue.ensure(
-                    s, key,
-                    action=(f"When assets.build job {job.id} for {slug}@{rel['version']} is "
-                            f"done (audit assets.listing_images_built), replace the photos "
-                            f"of live Etsy listing {live.etsy_listing_id or '(id not stored)'} "
-                            f"in Shop Manager with the rebuilt frames, in their order. The "
-                            f"system never edits a live listing. This is one listing update "
-                            f"with card {LIVE_UPDATE_PAIR}{slug}@{rel['version']} (its copy): "
-                            f"do both in the same Shop Manager edit."),
-                    reason=(f"brand asset health (F-527) found {', '.join(codes)}; the "
-                            f"images were rebuilt locally only"),
-                    why_software_cannot="live listings are never changed autonomously",
-                    max_cost_cad=0.0, minutes=15,
-                    consequence_of_delay="the live listing keeps showing its current images",
-                    blocks=f"listing images {slug}@{rel['version']}")
-                live_cards.append({"key": key, "id": row.id})
     icon_measured = (health.get("icon_state") not in (None, UNKNOWN, "STALE")
                      and not any(f.get("code") in ICON_UNMEASURED for f in findings))
     brand_measured = (health.get("held_brand_assets") or {}).get("state") != UNKNOWN

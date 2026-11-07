@@ -369,7 +369,7 @@ def _frames(db, slug, version):
                                                          ListingAsset.version == version)))
 
 
-def test_on_a_live_listing_the_photo_is_kept_and_the_fix_never_reaches_publish():
+def test_on_a_live_listing_the_photo_is_kept_and_its_gallery_is_never_rebuilt():
     st = W6.chain()
     db, slug, version = st["db"], st["slug"], st["version"]
     W6._set_listing(db, slug, version, state="published", etsy_listing_id="1234567",
@@ -399,7 +399,9 @@ def test_on_a_live_listing_the_photo_is_kept_and_the_fix_never_reaches_publish()
     assert _rebuilds(db) == [], [j.idempotency_key for j in _rebuilds(db)]
     assert _gallery(db, slug, version) == with_photo
     assert with_photo[0] == (1, "PHYSICAL_PRODUCT_PHOTO", "hero", "OWNERPHOTO", False)
-    # 2) Without the photograph the fix-only rebuild runs, through the real Worker.
+    # 2) Without the photograph: review a1331372 M1/M2/L1, a live listing's gallery is never
+    #    rebuilt. Nothing is queued, no card is raised, the rows and the listing are untouched,
+    #    and the finding stays open, reported by name.
     with db.session() as s:
         for a in s.scalars(select(ListingAsset).where(ListingAsset.product_slug == slug,
                                                       ListingAsset.version == version)
@@ -415,39 +417,133 @@ def test_on_a_live_listing_the_photo_is_kept_and_the_fix_never_reaches_publish()
         points = s.scalar(select(func.count()).select_from(PriceObservation))
     jobs_before = len(_types(db))
     _chain_review(db)
-    fixes = _rebuilds(db)
-    assert len(fixes) == 1 and fixes[0].status == JobStatus.DONE, \
-        [(j.idempotency_key, j.status, j.error) for j in fixes]
-    assert fixes[0].inputs["fix_only"] is True
-    ran = [t for t, _s in _types(db)[jobs_before:]]
-    assert "listing.seo" in ran, ran                                     # the fix ran
-    assert not [t for t in ran if t in W6.DOWNSTREAM], ran              # and stopped
-    with db.session() as s:   # none carries the fix's token or its fix_only flag, ever
-        assert not [j.job_type for j in s.scalars(select(Job).where(Job.job_type.in_(
-            ("launch.plan", "marketing.schedule", "store.publish"))))
-            if (j.inputs or {}).get("fix_only")
-            or str((j.inputs or {}).get("rebuild", "")).startswith("asset-health")]
-    assert W6._listing(db, slug, version) == before                      # state, price, id
+    assert _rebuilds(db) == [], [j.idempotency_key for j in _rebuilds(db)]
+    ran = [t_ for t_, _s in _types(db)[jobs_before:]]
+    assert not [t_ for t_ in ran if t_ in ("assets.build", "pricing.position", "listing.seo")
+                or t_ in W6.DOWNSTREAM], ran
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert why[(slug, "HERO_MISSING")] == AH.LIVE_WHY, why
+    assert _routed(db)["live_image_cards"] == []
+    assert set(_all_cards(db)) == cards_before, set(_all_cards(db)) ^ cards_before
+    assert _gallery(db, slug, version) == renders                       # rows untouched
+    assert W6._listing(db, slug, version) == before                     # state, price, id
     assert before["state"] == "published" and before["price"] == 12.34
     assert before["etsy"] == "1234567"
     with db.session() as s:
         assert s.scalar(select(func.count()).select_from(PriceObservation)) == points
-    after = _gallery(db, slug, version)
-    assert [r[:3] for r in after] == [r[:3] for r in renders], after    # same render frames
-    assert next(r for r in after if r[2] == "hero")[4] is True          # hero restored
-    # The owner, not the system, takes the new images to the live listing.
-    token = fixes[0].inputs["release"][:16]
-    live_key = f"storefront.live_images:{slug}@{version}:{token}"
-    new = set(_all_cards(db)) - cards_before
-    assert {k for k, _d, _s in new} == {live_key, f"listing.live_update:{slug}@{version}"}, new
+    # ... and the finding is still reported on the next review: it did not self-clear.
+    _chain_review(db)
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert why.get((slug, "HERO_MISSING")) == AH.LIVE_WHY, why
+
+# ---- review STOREFRONT a1331372 H1, L2 -----------------------------------------------------
+
+def test_a_release_whose_own_build_blocked_is_left_to_chain_successors():
+    """H1: a blocked build is DONE with ok=False; the asset fix must not stand in for it."""
+    db = _seeded()
+    q = JobQueue(db)
+    for stage, jt in (("listing", "listing.draft"), ("assets", "assets.build")):
+        j = q.enqueue("publishing", jt, {"slug": "no-hero", "version": "1.0.0",
+                                         "release": "no-hero1.0.0"},
+                      idempotency_key=chain_key(stage, "no-hero", "1.0.0", "no-hero1.0.0"))
+        with db.session() as s:
+            row = s.get(Job, j.id)
+            row.status = JobStatus.DONE
+            if jt == "assets.build":
+                row.outputs = {"ok": False, "blocked": ["FORCED_PLAN_BLOCK"]}
+    _review(db)
+    assert [j.inputs["slug"] for j in _rebuilds(db)] == ["old-assets"]
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert "was blocked; chain.successors owns" in why[("no-hero", "HERO_MISSING")], why
+
+
+def test_an_open_chain_dead_end_owns_the_release():
+    from brambleloop.core.models import Incident
+    from brambleloop.runtime import chain_successors as CS
+
+    db = _seeded()
     with db.session() as s:
-        photo = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == live_key))
-        assert f"listing.live_update:{slug}@{version}" in photo.action, photo.action
-    card = _card(db, live_key)
-    assert not card.done and card.max_cost_cad == 0.0 and card.minutes == 15
-    assert "1234567" in card.action and f"job {fixes[0].id}" in card.action, card.action
-    assert card.why_software_cannot == "live listings are never changed autonomously"
-    assert card.consequence_of_delay == "the live listing keeps showing its current images"
+        s.add(Incident(severity="P2", product_slug="old-assets",
+                       signature=CS.signature(CS.ASSETS, "old-assets", "2.0.0"),
+                       summary="assets.build refused", detail={}))
+    _review(db)
+    assert [j.inputs["slug"] for j in _rebuilds(db)] == ["no-hero"]
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert "open chain dead end" in why[("old-assets", "ASSETS_STALE")], why
+
+
+def test_a_retrying_own_job_is_in_flight():
+    """L2 (mutant M16): a FAILED own job is retrying, not finished."""
+    db = _seeded()
+    j = JobQueue(db).enqueue("listing", "listing.draft",
+                             {"slug": "no-hero", "version": "1.0.0", "release": "no-hero1.0.0"},
+                             idempotency_key="draft-retry-no-hero")
+    with db.session() as s:
+        s.get(Job, j.id).status = JobStatus.FAILED
+    _review(db)
+    assert [j.inputs["slug"] for j in _rebuilds(db)] == ["old-assets"]
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert "failed" in why[("no-hero", "HERO_MISSING")].lower(), why
+
+
+def test_an_unread_icon_raises_no_card():
+    """L2 (mutant M18): with no live reading the icon is UNKNOWN; nobody is asked to upload
+    an icon that may already exist."""
+    db = _db()
+    _certify(db, "fine-assets")
+    _review(db)
+    assert not [k for k, _d, _s in _all_cards(db) if "ICON" in str(k)], _all_cards(db)
+    codes = {n["code"] for n in _routed(db).get("not_routed", [])}
+    assert "ICON_UNREAD" in codes, _routed(db)
+
+
+class _Ctx:
+    def __init__(self, db, job_id):
+        self.db, self.job = db, type("J", (), {"id": job_id})()
+
+    def audit(self, *a, **k):
+        pass
+
+
+def test_a_fix_only_success_never_resolves_or_rewrites_an_ordinary_dead_end():
+    """H1: the ordinary dead end keeps its ordinary inputs, is not resolved by a fix-only
+    success, and the sweep under the next commit re-drives the ordinary stage (no fix_only),
+    which is the one that goes on to launch.plan."""
+    from brambleloop.core.models import Incident
+    from brambleloop.runtime import chain_successors as CS
+
+    db = _seeded()
+    ordinary = {"slug": "no-hero", "version": "1.0.0", "release": "no-hero1.0.0"}
+    sig = CS.signature(CS.ASSETS, "no-hero", "1.0.0")
+    real_commit = CS._commit
+    CS._commit = lambda: "commit-a"
+    try:
+        CS.record(_Ctx(db, 1), CS.ASSETS, inputs=ordinary, summary="blocked", detail={})
+        CS.record(_Ctx(db, 2), CS.ASSETS, inputs={**ordinary, "rebuild": "asset-health:x",
+                                                  "fix_only": True},
+                  summary="blocked again", detail={})
+    finally:
+        CS._commit = real_commit
+    with db.session() as s:
+        stored = s.scalar(select(Incident).where(Incident.signature == sig)).detail["inputs"]
+    assert stored == ordinary, stored
+    j = JobQueue(db).enqueue("publishing", "assets.build",
+                             {**ordinary, "rebuild": "asset-health:x", "fix_only": True},
+                             idempotency_key="asset-fix:no-hero:x")
+    with db.session() as s:
+        row = s.get(Job, j.id)
+        row.status, row.outputs = JobStatus.DONE, {"pdf_sha256": "a" * 64, "ok": True}
+    assert CS._stage_succeeded(db, CS.ASSETS, ordinary) is False
+    CS._commit = lambda: "commit-b"
+    try:
+        out = CS.sweep(db, JobQueue(db))
+    finally:
+        CS._commit = real_commit
+    assert sig in out["redriven"] and sig not in out["resolved"], out
+    with db.session() as s:
+        redo = [x for x in s.scalars(select(Job).where(Job.job_type == "assets.build"))
+                if str((x.inputs or {}).get("rebuild", "")).startswith("deadend:")]
+    assert len(redo) == 1 and not redo[0].inputs.get("fix_only"), [x.inputs for x in redo]
 
 
 if __name__ == "__main__":
