@@ -9,21 +9,26 @@ piece of work:
 | QUALITY_PROBLEM | re-verification of that one release: `cir.twin`, `cir.reverse`,        |
 |                 | `gate.asset_truth`, `gate.policy` (`quality-fix:<check>:<slug>:<wk>`).  |
 |                 | Read-only checks: a failure can only withhold or open an incident     |
-| SEO_PROBLEM     | an owner card (`portfolio.seo:<slug>`). Never an automatic rebuild     |
+| SEO_PROBLEM     | a bounded `listing.seo` rebuild of the current release with           |
+|                 | `fix_only: True` (`seo-fix:<slug>:<wk>`), Main's I-FIX-ONLY-REBUILD    |
 | REWORK          | an owner card (`portfolio.rework:<slug>`). The A5 correction loop is   |
 |                 | not on this base                                                      |
 | RETIRE          | an owner card (`portfolio.retire:<slug>`). Never automatic             |
 
-**Why SEO is a card, not a `listing.seo` (review PORTFOLIO f3bea437 F1/F2/F3).**
-SEO_PROBLEM needs at least 300 impressions, so the listing is already live on Etsy. A
-`listing.seo` re-run:
-- resets that live listing to a local `draft`;
-- restores the last run's price and frames over the current ones;
-- carries its rebuild token through `launch.plan` to `store.publish`. That is the path
-  independent review FMBATCH1 F-1 made opt-in for taxonomy drift.
+**Why the SEO rebuild is `fix_only` (review PORTFOLIO f3bea437 F1/F2/F3, I-FIX-ONLY-REBUILD).**
+SEO_PROBLEM fires only on a listing with at least 300 impressions, which means it is already
+live. A plain `listing.seo` re-run reset that live row to a local `draft`, restored stale
+prices and frames, and drove the chain to `store.publish`. With `fix_only: True`, Main's
+handlers bound the rebuild instead:
+- a LIVE listing's row is never changed. The candidate copy is recorded
+  (`listing.fix_candidate`) and the owner gets `listing.live_update:<slug>@<version>` to
+  apply it by hand;
+- a draft keeps its existing price;
+- no price point is recorded;
+- the chain stops before `launch.plan`, and `launch.plan` refuses a fix-only input.
 
-It would not even reach the buyer, because `store.publish` refuses a listing that already has
-an Etsy id. So the rebuild is put to the owner, the way taxonomy drift does it.
+The rebuild uses the inputs of the last `listing.seo` for the CURRENT certified version only.
+A SKU with none is skipped by name and never invented.
 
 **Owner cards** are keyed per SKU, not per week, which gives three rules:
 - An open card is restated in place, never duplicated.
@@ -46,7 +51,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 SEO, QUALITY, REWORK_CARD, RETIRE_CARD = "seo", "quality", "rework", "retire"
-CARD_KINDS = (SEO, REWORK_CARD, RETIRE_CARD)
+CARD_KINDS = (REWORK_CARD, RETIRE_CARD)
+JOB_KINDS = (QUALITY, SEO)
 WEEKLY_CAP = 5
 DECIDED_QUIET_DAYS = 90
 ACTION = "portfolio.acted"
@@ -94,10 +100,12 @@ def _history(session, kind: str, slugs: list[str], week: str, today: date) -> di
     out: dict[str, dict] = {s: {"last": None, "this_week": False, "open": None,
                                 "decided_at": None} for s in slugs}
     start = _week_start(today)
-    if kind == QUALITY:
+    if kind in JOB_KINDS:
+        prefix, at_ix = (("quality-fix:cir.twin:", 2) if kind == QUALITY else ("seo-fix:", 1))
         for key, at in session.execute(select(Job.idempotency_key, Job.created_at).where(
-                Job.idempotency_key.like("quality-fix:cir.twin:%"))):
-            slug = (key or "").split(":")[2] if key and key.count(":") >= 3 else None
+                Job.idempotency_key.like(f"{prefix}%"))):
+            parts = (key or "").split(":")
+            slug = parts[at_ix] if len(parts) > at_ix + 1 else None
             if slug in out:
                 h = out[slug]
                 at = _aware(at)
@@ -123,14 +131,7 @@ def _history(session, kind: str, slugs: list[str], week: str, today: date) -> di
 
 def _card(kind: str, c, rel: dict | None, today: date) -> dict:
     version = f"{c.slug}@{rel['version']}" if rel else c.slug
-    if kind == SEO:
-        action = (f"Decide whether to rebuild the listing copy of {version}: it is shown and "
-                  f"not chosen ({c.reason}). To apply it, re-run the listing copy from the "
-                  f"Command Center on the current price and frames, then update the live "
-                  f"Etsy listing in Shop Manager. Close this card as withdrawn to keep the "
-                  f"copy as it is")
-        blocks = f"the SEO rebuild of {c.slug}"
-    elif kind == RETIRE_CARD:
+    if kind == RETIRE_CARD:
         action = (f"Decide whether to retire {version}: {c.reason}. To retire it, "
                   f"deactivate its Etsy listing in Shop Manager and mark the product retired "
                   f"in the Command Center. Close this card as withdrawn to keep selling it")
@@ -167,8 +168,8 @@ def act(ctx, classifications, *, today: date, review_id: int | None) -> dict:
     for kind, items in by_kind.items():
         with ctx.db.session() as s:
             hist = _history(s, kind, [c.slug for c in items], week, today)
-        if kind == QUALITY:
-            new_this_week = _quality_this_week(ctx.db, week)
+        if kind in JOB_KINDS:
+            new_this_week = _jobs_this_week(ctx.db, kind, week)
         else:
             with ctx.db.session() as s:
                 new_this_week = _cards_opened_since(s, kind, _week_start(today))
@@ -203,6 +204,38 @@ def act(ctx, classifications, *, today: date, review_id: int | None) -> dict:
                                 idempotency_key=_quality_key("gate.policy", c.slug, week)))]
                 budget -= 1
                 done.append({"slug": c.slug, "kind": kind, "label": c.label, "jobs": jobs})
+                continue
+            if kind == SEO:
+                if h["this_week"]:
+                    skipped.append({"slug": c.slug, "kind": kind,
+                                    "why": f"already rebuilt in {week}"})
+                    continue
+                if rel is None:
+                    skipped.append({"slug": c.slug, "kind": kind,
+                                    "why": "no certified current release to rebuild"})
+                    continue
+                from ..integrations.taxonomy_drift import _last_seo_inputs
+
+                with ctx.db.session() as s:
+                    inputs = _last_seo_inputs(s, rel["slug"], rel["version"])
+                if inputs is None:
+                    skipped.append({"slug": c.slug, "kind": kind, "why": (
+                        f"no earlier listing.seo for {rel['slug']}@{rel['version']} to "
+                        f"rebuild from")})
+                    continue
+                if budget <= 0:
+                    capped.append({"slug": c.slug, "kind": kind,
+                                   "why": f"weekly cap of {WEEKLY_CAP} {kind} actions reached"})
+                    continue
+                job = ctx.enqueue("listing", "listing.seo",
+                                  {**inputs, "version": rel["version"],
+                                   "release": rel["release_hash"],
+                                   "rebuild": f"portfolio:{week}", "fix_only": True,
+                                   "portfolio_review": review_id},
+                                  idempotency_key=f"seo-fix:{c.slug}:{week}")
+                budget -= 1
+                done.append({"slug": c.slug, "kind": kind, "label": c.label,
+                             "jobs": [getattr(job, "id", None)], "fix_only": True})
                 continue
             key = card_key(kind, c.slug)
             fields = _card(kind, c, rel, today)
@@ -246,11 +279,12 @@ def _cards_opened_since(session, kind: str, since: datetime) -> int:
     return n
 
 
-def _quality_this_week(db, week: str) -> int:
+def _jobs_this_week(db, kind: str, week: str) -> int:
     from sqlalchemy import func, select
 
     from ..core.models import Job
 
+    pattern = (f"quality-fix:cir.twin:%:{week}" if kind == QUALITY else f"seo-fix:%:{week}")
     with db.session() as s:
         return int(s.scalar(select(func.count()).select_from(Job).where(
-            Job.idempotency_key.like(f"quality-fix:cir.twin:%:{week}"))) or 0)
+            Job.idempotency_key.like(pattern))) or 0)

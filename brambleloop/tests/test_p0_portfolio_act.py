@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import select  # noqa: E402
@@ -124,10 +125,8 @@ def test_the_weekly_cap_is_five():
     assert PA.WEEKLY_CAP == 5 and PA.DECIDED_QUIET_DAYS == 90
 
 
-def test_quality_reverifies_and_seo_asks_the_owner_without_touching_the_live_listing():
+def test_quality_reverifies_and_seo_queues_one_bounded_fix_only_rebuild():
     db = _seeded()
-    with db.session() as s:                      # a later repricing of the live listing
-        s.scalar(select(Listing).where(Listing.product_slug == "coaster-seo")).price_cad = 12.34
     week = PA.week_of(TODAY)
     out = _review(db).outputs["acted"]
     assert {a["slug"]: a["kind"] for a in out["acted"]} == {"coaster-seo": "seo",
@@ -135,29 +134,52 @@ def test_quality_reverifies_and_seo_asks_the_owner_without_touching_the_live_lis
     q = _jobs(db, "quality-fix:%")
     assert sorted(j.job_type for j in q) == sorted(jt for _a, jt in PA.QUALITY_CHECKS)
     assert all(j.idempotency_key.endswith(f":basket-p1:{week}") for j in q)
-    # Review PORTFOLIO F1/F2/F3: no listing.seo, no launch.plan, no store.publish is queued.
+    seo = _jobs(db, "seo-fix:%")
+    assert [(j.job_type, j.idempotency_key) for j in seo] == [
+        ("listing.seo", f"seo-fix:coaster-seo:{week}")], seo
+    i = seo[0].inputs
+    assert i["fix_only"] is True and i["rebuild"] == f"portfolio:{week}", i
+    assert i["version"] == "1.0.0" and i["release"], i
+    # No portfolio card for SEO any more: the fix_only handler owns the live-listing card.
+    assert _cards(db) == []
+
+
+def test_the_fix_only_seo_rebuild_never_touches_a_live_listing_or_reaches_publish():
+    """End to end on a real certified chain (Main's fix_only fixture): portfolio.review on a
+    live, repriced listing with SEO_PROBLEM exposure, then the queue drained."""
+    import test_w6_fix_only_rebuild as FO
+
+    st = FO.chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    FO._set_listing(db, slug, version, state="published", etsy_listing_id="7654321",
+                    price_cad=12.34)
     with db.session() as s:
-        chain = [j.job_type for j in s.scalars(select(Job).where(Job.job_type.in_((
-            "listing.seo", "launch.plan", "store.publish", "marketing.schedule"))))
-            if not (j.idempotency_key or "").startswith("fixture-seo:")]
-    assert chain == [], chain
-    assert _listing(db, "coaster-seo") == ("published", 12.34, "e-coaster-seo")
-    assert _cards(db) == [("portfolio.seo:coaster-seo", False)]
+        s.add(ListingOutcome(product_slug=slug, version=version,
+                             period_start=(TODAY - timedelta(days=28)).isoformat(),
+                             period_end=(TODAY - timedelta(days=1)).isoformat(),
+                             impressions=4000, visits=4, favourites=0, source="fixture"))
+    before = FO._listing(db, slug, version)
+    out = _review(db).outputs["acted"]
+    assert any(a["slug"] == slug and a["kind"] == "seo" for a in out["acted"]), out
+    FO._drain(db, name="pact-e2e")
+    token = f"portfolio:{PA.week_of(TODAY)}"
+    ran = FO._jobs(db, token)
+    assert ("listing.seo", JobStatus.DONE) in ran, ran
+    assert not [t for t, _s in ran if t in FO.DOWNSTREAM], ran
+    assert FO._listing(db, slug, version) == before            # state, price, copy, Etsy id
     with db.session() as s:
         card = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == "portfolio.seo:coaster-seo"))
-        assert "Shop Manager" in card.action and card.minutes == 10
-        assert card.max_cost_cad == 0.0 and card.consequence_of_delay
+            OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}"))
+    assert card is not None and not card.done, "the owner was not asked to apply the copy"
 
 
-def test_a_rerun_restates_the_card_and_re_verifies_nothing_twice():
+def test_a_rerun_in_the_same_week_rebuilds_and_re_verifies_nothing_twice():
     db = _seeded()
     _review(db)
-    before = len(_jobs(db, "quality-fix:%"))
+    before = len(_jobs(db, "quality-fix:%")), len(_jobs(db, "seo-fix:%"))
     again = _review(db).outputs["acted"]
     assert again["acted"] == [], again
-    assert len(_jobs(db, "quality-fix:%")) == before == 4
-    assert _cards(db) == [("portfolio.seo:coaster-seo", False)]      # one card, restated
+    assert (len(_jobs(db, "quality-fix:%")), len(_jobs(db, "seo-fix:%"))) == before == (4, 1)
 
 
 def _ctx(db) -> JobContext:
@@ -210,19 +232,32 @@ def test_the_cap_rotates_so_capped_skus_go_first_next_week():
 
 
 def test_the_cap_bounds_new_cards_and_the_capped_are_asked_the_next_week():
-    from brambleloop.growth.portfolio import SEO_PROBLEM
-
     db = _db()
     slugs = [f"sku-{i:02d}" for i in range(PA.WEEKLY_CAP + 2)]
     for slug in slugs:
         _release(db, slug)
-    labels = [Classification(s, SEO_PROBLEM, "low ctr") for s in slugs]
+    labels = [Classification(s, RETIRE, "no sales in a year") for s in slugs]
     w1 = PA.act(_ctx(db), labels, today=TODAY, review_id=None)
     assert len(w1["acted"]) == PA.WEEKLY_CAP and len(w1["capped"]) == 2, w1
     assert len(_cards(db)) == PA.WEEKLY_CAP
     w2 = PA.act(_ctx(db), labels, today=TODAY + timedelta(days=7), review_id=None)
     assert sorted(a["slug"] for a in w2["acted"]) == slugs[5:], w2
     assert len(w2["restated"]) == PA.WEEKLY_CAP and len(_cards(db)) == len(slugs)
+
+
+def test_the_cap_bounds_fix_only_seo_rebuilds_and_the_capped_go_first_next_week():
+    from brambleloop.growth.portfolio import SEO_PROBLEM
+
+    db = _db()
+    slugs = [f"seo-{i:02d}" for i in range(PA.WEEKLY_CAP + 2)]
+    for slug in slugs:
+        _release(db, slug)
+    labels = [Classification(s, SEO_PROBLEM, "shown, not chosen") for s in slugs]
+    w1 = PA.act(_ctx(db), labels, today=TODAY, review_id=None)
+    assert len(w1["acted"]) == PA.WEEKLY_CAP and len(w1["capped"]) == 2, w1
+    assert len(_jobs(db, "seo-fix:%")) == PA.WEEKLY_CAP
+    w2 = PA.act(_ctx(db), labels, today=TODAY + timedelta(days=7), review_id=None)
+    assert [a["slug"] for a in w2["acted"]][:2] == sorted(c["slug"] for c in w1["capped"]), w2
 
 
 def test_a_discard_the_offer_guard_withheld_is_never_acted_on():
