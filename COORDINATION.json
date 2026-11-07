@@ -909,6 +909,15 @@
       "verdicts": {
         "claude/w6-support-defect-incident 05961fd0": "DO NOT SHIP: N-1 HIGH hold can never clear (no path resolves a support.defect incident; needs_owner_path); N-2 MED buyers counted across versions; N-3 LOW incident on unstored version; N-4 LOW hold timestamp churn per mention. Main fixing (owner decision path + card + REMEDIATION, supersession, per-version buyers)."
       }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta",
+      "sha": "340025ca",
+      "recorded": "2026-11-07T04:01:20Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_340025ca.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 340025ca": "DO NOT SHIP: N-M1 MED acknowledgement permanently hid a real exposure (ignored counts, still-held variable, any resolved row); N-L1 2 surviving mutants; N-L2 UNKNOWN shapes unread/inconsistent; N-L3 escalation_failed row never closed. Fallback sound; scan cost negligible. Fixed in 7727e68b."
+      }
     }
   ],
   "integration": {
@@ -1174,11 +1183,16 @@
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
       },
       {
-        "id": "W6-SECRET-FOLLOWUP-DELTA",
-        "subject": "claude/w6-secret-leak-followup 340025ca (delta from 1c4c9211)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_340025ca.md",
-        "started": "2026-11-07T03:30:25Z",
-        "requested_by": "Main follow-up of W6 review MED x2 LOW"
+        "id": "W6-SECRET-FOLLOWUP-D2",
+        "subject": "claude/w6-secret-leak-followup 7727e68b (delta from 340025ca)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_d2.md",
+        "started": "2026-11-07T04:01:20Z"
+      },
+      {
+        "id": "W6-SUPPORT-D3",
+        "subject": "claude/w6-support-defect-incident 785849c0 (delta from 05961fd0)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_785849c0.md",
+        "started": "2026-11-07T04:01:20Z"
       }
     ]
   },
