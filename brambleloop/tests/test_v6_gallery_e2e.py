@@ -2,7 +2,9 @@
 
 Main decision I-V6-ACCEPTANCE: one end-to-end run through real handlers with stub judges,
 every machine gate green, the remaining owner gates named (F-852, F-853, OA-PAID-KEYS); no
-certified-gallery claim, nothing handed to listing.package.
+certified-gallery claim, nothing handed to listing.package. On V1 (Main 6705476730 (a)) the
+run stops at `owner_card` on one named gate, V1-SCENE-END-BANDS: V1 never promotes an anchor's
+end-band measurement into a scene frame, so Cloudline's in-scene frames stay UNKNOWN on craft.
 
 What is real here and what is a test double:
 
@@ -95,8 +97,10 @@ class StubVision:
         if task == "product_scale":
             return {"answered": self.scale_reading is not None, "reading": self.scale_reading,
                     "why": "no scale reading configured"}
-        # visual.fidelity.craft_texture asks without a task prefix
-        return T.PASSING_JUDGE.read(prompt, images, **kw)
+        # visual.fidelity.craft_texture asks without a task prefix. On V1 the Cloudline
+        # flat lay's declared end bands pass only when the reading places the edging at the
+        # ends with every edge in view (V1's PASSING_BANDS_JUDGE describes that image).
+        return T.PASSING_BANDS_JUDGE.read(prompt, images, **kw)
 
 
 # ---- the judges: real Product Truth paths, stub person judges -------------------------------
@@ -274,13 +278,21 @@ def _bytes(R, sha) -> bytes:
 
 # ---- 6. the run reaches the owner card, through the real handlers -----------------------------
 
-def test_6_the_run_reaches_ready_for_owner_review_with_the_expected_roles():
+IN_SCENE = ("lifestyle", "size", "colour_context")
+END_BAND_WHY = "visible edge treatment cannot be distinguished from declared bands or components"
+
+
+def test_6_the_run_reaches_the_owner_card_and_stops_only_on_scene_end_bands():
+    """Main 6705476730 (a): on V1 the run reaches `owner_card` and stops there, and the one
+    reason is V1-SCENE-END-BANDS: each in-scene frame's Product Truth is UNKNOWN, nothing else."""
     from brambleloop.visual import image_production as IP
 
     R = _run()
     run = R["run"]
     assert R["first"]["enqueued"] and R["ran"] >= 10, R["ran"]
-    assert run["state"] == "ready_for_owner_review", run
+    assert run["stage"] == "owner_card" and run["state"] == "blocked", run
+    want = "; ".join(f"{r}: UNKNOWN (failed [], unknown ['product_truth'])" for r in IN_SCENE)
+    assert run["blocked_reason"] == want, run["blocked_reason"]
     # stage A (identity anchor) ran, because the real generator carries the staged method
     assert "identity_anchor" in run["stages"] and "verification" in run["stages"]
     roles = [r["role"] for r in R["gen"].requests]
@@ -294,14 +306,15 @@ def test_6_the_run_reaches_ready_for_owner_review_with_the_expected_roles():
                                                   "whats_included"]
     for r in GALLERY_ROLES:
         assert by_role[r]["source"] == "generated", by_role[r]
-        assert by_role[r]["candidate"]["technical_status"] == "PASS", by_role[r]
+        assert by_role[r]["candidate"]["technical_status"] == "UNKNOWN", by_role[r]
         assert by_role[r]["candidate"]["publishable"] is False        # F-852: never claimed
     assert card["set_check"]["ok"] is True, card["set_check"]
     assert card["owner_approval_is_not_technical_verification"]
     assert card["spent_cad"] == 0.0 and run["spent_cad"] == 0.0
 
 
-def test_6_every_machine_gate_is_green_on_every_generated_frame():
+def test_6_every_other_machine_gate_is_green_and_unknown_stays_unknown():
+    from brambleloop.visual import fidelity as F
     from brambleloop.visual import image_production as IP
 
     R = _run()
@@ -309,12 +322,26 @@ def test_6_every_machine_gate_is_green_on_every_generated_frame():
     ia = IP._best(R["db"], listing=CLOUD, role=IP.IDENTITY_ANCHOR_ROLE, run=R["key"])
     assert anchor["technical_status"] == "PASS" and anchor["unknown"] == [], anchor
     assert ia["technical_status"] == "PASS" and ia["unknown"] == [], ia
+    exp = F.expectation(R["cir"])
     for role, b in _frames(R).items():
-        assert b["technical_status"] == "PASS", (role, b)
-        assert b["unknown"] == [] and b["failed"] == {}, (role, b)
-        assert b["fidelity"]["status"] == "PASS" and not b["fidelity"]["unknown"], b["fidelity"]
+        assert b["technical_status"] == "UNKNOWN", (role, b)
+        assert b["unknown"] == ["product_truth"] and b["failed"] == {}, (role, b)
+        fid = b["fidelity"]
+        assert fid["status"] == "UNKNOWN" and fid["unknown"] == ["craft_texture"], fid
+        assert fid["failed"] == [] and fid["codes"] == [], fid
+        other = [c for c in fid["checks"] if c["check"] != "craft_texture"]
+        assert other and all(c["status"] == "PASS" for c in other), (role, other)
+        craft = next(c for c in fid["checks"] if c["check"] == "craft_texture")
+        assert craft["status"] == "UNKNOWN" and craft["why"] == END_BAND_WHY, craft
+        # The judge saw edging at the ends only, every edge in view. Only V1's rule (an
+        # anchor's band measurement is never promoted into a scene frame) keeps it UNKNOWN:
+        # the same reading with the bands verified would pass. That is the named gate.
+        r = craft["reading"]
+        assert r["edge_placement"] == "ends_only" and r["all_edges_visible"] == "true", r
+        assert F.compare_craft(r, exp, end_bands_verified=False)["status"] == "UNKNOWN"
+        assert F.compare_craft(r, exp, end_bands_verified=True)["status"] == "PASS"
     card = IP.gallery_card(R["db"], R["key"])
-    assert card["decisions"]["technical_certification"]["state"] == "PASS"
+    assert card["decisions"]["technical_certification"]["state"] == "UNKNOWN"
     assert card["decisions"]["technical_certification"]["campaign_consistency"][
         "status"] == "PASS"
     # ... and publication is still not available: this is no certified gallery.
@@ -502,6 +529,11 @@ REMAINING_GATES = {
     "LIFESTYLE-EVIDENCE": ("production", "compose.lifestyle_evidence needs a photographic "
                                          "reference of a made sample; from the pattern-derived "
                                          "references it FAILs"),
+    "V1-SCENE-END-BANDS": ("run", "V1 never promotes an anchor's end-band measurement into a "
+                                  "scene frame: every in-scene frame of an end-band design "
+                                  "reads craft_texture UNKNOWN, so the run stops at owner_card. "
+                                  "Lifted by a deterministic in-scene band reading (Codex "
+                                  "follow-up, Main 6705476730 (c))"),
 }
 
 
@@ -530,9 +562,17 @@ def test_7_the_remaining_owner_and_provider_gates_are_the_actual_blockers():
     seen["ETSY-POLICY"] = [b for b in blockers if b == CG.ETSY_POLICY_UNKNOWN]
     seen["LAURA-PUBLICATION"] = [b for b in blockers if b.startswith("Laura publication gate")]
     assert seen["ETSY-POLICY"] and seen["LAURA-PUBLICATION"], joined
+    # V1-SCENE-END-BANDS on the card: Product Truth UNKNOWN is what F-852 and the DATA_TRUTH
+    # gate (worst(binding, product_truth)) report; it is the run's stop reason.
+    derived = ("F-852 (D-W4-F852-AMEND) verified exception refused: product_truth is UNKNOWN",
+               "F-852 (D-W4-F852-AMEND) verified exception refused: structural_fidelity is "
+               "UNKNOWN", "never ran: DATA_TRUTH")
+    seen["V1-SCENE-END-BANDS"] = [b for b in blockers if b.startswith(derived)]
+    assert len(seen["V1-SCENE-END-BANDS"]) == 3, blockers
+    assert R["run"]["stage"] == "owner_card" and R["run"]["state"] == "blocked"
     # The card carries no other kind of blocker: everything else on it is one of these.
-    assert all(b.startswith(("F-852", "Laura publication gate")) or b == CG.ETSY_POLICY_UNKNOWN
-               for b in blockers), blockers
+    assert all(b.startswith(("F-852", "Laura publication gate", "never ran: DATA_TRUTH"))
+               or b == CG.ETSY_POLICY_UNKNOWN for b in blockers), blockers
     # OA-PAID-KEYS: the real vision and generation gates are closed in this database.
     gates = gallery.gates_now(db, keys=("image_generation", "image_vision"))
     assert not gates.get("image_generation") and not gates.get("image_vision"), gates
@@ -557,12 +597,11 @@ def test_7_the_remaining_owner_and_provider_gates_are_the_actual_blockers():
     seen["LIFESTYLE-EVIDENCE"] = [le["status"]]
     assert set(seen) == set(REMAINING_GATES) and all(seen.values()), seen
     for name, (where, _why) in REMAINING_GATES.items():
-        assert where in ("card", "production"), name
-    # The owner's approval re-checks the gates and cannot override F-852.
+        assert where in ("card", "production", "run"), name
+    # The owner cannot approve a run that stopped on an unverified gate.
     dec = IP.approve(db, R["key"], decided_by="owner:test")
-    assert dec["approved"] is False and any("F-852" in b for b in dec["blockers"]), dec
-    assert any("candidate not publishable" in b for b in dec["blockers"])
-    assert IP.get_run(db, R["key"])["state"] == "ready_for_owner_review"
+    assert dec["approved"] is False and "not ready_for_owner_review" in dec["why"], dec
+    assert IP.get_run(db, R["key"])["state"] == "blocked"
     card = IP.gallery_card(db, R["key"])
     assert card["decisions"]["publication_authorization"]["state"] == "not_available"
     assert set(card["decisions"]["publication_authorization"]["blockers"]) == set(blockers)
