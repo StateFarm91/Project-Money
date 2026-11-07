@@ -83,9 +83,10 @@ def chain_key(stage: str, slug: str, version: str, release: str = "",
         parts.append(release[:12])
     if token:
         # PF-CHAIN-KEY-TOKEN-TRUNCATION: a token longer than 12 characters is kept distinct
-        # (prefix + hash) instead of cut, so `deadend:<commit A>` and `deadend:<commit B>` --
-        # both "deadend:dead" when cut -- never share a downstream key. Tokens of 12 or fewer
-        # characters (the 12-hex hashes the chain mints, "asset-health") keep their key.
+        # (prefix + hash) instead of cut. Cut, `deadend:<commit>` kept only 4 hex of the
+        # commit and `parity-escalation:<state>` became the constant "parity-escal", so two
+        # different triggers for one release shared every downstream key. Tokens of 12 or
+        # fewer characters (the 12-hex hashes the chain mints) keep their key.
         parts.append(token if len(token) <= 12 else
                      token[:4] + hashlib.sha256(token.encode()).hexdigest()[:8])
     parts.append(f"c{CHAIN_VERSION}")

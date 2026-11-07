@@ -255,6 +255,11 @@ def test_a_fix_only_refusal_alone_opens_no_dead_end():
     with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
         _run(db, "publishing", "assets.build", {**REL, "fix_only": True})
     assert _deadend_inputs(db) is None
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:                           # review cdf4cb5e A-L2 / M9
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "chain.deadend_not_recorded")) is not None
 
 
 def test_a_fix_only_success_never_closes_the_releases_dead_end():
@@ -283,16 +288,113 @@ def test_the_sweep_never_redrives_with_the_bound_and_commits_never_share_a_key()
             row.detail = {**dict(row.detail), "inputs": {**dict(row.detail)["inputs"],
                                                          "fix_only": True}}
         os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
-        CS.sweep(db, JobQueue(db))
-        redrives = [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
-        assert redrives and "fix_only" not in redrives[-1][0], redrives[-1][0]
+        out = CS.sweep(db, JobQueue(db))
+        # Review 4b4e3694: an ORDINARY dead end whose inputs a pre-fix fix-only refusal
+        # restated still stands for the release's own refusal. It stays open with the bound
+        # stripped, and it is never re-driven automatically.
+        assert out["redriven"] == [] and out["resolved"] == [], out
+        assert "legacy" in out["waiting"][0]["why"], out
+        assert not [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
+        assert _deadend_inputs(db) is not None and "fix_only" not in _deadend_inputs(db)
+        again = CS.sweep(db, JobQueue(db))                     # stays waiting on later sweeps
+        assert again["redriven"] == [] and again["resolved"] == [], again
+        # ...and an ordinary success still closes it.
+        with db.session() as s:
+            s.add(Job(agent="publishing", job_type="assets.build", status=JobStatus.DONE,
+                      inputs=dict(REL), outputs={"pdf_sha256": "a" * 64},
+                      finished_at=datetime.now(timezone.utc)))
+        closed = CS.sweep(db, JobQueue(db))
+        assert closed["resolved"] and _deadend_inputs(db) is None, closed
     finally:
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
-    a = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "a" * 12)
-    b = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "b" * 12)
-    assert a != b, (a, b)
+    # Commits that share their first 4 hex collided when the token was cut to 12 characters
+    # (review cdf4cb5e A-M1); so did any two parity-escalation states.
+    for x, y in (("deadend:aaaa11112222", "deadend:aaaa33334444"),
+                 ("parity-escalation:" + "1" * 16, "parity-escalation:" + "2" * 16)):
+        a = release.chain_key("listing.seo", "s", "1", "r" * 64, x)
+        b = release.chain_key("listing.seo", "s", "1", "r" * 64, y)
+        assert a != b, (a, b)
     assert release.chain_key("x", "s", "1", "", "0123456789ab").endswith(":0123456789ab:c"
                                                                           + str(release.CHAIN_VERSION))
+
+
+def test_a_legacy_dead_end_that_began_as_a_fix_only_refusal_is_resolved_not_redriven():
+    """Review 4b4e3694: one report, and the refusing job was itself bound."""
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        q = JobQueue(db)
+        job = q.enqueue("publishing", "assets.build", {**REL, "fix_only": True},
+                        idempotency_key="legacy-fo")
+        with db.session() as s:                      # the row a pre-fix record() wrote
+            s.add(Incident(severity="P2", signature=CS.signature(CS.ASSETS, REL["slug"],
+                                                                 REL["version"]),
+                           summary="legacy", product_slug=REL["slug"],
+                           detail={"kind": CS.ASSETS, "stage": "assets.build",
+                                   "inputs": {k: v for k, v in {**REL, "fix_only": True}.items()
+                                              if k != "rebuild"},
+                                   "refused_under_commit": "a" * 40, "refused_job": job.id}))
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, q)
+        assert out["resolved"] and out["redriven"] == [], out
+        assert _deadend_inputs(db) is None
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+
+
+def test_an_ordinary_dead_end_restated_by_a_fix_only_refusal_is_never_resolved_by_it():
+    """Review b31a221b A-MED-1: the real restate path (open_or_restate, report_count 2,
+    refused_job = a bound job) -- the release's own dead end stays open."""
+    from brambleloop.ops import incident_lifecycle as L
+
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
+            _run(db, "publishing", "assets.build", REL)       # the release's own refusal
+        q = JobQueue(db)
+        fo = q.enqueue("publishing", "assets.build", {**REL, "fix_only": True},
+                       idempotency_key="restate-fo")
+        sig = CS.signature(CS.ASSETS, REL["slug"], REL["version"])
+        with db.session() as s:                               # what pre-fix record() did
+            L.open_or_restate(s, signature=sig, severity="P2", product_slug=REL["slug"],
+                              summary="fix-only refusal", detail={
+                                  "kind": CS.ASSETS, "refused_under_commit": "a" * 40,
+                                  "refused_job": fo.id,
+                                  "inputs": {k: v for k, v in {**REL, "fix_only": True}.items()
+                                             if k != "rebuild"}})
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, q)
+        assert out["resolved"] == [] and out["redriven"] == [], out
+        assert _deadend_inputs(db) is not None and "fix_only" not in _deadend_inputs(db)
+        # A-LOW-1: a later genuine ordinary refusal restores trustworthy inputs; under the
+        # next commit the row is re-driven again.
+        with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["y"]}):
+            _run(db, "publishing", "assets.build", REL)
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "c" * 40
+        again = CS.sweep(db, q)
+        assert len(again["redriven"]) == 1, again
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+
+
+def test_a_malformed_refused_job_never_aborts_the_sweep():
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        with db.session() as s:
+            s.add(Incident(severity="P2", signature=CS.signature(CS.ASSETS, REL["slug"],
+                                                                 REL["version"]),
+                           summary="legacy", product_slug=REL["slug"],
+                           detail={"kind": CS.ASSETS, "refused_job": "abc",
+                                   "inputs": {"slug": REL["slug"], "version": REL["version"],
+                                              "release": REL["release"], "fix_only": True},
+                                   "refused_under_commit": "a" * 40}))
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, JobQueue(db))
+        assert out["resolved"] == [] and "legacy" in out["waiting"][0]["why"], out
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
 
 
 if __name__ == "__main__":
