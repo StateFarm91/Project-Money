@@ -199,11 +199,33 @@ def test_f212_receipt_proves_reference_bytes_are_in_the_request_body():
     assert r["requested"] == 0 and not r["proven"], r
 
 
+def _owner_activates_generation(db, provider: str) -> None:
+    """W6 V0: a paid provider generates only after the owner activates it (step-up, ceilings).
+    This test's transport is `RecordingPost` -- nothing leaves -- but the gate is real, so the
+    owner's activation is real too, exactly as in test_w5_v0_paid_provider_gate."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.gateway import paid_provider_gate as G
+
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with db.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    G.activate(db, provider=provider, scope=G.GENERATION, by="owner:test",
+               session_public_id=pid, daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0,
+               per_gallery_cad=5.0)
+
+
 def test_f212_generate_attaches_receipt_and_refuses_unprovable_conditioning():
     from brambleloop.agents.registry import Registry
 
     db = fresh_db()
     Registry(db).seed_defaults()
+    _owner_activates_generation(db, "nano-banana-2")
     face = _ref("face2.png", b"\x89PNG face " + os.urandom(32))
     env = {"BRAMBLELOOP_IMAGE_PROVIDER": "nano-banana-2", "BRAMBLELOOP_IMAGE_KEY": "stand-in"}
     with RecordingPost() as post, tempfile.TemporaryDirectory() as work:
