@@ -390,6 +390,46 @@ def test_a_fixture_pass_is_unknown_in_every_gate_it_feeds():
     assert ev["fixture_only_checks"] == ["identity"], ev
 
 
+def _all_pass_checks(identity):
+    ok = {"status": "PASS", "why": "fixture"}
+    checks = {k: dict(ok) for k in ("binding", "product_truth", "quality", "role", "realism",
+                                    "anatomy", "provenance", "body_proportions", "disclosure",
+                                    "outfit", "outfit_distinctness", "outfit_consistency")}
+    checks["identity"] = identity
+    return checks
+
+
+def test_a_fixture_pass_never_makes_a_frame_technically_pass_or_accepted():
+    """Review VISUAL d6b642dd D1: evaluate's technical verdict, its unknown list and the Laura
+    gate order all read a fixture-labelled PASS as UNKNOWN (so image_production records the
+    frame "unverified", never "accepted"). The label stays on the identity check itself."""
+    got = ident()
+    checks = _all_pass_checks(got)
+    assert CG.technical_of(checks) == "UNKNOWN"
+    assert CG.unknown_of(checks) == ["identity"]
+    plain = _all_pass_checks({k: v for k, v in got.items() if k != "fixture_only"})
+    assert CG.technical_of(plain) == "PASS" and CG.unknown_of(plain) == []
+    order = {g["gate"]: g for g in CG.laura_gate_order(
+        {**checks, "realism": checks["realism"]}, {"publishable": False, "blockers": ["x"]})}
+    ident_gate = order["canonical_identity"]
+    assert ident_gate["status"] == "UNKNOWN" and ident_gate["fixture_only"] is True, ident_gate
+
+
+def test_a_fixture_pass_is_unknown_in_the_publication_verdicts_gates():
+    """D1 (mutant N4_pubverdict_raw): publication_verdict's POLICY_PROVENANCE gate reads the
+    fixture identity as UNKNOWN; the same reading without the label does not add a blocker."""
+    from brambleloop.publish import eligibility as el
+
+    got = ident()
+    plain = {k: v for k, v in got.items() if k != "fixture_only"}
+    job = el.HERO_JOB
+    fx = CG.publication_verdict(cand(MATCH_FRAME), _all_pass_checks(got), job, False)
+    ok = CG.publication_verdict(cand(MATCH_FRAME), _all_pass_checks(plain), job, False)
+    extra = set(fx["blockers"]) - set(ok["blockers"])
+    assert extra and any("identity" in b or "POLICY" in b.upper() for b in extra), (
+        fx["blockers"], ok["blockers"])
+
+
 if __name__ == "__main__":
     fails = passes = 0
     for name, fn in list(globals().items()):

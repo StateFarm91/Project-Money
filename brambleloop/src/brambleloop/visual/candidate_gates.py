@@ -524,7 +524,7 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
         checks["outfit"] = _c(NA, "Laura does not appear")
         checks["outfit_consistency"] = _c(NA, "Laura does not appear")
         checks["outfit_distinctness"] = _c(NA, "Laura does not appear")
-    technical = worst(*(c["status"] for c in checks.values()))
+    technical = technical_of(checks)
     publication = publication_verdict({**cand, "_db": db}, checks, job, laura)
     if bind.get("experiment"):
         from .experiment import publication_blockers
@@ -543,10 +543,21 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
            "checks": checks, "technical_status": technical,
            "publication": publication, "publishable": publication["publishable"],
            "failure_categories": failures,
-           "unknown": sorted(k for k, c in checks.items() if c["status"] == UNKNOWN)}
+           "unknown": unknown_of(checks)}
     if laura:
         out["laura_gates"] = laura_gate_order(checks, publication)
     return out
+
+
+def technical_of(checks: dict) -> str:
+    """The candidate's technical verdict. Review VISUAL d6b642dd D1: through gate_status, so a
+    fixture-labelled PASS (V3 stand-in judges) is never an accepted, technically PASS frame."""
+    return worst(*(gate_status(c) for c in checks.values()))
+
+
+def unknown_of(checks: dict) -> list[str]:
+    """The checks a gate counts as UNKNOWN, a fixture-labelled PASS included (D1)."""
+    return sorted(k for k, c in checks.items() if gate_status(c) == UNKNOWN)
 
 
 def _judge(judges, name: str, *args) -> dict:
@@ -692,7 +703,9 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
                                  "label assigned; Etsy policy reading UNKNOWN"),
          "publication_gate": _c(PASS if publication["publishable"] else FAIL,
                                 "; ".join(publication["blockers"])[:400] or "publishable")}
-    return [{"gate": g, **m[g]} for g in canonical.LAURA_LISTING_GATES]
+    # D1: a fixture-labelled PASS is shown with its label but counted UNKNOWN in the order.
+    return [{"gate": g, **m[g], "status": gate_status(m[g])}
+            for g in canonical.LAURA_LISTING_GATES]
 
 
 def campaign_consistency(rows: list[dict]) -> dict:
