@@ -152,9 +152,10 @@ def test_either_an_etsy_id_or_a_published_state_alone_makes_a_listing_live():
     for n, kw in enumerate(({"state": "draft", "etsy_listing_id": "7654321"},
                             {"state": "published_manually", "etsy_listing_id": ""})):
         _set_listing(db, slug, version, price_cad=12.34, title=f"live title {n}", **kw)
-        before = _listing(db, slug, version)
+        before, prof = _listing(db, slug, version), _profile(db, slug, version)
         _fix(db, st["inputs"], f"live-only-{n}")
         assert _listing(db, slug, version) == before, (kw, _listing(db, slug, version))
+        assert _profile(db, slug, version) == prof, kw          # review 9e8665c3 N3
 
 
 def test_a_fix_only_rebuild_of_a_draft_refreshes_copy_but_keeps_its_price():
@@ -215,6 +216,162 @@ def test_the_bound_never_leaks_into_an_ordinary_re_price():
                          priority=0, idempotency_key="fo-leak-2")
     _drain(db, name="fo-leak-2")
     assert "launch.plan" in [t for t, _s in _jobs(db, "leak-2")], _jobs(db, "leak-2")
+
+
+def test_the_drift_requeue_never_inherits_the_bound():
+    """Review 9e8665c3 N1: taxonomy drift copies the newest listing.seo inputs."""
+    from brambleloop.integrations import taxonomy_drift
+
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    _fix(db, st["inputs"], "drift-1")
+    with db.session() as s:
+        newest = s.scalars(select(Job).where(Job.job_type == "listing.seo",
+                                             Job.status == JobStatus.DONE)
+                           .order_by(Job.id.desc())).first()
+        assert (newest.inputs or {}).get("fix_only") is True     # the fix run itself
+        copied = taxonomy_drift._last_seo_inputs(s, slug, version)
+    assert copied and "fix_only" not in copied, copied
+
+
+def test_every_chain_re_drive_strips_the_bound():
+    """Review 9e8665c3 N1/N6: each path that copies a stored chain job uses the helper."""
+    import inspect
+
+    from brambleloop.finance import launch_review
+    from brambleloop.integrations import taxonomy_drift
+    from brambleloop.runtime import release as R
+
+    assert R.without_fix_only({"a": 1, "fix_only": True}) == {"a": 1}
+    for fn in (R._reprice_on_plan_drift, R._targeted_rebuild, launch_review.run,
+               taxonomy_drift._last_seo_inputs):
+        assert "without_fix_only(" in inspect.getsource(fn), fn.__name__
+
+
+def test_a_rejected_candidate_is_never_put_to_the_owner():
+    """Review 9e8665c3 N2: a live-listing candidate the gates refuse raises no card."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.runtime import release as R
+    from brambleloop.runtime.worker import JobContext
+
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="published", etsy_listing_id="5550001")
+    with db.session() as s:
+        for a in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}")):
+            a.done = True
+    q = JobQueue(db)
+    ctx = JobContext(job=q.enqueue("listing", "listing.seo", {"slug": slug, "version": version},
+                                   idempotency_key="fo-n2"),
+                     db=db, queue=q, registry=Registry(db), phase=Phase.SHADOW)
+
+    class Copy:
+        title, tags, description = "t", ["a"], "d"
+
+    out = R._fix_only_candidate(ctx, slug, version, copy=Copy(), choice={}, props={},
+                                attributes={}, blocking=["DESCRIPTION_TOO_SHORT"])
+    assert out["ok"] is False and out["blocking"] == ["DESCRIPTION_TOO_SHORT"], out
+    with db.session() as s:
+        assert not [a for a in s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}",
+            OwnerAction.done == False))]  # noqa: E712
+    assert _audits(db, "listing.fix_candidate")[-1]["rejected"] == ["DESCRIPTION_TOO_SHORT"]
+
+
+def _clear_cards(db, slug, version):
+    with db.session() as s:
+        for a in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}")):
+            a.done = True
+
+
+def _open_card(db, slug, version):
+    with db.session() as s:
+        rows = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}",
+            OwnerAction.done == False)))  # noqa: E712
+        return [r.action for r in rows]
+
+
+def _forced_gate_failure():
+    """Make the real `listing.seo` gates refuse every candidate (review a5781649 R2)."""
+    from brambleloop.commerce import seo as seo_mod
+
+    real = seo_mod.check_listing_limits
+
+    def refuse(copy):
+        return list(real(copy)) + ["TITLE_OVER_LIMIT: forced by test"]
+
+    seo_mod.check_listing_limits = refuse
+    return lambda: setattr(seo_mod, "check_listing_limits", real)
+
+
+def test_a_gate_refused_candidate_through_listing_seo_raises_no_card():
+    """Review a5781649 R2: end to end through the handler, so dropping `blocking=` fails."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="published", etsy_listing_id="5550002")
+    _clear_cards(db, slug, version)
+    restore = _forced_gate_failure()
+    try:
+        _fix(db, st["inputs"], "gate-ref-1")
+    finally:
+        restore()
+    assert "listing.seo" in [t for t, _s in _jobs(db, "gate-ref-1")]
+    assert not _open_card(db, slug, version), _open_card(db, slug, version)
+    newest = _audits(db, "listing.fix_candidate")[-1]
+    assert any("TITLE_OVER_LIMIT" in r for r in newest["rejected"]), newest["rejected"]
+    with db.session() as s:
+        seo = s.scalars(select(Job).where(Job.job_type == "listing.seo")
+                        .order_by(Job.id.desc())).first()
+        assert (seo.inputs or {}).get("rebuild") == "gate-ref-1"
+        assert (seo.outputs or {}).get("ok") is False, seo.outputs
+    assert not [t for t, _s in _jobs(db, "gate-ref-1") if t in DOWNSTREAM]
+
+
+def test_a_later_refused_candidate_never_hijacks_an_open_card():
+    """Review a5781649 R1: pass, then reject, with the card left open between the two runs."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="published", etsy_listing_id="5550003")
+    _clear_cards(db, slug, version)
+    _fix(db, st["inputs"], "ptr-a")
+    passed = _audits(db, "listing.fix_candidate")[-1]
+    assert passed["rejected"] == [], passed["rejected"]
+    sha_a = passed["candidate_sha"]
+    cards = _open_card(db, slug, version)
+    assert len(cards) == 1 and sha_a in cards[0], cards
+    restore = _forced_gate_failure()
+    try:
+        _fix(db, st["inputs"], "ptr-b")
+    finally:
+        restore()
+    refused = _audits(db, "listing.fix_candidate")[-1]
+    assert refused["rejected"], _jobs(db, "ptr-b")
+    # The copy is identical; only the gates changed. The card offering it must not survive.
+    assert refused["candidate_sha"] == sha_a
+    assert not _open_card(db, slug, version), _open_card(db, slug, version)
+    with db.session() as s:
+        closed = s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}")
+            .order_by(OwnerAction.id.desc())).first()
+        assert closed.state == "withdrawn" and sha_a in (closed.state_reason or "")
+    # A later passing run offers its own candidate again, by hash.
+    _fix(db, st["inputs"], "ptr-c")
+    cards = _open_card(db, slug, version)
+    assert len(cards) == 1 and sha_a in cards[0] and "newest" not in cards[0], cards
+
+
+def test_flow_health_does_not_read_a_fix_only_stop_as_a_stall():
+    """Review 9e8665c3 N5."""
+    from brambleloop.ops import flow_health
+
+    handed_off = flow_health.HANDOFFS["listing.seo"][0]
+    assert handed_off({"ok": True}) is True
+    assert handed_off({"ok": True, "candidate_only": True,
+                       "stopped_before": "launch.plan"}) is False
 
 
 def test_launch_plan_refuses_a_fix_only_input_whoever_enqueued_it():

@@ -607,11 +607,21 @@ class Registry:
         is a defect this repository has already had twice.
         """
         today = (now or utcnow()).astimezone(timezone.utc).date()
+        import math
         with self.db.session() as s:
             entries = s.scalars(select(CostEntry).where(CostEntry.agent == agent_name))
-            return round(
-                sum(e.amount_cad for e in entries if _utc_date(e.at) == today), 4
-            )
+            total = 0.0
+            for entry in entries:
+                if _utc_date(entry.at) != today:
+                    continue
+                try:
+                    amount = float(entry.amount_cad)
+                except (TypeError, ValueError, OverflowError):
+                    raise BudgetExceeded("agent cost ledger has an invalid amount; reconciliation required") from None
+                if not math.isfinite(amount) or amount < 0:
+                    raise BudgetExceeded("agent cost ledger has an invalid or negative amount; reconciliation required")
+                total += amount
+            return round(total, 4)
 
     def record_cost(
         self, agent_name: str, amount_cad: float, *, kind: str = "llm",

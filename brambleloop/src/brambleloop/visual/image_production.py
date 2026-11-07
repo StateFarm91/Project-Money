@@ -491,8 +491,9 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
         CX.guard_generation(db, _controlled_of(db, key), next_cost)
     elif getattr(gen, "paid", True) and not gates_now(db, keys=("image_generation",)).get(
             "image_generation"):
+        from ..gateway.paid_provider_gate import generation_gate_reason
         raise CapabilityBlocked("image_generation gate closed: a paid generator may not be "
-                                "called")
+                                f"called ({generation_gate_reason(db)})")
     try:
         spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
                          next_cost_cad=next_cost)

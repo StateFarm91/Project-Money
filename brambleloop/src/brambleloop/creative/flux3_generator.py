@@ -185,7 +185,11 @@ class Flux3Generator:
     # -- generation --------------------------------------------------------------------------
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
                  outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
-        with self._scratch():
+        # P0-PAID-PROVIDER-OWNER-GATE: every render of this run is charged to its gallery (the
+        # image-production run key) against the owner's per-gallery limit.
+        from ..gateway.paid_provider_gate import gallery_scope
+
+        with self._scratch(), gallery_scope(self.current_run_key):
             return self._generate(stage=stage, role=role, brief=brief, references=references,
                                   outfit=outfit, attempt=attempt, repair=repair)
 

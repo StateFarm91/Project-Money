@@ -64,8 +64,16 @@ GATE_PACKETS: dict[str, tuple[str, str]] = {
                                        "signed-in owner can read it"),
     "model_provider": ("spend", "a provider account and its credit are a payment the owner "
                                 "authorises; software may not buy credit"),
-    "image_generation": ("spend", "an image provider is a paid account the owner opens"),
-    "image_vision": ("spend", "a vision-capable provider is a paid account the owner opens"),
+    # P0-PAID-PROVIDER-OWNER-GATE: a key is not an activation. The account and its key are
+    # the owner's; so is the activation (step-up, ceilings, expiry) without which no paid
+    # render or vision call is made whatever key is set.
+    "image_generation": ("spend", "an image provider is a paid account the owner opens, and a "
+                                  "key alone activates nothing: paid generation starts only "
+                                  "after the owner activates the provider (step-up) with its "
+                                  "daily, monthly and per-gallery CA$ ceilings"),
+    "image_vision": ("spend", "a vision-capable provider is a paid account the owner opens, "
+                              "and a key alone activates nothing: paid vision starts only after "
+                              "the owner activates it (step-up) with its CA$ ceilings"),
     "ad_authority": ("spend", "advertising money leaves only on the owner's approval, and "
                               "ceilings are enforced in code after it"),
     "benchmark_purchases": ("spend", "buying competitor patterns is consequential spend"),
@@ -319,6 +327,15 @@ def enrich_cards(db, cards: list[dict], *, why_by_action_id: dict | None = None)
         card["rank"] = i
         card["urgency"] = urgency(card)
         card["state"] = OPEN
+        if card.get("gate") in ("image_generation", "image_vision"):
+            # P0-PAID-PROVIDER-OWNER-GATE: which providers have a key and which the owner has
+            # activated -- names and states, never a credential value.
+            try:
+                from ..gateway import paid_provider_gate
+
+                card["activation"] = paid_provider_gate.gate_card(db, card["gate"])
+            except Exception as exc:  # noqa: BLE001 - the card stands; the gap is named
+                card["activation"] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
         if card.get("gate") == "physical_proof":
             card["tester_route"] = dict(TESTER_ROUTE, tester_status=tester_status(db))
             card["action"] = card["steps"] = (

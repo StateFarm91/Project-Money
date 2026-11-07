@@ -36,6 +36,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from datetime import datetime, timedelta, timezone
+import math
 from statistics import median
 
 # The five the requirement names. Closed, because a dimension nobody named is spend nobody
@@ -131,6 +132,17 @@ class GovernorRefused(ValueError):
     """A dimension nobody named, or a verdict the evidence cannot carry."""
 
 
+def _cost_amount(value) -> float:
+    """An invalid expense is unknown, never a credit or a zero."""
+    try:
+        amount = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise GovernorRefused("cost ledger contains an invalid amount; reconciliation required") from None
+    if isinstance(value, bool) or not math.isfinite(amount) or amount < 0:
+        raise GovernorRefused("cost ledger contains an invalid or negative amount; reconciliation required")
+    return amount
+
+
 def _rows(db, *, days: int, now: datetime | None = None):
     from sqlalchemy import select
 
@@ -139,6 +151,8 @@ def _rows(db, *, days: int, now: datetime | None = None):
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=days)
     entries = list(db.scalars(select(CostEntry).where(CostEntry.at >= since)))
+    for entry in entries:
+        _cost_amount(entry.amount_cad)
     job_types = {}
     ids = [e.job_id for e in entries if e.job_id]
     if ids:
@@ -316,7 +330,9 @@ def marginal_value(db, *, days: int = 30, now: datetime | None = None) -> dict:
     spend = round(sum(float(e.amount_cad or 0.0) for e in entries), 6)
     orders = db.scalar(select(func.count()).select_from(LedgerEntry)) or 0
     revenue = float(db.scalar(select(func.sum(LedgerEntry.gross_cad))) or 0.0)
-    lifetime = float(db.scalar(select(func.sum(CostEntry.amount_cad))) or 0.0)
+    # Validate before summing: a historical negative amount must not cancel a
+    # real expense and become a misleading lifetime spend or return estimate.
+    lifetime = sum(_cost_amount(value) for value in db.scalars(select(CostEntry.amount_cad)))
 
     if not orders:
         return {
