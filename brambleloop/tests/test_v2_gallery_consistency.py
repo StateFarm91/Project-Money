@@ -105,13 +105,20 @@ def _plan():
 
 def _readiness(reading_a, reading_b):
     rows = {"lifestyle_hero": _row(1, reading_a), "flat_lay_detail": _row(2, reading_b)}
-    real = IP._best
-    IP._best = lambda db, *, listing, role, run=None: {
+    from brambleloop.publish import eligibility as el
+
+    # V1's readiness resolves one production identity and certifies the set; both are pinned
+    # to "fine" here so the verdict turns on campaign consistency alone.
+    real = IP._best, IP._dashboard_identity, el.check_set
+    IP._best = lambda db, *, listing, role, **kw: {
         **rows[role], "publishable": True, "technical_status": "PASS", "blockers": []}
+    IP._dashboard_identity = lambda db, listing: (
+        {"slug": "basket", "version": "1.0.0", "release": "r1"}, False)
+    el.check_set = lambda cands: {"ok": True, "problems": []}
     try:
         return IP.readiness(None, "basket", plan=_plan())
     finally:
-        IP._best = real
+        IP._best, IP._dashboard_identity, el.check_set = real
 
 
 def test_an_unjudged_gallery_is_not_ready_and_names_its_blocker():

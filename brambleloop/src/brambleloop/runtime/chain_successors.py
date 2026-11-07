@@ -263,10 +263,15 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
     # V2 / P2-a: an image run blocked only on a capability gate restarts once when it opens.
     from ..visual import image_production as IP
 
-    def follow(inputs, key):
+    def follow(inputs, key, *, session=None):
+        # V1's restart enqueues inside its own transaction (session=): a duplicate there must
+        # raise so the un-block rolls back with it, never leave a run unblocked with no job.
         try:
-            return queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=key)
+            return queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=key,
+                                 session=session)
         except DuplicateJob:
+            if session is not None:
+                raise
             return None
 
     try:

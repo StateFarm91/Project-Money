@@ -63,7 +63,7 @@ def _with_gate(gate):
 
 
 def _follow(calls):
-    def follow(inputs, key):
+    def follow(inputs, key, *, session=None):
         calls.append((inputs, key))
         return object()
     return follow

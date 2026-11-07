@@ -1633,8 +1633,11 @@ def redrive_capability_blocked(db, *, follow) -> dict:
         if not open_now.get(gate):
             waiting.append({"run_key": key, "why": f"{gate} is still closed"})
             continue
-        out = restart(db, key, follow=follow, by=REDRIVE_BY,
-                      reason=f"{gate} opened after the run blocked on it")
+        try:
+            out = restart(db, key, follow=follow, by=REDRIVE_BY,
+                          reason=f"{gate} opened after the run blocked on it")
+        except Exception as exc:  # noqa: BLE001 - the restart rolled back; the run stays blocked
+            out = {"restarted": False, "why": f"restart not enqueued ({type(exc).__name__})"}
         (restarted if out.get("restarted") else refused).append(
             {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
                                 if k in out}})
