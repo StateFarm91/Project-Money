@@ -1107,6 +1107,26 @@
       "verdicts": {
         "codex/a3-gallery-gap-recovery 84085fa8": "DO NOT SHIP (all fail closed): F1 MED test_w4_launchfix 30/32 (fixture lacks photo ListingAsset); F2 MED _persist_frames overwrites approved photo frame (pre-existing on w6-INTEG1, reachable from fix-only/targeted rebuild); F3 MED release_gates.recheck strands photo-led gallery; F4 MED #126 direct-writer gap confirmed on PG16; F5 MED certificate invalidation untested (M9); F6-F9 LOW; F10 inherited: committed autonomy_map.json stale on w6-INTEG1. Assigned CODEX (F1,F3,F4,F5-F9); MAIN takes F2 and F10 on w6-INTEG1."
       }
+    },
+    {
+      "subject": "Visual stack on INTEG1 + V6",
+      "sha": "d6b642dd, 80765387",
+      "recorded": "2026-11-07T14:56:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_VISUAL_d6b642dd.md",
+      "verdicts": {
+        "opus2/visual-on-integ1 d6b642dd": "SHIP: N1, N2, N3, N5 fixed; merge with V0 correct. Open: D1 MED latent (fixture PASS still PASS in technical_status/unknown list/laura_gate_order; must be UNKNOWN before ANY caller enables fixtures); D2 V1 COORDINATION claims dropped; D3 no V0 test pins Flux3Generator gallery_scope; D4 redrive GATE_REASON pre-V0 text; N6/N9 open.",
+        "opus2/v6-on-integ1 80765387": "SHIP (tests only; V1-SCENE-END-BANDS named)."
+      }
+    },
+    {
+      "subject": "Main dead-end + k12 fixes",
+      "sha": "cdf4cb5e, 1eaeab10",
+      "recorded": "2026-11-07T14:56:00Z",
+      "report": "review agent hand-back",
+      "verdicts": {
+        "claude/w6-deadend-fixonly cdf4cb5e": "SHIP; follow-ups A-M1/A-L2/A-L3 in 4b4e3694 (in review).",
+        "claude/w6-k12-v0-activation 1eaeab10": "SHIP (test-only; gate unchanged)."
+      }
     }
   ],
   "integration": {
@@ -1239,16 +1259,17 @@
       "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
     },
     "claude/w6-INTEG1": {
-      "head": "5913931f",
-      "updated": "2026-11-07T12:08:00Z",
+      "head": "fbddf746 (+cdf4cb5e, 1eaeab10 merging)",
+      "updated": "2026-11-07T14:56:00Z",
       "contains": [
         "secret-leak",
         "A7",
-        "support-defect dd05e389",
-        "support follow-up a66ae0b0..34956e07",
-        "V0 0b3d54ee",
-        "7f986be5 evidence map",
-        "fix-only 0f2de815"
+        "support-defect + follow-ups",
+        "V0",
+        "evidence map 7f986be5",
+        "fix-only 0f2de815",
+        "visual V1+V2+V4+V5+V3 d6b642dd",
+        "V6 80765387"
       ]
     }
   },
