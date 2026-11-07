@@ -604,6 +604,77 @@ def test_a1n_n10_an_exception_measuring_pieces_is_unknown_and_holds_an_assignmen
     assert SP.blocking(cir) == [], "control: the plain basket has no sewn-on piece"
 
 
+
+# ---- B-N1 (HIGH), B-N3, B-N4: review 6713597156 on fc26887b ----
+
+# Each title is read by the one new entry named (word, phrase or compound stem).
+BN1_TITLES = {
+    "Dummy Clip": "dummy", "Dummy Holder": "dummy", "Dummies Set": "dummies",
+    "Diaper Cover": "diaper", "Diapers Set": "diapers", "Nappy Cover": "nappy",
+    "Nappies Set": "nappies", "Bootie": "bootie", "Booties": "booties",
+    "Swaddle": "swaddle", "Swaddles Set": "swaddles", "Sleepsack": "sleepsack",
+    "Sleepsacks Set": "sleepsacks", "Sleep Sack": "sleep sack", "Sleep Sacks": "sleep sacks",
+    "Onesie": "onesie", "Onesies Set": "onesies", "Romper": "romper",
+    "Rompers Set": "rompers", "Burp Cloth": "burp", "Layette Set": "layette",
+    "Layettes Set": "layettes", "Christening Gown": "christening", "Carseat Canopy": "carseat",
+    "Carseats Canopy": "carseats", "Car Seat Canopy": "car seat",
+    "Car Seats Canopy": "car seats", "Moses Basket": "moses", "Taggie Blanket": "taggie",
+    "Taggies Set": "taggies", "Blankie": "blankie", "Blankies Set": "blankies",
+    "Stuffie": "stuffie", "Stuffies Set": "stuffies", "Childrens Hat": "childrens",
+    "Kid's Hat": "kid s", "Kid\u2019s Hat": "kid s", "Cocoon Photo Prop": "cocoon",
+    "Cocoons Set": "cocoons", "Newborn-style Photo Props": "photo props",
+    "Photo Prop Hat": "photo prop",
+    # run-together compounds: CamelCase split, and a child stem at the start of a word
+    "PacifierClip": "pacifier", "Teethingring": "teething", "Babyblanket": "baby",
+    "Infantcap": "infant", "Newbornhat": "newborn", "Nurserybasket": "nursery",
+    "Toddlerhat": "toddler", "Childrenshat": "children", "Teetherset": "teether",
+    "Binkyleash": "binky", "Sootherclip": "soother", "Bassinetcover": "bassinet",
+    "Strollerblanket": "stroller", "Pushchaircover": "pushchair", "Preemiehat": "preemie",
+    "Plushiepal": "plushie", "Loveyblanket": "lovey", "Loviebear": "lovie",
+    "Littleoneblanket": "littleone", "Diapercover": "diaper", "Nappycover": "nappy",
+    "Nappiesset": "nappies", "Swaddleset": "swaddle", "Sleepsackset": "sleepsack",
+    "Onesieset": "onesie", "Layetteset": "layette", "Christeninggown": "christening",
+    "Carseatcover": "carseat", "Blankiebear": "blankie", "Stuffiepal": "stuffie",
+    "Taggieblanket": "taggie", "Amigurumibear": "amigurumi", "Babiesset": "babies",
+}
+
+
+def test_bn1_the_review_titles_are_child_audience_words_and_held():
+    for title, word in BN1_TITLES.items():
+        assert word in L.child_words_in(title), (title, L.child_words_in(title))
+        why = _refused(_plain_basket(slug="bn1-probe", title=title))
+        assert why and "reads as a children's product" in why and word in why, (title, why)
+    # every compound stem and every new entry is pinned by a title above
+    pinned = set(BN1_TITLES.values())
+    for stem in L.CHILD_COMPOUND_STEMS:
+        assert stem in pinned or any(t.lower().startswith(stem) and t.lower() != stem
+                                     for t in BN1_TITLES), stem
+    # ambiguous short words are not compound stems: these stay plain
+    for title in ("Toyota Seat Cover", "Bibliophile Tote", "Dollar Store Basket",
+                  "Cotton Market Bag", "Cribbage Board Cover", "Kid Mohair Scarf",
+                  "Market Basket", "Mosaic Throw"):
+        assert L.child_words_in(title) == (), (title, L.child_words_in(title))
+
+
+def test_bn3_toy_beside_a_pet_word_is_a_pet_product_and_any_other_toy_still_holds():
+    for title in ("Dog Toy", "Cat Toys", "Toy Poodle Sweater", "Puppy Toy Set",
+                  "Pet Toy Basket", "Kitten Toys"):
+        assert L.child_words_in(title) == (), (title, L.child_words_in(title))
+        assert _refused(_plain_basket(slug="bn3-pet", title=title)) is None, title
+    for title, want in (("Toy Box", ("toy",)), ("Dog Toy and Toy Box", ("toy",)),
+                        ("Baby Dog Toy", ("baby",)), ("Toy Storage Basket", ("toy",)),
+                        ("Dog Toys Plushie", ("plushie",))):
+        assert L.child_words_in(title) == want, (title, L.child_words_in(title))
+        assert _refused(_plain_basket(slug="bn3-held", title=title)), title
+
+
+def test_bn4_the_renderer_reads_the_slug_as_well_as_the_title():
+    """B-N4 (mutant B15): a plain title under a child-word slug is held by the renderer."""
+    why = _refused(_plain_basket(slug="pacifier-clip-bn4", title="Market Clip"))
+    assert why and "reads as a children's product" in why and "pacifier" in why, why
+    assert _refused(_plain_basket(slug="market-clip-bn4", title="Market Clip")) is None
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

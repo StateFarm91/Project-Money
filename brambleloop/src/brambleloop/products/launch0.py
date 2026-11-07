@@ -1554,10 +1554,26 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     from .text_fold import fold
 
     # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
-    folded = fold(" ".join(t or "" for t in texts))
+    # B-N1: a run-together CamelCase title ("PacifierClip") reads as its words; the split is
+    # made before the fold lowers the case, and the unsplit text is read too.
+    raw = " ".join(t or "" for t in texts)
+    folded = fold(raw + " " + re.sub(r"(?<=[a-z])(?=[A-Z])", " ", raw))
     tokens = re.findall(r"[a-z]+", folded)
     words = set(tokens)
     hits = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    # B-N3: "toy" next to a pet word ("Dog Toy", "Toy Poodle Sweater") is a pet product, not
+    # a child's; any other "toy" still holds. Only "toy"/"toys" is qualified this way.
+    pet_toys = {i for i, t in enumerate(tokens) if t in ("toy", "toys") and (
+        (i > 0 and tokens[i - 1] in PET_WORDS)
+        or (i + 1 < len(tokens) and tokens[i + 1] in PET_WORDS))}
+    for w in ("toy", "toys"):
+        if w in hits and all(i in pet_toys for i, t in enumerate(tokens) if t == w):
+            hits.remove(w)
+    # B-N1: a run-together compound ("Teethingring", "Babyblanket") that begins with an
+    # unambiguous child stem reads as that stem. Short or ambiguous words (toy, bib, doll,
+    # cot, crib, kid) are not stems here: "Toyota", "Bibliophile", "Dollar", "Cotton".
+    hits += [stem for stem in CHILD_COMPOUND_STEMS
+             if any(t != stem and t.startswith(stem) for t in words)]
     # A1N (review F3): two-word phrases, read across any run of spaces, hyphens or other
     # separators ("little one", "little-one", "Little  Ones").
     pairs = {" ".join(p) for p in zip(tokens, tokens[1:])}
@@ -1604,11 +1620,36 @@ CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "pram", "prams", "pushchair", "pushchairs", "babyshower", "babyshowers",
     "lovie", "lovies", "loveys", "littleone", "littleones",
     "toy", "toys", "doll", "dolls", "plushie", "plushies", "plushy",
+    # B-N1 (HIGH, same class as F3): the UK pacifier ("dummy clip"), nappies and infant
+    # garments, sleep and carry products, comforters, and "childrens" without an apostrophe.
+    "dummy", "dummies", "diaper", "diapers", "nappy", "nappies", "bootie", "booties",
+    "swaddle", "swaddles", "sleepsack", "sleepsacks", "onesie", "onesies", "romper",
+    "rompers", "burp", "layette", "layettes", "christening", "carseat", "carseats",
+    "moses", "taggie", "taggies", "blankie", "blankies", "stuffie", "stuffies", "childrens",
+    # "Cocoon Photo Prop" is a newborn photography prop. "cocoon" holds fail-closed (a
+    # "Cocoon Cardigan" for an adult clears through NOT_MERCHANDISED_TO_A_CHILD).
+    "cocoon", "cocoons",
 )
+# B-N1: stems read at the start of a run-together compound ("PacifierClip" folds to
+# "pacifierclip"). Only words with no common non-child continuation.
+CHILD_COMPOUND_STEMS: tuple[str, ...] = (
+    "baby", "babies", "infant", "newborn", "nursery", "toddler", "children", "pacifier",
+    "teething", "teether", "binky", "soother", "bassinet", "stroller", "pushchair",
+    "preemie", "plushie", "lovey", "lovie", "littleone", "diaper", "nappy", "nappies",
+    "swaddle", "sleepsack", "onesie", "layette", "christening", "carseat", "blankie",
+    "stuffie", "taggie", "amigurumi",
+)
+# B-N3: words that make an adjacent "toy" a pet product.
+PET_WORDS: frozenset[str] = frozenset({
+    "dog", "dogs", "doggy", "doggie", "puppy", "puppies", "cat", "cats", "kitten", "kittens",
+    "kitty", "pet", "pets", "poodle", "poodles", "terrier", "terriers", "spaniel"})
 # A1N (review F3): two-word child-audience phrases, matched as consecutive whole words.
 # ("baby shower" needs no entry: "baby" already reads.)
 CHILD_AUDIENCE_PHRASES: tuple[str, ...] = (
     "little one", "little ones", "lil one", "lil ones",
+    # B-N1: "Kid's Hat" folds to "kid s" ("kid" alone is a yarn: "kid mohair").
+    "kid s", "car seat", "car seats", "sleep sack", "sleep sacks",
+    "photo prop", "photo props",
 )
 # A1N (review F3): a baby or toddler size -- a month size or month range ("0-3M", "6M",
 # "12 M", "18mo", "3-6 months", "0–3 mo") or a toddler T size ("2T", "4T"). Read on the
