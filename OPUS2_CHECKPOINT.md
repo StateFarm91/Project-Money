@@ -1,8 +1,19 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T08:50Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T10:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T10:40Z (read first)
+| Item | Branch | Head | State |
+|---|---|---|---|
+| PHYSICAL | opus2/physical-sample-request-on-codex | e8b458b5 | REVIEW-REQUESTED; supersedes d697d093 (withdrawn) |
+| VISUAL stack on V1 | v2/v4/v5/v3-on-v1 | top 8427e777 | in Main's independent review; HOLD changes |
+| V6 on V1 | opus2/v6-on-v1 | 60747f7e | REVIEW-REQUESTED; option (a), V1-SCENE-END-BANDS |
+| STOREFRONT-fo | opus2/p0-storefront-asset-fix-fo | 8094601b | waiting on the fix-only verdict, then rebase |
+| PORTFOLIO-fo | opus2/p0-portfolio-act-fo | d564a059 | waiting on the fix-only verdict, then rebase |
+Next after verdicts: rebase #7 onto w6-INTEG1; fold #3 onto codex quality-a1-a2 after U2; #9 fixes.
+Stop reason: everything assigned is review-requested or on hold for Main's verdicts.
 
 ## State at 2026-11-07T08:50Z -- Main module map 6703941388 (read first)
 - Ownership has changed: adopt Codex heads for A3/A9/A4/A5/A7/A8, never rebuild them. Codex owns V0 and A6.
