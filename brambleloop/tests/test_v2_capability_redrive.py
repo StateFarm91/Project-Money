@@ -28,7 +28,12 @@ from brambleloop.visual import gallery  # noqa: E402
 from brambleloop.visual import image_production as IP  # noqa: E402
 from brambleloop.visual.image_records import ImageProductionRun, ensure_tables  # noqa: E402
 
-GATE_REASON = "image_generation gate closed: a paid generator may not be called"
+from brambleloop.gateway import paid_provider_gate as PG  # noqa: E402
+
+# Review VISUAL d6b642dd D4: the text _generate writes since V0, built from V0's own constants
+# (an unactivated provider), so the redrive is tested against the real reason.
+GATE_REASON = (f"image_generation gate closed: a paid generator may not be called "
+               f"({PG.NOT_ACTIVATED}: {PG.KEY_IS_NOT_ACTIVATION})")
 
 
 def _db():
@@ -236,6 +241,13 @@ def test_the_restart_job_is_enqueued_inside_the_restart_transaction():
         gallery.gates_now = real
     assert len(out["restarted"]) == 1, out
     assert seen and all(s is not None for s in seen), seen
+
+
+def test_the_post_v0_gate_reason_is_still_recognised_as_a_capability_block():
+    """D4: the V0 reason suffix does not hide the gate from the redrive."""
+    assert IP._gate_of(GATE_REASON) == "image_generation"
+    src = open(IP.__file__).read()
+    assert '"image_generation gate closed: a paid generator may not be "' in src
 
 
 if __name__ == "__main__":
