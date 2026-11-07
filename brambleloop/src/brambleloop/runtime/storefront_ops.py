@@ -44,6 +44,10 @@ def handle_storefront_review(ctx: JobContext) -> dict:
         health = {"state": "UNKNOWN", "why": f"asset health unreadable: {type(exc).__name__}",
                   "fix_count": None, "routes": {}, "fixes": []}
     store_reading(ctx.db, "storefront.asset_health", health)
+    # P0-STOREFRONT-ASSET-FIX: the findings become keyed work (a release-keyed assets.build,
+    # or an owner card for what has no API). An unreadable health check routes nothing.
+    routed = (asset_health.route(ctx, health) if health.get("state") != "UNKNOWN"
+              else {"queued": [], "already_queued": [], "owner_cards": [], "not_routed": []})
     queued = None
     if rev["agent_gaps"]:
         job = ctx.enqueue("storefront_director", "content.draft",
@@ -58,7 +62,9 @@ def handle_storefront_review(ctx: JobContext) -> dict:
                                            "draft_job": queued})
     return {"surfaces": len(rev["surfaces"]), "agent_gaps": rev["agent_gaps"],
             "owner_gaps": rev["owner_gaps"], "unknown": rev["unknown"],
-            "asset_health": {"fixes": health["fix_count"], "routes": health["routes"]},
+            "asset_health": {"fixes": health["fix_count"], "routes": health["routes"],
+                             "rebuilds_queued": len(routed["queued"]),
+                             "owner_cards": len(routed["owner_cards"])},
             "draft_job": queued, "writes_performed": 0, "etsy_calls": 0,
             "work_done": len(rev["surfaces"]) - len(rev["unknown"])}
 
