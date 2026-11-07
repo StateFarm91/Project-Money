@@ -1151,6 +1151,12 @@
       "id": "I-A3-NONQUALIFYING-PHOTO",
       "recorded": "2026-11-02T16:05Z",
       "decision": "A photo frame that does not qualify (not attested to this release, or no passed full make) never holds a listing set hostage: the review gives it a terminal named state (approved=False, reason 'photo not qualifying: <check>', owner-visible audit), the listing-set certificate excludes it, and a later attestation or passed make re-opens it for review."
+    },
+    {
+      "id": "I-V2-UNJUDGED-PAIRS",
+      "at": "2026-11-07T05:18:59Z",
+      "decision": "P1-d campaign consistency: pairs with no recorded reading block gallery readiness as UNKNOWN (named blocker campaign_consistency_unjudged), never FAIL and never PASS; disagreeing recorded readings FAIL with their code. With vision off every gallery is not ready, which is true while paid vision is owner-gated.",
+      "ref": "#28 6702728170"
     }
   ],
   "production_observations": [
@@ -1250,6 +1256,14 @@
         "report": null,
         "started": null,
         "note": "awaiting opus2 green regression + REVIEW-REQUEST"
+      },
+      {
+        "id": "V2-VESSEL-QUEUED",
+        "subject": "opus2/v2-vessel-fidelity e30b5fa0 (V2 part 1, P0-c)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_V2_<sha>.md",
+        "started": null,
+        "note": "queued after PORTFOLIO-ACT and STOREFRONT",
+        "requested_by": "#28 6702674398"
       }
     ]
   },
