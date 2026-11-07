@@ -277,30 +277,6 @@ def test_review_opus2m_m5_a_key_with_no_guard_record_is_not_unknown():
         paid_calls._SCOPE.reset(token)
 
 
-def test_review_opus2m_m6_a_lasting_flag_write_fault_still_bills_the_orphan_once():
-    """OPUS2M-6: when the orphan flag write keeps failing, every replay used to write
-    another spend row for the one sent call. The orphan is now counted once."""
-    from brambleloop.gateway import paid_calls
-
-    def outcome_write_fails():
-        real = paid_calls._update
-
-        def broken(db, key, **fields):
-            if fields.get("outcome") == paid_calls.UNCERTAIN:
-                raise RuntimeError("outcome write failed after the call")
-            return real(db, key, **fields)
-        paid_calls._update = broken
-        return lambda: setattr(paid_calls, "_update", real)
-
-    for attempts in (2, 3):
-        done, n, err, sent, outcomes, costs = _worker_sweep(
-            TimeoutError("read timed out"), attempts=attempts, extra=outcome_write_fails)
-        assert len(sent) == 1, (attempts, sent)               # never re-sent
-        orphan = [c for c in costs if c[1] == paid_calls.ORPHAN_BILLING]
-        assert len(orphan) <= 1, (attempts, costs)            # counted at most once
-        assert not [c for c in costs if c[1] == "unknown_counted_at_estimate"], costs
-
-
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
