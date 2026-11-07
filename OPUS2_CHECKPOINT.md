@@ -1,8 +1,24 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T19:10Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T23:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T23:40Z (read first)
+- Main 6713597156: 7eeeac92 SHIP (integrating). fc26887b DO NOT SHIP standalone (ships with the A1 unit).
+- REVIEW-REQUESTED:
+  - Wraptest e831dc6a (opus2/wraptest-fix, worktree opus2-wrap), the Batch 6 blocker for
+    6712715069. Dry run uses option (b). The live run adds V0 activation in the scratch DB,
+    the reservation fix, the experiment anchor lookup and distinct fake deliveries.
+    5/5 mutants killed. 6714238886.
+  - A1 nouns 0e2d5f36 (opus2-a1n): B-N1 words/phrases/CamelCase/stems, B-N3 pet toy, B-N4.
+    44/44 mutants killed. 6714241176.
+  - Visual A-N1..3 b3dcb121 (opus2/visual-an1-an3, worktree opus2-a1v). 6/6 mutants killed. 6714297866.
+  - PHYSICAL 1a818679: its base waits on Codex.
+- Pre-existing on w6-INTEG1 f706e12d: test_w4_visnext2 has 4 failures (prompt-builder 2.1.0/2.1.1 drift
+  x3, pytest monkeypatch x1). These are not opus2's; reported in 6714238886.
+- Lesson: fake transports that return identical bytes trip V1's duplicate-bytes negative-decision hold.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T19:10Z (read first)
 - SHIPPED and integrated: storefront, portfolio, visual D1/D2/D4, #7 M-5 (w6-INTEG1 a792f664).
