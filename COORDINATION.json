@@ -1019,6 +1019,33 @@
         "4e39a9cc": "HOLD: primitive has no caller; integrate only together with its first consumer.",
         "ee32f68f": "DO NOT SHIP: durable.py logic correct, but four test files use pytest (not installed; run_tests.sh runs scripts) and two mutants survive. Fix: convert to the plain-script convention and add tests killing the surviving mutants. Assigned to CODEX (module owner); Main integrates on re-review."
       }
+    },
+    {
+      "subject": "FIX-ONLY delta",
+      "sha": "a5781649 (merged ccd45933)",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_FIXONLY_a5781649.md",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild ccd45933": "DO NOT SHIP: N1 FIXED, N3 FIXED; R1 MED open live_update card pointed at \"the newest audit\" after a later refused candidate; R2 MED call-site blocking= unprotected (mutant M4 survived); R3 LOW N6 source-pin not behavioural; R4 LOW live candidates skip hero/disclosure/terms checks; N4/N5 open. Main fixed R1, R2, N5 in 0f2de815 (re-review pending)."
+      }
+    },
+    {
+      "subject": "Support-defect follow-up",
+      "sha": "a66ae0b0",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "review agent hand-back (Main)",
+      "verdicts": {
+        "claude/w6-support-followup a66ae0b0": "SHIP (conditional): no fail-open; F-1/F-2 behave. Integrated into w6-INTEG1 3b831691. Follow-ups (Main): MED pre-existing quality_ops.certified_releases picks last-inserted row while publish allows highest version (hold can miss the publishable version); LOW test gaps M3 (fail-closed on reconcile error) and M6 (reconcile before _release_gates) survived; LOW store.activate does not reconcile; LOW legacy incidents never backfill instruction_hash; LOW stored hash compared only while held row exists."
+      }
+    },
+    {
+      "subject": "A1 full chain",
+      "sha": "c3a7b93a+4800b597+2af2a48e",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A1_FULL.md",
+      "verdicts": {
+        "A1 union (local merge d39e14e1, not pushed)": "DO NOT SHIP: HIGH test_childrens 7 failures (present on 2af2a48e alone; whole-toy hold at publish/pdf.py:790 precedes specific hazard check so hazards are hidden behind the sample request); HIGH test_codex_a1_hard_eyes 4 failures (tests expect FAILED/DEAD, 4800b597 made refusals a held DONE) leaving mutants C10/C13/C14 unguarded; HIGH carried: Pacifier Clip/Teether/Rattle/Bib/Toy pass with no hold (launch0.py:1697); MED M10 test vacuous (N8 survives), N6/N10 mutants survive. Slug reuse, retitle, numeric ages FIXED. Assigned: CODEX (leaves 4800b597/2af2a48e owner) reconcile the two leaves and the hazard ordering; SECONDARY the launch0 baby-item vocabulary gap."
+      }
     }
   ],
   "integration": {
@@ -2487,6 +2514,14 @@
         "known_preexisting": "4 false evidence checks (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h = BFL probe, weekly_jobs_completing) carried from Batch 4; Batch 4 acceptance FAIL (dead letters) documented in PF-BATCH4-24H-ACCEPTANCE"
       },
       "backup_volume": "795M free of 4.6G after this backup: about one more backup fits; pruning needs retention/restore verification first (owner order item 8)"
+    },
+    {
+      "id": "PF-CHAIN-KEY-TOKEN-TRUNCATION",
+      "recorded": "2026-11-07T10:00:00Z",
+      "severity": "LOW (latent)",
+      "finding": "runtime/release.chain_key truncates the rebuild token to 12 chars; two rebuild tokens sharing a 12-char prefix collide and the second rebuild silently skips stages (found by Main while testing fix-only). Fix: hash the full token.",
+      "owner": "MAIN",
+      "status": "OPEN"
     }
   ]
 }
