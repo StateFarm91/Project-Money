@@ -1181,6 +1181,12 @@
       "at": "2026-11-07T05:46:28Z",
       "decision": "Autonomous remediations must not re-drive the release chain. Shared primitive fix_only (Main, claude/w6-fix-only-rebuild 01c81a2a): no live-listing writes (candidate + owner card), no price revert, no price point, stops before launch.plan, launch.plan refuses. PORTFOLIO-ACT and STOREFRONT (opus2) must use it.",
       "ref": "#28 6702974132"
+    },
+    {
+      "id": "I-V6-ACCEPTANCE",
+      "at": "2026-11-07T05:52:24Z",
+      "decision": "V6 acceptance = one end-to-end run through real handlers with stub judges, every machine gate green, remaining owner gates named (F-852, F-853, OA-PAID-KEYS); no certified-gallery claim, nothing handed to listing.package.",
+      "ref": "#28 6703028200"
     }
   ],
   "production_observations": [
@@ -1267,18 +1273,35 @@
         "note": "awaiting opus2 green regression + REVIEW-REQUEST"
       },
       {
-        "id": "V2-VESSEL-QUEUED",
-        "subject": "opus2/v2-vessel-fidelity e30b5fa0 (V2 part 1, P0-c)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_V2_<sha>.md",
-        "started": null,
-        "note": "queued after PORTFOLIO-ACT and STOREFRONT",
-        "requested_by": "#28 6702674398"
-      },
-      {
         "id": "W6-SUPPORT-D5",
         "subject": "claude/w6-support-defect-incident dd05e389 (declarative reconcile; delta from c5cad183)",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_dd05e389.md",
         "started": "2026-11-07T05:46:28Z"
+      },
+      {
+        "id": "V2-REVIEW",
+        "subject": "opus2/v2-vessel-fidelity 6799f1d4 (P0-c + P1-d + P2-a)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_V2_6799f1d4.md",
+        "started": "2026-11-07T05:52:24Z",
+        "requested_by": "#28 6702941320"
+      },
+      {
+        "id": "PORTFOLIO-D1-QUEUED",
+        "subject": "opus2/p0-portfolio-act ad351e46 (delta from f3bea437)",
+        "started": null,
+        "requested_by": "#28 6703009305"
+      },
+      {
+        "id": "V4-QUEUED",
+        "subject": "opus2/v4-scene-references 86cf2a36",
+        "started": null,
+        "requested_by": "#28 6703009305"
+      },
+      {
+        "id": "V5-QUEUED",
+        "subject": "opus2/v5-scale-verification 295474c6",
+        "started": null,
+        "requested_by": "#28 6703009305"
       }
     ]
   },
@@ -2288,6 +2311,15 @@
       "why": "Codex's bench2 evaluator reads licensed, SHA-pinned reference files from a private library; without it evaluation and pin verification fail closed (safe, but no approved knowledge can activate)",
       "max_cost": "UNKNOWN until sized (small volume)",
       "blocks": "approved design knowledge in production only; nothing else"
+    },
+    {
+      "id": "OA-V3-LAURA-QUALIFICATION",
+      "raised": "2026-11-07T05:52:24Z",
+      "action": "Decide whether Secondary may build V3 (audit P0-b): a qualified Laura identity embedder plus two independent vision judges, initially fixture-only (stub embedder and judges; production identity stays UNKNOWN until paid vision is owner-funded). Reply 'APPROVE V3 fixture-only' or 'PARK V3'.",
+      "why": "V3 changes how Laura's identity is scored; the owner directive forbids modifying approved identity rules without authorization, so Main cannot approve it.",
+      "max_cost_cad": 0,
+      "minutes": 5,
+      "consequence_of_delay": "Laura identity in generated images stays UNKNOWN (never PASS); galleries with Laura cannot be machine-verified for identity."
     }
   ],
   "production_findings": [
