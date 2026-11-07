@@ -123,6 +123,7 @@ ICON_UNMEASURED = ("ICON_UNREAD", "ICON_READING_STALE")
 ROUTED = "storefront.asset_fix_routed"
 CARD_PREFIX = "storefront.asset:"
 LIVE_CARD_PREFIX = "storefront.live_images:"
+LIVE_UPDATE_PAIR = "listing.live_update:"   # fix_only's copy card for the same live listing
 AUTO_CLOSED = "the finding cleared in a storefront review that measured it"
 # The frame classes `publish.listing_assets.build_frames` renders. Any other class in a
 # release's gallery was put there by something else and a re-render would overwrite it.
@@ -273,7 +274,9 @@ def route(ctx, health: dict) -> dict:
                             f"done (audit assets.listing_images_built), replace the photos "
                             f"of live Etsy listing {live.etsy_listing_id or '(id not stored)'} "
                             f"in Shop Manager with the rebuilt frames, in their order. The "
-                            f"system never edits a live listing."),
+                            f"system never edits a live listing. This is one listing update "
+                            f"with card {LIVE_UPDATE_PAIR}{slug}@{rel['version']} (its copy): "
+                            f"do both in the same Shop Manager edit."),
                     reason=(f"brand asset health (F-527) found {', '.join(codes)}; the "
                             f"images were rebuilt locally only"),
                     why_software_cannot="live listings are never changed autonomously",

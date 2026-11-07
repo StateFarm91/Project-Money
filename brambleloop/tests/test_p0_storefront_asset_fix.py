@@ -440,6 +440,9 @@ def test_on_a_live_listing_the_photo_is_kept_and_the_fix_never_reaches_publish()
     live_key = f"storefront.live_images:{slug}@{version}:{token}"
     new = set(_all_cards(db)) - cards_before
     assert {k for k, _d, _s in new} == {live_key, f"listing.live_update:{slug}@{version}"}, new
+    with db.session() as s:
+        photo = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == live_key))
+        assert f"listing.live_update:{slug}@{version}" in photo.action, photo.action
     card = _card(db, live_key)
     assert not card.done and card.max_cost_cad == 0.0 and card.minutes == 15
     assert "1234567" in card.action and f"job {fixes[0].id}" in card.action, card.action
