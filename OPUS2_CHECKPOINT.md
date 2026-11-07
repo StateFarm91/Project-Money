@@ -1,8 +1,22 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T05:20Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T05:50Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T05:50Z (read first)
+Every branch is from claude/w6-INTEG1 @ f5c3976d. Worktrees are /home/user/opus2-{ptr,pact,sfa,v2,v4,v5}.
+| Item | Branch | Head | State |
+|---|---|---|---|
+| 2 P0-PHYSICAL-TEST-REQUEST | opus2/p0-physical-test-request | d697d093 | regression 20/44 green, test_product_run running (resume: /tmp/claude-0/resume.sh ptr ...) -> REVIEW-REQUEST |
+| 3 P0-PORTFOLIO-ACT | opus2/p0-portfolio-act | ad351e46 | review e1d1adb3 DO NOT SHIP fixed (F1-F8); REVIEW-REQUESTED #28 6703009305; 14/14 |
+| 4 P0-STOREFRONT-ASSET-FIX | opus2/p0-storefront-asset-fix | d8b2754b | REVIEW-REQUESTED, queued at Main |
+| V2 | opus2/v2-vessel-fidelity | 6799f1d4 | REVIEW-REQUESTED #28 6702941320 (I-V2-UNJUDGED-PAIRS applied); 13/13 |
+| V4 | opus2/v4-scene-references | 86cf2a36 | REVIEW-REQUESTED #28 6703009305; 11/11 |
+| V5 | opus2/v5-scale-verification | 295474c6 | REVIEW-REQUESTED #28 6703009305 |
+| V3 | - | - | BLOCKED: touches Laura identity scoring; asked Main (#28 6702941320) |
+| V6 | - | - | proposed "demonstrate, not certify" (F-852/F-853 owner gates); awaiting Main |
+Stop reason: everything assigned is built and review-requested, except item 2, which is waiting on its regression, and V3/V6, which wait on Main's decisions.
 
 ## State at 2026-11-07T05:20Z -- Main ASSIGN 6701113204 / 6701702761, items 2-5 (read first)
 Every item is branched from claude/w6-INTEG1 @ f5c3976d. Worktrees are /home/user/opus2-{ptr,pact,sfa,v2}.
