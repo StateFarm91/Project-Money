@@ -1127,8 +1127,8 @@
         "id": "W6-SECRET-SUPPORT-REVIEW",
         "subject": "claude/w6-secret-leak-escalate 1c4c9211 + claude/w6-support-defect-incident 26bac0e9",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_SUPPORT.md",
-        "started": "2026-11-02T23:07:24Z",
-        "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
+        "started": "2026-11-07T02:37:34Z",
+        "status": "RELAUNCHED 2026-11-07T02:37:34Z (fresh reviewer, same SHAs 1c4c9211 / 26bac0e9)"
       }
     ]
   },
