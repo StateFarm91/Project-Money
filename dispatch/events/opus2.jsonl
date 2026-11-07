@@ -73,3 +73,4 @@
 {"at": "2026-11-07T07:29:20Z", "worker": "opus2", "assignment": "V6", "event": "review_requested", "sha": "c7aba05b", "note": "I-V6-ACCEPTANCE e2e on fixed V2; 10/10; remaining gates named; not a certified gallery"}
 {"at": "2026-11-07T07:32:54Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "1675bf23", "note": "on fix_only 6cbc08e6; fixes d8b2754b F1-F7; 13/13, 27 mutants killed"}
 {"at": "2026-11-07T08:04:23Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "d564a059", "note": "on fix_only 9e8665c3; SEO -> fix_only listing.seo; 12/12; 16+6 suites"}
+{"at": "2026-11-07T08:14:49Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "59233ee5", "note": "1675bf23 + fix_only 9e8665c3; re-run green"}
