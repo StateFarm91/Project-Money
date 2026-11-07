@@ -210,12 +210,18 @@ def _run_check(ctx: JobContext) -> dict:
     # retention never prunes, and publication refuses on it until this check passes again.
     from ..publish import withholding
 
+    # W6 P0-SUPPORT-DEFECT-INCIDENT: a pass completes any support-defect hold on this
+    # release that waits for it (support.defects); cleared before the record is re-read below.
+    from ..support import defects as support_defects
+
+    support_cleared = support_defects.on_reverified(ctx.db, slug, version, check, r["ok"])
     held = withholding.record_reverification(
         ctx.db, slug, version, check=check,
         problem=None if r["ok"] else ((r["problems"] or ["failed"])[0]))
     ctx.audit(READING, artifact=f"{slug}@{version}",
               detail={**r, "incident": inc, "resolved": resolved,
                       "withheld_checks": held.get("failed_checks", []),
+                      "support_defects_cleared": support_cleared,
                       "release_hash": i.get("release_hash", "")})
     return {**r, "slug": slug, "version": version, "incident": inc, "resolved": resolved,
             # True only when this reading changed the stored withholding record.
