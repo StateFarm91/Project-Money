@@ -260,6 +260,20 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
                 row.detail = {**dict(row.detail or {}), "redriven_under_commit": here,
                               "redriven_at": now.isoformat()}
         redriven.append(sig)
+    # V2 / P2-a: an image run blocked only on a capability gate restarts once when it opens.
+    from ..visual import image_production as IP
+
+    def follow(inputs, key):
+        try:
+            return queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=key)
+        except DuplicateJob:
+            return None
+
+    try:
+        images = IP.redrive_capability_blocked(db, follow=follow)
+    except Exception as exc:  # noqa: BLE001 - an unreadable image table re-drives nothing
+        images = {"restarted": [], "waiting": [], "refused": [],
+                  "error": f"{type(exc).__name__}"}
     return {"open": len(rows), "redriven": redriven, "resolved": resolved,
-            "waiting": waiting, "commit": here,
-            "work_done": len(redriven) + len(resolved)}
+            "waiting": waiting, "commit": here, "images": images,
+            "work_done": len(redriven) + len(resolved) + len(images["restarted"])}
