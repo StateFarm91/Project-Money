@@ -1075,7 +1075,7 @@
     {
       "subject": "STOREFRONT on fix-only",
       "sha": "a1331372",
-      "recorded": "2026-11-07T14:05:00Z",
+      "recorded": "2026-11-07T13:36:00Z",
       "report": "research/final_build/w5/INDEPENDENT_REVIEW_STOREFRONT_a1331372.md",
       "verdicts": {
         "opus2/p0-storefront-asset-fix-fo a1331372": "DO NOT SHIP: H1 HIGH release with blocked own images never launches (asset_health _chain_in_flight + chain_successors fix-only leaks; Main fixes primitive side on claude/w6-deadend-fixonly); M1 MED live-image card raised before/regardless of gates; M2 MED live gallery rows rewritten under fix_only; L1/R4 copy card wording; L2 M16/M18 survive. Prior F1-F6 FIXED."
