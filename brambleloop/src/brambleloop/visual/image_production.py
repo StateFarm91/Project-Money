@@ -411,7 +411,19 @@ def _best(db, *, listing: str, role: str, run: str | None = None) -> dict | None
             "listing": r.listing, "version": r.version, "release": r.release,
             "cir_fingerprint": (r.binding or {}).get("cir_fingerprint"),
             "laura_present": r.laura_present, "outfit_id": r.outfit_id or None,
-            "fidelity": _fidelity_summary(r.checks)}
+            "fidelity": _fidelity_summary(r.checks),
+            "item_reading": _item_reading(r.checks)}
+
+
+def _item_reading(checks: dict | None) -> dict | None:
+    """V2 / P1-d: the vision judge's blind description of this frame's item (the candidate
+    side of its anchor-consistency reading), or None when it was never judged."""
+    fid = ((checks or {}).get("product_truth") or {}).get("fidelity") or {}
+    for c in fid.get("checks") or []:
+        if c.get("check") == "anchor_consistency":
+            got = ((c.get("reading") or {}).get("image_2"))
+            return dict(got) if isinstance(got, dict) else None
+    return None
 
 
 def _fidelity_summary(checks: dict | None) -> dict:
@@ -1279,6 +1291,63 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
                                    can["resume_at"], 0, epoch))
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
             "reverify": can["reverify"], "enqueued": job is not None, "run_key": key}
+
+
+# ---- V2 / P2-a: a capability-only block is re-driven once when its gate opens -------------
+
+# A blocked reason that names a closed gate, and the gate whose opening clears it. Only these
+# are re-driven automatically: every other block (a FAIL, a budget stop, an owner card) waits
+# for the person or the repair that decides it.
+CAPABILITY_GATES = (("image_generation gate closed", "image_generation"),)
+REDRIVE_BY = "capability_redrive"
+
+
+def _gate_of(reason: str) -> str | None:
+    for needle, gate in CAPABILITY_GATES:
+        if needle in (reason or ""):
+            return gate
+    return None
+
+
+def redrive_capability_blocked(db, *, follow) -> dict:
+    """Restart each run blocked only on a capability gate that is now open, once.
+
+    "Once": a run this has already restarted for the same gate is never restarted for it
+    again, whatever happens after (the restart history records `by=capability_redrive`).
+    Everything `restartable` refuses stays refused: a run whose candidate FAILed, a budget
+    stop, an experiment, the restart cap. Nothing here generates; the restarted job does, and
+    only because the gate it was waiting on is open."""
+    from sqlalchemy import select
+
+    from .gallery import gates_now
+    from .image_records import ImageProductionRun, ensure_tables
+
+    ensure_tables(db)
+    with db.session() as s:
+        rows = [(r.run_key, r.blocked_reason or "", dict(r.stages or {}))
+                for r in s.scalars(select(ImageProductionRun).where(
+                    ImageProductionRun.status == "blocked"))]
+    gates = {g for _n, g in CAPABILITY_GATES}
+    open_now = gates_now(db, keys=tuple(sorted(gates)))
+    restarted, waiting, refused = [], [], []
+    for key, reason, stages in rows:
+        gate = _gate_of(reason)
+        if gate is None:
+            continue
+        history = (stages.get(RESTART_KEY) or {}).get("history") or []
+        if any(h.get("by") == REDRIVE_BY and gate in str(h.get("reason", ""))
+               for h in history):
+            refused.append({"run_key": key, "why": f"already re-driven once for {gate}"})
+            continue
+        if not open_now.get(gate):
+            waiting.append({"run_key": key, "why": f"{gate} is still closed"})
+            continue
+        out = restart(db, key, follow=follow, by=REDRIVE_BY,
+                      reason=f"{gate} opened after the run blocked on it")
+        (restarted if out.get("restarted") else refused).append(
+            {"run_key": key, **{k: out[k] for k in ("epoch", "resume_at", "why")
+                                if k in out}})
+    return {"restarted": restarted, "waiting": waiting, "refused": refused}
 
 
 # ---- stage A and stage D (W-VISNEXT2) --------------------------------------------------------
