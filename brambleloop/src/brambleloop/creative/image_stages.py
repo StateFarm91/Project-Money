@@ -605,7 +605,7 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
               outfit: Mapping, *, fidelity: Mapping | None = None,
               scene: Mapping | None = None, role: str = "lifestyle_hero",
               size: str = LIFESTYLE_SIZE, supplementary: Sequence[str] = (), renderer=None,
-              identity_anchor: str | None = None,
+              identity_anchor: str | None = None, scene_reference: str | None = None,
               work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """Laura with the product: the six-reference campaign set, then the product photograph,
@@ -629,6 +629,10 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
         # Stage A's anchor (W-VISNEXT2): identity context after the canonical three, never
         # instead of them; the canonical images still decide who she is.
         supp.append(("identity_anchor", str(identity_anchor)))
+    if scene_reference:
+        # V4: the owner-approved room of Laura's home (room geometry only), after every
+        # identity and product reference (`visual.room_references`).
+        supp.append(("scene_reference", str(scene_reference)))
     supp += [("supplementary", str(p)) for p in supplementary]
     plan = campaign_references(release, features_laura=True, laura_refs=laura_refs,
                                supplementary=supp, reference_limit=_limit(render),
@@ -729,6 +733,7 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
             *, outfit: Mapping | None = None, scene: Mapping | None = None,
             laura_refs: Sequence[str] | None = None, size: str | None = None, renderer=None,
             work_dir: str, db=None, identity_anchor: str | None = None,
+            scene_reference: str | None = None,
             job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
 
@@ -752,6 +757,8 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
             supp.append(("outfit", str(outfit["image"])))
         if identity_anchor:
             supp.append(("identity_anchor", str(identity_anchor)))
+    if scene_reference:
+        supp.append(("scene_reference", str(scene_reference)))    # V4: the approved room
     plan = campaign_references(release, features_laura=laura, laura_refs=laura_refs,
                                leading=[("base", base_candidate.path)], supplementary=supp,
                                reference_limit=_limit(render), work_dir=work_dir)

@@ -217,7 +217,9 @@ def build(*, rules: Mapping, roles: Sequence[str], role: str,
         "to bottom)", "product_candidate": "approved product photograph of this exact product",
         "base": "the image to edit", "outfit": "the outfit", "supplementary": "supplementary "
         "context", "identity_anchor": "Laura in this listing's outfit (identity context only; "
-        "the canonical images decide who she is)"}
+        "the canonical images decide who she is)", "scene_reference": "the approved room "
+        "of Laura's home (its walls, floor, windows and built-in furniture only; never the "
+        "product or the person)"}
     ref_map = "; ".join(f"{_img(i + 1)} = {labels.get(r.split(':')[0], r)}"
                         for i, r in enumerate(roles))
     scene = dict(scene or {})
