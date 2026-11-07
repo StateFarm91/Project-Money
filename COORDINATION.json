@@ -963,6 +963,15 @@
       "verdicts": {
         "opus2/p0-portfolio-act f3bea437": "DO NOT SHIP: F1 HIGH SEO fix flips a live listing to local draft (release.py:2098 via portfolio_act.py:110); F2 HIGH the rebuild reaches store.publish without the owner gate (re-opens FMBATCH1 F-1; DEAD in SHADOW, never updates Etsy, pipeline.py:1990); F3 MED stale inputs reused (price 12.34 -> 4.0); F4 MED cap starves late slugs; F5 MED RETIRE/REWORK open a new card each week; F6 LOW downstream key truncates to portfolio:20; F7 LOW date.today() local + as_of bypasses dedup; F8 LOW 2 mutants survive. Nothing edits a pattern or certifies; spend only via image_vision gate ceilings. Corrections to opus2."
       }
+    },
+    {
+      "subject": "P0-STOREFRONT-ASSET-FIX",
+      "sha": "d8b2754b",
+      "recorded": "2026-11-07T05:46:28Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_STOREFRONT_d8b2754b.md",
+      "verdicts": {
+        "opus2/p0-storefront-asset-fix d8b2754b": "DO NOT SHIP: same root cause as PORTFOLIO-ACT (rebuild token re-drives the whole chain): F1 HIGH live listing to draft + price overwrite; F2 HIGH store.publish with no owner gate; F3 MED-HIGH duplicate chain during fresh certification; F4 MED _persist_frames overwrites an owner photo row; cards never close; 7/10 mutants survive. Laura assets, spend gates, per-release dedup hold."
+      }
     }
   ],
   "integration": {
@@ -1166,6 +1175,12 @@
       "at": "2026-11-07T05:18:59Z",
       "decision": "P1-d campaign consistency: pairs with no recorded reading block gallery readiness as UNKNOWN (named blocker campaign_consistency_unjudged), never FAIL and never PASS; disagreeing recorded readings FAIL with their code. With vision off every gallery is not ready, which is true while paid vision is owner-gated.",
       "ref": "#28 6702728170"
+    },
+    {
+      "id": "I-FIX-ONLY-REBUILD",
+      "at": "2026-11-07T05:46:28Z",
+      "decision": "Autonomous remediations must not re-drive the release chain. Shared primitive fix_only (Main, claude/w6-fix-only-rebuild 01c81a2a): no live-listing writes (candidate + owner card), no price revert, no price point, stops before launch.plan, launch.plan refuses. PORTFOLIO-ACT and STOREFRONT (opus2) must use it.",
+      "ref": "#28 6702974132"
     }
   ],
   "production_observations": [
@@ -1245,14 +1260,6 @@
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
       },
       {
-        "id": "STOREFRONT-QUEUED",
-        "subject": "opus2/p0-storefront-asset-fix d8b2754b (or newer with survivor-kill test)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_STOREFRONT_<sha>.md",
-        "started": null,
-        "note": "queued behind PORTFOLIO-ACT-REVIEW",
-        "requested_by": "#28 6702476082"
-      },
-      {
         "id": "PHYSICAL-REQ-PENDING",
         "subject": "opus2/p0-physical-test-request d697d093",
         "report": null,
@@ -1266,6 +1273,12 @@
         "started": null,
         "note": "queued after PORTFOLIO-ACT and STOREFRONT",
         "requested_by": "#28 6702674398"
+      },
+      {
+        "id": "W6-SUPPORT-D5",
+        "subject": "claude/w6-support-defect-incident dd05e389 (declarative reconcile; delta from c5cad183)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_dd05e389.md",
+        "started": "2026-11-07T05:46:28Z"
       }
     ]
   },
