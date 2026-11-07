@@ -156,6 +156,7 @@ class Database:
         from ..finance import credits as _credits  # noqa: F401; F-629 credits (W4-SPENDA)
         from ..visual.rnd import models as visual_rnd_models  # noqa: F401; Visual R&D (H, w3)
         from ..gateway import paid_calls as _paid_calls  # noqa: F401; PaidCallRecord (SPEND)
+        from ..gateway import paid_provider_gate as _ppg  # noqa: F401; owner activation (V0)
         from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
         from ..intel import research as _research  # noqa: F401; F-431 research tasks

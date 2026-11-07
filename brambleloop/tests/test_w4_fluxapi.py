@@ -29,10 +29,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from PIL import Image  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
+import _paid_activation as _paid  # noqa: E402
+from brambleloop.gateway import paid_provider_gate as _paid_gate  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import CostEntry, SpendReservation  # noqa: E402
@@ -49,6 +52,10 @@ def _db() -> Database:
     db = Database("sqlite://")
     db.create_all()
     Registry(db).seed_defaults()
+    # V0: every test here is about spend AFTER the owner activated the image providers (a
+    # refusal test must refuse for its own reason, not because nothing is activated).
+    for provider in _paid_gate.image_providers():
+        _paid.activate(db, provider)
     return db
 
 

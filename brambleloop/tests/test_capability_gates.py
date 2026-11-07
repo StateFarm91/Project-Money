@@ -19,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from brambleloop.build2 import executor as E  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
@@ -26,6 +27,8 @@ from brambleloop.core.models import BenchmarkListing  # noqa: E402
 from brambleloop.gateway import anthropic as GW  # noqa: E402
 from brambleloop.gateway.model_gateway import ModelResponse  # noqa: E402
 from brambleloop.intel import browser, vision  # noqa: E402
+from brambleloop.gateway import paid_provider_gate as _paid_gate  # noqa: E402
+import _paid_activation as _paid  # noqa: E402
 
 
 def _db() -> Database:
@@ -189,6 +192,7 @@ def test_the_worker_is_told_to_respect_robots_and_identify_itself():
 def test_a_vision_probe_with_no_image_refuses_rather_than_passing():
     """A vision call with no picture is a text call that thinks it looked at something."""
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     record = GW.vision_probe(db, provider=_Seeing(["photograph"]))
     assert record["ok"] is False
     assert "no image to look at" in record["reason"]
@@ -198,6 +202,7 @@ def test_a_vision_probe_with_no_image_refuses_rather_than_passing():
 def test_a_two_hundred_carrying_an_apology_is_not_a_capability():
     """The shape a broken vision path actually takes: a successful call, no picture seen."""
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     _audited(db)
     record = GW.vision_probe(db, provider=_Seeing(["none"]))
     assert record["ok"] is False
@@ -208,6 +213,7 @@ def test_a_two_hundred_carrying_an_apology_is_not_a_capability():
 
 def test_a_judged_image_opens_the_vision_gate():
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     _audited(db)
     record = GW.vision_probe(db, provider=_Seeing(["Photograph"]))
     assert record["ok"] is True
@@ -218,6 +224,7 @@ def test_a_judged_image_opens_the_vision_gate():
 def test_the_probe_looks_at_an_observed_image_rather_than_a_constant():
     """A probe against a hardcoded picture proves the provider works, not that this does."""
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     _audited(db, urls=("https://i.etsystatic.com/real.jpg",))
     seeing = _Seeing(["photograph"])
     GW.vision_probe(db, provider=seeing)
@@ -333,6 +340,7 @@ def test_the_derived_columns_cannot_carry_a_depicted_subject():
 def test_capability_proven_and_catalogue_looked_at_are_different_numbers():
     """A dashboard that reports the first is reporting the easy one."""
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     _audited(db, ref="a", urls=("https://i.etsystatic.com/a.jpg",))
     _audited(db, ref="b", urls=("https://i.etsystatic.com/b.jpg",))
     _judged(db, "a", [{"shot_type": "flat_lay"}, {"shot_type": "in_use"}])
@@ -361,6 +369,7 @@ def test_the_map_reads_vision_from_evidence_rather_than_defaulting_to_false():
     from brambleloop.intel import market_map
 
     db = _db()
+    _paid.activate(db, _paid_gate.ANTHROPIC_VISION)   # V0: the owner switched vision on
     _audited(db, ref="a", urls=("https://i.etsystatic.com/a.jpg",))
     _judged(db, "a", [{"shot_type": "flat_lay", "setting": "kitchen"},
                       {"shot_type": "in_use"}])
