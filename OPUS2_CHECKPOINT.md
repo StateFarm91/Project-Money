@@ -1,8 +1,18 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T10:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T13:15Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T13:15Z (read first)
+- VISUAL: review 8427e777 was DO NOT SHIP (N1-N5). Fixed on opus2/visual-on-integ1 @ d6b642dd (worktree
+  opus2-visi; merges w6-INTEG1 5913931f) and V6 on opus2/v6-on-integ1 @ 80765387. REVIEW-REQUESTED.
+  The *-on-v1 branches are superseded.
+- PORTFOLIO-fo ee5dbeee and STOREFRONT-fo a1331372 on fix-only 0f2de815: REVIEW-REQUESTED.
+- PHYSICAL on Codex e8b458b5: REVIEW-REQUESTED.
+- #7 M-6 paid_calls: asked Main to route it to Codex.
+- Base issue (not ours): test_w3_k12_model_photography fails on INTEG1 5913931f (V0 not_activated).
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T10:40Z (read first)
 | Item | Branch | Head | State |
