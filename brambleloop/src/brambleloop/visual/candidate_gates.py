@@ -324,7 +324,8 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
     if cir is None:
         return unknown("no certified CIR to verify against")
     if cand.get("role") == ANCHOR_ROLE:
-        return FID.verify_anchor(data, cir, judge=judge)
+        # V2: a vessel anchor carries its side view beside the top-down bytes.
+        return FID.verify_anchor(data, cir, judge=judge, side=cand.get("side_data") or None)
     release = str(bind.get("release_hash") or release_hash or "")
     try:
         fingerprint = cir.fingerprint() if callable(cir.fingerprint) else cir.fingerprint
