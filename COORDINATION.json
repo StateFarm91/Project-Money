@@ -972,6 +972,15 @@
       "verdicts": {
         "opus2/p0-storefront-asset-fix d8b2754b": "DO NOT SHIP: same root cause as PORTFOLIO-ACT (rebuild token re-drives the whole chain): F1 HIGH live listing to draft + price overwrite; F2 HIGH store.publish with no owner gate; F3 MED-HIGH duplicate chain during fresh certification; F4 MED _persist_frames overwrites an owner photo row; cards never close; 7/10 mutants survive. Laura assets, spend gates, per-release dedup hold."
       }
+    },
+    {
+      "subject": "W6 support delta 5",
+      "sha": "dd05e389",
+      "recorded": "2026-11-07T05:59:37Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_dd05e389.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident dd05e389": "SHIP: reconcile_holds fixes c5cad183 F-1..F-3; no HIGH; 17/17. MED follow-ups (Main): F-1 certify/decertify do not reconcile, so a new/rolled-back release with held instructions is unheld until next triage; F-2 instruction hash reads the held version's mutable cir_json (store it at incident open). LOW: confirmed-then-resolved-elsewhere cannot be re-decided; grading/configuration-only fixes stay held; orphan card when undecided incident resolved elsewhere; stale 'supersedes' wording. R2 confirmed equivalent."
+      }
     }
   ],
   "integration": {
@@ -1065,7 +1074,7 @@
       "branch": "claude/w6-INTEG1",
       "created": "2026-11-07T03:22:00Z",
       "base": "claude/w5-INTEG1 7c42e706",
-      "head": "c83d9516",
+      "head": "5c4d94d6",
       "integrated": [
         {
           "item": "P0-SECRET-LEAK-ESCALATE",
@@ -1086,12 +1095,20 @@
           "review": "SHIP (delta 3)",
           "how": "merge c83d9516",
           "suites": "test_w6_secret_leak_escalate 8, test_acceptance 8, test_cert_orchestration 20, test_w5_a7_supply_stall 6, test_w4_owner_incidents 6"
+        },
+        {
+          "item": "P0-SUPPORT-DEFECT-INCIDENT",
+          "sha": "dd05e389",
+          "review": "SHIP (delta 5)",
+          "how": "merge 5c4d94d6 (suite list conflict: kept both)",
+          "suites": "support 17, owner_decision 1, reverify_withhold 6, secret_leak 8, a7 6, ops_truth 16"
         }
       ],
-      "ladder": "P0-SECRET-LEAK-ESCALATE, P0-SUPPLY-STALL: BUILT, REVIEWED, INTEGRATED; not certified",
+      "ladder": "P0-SECRET-LEAK-ESCALATE (+follow-up), P0-SUPPLY-STALL, P0-SUPPORT-DEFECT-INCIDENT: BUILT, REVIEWED, INTEGRATED; not certified",
       "open_low": [
         "SECRET L1-L4 (17f63074 review)",
-        "A7 D-1..D-4 (677661ec review)"
+        "A7 D-1..D-4 (677661ec review)",
+        "SUPPORT dd05e389 MED F-1/F-2 (Main follow-up) + LOWs"
       ]
     }
   },
@@ -1271,12 +1288,6 @@
         "report": null,
         "started": null,
         "note": "awaiting opus2 green regression + REVIEW-REQUEST"
-      },
-      {
-        "id": "W6-SUPPORT-D5",
-        "subject": "claude/w6-support-defect-incident dd05e389 (declarative reconcile; delta from c5cad183)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_dd05e389.md",
-        "started": "2026-11-07T05:46:28Z"
       },
       {
         "id": "V2-REVIEW",
