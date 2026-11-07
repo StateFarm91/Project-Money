@@ -412,17 +412,26 @@ def spent_this_month(db, now: datetime | None = None) -> float:
     Every kind the monthly ceiling governs (`counts_against_monthly_ceiling`), not only
     `llm`: image renders are recorded as `image` and are inside the same CA$ month.
     """
-    from sqlalchemy import func, select
+    import math
+    from sqlalchemy import select
 
     from ..core.models import CostEntry
 
     now = now or datetime.now(timezone.utc)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     with db.session() as s:
-        total = s.scalar(
-            select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
-            .where(ceiling_kind_filter(), CostEntry.at >= start))
-    return float(total or 0.0)
+        amounts = list(s.scalars(select(CostEntry.amount_cad)
+                                 .where(ceiling_kind_filter(), CostEntry.at >= start)))
+    total = 0.0
+    for value in amounts:
+        try:
+            amount = float(value)
+        except (TypeError, ValueError, OverflowError):
+            raise CeilingReached("company cost ledger has an invalid amount; reconciliation required") from None
+        if not math.isfinite(amount) or amount < 0:
+            raise CeilingReached("company cost ledger has an invalid or negative amount; reconciliation required")
+        total += amount
+    return total
 
 
 def budget(db, now: datetime | None = None,
@@ -454,13 +463,19 @@ def record(db, task_key: str, *, agent: str, tokens_in: int, tokens_out: int,
     from ..core.models import CostEntry
 
     task, tier = route(task_key)
-    cost = 0.0 if cached else tier.cost_cad(tokens_in, tokens_out)
+    valid_usage = (type(tokens_in) is int and type(tokens_out) is int
+                   and tokens_in >= 0 and tokens_out >= 0 and tokens_in + tokens_out > 0)
+    estimated = not cached and not valid_usage
+    if estimated:
+        tokens_in, tokens_out = 0, 0
+    cost = 0.0 if cached else estimate_cad(task_key) if estimated else tier.cost_cad(tokens_in, tokens_out)
     with db.session() as s:
         s.add(CostEntry(agent=agent, job_id=job_id, kind=COST_KIND, amount_cad=cost,
                         tokens_in=0 if cached else tokens_in,
                         tokens_out=0 if cached else tokens_out,
                         detail={"task": task_key, "tier": tier.key, "model": tier.model,
-                                "cached": cached}))
+                                "cached": cached,
+                                **({"billing": "unknown_usage_counted_at_estimate"} if estimated else {})}))
     return cost
 
 

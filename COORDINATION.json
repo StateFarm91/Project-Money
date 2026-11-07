@@ -290,6 +290,22 @@
       "files": [
         "brambleloop/src/brambleloop/ops/flow_health.py",
         "brambleloop/tests/test_w5_a7_supply_stall.py"
+      "id": "CODEX-V0-RESERVATION-BINDING",
+      "operator": "codex",
+      "branch": "codex/v0-provider-authority",
+      "source_branch": "opus2/v0-paid-provider-gate",
+      "source_sha": "76fc0f3d6b6d2588e7953cf369b81bd7e99acd74",
+      "scope": "P0 paid-provider gate: bind one funded company-budget reservation to one provider attempt",
+      "files": [
+        "brambleloop/src/brambleloop/gateway/paid_provider_gate.py",
+        "brambleloop/tests/test_w5_v0_paid_provider_gate.py",
+        "brambleloop/src/brambleloop/finance/reservations.py",
+        "brambleloop/src/brambleloop/gateway/images.py",
+        "brambleloop/src/brambleloop/gateway/anthropic.py",
+        "brambleloop/src/brambleloop/visual/d_judge.py",
+        "brambleloop/src/brambleloop/agents/registry.py",
+        "brambleloop/src/brambleloop/gateway/routing.py",
+        "brambleloop/src/brambleloop/gateway/model_gateway.py"
       ],
       "claimed_at": "2026-11-03"
     }

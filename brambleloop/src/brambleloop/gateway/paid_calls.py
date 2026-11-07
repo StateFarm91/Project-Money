@@ -158,6 +158,7 @@ class _Scope:
     last_call: dict | None = None
     unresolved: set = field(default_factory=set)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    running: str = ""            # the key of the guarded call executing now (owner gate)
 
     def occurrence(self, fp: str) -> int:
         with self.lock:
@@ -207,6 +208,19 @@ def ledger_note() -> dict:
         return {}
     note, scope.last_call = dict(scope.last_call), None
     return note
+
+
+def current_db():
+    """The database of the running job scope, or None outside one."""
+    scope = _SCOPE.get()
+    return scope.db if scope is not None else None
+
+
+def current_call_key() -> str:
+    """The key of the guarded call now running (job + request + occurrence), or "" outside a
+    scope. Read, not consumed: `paid_provider_gate` keys its idempotency on it."""
+    scope = _SCOPE.get()
+    return str(scope.running or "") if scope else ""
 
 
 def peek_replayed() -> bool:
@@ -370,6 +384,7 @@ def guarded(effect: str, fp: str, call: Callable[[], Any], *,
     # Set before the call: an image render bills inside it (`images.record_render`), a model
     # call is billed by its caller after it returns; either way the row carries this key.
     scope.last_call = {"paid_call_key": key}
+    outer, scope.running = scope.running, key
     try:
         result = call()
     except BaseException as exc:
@@ -384,6 +399,8 @@ def guarded(effect: str, fp: str, call: Callable[[], Any], *,
             if kind == UNCERTAIN:
                 _incident(db, key, effect, job.id, why)
         raise
+    finally:
+        scope.running = outer
     _update(db, key, outcome=OK, payload=encode(result))
     effects.mark_applied(db, key, token, f"paid_call:{key[:16]}")
     return result

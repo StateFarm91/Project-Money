@@ -323,6 +323,15 @@ class ImagesRefused(PermanentError):
     """The provider answered and the answer is not an image."""
 
 
+class ImagesGateRefused(ImagesRefused):
+    """Refused by the owner activation gate (`paid_provider_gate`) before any network I/O.
+    `.code` names the reason (`not_activated_by_owner`, `provider_daily_ceiling`, ...)."""
+
+    def __init__(self, message: str, code: str = ""):
+        super().__init__(message)
+        self.code = code
+
+
 class SubstitutionRefused(PermanentError):
     """Somebody tried to satisfy image generation with a model that can only look."""
 
@@ -913,11 +922,17 @@ def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str
 
     # W4-FLUXAPI: a per-call estimate (`render_estimate_usd`) replaces the table price when the
     # documented price of this exact request is known, and is never below it.
+    from . import paid_provider_gate
+
     estimate = max(float(provider.cad_per_image), float(estimate_cad or 0.0))
-    return gw.check_budget_cad(
+    budget = gw.check_budget_cad(
         _budget_db(db), estimate_cad=estimate,
         agent=agent or DEFAULT_RENDER_AGENT, purpose=purpose or DEFAULT_RENDER_PURPOSE,
         job_id=job_id, model=provider.key, provider=provider.key)
+    # A render carries its reservation to the owner gate explicitly; the context note
+    # `check_budget_cad` leaves for vision calls is cleared so no vision call can spend it.
+    paid_provider_gate.take_budget()
+    return budget
 
 
 def release_render(db, budget: dict | None, *, billed: bool) -> None:
@@ -1137,8 +1152,15 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
              provider_key: str | None = None, work_dir: str | None = None,
              timeout: float = 120.0, extra_fields: dict | None = None,
              db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
-             spend_detail: dict | None = None) -> dict:
+             spend_detail: dict | None = None, gate_scope: str = "generation") -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
+
+    **No render leaves without the owner's activation (P0-PAID-PROVIDER-OWNER-GATE).** The
+    provider request runs inside `paid_provider_gate.enforce` (`_gated`): an active owner
+    activation of this provider for `gate_scope` (`generation`, or `probe` for the capability
+    and reference probes), the provider's daily/monthly ceilings, the per-gallery limit, the
+    company month, idempotency and the retry ceiling -- checked after the reservation below
+    and before any network I/O. A key in the environment authorises nothing.
 
     **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
     one `CostEntry` of kind `image` per render the provider charged for, including renders
@@ -1170,6 +1192,19 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
     caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
+    if gate_scope == "probe":
+        # Probe authorization is narrower than generation: fixed diagnostic
+        # prompts only, without arbitrary caller-provided fields or sizing.
+        allowed = {
+            ("image.probe", "A plain grey fabric swatch on a white background, product photograph.", 0),
+            ("image.reference_probe", "A plain ceramic mug on a white background, product photograph.", 0),
+        }
+        if ((purpose, prompt, len(reference_urls or [])) not in allowed
+                or size != "1024x1024" or extra_fields):
+            raise ImagesGateRefused("probe activation covers only fixed diagnostic requests",
+                                    "probe_scope_mismatch")
+    elif gate_scope != "generation":
+        raise ImagesGateRefused("unknown image authorization scope", "probe_scope_mismatch")
     if not work_dir:
         raise ImagesRefused(
             "generate() needs a work_dir: the path it returns has to outlive the call, so "
@@ -1189,8 +1224,10 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
         result = _guarded_render(
             provider, prompt, reference_urls, size, extra_fields, work_dir, budget,
             agent, billing,
-            lambda: _generate_reserved(provider, url, headers, payload, size, work_dir,
-                                       timeout, started, budget, db, billing))
+            lambda: _gated(db, provider, gate_scope, budget, _render_fp(
+                provider, prompt, reference_urls, size, extra_fields), purpose, billing,
+                lambda: _generate_reserved(provider, url, headers, payload, size, work_dir,
+                                           timeout, started, budget, db, billing)))
         if result.get("replayed"):
             # Served from an earlier attempt of this job (F-307): nothing was sent, so the
             # claim taken above comes back unbilled. The bill is the original attempt's row.
@@ -1216,6 +1253,39 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
         else:
             release_render(db, budget, billed=False)
         raise
+
+
+def _render_fp(provider: ImageProvider, prompt: str, reference_urls, size: str,
+               extra_fields) -> str:
+    from . import paid_calls
+
+    return paid_calls.fingerprint("image.render", provider.key, prompt,
+                                  list(reference_urls or []), size, extra_fields or {})
+
+
+def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpose: str,
+           billing: dict, send):
+    """The provider request through the owner activation gate (`paid_provider_gate.enforce`):
+    refused with a named reason and nothing sent unless the owner has activated this provider
+    for `scope` and every ceiling holds. Accepted-then-failed is BILLED, a timeout UNCERTAIN
+    (counted), a refusal before the provider took the work RELEASED."""
+    from . import paid_provider_gate as gate
+
+    def classify(exc: BaseException) -> str:
+        if billing.get("billed") or billing.get("accepted"):
+            return gate.BILLED
+        # Once the transport is entered, a reset, wrapped timeout, malformed 2xx,
+        # or HTTP error does not prove that the provider did not accept work.
+        return gate.UNCERTAIN
+
+    try:
+        return gate.enforce(
+            _budget_db(db), provider=provider.key, scope=scope,
+            estimate_cad=float(budget.get("estimate_cad") or provider.cad_per_image),
+            fingerprint=fp, reservation_id=budget.get("reservation_id"), call=send,
+            classify=classify, purpose=purpose or DEFAULT_RENDER_PURPOSE)
+    except gate.PaidCallRefused as exc:
+        raise ImagesGateRefused(str(exc), exc.code) from None
 
 
 def _guarded_render(provider: ImageProvider, prompt: str, reference_urls, size: str,
@@ -1379,7 +1449,11 @@ def submit_render(prompt: str, *, provider_key: str, reference_urls: list[str] |
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
                             estimate_cad=receipt["price"]["cad"])
     try:
-        body = _post(url, headers, payload, label=provider.key, timeout=timeout)
+        # P0-PAID-PROVIDER-OWNER-GATE: the submit is the paid request; it passes the gate.
+        body = _gated(db, provider, "generation", budget, fp, purpose,
+                      {"accepted": False},
+                      lambda: _post(url, headers, payload, label=provider.key,
+                                    timeout=timeout))
     except TimeoutError as exc:
         bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
                     billing="unknown_counted_at_estimate", error=f"{type(exc).__name__}: {exc}",
@@ -1504,6 +1578,13 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     # `ops.capability_probes` and passed no `work_dir`, so every run made one more.
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
+        # The conditioned step accepts an image reference. Until its same-run
+        # first-render identity is bound durably, probe-only authority must not
+        # authorize it. Check before the first render to avoid a wasted call.
+        from . import paid_provider_gate as gate
+        if not gate.activation_state(db, provider_key, gate.GENERATION)["active"]:
+            raise ImagesGateRefused("reference conditioning requires generation activation "
+                                    "until diagnostic inputs are bound", "probe_scope_mismatch")
         with workspace.work_dir(work_dir, prefix="generated-") as root:
             # `db` passed through so both renders are reserved and ledgered (B2) in the
             # database this probe audits into, attributed as shared platform spend.
@@ -1511,12 +1592,12 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
             first = generate("A plain ceramic mug on a white background, product photograph.",
                              env=env, provider_key=provider_key, work_dir=root, db=db,
                              purpose=REFERENCE_PROBE_ACTION,
-                             spend_detail=shared)
+                             spend_detail=shared, gate_scope="probe")
             second = generate("The same mug as the reference image, now on a wooden table.",
                               env=env, provider_key=provider_key,
                               reference_urls=[first["image_ref"]], work_dir=root, db=db,
                               purpose=REFERENCE_PROBE_ACTION,
-                              spend_detail=shared)
+                              spend_detail=shared, gate_scope="generation")
             # `ok` means the conditioned render came back *and* the reference's bytes were
             # proven to be in the request that produced it (F-212). A render alone proves
             # only that the provider answered.
@@ -1587,13 +1668,36 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
         if provider is not None:
             record["reason"] = ""
 
+    # P0-PAID-PROVIDER-OWNER-GATE: a key is not an activation. Among the credentialled
+    # providers, the probe uses one the owner has activated (the configured one first); with
+    # none activated it records NOT_ACTIVATED -- a named state, not an error -- and sends
+    # nothing. The render itself still passes `paid_provider_gate.enforce` in `generate`.
+    from . import paid_provider_gate as gate
+
+    activation = None
+    if provider is not None and key_for(provider.key, e):
+        for cand in [provider] + [BY_KEY[k] for k in available(e) if k != provider.key]:
+            st = gate.activation_state(db, cand.key, gate.PROBE, now=now)
+            if st["active"]:
+                provider, activation = cand, st["activation"]
+                break
+        else:
+            st = gate.activation_state(db, provider.key, gate.PROBE, now=now)
+
     if provider is None and not record["reason"]:
         record["reason"] = (f"no {PROVIDER_VAR} and no per-account key in this environment")
     elif provider is not None and not key_for(provider.key, e):
         record["reason"] = f"no credential for {provider.key}"
         record["provider"] = provider.key
+    elif provider is not None and activation is None:
+        record.update(provider=provider.key, state=st["reason"],
+                      reason=(f"{st['reason']}: {gate.KEY_IS_NOT_ACTIVATION}"
+                              if st["reason"] == gate.NOT_ACTIVATED else
+                              f"{st['reason']}: no paid probe is made without an active "
+                              f"owner activation"))
     elif provider is not None:
         record["provider"] = provider.key
+        record["activation_id"] = activation["id"]
         from ..core import workspace
 
         try:
@@ -1610,9 +1714,12 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
                        generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
                                 work_dir=root, db=db, agent="gateway",
                                 purpose=PROBE_ACTION, job_id=job_id,
-                                spend_detail={"attribution": "shared"}))
+                                spend_detail={"attribution": "shared"},
+                                gate_scope="probe"))
         except (PermanentError, TransientError) as exc:
             record["reason"] = str(exc)[:400]
+            if getattr(exc, "code", ""):
+                record["state"] = exc.code
         else:
             record.update({"ok": True, "url_present": bool(got.get("url")),
                            "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
@@ -1658,9 +1765,14 @@ def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
                  **kw) -> dict:
     """`probe`, unless a successful probe younger than PROBE_REUSE is on file (then reused,
     nothing billed)."""
+    from . import paid_provider_gate as gate
+
     now = now or datetime.now(timezone.utc)
     last = last_probe(db)
-    if last and last.get("ok"):
+    # P0-PAID-PROVIDER-OWNER-GATE: a success is reused only while the activation it was made
+    # under is still in force; otherwise `probe` runs, and without an activation it sends
+    # nothing and records `not_activated_by_owner`.
+    if last and last.get("ok") and gate.is_active_id(db, last.get("activation_id"), now=now):
         try:
             at = datetime.fromisoformat(str(last.get("at")))
             at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
@@ -1674,9 +1786,18 @@ def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
 
 
 def usable(db) -> bool:
-    """Whether an image has actually been generated. The `image_generation` condition."""
-    state_ = last_probe(db)
-    return bool(state_ and state_.get("ok"))
+    """The `image_generation` condition: the owner has activated generation for a provider
+    AND the latest probe succeeded under an activation that is still in force
+    (P0-PAID-PROVIDER-OWNER-GATE). A key alone, or an old successful probe row alone, never
+    opens it; a revoked or expired activation closes it."""
+    from . import paid_provider_gate as gate
+
+    try:
+        state_ = last_probe(db)
+    except Exception:  # noqa: BLE001 - unreadable evidence is a closed gate
+        return False
+    return gate.probe_activation_open(db, state_, (state_ or {}).get("provider"),
+                                      gate.GENERATION)
 
 
 def state(db, *, env: dict[str, str] | None = None) -> dict:
@@ -1698,7 +1819,9 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
         "credentialled": available(env),
         "credential_plan": credential_plan(env),
         "last_probe": last,
-        "usable": bool(last and last.get("ok")),
+        "usable": usable(db),
+        # P0-PAID-PROVIDER-OWNER-GATE: names and states only, never a credential value.
+        "owner_activation": _activation_card(db),
         "candidates": [p.to_dict() for p in PROVIDERS],
         # No standing recommendation. There was one -- the cheapest candidate that supports
         # reference conditioning -- and the owner's 2026-09-20 decision replaced it with a
@@ -1719,3 +1842,13 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
                   "photograph cannot make one, and substituting it is refused in code rather "
                   "than discouraged in a note"),
     }
+
+
+def _activation_card(db) -> dict:
+    from . import paid_provider_gate as gate
+
+    try:
+        return gate.gate_card(db, "image_generation")
+    except Exception as exc:  # noqa: BLE001 - the card says what it could not read
+        return {"key_is_not_activation": gate.KEY_IS_NOT_ACTIVATION,
+                "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
