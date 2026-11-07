@@ -945,6 +945,15 @@
       "verdicts": {
         "claude/w6-secret-leak-followup 17f63074": "SHIP: no exposure hidden; fallback type-only, never auto-closes, cannot fail ops.health; 8/10 mutants killed. LOW: L1 re-open noise unbounded without a redeploy (e.g. OAuth re-auth); L2 (base) no-change path never refreshes last_seen -> UNCONFIRMED after 48h; L3 fallback inner except untested; L4 fallback wording points at job output lacking fingerprints."
       }
+    },
+    {
+      "subject": "W6 support delta 4",
+      "sha": "c5cad183 (and 1d22cdca)",
+      "recorded": "2026-11-07T05:04:49Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_c5cad183.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident c5cad183": "DO NOT SHIP: F-1 HIGH still_held counts only open incidents, so a confirmed-then-resolved defect loses its hold to an older not_a_defect release (rollback R8S re-sells a confirmed defect unheld); F-2 MED superseded release returning to sale stays held forever with no card; F-3 MED title-only CIR change counts as a correction; F-4 LOW 5 mutants survive. Main response: event-driven carry/supersede/release replaced by one declarative reconcile_holds (active = open or confirmed; instruction_hash allowlist; no automatic supersession)."
+      }
     }
   ],
   "integration": {
@@ -1219,12 +1228,6 @@
         "started": "2026-11-02T22:49:44Z",
         "requested_by": "#28 6590109328",
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
-      },
-      {
-        "id": "W6-SUPPORT-D4",
-        "subject": "claude/w6-support-defect-incident c5cad183 (delta from 785849c0; reviewer started on 1d22cdca, retargeted)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_1d22cdca.md",
-        "started": "2026-11-07T04:43:49Z"
       },
       {
         "id": "PORTFOLIO-ACT-REVIEW",
