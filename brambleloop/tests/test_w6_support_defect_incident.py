@@ -488,6 +488,63 @@ def test_two_versions_with_no_stored_pattern_are_not_the_same_instructions():
     assert [i[0] for i in _open(db)] == [sig]
 
 
+def test_certifying_a_release_with_the_held_instructions_holds_it_at_once():
+    """Review dd05e389 F-1: through the real cir.compile -> gate.certify path, no triage."""
+    a, _b = _cirs()
+    db = _db(a)
+    _setup_incident(db, a, "gc1")
+    d = {**a.to_dict(), "version": "9.0.0"}
+    JobQueue(db).enqueue("validator", "cir.compile", {"cir": d}, priority=0,
+                         idempotency_key="gc1-compile")
+    w = Worker(db, "w6-certify", phase=Phase.SHADOW, job_types=["cir.compile", "gate.certify"])
+    for _ in range(20):
+        if not w.run_once():
+            break
+    with db.session() as s:
+        assert s.scalar(select(PatternVersion).where(PatternVersion.version == "9.0.0")).certified
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+
+
+def test_store_publish_reconciles_before_its_gates_read_the_holds():
+    """Review dd05e389 F-1: a release that became current since the last triage."""
+    a, _b = _cirs()
+    db = _db(a)
+    sig, _iid = _setup_incident(db, a, "p1")
+    _add_version(db, a, "9.0.0", certified=True)            # same instructions, no triage yet
+    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
+    # In SHADOW the worker's capability gate kills store.publish before its handler runs,
+    # so the handler is called directly: past SHADOW this is the first thing it does.
+    from brambleloop.agents.registry import Registry as _Reg
+    from brambleloop.runtime.worker import JobContext
+
+    q = JobQueue(db)
+    ctx = JobContext(job=q.enqueue("store_operator", "store.publish",
+                                   {"slug": a.slug, "version": "9.0.0"},
+                                   idempotency_key="p1-publish"),
+                     db=db, queue=q, registry=_Reg(db), phase=Phase.SHADOW)
+    try:
+        pipeline.handle_store_publish(ctx)
+    except Exception:  # noqa: BLE001 - it refuses later (no Etsy, SHADOW); that is fine
+        pass
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+
+
+def test_re_certifying_the_held_version_in_place_does_not_unhold_the_release_on_sale():
+    """Review dd05e389 F-2: the instructions are fixed when the incident opens."""
+    a, _b = _cirs()
+    db = _db(a)
+    sig, _iid = _setup_incident(db, a, "f2")
+    _add_version(db, a, "9.0.0", certified=True)            # identical: held too
+    _triage(db, "f2b")
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    with db.session() as s:                                  # the held version re-certified
+        pv = s.scalar(select(PatternVersion).where(PatternVersion.version == a.version))
+        pv.cir_json = _changed_instructions(a)
+    _triage(db, "f2c")
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+
+
 def test_instruction_hash_ignores_presentation_and_sees_instructions():
     a, _b = _cirs()
     d = a.to_dict()
