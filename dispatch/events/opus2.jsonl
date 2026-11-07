@@ -80,3 +80,4 @@
 {"at": "2026-11-07T08:45:16Z", "worker": "opus2", "assignment": "V5", "event": "review_requested", "sha": "6feab785", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
 {"at": "2026-11-07T08:45:19Z", "worker": "opus2", "assignment": "V6", "event": "blocked", "note": "on V1, end-band scene frames read craft UNKNOWN; asked Main (a)/(b)/(c)"}
 {"at": "2026-11-07T10:33:10Z", "worker": "opus2", "assignment": "V6", "event": "review_requested", "sha": "60747f7e", "note": "on V1 stack 8427e777, option (a): stops at owner_card on V1-SCENE-END-BANDS only; 10/10"}
+{"at": "2026-11-07T10:34:55Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "e8b458b5", "note": "folded onto codex physical 77b9a88f; supersedes d697d093 (withdrawn); 50 suites"}
