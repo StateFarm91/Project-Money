@@ -259,6 +259,24 @@ def test_review_opus2k_k4_a_pending_record_with_the_key_set_is_not_billed_by_cla
     assert not [c for c in costs if c[1] == "unknown_counted_at_estimate"], costs
 
 
+def test_review_opus2m_m5_a_key_with_no_guard_record_is_not_unknown():
+    """OPUS2M-5 (M7s): a scope whose last call names a paid-call key that has no guard record
+    is not an UNCERTAIN outcome: classify re-raises unbilled rather than counting it."""
+    from types import SimpleNamespace
+
+    from brambleloop.culture.classify import _outcome_unknown
+    from brambleloop.gateway import paid_calls
+
+    db = _db()
+    paid_calls.ensure_table(db)
+    token = paid_calls._SCOPE.set(SimpleNamespace(
+        db=db, last_call={"paid_call_key": "never-written"}))
+    try:
+        assert _outcome_unknown(TimeoutError("read timed out")) is False
+    finally:
+        paid_calls._SCOPE.reset(token)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
