@@ -342,6 +342,61 @@ def test_a_legacy_dead_end_that_began_as_a_fix_only_refusal_is_resolved_not_redr
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
 
 
+def test_an_ordinary_dead_end_restated_by_a_fix_only_refusal_is_never_resolved_by_it():
+    """Review b31a221b A-MED-1: the real restate path (open_or_restate, report_count 2,
+    refused_job = a bound job) -- the release's own dead end stays open."""
+    from brambleloop.ops import incident_lifecycle as L
+
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
+            _run(db, "publishing", "assets.build", REL)       # the release's own refusal
+        q = JobQueue(db)
+        fo = q.enqueue("publishing", "assets.build", {**REL, "fix_only": True},
+                       idempotency_key="restate-fo")
+        sig = CS.signature(CS.ASSETS, REL["slug"], REL["version"])
+        with db.session() as s:                               # what pre-fix record() did
+            L.open_or_restate(s, signature=sig, severity="P2", product_slug=REL["slug"],
+                              summary="fix-only refusal", detail={
+                                  "kind": CS.ASSETS, "refused_under_commit": "a" * 40,
+                                  "refused_job": fo.id,
+                                  "inputs": {k: v for k, v in {**REL, "fix_only": True}.items()
+                                             if k != "rebuild"}})
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, q)
+        assert out["resolved"] == [] and out["redriven"] == [], out
+        assert _deadend_inputs(db) is not None and "fix_only" not in _deadend_inputs(db)
+        # A-LOW-1: a later genuine ordinary refusal restores trustworthy inputs; under the
+        # next commit the row is re-driven again.
+        with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["y"]}):
+            _run(db, "publishing", "assets.build", REL)
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "c" * 40
+        again = CS.sweep(db, q)
+        assert len(again["redriven"]) == 1, again
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+
+
+def test_a_malformed_refused_job_never_aborts_the_sweep():
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        with db.session() as s:
+            s.add(Incident(severity="P2", signature=CS.signature(CS.ASSETS, REL["slug"],
+                                                                 REL["version"]),
+                           summary="legacy", product_slug=REL["slug"],
+                           detail={"kind": CS.ASSETS, "refused_job": "abc",
+                                   "inputs": {"slug": REL["slug"], "version": REL["version"],
+                                              "release": REL["release"], "fix_only": True},
+                                   "refused_under_commit": "a" * 40}))
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, JobQueue(db))
+        assert out["resolved"] == [] and "legacy" in out["waiting"][0]["why"], out
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

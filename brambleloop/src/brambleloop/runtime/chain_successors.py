@@ -93,6 +93,8 @@ def record(ctx, kind: str, *, inputs: dict, summary: str, detail: dict,
     payload = {"kind": kind, "stage": stage, "agent": agent, "department": dept,
                "inputs": {k: v for k, v in inputs.items() if k not in ("rebuild", "fix_only")},
                "refused_under_commit": _commit(), "refused_job": ctx.job.id,
+               # Review b31a221b A-LOW-1: an ordinary refusal restates trustworthy inputs.
+               "legacy_inputs_restated_by_fix_only": False,
                **detail}
     with ctx.db.session() as s:
         row, opened = lifecycle.open_or_restate(
@@ -213,6 +215,27 @@ def _stage_succeeded(db, kind: str, inputs: dict) -> bool:
     return False
 
 
+def _resolve(s, sig: str, kind: str, inputs: dict, resolution: str, now,
+             owner_reason: str = "") -> None:
+    """Resolve a dead end; a pricing one also closes the owner's "decide the price" action
+    (review OPUS2B2 F1.1; review b31a221b A-LOW-2: on every resolve path, legacy included)."""
+    from sqlalchemy import select
+
+    from ..ops import incident_lifecycle as lifecycle
+
+    lifecycle.resolve_signatures(s, [sig], resolution=resolution, now=now)
+    if kind == "pricing":
+        from ..core.models import OwnerAction
+        from ..ops import owner_queue
+
+        key = OWNER_KEY + f"{inputs.get('slug')}@{inputs.get('version')}"
+        for action in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key == key, OwnerAction.done.is_(False))):
+            owner_queue.close(action, owner_queue.SATISFIED,
+                              (owner_reason or f"the pricing dead end closed: {resolution}")
+                              [:900], now=now)
+
+
 def sweep(db, queue, *, now: datetime | None = None) -> dict:
     """Re-drive each open dead end once per deployed commit; resolve the ones that cleared."""
     from sqlalchemy import select
@@ -245,12 +268,16 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
             from ..core.models import Job
 
             with db.session() as s:
-                origin = s.get(Job, int(d["refused_job"])) if d.get("refused_job") else None
+                try:
+                    origin = (s.get(Job, int(d["refused_job"])) if d.get("refused_job")
+                              else None)
+                except (TypeError, ValueError):
+                    origin = None              # unknown origin: kept open, never resolved
                 origin_bound = bool(origin is not None and (origin.inputs or {}).get("fix_only"))
                 if d.get("_reports", 1) == 1 and origin_bound:
-                    lifecycle.resolve_signatures(s, [sig], resolution=(
-                        "recorded from a fix-only remediation's refusal, which is not the "
-                        "release's own dead end; not re-driven"), now=now)
+                    _resolve(s, sig, kind, inputs, "recorded from a fix-only remediation's "
+                             "refusal, which is not the release's own dead end; not "
+                             "re-driven", now)
                     resolved.append(sig)
                     continue
                 row = s.scalar(select(Incident).where(Incident.signature == sig,
@@ -264,8 +291,10 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
             inputs = {k: v for k, v in inputs.items() if k != "fix_only"}
             if _stage_succeeded(db, kind, inputs):
                 with db.session() as s:
-                    lifecycle.resolve_signatures(s, [sig], resolution=(
-                        f"{STAGES[kind][0]} has since succeeded for this release"), now=now)
+                    _resolve(s, sig, kind, inputs,
+                             f"{STAGES[kind][0]} has since succeeded for this release", now,
+                             owner_reason="pricing.position has since cleared this "
+                                          "release's price; no owner decision is needed")
                 resolved.append(sig)
                 continue
             waiting.append({"signature": sig, "why": "legacy inputs restated by a fix-only "
@@ -279,21 +308,12 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
                 continue
         if _stage_succeeded(db, kind, inputs):
             with db.session() as s:
-                lifecycle.resolve_signatures(s, [sig], resolution=(
-                    f"{STAGES[kind][0]} has since succeeded for this release"), now=now)
                 # Review OPUS2B2 F1.1: the owner's "decide the price" action closes with the
                 # dead end, so the owner is not asked about a product that now has a price.
-                if kind == "pricing":
-                    from ..core.models import OwnerAction
-                    from ..ops import owner_queue
-
-                    key = OWNER_KEY + f"{inputs.get('slug')}@{inputs.get('version')}"
-                    for action in s.scalars(select(OwnerAction).where(
-                            OwnerAction.requirement_key == key,
-                            OwnerAction.done.is_(False))):
-                        owner_queue.close(action, owner_queue.SATISFIED,
-                                          "pricing.position has since cleared this release's "
-                                          "price; no owner decision is needed", now=now)
+                _resolve(s, sig, kind, inputs,
+                         f"{STAGES[kind][0]} has since succeeded for this release", now,
+                         owner_reason="pricing.position has since cleared this release's "
+                                      "price; no owner decision is needed")
             resolved.append(sig)
             continue
         if here == UNKNOWN_COMMIT:
