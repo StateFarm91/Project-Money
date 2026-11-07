@@ -81,8 +81,17 @@ def record(ctx, kind: str, *, inputs: dict, summary: str, detail: dict,
     slug = str(inputs.get("slug") or "")
     version = str(inputs.get("version") or "")
     sig = signature(kind, slug, version)
+    if inputs.get("fix_only"):
+        # W6 FIX-ONLY (review STOREFRONT a1331372 H1): a remediation's refusal is not the
+        # release's dead end. Recording it would replace an ordinary dead end's stored inputs
+        # with the bound ones, and every later re-drive would then stop before launch.plan.
+        ctx.audit("chain.deadend_not_recorded", artifact=f"{slug}@{version}",
+                  detail={"kind": kind, "why": "a fix-only remediation refused; the "
+                          "release's own dead end (if any) keeps its ordinary inputs"})
+        return {"signature": sig, "opened": False, "owner_action": None, "recorded": False,
+                "why": "fix_only"}
     payload = {"kind": kind, "stage": stage, "agent": agent, "department": dept,
-               "inputs": {k: v for k, v in inputs.items() if k != "rebuild"},
+               "inputs": {k: v for k, v in inputs.items() if k not in ("rebuild", "fix_only")},
                "refused_under_commit": _commit(), "refused_job": ctx.job.id,
                **detail}
     with ctx.db.session() as s:
@@ -190,6 +199,10 @@ def _stage_succeeded(db, kind: str, inputs: dict) -> bool:
         for j in s.scalars(select(Job).where(Job.job_type == stage, Job.status == JobStatus.DONE)
                            .order_by(desc(Job.id)).limit(SWEEP_LIMIT)):
             i, o = j.inputs or {}, j.outputs or {}
+            if i.get("fix_only"):
+                # Review STOREFRONT a1331372 H1: a fix-only success stops before launch.plan,
+                # so it never clears the release's own dead end.
+                continue
             if (i.get("slug"), i.get("version"), i.get("release", "")) != (
                     inputs.get("slug"), inputs.get("version"), inputs.get("release", "")):
                 continue
@@ -249,7 +262,10 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
             continue
         stage, agent, _dept = STAGES[kind]
         try:
-            queue.enqueue(agent, stage, {**inputs, "rebuild": f"deadend:{here[:12]}"},
+            from .release import without_fix_only
+
+            queue.enqueue(agent, stage, {**without_fix_only(inputs),
+                                         "rebuild": f"deadend:{here[:12]}"},
                           idempotency_key=f"deadend:{sig}:{here}"[:200])
         except DuplicateJob:
             pass
@@ -260,6 +276,25 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
                 row.detail = {**dict(row.detail or {}), "redriven_under_commit": here,
                               "redriven_at": now.isoformat()}
         redriven.append(sig)
+    # V2 / P2-a: an image run blocked only on a capability gate restarts once when it opens.
+    from ..visual import image_production as IP
+
+    def follow(inputs, key, *, session=None):
+        # V1's restart enqueues inside its own transaction (session=): a duplicate there must
+        # raise so the un-block rolls back with it, never leave a run unblocked with no job.
+        try:
+            return queue.enqueue(IP.AGENT, IP.JOB_TYPE, inputs, idempotency_key=key,
+                                 session=session)
+        except DuplicateJob:
+            if session is not None:
+                raise
+            return None
+
+    try:
+        images = IP.redrive_capability_blocked(db, follow=follow)
+    except Exception as exc:  # noqa: BLE001 - an unreadable image table re-drives nothing
+        images = {"restarted": [], "waiting": [], "refused": [],
+                  "error": f"{type(exc).__name__}"}
     return {"open": len(rows), "redriven": redriven, "resolved": resolved,
-            "waiting": waiting, "commit": here,
-            "work_done": len(redriven) + len(resolved)}
+            "waiting": waiting, "commit": here, "images": images,
+            "work_done": len(redriven) + len(resolved) + len(images["restarted"])}

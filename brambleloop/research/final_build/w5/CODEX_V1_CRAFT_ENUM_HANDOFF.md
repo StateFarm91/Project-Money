@@ -1,0 +1,293 @@
+# V1 blind craft enum — review required
+
+`codex/v1-craft-enum` continues `codex/v1-variant-base` at
+`100f06496e108ca8ece2cc4899c11dc2339118a8`; the previous branch is unchanged.
+
+## Integration review at `10a50cf08aab7a28eac04568bbbfda8a8dda819e`
+
+PR #60 is a draft stacked on PR #47; neither this review nor the tests below
+authorize integration or deployment. The stack changes visual evidence checks,
+FLUX anchor/scratch handling, generation budgets and replay, restart enqueue,
+and duplicate child validation. Shared files include `runtime/release.py` and
+`app/command_center/api.py`; coordinate integration with A1/support and other
+workers before applying these changes.
+
+Reproduced on Python 3.11 and file-backed SQLite in tmpfs: 142 tests passed on
+the exact head above. From `brambleloop/` with the repository's Python 3.11
+environment installed:
+
+```sh
+TMPDIR=/dev/shm PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:tests python -m pytest -q -p no:cacheprovider \
+  tests/test_codex_v1_spend_guard.py tests/test_codex_v1_flux_concurrency.py \
+  tests/test_codex_v1_anchor_binding.py tests/test_codex_v1_variant_base.py \
+  tests/test_codex_v1_craft_enum.py tests/test_codex_v1_blind_comparison.py \
+  tests/test_w4_visnext2.py::test_identity_correction_stage_retry_does_not_repeat_generated_images
+```
+
+Required before integration: independent review of the cumulative stack and
+shared interfaces; PostgreSQL concurrency tests for cooperating and bulk/other
+writers; action-time authenticated authority and evidence fencing; central
+finance and provider billing reconciliation; experiment/production separation
+across shared runs and candidate selection; a reviewed recovery path for held
+legacy operation markers; and the owner's fresh authorization for the frozen
+experiment definition drift. The existing experiment dry-run refuses that drift
+and must not be repinned automatically. File-lock evidence assumes a stable,
+trusted lock path and cooperating processes. Provider receipts, image readings,
+candidate metadata and synthetic physical-reference fixtures are not proof of
+physical fidelity or authenticated approval. Tests here do not establish
+Railway production behavior, cross-process budget guarantees or deployment
+readiness.
+
+The blind craft comparator previously treated an unsupported or malformed craft
+label as a definite mismatch, even when the judge had not described a recognized
+craft. Such readings now remain UNKNOWN and are marked unsuitable for stage-D
+edit reuse. Previously stored UNKNOWN craft readings with an explicit unreadable
+craft field are also held even without the new marker. A clearly observed
+different supported craft and any independent image defect remain FAIL. This
+does not turn uncertainty into PASS or assert
+physical evidence.
+
+Python 3.11, SQLite/tmpfs: 9/9 focused craft, obscured-image, variant-input,
+cable and unfunded-judge cases. Independent reviewer reran the five enum cases
+and the persistent variant-input case including the marker-less legacy reading
+and confirmed the narrow behavior. No paid call or deployment occurred.
+
+The blind two-image comparator also previously passed a real compiled CIR
+declaring edging when neither image reported seeing it. That observation now
+holds UNKNOWN and cannot become a variant input. Both images visibly reporting
+the declared edging still pass the comparison; existing definite mismatch
+checks are unchanged. Python 3.11/tmpfs targeted suite 27/27; independent
+declared-edging regression 1/1. This is not physical or authenticated evidence.
+
+The blind comparison now also holds UNKNOWN when either image does not show a
+colour present in the verifier's compiled-model render, or when its colour-usage shares
+are malformed. A missing colour in the anchor does not prove the candidate
+invented it. Unused palette entries do not create a visibility requirement;
+the real compiled one-used/two-declared control remains PASS. Python 3.11/tmpfs
+focused suite 33/33; independent used/malformed/unused-palette tests 6/6. This is a
+conservative comparison, not proof of judge authenticity or physical fidelity.
+
+The comparator previously interpreted a missing/malformed cable-presence flag or
+edge-band classification as absence, and truthy malformed nested piece data as
+presence. It now uses UNKNOWN for unrecognized or malformed fields, validating
+the local band/repeat structure rather than trusting truthiness. Invalid numeric
+spans are held rather than crashing. Python 3.11/tmpfs focused suite 44/44;
+independent malformed-piece cases 7/7. Full verifier provenance and concurrent
+source changes remain outside these checks.
+
+Malformed or unavailable edging facts now hold UNKNOWN instead of being treated
+as no edging. In particular, Cloudline's ambiguous end-band/edging state cannot
+support a definite invented-edge FAIL or a PASS merely because both images show
+an edge. The existing definite-invented-edge assertion remains intact and now
+uses a real compiled no-edging basket as its control. Matching unsupported
+band/cable claims in both images also hold UNKNOWN rather than passing. Python
+3.11/tmpfs targeted suite 50/50; independent ambiguity case 1/1. No physical
+or authenticated visual evidence is claimed.
+
+Malformed craft, cable, ribbing or edging facts in the expectation now hold
+the craft check UNKNOWN and block stage-D edit reuse. A separate definite craft
+mismatch still fails. Python 3.11/tmpfs focused tests passed 55/55, including
+persistent stage-D selection; an independent reviewer reran craft and stage-D
+tests 11/11. Existing knitted-rope assumptions remain a separate review item.
+
+Direct malformed or absent craft-reading inputs now also carry the edit-input
+block marker. A persisted stage-D regression confirms this marker is honored.
+The normal vision handler already converts an absent reading to an empty mapping;
+legacy markerless no-reading results and unavailable-judge policy are unchanged.
+Python 3.11/tmpfs focused tests passed 58/58.
+
+The two VISNEXT wardrobe retry tests now use a clearly identified synthetic
+photo-reference test double. Their original wardrobe, correction and learning
+assertions are unchanged; chart-only references still follow the separately
+tested structural hold. Together the VISNEXT and V1 correctness suites pass
+53/53 on Python 3.11/tmpfs; independent review reran both wardrobe cases and
+two structural hold controls 4/4. Synthetic reference bytes establish routing
+only, not physical provenance, authority or fidelity.
+
+An older lifestyle-positive test used Cloudline despite this route's inability
+to authenticate its ambiguous band evidence. Its positive and dependency-drop
+assertions now use a real compiled no-band design; an explicit Cloudline case
+still requires UNKNOWN when the caller supplies only an anchor PASS. The full
+offline fidelity suite had 21 passes and this one failure before the fixture
+correction; the corrected case passed separately. No production authority or
+physical fidelity is established by these synthetic images.
+
+Visual restart previously committed the new epoch before enqueueing its job;
+an interruption could strand the run. The restart transition and its queue
+insert now share the caller's database transaction, with a locked run and a
+stale run-state check. The two Command Center image callbacks pass that
+transaction to the existing durable queue. Persistent SQLite tests cover an
+interruption after insertion, a conflicting idempotency key, successful retry,
+normal restart and identity-review restart. Three focused tests passed; an
+independent reviewer reran the interruption/duplicate test. This does not
+fence concurrent evidence writers, make identity review and restart one
+transaction, or establish PostgreSQL concurrency behavior. Integration remains
+blocked pending those checks and the previously recorded authority gaps.
+
+Visual spend planning now refuses non-finite, negative or malformed plan and
+runtime amounts, malformed call counters, and paid generators without a
+positive maximum price. Raw stored counters reach validation before a call.
+Python 3.11/tmpfs focused tests, including actual generation entry and existing
+plan and paid-gate controls, passed 28/28; independent reviewer reran 25/25.
+No provider was called. These checks trust the generator's free/paid declaration
+and do not provide cross-process budget reservation or global budget proof.
+
+A paid image dispatch now records a pending marker before the provider call;
+missing, malformed or excessive cost and interrupted calls hold later
+generation for review. Valid receipts record the actual charge. Free-adapter
+settlement reads current stored spend under the run lock and holds unexpected
+charges or missing receipts. Offline Python 3.11/tmpfs tests passed 33/33;
+independent review reran the spend cases 31/31. No provider was called. These
+are synthetic SQLite tests, not PostgreSQL concurrent-writer verification;
+other stage writers, central finance accounting, billing truth, and interruption
+after receipt but before candidate recording remain open. No reconciliation
+workflow or authorization to clear a pending marker is provided here.
+
+The paid-call marker now persists after a valid receipt until a candidate with
+the same recorded call token, run, stage and cost is stored. Duplicate receipt
+settlement and substitution of a different candidate are held. An injected
+candidate-storage interruption leaves recorded cost and the hold in place.
+Python 3.11/tmpfs tests passed 33/33 including existing paid-gate coverage;
+independent review reran the spend cases 32/32. The token and candidate record
+are mutable metadata, not authenticated evidence. Interruption after candidate
+completion but before stage transition remains unresolved, as do PostgreSQL
+concurrency, noncooperating writers and company-wide budget fencing.
+
+The ordinary visual stage checkpoint and controlled-run metadata update now
+take the same run-row lock used by the pending-call writers before changing
+stage JSON. Focused Python 3.11/tmpfs tests passed 35/35; an independent
+reviewer reran the ordinary checkpoint/hold case. SQLite does not establish
+row-lock serialization. PostgreSQL concurrency, bulk SQL and other modules'
+writers, evidence authority and company-wide finance fencing remain open.
+
+Correction to the earlier token checkpoint: candidate checks are mappings, so
+the token is now stored in a mapping instead of a scalar. A fake paid adapter
+test exercises the actual generation, persistence and candidate-selection path.
+The selector also recognizes the scalar field from earlier isolated test rows;
+this does not migrate or authorize their pending markers. Python 3.11/tmpfs
+spend, anchor and variant tests passed 44/44; the fake-paid selection case was
+independently rerun. No real provider was called.
+
+Visual stage invocations now record an operation key scoped to run, stage,
+epoch, round, role and identity-anchor correction. A retry can reuse its
+persisted candidate after checking identity and artifact bytes, retaining the
+original attempt and follow-on job key. A different correction round still
+generates separately; conflicting cost holds block replay. Real handler tests
+cover failed follow-on enqueue, interrupted paid-marker completion and changed
+candidate bytes. Python 3.11/tmpfs spend/recovery tests passed 38/38; independent
+review reran the key handler cases. Existing candidates without operation keys
+are not migrated, and metadata remains mutable. Reads, marker completion and
+stage advancement are separate transactions: PostgreSQL concurrency,
+noncooperating writers, evidence authority and company budget fencing remain
+unverified. No real provider was called.
+
+An additional real `remaining_roles` handler test interrupts after one saved
+candidate, then retries with a one-attempt-per-role cap. The first role is
+reused and only the second is generated; an independent reviewer reran the
+case. The Python 3.11/tmpfs spend and recovery suite passed 39/39. This uses a
+free synthetic generator and does not establish concurrent or paid-provider
+behavior.
+
+The identity-anchor stage now has an interruption test covering an initial
+synthetic image plus one bounded correction. Retrying after the corrected
+candidate is saved makes no third image. The new case and existing correction
+and identity-anchor flows passed 3/3 in Python 3.11/tmpfs; an independent
+reviewer reran the new case. This is not a real identity or provider test.
+
+The registered visual application handler was also exercised through the real
+durable queue: a follow-on enqueue fails after candidate persistence, the job
+is retried after reopening the SQLite database, and the saved candidate is
+reused with one synthetic paid-adapter call and one fidelity child job. The
+combined focused suite passed 41/41 on Python 3.11/tmpfs; independent review
+reran the queue case. This does not demonstrate PostgreSQL concurrency or real
+provider billing.
+
+The complementary queue window is covered: if a worker finishes the handler
+and creates its child job but fails before acknowledging the parent, reopening
+the database and retrying reuses the synthetic candidate and the existing
+child. The Python 3.11/tmpfs spend/recovery suite passed 41/41; independent
+review reran this queue case. This is a sequential SQLite test, not a provider
+or PostgreSQL concurrency certification.
+
+The product-only generation handler now enforces its per-role attempt cap at
+the generation boundary, including for a distinct stale stage job. A replay of
+the same invocation may still recover its saved last-attempt candidate. Focused
+Python 3.11/tmpfs spend, restart and identity tests passed 44/44; an independent
+reviewer reran the real product-stage case. The count/check/dispatch sequence
+is not proven safe against concurrent workers on PostgreSQL.
+
+An existing visual run is now reused only when its stored product, version and
+release agree with the requested identity. A real handler test proves a run-key
+collision is refused before synthetic generation. The focused Python 3.11/tmpfs
+suite passed 44/44; independent review reran the collision case. Concurrent
+creation and authentication of stored identity remain unverified.
+
+The registered visual handler now validates a deduplicated continuation against
+the durable queue: mismatched, dead, cancelled, exhausted, skipped or malformed
+completed child jobs cannot silently count as a continuation. A legitimate
+matching completed child remains accepted. Registered-handler/queue tests run
+offline; the focused Python 3.11/tmpfs suite passed 51/51 and independent review
+reran eight child-state controls. This modifies the shared `runtime/release.py`;
+coordinate its integration with the A1/support changes touching that file. Job
+metadata and concurrent status changes remain unauthenticated and unfenced.
+
+Completed duplicate child results additionally require the expected run, a
+matching stage where supplied, and a valid stage-specific successor or stage
+status. Null or unrelated successor values are refused. Focused Python
+3.11/tmpfs tests passed 56/56; an independent reviewer reran 13 child-result
+cases. These are structural checks, not authenticated queue evidence.
+
+Delayed repair or other stage jobs now skip a visual run that is blocked,
+awaiting owner review, or already approved. The normal restart explicitly
+returns an eligible blocked run to an active state before enqueueing work.
+Python 3.11/tmpfs terminal-state and existing bounded-repair tests passed 5/5;
+independent review reran the three state cases. A concurrent state change
+between this check and dispatch remains unfenced.
+
+The FLUX adapter's default anchor input now uses the existing candidate-gate
+anchor contract, including certified binding, full release and CIR identity,
+fidelity structure, owner-veto and artifact checks. A run-scoped lookup no
+longer falls back to an unscoped custom lookup on TypeError. Python 3.11/tmpfs
+synthetic anchor and FLUX tests passed 20/20; independent review reran the two
+new cases. This doesn't authenticate verdict metadata or fence later revocation;
+the generator's mutable shared-instance state remains a separate concern. No
+provider was called.
+
+Shared FLUX adapter calls now keep run keys in execution-local context and
+serialize scratch usage within a process, including across instances using the
+same canonical caller-supplied root. Nested scratch restores its outer root;
+nested generation is refused. Python 3.11/tmpfs FLUX and anchor tests passed
+25/25, including synthetic threaded cases; independent review reran five
+concurrency cases. A supplied root shared by different processes and filesystem
+alias changes are not coordinated; no provider was called.
+
+For a caller-supplied scratch root, cooperating processes now also take an
+advisory file lock; nested calls on the same thread do not deadlock, and a
+symlink lock file is refused. The Python 3.11/tmpfs FLUX/anchor suite passed
+28/28, and independent review reran the eight concurrency cases. This requires
+a stable, trusted directory and lock file, no fork while the lock is held, and
+cooperating writers; replacing the file or bypassing the lock defeats it.
+Cross-process authority and provider behavior are not established.
+
+Scratch lock waits are now bounded. After a fork, tracked inherited lock
+descriptors and execution context are reset before a child reacquires the
+scratch root. Python 3.11/tmpfs concurrency tests passed 11/11; independent
+review reran the fork and cross-process timeout cases. The cooperating child
+must reacquire before doing scratch work: arbitrary continuation inside an
+inherited critical section is not protected. A stable trusted directory and
+lock file remain required; this does not fence other writers or authenticate
+provider behavior.
+
+Visual replay now tags new operation records with normal or legacy scratch
+experiment mode, and checks both that tag and the binding's experiment flag
+before reusing a candidate. Previously recorded operations without a mode are
+held for review rather than assumed normal, which can affect availability.
+Python 3.11/tmpfs focused mode and queue tests passed 5/5; independent review
+reran three mode cases. Run state and `_best` candidate selection are still
+shared across these modes, so this does not establish experiment isolation.
+The existing controlled-experiment dry-run regression still refuses the frozen
+prompt/reference definition drift; it was not repinned or authorized.
+
+**DO NOT INTEGRATE:** This is stacked on PR #47. Verdict metadata and stage-D
+reads are unauthenticated and not fenced against concurrent writes. Existing V1
+full-suite failures and the owner-controlled experiment remain unresolved.

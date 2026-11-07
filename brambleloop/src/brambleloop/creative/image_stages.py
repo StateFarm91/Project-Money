@@ -539,6 +539,38 @@ FLAT_LAY_SCENE = {
 }
 
 
+# V2 / P0-c: a basket cannot be "laid completely flat and unfolded". A vessel's product-only
+# anchor is two views of it standing, which `visual.vessel.verify` reads together: the top
+# view shows the outline's corners, the side view the wall's colour bands and its rim.
+VESSEL_TOP_SCENE = {
+    "pose": ("the product standing upright on its base, empty, seen from directly above so "
+             "the whole outline of the rim and every corner is visible; nothing inside it"),
+    "framing": ("the whole object in frame with a margin on every side, the camera square "
+                "above its centre, so every side of the outline can be counted"),
+}
+VESSEL_SIDE_SCENE = {
+    "pose": ("the product standing upright on its base, empty, seen from the side with the "
+             "camera level with the middle of the wall; one flat side facing the camera"),
+    "framing": ("the whole object in frame with a margin on every side, from the base to the "
+                "top of the rim, so every colour band up the wall and the rim can be counted"),
+}
+
+
+def is_vessel_release(rules) -> bool:
+    return any((c or {}).get("shape") == "vessel"
+               for c in ((rules or {}).get("components") or []))
+
+
+def product_scene(rules, palette, *, view: str = "top") -> dict:
+    """The product-only brief: a flat lay, or for a vessel the requested standing view."""
+    env = {"environment": flat_lay_environment(palette)}
+    if not is_vessel_release(rules):
+        return {**FLAT_LAY_SCENE, **env}
+    if view not in ("top", "side"):
+        raise StageRefused(f"a vessel's product-only view is 'top' or 'side', not {view!r}")
+    return {**(VESSEL_TOP_SCENE if view == "top" else VESSEL_SIDE_SCENE), **env}
+
+
 def fidelity_verdict(candidate: Candidate, *, status: str, checker: str,
                      failures: Sequence[str] = (), notes: str = "") -> dict:
     """The record a fidelity check writes about one product-only flat lay.
@@ -579,9 +611,10 @@ def _require_flat_lay_pass(release: Release, product_candidate: Candidate, fidel
 def product_only(release: Release, refs: Sequence[str] | None = None, *,
                  scene: Mapping | None = None, size: str = PRODUCT_SIZE, renderer=None,
                  work_dir: str, db=None,
-                 job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS
-                 ) -> Candidate:
+                 job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS,
+                 view: str = "top") -> Candidate:
     """The product alone as an unfolded, countable flat lay, conditioned on references 4-7.
+    A vessel (V2) is shown standing instead: `view` is "top" or "side".
     No Laura, no outfit. Its fidelity verdict gates every lifestyle image.
 
     `refs`, when given, must be the release's own pattern references (they cannot be swapped)."""
@@ -593,8 +626,7 @@ def product_only(release: Release, refs: Sequence[str] | None = None, *,
     palette = [c.get("hex") for c in (release.rules or {}).get("colours") or []]
     built = flux_prompt.build(rules=release.rules, roles=_prompt_roles(plan),
                               role="product-only flat lay",
-                              scene={**FLAT_LAY_SCENE,
-                                     "environment": flat_lay_environment(palette),
+                              scene={**product_scene(release.rules, palette, view=view),
                                      **dict(scene or {})})
     return _run("product_only", "product_flat_lay", release, plan, built, size,
                 features_laura=False, renderer=render, work_dir=work_dir, db=db,
@@ -605,11 +637,11 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
               outfit: Mapping, *, fidelity: Mapping | None = None,
               scene: Mapping | None = None, role: str = "lifestyle_hero",
               size: str = LIFESTYLE_SIZE, supplementary: Sequence[str] = (), renderer=None,
-              identity_anchor: str | None = None,
+              identity_anchor: str | None = None, scene_reference: str | None = None,
               work_dir: str, db=None,
               job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
-    """Laura with the product: the six-reference campaign set, then the product photograph,
-    the outfit image and any supplementary images.
+    """Laura with the product: the six-reference campaign set, then the verified AI-generated
+    product-only flat lay (never a photograph), the outfit image and any supplementary images.
 
     `laura_refs`: None means the committed canonical originals; otherwise exactly those three
     files. `outfit` is W-OWNERIMG's reserved outfit {"id", "description", "image"?}, and is
@@ -629,6 +661,10 @@ def lifestyle(release: Release, product_candidate: Candidate, laura_refs: Sequen
         # Stage A's anchor (W-VISNEXT2): identity context after the canonical three, never
         # instead of them; the canonical images still decide who she is.
         supp.append(("identity_anchor", str(identity_anchor)))
+    if scene_reference:
+        # V4: the owner-approved room of Laura's home (room geometry only), after every
+        # identity and product reference (`visual.room_references`).
+        supp.append(("scene_reference", str(scene_reference)))
     supp += [("supplementary", str(p)) for p in supplementary]
     plan = campaign_references(release, features_laura=True, laura_refs=laura_refs,
                                supplementary=supp, reference_limit=_limit(render),
@@ -729,6 +765,7 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
             *, outfit: Mapping | None = None, scene: Mapping | None = None,
             laura_refs: Sequence[str] | None = None, size: str | None = None, renderer=None,
             work_dir: str, db=None, identity_anchor: str | None = None,
+            scene_reference: str | None = None,
             job_id: int | None = None, max_attempts: int = DEFAULT_ATTEMPTS) -> Candidate:
     """An edit of an existing candidate (FLUX 3 edit), in one of the closed `VARIANT_ROLES`.
 
@@ -752,6 +789,8 @@ def variant(release: Release, base_candidate: Candidate, role: str, edit_instruc
             supp.append(("outfit", str(outfit["image"])))
         if identity_anchor:
             supp.append(("identity_anchor", str(identity_anchor)))
+    if scene_reference:
+        supp.append(("scene_reference", str(scene_reference)))    # V4: the approved room
     plan = campaign_references(release, features_laura=laura, laura_refs=laura_refs,
                                leading=[("base", base_candidate.path)], supplementary=supp,
                                reference_limit=_limit(render), work_dir=work_dir)
