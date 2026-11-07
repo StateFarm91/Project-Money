@@ -101,7 +101,7 @@ def _release_for(db, slug: str, row: int) -> dict | None:
     # inserted. Unorderable versions: no release is named (the publication guard refuses).
     current = _on_sale_version(db, slug)
     if current is None:
-        return None
+        return {"slug": slug, "version": None, "unorderable": True, "buyers": 0}
     with db.session() as s:
         buyers = {c.customer_ref for c in s.scalars(select(SupportCase).where(
             SupportCase.product_slug == slug, SupportCase.version == current))
@@ -143,6 +143,15 @@ def escalate(ctx, hotspot: dict) -> dict:
     if release is None:
         return {"escalated": False, "slug": slug, "row": row,
                 "why": "no stored release of this product to re-verify or withhold"}
+    if release.get("unorderable"):
+        # Review 5494fc71 #1: say why. Publication of every version is already refused
+        # (release_gates.superseded_release fails closed on unorderable versions).
+        ctx.audit("support.defect_unorderable_versions", artifact=slug, detail={
+            "row": row, "mentions": mentions,
+            "why": "certified versions cannot be ordered, so no release is on sale; "
+                   "publication of every version is refused until they can be"})
+        return {"escalated": False, "slug": slug, "row": row, "mentions": mentions,
+                "why": "certified versions cannot be ordered; no release is on sale"}
     if int(release.get("buyers") or 0) < THRESHOLD:
         return {"escalated": False, "slug": slug, "row": row, "mentions": mentions,
                 "buyers": int(release.get("buyers") or 0),
@@ -279,7 +288,6 @@ def reconcile_holds(db) -> dict:
 
     from ..core.models import Incident, PatternVersion, Product
     from ..publish import withholding
-    from ..runtime.quality_ops import certified_releases
 
     with db.session() as s:
         certified = {(slug, v) for slug, v in s.execute(
@@ -306,13 +314,19 @@ def reconcile_holds(db) -> dict:
         # are those stored when the incident opened (F-2); a legacy incident falls back to
         # the held row. A corrected release (changed instructions) is not held.
         h_old = d.get("instruction_hash")
-        if h_old is None and (slug, held) in versions:
+        # Review 5494fc71 #2: a legacy incident (no stored hash) whose held row is gone has
+        # instructions nobody can know; it holds every certified version -- fail closed. A
+        # held row that exists but stores no pattern is a known "no instructions" and matches
+        # nothing (test_two_versions_with_no_stored_pattern_are_not_the_same_instructions).
+        unknown = h_old is None and (slug, held) not in versions
+        if h_old is None and not unknown:
             h_old = instruction_hash(versions[(slug, held)][0])
-        if h_old is None:
+        if h_old is None and not unknown:
             continue
         for (cslug, cv) in sorted(certified):
-            if cslug == slug and cv != held and (cslug, cv) in versions \
-                    and instruction_hash(versions[(cslug, cv)][0]) == h_old:
+            if cslug != slug or cv == held or (cslug, cv) not in versions:
+                continue
+            if unknown or instruction_hash(versions[(cslug, cv)][0]) == h_old:
                 want.setdefault((slug, cv, check), sig)
     have = {(slug, v, check) for (slug, v), (_cir, cert) in versions.items()
             for check in (cert.get(withholding.REVERIFY_FAILED) or {})

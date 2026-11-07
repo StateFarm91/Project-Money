@@ -470,6 +470,48 @@ def test_the_version_the_publish_gate_allows_is_the_one_on_sale_whatever_the_ins
         assert W.reasons(db, a.slug, v)["blocks_publish"] is True, v
 
 
+def test_on_sale_is_ordered_by_version_not_text():
+    """Review 5494fc71 M8: 10.0.0 is newer than 9.0.0."""
+    a, _b = _cirs()
+    db = _db(a)
+    _add_version(db, a, "10.0.0", certified=True, cir_json=_changed_instructions(a))
+    _add_version(db, a, "9.0.0", certified=True)
+    assert defects._on_sale_version(db, a.slug) == "10.0.0"
+
+
+def test_a_legacy_incident_with_unknown_instructions_holds_every_certified_version():
+    """Review 5494fc71 #2: no stored hash and no held row -> fail closed."""
+    a, _b = _cirs()
+    db = _db(a)
+    sig, _iid = _setup_incident(db, a, "leg1")
+    _add_version(db, a, "9.0.0", certified=True, cir_json=_changed_instructions(a))
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == sig))
+        d = dict(inc.detail or {})
+        d.pop("instruction_hash", None)
+        d["version"] = "0.0.0-gone"
+        inc.detail = d
+    defects.reconcile_holds(db)
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+
+
+def test_unorderable_versions_say_why_no_incident_opened():
+    """Review 5494fc71 #1."""
+    a, _b = _cirs()
+    db = _db(a)
+    _add_version(db, a, "build-seven", certified=True)
+    assert defects._on_sale_version(db, a.slug) is None
+    for n in range(3):
+        _case(db, a, 60 + n)
+    _triage(db, "unord1")
+    assert not [i for i in _open(db) if i[0].startswith(defects.signature(a.slug, a.version, ROW))]
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "support.defect_unorderable_versions")) is not None
+
+
 def test_an_incident_on_an_old_version_holds_a_higher_one_certified_later():
     """Review a66ae0b0 #1: 1.x incident, then 9.0.0 and 2.0.0 certified (same instructions);
     9.0.0 -- the only publishable version -- is held at its certification's reconcile."""
