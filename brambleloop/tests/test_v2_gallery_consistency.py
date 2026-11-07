@@ -92,6 +92,42 @@ def test_the_stored_reading_is_what_best_hands_to_the_gallery():
     assert plain["item_reading"] is None
 
 
+def _plan():
+    """Two generated roles, nothing else, so gallery_ready turns on consistency alone."""
+    from brambleloop.visual import shot_plans as SP
+
+    role = {"required_by": "fixture", "conditional": False, "preferred_source": "generated",
+            "generate": True, "sources": {SP.DISCLOSED: "no"}}
+    return {"category": "fixture", "image_count": 2, "roles": [
+        {**role, "position": 1, "role": "lifestyle_hero", "job": "LIFESTYLE"},
+        {**role, "position": 2, "role": "flat_lay_detail", "job": "DETAIL"}]}
+
+
+def _readiness(reading_a, reading_b):
+    rows = {"lifestyle_hero": _row(1, reading_a), "flat_lay_detail": _row(2, reading_b)}
+    real = IP._best
+    IP._best = lambda db, *, listing, role, run=None: {
+        **rows[role], "publishable": True, "technical_status": "PASS", "blockers": []}
+    try:
+        return IP.readiness(None, "basket", plan=_plan())
+    finally:
+        IP._best = real
+
+
+def test_an_unjudged_gallery_is_not_ready_and_names_its_blocker():
+    """Review V2 F7 (mutants G1, G4): gallery_ready needs PASS or N/A, never UNKNOWN."""
+    a = {"distinct_yarn_colours": 2, "border_or_edging_visible": "no"}
+    ok = _readiness(a, dict(a))
+    assert ok["campaign_consistency"]["status"] == "PASS" and ok["gallery_ready"], ok
+    assert not any(b.startswith(CG.UNJUDGED_BLOCKER) for b in ok["publication_blockers"])
+    out = _readiness(a, None)
+    assert out["campaign_consistency"]["status"] == "UNKNOWN", out["campaign_consistency"]
+    assert out["gallery_ready"] is False, out
+    assert f"{CG.UNJUDGED_BLOCKER}: 1 pairs" in out["publication_blockers"], out
+    bad = _readiness(a, {**a, "distinct_yarn_colours": 3})
+    assert bad["campaign_consistency"]["status"] == "FAIL" and bad["gallery_ready"] is False
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
