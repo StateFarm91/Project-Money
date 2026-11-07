@@ -3202,10 +3202,17 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
     off_portfolio = sorted(built - should_exist)
 
     with ctx.db.session() as s:
-        s.add(PortfolioReview(as_of=today.isoformat(),
-                              classifications=verdict.summary(),
-                              actions=list(verdict.actions),
-                              evidence_available=verdict.evidence_available))
+        review_row = PortfolioReview(as_of=today.isoformat(),
+                                     classifications=verdict.summary(),
+                                     actions=list(verdict.actions),
+                                     evidence_available=verdict.evidence_available)
+        s.add(review_row)
+        s.flush()
+        review_id = review_row.id
+    # P0-PORTFOLIO-ACT: the final labels (after the offer guard) become bounded, keyed work.
+    from ..growth import portfolio_act
+
+    acted = portfolio_act.act(ctx, verdict.classifications, today=today, review_id=review_id)
 
     ctx.audit("portfolio.reviewed", detail={
         "as_of": today.isoformat(),
@@ -3231,7 +3238,8 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
             "constraints_met": portfolio.constraints_met,
             "classifications": verdict.summary(),
             "evidence_available": verdict.evidence_available,
-            "actions": verdict.actions, "offer_guard": offer_guard}
+            "actions": verdict.actions, "offer_guard": offer_guard,
+            "acted": {k: acted[k] for k in ("week", "acted", "skipped", "capped")}}
 
 
 @handlers.register("finance.reconcile")
