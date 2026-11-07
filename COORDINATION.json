@@ -2185,9 +2185,10 @@
     {
       "id": "PF-UNPINNED-STARLETTE",
       "recorded": "2026-11-07T03:22:00Z",
-      "severity": "MED",
+      "severity": "LOW (environment only)",
       "finding": "requirements.txt has fastapi>=0.115 unpinned; a fresh install pulls starlette 1.10.0, whose TestClient requires httpx2 (absent), so TestClient suites (e.g. test_fb4_ops owner-intake route) fail in a fresh container while passing under starlette 1.6.0 (venv-integ4). Certification runs and Railway builds are not reproducible. Fix: pin fastapi/starlette (and httpx) to the certified versions in Batch 6.",
-      "owner": "main"
+      "owner": "main",
+      "correction": "CORRECTED same day: not a product or certification defect. The Dockerfile installs only requirements.lock with --require-hashes (starlette==1.6.0, fastapi==0.141.1), and certification runs on venv-integ4 (same pins). Only a bare system python in a fresh container (pip install -r requirements.txt) gets starlette 1.10. Action: run suites with venv-integ4 or install requirements.lock; no Batch 6 pin change needed."
     }
   ]
 }
