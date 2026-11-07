@@ -918,6 +918,15 @@
       "verdicts": {
         "claude/w6-secret-leak-followup 340025ca": "DO NOT SHIP: N-M1 MED acknowledgement permanently hid a real exposure (ignored counts, still-held variable, any resolved row); N-L1 2 surviving mutants; N-L2 UNKNOWN shapes unread/inconsistent; N-L3 escalation_failed row never closed. Fallback sound; scan cost negligible. Fixed in 7727e68b."
       }
+    },
+    {
+      "subject": "W6 support delta 3",
+      "sha": "785849c0",
+      "recorded": "2026-11-07T04:15:30Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_785849c0.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident 785849c0": "DO NOT SHIP: N-1..N-4 fixed, route authenticated. F-1 HIGH any other certified version (even identical CIR, even after confirmed) ends the incident; old-version incident opened+superseded in one triage. F-2 MED card reopens after confirmed; confirmed lacks keep_hold. F-3 MED null-version cases counted on the current release. F-4 LOW 6/16 mutants survive, no HTTP test. F-5 LOW unbounded why. Main fixing: release-on-sale only, carry on identical CIR, supersede only on newer+changed CIR, confirmed keeps hold and closes card."
+      }
     }
   ],
   "integration": {
@@ -1186,12 +1195,6 @@
         "id": "W6-SECRET-FOLLOWUP-D2",
         "subject": "claude/w6-secret-leak-followup 7727e68b (delta from 340025ca)",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_d2.md",
-        "started": "2026-11-07T04:01:20Z"
-      },
-      {
-        "id": "W6-SUPPORT-D3",
-        "subject": "claude/w6-support-defect-incident 785849c0 (delta from 05961fd0)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_785849c0.md",
         "started": "2026-11-07T04:01:20Z"
       }
     ]
