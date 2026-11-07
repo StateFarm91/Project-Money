@@ -2293,6 +2293,33 @@
       "at": "2026-11-02T22:32:38Z",
       "source": "Secondary #28 6590109328",
       "decision": "A6's lesson.design_approved production route is retired in the Codex-contract delta; Codex's evaluated DesignRule plus a verified pin is the only way learned knowledge changes a draft. The current A6 approval path is treated as superseded by reviewers."
+    },
+    {
+      "id": "D-OWNER-P0-EXECUTION-ORDER-20261107",
+      "at": "2026-11-07T06:30:24Z",
+      "by": "owner",
+      "summary": {
+        "V3": "approved fixture-only (OA-V3 closed)",
+        "codex_secondary": "Codex branches are legitimate engineering candidates; Main reviews exact pushed commits, resolves overlaps, integrates accepted improvements; Secondary owns product-to-listing workforce and adopts better Codex solutions rather than rebuilding; Codex owns Learning plus assigned non-overlapping P0 work; assign by module/branch ownership",
+        "batch5": "prepare immediate deployment: verify SHA unchanged, deploy guard + rollback rehearsal, fresh backup + restore verification, SHADOW preserved, no unapproved paid calls or Etsy writes, Batch 4 failure documented, diagnostics and rollback criteria defined; then bring exact deploy action",
+        "batch6_priority": [
+          "shared evidence and authority fencing",
+          "A6 Learning certification and delivery safety",
+          "A3 photo evidence and gallery approval",
+          "A9 listing-package and owner-review fencing",
+          "V0 paid-provider budget safety",
+          "A4 research-to-product supply and enrichment",
+          "A5 correction and recovery",
+          "V2-V6 visual production",
+          "remaining department handoffs"
+        ],
+        "pr130": "cumulative review candidate only; review exact head and source branches; additive integration where safeguards overlap",
+        "diagnostics": "investigate Batch 4 dead letters and false evidence checks with Railway read-only tools; name exact missing permission if insufficient",
+        "paid_providers": "fail closed until V0 fixed, tested, integrated, deployed; no paid experiments, no test calls with production credentials; determine if keys can stay configured behind a verified disabled gate; CA$100 monthly ceiling unchanged",
+        "secret_leak_severity": "P1 when exposure confirmed or not safely ruled out; targeted hold on affected credentials and dependent operations; no automatic pause of unrelated departments without evidence of shared exposure",
+        "backups_cloudline": "no backup deletion without retention/space/restore verification; no Cloudline reactivation or paid experiment until provider gate certified and separately approved",
+        "completion": "Research -> Concept -> Product Dev -> Validation -> Correction -> Learning -> PDF -> Visual -> Gallery -> Listing Package -> Owner Approval -> Etsy Ops -> Feedback -> Next Product on Railway, with real-handler E2E, PostgreSQL concurrency tests, independent review, full certification, 24h Railway acceptance"
+      }
     }
   ],
   "owner_actions_pending": [
@@ -2332,7 +2359,18 @@
       "why": "V3 changes how Laura's identity is scored; the owner directive forbids modifying approved identity rules without authorization, so Main cannot approve it.",
       "max_cost_cad": 0,
       "minutes": 5,
-      "consequence_of_delay": "Laura identity in generated images stays UNKNOWN (never PASS); galleries with Laura cannot be machine-verified for identity."
+      "consequence_of_delay": "Laura identity in generated images stays UNKNOWN (never PASS); galleries with Laura cannot be machine-verified for identity.",
+      "status": "APPROVED (fixture-only)",
+      "decided": "2026-11-07T06:30:24Z",
+      "decided_via": "owner, Main channel 2026-11-07 (confirms the relay in #28 6703286445)",
+      "conditions": [
+        "stand-in models and simulated responses only",
+        "no paid calls or provider activation",
+        "real Laura identity qualification remains UNKNOWN",
+        "preserve the approved canonical identity pack",
+        "no threshold relaxation",
+        "no fixture evidence represented as real identity certification"
+      ]
     }
   ],
   "production_findings": [
