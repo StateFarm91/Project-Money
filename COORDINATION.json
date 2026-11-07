@@ -1225,6 +1225,28 @@
         "subject": "claude/w6-support-defect-incident c5cad183 (delta from 785849c0; reviewer started on 1d22cdca, retargeted)",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_1d22cdca.md",
         "started": "2026-11-07T04:43:49Z"
+      },
+      {
+        "id": "PORTFOLIO-ACT-REVIEW",
+        "subject": "opus2/p0-portfolio-act f3bea437 (full, base w6-INTEG1 f5c3976d)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_PORTFOLIO_f3bea437.md",
+        "started": "2026-11-07T04:55:35Z",
+        "requested_by": "#28 6702476082"
+      },
+      {
+        "id": "STOREFRONT-QUEUED",
+        "subject": "opus2/p0-storefront-asset-fix d8b2754b (or newer with survivor-kill test)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_STOREFRONT_<sha>.md",
+        "started": null,
+        "note": "queued behind PORTFOLIO-ACT-REVIEW",
+        "requested_by": "#28 6702476082"
+      },
+      {
+        "id": "PHYSICAL-REQ-PENDING",
+        "subject": "opus2/p0-physical-test-request d697d093",
+        "report": null,
+        "started": null,
+        "note": "awaiting opus2 green regression + REVIEW-REQUEST"
       }
     ]
   },
