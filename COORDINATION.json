@@ -1127,6 +1127,35 @@
         "claude/w6-deadend-fixonly cdf4cb5e": "SHIP; follow-ups A-M1/A-L2/A-L3 in 4b4e3694 (in review).",
         "claude/w6-k12-v0-activation 1eaeab10": "SHIP (test-only; gate unchanged)."
       }
+    },
+    {
+      "subject": "Storefront + portfolio deltas",
+      "sha": "06a00c91, fdd077f6",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad sfpf2/INDEPENDENT_REVIEW_SFPF_DELTA_06a00c91_fdd077f6.md",
+      "verdicts": {
+        "opus2/p0-storefront-asset-fix-fo 06a00c91": "SHIP on merge condition (take INTEG1 chain_successors.py; branch record() re-drives fix-only dead end forever, S-N1). S-N2/S-N3 LOW open. Merge head ff573af8 under merge-sanity review.",
+        "opus2/p0-portfolio-act-fo fdd077f6": "SHIP (N1-N6, token fixed; 11/11 mutants). Merge head 77bf3e19 under merge-sanity review."
+      }
+    },
+    {
+      "subject": "Visual D1/D2/D4 + #7 M-5",
+      "sha": "256378d6, 49a27769",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad rv-vd7/",
+      "verdicts": {
+        "opus2/visual-d1-d2-d4 256378d6": "SHIP; integrated 94be61ff. Open MED latent A-1 identity_anchor_verdict bypasses gate_status (fixture PASS -> accepted anchor without owner review) and A-2 evaluate wiring untested: must close before any caller enables fixtures (owner V3 condition).",
+        "opus2/culture-timeout-m5m6-on-integ1 49a27769": "SHIP (test-only); integrated 5f6c4afb."
+      }
+    },
+    {
+      "subject": "PHYSICAL sample request",
+      "sha": "e8b458b5",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad rv-phys/",
+      "verdicts": {
+        "opus2/physical-sample-request-on-codex e8b458b5": "DO NOT SHIP: base codex/physical-complete-colour-evidence 77b9a88f (#78/#80 DO NOT INTEGRATE, on batch6-safety-preview) unreviewed; HIGH-1 any stored record (swatch/owner-made/incomplete/failed) closes the request SATISFIED forever; HIGH-2 card falsely says incomplete records are refused; MED-1 content change under same uncertified version never re-requested; MED-2 colour ids from materials not twin keys; MED-3 re-raises per-release owner sample cards contrary to DECISION_LOG B-532 (stands; route via tester_roster)."
+      }
     }
   ],
   "integration": {
@@ -1259,8 +1288,8 @@
       "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
     },
     "claude/w6-INTEG1": {
-      "head": "fbddf746 (+cdf4cb5e, 1eaeab10 merging)",
-      "updated": "2026-11-07T14:56:00Z",
+      "head": "5f6c4afb",
+      "updated": "2026-11-07T17:20:00Z",
       "contains": [
         "secret-leak",
         "A7",
@@ -1269,7 +1298,12 @@
         "evidence map 7f986be5",
         "fix-only 0f2de815",
         "visual V1+V2+V4+V5+V3 d6b642dd",
-        "V6 80765387"
+        "V6 80765387",
+        "persist-frames guard 494066fa",
+        "dead-end cdf4cb5e",
+        "k12 1eaeab10",
+        "visual D1/D2/D4 256378d6",
+        "#7 M-5 49a27769"
       ]
     }
   },
