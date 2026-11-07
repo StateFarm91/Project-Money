@@ -1175,6 +1175,16 @@
         "ff573af8": "SHIP (chain_successors identical to INTEG1; map regenerated); integrated.",
         "77bf3e19": "SHIP; integrated (map regenerated on INTEG1)."
       }
+    },
+    {
+      "subject": "Main dead-end + frames follow-ups",
+      "sha": "b0676969, 219aee61",
+      "recorded": "2026-11-07T18:51:00Z",
+      "report": "scratchpad rv-dfu2/",
+      "verdicts": {
+        "claude/w6-deadend-fixonly b0676969": "SHIP; open LOW A-LOW-3 pricing owner-close on legacy paths unpinned (A_M3/A_M3b/A_M6 survive); INFO SATISFIED vs WITHDRAWN label.",
+        "claude/w6-persist-frames-followup 219aee61": "SHIP; INFO B-INFO-1 all-photo gallery falls back to _stored_frames (harden with \"frames\" in i)."
+      }
     }
   ],
   "integration": {
@@ -1307,8 +1317,8 @@
       "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
     },
     "claude/w6-INTEG1": {
-      "head": "5f6c4afb",
-      "updated": "2026-11-07T17:20:00Z",
+      "head": "812ec9a6",
+      "updated": "2026-11-07T18:51:00Z",
       "contains": [
         "secret-leak",
         "A7",
@@ -1322,7 +1332,11 @@
         "dead-end cdf4cb5e",
         "k12 1eaeab10",
         "visual D1/D2/D4 256378d6",
-        "#7 M-5 49a27769"
+        "#7 M-5 49a27769",
+        "storefront ff573af8",
+        "portfolio 77bf3e19",
+        "dead-end follow-ups b0676969",
+        "persist-frames follow-ups 219aee61"
       ]
     }
   },
