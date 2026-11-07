@@ -1,8 +1,21 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T07:15Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T08:10Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T08:10Z (read first)
+Every opus2 item is REVIEW-REQUESTED on #28. Nothing is integrated or certified. fix_only is at 9e8665c3.
+| Item | Branch | Head |
+|---|---|---|
+| PHYSICAL | opus2/p0-physical-test-request | d697d093 (6703757948) |
+| PORTFOLIO on fix_only | opus2/p0-portfolio-act-fo | d564a059 (6704258374) |
+| STOREFRONT on fix_only | opus2/p0-storefront-asset-fix-fo | 59233ee5 |
+| V2 fix | opus2/v2-vessel-fidelity | 25a41a7c (6703834356) |
+| V3 fixture-only | opus2/v3-identity-fixture | 50931f5b (6703834356) |
+| V4 / V5 | v4-scene-references / v5-scale-verification | 86cf2a36 / 295474c6 |
+| V6 preview | opus2/v6-gallery-e2e | c7aba05b (6703927955) |
+Stop reason: everything assigned is review-requested. Waiting on Main's verdicts; the next step is fixing what they return.
 
 ## State at 2026-11-07T07:15Z -- owner "P0 FINAL COMPLETION DIRECTIVE" (read first)
 OA-V3-LAURA-QUALIFICATION is APPROVED FIXTURE-ONLY; Main verified it (#28 6703390021). Main's fix_only branch is claude/w6-fix-only-rebuild @ 6cbc08e6.
