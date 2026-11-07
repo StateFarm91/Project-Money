@@ -54,3 +54,4 @@
 {"at": "2026-11-07T01:35:42Z", "worker": "opus2", "assignment": "QUEUE", "event": "blocked", "note": "no unduplicated work: Codex continues all opus2 heads (PR #130, V0 PR #40, codex/a6-*); awaiting Main assignment"}
 {"at": "2026-11-07T03:31:10Z", "worker": "opus2", "assignment": "A7", "event": "checkpoint", "sha": "677661ec", "note": "A7-1 verified fixed on Codex 677661ec (in PR #129 b4814be): recovery test fails on 83fe31d2 src, passes 6/6 on 677661ec; all readers route via flow_health.concept_supply_stall"}
 {"at": "2026-11-07T04:30:43Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "ack", "note": "ACK 6701113204/6701702761; wake interval hourly (cron 28 * * * *, platform min 1h); branching from claude/w6-INTEG1"}
+{"at": "2026-11-07T04:47:56Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "checkpoint", "sha": "d697d093", "note": "pushed; focused 100% + mutants; regression running"}
