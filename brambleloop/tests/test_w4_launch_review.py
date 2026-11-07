@@ -41,7 +41,11 @@ _REAL_VISION_OPEN = LR.vision_open
 LR.vision_open = lambda db: True
 
 MODEL = "claude-sonnet-5"
-T0 = datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+# The batch is opened at T0 and expires T0 + 14 days. Several paths read the real clock
+# (`LR.reviewing`, `review_started`/`review_finished`, `describe_image`, `LR.run`), so T0 is
+# "now" when the suite runs. A fixed calendar date made every such call see an EXPIRED batch
+# once the wall clock passed it (it was 2026-10-22, expiring 2026-11-05).
+T0 = datetime.now(timezone.utc).replace(microsecond=0)
 _N = [0]
 
 
