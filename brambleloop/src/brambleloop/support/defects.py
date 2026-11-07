@@ -90,20 +90,42 @@ def _release_for(db, slug: str, row: int) -> dict | None:
     release."""
     from sqlalchemy import select
 
-    from ..core.models import SupportCase
+    from ..core.models import PatternVersion, Product, SupportCase
     from ..runtime.quality_ops import certified_releases
 
     certified = {r["slug"]: r for r in certified_releases(db)}
     if slug not in certified:
         return None
-    current = certified[slug]["version"]
+    # Review a66ae0b0 #1: "on sale" is the version the publish gate lets through -- the
+    # highest certified version (`release_gates.superseded_release`), not the last row
+    # inserted. Unorderable versions: no release is named (the publication guard refuses).
+    current = _on_sale_version(db, slug)
+    if current is None:
+        return None
     with db.session() as s:
         buyers = {c.customer_ref for c in s.scalars(select(SupportCase).where(
             SupportCase.product_slug == slug, SupportCase.version == current))
             if c.customer_ref
             and int(row) in [int(r) for r in (c.detail or {}).get("cited_rows") or []]}
-    return {"slug": slug, "version": current,
-            "release_hash": certified[slug].get("release_hash", ""), "buyers": len(buyers)}
+        rh = s.scalar(select(PatternVersion.release_hash)
+                      .join(Product, PatternVersion.product_id == Product.id)
+                      .where(Product.slug == slug, PatternVersion.version == current))
+    return {"slug": slug, "version": current, "release_hash": rh or "", "buyers": len(buyers)}
+
+
+def _on_sale_version(db, slug: str) -> str | None:
+    """The highest certified version of `slug` (`ops.artefacts.newest_version`), or None."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+    from ..ops.artefacts import newest_version
+
+    with db.session() as s:
+        vs = list(s.scalars(select(PatternVersion.version)
+                            .join(Product, PatternVersion.product_id == Product.id)
+                            .where(Product.slug == slug,
+                                   PatternVersion.certified == True)))  # noqa: E712
+    return newest_version(vs) if vs else None
 
 
 def escalate(ctx, hotspot: dict) -> dict:
@@ -259,8 +281,11 @@ def reconcile_holds(db) -> dict:
     from ..publish import withholding
     from ..runtime.quality_ops import certified_releases
 
-    current = {r["slug"]: r["version"] for r in certified_releases(db)}
     with db.session() as s:
+        certified = {(slug, v) for slug, v in s.execute(
+            select(Product.slug, PatternVersion.version)
+            .join(Product, PatternVersion.product_id == Product.id)
+            .where(PatternVersion.certified == True)).all()}  # noqa: E712
         versions = {(slug, v): (pv.cir_json or {}, dict(pv.certificate or {}))
                     for pv, slug, v in s.execute(
                         select(PatternVersion, Product.slug, PatternVersion.version)
@@ -275,12 +300,20 @@ def reconcile_holds(db) -> dict:
             continue
         if (slug, held) in versions:
             want.setdefault((slug, held, check), sig)
-        cur = current.get(slug)
-        if cur and cur != held and (slug, cur) in versions and (slug, held) in versions:
-            h_old = d.get("instruction_hash") or instruction_hash(versions[(slug, held)][0])
-            h_cur = instruction_hash(versions[(slug, cur)][0])
-            if h_old is not None and h_old == h_cur:
-                want.setdefault((slug, cur, check), sig)
+        # Review a66ae0b0 #1/#6: every certified version of the product with the held
+        # instructions is held -- not only the one some reader calls "current", which could
+        # differ from the version the publish gate actually lets through. The instructions
+        # are those stored when the incident opened (F-2); a legacy incident falls back to
+        # the held row. A corrected release (changed instructions) is not held.
+        h_old = d.get("instruction_hash")
+        if h_old is None and (slug, held) in versions:
+            h_old = instruction_hash(versions[(slug, held)][0])
+        if h_old is None:
+            continue
+        for (cslug, cv) in sorted(certified):
+            if cslug == slug and cv != held and (cslug, cv) in versions \
+                    and instruction_hash(versions[(cslug, cv)][0]) == h_old:
+                want.setdefault((slug, cv, check), sig)
     have = {(slug, v, check) for (slug, v), (_cir, cert) in versions.items()
             for check in (cert.get(withholding.REVERIFY_FAILED) or {})
             if str(check).startswith(HOLD_PREFIX)}
