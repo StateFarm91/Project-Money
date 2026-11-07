@@ -41,6 +41,14 @@ writing three times does not hold a release. The release is the currently certif
 when any citing case names it (that is what buyers are being sold), else the version most
 citing cases name.
 
+How it is decided (delta review 05961fd0 N-1: a hold nothing can clear is a deadlock):
+* the owner records `POST /api/owner/decision {kind: "support_defect", id, decision, why}`:
+  `not_a_defect` resolves the incident and releases the hold; `confirmed` keeps the hold and
+  records that a corrected version is required. An owner card names that exact call, and the
+  incident's REMEDIATION entry names the same path.
+* a newer certified version of the product supersedes the held one: the incident resolves
+  as superseded, and the old version stays held (it was never cleared, nothing sells it).
+
 Idempotent: a release+row whose incident was resolved is never re-escalated; a further case
 only refreshes the open incident's mention count in place.
 """
@@ -63,29 +71,39 @@ def hold_check(row: int) -> str:
 
 
 def _release_for(db, slug: str, row: int) -> dict | None:
-    """The release the cases are about: the version most cases citing this row name, else
-    the newest certified release of the product. None when nothing is stored."""
-    from collections import Counter
-
+    """The stored release the cases are about, with the distinct buyers citing this row ON
+    THAT VERSION (delta review N-2). Preference: the currently certified version when it alone
+    reaches the threshold (it is what is sold), else the version with the most distinct
+    citing buyers that reaches it, else the best-supported version (the caller then refuses
+    for want of buyers). Cases with no version count toward the current release. None when
+    no stored version of the product is cited."""
     from sqlalchemy import select
 
     from ..core.models import SupportCase
+    from ..publish import withholding
     from ..runtime.quality_ops import certified_releases
 
     with db.session() as s:
         citing = [(c.version, c.customer_ref) for c in s.scalars(select(SupportCase).where(
             SupportCase.product_slug == slug))
             if int(row) in [int(r) for r in (c.detail or {}).get("cited_rows") or []]]
-    buyers = len({ref for _v, ref in citing if ref})
-    versions = Counter(v for v, _ref in citing if v)
     certified = {r["slug"]: r for r in certified_releases(db)}
     current = certified.get(slug, {}).get("version")
-    if versions:
-        version = current if current in versions else versions.most_common(1)[0][0]
-        rh = certified.get(slug, {}).get("release_hash", "") \
-            if certified.get(slug, {}).get("version") == version else ""
-        return {"slug": slug, "version": version, "release_hash": rh, "buyers": buyers}
-    return {**certified[slug], "buyers": buyers} if slug in certified else None
+    by_version: dict[str, set] = {}
+    for v, ref in citing:
+        v = v or current
+        if v and ref:
+            by_version.setdefault(v, set()).add(ref)
+    with db.session() as s:
+        stored = {v for v in by_version if withholding._release(s, slug, v) is not None}
+    if not stored:
+        return None
+    ranked = sorted(stored, key=lambda v: (-len(by_version[v]), v))
+    reaching = [v for v in ranked if len(by_version[v]) >= THRESHOLD]
+    version = current if current in reaching else (reaching or ranked)[0]
+    rh = certified.get(slug, {}).get("release_hash", "") if version == current else ""
+    return {"slug": slug, "version": version, "release_hash": rh,
+            "buyers": len(by_version[version]), "current": current}
 
 
 def escalate(ctx, hotspot: dict) -> dict:
@@ -133,14 +151,17 @@ def escalate(ctx, hotspot: dict) -> dict:
                         "withholding_check": check, "pending_checks": list(CHECKS),
                         "passed_checks": [], "held_at": datetime.now(timezone.utc).isoformat(),
                         "source": "support.triage",
-                        "clears": ("only when this incident is resolved (owner / quality director); "
-                                   "passing checks are recorded as evidence, not a release")})
+                        "clears": ("owner decision (POST /api/owner/decision kind=support_defect) "
+                                   "or a newer certified version superseding this one; passing "
+                                   "checks are recorded as evidence, not a release")})
+    with ctx.db.session() as s:
+        _owner_card(s, sig, slug, version, row, mentions)
     # Hold and checks are (re-)asserted on every triage while the incident is open: idempotent,
     # and it repairs a sweep that committed the incident but failed before the hold.
     held = withholding.record_reverification(
         ctx.db, slug, version, check=check,
-        problem=(f"{mentions} support cases cite row {row}; held until the "
-                 f"support incident is resolved"))
+        problem=(f"support cases from {THRESHOLD}+ buyers cite row {row}; held until the "
+                 f"support incident is decided"))
     inputs = {"slug": slug, "version": version, "release_hash": release.get("release_hash", ""),
               "support_defect": sig, "row": row}
     key = f"{slug}@{version}:row{row}"
@@ -210,7 +231,7 @@ def release_resolved(db) -> list[str]:
             Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == False))}  # noqa: E712
     for sig, d in rows:
         slug, version, hold = d.get("slug"), d.get("version"), d.get("withholding_check")
-        if not (slug and version and hold) or sig in open_sigs:
+        if not (slug and version and hold) or sig in open_sigs or d.get("keep_hold"):
             continue
         with db.session() as s:
             pv = withholding._release(s, slug, version)
@@ -220,3 +241,97 @@ def release_resolved(db) -> list[str]:
             withholding.record_reverification(db, slug, version, check=hold, problem=None)
             released.append(sig)
     return released
+
+
+CARD_PREFIX = "support_defect_decision:"
+
+
+def _owner_card(s, sig: str, slug: str, version: str, row: int, mentions: int):
+    from ..core.models import Incident
+    from ..ops import owner_queue
+    from sqlalchemy import select
+
+    inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                          Incident.resolved == False))  # noqa: E712
+    if inc is None:
+        return None
+    return owner_queue.ensure(
+        s, (CARD_PREFIX + sig)[:200],
+        action=(f"Decide the reported defect on row {row} of {slug}@{version}: read the "
+                f"buyers' questions in the Command Center, then record "
+                f"POST /api/owner/decision {{\"kind\": \"support_defect\", \"id\": {inc.id}, "
+                f"\"decision\": \"not_a_defect\" | \"confirmed\", \"why\": \"...\"}}."),
+        reason=(f"{mentions} support cases from distinct buyers cite the same row. The "
+                f"compiler checks (cir.twin, cir.reverse) re-run on this release; a pass cannot "
+                f"refute a reader-reported problem, so publication of this release is held "
+                f"until it is decided."),
+        max_cost_cad=0.0, minutes=10,
+        consequence_of_delay=(f"{slug}@{version} stays withheld from publication; certifying "
+                              f"a corrected version also ends the hold"))
+
+
+class DecisionRefused(ValueError):
+    pass
+
+
+def record_owner_decision(db, incident_id: int, decision: str, why: str) -> dict:
+    """The owner's decision on one open support-defect incident. Records only: the hold is
+    released by `release_resolved` (called here and on every triage) for `not_a_defect`."""
+    from ..core.models import Incident, OwnerAction
+    from ..ops import owner_queue
+    from sqlalchemy import select
+
+    if decision not in ("not_a_defect", "confirmed"):
+        raise DecisionRefused("decision must be not_a_defect or confirmed")
+    if len(why.strip()) < 10:
+        raise DecisionRefused("why must be a sentence")
+    with db.session() as s:
+        inc = s.get(Incident, int(incident_id))
+        if inc is None or not str(inc.signature).startswith(SIGNATURE):
+            raise DecisionRefused("no support-defect incident with that id")
+        if inc.resolved:
+            raise DecisionRefused("that incident is already resolved")
+        d = dict(inc.detail or {})
+        d["owner_decision"] = {"decision": decision, "why": why.strip(),
+                               "at": datetime.now(timezone.utc).isoformat()}
+        inc.detail = d
+        if decision == "not_a_defect":
+            _resolve(s, inc, f"owner: not a pattern defect -- {why.strip()}")
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == (CARD_PREFIX + inc.signature)[:200],
+            OwnerAction.done == False))  # noqa: E712
+        if card is not None:
+            owner_queue.close(card, owner_queue.SATISFIED, f"owner decided: {decision}")
+        sig = inc.signature
+    released = release_resolved(db)
+    return {"signature": sig, "decision": decision, "hold_released": sig in released}
+
+
+def supersede(db) -> list[str]:
+    """An open support-defect incident on a version older than the product's currently
+    certified one resolves as superseded. The old version's hold is kept (never cleared)."""
+    from ..core.models import Incident, OwnerAction
+    from ..ops import owner_queue
+    from ..runtime.quality_ops import certified_releases
+    from sqlalchemy import select
+
+    current = {r["slug"]: r["version"] for r in certified_releases(db)}
+    done = []
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == False)):  # noqa: E712
+            d = dict(inc.detail or {})
+            cur = current.get(d.get("slug"))
+            if cur and d.get("version") and cur != d["version"]:
+                d["keep_hold"] = True
+                inc.detail = d
+                _resolve(s, inc, f"superseded by certified {d['slug']}@{cur}; "
+                                 f"{d['version']} stays withheld")
+                card = s.scalar(select(OwnerAction).where(
+                    OwnerAction.requirement_key == (CARD_PREFIX + inc.signature)[:200],
+                    OwnerAction.done == False))  # noqa: E712
+                if card is not None:
+                    owner_queue.close(card, owner_queue.SUPERSEDED,
+                                      f"superseded by certified {d['slug']}@{cur}")
+                done.append(inc.signature)
+    return done

@@ -187,6 +187,11 @@ REMEDIATION: dict[str, tuple[str, str]] = {
                                         "stays refused until it verifies"),
     "spend-anomaly": ("finance.reconcile", "explained or reversed by the finance close"),
     "support.first_response": ("support.response_watch", "a recorded response closes it"),
+    # W6 P0-SUPPORT-DEFECT-INCIDENT (delta review N-1): repeated buyer reports on one row.
+    "support.defect": ("owner (or a corrected certified version)",
+                       "POST /api/owner/decision {kind: support_defect, id, decision: "
+                       "not_a_defect | confirmed, why}; not_a_defect releases the hold, a "
+                       "newer certified version supersedes it (support.triage)"),
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
     "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
