@@ -1317,7 +1317,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     tag_sources = search_mod.tag_provenance(copy.tags, queries, observed_tags=buyer["tags"])
     if i.get("fix_only"):
         stopped = _fix_only_candidate(ctx, slug, version, copy=copy, choice=choice, props=props,
-                                      attributes=attributes)
+                                      attributes=attributes, blocking=blocking)
         if stopped is not None:
             return stopped
     _persist_search_profile(ctx, slug, version, copy=copy, choice=choice, props=props,
@@ -2098,8 +2098,17 @@ def _content_hash(*parts: str) -> str:
 LIVE_STATES = ("published", "published_manually", "active")
 
 
+def without_fix_only(inputs: dict | None) -> dict:
+    """A copy of a previous chain job's inputs or outputs with the W6 FIX-ONLY bound removed.
+
+    Every path that re-drives the chain from a stored job (plan-drift re-price, targeted
+    rebuild, launch review, taxonomy-drift re-queue) uses this, so a remediation's bound never
+    leaks into an ordinary rebuild (reviews 6cbc08e6 F1, 9e8665c3 N1)."""
+    return {k: v for k, v in dict(inputs or {}).items() if k != "fix_only"}
+
+
 def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choice, props,
-                        attributes) -> dict | None:
+                        attributes, blocking: list | None = None) -> dict | None:
     """W6 FIX-ONLY (review 6cbc08e6 F2-F4): a remediation changes only an existing DRAFT.
 
     When the release's listing row is live, or exists in any state other than `draft` (for
@@ -2122,9 +2131,17 @@ def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choic
                  "taxonomy": choice.to_dict() if hasattr(choice, "to_dict") else choice,
                  "properties": list((props or {}).get("payload") or []),
                  "attributes": attributes}
+    rejected = [str(b) for b in (blocking or [])]
     ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
         "live": live, "state": state, "etsy_listing_id": etsy, "applied": False,
-        "candidate": candidate})
+        "candidate": candidate, "rejected": rejected[:20]})
+    if rejected:
+        # Review 9e8665c3 N2: a candidate the gates refuse is never put to the owner.
+        ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+                  detail={"stopped_before": "listing persistence", "live": live,
+                          "state": state, "rejected": rejected[:5]})
+        return {"slug": slug, "version": version, "ok": False, "candidate_only": True,
+                "live": live, "state": state, "blocking": rejected}
     if live:
         from ..ops import owner_queue
 
@@ -5249,7 +5266,7 @@ def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str
     token = hashlib.sha256(
         f"reprice:{chk['listing_cad']}->{chk['plan_cad']}".encode()).hexdigest()[:12]
     job = ctx.enqueue("pricing", "pricing.position",
-                      {**{k: v for k, v in built.items() if k != "fix_only"},
+                      {**without_fix_only(built),
                        "release": pv.release_hash or "", "rebuild": token},
                       idempotency_key=chain_key("price", slug, pv.version,
                                                 pv.release_hash or "", token))
@@ -5449,7 +5466,7 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                                                               release, token))
         else:
             stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
-                                    {**{k: v for k, v in built.items() if k != "fix_only"},
+                                    {**without_fix_only(built),
                                      "release": release, "rebuild": token},
                                     idempotency_key=chain_key("price", slug, version,
                                                               release, token))

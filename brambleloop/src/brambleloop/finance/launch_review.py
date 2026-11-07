@@ -525,8 +525,9 @@ def run(db, enqueue, *, now: datetime | None = None) -> dict:
             waiting.append(release)
             continue
         attempt = int((progress_rows.get(release) or {}).get("attempt") or 0) + 1
-        last.pop("fix_only", None)          # W6 FIX-ONLY review 6cbc08e6 F1
-        job = enqueue({**last, INPUT_KEY: BATCH_ID},
+        from ..runtime.release import without_fix_only
+
+        job = enqueue({**without_fix_only(last), INPUT_KEY: BATCH_ID},
                       f"{BATCH_ID}:{release}" + (f":{attempt}" if attempt > 1 else ""))
         if job is not None:
             _set_release(db, release, "queued", attempt=attempt,

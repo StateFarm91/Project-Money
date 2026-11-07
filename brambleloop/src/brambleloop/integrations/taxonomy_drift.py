@@ -156,7 +156,11 @@ def _last_seo_inputs(session, slug: str, version: str) -> dict | None:
             .order_by(desc(Job.id))):
         i = job.inputs or {}
         if i.get("slug") == slug and i.get("version") == version:
-            return dict(i)
+            # Review 9e8665c3 N1: a portfolio/storefront fix-only run must not bound the
+            # owner-approved drift re-certification that copies these inputs.
+            from ..runtime.release import without_fix_only
+
+            return without_fix_only(i)
     return None
 
 
