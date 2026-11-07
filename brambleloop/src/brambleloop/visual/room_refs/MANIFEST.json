@@ -1,0 +1,5 @@
+{
+ "version": 1,
+ "note": "Owner-approved room reference images (V4 / audit P1-a). Empty until the owner approves a room image; each entry: room, file, sha256, provenance, decision_id.",
+ "rooms": []
+}

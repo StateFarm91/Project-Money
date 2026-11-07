@@ -31,8 +31,13 @@ negatives to the certified ones; they never remove one.
 from __future__ import annotations
 
 import hashlib
+import os
+import stat
 from contextlib import contextmanager
+from contextvars import ContextVar
+from threading import RLock, local
 import time
+from weakref import WeakValueDictionary
 from pathlib import Path
 from typing import Callable
 
@@ -50,6 +55,100 @@ VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
                    "angle": "second_angle", "detail": "detail_closeup"}
 _KIND_PRODUCT = "pattern_derived"
 _KIND_LAURA = "laura_canonical"
+_ROOT_LOCKS: WeakValueDictionary = WeakValueDictionary()
+_ROOT_LOCKS_GUARD = RLock()
+_HELD_ROOTS = local()
+_FD_GUARD = RLock()
+_ACTIVE_LOCK_FDS: set[int] = set()
+SCRATCH_LOCK_TIMEOUT_SECONDS = 30.0
+
+
+def _before_fork():
+    _FD_GUARD.acquire()
+
+
+def _after_fork_parent():
+    _FD_GUARD.release()
+
+
+def _after_fork_child():
+    global _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD, _ACTIVE_LOCK_FDS
+    for fd in _ACTIVE_LOCK_FDS:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    _ACTIVE_LOCK_FDS = set()
+    _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD = (
+        WeakValueDictionary(), RLock(), local(), RLock())
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(before=_before_fork, after_in_parent=_after_fork_parent,
+                        after_in_child=_after_fork_child)
+
+
+def _scratch_lock(work_root: str | None):
+    if not work_root:
+        return RLock()
+    key = os.path.realpath(work_root)
+    with _ROOT_LOCKS_GUARD:
+        lock = _ROOT_LOCKS.get(key)
+        if lock is None:
+            lock = RLock()
+            _ROOT_LOCKS[key] = lock
+        return lock
+
+
+@contextmanager
+def _process_scratch_lock(work_root: str | None):
+    """Serialize cooperating processes on a stable, trusted supplied root.
+
+    The lock is advisory: the directory and lock file must not be replaced.
+    Unrelated writers are not fenced.
+    """
+    if not work_root:
+        yield
+        return
+    import fcntl
+
+    root = os.path.realpath(work_root)
+    held = getattr(_HELD_ROOTS, "roots", None)
+    if held is None:
+        held = _HELD_ROOTS.roots = set()
+    if root in held:
+        yield
+        return
+    os.makedirs(root, exist_ok=True)
+    path = os.path.join(root, ".brambleloop-flux3.lock")
+    with _FD_GUARD:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        _ACTIVE_LOCK_FDS.add(fd)
+    owner_pid = os.getpid()
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise GeneratorRefused("scratch lock is not a regular file")
+        deadline = time.monotonic() + SCRATCH_LOCK_TIMEOUT_SECONDS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("FLUX scratch root is busy; retry later") from None
+                time.sleep(0.1)
+        held.add(root)
+        try:
+            yield
+        finally:
+            if os.getpid() == owner_pid:
+                held.remove(root)
+                fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        if os.getpid() == owner_pid:
+            with _FD_GUARD:
+                _ACTIVE_LOCK_FDS.discard(fd)
+                os.close(fd)
 
 
 class GeneratorRefused(RuntimeError):
@@ -78,19 +177,23 @@ def _default_cir_loader(db):
 
 def _default_anchor_lookup(db):
     def lookup(slug: str, version: str, release: str, run_key: str | None = None):
-        from ..core.artifacts import ArtifactStore
-        from ..visual import image_production as IP
+        from ..visual import candidate_gates as CG
+        from ..visual import fidelity
         from ..visual import outfits
 
-        # `run_key`: the orchestrator run this generation belongs to (a controlled run has
-        # its own namespaced key, W-VISNEXT2); never another run's anchor.
-        best = IP._best(db, listing=outfits.listing_of(slug), role=IP.ANCHOR_ROLE,
-                        run=run_key or IP.run_key(slug, version, release))
-        if not best or not best.get("sha256"):
+        # Apply the same identity, fidelity, owner-veto and artifact checks used
+        # by the candidate gate before reusing an anchor as a generation input.
+        bind = CG.binding(db, slug, version, release)
+        if (bind.get("status") != CG.PASS
+                or not fidelity.same_release(bind.get("release_hash"), release)):
             return None
-        return {"data": ArtifactStore().get(best["sha256"], db=db),
-                "sha256": best["sha256"], "status": best.get("technical_status") or "UNKNOWN",
-                "checker": f"candidate_gates product_truth (candidate {best.get('candidate_id')})"}
+        anchor, data = CG._anchor_of(
+            db, {"slug": slug, "version": version, "listing": outfits.listing_of(slug),
+                 "run_key": run_key}, release, expected_cir_fingerprint=bind.get("cir_fingerprint"))
+        if not anchor or not data:
+            return None
+        return {"data": data, "sha256": anchor["sha256"], "status": anchor["status"],
+                "checker": fidelity.CHECKER}
     return lookup
 
 
@@ -101,7 +204,16 @@ class Flux3Generator:
     paid = True
     accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
     accepts_staged_method = ACCEPTS_STAGED_METHOD
-    current_run_key: str | None = None     # set by the orchestrator per generation
+
+    @property
+    def current_run_key(self) -> str | None:
+        self._refresh_after_fork()
+        return self._run_key_context.get()
+
+    @current_run_key.setter
+    def current_run_key(self, value: str | None) -> None:
+        self._refresh_after_fork()
+        self._run_key_context.set(value)
 
     def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
                  anchor_lookup: Callable | None = None, work_root: str | None = None,
@@ -113,6 +225,11 @@ class Flux3Generator:
         # A caller-owned directory, or (None) a scratch directory per call that is removed when
         # the call returns: every method hands back bytes, so nothing must outlive it.
         self.work_root = work_root
+        self._process_id = os.getpid()
+        self._scratch_lock = _scratch_lock(work_root)
+        self._run_key_context = ContextVar("flux3_run_key", default=None)
+        self._generating = ContextVar("flux3_generating", default=False)
+        self._active_run_key = ContextVar("flux3_active_run_key", default=None)
         self._root: Path | None = None
         self.size = size
         # A stub renderer spends nothing; the paid flag is what opens W-OWNERIMG's gate check.
@@ -126,12 +243,31 @@ class Flux3Generator:
     def _scratch(self):
         from ..core import workspace
 
-        with workspace.work_dir(self.work_root, prefix="generated-") as root:
-            self._root = Path(root)
-            try:
-                yield self._root
-            finally:
-                self._root = None
+        self._refresh_after_fork()
+        lock, owner_pid = self._scratch_lock, os.getpid()
+        if not lock.acquire(timeout=SCRATCH_LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError("FLUX adapter scratch is busy; retry later")
+        try:
+            with _process_scratch_lock(self.work_root), workspace.work_dir(
+                    self.work_root, prefix="generated-") as root:
+                previous = self._root
+                self._root = Path(root)
+                try:
+                    yield self._root
+                finally:
+                    self._root = previous
+        finally:
+            if os.getpid() == owner_pid:
+                lock.release()
+
+    def _refresh_after_fork(self):
+        if self._process_id != os.getpid():
+            self._process_id = os.getpid()
+            self._scratch_lock = _scratch_lock(self.work_root)
+            self._root = None
+            self._run_key_context.set(None)
+            self._generating.set(False)
+            self._active_run_key.set(None)
 
     # -- references --------------------------------------------------------------------------
     def _release(self, slug: str, version: str, release: str) -> S.Release:
@@ -185,13 +321,24 @@ class Flux3Generator:
     # -- generation --------------------------------------------------------------------------
     def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
                  outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
+        self._refresh_after_fork()
+        if self._generating.get():
+            self.current_run_key = self._active_run_key.get()
+            raise GeneratorRefused("nested generation on the same adapter is not supported")
+        token = self._generating.set(True)
+        key_token = self._active_run_key.set(self.current_run_key)
         # P0-PAID-PROVIDER-OWNER-GATE: every render of this run is charged to its gallery (the
         # image-production run key) against the owner's per-gallery limit.
         from ..gateway.paid_provider_gate import gallery_scope
 
-        with self._scratch(), gallery_scope(self.current_run_key):
-            return self._generate(stage=stage, role=role, brief=brief, references=references,
-                                  outfit=outfit, attempt=attempt, repair=repair)
+        try:
+            with self._scratch(), gallery_scope(self.current_run_key):
+                return self._generate(stage=stage, role=role, brief=brief, references=references,
+                                      outfit=outfit, attempt=attempt, repair=repair)
+        finally:
+            self._active_run_key.reset(key_token)
+            self._generating.reset(token)
+            self.current_run_key = None
 
     def _generate(self, *, stage, role, brief, references, outfit, attempt, repair) -> dict:
         started = time.time()
@@ -238,6 +385,9 @@ class Flux3Generator:
                 from ..visual import laura_home
 
                 home = laura_home.scene_for(slug, role=role)
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(home["room"]) or [(None, None)])[0][1]
                 laura_home.check(brief or "")   # review OPUS2A F2.2: the brief too
                 scene = {"environment": home["environment"], "pose": brief or "",
                          "framing": ""}
@@ -251,18 +401,23 @@ class Flux3Generator:
                     cand = S.variant(rel, base_cand, VARIANT_OF_ROLE.get(role, "styled_scene"),
                                      (brief or "")[:S.MAX_EDIT_CHARS], outfit=spec,
                                      scene=scene, laura_refs=laura, size=self.size,
-                                     identity_anchor=ident, **kw)
+                                     identity_anchor=ident, scene_reference=room_ref, **kw)
                 else:
                     cand = S.lifestyle(
                         rel, anchor["candidate"], laura, spec,
                         fidelity=anchor["verdict"], role=role, size=self.size,
-                        scene=scene, identity_anchor=ident, **kw)
+                        scene=scene, identity_anchor=ident, scene_reference=room_ref, **kw)
             else:
                 # A product-only styled scene is in the same house: a short room cue leads the
                 # edit instruction, inside the stage's character cap.
                 from ..visual import laura_home
 
-                room_cue = laura_home.scene_for(slug)["cue"]
+                styled = laura_home.scene_for(slug)
+                room_cue = styled["cue"]
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(styled["room"])
+                            or [(None, None)])[0][1]
                 laura_home.check(brief or "")
                 edit = f"{room_cue}. {brief or ''}".strip()
                 if len(edit) > S.MAX_EDIT_CHARS:
@@ -271,7 +426,7 @@ class Flux3Generator:
                         f"room cue + brief is {len(edit)} characters; the edit instruction "
                         f"allows {S.MAX_EDIT_CHARS}")
                 cand = S.variant(rel, anchor["candidate"], "styled_scene", edit,
-                                 size=self.size, **kw)
+                                 size=self.size, scene_reference=room_ref, **kw)
         r = cand.receipt
         return {"data": Path(cand.path).read_bytes(), "provider": r.get("provider"),
                 "model": r.get("model"), "prompt": r.get("prompt_ref"),
@@ -327,8 +482,8 @@ class Flux3Generator:
         if self.current_run_key:
             try:
                 got = self.anchor_lookup(slug, version, release, run_key=self.current_run_key)
-            except TypeError:           # a caller's own lookup without the run key
-                got = self.anchor_lookup(slug, version, release)
+            except TypeError as exc:
+                raise GeneratorRefused("anchor lookup cannot bind the active run") from exc
         else:
             got = self.anchor_lookup(slug, version, release)
         if not got or not got.get("data"):

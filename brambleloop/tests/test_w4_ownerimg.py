@@ -440,7 +440,11 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     assert len(laura_calls) == 3
     assert all(k.count("laura_canonical") == 3 for k, _o in laura_calls)
     assert {o["outfit_id"] for _k, o in laura_calls} == {run["outfit_id"]}
-    assert run["card"]["campaign_consistency"]["status"] == "PASS"
+    # I-V2-UNJUDGED-PAIRS (V2 P1-d): the stub run records no pairwise item readings, so the
+    # frames are not judged against each other: UNKNOWN with a named blocker, never PASS.
+    cc = run["card"]["campaign_consistency"]
+    assert cc["status"] == "UNKNOWN" and cc["blocker"].startswith(
+        "campaign_consistency_unjudged:"), cc
     card = run["card"]
     assert card["owner_approval_is_not_technical_verification"]
     assert any("F-852" in b for b in card["publication_blockers"])
@@ -695,7 +699,8 @@ def test_incompatible_gallery_mix_is_refused():
 
     row = {"listing": "cloudline-baby-blanket", "version": "1.2.0", "release": RELEASE,
            "cir_fingerprint": "f1", "laura_present": True, "outfit_id": "a"}
-    assert CG.campaign_consistency([row, dict(row)])["status"] == "PASS"
+    # I-V2-UNJUDGED-PAIRS: matching metadata with no item readings is UNKNOWN, never PASS.
+    assert CG.campaign_consistency([row, dict(row)])["status"] == "UNKNOWN"
     assert CG.campaign_consistency([row, {**row, "version": "1.3.0"}])["status"] == "FAIL"
     assert CG.campaign_consistency([row, {**row, "cir_fingerprint": "f2"}])["status"] == "FAIL"
     assert CG.campaign_consistency([row, {**row, "outfit_id": "b"}])["status"] == "FAIL"

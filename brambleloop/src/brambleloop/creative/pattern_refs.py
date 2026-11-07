@@ -34,7 +34,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "pattern-refs/3.1.0"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+VERSION = "pattern-refs/3.1.3"   # 3.1: layout rows at compiled heights (W4-WRAPTEST)
+# 3.1.1 (W5-V1): ribbing needs a repeating loop/post pattern (one back-loop crease round is not
+# ribbing); fabric facts add colour bands, the polygon side count and the final round/rim.
+# 3.1.2: separated unpaired post stitches do not establish a repeating rib.
+# 3.1.3: component-specific fabric claims are never generalized to all pieces.
 # Texture before the symbolic chart: it has priority (owner directive after the reading-nook
 # test); the chart is kept for stitch placement.
 ROLES: tuple[str, ...] = ("layout", "texture", "detail", "rules")
@@ -47,7 +51,7 @@ BACKGROUND = (232, 232, 232)
 # What no render of a certified product may add. Applies to every product; a component, colour
 # or motif the CIR has is never in this list because the CIR is what is allowed.
 PROHIBITED_ADDITIONS: tuple[str, ...] = (
-    "colours not in the certified palette", "motifs, appliques or embroidery",
+    "colours not in the certified palette", "motifs, appliques or embroidery not in the certified pattern",
     "borders, edgings, fringe, tassels or pom-poms not in the pattern",
     "extra or missing pieces", "a different stitch, texture or construction",
     "knit, woven or printed fabric", "text, logos, labels or watermarks",
@@ -158,9 +162,11 @@ def fabric_facts(cir, parts=None) -> dict:
     rows = _rows_of(twin)
     unit = "round" if is_round else "row"
     colours = dict(cir.colors)
-    loops = {getattr(c, "loop", "both") for c in twin.cells}
     used = {c.stitch for c in twin.cells}
-    ribbing = bool(loops - {"both"}) or {"fpdc", "bpdc"} <= used
+    # Mixed component evidence cannot justify a global texture claim.
+    rib_states = [_ribbing(part, _rows_of(part_twin), {c.stitch for c in part_twin.cells})
+                  for part, part_twin, _ in parts]
+    ribbing = rib_states[0] if rib_states and all(x is rib_states[0] for x in rib_states) else None
     named = " ".join([c.name for c in cir.components]
                      + [str(a) for a in (cir.to_dict().get("assembly") or [])]).lower()
     edging = any(w in named for w in ("edging", "border", "trim", "fringe"))
@@ -202,19 +208,167 @@ def fabric_facts(cir, parts=None) -> dict:
                   "last_row": cable_rows[-1], "rows_with_crossings": len(cable_rows)}
     changes = [i + 1 for i in range(1, len(rows))
                if {c.color for c in rows[i]} != {c.color for c in rows[i - 1]}]
-    return {"component": comp.name, "unit": unit, "rows": len(rows), "craft": "crochet",
+    ground, colour_bands = _colour_bands(rows, colours, unit)
+    sides = getattr(twin, "sides", None) if is_round else None
+    return {"component": comp.name, "multi_component": len(parts) > 1,
+            "unit": unit, "rows": len(rows), "craft": "crochet",
             "stitches": sorted(used), "ribbing_declared": ribbing,
             "edging_declared": edging, "end_bands": bands, "cables": cables,
-            "colour_change_rows": changes}
+            "colour_change_rows": changes,
+            "ground_colour": ground, "colour_bands": colour_bands,
+            "colour_layout": _colour_layout(rows, colour_bands, taxonomy),
+            "polygon": ({"sides": int(sides), "name": _POLYGON.get(int(sides),
+                                                                   f"{int(sides)}-sided polygon"),
+                         "basis": "cir.geometry.corners: every increase round stacks"}
+                        if sides and sides >= 3 else None),
+            "piece_shape": (twin.shape or twin.outline or None),
+            "final_round": _final_round(rows, colours, unit, edging)}
+
+
+_POLYGON = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 7: "heptagon",
+            8: "octagon"}
+# A row whose note says it is a crease or fold line is construction, not a fabric pattern.
+_FOLD_WORDS = ("fold", "crease")
+
+
+def _ribbing(comp, rows, used) -> bool | None:
+    """Prove a repeating rib, disprove it, or return unknown for ambiguous posts.
+
+    Two nearby rows must each contain at least two repeats of an alternating
+    front/back-post run. Fold/crease rows never establish a rib. Post-stitch
+    layouts outside this proof are unknown and must not become a negative claim.
+    """
+    notes = {int(r.index): str(getattr(r, "note", "") or "").lower()
+             for r in getattr(comp, "rows", []) or []}
+    post_rows = []
+    ambiguous_post = False
+    loop_rows = []
+    partial_loop = False
+    for i, row in enumerate(rows):
+        idx = getattr(row[0], "row", i + 1) if row else i + 1
+        if any(word in notes.get(int(idx), "") for word in _FOLD_WORDS):
+            continue
+        runs = _runs([c.stitch for c in row])
+        if any(st in ("fpdc", "bpdc") for st, _ in runs):
+            ambiguous_post = True
+        for j in range(max(0, len(runs) - 3)):
+            a, b, c, d = runs[j:j + 4]
+            if ({a[0], b[0]} == {"fpdc", "bpdc"} and a == c and b == d):
+                # Compare whole stitch layouts, not only run widths: a shifted
+                # pattern is not proof that the same columns form a rib. Rows
+                # reverse as they are worked, so normalize both orientations.
+                layout = tuple(c.stitch for c in row)
+                signature = min(layout, tuple(reversed(layout)))
+                post_rows.append((i, signature))
+                break
+        loops = [getattr(c, "loop", "both") != "both" for c in row]
+        if loops and all(loops):
+            layout = tuple((c.stitch, getattr(c, "loop", "both")) for c in row)
+            loop_rows.append((i + 1, min(layout, tuple(reversed(layout)))))
+        elif any(loops):
+            partial_loop = True
+    for (a, sig_a), (b, sig_b) in zip(post_rows, post_rows[1:]):
+        if 0 < b - a <= 2 and sig_a == sig_b:
+            return True
+    if len(loop_rows) >= 2:
+        gaps = {b[0] - a[0] for a, b in zip(loop_rows, loop_rows[1:])}
+        layouts = {layout for _, layout in loop_rows}
+        if len(gaps) == 1 and next(iter(gaps)) <= 2 and len(layouts) == 1 and not partial_loop:
+            return True
+        return None
+    return None if ambiguous_post or partial_loop else False
+
+
+def _row_colour(row) -> str | None:
+    cols = {c.color for c in row}
+    return next(iter(cols)) if len(cols) == 1 else None
+
+
+def _colour_bands(rows, colours: dict, unit: str) -> tuple[str | None, list[dict] | None]:
+    """(ground colour, contrast bands) read from whole-row colours (W5-V1, audit P1-b).
+
+    A band is a maximal run of consecutive rows/rounds worked wholly in one colour other than
+    the ground, where the ground is the colour most rows are worked in (ties: palette order).
+    A row worked in more than one colour is colourwork, not a stripe: the layout is then
+    charted, and (None, None) is returned rather than a guess. One colour throughout gives
+    (that colour, [])."""
+    if rows and all(c.color is None for r in rows for c in r):
+        return None, []                      # no palette: one undeclared colour, no stripes
+    per = [_row_colour(r) for r in rows]
+    if not per or any(c is None for c in per):
+        return None, None
+    order = list(colours) + sorted({c for c in per if c not in colours})
+    counts = {c: per.count(c) for c in set(per)}
+    ground = max(counts, key=lambda c: (counts[c], -order.index(c)))
+    bands: list[dict] = []
+    for i, c in enumerate(per):
+        if c == ground:
+            continue
+        n = i + 1
+        if bands and bands[-1]["colour"] == c and bands[-1]["span"][1] == n - 1:
+            bands[-1]["span"][1] = n
+        else:
+            bands.append({"colour": c, "hex": colours.get(c), "span": [n, n]})
+    for b in bands:
+        b[f"{unit}s"] = list(b["span"])
+        b["count"] = b["span"][1] - b["span"][0] + 1
+    return ground, bands
+
+
+def _colour_layout(rows, colour_bands, taxonomy) -> str:
+    """How the colour reads on the surface, for the prompt (W5-V1):
+
+    * ``single_colour``: every row/round in one colour, no bands;
+    * ``stripes``: whole-row bands *and* every row worked at one stitch height, so a band is
+      seen as a stripe;
+    * ``charted``: anything else -- colourwork rows, or rows mixing stitch heights (mosaic and
+      relief fabrics drop taller stitches over the row below, so a row's yarn is not what the
+      surface shows). The colour layout is then the chart's, and no stripe is stated."""
+    if colour_bands is None:
+        return "charted"
+    if not colour_bands:
+        return "single_colour"
+    for row in rows:
+        heights = set()
+        for c in row:
+            try:
+                heights.add(taxonomy.get(c.stitch).row_height)
+            except Exception:  # noqa: BLE001 - an unknown stitch: say nothing about stripes
+                return "charted"
+        if len(heights) > 1:
+            return "charted"
+    return "stripes"
+
+
+def _final_round(rows, colours: dict, unit: str, edging: bool) -> dict | None:
+    """The last row/round as worked: its stitch, colour and whether it is plain (one stitch
+    type, one colour, both loops) with no edging declared -- a vessel's top rim."""
+    if not rows:
+        return None
+    last = rows[-1]
+    sts = {c.stitch for c in last}
+    col = _row_colour(last)
+    loops = {getattr(c, "loop", "both") for c in last}
+    plain = len(sts) == 1 and col is not None and loops == {"both"} and not edging
+    return {unit: len(rows), "stitch": next(iter(sts)) if len(sts) == 1 else None,
+            "colour": col, "hex": colours.get(col) if col else None, "plain": plain}
 
 
 def negatives(facts: dict) -> list[str]:
     """The explicit prohibitions a render of this fabric needs, from its facts."""
     out = ["knitting of any kind: this is crochet (no knit V-columns, no stockinette, no "
            "purl ridges, no knitted rope cables)"]
-    if not facts["ribbing_declared"]:
+    if facts["ribbing_declared"] is False:
         out.append("ribbing anywhere (the pattern has none)")
-    if not facts["edging_declared"]:
+    if facts.get("multi_component"):
+        # Remaining facts below describe only the largest component. They must
+        # not be turned into global prohibitions on different components.
+        out.append("any component differing from its own certified layout and stitch chart")
+        return out
+    if not facts["edging_declared"] and facts["ribbing_declared"] is not False:
+        out.append("any added edging, border, fringe or trim not in the pattern; "
+                   "keep the existing fabric and each edge exactly as charted")
+    elif not facts["edging_declared"]:
         out.append("an edging, border, rib, fringe or trim along any edge; "
                    + ("the outer edge is the last round exactly as charted, and a "
                       "vessel's top rim is that plain final round: no braided, rolled, "

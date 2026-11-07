@@ -503,11 +503,13 @@ def make_router(db) -> APIRouter:
         auth.require_stepup(db, request, "images.identity_review")
         q = JobQueue(db)
 
-        def follow(inputs, key):
+        def follow(inputs, key, *, session=None):
             try:
                 return q.enqueue(image_production.AGENT, image_production.JOB_TYPE, inputs,
-                                 idempotency_key=key)
+                                 idempotency_key=key, session=session)
             except DuplicateJob:
+                if session is not None:
+                    raise
                 return None
         try:
             out = await run_in_threadpool(lambda: image_production.resolve_identity_anchor_review(
@@ -533,11 +535,13 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         q = JobQueue(db)
 
-        def follow(inputs, key):
+        def follow(inputs, key, *, session=None):
             try:
                 return q.enqueue(image_production.AGENT, image_production.JOB_TYPE, inputs,
-                                 idempotency_key=key)
+                                 idempotency_key=key, session=session)
             except DuplicateJob:
+                if session is not None:
+                    raise
                 return None
 
         out = await run_in_threadpool(lambda: image_production.restart(

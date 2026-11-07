@@ -195,6 +195,9 @@ def disclosure(job: str | None) -> dict:
 
 # ---- judges (product truth, identity, anatomy, realism) ----------------------------------
 
+_CONFIGURED = object()   # RealJudges: "use the configured production transport"
+
+
 class RealJudges:
     """The production judges: existing deterministic gates, no invented readings.
 
@@ -202,13 +205,26 @@ class RealJudges:
     consistency (`visual.fidelity.GatewayVisionJudge`, gated on `image_vision`). Unfunded,
     it answers nothing, and those checks stay UNKNOWN."""
 
-    def __init__(self, db, *, vision=None, second_vision=None, references=None):
+    def __init__(self, db, *, vision=None, second_vision=_CONFIGURED, references=None,
+                 embedder=None, qualification=None, allow_fixture: bool = False):
         self.db = db
         self.vision = vision
         # W-VISNEXT: a second, independent judge transport (another model). Identity and body
         # proportions need two distinct readings to pass; with one, they can only refuse.
+        # V3: unless a caller names one, it is the configured production transport
+        # (`vision_judges.configured_second_transport`): None until the owner funds one.
+        if second_vision is _CONFIGURED:
+            from .vision_judges import configured_second_transport
+
+            second_vision = configured_second_transport(db)
         self.second_vision = second_vision
         self.references = references
+        # V3 (OA-V3-LAURA-QUALIFICATION): the face embedder and the qualification record
+        # that admits it (`identity_gate.validate_qualification`). Production names neither,
+        # so the biometric floor stays UNMEASURED and identity UNKNOWN. `allow_fixture`
+        # admits a fixture-only record in shadow, labelled as not certification.
+        self.embedder, self.qualification = embedder, qualification
+        self.allow_fixture = bool(allow_fixture)
         self._adapters = None
 
     def _vision_judge(self):
@@ -224,7 +240,9 @@ class RealJudges:
             from .vision_judges import Adapters
 
             self._adapters = Adapters(self.db, self._vision_judge(), second=self.second_vision,
-                                      references=self.references)
+                                      references=self.references, embedder=self.embedder,
+                                      qualification=self.qualification,
+                                      allow_fixture=self.allow_fixture)
         return self._adapters
 
     def product_truth(self, cand: dict, bind: dict) -> dict:
@@ -324,9 +342,14 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
     if cir is None:
         return unknown("no certified CIR to verify against")
     if cand.get("role") == ANCHOR_ROLE:
-        return FID.verify_anchor(data, cir, judge=judge)
+        # V2: a vessel anchor carries its side view beside the top-down bytes.
+        return FID.verify_anchor(data, cir, judge=judge, side=cand.get("side_data") or None)
     release = str(bind.get("release_hash") or release_hash or "")
-    anchor, anchor_data = _anchor_of(db, cand, release)
+    try:
+        fingerprint = cir.fingerprint() if callable(cir.fingerprint) else cir.fingerprint
+    except Exception:  # noqa: BLE001 - unverifiable CIR evidence holds
+        fingerprint = None
+    anchor, anchor_data = _anchor_of(db, cand, release, expected_cir_fingerprint=fingerprint)
     region, located = cand.get("product_region"), None
     if not region and locate is not None and (anchor or {}).get("status") == PASS:
         # Only asked once the release's anchor has passed: without it the image cannot pass
@@ -345,36 +368,82 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
     return out
 
 
-def _anchor_of(db, cand: dict, release: str):
+def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | None = None):
     """The release's best product-only anchor and its bytes, or (None, None)."""
     from .image_production import ANCHOR_ROLE, _best, run_key
+    from .fidelity import CHECKER, same_release
 
     if not release:
         return None, None
     listing = cand.get("listing") or outfits.listing_of(cand.get("slug", ""))
-    try:
-        best = _best(db, listing=listing, role=ANCHOR_ROLE,
-                     run=run_key(cand.get("slug", ""), cand.get("version", ""), release)) or \
-            _best(db, listing=listing, role=ANCHOR_ROLE)
-    except Exception:  # noqa: BLE001 - no learning table yet: no anchor
+    canonical_run = run_key(cand.get("slug", ""), cand.get("version", ""), release)
+    candidate_run = cand.get("run_key") or canonical_run
+    if not isinstance(candidate_run, str) or not (
+            candidate_run == canonical_run or candidate_run.startswith(canonical_run + "#")):
         return None, None
-    if not best or not best.get("sha256") or not str(best.get("release") or "").startswith(
-            release[:12]):
-        return None, None
-    data = None
-    try:
-        from ..core.artifacts import ArtifactStore
+    identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
+                "release": release}
+    scopes = [{"run": candidate_run}]
+    if candidate_run == canonical_run:
+        # Owner uploads are recorded without a run; only production may use them.
+        scopes.append({"unscoped_only": True, "method": "owner_submitted"})
+    # A corrupt or unavailable newest image must not hide a good older one. Bound
+    # work so a long history cannot turn one verification into unbounded I/O.
+    remaining = 16
+    for scope in scopes:
+        excluded: list[int] = []
+        while remaining:
+            try:
+                best = _best(db, listing=listing, role=ANCHOR_ROLE, exclude_ids=tuple(excluded),
+                             **scope, **identity)
+            except Exception:  # noqa: BLE001 - unreadable evidence stays unknown
+                return None, None
+            if best is None:
+                break
+            remaining -= 1
+            excluded.append(best["candidate_id"])
+            if (best.get("technical_status") != PASS or best.get("outcome") != "accepted"
+                    or best.get("owner_visual_approval") is False or not best.get("sha256")
+                    or best.get("slug") != cand.get("slug")
+                    or best.get("version") != cand.get("version")
+                    or not same_release(best.get("release"), release)):
+                continue
+            fidelity = best.get("fidelity") or {}
+            checks = fidelity.get("checks") or []
+            if (not expected_cir_fingerprint or fidelity.get("status") != PASS
+                    or fidelity.get("checker") != CHECKER or not isinstance(checks, list) or not checks
+                    or any(not isinstance(check, dict) or not isinstance(check.get("check"), str)
+                           or check.get("status") not in (PASS, NA) for check in checks)
+                    or not {"isolation", "piece_count", "craft_texture"}.issubset(
+                        {check.get("check") for check in checks if isinstance(check, dict)})
+                    or fidelity.get("unknown") or fidelity.get("failed") or fidelity.get("codes")
+                    or fidelity.get("kind") != "anchor" or fidelity.get("image_sha256") != best["sha256"]
+                    or fidelity.get("slug") != cand.get("slug")
+                    or fidelity.get("version") != cand.get("version")
+                    or fidelity.get("cir_fingerprint") != expected_cir_fingerprint):
+                continue
+            try:
+                from ..core.artifacts import ArtifactStore
+                from .image_production import _image_has_negative_decision
 
-        data = ArtifactStore().get(best["sha256"], db=db)
-    except Exception:  # noqa: BLE001 - bytes unavailable: consistency stays unread
-        data = None
-    return ({"status": best.get("technical_status"), "release_hash": best.get("release"),
-             "sha256": best["sha256"]}, data)
+                if _image_has_negative_decision(db, slug=cand.get("slug"),
+                                                version=cand.get("version"),
+                                                sha=best["sha256"]):
+                    continue
+
+                data = ArtifactStore().get(best["sha256"], db=db)
+                if hashlib.sha256(data).hexdigest() != best["sha256"]:
+                    continue
+            except Exception:  # noqa: BLE001 - try an older candidate; never trust missing bytes
+                continue
+            return ({"status": PASS, "release_hash": best.get("release"),
+                     "sha256": best["sha256"]}, data)
+    return None, None
 
 
 def lifestyle_reading(cand: dict, bind: dict) -> dict:
     """`compose.lifestyle_evidence` on what is known about a generated image."""
-    from .compose import lifestyle_evidence
+    from .compose import INFORMATIONAL_REFERENCES, lifestyle_evidence
 
     kinds = {r.get("kind") for r in cand.get("references") or []}
     rclass = ("physical_product_photo" if "physical_product_photo" in kinds else
@@ -383,7 +452,13 @@ def lifestyle_reading(cand: dict, bind: dict) -> dict:
                       "pdf_version": cand.get("version"), "pieces": bind.get("pieces"),
                       "cir_fingerprint": bind.get("cir_fingerprint")},
           "reference": {"class": rclass, "product_version": cand.get("version")}}
-    return lifestyle_evidence(ev)
+    out = lifestyle_evidence(ev)
+    # W5-V1 (audit P0-a): an informational reference class FAILs whatever the image shows, so
+    # no regeneration with the same references can change it. It is named as structural so
+    # the repair router never buys a regeneration for it. The policy itself is untouched.
+    if out.get("status") == FAIL and rclass in INFORMATIONAL_REFERENCES:
+        out = {**out, "structural": f"lifestyle_evidence: {rclass} reference"}
+    return out
 
 
 # ---- the one evaluation ------------------------------------------------------------------
@@ -501,11 +576,21 @@ def _scope_of(cand: dict, job: str | None) -> str:
     return "product_only"
 
 
+def gate_status(check: dict | None) -> str:
+    """A check's status as a gate may count it. Review VISUAL_STACK N4: a fixture-labelled
+    PASS (V3 stand-in judges, `fixture_only`) is never certification, so every gate it feeds
+    reads it as UNKNOWN. A fixture FAIL stays FAIL."""
+    st = (check or {}).get("status", UNKNOWN)
+    if st == PASS and (check or {}).get("fixture_only"):
+        return UNKNOWN
+    return st
+
+
 def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *,
                        other_publication_blockers: list[str]) -> dict:
     """The D-W4-F852-AMEND evidence for `eligibility.may_export`, read only from the checks
     this module ran and the candidate's recorded provenance. Never the owner's approval."""
-    st = {k: (v or {}).get("status", UNKNOWN) for k, v in checks.items()}
+    st = {k: gate_status(v) for k, v in checks.items()}
     fid = ((checks.get("product_truth") or {}).get("fidelity") or {})
     bind = checks.get("binding") or {}
     ev = cand.get("identity_evidence") or {}
@@ -535,7 +620,10 @@ def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *
                        "prompt_version": cand.get("prompt_version"),
                        "receipt": receipt, "disclosure": label},
         # recorded so a reader can see it was not used
-        "owner_visual_approval_is_not_an_input": True}
+        "owner_visual_approval_is_not_an_input": True,
+        # N4: which readings came from fixture stand-ins (counted UNKNOWN above)
+        "fixture_only_checks": sorted(k for k, v in checks.items()
+                                      if (v or {}).get("fixture_only"))}
 
 
 def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) -> dict:
@@ -554,7 +642,7 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
             c = el.Candidate(asset_id=f"candidate-{cand.get('sha256', '')[:12]}", medium=MEDIUM,
                              purpose=el.CONVERSION_CREATIVE, job=job,
                              position=1 if job == el.HERO_JOB else 2)
-            st = {k: v["status"] for k, v in checks.items()}
+            st = {k: gate_status(v) for k, v in checks.items()}
             results = [
                 _gate(el.DATA_TRUTH, worst(st["binding"], st["product_truth"]),
                       checks["product_truth"]["why"]),
@@ -620,6 +708,61 @@ def campaign_consistency(rows: list[dict]) -> dict:
     looks = {r.get("outfit_id") for r in rows if r.get("laura_present")}
     if len(looks) > 1:
         problems.append(f"Laura wears {len(looks)} outfits in one listing: {sorted(map(str, looks))}")
+    pairs = cross_frame_product(rows)
+    problems += pairs["problems"]
     if problems:
-        return _c(FAIL, "; ".join(problems))
-    return _c(PASS, f"{len(rows)} image(s): one version, release, CIR and outfit")
+        return _c(FAIL, "; ".join(problems), pairwise=pairs)
+    if pairs["unjudged"]:
+        # I-V2-UNJUDGED-PAIRS (Main 6702728170): a pair nobody judged is a capability gap,
+        # not a defect. UNKNOWN, never PASS: the gallery is not ready, and no repair is routed.
+        return _c(UNKNOWN, f"{len(rows)} image(s): one version, release, CIR and outfit; "
+                           f"{pairs['unjudged']} frame pair(s) not judged against each other",
+                  pairwise=pairs, blocker=f"{UNJUDGED_BLOCKER}: {pairs['unjudged']} pairs")
+    return _c(PASS, f"{len(rows)} image(s): one version, release, CIR and outfit; "
+                    f"{pairs['compared']} frame pair(s) agree on the item",
+              pairwise=pairs)
+
+
+UNJUDGED_BLOCKER = "campaign_consistency_unjudged"
+
+
+def cross_frame_product(rows: list[dict]) -> dict:
+    """V2 / P1-d: the frames of one gallery must show the same item to each other.
+
+    Each frame's blind item description (`item_reading`, the vision judge's reading of that
+    frame) is compared with every other frame's on the yarn-colour count and the edging. Two
+    frames that both state a value and differ are the gallery showing two different products
+    (`problems`, a FAIL). A pair where either frame has no reading, or either value is
+    unclear on either side, is `unjudged`: it is never counted as agreeing (Main decision
+    I-V2-UNJUDGED-PAIRS; vision is owner-funded, V0)."""
+    from .vision_judges import _int, _tri
+
+    readings = [(i, r, r.get("item_reading")) for i, r in enumerate(rows)]
+    problems, compared, unjudged = [], 0, 0
+    for a in range(len(readings)):
+        for b in range(a + 1, len(readings)):
+            (ia, ra, xa), (ib, rb, xb) = readings[a], readings[b]
+            name = f"frames {ra.get('candidate_id') or ia} and {rb.get('candidate_id') or ib}"
+            if not isinstance(xa, dict) or not isinstance(xb, dict):
+                unjudged += 1
+                continue
+            na, nb = _int(xa.get("distinct_yarn_colours")), _int(xb.get("distinct_yarn_colours"))
+            ea, eb = _tri(xa.get("border_or_edging_visible")), _tri(xb.get(
+                "border_or_edging_visible"))
+            disagree = False
+            if na is not None and nb is not None and na != nb:
+                problems.append(f"{name} disagree on the colour count ({na} vs {nb})")
+                disagree = True
+            if ea is not None and eb is not None and ea != eb:
+                problems.append(f"{name} disagree on the edging ({ea} vs {eb})")
+                disagree = True
+            if disagree:
+                compared += 1
+            elif None in (na, nb, ea, eb):
+                unjudged += 1
+            else:
+                compared += 1
+    not_judged = [str(r.get("candidate_id") or i) for i, r, x in readings
+                  if not isinstance(x, dict)]
+    return {"compared": compared, "unjudged": unjudged, "problems": problems,
+            "not_judged": not_judged}
