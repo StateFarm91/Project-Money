@@ -1,8 +1,20 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T05:50Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T07:15Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T07:15Z -- owner "P0 FINAL COMPLETION DIRECTIVE" (read first)
+OA-V3-LAURA-QUALIFICATION is APPROVED FIXTURE-ONLY; Main verified it (#28 6703390021). Main's fix_only branch is claude/w6-fix-only-rebuild @ 6cbc08e6.
+| Item | Branch / worktree | Head | State |
+|---|---|---|---|
+| PHYSICAL | opus2/p0-physical-test-request (opus2-ptr) | d697d093 | REVIEW-REQUESTED #28 6703757948; 44 suites (owner_queue_race load-timeout, passes clean) |
+| PORTFOLIO on fix_only | opus2/p0-portfolio-act-fo (opus2-pact2) | uncommitted | SEO -> listing.seo fix_only; focused 11/11; regression pfo + mutants running; merge 6cbc08e6 before push |
+| STOREFRONT on fix_only | opus2/p0-storefront-asset-fix-fo (opus2-sfa2) | worker af18da9d | fixes review d8b2754b F1-F7; told to merge 6cbc08e6 |
+| V2 fix of review 1688b97f | opus2/v2-vessel-fidelity (opus2-v2) | uncommitted on 6799f1d4 | F1-F7 + F10 done; 11 mutants killed; regression v2f running |
+| V3 fixture-only | opus2/v3-identity-fixture (opus2-v3) | worker abe11379, uncommitted | regression running |
+| V6 | opus2/v6-gallery-e2e (opus2-v6) | 9365876f pushed | done per I-V6-ACCEPTANCE; must re-merge the fixed V2 before review |
+| V4 / V5 | - | 86cf2a36 / 295474c6 | in Main's review queue |
 
 ## State at 2026-11-07T05:50Z (read first)
 Every branch is from claude/w6-INTEG1 @ f5c3976d. Worktrees are /home/user/opus2-{ptr,pact,sfa,v2,v4,v5}.
