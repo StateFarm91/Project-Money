@@ -2617,8 +2617,7 @@ def handle_support_triage(ctx: JobContext) -> dict:
             ctx.audit("support.defect_candidate", artifact=hotspot["product"],
                       detail=hotspot)
             out["defects"].append(support_defects.escalate(ctx, hotspot))
-    out["defect_incidents_superseded"] = support_defects.supersede(ctx.db)
-    out["defect_holds_released"] = support_defects.release_resolved(ctx.db)
+    out["defect_holds"] = support_defects.reconcile_holds(ctx.db)
     return out
 
 

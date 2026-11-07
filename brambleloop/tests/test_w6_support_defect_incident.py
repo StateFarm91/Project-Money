@@ -377,84 +377,104 @@ def test_not_a_defect_releases_the_hold_and_cannot_be_decided_again():
         pass
 
 
-def test_an_unchanged_new_version_inherits_the_hold_and_a_changed_one_supersedes():
-    a, _b = _cirs()
-    db = _db(a)
+def _changed_instructions(cir):
+    d = cir.to_dict()
+    g = dict(d["gauge"])
+    g["stitches_per_10cm"] = float(g["stitches_per_10cm"]) + 1.0
+    return {**d, "gauge": g}
+
+
+def _setup_incident(db, a, key):
     for n in range(3):
         _case(db, a, n)
-    _triage(db, "s1")
+    _triage(db, key)
     sig = defects.signature(a.slug, a.version, ROW)
-    assert len(_open_cards(db, sig)) == 1                    # undecided: its card is open
-    # A new version with the identical pattern: the defect is carried, nothing resolves.
-    _add_version(db, a, "9.0.0", certified=True)
-    _triage(db, "s2")
-    assert [i[0] for i in _open(db)] == [sig]
+    return sig, _incident_id(db, sig)
+
+
+def test_a_new_version_with_the_same_instructions_is_held_too_even_if_retitled():
+    a, _b = _cirs()
+    db = _db(a)
+    sig, _iid = _setup_incident(db, a, "h1")
+    retitled = {**a.to_dict(), "title": a.title + " (new photos)", "designer_notes": "x"}
+    _add_version(db, a, "9.0.0", certified=True, cir_json=retitled)  # 785849c0-review F-3
+    _triage(db, "h2")
     assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
-    # A strictly newer version with a changed pattern: superseded, the old stays held.
-    changed = {**a.to_dict(), "title": a.title + " (corrected)"}
-    _add_version(db, a, "10.0.0", certified=True, cir_json=changed)
-    _triage(db, "s3")
-    inc = [i for i in _incidents(db) if i[0] == sig]
-    assert inc[0][2] is True and inc[0][4]["superseded_by"] == "10.0.0", inc
     assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    assert [i[0] for i in _open(db)] == [sig]
+    assert len(_open_cards(db, sig)) == 1                    # still undecided, still visible
+
+
+def test_a_corrected_release_is_not_held_and_the_defective_one_stays_held_and_decidable():
+    a, _b = _cirs()
+    db = _db(a)
+    sig, iid = _setup_incident(db, a, "x1")
+    defects.record_owner_decision(db, iid, "confirmed", "the row 3 count is wrong here")
+    _add_version(db, a, "10.0.0", certified=True, cir_json=_changed_instructions(a))
+    _triage(db, "x2")
     assert W.reasons(db, a.slug, "10.0.0")["withheld"] is False
-    assert _open_cards(db, sig) == []
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    # The corrected release is withdrawn: the old pattern is back on sale, still held (R8S).
+    _add_version(db, a, "10.0.1", certified=True)            # same instructions as the held one
+    _triage(db, "x3")
+    assert W.reasons(db, a.slug, "10.0.1")["blocks_publish"] is True
+    # A confirmed incident someone else marks resolved keeps every hold (F-1).
+    from brambleloop.ops import incident_lifecycle
+
+    with db.session() as s:
+        incident_lifecycle.resolve_signatures(s, [sig], resolution="tidied up")
+    _triage(db, "x4")
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    assert W.reasons(db, a.slug, "10.0.1")["blocks_publish"] is True
 
 
-def test_not_a_defect_releases_the_hold_it_carried_to_a_newer_identical_version():
+def test_not_a_defect_releases_every_hold_it_needed_and_none_another_incident_needs():
     a, _b = _cirs()
     db = _db(a)
-    for n in range(3):
-        _case(db, a, n)
-    _triage(db, "k1")
-    sig = defects.signature(a.slug, a.version, ROW)
-    _add_version(db, a, "9.0.0", certified=True)            # identical CIR: hold carried
-    _triage(db, "k2")
-    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
-    defects.record_owner_decision(db, _incident_id(db, sig), "not_a_defect",
-                                  "buyers misread the stitch key; the count is right")
-    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
-    assert W.reasons(db, a.slug, a.version)["withheld"] is False
-
-
-def test_not_a_defect_releases_a_carried_hold_but_not_another_incidents_hold():
-    a, _b = _cirs()
-    db = _db(a)
-    for n in range(3):
-        _case(db, a, n)
-    _triage(db, "c1")
-    sig = defects.signature(a.slug, a.version, ROW)
-    _add_version(db, a, "9.0.0", certified=True)            # identical CIR: hold carried
-    _triage(db, "c2")
-    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
-    # Buyers of 9.0.0 report the same row: its own incident, same hold key.
-    for n in range(30, 33):
+    sig, iid = _setup_incident(db, a, "r1")
+    _add_version(db, a, "9.0.0", certified=True)             # same instructions: also held
+    _triage(db, "r2")
+    for n in range(30, 33):                                  # 9.0.0's own buyers, same row
         _case(db, a, n, version="9.0.0")
-    _triage(db, "c3")
+    _triage(db, "r3")
     sig9 = defects.signature(a.slug, "9.0.0", ROW)
     assert sig9 in [i[0] for i in _open(db)], _incidents(db)
-    defects.record_owner_decision(db, _incident_id(db, sig), "not_a_defect",
-                                  "the original reports were a misread stitch key")
+    defects.record_owner_decision(db, iid, "not_a_defect", "a misread stitch key, not a defect")
     assert W.reasons(db, a.slug, a.version)["withheld"] is False
-    # 9.0.0 stays held: its own incident is still open on the same row.
-    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True   # sig9 still active
     defects.record_owner_decision(db, _incident_id(db, sig9), "not_a_defect",
-                                  "the same misread; the pattern is correct")
-    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False   # carried hold released
+                                  "the same misread on the re-release")
+    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
 
 
-def test_a_lower_version_certified_later_does_not_supersede():
+def test_a_confirmed_incident_on_an_old_version_keeps_holding_a_rolled_back_release():
     a, _b = _cirs()
     db = _db(a)
-    for n in range(3):
-        _case(db, a, n)
-    _triage(db, "lv1")
-    sig = defects.signature(a.slug, a.version, ROW)
-    changed = {**a.to_dict(), "title": a.title + " (rollback)"}
-    _add_version(db, a, "0.0.1", certified=True, cir_json=changed)   # newest row, lower version
-    _triage(db, "lv2")
-    assert [i[0] for i in _open(db)] == [sig], _incidents(db)
-    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    sig, iid = _setup_incident(db, a, "c1")
+    defects.record_owner_decision(db, iid, "confirmed", "the count really is wrong here")
+    _add_version(db, a, "10.0.0", certified=True, cir_json=_changed_instructions(a))
+    _triage(db, "c2")
+    assert W.reasons(db, a.slug, "10.0.0")["withheld"] is False
+    # A lower-numbered re-certification of the old pattern later becomes current.
+    _add_version(db, a, "0.0.1", certified=True)
+    _triage(db, "c3")
+    assert W.reasons(db, a.slug, "0.0.1")["blocks_publish"] is True
+    # Re-decided not a defect: every hold goes, and the reconcile is idempotent.
+    defects.record_owner_decision(db, iid, "not_a_defect", "on review the count is right")
+    assert W.reasons(db, a.slug, "0.0.1")["withheld"] is False
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    assert defects.reconcile_holds(db) == {"placed": [], "released": []}
+
+
+def test_instruction_hash_ignores_presentation_and_sees_instructions():
+    a, _b = _cirs()
+    d = a.to_dict()
+    h = defects.instruction_hash(d)
+    assert h == defects.instruction_hash({**d, "title": "x", "version": "9", "designer_notes": "y",
+                                          "provenance": {}, "slug": "z"})
+    for k in defects.INSTRUCTION_KEYS:
+        assert defects.instruction_hash({**d, k: "changed"}) != h, k
+    assert defects.instruction_hash({}) is None and defects.instruction_hash(None) is None
 
 
 def test_the_owner_decision_route_accepts_support_defect_decisions():
