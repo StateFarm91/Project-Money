@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-07T12:34:55.763544+00:00",
+ "generated_at": "2026-11-07T15:29:30.548581+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 137,
   "handlers": 169,
   "agents": 34,
-  "follow_on_edges": 85
+  "follow_on_edges": 86
  },
  "departments": [
   {
@@ -1137,6 +1137,7 @@
      "runtime/release.py:_intake_photo",
      "runtime/release.py:enqueue",
      "runtime/release.py:follow",
+     "store_foundation/asset_health.py:route",
      "visual.controlled_experiment",
      "visual.image_production"
     ]
