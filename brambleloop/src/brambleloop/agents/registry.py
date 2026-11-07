@@ -250,6 +250,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["seasonal.remerchandising",
                             "listing.draft", "listing.seo", "collection.assemble",
                             "chain.rebuild",
+                            # OPUS2 (INTEG-LISTING-JOB): owner-review listing packages.
+                            "listing.package",
                             # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
                             "listing.taxonomy_refresh",
                             # F-280: launch-week Search Visibility owner card (no-op in
