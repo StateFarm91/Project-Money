@@ -1,8 +1,20 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T16:20Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T19:10Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T19:10Z (read first)
+- SHIPPED and integrated: storefront, portfolio, visual D1/D2/D4, #7 M-5 (w6-INTEG1 a792f664).
+- REVIEW-REQUESTED:
+  - PHYSICAL delta 1a818679 (worktree opus2-ptr2): tester_roster work item, no owner card. Its
+    Codex base still waits on Codex.
+  - A1 infant nouns fc26887b (opus2-a1n, leaf on opus2/p0-child-safety-core).
+  - A-1..A-4, S-N2, S-N3 at 7eeeac92 (opus2-a1v, branch opus2/visual-a1-a4).
+- Lesson: page #28 by total count (issue get -> comments, perPage 2 page = ceil(n/2)). Comments
+  were missed before.
+- Disk: the cloud disk filled up with mutant copies. Delete each copy after its run.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T16:20Z (read first)
 - VISUAL d6b642dd + V6 80765387: SHIP, integrated in w6-INTEG1 fbddf746.
