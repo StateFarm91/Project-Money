@@ -7293,6 +7293,15 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             detail["secret_leak"] = secret_leak.escalate(session)
     except Exception as exc:  # noqa: BLE001
         detail["secret_leak"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+        # Fail closed: a caught secret whose escalation raised still opens an incident
+        # (error type only, never a value). Guarded; it can never fail the health sweep.
+        try:
+            if secret_leak.guard.summary().get("status") == "CAUGHT":
+                with ctx.db.session() as session:
+                    detail["secret_leak"] = secret_leak.escalation_failed(
+                        session, type(exc).__name__)
+        except Exception as exc2:  # noqa: BLE001
+            detail["secret_leak"]["fallback_error"] = type(exc2).__name__
     # W4-FMBATCH1 (F-720): stale ready work with an idle worker is diagnosed by cause.
     from ..ops import useful_work
 

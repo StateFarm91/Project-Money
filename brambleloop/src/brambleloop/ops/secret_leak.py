@@ -124,11 +124,16 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
     from . import incident_lifecycle, owner_queue
 
     summary = guard.summary() if summary is None else summary
-    if summary.get("status") != "CAUGHT":
-        return {"status": "CLEAN", "records_scanned": summary.get("records_scanned", 0),
+    status = summary.get("status")
+    if status != "CAUGHT":
+        # Only an explicit CLEAN reads as clean; anything else (missing, malformed, a status
+        # this module does not know) is UNKNOWN, never CLEAN (review W6 2026-11-07, LOW).
+        return {"status": "CLEAN" if status == "CLEAN" else "UNKNOWN",
+                "guard_status": status if isinstance(status, str) else repr(type(status)),
+                "records_scanned": summary.get("records_scanned", 0),
                 "opened": [], "restated": [], "owner_actions": []}
     env = dict(os.environ) if env is None else env
-    opened, restated, actions = [], [], []
+    opened, restated, actions, acknowledged = [], [], [], []
     from sqlalchemy import select
 
     from ..core.models import Incident, OwnerAction
@@ -153,6 +158,14 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
             if open_row is not None:
                 actions.append({"key": key, "id": open_row.id})
             continue
+        if existing is None and _resolved_for_same_catch(session, signature,
+                                                         detail["fingerprints"]):
+            # The owner resolved this exact catch (same fingerprints). The process guard keeps
+            # it in its summary until restart, so re-seeing it is not a new exposure: do not
+            # reopen a P1 or a rotation card for it (review W6 2026-11-07, MED). A different
+            # fingerprint for the same variable is a new catch and opens as usual.
+            acknowledged.append(signature)
+            continue
         else:
             _row, new = incident_lifecycle.open_or_restate(
                 session, signature=signature, severity="P1",
@@ -165,4 +178,43 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
         actions.append({"key": key, "id": row.id})
     session.flush()
     return {"status": "CAUGHT", "records_scanned": summary.get("records_scanned", 0),
-            "opened": opened, "restated": restated, "owner_actions": actions}
+            "opened": opened, "restated": restated, "owner_actions": actions,
+            "acknowledged": acknowledged}
+
+
+def _resolved_for_same_catch(session, signature: str, fingerprints: dict) -> bool:
+    """True when every caught fingerprint was already covered by a resolved secret-leak
+    incident under any signature. A rotated value drops off its variable and would otherwise
+    re-surface keyed by pattern+fingerprint."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    if not fingerprints:
+        return False
+    covered: set[str] = set()
+    for inc in session.scalars(select(Incident).where(
+            Incident.signature.like(SIGNATURE + "%"), Incident.resolved == True)):  # noqa: E712
+        covered |= set(((inc.detail or {}).get("fingerprints") or {}).keys())
+    return set(fingerprints) <= covered
+
+
+ESCALATION_FAILED = SIGNATURE + "escalation_failed"
+
+
+def escalation_failed(session, error: str) -> dict:
+    """Fail-closed fallback when `escalate` raised while the guard holds a caught secret:
+    one P1 incident naming only the error type (no variable, fingerprint or value), so a
+    caught secret never reduces to an UNKNOWN reading with nothing to act on."""
+    from . import incident_lifecycle
+
+    _row, new = incident_lifecycle.open_or_restate(
+        session, signature=ESCALATION_FAILED, severity="P1",
+        summary=("A secret was caught in the service log but its escalation failed "
+                 f"({error}); rotate the credentials named in the log guard and check "
+                 "ops.health"),
+        detail={"source": "ops.secret_leak", "error": error, "value_stored": False})
+    session.flush()
+    return {"status": "CAUGHT", "escalation": "FAILED", "error": error,
+            "opened": [ESCALATION_FAILED] if new else [],
+            "restated": [] if new else [ESCALATION_FAILED]}

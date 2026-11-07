@@ -160,6 +160,68 @@ def test_a_secret_no_variable_holds_is_keyed_on_pattern_and_fingerprint():
     _assert_absent(FAKE_GH, path)
 
 
+def test_an_owner_resolved_catch_is_not_reopened_but_a_new_value_is():
+    from brambleloop.ops import incident_lifecycle
+
+    G.GUARD.caught.clear()
+    os.environ[VAR] = FAKE_KEY
+    try:
+        logging.getLogger("brambleloop.provider").error("provider echoed %s back", FAKE_KEY)
+        db, path = _db()
+        _sweep(db, "res-1")
+        sig = f"secret_leak:var:{VAR}"
+        with db.session() as s:
+            incident_lifecycle.resolve_signatures(s, [sig], resolution="owner: rotated")
+            for a in s.scalars(select(OwnerAction).where(
+                    OwnerAction.requirement_key.like(secret_leak.KEY_PREFIX + "%"))):
+                a.done = True
+        out = _sweep(db, "res-2")
+        inc, act = _leaks(db)
+        assert len(inc) == 1 and inc[0][2] is True, inc          # still the one, resolved
+        assert all(a[6] for a in act), act                         # card not reopened
+        assert out["secret_leak"]["acknowledged"] == [sig], out["secret_leak"]
+        # A different value now held by the same variable is a new catch: it opens.
+        rotated = FAKE_KEY[:-6] + "ZZZZZZ"
+        os.environ[VAR] = rotated
+        logging.getLogger("brambleloop.provider").error("new key echoed %s", rotated)
+        _sweep(db, "res-3")
+        inc2, _act2 = _leaks(db)
+        assert [i[2] for i in inc2].count(False) == 1, inc2
+        _assert_absent(FAKE_KEY, path)
+        _assert_absent(rotated, path)
+    finally:
+        os.environ.pop(VAR, None)
+
+
+def test_only_an_explicit_clean_status_reads_clean():
+    db, _path = _db()
+    with db.session() as s:
+        assert secret_leak.escalate(s, summary={"status": "CLEAN"})["status"] == "CLEAN"
+        assert secret_leak.escalate(s, summary={})["status"] == "UNKNOWN"
+        assert secret_leak.escalate(s, summary={"status": "caught"})["status"] == "UNKNOWN"
+
+
+def test_a_failed_escalation_of_a_caught_secret_still_opens_an_incident():
+    G.GUARD.caught.clear()
+    logging.getLogger("brambleloop.ci").error("token in a response: %s", FAKE_GH)
+    db, path = _db()
+    real = secret_leak.escalate
+
+    def boom(*a, **k):
+        raise RuntimeError("escalation broke")
+
+    secret_leak.escalate = boom
+    try:
+        out = _sweep(db, "fail-1")
+        _sweep(db, "fail-2")
+    finally:
+        secret_leak.escalate = real
+    assert out["secret_leak"]["escalation"] == "FAILED", out["secret_leak"]
+    inc, _act = _leaks(db)
+    assert [(i[0], i[1], i[2]) for i in inc] == [(secret_leak.ESCALATION_FAILED, "P1", False)], inc
+    _assert_absent(FAKE_GH, path)
+
+
 def test_the_escalation_rides_an_existing_cadence_and_is_reached():
     assert any(c[2] == "ops.health" for c in CADENCES)
     reachability.reachable.cache_clear()
