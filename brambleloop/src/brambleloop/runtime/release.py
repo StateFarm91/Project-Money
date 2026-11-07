@@ -618,10 +618,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
                # one of the two this release certified rather than only the US one.
                "pdf_sha256_by_terminology": {t: stored.sha256
                                              for t, stored in sorted(pdfs.items())},
-               # Review 494066fa MED-1: the frames handed on are the gallery as persisted --
-               # a kept photograph in its slot -- never a render set that does not exist.
-               "frames": (_stored_frames(ctx.db, slug, version) if placed["kept"]
-                          else stored_frames)}
+               # Review 494066fa MED-1 / afd98e88 B-MED-1, B-MED-2: the frames handed on are
+               # the renders this build actually placed. A kept photograph's slot is left
+               # OUT: its sha never enters a render build's outputs (the provenance backfill
+               # indexes them as renders), and classification never reads a photo as one.
+               "frames": [f for f in stored_frames if f["position"] not in placed["kept"]]}
     if placed["live_candidate"]:
         payload["candidate_only"] = True
     # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
@@ -2112,7 +2113,10 @@ def without_fix_only(inputs: dict | None) -> dict:
     Every path that re-drives the chain from a stored job (plan-drift re-price, targeted
     rebuild, launch review, taxonomy-drift re-queue) uses this, so a remediation's bound never
     leaks into an ordinary rebuild (reviews 6cbc08e6 F1, 9e8665c3 N1)."""
-    return {k: v for k, v in dict(inputs or {}).items() if k != "fix_only"}
+    # Review afd98e88 B-LOW-1: `candidate_only` marks a live remediation's candidate payload;
+    # an ordinary re-drive never inherits it either.
+    return {k: v for k, v in dict(inputs or {}).items()
+            if k not in ("fix_only", "candidate_only")}
 
 
 def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choice, props,

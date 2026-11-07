@@ -402,6 +402,17 @@ def test_a_fix_only_rebuild_never_rewrites_a_live_listings_gallery_rows():
     assert _gallery(db, slug, version) == before
     cand = _audits(db, "listing.fix_frame_candidate")
     assert cand and cand[-1]["live"] is True and cand[-1]["frames"], cand
+    # Review afd98e88 B-LOW-3: a live candidate writes no disclosed render record, and its
+    # build is marked candidate_only -- which an ordinary re-drive never inherits.
+    built = _audits(db, "assets.listing_images_built")
+    assert built and built[-1].get("disclosed_render") is None, built[-1]
+    from brambleloop.runtime import release as R
+
+    with db.session() as s:
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+        assert (build.outputs or {}).get("candidate_only") is True
+        assert "candidate_only" not in R.without_fix_only(build.outputs)
 
 
 def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
@@ -437,9 +448,11 @@ def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
             ArtefactProvenance.artefact_key == provenance.visual_key(slug, version, photo_id))))
         assert not [r for r in rows if r.job_id == build.id or r.sha256 == "f" * 64], \
             [(r.job_id, r.sha256) for r in rows]
-        # MED-1: what the chain hands on is the gallery as persisted, photo included.
-        assert (build.outputs or {}).get("frames", [{}])[0].get("asset_class") \
-            == "PHYSICAL_PRODUCT_PHOTO", (build.outputs or {}).get("frames")
+        # MED-1 / B-MED-1/2: the kept photo's slot is left out of what the chain hands on --
+        # no render claimed at position 1, and the photo's sha never enters a build output.
+        frames = (build.outputs or {}).get("frames") or []
+        assert frames and 1 not in [f["position"] for f in frames], frames
+        assert "f" * 64 not in [f["sha256"] for f in frames], frames
 
 
 def test_a_blocked_rebuild_leaves_a_kept_photos_approval_alone():
