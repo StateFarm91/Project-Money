@@ -8,9 +8,15 @@ real certified launch-0 release and cases drafted by the real support department
   release (one `cir.twin` + one `cir.reverse` job), and that release's publication withheld;
 * a 4th case adds nothing (no incident, job or hold; the open incident's count is refreshed);
 * a different product is unaffected;
-* the re-verification passing clears the hold and resolves the incident (the existing
-  re-verification rule: a pass clears), and later triage never re-escalates the same row;
-* an owner-resolved incident releases its hold on the next triage.
+* the re-verification passing is recorded as evidence but does NOT clear the hold (the release
+  already passed those checks to be certified; independent review W6 2026-11-07 HIGH);
+* an owner-resolved incident releases its hold on the next triage, and the row is never
+  re-escalated afterwards;
+* one buyer writing three times does not escalate (distinct buyers);
+* a failure between committing the incident and placing the hold is repaired by the next
+  triage (fail-closed, self-healing);
+* the hold targets the currently certified release when a citing case names it, not an older
+  majority version.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python tests/test_w6_support_defect_incident.py
 """
@@ -68,10 +74,10 @@ def _db(*cirs):
     return db
 
 
-def _case(db, cir, n: int) -> None:
-    reply = CustomerExperience(db).handle(customer_ref=f"buyer-{cir.slug}-{n}",
+def _case(db, cir, n: int, buyer: str | None = None, version: str | None = None) -> None:
+    reply = CustomerExperience(db).handle(customer_ref=buyer or f"buyer-{cir.slug}-{n}",
                                           message=QUESTION, cir=cir, product_slug=cir.slug,
-                                          version=cir.version)
+                                          version=version or cir.version)
     assert reply.cited_rows == [ROW], reply
 
 
@@ -145,23 +151,24 @@ def test_three_cases_on_one_row_open_an_incident_reverify_and_withhold_only_that
     assert W.reasons(db, b.slug, b.version)["withheld"] is False
     assert _incidents(db, b.slug) == []
 
-    # The deterministic re-verification runs and passes: the hold clears, the incident
-    # resolves with that evidence, and the release is no longer withheld.
+    # The deterministic re-verification runs and passes. That is evidence, not a release:
+    # the hold stays, the incident stays open and records that the compiler does not
+    # reproduce the defect.
     assert _work(db, ["cir.twin", "cir.reverse"]) == 2
     assert all(j[1] == JobStatus.DONE for j in _reverify_jobs(db))
     after = W.reasons(db, a.slug, a.version)
-    assert after["withheld"] is False and W.QUALITY_REVERIFY not in after["reasons"], after
+    assert after["blocks_publish"] is True and W.QUALITY_REVERIFY in after["reasons"], after
     inc3 = [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]
-    assert len(inc3) == 1 and inc3[0][2] is True, inc3
-    assert "re-verification passed" in inc3[0][4]["resolution"]
-    # No quality.reverify incident either: the release re-verified clean.
+    assert len(inc3) == 1 and inc3[0][2] is False, inc3
+    assert sorted(inc3[0][4]["passed_checks"]) == ["cir.reverse", "cir.twin"], inc3
+    assert "does not reproduce" in inc3[0][4]["reverification"], inc3
     assert not [i for i in _incidents(db) if i[0].startswith("quality.reverify:")]
 
-    # Later triage of the same (still 4-case) row never re-escalates the release.
+    # Later triage keeps it held and adds no jobs (idempotency keys).
     _triage(db, "t4")
     assert len([i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]) == 1
     assert len(_reverify_jobs(db)) == 2
-    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
 
 
 def test_an_owner_resolved_defect_incident_releases_its_hold():
@@ -179,6 +186,75 @@ def test_an_owner_resolved_defect_incident_releases_its_hold():
             resolution="owner: the buyers misread the stitch key; not a pattern defect")
     _triage(db, "o2")
     assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    # A further case after the decision does not re-escalate the same release+row.
+    _case(db, a, 3)
+    _triage(db, "o3")
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    assert len([i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]) == 1
+
+
+def test_one_buyer_writing_three_times_does_not_hold_a_release():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n, buyer="buyer-same")
+    _triage(db, "b1")
+    assert [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)] == []
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    _case(db, a, 3)                      # second and third distinct buyers
+    _case(db, a, 4)
+    _triage(db, "b2")
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+
+
+def test_a_failure_before_the_hold_is_repaired_by_the_next_triage():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n)
+    real = W.record_reverification
+    calls = {"n": 0}
+
+    def flaky(*args, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient: hold write failed")
+        return real(*args, **kw)
+
+    W.record_reverification = flaky
+    try:
+        try:
+            _triage(db, "f1")
+        except AssertionError:
+            pass                          # the triage job failed; that is the transient fault
+        inc = [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]
+        assert len(inc) == 1 and not inc[0][2], inc         # incident committed ...
+        assert W.reasons(db, a.slug, a.version)["withheld"] is False  # ... hold missing
+        W.record_reverification = real
+        JobQueue(db).enqueue("support", "support.triage", {}, priority=0, idempotency_key="f2")
+        w = Worker(db, "w6-defect", phase=Phase.SHADOW, job_types=["support.triage"])
+        while w.run_once():
+            pass
+        with db.session() as s:
+            j = s.scalars(select(Job).where(Job.idempotency_key == "f2")).one()
+            assert j.status == JobStatus.DONE, (j.status, j.last_error)
+    finally:
+        W.record_reverification = real
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    assert sorted(j[0] for j in _reverify_jobs(db)) == ["cir.reverse", "cir.twin"]
+
+
+def test_the_hold_targets_the_current_certified_release_not_an_older_majority():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(4):
+        _case(db, a, n, version="0.9.0")  # older version: the majority of citing cases
+    _case(db, a, 10)                      # one on the release being sold now
+    _case(db, a, 11)
+    _triage(db, "v1")
+    inc = [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]
+    assert [i[0] for i in inc] == [defects.signature(a.slug, a.version, ROW)], inc
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
 
 
 def test_the_defect_path_is_reached_from_the_runtime():
