@@ -51,3 +51,4 @@
 {"at": "2026-11-02T23:29:29Z", "worker": "opus2", "assignment": "A6", "event": "blocked", "note": "codex-contract adaptation opus2/a6-codex-contract built; end-to-end proof blocked on CODEX2-3 (held-out manifest vs INTEG1)"}
 {"at": "2026-11-03T01:30:10Z", "worker": "opus2", "assignment": "V0", "event": "checkpoint", "sha": "76fc0f3d", "note": "25/25 priority suites green"}
 {"at": "2026-11-03T01:30:10Z", "worker": "opus2", "assignment": "V0", "event": "review_requested", "sha": "76fc0f3d"}
+{"at": "2026-11-07T01:35:42Z", "worker": "opus2", "assignment": "QUEUE", "event": "blocked", "note": "no unduplicated work: Codex continues all opus2 heads (PR #130, V0 PR #40, codex/a6-*); awaiting Main assignment"}
