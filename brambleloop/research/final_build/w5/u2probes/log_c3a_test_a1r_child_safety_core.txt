@@ -1,0 +1,61 @@
+OK   test_a1r1_a_one_piece_ball_and_every_filling_spelling_is_a_closed_stuffed_form
+OK   test_a1r2_greek_cherokee_and_cyrillic_capitals_fold_before_case_through_the_worker
+OK   test_a1r3_one_fold_reads_drafting_rendering_survey_and_motifs
+OK   test_a1r4_a_hold_is_named_permanent_owner_visible_and_blocks_no_other_product
+OK   test_a1r5_small_parts_for_every_assigned_product_and_unknown_blocks
+OK   test_a1r6_decisions_carry_who_and_when_and_the_listing_reads_the_held_decision
+FAIL test_assets_build_through_the_worker_holds_stuffed_forms_and_renders_the_catalogue OperationalError('(sqlite3.OperationalError) database or disk is full')
+Traceback (most recent call last):
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: database or disk is full
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/user/bl-runs/wt-rev-a1r/brambleloop/tests/test_a1r_child_safety_core.py", line 479, in <module>
+    fn()
+  File "/home/user/bl-runs/wt-rev-a1r/brambleloop/tests/test_a1r_child_safety_core.py", line 431, in test_assets_build_through_the_worker_holds_stuffed_forms_and_renders_the_catalogue
+    out = _assets_build_full(cir)
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/wt-rev-a1r/brambleloop/tests/test_a1r_child_safety_core.py", line 196, in _assets_build_full
+    db, path = _store()
+               ^^^^^^^^
+  File "/home/user/bl-runs/wt-rev-a1r/brambleloop/tests/test_a1r_child_safety_core.py", line 155, in _store
+    db.create_all()
+  File "/home/user/bl-runs/wt-rev-a1r/brambleloop/src/brambleloop/core/db.py", line 174, in create_all
+    Base.metadata.create_all(self.engine)
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/schema.py", line 5929, in create_all
+    bind._run_ddl_visitor(
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3270, in _run_ddl_visitor
+    conn._run_ddl_visitor(visitorcallable, element, **kwargs)
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2469, in _run_ddl_visitor
+    ).traverse_single(element)
+      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+           ^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 985, in visit_metadata
+    self.traverse_single(
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+           ^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 1027, in visit_table
+    self.traverse_single(index, create_ok=True)
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+           ^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 1064, in visit_index
+    CreateIndex(index)._invoke_with(self.connection)
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 322, in _invoke_with
+    return bind.execute(self)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+           ^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 188, in _execute_on_connection
+    return connection._execute_ddl(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/bl-runs/venv-integ4/lib/python3

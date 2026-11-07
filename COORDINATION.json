@@ -999,6 +999,15 @@
       "verdicts": {
         "claude/w6-fix-only-rebuild 6cbc08e6": "DO NOT SHIP: F1 HIGH fix_only stored in assets.build outputs leaked into ordinary re-price/targeted rebuild/launch-review (silent no-relaunch); F2 live listing search profile overwritten (false F-294, possible false taxonomy-drift resolve); F3 withdrawn listing revived as draft; F4 card lacked the candidate description. Fixed in 9e8665c3 (in review)."
       }
+    },
+    {
+      "subject": "U2 A1R core",
+      "sha": "c3a7b93a",
+      "recorded": "2026-11-07T07:50:39Z",
+      "report": "research/final_build/w5/u2probes/ (suites, mutants, probes)",
+      "verdicts": {
+        "opus2/p0-child-safety-core c3a7b93a": "DO NOT SHIP alone: slug reuse (a one-piece stuffed ball under an assigned or exempt slug passes), exempt-product retitle not re-checked, numeric ages (0-12 months, ages 2+) undetected; fail-open mutants N6 (launch0 unreadable construction -> []) and N10 (small_parts exception -> []); N12 dedup untested. 6/6 suites pass; 15/18 mutants killed. Codex continuation c10a6eb9/974a34c0/944bcffe addresses slug reuse, retitle, numeric ages. Next unit: A1 full = c3a7b93a + leaves 4800b597 + 2af2a48e."
+      }
     }
   ],
   "integration": {
@@ -1325,6 +1334,12 @@
         "subject": "opus2/v5-scale-verification 295474c6",
         "started": null,
         "requested_by": "#28 6703009305"
+      },
+      {
+        "id": "A1-FULL",
+        "subject": "c3a7b93a + codex/a1-waist-drawcord-unknown 4800b597 + codex/a1-whole-toy-fit 2af2a48e merged on w6-INTEG1",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A1_FULL.md",
+        "started": "2026-11-07T07:50:39Z"
       }
     ]
   },

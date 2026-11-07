@@ -1,0 +1,2 @@
+OK   test_stuffed_catalogue_pieces_are_not_blocked_and_others_still_are
+0 failed
