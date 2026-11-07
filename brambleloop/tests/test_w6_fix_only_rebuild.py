@@ -36,8 +36,8 @@ from sqlalchemy import func, select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import (AuditLog, Job, JobStatus, Listing, OwnerAction,  # noqa: E402
-                                     Phase, PriceObservation)
+from brambleloop.core.models import (AuditLog, Job, JobStatus, Listing, ListingSearchProfile,  # noqa: E402
+                                     OwnerAction, Phase, PriceObservation)
 from brambleloop.products import builder  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
@@ -167,6 +167,54 @@ def test_a_fix_only_rebuild_of_a_draft_refreshes_copy_but_keeps_its_price():
     assert after["state"] == "draft" and after["price"] == 12.34, after   # no revert
     assert after["title"] != "an old weak title", after                    # copy refreshed
     assert not [t for t, _s in _jobs(db, "draft-1") if t in DOWNSTREAM]
+
+
+def _profile(db, slug, version):
+    with db.session() as s:
+        rows = s.scalars(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug))
+        return sorted(repr({c.name: getattr(r, c.name) for c in r.__table__.columns})
+                      for r in rows)
+
+
+def test_a_live_listing_keeps_its_search_profile_and_the_candidate_is_complete():
+    """Review 6cbc08e6 F2 (profile untouched, so no false F-294) and F4 (full candidate)."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="published", etsy_listing_id="1234567")
+    before = _profile(db, slug, version)
+    _fix(db, st["inputs"], "prof-1")
+    assert _profile(db, slug, version) == before
+    cand = _audits(db, "listing.fix_candidate")[-1]["candidate"]
+    assert cand["description"] and cand["title"] and "taxonomy" in cand, cand
+
+
+def test_a_withdrawn_listing_is_not_revived_as_a_draft():
+    """Review 6cbc08e6 F3."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="withdrawn", etsy_listing_id="")
+    _fix(db, st["inputs"], "wd-1")
+    assert _listing(db, slug, version)["state"] == "withdrawn"
+
+
+def test_the_bound_never_leaks_into_an_ordinary_re_price():
+    """Review 6cbc08e6 F1: ordinary re-drives copy the latest assets.build outputs."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    _fix(db, st["inputs"], "leak-1")
+    with db.session() as s:
+        built = [dict(j.outputs or {}) for j in s.scalars(
+            select(Job).where(Job.job_type == "assets.build", Job.status == JobStatus.DONE)
+            .order_by(Job.id))
+            if (j.inputs or {}).get("rebuild") == "leak-1"]
+    assert built and all("fix_only" not in b for b in built), built
+    # What _reprice_on_plan_drift enqueues: the latest build's outputs plus a token.
+    JobQueue(db).enqueue("pricing", "pricing.position", {**built[-1], "rebuild": "leak-2"},
+                         priority=0, idempotency_key="fo-leak-2")
+    _drain(db, name="fo-leak-2")
+    assert "launch.plan" in [t for t, _s in _jobs(db, "leak-2")], _jobs(db, "leak-2")
 
 
 def test_launch_plan_refuses_a_fix_only_input_whoever_enqueued_it():

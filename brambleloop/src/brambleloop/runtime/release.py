@@ -604,8 +604,6 @@ def handle_assets_build(ctx: JobContext) -> dict:
     release = ctx.job.inputs.get("release", "")
     token = ctx.job.inputs.get("rebuild", "")
     payload = {"slug": slug, "version": version, "release": release, "rebuild": token,
-               # W6 FIX-ONLY: a remediation rebuild is bounded (see FIX_ONLY below).
-               **({"fix_only": True} if ctx.job.inputs.get("fix_only") else {}),
                "pages": doc.pages,
                "size_label": doc.size_label(),
                "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
@@ -618,7 +616,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "pdf_sha256_by_terminology": {t: stored.sha256
                                              for t, stored in sorted(pdfs.items())},
                "frames": stored_frames}
-    ctx.enqueue("pricing", "pricing.position", payload,
+    # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
+    # outputs, which ordinary re-prices and targeted rebuilds copy (review 6cbc08e6 F1).
+    ctx.enqueue("pricing", "pricing.position",
+                {**payload, **({"fix_only": True} if ctx.job.inputs.get("fix_only") else {})},
                 idempotency_key=chain_key("price", slug, version, release, token))
     # W-OWNERIMG: a certified release whose disclosed set is usable starts autonomous
     # image production once per slug@version@release (idempotency key). It is shadow-safe:
@@ -1314,6 +1315,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     certificate["search_policy"] = _search_policy.stamp(ctx.db)
     tag_sources = search_mod.tag_provenance(copy.tags, queries, observed_tags=buyer["tags"])
+    if i.get("fix_only"):
+        stopped = _fix_only_candidate(ctx, slug, version, copy=copy, choice=choice, props=props,
+                                      attributes=attributes)
+        if stopped is not None:
+            return stopped
     _persist_search_profile(ctx, slug, version, copy=copy, choice=choice, props=props,
                             attributes=attributes, coverage=coverage, tag_sources=tag_sources,
                             certificate=certificate,
@@ -2090,6 +2096,55 @@ def _content_hash(*parts: str) -> str:
 
 
 LIVE_STATES = ("published", "published_manually", "active")
+
+
+def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choice, props,
+                        attributes) -> dict | None:
+    """W6 FIX-ONLY (review 6cbc08e6 F2-F4): a remediation changes only an existing DRAFT.
+
+    When the release's listing row is live, or exists in any state other than `draft` (for
+    example `withdrawn` after a refused certification), nothing is persisted: not the row,
+    not the search profile (so F-294 and taxonomy-drift incidents are untouched), not the
+    search package, not the FAQ. The full candidate is audited (`listing.fix_candidate`)
+    and, for a live listing, the owner card names that audit. Returns the stage result, or
+    None when the row is a draft (or absent) and the rebuild may refresh it."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        if row is None or (row.state == "draft" and not _is_live(row)):
+            return None
+        live, state, etsy = _is_live(row), row.state, row.etsy_listing_id
+    candidate = {"title": copy.title, "tags": list(copy.tags), "description": copy.description,
+                 "taxonomy": choice.to_dict() if hasattr(choice, "to_dict") else choice,
+                 "properties": list((props or {}).get("payload") or []),
+                 "attributes": attributes}
+    ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
+        "live": live, "state": state, "etsy_listing_id": etsy, "applied": False,
+        "candidate": candidate})
+    if live:
+        from ..ops import owner_queue
+
+        with ctx.db.session() as s:
+            owner_queue.ensure(
+                s, f"listing.live_update:{slug}@{version}"[:200],
+                action=(f"Compare the rebuilt listing copy for {slug}@{version} with the live "
+                        f"Etsy listing {etsy or '(manual)'}: the full candidate (title, tags, "
+                        f"description, taxonomy, properties) is in the newest audit "
+                        f"'listing.fix_candidate' for {slug}@{version} in the Command Center. "
+                        f"If it is better, apply it in Shop Manager; the system never edits a "
+                        f"live listing."),
+                reason=("a remediation found this live listing's search copy weak and rebuilt "
+                        "a candidate; live listings are never changed autonomously"),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay="the live listing keeps its current copy")
+    ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+              detail={"stopped_before": "listing persistence", "live": live, "state": state})
+    return {"slug": slug, "version": version, "ok": True, "candidate_only": True,
+            "live": live, "state": state, "stopped_before": "launch.plan"}
 
 
 def _is_live(row) -> bool:
@@ -5194,7 +5249,8 @@ def _reprice_on_plan_drift(ctx: JobContext, slug: str, pv, listing_price) -> str
     token = hashlib.sha256(
         f"reprice:{chk['listing_cad']}->{chk['plan_cad']}".encode()).hexdigest()[:12]
     job = ctx.enqueue("pricing", "pricing.position",
-                      {**built, "release": pv.release_hash or "", "rebuild": token},
+                      {**{k: v for k, v in built.items() if k != "fix_only"},
+                       "release": pv.release_hash or "", "rebuild": token},
                       idempotency_key=chain_key("price", slug, pv.version,
                                                 pv.release_hash or "", token))
     ctx.audit("chain.reprice_requested", artifact=f"{slug}@{pv.version}",
@@ -5393,7 +5449,8 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                                                               release, token))
         else:
             stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
-                                    {**built, "release": release, "rebuild": token},
+                                    {**{k: v for k, v in built.items() if k != "fix_only"},
+                                     "release": release, "rebuild": token},
                                     idempotency_key=chain_key("price", slug, version,
                                                               release, token))
     for k in stale:
