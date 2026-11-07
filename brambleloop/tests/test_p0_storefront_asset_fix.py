@@ -568,6 +568,21 @@ def test_a_recovered_blocked_build_no_longer_holds_the_release():
     _review(db)
     why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
     assert "was blocked" in why[("no-hero", "HERO_MISSING")], why       # fix-only: no
+    # A-N1: none of these is a recovery of THIS release's build -- an ordinary re-drive that
+    # itself failed (ok False), and successes for another version, release or slug.
+    for n, (inputs, outputs) in enumerate((
+            (dict(rel), {"ok": False}),
+            ({**rel, "version": "2.0.0"}, {"ok": True, "pdf_sha256": "c" * 64}),
+            ({**rel, "release": "no-hero-other"}, {"ok": True, "pdf_sha256": "d" * 64}),
+            ({**rel, "slug": "other-slug"}, {"ok": True, "pdf_sha256": "e" * 64}))):
+        other = q.enqueue("publishing", "assets.build", {**inputs, "rebuild": f"x{n}"},
+                          idempotency_key=f"not-a-recovery-{n}")
+        with db.session() as s:
+            row = s.get(Job, other.id)
+            row.status, row.outputs = JobStatus.DONE, outputs
+        _review(db)
+        why = {(x["subject"], x["code"]): x["why"] for x in _routed(db)["not_routed"]}
+        assert "was blocked" in why.get(("no-hero", "HERO_MISSING"), ""), (n, why)
     redo = q.enqueue("publishing", "assets.build", {**rel, "rebuild": "deadend:abc"},
                      idempotency_key="deadend-redo-no-hero")
     with db.session() as s:

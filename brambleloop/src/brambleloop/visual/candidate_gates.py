@@ -708,7 +708,11 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
     for g in canonical.LAURA_LISTING_GATES:
         row = {"gate": g, **m[g], "status": gate_status(m[g])}
         if "band" in row and row["status"] != m[g].get("status"):
-            row["band"] = row["status"]          # A-3: the band never contradicts the status
+            # A-3: the band never contradicts the status. A-N2: in the identity band
+            # vocabulary a fixture PASS (status UNKNOWN) is REVIEW, not "UNKNOWN".
+            from .identity_gate import BAND_REVIEW
+
+            row["band"] = BAND_REVIEW if row["status"] == UNKNOWN else row["status"]
         out.append(row)
     return out
 

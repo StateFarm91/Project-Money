@@ -76,7 +76,7 @@ def test_a_fixture_identity_never_makes_an_accepted_identity_anchor():
 
 
 def test_the_laura_gate_row_band_follows_its_status():
-    """A-3: a fixture PASS row reads UNKNOWN in both status and band."""
+    """A-3 / A-N2: a fixture PASS row reads status UNKNOWN and band REVIEW."""
     row = dict(FIXTURE_PASS, band="PASS")
     ok = {"status": "PASS", "why": "x"}
     checks = {k: dict(ok) for k in ("body_proportions", "outfit_consistency",
@@ -86,11 +86,35 @@ def test_the_laura_gate_row_band_follows_its_status():
     order = {g["gate"]: g for g in CG.laura_gate_order(
         checks, {"publishable": False, "blockers": ["x"]})}
     ident = order["canonical_identity"]
-    assert ident["status"] == "UNKNOWN" and ident["band"] == "UNKNOWN", ident
+    # A-N2: the band is in the identity band vocabulary (REVIEW), never the bare "UNKNOWN"
+    from brambleloop.visual import identity_gate as IG
+
+    assert ident["status"] == "UNKNOWN" and ident["band"] == IG.BAND_REVIEW, ident
     checks["identity"] = {"status": "PASS", "why": "x", "band": "PASS"}
     order = {g["gate"]: g for g in CG.laura_gate_order(
         checks, {"publishable": False, "blockers": ["x"]})}
     assert order["canonical_identity"]["band"] == "PASS"
+
+
+
+def test_the_anchor_review_card_names_the_fixture_identity_reading():
+    """A-N3: `_best` (what the owner's anchor-review card says) and reverify's history
+    name a fixture-labelled identity PASS as UNKNOWN, not "UNKNOWN on []"."""
+    db = O.make_db()
+    c = {**_laura_cand(db), "role": IP.IDENTITY_ANCHOR_ROLE, "sha256": "e" * 64}
+    bind = {"status": "PASS", "why": "fixture binding"}
+    fx = IP.identity_anchor_verdict(db, c, _Judges(True), bind)
+    IP.record_candidate(db, dict(c), fx, method="autonomous")
+    best = IP._best(db, listing=c.get("listing") or "", role=IP.IDENTITY_ANCHOR_ROLE,
+                    slug=c["slug"], version=c["version"], release=c["release"])
+    assert best and "identity" in best["unknown"], best and best["unknown"]
+    plain = {**c, "sha256": "d" * 64, "slug": c["slug"] + "-plain"}
+    IP.record_candidate(db, dict(plain),
+                        IP.identity_anchor_verdict(db, plain, _Judges(False), bind),
+                        method="autonomous")
+    best = IP._best(db, listing=plain.get("listing") or "", role=IP.IDENTITY_ANCHOR_ROLE,
+                    slug=plain["slug"], version=c["version"], release=c["release"])
+    assert best and "identity" not in best["unknown"], best and best["unknown"]
 
 
 if __name__ == "__main__":
