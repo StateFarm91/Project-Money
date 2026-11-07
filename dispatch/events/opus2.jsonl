@@ -76,3 +76,4 @@
 {"at": "2026-11-07T08:14:49Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "59233ee5", "note": "1675bf23 + fix_only 9e8665c3; re-run green"}
 {"at": "2026-11-07T08:45:08Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "8bca3606", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
 {"at": "2026-11-07T08:45:10Z", "worker": "opus2", "assignment": "V3", "event": "review_requested", "sha": "8427e777", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
+{"at": "2026-11-07T08:45:13Z", "worker": "opus2", "assignment": "V4", "event": "review_requested", "sha": "16d8ccfd", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
