@@ -1156,6 +1156,25 @@
       "verdicts": {
         "opus2/physical-sample-request-on-codex e8b458b5": "DO NOT SHIP: base codex/physical-complete-colour-evidence 77b9a88f (#78/#80 DO NOT INTEGRATE, on batch6-safety-preview) unreviewed; HIGH-1 any stored record (swatch/owner-made/incomplete/failed) closes the request SATISFIED forever; HIGH-2 card falsely says incomplete records are refused; MED-1 content change under same uncertified version never re-requested; MED-2 colour ids from materials not twin keys; MED-3 re-raises per-release owner sample cards contrary to DECISION_LOG B-532 (stands; route via tester_roster)."
       }
+    },
+    {
+      "subject": "A9 U6 package/event",
+      "sha": "3ee6881f",
+      "recorded": "2026-11-07T18:02:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A9_U6_3ee6881f.md",
+      "verdicts": {
+        "codex/a9-sweep-isolation 3ee6881f": "DO NOT SHIP (no separable subset; A9 calls A1 directly): H1 test_opus2_listing_package 2 stale assertions; H2 9/15 new test files invisible to run_tests (pytest imports, no __main__, PASS not OK); M1 record-time re-verification untested (RX fail-open survives); M2 fence ORM-only (bulk/raw SQL bypass, latent); M3 PG try-lock unverified; M4 one bad release fails every sweep; A1 vocabulary gap and N6/N10 carried. Order: land A1 unit first, then U6 as delta."
+      }
+    },
+    {
+      "subject": "Storefront/portfolio merge heads",
+      "sha": "ff573af8, 77bf3e19",
+      "recorded": "2026-11-07T18:02:00Z",
+      "report": "scratchpad sfpf2/ addendum",
+      "verdicts": {
+        "ff573af8": "SHIP (chain_successors identical to INTEG1; map regenerated); integrated.",
+        "77bf3e19": "SHIP; integrated (map regenerated on INTEG1)."
+      }
     }
   ],
   "integration": {
