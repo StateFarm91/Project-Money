@@ -62,3 +62,4 @@
 {"at": "2026-11-07T05:13:04Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "e30b5fa0", "note": "P0-c vessel verifier; #28 6702674398; P1-d/P2-a next"}
 {"at": "2026-11-07T05:42:46Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "6799f1d4", "note": "#28 6702941320; regression 13/13"}
 {"at": "2026-11-07T05:42:48Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "checkpoint", "sha": "ad351e46", "note": "review e1d1adb3 F1-F8 fixed; regression running"}
+{"at": "2026-11-07T05:42:50Z", "worker": "opus2", "assignment": "V4", "event": "checkpoint", "sha": "86cf2a36", "note": "pushed; focused + mutants green"}
