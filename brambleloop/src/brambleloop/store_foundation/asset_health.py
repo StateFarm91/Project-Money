@@ -159,6 +159,23 @@ def _card_text(f: dict) -> dict:
     return {"action": action[:900], "why_software_cannot": why_not}
 
 
+def _recovered(s, blocked, slug: str, version: str, release: str) -> bool:
+    """Whether a later ordinary (not fix-only) run of the blocked stage for this exact
+    release has succeeded, e.g. chain.successors' re-drive under a new commit (S-N2)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    for j in s.scalars(select(Job).where(Job.job_type == blocked.job_type,
+                                         Job.status == JobStatus.DONE, Job.id > blocked.id)):
+        i, o = j.inputs or {}, j.outputs or {}
+        if i.get("fix_only") or o.get("ok") is False:
+            continue
+        if (i.get("slug"), i.get("version"), i.get("release", "")) == (slug, version, release):
+            return True
+    return False
+
+
 def _chain_in_flight(s, slug: str, version: str, release: str) -> str | None:
     """Why this release's own build is still coming, or None when it is not."""
     from sqlalchemy import select
@@ -179,9 +196,11 @@ def _chain_in_flight(s, slug: str, version: str, release: str) -> str | None:
         j = s.scalar(select(Job).where(Job.idempotency_key == key))
         if j is not None and j.status != JobStatus.DONE:
             return f"its own {j.job_type} ({key}) is {j.status.value}"
-        if j is not None and (j.outputs or {}).get("ok") is False:
+        if j is not None and (j.outputs or {}).get("ok") is False \
+                and not _recovered(s, j, slug, version, release):
             # Review STOREFRONT a1331372 H1: a blocked build is DONE with ok=False. Its
-            # recovery belongs to chain.successors (the ordinary chain, through launch).
+            # recovery belongs to chain.successors (the ordinary chain, through launch) --
+            # until an ordinary re-drive of that stage has succeeded (review S-N2).
             return (f"its own {j.job_type} ({key}) was blocked; chain.successors owns its "
                     f"recovery")
     from ..core.models import Incident

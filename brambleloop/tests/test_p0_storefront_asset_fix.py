@@ -546,6 +546,56 @@ def test_a_fix_only_success_never_resolves_or_rewrites_an_ordinary_dead_end():
     assert len(redo) == 1 and not redo[0].inputs.get("fix_only"), [x.inputs for x in redo]
 
 
+def test_a_recovered_blocked_build_no_longer_holds_the_release():
+    """S-N2: once an ordinary re-drive of the blocked build succeeds, the blocked original
+    stops holding the release; a fix-only success does not count."""
+    db = _seeded()
+    q = JobQueue(db)
+    rel = {"slug": "no-hero", "version": "1.0.0", "release": "no-hero1.0.0"}
+    for stage, jt in (("listing", "listing.draft"), ("assets", "assets.build")):
+        j = q.enqueue("publishing", jt, dict(rel),
+                      idempotency_key=chain_key(stage, "no-hero", "1.0.0", "no-hero1.0.0"))
+        with db.session() as s:
+            row = s.get(Job, j.id)
+            row.status = JobStatus.DONE
+            if jt == "assets.build":
+                row.outputs = {"ok": False}
+    fx = q.enqueue("publishing", "assets.build", {**rel, "fix_only": True},
+                   idempotency_key="asset-fix-done-elsewhere")
+    with db.session() as s:
+        row = s.get(Job, fx.id)
+        row.status, row.outputs = JobStatus.DONE, {"ok": True, "pdf_sha256": "a" * 64}
+    _review(db)
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert "was blocked" in why[("no-hero", "HERO_MISSING")], why       # fix-only: no
+    redo = q.enqueue("publishing", "assets.build", {**rel, "rebuild": "deadend:abc"},
+                     idempotency_key="deadend-redo-no-hero")
+    with db.session() as s:
+        row = s.get(Job, redo.id)
+        row.status, row.outputs = JobStatus.DONE, {"ok": True, "pdf_sha256": "b" * 64}
+    _review(db)
+    assert "no-hero" in [j.inputs["slug"] for j in _rebuilds(db)], _routed(db)
+
+
+def test_an_open_pricing_dead_end_holds_and_a_resolved_one_does_not():
+    """S-N3 (mutants H1c, H1d): the dead-end check covers PRICING and honours `resolved`."""
+    from brambleloop.core.models import Incident
+    from brambleloop.runtime import chain_successors as CS
+
+    db = _seeded()
+    with db.session() as s:
+        s.add(Incident(severity="P2", product_slug="old-assets",
+                       signature=CS.signature(CS.PRICING, "old-assets", "2.0.0"),
+                       summary="pricing refused", detail={}))
+        s.add(Incident(severity="P2", product_slug="no-hero",
+                       signature=CS.signature(CS.ASSETS, "no-hero", "1.0.0"),
+                       summary="assets refused (since fixed)", detail={}, resolved=True))
+    _review(db)
+    assert [j.inputs["slug"] for j in _rebuilds(db)] == ["no-hero"], _routed(db)
+    why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
+    assert "pricing" in why[("old-assets", "ASSETS_STALE")], why
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):

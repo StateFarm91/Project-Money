@@ -704,8 +704,13 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
          "publication_gate": _c(PASS if publication["publishable"] else FAIL,
                                 "; ".join(publication["blockers"])[:400] or "publishable")}
     # D1: a fixture-labelled PASS is shown with its label but counted UNKNOWN in the order.
-    return [{"gate": g, **m[g], "status": gate_status(m[g])}
-            for g in canonical.LAURA_LISTING_GATES]
+    out = []
+    for g in canonical.LAURA_LISTING_GATES:
+        row = {"gate": g, **m[g], "status": gate_status(m[g])}
+        if "band" in row and row["status"] != m[g].get("status"):
+            row["band"] = row["status"]          # A-3: the band never contradicts the status
+        out.append(row)
+    return out
 
 
 def campaign_consistency(rows: list[dict]) -> dict:

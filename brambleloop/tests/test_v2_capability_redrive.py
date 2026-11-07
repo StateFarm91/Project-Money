@@ -246,6 +246,21 @@ def test_the_restart_job_is_enqueued_inside_the_restart_transaction():
 def test_the_post_v0_gate_reason_is_still_recognised_as_a_capability_block():
     """D4: the V0 reason suffix does not hide the gate from the redrive."""
     assert IP._gate_of(GATE_REASON) == "image_generation"
+    # A-4: V0's other closed-gate reason, an activated provider with no probe yet.
+    probe = (f"image_generation gate closed: a paid generator may not be called "
+             f"(no_probe_under_activation: bfl activated, but no probe has yet succeeded "
+             f"under an activation still in force)")
+    assert IP._gate_of(probe) == "image_generation"
+    db = _db()
+    key = _blocked(db, "basket-p", probe)
+    gate, calls = _Gate(), []
+    gate.open = True
+    real = _with_gate(gate)
+    try:
+        out = IP.redrive_capability_blocked(db, follow=_follow(calls))
+    finally:
+        gallery.gates_now = real
+    assert [r["run_key"] for r in out["restarted"]] == [key], out
     src = open(IP.__file__).read()
     assert '"image_generation gate closed: a paid generator may not be "' in src
 
