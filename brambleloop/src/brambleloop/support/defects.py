@@ -36,18 +36,20 @@ Every triage that finds the incident open re-asserts the hold and re-enqueues th
 under the same idempotency keys, so a transient failure between those steps is repaired on
 the next sweep instead of leaving an open incident with no hold.
 
-Counted per buyer: the threshold is distinct `customer_ref`s citing the row, so one buyer
-writing three times does not hold a release. The release is the currently certified version
-when any citing case names it (that is what buyers are being sold), else the version most
-citing cases name.
+Counted per buyer, on the release on sale: the threshold is distinct `customer_ref`s whose
+cases name the currently certified version and cite the row. One buyer writing three times,
+cases about another version, or cases naming no version never hold the release being sold;
+an older version not on sale is never held.
 
 How it is decided (delta review 05961fd0 N-1: a hold nothing can clear is a deadlock):
 * the owner records `POST /api/owner/decision {kind: "support_defect", id, decision, why}`:
   `not_a_defect` resolves the incident and releases the hold; `confirmed` keeps the hold and
   records that a corrected version is required. An owner card names that exact call, and the
   incident's REMEDIATION entry names the same path.
-* a newer certified version of the product supersedes the held one: the incident resolves
-  as superseded, and the old version stays held (it was never cleared, nothing sells it).
+* `confirmed` keeps the hold (`keep_hold`) until a corrected release exists.
+* a strictly newer certified version with a CHANGED CIR supersedes the held one: the
+  incident resolves as superseded and the old version stays held. A new version with an
+  identical CIR inherits the hold instead (`supersede`).
 
 Idempotent: a release+row whose incident was resolved is never re-escalated; a further case
 only refreshes the open incident's mention count in place.
@@ -71,39 +73,27 @@ def hold_check(row: int) -> str:
 
 
 def _release_for(db, slug: str, row: int) -> dict | None:
-    """The stored release the cases are about, with the distinct buyers citing this row ON
-    THAT VERSION (delta review N-2). Preference: the currently certified version when it alone
-    reaches the threshold (it is what is sold), else the version with the most distinct
-    citing buyers that reaches it, else the best-supported version (the caller then refuses
-    for want of buyers). Cases with no version count toward the current release. None when
-    no stored version of the product is cited."""
+    """The release on sale (the currently certified version) and the distinct buyers whose
+    cases cite this row OF THAT VERSION. Cases naming another version, or none, are not
+    evidence about this release (delta reviews N-2, 785849c0 F-3) and an older version that is
+    not on sale is never held (785849c0 F-1/R2). None when the product has no certified
+    release."""
     from sqlalchemy import select
 
     from ..core.models import SupportCase
-    from ..publish import withholding
     from ..runtime.quality_ops import certified_releases
 
-    with db.session() as s:
-        citing = [(c.version, c.customer_ref) for c in s.scalars(select(SupportCase).where(
-            SupportCase.product_slug == slug))
-            if int(row) in [int(r) for r in (c.detail or {}).get("cited_rows") or []]]
     certified = {r["slug"]: r for r in certified_releases(db)}
-    current = certified.get(slug, {}).get("version")
-    by_version: dict[str, set] = {}
-    for v, ref in citing:
-        v = v or current
-        if v and ref:
-            by_version.setdefault(v, set()).add(ref)
-    with db.session() as s:
-        stored = {v for v in by_version if withholding._release(s, slug, v) is not None}
-    if not stored:
+    if slug not in certified:
         return None
-    ranked = sorted(stored, key=lambda v: (-len(by_version[v]), v))
-    reaching = [v for v in ranked if len(by_version[v]) >= THRESHOLD]
-    version = current if current in reaching else (reaching or ranked)[0]
-    rh = certified.get(slug, {}).get("release_hash", "") if version == current else ""
-    return {"slug": slug, "version": version, "release_hash": rh,
-            "buyers": len(by_version[version]), "current": current}
+    current = certified[slug]["version"]
+    with db.session() as s:
+        buyers = {c.customer_ref for c in s.scalars(select(SupportCase).where(
+            SupportCase.product_slug == slug, SupportCase.version == current))
+            if c.customer_ref
+            and int(row) in [int(r) for r in (c.detail or {}).get("cited_rows") or []]}
+    return {"slug": slug, "version": current,
+            "release_hash": certified[slug].get("release_hash", ""), "buyers": len(buyers)}
 
 
 def escalate(ctx, hotspot: dict) -> dict:
@@ -253,8 +243,8 @@ def _owner_card(s, sig: str, slug: str, version: str, row: int, mentions: int):
 
     inc = s.scalar(select(Incident).where(Incident.signature == sig,
                                           Incident.resolved == False))  # noqa: E712
-    if inc is None:
-        return None
+    if inc is None or (inc.detail or {}).get("owner_decision"):
+        return None                  # decided: the card is closed for good (785849c0 F-2)
     return owner_queue.ensure(
         s, (CARD_PREFIX + sig)[:200],
         action=(f"Decide the reported defect on row {row} of {slug}@{version}: read the "
@@ -275,16 +265,24 @@ class DecisionRefused(ValueError):
 
 
 def record_owner_decision(db, incident_id: int, decision: str, why: str) -> dict:
-    """The owner's decision on one open support-defect incident. Records only: the hold is
-    released by `release_resolved` (called here and on every triage) for `not_a_defect`."""
+    """The owner's decision on one open support-defect incident. Records only.
+
+    * `not_a_defect`: the incident resolves and its hold is released (`release_resolved`).
+    * `confirmed`: the incident stays open and its hold is kept (`keep_hold`) until a newer,
+      changed certified version supersedes it; no later resolution path releases it.
+    A `confirmed` incident may still be re-decided `not_a_defect` (the owner correcting it);
+    a resolved incident cannot be decided again."""
     from ..core.models import Incident, OwnerAction
     from ..ops import owner_queue
     from sqlalchemy import select
 
+    why = (why or "").strip()
     if decision not in ("not_a_defect", "confirmed"):
         raise DecisionRefused("decision must be not_a_defect or confirmed")
-    if len(why.strip()) < 10:
+    if len(why) < 10:
         raise DecisionRefused("why must be a sentence")
+    if len(why) > 1000:
+        raise DecisionRefused("why must be at most 1000 characters")
     with db.session() as s:
         inc = s.get(Incident, int(incident_id))
         if inc is None or not str(inc.signature).startswith(SIGNATURE):
@@ -292,11 +290,12 @@ def record_owner_decision(db, incident_id: int, decision: str, why: str) -> dict
         if inc.resolved:
             raise DecisionRefused("that incident is already resolved")
         d = dict(inc.detail or {})
-        d["owner_decision"] = {"decision": decision, "why": why.strip(),
+        d["owner_decision"] = {"decision": decision, "why": why,
                                "at": datetime.now(timezone.utc).isoformat()}
+        d["keep_hold"] = decision == "confirmed"
         inc.detail = d
         if decision == "not_a_defect":
-            _resolve(s, inc, f"owner: not a pattern defect -- {why.strip()}")
+            _resolve(s, inc, f"owner: not a pattern defect -- {why}")
         card = s.scalar(select(OwnerAction).where(
             OwnerAction.requirement_key == (CARD_PREFIX + inc.signature)[:200],
             OwnerAction.done == False))  # noqa: E712
@@ -307,31 +306,69 @@ def record_owner_decision(db, incident_id: int, decision: str, why: str) -> dict
     return {"signature": sig, "decision": decision, "hold_released": sig in released}
 
 
-def supersede(db) -> list[str]:
-    """An open support-defect incident on a version older than the product's currently
-    certified one resolves as superseded. The old version's hold is kept (never cleared)."""
+def _vtuple(v: str):
+    try:
+        return tuple(int(x) for x in str(v).split("."))
+    except ValueError:
+        return None
+
+
+def supersede(db) -> dict:
+    """Reconcile open support-defect incidents with the release now on sale.
+
+    * The current certified version is strictly newer AND its CIR differs from the held
+      one: a corrected release exists. The incident resolves as superseded; the old version
+      keeps its hold (`keep_hold`), and its card closes as SUPERSEDED.
+    * The current version's CIR is identical to the held one (a re-certification or a
+      version bump with no change): the defect is carried. The same hold is placed on the
+      current version and the incident stays open (785849c0 F-1).
+    * Anything else (an older, unparseable or unchanged-but-uncomparable version) changes
+      nothing."""
     from ..core.models import Incident, OwnerAction
     from ..ops import owner_queue
+    from ..publish import withholding
     from ..runtime.quality_ops import certified_releases
     from sqlalchemy import select
 
     current = {r["slug"]: r["version"] for r in certified_releases(db)}
-    done = []
+    superseded, carried = [], []
     with db.session() as s:
         for inc in s.scalars(select(Incident).where(
                 Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == False)):  # noqa: E712
             d = dict(inc.detail or {})
-            cur = current.get(d.get("slug"))
-            if cur and d.get("version") and cur != d["version"]:
-                d["keep_hold"] = True
-                inc.detail = d
-                _resolve(s, inc, f"superseded by certified {d['slug']}@{cur}; "
-                                 f"{d['version']} stays withheld")
-                card = s.scalar(select(OwnerAction).where(
-                    OwnerAction.requirement_key == (CARD_PREFIX + inc.signature)[:200],
-                    OwnerAction.done == False))  # noqa: E712
-                if card is not None:
-                    owner_queue.close(card, owner_queue.SUPERSEDED,
-                                      f"superseded by certified {d['slug']}@{cur}")
-                done.append(inc.signature)
-    return done
+            slug, held = d.get("slug"), d.get("version")
+            cur = current.get(slug)
+            if not (slug and held and cur) or cur == held:
+                continue
+            held_pv, cur_pv = withholding._release(s, slug, held), withholding._release(s, slug, cur)
+            if held_pv is None or cur_pv is None:
+                continue
+            same = (held_pv.cir_json or {}) == (cur_pv.cir_json or {})
+            if same:
+                if cur not in (d.get("carried_to") or []):
+                    d["carried_to"] = list(d.get("carried_to") or []) + [cur]
+                    inc.detail = d
+                carried.append((slug, cur, d.get("withholding_check"), inc.signature))
+                continue
+            hv, cv = _vtuple(held), _vtuple(cur)
+            if hv is None or cv is None or cv <= hv:
+                continue
+            d["keep_hold"] = True
+            d["superseded_by"] = cur
+            inc.detail = d
+            _resolve(s, inc, f"superseded by certified {slug}@{cur} (changed CIR); "
+                             f"{held} stays withheld")
+            card = s.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == (CARD_PREFIX + inc.signature)[:200],
+                OwnerAction.done == False))  # noqa: E712
+            if card is not None:
+                owner_queue.close(card, owner_queue.SUPERSEDED,
+                                  f"superseded by certified {slug}@{cur}")
+            superseded.append(inc.signature)
+    for slug, cur, hold, sig in carried:
+        if hold:
+            withholding.record_reverification(
+                db, slug, cur, check=hold,
+                problem=(f"carried from {sig}: identical pattern to the held release; held "
+                         f"until the support incident is decided"))
+    return {"superseded": superseded, "carried": [c[3] for c in carried]}

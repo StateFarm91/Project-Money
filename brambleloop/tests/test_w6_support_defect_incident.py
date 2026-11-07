@@ -74,10 +74,14 @@ def _db(*cirs):
     return db
 
 
-def _case(db, cir, n: int, buyer: str | None = None, version: str | None = None) -> None:
+_NOVERSION = object()
+
+
+def _case(db, cir, n: int, buyer: str | None = None, version=None) -> None:
+    v = None if version is _NOVERSION else (version or cir.version)
     reply = CustomerExperience(db).handle(customer_ref=buyer or f"buyer-{cir.slug}-{n}",
                                           message=QUESTION, cir=cir, product_slug=cir.slug,
-                                          version=version or cir.version)
+                                          version=v)
     assert reply.cited_rows == [ROW], reply
 
 
@@ -244,28 +248,37 @@ def test_a_failure_before_the_hold_is_repaired_by_the_next_triage():
     assert sorted(j[0] for j in _reverify_jobs(db)) == ["cir.reverse", "cir.twin"]
 
 
-def test_buyers_are_counted_per_version_and_the_current_release_is_preferred():
+def _add_version(db, cir, version, certified, cir_json=None):
+    with db.session() as s:
+        p = s.scalar(select(Product).where(Product.slug == cir.slug))
+        s.add(PatternVersion(product_id=p.id, version=version,
+                             cir_json=cir_json if cir_json is not None else cir.to_dict(),
+                             certified=certified, release_hash=version[0] * 64,
+                             certificate={"granted": True} if certified else {}))
+
+
+def _open(db):
+    return [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE) and not i[2]]
+
+
+def test_only_buyers_of_the_release_on_sale_count():
     a, _b = _cirs()
     db = _db(a)
-    with db.session() as s:                                 # an older stored release
-        p = s.scalar(select(Product).where(Product.slug == a.slug))
-        s.add(PatternVersion(product_id=p.id, version="0.9.0", cir_json=a.to_dict(),
-                             certified=False, release_hash="o" * 64, certificate={}))
+    _add_version(db, a, "0.9.0", certified=False)           # an older stored release
     for n in range(4):
         _case(db, a, n, version="0.9.0")                    # 4 buyers on the old version
+    for n in range(20, 24):
+        _case(db, a, n, version=_NOVERSION)                 # 4 cases naming no version
     _case(db, a, 10)                                        # 2 buyers on the current one
     _case(db, a, 11)
     _triage(db, "v1")
-    sigs = [i[0] for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]
-    # The current release is NOT held on old-version buyers (delta review N-2) ...
-    assert W.reasons(db, a.slug, a.version)["withheld"] is False, sigs
-    # ... the old version, which alone reaches the threshold, is.
-    assert sigs == [defects.signature(a.slug, "0.9.0", ROW)], sigs
+    assert [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)] == []
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    assert W.reasons(db, a.slug, "0.9.0")["withheld"] is False   # not on sale: never held
     _case(db, a, 12)                                        # a 3rd buyer on the current
     _triage(db, "v2")
+    assert [i[0] for i in _open(db)] == [defects.signature(a.slug, a.version, ROW)]
     assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
-    sigs = [i[0] for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)]
-    assert defects.signature(a.slug, a.version, ROW) in sigs, sigs
 
 
 def test_no_incident_for_a_version_that_is_not_stored():
@@ -277,8 +290,21 @@ def test_no_incident_for_a_version_that_is_not_stored():
     assert [i for i in _incidents(db) if i[0].startswith(defects.SIGNATURE)] == []
 
 
-def test_the_owner_decides_through_a_named_path_and_a_card():
+def _incident_id(db, sig):
+    with db.session() as s:
+        return s.scalar(select(Incident).where(Incident.signature == sig)).id
+
+
+def _open_cards(db, sig):
     from brambleloop.core.models import OwnerAction
+
+    with db.session() as s:
+        return [c.id for c in s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == defects.CARD_PREFIX + sig,
+            OwnerAction.done == False))]  # noqa: E712
+
+
+def test_the_owner_decides_through_a_named_path_and_a_card():
     from brambleloop.ops import incident_lifecycle
 
     a, _b = _cirs()
@@ -287,12 +313,8 @@ def test_the_owner_decides_through_a_named_path_and_a_card():
         _case(db, a, n)
     _triage(db, "d1")
     sig = defects.signature(a.slug, a.version, ROW)
-    with db.session() as s:
-        inc = s.scalar(select(Incident).where(Incident.signature == sig))
-        inc_id = inc.id
-        cards = [c.requirement_key for c in s.scalars(select(OwnerAction).where(
-            OwnerAction.done == False))]  # noqa: E712
-    assert defects.CARD_PREFIX + sig in cards, cards
+    inc_id = _incident_id(db, sig)
+    assert len(_open_cards(db, sig)) == 1
     assert incident_lifecycle.kind_of(sig) in incident_lifecycle.REMEDIATION
     with db.session() as s:
         snap = incident_lifecycle.snapshot(s)
@@ -302,47 +324,123 @@ def test_the_owner_decides_through_a_named_path_and_a_card():
     _triage(db, "d2")
     assert W.reasons(db, a.slug, a.version) == held_before   # N-4
 
-    for bad in [("maybe", "a sentence long enough"), ("confirmed", "short")]:
+    for bad in [("maybe", "a sentence long enough"), ("confirmed", "short"),
+                ("confirmed", "x" * 1001)]:
         try:
             defects.record_owner_decision(db, inc_id, *bad)
-            raise AssertionError("accepted " + repr(bad))
+            raise AssertionError("accepted " + repr(bad)[:80])
         except defects.DecisionRefused:
             pass
+    with db.session() as s:                                  # not a support-defect incident
+        other, _new = incident_lifecycle.open_or_restate(
+            s, signature="health:x", severity="P2", summary="t", detail={})
+        s.flush()
+        other_id = other.id
+    try:
+        defects.record_owner_decision(db, other_id, "not_a_defect", "a long enough reason")
+        raise AssertionError("decided a foreign incident")
+    except defects.DecisionRefused:
+        pass
+
     out = defects.record_owner_decision(db, inc_id, "confirmed",
                                         "the row 3 count really is wrong in this release")
     assert out["hold_released"] is False
-    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    assert _open_cards(db, sig) == []                        # closed ...
+    _case(db, a, 4)
+    _triage(db, "d3")
+    assert _open_cards(db, sig) == []                        # ... and not reopened (F-2)
+    # Anyone resolving a confirmed incident does not release its hold (keep_hold, F-2).
     with db.session() as s:
-        inc = s.get(Incident, inc_id)
-        assert not inc.resolved and inc.detail["owner_decision"]["decision"] == "confirmed"
-    # Re-decided after review: not a defect -> resolved, hold released, card closed.
+        incident_lifecycle.resolve_signatures(s, [sig], resolution="someone tidied up")
+    _triage(db, "d4")
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+
+
+def test_not_a_defect_releases_the_hold_and_cannot_be_decided_again():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n)
+    _triage(db, "n1")
+    sig = defects.signature(a.slug, a.version, ROW)
+    inc_id = _incident_id(db, sig)
+    defects.record_owner_decision(db, inc_id, "confirmed", "looked real at first glance")
     out = defects.record_owner_decision(db, inc_id, "not_a_defect",
                                         "buyers misread the stitch key; the count is right")
     assert out["hold_released"] is True, out
     assert W.reasons(db, a.slug, a.version)["withheld"] is False
-    with db.session() as s:
-        assert not [c for c in s.scalars(select(OwnerAction).where(
-            OwnerAction.requirement_key == defects.CARD_PREFIX + sig,
-            OwnerAction.done == False))]  # noqa: E712
+    assert _open_cards(db, sig) == []
+    try:
+        defects.record_owner_decision(db, inc_id, "confirmed", "changed my mind again")
+        raise AssertionError("re-decided a resolved incident")
+    except defects.DecisionRefused:
+        pass
 
 
-def test_a_newer_certified_version_supersedes_but_the_old_one_stays_held():
+def test_an_unchanged_new_version_inherits_the_hold_and_a_changed_one_supersedes():
     a, _b = _cirs()
     db = _db(a)
     for n in range(3):
         _case(db, a, n)
     _triage(db, "s1")
     sig = defects.signature(a.slug, a.version, ROW)
-    with db.session() as s:
-        p = s.scalar(select(Product).where(Product.slug == a.slug))
-        s.add(PatternVersion(product_id=p.id, version="9.0.0", cir_json=a.to_dict(),
-                             certified=True, release_hash="n" * 64,
-                             certificate={"granted": True}))
+    assert len(_open_cards(db, sig)) == 1                    # undecided: its card is open
+    # A new version with the identical pattern: the defect is carried, nothing resolves.
+    _add_version(db, a, "9.0.0", certified=True)
     _triage(db, "s2")
+    assert [i[0] for i in _open(db)] == [sig]
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    # A strictly newer version with a changed pattern: superseded, the old stays held.
+    changed = {**a.to_dict(), "title": a.title + " (corrected)"}
+    _add_version(db, a, "10.0.0", certified=True, cir_json=changed)
+    _triage(db, "s3")
     inc = [i for i in _incidents(db) if i[0] == sig]
-    assert inc and inc[0][2] is True and "superseded" in inc[0][4]["resolution"], inc
-    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True   # old stays held
-    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
+    assert inc[0][2] is True and inc[0][4]["superseded_by"] == "10.0.0", inc
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+    assert W.reasons(db, a.slug, "10.0.0")["withheld"] is False
+    assert _open_cards(db, sig) == []
+
+
+def test_a_lower_version_certified_later_does_not_supersede():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n)
+    _triage(db, "lv1")
+    sig = defects.signature(a.slug, a.version, ROW)
+    changed = {**a.to_dict(), "title": a.title + " (rollback)"}
+    _add_version(db, a, "0.0.1", certified=True, cir_json=changed)   # newest row, lower version
+    _triage(db, "lv2")
+    assert [i[0] for i in _open(db)] == [sig], _incidents(db)
+    assert W.reasons(db, a.slug, a.version)["blocks_publish"] is True
+
+
+def test_the_owner_decision_route_accepts_support_defect_decisions():
+    import tempfile as _tf
+
+    token = "w6-defect-route-token-0123456789"
+    os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_tf.mkdtemp()}/app.sqlite"
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = token
+    from fastapi.testclient import TestClient
+
+    from brambleloop.app import main
+    from brambleloop.ops import incident_lifecycle
+
+    auth = {"authorization": f"Bearer {token}"}
+    with TestClient(main.app) as c:
+        with main.db.session() as s:
+            inc, _ = incident_lifecycle.open_or_restate(
+                s, signature=defects.signature("x", "1.0.0", 3), severity="P1", summary="t",
+                detail={"slug": "x", "version": "1.0.0", "withholding_check": "support.defect:row3"})
+            s.flush()
+            iid = inc.id
+        body = {"kind": "support_defect", "id": iid, "decision": "confirmed",
+                "why": "the row count is wrong in this release"}
+        assert c.post("/api/owner/decision", json=body).status_code == 401
+        r = c.post("/api/owner/decision", json={**body, "decision": "maybe"}, headers=auth)
+        assert r.status_code == 400, r.text
+        r = c.post("/api/owner/decision", json=body, headers=auth)
+        assert r.status_code == 200 and r.json()["result"]["decision"] == "confirmed", r.text
 
 
 def test_the_defect_path_is_reached_from_the_runtime():
