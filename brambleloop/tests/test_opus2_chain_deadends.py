@@ -289,10 +289,22 @@ def test_the_sweep_never_redrives_with_the_bound_and_commits_never_share_a_key()
                                                          "fix_only": True}}
         os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
         out = CS.sweep(db, JobQueue(db))
-        # A legacy row carrying the bound is resolved, never re-driven as an ordinary chain.
-        assert out["redriven"] == [] and out["resolved"], out
+        # Review 4b4e3694: an ORDINARY dead end whose inputs a pre-fix fix-only refusal
+        # restated still stands for the release's own refusal. It stays open with the bound
+        # stripped, and it is never re-driven automatically.
+        assert out["redriven"] == [] and out["resolved"] == [], out
+        assert "legacy" in out["waiting"][0]["why"], out
         assert not [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
-        assert _deadend_inputs(db) is None
+        assert _deadend_inputs(db) is not None and "fix_only" not in _deadend_inputs(db)
+        again = CS.sweep(db, JobQueue(db))                     # stays waiting on later sweeps
+        assert again["redriven"] == [] and again["resolved"] == [], again
+        # ...and an ordinary success still closes it.
+        with db.session() as s:
+            s.add(Job(agent="publishing", job_type="assets.build", status=JobStatus.DONE,
+                      inputs=dict(REL), outputs={"pdf_sha256": "a" * 64},
+                      finished_at=datetime.now(timezone.utc)))
+        closed = CS.sweep(db, JobQueue(db))
+        assert closed["resolved"] and _deadend_inputs(db) is None, closed
     finally:
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
     # Commits that share their first 4 hex collided when the token was cut to 12 characters
@@ -304,6 +316,30 @@ def test_the_sweep_never_redrives_with_the_bound_and_commits_never_share_a_key()
         assert a != b, (a, b)
     assert release.chain_key("x", "s", "1", "", "0123456789ab").endswith(":0123456789ab:c"
                                                                           + str(release.CHAIN_VERSION))
+
+
+def test_a_legacy_dead_end_that_began_as_a_fix_only_refusal_is_resolved_not_redriven():
+    """Review 4b4e3694: one report, and the refusing job was itself bound."""
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        q = JobQueue(db)
+        job = q.enqueue("publishing", "assets.build", {**REL, "fix_only": True},
+                        idempotency_key="legacy-fo")
+        with db.session() as s:                      # the row a pre-fix record() wrote
+            s.add(Incident(severity="P2", signature=CS.signature(CS.ASSETS, REL["slug"],
+                                                                 REL["version"]),
+                           summary="legacy", product_slug=REL["slug"],
+                           detail={"kind": CS.ASSETS, "stage": "assets.build",
+                                   "inputs": {k: v for k, v in {**REL, "fix_only": True}.items()
+                                              if k != "rebuild"},
+                                   "refused_under_commit": "a" * 40, "refused_job": job.id}))
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        out = CS.sweep(db, q)
+        assert out["resolved"] and out["redriven"] == [], out
+        assert _deadend_inputs(db) is None
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
 
 
 if __name__ == "__main__":

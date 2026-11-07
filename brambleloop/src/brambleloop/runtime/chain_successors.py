@@ -224,7 +224,8 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
     now = now or _now()
     here = _commit()
     with db.session() as s:
-        rows = [(r.id, r.signature, dict(r.detail or {})) for r in s.scalars(
+        rows = [(r.id, r.signature, dict(r.detail or {}) | {"_reports": int(r.report_count or 1)})
+                for r in s.scalars(
             select(Incident).where(Incident.signature.like(f"{PREFIX}%"),
                                    Incident.resolved.is_(False)).limit(SWEEP_LIMIT))]
     redriven, resolved, waiting = [], [], []
@@ -233,15 +234,49 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
         if kind not in STAGES or not inputs:
             continue
         if inputs.get("fix_only"):
-            # Review deadend cdf4cb5e A-L3: a legacy row opened by a fix-only remediation's
-            # refusal is not the release's dead end, and re-driving it as an ordinary chain
-            # could turn a live listing back into a draft. It is resolved, never re-driven.
+            # Legacy rows only: since cdf4cb5e a fix-only refusal never records a dead end.
+            # Review 4b4e3694: such a row is resolved only when it provably began as a
+            # fix-only refusal (one report, and the refusing job itself was bound). A row that
+            # was an ordinary dead end before a fix-only refusal restated its inputs
+            # (open_or_restate replaces detail) still stands for the release's own refusal:
+            # the bound is stripped and the row stays open -- so an ordinary success still
+            # closes it -- but it is never re-driven, because its ordinary inputs (and
+            # possibly its release) were lost and an ordinary chain could draft a live row.
+            from ..core.models import Job
+
             with db.session() as s:
-                lifecycle.resolve_signatures(s, [sig], resolution=(
-                    "recorded from a fix-only remediation's refusal, which is not the "
-                    "release's own dead end; not re-driven"), now=now)
-            resolved.append(sig)
+                origin = s.get(Job, int(d["refused_job"])) if d.get("refused_job") else None
+                origin_bound = bool(origin is not None and (origin.inputs or {}).get("fix_only"))
+                if d.get("_reports", 1) == 1 and origin_bound:
+                    lifecycle.resolve_signatures(s, [sig], resolution=(
+                        "recorded from a fix-only remediation's refusal, which is not the "
+                        "release's own dead end; not re-driven"), now=now)
+                    resolved.append(sig)
+                    continue
+                row = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                      Incident.resolved.is_(False)))
+                if row is not None:
+                    det = dict(row.detail or {})
+                    det["inputs"] = {k: v for k, v in dict(det.get("inputs") or {}).items()
+                                     if k != "fix_only"}
+                    det["legacy_inputs_restated_by_fix_only"] = True
+                    row.detail = det
+            inputs = {k: v for k, v in inputs.items() if k != "fix_only"}
+            if _stage_succeeded(db, kind, inputs):
+                with db.session() as s:
+                    lifecycle.resolve_signatures(s, [sig], resolution=(
+                        f"{STAGES[kind][0]} has since succeeded for this release"), now=now)
+                resolved.append(sig)
+                continue
+            waiting.append({"signature": sig, "why": "legacy inputs restated by a fix-only "
+                            "refusal; the ordinary inputs were lost, so it is not re-driven "
+                            "automatically"})
             continue
+        if d.get("legacy_inputs_restated_by_fix_only"):
+            if not _stage_succeeded(db, kind, inputs):
+                waiting.append({"signature": sig, "why": "legacy inputs restated by a fix-only "
+                                "refusal; not re-driven automatically"})
+                continue
         if _stage_succeeded(db, kind, inputs):
             with db.session() as s:
                 lifecycle.resolve_signatures(s, [sig], resolution=(
