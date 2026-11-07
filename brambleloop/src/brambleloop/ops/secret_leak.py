@@ -128,14 +128,12 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
     if status != "CAUGHT":
         # Only an explicit CLEAN reads as clean; anything else (missing, malformed, a status
         # this module does not know) is UNKNOWN, never CLEAN (review W6 2026-11-07, LOW).
-        if status == "CLEAN":
-            _close_escalation_failed(session)
         return {"status": "CLEAN" if status == "CLEAN" else "UNKNOWN",
                 "guard_status": status if isinstance(status, str) else repr(type(status)),
                 "records_scanned": summary.get("records_scanned", 0),
                 "opened": [], "restated": [], "owner_actions": []}
     env = dict(os.environ) if env is None else env
-    opened, restated, actions, acknowledged = [], [], [], []
+    opened, restated, actions = [], [], []
     from sqlalchemy import select
 
     from ..core.models import Incident, OwnerAction
@@ -160,14 +158,6 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
             if open_row is not None:
                 actions.append({"key": key, "id": open_row.id})
             continue
-        if existing is None and s["variable"] is None and _resolved_for_same_catch(
-                session, signature, detail["fingerprints"]):
-            # The owner resolved this exact catch, no variable here still holds the value (it
-            # was rotated), and it has not been logged again since: the process guard simply
-            # still remembers it. No new P1 or card (review W6 MED). A value a variable still
-            # holds, a higher count, or a new fingerprint opens as usual (delta N-M1).
-            acknowledged.append(signature)
-            continue
         else:
             _row, new = incident_lifecycle.open_or_restate(
                 session, signature=signature, severity="P1",
@@ -178,34 +168,9 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
             (opened if new else restated).append(signature)
         row = owner_queue.ensure(session, key, **card)
         actions.append({"key": key, "id": row.id})
-    _close_escalation_failed(session)
     session.flush()
     return {"status": "CAUGHT", "records_scanned": summary.get("records_scanned", 0),
-            "opened": opened, "restated": restated, "owner_actions": actions,
-            "acknowledged": acknowledged}
-
-
-def _resolved_for_same_catch(session, signature: str, fingerprints: dict) -> bool:
-    """True only when this catch is exactly one the owner already resolved and nothing about
-    it has grown (delta review 340025ca N-M1: an acknowledgement must never hide a real
-    exposure). Every caught fingerprint must be covered by a resolved secret-leak incident AND
-    have been seen no more often than that incident recorded. The caller additionally refuses
-    acknowledgement when an environment variable still holds the value (not rotated here)."""
-    from sqlalchemy import select
-
-    from ..core.models import Incident
-
-    if not fingerprints:
-        return False
-    covered: dict[str, int] = {}
-    for inc in session.scalars(select(Incident).where(
-            Incident.signature.like(SIGNATURE + "%"), Incident.resolved == True)):  # noqa: E712
-        for fp, n in ((inc.detail or {}).get("fingerprints") or {}).items():
-            try:
-                covered[fp] = max(covered.get(fp, 0), int(n))
-            except (TypeError, ValueError):
-                continue
-    return all(fp in covered and int(n or 0) <= covered[fp] for fp, n in fingerprints.items())
+            "opened": opened, "restated": restated, "owner_actions": actions}
 
 
 ESCALATION_FAILED = SIGNATURE + "escalation_failed"
@@ -223,19 +188,11 @@ def escalation_failed(session, error: str) -> dict:
                  f"({error}), so no per-credential rotation card exists yet. Read the "
                  f"ops.health job output (secret_leak) and the service log for the guard's "
                  f"pattern/fingerprint lines, rotate those credentials in Railway, and fix "
-                 f"the error; this closes on the next sweep that escalates successfully"),
+                 f"the error, then resolve this incident (it never closes by itself: a later "
+                 f"clean sweep in a new process cannot prove the caught value was rotated)"),
         detail={"source": "ops.secret_leak", "error": error, "value_stored": False})
     session.flush()
     return {"status": "CAUGHT", "escalation": "FAILED", "error": error,
             "opened": [ESCALATION_FAILED] if new else [],
             "restated": [] if new else [ESCALATION_FAILED]}
 
-
-def _close_escalation_failed(session) -> None:
-    """A sweep that escalated (or read clean) closes the fallback row: the per-credential
-    incidents and cards now carry the exposure (delta review 340025ca N-L3)."""
-    from . import incident_lifecycle
-
-    incident_lifecycle.resolve_signatures(
-        session, [ESCALATION_FAILED],
-        resolution="a later ops.health sweep escalated successfully")

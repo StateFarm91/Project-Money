@@ -160,68 +160,28 @@ def test_a_secret_no_variable_holds_is_keyed_on_pattern_and_fingerprint():
     _assert_absent(FAKE_GH, path)
 
 
-def test_an_owner_resolved_and_rotated_catch_stays_quiet_but_any_growth_reopens():
+def test_a_resolved_catch_reopens_while_the_process_holds_it_and_not_after_a_restart():
+    """No acknowledgement rule (two delta reviews showed every one can hide a real exposure).
+    A catch the owner resolved re-opens while this process still remembers it -- loud, never
+    silent -- and a new process (the rotation's redeploy) starts with nothing caught."""
     from brambleloop.ops import incident_lifecycle
 
     G.GUARD.caught.clear()
-    os.environ[VAR] = FAKE_KEY
-    rotated = FAKE_KEY[:-6] + "ZZZZZZ"
-    try:
-        logging.getLogger("brambleloop.provider").error("provider echoed %s back", FAKE_KEY)
-        db, path = _db()
-        _sweep(db, "res-1")
-        sig = f"secret_leak:var:{VAR}"
-
-        def resolve_all(why):
-            with db.session() as s:
-                incident_lifecycle.resolve_signatures(
-                    s, [i[0] for i in _leaks(db)[0] if not i[2]], resolution=why)
-                for a in s.scalars(select(OwnerAction).where(
-                        OwnerAction.requirement_key.like(secret_leak.KEY_PREFIX + "%"))):
-                    a.done = True
-
-        # Resolved but NOT rotated (the variable still holds the value): it reopens.
-        resolve_all("owner: rotated (claimed)")
-        _sweep(db, "res-2")
-        assert [i[2] for i in _leaks(db)[0]].count(False) == 1, _leaks(db)[0]
-
-        # Rotated for real (the variable now holds a new value), resolved: quiet.
-        resolve_all("owner: rotated")
-        os.environ[VAR] = rotated
-        out = _sweep(db, "res-3")
-        assert [i[2] for i in _leaks(db)[0]].count(False) == 0, _leaks(db)[0]
-        assert out["secret_leak"]["acknowledged"], out["secret_leak"]
-
-        # The revoked value is logged again: the count grew, so it reopens (delta N-M1).
-        logging.getLogger("brambleloop.provider").error("old key again %s", FAKE_KEY)
-        _sweep(db, "res-4")
-        assert [i[2] for i in _leaks(db)[0]].count(False) == 1, _leaks(db)[0]
-
-        # The new value leaks: a new, separate open incident on the variable.
-        logging.getLogger("brambleloop.provider").error("new key echoed %s", rotated)
-        _sweep(db, "res-5")
-        open_sigs = [i[0] for i in _leaks(db)[0] if not i[2]]
-        assert sig in open_sigs and len(open_sigs) == 2, open_sigs
-        _assert_absent(FAKE_KEY, path)
-        _assert_absent(rotated, path)
-    finally:
-        os.environ.pop(VAR, None)
-
-
-def test_acknowledgement_needs_every_fingerprint_covered_at_no_higher_count():
-    from brambleloop.ops import incident_lifecycle
-
-    db, _path = _db()
+    logging.getLogger("brambleloop.ci").error("token in a response: %s", FAKE_GH)
+    db, path = _db()
+    _sweep(db, "r-1")
     with db.session() as s:
-        incident_lifecycle.open_or_restate(
-            s, signature="secret_leak:x:aa", severity="P1", summary="t",
-            detail={"fingerprints": {"aa": 2}})
-        incident_lifecycle.resolve_signatures(s, ["secret_leak:x:aa"], resolution="owner")
-        f = secret_leak._resolved_for_same_catch
-        assert f(s, "secret_leak:x:aa", {"aa": 2}) is True
-        assert f(s, "secret_leak:x:aa", {"aa": 3}) is False          # grew
-        assert f(s, "secret_leak:x:aa", {"aa": 1, "bb": 1}) is False  # partly new
-        assert f(s, "secret_leak:x:aa", {}) is False
+        incident_lifecycle.resolve_signatures(
+            s, [i[0] for i in _leaks(db)[0]], resolution="owner: rotated")
+    _sweep(db, "r-2")
+    assert [i[2] for i in _leaks(db)[0]].count(False) == 1, _leaks(db)[0]   # loud
+    with db.session() as s:
+        incident_lifecycle.resolve_signatures(
+            s, [i[0] for i in _leaks(db)[0] if not i[2]], resolution="owner: rotated")
+    G.GUARD.caught.clear()                                   # the redeploy: a fresh process
+    _sweep(db, "r-3")
+    assert [i[2] for i in _leaks(db)[0]].count(False) == 0, _leaks(db)[0]
+    _assert_absent(FAKE_GH, path)
 
 
 def test_only_an_explicit_clean_status_reads_clean():
@@ -251,11 +211,19 @@ def test_a_failed_escalation_of_a_caught_secret_still_opens_an_incident():
     inc, _act = _leaks(db)
     assert [(i[0], i[1], i[2]) for i in inc] == [(secret_leak.ESCALATION_FAILED, "P1", False)], inc
     _assert_absent(FAKE_GH, path)
-    # The next sweep that escalates closes the fallback; the per-credential row carries it.
+    assert inc[0][3]["error"] == "RuntimeError", inc[0][3]          # type only, never str(exc)
+    assert "escalation broke" not in repr(inc[0][3]), inc[0][3]
+    # It never closes by itself: neither a later successful sweep nor a clean new process.
     _sweep(db, "fail-3")
+    G.GUARD.caught.clear()
+    _sweep(db, "fail-4")
     inc = {i[0]: i[2] for i in _leaks(db)[0]}
-    assert inc[secret_leak.ESCALATION_FAILED] is True, inc
-    assert [k for k, r in inc.items() if not r and k != secret_leak.ESCALATION_FAILED], inc
+    assert inc[secret_leak.ESCALATION_FAILED] is False, inc
+    from brambleloop.ops import incident_lifecycle
+
+    with db.session() as s:                    # the fallback names its owner path (REMEDIATION)
+        snap = incident_lifecycle.snapshot(s)
+    assert secret_leak.ESCALATION_FAILED not in snap["needs_owner_path"], snap["needs_owner_path"]
 
 
 def test_a_failed_escalation_with_a_clean_guard_opens_nothing():
