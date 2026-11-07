@@ -234,7 +234,7 @@ def _active(inc) -> bool:
     d = inc.detail or {}
     decided = (d.get("owner_decision") or {}).get("decision")
     if decided == "not_a_defect":
-        return False
+        return False      # belt and braces: not_a_defect always resolves the incident too
     return (not inc.resolved) or decided == "confirmed"
 
 

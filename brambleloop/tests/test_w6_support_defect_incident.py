@@ -466,6 +466,28 @@ def test_a_confirmed_incident_on_an_old_version_keeps_holding_a_rolled_back_rele
     assert defects.reconcile_holds(db) == {"placed": [], "released": []}
 
 
+def test_reconcile_never_touches_another_checks_hold():
+    a, _b = _cirs()
+    db = _db(a)
+    W.record_reverification(db, a.slug, a.version, check="cir.twin", problem="twin failed")
+    assert defects.reconcile_holds(db) == {"placed": [], "released": []}
+    held = W.reasons(db, a.slug, a.version)
+    assert held["blocks_publish"] is True and "cir.twin" in str(held["reasons"]), held
+
+
+def test_two_versions_with_no_stored_pattern_are_not_the_same_instructions():
+    a, _b = _cirs()
+    db = _db(a)
+    with db.session() as s:                                  # the held version has no CIR
+        pv = s.scalar(select(PatternVersion).where(PatternVersion.version == a.version))
+        pv.cir_json = {}
+    sig, _iid = _setup_incident(db, a, "e1")
+    _add_version(db, a, "9.0.0", certified=True, cir_json={})
+    _triage(db, "e2")
+    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False   # unknown is not "the same"
+    assert [i[0] for i in _open(db)] == [sig]
+
+
 def test_instruction_hash_ignores_presentation_and_sees_instructions():
     a, _b = _cirs()
     d = a.to_dict()
