@@ -981,6 +981,15 @@
       "verdicts": {
         "claude/w6-support-defect-incident dd05e389": "SHIP: reconcile_holds fixes c5cad183 F-1..F-3; no HIGH; 17/17. MED follow-ups (Main): F-1 certify/decertify do not reconcile, so a new/rolled-back release with held instructions is unheld until next triage; F-2 instruction hash reads the held version's mutable cir_json (store it at incident open). LOW: confirmed-then-resolved-elsewhere cannot be re-decided; grading/configuration-only fixes stay held; orphan card when undecided incident resolved elsewhere; stale 'supersedes' wording. R2 confirmed equivalent."
       }
+    },
+    {
+      "subject": "V2 vessel fidelity",
+      "sha": "6799f1d4",
+      "recorded": "2026-11-07T06:16:50Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_V2_6799f1d4.md",
+      "verdicts": {
+        "opus2/v2-vessel-fidelity 6799f1d4": "DO NOT SHIP: HIGH vessel.py:205 no palette-distance limit (yellow/navy passes as cream/wine); HIGH vessel.py:239 sides 0/None -> NA so a square passes as round key_basket; MED-HIGH no minimum top-view size (24-48px pentagon/octagon/circle count 6); MED vessel.py:100 flared top falls back to the old round check; MED prominence-floor mutant reachable (1%-lobed circle passes as hexagon); MED 60% band-share tolerance and gallery_ready blocker unprotected. Sound: gallery_ready, the two test edits, P2-a, Laura untouched, paid generation OFF. Corrections to opus2."
+      }
     }
   ],
   "integration": {
@@ -1288,13 +1297,6 @@
         "report": null,
         "started": null,
         "note": "awaiting opus2 green regression + REVIEW-REQUEST"
-      },
-      {
-        "id": "V2-REVIEW",
-        "subject": "opus2/v2-vessel-fidelity 6799f1d4 (P0-c + P1-d + P2-a)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_V2_6799f1d4.md",
-        "started": "2026-11-07T05:52:24Z",
-        "requested_by": "#28 6702941320"
       },
       {
         "id": "PORTFOLIO-D1-QUEUED",
