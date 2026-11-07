@@ -1223,6 +1223,11 @@ def handle_certify(ctx: JobContext) -> dict:
     # The re-test is requested here, as an owner spend approval for an independent tester
     # (never the owner's labour, F-071), instead of the block only saying "needs a re-test".
     _request_physical_retest(ctx, cir, cert)
+    # P0-PHYSICAL-TEST-REQUEST: a class-C release with no bound full make (no earlier
+    # evidence at all) gets its own per-product sample request, kit built from this CIR.
+    from ..quality import physical_sample
+
+    physical_sample.request(ctx, cir, cert)
 
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
