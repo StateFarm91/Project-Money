@@ -1254,6 +1254,16 @@ def handle_certify(ctx: JobContext) -> dict:
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        # W6 support-defect (review dd05e389 F-1): a release that just became the one on sale
+        # inherits any active support-defect hold now, not at the next hourly triage.
+        # store.publish reconciles again immediately before its gates, and fails closed.
+        from ..support import defects as _support_defects
+
+        try:
+            _support_defects.reconcile_holds(ctx.db)
+        except Exception as exc:  # noqa: BLE001
+            ctx.audit("support.defect_reconcile_failed", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"error": type(exc).__name__, "at": "gate.certify"})
         # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
         # the version map written at sale time, and prepares their notice. Sending it is the
         # owner's (an owner action is raised); nothing is sent from here.
@@ -1888,6 +1898,20 @@ def handle_store_publish(ctx: JobContext) -> dict:
     # `/api/verify` counts as evidence of Shadow Mode working would start saying something
     # else.
     # W4-WRAPTEST: an uncertified EXPERIMENT never reaches publication, in any phase.
+    # W6 support-defect (review dd05e389 F-1): the holds are reconciled FIRST, before any
+    # gate reads them (`_release_gates` below), so a release that became current since the
+    # last triage (a new certification, a rollback) can never be published in that window.
+    # A reconcile that cannot run refuses the publish (fail closed).
+    from ..support import defects as _support_defects
+
+    try:
+        _support_defects.reconcile_holds(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
+                  detail={"reason": f"support-defect holds could not be reconciled: "
+                                    f"{type(exc).__name__}"})
+        raise RuntimeError("support-defect holds could not be reconciled before publish; "
+                           "refusing to publish") from exc
     from ..visual.experiment import refuse_if_experiment
 
     refuse_if_experiment(ctx.db, ctx.job.inputs.get("slug"), ctx.job.inputs.get("version"),

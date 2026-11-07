@@ -151,8 +151,13 @@ def escalate(ctx, hotspot: dict) -> dict:
                         "withholding_check": check, "pending_checks": list(CHECKS),
                         "passed_checks": [], "held_at": datetime.now(timezone.utc).isoformat(),
                         "source": "support.triage",
+                        # review dd05e389 F-2: the instructions buyers reported on, fixed at
+                        # open, so re-certifying the held version in place cannot change
+                        # what counts as "the same pattern" while the incident is active.
+                        "instruction_hash": _stored_instruction_hash(ctx.db, slug, version),
                         "clears": ("owner decision (POST /api/owner/decision kind=support_defect) "
-                                   "or a newer certified version superseding this one; passing "
+                                   "only; a corrected release with changed instructions is not "
+                                   "held, but this version stays held until decided; passing "
                                    "checks are recorded as evidence, not a release")})
     with ctx.db.session() as s:
         _owner_card(s, sig, slug, version, row, mentions)
@@ -230,6 +235,14 @@ def instruction_hash(cir_json: dict | None) -> str | None:
     return hashlib.sha256(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()
 
 
+def _stored_instruction_hash(db, slug: str, version: str) -> str | None:
+    from ..publish import withholding
+
+    with db.session() as s:
+        pv = withholding._release(s, slug, version)
+        return instruction_hash(pv.cir_json) if pv is not None else None
+
+
 def _active(inc) -> bool:
     d = inc.detail or {}
     decided = (d.get("owner_decision") or {}).get("decision")
@@ -264,8 +277,8 @@ def reconcile_holds(db) -> dict:
             want.setdefault((slug, held, check), sig)
         cur = current.get(slug)
         if cur and cur != held and (slug, cur) in versions and (slug, held) in versions:
-            h_old, h_cur = (instruction_hash(versions[(slug, held)][0]),
-                            instruction_hash(versions[(slug, cur)][0]))
+            h_old = d.get("instruction_hash") or instruction_hash(versions[(slug, held)][0])
+            h_cur = instruction_hash(versions[(slug, cur)][0])
             if h_old is not None and h_old == h_cur:
                 want.setdefault((slug, cur, check), sig)
     have = {(slug, v, check) for (slug, v), (_cir, cert) in versions.items()
@@ -310,8 +323,9 @@ def _owner_card(s, sig: str, slug: str, version: str, row: int, mentions: int):
                 f"refute a reader-reported problem, so publication of this release is held "
                 f"until it is decided."),
         max_cost_cad=0.0, minutes=10,
-        consequence_of_delay=(f"{slug}@{version} stays withheld from publication; certifying "
-                              f"a corrected version also ends the hold"))
+        consequence_of_delay=(f"{slug}@{version}, and any release on sale with the same "
+                              f"instructions, stays withheld from publication; a corrected "
+                              f"release with changed instructions is not held"))
 
 
 class DecisionRefused(ValueError):
