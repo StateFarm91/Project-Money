@@ -231,6 +231,70 @@ def test_the_parity_row_carries_the_version_and_release_it_judged():
     assert '"release": ctx.job.inputs.get("release", "")' in window
 
 
+def _deadend_inputs(db, kind=CS.ASSETS):
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(
+            Incident.signature == CS.signature(kind, REL["slug"], REL["version"]),
+            Incident.resolved.is_(False)))
+        return None if row is None else dict((row.detail or {}).get("inputs") or {})
+
+
+def test_a_fix_only_refusal_never_replaces_the_releases_own_dead_end():
+    """Review STOREFRONT a1331372 H1 (repro B): the dead end keeps its ordinary inputs."""
+    db = _db()
+    blocked = {"ok": False, "blocking_image_problems": ["invented edging"]}
+    with _Stage("handle_assets_build", blocked):
+        _run(db, "publishing", "assets.build", REL)                     # the release's own
+        assert "fix_only" not in _deadend_inputs(db)
+        _run(db, "publishing", "assets.build", {**REL, "rebuild": "fo-1", "fix_only": True})
+    assert "fix_only" not in _deadend_inputs(db), _deadend_inputs(db)
+
+
+def test_a_fix_only_refusal_alone_opens_no_dead_end():
+    db = _db()
+    with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
+        _run(db, "publishing", "assets.build", {**REL, "fix_only": True})
+    assert _deadend_inputs(db) is None
+
+
+def test_a_fix_only_success_never_closes_the_releases_dead_end():
+    """Review STOREFRONT a1331372 H1 (repro A): a fix-only build stops before launch.plan."""
+    db = _db()
+    with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
+        _run(db, "publishing", "assets.build", REL)
+    with db.session() as s:
+        s.add(Job(agent="publishing", job_type="assets.build", status=JobStatus.DONE,
+                  inputs={**REL, "fix_only": True}, outputs={"pdf_sha256": "a" * 64},
+                  finished_at=datetime.now(timezone.utc)))
+    out = _run(db, "listing", "chain.successors", {})
+    assert out["resolved"] == [], out
+    assert _deadend_inputs(db) is not None
+
+
+def test_the_sweep_never_redrives_with_the_bound_and_commits_never_share_a_key():
+    db = _db()
+    os.environ["RAILWAY_GIT_COMMIT_SHA"] = "a" * 40
+    try:
+        with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
+            _run(db, "publishing", "assets.build", REL)
+        with db.session() as s:                    # a legacy row carrying the bound
+            row = s.scalar(select(Incident).where(Incident.signature == CS.signature(
+                CS.ASSETS, REL["slug"], REL["version"])))
+            row.detail = {**dict(row.detail), "inputs": {**dict(row.detail)["inputs"],
+                                                         "fix_only": True}}
+        os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
+        CS.sweep(db, JobQueue(db))
+        redrives = [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
+        assert redrives and "fix_only" not in redrives[-1][0], redrives[-1][0]
+    finally:
+        os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
+    a = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "a" * 12)
+    b = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "b" * 12)
+    assert a != b, (a, b)
+    assert release.chain_key("x", "s", "1", "", "0123456789ab").endswith(":0123456789ab:c"
+                                                                          + str(release.CHAIN_VERSION))
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
