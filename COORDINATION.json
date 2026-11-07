@@ -1060,6 +1060,17 @@
         "V3": "SHIP as fixture-only, but N4 MED: fixture identity result is literal PASS and fixture_only is dropped by exception_evidence/publication_verdict; must become UNKNOWN before any caller enables fixtures.",
         "stack": "N5 MED predates V0: conflicts with w6-INTEG1 in flux3_generator.generate, image_production._generate, COORDINATION.json, suite_final_segment.txt; needs a rebase onto w6-INTEG1 and re-review. N6 LOW V3 second judge/embedder bypass V0 structurally (unconfigured today)."
       }
+    },
+    {
+      "subject": "Fix-only + support follow-up deltas",
+      "sha": "0f2de815, 5494fc71, 34956e07",
+      "recorded": "2026-11-07T13:00:00Z",
+      "report": "review agent hand-backs (Main)",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild 0f2de815": "SHIP: R1/R2/N5 fixed, 6/6 mutants killed. Open LOW: R3 launch_review behavioural test (clock-dependent test_w4_launch_review), R4 card text should say disclosure/terms checks not run, N4 dead live branch in _persist_listing.",
+        "claude/w6-support-followup 5494fc71": "SHIP: hold by instructions; on-sale = highest certified version. LOWs fixed in 34956e07.",
+        "claude/w6-support-followup 34956e07": "SHIP: no fail-open; 4/4 mutants killed. Open LOW: owner card for unorderable versions; quality_ops.certified_releases still last-inserted (daily gate.quality); reconcile loads every PatternVersion (bound to active slugs)."
+      }
     }
   ],
   "integration": {
@@ -1190,6 +1201,19 @@
         "SUPPORT dd05e389 MED F-1/F-2 (Main follow-up) + LOWs"
       ],
       "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
+    },
+    "claude/w6-INTEG1": {
+      "head": "5913931f",
+      "updated": "2026-11-07T13:00:00Z",
+      "contains": [
+        "secret-leak",
+        "A7",
+        "support-defect dd05e389",
+        "support follow-up a66ae0b0..34956e07",
+        "V0 0b3d54ee",
+        "7f986be5 evidence map",
+        "fix-only 0f2de815"
+      ]
     }
   },
   "owner_directives": [
