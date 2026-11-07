@@ -1,8 +1,16 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T15:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T16:20Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T16:20Z (read first)
+- VISUAL d6b642dd + V6 80765387: SHIP, integrated in w6-INTEG1 fbddf746.
+- Follow-ups D1/D2/D4 at opus2/visual-d1-d2-d4 256378d6 (worktree opus2-d1): REVIEW-REQUESTED.
+- STOREFRONT ff573af8 and PORTFOLIO 77bf3e19, rebased on INTEG1 59681a47: REVIEW-REQUESTED.
+- PHYSICAL e8b458b5 and #7 49a27769 are in Main's queue.
+- Do not use `find ... -exec rm -rf` in a background shell: the safety check blocks it.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T15:30Z (read first)
 - STOREFRONT review a1331372 (DO NOT SHIP: H1, M1, M2) is fixed at 06a00c91; REVIEW-REQUESTED. A live
