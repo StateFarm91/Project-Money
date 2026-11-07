@@ -137,10 +137,17 @@ def is_vessel(cir) -> bool:
 
 # ---- image helpers --------------------------------------------------------------------------
 
+class _Undecodable(Exception):
+    pass
+
+
 def _product_mask(data: bytes):
     from scipy import ndimage
 
-    rgb = F._load(data)
+    try:
+        rgb = F._load(data)
+    except Exception as exc:  # noqa: BLE001 - review VISUAL_STACK N2: a verdict, not a raise
+        raise _Undecodable(type(exc).__name__) from None
     lab = F._lab(rgb)
     bg, spread = F._background(lab)
     if not math.isfinite(spread) or spread > F.BG_SPREAD_MAX:
@@ -257,7 +264,11 @@ def _bands(mask: np.ndarray, lab: np.ndarray, palette: dict[str, str], rows_tota
 
 def verify_top(data: bytes, model: VesselModel) -> dict:
     name = f"{model.component}:sides"
-    mask, _lab, why = _product_mask(data)
+    try:
+        mask, _lab, why = _product_mask(data)
+    except _Undecodable as exc:
+        # Same shape as fidelity's round-path decode FAIL (no repair code: regenerate).
+        return F._check(name, F.FAIL, f"the top view is not a decodable image ({exc})")
     if mask is None:
         return F._check(name, F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")
     if model.sides is None:
@@ -278,8 +289,12 @@ def verify_top(data: bytes, model: VesselModel) -> dict:
 
 
 def verify_side(data: bytes, model: VesselModel) -> list[dict]:
-    mask, lab, why = _product_mask(data)
     name = model.component
+    try:
+        mask, lab, why = _product_mask(data)
+    except _Undecodable as exc:
+        return [F._check(f"{name}:wall_bands", F.FAIL,
+                         f"the side view is not a decodable image ({exc})")]
     if mask is None:
         return [F._check(f"{name}:wall_bands", F.UNKNOWN, why, code="UNVERIFIABLE_COUNT")]
     runs, widths, height, coverage = _bands(mask, lab, model.palette, model.wall_total_rows)

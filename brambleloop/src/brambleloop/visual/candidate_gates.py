@@ -576,11 +576,21 @@ def _scope_of(cand: dict, job: str | None) -> str:
     return "product_only"
 
 
+def gate_status(check: dict | None) -> str:
+    """A check's status as a gate may count it. Review VISUAL_STACK N4: a fixture-labelled
+    PASS (V3 stand-in judges, `fixture_only`) is never certification, so every gate it feeds
+    reads it as UNKNOWN. A fixture FAIL stays FAIL."""
+    st = (check or {}).get("status", UNKNOWN)
+    if st == PASS and (check or {}).get("fixture_only"):
+        return UNKNOWN
+    return st
+
+
 def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *,
                        other_publication_blockers: list[str]) -> dict:
     """The D-W4-F852-AMEND evidence for `eligibility.may_export`, read only from the checks
     this module ran and the candidate's recorded provenance. Never the owner's approval."""
-    st = {k: (v or {}).get("status", UNKNOWN) for k, v in checks.items()}
+    st = {k: gate_status(v) for k, v in checks.items()}
     fid = ((checks.get("product_truth") or {}).get("fidelity") or {})
     bind = checks.get("binding") or {}
     ev = cand.get("identity_evidence") or {}
@@ -610,7 +620,10 @@ def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *
                        "prompt_version": cand.get("prompt_version"),
                        "receipt": receipt, "disclosure": label},
         # recorded so a reader can see it was not used
-        "owner_visual_approval_is_not_an_input": True}
+        "owner_visual_approval_is_not_an_input": True,
+        # N4: which readings came from fixture stand-ins (counted UNKNOWN above)
+        "fixture_only_checks": sorted(k for k, v in checks.items()
+                                      if (v or {}).get("fixture_only"))}
 
 
 def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) -> dict:
@@ -629,7 +642,7 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
             c = el.Candidate(asset_id=f"candidate-{cand.get('sha256', '')[:12]}", medium=MEDIUM,
                              purpose=el.CONVERSION_CREATIVE, job=job,
                              position=1 if job == el.HERO_JOB else 2)
-            st = {k: v["status"] for k, v in checks.items()}
+            st = {k: gate_status(v) for k, v in checks.items()}
             results = [
                 _gate(el.DATA_TRUTH, worst(st["binding"], st["product_truth"]),
                       checks["product_truth"]["why"]),

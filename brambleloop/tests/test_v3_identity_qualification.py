@@ -371,6 +371,25 @@ def test_laura_canonical_identity_unchanged():
     assert canonical.IDENTITY_RULE.startswith("An image depicting a woman similar to Laura")
 
 
+def test_a_fixture_pass_is_unknown_in_every_gate_it_feeds():
+    """Review VISUAL_STACK N4: the fixture PASS keeps its label on the check, but the export
+    evidence and the publication gates count it UNKNOWN, never a bare PASS."""
+    got = ident()
+    assert got["status"] == "PASS" and got["fixture_only"] is True
+    assert CG.gate_status(got) == "UNKNOWN"
+    assert CG.gate_status({**got, "status": "FAIL"}) == "FAIL"
+    assert CG.gate_status({k: v for k, v in got.items() if k != "fixture_only"}) == "PASS"
+    ok = {"status": "PASS", "why": "fixture"}
+    checks = {k: dict(ok) for k in ("binding", "product_truth", "quality", "role", "realism",
+                                    "anatomy", "provenance", "body_proportions", "disclosure",
+                                    "outfit", "outfit_distinctness", "outfit_consistency")}
+    checks["identity"] = got
+    ev = CG.exception_evidence(cand(MATCH_FRAME), checks, None, False,
+                               other_publication_blockers=[])
+    assert ev["checks"]["identity"] == "UNKNOWN", ev["checks"]
+    assert ev["fixture_only_checks"] == ["identity"], ev
+
+
 if __name__ == "__main__":
     fails = passes = 0
     for name, fn in list(globals().items()):

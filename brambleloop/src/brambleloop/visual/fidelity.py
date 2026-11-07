@@ -1155,6 +1155,18 @@ def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) ->
     from . import vessel as _vessel
 
     if _vessel.is_vessel(cir):
+        # Review VISUAL_STACK N1: an undecodable view is a deterministic FAIL, as on the round
+        # path, decided before a missing side view can make the verdict UNKNOWN.
+        for label, view in (("top", data), ("side", side)):
+            if view is None and label == "side":
+                continue
+            try:
+                _load(view)
+            except Exception as exc:  # noqa: BLE001
+                return _verdict([_check("decode", FAIL,
+                                        f"the {label} view is not a decodable image "
+                                        f"({type(exc).__name__})")],
+                                data=data, exp=exp, kind="vessel_anchor")
         if not side:
             return _verdict([_check(
                 "vessel_views", UNKNOWN,

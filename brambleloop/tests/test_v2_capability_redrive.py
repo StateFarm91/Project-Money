@@ -165,6 +165,79 @@ def test_an_experiment_run_blocked_on_the_gate_is_never_re_driven():
     assert "one-shot" in out["refused"][0]["why"], out
 
 
+def _sweep_once(db):
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime import release  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+
+    job = JobQueue(db).enqueue("listing", "chain.successors", {}, priority=0)
+    assert Worker(db, "w", job_types=["chain.successors"]).run_once()
+    with db.session() as s:
+        return dict(s.get(Job, job.id).outputs or {})
+
+
+def test_a_duplicate_restart_job_rolls_the_restart_back_on_a_real_queue():
+    """Review VISUAL_STACK N3 (mutants R_exc_as_restarted, R_dup_swallow): the restart's job
+    key already exists. The real sweep's follow re-raises the duplicate under V1's restart
+    transaction, so the un-block rolls back: refused, still blocked, no restart history, and
+    the only job is the one that was already there."""
+    from brambleloop.queue.durable import JobQueue
+
+    db = _db()
+    key = _blocked(db, "basket-d", GATE_REASON)
+    dup = IP.stage_key("basket-d", "1.0.0", "basket-d-release", "product_generation", 0, 1)
+    JobQueue(db).enqueue(IP.AGENT, IP.JOB_TYPE, {"stage": "product_generation"},
+                         idempotency_key=dup)
+    gate = _Gate()
+    gate.open = True
+    real = _with_gate(gate)
+    try:
+        out = _sweep_once(db)["images"]
+    finally:
+        gallery.gates_now = real
+    assert out["restarted"] == [], out
+    assert [r["run_key"] for r in out["refused"]] == [key], out
+    assert "DuplicateJob" in out["refused"][0]["why"], out
+    run = IP.get_run(db, key)
+    assert run["state"] == "blocked" and run["blocked_reason"] == GATE_REASON, run
+    with db.session() as s:
+        row = s.scalar(select(ImageProductionRun).where(ImageProductionRun.run_key == key))
+        history = ((row.stages or {}).get(IP.RESTART_KEY) or {}).get("history")
+    assert run["restarts"] == 0 and not history, (run, history)
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE)))
+    assert [j.idempotency_key for j in jobs] == [dup], jobs
+
+
+def test_the_restart_job_is_enqueued_inside_the_restart_transaction():
+    """Review VISUAL_STACK N3 (mutant R_follow_nosession): the sweep's follow hands V1's
+    session to the queue, so the job and the un-block commit or roll back together."""
+    from brambleloop.queue.durable import JobQueue
+
+    db = _db()
+    _blocked(db, "basket-t", GATE_REASON)
+    seen = []
+    real_enqueue = JobQueue.enqueue
+
+    def spy(self, agent, job_type, inputs=None, **kw):
+        if job_type == IP.JOB_TYPE:
+            seen.append(kw.get("session"))
+        return real_enqueue(self, agent, job_type, inputs, **kw)
+
+    gate = _Gate()
+    gate.open = True
+    real = _with_gate(gate)
+    JobQueue.enqueue = spy
+    try:
+        out = _sweep_once(db)["images"]
+    finally:
+        JobQueue.enqueue = real_enqueue
+        gallery.gates_now = real
+    assert len(out["restarted"]) == 1, out
+    assert seen and all(s is not None for s in seen), seen
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):

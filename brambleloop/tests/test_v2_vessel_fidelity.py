@@ -343,6 +343,22 @@ def test_one_off_palette_band_in_an_otherwise_right_wall_fails_the_layout():
     assert pal["status"] == "PASS", pal
 
 
+def test_an_undecodable_vessel_view_is_a_fail_never_unknown_or_a_raise():
+    """Review VISUAL_STACK N1/N2: V1 pins an undecodable anchor as a deterministic FAIL; the
+    vessel path decodes both views first and never raises."""
+    from brambleloop.visual import fidelity as F
+
+    junk, top, side = b"not an image", top_view(), side_view()
+    for t_, s_ in ((junk, None), (junk, side), (top, junk), (junk, junk)):
+        v = F.verify_anchor(t_, CIR, side=s_)
+        assert v["status"] == "FAIL", (t_ is junk, s_ is junk, v["status"], v["checks"])
+        assert v["checks"][0]["check"] == "decode", v["checks"]
+    assert F.verify_anchor(top, CIR)["status"] == "UNKNOWN"          # one good view: UNKNOWN
+    assert V.verify_top(junk, MODEL)["status"] == "FAIL"
+    assert [c["status"] for c in V.verify_side(junk, MODEL)] == ["FAIL"]
+    assert V.verify(top, junk, CIR)["status"] == "FAIL"
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
