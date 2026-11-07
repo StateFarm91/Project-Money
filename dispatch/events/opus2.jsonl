@@ -83,3 +83,4 @@
 {"at": "2026-11-07T10:34:55Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "e8b458b5", "note": "folded onto codex physical 77b9a88f; supersedes d697d093 (withdrawn); 50 suites"}
 {"at": "2026-11-07T11:53:33Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "ee5dbeee", "note": "on fix-only 0f2de815; re-run green"}
 {"at": "2026-11-07T11:53:35Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "a1331372", "note": "on fix-only 0f2de815; re-run green"}
+{"at": "2026-11-07T12:50:15Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "d6b642dd", "note": "visual stack on INTEG1 5913931f; fixes N1-N5"}
