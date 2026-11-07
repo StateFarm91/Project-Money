@@ -954,6 +954,15 @@
       "verdicts": {
         "claude/w6-support-defect-incident c5cad183": "DO NOT SHIP: F-1 HIGH still_held counts only open incidents, so a confirmed-then-resolved defect loses its hold to an older not_a_defect release (rollback R8S re-sells a confirmed defect unheld); F-2 MED superseded release returning to sale stays held forever with no card; F-3 MED title-only CIR change counts as a correction; F-4 LOW 5 mutants survive. Main response: event-driven carry/supersede/release replaced by one declarative reconcile_holds (active = open or confirmed; instruction_hash allowlist; no automatic supersession)."
       }
+    },
+    {
+      "subject": "P0-PORTFOLIO-ACT",
+      "sha": "f3bea437",
+      "recorded": "2026-11-07T05:24:41Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_PORTFOLIO_f3bea437.md",
+      "verdicts": {
+        "opus2/p0-portfolio-act f3bea437": "DO NOT SHIP: F1 HIGH SEO fix flips a live listing to local draft (release.py:2098 via portfolio_act.py:110); F2 HIGH the rebuild reaches store.publish without the owner gate (re-opens FMBATCH1 F-1; DEAD in SHADOW, never updates Etsy, pipeline.py:1990); F3 MED stale inputs reused (price 12.34 -> 4.0); F4 MED cap starves late slugs; F5 MED RETIRE/REWORK open a new card each week; F6 LOW downstream key truncates to portfolio:20; F7 LOW date.today() local + as_of bypasses dedup; F8 LOW 2 mutants survive. Nothing edits a pattern or certifies; spend only via image_vision gate ceilings. Corrections to opus2."
+      }
     }
   ],
   "integration": {
@@ -1234,13 +1243,6 @@
         "started": "2026-11-02T22:49:44Z",
         "requested_by": "#28 6590109328",
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
-      },
-      {
-        "id": "PORTFOLIO-ACT-REVIEW",
-        "subject": "opus2/p0-portfolio-act f3bea437 (full, base w6-INTEG1 f5c3976d)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_PORTFOLIO_f3bea437.md",
-        "started": "2026-11-07T04:55:35Z",
-        "requested_by": "#28 6702476082"
       },
       {
         "id": "STOREFRONT-QUEUED",
