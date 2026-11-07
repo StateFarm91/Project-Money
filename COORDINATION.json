@@ -927,6 +927,15 @@
       "verdicts": {
         "claude/w6-support-defect-incident 785849c0": "DO NOT SHIP: N-1..N-4 fixed, route authenticated. F-1 HIGH any other certified version (even identical CIR, even after confirmed) ends the incident; old-version incident opened+superseded in one triage. F-2 MED card reopens after confirmed; confirmed lacks keep_hold. F-3 MED null-version cases counted on the current release. F-4 LOW 6/16 mutants survive, no HTTP test. F-5 LOW unbounded why. Main fixing: release-on-sale only, carry on identical CIR, supersede only on newer+changed CIR, confirmed keeps hold and closes card."
       }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta 2",
+      "sha": "7727e68b",
+      "recorded": "2026-11-07T04:30:59Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_7727e68b.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 7727e68b": "DO NOT SHIP: D-M1 MED after restart a resolved unidentified secret re-leaking stays hidden (cross-process counts incomparable); D-M2 MED fallback P1 auto-closed by a clean sweep in a new process; D-L1 4 surviving mutants. Main's response 17f63074: acknowledgement rule removed entirely (re-open noise bounded by the rotation redeploy), fallback never auto-closes, REMEDIATION owner path."
+      }
     }
   ],
   "integration": {
@@ -1192,10 +1201,10 @@
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
       },
       {
-        "id": "W6-SECRET-FOLLOWUP-D2",
-        "subject": "claude/w6-secret-leak-followup 7727e68b (delta from 340025ca)",
-        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_d2.md",
-        "started": "2026-11-07T04:01:20Z"
+        "id": "W6-SECRET-FOLLOWUP-D3",
+        "subject": "claude/w6-secret-leak-followup 17f63074 (cumulative from 1c4c9211)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_17f63074.md",
+        "started": "2026-11-07T04:30:59Z"
       }
     ]
   },
