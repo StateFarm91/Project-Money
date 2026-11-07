@@ -323,7 +323,9 @@ def test_6_every_other_machine_gate_is_green_and_unknown_stays_unknown():
     assert anchor["technical_status"] == "PASS" and anchor["unknown"] == [], anchor
     assert ia["technical_status"] == "PASS" and ia["unknown"] == [], ia
     exp = F.expectation(R["cir"])
-    for role, b in _frames(R).items():
+    frames = _frames(R)
+    assert frames and set(frames) == set(GALLERY_ROLES), sorted(frames)
+    for role, b in frames.items():
         assert b["technical_status"] == "UNKNOWN", (role, b)
         assert b["unknown"] == ["product_truth"] and b["failed"] == {}, (role, b)
         fid = b["fidelity"]
@@ -404,8 +406,10 @@ def test_2_every_laura_frame_is_identity_judged_and_gated():
     R = _run()
     judged = R["judges"].calls.get("identity") or []
     assert set(GALLERY_ROLES) <= set(judged) and IP.IDENTITY_ANCHOR_ROLE in judged, judged
+    frames = _frames(R)
+    assert frames and set(frames) == set(GALLERY_ROLES), sorted(frames)
     with R["db"].session() as s:
-        for role, b in _frames(R).items():
+        for role, b in frames.items():
             row = s.get(ImageCandidate, b["candidate_id"])
             assert row.laura_present and row.outfit_id == R["run"]["outfit_id"]
             for k in ("identity", "body_proportions", "outfit", "outfit_consistency",
@@ -494,6 +498,7 @@ def test_5_campaign_consistency_passes_on_the_judges_item_readings():
 
     R = _run()
     frames = _frames(R)
+    assert frames and set(frames) == set(GALLERY_ROLES), sorted(frames)
     for role, b in frames.items():
         assert b["item_reading"] == _item(R["vision"].exp), (role, b["item_reading"])
     cc = R["run"]["card"]["campaign_consistency"]

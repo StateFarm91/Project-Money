@@ -350,7 +350,18 @@ def test_c2_the_provider_exposes_its_stop_reason():
     r = prov._read(body, time.time())
     assert r.stop_reason == "max_tokens" and r.output_tokens == 600, r
     assert gw._decode_response(gw._encode_response(r)).stop_reason == "max_tokens"
-    assert prov._read({"content": [], "usage": {}}, time.time()).stop_reason == ""
+    # A body that names no stop_reason reads as "" -- on a response whose cost is known.
+    assert prov._read({"content": [], "usage": {"input_tokens": 12, "output_tokens": 1}},
+                      time.time()).stop_reason == ""
+    # Since V0 (649896e7, reviewed in 0b3d54ee) a body with missing usage is not read as a
+    # free answer: its cost is unknown, so `_read` refuses it and the gateway counts the call
+    # at its estimate (test_w5_v0_paid_provider_gate covers the billing half).
+    try:
+        prov._read({"content": [], "usage": {}}, time.time())
+    except ValueError as exc:
+        assert "invalid or missing usage" in str(exc), exc
+    else:
+        raise AssertionError("a response with no usage was read as a free answer")
 
 
 def test_d_fallback_groups_repeats_and_keeps_every_mandatory_incident():

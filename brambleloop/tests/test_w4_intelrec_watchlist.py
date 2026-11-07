@@ -491,7 +491,12 @@ def test_parked_gaps_are_not_redecided_daily():
     d0 = date(2026, 10, 27)
     first = watchlist.review(db, enqueue=_enqueuer(db), today=d0)
     assert [d["last"] for d in first["decisions"] if d["gap"] == gid] == ["needs_original_design"]
-    assert gid not in watchlist.summary(db)["waiting"]
+    # Read on the day of the decision. On the wall clock this went false once 2026-11-03
+    # passed (d0 + REDECIDE_AFTER), because the park had legitimately expired by then.
+    on_d0 = datetime(d0.year, d0.month, d0.day, 12, tzinfo=timezone.utc)
+    assert gid not in watchlist.summary(db, now=on_d0)["waiting"]
+    # ...and the same summary does list it again once REDECIDE_AFTER has passed.
+    assert gid in watchlist.summary(db, now=on_d0 + watchlist.REDECIDE_AFTER)["waiting"]
     nxt = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + timedelta(days=1))
     assert [d for d in nxt["decisions"] if d["gap"] == gid] == []
     week = watchlist.review(db, enqueue=_enqueuer(db), today=d0 + watchlist.REDECIDE_AFTER)
