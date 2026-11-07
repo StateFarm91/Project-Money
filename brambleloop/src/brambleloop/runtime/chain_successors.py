@@ -232,6 +232,16 @@ def sweep(db, queue, *, now: datetime | None = None) -> dict:
         kind, inputs = d.get("kind"), d.get("inputs") or {}
         if kind not in STAGES or not inputs:
             continue
+        if inputs.get("fix_only"):
+            # Review deadend cdf4cb5e A-L3: a legacy row opened by a fix-only remediation's
+            # refusal is not the release's dead end, and re-driving it as an ordinary chain
+            # could turn a live listing back into a draft. It is resolved, never re-driven.
+            with db.session() as s:
+                lifecycle.resolve_signatures(s, [sig], resolution=(
+                    "recorded from a fix-only remediation's refusal, which is not the "
+                    "release's own dead end; not re-driven"), now=now)
+            resolved.append(sig)
+            continue
         if _stage_succeeded(db, kind, inputs):
             with db.session() as s:
                 lifecycle.resolve_signatures(s, [sig], resolution=(

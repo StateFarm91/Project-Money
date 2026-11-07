@@ -255,6 +255,11 @@ def test_a_fix_only_refusal_alone_opens_no_dead_end():
     with _Stage("handle_assets_build", {"ok": False, "blocking_image_problems": ["x"]}):
         _run(db, "publishing", "assets.build", {**REL, "fix_only": True})
     assert _deadend_inputs(db) is None
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:                           # review cdf4cb5e A-L2 / M9
+        assert s.scalar(select(AuditLog).where(
+            AuditLog.action == "chain.deadend_not_recorded")) is not None
 
 
 def test_a_fix_only_success_never_closes_the_releases_dead_end():
@@ -283,14 +288,20 @@ def test_the_sweep_never_redrives_with_the_bound_and_commits_never_share_a_key()
             row.detail = {**dict(row.detail), "inputs": {**dict(row.detail)["inputs"],
                                                          "fix_only": True}}
         os.environ["RAILWAY_GIT_COMMIT_SHA"] = "b" * 40
-        CS.sweep(db, JobQueue(db))
-        redrives = [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
-        assert redrives and "fix_only" not in redrives[-1][0], redrives[-1][0]
+        out = CS.sweep(db, JobQueue(db))
+        # A legacy row carrying the bound is resolved, never re-driven as an ordinary chain.
+        assert out["redriven"] == [] and out["resolved"], out
+        assert not [j for j in _jobs(db, "assets.build") if j[2].startswith("deadend:")]
+        assert _deadend_inputs(db) is None
     finally:
         os.environ.pop("RAILWAY_GIT_COMMIT_SHA", None)
-    a = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "a" * 12)
-    b = release.chain_key("listing.seo", "s", "1", "r" * 64, "deadend:" + "b" * 12)
-    assert a != b, (a, b)
+    # Commits that share their first 4 hex collided when the token was cut to 12 characters
+    # (review cdf4cb5e A-M1); so did any two parity-escalation states.
+    for x, y in (("deadend:aaaa11112222", "deadend:aaaa33334444"),
+                 ("parity-escalation:" + "1" * 16, "parity-escalation:" + "2" * 16)):
+        a = release.chain_key("listing.seo", "s", "1", "r" * 64, x)
+        b = release.chain_key("listing.seo", "s", "1", "r" * 64, y)
+        assert a != b, (a, b)
     assert release.chain_key("x", "s", "1", "", "0123456789ab").endswith(":0123456789ab:c"
                                                                           + str(release.CHAIN_VERSION))
 
